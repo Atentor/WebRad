@@ -176,7 +176,6 @@ describe('App MVP integration', () => {
       configurable: true,
       value: harness.bridge,
     });
-    vi.spyOn(window, 'prompt').mockReturnValue('MvpProject');
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = userEvent.setup();
 
@@ -184,6 +183,11 @@ describe('App MVP integration', () => {
     expect(screen.getByRole('heading', { name: 'WebRAD' })).toBeDefined();
 
     await user.click(screen.getByRole('button', { name: 'New project (Ctrl+N)' }));
+    await screen.findByRole('dialog', { name: 'Create a new project' });
+    const projectName = screen.getByRole('textbox', { name: 'Project name' });
+    await user.clear(projectName);
+    await user.type(projectName, 'MvpProject');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     expect(harness.create).toHaveBeenCalledWith({ name: 'MvpProject' });
 
@@ -275,5 +279,52 @@ describe('App MVP integration', () => {
     expect(harness.save.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(harness.setDirty).toHaveBeenCalledWith(true);
     expect(harness.setDirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it('opens New Project from the File menu command and supports validation and cancel', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await act(async () => harness.invokeCommand('file.newProject'));
+
+    await screen.findByRole('dialog', { name: 'Create a new project' });
+    await act(async () => harness.invokeCommand('file.openProject'));
+    expect(harness.open).not.toHaveBeenCalled();
+
+    const projectName = screen.getByRole('textbox', { name: 'Project name' });
+    await user.clear(projectName);
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+    expect(screen.getByRole('alert').textContent).toContain('cannot be empty');
+    expect(harness.create).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Create a new project' })).toBeNull();
+  });
+
+  it('keeps the dialog ready for retry when the native folder picker is canceled', async () => {
+    const harness = createBridgeHarness(initialSession());
+    harness.create.mockResolvedValueOnce(null);
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await act(async () => harness.invokeCommand('file.newProject'));
+    const projectName = await screen.findByRole('textbox', { name: 'Project name' });
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+
+    await waitFor(() => expect(harness.create).toHaveBeenCalledWith({ name: 'Project1' }));
+    await waitFor(() => expect(document.activeElement).toBe(projectName));
+    expect((projectName as HTMLInputElement).disabled).toBe(false);
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Create a new project' })).toBeNull();
   });
 });

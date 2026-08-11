@@ -1033,3 +1033,165 @@ kbd {
   color: var(--wr-muted-text);
   font-size: 9px;
 }
+
+.wr-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, #05070b 68%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.wr-ide-modal-host {
+  width: 100%;
+  height: 100%;
+}
+
+.wr-modal {
+  width: min(440px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 8px;
+  background: var(--wr-panel-bg);
+  box-shadow: 0 24px 80px var(--wr-shadow);
+  color: var(--wr-text);
+  user-select: text;
+}
+
+.wr-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-panel-alt);
+}
+
+.wr-modal-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--wr-accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wr-modal-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.wr-modal-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.wr-modal-close:hover:not(:disabled) {
+  border-color: var(--wr-border);
+  background: var(--wr-surface-hover);
+  color: var(--wr-text);
+}
+
+.wr-modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.wr-modal-description {
+  margin: 0;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.wr-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--wr-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.wr-modal-field input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  font-weight: 400;
+  user-select: text;
+}
+
+.wr-modal-field input[aria-invalid='true'] {
+  border-color: var(--wr-danger);
+}
+
+.wr-modal-error {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--wr-danger) 55%, var(--wr-border));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--wr-danger) 10%, transparent);
+  color: var(--wr-danger);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.wr-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.wr-modal-actions button {
+  min-width: 92px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  cursor: pointer;
+}
+
+.wr-modal-actions button:hover:not(:disabled) {
+  background: var(--wr-surface-hover);
+}
+
+.wr-modal-actions button.primary {
+  border-color: var(--wr-accent);
+  background: var(--wr-selection);
+  color: #ffffff;
+}
+
+.wr-modal-actions button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--wr-selection) 82%, #ffffff);
+}
+
+.wr-modal button:disabled,
+.wr-modal input:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}

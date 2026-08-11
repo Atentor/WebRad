@@ -42,6 +42,7 @@ import { DesignerSurface } from './components/DesignerSurface';
 import { EditorWorkspace, type DocumentTab, type ViewMode } from './components/EditorWorkspace';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { IdeShell } from './components/IdeShell';
+import { NewProjectDialog } from './components/NewProjectDialog';
 import { ObjectInspector } from './components/ObjectInspector';
 import { PreviewPane } from './components/PreviewPane';
 import { ProjectExplorer } from './components/ProjectExplorer';
@@ -120,6 +121,9 @@ export function App(): ReactElement {
   >([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [newProjectError, setNewProjectError] = useState<string | null>(null);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const [navigateTo, setNavigateTo] = useState<{ line: number; column?: number } | null>(null);
   const [visiblePanels, setVisiblePanels] = useState({
@@ -503,20 +507,37 @@ export function App(): ReactElement {
     return window.confirm('Discard the unsaved changes?');
   }, [projectController, projectState.dirty]);
 
-  const createProject = useCallback(async (): Promise<void> => {
-    const name = window.prompt('Project name', 'Project1')?.trim();
-    if (!name) return;
+  const openNewProjectDialog = useCallback(async (): Promise<void> => {
     try {
       if (!(await prepareToReplaceProject())) return;
-      const session = await projectController.create(name);
-      if (session) {
-        activateProjectSession(session);
-        addOutput('PROJECT', `Created ${session.project.name}.`);
-      }
+      setNewProjectError(null);
+      setNewProjectDialogOpen(true);
     } catch (error) {
       reportError(error, 'PROJECT');
     }
-  }, [activateProjectSession, addOutput, prepareToReplaceProject, projectController, reportError]);
+  }, [prepareToReplaceProject, reportError]);
+
+  const submitNewProject = useCallback(
+    async (name: string): Promise<void> => {
+      setCreatingProject(true);
+      setNewProjectError(null);
+      try {
+        const session = await projectController.create(name);
+        if (session) {
+          activateProjectSession(session);
+          addOutput('PROJECT', `Created ${session.project.name}.`);
+          setNewProjectDialogOpen(false);
+        }
+      } catch (error) {
+        const normalized = asError(error);
+        setNewProjectError(normalized.message);
+        reportError(normalized, 'PROJECT');
+      } finally {
+        setCreatingProject(false);
+      }
+    },
+    [activateProjectSession, addOutput, projectController, reportError],
+  );
 
   const openProject = useCallback(async (): Promise<void> => {
     try {
@@ -639,6 +660,8 @@ export function App(): ReactElement {
 
   const executeCommand = useCallback(
     (command: IdeCommand): void => {
+      // Native menu accelerators bypass the inert workbench and DOM event propagation.
+      if (newProjectDialogOpen) return;
       if (
         command.startsWith('edit.') &&
         (activeView !== 'design' || isTextEditingElement(document.activeElement))
@@ -648,7 +671,7 @@ export function App(): ReactElement {
       }
       switch (command) {
         case 'file.newProject':
-          void createProject();
+          void openNewProjectDialog();
           break;
         case 'file.openProject':
           void openProject();
@@ -720,8 +743,9 @@ export function App(): ReactElement {
       activeView,
       closeProject,
       copySelection,
-      createProject,
       deleteSelection,
+      newProjectDialogOpen,
+      openNewProjectDialog,
       openProject,
       pasteSelection,
       redo,
@@ -836,96 +860,116 @@ export function App(): ReactElement {
         } as const);
 
   return (
-    <IdeShell
-      toolbar={
-        <Toolbar
-          onCommand={executeCommand}
-          canSave={project !== null && !projectState.saving}
-          canRun={project !== null && projectState.rootPath !== null && !building}
-          theme={theme}
-          onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+    <>
+      <div
+        className="wr-ide-modal-host"
+        inert={newProjectDialogOpen ? true : undefined}
+        aria-hidden={newProjectDialogOpen ? true : undefined}
+      >
+        <IdeShell
+          toolbar={
+            <Toolbar
+              onCommand={executeCommand}
+              canSave={project !== null && !projectState.saving}
+              canRun={project !== null && projectState.rootPath !== null && !building}
+              theme={theme}
+              onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+            />
+          }
+          explorer={
+            visiblePanels.explorer ? (
+              <ErrorBoundary area="Project Explorer">
+                <ProjectExplorer
+                  project={project}
+                  activeFormId={activeFormId}
+                  onOpenForm={openForm}
+                  onAddForm={addFormToProject}
+                  onDeleteForm={deleteForm}
+                  onRenameForm={renameForm}
+                />
+              </ErrorBoundary>
+            ) : null
+          }
+          palette={
+            visiblePanels.palette ? (
+              <ErrorBoundary area="Tool Palette">
+                <ToolPalette
+                  selectedType={selectedPaletteType}
+                  onSelect={setSelectedPaletteType}
+                  onInsert={(type) => {
+                    if (!activeForm) return;
+                    const definition = requireComponentDefinition(type);
+                    addComponentAt(
+                      type,
+                      {
+                        x: Math.round((activeForm.width - definition.defaultBounds.width) / 2),
+                        y: Math.round((activeForm.height - definition.defaultBounds.height) / 2),
+                      },
+                      activeForm.rootComponentId,
+                    );
+                  }}
+                />
+              </ErrorBoundary>
+            ) : null
+          }
+          editor={
+            <EditorWorkspace
+              documents={documents}
+              activeDocumentId={activeFormId}
+              activeView={activeView}
+              onSelectDocument={openForm}
+              onCloseDocument={(id) => {
+                setOpenFormIds((current) => current.filter((candidate) => candidate !== id));
+                if (activeFormId === id) {
+                  const remaining = openFormIds.filter((candidate) => candidate !== id);
+                  setActiveFormId(remaining.at(-1) ?? null);
+                }
+              }}
+              onSelectView={setActiveView}
+            >
+              {editorContent}
+            </EditorWorkspace>
+          }
+          inspector={
+            visiblePanels.inspector ? (
+              <ErrorBoundary area="Object Inspector">
+                <ObjectInspector
+                  selection={selectedComponents}
+                  form={activeForm}
+                  definition={
+                    selectedComponents.length === 0 && activeForm
+                      ? componentRegistry.get('WebForm')
+                      : undefined
+                  }
+                  availableComponents={activeForm?.components}
+                  onPropertyChange={changeProperty}
+                  onEventChange={(eventName, handlerName) => bindEvent(eventName, handlerName)}
+                  onEventDoubleClick={(eventName) => {
+                    const targetId = selection.primaryId ?? activeForm?.rootComponentId;
+                    if (targetId) createOrOpenEvent(targetId, eventName);
+                  }}
+                />
+              </ErrorBoundary>
+            ) : null
+          }
+          bottom={
+            visiblePanels.output ? <BottomPanel diagnostics={diagnostics} output={output} /> : null
+          }
+          status={<StatusBar status={status} dirty={projectState.dirty} />}
         />
-      }
-      explorer={
-        visiblePanels.explorer ? (
-          <ErrorBoundary area="Project Explorer">
-            <ProjectExplorer
-              project={project}
-              activeFormId={activeFormId}
-              onOpenForm={openForm}
-              onAddForm={addFormToProject}
-              onDeleteForm={deleteForm}
-              onRenameForm={renameForm}
-            />
-          </ErrorBoundary>
-        ) : null
-      }
-      palette={
-        visiblePanels.palette ? (
-          <ErrorBoundary area="Tool Palette">
-            <ToolPalette
-              selectedType={selectedPaletteType}
-              onSelect={setSelectedPaletteType}
-              onInsert={(type) => {
-                if (!activeForm) return;
-                const definition = requireComponentDefinition(type);
-                addComponentAt(
-                  type,
-                  {
-                    x: Math.round((activeForm.width - definition.defaultBounds.width) / 2),
-                    y: Math.round((activeForm.height - definition.defaultBounds.height) / 2),
-                  },
-                  activeForm.rootComponentId,
-                );
-              }}
-            />
-          </ErrorBoundary>
-        ) : null
-      }
-      editor={
-        <EditorWorkspace
-          documents={documents}
-          activeDocumentId={activeFormId}
-          activeView={activeView}
-          onSelectDocument={openForm}
-          onCloseDocument={(id) => {
-            setOpenFormIds((current) => current.filter((candidate) => candidate !== id));
-            if (activeFormId === id) {
-              const remaining = openFormIds.filter((candidate) => candidate !== id);
-              setActiveFormId(remaining.at(-1) ?? null);
-            }
+      </div>
+      {newProjectDialogOpen && (
+        <NewProjectDialog
+          busy={creatingProject}
+          error={newProjectError}
+          onClearError={() => setNewProjectError(null)}
+          onCancel={() => {
+            setNewProjectDialogOpen(false);
+            setNewProjectError(null);
           }}
-          onSelectView={setActiveView}
-        >
-          {editorContent}
-        </EditorWorkspace>
-      }
-      inspector={
-        visiblePanels.inspector ? (
-          <ErrorBoundary area="Object Inspector">
-            <ObjectInspector
-              selection={selectedComponents}
-              form={activeForm}
-              definition={
-                selectedComponents.length === 0 && activeForm
-                  ? componentRegistry.get('WebForm')
-                  : undefined
-              }
-              availableComponents={activeForm?.components}
-              onPropertyChange={changeProperty}
-              onEventChange={(eventName, handlerName) => bindEvent(eventName, handlerName)}
-              onEventDoubleClick={(eventName) => {
-                const targetId = selection.primaryId ?? activeForm?.rootComponentId;
-                if (targetId) createOrOpenEvent(targetId, eventName);
-              }}
-            />
-          </ErrorBoundary>
-        ) : null
-      }
-      bottom={
-        visiblePanels.output ? <BottomPanel diagnostics={diagnostics} output={output} /> : null
-      }
-      status={<StatusBar status={status} dirty={projectState.dirty} />}
-    />
+          onCreate={(name) => void submitNewProject(name)}
+        />
+      )}
+    </>
   );
 }

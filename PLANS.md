@@ -24,8 +24,8 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 ## Validation evidence
 
-- Strict TypeScript, ESLint, Prettier, and all 105 Vitest tests pass locally.
-- A renderer integration test covers New, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, save/close/open, F9, and the sandboxed Preview URL.
+- Strict TypeScript, ESLint, Prettier, and all 107 Vitest tests pass locally.
+- Renderer integration tests cover the File/Toolbar New Project dialog, validation/cancel, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, save/close/open, F9, and the sandboxed Preview URL.
 - The persisted Hello WebRAD example is compiled, mounted in a DOM, edited, clicked, and verified to call `Message` with the live input value.
 - The packaged smoke used by Windows/Linux CI starts the Forge artifact, opens a temporary Hello project through the real UI/preload/IPC path, dispatches F9, waits for `PreviewPane`, enters `Ada`, clicks the generated button inside the sandbox, verifies `Olá Ada`, then exits automatically.
 
