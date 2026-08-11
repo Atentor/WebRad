@@ -1,0 +1,113 @@
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+  --wr-bg: #171a21;
+  --wr-panel-bg: #20242d;
+  --wr-panel-alt: #1b1f27;
+  --wr-surface: #262b35;
+  --wr-surface-hover: #303642;
+  --wr-input-bg: #12161d;
+  --wr-border: #343b48;
+  --wr-border-strong: #4a5362;
+  --wr-text: #e3e8f0;
+  --wr-muted-text: #929cab;
+  --wr-accent: #49a6ff;
+  --wr-accent-soft: rgba(73, 166, 255, 0.18);
+  --wr-selection: #2a78c5;
+  --wr-danger: #ff6b78;
+  --wr-warning: #f0bd56;
+  --wr-success: #66d19e;
+  --wr-control-border: #5a6474;
+  --wr-control-surface: #2a303b;
+  --wr-button-bg: #343b49;
+  --wr-button-hover: #414a5a;
+  --wr-shadow: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --wr-bg: #eef1f5;
+  --wr-panel-bg: #f9fafc;
+  --wr-panel-alt: #f1f3f7;
+  --wr-surface: #ffffff;
+  --wr-surface-hover: #e9eef5;
+  --wr-input-bg: #ffffff;
+  --wr-border: #cbd2dc;
+  --wr-border-strong: #9da9b8;
+  --wr-text: #202936;
+  --wr-muted-text: #657184;
+  --wr-accent: #1479d3;
+  --wr-accent-soft: rgba(20, 121, 211, 0.13);
+  --wr-selection: #1479d3;
+  --wr-danger: #c93748;
+  --wr-warning: #a66a00;
+  --wr-success: #188656;
+  --wr-control-border: #9da9b8;
+  --wr-control-surface: #f5f7fa;
+  --wr-button-bg: #edf1f6;
+  --wr-button-hover: #dfe6ef;
+  --wr-shadow: rgba(31, 42, 57, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--wr-bg);
+  color: var(--wr-text);
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: 12px;
+  user-select: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--wr-muted-text) 52%, transparent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

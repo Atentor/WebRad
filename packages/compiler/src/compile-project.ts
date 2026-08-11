@@ -1,0 +1,269 @@
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+
+import {
+  defaultComponentRegistry,
+  type ComponentPropertyDefinition,
+  type ComponentRegistry,
+} from '@webrad/component-registry';
+import { safeParseProject, type WebRadProject } from '@webrad/project-model';
+import type { BuildFailure } from 'esbuild';
+
+import { bundleSources } from './bundle.js';
+import { fromEsbuildMessage } from './diagnostics.js';
+import { createIndexHtml, createPreviewHtml } from './html.js';
+import { createVirtualSourceGraph } from './source-graph.js';
+import { typecheckSources } from './typecheck.js';
+import type {
+  CompileDiagnostic,
+  CompileProjectMemoryOptions,
+  CompileProjectOptions,
+  CompileProjectResult,
+} from './types.js';
+
+function validateRegistry(
+  project: WebRadProject,
+  registry: ComponentRegistry,
+): readonly CompileDiagnostic[] {
+  const diagnostics: CompileDiagnostic[] = [];
+  for (const [formIndex, form] of project.forms.entries()) {
+    for (const [componentIndex, component] of form.components.entries()) {
+      const definition = registry.get(component.type);
+      if (definition === undefined) {
+        diagnostics.push({
+          category: 'error',
+          source: 'registry',
+          message: `Unknown component type "${component.type}".`,
+          path: ['forms', formIndex, 'components', componentIndex, 'type'],
+        });
+        continue;
+      }
+      if (!definition.canHaveChildren && component.children.length > 0) {
+        diagnostics.push({
+          category: 'error',
+          source: 'registry',
+          message: `${component.type} cannot contain child components.`,
+          path: ['forms', formIndex, 'components', componentIndex, 'children'],
+        });
+      }
+      const propertyDefinitions = new Map(
+        definition.properties
+          .filter((property) => (property.source ?? 'props') === 'props')
+          .map((property) => [property.name, property]),
+      );
+      for (const [propertyName, value] of Object.entries(component.props)) {
+        const property = propertyDefinitions.get(propertyName);
+        if (property === undefined) {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message: `Property "${propertyName}" is not registered for ${component.type}.`,
+            path: ['forms', formIndex, 'components', componentIndex, 'props', propertyName],
+          });
+          continue;
+        }
+        if (!isValidPropertyValue(property, value, form.components)) {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message: `Property "${propertyName}" has an invalid ${property.type} value for ${component.type}.`,
+            path: ['forms', formIndex, 'components', componentIndex, 'props', propertyName],
+          });
+        }
+      }
+      for (const eventName of Object.keys(component.events)) {
+        if (!definition.events.some((event) => event.name === eventName)) {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message: `Event "${eventName}" is not registered for ${component.type}.`,
+            path: ['forms', formIndex, 'components', componentIndex, 'events', eventName],
+          });
+        }
+      }
+    }
+  }
+  return diagnostics;
+}
+
+function isValidPropertyValue(
+  property: ComponentPropertyDefinition,
+  value: unknown,
+  components: WebRadProject['forms'][number]['components'],
+): boolean {
+  switch (property.type) {
+    case 'string':
+    case 'color':
+      return typeof value === 'string';
+    case 'string-list':
+      return Array.isArray(value) && value.every((item) => typeof item === 'string');
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value);
+    case 'boolean':
+      return typeof value === 'boolean';
+    case 'enum':
+      return typeof value === 'string' && (property.options?.includes(value) ?? false);
+    case 'component':
+      return (
+        value === null ||
+        (typeof value === 'string' && components.some((component) => component.id === value))
+      );
+  }
+}
+
+function hasErrors(diagnostics: readonly CompileDiagnostic[]): boolean {
+  return diagnostics.some((diagnostic) => diagnostic.category === 'error');
+}
+
+function failedResult(
+  outputDirectory: string,
+  diagnostics: readonly CompileDiagnostic[],
+): CompileProjectResult {
+  return { success: false, outputDirectory, diagnostics, files: {} };
+}
+
+async function writeOutputFiles(
+  outputDirectory: string,
+  files: Readonly<Record<string, string>>,
+): Promise<void> {
+  for (const [relativePath, contents] of Object.entries(files)) {
+    const target = path.resolve(outputDirectory, ...relativePath.split('/'));
+    const relative = path.relative(outputDirectory, target);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(`Compiler output escaped its output directory: ${relativePath}`);
+    }
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, contents, 'utf8');
+  }
+}
+
+function buildFailureDiagnostics(error: BuildFailure): readonly CompileDiagnostic[] {
+  return [
+    ...error.errors.map((message) => fromEsbuildMessage(message, 'error')),
+    ...error.warnings.map((message) => fromEsbuildMessage(message, 'warning')),
+  ];
+}
+
+function isBuildFailure(error: unknown): error is BuildFailure {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    Array.isArray(Reflect.get(error, 'errors')) &&
+    Array.isArray(Reflect.get(error, 'warnings'))
+  );
+}
+
+export async function compileProject(
+  projectInput: WebRadProject,
+  options: CompileProjectOptions,
+): Promise<CompileProjectResult> {
+  if (options.outputDirectory.trim().length === 0) {
+    return failedResult('', [
+      {
+        category: 'error',
+        source: 'compiler',
+        message: 'A non-empty outputDirectory is required.',
+      },
+    ]);
+  }
+  const outputDirectory = path.resolve(options.outputDirectory);
+  const validation = safeParseProject(projectInput);
+  if (!validation.success) {
+    return failedResult(
+      outputDirectory,
+      validation.error.issues.map((issue) => ({
+        category: 'error',
+        source: 'model',
+        code: issue.code,
+        message: issue.message,
+        path: issue.path,
+      })),
+    );
+  }
+
+  const project = validation.data;
+  const registry = options.registry ?? defaultComponentRegistry;
+  const registryDiagnostics = validateRegistry(project, registry);
+  if (hasErrors(registryDiagnostics)) return failedResult(outputDirectory, registryDiagnostics);
+
+  let graph;
+  try {
+    graph = createVirtualSourceGraph(project, options.userSources, registry);
+  } catch (error) {
+    return failedResult(outputDirectory, [
+      ...registryDiagnostics,
+      {
+        category: 'error',
+        source: 'compiler',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    ]);
+  }
+  const typeScriptDiagnostics = typecheckSources(graph.sources);
+  const preBundleDiagnostics = [
+    ...registryDiagnostics,
+    ...graph.diagnostics,
+    ...typeScriptDiagnostics,
+  ];
+  if (hasErrors(preBundleDiagnostics)) return failedResult(outputDirectory, preBundleDiagnostics);
+
+  try {
+    const bundle = await bundleSources({
+      sources: graph.sources,
+      entryPath: graph.entryPath,
+      outputDirectory,
+      minify: options.minify ?? false,
+      sourcemap: options.sourcemap ?? false,
+    });
+    const javaScript = bundle.files['assets/app.js'];
+    const css = bundle.files['assets/app.css'];
+    if (javaScript === undefined || css === undefined) {
+      return failedResult(outputDirectory, [
+        ...preBundleDiagnostics,
+        ...bundle.diagnostics,
+        {
+          category: 'error',
+          source: 'compiler',
+          message: 'esbuild did not produce assets/app.js and assets/app.css.',
+        },
+      ]);
+    }
+    const files = {
+      ...bundle.files,
+      'index.html': createIndexHtml(project.name),
+    };
+    const diagnostics = [...preBundleDiagnostics, ...bundle.diagnostics];
+    if (options.write ?? true) await writeOutputFiles(outputDirectory, files);
+    return {
+      success: true,
+      outputDirectory,
+      diagnostics,
+      files,
+      previewHtml: createPreviewHtml(project.name, javaScript, css),
+    };
+  } catch (error) {
+    const diagnostics = isBuildFailure(error)
+      ? buildFailureDiagnostics(error)
+      : [
+          {
+            category: 'error' as const,
+            source: 'compiler' as const,
+            message: error instanceof Error ? error.message : String(error),
+          },
+        ];
+    return failedResult(outputDirectory, [...preBundleDiagnostics, ...diagnostics]);
+  }
+}
+
+export function compileProjectToMemory(
+  project: WebRadProject,
+  options: CompileProjectMemoryOptions,
+): Promise<CompileProjectResult> {
+  return compileProject(project, {
+    ...options,
+    outputDirectory: options.outputDirectory ?? path.resolve('.webrad-preview'),
+    write: false,
+  });
+}
+
+export const buildProject = compileProject;

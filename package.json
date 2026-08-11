@@ -1,0 +1,75 @@
+{
+  "name": "webrad",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A visual RAD IDE for modern web applications",
+  "main": ".vite/build/main.js",
+  "packageManager": "npm@11.17.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js start",
+    "dev": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js start",
+    "typecheck": "tsc --noEmit",
+    "lint": "node --max-old-space-size=4096 ./node_modules/eslint/bin/eslint.js . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "runtime:sources": "node scripts/sync-runtime-sources.mjs",
+    "runtime:sources:check": "node scripts/sync-runtime-sources.mjs --check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js package",
+    "package": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js package",
+    "make": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js make",
+    "smoke:packaged": "node scripts/smoke-packaged.mjs",
+    "validate": "npm run runtime:sources:check && npm run typecheck && npm run lint && npm test && npm run format:check && npm run build"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "4.7.0",
+    "electron-squirrel-startup": "1.0.1",
+    "esbuild": "0.28.2",
+    "monaco-editor": "0.56.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "6.0.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-deb": "7.11.2",
+    "@electron-forge/maker-rpm": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
+    "@electron-forge/maker-zip": "7.11.2",
+    "@electron-forge/plugin-fuses": "7.11.2",
+    "@electron-forge/plugin-vite": "7.11.2",
+    "@electron/fuses": "1.8.0",
+    "@eslint/js": "10.0.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.3",
+    "@types/electron-squirrel-startup": "1.0.2",
+    "@types/jsdom": "28.0.3",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "4.7.0",
+    "electron": "43.3.0",
+    "eslint": "10.8.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.4",
+    "globals": "17.9.0",
+    "jsdom": "30.0.1",
+    "prettier": "3.9.6",
+    "typescript-eslint": "8.67.0",
+    "vite": "5.4.21",
+    "vitest": "3.2.7"
+  },
+  "overrides": {
+    "dompurify": "3.4.13",
+    "yauzl": "3.4.0"
+  }
+}

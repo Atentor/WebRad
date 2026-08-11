@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "id": "hello-webrad-project-v1",
+  "name": "HelloWebRad",
+  "entryForm": "hello-webrad-form-main-v1",
+  "forms": [
+    {
+      "id": "hello-webrad-form-main-v1",
+      "name": "FrmMain",
+      "formFile": "forms/FrmMain.wrform",
+      "generatedFile": "forms/FrmMain.generated.ts",
+      "codeFile": "forms/FrmMain.ts"
+    }
+  ],
+  "settings": {
+    "gridSize": 8,
+    "snapToGrid": true,
+    "showGrid": true,
+    "outputDirectory": "dist"
+  }
+}
