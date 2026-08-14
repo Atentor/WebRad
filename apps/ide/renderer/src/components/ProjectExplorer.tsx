@@ -1,5 +1,6 @@
 import type { WebRadProject } from '@webrad/project-model';
 import { useState, type ReactElement } from 'react';
+import { applicationIconUrl } from '../application-assets';
 import { Panel } from './Panel';
 
 interface ProjectExplorerProps {
@@ -51,7 +52,7 @@ export function ProjectExplorer({
         <div className="wr-project-tree" role="tree" aria-label={`${project.name} project`}>
           <div className="wr-tree-row wr-project-row" role="treeitem" aria-expanded="true">
             <FolderGlyph />
-            <span className="wr-project-icon">W</span>
+            <img className="wr-project-icon" src={applicationIconUrl} alt="" aria-hidden="true" />
             <strong>{project.name}</strong>
           </div>
           <div role="group" className="wr-tree-group">

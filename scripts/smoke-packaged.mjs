@@ -42,9 +42,12 @@ try {
     'compiler passed:',
     'preview protocol passed',
     'preview renderer passed',
+    'application icon resource passed:',
     'renderer loaded:',
     'renderer shell passed',
+    'renderer application icon passed',
     'renderer project open passed',
+    'renderer Monaco passed',
     'renderer F9 preview passed: Olá Ada',
   ];
   const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));

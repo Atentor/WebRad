@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { IdeCommand } from '../../../shared/contracts';
+import { applicationIconUrl } from '../application-assets';
 
 interface ToolbarProps {
   onCommand: (command: IdeCommand) => void;
@@ -42,9 +43,7 @@ export function Toolbar({
   return (
     <header className="wr-toolbar" aria-label="Main toolbar">
       <div className="wr-brand" aria-label="WebRAD">
-        <span className="wr-brand-mark" aria-hidden="true">
-          W
-        </span>
+        <img className="wr-brand-mark" src={applicationIconUrl} alt="" aria-hidden="true" />
         <span>WebRAD</span>
       </div>
       <div className="wr-tool-group">

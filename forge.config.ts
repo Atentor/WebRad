@@ -8,17 +8,29 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 
+const iconBasePath = path.resolve('Icon');
+const iconIcoPath = path.resolve('Icon.ico');
+const iconPngPath = path.resolve('Icon.png');
+
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    icon: iconBasePath,
     extraResource: [
+      iconIcoPath,
+      iconPngPath,
       path.resolve('node_modules', 'esbuild'),
       path.resolve('node_modules', '@esbuild', `${process.platform}-${process.arch}`),
       path.resolve('node_modules', 'typescript'),
     ],
   },
   rebuildConfig: {},
-  makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerDeb({}), new MakerRpm({})],
+  makers: [
+    new MakerSquirrel({ authors: 'WebRAD', setupIcon: iconIcoPath }),
+    new MakerZIP({}, ['darwin']),
+    new MakerDeb({ options: { icon: iconPngPath } }),
+    new MakerRpm({ options: { icon: iconPngPath } }),
+  ],
   plugins: [
     new VitePlugin({
       build: [

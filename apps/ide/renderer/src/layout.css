@@ -28,15 +28,12 @@
 }
 
 .wr-brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
+  flex: none;
   width: 23px;
   height: 23px;
-  border-radius: 6px;
-  color: white;
-  background: linear-gradient(145deg, #1c82de, #51b7ff);
-  font-size: 12px;
-  box-shadow: 0 2px 7px rgba(32, 135, 224, 0.35);
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(32, 135, 224, 0.35));
 }
 
 .wr-tool-group {
@@ -412,7 +409,14 @@
   text-align: center;
 }
 
-.wr-project-icon,
+.wr-project-icon {
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
 .wr-form-icon {
   display: grid;
   place-items: center;
@@ -545,17 +549,12 @@
 }
 
 .wr-welcome-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 72px;
   height: 72px;
   margin-bottom: 7px;
-  border-radius: 18px;
-  color: white;
-  background: linear-gradient(145deg, #1c82de, #5abaff);
-  box-shadow: 0 12px 30px rgba(32, 135, 224, 0.28);
-  font-size: 34px;
-  font-weight: 700;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 14px rgba(32, 135, 224, 0.28));
 }
 
 .wr-welcome h1 {

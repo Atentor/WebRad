@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
+import { applicationIconUrl } from '../application-assets';
 
 export type ViewMode = 'design' | 'code' | 'preview';
 
@@ -76,7 +77,7 @@ export function EditorWorkspace({
         </>
       ) : (
         <div className="wr-welcome">
-          <div className="wr-welcome-mark">W</div>
+          <img className="wr-welcome-mark" src={applicationIconUrl} alt="" aria-hidden="true" />
           <h1>WebRAD</h1>
           <p>
             Build browser applications with forms, components, properties, events, and TypeScript.

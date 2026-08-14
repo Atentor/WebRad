@@ -1,8 +1,8 @@
-import Editor, { loader, type Monaco, type OnMount } from '@monaco-editor/react';
-import * as monacoApi from 'monaco-editor/editor/editor.api.js';
-import 'monaco-editor/language/typescript/monaco.contribution.js';
+import Editor, { loader } from '@monaco-editor/react';
+import * as monacoApi from 'monaco-editor/editor';
 import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
-import tsWorker from 'monaco-editor/language/typescript/ts.worker.js?worker';
+import * as typescriptApi from 'monaco-editor/languages/features/typescript/register';
+import tsWorker from 'monaco-editor/languages/features/typescript/ts.worker.js?worker';
 import { useEffect, useRef, type ReactElement } from 'react';
 
 self.MonacoEnvironment = {
@@ -27,17 +27,11 @@ interface CodeEditorProps {
 const libraryDisposables = new Map<string, monacoApi.IDisposable>();
 const libraryContents = new Map<string, string>();
 
-function synchronizeExtraLibraries(
-  monaco: Monaco,
-  libraries: Readonly<Record<string, string>>,
-): void {
+function synchronizeExtraLibraries(libraries: Readonly<Record<string, string>>): void {
   for (const [path, content] of Object.entries(libraries)) {
     if (libraryContents.get(path) === content) continue;
     libraryDisposables.get(path)?.dispose();
-    libraryDisposables.set(
-      path,
-      monaco.languages.typescript.typescriptDefaults.addExtraLib(content, path),
-    );
+    libraryDisposables.set(path, typescriptApi.typescriptDefaults.addExtraLib(content, path));
     libraryContents.set(path, content);
   }
 }
@@ -54,30 +48,30 @@ export function CodeEditor({
 }: CodeEditorProps): ReactElement {
   const editorRef = useRef<monacoApi.editor.IStandaloneCodeEditor | null>(null);
 
-  const beforeMount = (monaco: Monaco): void => {
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2022,
-      module: monaco.languages.typescript.ModuleKind.ESNext,
-      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+  const beforeMount = (): void => {
+    typescriptApi.typescriptDefaults.setCompilerOptions({
+      target: typescriptApi.ScriptTarget.ESNext,
+      module: typescriptApi.ModuleKind.ESNext,
+      moduleResolution: typescriptApi.ModuleResolutionKind.NodeJs,
       allowNonTsExtensions: true,
       strict: true,
       noEmit: true,
-      jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
+      jsx: typescriptApi.JsxEmit.ReactJSX,
     });
-    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    typescriptApi.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
     });
-    synchronizeExtraLibraries(monaco, extraLibraries);
+    synchronizeExtraLibraries(extraLibraries);
   };
 
-  const onMount: OnMount = (editor, monaco): void => {
+  const onMount = (editor: monacoApi.editor.IStandaloneCodeEditor): void => {
     editorRef.current = editor;
-    synchronizeExtraLibraries(monaco, extraLibraries);
+    synchronizeExtraLibraries(extraLibraries);
     editor.onDidChangeCursorPosition(({ position }) =>
       onCursorChange(position.lineNumber, position.column),
     );
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, onSave);
+    editor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, onSave);
     editor.focus();
   };
 
@@ -92,7 +86,7 @@ export function CodeEditor({
   }, [navigateTo]);
 
   useEffect(() => {
-    synchronizeExtraLibraries(monacoApi, extraLibraries);
+    synchronizeExtraLibraries(extraLibraries);
   }, [extraLibraries]);
 
   useEffect(() => {

@@ -15,6 +15,7 @@ import type {
   WebRadBridge,
   WriteFileRequest,
 } from '../../shared/contracts';
+import { applicationIconUrl } from './application-assets';
 
 interface MockCodeEditorProps {
   readonly value: string;
@@ -163,6 +164,10 @@ function componentTypes(project: WebRadProject): readonly string[] {
   return project.forms[0]?.components.map((component) => component.type) ?? [];
 }
 
+function imageSource(selector: string): string | null {
+  return document.querySelector<HTMLImageElement>(selector)?.getAttribute('src') ?? null;
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -181,6 +186,9 @@ describe('App MVP integration', () => {
 
     render(<App />);
     expect(screen.getByRole('heading', { name: 'WebRAD' })).toBeDefined();
+    const toolbarIconSource = imageSource('.wr-brand-mark');
+    expect(toolbarIconSource).toBe(applicationIconUrl);
+    expect(imageSource('.wr-welcome-mark')).toBe(toolbarIconSource);
 
     await user.click(screen.getByRole('button', { name: 'New project (Ctrl+N)' }));
     await screen.findByRole('dialog', { name: 'Create a new project' });
@@ -189,6 +197,7 @@ describe('App MVP integration', () => {
     await user.type(projectName, 'MvpProject');
     await user.click(screen.getByRole('button', { name: 'Create project' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
+    expect(imageSource('.wr-project-icon')).toBe(toolbarIconSource);
     expect(harness.create).toHaveBeenCalledWith({ name: 'MvpProject' });
 
     await user.dblClick(screen.getByRole('button', { name: 'Label' }));

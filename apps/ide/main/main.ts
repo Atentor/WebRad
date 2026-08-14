@@ -1,7 +1,7 @@
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { app, BrowserWindow, net, session, type WebFrameMain } from 'electron';
+import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
 import { installApplicationMenu } from './menu';
@@ -20,6 +20,21 @@ const smokeProjectArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-project='),
 );
 const smokeProjectPath = smokeProjectArgument?.slice('--webrad-smoke-project='.length);
+
+function applicationWindowIconPath(): string {
+  const fileName = process.platform === 'win32' ? 'Icon.ico' : 'Icon.png';
+  return app.isPackaged
+    ? path.join(process.resourcesPath, fileName)
+    : path.resolve(__dirname, '..', '..', fileName);
+}
+
+function verifyApplicationIconResource(): void {
+  if (!smokeMode) return;
+  const icon = nativeImage.createFromPath(applicationWindowIconPath());
+  if (icon.isEmpty()) throw new Error('Packaged application icon could not be loaded.');
+  const size = icon.getSize();
+  smokeLog(`application icon resource passed: ${String(size.width)}x${String(size.height)}`);
+}
 
 function smokeLog(message: string, error?: unknown): void {
   if (!smokeMode) return;
@@ -86,6 +101,7 @@ async function runPreviewProtocolSmoke(previewHtml: string | undefined): Promise
     smokeLog('preview protocol passed');
 
     previewWindow = new BrowserWindow({
+      icon: applicationWindowIconPath(),
       show: false,
       webPreferences: {
         nodeIntegration: false,
@@ -151,6 +167,9 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     `(() => ({
       shell: Boolean(document.querySelector('.wr-ide-shell')),
       toolbar: Boolean(document.querySelector('.wr-toolbar')),
+      brandIcon: document.querySelector('img.wr-brand-mark')?.src ?? '',
+      welcomeIcon: document.querySelector('img.wr-welcome-mark')?.src ?? '',
+      favicon: document.querySelector('link[rel~="icon"]')?.href ?? '',
       bridge: Object.keys(globalThis.webrad ?? {}).sort()
     }))()`,
     true,
@@ -160,17 +179,34 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   }
   const shell = Reflect.get(shellResult, 'shell');
   const toolbar = Reflect.get(shellResult, 'toolbar');
+  const brandIcon = Reflect.get(shellResult, 'brandIcon');
+  const welcomeIcon = Reflect.get(shellResult, 'welcomeIcon');
+  const favicon = Reflect.get(shellResult, 'favicon');
   const bridge = Reflect.get(shellResult, 'bridge');
   const expectedBridge = ['build', 'commands', 'files', 'lifecycle', 'platform', 'project'];
   if (
     shell !== true ||
     toolbar !== true ||
+    typeof brandIcon !== 'string' ||
+    brandIcon.length === 0 ||
+    welcomeIcon !== brandIcon ||
+    favicon !== brandIcon ||
     !Array.isArray(bridge) ||
     JSON.stringify(bridge) !== JSON.stringify(expectedBridge)
   ) {
     throw new Error(`Renderer shell smoke failed: ${JSON.stringify(shellResult)}`);
   }
   smokeLog('renderer shell passed');
+  const loadedIcon = await waitForRendererString(
+    window,
+    `(() => {
+      const icon = document.querySelector('img.wr-brand-mark');
+      return icon instanceof HTMLImageElement && icon.complete && icon.naturalWidth > 0 ? icon.src : '';
+    })()`,
+    'the WebRAD application icon',
+  );
+  if (loadedIcon !== brandIcon) throw new Error('Renderer application icons do not match.');
+  smokeLog('renderer application icon passed');
 
   if (smokeProjectPath === undefined) return;
   const opened = (await window.webContents.executeJavaScript(
@@ -188,7 +224,28 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     `document.querySelector('[role="tree"][aria-label="HelloWebRad project"]')?.getAttribute('aria-label') ?? ''`,
     'the HelloWebRad project in Project Explorer',
   );
+  const projectIcon = await waitForRendererString(
+    window,
+    `document.querySelector('img.wr-project-icon')?.src ?? ''`,
+    'the project application icon',
+  );
+  if (projectIcon !== brandIcon)
+    throw new Error('Project icon does not match the application icon.');
   smokeLog('renderer project open passed');
+
+  const codeDispatched = (await window.webContents.executeJavaScript(
+    `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F12', bubbles: true, cancelable: true }))`,
+    true,
+  )) as unknown;
+  if (codeDispatched !== false) {
+    throw new Error('Renderer F12 smoke event was not handled and canceled.');
+  }
+  await waitForRendererString(
+    window,
+    `document.querySelector('.monaco-editor') === null ? '' : 'ready'`,
+    'the Monaco editor after F12',
+  );
+  smokeLog('renderer Monaco passed');
 
   const dispatched = (await window.webContents.executeJavaScript(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F9', bubbles: true, cancelable: true }))`,
@@ -264,6 +321,7 @@ function createWindow(): BrowserWindow {
     minWidth: 1000,
     minHeight: 680,
     backgroundColor: '#171a21',
+    icon: applicationWindowIconPath(),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -319,6 +377,8 @@ app
   .whenReady()
   .then(async () => {
     smokeLog('app ready');
+    app.dock?.setIcon(applicationWindowIconPath());
+    verifyApplicationIconResource();
     installPermissionPolicy();
     const previewHtml = await runCompilerSmoke();
     registerPreviewProtocol();

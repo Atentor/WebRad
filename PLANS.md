@@ -20,14 +20,16 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 ## Current work
 
 - DONE: The visual and nonvisual MVP vertical paths, from persisted model through generated code and browser execution.
+- DONE: The root `Icon.svg` is the canonical application icon for native packages, windows, installers, favicon, and renderer branding.
 - IN PROGRESS: Linux packaging evidence from CI; Windows packaging is locally proven.
 
 ## Validation evidence
 
-- Strict TypeScript, ESLint, Prettier, and all 107 Vitest tests pass locally.
-- Renderer integration tests cover the File/Toolbar New Project dialog, validation/cancel, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, save/close/open, F9, and the sandboxed Preview URL.
+- Strict TypeScript, ESLint, Prettier, and all 108 Vitest tests pass locally.
+- Renderer integration tests cover the File/Toolbar New Project dialog, validation/cancel, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, save/close/open, F9, and the sandboxed Preview URL. The packaged smoke also opens the real Monaco/TypeScript bundle with F12.
+- Application icon validation checks generated PNG/ICO/ICNS assets, renderer reuse of the SVG, packaged native icon loading, and the Windows Squirrel installer.
 - The persisted Hello WebRAD example is compiled, mounted in a DOM, edited, clicked, and verified to call `Message` with the live input value.
-- The packaged smoke used by Windows/Linux CI starts the Forge artifact, opens a temporary Hello project through the real UI/preload/IPC path, dispatches F9, waits for `PreviewPane`, enters `Ada`, clicks the generated button inside the sandbox, verifies `Olá Ada`, then exits automatically.
+- The packaged smoke used by Windows/Linux CI starts the Forge artifact, opens a temporary Hello project through the real UI/preload/IPC path, verifies the Monaco editor through F12, dispatches F9, waits for `PreviewPane`, enters `Ada`, clicks the generated button inside the sandbox, verifies `Olá Ada`, then exits automatically.
 
 ## Decision log
 
@@ -36,3 +38,4 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Represent `.wrform` and the project manifest as versioned JSON while keeping user code in separate `.ts` files.
 - Share browser-safe component property projection and CSS through `@webrad/runtime/visual`; keep design interaction exclusively in the Designer overlay.
 - Keep nonvisual nodes in the Project Model and tray, construct their typed services in generated code, and omit them from the final DOM model.
+- Treat `Icon.svg` as the application icon source of truth; commit checked PNG/ICO/ICNS derivatives required by native platforms.
