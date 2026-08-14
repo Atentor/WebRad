@@ -171,7 +171,7 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
       indentation: true,
     },
     hover: { above: false, delay: 300, enabled: 'on', sticky: true },
-    inlayHints: { enabled: 'onUnlessPressed', maximumLength: 80, padding: true },
+    inlayHints: { enabled: 'off' },
     inlineSuggest: { enabled: true, showToolbar: 'onHover' },
     insertSpaces: true,
     lightbulb: { enabled: monacoApi.editor.ShowLightbulbIconMode.On },

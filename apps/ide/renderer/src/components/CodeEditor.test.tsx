@@ -346,7 +346,7 @@ describe('CodeEditor professional Monaco workspace', () => {
       formatOnPaste: true,
       formatOnType: true,
       glyphMargin: true,
-      inlayHints: { enabled: 'onUnlessPressed', maximumLength: 80, padding: true },
+      inlayHints: { enabled: 'off' },
       quickSuggestions: { comments: 'off', other: 'on', strings: 'on' },
       renderValidationDecorations: 'on',
       'semanticHighlighting.enabled': true,

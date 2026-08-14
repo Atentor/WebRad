@@ -185,7 +185,8 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
       Number(Reflect.get(value, 'colors')) >= 3 &&
       Array.isArray(keywords) &&
       keywords.includes('import') &&
-      Reflect.get(value, 'formClass') === true
+      Reflect.get(value, 'formClass') === true &&
+      Reflect.get(value, 'inlayHintsHidden') === true
     );
   };
   const highlightingEvidence = await waitForRendererResult(
@@ -216,6 +217,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
         keywords: highlightedKeywords,
         formClass: source.includes('FrmMainGenerated'),
         eventHandler: source.includes('BTNMostrarClick'),
+        inlayHintsHidden: !source.includes('message:'),
         samples: tokens.slice(0, 12),
       };
     })()`,

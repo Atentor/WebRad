@@ -20,7 +20,6 @@ import 'monaco-editor/features/gotoLine/register';
 import 'monaco-editor/features/gotoSymbol/register';
 import 'monaco-editor/features/hover/register';
 import 'monaco-editor/features/indentation/register';
-import 'monaco-editor/features/inlayHints/register';
 // Monaco 0.56's inline-completions contribution owns the classic suggest controller/widget too.
 // `features/suggest/register` alone only registers the inline suggestion source.
 import 'monaco-editor/features/inlineCompletions/register';
@@ -68,7 +67,7 @@ const COMPLETE_MODE_CONFIGURATION: typescriptApi.ModeConfiguration = {
   documentRangeFormattingEdits: true,
   documentSymbols: true,
   hovers: true,
-  inlayHints: true,
+  inlayHints: false,
   onTypeFormattingEdits: true,
   references: true,
   rename: true,
@@ -240,13 +239,13 @@ export function configureMonaco(): void {
   typescriptApi.typescriptDefaults.setModeConfiguration(COMPLETE_MODE_CONFIGURATION);
   typescriptApi.typescriptDefaults.setEagerModelSync(true);
   typescriptApi.typescriptDefaults.setInlayHintsOptions({
-    includeInlayEnumMemberValueHints: true,
-    includeInlayFunctionLikeReturnTypeHints: true,
-    includeInlayFunctionParameterTypeHints: true,
-    includeInlayParameterNameHints: 'all',
+    includeInlayEnumMemberValueHints: false,
+    includeInlayFunctionLikeReturnTypeHints: false,
+    includeInlayFunctionParameterTypeHints: false,
+    includeInlayParameterNameHints: 'none',
     includeInlayParameterNameHintsWhenArgumentMatchesName: false,
-    includeInlayPropertyDeclarationTypeHints: true,
-    includeInlayVariableTypeHints: true,
+    includeInlayPropertyDeclarationTypeHints: false,
+    includeInlayVariableTypeHints: false,
   });
 
   configured = true;

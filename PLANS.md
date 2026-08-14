@@ -25,6 +25,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Build and run resolves TypeScript standard libraries and esbuild resources explicitly in both Forge development and packaged applications.
 - DONE: Monaco provides project-wide TypeScript models, complete runtime/form typings, professional editing features and themes, live diagnostics, authoritative build markers, and navigable Problems.
 - DONE: Monaco buffers use canonical resource URIs, so edits survive focus/view changes and saving persists the exact current source on Windows and Linux.
+- DONE: Monaco inlay hints are disabled so inferred types and parameter labels never appear as synthetic code in the source view.
 - IN PROGRESS: Linux packaging evidence from CI; Windows packaging is locally proven.
 
 ## Validation evidence
@@ -47,3 +48,4 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Treat Monaco diagnostics as immediate authoring feedback and F9 diagnostics as authoritative; merge both in Problems and invalidate completed build results whenever the project revision changes.
 - Load Monaco through public granular feature entrypoints and omit only production renderer source maps; this preserves the professional TypeScript feature set while keeping the standard 4 GB package build deterministic.
 - Canonicalize every Monaco model, marker, navigation target, and extra-library URI through Monaco's URI implementation before comparing or registering it; user-source paths remain the Project Model keys.
+- Keep Monaco inlay hints disabled at both the editor and TypeScript service layers; autocomplete, signature help, diagnostics, and syntax highlighting remain enabled.

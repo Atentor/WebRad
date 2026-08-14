@@ -54,7 +54,6 @@ vi.mock('monaco-editor/features/gotoLine/register', () => ({}));
 vi.mock('monaco-editor/features/gotoSymbol/register', () => ({}));
 vi.mock('monaco-editor/features/hover/register', () => ({}));
 vi.mock('monaco-editor/features/indentation/register', () => ({}));
-vi.mock('monaco-editor/features/inlayHints/register', () => ({}));
 vi.mock('monaco-editor/features/inlineCompletions/register', () => ({}));
 vi.mock('monaco-editor/features/linesOperations/register', () => ({}));
 vi.mock('monaco-editor/features/links/register', () => ({}));
@@ -161,7 +160,7 @@ describe('Monaco setup', () => {
       documentRangeFormattingEdits: true,
       documentSymbols: true,
       hovers: true,
-      inlayHints: true,
+      inlayHints: false,
       onTypeFormattingEdits: true,
       references: true,
       rename: true,
@@ -169,13 +168,13 @@ describe('Monaco setup', () => {
     });
     expect(mocks.setEagerModelSync).toHaveBeenCalledWith(true);
     expect(mocks.setInlayHintsOptions).toHaveBeenCalledWith({
-      includeInlayEnumMemberValueHints: true,
-      includeInlayFunctionLikeReturnTypeHints: true,
-      includeInlayFunctionParameterTypeHints: true,
-      includeInlayParameterNameHints: 'all',
+      includeInlayEnumMemberValueHints: false,
+      includeInlayFunctionLikeReturnTypeHints: false,
+      includeInlayFunctionParameterTypeHints: false,
+      includeInlayParameterNameHints: 'none',
       includeInlayParameterNameHintsWhenArgumentMatchesName: false,
-      includeInlayPropertyDeclarationTypeHints: true,
-      includeInlayVariableTypeHints: true,
+      includeInlayPropertyDeclarationTypeHints: false,
+      includeInlayVariableTypeHints: false,
     });
   });
 
