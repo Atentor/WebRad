@@ -1,5 +1,6 @@
 {
   "name": "webrad",
+  "productName": "WebRad",
   "version": "0.1.0",
   "private": true,
   "description": "A visual RAD IDE for modern web applications",

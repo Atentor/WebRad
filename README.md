@@ -48,9 +48,9 @@ npm.cmd run make
 
 O uso de `npm.cmd` evita o erro de segurança que informa que `npm.ps1` não pode ser carregado porque a execução de scripts está desabilitada. Não é necessário alterar a política de execução do Windows.
 
-O arquivo recomendado para entregar ao usuário é `out/make/squirrel.windows/x64/webrad-<versão> Setup.exe` — atualmente, `webrad-0.1.0 Setup.exe`. Esse é o instalador. O arquivo `.nupkg` presente na mesma pasta não deve ser aberto diretamente pelo usuário final.
+O arquivo recomendado para entregar ao usuário é `out/make/squirrel.windows/x64/WebRad-<versão> Setup.exe` — atualmente, `WebRad-0.1.0 Setup.exe`. Esse é o instalador. O arquivo `.nupkg` presente na mesma pasta não deve ser aberto diretamente pelo usuário final.
 
-Para distribuir uma versão portátil, sem instalação, compacte e transfira o diretório completo `out/webrad-win32-x64`. No outro computador, execute `webrad.exe` dentro dessa pasta. Não transfira apenas o arquivo `webrad.exe`, pois ele depende dos demais arquivos e diretórios de recursos que ficam ao lado dele.
+Para distribuir uma versão portátil, sem instalação, compacte e transfira o diretório completo `out/WebRad-win32-x64`. No outro computador, execute `WebRad.exe` dentro dessa pasta. Não transfira apenas o arquivo `WebRad.exe`, pois ele depende dos demais arquivos e diretórios de recursos que ficam ao lado dele.
 
 Os artefatos de distribuição são específicos de cada plataforma e devem ser gerados no sistema operacional de destino.
 

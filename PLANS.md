@@ -27,6 +27,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Monaco buffers use canonical resource URIs, so edits survive focus/view changes and saving persists the exact current source on Windows and Linux.
 - DONE: Monaco inlay hints are disabled so inferred types and parameter labels never appear as synthetic code in the source view.
 - DONE: Monaco ships JetBrains Mono Light 300, including its real italic face, as self-hosted renderer assets instead of depending on an operating-system font.
+- DONE: distributable desktop artifacts use the public product name `WebRad` for the executable, installer, and Windows shortcut while retaining the lowercase npm package identifier.
 - DONE: Every non-root component is exposed as a typed readonly `this.Name` field; Delphi-like `Name` suggestions insert that standard TypeScript expression for consistent diagnostics, build, and Preview.
 - IN PROGRESS: Linux packaging evidence from CI; Windows packaging is locally proven.
 

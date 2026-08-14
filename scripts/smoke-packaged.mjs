@@ -5,8 +5,15 @@ import path from 'node:path';
 import process from 'node:process';
 import { clearTimeout, setTimeout } from 'node:timers';
 
-const platformDirectory = `webrad-${process.platform}-${process.arch}`;
-const executableName = process.platform === 'win32' ? 'webrad.exe' : 'webrad';
+const packageMetadata = JSON.parse(await fs.readFile(path.resolve('package.json'), 'utf8'));
+const productName = packageMetadata.productName;
+
+if (typeof productName !== 'string' || productName.length === 0) {
+  throw new Error('package.json must define a non-empty productName.');
+}
+
+const platformDirectory = `${productName}-${process.platform}-${process.arch}`;
+const executableName = process.platform === 'win32' ? `${productName}.exe` : productName;
 const packageDirectory = path.resolve('out', platformDirectory);
 const executablePath = path.join(packageDirectory, executableName);
 const logPath = path.join(packageDirectory, 'webrad-smoke.log');
@@ -14,6 +21,16 @@ const fixtureDirectory = path.resolve('examples', 'hello-webrad');
 const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-packaged-smoke-'));
 const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
 const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');
+
+const outputEntries = await fs.readdir(path.resolve('out'));
+if (!outputEntries.includes(platformDirectory)) {
+  throw new Error(`Packaged directory must use the exact product name: ${platformDirectory}.`);
+}
+
+const packageEntries = await fs.readdir(packageDirectory);
+if (!packageEntries.includes(executableName)) {
+  throw new Error(`Packaged executable must use the exact product name: ${executableName}.`);
+}
 
 await fs.access(executablePath);
 await fs.rm(logPath, { force: true });
