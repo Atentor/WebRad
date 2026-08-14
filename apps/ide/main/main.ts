@@ -5,6 +5,7 @@ import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
 import { resolveCompilerEnvironment } from './compiler-environment';
+import { presentMainWindow } from './main-window-presentation';
 import { installApplicationMenu } from './menu';
 import { publishPreviewHtml, registerPreviewProtocol, revokePreview } from './preview-protocol';
 import { loadProjectFiles } from './project-files';
@@ -462,7 +463,7 @@ function createWindow(): BrowserWindow {
     if (mainWindow === window) mainWindow = null;
   });
   window.once('ready-to-show', () => {
-    if (!smokeMode) window.show();
+    presentMainWindow(window, { hidden: smokeMode });
   });
 
   const preventUntrustedNavigation = (event: Electron.Event, targetUrl: string): void => {

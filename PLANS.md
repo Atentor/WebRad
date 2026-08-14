@@ -20,6 +20,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 ## Current work
 
 - DONE: The visual and nonvisual MVP vertical paths, from persisted model through generated code and browser execution.
+- DONE: Every user-facing IDE window opens maximized after its renderer is ready, without exposing the hidden automated-smoke window.
 - DONE: The root `Icon.svg` is the canonical application icon for native packages, windows, installers, favicon, and renderer branding.
 - DONE: Build and run resolves TypeScript standard libraries and esbuild resources explicitly in both Forge development and packaged applications.
 - DONE: Monaco provides project-wide TypeScript models, complete runtime/form typings, professional editing features and themes, live diagnostics, authoritative build markers, and navigable Problems.
@@ -28,7 +29,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 ## Validation evidence
 
-- Strict TypeScript, ESLint, Prettier, and all 145 Vitest tests pass locally.
+- Strict TypeScript, ESLint, Prettier, and all 147 Vitest tests pass locally.
 - Renderer integration tests cover the File/Toolbar New Project dialog, validation/cancel, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, live/build Problems navigation, save/close/open, F9, and the sandboxed Preview URL. The packaged smoke opens the real Monaco/TypeScript bundle, waits for lazy TypeScript tokenization, proves distinct syntax tokens/colors, and opens a populated Ctrl+Space suggestion widget.
 - Application icon validation checks generated PNG/ICO/ICNS assets, renderer reuse of the SVG, packaged native icon loading, and the Windows Squirrel installer.
 - The persisted Hello WebRAD example is compiled, mounted in a DOM, edited, clicked, and verified to call `Message` with the live input value.
