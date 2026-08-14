@@ -41,11 +41,11 @@ export function typecheckSources(
     verbatimModuleSyntax: true,
   };
   const host = ts.createCompilerHost(compilerOptions, true);
-  const packagedLibLocation = process.env.WEBRAD_TYPESCRIPT_LIB_PATH;
-  if (packagedLibLocation) {
-    host.getDefaultLibLocation = () => packagedLibLocation;
+  const typeScriptLibLocation = process.env.WEBRAD_TYPESCRIPT_LIB_PATH;
+  if (typeScriptLibLocation) {
+    host.getDefaultLibLocation = () => typeScriptLibLocation;
     host.getDefaultLibFileName = (options) =>
-      path.join(packagedLibLocation, ts.getDefaultLibFileName(options));
+      path.join(typeScriptLibLocation, ts.getDefaultLibFileName(options));
   }
   const virtualSources = new Map(
     [...sources].map(([fileName, contents]) => [canonicalPath(fileName), contents]),

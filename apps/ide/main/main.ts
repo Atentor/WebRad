@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
+import { resolveCompilerEnvironment } from './compiler-environment';
 import { installApplicationMenu } from './menu';
 import { publishPreviewHtml, registerPreviewProtocol, revokePreview } from './preview-protocol';
 import { loadProjectFiles } from './project-files';
@@ -297,21 +298,16 @@ if (started) {
   app.quit();
 }
 
-if (app.isPackaged) {
-  const nativePackage = `${process.platform}-${process.arch}`;
-  process.env.WEBRAD_ESBUILD_MODULE_PATH = path.join(
-    process.resourcesPath,
-    'esbuild',
-    'lib',
-    'main.js',
-  );
-  process.env.ESBUILD_BINARY_PATH = path.join(
-    process.resourcesPath,
-    nativePackage,
-    process.platform === 'win32' ? 'esbuild.exe' : path.join('bin', 'esbuild'),
-  );
-  process.env.WEBRAD_TYPESCRIPT_LIB_PATH = path.join(process.resourcesPath, 'typescript', 'lib');
-}
+Object.assign(
+  process.env,
+  resolveCompilerEnvironment({
+    packaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    developmentRoot: path.resolve(__dirname, '..', '..'),
+    platform: process.platform,
+    architecture: process.arch,
+  }),
+);
 
 function createWindow(): BrowserWindow {
   smokeLog('creating BrowserWindow');

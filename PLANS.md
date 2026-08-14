@@ -13,7 +13,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 | 7. Monaco                    | DONE        | Persistent models, tabs, TypeScript services, dirty state, save, F12                                                                              | Models, generated libraries, save, find, and navigation are integrated  |
 | 8. Events                    | DONE        | AST method insertion, default event double-click, navigation                                                                                      | Existing methods are never duplicated                                   |
 | 9. WebRAD typings            | DONE        | Runtime declarations and form-generated members for IntelliSense                                                                                  | Form components appear in generated TypeScript declarations             |
-| 10. Runtime/compiler/preview | DONE        | Browser runtime, independent esbuild pipeline, isolated preview protocol, F9                                                                      | Hello project compiles and executes; packaged compiler smoke passes     |
+| 10. Runtime/compiler/preview | DONE        | Browser runtime, independent esbuild pipeline, isolated preview protocol, F9                                                                      | Hello project compiles; development and packaged compiler smokes pass   |
 | 11. Nonvisual foundation     | DONE        | Registry-driven nonvisual tray, Inspector/persistence integration, generated service fields, and functional `WebApiClient`                        | Tray, code generation, browser exclusion, and runtime client pass tests |
 | 12. Cross-platform packaging | IN PROGRESS | Windows/Linux validation and Forge packaging                                                                                                      | Windows package/smoke pass; Windows/Linux CI is configured              |
 
@@ -21,15 +21,16 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 - DONE: The visual and nonvisual MVP vertical paths, from persisted model through generated code and browser execution.
 - DONE: The root `Icon.svg` is the canonical application icon for native packages, windows, installers, favicon, and renderer branding.
+- DONE: Build and run resolves TypeScript standard libraries and esbuild resources explicitly in both Forge development and packaged applications.
 - IN PROGRESS: Linux packaging evidence from CI; Windows packaging is locally proven.
 
 ## Validation evidence
 
-- Strict TypeScript, ESLint, Prettier, and all 108 Vitest tests pass locally.
+- Strict TypeScript, ESLint, Prettier, and all 111 Vitest tests pass locally.
 - Renderer integration tests cover the File/Toolbar New Project dialog, validation/cancel, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, save/close/open, F9, and the sandboxed Preview URL. The packaged smoke also opens the real Monaco/TypeScript bundle with F12.
 - Application icon validation checks generated PNG/ICO/ICNS assets, renderer reuse of the SVG, packaged native icon loading, and the Windows Squirrel installer.
 - The persisted Hello WebRAD example is compiled, mounted in a DOM, edited, clicked, and verified to call `Message` with the live input value.
-- The packaged smoke used by Windows/Linux CI starts the Forge artifact, opens a temporary Hello project through the real UI/preload/IPC path, verifies the Monaco editor through F12, dispatches F9, waits for `PreviewPane`, enters `Ada`, clicks the generated button inside the sandbox, verifies `Olá Ada`, then exits automatically.
+- The development and packaged smokes start the real Forge bundles, open a Hello project through the UI/preload/IPC path, verify the Monaco editor through F12, dispatch F9, wait for `PreviewPane`, enter `Ada`, click the generated button inside the sandbox, verify `Olá Ada`, then exit automatically.
 
 ## Decision log
 
@@ -39,3 +40,4 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Share browser-safe component property projection and CSS through `@webrad/runtime/visual`; keep design interaction exclusively in the Designer overlay.
 - Keep nonvisual nodes in the Project Model and tray, construct their typed services in generated code, and omit them from the final DOM model.
 - Treat `Icon.svg` as the application icon source of truth; commit checked PNG/ICO/ICNS derivatives required by native platforms.
+- Resolve compiler resources from `node_modules` during Forge development and from copied `resources` in packaged applications; never rely on the Vite main bundle directory for TypeScript standard libraries.
