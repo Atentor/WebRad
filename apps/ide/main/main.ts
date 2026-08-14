@@ -175,6 +175,44 @@ function sendRendererKey(
 }
 
 async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
+  const fontEvidence = await waitForRendererResult(
+    window,
+    `(async () => {
+      const [normalFaces, italicFaces] = await Promise.all([
+        document.fonts.load("300 13px 'JetBrains Mono'", 'WebRAD'),
+        document.fonts.load("italic 300 13px 'JetBrains Mono'", 'comment'),
+      ]);
+      const editorText = document.querySelector('.monaco-editor .view-lines .view-line');
+      const fontFamily =
+        editorText instanceof HTMLElement ? getComputedStyle(editorText).fontFamily : '';
+      return {
+        normal: normalFaces.filter(
+          (face) =>
+            face.status === 'loaded' &&
+            face.family === 'JetBrains Mono' &&
+            face.weight === '300' &&
+            face.style === 'normal',
+        ).length,
+        italic: italicFaces.filter(
+          (face) =>
+            face.status === 'loaded' &&
+            face.family === 'JetBrains Mono' &&
+            face.weight === '300' &&
+            face.style === 'italic',
+        ).length,
+        fontFamily,
+      };
+    })()`,
+    'the packaged JetBrains Mono webfont in Monaco',
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      Number(Reflect.get(value, 'normal')) > 0 &&
+      Number(Reflect.get(value, 'italic')) > 0 &&
+      String(Reflect.get(value, 'fontFamily')).includes('JetBrains Mono'),
+  );
+  smokeLog(`renderer Monaco font passed: ${JSON.stringify(fontEvidence)}`);
+
   const isHighlightedTypeScript = (value: unknown): boolean => {
     if (typeof value !== 'object' || value === null) return false;
     const keywords = Reflect.get(value, 'keywords');

@@ -26,6 +26,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Monaco provides project-wide TypeScript models, complete runtime/form typings, professional editing features and themes, live diagnostics, authoritative build markers, and navigable Problems.
 - DONE: Monaco buffers use canonical resource URIs, so edits survive focus/view changes and saving persists the exact current source on Windows and Linux.
 - DONE: Monaco inlay hints are disabled so inferred types and parameter labels never appear as synthetic code in the source view.
+- DONE: Monaco ships JetBrains Mono Light 300, including its real italic face, as self-hosted renderer assets instead of depending on an operating-system font.
 - DONE: Every non-root component is exposed as a typed readonly `this.Name` field; Delphi-like `Name` suggestions insert that standard TypeScript expression for consistent diagnostics, build, and Preview.
 - IN PROGRESS: Linux packaging evidence from CI; Windows packaging is locally proven.
 
@@ -33,6 +34,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 - Strict TypeScript, ESLint, Prettier, and the complete Vitest suite pass locally.
 - Renderer integration tests cover the File/Toolbar New Project dialog, validation/cancel, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, live/build Problems navigation, save/close/open, F9, and the sandboxed Preview URL. The packaged smoke opens the real Monaco/TypeScript bundle, waits for lazy TypeScript tokenization, proves distinct syntax tokens/colors, and opens a populated Ctrl+Space suggestion widget.
+- The packaged renderer smoke loads both the normal and italic JetBrains Mono weight-300 faces and verifies Monaco's computed font family, proving that installed applications use bundled webfonts; packaging also includes the font's OFL 1.1 notice.
 - Language and renderer tests cover every MVP component as a generated `this.Name` member, concrete non-`any` runtime types, Registry property completion, stable visual IDs, nonvisual identity, root-as-`this`, and the exact completion insertion text.
 - Application icon validation checks generated PNG/ICO/ICNS assets, renderer reuse of the SVG, packaged native icon loading, and the Windows Squirrel installer.
 - The persisted Hello WebRAD example is compiled, mounted in a DOM, edited, clicked, and verified to call `Message` with the live input value.

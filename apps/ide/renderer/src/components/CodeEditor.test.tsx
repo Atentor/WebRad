@@ -397,6 +397,7 @@ describe('CodeEditor professional Monaco workspace', () => {
     });
     expect(mocks.editorProps?.options).toMatchObject({
       bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: true },
+      fontWeight: '300',
       formatOnPaste: true,
       formatOnType: true,
       glyphMargin: true,

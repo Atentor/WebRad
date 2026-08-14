@@ -55,6 +55,8 @@ For the registered MVP component set, Registry metadata and runtime declarations
 
 Monaco reports syntax, suggestion, and semantic markers continuously for fast feedback. The Problems projection merges and deduplicates those markers with the last authoritative compiler result, preserves source/code/range metadata, and navigates either to source code or the affected model component. The standalone F9 compiler remains authoritative because the embedded Monaco TypeScript service and the build compiler can be different patch versions.
 
+The editor's JetBrains Mono Light face is self-hosted from the pinned `@fontsource/jetbrains-mono` package. Vite emits the weight-300 normal and italic webfont assets into the renderer bundle, and the renderer CSP permits only the packaged self origin. Monaco therefore has identical typography in development and installed applications without a system font or CDN dependency. The Electron package also carries `JetBrainsMono-OFL.txt` beside its resources so every distributed copy includes the font copyright and SIL Open Font License 1.1.
+
 ## Cross-platform decisions
 
 Filesystem paths remain native inside Electron and are converted to URI/path forms at boundaries. Build logic is a Node API rather than shell scripts so Windows and Linux share behavior. Runtime and compiler output contain no Electron imports.

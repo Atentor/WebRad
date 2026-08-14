@@ -11,6 +11,7 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 const iconBasePath = path.resolve('Icon');
 const iconIcoPath = path.resolve('Icon.ico');
 const iconPngPath = path.resolve('Icon.png');
+const jetBrainsMonoLicensePath = path.resolve('licenses', 'JetBrainsMono-OFL.txt');
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -19,6 +20,7 @@ const config: ForgeConfig = {
     extraResource: [
       iconIcoPath,
       iconPngPath,
+      jetBrainsMonoLicensePath,
       path.resolve('node_modules', 'esbuild'),
       path.resolve('node_modules', '@esbuild', `${process.platform}-${process.arch}`),
       path.resolve('node_modules', 'typescript'),

@@ -32,6 +32,7 @@
     "validate": "npm run icons:check && npm run runtime:sources:check && npm run typecheck && npm run lint && npm test && npm run format:check && npm run build"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "5.3.0",
     "@monaco-editor/react": "4.7.0",
     "electron-squirrel-startup": "1.0.1",
     "esbuild": "0.28.2",
