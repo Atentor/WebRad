@@ -48,6 +48,8 @@ try {
     'renderer application icon passed',
     'renderer project open passed',
     'renderer Monaco passed',
+    'renderer Monaco TypeScript highlight passed:',
+    'renderer Monaco autocomplete passed:',
     'renderer F9 preview passed: Olá Ada',
   ];
   const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));

@@ -1,5 +1,11 @@
-import { useState, type ReactElement } from 'react';
-import type { BuildDiagnostic } from '../../../shared/contracts';
+import type { ReactElement } from 'react';
+import {
+  countEditorProblems,
+  isProblemNavigable,
+  type EditorProblem,
+  type ProblemCategory,
+  type ProblemCounts,
+} from '../editor-problems';
 
 export interface OutputEntry {
   id: string;
@@ -8,74 +14,206 @@ export interface OutputEntry {
   timestamp: string;
 }
 
-interface BottomPanelProps {
-  diagnostics: readonly BuildDiagnostic[];
-  output: readonly OutputEntry[];
+export type BottomPanelTab = 'problems' | 'output' | 'build';
+
+export interface BottomPanelProps {
+  readonly activeTab: BottomPanelTab;
+  readonly problems: readonly EditorProblem[];
+  readonly output: readonly OutputEntry[];
+  readonly building: boolean;
+  readonly onActiveTabChange: (tab: BottomPanelTab) => void;
+  readonly onProblemActivate: (problem: EditorProblem) => void;
 }
 
-type BottomTab = 'problems' | 'output' | 'terminal' | 'build';
+const tabs: readonly BottomPanelTab[] = ['problems', 'output', 'build'];
 
-export function BottomPanel({ diagnostics, output }: BottomPanelProps): ReactElement {
-  const [activeTab, setActiveTab] = useState<BottomTab>('output');
-  const tabs: readonly BottomTab[] = ['problems', 'output', 'terminal', 'build'];
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${String(count)} ${count === 1 ? singular : plural}`;
+}
+
+function problemsAriaLabel(counts: ProblemCounts): string {
+  return `Problems, ${countLabel(counts.error, 'error')}, ${countLabel(counts.warning, 'warning')}, ${countLabel(counts.info, 'information', 'information items')}`;
+}
+
+function ProblemCount({
+  category,
+  count,
+}: {
+  readonly category: ProblemCategory;
+  readonly count: number;
+}): ReactElement {
+  const label =
+    category === 'error'
+      ? countLabel(count, 'error')
+      : category === 'warning'
+        ? countLabel(count, 'warning')
+        : countLabel(count, 'information', 'information items');
+  return (
+    <span className={`wr-problem-count wr-problem-count-${category}`} aria-label={label}>
+      <span aria-hidden="true">
+        {category === 'error' ? '●' : category === 'warning' ? '▲' : '◆'}
+      </span>
+      {count}
+    </span>
+  );
+}
+
+function problemLocation(problem: EditorProblem): string | undefined {
+  const location = problem.file ?? problem.resource;
+  if (location === undefined) {
+    return problem.path === undefined ? undefined : problem.path.map(String).join('.');
+  }
+  if (problem.range === undefined) return location;
+  return `${location}:${String(problem.range.startLineNumber)}:${String(problem.range.startColumn)}`;
+}
+
+function problemMetadata(problem: EditorProblem): string {
+  const code = problem.code === undefined ? '' : ` ${String(problem.code)}`;
+  return `${problem.source}${code}`;
+}
+
+function problemAriaLabel(problem: EditorProblem): string {
+  const location = problemLocation(problem);
+  const category = problem.category[0]?.toUpperCase() + problem.category.slice(1);
+  return [category, problem.message, location, problemMetadata(problem)].filter(Boolean).join('. ');
+}
+
+function ProblemRow({
+  problem,
+  onActivate,
+}: {
+  readonly problem: EditorProblem;
+  readonly onActivate: (problem: EditorProblem) => void;
+}): ReactElement {
+  const location = problemLocation(problem);
+  const contents = (
+    <>
+      <span className="wr-problem-icon" aria-hidden="true">
+        {problem.category === 'error' ? '●' : problem.category === 'warning' ? '▲' : '◆'}
+      </span>
+      <span className="wr-problem-message">{problem.message}</span>
+      <small className="wr-problem-source">{problemMetadata(problem)}</small>
+      {location && <small className="wr-problem-location">{location}</small>}
+    </>
+  );
+
+  return isProblemNavigable(problem) ? (
+    <button
+      type="button"
+      className={`wr-problem wr-problem-${problem.category}`}
+      aria-label={problemAriaLabel(problem)}
+      onClick={() => onActivate(problem)}
+    >
+      {contents}
+    </button>
+  ) : (
+    <div className={`wr-problem wr-problem-${problem.category}`}>{contents}</div>
+  );
+}
+
+function OutputLines({ entries }: { readonly entries: readonly OutputEntry[] }): ReactElement {
+  return (
+    <div className="wr-output-lines">
+      {entries.map((item) => (
+        <div className="wr-output-line" key={item.id}>
+          <time>{item.timestamp}</time>
+          <strong>{item.category}</strong>
+          <span>{item.message}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function BottomPanel({
+  activeTab,
+  problems,
+  output,
+  building,
+  onActiveTabChange,
+  onProblemActivate,
+}: BottomPanelProps): ReactElement {
+  const counts = countEditorProblems(problems);
+  const buildOutput = output.filter((entry) => entry.category === 'COMPILER');
 
   return (
-    <section className="wr-bottom-panel">
-      <div className="wr-bottom-tabs" role="tablist">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab}
-            className={activeTab === tab ? 'active' : ''}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab[0]?.toUpperCase()}
-            {tab.slice(1)}
-            {tab === 'problems' && diagnostics.length > 0 ? ` (${diagnostics.length})` : ''}
-          </button>
-        ))}
+    <section className="wr-bottom-panel" aria-label="IDE messages">
+      <div className="wr-bottom-tabs" role="tablist" aria-label="Messages">
+        {tabs.map((tab) => {
+          const selected = activeTab === tab;
+          return (
+            <button
+              id={`wr-bottom-tab-${tab}`}
+              key={tab}
+              type="button"
+              role="tab"
+              aria-controls={`wr-bottom-panel-${tab}`}
+              aria-label={tab === 'problems' ? problemsAriaLabel(counts) : undefined}
+              aria-selected={selected}
+              className={selected ? 'active' : ''}
+              onClick={() => onActiveTabChange(tab)}
+            >
+              <span>
+                {tab[0]?.toUpperCase()}
+                {tab.slice(1)}
+              </span>
+              {tab === 'problems' && counts.total > 0 && (
+                <span className="wr-problem-tab-counts" aria-hidden="true">
+                  {counts.error > 0 && <ProblemCount category="error" count={counts.error} />}
+                  {counts.warning > 0 && <ProblemCount category="warning" count={counts.warning} />}
+                  {counts.info > 0 && <ProblemCount category="info" count={counts.info} />}
+                </span>
+              )}
+              {tab === 'build' && building && (
+                <span className="wr-build-tab-running" aria-hidden="true" />
+              )}
+            </button>
+          );
+        })}
       </div>
-      <div className="wr-bottom-content">
+      <div
+        id={`wr-bottom-panel-${activeTab}`}
+        className="wr-bottom-content"
+        role="tabpanel"
+        aria-labelledby={`wr-bottom-tab-${activeTab}`}
+      >
         {activeTab === 'problems' &&
-          (diagnostics.length === 0 ? (
+          (problems.length === 0 ? (
             <div className="wr-empty-state compact">No problems detected.</div>
           ) : (
-            diagnostics.map((item, index) => (
-              <div
-                className={`wr-problem wr-problem-${item.category}`}
-                key={`${item.message}-${index}`}
-              >
-                <span>
-                  {item.category === 'error' ? '●' : item.category === 'warning' ? '▲' : '◆'}
-                </span>
-                <span>{item.message}</span>
-                {item.file && <small>{`${item.file}${item.line ? `:${item.line}` : ''}`}</small>}
+            <>
+              <div className="wr-problems-summary" aria-label={problemsAriaLabel(counts)}>
+                <ProblemCount category="error" count={counts.error} />
+                <ProblemCount category="warning" count={counts.warning} />
+                <ProblemCount category="info" count={counts.info} />
               </div>
-            ))
+              <div className="wr-problem-list">
+                {problems.map((problem) => (
+                  <ProblemRow key={problem.id} problem={problem} onActivate={onProblemActivate} />
+                ))}
+              </div>
+            </>
           ))}
         {activeTab === 'output' &&
           (output.length === 0 ? (
             <div className="wr-empty-state compact">WebRAD is ready.</div>
           ) : (
-            output.map((item) => (
-              <div className="wr-output-line" key={item.id}>
-                <time>{item.timestamp}</time>
-                <strong>{item.category}</strong>
-                <span>{item.message}</span>
-              </div>
-            ))
+            <OutputLines entries={output} />
           ))}
-        {activeTab === 'terminal' && (
-          <div className="wr-empty-state compact">
-            The integrated terminal is planned for a later milestone.
-          </div>
-        )}
         {activeTab === 'build' && (
-          <div className="wr-output-line">
-            <span>Build diagnostics appear here when F9 runs the compiler pipeline.</span>
-          </div>
+          <>
+            {building && (
+              <div className="wr-build-progress" role="status">
+                <span className="wr-spinner" aria-hidden="true" />
+                Building the browser application…
+              </div>
+            )}
+            {buildOutput.length > 0 ? (
+              <OutputLines entries={buildOutput} />
+            ) : (
+              !building && <div className="wr-empty-state compact">No build activity yet.</div>
+            )}
+          </>
         )}
       </div>
     </section>

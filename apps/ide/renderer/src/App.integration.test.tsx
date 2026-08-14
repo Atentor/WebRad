@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   BuildRequest,
+  BuildResponse,
   CreateProjectRequest,
   IdeCommand,
   ProjectSession,
@@ -18,24 +19,69 @@ import type {
 import { applicationIconUrl } from './application-assets';
 
 interface MockCodeEditorProps {
+  readonly path: string;
   readonly value: string;
-  readonly onChange: (value: string) => void;
+  readonly navigateTo?: { readonly line: number } | null;
+  readonly onSourceChange: (resource: string, value: string) => void;
+  readonly onMarkersChange: (
+    markers: readonly {
+      readonly owner: string;
+      readonly resource: { toString(): string };
+      readonly severity: number;
+      readonly code?: string;
+      readonly message: string;
+      readonly source?: string;
+      readonly startLineNumber: number;
+      readonly startColumn: number;
+      readonly endLineNumber: number;
+      readonly endColumn: number;
+    }[],
+  ) => void;
   readonly onSave: () => void;
 }
 
 vi.mock('./components/CodeEditor', () => ({
-  CodeEditor: ({ value, onChange, onSave }: MockCodeEditorProps) => (
-    <div data-testid="mock-monaco">
+  CodeEditor: ({
+    path,
+    value,
+    navigateTo,
+    onSourceChange,
+    onMarkersChange,
+    onSave,
+  }: MockCodeEditorProps) => (
+    <div data-testid="mock-monaco" data-navigation-line={navigateTo?.line}>
       <textarea
         aria-label="Mock Monaco editor"
         value={value}
-        onChange={(event) => onChange(event.currentTarget.value)}
+        onChange={(event) => onSourceChange(path, event.currentTarget.value)}
       />
       <button type="button" onClick={onSave}>
         Save code
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          onMarkersChange([
+            {
+              owner: 'typescript',
+              resource: { toString: () => path },
+              severity: 8,
+              code: '2322',
+              message: 'Type mismatch from the live TypeScript service.',
+              source: 'ts',
+              startLineNumber: 2,
+              startColumn: 3,
+              endLineNumber: 2,
+              endColumn: 8,
+            },
+          ])
+        }
+      >
+        Emit editor problem
+      </button>
     </div>
   ),
+  releaseMonacoWorkspace: vi.fn(),
 }));
 
 import { App } from './App';
@@ -92,14 +138,14 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
   const release = vi.fn(async (rootPath: string): Promise<void> => {
     void rootPath;
   });
-  const build = vi.fn(async (request: BuildRequest) => {
+  const build = vi.fn(async (request: BuildRequest): Promise<BuildResponse> => {
     void request;
     return {
       success: true,
       outputDirectory: 'C:\\Projects\\MvpProject\\dist',
       previewUrl: 'webrad-preview://session/integration/index.html',
       diagnostics: [],
-    } as const;
+    };
   });
   const setDirty = vi.fn((dirty: boolean): void => {
     void dirty;
@@ -335,5 +381,73 @@ describe('App MVP integration', () => {
 
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Create a new project' })).toBeNull();
+  });
+
+  it('projects live TypeScript markers into Problems and navigates to their range', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+    await user.click(await screen.findByRole('button', { name: 'Emit editor problem' }));
+
+    const problemsTab = await screen.findByRole('tab', {
+      name: /Problems, 1 error, 0 warnings/i,
+    });
+    await user.click(problemsTab);
+    const problem = await screen.findByRole('button', {
+      name: /Type mismatch from the live TypeScript service/i,
+    });
+    await user.click(problem);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-monaco').getAttribute('data-navigation-line')).toBe('2');
+    });
+    expect(
+      screen.getByRole('button', { name: /Show Problems, 1 error, 0 warnings/i }),
+    ).toBeDefined();
+  });
+
+  it('keeps build diagnostics authoritative and opens their source location', async () => {
+    const harness = createBridgeHarness(initialSession());
+    harness.build.mockResolvedValueOnce({
+      success: false,
+      diagnostics: [
+        {
+          category: 'error',
+          source: 'typescript',
+          code: 2322,
+          message: "Type 'string' is not assignable to type 'number'.",
+          file: 'forms/FrmMain.ts',
+          line: 3,
+          column: 7,
+          length: 6,
+        },
+      ],
+    });
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await user.click(screen.getByRole('button', { name: 'Build and run (F9)' }));
+
+    const diagnostic = await screen.findByRole('button', {
+      name: /Type 'string' is not assignable to type 'number'/i,
+    });
+    await user.click(diagnostic);
+    const editor = await screen.findByTestId('mock-monaco');
+    await waitFor(() => expect(editor.getAttribute('data-navigation-line')).toBe('3'));
+    expect(screen.getByRole('tab', { name: 'Code' }).getAttribute('aria-selected')).toBe('true');
   });
 });

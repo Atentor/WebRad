@@ -35,6 +35,29 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
 }
 
 describe('ProjectController', () => {
+  it('publishes a monotonic content revision and ignores identical source updates', () => {
+    const project = createProject('Project1');
+    const session = {
+      rootPath: 'C:/projects/Project1',
+      projectFilePath: 'C:/projects/Project1/Project1.wrproj',
+      project,
+      userSources: {},
+    };
+    const controller = new ProjectController(fakeBridge(session));
+    controller.load(session);
+    const loaded = controller.getSnapshot();
+    const source = loaded.userSources['forms/FrmMain.ts'];
+    expect(source).toBeDefined();
+
+    controller.setUserSource('forms\\FrmMain.ts', source!);
+    expect(controller.getSnapshot()).toBe(loaded);
+
+    controller.setUserSource('forms/FrmMain.ts', `${source!}\n// edited`);
+    expect(controller.getSnapshot().revision).toBe(loaded.revision + 1);
+    controller.close();
+    expect(controller.getSnapshot().revision).toBe(loaded.revision + 2);
+  });
+
   it('keeps the aggregate authoritative and tracks dirty/save transitions', async () => {
     const project = createProject('Project1');
     const session = {

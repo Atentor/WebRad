@@ -59,9 +59,13 @@ export interface ReadFileRequest {
 export interface BuildDiagnostic {
   category: 'error' | 'warning' | 'info';
   message: string;
+  source?: 'model' | 'registry' | 'typescript' | 'esbuild' | 'compiler' | 'ide';
+  code?: string | number;
   file?: string;
   line?: number;
   column?: number;
+  length?: number;
+  path?: readonly (string | number)[];
 }
 
 export interface BuildRequest extends SaveProjectRequest {

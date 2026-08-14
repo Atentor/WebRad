@@ -10,6 +10,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: path.join(repositoryRoot, '.vite', 'renderer', 'main_window'),
-    sourcemap: true,
+    // Monaco and the TypeScript worker contain several megabytes of generated sources. Rollup's
+    // production source-map graph pushes the renderer beyond the package command's 4 GB heap.
+    // DevTools still maps the unbundled development server sources; release bundles omit maps.
+    sourcemap: false,
   },
 });

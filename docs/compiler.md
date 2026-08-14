@@ -11,7 +11,7 @@ load/receive project
   -> emit dist/index.html and dist/assets/app.{js,css}
 ```
 
-Diagnostics use stable categories and include file/line information when available so the IDE can populate Problems and Build output. Registry validation rejects unknown components, unsupported children/events, unknown properties, and property values with the wrong metadata type. Preview displays these exact emitted assets in an isolated browser context; it never reuses the Designer as a simulation.
+Diagnostics use stable categories and preserve source, code, file, line, column, length, and model path when available. The IDE projects authoritative F9 diagnostics into both Problems and Monaco decorations, while live Monaco markers provide immediate feedback between builds; duplicate reports are merged by resource, range, and message. Registry validation rejects unknown components, unsupported children/events, unknown properties, and property values with the wrong metadata type. Preview displays these exact emitted assets in an isolated browser context; it never reuses the Designer as a simulation.
 
 The API accepts explicit input/output paths and options, making a future `webrad build` CLI a thin wrapper. Output is browser-only and must not import Electron or Node built-ins.
 

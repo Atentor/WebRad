@@ -12,7 +12,7 @@ export interface CompileDiagnostic {
   readonly line?: number;
   readonly column?: number;
   readonly length?: number;
-  readonly path?: readonly PropertyKey[];
+  readonly path?: readonly (string | number)[];
 }
 
 export interface CompileProjectOptions {

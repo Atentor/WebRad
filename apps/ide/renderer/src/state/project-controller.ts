@@ -17,6 +17,8 @@ export interface ProjectControllerSnapshot {
   readonly rootPath: string | null;
   readonly projectFilePath: string | null;
   readonly userSources: Readonly<Record<string, string>>;
+  /** Monotonic content revision used to reject stale compiler results. */
+  readonly revision: number;
   readonly dirty: boolean;
   readonly saving: boolean;
   readonly error: string | null;
@@ -35,6 +37,7 @@ const EMPTY_SNAPSHOT: ProjectControllerSnapshot = Object.freeze({
   rootPath: null,
   projectFilePath: null,
   userSources: Object.freeze({}),
+  revision: 0,
   dirty: false,
   saving: false,
   error: null,
@@ -124,6 +127,7 @@ export class ProjectController {
       rootPath: session.rootPath,
       projectFilePath: session.projectFilePath,
       userSources,
+      revision: this.#editRevision,
       dirty: false,
       saving: false,
       error: null,
@@ -137,7 +141,7 @@ export class ProjectController {
     if (rootPath) void this.#bridge.project.release(rootPath);
     this.#contextRevision += 1;
     this.#editRevision += 1;
-    this.#snapshot = EMPTY_SNAPSHOT;
+    this.#snapshot = { ...EMPTY_SNAPSHOT, revision: this.#editRevision };
     this.#bridge.lifecycle.setDirty(false);
     this.#emit();
   }
@@ -240,13 +244,22 @@ export class ProjectController {
   }
 
   public setUserSource(relativePath: string, source: string): void {
+    const normalizedPath = relativePath.replaceAll('\\', '/');
+    if (this.#snapshot.userSources[normalizedPath] === source) return;
     const userSources = {
       ...this.#snapshot.userSources,
-      [relativePath.replaceAll('\\', '/')]: source,
+      [normalizedPath]: source,
     };
     const session = this.#snapshot.session ? { ...this.#snapshot.session, userSources } : null;
     this.#editRevision += 1;
-    this.#snapshot = { ...this.#snapshot, session, userSources, dirty: true, error: null };
+    this.#snapshot = {
+      ...this.#snapshot,
+      session,
+      userSources,
+      revision: this.#editRevision,
+      dirty: true,
+      error: null,
+    };
     this.#bridge.lifecycle.setDirty(true);
     this.#emit();
   }
@@ -320,6 +333,7 @@ export class ProjectController {
       rootPath: session.rootPath,
       projectFilePath: session.projectFilePath,
       userSources,
+      revision: this.#editRevision,
       dirty: false,
       saving: false,
       error: null,
@@ -344,6 +358,7 @@ export class ProjectController {
       project,
       session,
       userSources,
+      revision: this.#editRevision,
       dirty: true,
       error: null,
     };

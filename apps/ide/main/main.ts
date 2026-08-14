@@ -134,14 +134,136 @@ async function waitForRendererString(
   window: BrowserWindow,
   expression: string,
   description: string,
+  timeoutMilliseconds = 20_000,
 ): Promise<string> {
-  const deadline = Date.now() + 20_000;
+  const deadline = Date.now() + timeoutMilliseconds;
   while (Date.now() < deadline) {
     const value = (await window.webContents.executeJavaScript(expression, true)) as unknown;
     if (typeof value === 'string' && value.length > 0) return value;
     await wait(50);
   }
   throw new Error(`Timed out waiting for ${description}.`);
+}
+
+async function waitForRendererResult(
+  window: BrowserWindow,
+  expression: string,
+  description: string,
+  isReady: (value: unknown) => boolean,
+  timeoutMilliseconds = 20_000,
+): Promise<unknown> {
+  const deadline = Date.now() + timeoutMilliseconds;
+  let lastResult: unknown;
+  while (Date.now() < deadline) {
+    lastResult = (await window.webContents.executeJavaScript(expression, true)) as unknown;
+    if (isReady(lastResult)) return lastResult;
+    await wait(50);
+  }
+  throw new Error(
+    `Timed out waiting for ${description}. Last result: ${JSON.stringify(lastResult)}`,
+  );
+}
+
+function sendRendererKey(
+  window: BrowserWindow,
+  keyCode: string,
+  modifiers: NonNullable<Electron.KeyboardInputEvent['modifiers']> = [],
+): void {
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
+}
+
+async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
+  const isHighlightedTypeScript = (value: unknown): boolean => {
+    if (typeof value !== 'object' || value === null) return false;
+    const keywords = Reflect.get(value, 'keywords');
+    return (
+      Number(Reflect.get(value, 'lines')) >= 1 &&
+      Number(Reflect.get(value, 'tokens')) >= 4 &&
+      Number(Reflect.get(value, 'tokenClasses')) >= 3 &&
+      Number(Reflect.get(value, 'colors')) >= 3 &&
+      Array.isArray(keywords) &&
+      keywords.includes('import') &&
+      Reflect.get(value, 'formClass') === true
+    );
+  };
+  const highlightingEvidence = await waitForRendererResult(
+    window,
+    `(() => {
+      const editor = document.querySelector('.monaco-editor');
+      if (!(editor instanceof HTMLElement)) return null;
+      const lines = [...editor.querySelectorAll('.view-lines .view-line')];
+      const tokens = [...editor.querySelectorAll('.view-lines span[class*="mtk"]')]
+        .filter((node) => node instanceof HTMLElement)
+        .map((node) => ({
+          text: node.textContent ?? '',
+          tokenClass: [...node.classList].find((name) => /^mtk\\d+$/.test(name)) ?? '',
+          color: getComputedStyle(node).color,
+        }));
+      const tokenClasses = [...new Set(tokens.map((token) => token.tokenClass).filter(Boolean))];
+      const colors = [...new Set(tokens.map((token) => token.color).filter(Boolean))];
+      const source = lines.map((line) => line.textContent ?? '').join('\\n');
+      const expectedKeywords = ['import', 'export', 'class', 'extends', 'async'];
+      const highlightedKeywords = expectedKeywords.filter((keyword) =>
+        tokens.some((token) => token.text.trim() === keyword && token.tokenClass.length > 0),
+      );
+      return {
+        lines: lines.length,
+        tokens: tokens.length,
+        tokenClasses: tokenClasses.length,
+        colors: colors.length,
+        keywords: highlightedKeywords,
+        formClass: source.includes('FrmMainGenerated'),
+        eventHandler: source.includes('BTNMostrarClick'),
+        samples: tokens.slice(0, 12),
+      };
+    })()`,
+    'TypeScript tokenization and syntax highlighting in Monaco',
+    isHighlightedTypeScript,
+  );
+  const highlighting = JSON.stringify(highlightingEvidence);
+  smokeLog(`renderer Monaco TypeScript highlight passed: ${highlighting}`);
+
+  const focused = (await window.webContents.executeJavaScript(
+    `(() => {
+      const input = document.querySelector(
+        '.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea',
+      );
+      if (!(input instanceof HTMLElement)) return false;
+      input.focus();
+      return document.activeElement === input;
+    })()`,
+    true,
+  )) as unknown;
+  if (focused !== true)
+    throw new Error('Renderer Monaco autocomplete smoke could not focus the editor.');
+
+  window.webContents.focus();
+  const commandModifier: NonNullable<Electron.KeyboardInputEvent['modifiers']>[number] =
+    process.platform === 'darwin' ? 'meta' : 'control';
+  sendRendererKey(window, 'Home', [commandModifier]);
+  sendRendererKey(window, 'Space', [commandModifier]);
+
+  const suggestions = await waitForRendererString(
+    window,
+    `(() => {
+      const widget = document.querySelector('.monaco-editor .suggest-widget.visible');
+      if (!(widget instanceof HTMLElement) || getComputedStyle(widget).display === 'none') return '';
+      const rows = [...widget.querySelectorAll('.monaco-list-row')]
+        .filter((row) => row instanceof HTMLElement && row.offsetParent !== null);
+      const labels = rows
+        .map((row) =>
+          row.querySelector('.label-name, .monaco-highlighted-label')?.textContent?.trim() ?? '',
+        )
+        .filter(Boolean);
+      if (rows.length === 0 || labels.length === 0) return '';
+      return JSON.stringify({ rows: rows.length, labels: labels.slice(0, 5) });
+    })()`,
+    'the visible Monaco autocomplete widget after Ctrl+Space',
+    10_000,
+  );
+  smokeLog(`renderer Monaco autocomplete passed: ${suggestions}`);
+  sendRendererKey(window, 'Escape');
 }
 
 function findFrame(frame: WebFrameMain, url: string): WebFrameMain | undefined {
@@ -247,6 +369,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     'the Monaco editor after F12',
   );
   smokeLog('renderer Monaco passed');
+  await runMonacoLanguageSmoke(window);
 
   const dispatched = (await window.webContents.executeJavaScript(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F9', bubbles: true, cancelable: true }))`,

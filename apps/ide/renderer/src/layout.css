@@ -236,6 +236,9 @@
 
 .wr-bottom-tabs button {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   padding: 0 11px;
   border: 0;
   background: transparent;
@@ -268,6 +271,58 @@
   font-size: 11px;
 }
 
+.wr-problem-tab-counts,
+.wr-problems-summary,
+.wr-problem-count {
+  display: flex;
+  align-items: center;
+}
+
+.wr-problem-tab-counts {
+  gap: 5px;
+}
+
+.wr-problems-summary {
+  position: sticky;
+  z-index: 1;
+  top: -5px;
+  gap: 12px;
+  min-height: 27px;
+  padding: 3px 5px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-panel-bg);
+  color: var(--wr-muted-text);
+}
+
+.wr-problem-count {
+  gap: 4px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wr-problem-count-error,
+.wr-problem-error .wr-problem-icon {
+  color: var(--wr-danger);
+}
+
+.wr-problem-count-warning,
+.wr-problem-warning .wr-problem-icon {
+  color: var(--wr-warning);
+}
+
+.wr-problem-count-info,
+.wr-problem-info .wr-problem-icon {
+  color: var(--wr-accent);
+}
+
+.wr-build-tab-running {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wr-accent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--wr-accent) 65%, transparent);
+}
+
 .wr-output-line,
 .wr-problem {
   display: flex;
@@ -278,9 +333,24 @@
   border-radius: 3px;
 }
 
+button.wr-problem {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .wr-output-line:hover,
 .wr-problem:hover {
   background: var(--wr-surface-hover);
+}
+
+button.wr-problem:focus-visible {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
 }
 
 .wr-output-line time {
@@ -291,32 +361,118 @@
   color: var(--wr-accent);
 }
 
-.wr-problem small {
+.wr-problem-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wr-problem-source {
+  color: var(--wr-muted-text);
+  white-space: nowrap;
+}
+
+.wr-problem-location {
   margin-left: auto;
+  color: var(--wr-muted-text);
+  white-space: nowrap;
+}
+
+.wr-build-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 29px;
+  padding: 4px 5px;
   color: var(--wr-muted-text);
 }
 
-.wr-problem-error > :first-child {
-  color: var(--wr-danger);
-}
-
-.wr-problem-warning > :first-child {
-  color: var(--wr-warning);
+.wr-build-progress .wr-spinner {
+  width: 13px;
+  height: 13px;
 }
 
 .wr-status-bar {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 3px;
   min-width: 0;
   padding: 0 9px;
   border-top: 1px solid color-mix(in srgb, var(--wr-accent) 60%, var(--wr-border));
   background: color-mix(in srgb, var(--wr-panel-bg) 88%, var(--wr-accent));
   color: var(--wr-muted-text);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.wr-status-ready,
+.wr-status-item {
+  display: inline-flex;
+  height: 100%;
+  align-items: center;
+  padding: 0 6px;
+  white-space: nowrap;
 }
 
 .wr-status-ready {
+  color: var(--wr-text);
+}
+
+.wr-status-problems {
+  display: inline-flex;
+  height: 19px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.wr-status-problems:hover {
+  background: var(--wr-surface-hover);
+}
+
+.wr-status-problems:focus-visible {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+
+.wr-status-problem {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.wr-status-problem-glyph {
+  display: inline-grid;
+  width: 11px;
+  height: 11px;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.wr-status-problem-error {
+  color: var(--wr-danger);
+}
+
+.wr-status-problem-error .wr-status-problem-glyph {
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+
+.wr-status-problem-warning {
+  color: var(--wr-warning);
+}
+
+.wr-status-position,
+.wr-status-selection,
+.wr-status-bounds {
   color: var(--wr-text);
 }
 
@@ -588,10 +744,110 @@ kbd {
   font-size: 10px;
 }
 
+.wr-code-workspace {
+  display: grid;
+  grid-template-rows: 30px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--wr-bg);
+}
+
+.wr-code-breadcrumb {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-panel-bg);
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 30px;
+  user-select: none;
+}
+
+.wr-code-breadcrumb nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.wr-code-breadcrumb nav > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wr-code-breadcrumb nav > span:last-child {
+  color: var(--wr-text);
+  font-weight: 600;
+}
+
+.wr-code-breadcrumb nav > span > span[aria-hidden='true'] {
+  flex: none;
+  padding: 0 5px;
+  color: var(--wr-disabled-text, var(--wr-muted-text));
+}
+
+.wr-code-shortcuts {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: var(--wr-muted-text);
+  white-space: nowrap;
+}
+
+.wr-code-shortcuts kbd {
+  padding: 1px 4px;
+  border-color: var(--wr-border);
+  background: var(--wr-surface);
+  box-shadow: none;
+  color: var(--wr-text);
+  font-family: var(--wr-mono-font, 'Cascadia Code', Consolas, monospace);
+  font-size: 9px;
+  line-height: 15px;
+}
+
 .wr-monaco-host {
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   user-select: text;
+}
+
+.wr-monaco-loading {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: var(--wr-bg);
+  color: var(--wr-muted-text);
+  font-size: 12px;
+}
+
+.wr-monaco-loading::before {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--wr-border-strong);
+  border-top-color: var(--wr-accent);
+  border-radius: 50%;
+  animation: wr-spin 700ms linear infinite;
+  content: '';
+}
+
+@media (max-width: 980px) {
+  .wr-code-shortcuts {
+    display: none;
+  }
 }
 
 .wr-preview-pane {

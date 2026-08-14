@@ -45,7 +45,11 @@ Component IDs are immutable. Names are validated TypeScript identifiers unique w
 
 ## Code and language services
 
-Each user file owns one long-lived Monaco model. Generated form files declare model components and may be replaced; user files are created once and subsequently edited only through explicit user actions or AST-based transformations. Event generation parses TypeScript, detects the target class/method, inserts a method through compiler AST nodes/printers, and returns a stable navigation location.
+Each user file owns one long-lived Monaco TypeScript model whose URI matches its project path. Models survive Design/Code/Preview switches so undo history, view state, cross-file definitions, references, rename, hover, signature help, formatting, inlay hints, and IntelliSense share one project-wide language-service graph. Model edits are projected back through `ProjectController`; the versioned Project Model and its user-source map remain the source of truth.
+
+Runtime declarations and every generated form declaration are synchronized as disposable TypeScript extra libraries. Stale models and declarations are removed when forms or projects change, while generated implementation files remain separate and replaceable. User files are changed only by explicit editor actions or TypeScript AST transformations. Event generation parses TypeScript, detects the target class/method, inserts a method through compiler AST nodes/printers, and returns a stable navigation range.
+
+Monaco reports syntax, suggestion, and semantic markers continuously for fast feedback. The Problems projection merges and deduplicates those markers with the last authoritative compiler result, preserves source/code/range metadata, and navigates either to source code or the affected model component. The standalone F9 compiler remains authoritative because the embedded Monaco TypeScript service and the build compiler can be different patch versions.
 
 ## Cross-platform decisions
 

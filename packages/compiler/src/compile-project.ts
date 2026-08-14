@@ -115,6 +115,12 @@ function hasErrors(diagnostics: readonly CompileDiagnostic[]): boolean {
   return diagnostics.some((diagnostic) => diagnostic.category === 'error');
 }
 
+function serializableDiagnosticPath(path: readonly PropertyKey[]): readonly (string | number)[] {
+  return path.map((segment) =>
+    typeof segment === 'symbol' ? (segment.description ?? String(segment)) : segment,
+  );
+}
+
 function failedResult(
   outputDirectory: string,
   diagnostics: readonly CompileDiagnostic[],
@@ -176,7 +182,7 @@ export async function compileProject(
         source: 'model',
         code: issue.code,
         message: issue.message,
-        path: issue.path,
+        path: serializableDiagnosticPath(issue.path),
       })),
     );
   }

@@ -24,20 +24,26 @@ import {
   createUserFormSource,
   ensureEventHandler,
   eventHandlerName,
-  generateFormSource,
+  generateFormTypings,
   generateRuntimeTypings,
 } from '@webrad/language';
 import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactElement,
 } from 'react';
-import type { IdeCommand, ProjectSession } from '../../shared/contracts';
-import { BottomPanel, type OutputEntry } from './components/BottomPanel';
-import { CodeEditor } from './components/CodeEditor';
+import type { BuildDiagnostic, IdeCommand, ProjectSession } from '../../shared/contracts';
+import { BottomPanel, type BottomPanelTab, type OutputEntry } from './components/BottomPanel';
+import {
+  CodeEditor,
+  releaseMonacoWorkspace,
+  type EditorCursorStatus,
+  type EditorNavigationTarget,
+} from './components/CodeEditor';
 import { DesignerSurface } from './components/DesignerSurface';
 import { EditorWorkspace, type DocumentTab, type ViewMode } from './components/EditorWorkspace';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -49,6 +55,14 @@ import { ProjectExplorer } from './components/ProjectExplorer';
 import { StatusBar } from './components/StatusBar';
 import { ToolPalette } from './components/ToolPalette';
 import { Toolbar } from './components/Toolbar';
+import {
+  countEditorProblems,
+  mergeEditorProblems,
+  normalizeBuildDiagnostics,
+  normalizeMonacoMarkers,
+  type EditorProblem,
+  type MonacoMarkerLike,
+} from './editor-problems';
 import { DesignerController } from './state/designer-controller';
 import { ProjectController } from './state/project-controller';
 
@@ -65,6 +79,27 @@ function sourceUri(rootPath: string | null, projectId: string, relativePath: str
     .replaceAll('?', '%3F');
   if (encoded.startsWith('//')) return `file:${encoded}`;
   return encoded.startsWith('/') ? `file://${encoded}` : `file:///${encoded}`;
+}
+
+function matchingSourceKey(
+  fileName: string,
+  userSources: Readonly<Record<string, string>>,
+  caseInsensitive: boolean,
+): string | undefined {
+  const portableFileName = fileName.replaceAll('\\', '/');
+  const comparableFileName = caseInsensitive
+    ? portableFileName.toLocaleLowerCase()
+    : portableFileName;
+  return Object.keys(userSources).find((sourcePath) => {
+    const portableSourcePath = sourcePath.replaceAll('\\', '/');
+    const comparableSourcePath = caseInsensitive
+      ? portableSourcePath.toLocaleLowerCase()
+      : portableSourcePath;
+    return (
+      comparableFileName === comparableSourcePath ||
+      comparableFileName.endsWith(`/${comparableSourcePath}`)
+    );
+  });
 }
 
 function asError(error: unknown): Error {
@@ -116,16 +151,22 @@ export function App(): ReactElement {
   const [zoom, setZoom] = useState(100);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [output, setOutput] = useState<readonly OutputEntry[]>([]);
-  const [diagnostics, setDiagnostics] = useState<
-    Awaited<ReturnType<typeof window.webrad.build.run>>['diagnostics']
-  >([]);
+  const [buildDiagnostics, setBuildDiagnostics] = useState<readonly BuildDiagnostic[]>([]);
+  const [monacoMarkers, setMonacoMarkers] = useState<readonly MonacoMarkerLike[]>([]);
+  const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>('output');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectError, setNewProjectError] = useState<string | null>(null);
-  const [cursor, setCursor] = useState({ line: 1, column: 1 });
-  const [navigateTo, setNavigateTo] = useState<{ line: number; column?: number } | null>(null);
+  const [cursor, setCursor] = useState<EditorCursorStatus>({
+    line: 1,
+    column: 1,
+    selectionLength: 0,
+  });
+  const [navigateTo, setNavigateTo] = useState<EditorNavigationTarget | null>(null);
+  const navigationRequestRef = useRef(0);
+  const buildRequestRef = useRef(0);
   const [visiblePanels, setVisiblePanels] = useState({
     explorer: true,
     palette: true,
@@ -160,13 +201,16 @@ export function App(): ReactElement {
     (error: unknown, category = 'IDE'): void => {
       const normalized = asError(error);
       addOutput(category, normalized.message);
-      setDiagnostics([{ category: 'error', message: normalized.message }]);
+      setBuildDiagnostics([{ category: 'error', source: 'ide', message: normalized.message }]);
+      setBottomPanelTab('problems');
+      setVisiblePanels((current) => ({ ...current, output: true }));
     },
     [addOutput],
   );
 
   const activateProjectSession = useCallback(
     (session: ProjectSession): void => {
+      releaseMonacoWorkspace();
       const initialFormId = session.project.entryForm || session.project.forms[0]?.id || null;
       setOpenFormIds(initialFormId ? [initialFormId] : []);
       setActiveFormId(initialFormId);
@@ -174,7 +218,9 @@ export function App(): ReactElement {
       selectionManager.clear();
       designerController.clear();
       setPreviewUrl(null);
-      setDiagnostics([]);
+      setBuildDiagnostics([]);
+      setMonacoMarkers([]);
+      setBottomPanelTab('output');
       addOutput('PROJECT', `Opened ${session.project.name}.`);
     },
     [addOutput, designerController, selectionManager],
@@ -185,6 +231,16 @@ export function App(): ReactElement {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  const observedProjectRevisionRef = useRef(projectState.revision);
+  useEffect(() => {
+    if (observedProjectRevisionRef.current === projectState.revision) return;
+    observedProjectRevisionRef.current = projectState.revision;
+    buildRequestRef.current += 1;
+    setBuilding(false);
+    setBuildDiagnostics([]);
+    setPreviewUrl(null);
+  }, [projectState.revision]);
 
   useEffect(() => {
     selectionManager.retain(new Set(activeForm?.components.map((component) => component.id) ?? []));
@@ -468,7 +524,16 @@ export function App(): ReactElement {
         );
         setActiveFormId(activeForm.id);
         setActiveView('code');
-        setNavigateTo({ line: edit.location.line, column: edit.location.column });
+        setNavigateTo({
+          resource: sourceUri(
+            projectState.rootPath,
+            project?.id ?? 'project',
+            sourceKey(activeForm),
+          ),
+          line: edit.location.line,
+          column: edit.location.column,
+          requestId: (navigationRequestRef.current += 1),
+        });
         addOutput(
           'LANGUAGE',
           edit.changed ? `Created ${handlerName}.` : `Opened existing ${handlerName}.`,
@@ -482,6 +547,8 @@ export function App(): ReactElement {
       addOutput,
       designerController,
       projectController,
+      project,
+      projectState.rootPath,
       projectState.userSources,
       reportError,
       updateActiveForm,
@@ -562,11 +629,14 @@ export function App(): ReactElement {
     try {
       if (!(await prepareToReplaceProject())) return;
       projectController.close();
+      releaseMonacoWorkspace();
       setOpenFormIds([]);
       setActiveFormId(null);
       selectionManager.clear();
       designerController.clear();
       setPreviewUrl(null);
+      setBuildDiagnostics([]);
+      setMonacoMarkers([]);
     } catch (error) {
       reportError(error, 'PROJECT');
     }
@@ -629,19 +699,34 @@ export function App(): ReactElement {
 
   const runProject = useCallback(async (): Promise<void> => {
     if (!projectState.project || !projectState.rootPath) return;
+    const requestId = (buildRequestRef.current += 1);
     setBuilding(true);
-    setDiagnostics([]);
+    setBuildDiagnostics([]);
+    setBottomPanelTab('build');
+    setVisiblePanels((current) => ({ ...current, output: true }));
     addOutput('COMPILER', 'Build started.');
     try {
       await projectController.save();
       const current = projectController.getSnapshot();
       if (!current.project || !current.rootPath) throw new Error('The project is no longer open.');
+      if (requestId !== buildRequestRef.current) return;
+      const buildRevision = current.revision;
+      const buildRootPath = current.rootPath;
       const result = await window.webrad.build.run({
         rootPath: current.rootPath,
         project: current.project,
         userSources: { ...current.userSources },
       });
-      setDiagnostics(result.diagnostics);
+      const latest = projectController.getSnapshot();
+      if (
+        requestId !== buildRequestRef.current ||
+        latest.rootPath !== buildRootPath ||
+        latest.revision !== buildRevision
+      ) {
+        addOutput('COMPILER', 'Ignored an outdated build result after the project changed.');
+        return;
+      }
+      setBuildDiagnostics(result.diagnostics);
       if (result.success && result.previewUrl) {
         setPreviewUrl(result.previewUrl);
         setActiveView('preview');
@@ -649,12 +734,13 @@ export function App(): ReactElement {
       } else {
         setPreviewUrl(null);
         setVisiblePanels((currentPanels) => ({ ...currentPanels, output: true }));
+        setBottomPanelTab('problems');
         addOutput('COMPILER', 'Build failed. See Problems for details.');
       }
     } catch (error) {
-      reportError(error, 'COMPILER');
+      if (requestId === buildRequestRef.current) reportError(error, 'COMPILER');
     } finally {
-      setBuilding(false);
+      if (requestId === buildRequestRef.current) setBuilding(false);
     }
   }, [addOutput, projectController, projectState.project, projectState.rootPath, reportError]);
 
@@ -760,6 +846,14 @@ export function App(): ReactElement {
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent): void => {
       if (event.key === 'F12') {
+        const target = event.target;
+        if (
+          activeView === 'code' &&
+          target instanceof Element &&
+          target.closest('.monaco-editor') !== null
+        ) {
+          return;
+        }
         event.preventDefault();
         setActiveView((current) => (current === 'design' ? 'code' : 'design'));
       } else if (event.key === 'F9') {
@@ -769,7 +863,7 @@ export function App(): ReactElement {
     };
     window.addEventListener('keydown', keyHandler);
     return () => window.removeEventListener('keydown', keyHandler);
-  }, [runProject]);
+  }, [activeView, runProject]);
 
   const documents: readonly DocumentTab[] = useMemo(
     () =>
@@ -782,14 +876,156 @@ export function App(): ReactElement {
     [openFormIds, project, projectState.dirty],
   );
 
+  const projectSources = useMemo<Readonly<Record<string, string>>>(() => {
+    if (!project) return Object.freeze({}) as Readonly<Record<string, string>>;
+    return Object.fromEntries(
+      Object.entries(projectState.userSources).map(([relativePath, source]) => [
+        sourceUri(projectState.rootPath, project.id, relativePath),
+        source,
+      ]),
+    );
+  }, [project, projectState.rootPath, projectState.userSources]);
+
+  const sourcePathByResource = useMemo(
+    () =>
+      new Map(
+        Object.keys(projectState.userSources).map((relativePath) => [
+          sourceUri(projectState.rootPath, project?.id ?? 'project', relativePath),
+          relativePath,
+        ]),
+      ),
+    [project?.id, projectState.rootPath, projectState.userSources],
+  );
+
   const extraLibraries = useMemo<Readonly<Record<string, string>>>(() => {
-    if (!activeForm || !project) return Object.freeze({}) as Readonly<Record<string, string>>;
-    const base = sourceUri(projectState.rootPath, project.id, `forms/${activeForm.name}`);
-    return {
-      'file:///node_modules/@webrad/runtime/index.d.ts': generateRuntimeTypings(),
-      [`${base}.generated.ts`]: generateFormSource(activeForm),
-    };
-  }, [activeForm, project, projectState.rootPath]);
+    if (!project) return Object.freeze({}) as Readonly<Record<string, string>>;
+    return Object.fromEntries([
+      ['file:///node_modules/@webrad/runtime/index.d.ts', generateRuntimeTypings()],
+      ...project.forms.map(
+        (form) =>
+          [
+            sourceUri(projectState.rootPath, project.id, `forms/${form.name}.generated.d.ts`),
+            generateFormTypings(form),
+          ] as const,
+      ),
+    ]);
+  }, [project, projectState.rootPath]);
+
+  const buildProblems = useMemo(
+    () =>
+      normalizeBuildDiagnostics(buildDiagnostics, {
+        resolveResource: (file) => {
+          const key = matchingSourceKey(
+            file,
+            projectState.userSources,
+            window.webrad.platform === 'win32',
+          );
+          return key === undefined
+            ? undefined
+            : sourceUri(projectState.rootPath, project?.id ?? 'project', key);
+        },
+        getSourceText: (file) => {
+          const key = matchingSourceKey(
+            file,
+            projectState.userSources,
+            window.webrad.platform === 'win32',
+          );
+          return key === undefined ? undefined : projectState.userSources[key];
+        },
+      }),
+    [buildDiagnostics, project?.id, projectState.rootPath, projectState.userSources],
+  );
+
+  const problems = useMemo(
+    () => mergeEditorProblems(normalizeMonacoMarkers(monacoMarkers), buildProblems),
+    [buildProblems, monacoMarkers],
+  );
+  const problemCounts = useMemo(() => countEditorProblems(problems), [problems]);
+
+  const updateEditorSource = useCallback(
+    (resource: string, source: string): void => {
+      const comparableResource =
+        window.webrad.platform === 'win32' ? resource.toLocaleLowerCase() : resource;
+      const relativePath =
+        sourcePathByResource.get(resource) ??
+        [...sourcePathByResource].find(([candidate]) => {
+          const comparableCandidate =
+            window.webrad.platform === 'win32' ? candidate.toLocaleLowerCase() : candidate;
+          return comparableCandidate === comparableResource;
+        })?.[1];
+      if (relativePath !== undefined) projectController.setUserSource(relativePath, source);
+    },
+    [projectController, sourcePathByResource],
+  );
+
+  const activateProblem = useCallback(
+    (problem: EditorProblem): void => {
+      if (!project) return;
+      if (problem.range === undefined) {
+        const formIndex =
+          problem.path?.[0] === 'forms' && typeof problem.path[1] === 'number'
+            ? problem.path[1]
+            : undefined;
+        const form = formIndex === undefined ? undefined : project.forms[formIndex];
+        if (form === undefined) return;
+        openForm(form.id);
+        setActiveView('design');
+        const componentIndex =
+          problem.path?.[2] === 'components' && typeof problem.path[3] === 'number'
+            ? problem.path[3]
+            : undefined;
+        const component =
+          componentIndex === undefined ? undefined : form.components[componentIndex];
+        if (component === undefined) selectionManager.clear();
+        else selectionManager.set([component.id], component.id);
+        return;
+      }
+      const comparableResource =
+        problem.resource === undefined
+          ? undefined
+          : window.webrad.platform === 'win32'
+            ? problem.resource.toLocaleLowerCase()
+            : problem.resource;
+      const relativePath =
+        (problem.resource === undefined
+          ? undefined
+          : (sourcePathByResource.get(problem.resource) ??
+            [...sourcePathByResource].find(([candidate]) => {
+              const comparableCandidate =
+                window.webrad.platform === 'win32' ? candidate.toLocaleLowerCase() : candidate;
+              return comparableCandidate === comparableResource;
+            })?.[1])) ??
+        (problem.file === undefined
+          ? undefined
+          : matchingSourceKey(
+              problem.file,
+              projectState.userSources,
+              window.webrad.platform === 'win32',
+            ));
+      if (relativePath === undefined) return;
+      const form = project.forms.find((candidate) => sourceKey(candidate) === relativePath);
+      if (form === undefined) return;
+      const resource = sourceUri(projectState.rootPath, project.id, relativePath);
+      openForm(form.id);
+      setActiveView('code');
+      setNavigateTo({
+        resource,
+        line: problem.range.startLineNumber,
+        column: problem.range.startColumn,
+        endLine: problem.range.endLineNumber,
+        endColumn: problem.range.endColumn,
+        requestId: (navigationRequestRef.current += 1),
+      });
+    },
+    [
+      openForm,
+      project,
+      projectState.rootPath,
+      projectState.userSources,
+      selectionManager,
+      sourcePathByResource,
+    ],
+  );
 
   const editorContent = !activeForm ? null : activeView === 'design' ? (
     <ErrorBoundary area="Designer">
@@ -827,10 +1063,14 @@ export function App(): ReactElement {
         path={sourceUri(projectState.rootPath, project?.id ?? 'project', sourceKey(activeForm))}
         value={projectState.userSources[sourceKey(activeForm)] ?? createUserFormSource(activeForm)}
         theme={theme}
+        breadcrumb={[project?.name ?? 'Project', 'Forms', `${activeForm.name}.ts`]}
         extraLibraries={extraLibraries}
+        projectSources={projectSources}
+        buildProblems={buildProblems}
         navigateTo={navigateTo}
-        onChange={(source) => projectController.setUserSource(sourceKey(activeForm), source)}
-        onCursorChange={(line, column) => setCursor({ line, column })}
+        onSourceChange={updateEditorSource}
+        onMarkersChange={setMonacoMarkers}
+        onCursorChange={setCursor}
         onSave={() => void saveProject()}
       />
     </ErrorBoundary>
@@ -839,7 +1079,7 @@ export function App(): ReactElement {
       <PreviewPane
         url={previewUrl}
         running={building}
-        diagnostics={diagnostics}
+        diagnostics={buildDiagnostics}
         onRun={() => void runProject()}
       />
     </ErrorBoundary>
@@ -953,9 +1193,28 @@ export function App(): ReactElement {
             ) : null
           }
           bottom={
-            visiblePanels.output ? <BottomPanel diagnostics={diagnostics} output={output} /> : null
+            visiblePanels.output ? (
+              <BottomPanel
+                activeTab={bottomPanelTab}
+                problems={problems}
+                output={output}
+                building={building}
+                onActiveTabChange={setBottomPanelTab}
+                onProblemActivate={activateProblem}
+              />
+            ) : null
           }
-          status={<StatusBar status={status} dirty={projectState.dirty} />}
+          status={
+            <StatusBar
+              status={status}
+              dirty={projectState.dirty}
+              problemCounts={problemCounts}
+              onShowProblems={() => {
+                setVisiblePanels((current) => ({ ...current, output: true }));
+                setBottomPanelTab('problems');
+              }}
+            />
+          }
         />
       </div>
       {newProjectDialogOpen && (
