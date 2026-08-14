@@ -1,23 +1,28 @@
 # WebRAD
 
-WebRAD is a cross-platform visual RAD IDE for building browser applications with forms, components, properties, events, TypeScript, and a real build/preview loop. The desktop IDE uses Electron and React; generated applications use only browser technologies.
+O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com formulários, componentes, propriedades, eventos, TypeScript e um fluxo real de compilação e visualização. A IDE desktop utiliza Electron e React; as aplicações geradas utilizam somente tecnologias do navegador.
 
-## Prerequisites
+## Pré-requisitos
 
-- Node.js 24 or newer
-- npm 11 or newer
-- Windows or Linux (the architecture keeps macOS support possible)
+- Node.js 24 ou mais recente
+- npm 11 ou mais recente
+- Windows ou Linux (a arquitetura mantém possível o suporte ao macOS)
 
-## Install and develop
+## Instalação e desenvolvimento
 
 ```sh
 npm install
 npm start
 ```
 
-On Windows PowerShell installations that block `npm.ps1`, use `npm.cmd` for the same commands.
+Se o PowerShell do Windows bloquear a execução de `npm.ps1`, utilize o executável `npm.cmd` sem precisar alterar a política de execução do sistema:
 
-## Validation
+```powershell
+npm.cmd install
+npm.cmd start
+```
+
+## Validação
 
 ```sh
 npm run typecheck
@@ -27,18 +32,34 @@ npm run build
 npm run smoke:packaged
 ```
 
-Run the complete sequence with `npm run validate`. Format sources with `npm run format`; verify formatting with `npm run format:check`. `npm run runtime:sources:check` verifies that the compiler's embedded browser runtime matches its source package.
+Execute toda a sequência com `npm run validate`. Formate o código-fonte com `npm run format` e verifique a formatação com `npm run format:check`. O comando `npm run runtime:sources:check` verifica se o runtime de navegador incorporado ao compilador corresponde ao pacote-fonte.
 
-## Packaging
+No PowerShell que bloqueia `npm.ps1`, substitua `npm` por `npm.cmd` nesses comandos. Por exemplo: `npm.cmd run validate`.
 
-`npm run package` creates an unpacked application for the current platform. `npm run smoke:packaged` starts that exact artifact, opens a temporary copy of the Hello project through the IDE, runs F9 through the typed IPC build path, interacts with the sandboxed Preview, and verifies the generated event result before exiting. `npm run make` invokes Electron Forge makers for distributable artifacts supported by the host platform.
+## Empacotamento e distribuição
 
-## Repository guide
+O comando `npm run package` cria uma aplicação não instalada para a plataforma atual. O comando `npm run smoke:packaged` inicia exatamente esse artefato, abre pela IDE uma cópia temporária do projeto Hello, executa F9 pelo fluxo de compilação com IPC tipado, interage com o Preview isolado e verifica o resultado do evento gerado antes de encerrar. O comando `npm run make` aciona os geradores do Electron Forge para produzir os artefatos distribuíveis compatíveis com a plataforma atual.
 
-- `apps/ide`: Electron main/preload and React renderer.
-- `packages`: independent project model, registry, designer, language, runtime, and compiler modules.
-- `examples/hello-webrad`: sample project used by the vertical workflow.
-- `docs`: architecture, format, component model, and compiler details.
-- `PLANS.md`: live milestone state.
+Para gerar o instalador destinado a outro computador Windows x64, execute no PowerShell:
 
-See [the architecture guide](docs/architecture.md) before changing package boundaries.
+```powershell
+npm.cmd run make
+```
+
+O uso de `npm.cmd` evita o erro de segurança que informa que `npm.ps1` não pode ser carregado porque a execução de scripts está desabilitada. Não é necessário alterar a política de execução do Windows.
+
+O arquivo recomendado para entregar ao usuário é `out/make/squirrel.windows/x64/webrad-<versão> Setup.exe` — atualmente, `webrad-0.1.0 Setup.exe`. Esse é o instalador. O arquivo `.nupkg` presente na mesma pasta não deve ser aberto diretamente pelo usuário final.
+
+Para distribuir uma versão portátil, sem instalação, compacte e transfira o diretório completo `out/webrad-win32-x64`. No outro computador, execute `webrad.exe` dentro dessa pasta. Não transfira apenas o arquivo `webrad.exe`, pois ele depende dos demais arquivos e diretórios de recursos que ficam ao lado dele.
+
+Os artefatos de distribuição são específicos de cada plataforma e devem ser gerados no sistema operacional de destino.
+
+## Guia do repositório
+
+- `apps/ide`: processo principal e preload do Electron, além do renderer em React.
+- `packages`: módulos independentes de modelo de projeto, registro de componentes, designer, linguagem, runtime e compilador.
+- `examples/hello-webrad`: projeto de exemplo utilizado pelo fluxo vertical.
+- `docs`: documentação da arquitetura, do formato, do modelo de componentes e do compilador.
+- `PLANS.md`: estado atual dos marcos do projeto.
+
+Consulte o [guia de arquitetura](docs/architecture.md) antes de alterar os limites entre os pacotes.
