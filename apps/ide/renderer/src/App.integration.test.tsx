@@ -40,6 +40,13 @@ interface MockCodeEditorProps {
   readonly onSave: () => void;
 }
 
+/** Mirrors the Windows file-URI normalization performed by Monaco's URI implementation. */
+function canonicalMonacoResource(resource: string): string {
+  const windowsFileUri = /^file:\/\/\/([A-Za-z]):(\/.*)$/.exec(resource);
+  if (windowsFileUri === null) return resource;
+  return `file:///${windowsFileUri[1]?.toLocaleLowerCase()}%3A${windowsFileUri[2]}`;
+}
+
 vi.mock('./components/CodeEditor', () => ({
   CodeEditor: ({
     path,
@@ -53,7 +60,9 @@ vi.mock('./components/CodeEditor', () => ({
       <textarea
         aria-label="Mock Monaco editor"
         value={value}
-        onChange={(event) => onSourceChange(path, event.currentTarget.value)}
+        onChange={(event) =>
+          onSourceChange(canonicalMonacoResource(path), event.currentTarget.value)
+        }
       />
       <button type="button" onClick={onSave}>
         Save code
@@ -334,6 +343,62 @@ describe('App MVP integration', () => {
     expect(harness.save.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(harness.setDirty).toHaveBeenCalledWith(true);
     expect(harness.setDirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it('preserves the latest Monaco buffer after focus leaves the editor and Design-Code remounts it', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+
+    const editor = (await screen.findByLabelText('Mock Monaco editor')) as HTMLTextAreaElement;
+    const editedSource = `${editor.value}\n// must survive focus and view changes\n`;
+    fireEvent.change(editor, { target: { value: editedSource } });
+    fireEvent.blur(editor);
+
+    await user.click(screen.getByRole('tab', { name: 'Design' }));
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Mock Monaco editor') as HTMLTextAreaElement).value).toBe(
+        editedSource,
+      );
+    });
+    expect(harness.setDirty).toHaveBeenCalledWith(true);
+  });
+
+  it('saves the current Monaco buffer instead of restoring the previously persisted source', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+
+    const editor = (await screen.findByLabelText('Mock Monaco editor')) as HTMLTextAreaElement;
+    const editedSource = `${editor.value}\n// save this exact Monaco buffer\n`;
+    fireEvent.change(editor, { target: { value: editedSource } });
+    await user.click(screen.getByRole('button', { name: 'Save code' }));
+    await screen.findByText('Saved MvpProject.');
+
+    const saveRequest = harness.save.mock.calls.at(-1)?.[0] as SaveProjectRequest | undefined;
+    expect(saveRequest?.userSources['forms/FrmMain.ts']).toBe(editedSource);
+    expect(harness.persisted().userSources['forms/FrmMain.ts']).toBe(editedSource);
+    expect((screen.getByLabelText('Mock Monaco editor') as HTMLTextAreaElement).value).toBe(
+      editedSource,
+    );
   });
 
   it('opens New Project from the File menu command and supports validation and cancel', async () => {

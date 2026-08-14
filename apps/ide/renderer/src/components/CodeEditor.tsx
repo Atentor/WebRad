@@ -4,6 +4,7 @@ import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 import tsWorker from 'monaco-editor/languages/features/typescript/ts.worker.js?worker';
 import { useCallback, useEffect, useRef, type ReactElement } from 'react';
 import type { EditorProblem } from '../editor-problems';
+import { canonicalMonacoResource as canonicalResource } from '../monaco-resource';
 import {
   configureMonaco,
   synchronizeMonacoExtraLibraries,
@@ -51,10 +52,6 @@ interface CodeEditorProps {
 const BUILD_MARKER_OWNER = 'webrad-build';
 const managedModelUris = new Set<string>();
 const buildMarkerUris = new Set<string>();
-
-function canonicalResource(resource: string): string {
-  return monacoApi.Uri.parse(resource).toString();
-}
 
 function markerSeverity(category: EditorProblem['category']): monacoApi.MarkerSeverity {
   if (category === 'error') return monacoApi.MarkerSeverity.Error;
@@ -160,8 +157,7 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
     foldingHighlight: true,
     foldingImportsByDefault: true,
     foldingStrategy: 'auto',
-    fontFamily:
-      "'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     fontLigatures: true,
     fontSize: 13,
     formatOnPaste: true,
@@ -260,6 +256,7 @@ export function CodeEditor({
   const modelDisposablesRef = useRef(new Map<string, monacoApi.IDisposable>());
   const synchronizingModelsRef = useRef(new Set<string>());
   const projectSourceUrisRef = useRef(new Set<string>());
+  const projectSourceResourcesRef = useRef(new Map<string, string>());
   const onSourceChangeRef = useRef(onSourceChange);
   const onMarkersChangeRef = useRef(onMarkersChange);
   const onCursorChangeRef = useRef(onCursorChange);
@@ -285,11 +282,14 @@ export function CodeEditor({
     const canonicalSources = new Map(
       Object.entries(projectSources).map(([resource, content]) => [
         canonicalResource(resource),
-        content,
+        { content, externalResource: resource },
       ]),
     );
     const nextResources = new Set(canonicalSources.keys());
     projectSourceUrisRef.current = nextResources;
+    projectSourceResourcesRef.current = new Map(
+      [...canonicalSources].map(([resource, source]) => [resource, source.externalResource]),
+    );
 
     for (const resource of [...managedModelUris]) {
       if (nextResources.has(resource)) continue;
@@ -298,7 +298,8 @@ export function CodeEditor({
       disposeManagedModel(resource);
     }
 
-    for (const [resource, content] of canonicalSources) {
+    for (const [resource, source] of canonicalSources) {
+      const { content } = source;
       const uri = monacoApi.Uri.parse(resource);
       let model = monacoApi.editor.getModel(uri);
       if (model === null) {
@@ -322,7 +323,10 @@ export function CodeEditor({
           resource,
           model.onDidChangeContent(() => {
             if (synchronizingModelsRef.current.has(resource)) return;
-            onSourceChangeRef.current(resource, model.getValue());
+            onSourceChangeRef.current(
+              projectSourceResourcesRef.current.get(resource) ?? resource,
+              model.getValue(),
+            );
           }),
         );
       }
@@ -422,6 +426,7 @@ export function CodeEditor({
       editorDisposablesRef.current = [];
       for (const disposable of modelDisposablesRef.current.values()) disposable.dispose();
       modelDisposablesRef.current.clear();
+      projectSourceResourcesRef.current.clear();
       editorRef.current = null;
     },
     [],
@@ -453,14 +458,13 @@ export function CodeEditor({
           keepCurrentModel
           language="typescript"
           loading={<div className="wr-monaco-loading">Starting TypeScript IntelliSense…</div>}
-          onChange={(next) => onSourceChangeRef.current(canonicalResource(path), next ?? '')}
           onMount={onMount}
           onValidate={publishMarkers}
           options={editorOptions(label)}
           path={path}
           saveViewState
           theme={webradMonacoTheme(theme)}
-          value={value}
+          defaultValue={value}
         />
       </div>
     </section>

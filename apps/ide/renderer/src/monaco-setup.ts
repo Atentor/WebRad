@@ -38,6 +38,7 @@ import 'monaco-editor/features/unicodeHighlighter/register';
 import 'monaco-editor/features/wordHighlighter/register';
 import 'monaco-editor/languages/definitions/typescript/register';
 import * as typescriptApi from 'monaco-editor/languages/features/typescript/register';
+import { canonicalMonacoResource } from './monaco-resource';
 
 export const WEBRAD_MONACO_DARK_THEME = 'webrad-dark';
 export const WEBRAD_MONACO_LIGHT_THEME = 'webrad-light';
@@ -253,7 +254,10 @@ export function configureMonaco(): void {
 
 export function synchronizeMonacoExtraLibraries(libraries: Readonly<Record<string, string>>): void {
   configureMonaco();
-  const nextPaths = new Set(Object.keys(libraries));
+  const canonicalLibraries = new Map(
+    Object.entries(libraries).map(([path, content]) => [canonicalMonacoResource(path), content]),
+  );
+  const nextPaths = new Set(canonicalLibraries.keys());
 
   for (const [path, registration] of extraLibraryRegistrations) {
     if (nextPaths.has(path)) continue;
@@ -261,7 +265,7 @@ export function synchronizeMonacoExtraLibraries(libraries: Readonly<Record<strin
     extraLibraryRegistrations.delete(path);
   }
 
-  for (const [path, content] of Object.entries(libraries)) {
+  for (const [path, content] of canonicalLibraries) {
     const current = extraLibraryRegistrations.get(path);
     if (current?.content === content) continue;
     current?.disposable.dispose();

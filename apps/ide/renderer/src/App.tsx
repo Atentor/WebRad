@@ -63,6 +63,7 @@ import {
   type EditorProblem,
   type MonacoMarkerLike,
 } from './editor-problems';
+import { canonicalMonacoResource } from './monaco-resource';
 import { DesignerController } from './state/designer-controller';
 import { ProjectController } from './state/project-controller';
 
@@ -71,14 +72,20 @@ function sourceKey(form: FormModel): string {
 }
 
 function sourceUri(rootPath: string | null, projectId: string, relativePath: string): string {
-  if (!rootPath) return `inmemory://webrad/${projectId}/${relativePath}`;
+  if (!rootPath) {
+    return canonicalMonacoResource(`inmemory://webrad/${projectId}/${relativePath}`);
+  }
   const portableRoot = rootPath.replaceAll('\\', '/');
   const base = portableRoot.endsWith('/') ? portableRoot.slice(0, -1) : portableRoot;
   const encoded = encodeURI(`${base}/${relativePath}`)
     .replaceAll('#', '%23')
     .replaceAll('?', '%3F');
-  if (encoded.startsWith('//')) return `file:${encoded}`;
-  return encoded.startsWith('/') ? `file://${encoded}` : `file:///${encoded}`;
+  const resource = encoded.startsWith('//')
+    ? `file:${encoded}`
+    : encoded.startsWith('/')
+      ? `file://${encoded}`
+      : `file:///${encoded}`;
+  return canonicalMonacoResource(resource);
 }
 
 function matchingSourceKey(
@@ -944,10 +951,13 @@ export function App(): ReactElement {
 
   const updateEditorSource = useCallback(
     (resource: string, source: string): void => {
+      const canonicalResource = canonicalMonacoResource(resource);
       const comparableResource =
-        window.webrad.platform === 'win32' ? resource.toLocaleLowerCase() : resource;
+        window.webrad.platform === 'win32'
+          ? canonicalResource.toLocaleLowerCase()
+          : canonicalResource;
       const relativePath =
-        sourcePathByResource.get(resource) ??
+        sourcePathByResource.get(canonicalResource) ??
         [...sourcePathByResource].find(([candidate]) => {
           const comparableCandidate =
             window.webrad.platform === 'win32' ? candidate.toLocaleLowerCase() : candidate;
@@ -980,16 +990,16 @@ export function App(): ReactElement {
         else selectionManager.set([component.id], component.id);
         return;
       }
+      const canonicalProblemResource =
+        problem.resource === undefined ? undefined : canonicalMonacoResource(problem.resource);
       const comparableResource =
-        problem.resource === undefined
-          ? undefined
-          : window.webrad.platform === 'win32'
-            ? problem.resource.toLocaleLowerCase()
-            : problem.resource;
+        canonicalProblemResource === undefined || window.webrad.platform !== 'win32'
+          ? canonicalProblemResource
+          : canonicalProblemResource.toLocaleLowerCase();
       const relativePath =
-        (problem.resource === undefined
+        (canonicalProblemResource === undefined
           ? undefined
-          : (sourcePathByResource.get(problem.resource) ??
+          : (sourcePathByResource.get(canonicalProblemResource) ??
             [...sourcePathByResource].find(([candidate]) => {
               const comparableCandidate =
                 window.webrad.platform === 'win32' ? candidate.toLocaleLowerCase() : candidate;

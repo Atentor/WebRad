@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 interface MockEditorProps {
   readonly beforeMount?: (monaco: unknown) => void;
   readonly defaultLanguage?: string;
+  readonly defaultValue?: string;
   readonly keepCurrentModel?: boolean;
   readonly language?: string;
   readonly loading?: ReactNode;
@@ -54,6 +55,12 @@ const mocks = vi.hoisted(() => {
   const markers = new Map<string, MockMarker[]>();
   const markerListeners = new Set<MarkerListener>();
 
+  function canonicalResource(value: string): string {
+    const windowsFileUri = /^file:\/\/\/([A-Za-z]):(\/.*)$/.exec(value);
+    if (windowsFileUri === null) return value;
+    return `file:///${windowsFileUri[1]?.toLocaleLowerCase()}%3A${windowsFileUri[2]}`;
+  }
+
   function uri(value: string): MockUri {
     return { value, toString: () => value };
   }
@@ -96,7 +103,7 @@ const mocks = vi.hoisted(() => {
     return model;
   }
 
-  const parseUri = vi.fn((value: string) => uri(value));
+  const parseUri = vi.fn((value: string) => uri(canonicalResource(value)));
   const createModel = vi.fn((content: string, language: string, resource: MockUri) => {
     const model = createModelImplementation(content, language, resource);
     models.set(resource.toString(), model);
@@ -249,6 +256,8 @@ type CodeEditorProps = Parameters<typeof CodeEditor>[0];
 
 const MAIN_RESOURCE = 'file:///C:/Projects/Demo/forms/FrmMain.ts';
 const OTHER_RESOURCE = 'file:///C:/Projects/Demo/forms/FrmOther.ts';
+const CANONICAL_MAIN_RESOURCE = 'file:///c%3A/Projects/Demo/forms/FrmMain.ts';
+const CANONICAL_OTHER_RESOURCE = 'file:///c%3A/Projects/Demo/forms/FrmOther.ts';
 
 function codeEditorProps(overrides: Partial<CodeEditorProps> = {}): CodeEditorProps {
   return {
@@ -316,8 +325,8 @@ describe('CodeEditor professional Monaco workspace', () => {
     );
 
     expect(mocks.createModel).toHaveBeenCalledTimes(2);
-    expect(mocks.models.get(MAIN_RESOURCE)?.getLanguageId()).toBe('typescript');
-    expect(mocks.models.get(OTHER_RESOURCE)?.getValue()).toBe('export class FrmOther {}');
+    expect(mocks.models.get(CANONICAL_MAIN_RESOURCE)?.getLanguageId()).toBe('typescript');
+    expect(mocks.models.get(CANONICAL_OTHER_RESOURCE)?.getValue()).toBe('export class FrmOther {}');
 
     expect(mocks.editorProps?.beforeMount).toBeTypeOf('function');
     mocks.editorProps?.beforeMount?.({});
@@ -325,6 +334,7 @@ describe('CodeEditor professional Monaco workspace', () => {
     expect(mocks.synchronizeMonacoExtraLibraries).toHaveBeenCalledWith(props.extraLibraries);
     expect(mocks.editorProps).toMatchObject({
       defaultLanguage: 'typescript',
+      defaultValue: props.value,
       keepCurrentModel: true,
       language: 'typescript',
       path: MAIN_RESOURCE,
@@ -350,8 +360,8 @@ describe('CodeEditor professional Monaco workspace', () => {
     const onSourceChange = vi.fn();
     const initialProps = codeEditorProps({ onSourceChange });
     const { rerender } = render(<CodeEditor {...initialProps} />);
-    const mainModel = mocks.models.get(MAIN_RESOURCE);
-    const otherModel = mocks.models.get(OTHER_RESOURCE);
+    const mainModel = mocks.models.get(CANONICAL_MAIN_RESOURCE);
+    const otherModel = mocks.models.get(CANONICAL_OTHER_RESOURCE);
     expect(mainModel).toBeDefined();
     expect(otherModel).toBeDefined();
 
@@ -372,13 +382,9 @@ describe('CodeEditor professional Monaco workspace', () => {
     expect(mainModel?.setValue).toHaveBeenCalledWith('export class FrmMain { answer = 43; }');
     expect(onSourceChange).not.toHaveBeenCalled();
     expect(otherModel?.dispose).toHaveBeenCalledOnce();
-    expect(mocks.models.has(OTHER_RESOURCE)).toBe(false);
+    expect(mocks.models.has(CANONICAL_OTHER_RESOURCE)).toBe(false);
 
-    mocks.editorProps?.onChange?.('export class FrmMain { answer = 44; }');
-    expect(onSourceChange).toHaveBeenCalledWith(
-      MAIN_RESOURCE,
-      'export class FrmMain { answer = 44; }',
-    );
+    expect(mocks.editorProps?.onChange).toBeUndefined();
   });
 
   it('publishes live markers, applies build markers, navigates, saves, and opens Find', () => {
@@ -392,7 +398,7 @@ describe('CodeEditor professional Monaco workspace', () => {
       onSave,
     });
     const { rerender } = render(<CodeEditor {...initialProps} />);
-    mocks.addRawMarker(MAIN_RESOURCE, {
+    mocks.addRawMarker(CANONICAL_MAIN_RESOURCE, {
       code: '6133',
       endColumn: 8,
       endLineNumber: 1,
@@ -403,12 +409,12 @@ describe('CodeEditor professional Monaco workspace', () => {
       startColumn: 1,
       startLineNumber: 1,
     });
-    const editor = mocks.createEditor(MAIN_RESOURCE);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
 
     mocks.editorProps?.onMount?.(editor);
 
     expect(mocks.setModelMarkers).toHaveBeenCalledWith(
-      mocks.models.get(MAIN_RESOURCE),
+      mocks.models.get(CANONICAL_MAIN_RESOURCE),
       'webrad-build',
       [
         expect.objectContaining({
@@ -457,7 +463,7 @@ describe('CodeEditor professional Monaco workspace', () => {
 
     rerender(<CodeEditor {...codeEditorProps({ ...initialProps, buildProblems: [] })} />);
     expect(mocks.setModelMarkers).toHaveBeenLastCalledWith(
-      mocks.models.get(MAIN_RESOURCE),
+      mocks.models.get(CANONICAL_MAIN_RESOURCE),
       'webrad-build',
       [],
     );

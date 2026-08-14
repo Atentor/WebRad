@@ -22,11 +22,19 @@ const mocks = vi.hoisted(() => {
     setEagerModelSync: vi.fn(),
     setInlayHintsOptions: vi.fn(),
     setModeConfiguration: vi.fn(),
+    canonicalResource: (resource: string): string => {
+      const windowsFileUri = /^file:\/\/\/([A-Za-z]):(\/.*)$/.exec(resource);
+      if (windowsFileUri === null) return resource;
+      return `file:///${windowsFileUri[1]?.toLocaleLowerCase()}%3A${windowsFileUri[2]}`;
+    },
   };
 });
 
 vi.mock('monaco-editor/editor', () => ({
   editor: { defineTheme: mocks.defineTheme },
+  Uri: {
+    parse: (resource: string) => ({ toString: () => mocks.canonicalResource(resource) }),
+  },
 }));
 
 vi.mock('monaco-editor/features/bracketMatching/register', () => ({}));
@@ -199,5 +207,16 @@ describe('Monaco setup', () => {
     synchronizeMonacoExtraLibraries({});
     expect(mocks.registrations[2]?.dispose).toHaveBeenCalledOnce();
     expect(mocks.registrations[3]?.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('registers extra libraries with the same canonical Windows URI used by Monaco models', () => {
+    synchronizeMonacoExtraLibraries({
+      'file:///C:/Projects/Demo/forms/FrmMain.generated.d.ts': 'export declare class Generated {}',
+    });
+
+    expect(mocks.addExtraLib).toHaveBeenCalledWith(
+      'export declare class Generated {}',
+      'file:///c%3A/Projects/Demo/forms/FrmMain.generated.d.ts',
+    );
   });
 });
