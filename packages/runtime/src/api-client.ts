@@ -1,3 +1,5 @@
+import { WebNonvisualComponent, type WebNonvisualComponentOptions } from './component.js';
+
 export type QueryValue = string | number | boolean | null | undefined;
 
 export interface WebApiRequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
@@ -6,7 +8,7 @@ export interface WebApiRequestOptions extends Omit<RequestInit, 'body' | 'header
   readonly query?: Readonly<Record<string, QueryValue | readonly QueryValue[]>>;
 }
 
-export interface WebApiClientOptions {
+export interface WebApiClientOptions extends WebNonvisualComponentOptions {
   readonly baseUrl?: string;
   readonly headers?: HeadersInit;
   readonly fetch?: typeof globalThis.fetch;
@@ -86,16 +88,25 @@ async function readResponseBody(response: Response): Promise<unknown> {
   return text;
 }
 
-export class WebApiClient {
-  readonly #baseUrl: string;
+export class WebApiClient extends WebNonvisualComponent {
+  #baseUrl: string;
   readonly #headers: Headers;
   readonly #fetch: typeof globalThis.fetch;
 
   public constructor(options: WebApiClientOptions | string = {}) {
     const normalized = typeof options === 'string' ? { baseUrl: options } : options;
+    super(normalized);
     this.#baseUrl = normalized.baseUrl ?? '';
     this.#headers = new Headers(normalized.headers);
     this.#fetch = normalized.fetch ?? globalThis.fetch.bind(globalThis);
+  }
+
+  public get baseUrl(): string {
+    return this.#baseUrl;
+  }
+
+  public set baseUrl(value: string) {
+    this.#baseUrl = value;
   }
 
   public async request<T>(path: string, options: WebApiRequestOptions = {}): Promise<T> {

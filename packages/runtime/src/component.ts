@@ -32,7 +32,35 @@ function supportsDisabled(element: HTMLElement): element is HTMLElement & { disa
   return 'disabled' in element && typeof element.disabled === 'boolean';
 }
 
-/** Browser-side wrapper shared by every visual and nonvisual WebRAD component. */
+function finitePixels(value: number, property: string): string {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`${property} must be a finite number.`);
+  }
+  return `${String(value)}px`;
+}
+
+function pixelValue(value: string, fallback: number): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+export interface WebNonvisualComponentOptions {
+  readonly id?: string;
+  readonly name?: string;
+}
+
+/** Browser-safe identity shared by services that do not own a DOM element. */
+export class WebNonvisualComponent {
+  public readonly id: string;
+  public readonly name: string;
+
+  public constructor(options: WebNonvisualComponentOptions = {}) {
+    this.id = options.id ?? '';
+    this.name = options.name ?? '';
+  }
+}
+
+/** Browser-side wrapper shared by every visual WebRAD component. */
 export class WebComponent<TElement extends HTMLElement = HTMLElement> {
   readonly #eventDisposers = new Map<string, () => void>();
 
@@ -62,6 +90,70 @@ export class WebComponent<TElement extends HTMLElement = HTMLElement> {
   public set enabled(value: boolean) {
     if (supportsDisabled(this.element)) this.element.disabled = !value;
     this.element.setAttribute('aria-disabled', String(!value));
+  }
+
+  public get x(): number {
+    return pixelValue(this.element.style.left, this.element.offsetLeft);
+  }
+
+  public set x(value: number) {
+    this.element.style.left = finitePixels(value, 'x');
+  }
+
+  public get y(): number {
+    return pixelValue(this.element.style.top, this.element.offsetTop);
+  }
+
+  public set y(value: number) {
+    this.element.style.top = finitePixels(value, 'y');
+  }
+
+  public get width(): number {
+    return pixelValue(this.element.style.width, this.element.offsetWidth);
+  }
+
+  public set width(value: number) {
+    this.element.style.width = finitePixels(value, 'width');
+  }
+
+  public get height(): number {
+    return pixelValue(this.element.style.height, this.element.offsetHeight);
+  }
+
+  public set height(value: number) {
+    this.element.style.height = finitePixels(value, 'height');
+  }
+
+  public get tabIndex(): number {
+    return this.element.tabIndex;
+  }
+
+  public set tabIndex(value: number) {
+    this.element.tabIndex = value;
+  }
+
+  public get backgroundColor(): string {
+    return this.element.style.backgroundColor;
+  }
+
+  public set backgroundColor(value: string) {
+    this.element.style.backgroundColor = value;
+  }
+
+  public get color(): string {
+    return this.element.style.color;
+  }
+
+  public set color(value: string) {
+    this.element.style.color = value;
+  }
+
+  public get borderColor(): string {
+    return this.element.style.borderColor;
+  }
+
+  public set borderColor(value: string) {
+    this.element.style.borderColor = value;
   }
 
   public focus(options?: FocusOptions): void {

@@ -37,6 +37,7 @@ import 'monaco-editor/features/unicodeHighlighter/register';
 import 'monaco-editor/features/wordHighlighter/register';
 import 'monaco-editor/languages/definitions/typescript/register';
 import * as typescriptApi from 'monaco-editor/languages/features/typescript/register';
+import { supportsTypeScriptThisExpression } from './form-component-completions';
 import { canonicalMonacoResource } from './monaco-resource';
 
 export const WEBRAD_MONACO_DARK_THEME = 'webrad-dark';
@@ -51,6 +52,8 @@ interface ExtraLibraryRegistration {
 
 const extraLibraryRegistrations = new Map<string, ExtraLibraryRegistration>();
 let configured = false;
+let typeScriptWorkerFactoryPromise:
+  ReturnType<typeof typescriptApi.getTypeScriptWorker> | undefined;
 
 // Monaco 0.56 embeds TypeScript 5.9, but its public compatibility enums stop at ES2020/NodeJs.
 // These are the stable TypeScript enum values for ScriptTarget.ES2022 and
@@ -276,11 +279,34 @@ export function synchronizeMonacoExtraLibraries(libraries: Readonly<Record<strin
   }
 }
 
+/** Uses the same TypeScript parser as Monaco to reject non-expression completion positions. */
+export async function isTypeScriptThisExpressionPosition(
+  resource: string,
+  offset: number,
+): Promise<boolean> {
+  const uri = monacoApi.Uri.parse(resource);
+  const workerFactoryPromise =
+    typeScriptWorkerFactoryPromise ??
+    (typeScriptWorkerFactoryPromise = typescriptApi.getTypeScriptWorker());
+  try {
+    const workerFactory = await workerFactoryPromise;
+    const worker = await workerFactory(uri);
+    const completionInfo: unknown = await worker.getCompletionsAtPosition(uri.toString(), offset);
+    return supportsTypeScriptThisExpression(completionInfo);
+  } catch {
+    if (typeScriptWorkerFactoryPromise === workerFactoryPromise) {
+      typeScriptWorkerFactoryPromise = undefined;
+    }
+    return false;
+  }
+}
+
 /** Clears module-owned state so unit tests remain isolated. Not for application lifecycle use. */
 export function resetMonacoSetupForTests(): void {
   for (const registration of extraLibraryRegistrations.values()) {
     registration.disposable.dispose();
   }
   extraLibraryRegistrations.clear();
+  typeScriptWorkerFactoryPromise = undefined;
   configured = false;
 }

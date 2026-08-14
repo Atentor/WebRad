@@ -244,7 +244,13 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
   window.webContents.focus();
   const commandModifier: NonNullable<Electron.KeyboardInputEvent['modifiers']>[number] =
     process.platform === 'darwin' ? 'meta' : 'control';
-  sendRendererKey(window, 'Home', [commandModifier]);
+  // Place the cursor on the empty line immediately before the handler's closing brace.
+  // This is a real expression-statement position, so the custom Delphi-style provider
+  // must contribute the active form component Names without modifying the source.
+  sendRendererKey(window, 'End', [commandModifier]);
+  sendRendererKey(window, 'Up');
+  sendRendererKey(window, 'Up');
+  sendRendererKey(window, 'Home');
   sendRendererKey(window, 'Space', [commandModifier]);
 
   const suggestions = await waitForRendererString(
@@ -254,13 +260,18 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
       if (!(widget instanceof HTMLElement) || getComputedStyle(widget).display === 'none') return '';
       const rows = [...widget.querySelectorAll('.monaco-list-row')]
         .filter((row) => row instanceof HTMLElement && row.offsetParent !== null);
-      const labels = rows
+       const labels = rows
         .map((row) =>
           row.querySelector('.label-name, .monaco-highlighted-label')?.textContent?.trim() ?? '',
-        )
-        .filter(Boolean);
-      if (rows.length === 0 || labels.length === 0) return '';
-      return JSON.stringify({ rows: rows.length, labels: labels.slice(0, 5) });
+         )
+         .filter(Boolean);
+       const componentNames = ['LBLNome', 'EDTNome', 'BTNMostrar'];
+       if (
+         rows.length === 0 ||
+         labels.length === 0 ||
+         !componentNames.every((name) => labels.includes(name))
+       ) return '';
+       return JSON.stringify({ rows: rows.length, labels: labels.slice(0, 5) });
     })()`,
     'the visible Monaco autocomplete widget after Ctrl+Space',
     10_000,

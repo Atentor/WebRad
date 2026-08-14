@@ -20,7 +20,31 @@ export class WebLabel extends WebComponent<HTMLElement> {
   public set text(value: string) {
     this.caption = value;
   }
+
+  public get autoSize(): boolean {
+    return this.element.dataset.webradAutoSize === 'true';
+  }
+
+  public set autoSize(value: boolean) {
+    if (value === this.autoSize) return;
+    if (value) {
+      this.element.dataset.webradAutoSizeWidth = this.element.style.width;
+      this.element.dataset.webradAutoSizeHeight = this.element.style.height;
+      this.element.dataset.webradAutoSize = 'true';
+      this.element.style.width = 'fit-content';
+      this.element.style.height = 'fit-content';
+      return;
+    }
+
+    this.element.style.width = this.element.dataset.webradAutoSizeWidth ?? '';
+    this.element.style.height = this.element.dataset.webradAutoSizeHeight ?? '';
+    delete this.element.dataset.webradAutoSizeWidth;
+    delete this.element.dataset.webradAutoSizeHeight;
+    this.element.dataset.webradAutoSize = 'false';
+  }
 }
+
+export type WebInputType = 'text' | 'password' | 'email' | 'number' | 'search' | 'tel' | 'url';
 
 function inputElement(element: HTMLElement): HTMLInputElement {
   if (!(element instanceof HTMLInputElement))
@@ -55,6 +79,14 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
 
   public set readOnly(value: boolean) {
     this.element.readOnly = value;
+  }
+
+  public get inputType(): WebInputType {
+    return this.element.type as WebInputType;
+  }
+
+  public set inputType(value: WebInputType) {
+    this.element.type = value;
   }
 
   public clear(): void {
@@ -100,6 +132,14 @@ export class WebTextArea extends WebComponent<HTMLTextAreaElement> {
 
   public set readOnly(value: boolean) {
     this.element.readOnly = value;
+  }
+
+  public get rows(): number {
+    return this.element.rows;
+  }
+
+  public set rows(value: number) {
+    this.element.rows = value;
   }
 
   public clear(): void {
@@ -279,7 +319,17 @@ export class WebImage extends WebComponent<HTMLImageElement> {
   public set alt(value: string) {
     this.element.alt = value;
   }
+
+  public get objectFit(): WebImageObjectFit {
+    return (this.element.style.objectFit || 'contain') as WebImageObjectFit;
+  }
+
+  public set objectFit(value: WebImageObjectFit) {
+    this.element.style.objectFit = value;
+  }
 }
+
+export type WebImageObjectFit = 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
 
 export class WebListBox extends WebComponent<HTMLSelectElement> {
   public constructor(element: HTMLElement) {
@@ -295,6 +345,22 @@ export class WebListBox extends WebComponent<HTMLSelectElement> {
 
   public set value(value: string) {
     this.element.value = value;
+  }
+
+  public get selectedIndex(): number {
+    return this.element.selectedIndex;
+  }
+
+  public set selectedIndex(value: number) {
+    this.element.selectedIndex = value;
+  }
+
+  public get multiple(): boolean {
+    return this.element.multiple;
+  }
+
+  public set multiple(value: boolean) {
+    this.element.multiple = value;
   }
 
   public set items(items: readonly (string | WebSelectItem)[]) {
@@ -323,4 +389,13 @@ export class WebListBox extends WebComponent<HTMLSelectElement> {
   }
 }
 
-export class WebPanel extends WebComponent<HTMLElement> {}
+export class WebPanel extends WebComponent<HTMLElement> {
+  public get caption(): string {
+    return this.element.dataset.webradCaption ?? this.element.getAttribute('aria-label') ?? '';
+  }
+
+  public set caption(value: string) {
+    this.element.dataset.webradCaption = value;
+    this.element.setAttribute('aria-label', value);
+  }
+}

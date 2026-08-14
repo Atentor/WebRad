@@ -8,7 +8,19 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   /** Converts a WebRAD event name, such as OnClick, to its browser event name. */
   export function runtimeEventName(eventName: string): string;
 
-  /** Base browser-side wrapper shared by every WebRAD component. */
+  export interface WebNonvisualComponentOptions {
+    readonly id?: string;
+    readonly name?: string;
+  }
+
+  /** Browser-safe identity shared by services that do not own a DOM element. */
+  export class WebNonvisualComponent {
+    constructor(options?: WebNonvisualComponentOptions);
+    readonly id: string;
+    readonly name: string;
+  }
+
+  /** Base browser-side wrapper shared by every visual WebRAD component. */
   export class WebComponent<TElement extends HTMLElement = HTMLElement> {
     readonly element: TElement;
     constructor(element: TElement);
@@ -16,6 +28,14 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly name: string;
     visible: boolean;
     enabled: boolean;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    tabIndex: number;
+    backgroundColor: string;
+    color: string;
+    borderColor: string;
     focus(options?: FocusOptions): void;
     show(): void;
     hide(): void;
@@ -25,15 +45,20 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   }
 
   /** Visual container used to group controls. */
-  export class WebPanel extends WebComponent<HTMLElement> {}
+  export class WebPanel extends WebComponent<HTMLElement> {
+    caption: string;
+  }
 
   export interface CloseFormOptions {
     /** Remove the form element from the document instead of hiding it. */
     readonly remove?: boolean;
   }
 
+  export type WebFormLayoutMode = 'absolute' | 'flex' | 'grid';
+
   /** Base class for generated and user-authored forms. */
   export class WebForm extends WebPanel {
+    layoutMode: WebFormLayoutMode;
     show(): void;
     close(options?: CloseFormOptions): void;
     requireComponentElement(componentId: string): HTMLElement;
@@ -48,13 +73,17 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   export class WebLabel extends WebComponent<HTMLElement> {
     caption: string;
     text: string;
+    autoSize: boolean;
   }
+
+  export type WebInputType = 'text' | 'password' | 'email' | 'number' | 'search' | 'tel' | 'url';
 
   export class WebEdit extends WebComponent<HTMLInputElement> {
     constructor(element: HTMLElement);
     value: string;
     placeholder: string;
     readOnly: boolean;
+    inputType: WebInputType;
     clear(): void;
     set onChange(handler: WebComponentEventHandler<this> | null);
     set onInput(handler: WebComponentEventHandler<this> | null);
@@ -65,6 +94,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     value: string;
     placeholder: string;
     readOnly: boolean;
+    rows: number;
     clear(): void;
     set onChange(handler: WebComponentEventHandler<this> | null);
     set onInput(handler: WebComponentEventHandler<this> | null);
@@ -104,11 +134,16 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     constructor(element: HTMLElement);
     src: string;
     alt: string;
+    objectFit: WebImageObjectFit;
   }
+
+  export type WebImageObjectFit = 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
 
   export class WebListBox extends WebComponent<HTMLSelectElement> {
     constructor(element: HTMLElement);
     value: string;
+    selectedIndex: number;
+    multiple: boolean;
     get items(): readonly WebSelectItem[];
     set items(items: readonly (string | WebSelectItem)[]);
     selectedValues: readonly string[];
@@ -139,7 +174,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly query?: Readonly<Record<string, QueryValue | readonly QueryValue[]>>;
   }
 
-  export interface WebApiClientOptions {
+  export interface WebApiClientOptions extends WebNonvisualComponentOptions {
     readonly baseUrl?: string;
     readonly headers?: HeadersInit;
     readonly fetch?: typeof globalThis.fetch;
@@ -162,8 +197,9 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   }
 
   /** Fetch-based HTTP client with JSON bodies, query parameters, and typed responses. */
-  export class WebApiClient {
+  export class WebApiClient extends WebNonvisualComponent {
     constructor(options?: WebApiClientOptions | string);
+    baseUrl: string;
     request<T>(path: string, options?: WebApiRequestOptions): Promise<T>;
     get<T>(path: string, options?: WebApiRequestOptions): Promise<T>;
     post<T>(path: string, body?: unknown, options?: WebApiRequestOptions): Promise<T>;

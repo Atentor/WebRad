@@ -9,6 +9,8 @@ import {
   WebListBox,
   WebPanel,
   WebTextArea,
+  type WebImageObjectFit,
+  type WebInputType,
   type WebSelectItem,
 } from './controls.js';
 import { WebForm } from './form.js';
@@ -139,15 +141,21 @@ function applyCommon(component: WebComponent, node: RuntimeComponentNode): void 
   element.dataset.webradName = node.name;
   element.dataset.webradType = node.type;
   element.classList.add(...visual.classNames);
-  Object.assign(element.style, visual.style);
+  component.width = node.bounds.width;
+  component.height = node.bounds.height;
+  component.backgroundColor = visual.style.backgroundColor ?? '';
+  component.color = visual.style.color ?? '';
+  component.borderColor = visual.style.borderColor ?? '';
+  element.style.borderStyle = visual.style.borderStyle ?? '';
+  element.style.borderWidth = visual.style.borderWidth ?? '';
   if (node.parentId !== null) {
     element.style.position = 'absolute';
-    element.style.left = `${String(node.bounds.x)}px`;
-    element.style.top = `${String(node.bounds.y)}px`;
+    component.x = node.bounds.x;
+    component.y = node.bounds.y;
   }
   component.visible = visual.visible;
   component.enabled = visual.enabled;
-  if (visual.tabIndex !== undefined) element.tabIndex = visual.tabIndex;
+  if (visual.tabIndex !== undefined) component.tabIndex = visual.tabIndex;
   if (visual.title !== undefined) element.title = visual.title;
 }
 
@@ -164,13 +172,16 @@ runtimeComponentRegistry
     applyProperties: (component, node) => {
       applyCommon(component, node);
       component.element.setAttribute('role', 'application');
-      component.element.setAttribute('aria-label', readStringProperty(node, 'caption', node.name));
+      component.caption = readStringProperty(node, 'caption', node.name);
     },
   })
   .register<WebPanel>('WebPanel', {
     createElement: elementFactory('div'),
     createComponent: (element) => new WebPanel(element),
-    applyProperties: applyCommon,
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.caption = readStringProperty(node, 'caption');
+    },
   })
   .register<WebLabel>('WebLabel', {
     createElement: elementFactory('span'),
@@ -182,6 +193,7 @@ runtimeComponentRegistry
         'caption',
         readStringProperty(node, 'text', node.name),
       );
+      component.autoSize = readBooleanProperty(node, 'autoSize');
     },
   })
   .register<WebEdit>('WebEdit', {
@@ -196,7 +208,7 @@ runtimeComponentRegistry
       component.value = readStringProperty(node, 'value');
       component.placeholder = readStringProperty(node, 'placeholder');
       component.readOnly = readBooleanProperty(node, 'readOnly');
-      component.element.type = readStringProperty(node, 'inputType', 'text');
+      component.inputType = readStringProperty(node, 'inputType', 'text') as WebInputType;
     },
   })
   .register<WebTextArea>('WebTextArea', {
@@ -209,7 +221,7 @@ runtimeComponentRegistry
       component.readOnly = readBooleanProperty(node, 'readOnly');
       const rows = readIntegerProperty(node, 'rows');
       if (rows !== undefined && rows > 0) {
-        component.element.rows = rows;
+        component.rows = rows;
       }
     },
   })
@@ -264,7 +276,7 @@ runtimeComponentRegistry
       component.src = readStringProperty(node, 'src');
       component.alt = readStringProperty(node, 'alt', node.name);
       const objectFit = readStringProperty(node, 'objectFit');
-      if (objectFit.length > 0) component.element.style.objectFit = objectFit;
+      if (objectFit.length > 0) component.objectFit = objectFit as WebImageObjectFit;
     },
   })
   .register<WebListBox>('WebListBox', {
@@ -277,10 +289,10 @@ runtimeComponentRegistry
     applyProperties: (component, node) => {
       applyCommon(component, node);
       component.items = selectItems(node);
-      component.element.multiple = readBooleanProperty(node, 'multiple');
+      component.multiple = readBooleanProperty(node, 'multiple');
       const selectedIndex = readIntegerProperty(node, 'selectedIndex');
       if (selectedIndex !== undefined) {
-        component.element.selectedIndex = selectedIndex;
+        component.selectedIndex = selectedIndex;
       } else {
         component.value = readStringProperty(node, 'value');
       }
@@ -322,11 +334,11 @@ export function mountForm(
   if (!(rootComponent instanceof WebForm))
     throw new Error('The runtime root component must be WebForm.');
   rootElement.style.position = 'relative';
-  rootElement.style.width = `${String(model.width)}px`;
-  rootElement.style.height = `${String(model.height)}px`;
+  rootComponent.width = model.width;
+  rootComponent.height = model.height;
+  rootComponent.caption = model.caption;
+  rootComponent.layoutMode = model.layoutMode;
   rootElement.dataset.webradFormId = model.id;
-  rootElement.dataset.webradLayout = model.layoutMode;
-  rootElement.setAttribute('aria-label', model.caption);
   if (options.replaceHostContents ?? true) host.replaceChildren(rootElement);
   else host.append(rootElement);
   return { element: rootElement, form: rootComponent, components };

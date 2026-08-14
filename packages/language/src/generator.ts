@@ -62,7 +62,11 @@ function componentConstruction(component: ComponentNode, registry: ComponentRegi
   if (definition.visual) {
     return `new ${component.type}(this.requireComponentElement(${quoted(component.id)}))`;
   }
-  return `new ${component.type}(${JSON.stringify(component.props)})`;
+  return `new ${component.type}(${JSON.stringify({
+    ...component.props,
+    id: component.id,
+    name: component.name,
+  })})`;
 }
 
 export function generateFormSource(

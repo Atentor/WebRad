@@ -21,6 +21,7 @@ import { applicationIconUrl } from './application-assets';
 interface MockCodeEditorProps {
   readonly path: string;
   readonly value: string;
+  readonly formComponents: readonly { readonly name: string; readonly type: string }[];
   readonly navigateTo?: { readonly line: number } | null;
   readonly onSourceChange: (resource: string, value: string) => void;
   readonly onMarkersChange: (
@@ -51,12 +52,14 @@ vi.mock('./components/CodeEditor', () => ({
   CodeEditor: ({
     path,
     value,
+    formComponents,
     navigateTo,
     onSourceChange,
     onMarkersChange,
     onSave,
   }: MockCodeEditorProps) => (
     <div data-testid="mock-monaco" data-navigation-line={navigateTo?.line}>
+      <output data-testid="mock-monaco-form-components">{JSON.stringify(formComponents)}</output>
       <textarea
         aria-label="Mock Monaco editor"
         value={value}
@@ -294,6 +297,16 @@ describe('App MVP integration', () => {
     fireEvent.change(screen.getByLabelText('Base URL'), {
       target: { value: 'https://api.example.test/v1' },
     });
+
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+    expect(screen.getByTestId('mock-monaco-form-components').textContent).toBe(
+      JSON.stringify([
+        { name: 'Label1', type: 'WebLabel' },
+        { name: 'Edit1', type: 'WebEdit' },
+        { name: 'BTNMostrar', type: 'WebButton' },
+        { name: 'ApiClientes', type: 'WebApiClient' },
+      ]),
+    );
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await screen.findByText('Saved MvpProject.');

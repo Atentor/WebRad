@@ -39,6 +39,37 @@ const mocks = vi.hoisted(() => {
     readonly code?: string;
   }
 
+  interface MockCompletionModel {
+    readonly uri: MockUri;
+    getOffsetAt(position: { readonly lineNumber: number; readonly column: number }): number;
+    getWordUntilPosition(position: { readonly lineNumber: number; readonly column: number }): {
+      readonly word: string;
+      readonly startColumn: number;
+      readonly endColumn: number;
+    };
+  }
+
+  interface MockCompletionProvider {
+    provideCompletionItems(
+      model: MockCompletionModel,
+      position: { readonly lineNumber: number; readonly column: number },
+    ): Promise<{
+      readonly suggestions: readonly {
+        readonly label: string;
+        readonly kind: string;
+        readonly insertText: string;
+        readonly sortText: string;
+        readonly commitCharacters: readonly string[];
+        readonly range: {
+          readonly startLineNumber: number;
+          readonly startColumn: number;
+          readonly endLineNumber: number;
+          readonly endColumn: number;
+        };
+      }[];
+    }>;
+  }
+
   type ContentListener = () => void;
   type MarkerListener = (resources: readonly MockUri[]) => void;
 
@@ -54,6 +85,7 @@ const mocks = vi.hoisted(() => {
   const models = new Map<string, ReturnType<typeof createModelImplementation>>();
   const markers = new Map<string, MockMarker[]>();
   const markerListeners = new Set<MarkerListener>();
+  const completion = { provider: undefined as MockCompletionProvider | undefined };
 
   function canonicalResource(value: string): string {
     const windowsFileUri = /^file:\/\/\/([A-Za-z]):(\/.*)$/.exec(value);
@@ -137,8 +169,17 @@ const mocks = vi.hoisted(() => {
     markerListeners.add(listener);
     return disposable(() => markerListeners.delete(listener));
   });
+  const registerCompletionItemProvider = vi.fn(
+    (_language: string, provider: MockCompletionProvider) => {
+      completion.provider = provider;
+      return disposable(() => {
+        if (completion.provider === provider) completion.provider = undefined;
+      });
+    },
+  );
 
   const configureMonaco = vi.fn();
+  const isTypeScriptThisExpressionPosition = vi.fn().mockResolvedValue(true);
   const synchronizeMonacoExtraLibraries = vi.fn();
   const webradMonacoTheme = vi.fn((theme: 'dark' | 'light') => `webrad-${theme}`);
 
@@ -181,12 +222,14 @@ const mocks = vi.hoisted(() => {
         { ...marker, resource: uri(resource) },
       ]);
     },
+    completion,
     configureMonaco,
     createEditor,
     createModel,
     editorProps: undefined as MockEditorProps | undefined,
     getModel,
     getModelMarkers,
+    isTypeScriptThisExpressionPosition,
     loaderConfig: vi.fn(),
     markerListeners,
     markers,
@@ -197,8 +240,10 @@ const mocks = vi.hoisted(() => {
       models.clear();
       markers.clear();
       markerListeners.clear();
+      completion.provider = undefined;
       this.editorProps = undefined;
     },
+    registerCompletionItemProvider,
     setModelLanguage,
     setModelMarkers,
     synchronizeMonacoExtraLibraries,
@@ -230,6 +275,10 @@ vi.mock('monaco-editor/editor', () => ({
   },
   KeyCode: { KeyS: 49 },
   KeyMod: { CtrlCmd: 2048 },
+  languages: {
+    CompletionItemKind: { Field: 'field' },
+    registerCompletionItemProvider: mocks.registerCompletionItemProvider,
+  },
   MarkerSeverity: { Error: 8, Info: 2, Warning: 4 },
   Range: mocks.MockRange,
   Uri: { parse: mocks.parseUri },
@@ -237,6 +286,7 @@ vi.mock('monaco-editor/editor', () => ({
 
 vi.mock('../monaco-setup', () => ({
   configureMonaco: mocks.configureMonaco,
+  isTypeScriptThisExpressionPosition: mocks.isTypeScriptThisExpressionPosition,
   synchronizeMonacoExtraLibraries: mocks.synchronizeMonacoExtraLibraries,
   webradMonacoTheme: mocks.webradMonacoTheme,
 }));
@@ -266,6 +316,10 @@ function codeEditorProps(overrides: Partial<CodeEditorProps> = {}): CodeEditorPr
     extraLibraries: {
       'file:///node_modules/@webrad/runtime/index.d.ts': 'declare const Message: unknown;',
     },
+    formComponents: [
+      { name: 'Button1', type: 'WebButton' },
+      { name: 'ApiClient1', type: 'WebApiClient' },
+    ],
     navigateTo: null,
     onCursorChange: vi.fn(),
     onMarkersChange: vi.fn(),
@@ -385,6 +439,71 @@ describe('CodeEditor professional Monaco workspace', () => {
     expect(mocks.models.has(CANONICAL_OTHER_RESOURCE)).toBe(false);
 
     expect(mocks.editorProps?.onChange).toBeUndefined();
+  });
+
+  it('adds Delphi-style bare component Names without replacing native member completions', async () => {
+    render(<CodeEditor {...codeEditorProps()} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+
+    expect(mocks.registerCompletionItemProvider).toHaveBeenCalledWith(
+      'typescript',
+      expect.objectContaining({ provideCompletionItems: expect.any(Function) }),
+    );
+    const provider = mocks.completion.provider;
+    expect(provider).toBeDefined();
+    if (provider === undefined) throw new Error('The form component provider was not registered.');
+
+    const bare = await provider.provideCompletionItems(
+      {
+        uri: { value: CANONICAL_MAIN_RESOURCE, toString: () => CANONICAL_MAIN_RESOURCE },
+        getOffsetAt: () => 120,
+        getWordUntilPosition: () => ({ word: 'Butt', startColumn: 5, endColumn: 9 }),
+      },
+      { lineNumber: 7, column: 9 },
+    );
+    expect(bare.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Button1',
+          kind: 'field',
+          insertText: 'this.Button1',
+          sortText: '0000_Button1',
+          commitCharacters: ['.'],
+          range: {
+            startLineNumber: 7,
+            startColumn: 5,
+            endLineNumber: 7,
+            endColumn: 9,
+          },
+        }),
+      ]),
+    );
+    expect(mocks.isTypeScriptThisExpressionPosition).toHaveBeenCalledWith(
+      CANONICAL_MAIN_RESOURCE,
+      120,
+    );
+
+    mocks.isTypeScriptThisExpressionPosition.mockResolvedValueOnce(false);
+    const afterThis = await provider.provideCompletionItems(
+      {
+        uri: { value: CANONICAL_MAIN_RESOURCE, toString: () => CANONICAL_MAIN_RESOURCE },
+        getOffsetAt: () => 130,
+        getWordUntilPosition: () => ({ word: 'Butt', startColumn: 6, endColumn: 10 }),
+      },
+      { lineNumber: 1, column: 10 },
+    );
+    expect(afterThis.suggestions).toEqual([]);
+
+    const otherResource = await provider.provideCompletionItems(
+      {
+        uri: { value: CANONICAL_OTHER_RESOURCE, toString: () => CANONICAL_OTHER_RESOURCE },
+        getOffsetAt: () => 10,
+        getWordUntilPosition: () => ({ word: 'Butt', startColumn: 1, endColumn: 5 }),
+      },
+      { lineNumber: 1, column: 5 },
+    );
+    expect(otherResource.suggestions).toEqual([]);
   });
 
   it('publishes live markers, applies build markers, navigates, saves, and opens Find', () => {

@@ -883,6 +883,14 @@ export function App(): ReactElement {
     [openFormIds, project, projectState.dirty],
   );
 
+  const editorFormComponents = useMemo(
+    () =>
+      activeForm?.components
+        .filter((component) => component.id !== activeForm.rootComponentId)
+        .map((component) => ({ name: component.name, type: component.type })) ?? [],
+    [activeForm],
+  );
+
   const projectSources = useMemo<Readonly<Record<string, string>>>(() => {
     if (!project) return Object.freeze({}) as Readonly<Record<string, string>>;
     return Object.fromEntries(
@@ -1075,6 +1083,7 @@ export function App(): ReactElement {
         theme={theme}
         breadcrumb={[project?.name ?? 'Project', 'Forms', `${activeForm.name}.ts`]}
         extraLibraries={extraLibraries}
+        formComponents={editorFormComponents}
         projectSources={projectSources}
         buildProblems={buildProblems}
         navigateTo={navigateTo}

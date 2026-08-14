@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import { MVP_COMPONENT_DEFINITIONS } from '@webrad/component-registry';
+
 import { generateRuntimeTypings } from '../src/runtime-typings.js';
 
 const compilerOptions: ts.CompilerOptions = {
@@ -142,14 +144,39 @@ describe('Monaco runtime typings', () => {
     const marked = extractMarkers(`import {
   WebApiClient,
   WebButton,
+  WebCheckBox,
   WebComboBox,
+  WebEdit,
   WebForm,
+  WebImage,
+  WebLabel,
+  WebListBox,
+  WebPanel,
+  WebTextArea,
 } from '@webrad/runtime';
 
 class EditorForm extends WebForm {
-  configure(button: WebButton, combo: WebComboBox, api: WebApiClient): void {
+  configure(
+    panel: WebPanel,
+    label: WebLabel,
+    edit: WebEdit,
+    textArea: WebTextArea,
+    button: WebButton,
+    checkBox: WebCheckBox,
+    combo: WebComboBox,
+    image: WebImage,
+    list: WebListBox,
+    api: WebApiClient,
+  ): void {
+    panel./*@panel*/caption;
+    label./*@label*/autoSize;
+    edit./*@edit*/inputType;
+    textArea./*@textArea*/rows;
     button./*@button*/caption;
+    checkBox./*@checkBox*/checked;
     combo./*@combo*/items;
+    image./*@image*/objectFit;
+    list./*@list*/selectedIndex;
     api./*@api*/request;
     this./*@form*/show;
   }
@@ -161,19 +188,137 @@ class EditorForm extends WebForm {
       if (position === undefined) throw new Error(`Missing editor test marker "${marker}".`);
       return completionNames(service, fileName, position);
     };
+    const commonVisualProperties = [
+      'backgroundColor',
+      'borderColor',
+      'color',
+      'enabled',
+      'height',
+      'name',
+      'visible',
+      'width',
+      'x',
+      'y',
+    ];
 
+    expect(completions('panel')).toEqual(
+      expect.arrayContaining([...commonVisualProperties, 'caption']),
+    );
+    expect(completions('label')).toEqual(
+      expect.arrayContaining([...commonVisualProperties, 'autoSize', 'caption', 'text']),
+    );
+    expect(completions('edit')).toEqual(
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'inputType',
+        'placeholder',
+        'readOnly',
+        'tabIndex',
+        'value',
+      ]),
+    );
+    expect(completions('textArea')).toEqual(
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'placeholder',
+        'readOnly',
+        'rows',
+        'tabIndex',
+        'value',
+      ]),
+    );
     expect(completions('button')).toEqual(
-      expect.arrayContaining(['bindEvent', 'caption', 'click', 'element', 'enabled', 'onClick']),
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'bindEvent',
+        'caption',
+        'click',
+        'element',
+        'onClick',
+        'tabIndex',
+      ]),
+    );
+    expect(completions('checkBox')).toEqual(
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'caption',
+        'checked',
+        'onChange',
+        'tabIndex',
+      ]),
     );
     expect(completions('combo')).toEqual(
-      expect.arrayContaining(['items', 'onChange', 'selectedIndex', 'value']),
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'items',
+        'onChange',
+        'selectedIndex',
+        'tabIndex',
+        'value',
+      ]),
+    );
+    expect(completions('image')).toEqual(
+      expect.arrayContaining([...commonVisualProperties, 'alt', 'objectFit', 'src']),
+    );
+    expect(completions('list')).toEqual(
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'items',
+        'multiple',
+        'selectedIndex',
+        'selectedValues',
+        'tabIndex',
+        'value',
+      ]),
     );
     expect(completions('api')).toEqual(
-      expect.arrayContaining(['delete', 'get', 'patch', 'post', 'put', 'request']),
+      expect.arrayContaining([
+        'baseUrl',
+        'delete',
+        'get',
+        'id',
+        'name',
+        'patch',
+        'post',
+        'put',
+        'request',
+      ]),
     );
     expect(completions('form')).toEqual(
-      expect.arrayContaining(['bindGeneratedEvent', 'close', 'requireComponentElement', 'show']),
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'bindGeneratedEvent',
+        'caption',
+        'close',
+        'layoutMode',
+        'requireComponentElement',
+        'show',
+      ]),
     );
+
+    const completionMarkerByType: Readonly<Record<string, string>> = {
+      WebApiClient: 'api',
+      WebButton: 'button',
+      WebCheckBox: 'checkBox',
+      WebComboBox: 'combo',
+      WebEdit: 'edit',
+      WebForm: 'form',
+      WebImage: 'image',
+      WebLabel: 'label',
+      WebListBox: 'list',
+      WebPanel: 'panel',
+      WebTextArea: 'textArea',
+    };
+    for (const definition of MVP_COMPONENT_DEFINITIONS) {
+      const marker = completionMarkerByType[definition.type];
+      const available = marker === undefined ? [] : completions(marker);
+      expect({
+        type: definition.type,
+        missingProperties: definition.properties
+          .map((property) => property.name)
+          .filter((property) => !available.includes(property)),
+      }).toEqual({ type: definition.type, missingProperties: [] });
+    }
   });
 
   it('accepts the supported authoring contract and reports invalid assignments', () => {
@@ -182,12 +327,44 @@ class EditorForm extends WebForm {
   WebApiError,
   WebButton,
   WebComboBox,
+  WebEdit,
   WebForm,
+  WebImage,
+  WebLabel,
+  WebListBox,
+  WebPanel,
+  WebTextArea,
+  type WebNonvisualComponent,
   type WebSelectItem,
 } from '@webrad/runtime';
 
 class EditorForm extends WebForm {
-  configure(button: WebButton, combo: WebComboBox, api: WebApiClient): void {
+  configure(
+    panel: WebPanel,
+    label: WebLabel,
+    edit: WebEdit,
+    textArea: WebTextArea,
+    button: WebButton,
+    combo: WebComboBox,
+    image: WebImage,
+    list: WebListBox,
+    api: WebApiClient,
+  ): void {
+    this.caption = 'Editor';
+    this.layoutMode = 'absolute';
+    panel.caption = 'Details';
+    panel.x = 10;
+    panel.y = 20;
+    panel.width = 320;
+    panel.height = 200;
+    panel.backgroundColor = '#fff';
+    panel.borderColor = '#ccc';
+    label.caption = 'Name';
+    label.color = '#111';
+    label.autoSize = true;
+    edit.inputType = 'email';
+    edit.placeholder = 'name@example.test';
+    textArea.rows = 5;
     button.caption = 'Save';
     button.onClick = async (sender, event) => {
       sender.enabled = false;
@@ -196,7 +373,17 @@ class EditorForm extends WebForm {
     combo.items = ['One', { value: 'two', label: 'Two' }];
     const items: readonly WebSelectItem[] = combo.items;
     void items;
+    image.objectFit = 'cover';
+    image.alt = 'Portrait';
+    list.items = ['One', 'Two'];
+    list.selectedIndex = 1;
+    list.multiple = true;
     this.bindGeneratedEvent(button, 'OnClick', 'SaveClick');
+    api.baseUrl = 'https://api.example.test';
+    const service: WebNonvisualComponent = api;
+    const identity: readonly [string, string] = [api.id, api.name];
+    void service;
+    void identity;
     void api.get<{ readonly id: number }>('/items', { query: { page: 1 } });
   }
 }
@@ -208,15 +395,31 @@ Message(error.message);
     const valid = createLanguageService(validSource);
     expect(valid.service.getSemanticDiagnostics(valid.fileName)).toEqual([]);
 
-    const invalid =
-      createLanguageService(`import { WebApiClient, WebButton } from '@webrad/runtime';
+    const invalid = createLanguageService(`import {
+  WebApiClient,
+  WebButton,
+  WebEdit,
+  WebForm,
+  WebImage,
+  WebListBox,
+} from '@webrad/runtime';
 declare const button: WebButton;
+declare const edit: WebEdit;
+declare const form: WebForm;
+declare const image: WebImage;
+declare const list: WebListBox;
 declare const api: WebApiClient;
 button.caption = 42;
+edit.inputType = 'date';
+form.layoutMode = 'table';
+image.objectFit = 'stretch';
+list.multiple = 'yes';
+api.baseUrl = 42;
+api.id = 'replacement';
 void api.get<number>(42);
 `);
     expect(
       invalid.service.getSemanticDiagnostics(invalid.fileName).map(({ code }) => code),
-    ).toEqual(expect.arrayContaining([2322, 2345]));
+    ).toEqual(expect.arrayContaining([2322, 2345, 2540]));
   });
 });

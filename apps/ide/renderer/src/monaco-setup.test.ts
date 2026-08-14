@@ -13,9 +13,14 @@ const mocks = vi.hoisted(() => {
     registrations.push({ content, path, dispose });
     return { dispose };
   });
+  const getCompletionsAtPosition = vi.fn();
+  const typeScriptWorkerFactory = vi.fn(async () => ({ getCompletionsAtPosition }));
+  const getTypeScriptWorker = vi.fn(async () => typeScriptWorkerFactory);
   return {
     addExtraLib,
     defineTheme: vi.fn(),
+    getCompletionsAtPosition,
+    getTypeScriptWorker,
     registrations,
     setCompilerOptions: vi.fn(),
     setDiagnosticsOptions: vi.fn(),
@@ -70,6 +75,7 @@ vi.mock('monaco-editor/features/wordHighlighter/register', () => ({}));
 vi.mock('monaco-editor/languages/definitions/typescript/register', () => ({}));
 
 vi.mock('monaco-editor/languages/features/typescript/register', () => ({
+  getTypeScriptWorker: mocks.getTypeScriptWorker,
   JsxEmit: { ReactJSX: 4 },
   ModuleKind: { ESNext: 99 },
   ModuleResolutionKind: { NodeJs: 2 },
@@ -86,6 +92,7 @@ vi.mock('monaco-editor/languages/features/typescript/register', () => ({
 
 import {
   configureMonaco,
+  isTypeScriptThisExpressionPosition,
   resetMonacoSetupForTests,
   synchronizeMonacoExtraLibraries,
   WEBRAD_MONACO_DARK_THEME,
@@ -217,5 +224,31 @@ describe('Monaco setup', () => {
       'export declare class Generated {}',
       'file:///c%3A/Projects/Demo/forms/FrmMain.generated.d.ts',
     );
+  });
+
+  it('uses the TypeScript worker to accept only positions where this is an expression', async () => {
+    mocks.getCompletionsAtPosition.mockResolvedValueOnce({
+      defaultCommitCharacters: ['.', ',', ';'],
+      entries: [{ kind: 'keyword', name: 'this' }],
+      isMemberCompletion: false,
+    });
+    await expect(
+      isTypeScriptThisExpressionPosition('file:///C:/Projects/Demo/forms/FrmMain.ts', 42),
+    ).resolves.toBe(true);
+    expect(mocks.getTypeScriptWorker).toHaveBeenCalledOnce();
+    expect(mocks.getCompletionsAtPosition).toHaveBeenCalledWith(
+      'file:///c%3A/Projects/Demo/forms/FrmMain.ts',
+      42,
+    );
+
+    mocks.getCompletionsAtPosition.mockResolvedValueOnce({
+      defaultCommitCharacters: [],
+      entries: [{ kind: 'keyword', name: 'this' }],
+      isMemberCompletion: false,
+    });
+    await expect(
+      isTypeScriptThisExpressionPosition('file:///C:/Projects/Demo/forms/FrmMain.ts', 84),
+    ).resolves.toBe(false);
+    expect(mocks.getTypeScriptWorker).toHaveBeenCalledOnce();
   });
 });

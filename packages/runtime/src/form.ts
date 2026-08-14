@@ -5,9 +5,21 @@ export interface CloseFormOptions {
   readonly remove?: boolean;
 }
 
+export type WebFormLayoutMode = 'absolute' | 'flex' | 'grid';
+
 export class WebForm extends WebPanel {
   readonly #generatedBindings: Array<() => void> = [];
   #created = false;
+
+  public get layoutMode(): WebFormLayoutMode {
+    const layout = this.element.dataset.webradLayout;
+    return layout === 'flex' || layout === 'grid' ? layout : 'absolute';
+  }
+
+  public set layoutMode(value: WebFormLayoutMode) {
+    this.element.dataset.webradLayout = value;
+    this.element.style.display = value === 'absolute' ? '' : value;
+  }
 
   public override show(): void {
     super.show();

@@ -141,6 +141,23 @@ describe('name validation', () => {
       reason: expect.stringContaining('runtime API'),
     });
     expect(() => renameComponent(withButton, 'button-id', 'show')).toThrow('runtime API');
+    for (const inheritedMember of [
+      'backgroundColor',
+      'borderColor',
+      'caption',
+      'color',
+      'height',
+      'layoutMode',
+      'tabIndex',
+      'width',
+      'x',
+      'y',
+    ]) {
+      expect(validateComponentName(inheritedMember, withButton, 'button-id')).toMatchObject({
+        valid: false,
+        reason: expect.stringContaining('runtime API'),
+      });
+    }
 
     const collidingDocument = {
       ...withButton,

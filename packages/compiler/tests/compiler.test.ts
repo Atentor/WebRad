@@ -72,6 +72,7 @@ function executableProject(): WebRadProject {
     }),
     rootId,
   );
+  form = bindComponentEvent(form, rootId, 'OnCreate', 'FrmMainCreate');
   form = bindComponentEvent(form, 'button-show', 'OnClick', 'BTNMostrarClick');
   return updateForm(project, form.id, form);
 }
@@ -83,6 +84,24 @@ describe('compileProject', () => {
     const originalUserSource = `import { FrmMainGenerated } from './FrmMain.generated';
 
 export class FrmMain extends FrmMainGenerated {
+  public FrmMainCreate(): void {
+    this.EDTNome.value = 'Ada';
+    this.EDTNome.x = 36;
+    const configuredBaseUrl = this.ApiClient1.baseUrl;
+    this.ApiClient1.baseUrl = \`\${configuredBaseUrl}/v1\`;
+    this.element.dataset.runtimeContract = JSON.stringify({
+      editId: this.EDTNome.id,
+      editName: this.EDTNome.name,
+      editValue: this.EDTNome.value,
+      editX: this.EDTNome.x,
+      editWidth: this.EDTNome.width,
+      buttonCaption: this.BTNMostrar.caption,
+      apiId: this.ApiClient1.id,
+      apiName: this.ApiClient1.name,
+      apiBaseUrl: this.ApiClient1.baseUrl,
+    });
+  }
+
   public async BTNMostrarClick(): Promise<void> {
     Message(\`Olá \${this.EDTNome.value}\`);
   }
@@ -96,7 +115,7 @@ export class FrmMain extends FrmMainGenerated {
     expect(result.files['index.html']).toContain('./assets/app.js');
     expect(result.files['assets/app.js']).toContain('BTNMostrarClick');
     expect(result.files['assets/app.js']).toContain('https://api.example.test');
-    expect(result.files['assets/app.js']).not.toContain('"id": "api-client"');
+    expect(result.files['assets/app.js']).toContain('api-client');
     expect(result.files['assets/app.css']).toContain('.wr-webform');
     expect(result.files['assets/app.css']).toContain('.wr-webbutton:hover:not(:disabled)');
     expect(result.previewHtml).toContain('<script>');
@@ -122,7 +141,28 @@ export class FrmMain extends FrmMainGenerated {
     });
     expect(() => dom.window.eval(result.files['assets/app.js'] ?? '')).not.toThrow();
     expect(dom.window.document.querySelector('[data-webrad-id="api-client"]')).toBeNull();
-    expect(dom.window.document.querySelector('[data-webrad-form-id]')).not.toBeNull();
+    const mountedForm = dom.window.document.querySelector<HTMLElement>('[data-webrad-form-id]');
+    expect(mountedForm).not.toBeNull();
+    const serializedContract = mountedForm?.dataset.runtimeContract;
+    expect(serializedContract).toBeDefined();
+    expect(JSON.parse(serializedContract ?? '{}') as unknown).toEqual({
+      editId: 'edit-name',
+      editName: 'EDTNome',
+      editValue: 'Ada',
+      editX: 36,
+      editWidth: 160,
+      buttonCaption: 'Button',
+      apiId: 'api-client',
+      apiName: 'ApiClient1',
+      apiBaseUrl: 'https://api.example.test/v1',
+    });
+    const editElement = dom.window.document.querySelector('[data-webrad-id="edit-name"]');
+    expect(editElement).toBeInstanceOf(dom.window.HTMLInputElement);
+    if (!(editElement instanceof dom.window.HTMLInputElement)) {
+      throw new TypeError('Compiled WebEdit did not render an input element.');
+    }
+    expect(editElement.value).toBe('Ada');
+    expect(editElement.style.left).toBe('36px');
     dom.window.close();
   });
 
