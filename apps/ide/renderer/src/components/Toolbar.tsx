@@ -28,7 +28,7 @@ function ToolButton({ command, label, glyph, disabled, onCommand }: ToolButtonPr
       disabled={disabled}
       onClick={() => onCommand(command)}
     >
-      <span aria-hidden="true">{glyph}</span>
+      <span className="material-icons" style={{ fontSize: '18px' }} aria-hidden="true">{glyph}</span>
     </button>
   );
 }
@@ -49,19 +49,19 @@ export function Toolbar({
       <div className="wr-tool-group">
         <ToolButton
           command="file.newProject"
-          glyph="＋"
+          glyph="add"
           label="New project (Ctrl+N)"
           onCommand={onCommand}
         />
         <ToolButton
           command="file.openProject"
-          glyph="⌂"
+          glyph="folder_open"
           label="Open project (Ctrl+O)"
           onCommand={onCommand}
         />
         <ToolButton
           command="file.save"
-          glyph="◇"
+          glyph="save"
           label="Save (Ctrl+S)"
           disabled={!canSave}
           onCommand={onCommand}
@@ -69,13 +69,19 @@ export function Toolbar({
       </div>
       <div className="wr-tool-separator" />
       <div className="wr-tool-group">
-        <ToolButton command="edit.undo" glyph="↶" label="Undo (Ctrl+Z)" onCommand={onCommand} />
-        <ToolButton command="edit.redo" glyph="↷" label="Redo (Ctrl+Y)" onCommand={onCommand} />
+        <ToolButton 
+        command="edit.undo" 
+        glyph="undo" 
+        label="Undo (Ctrl+Z)" onCommand={onCommand} />
+        <ToolButton 
+        command="edit.redo" 
+        glyph="redo" 
+        label="Redo (Ctrl+Y)" onCommand={onCommand} />
       </div>
       <div className="wr-tool-separator" />
       <ToolButton
         command="run.run"
-        glyph="▶"
+        glyph="play_arrow"
         label="Build and run (F9)"
         disabled={!canRun}
         onCommand={onCommand}
