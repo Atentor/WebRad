@@ -36,7 +36,10 @@ function ToolButton({ command, label, glyph, disabled, onCommand }: ToolButtonPr
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          lineHeight: '1' 
+          lineHeight: '1',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          transform: 'translateZ(0)'
         }}
         aria-hidden="true"
       >
@@ -99,10 +102,7 @@ export function Toolbar({
         disabled={!canRun}
         onCommand={onCommand}
       />
-      <span className="wr-toolbar-spacer" />
-      <button className="wr-theme-toggle" type="button" onClick={onToggleTheme}>
-        {theme === 'dark' ? 'Light' : 'Dark'} theme
-      </button>
+      
     </header>
   );
 }

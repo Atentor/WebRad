@@ -829,6 +829,9 @@ export function App(): ReactElement {
         case 'file.exit':
           window.close();
           break;
+        case 'view.toggleTheme':
+          setTheme((current) => (current === 'dark' ? 'light' : 'dark'));
+          break;
       }
     },
     [

@@ -24,6 +24,7 @@ export const IDE_COMMANDS = [
   'project.addForm',
   'project.build',
   'run.run',
+  'view.toggleTheme',
 ] as const;
 
 export type IdeCommand = (typeof IDE_COMMANDS)[number];

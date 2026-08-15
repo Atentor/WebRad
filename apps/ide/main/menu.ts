@@ -78,7 +78,9 @@ export function installApplicationMenu(window: BrowserWindow): void {
       submenu: [commandItem(window, 'Run', 'run.run', 'F9')],
     },
     { label: 'Component', submenu: [] },
-    { label: 'Tools', submenu: [] },
+    { label: 'Tools', submenu: [
+      commandItem(window, 'Toggle Theme', 'view.toggleTheme'),
+    ] },
     {
       label: 'Help',
       submenu: [
