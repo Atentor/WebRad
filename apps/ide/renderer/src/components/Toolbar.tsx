@@ -27,8 +27,21 @@ function ToolButton({ command, label, glyph, disabled, onCommand }: ToolButtonPr
       aria-label={label}
       disabled={disabled}
       onClick={() => onCommand(command)}
+      style={{ width: '40px' }}
     >
-      <span className="material-icons" style={{ fontSize: '18px' }} aria-hidden="true">{glyph}</span>
+      <span
+        className="material-icons"
+        style={{ 
+          fontSize: '22px', 
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          lineHeight: '1' 
+        }}
+        aria-hidden="true"
+      >
+        {glyph}
+      </span>
     </button>
   );
 }
@@ -42,10 +55,6 @@ export function Toolbar({
 }: ToolbarProps): ReactElement {
   return (
     <header className="wr-toolbar" aria-label="Main toolbar">
-      <div className="wr-brand" aria-label="WebRAD">
-        <img className="wr-brand-mark" src={applicationIconUrl} alt="" aria-hidden="true" />
-        <span>WebRAD</span>
-      </div>
       <div className="wr-tool-group">
         <ToolButton
           command="file.newProject"
@@ -69,14 +78,18 @@ export function Toolbar({
       </div>
       <div className="wr-tool-separator" />
       <div className="wr-tool-group">
-        <ToolButton 
-        command="edit.undo" 
-        glyph="undo" 
-        label="Undo (Ctrl+Z)" onCommand={onCommand} />
-        <ToolButton 
-        command="edit.redo" 
-        glyph="redo" 
-        label="Redo (Ctrl+Y)" onCommand={onCommand} />
+        <ToolButton
+          command="edit.undo"
+          glyph="undo"
+          label="Undo (Ctrl+Z)"
+          onCommand={onCommand}
+        />
+        <ToolButton
+          command="edit.redo"
+          glyph="redo"
+          label="Redo (Ctrl+Y)"
+          onCommand={onCommand}
+        />
       </div>
       <div className="wr-tool-separator" />
       <ToolButton
