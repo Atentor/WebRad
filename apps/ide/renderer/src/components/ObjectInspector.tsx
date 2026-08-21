@@ -5,7 +5,7 @@ import {
   type ComponentPropertyDefinition,
   type ComponentRegistry,
 } from '@webrad/component-registry';
-import type { ComponentNode, PageModel } from '@webrad/project-model';
+import type { ComponentNode, ComponentStyleModel, PageModel } from '@webrad/project-model';
 import { useId, useMemo, useState, type ReactElement } from 'react';
 import { Panel } from './Panel';
 
@@ -41,6 +41,9 @@ export interface ObjectInspectorProps {
     definition: ComponentEventDefinition,
   ) => void;
   onEventDoubleClick: (eventName: string, definition: ComponentEventDefinition) => void;
+  /** Reusable styles from the open project. Only type-compatible styles are displayed. */
+  styles?: readonly ComponentStyleModel[];
+  onStyleChange?: (styleId: string | null) => void;
   registry?: ComponentRegistry;
 }
 
@@ -465,6 +468,8 @@ export function ObjectInspector({
   onPropertyChange,
   onEventChange,
   onEventDoubleClick,
+  styles = [],
+  onStyleChange,
   registry = defaultComponentRegistry,
 }: ObjectInspectorProps): ReactElement {
   const [activeTab, setActiveTab] = useState<InspectorTab>('properties');
@@ -493,6 +498,29 @@ export function ObjectInspector({
       : definition?.type === primaryComponent.type
         ? definition
         : registry.get(primaryComponent.type);
+  const styleComponentType =
+    definitions !== null &&
+    definitions.length > 0 &&
+    definitions.every((candidate) => candidate.visual && candidate.type === definitions[0]?.type)
+      ? definitions[0]?.type
+      : undefined;
+  const compatibleStyles = useMemo(
+    () =>
+      styleComponentType === undefined
+        ? []
+        : styles.filter((style) => style.componentType === styleComponentType),
+    [styleComponentType, styles],
+  );
+  const selectedStyleValue = sharedValue(
+    inspectedSelection.map((component) => component.styleId ?? null),
+  );
+  const selectedStyleIsMultiple = selectedStyleValue === MULTIPLE_VALUES;
+  const selectedStyleId =
+    !selectedStyleIsMultiple &&
+    typeof selectedStyleValue === 'string' &&
+    compatibleStyles.some((style) => style.id === selectedStyleValue)
+      ? selectedStyleValue
+      : '';
   const propertiesTabId = `${tabId}-properties-tab`;
   const eventsTabId = `${tabId}-events-tab`;
   const propertiesPanelId = `${tabId}-properties-panel`;
@@ -550,7 +578,42 @@ export function ObjectInspector({
               role="tabpanel"
               aria-labelledby={propertiesTabId}
             >
-              {propertyCategories.length === 0 ? (
+              {styleComponentType !== undefined && onStyleChange !== undefined && (
+                <section className="wr-inspector-category">
+                  <h3>Style</h3>
+                  <div
+                    className="wr-inspector-row"
+                    title={`Reusable styles compatible with ${primaryDefinition?.displayName ?? styleComponentType}`}
+                  >
+                    <label className="wr-inspector-name" htmlFor={`${propertiesPanelId}-style`}>
+                      Style
+                    </label>
+                    <div className="wr-inspector-value">
+                      <select
+                        id={`${propertiesPanelId}-style`}
+                        className="wr-inspector-select"
+                        value={selectedStyleIsMultiple ? MULTIPLE_OPTION_VALUE : selectedStyleId}
+                        onChange={(event) =>
+                          onStyleChange(event.target.value.length === 0 ? null : event.target.value)
+                        }
+                      >
+                        {selectedStyleIsMultiple && (
+                          <option value={MULTIPLE_OPTION_VALUE} disabled>
+                            {MULTIPLE_VALUES_LABEL}
+                          </option>
+                        )}
+                        <option value="">None</option>
+                        {compatibleStyles.map((style) => (
+                          <option value={style.id} key={style.id}>
+                            {style.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </section>
+              )}
+              {propertyCategories.length === 0 && styleComponentType === undefined ? (
                 <div className="wr-inspector-empty compact">No shared property metadata.</div>
               ) : (
                 propertyCategories.map((category) => (

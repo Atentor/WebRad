@@ -1,13 +1,16 @@
 import { ModelUpdateError, ProjectModelError } from './errors.js';
 import { assertValidProjectName, assertValidTypeScriptIdentifier } from './naming.js';
-import { parsePage, parseProject, parseProjectManifest } from './schemas.js';
+import { parseComponentStyle, parsePage, parseProject, parseProjectManifest } from './schemas.js';
 import {
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
   DEFAULT_PAGE_HEIGHT,
   DEFAULT_PAGE_WIDTH,
   DEFAULT_PROJECT_SETTINGS,
+  EMPTY_COMPONENT_STYLE_CLASSES,
   type ComponentNode,
+  type ComponentStyleClasses,
+  type ComponentStyleModel,
   type PageDescriptor,
   type PageModel,
   type IdFactory,
@@ -28,6 +31,29 @@ function resolveFactory(
   options: { readonly idFactory?: IdFactory } | IdFactory | undefined,
 ): IdFactory {
   return typeof options === 'function' ? options : (options?.idFactory ?? defaultIdFactory);
+}
+
+export interface CreateComponentStyleOptions {
+  readonly idFactory?: IdFactory;
+  readonly classes?: Partial<ComponentStyleClasses>;
+}
+
+/** Creates an unbound reusable style with a stable identity. */
+export function createComponentStyle(
+  name: string,
+  componentType: string,
+  options: CreateComponentStyleOptions | IdFactory = {},
+): ComponentStyleModel {
+  assertValidTypeScriptIdentifier(componentType);
+  return parseComponentStyle({
+    id: resolveFactory(options)(),
+    name,
+    componentType,
+    classes: {
+      ...EMPTY_COMPONENT_STYLE_CLASSES,
+      ...(typeof options === 'function' ? {} : options.classes),
+    },
+  });
 }
 
 export interface CreateDefaultRootOptions {
@@ -139,6 +165,7 @@ export function createProject(
     name,
     entryPage: page.id,
     pages: [page],
+    styles: [],
     settings,
   });
 }
@@ -163,6 +190,7 @@ export function projectToManifest(project: WebRadProject): ProjectManifest {
     name: parsed.name,
     entryPage: parsed.entryPage,
     pages: parsed.pages.map(createPageDescriptor),
+    styles: parsed.styles,
     settings: parsed.settings,
   });
 }
@@ -209,6 +237,7 @@ export function assembleProject(
     name: manifest.name,
     entryPage: manifest.entryPage,
     pages,
+    styles: manifest.styles,
     settings: manifest.settings,
   });
 }

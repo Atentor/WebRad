@@ -18,6 +18,7 @@ import {
   getComponent,
   type Bounds,
   type ComponentNode,
+  type ComponentStyleModel,
   type PageModel,
 } from '@webrad/project-model';
 import {
@@ -169,6 +170,7 @@ export function App(): ReactElement {
   const [monacoMarkers, setMonacoMarkers] = useState<readonly MonacoMarkerLike[]>([]);
   const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>('output');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [compiledStylesCss, setCompiledStylesCss] = useState('');
   const [building, setBuilding] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
@@ -181,6 +183,7 @@ export function App(): ReactElement {
   const [navigateTo, setNavigateTo] = useState<EditorNavigationTarget | null>(null);
   const navigationRequestRef = useRef(0);
   const buildRequestRef = useRef(0);
+  const stylesCompileRequestRef = useRef(0);
   const [visiblePanels, setVisiblePanels] = useState({
     explorer: true,
     palette: true,
@@ -188,6 +191,7 @@ export function App(): ReactElement {
     output: true,
   });
   const project = projectState.project;
+  const projectStyles = project?.styles;
   const stylesActive = activeWorkspace === 'styles' && project !== null;
   const activePage = stylesActive
     ? null
@@ -236,6 +240,7 @@ export function App(): ReactElement {
       selectionManager.clear();
       designerController.clear();
       setPreviewUrl(null);
+      setCompiledStylesCss('');
       setBuildDiagnostics([]);
       setMonacoMarkers([]);
       setBottomPanelTab('output');
@@ -249,6 +254,26 @@ export function App(): ReactElement {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    const requestId = (stylesCompileRequestRef.current += 1);
+    if (projectStyles === undefined) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      void window.webrad.styles
+        .compile({ styles: projectStyles })
+        .then((result) => {
+          if (requestId === stylesCompileRequestRef.current) setCompiledStylesCss(result.css);
+        })
+        .catch((error: unknown) => {
+          if (requestId !== stylesCompileRequestRef.current) return;
+          setCompiledStylesCss('');
+          addOutput('IDE', `Could not compile the live style preview: ${asError(error).message}`);
+        });
+    }, 200);
+    return () => window.clearTimeout(timeout);
+  }, [addOutput, projectStyles]);
 
   const observedProjectRevisionRef = useRef(projectState.revision);
   useEffect(() => {
@@ -506,6 +531,84 @@ export function App(): ReactElement {
     ],
   );
 
+  const createStyle = useCallback(
+    (name: string, componentType: string): string | null => {
+      try {
+        const definition = componentRegistry.get(componentType);
+        if (definition?.visual !== true) {
+          throw new Error(
+            `Styles can only target registered visual components (${componentType}).`,
+          );
+        }
+        const style = projectController.createStyle(name, componentType);
+        addOutput('PROJECT', `Created style ${style.name}.`);
+        return style.id;
+      } catch (error) {
+        reportError(error, 'PROJECT');
+        return null;
+      }
+    },
+    [addOutput, projectController, reportError],
+  );
+
+  const updateStyle = useCallback(
+    (style: ComponentStyleModel): void => {
+      try {
+        projectController.updateStyle(style);
+      } catch (error) {
+        reportError(error, 'PROJECT');
+      }
+    },
+    [projectController, reportError],
+  );
+
+  const deleteStyle = useCallback(
+    (styleId: string): void => {
+      try {
+        const style = projectStyles?.find((candidate) => candidate.id === styleId);
+        projectController.removeStyle(styleId);
+        addOutput('PROJECT', `Deleted style ${style?.name ?? styleId}.`);
+      } catch (error) {
+        reportError(error, 'PROJECT');
+      }
+    },
+    [addOutput, projectController, projectStyles, reportError],
+  );
+
+  const changeStyle = useCallback(
+    (styleId: string | null): void => {
+      if (!activePage) return;
+      try {
+        const root = activePage.components.find(
+          (component) => component.id === activePage.rootComponentId,
+        );
+        const targets = selectedComponents.length > 0 ? selectedComponents : root ? [root] : [];
+        if (targets.length === 0) return;
+        if (styleId !== null) {
+          const style = projectStyles?.find((candidate) => candidate.id === styleId);
+          if (style === undefined) throw new Error(`Style ${styleId} does not exist.`);
+          const incompatible = targets.find((component) => component.type !== style.componentType);
+          if (incompatible !== undefined) {
+            throw new Error(
+              `Style ${style.name} targets ${style.componentType}, not ${incompatible.type}.`,
+            );
+          }
+        }
+        updateActivePage(designerController.changeStyle(activePage, targets, styleId));
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activePage,
+      designerController,
+      projectStyles,
+      reportError,
+      selectedComponents,
+      updateActivePage,
+    ],
+  );
+
   const bindEvent = useCallback(
     (eventName: string, handlerName: string | null): void => {
       if (!activePage || !selection.primaryId) return;
@@ -663,7 +766,9 @@ export function App(): ReactElement {
       setActiveWorkspace('page');
       selectionManager.clear();
       designerController.clear();
+      stylesCompileRequestRef.current += 1;
       setPreviewUrl(null);
+      setCompiledStylesCss('');
       setBuildDiagnostics([]);
       setMonacoMarkers([]);
     } catch (error) {
@@ -916,7 +1021,7 @@ export function App(): ReactElement {
           {
             id: STYLES_DOCUMENT_ID,
             label: 'Styles',
-            dirty: false,
+            dirty: projectState.dirty,
             kind: 'styles' as const,
           },
         ]
@@ -1087,12 +1192,20 @@ export function App(): ReactElement {
 
   const editorContent = stylesActive ? (
     <ErrorBoundary area="Styles">
-      <StylesWorkspace />
+      <StylesWorkspace
+        styles={project?.styles ?? []}
+        compiledCss={compiledStylesCss}
+        onCreateStyle={createStyle}
+        onUpdateStyle={updateStyle}
+        onDeleteStyle={deleteStyle}
+      />
     </ErrorBoundary>
   ) : !activePage ? null : activeView === 'design' ? (
     <ErrorBoundary area="Designer">
       <DesignerSurface
         page={activePage}
+        styles={project?.styles}
+        compiledStylesCss={compiledStylesCss}
         settings={
           project?.settings ?? {
             gridSize: 8,
@@ -1253,6 +1366,8 @@ export function App(): ReactElement {
                       : undefined
                   }
                   availableComponents={activePage?.components}
+                  styles={project?.styles}
+                  onStyleChange={changeStyle}
                   onPropertyChange={changeProperty}
                   onEventChange={(eventName, handlerName) => bindEvent(eventName, handlerName)}
                   onEventDoubleClick={(eventName) => {

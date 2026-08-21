@@ -8,8 +8,10 @@ import {
   ProjectValidationError,
   UnsupportedFormatVersionError,
   addComponent,
+  addComponentStyle,
   assembleProject,
   bindComponentEvent,
+  createComponentStyle,
   createPage,
   createProject,
   createSequentialName,
@@ -20,15 +22,19 @@ import {
   isValidTypeScriptIdentifier,
   projectToManifest,
   removeComponent,
+  removeComponentStyle,
   renameComponent,
   renamePage,
   safeDeserializeProject,
   safeParsePage,
   safeParseProject,
+  setComponentStyle,
   serializeProject,
   serializeProjectManifest,
   updateComponentBounds,
   updateComponentProps,
+  updateComponentStyle,
+  updateComponentStyleClasses,
   updatePage,
   validateComponentName,
   type ComponentNode,
@@ -83,6 +89,7 @@ describe('project factories', () => {
       },
     });
     expect(project.pages).toHaveLength(1);
+    expect(project.styles).toEqual([]);
     expect(project.pages[0]).toMatchObject({
       formatVersion: CURRENT_PAGE_FORMAT_VERSION,
       id: 'page-id',
@@ -115,6 +122,28 @@ describe('project factories', () => {
     expect(() => createPage('Customer Page')).toThrow('TypeScript identifier');
     expect(getPageNameError('CON')).toContain('reserved Windows device');
     expect(() => createPage('CON')).toThrow(ProjectValidationError);
+  });
+
+  it('creates reusable styles with every supported Tailwind class group', () => {
+    const style = createComponentStyle('Primary Button', 'WebButton', {
+      idFactory: idSequence('style-id'),
+      classes: { base: 'rounded-lg bg-blue-600', hover: 'bg-blue-700' },
+    });
+
+    expect(style).toEqual({
+      id: 'style-id',
+      name: 'Primary Button',
+      componentType: 'WebButton',
+      classes: {
+        base: 'rounded-lg bg-blue-600',
+        hover: 'bg-blue-700',
+        focus: '',
+        active: '',
+        disabled: '',
+        animation: '',
+        advanced: '',
+      },
+    });
   });
 });
 
@@ -245,6 +274,64 @@ describe('zod validation', () => {
       ProjectValidationError,
     );
   });
+
+  it('accepts style references in isolated pages and validates them in the aggregate', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const page = project.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+    const referencedPage = addComponent(page, {
+      ...component('button-id', 'WebButton', 'Button1', page.rootComponentId),
+      styleId: 'style-id',
+    });
+
+    expect(safeParsePage(referencedPage).success).toBe(true);
+    const unknownStyle = safeParseProject({ ...project, pages: [referencedPage] });
+    expect(unknownStyle.success).toBe(false);
+    if (!unknownStyle.success) {
+      expect(
+        unknownStyle.error.issues.some((issue) =>
+          issue.message.includes('Unknown component style'),
+        ),
+      ).toBe(true);
+    }
+
+    const incompatibleStyle = createComponentStyle('Label Style', 'WebLabel', {
+      idFactory: idSequence('style-id'),
+    });
+    const incompatible = safeParseProject({
+      ...project,
+      pages: [referencedPage],
+      styles: [incompatibleStyle],
+    });
+    expect(incompatible.success).toBe(false);
+    if (!incompatible.success) {
+      expect(
+        incompatible.error.issues.some((issue) => issue.message.includes('not WebButton')),
+      ).toBe(true);
+    }
+  });
+
+  it('rejects duplicate style IDs and case-insensitive names', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const first = createComponentStyle('Primary', 'WebButton', idSequence('style-id'));
+    const duplicateId = createComponentStyle('Secondary', 'WebButton', idSequence('style-id'));
+    const duplicateName = createComponentStyle('primary', 'WebLabel', idSequence('other-style'));
+    const result = safeParseProject({
+      ...project,
+      styles: [first, duplicateId, duplicateName],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.message.includes('Duplicate component style ID')),
+      ).toBe(true);
+      expect(result.error.issues.some((issue) => issue.message.includes('must be unique'))).toBe(
+        true,
+      );
+    }
+  });
 });
 
 describe('serialization', () => {
@@ -328,6 +415,23 @@ describe('serialization', () => {
     ).toThrow(ProjectValidationError);
   });
 
+  it('requires the current inline styles collection without legacy fallback', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const projectWithoutStyles = JSON.parse(JSON.stringify(project)) as Record<string, unknown>;
+    delete projectWithoutStyles.styles;
+    expect(() => deserializeProject(JSON.stringify(projectWithoutStyles))).toThrow(
+      ProjectValidationError,
+    );
+
+    const manifestWithoutStyles = JSON.parse(
+      serializeProjectManifest(projectToManifest(project)),
+    ) as Record<string, unknown>;
+    delete manifestWithoutStyles.styles;
+    expect(() => deserializeProjectManifest(JSON.stringify(manifestWithoutStyles))).toThrow(
+      ProjectValidationError,
+    );
+  });
+
   it('rejects unsupported versions and safely reports malformed JSON', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     expect(() => deserializeProject(JSON.stringify({ ...project, formatVersion: 0 }))).toThrow(
@@ -342,7 +446,11 @@ describe('serialization', () => {
   });
 
   it('creates a portable manifest and reassembles the aggregate', () => {
-    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const project = addComponentStyle(
+      initial,
+      createComponentStyle('Primary Button', 'WebButton', idSequence('style-id')),
+    );
     const manifest = projectToManifest(project);
 
     expect(manifest.pages[0]).toEqual({
@@ -352,6 +460,7 @@ describe('serialization', () => {
       generatedFile: 'pages/PageMain.generated.ts',
       codeFile: 'pages/PageMain.ts',
     });
+    expect(manifest.styles).toEqual(project.styles);
     const serialized = serializeProjectManifest(manifest);
     const parsedManifest = deserializeProjectManifest(serialized);
     expect(assembleProject(parsedManifest, project.pages)).toEqual(project);
@@ -417,5 +526,79 @@ describe('immutable update helpers', () => {
       name: 'PageCustomers',
     });
     expect(() => renamePage(project, 'page-id', 'pagemain')).toThrow('more than case');
+  });
+
+  it('creates, updates, assigns, and safely removes styles without mutating prior state', () => {
+    const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const page = initial.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+    const withButton = updatePage(
+      initial,
+      page.id,
+      addComponent(page, component('button-id', 'WebButton', 'Button1', page.rootComponentId)),
+    );
+    const style = createComponentStyle('Primary', 'WebButton', idSequence('style-id'));
+    const withStyle = addComponentStyle(withButton, style);
+    const assigned = setComponentStyle(withStyle, page.id, 'button-id', style.id);
+    const updated = updateComponentStyleClasses(assigned, style.id, {
+      base: 'rounded bg-blue-600 text-white',
+      hover: 'bg-blue-700',
+      animation: 'transition-colors duration-150',
+    });
+    const renamed = updateComponentStyle(updated, style.id, { name: 'Primary Action' });
+
+    expect(renamed.styles[0]).toMatchObject({
+      id: 'style-id',
+      name: 'Primary Action',
+      classes: {
+        base: 'rounded bg-blue-600 text-white',
+        hover: 'bg-blue-700',
+        animation: 'transition-colors duration-150',
+      },
+    });
+    expect(renamed.pages[0]?.components.find((node) => node.id === 'button-id')?.styleId).toBe(
+      'style-id',
+    );
+    expect(withStyle.pages[0]?.components.find((node) => node.id === 'button-id')?.styleId).toBe(
+      undefined,
+    );
+    expect(() => updateComponentStyle(renamed, style.id, { id: 'replacement-id' })).toThrow(
+      'immutable',
+    );
+    expect(() => updateComponentStyle(renamed, style.id, { componentType: 'WebLabel' })).toThrow(
+      'not WebButton',
+    );
+
+    const removed = removeComponentStyle(renamed, style.id);
+    expect(removed.styles).toEqual([]);
+    expect(removed.pages[0]?.components.find((node) => node.id === 'button-id')).not.toHaveProperty(
+      'styleId',
+    );
+    expect(renamed.styles).toHaveLength(1);
+  });
+
+  it('rejects incompatible assignments and supports explicit unbinding', () => {
+    const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const page = initial.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+    const withButton = updatePage(
+      initial,
+      page.id,
+      addComponent(page, component('button-id', 'WebButton', 'Button1', page.rootComponentId)),
+    );
+    const labelStyle = createComponentStyle('Label', 'WebLabel', idSequence('label-style'));
+    const buttonStyle = createComponentStyle('Button', 'WebButton', idSequence('button-style'));
+    const withStyles = addComponentStyle(addComponentStyle(withButton, labelStyle), buttonStyle);
+
+    expect(() => setComponentStyle(withStyles, page.id, 'button-id', labelStyle.id)).toThrow(
+      'not WebButton',
+    );
+    const assigned = setComponentStyle(withStyles, page.id, 'button-id', buttonStyle.id);
+    const cleared = setComponentStyle(assigned, page.id, 'button-id', null);
+    expect(cleared.pages[0]?.components.find((node) => node.id === 'button-id')).not.toHaveProperty(
+      'styleId',
+    );
   });
 });

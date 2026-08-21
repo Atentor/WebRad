@@ -10,6 +10,8 @@ import {
   type ResizeHandle,
 } from '@webrad/designer';
 import type { Bounds, ComponentNode, PageModel, ProjectSettings } from '@webrad/project-model';
+import type { ComponentStyleModel } from '@webrad/project-model';
+import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   memo,
   useMemo,
@@ -23,6 +25,8 @@ import {
 interface DesignerSurfaceProps {
   page: PageModel;
   settings: ProjectSettings;
+  styles?: readonly ComponentStyleModel[];
+  compiledStylesCss?: string;
   selectedIds: readonly string[];
   selectedPaletteType: string | null;
   zoom: number;
@@ -136,12 +140,14 @@ function layoutPage(page: PageModel, interaction: Interaction | null): readonly 
 interface RuntimeNodeProps {
   node: ComponentNode;
   byId: ReadonlyMap<string, ComponentNode>;
+  styleClassNames: ReadonlyMap<string, string>;
   interaction: Interaction | null;
 }
 
 const RuntimeNode = memo(function RuntimeNode({
   node,
   byId,
+  styleClassNames,
   interaction,
 }: RuntimeNodeProps): ReactElement {
   const bounds = localBoundsWithPreview(node, interaction);
@@ -150,13 +156,26 @@ const RuntimeNode = memo(function RuntimeNode({
       className={`wr-runtime-node${node.children.length > 0 ? ' wr-runtime-container' : ''}`}
       style={{ left: bounds.x, top: bounds.y, width: bounds.width, height: bounds.height }}
     >
-      <ComponentView node={node} designTime />
-      {node.children.map((childId) => {
-        const child = byId.get(childId);
-        return child && componentRegistry.get(child.type)?.visual === true ? (
-          <RuntimeNode key={child.id} node={child} byId={byId} interaction={interaction} />
-        ) : null;
-      })}
+      <ComponentView
+        node={node}
+        designTime
+        styleClassName={
+          node.styleId === undefined ? undefined : (styleClassNames.get(node.styleId) ?? '')
+        }
+      >
+        {node.children.map((childId) => {
+          const child = byId.get(childId);
+          return child && componentRegistry.get(child.type)?.visual === true ? (
+            <RuntimeNode
+              key={child.id}
+              node={child}
+              byId={byId}
+              styleClassNames={styleClassNames}
+              interaction={interaction}
+            />
+          ) : null;
+        })}
+      </ComponentView>
     </div>
   );
 });
@@ -173,6 +192,8 @@ function pointInside(bounds: Bounds, point: Point): boolean {
 export function DesignerSurface({
   page,
   settings,
+  styles = [],
+  compiledStylesCss = '',
   selectedIds,
   selectedPaletteType,
   zoom,
@@ -194,9 +215,15 @@ export function DesignerSurface({
   const [interaction, setInteraction] = useState<Interaction | null>(null);
   const scale = zoom / 100;
   const byId = useMemo(() => new Map(page.components.map((node) => [node.id, node])), [page]);
+  const styleClassNames = useMemo(
+    () => new Map(styles.map((style) => [style.id, resolveComponentStyleClassName(style)])),
+    [styles],
+  );
   const layout = useMemo(() => layoutPage(page, interaction), [page, interaction]);
   const layoutById = useMemo(() => new Map(layout.map((item) => [item.node.id, item])), [layout]);
   const root = byId.get(page.rootComponentId);
+  const rootStyleClassName =
+    root?.styleId === undefined ? undefined : (styleClassNames.get(root.styleId) ?? '');
   const nonvisualComponents = useMemo(
     () =>
       page.components.filter(
@@ -468,29 +495,39 @@ export function DesignerSurface({
         >
           <div
             ref={surfaceRef}
-            className={`wr-page-surface ${settings.showGrid ? 'show-grid' : ''}`}
+            className="wr-page-surface"
             style={{
               width: page.width,
               height: page.height,
               transform: `scale(${scale})`,
-              backgroundColor:
-                typeof root?.props.backgroundColor === 'string'
-                  ? root.props.backgroundColor
-                  : '#ffffff',
-              backgroundSize: `${settings.gridSize}px ${settings.gridSize}px`,
             }}
             tabIndex={0}
             onKeyDown={handleKeyboard}
           >
+            <style data-webrad-project-styles>{compiledStylesCss}</style>
             <SharedComponentStyles />
-            <div className="wr-runtime-layer" aria-hidden="true">
-              {root?.children.map((childId) => {
-                const child = byId.get(childId);
-                return child && componentRegistry.get(child.type)?.visual === true ? (
-                  <RuntimeNode key={child.id} node={child} byId={byId} interaction={interaction} />
-                ) : null;
-              })}
-            </div>
+            {root !== undefined && (
+              <ComponentView node={root} designTime styleClassName={rootStyleClassName}>
+                {settings.showGrid && (
+                  <div
+                    className="wr-page-grid"
+                    style={{ backgroundSize: `${settings.gridSize}px ${settings.gridSize}px` }}
+                  />
+                )}
+                {root.children.map((childId) => {
+                  const child = byId.get(childId);
+                  return child && componentRegistry.get(child.type)?.visual === true ? (
+                    <RuntimeNode
+                      key={child.id}
+                      node={child}
+                      byId={byId}
+                      styleClassNames={styleClassNames}
+                      interaction={interaction}
+                    />
+                  ) : null;
+                })}
+              </ComponentView>
+            )}
             <div
               className="wr-design-overlay"
               onPointerDown={startMarquee}

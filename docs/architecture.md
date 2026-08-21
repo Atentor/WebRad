@@ -12,6 +12,7 @@ Electron main -> typed preload bridge -> React renderer
                                         `-> compiler preview result
 
 project model -> generated source -> esbuild -> browser-only output
+             `-> reusable styles -> Tailwind/PostCSS -> static app.css
 ```
 
 ## Package boundaries
@@ -29,11 +30,13 @@ Packages are created only when they contain working behavior.
 
 ## Security boundary
 
-The browser window uses context isolation, sandboxing, and no Node integration. The preload exposes capability-shaped methods such as `project.open`, `project.save`, and `files.read`; it never exposes raw `ipcRenderer`. The main process validates every payload, binds filesystem capabilities to the originating main frame and exact renderer URL, rejects path traversal through links, and revokes roots when a project or window closes. Top-level navigation, redirects, popups, webviews, and web/device permission requests are denied by default. Preview content is served from a dedicated `webrad-preview:` origin with its own restrictive CSP, runs without Node privileges, and consumes actual compiler output.
+The browser window uses context isolation, sandboxing, and no Node integration. The preload exposes capability-shaped methods such as `project.open`, `project.save`, `files.read`, and `styles.compile`; it never exposes raw `ipcRenderer`. The style capability accepts only validated project style records and returns CSS for live design-time projection; Tailwind and PostCSS stay in the main process. The main process validates every payload, binds filesystem capabilities to the originating main frame and exact renderer URL, rejects path traversal through links, and revokes roots when a project or window closes. Top-level navigation, redirects, popups, webviews, and web/device permission requests are denied by default. Preview content is served from a dedicated `webrad-preview:` origin with its own restrictive CSP, runs without Node privileges, and consumes actual compiler output.
 
 ## Designer model
 
 The page surface renders real component DOM from the same browser-safe property projection and CSS used by the generated runtime. A separate design overlay owns hit testing, selection handles, marquee selection, drag, and resize. Pure geometry services calculate deltas, snapping, bounds, and multi-selection transforms. Pointer movement may use transient UI state; a command commits the model once at operation completion.
+
+Reusable styles remain project-level model records with stable IDs. The Styles workspace edits their Tailwind candidate groups, the Inspector offers only styles whose registered target type matches the selected visual component, and the Designer injects debounced CSS compiled through the narrow preload capability. Generated runtime nodes contain only the resolved static class names, so applications have no dependency on the Project Model or Tailwind compiler.
 
 Nonvisual nodes remain children of the page in the Project Model but are projected into a dedicated design-time tray instead of the canvas. Generated classes construct their typed runtime service instances directly from registered properties, immutable IDs, and user-facing names, while the compiler removes those nodes from the page DOM model. Nonvisual runtime objects therefore retain the same identity contract without pretending to own a DOM element: `id` remains stable and `name` reflects the current Project Model name.
 

@@ -1,4 +1,5 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -13,9 +14,53 @@ const iconIcoPath = path.resolve('Icon.ico');
 const iconPngPath = path.resolve('Icon.png');
 const jetBrainsMonoLicensePath = path.resolve('licenses', 'JetBrainsMono-OFL.txt');
 
+const productionNodeModulesPath = path.resolve('node_modules');
+
+function packageDirectory(packageName: string): string {
+  return path.join(productionNodeModulesPath, ...packageName.split('/'));
+}
+
+async function copyTailwindRuntime(buildPath: string): Promise<void> {
+  const pending = ['@tailwindcss/postcss', 'postcss'];
+  const copied = new Set<string>();
+
+  while (pending.length > 0) {
+    const packageName = pending.pop();
+    if (packageName === undefined || copied.has(packageName)) continue;
+    const source = packageDirectory(packageName);
+    try {
+      const manifest = JSON.parse(await fs.readFile(path.join(source, 'package.json'), 'utf8')) as {
+        readonly dependencies?: Readonly<Record<string, string>>;
+        readonly optionalDependencies?: Readonly<Record<string, string>>;
+      };
+      const target = path.join(buildPath, 'node_modules', ...packageName.split('/'));
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      await fs.cp(source, target, {
+        recursive: true,
+        dereference: true,
+        filter: (candidate) => !candidate.startsWith(path.join(source, 'node_modules')),
+      });
+      copied.add(packageName);
+      pending.push(...Object.keys(manifest.dependencies ?? {}));
+      for (const optionalPackage of Object.keys(manifest.optionalDependencies ?? {})) {
+        try {
+          await fs.access(packageDirectory(optionalPackage));
+          pending.push(optionalPackage);
+        } catch {
+          // Platform-specific optional packages that are not installed are omitted.
+        }
+      }
+    } catch (error) {
+      throw new Error(`Unable to package Tailwind dependency "${packageName}".`, {
+        cause: error,
+      });
+    }
+  }
+}
+
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: { unpack: '**/*.node' },
     icon: iconBasePath,
     extraResource: [
       iconIcoPath,
@@ -27,6 +72,11 @@ const config: ForgeConfig = {
     ],
   },
   rebuildConfig: {},
+  hooks: {
+    packageAfterPrune: async (_forgeConfig, buildPath) => {
+      await copyTailwindRuntime(buildPath);
+    },
+  },
   makers: [
     new MakerSquirrel({ authors: 'WebRAD', setupIcon: iconIcoPath }),
     new MakerZIP({}, ['darwin']),

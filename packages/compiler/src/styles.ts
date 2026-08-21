@@ -1,5 +1,13 @@
-import { WEBRAD_COMPONENT_CSS } from '@webrad/runtime/visual';
+import type { ComponentStyleModel } from '@webrad/project-model';
+import {
+  resolveComponentStyleClassNames,
+  type TailwindStyleSource,
+  WEBRAD_COMPONENT_CSS,
+} from '@webrad/runtime/visual';
+import tailwindcss from '@tailwindcss/postcss';
+import postcss from 'postcss';
 
+/** Base application defaults. They are placed in Tailwind's components layer at build time. */
 export const GENERATED_APP_CSS = `:root {
   color-scheme: light dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -39,3 +47,73 @@ body {
 
 ${WEBRAD_COMPONENT_CSS}
 `;
+
+const TAILWIND_LAYER_ORDER = '@layer theme, base, components, utilities;';
+
+function escapeCssString(value: string): string {
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"')
+    .replaceAll('\n', '\\a ')
+    .replaceAll('\r', '\\d ')
+    .replaceAll('\f', '\\c ');
+}
+
+/** Returns every exact utility candidate authored in the reusable style library. */
+export function collectTailwindCandidates(
+  styles: readonly TailwindStyleSource[],
+): readonly string[] {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  for (const style of styles) {
+    for (const candidate of resolveComponentStyleClassNames(style)) {
+      if (candidate.includes('{') || candidate.includes('}')) {
+        throw new Error(
+          `Tailwind class candidate "${candidate}" contains a brace. Braces are reserved for @source expansion and are not accepted in saved styles.`,
+        );
+      }
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      candidates.push(candidate);
+    }
+  }
+  return candidates;
+}
+
+function tailwindInput(styles: readonly TailwindStyleSource[], componentCss?: string): string {
+  const candidates = collectTailwindCandidates(styles);
+  const sourceDirective =
+    candidates.length === 0 ? '' : `\n@source inline("${escapeCssString(candidates.join(' '))}");`;
+  const components = componentCss === undefined ? '' : `\n@layer components {\n${componentCss}\n}`;
+  return `${TAILWIND_LAYER_ORDER}
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);${sourceDirective}${components}
+`;
+}
+
+async function processTailwind(
+  styles: readonly TailwindStyleSource[],
+  componentCss?: string,
+): Promise<string> {
+  const result = await postcss([
+    tailwindcss({
+      base: process.cwd(),
+      optimize: false,
+      transformAssetUrls: false,
+    }),
+  ]).process(tailwindInput(styles, componentCss), { from: undefined });
+  return result.css;
+}
+
+/**
+ * Compiles project-authored candidates to static theme and utility CSS. This is
+ * browser output; generated applications never load Tailwind at runtime.
+ */
+export function compileTailwindStyles(styles: readonly ComponentStyleModel[]): Promise<string> {
+  return processTailwind(styles);
+}
+
+/** Compiles the complete generated application stylesheet with correct layer precedence. */
+export function compileGeneratedAppStyles(styles: readonly ComponentStyleModel[]): Promise<string> {
+  return processTailwind(styles, GENERATED_APP_CSS);
+}

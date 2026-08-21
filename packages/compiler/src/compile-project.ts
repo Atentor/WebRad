@@ -13,6 +13,7 @@ import { bundleSources } from './bundle.js';
 import { fromEsbuildMessage } from './diagnostics.js';
 import { createIndexHtml, createPreviewHtml } from './html.js';
 import { createVirtualSourceGraph } from './source-graph.js';
+import { compileGeneratedAppStyles } from './styles.js';
 import { typecheckSources } from './typecheck.js';
 import type {
   CompileDiagnostic,
@@ -81,6 +82,24 @@ function validateRegistry(
           });
         }
       }
+    }
+  }
+  for (const [styleIndex, style] of project.styles.entries()) {
+    const definition = registry.get(style.componentType);
+    if (definition === undefined) {
+      diagnostics.push({
+        category: 'error',
+        source: 'registry',
+        message: `Style "${style.name}" targets unknown component type "${style.componentType}".`,
+        path: ['styles', styleIndex, 'componentType'],
+      });
+    } else if (!definition.visual) {
+      diagnostics.push({
+        category: 'error',
+        source: 'registry',
+        message: `Style "${style.name}" cannot target nonvisual component type "${style.componentType}".`,
+        path: ['styles', styleIndex, 'componentType'],
+      });
     }
   }
   return diagnostics;
@@ -192,9 +211,23 @@ export async function compileProject(
   const registryDiagnostics = validateRegistry(project, registry);
   if (hasErrors(registryDiagnostics)) return failedResult(outputDirectory, registryDiagnostics);
 
+  let generatedAppCss: string;
+  try {
+    generatedAppCss = await compileGeneratedAppStyles(project.styles);
+  } catch (error) {
+    return failedResult(outputDirectory, [
+      ...registryDiagnostics,
+      {
+        category: 'error',
+        source: 'compiler',
+        message: `Tailwind CSS compilation failed: ${error instanceof Error ? error.message : String(error)}`,
+      },
+    ]);
+  }
+
   let graph;
   try {
-    graph = createVirtualSourceGraph(project, options.userSources, registry);
+    graph = createVirtualSourceGraph(project, options.userSources, registry, generatedAppCss);
   } catch (error) {
     return failedResult(outputDirectory, [
       ...registryDiagnostics,

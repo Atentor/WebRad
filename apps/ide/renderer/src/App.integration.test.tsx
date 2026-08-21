@@ -123,6 +123,7 @@ interface BridgeHarness {
   readonly open: ReturnType<typeof vi.fn>;
   readonly save: ReturnType<typeof vi.fn>;
   readonly build: ReturnType<typeof vi.fn>;
+  readonly compileStyles: ReturnType<typeof vi.fn>;
   readonly release: ReturnType<typeof vi.fn>;
   readonly setDirty: ReturnType<typeof vi.fn>;
   readonly invokeCommand: (command: IdeCommand) => void;
@@ -159,6 +160,9 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
       diagnostics: [],
     };
   });
+  const compileStyles = vi.fn(async (): Promise<{ readonly css: string }> => ({
+    css: '.bg-blue-600 { background-color: rgb(37 99 235); }',
+  }));
   const setDirty = vi.fn((dirty: boolean): void => {
     void dirty;
   });
@@ -196,6 +200,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
       },
     },
     build: { run: build },
+    styles: { compile: compileStyles },
     commands: { subscribe },
     lifecycle: { setDirty },
     platform: 'win32',
@@ -207,6 +212,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     open,
     save,
     build,
+    compileStyles,
     release,
     setDirty,
     invokeCommand: (command) => {
@@ -224,6 +230,17 @@ function componentTypes(project: WebRadProject): readonly string[] {
 
 function imageSource(selector: string): string | null {
   return document.querySelector<HTMLImageElement>(selector)?.getAttribute('src') ?? null;
+}
+
+function selectDesignerComponent(title: string): HTMLElement {
+  const hitTarget = screen.getByTitle(title);
+  Object.defineProperty(hitTarget, 'setPointerCapture', {
+    configurable: true,
+    value: vi.fn(),
+  });
+  fireEvent.pointerDown(hitTarget, { button: 0, pointerId: 1 });
+  fireEvent.pointerUp(hitTarget, { pointerId: 1 });
+  return hitTarget;
 }
 
 afterEach(() => {
@@ -384,45 +401,200 @@ describe('App MVP integration', () => {
     });
   });
 
-  it('opens the visual Styles workspace without persisting a provisional style model', async () => {
+  it('creates, reuses, filters, persists, previews, and removes component styles', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', {
       configurable: true,
       value: harness.bridge,
     });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = userEvent.setup();
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
-    const lifecycleCallsBeforeStyles = harness.setDirty.mock.calls.length;
+    await user.dblClick(screen.getByTitle('Select Button; drag or double-click to insert'));
+    await screen.findByTitle('Button1: WebButton');
+    await user.dblClick(screen.getByTitle('Select Button; drag or double-click to insert'));
+    await screen.findByTitle('Button2: WebButton');
+    await user.dblClick(screen.getByTitle('Select Label; drag or double-click to insert'));
+    await screen.findByTitle('Label1: WebLabel');
+
     const stylesItem = screen.getByRole('treeitem', { name: 'Styles' });
-
     await user.click(stylesItem);
-
     expect(stylesItem.getAttribute('aria-selected')).toBe('true');
     expect(await screen.findByRole('region', { name: 'Styles editor' })).toBeDefined();
     expect(screen.getByRole('heading', { name: 'Styles' })).toBeDefined();
-    expect(screen.getByRole('note').textContent).toContain('Tailwind integration');
-    expect((screen.getByRole('button', { name: 'New style' }) as HTMLButtonElement).disabled).toBe(
-      true,
+    expect(screen.getByRole('note').textContent).toContain(
+      'State prefixes are applied automatically',
     );
     expect(screen.queryByRole('tab', { name: 'Design' })).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Close Styles' })).toHaveLength(1);
 
-    await user.click(stylesItem);
-    expect(screen.getAllByRole('button', { name: 'Close Styles' })).toHaveLength(1);
+    await user.click(screen.getAllByRole('button', { name: 'New style' })[0]!);
+    await user.selectOptions(screen.getByLabelText('Component type'), 'WebButton');
+    const createName = screen.getByLabelText('New style name');
+    await user.clear(createName);
+    await user.type(createName, 'Primary Button Draft');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    const baseClasses = await screen.findByLabelText('Base Tailwind classes');
+    fireEvent.change(baseClasses, {
+      target: { value: 'px-4 py-2 rounded-lg bg-blue-600 text-white' },
+    });
+    await user.click(screen.getByRole('tab', { name: 'Hover' }));
+    fireEvent.change(screen.getByLabelText('Hover Tailwind classes'), {
+      target: { value: 'bg-blue-700 scale-105' },
+    });
+    await user.click(screen.getByRole('tab', { name: 'Animation' }));
+    fireEvent.change(screen.getByLabelText('Animation Tailwind classes'), {
+      target: { value: 'transition-all duration-200 ease-out' },
+    });
+    await user.click(screen.getByRole('tab', { name: 'Advanced' }));
+    fireEvent.change(screen.getByLabelText('Advanced Tailwind classes'), {
+      target: { value: 'dark:bg-slate-900 [&>svg]:size-4' },
+    });
+    const buttonPreview = document.querySelector<HTMLElement>(
+      '[data-style-preview] [data-component-type="WebButton"]',
+    );
+    expect(buttonPreview?.classList.contains('bg-blue-600')).toBe(true);
+    expect(buttonPreview?.classList.contains('hover:bg-blue-700')).toBe(true);
+    expect(buttonPreview?.classList.contains('transition-all')).toBe(true);
+    expect(buttonPreview?.classList.contains('dark:bg-slate-900')).toBe(true);
+    const styleName = screen.getByLabelText('Style name');
+    await user.clear(styleName);
+    await user.type(styleName, 'Primary Button');
+    fireEvent.blur(styleName);
+    await screen.findByRole('option', { name: /Primary Button/ });
+
+    await user.click(screen.getByRole('button', { name: 'New style' }));
+    await user.selectOptions(screen.getByLabelText('Component type'), 'WebLabel');
+    await user.clear(screen.getByLabelText('New style name'));
+    await user.type(screen.getByLabelText('New style name'), 'Muted Label');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.change(await screen.findByLabelText('Base Tailwind classes'), {
+      target: { value: 'text-slate-500 text-sm' },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'New style' }));
+    await user.selectOptions(screen.getByLabelText('Component type'), 'WebPage');
+    await user.clear(screen.getByLabelText('New style name'));
+    await user.type(screen.getByLabelText('New style name'), 'Page Surface');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.change(await screen.findByLabelText('Base Tailwind classes'), {
+      target: { value: 'bg-slate-100 text-slate-900' },
+    });
+
+    await waitFor(() => expect(harness.compileStyles).toHaveBeenCalled());
+    expect(document.querySelector('style[data-webrad-project-styles]')?.textContent).toContain(
+      'background-color',
+    );
 
     await user.click(screen.getByRole('treeitem', { name: /PageMain/ }));
-    expect(await screen.findByRole('tab', { name: 'Design' })).toBeDefined();
-    expect(stylesItem.getAttribute('aria-selected')).toBe('false');
+    await screen.findByRole('tab', { name: 'Design' });
+    const pageStyleSelect = (await screen.findByLabelText('Style')) as HTMLSelectElement;
+    expect([...pageStyleSelect.options].map((option) => option.text)).toEqual([
+      'None',
+      'Page Surface',
+    ]);
+    await user.selectOptions(pageStyleSelect, screen.getByRole('option', { name: 'Page Surface' }));
+    await waitFor(() => {
+      expect(
+        document
+          .querySelector('[data-component-type="WebPage"]')
+          ?.classList.contains('bg-slate-100'),
+      ).toBe(true);
+    });
+    const firstButtonHit = selectDesignerComponent('Button1: WebButton');
+    const buttonStyleSelect = (await screen.findByLabelText('Style')) as HTMLSelectElement;
+    expect([...buttonStyleSelect.options].map((option) => option.text)).toEqual([
+      'None',
+      'Primary Button',
+    ]);
+    await user.selectOptions(
+      buttonStyleSelect,
+      screen.getByRole('option', { name: 'Primary Button' }),
+    );
+    const firstButtonId = firstButtonHit.getAttribute('data-component-id');
+    expect(firstButtonId).not.toBeNull();
+    await waitFor(() => {
+      expect(
+        document
+          .querySelector(
+            `[data-component-type="WebButton"][data-component-id="${firstButtonId ?? ''}"]`,
+          )
+          ?.classList.contains('hover:bg-blue-700'),
+      ).toBe(true);
+    });
 
-    await user.click(screen.getByRole('button', { name: 'Styles' }));
+    selectDesignerComponent('Button2: WebButton');
+    await user.selectOptions(
+      screen.getByLabelText('Style'),
+      screen.getByRole('option', { name: 'Primary Button' }),
+    );
+    selectDesignerComponent('Label1: WebLabel');
+    const labelStyleSelect = screen.getByLabelText('Style') as HTMLSelectElement;
+    expect([...labelStyleSelect.options].map((option) => option.text)).toEqual([
+      'None',
+      'Muted Label',
+    ]);
+    expect([...labelStyleSelect.options].some((option) => option.text === 'Primary Button')).toBe(
+      false,
+    );
+    await user.selectOptions(labelStyleSelect, screen.getByRole('option', { name: 'Muted Label' }));
+
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await screen.findByText('Saved MvpProject.');
+    const savedWithStyles = harness.persisted().project;
+    expect(savedWithStyles.styles).toHaveLength(3);
+    const primaryStyle = savedWithStyles.styles.find((style) => style.name === 'Primary Button');
+    const mutedStyle = savedWithStyles.styles.find((style) => style.name === 'Muted Label');
+    const pageStyle = savedWithStyles.styles.find((style) => style.name === 'Page Surface');
+    expect(primaryStyle?.classes).toMatchObject({
+      base: 'px-4 py-2 rounded-lg bg-blue-600 text-white',
+      hover: 'bg-blue-700 scale-105',
+      animation: 'transition-all duration-200 ease-out',
+      advanced: 'dark:bg-slate-900 [&>svg]:size-4',
+    });
+    expect(
+      savedWithStyles.pages[0]?.components
+        .filter((component) => component.type === 'WebButton')
+        .map((component) => component.styleId),
+    ).toEqual([primaryStyle?.id, primaryStyle?.id]);
+    expect(
+      savedWithStyles.pages[0]?.components.find((component) => component.type === 'WebLabel')
+        ?.styleId,
+    ).toBe(mutedStyle?.id);
+    expect(
+      savedWithStyles.pages[0]?.components.find((component) => component.type === 'WebPage')
+        ?.styleId,
+    ).toBe(pageStyle?.id);
+
+    await user.click(stylesItem);
     await screen.findByRole('region', { name: 'Styles editor' });
-    await user.click(screen.getByRole('button', { name: 'Close Styles' }));
-    expect(await screen.findByRole('tab', { name: 'Design' })).toBeDefined();
-    expect(harness.save).not.toHaveBeenCalled();
-    expect(harness.setDirty.mock.calls.length).toBe(lifecycleCallsBeforeStyles);
+    await user.click(screen.getByRole('option', { name: /Primary Button/ }));
+    await user.click(screen.getByRole('button', { name: 'Delete Primary Button' }));
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await waitFor(() => {
+      expect(harness.persisted().project.styles.map((style) => style.name)).toEqual([
+        'Muted Label',
+        'Page Surface',
+      ]);
+    });
+
+    const savedAfterDelete = harness.persisted().project;
+    expect(savedAfterDelete.styles.map((style) => style.name)).toEqual([
+      'Muted Label',
+      'Page Surface',
+    ]);
+    expect(
+      savedAfterDelete.pages[0]?.components
+        .filter((component) => component.type === 'WebButton')
+        .every((component) => component.styleId === undefined),
+    ).toBe(true);
+    expect(
+      savedAfterDelete.pages[0]?.components.find((component) => component.type === 'WebLabel')
+        ?.styleId,
+    ).toBe(mutedStyle?.id);
   });
 
   it('creates additional pages with the Page naming contract', async () => {

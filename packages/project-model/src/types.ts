@@ -24,8 +24,29 @@ export interface ComponentNode {
   readonly bounds: Bounds;
   readonly props: Readonly<Record<string, unknown>>;
   readonly events: Readonly<Record<string, string | null>>;
+  /** Optional project-level style compatible with this component type. */
+  readonly styleId?: string;
   /** Ordered child IDs; this order is also the visual stacking order. */
   readonly children: readonly string[];
+}
+
+/** Tailwind utility groups authored for one component interaction state. */
+export interface ComponentStyleClasses {
+  readonly base: string;
+  readonly hover: string;
+  readonly focus: string;
+  readonly active: string;
+  readonly disabled: string;
+  readonly animation: string;
+  readonly advanced: string;
+}
+
+/** Reusable project-level style. Its immutable ID is referenced by component nodes. */
+export interface ComponentStyleModel {
+  readonly id: string;
+  readonly name: string;
+  readonly componentType: string;
+  readonly classes: ComponentStyleClasses;
 }
 
 export interface PageModel {
@@ -56,6 +77,8 @@ export interface WebRadProject {
   readonly entryPage: string;
   /** Complete in-memory aggregate and the single source of truth. */
   readonly pages: readonly PageModel[];
+  /** Reusable Tailwind styles shared by compatible components across all pages. */
+  readonly styles: readonly ComponentStyleModel[];
   readonly settings: ProjectSettings;
 }
 
@@ -75,6 +98,8 @@ export interface ProjectManifest {
   readonly name: string;
   readonly entryPage: string;
   readonly pages: readonly PageDescriptor[];
+  /** Styles remain inline because they are small project-level metadata. */
+  readonly styles: readonly ComponentStyleModel[];
   readonly settings: ProjectSettings;
 }
 
@@ -85,6 +110,16 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   snapToGrid: true,
   showGrid: true,
   outputDirectory: 'dist',
+});
+
+export const EMPTY_COMPONENT_STYLE_CLASSES: Readonly<ComponentStyleClasses> = Object.freeze({
+  base: '',
+  hover: '',
+  focus: '',
+  active: '',
+  disabled: '',
+  animation: '',
+  advanced: '',
 });
 
 export const DEFAULT_PAGE_WIDTH = 800;

@@ -116,6 +116,7 @@
         "OnMouseEnter": null,
         "OnMouseLeave": null
       },
+      "styleId": "hello-webrad-style-button-primary-v1",
       "children": []
     }
   ]

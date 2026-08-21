@@ -834,8 +834,8 @@ button.wr-problem:focus-visible {
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-columns: minmax(180px, 220px) minmax(300px, 1fr);
-  overflow: auto;
+  grid-template-columns: minmax(210px, 250px) minmax(340px, 1fr);
+  overflow: hidden;
 }
 
 .wr-style-library {
@@ -886,8 +886,22 @@ button.wr-problem:focus-visible {
   border: 1px solid var(--wr-border);
   border-radius: 4px;
   background: var(--wr-surface);
-  color: var(--wr-muted-text);
+  color: var(--wr-text);
   font-size: 9px;
+  cursor: pointer;
+  transition:
+    border-color 100ms ease,
+    background-color 100ms ease;
+}
+
+.wr-style-section-heading button:hover:not(:disabled) {
+  border-color: var(--wr-accent);
+  background: var(--wr-surface-hover);
+}
+
+.wr-style-section-heading button:disabled {
+  color: var(--wr-muted-text);
+  cursor: default;
   opacity: 0.5;
 }
 
@@ -966,22 +980,40 @@ button.wr-problem:focus-visible {
   border: 1px solid var(--wr-border);
   border-radius: 5px;
   background: var(--wr-panel-alt);
+  overflow-x: auto;
 }
 
-.wr-style-state-strip span {
+.wr-style-state-strip > button {
+  position: relative;
   min-width: 62px;
   padding: 5px 9px;
+  border: 0;
   border-radius: 3px;
+  background: transparent;
   color: var(--wr-muted-text);
   font-size: 9px;
   text-align: center;
-  opacity: 0.58;
+  cursor: pointer;
 }
 
-.wr-style-state-strip span.active {
+.wr-style-state-strip > button:hover {
+  background: color-mix(in srgb, var(--wr-surface-hover) 55%, transparent);
+  color: var(--wr-text);
+}
+
+.wr-style-state-strip > button.active {
   background: var(--wr-surface-hover);
   color: var(--wr-text);
-  opacity: 0.82;
+}
+
+.wr-style-state-strip > button > span {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--wr-accent);
 }
 
 .wr-style-configuration-grid {
@@ -1108,6 +1140,398 @@ button.wr-problem:focus-visible {
   color: #ffffff;
   font-size: 9px;
   font-weight: 650;
+}
+
+.wr-style-library-content {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.wr-style-create-form {
+  display: grid;
+  gap: 6px;
+  margin: 10px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--wr-accent) 48%, var(--wr-border));
+  border-radius: 6px;
+  background: var(--wr-panel-alt);
+  box-shadow: 0 5px 18px var(--wr-shadow);
+}
+
+.wr-style-create-form > strong {
+  margin-bottom: 2px;
+  color: var(--wr-text);
+  font-size: 11px;
+}
+
+.wr-style-create-form label,
+.wr-style-name-field label {
+  color: var(--wr-muted-text);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.wr-style-create-form input,
+.wr-style-create-form select,
+.wr-style-name-field input,
+.wr-style-class-editor textarea {
+  width: 100%;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  outline: none;
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  font: inherit;
+}
+
+.wr-style-create-form input,
+.wr-style-create-form select,
+.wr-style-name-field input {
+  height: 27px;
+  padding: 0 7px;
+  font-size: 10px;
+}
+
+.wr-style-create-form input:focus,
+.wr-style-create-form select:focus,
+.wr-style-name-field input:focus,
+.wr-style-class-editor textarea:focus {
+  border-color: var(--wr-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wr-accent) 32%, transparent);
+}
+
+.wr-style-create-form small,
+.wr-style-name-field small {
+  color: var(--wr-danger);
+  font-size: 8px;
+}
+
+.wr-style-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.wr-style-create-actions button,
+.wr-style-configurator-empty button {
+  height: 25px;
+  padding: 0 9px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  background: var(--wr-surface);
+  color: var(--wr-text);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.wr-style-create-actions button[type='submit'],
+.wr-style-configurator-empty button {
+  border-color: var(--wr-accent);
+  background: var(--wr-accent);
+  color: #ffffff;
+}
+
+.wr-style-list {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 6px;
+}
+
+.wr-style-list > button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wr-style-list > button:hover {
+  background: var(--wr-surface-hover);
+}
+
+.wr-style-list > button.selected {
+  border-color: color-mix(in srgb, var(--wr-accent) 42%, var(--wr-border));
+  background: var(--wr-accent-soft);
+}
+
+.wr-style-list > button > .wr-style-component-glyph {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.wr-style-list > button > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.wr-style-list strong,
+.wr-style-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-style-list strong {
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.wr-style-list small {
+  color: var(--wr-muted-text);
+  font-size: 8px;
+}
+
+.wr-style-configurator-empty {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--wr-muted-text);
+  text-align: center;
+}
+
+.wr-style-configurator-empty > .material-icons {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 1px dashed var(--wr-border-strong);
+  border-radius: 12px;
+  color: var(--wr-accent);
+  font-size: 24px;
+}
+
+.wr-style-configurator-empty h2,
+.wr-style-configurator-empty p {
+  margin: 0;
+}
+
+.wr-style-configurator-empty h2 {
+  color: var(--wr-text);
+  font-size: 13px;
+}
+
+.wr-style-configurator-empty p {
+  max-width: 390px;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.wr-style-name-field {
+  display: grid;
+  width: min(360px, 56%);
+  gap: 4px;
+}
+
+.wr-style-name-field input {
+  height: 30px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.wr-style-configurator-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.wr-style-component-type {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-panel-alt);
+  color: var(--wr-muted-text);
+  font-size: 9px;
+}
+
+.wr-style-component-type .wr-style-component-glyph {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 3px;
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.wr-style-delete-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  cursor: pointer;
+}
+
+.wr-style-delete-button:hover {
+  border-color: var(--wr-danger);
+  background: color-mix(in srgb, var(--wr-danger) 12%, transparent);
+  color: var(--wr-danger);
+}
+
+.wr-style-delete-button .material-icons {
+  font-size: 15px;
+}
+
+.wr-style-class-editor {
+  margin-bottom: 12px;
+  padding: 13px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-panel-bg);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--wr-shadow) 30%, transparent);
+}
+
+.wr-style-class-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wr-style-class-editor-heading span,
+.wr-style-class-editor > p {
+  color: var(--wr-muted-text);
+  font-size: 9px;
+}
+
+.wr-style-class-editor-heading > div > span {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.wr-style-class-editor h2,
+.wr-style-class-editor p {
+  margin: 0;
+}
+
+.wr-style-class-editor h2 {
+  margin-top: 3px;
+  color: var(--wr-text);
+  font-size: 12px;
+}
+
+.wr-style-class-editor > p {
+  margin: 8px 0;
+}
+
+.wr-style-class-editor textarea {
+  display: block;
+  min-height: 92px;
+  resize: vertical;
+  padding: 9px;
+  color: var(--wr-code-text, var(--wr-text));
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.wr-style-class-example {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  background: var(--wr-panel-alt);
+  color: var(--wr-muted-text);
+}
+
+.wr-style-class-example > .material-icons {
+  color: var(--wr-accent);
+  font-size: 15px;
+}
+
+.wr-style-class-example > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.wr-style-class-example strong {
+  color: var(--wr-text);
+  font-size: 8px;
+}
+
+.wr-style-class-example code {
+  overflow-wrap: anywhere;
+  color: var(--wr-muted-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+}
+
+.wr-style-preview-frame {
+  position: relative;
+  display: grid;
+  min-width: 180px;
+  min-height: 72px;
+  place-items: center;
+  padding: 14px 20px;
+  border: 1px dashed var(--wr-border-strong);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--wr-surface) 75%, transparent);
+  contain: layout paint;
+  overflow: hidden;
+}
+
+.wr-style-preview-unavailable {
+  max-width: 300px;
+  color: var(--wr-muted-text);
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.wr-style-preview-unavailable code {
+  color: var(--wr-text);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@media (max-width: 760px) {
+  .wr-styles-body {
+    grid-template-columns: minmax(180px, 215px) minmax(300px, 1fr);
+  }
+
+  .wr-styles-header p,
+  .wr-styles-notice {
+    display: none;
+  }
+
+  .wr-styles-workspace {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
 }
 
 .wr-welcome-shortcuts {
@@ -1411,31 +1835,28 @@ kbd {
   outline: 1px solid #9ba4b0;
 }
 
-.wr-page-surface.show-grid {
+.wr-page-grid {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
   background-image: radial-gradient(circle, rgba(80, 90, 105, 0.38) 0.65px, transparent 0.8px);
+  pointer-events: none;
 }
 
-.wr-runtime-layer,
+/* Runtime layout positions both containers; mirror that containing block in the Designer. */
+.wr-page-surface > .wr-webpage,
+.wr-runtime-node > .wr-webpanel {
+  position: relative;
+}
+
 .wr-design-overlay {
   position: absolute;
   inset: 0;
 }
 
-.wr-runtime-layer {
-  z-index: 1;
-}
-
 .wr-runtime-node {
   position: absolute;
   overflow: visible;
-}
-
-.wr-runtime-node.wr-runtime-container {
-  overflow: hidden;
-}
-
-.wr-runtime-node > .wr-webpanel {
-  overflow: hidden;
 }
 
 .wr-design-overlay {

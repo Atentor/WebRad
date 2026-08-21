@@ -42,6 +42,58 @@ class BindEventCommand implements Command<PageModel> {
   }
 }
 
+function componentWithStyle(
+  component: ComponentNode,
+  styleId: string | null | undefined,
+): ComponentNode {
+  if (styleId === null || styleId === undefined) {
+    const componentWithoutStyle = { ...component };
+    delete componentWithoutStyle.styleId;
+    return componentWithoutStyle;
+  }
+  return { ...component, styleId };
+}
+
+class ChangeStyleCommand implements Command<PageModel> {
+  public readonly label = 'Change component style';
+  readonly #componentIds: ReadonlySet<string>;
+  readonly #styleId: string | null;
+  #previous: ReadonlyMap<string, string | undefined> | null = null;
+
+  public constructor(componentIds: readonly string[], styleId: string | null) {
+    this.#componentIds = new Set(componentIds);
+    this.#styleId = styleId;
+  }
+
+  public execute(page: PageModel): PageModel {
+    this.#previous ??= new Map(
+      page.components
+        .filter((component) => this.#componentIds.has(component.id))
+        .map((component) => [component.id, component.styleId] as const),
+    );
+    return this.#apply(page, () => this.#styleId);
+  }
+
+  public undo(page: PageModel): PageModel {
+    if (this.#previous === null) throw new Error('Style command has not executed.');
+    return this.#apply(page, (component) => this.#previous?.get(component.id));
+  }
+
+  #apply(
+    page: PageModel,
+    resolveStyleId: (component: ComponentNode) => string | null | undefined,
+  ): PageModel {
+    return parsePage({
+      ...page,
+      components: page.components.map((component) =>
+        this.#componentIds.has(component.id)
+          ? componentWithStyle(component, resolveStyleId(component))
+          : component,
+      ),
+    });
+  }
+}
+
 class ChangePagePropertyCommand implements Command<PageModel> {
   public readonly label = 'Change page property';
   readonly #property: 'layoutMode' | 'caption' | 'width' | 'height';
@@ -246,6 +298,21 @@ export class DesignerController {
     handlerName: string | null,
   ): PageModel {
     return this.execute(page, new BindEventCommand(componentId, eventName, handlerName));
+  }
+
+  public changeStyle(
+    page: PageModel,
+    selected: readonly ComponentNode[],
+    styleId: string | null,
+  ): PageModel {
+    if (selected.length === 0) return page;
+    return this.execute(
+      page,
+      new ChangeStyleCommand(
+        selected.map((component) => component.id),
+        styleId,
+      ),
+    );
   }
 
   public clear(): void {

@@ -12,6 +12,22 @@
       "codeFile": "pages/PageMain.ts"
     }
   ],
+  "styles": [
+    {
+      "id": "hello-webrad-style-button-primary-v1",
+      "name": "PrimaryButton",
+      "componentType": "WebButton",
+      "classes": {
+        "base": "bg-sky-600 text-white border-transparent rounded-lg shadow-md font-medium select-none",
+        "hover": "bg-sky-700 -translate-y-0.5 shadow-lg",
+        "focus": "outline-none ring-2 ring-sky-400 ring-offset-2",
+        "active": "translate-y-0 scale-95",
+        "disabled": "opacity-50 cursor-not-allowed",
+        "animation": "transition duration-200 ease-out motion-reduce:transition-none",
+        "advanced": ""
+      }
+    }
+  ],
   "settings": {
     "gridSize": 8,
     "snapToGrid": true,

@@ -23,7 +23,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Every user-facing IDE window opens maximized after its renderer is ready, without exposing the hidden automated-smoke window.
 - DONE: The renderer toolbar uses compact grouped actions without duplicate WebRAD branding or a theme button; theme switching remains available from Tools > Toggle Theme.
 - DONE: Problems, Output, and Build are docked in the editor column below the nonvisual component tray, while the side rails remain full-height.
-- DONE: Project Explorer exposes a stateless visual Styles workspace; persistence, Tailwind classes, and component style references remain intentionally deferred until the versioned contract is designed.
+- DONE: Project Explorer Styles provides persisted, reusable, component-compatible Tailwind styles with state groups, live Designer preview, Inspector assignment, and static compiler output.
 - DONE: The root `Icon.svg` is the canonical application icon for native packages, windows, installers, favicon, and renderer branding.
 - DONE: Build and run resolves TypeScript standard libraries and esbuild resources explicitly in both Forge development and packaged applications.
 - DONE: Monaco provides project-wide TypeScript models, complete runtime/page typings, professional editing features and themes, live diagnostics, authoritative build markers, and navigable Problems.
@@ -38,7 +38,8 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 ## Validation evidence
 
 - Strict TypeScript, ESLint, Prettier, and the complete Vitest suite pass locally.
-- Renderer integration tests cover the compact toolbar, Tools-only theme switching, stateless Styles navigation, the File/Toolbar New Project dialog, validation/cancel, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, live/build Problems navigation, save/close/open, F9, and the sandboxed Preview URL. The packaged smoke opens the real Monaco/TypeScript bundle, waits for lazy TypeScript tokenization, proves distinct syntax tokens/colors, and opens a populated Ctrl+Space suggestion widget.
+- Project Model, compiler, runtime, Registry-driven component rendering, Styles workspace, Inspector binding, live CSS IPC, and the real development Electron smoke cover reusable Tailwind styles from authoring through generated Preview execution.
+- Renderer integration tests cover the compact toolbar, Tools-only theme switching, functional Styles navigation and editing, the File/Toolbar New Project dialog, validation/cancel, visual and nonvisual palette insertion, Inspector edits, AST event generation, Monaco source editing, live/build Problems navigation, save/close/open, F9, and the sandboxed Preview URL. The packaged smoke opens the real Monaco/TypeScript bundle, waits for lazy TypeScript tokenization, proves distinct syntax tokens/colors, and opens a populated Ctrl+Space suggestion widget.
 - The packaged renderer smoke loads both the normal and italic JetBrains Mono weight-300 faces and verifies Monaco's computed font family, proving that installed applications use bundled webfonts; packaging also includes the font's OFL 1.1 notice.
 - Language and renderer tests cover every MVP component as a generated `this.Name` member, concrete non-`any` runtime types, Registry property completion, stable visual IDs, nonvisual identity, root-as-`this`, and the exact completion insertion text.
 - Application icon validation checks generated PNG/ICO/ICNS assets, renderer reuse of the SVG, packaged native icon loading, and the Windows Squirrel installer.
@@ -52,6 +53,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Exclude source-first `@webrad/*` workspaces from Vite dependency optimization while explicitly optimizing the CommonJS TypeScript distribution, so renamed exports cannot leave the development renderer on a stale bundle.
 - Represent `.wrpage` and the project manifest as versioned JSON while keeping user code in separate `.ts` files.
 - Keep the current Page contract at format version 1 and reject documents outside the current schema without carrying a migration layer.
+- Store reusable style identities and component references in the version 1 Project Model; compile exact Tailwind candidates to static utility CSS with no Preflight or browser Tailwind dependency.
 - Share browser-safe component property projection and CSS through `@webrad/runtime/visual`; keep design interaction exclusively in the Designer overlay.
 - Keep nonvisual nodes in the Project Model and tray, construct their typed services in generated code, and omit them from the final DOM model.
 - Treat `Icon.svg` as the application icon source of truth; commit checked PNG/ICO/ICNS derivatives required by native platforms.

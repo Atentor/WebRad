@@ -1,4 +1,9 @@
-import { addPage as addPageToProject, createPage, createProject } from '@webrad/project-model';
+import {
+  addPage as addPageToProject,
+  createPage,
+  createProject,
+  setComponentStyle,
+} from '@webrad/project-model';
 import { describe, expect, it, vi } from 'vitest';
 import type { ProjectSession, WebRadBridge } from '../../../shared/contracts';
 import { ProjectController } from './project-controller';
@@ -28,6 +33,7 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
     },
     files: { read: vi.fn(), write: vi.fn() },
     build: { run: vi.fn() },
+    styles: { compile: vi.fn(async () => ({ css: '' })) },
     commands: { subscribe: vi.fn(() => () => undefined) },
     lifecycle: { setDirty: vi.fn() },
     platform: 'win32',
@@ -74,6 +80,50 @@ describe('ProjectController', () => {
     expect(controller.getSnapshot().dirty).toBe(true);
     await controller.save();
     expect(controller.getSnapshot().dirty).toBe(false);
+  });
+
+  it('projects style CRUD into the aggregate and clears assigned references on delete', () => {
+    const project = createProject('Project1');
+    const session = {
+      rootPath: 'C:/projects/Project1',
+      projectFilePath: 'C:/projects/Project1/Project1.wrproj',
+      project,
+      userSources: {},
+    };
+    const bridge = fakeBridge(session);
+    const controller = new ProjectController(bridge);
+    controller.load(session);
+
+    const style = controller.createStyle('Page Surface', 'WebPage');
+    controller.updateStyle({
+      ...style,
+      name: 'Application Surface',
+      classes: { ...style.classes, base: 'bg-slate-100 text-slate-900' },
+    });
+    const page = controller.getSnapshot().project?.pages[0];
+    expect(page).toBeDefined();
+    controller.replaceProject(
+      setComponentStyle(
+        controller.getSnapshot().project!,
+        page!.id,
+        page!.rootComponentId,
+        style.id,
+      ),
+    );
+
+    expect(controller.getSnapshot().project?.styles[0]).toMatchObject({
+      id: style.id,
+      name: 'Application Surface',
+      componentType: 'WebPage',
+      classes: { base: 'bg-slate-100 text-slate-900' },
+    });
+    expect(controller.getSnapshot().project?.pages[0]?.components[0]?.styleId).toBe(style.id);
+    expect(controller.getSnapshot().dirty).toBe(true);
+    expect(bridge.lifecycle.setDirty).toHaveBeenCalledWith(true);
+
+    controller.removeStyle(style.id);
+    expect(controller.getSnapshot().project?.styles).toEqual([]);
+    expect(controller.getSnapshot().project?.pages[0]?.components[0]?.styleId).toBeUndefined();
   });
 
   it('queues edits made while a save is in flight and never restores the stale response', async () => {

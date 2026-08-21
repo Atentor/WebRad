@@ -19,7 +19,10 @@ import {
   WebTextArea,
   mountPage,
   projectComponentVisual,
+  resolveComponentStyleClassName,
+  resolveComponentStyleClassNames,
   runtimeEventName,
+  tokenizeTailwindClasses,
   type RuntimePageModel,
 } from '../src/index.js';
 
@@ -507,6 +510,85 @@ describe('browser runtime', () => {
     });
     expect(WEBRAD_COMPONENT_CSS).toContain('.wr-component[hidden]');
     expect(runtimeEventName('OnCUSTOM')).toBe('custom');
+  });
+
+  it('resolves reusable Tailwind groups, interaction states and arbitrary values safely', () => {
+    const style = {
+      classes: {
+        base: "px-4 bg-blue-600 [content:'hello world']",
+        hover: 'bg-blue-700',
+        focus: 'ring-2',
+        active: 'scale-95',
+        disabled: 'cursor-not-allowed opacity-50',
+        animation: 'transition-all animate-pulse',
+        advanced: 'rounded-lg bg-blue-600',
+      },
+    };
+
+    expect(tokenizeTailwindClasses(style.classes.base)).toEqual([
+      'px-4',
+      'bg-blue-600',
+      "[content:'hello_world']",
+    ]);
+    expect(resolveComponentStyleClassNames(style)).toEqual([
+      'px-4',
+      'bg-blue-600',
+      "[content:'hello_world']",
+      'transition-all',
+      'animate-pulse',
+      'rounded-lg',
+      'hover:bg-blue-700',
+      'focus:ring-2',
+      'focus-within:ring-2',
+      'active:scale-95',
+      'disabled:cursor-not-allowed',
+      'aria-disabled:cursor-not-allowed',
+      'disabled:opacity-50',
+      'aria-disabled:opacity-50',
+    ]);
+    expect(resolveComponentStyleClassName(style)).toContain('hover:bg-blue-700');
+  });
+
+  it('applies compiled style classes to the real browser element', () => {
+    const styledModel: RuntimePageModel = {
+      ...pageModel,
+      components: pageModel.components.map((component) =>
+        component.id === 'button-show'
+          ? {
+              ...component,
+              props: {
+                ...component.props,
+                backgroundColor: 'red',
+                borderColor: 'black',
+                color: 'white',
+              },
+              styleClassName: 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 animate-pulse',
+            }
+          : component.id === 'edit-name'
+            ? {
+                ...component,
+                props: { ...component.props, backgroundColor: 'red' },
+                styleClassName: '',
+              }
+            : component,
+      ),
+    };
+
+    const mounted = mountPage(styledModel);
+    const button = mounted.page.requireComponentElement('button-show');
+    expect([...button.classList]).toEqual(
+      expect.arrayContaining([
+        'wr-webbutton',
+        'bg-blue-600',
+        'hover:bg-blue-700',
+        'disabled:opacity-50',
+        'animate-pulse',
+      ]),
+    );
+    expect(button.style.backgroundColor).toBe('');
+    expect(button.style.borderColor).toBe('');
+    expect(button.style.color).toBe('');
+    expect(mounted.page.requireComponentElement('edit-name').style.backgroundColor).toBe('');
   });
 });
 

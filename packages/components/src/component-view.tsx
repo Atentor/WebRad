@@ -5,8 +5,9 @@ import {
   readIntegerProperty,
   readStringListProperty,
   readStringProperty,
+  tokenizeTailwindClasses,
 } from '@webrad/runtime/visual';
-import type { CSSProperties, ReactElement } from 'react';
+import type { CSSProperties, ReactElement, ReactNode } from 'react';
 
 export type ComponentEventName =
   'OnClick' | 'OnChange' | 'OnInput' | 'OnFocus' | 'OnBlur' | 'OnMouseEnter' | 'OnMouseLeave';
@@ -14,6 +15,10 @@ export type ComponentEventName =
 export interface ComponentViewProps {
   node: ComponentNode;
   designTime?: boolean;
+  /** Tailwind classes resolved from the node's selected project style. */
+  styleClassName?: string;
+  /** Visual descendants for container components such as WebPage and WebPanel. */
+  children?: ReactNode;
   onEvent?: (eventName: ComponentEventName, node: ComponentNode) => void;
 }
 
@@ -22,6 +27,7 @@ type ComponentRenderer = (props: ComponentViewProps) => ReactElement;
 function sharedAttributes(
   node: ComponentNode,
   designTime = false,
+  styleClassName?: string,
 ): {
   className: string;
   style: CSSProperties;
@@ -34,8 +40,11 @@ function sharedAttributes(
 } {
   const visual = projectComponentVisual(node, 'fill');
   return {
-    className: visual.classNames.join(' '),
-    style: visual.style,
+    className: [...visual.classNames, ...tokenizeTailwindClasses(styleClassName ?? '')].join(' '),
+    style:
+      styleClassName === undefined
+        ? visual.style
+        : { width: visual.style.width, height: visual.style.height },
     hidden: !visual.visible,
     'aria-disabled': !visual.enabled,
     'data-component-id': node.id,
@@ -50,26 +59,30 @@ function sharedAttributes(
 }
 
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
-  WebPage: ({ node, designTime }) => (
+  WebPage: ({ node, designTime, styleClassName, children }) => (
     <section
-      {...sharedAttributes(node, designTime)}
+      {...sharedAttributes(node, designTime, styleClassName)}
       aria-label={readStringProperty(node, 'caption', node.name)}
-    />
+    >
+      {children}
+    </section>
   ),
-  WebPanel: ({ node, designTime }) => (
+  WebPanel: ({ node, designTime, styleClassName, children }) => (
     <section
-      {...sharedAttributes(node, designTime)}
+      {...sharedAttributes(node, designTime, styleClassName)}
       aria-label={readStringProperty(node, 'caption', node.name)}
-    />
+    >
+      {children}
+    </section>
   ),
-  WebLabel: ({ node, designTime }) => (
-    <span {...sharedAttributes(node, designTime)}>
+  WebLabel: ({ node, designTime, styleClassName }) => (
+    <span {...sharedAttributes(node, designTime, styleClassName)}>
       {readStringProperty(node, 'caption', 'Label')}
     </span>
   ),
-  WebEdit: ({ node, designTime, onEvent }) => (
+  WebEdit: ({ node, designTime, styleClassName, onEvent }) => (
     <input
-      {...sharedAttributes(node, designTime)}
+      {...sharedAttributes(node, designTime, styleClassName)}
       aria-label={readStringProperty(node, 'placeholder', node.name)}
       value={readStringProperty(node, 'value')}
       disabled={!readBooleanProperty(node, 'enabled', true)}
@@ -81,9 +94,9 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       onBlur={() => onEvent?.('OnBlur', node)}
     />
   ),
-  WebTextArea: ({ node, designTime, onEvent }) => (
+  WebTextArea: ({ node, designTime, styleClassName, onEvent }) => (
     <textarea
-      {...sharedAttributes(node, designTime)}
+      {...sharedAttributes(node, designTime, styleClassName)}
       aria-label={readStringProperty(node, 'placeholder', node.name)}
       value={readStringProperty(node, 'value')}
       disabled={!readBooleanProperty(node, 'enabled', true)}
@@ -93,9 +106,9 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       onChange={() => onEvent?.('OnChange', node)}
     />
   ),
-  WebButton: ({ node, designTime, onEvent }) => (
+  WebButton: ({ node, designTime, styleClassName, onEvent }) => (
     <button
-      {...sharedAttributes(node, designTime)}
+      {...sharedAttributes(node, designTime, styleClassName)}
       type="button"
       disabled={!readBooleanProperty(node, 'enabled', true)}
       onClick={() => onEvent?.('OnClick', node)}
@@ -103,8 +116,8 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       {readStringProperty(node, 'caption', 'Button')}
     </button>
   ),
-  WebCheckBox: ({ node, designTime, onEvent }) => (
-    <label {...sharedAttributes(node, designTime)}>
+  WebCheckBox: ({ node, designTime, styleClassName, onEvent }) => (
+    <label {...sharedAttributes(node, designTime, styleClassName)}>
       <input
         type="checkbox"
         checked={readBooleanProperty(node, 'checked')}
@@ -115,12 +128,12 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       <span>{readStringProperty(node, 'caption', 'CheckBox')}</span>
     </label>
   ),
-  WebComboBox: ({ node, designTime, onEvent }) => {
+  WebComboBox: ({ node, designTime, styleClassName, onEvent }) => {
     const items = readStringListProperty(node, 'items');
     const selectedIndex = readIntegerProperty(node, 'selectedIndex', -1);
     return (
       <select
-        {...sharedAttributes(node, designTime)}
+        {...sharedAttributes(node, designTime, styleClassName)}
         aria-label={node.name}
         value={items[selectedIndex] ?? readStringProperty(node, 'value')}
         disabled={!readBooleanProperty(node, 'enabled', true)}
@@ -134,9 +147,9 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       </select>
     );
   },
-  WebImage: ({ node, designTime }) => {
+  WebImage: ({ node, designTime, styleClassName }) => {
     const source = readStringProperty(node, 'src');
-    const attributes = sharedAttributes(node, designTime);
+    const attributes = sharedAttributes(node, designTime, styleClassName);
     return source ? (
       <img
         {...attributes}
@@ -145,7 +158,15 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
         src={source}
         style={{
           ...attributes.style,
-          objectFit: readStringProperty(node, 'objectFit', 'contain') as CSSProperties['objectFit'],
+          ...(styleClassName === undefined
+            ? {
+                objectFit: readStringProperty(
+                  node,
+                  'objectFit',
+                  'contain',
+                ) as CSSProperties['objectFit'],
+              }
+            : {}),
         }}
       />
     ) : (
@@ -154,14 +175,14 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       </div>
     );
   },
-  WebListBox: ({ node, designTime, onEvent }) => {
+  WebListBox: ({ node, designTime, styleClassName, onEvent }) => {
     const items = readStringListProperty(node, 'items');
     const selectedIndex = readIntegerProperty(node, 'selectedIndex', -1);
     const multiple = readBooleanProperty(node, 'multiple');
     const selectedValue = items[selectedIndex] ?? readStringProperty(node, 'value');
     return (
       <select
-        {...sharedAttributes(node, designTime)}
+        {...sharedAttributes(node, designTime, styleClassName)}
         aria-label={node.name}
         value={multiple ? (selectedValue.length > 0 ? [selectedValue] : []) : selectedValue}
         multiple={multiple}
@@ -183,7 +204,7 @@ export function ComponentView(props: ComponentViewProps): ReactElement {
   const renderer = renderers[props.node.type];
   if (!renderer) {
     return (
-      <div {...sharedAttributes(props.node, props.designTime)} role="alert">
+      <div {...sharedAttributes(props.node, props.designTime, props.styleClassName)} role="alert">
         Unknown component: {props.node.type}
       </div>
     );

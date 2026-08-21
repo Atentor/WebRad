@@ -223,6 +223,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly bounds: RuntimeBounds;
     readonly props: Readonly<Record<string, unknown>>;
     readonly children: readonly string[];
+    readonly styleClassName?: string;
   }
 
   export interface RuntimePageModel {
@@ -279,6 +280,28 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
       readonly height: number;
     };
   }
+
+  export interface TailwindClassGroups {
+    readonly base?: string;
+    readonly hover?: string;
+    readonly focus?: string;
+    readonly active?: string;
+    readonly disabled?: string;
+    readonly animation?: string;
+    readonly advanced?: string;
+  }
+
+  export interface TailwindStyleSource {
+    readonly classes: TailwindClassGroups;
+  }
+
+  export function tokenizeTailwindClasses(value: string): readonly string[];
+  export function resolveComponentStyleClassNames(
+    style: TailwindStyleSource | null | undefined,
+  ): readonly string[];
+  export function resolveComponentStyleClassName(
+    style: TailwindStyleSource | null | undefined,
+  ): string;
 
   export type VisualSizingMode = 'bounds' | 'fill';
 

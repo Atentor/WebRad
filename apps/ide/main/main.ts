@@ -360,7 +360,15 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const welcomeIcon = Reflect.get(shellResult, 'welcomeIcon');
   const favicon = Reflect.get(shellResult, 'favicon');
   const bridge = Reflect.get(shellResult, 'bridge');
-  const expectedBridge = ['build', 'commands', 'files', 'lifecycle', 'platform', 'project'];
+  const expectedBridge = [
+    'build',
+    'commands',
+    'files',
+    'lifecycle',
+    'platform',
+    'project',
+    'styles',
+  ];
   if (
     shell !== true ||
     toolbar !== true ||
@@ -462,9 +470,14 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     })()`,
     'the visual Styles workspace',
   );
-  if (!stylesNotice.includes('Tailwind integration')) {
-    throw new Error('Styles workspace does not identify its visual-only Tailwind boundary.');
+  if (!stylesNotice.includes('Tailwind utilities')) {
+    throw new Error('Styles workspace does not expose its Tailwind class editor guidance.');
   }
+  await waitForRendererString(
+    window,
+    `Array.from(document.querySelectorAll('.wr-style-list strong')).some((item) => item.textContent?.trim() === 'PrimaryButton') ? 'ready' : ''`,
+    'the persisted PrimaryButton style',
+  );
   const pageReopened = (await window.webContents.executeJavaScript(
     `(() => {
       const page = document.querySelector('.wr-page-row');
@@ -480,7 +493,27 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     `document.querySelector('.wr-designer-workspace') === null ? '' : 'ready'`,
     'the Designer after Styles',
   );
-  smokeLog('renderer Styles scaffold passed');
+  await waitForRendererString(
+    window,
+    `document.querySelector('[data-component-type="WebButton"]')?.classList.contains('bg-sky-600') === true ? 'ready' : ''`,
+    'the selected style classes in the Designer',
+  );
+  const compiledStylesState = await waitForRendererString(
+    window,
+    `(() => {
+      const styleSheets = Array.from(document.querySelectorAll('style[data-webrad-project-styles]'));
+      if (styleSheets.some((style) => style.textContent?.includes('.bg-sky-600'))) return 'ready';
+      const error = Array.from(document.querySelectorAll('.wr-output-line span'))
+        .map((item) => item.textContent?.trim() ?? '')
+        .find((message) => message.includes('Could not compile the live style preview'));
+      return error === undefined ? '' : 'error:' + error;
+    })()`,
+    'the compiled Tailwind CSS in the Designer',
+  );
+  if (compiledStylesState !== 'ready') {
+    throw new Error(`Renderer live Tailwind compilation failed: ${compiledStylesState}`);
+  }
+  smokeLog('renderer Styles workspace passed');
   smokeLog('renderer project open passed');
 
   const codeDispatched = (await window.webContents.executeJavaScript(
@@ -521,7 +554,17 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
       if (!(button instanceof HTMLButtonElement)) return { error: 'BTNMostrar was not mounted.' };
       edit.value = 'Ada';
       button.click();
-      return { message: globalThis.__webradSmokeMessage };
+      const computedButton = getComputedStyle(button);
+      return {
+        message: globalThis.__webradSmokeMessage,
+        styled:
+          button.classList.contains('bg-sky-600') &&
+          button.classList.contains('hover:bg-sky-700') &&
+          computedButton.color === 'rgb(255, 255, 255)' &&
+          computedButton.borderRadius === '8px' &&
+          computedButton.boxShadow !== 'none' &&
+          computedButton.transitionDuration !== '0s'
+      };
     })()`,
     true,
   )) as unknown;
@@ -529,10 +572,14 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     typeof interaction === 'object' && interaction !== null
       ? Reflect.get(interaction, 'message')
       : undefined;
-  if (message !== 'Olá Ada') {
+  const styled =
+    typeof interaction === 'object' && interaction !== null
+      ? Reflect.get(interaction, 'styled')
+      : undefined;
+  if (message !== 'Olá Ada' || styled !== true) {
     throw new Error(`Renderer F9 Preview interaction failed: ${JSON.stringify(interaction)}`);
   }
-  smokeLog('renderer F9 preview passed: Olá Ada');
+  smokeLog('renderer F9 preview passed: Olá Ada; Tailwind style applied');
 }
 
 // Vite can wrap this CommonJS boolean in a default-export object.
@@ -571,6 +618,9 @@ function createWindow(): BrowserWindow {
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      // Smoke windows stay hidden, so keep renderer timers alive for debounced
+      // live style compilation while preserving normal Electron throttling.
+      backgroundThrottling: !smokeMode,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,

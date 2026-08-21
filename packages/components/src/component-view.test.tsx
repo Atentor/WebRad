@@ -26,6 +26,54 @@ describe('ComponentView', () => {
     expect(markup).toContain('class="wr-component wr-webbutton"');
   });
 
+  it('projects the selected reusable style classes onto the component root', () => {
+    const markup = renderToStaticMarkup(
+      <ComponentView
+        node={{
+          ...button,
+          props: { ...button.props, backgroundColor: 'red', color: 'white' },
+        }}
+        styleClassName="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 animate-pulse"
+      />,
+    );
+
+    expect(markup).toContain(
+      'class="wr-component wr-webbutton bg-blue-600 hover:bg-blue-700 disabled:opacity-50 animate-pulse"',
+    );
+    expect(markup).not.toContain('background-color:red');
+    expect(markup).not.toContain('color:white');
+
+    const emptyStyleMarkup = renderToStaticMarkup(
+      <ComponentView
+        node={{ ...button, props: { ...button.props, backgroundColor: 'red' } }}
+        styleClassName=""
+      />,
+    );
+    expect(emptyStyleMarkup).not.toContain('background-color:red');
+  });
+
+  it('renders visual descendants inside container roots', () => {
+    const panel = {
+      ...button,
+      id: 'panel-id',
+      type: 'WebPanel',
+      name: 'Panel1',
+      props: { caption: 'Actions', visible: true, enabled: true },
+      children: [button.id],
+    };
+    const markup = renderToStaticMarkup(
+      <ComponentView node={panel} styleClassName="[&>button]:uppercase">
+        <ComponentView node={button} />
+      </ComponentView>,
+    );
+
+    expect(markup).toContain('<section');
+    expect(markup).toContain('[&amp;&gt;button]:uppercase');
+    expect(markup).toContain('<button');
+    expect(markup.indexOf('<button')).toBeGreaterThan(markup.indexOf('<section'));
+    expect(markup.indexOf('</button>')).toBeLessThan(markup.indexOf('</section>'));
+  });
+
   it('keeps enabled controls visually enabled at design time while removing them from tab order', () => {
     const markup = renderToStaticMarkup(<ComponentView node={button} designTime />);
 

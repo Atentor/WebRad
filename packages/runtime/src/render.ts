@@ -19,6 +19,7 @@ import {
   readBooleanProperty,
   readIntegerProperty,
   readStringProperty,
+  tokenizeTailwindClasses,
 } from './visual.js';
 
 export interface RuntimeBounds {
@@ -36,6 +37,8 @@ export interface RuntimeComponentNode {
   readonly bounds: RuntimeBounds;
   readonly props: Readonly<Record<string, unknown>>;
   readonly children: readonly string[];
+  /** Resolved at compile time so generated apps do not ship a Tailwind runtime. */
+  readonly styleClassName?: string;
 }
 
 export interface RuntimePageModel {
@@ -140,14 +143,21 @@ function applyCommon(component: WebComponent, node: RuntimeComponentNode): void 
   element.dataset.webradId = node.id;
   element.dataset.webradName = node.name;
   element.dataset.webradType = node.type;
-  element.classList.add(...visual.classNames);
+  element.classList.add(
+    ...visual.classNames,
+    ...tokenizeTailwindClasses(node.styleClassName ?? ''),
+  );
   component.width = node.bounds.width;
   component.height = node.bounds.height;
-  component.backgroundColor = visual.style.backgroundColor ?? '';
-  component.color = visual.style.color ?? '';
-  component.borderColor = visual.style.borderColor ?? '';
-  element.style.borderStyle = visual.style.borderStyle ?? '';
-  element.style.borderWidth = visual.style.borderWidth ?? '';
+  // A selected Tailwind style owns paint properties. Bounds and positioning
+  // remain model-owned so the visual layout stays deterministic.
+  if (node.styleClassName === undefined) {
+    component.backgroundColor = visual.style.backgroundColor ?? '';
+    component.color = visual.style.color ?? '';
+    component.borderColor = visual.style.borderColor ?? '';
+    element.style.borderStyle = visual.style.borderStyle ?? '';
+    element.style.borderWidth = visual.style.borderWidth ?? '';
+  }
   if (node.parentId !== null) {
     element.style.position = 'absolute';
     component.x = node.bounds.x;
@@ -275,8 +285,10 @@ runtimeComponentRegistry
       applyCommon(component, node);
       component.src = readStringProperty(node, 'src');
       component.alt = readStringProperty(node, 'alt', node.name);
-      const objectFit = readStringProperty(node, 'objectFit');
-      if (objectFit.length > 0) component.objectFit = objectFit as WebImageObjectFit;
+      if (node.styleClassName === undefined) {
+        const objectFit = readStringProperty(node, 'objectFit');
+        if (objectFit.length > 0) component.objectFit = objectFit as WebImageObjectFit;
+      }
     },
   })
   .register<WebListBox>('WebListBox', {

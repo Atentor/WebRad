@@ -2,10 +2,10 @@ import path from 'node:path';
 
 import type { ComponentRegistry } from '@webrad/component-registry';
 import type { PageModel, WebRadProject } from '@webrad/project-model';
+import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import { createUserPageSource, generatePageSource } from '@webrad/language';
 
 import runtimeSources from './runtime-sources.json';
-import { GENERATED_APP_CSS } from './styles.js';
 import type { CompileDiagnostic } from './types.js';
 
 export const VIRTUAL_ROOT = path.resolve(process.cwd(), '.webrad-compiler-virtual');
@@ -66,27 +66,39 @@ export {};
 `;
 }
 
-function runtimePageModel(page: PageModel, registry: ComponentRegistry): PageModel {
+function runtimePageModel(
+  page: PageModel,
+  styles: WebRadProject['styles'],
+  registry: ComponentRegistry,
+) {
   const visualIds = new Set(
     page.components
       .filter((component) => registry.require(component.type).visual)
       .map((component) => component.id),
   );
+  const stylesById = new Map(styles.map((style) => [style.id, style]));
   return {
     ...page,
     components: page.components
       .filter((component) => visualIds.has(component.id))
-      .map((component) => ({
-        ...component,
-        children: component.children.filter((childId) => visualIds.has(childId)),
-      })),
+      .map((component) => {
+        const style =
+          component.styleId === undefined ? undefined : stylesById.get(component.styleId);
+        const styleClassName =
+          style?.componentType === component.type ? resolveComponentStyleClassName(style) : '';
+        return {
+          ...component,
+          children: component.children.filter((childId) => visualIds.has(childId)),
+          ...(style === undefined ? {} : { styleClassName }),
+        };
+      }),
   };
 }
 
 function createEntrySource(project: WebRadProject, registry: ComponentRegistry): string {
   const entryPage = project.pages.find((page) => page.id === project.entryPage);
   if (entryPage === undefined) throw new Error('The validated project has no entry page.');
-  const serializedPage = JSON.stringify(runtimePageModel(entryPage, registry));
+  const serializedPage = JSON.stringify(runtimePageModel(entryPage, project.styles, registry));
   return `import {
   Confirm,
   Message,
@@ -110,6 +122,7 @@ export function createVirtualSourceGraph(
   project: WebRadProject,
   userSources: Readonly<Record<string, string>>,
   registry: ComponentRegistry,
+  generatedAppCss: string,
 ): VirtualSourceGraph {
   const sources = new Map<string, string>();
   const diagnostics: CompileDiagnostic[] = [];
@@ -153,7 +166,7 @@ export function createVirtualSourceGraph(
   const entryPath = virtualAbsolutePath('entry.ts');
   const stylePath = virtualAbsolutePath('app.css');
   sources.set(entryPath, createEntrySource(project, registry));
-  sources.set(stylePath, GENERATED_APP_CSS);
+  sources.set(stylePath, generatedAppCss);
   sources.set(virtualAbsolutePath('webrad-globals.d.ts'), createGlobalTypings());
   sources.set(virtualAbsolutePath('styles.d.ts'), `declare module '*.css';\n`);
   return { sources, entryPath, stylePath, diagnostics };

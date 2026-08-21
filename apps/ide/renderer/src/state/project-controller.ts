@@ -1,10 +1,15 @@
 import {
+  addComponentStyle,
   addPage as addPageToProject,
+  createComponentStyle,
   getPage,
   parseProject,
+  removeComponentStyle,
   removePage as removePageFromProject,
   renamePage as renamePageInProject,
+  updateComponentStyle,
   updatePage as updateProjectPage,
+  type ComponentStyleModel,
   type PageModel,
   type WebRadProject,
 } from '@webrad/project-model';
@@ -228,6 +233,22 @@ export class ProjectController {
 
   public replaceProject(projectInput: WebRadProject): void {
     this.#commitEdit(projectInput, this.#snapshot.userSources);
+  }
+
+  public createStyle(name: string, componentType: string): ComponentStyleModel {
+    const project = this.#requireProject();
+    const style = createComponentStyle(name, componentType);
+    this.replaceProject(addComponentStyle(project, style));
+    return style;
+  }
+
+  public updateStyle(style: ComponentStyleModel): void {
+    const project = this.#requireProject();
+    this.replaceProject(updateComponentStyle(project, style.id, () => style));
+  }
+
+  public removeStyle(styleId: string): void {
+    this.replaceProject(removeComponentStyle(this.#requireProject(), styleId));
   }
 
   public updatePage(pageId: string, updater: (page: PageModel) => PageModel): void {

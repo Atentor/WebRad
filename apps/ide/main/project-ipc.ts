@@ -1,12 +1,14 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
-import { compileProject } from '@webrad/compiler';
-import { parseProject } from '@webrad/project-model';
+import { compileProject, compileTailwindStyles } from '@webrad/compiler';
+import { parseComponentStyle, parseProject } from '@webrad/project-model';
 import { z } from 'zod';
 import type {
   BuildRequest,
   BuildResponse,
+  CompileStylesRequest,
+  CompileStylesResponse,
   CreateProjectRequest,
   ProjectSession,
   ReadFileRequest,
@@ -53,6 +55,7 @@ const writeFileSchema = readFileSchema.extend({ content: z.string() }).strict();
 const buildRequestSchema = saveProjectSchema
   .extend({ outputDirectory: z.string().min(1).optional() })
   .strict();
+const compileStylesRequestSchema = z.object({ styles: z.array(z.unknown()) }).strict();
 
 function normalizedRoot(rootPath: string): string {
   const resolved = path.resolve(rootPath);
@@ -236,6 +239,16 @@ async function buildHandler(
   };
 }
 
+async function compileStylesHandler(
+  event: IpcMainInvokeEvent,
+  input: CompileStylesRequest,
+): Promise<CompileStylesResponse> {
+  requireTrustedSender(event);
+  const request = compileStylesRequestSchema.parse(input);
+  const styles = request.styles.map((style) => parseComponentStyle(style));
+  return { css: await compileTailwindStyles(styles) };
+}
+
 export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: string): void {
   const windowId = window.webContents.id;
   trustedRendererUrls.set(windowId, new URL(trustedRendererUrl).href);
@@ -288,6 +301,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   ipcMain.handle('webrad:files:read', readFileHandler);
   ipcMain.handle('webrad:files:write', writeFileHandler);
   ipcMain.handle('webrad:build:run', buildHandler);
+  ipcMain.handle('webrad:styles:compile', compileStylesHandler);
   ipcMain.on('webrad:lifecycle:set-dirty', (event, dirty: unknown) => {
     if (typeof dirty !== 'boolean') return;
     let window: BrowserWindow;

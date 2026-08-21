@@ -1,3 +1,6 @@
+/* Tailwind emits universal custom-property defaults in its `properties` layer. */
+@layer properties, theme, base, components, utilities;
+
 :root,
 [data-theme='dark'] {
   color-scheme: dark;
@@ -49,8 +52,29 @@
   --wr-shadow: rgba(31, 42, 57, 0.18);
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    color: inherit;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--wr-accent);
+    outline-offset: -1px;
+  }
 }
 
 html,
@@ -75,25 +99,6 @@ body {
     sans-serif;
   font-size: 12px;
   user-select: none;
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button {
-  color: inherit;
-}
-
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--wr-accent);
-  outline-offset: -1px;
 }
 
 ::-webkit-scrollbar {

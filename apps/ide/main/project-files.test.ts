@@ -1,7 +1,16 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { addPage, createPage, removePage, updatePage } from '@webrad/project-model';
+import {
+  addComponent,
+  addComponentStyle,
+  addPage,
+  createComponentStyle,
+  createPage,
+  removePage,
+  setComponentStyle,
+  updatePage,
+} from '@webrad/project-model';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProjectFiles,
@@ -41,6 +50,59 @@ describe('project files', () => {
     expect(loaded.project.name).toBe('Project1');
     expect(loaded.project.pages[0]?.name).toBe('PageMain');
     expect(loaded.userSources[userPath]).toBe('// preserved user code\n');
+  });
+
+  it('persists reusable styles inline and component references in page documents', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-styles-'));
+    temporaryRoots.push(parent);
+    const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
+    const page = initial.project.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+
+    const withButtonPage = addComponent(page, {
+      id: 'button-id',
+      type: 'WebButton',
+      name: 'Button1',
+      parentId: page.rootComponentId,
+      bounds: { x: 16, y: 16, width: 120, height: 36 },
+      props: { caption: 'Save', visible: true, enabled: true },
+      events: { OnClick: null },
+      children: [],
+    });
+    const style = createComponentStyle('Primary Button', 'WebButton', {
+      idFactory: () => 'style-id',
+      classes: {
+        base: 'rounded bg-blue-600 px-4 py-2 text-white',
+        hover: 'bg-blue-700',
+      },
+    });
+    const withButton = updatePage(initial.project, page.id, withButtonPage);
+    const withStyle = addComponentStyle(withButton, style);
+    const project = setComponentStyle(withStyle, page.id, 'button-id', style.id);
+
+    const saved = await saveProjectFiles({
+      rootPath: initial.rootPath,
+      project,
+      userSources: defaultUserSources(project),
+    });
+    const manifest = JSON.parse(await fs.readFile(saved.projectFilePath, 'utf8')) as {
+      styles: unknown[];
+      pages: { pageFile: string }[];
+    };
+    expect(manifest.styles).toEqual([style]);
+    const pageFile = manifest.pages[0]?.pageFile;
+    expect(pageFile).toBeDefined();
+    if (pageFile === undefined) return;
+    const persistedPage = JSON.parse(
+      await fs.readFile(path.join(saved.rootPath, ...pageFile.split('/')), 'utf8'),
+    ) as { components: { id: string; styleId?: string }[] };
+    expect(
+      persistedPage.components.find((component) => component.id === 'button-id')?.styleId,
+    ).toBe(style.id);
+
+    const loaded = await loadProjectFiles(saved.projectFilePath);
+    expect(loaded.project).toEqual(project);
   });
 
   it('preserves an owned authored source when the request source map omits it', async () => {

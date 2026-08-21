@@ -13,6 +13,8 @@ import {
   CURRENT_PROJECT_FORMAT_VERSION,
   type Bounds,
   type ComponentNode,
+  type ComponentStyleClasses,
+  type ComponentStyleModel,
   type PageDescriptor,
   type PageModel,
   type ProjectManifest,
@@ -40,6 +42,11 @@ const pageNameSchema = z.string().superRefine((value, context) => {
   const error = getPageNameError(value);
   if (error !== undefined) context.addIssue({ code: 'custom', message: error });
 });
+
+const componentStyleNameSchema = nonEmptyStringSchema.refine(
+  (value) => value === value.trim(),
+  'Style names cannot start or end with whitespace.',
+);
 
 const finiteCoordinateSchema = z.number().finite();
 const positiveDimensionSchema = z.number().finite().positive();
@@ -73,7 +80,29 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z
     bounds: BoundsSchema,
     props: z.record(z.string(), z.json()),
     events: z.record(z.string(), z.string().min(1).nullable()),
+    styleId: nonEmptyStringSchema.optional(),
     children: z.array(nonEmptyStringSchema),
+  })
+  .strict();
+
+export const ComponentStyleClassesSchema: z.ZodType<ComponentStyleClasses> = z
+  .object({
+    base: z.string(),
+    hover: z.string(),
+    focus: z.string(),
+    active: z.string(),
+    disabled: z.string(),
+    animation: z.string(),
+    advanced: z.string(),
+  })
+  .strict();
+
+export const ComponentStyleSchema: z.ZodType<ComponentStyleModel> = z
+  .object({
+    id: nonEmptyStringSchema,
+    name: componentStyleNameSchema,
+    componentType: identifierSchema,
+    classes: ComponentStyleClassesSchema,
   })
   .strict();
 
@@ -255,9 +284,42 @@ export const PageModelSchema: z.ZodType<PageModel> = z
   .strict()
   .superRefine(validatePageRelationships);
 
+function indexComponentStyles(
+  styles: readonly ComponentStyleModel[],
+  context: z.RefinementCtx,
+): ReadonlyMap<string, ComponentStyleModel> {
+  const byId = new Map<string, ComponentStyleModel>();
+  const names = new Set<string>();
+
+  styles.forEach((style, index) => {
+    if (byId.has(style.id)) {
+      context.addIssue({
+        code: 'custom',
+        message: `Duplicate component style ID "${style.id}".`,
+        path: ['styles', index, 'id'],
+      });
+    } else {
+      byId.set(style.id, style);
+    }
+
+    const nameKey = portableFileNameKey(style.name);
+    if (names.has(nameKey)) {
+      context.addIssue({
+        code: 'custom',
+        message: `Component style name "${style.name}" must be unique within a project.`,
+        path: ['styles', index, 'name'],
+      });
+    }
+    names.add(nameKey);
+  });
+
+  return byId;
+}
+
 function validateProjectRelationships(project: WebRadProject, context: z.RefinementCtx): void {
   const ids = new Set<string>();
   const names = new Set<string>();
+  const stylesById = indexComponentStyles(project.styles, context);
 
   project.pages.forEach((page, index) => {
     if (ids.has(page.id)) {
@@ -278,6 +340,24 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       });
     }
     names.add(nameKey);
+
+    page.components.forEach((component, componentIndex) => {
+      if (component.styleId === undefined) return;
+      const style = stylesById.get(component.styleId);
+      if (style === undefined) {
+        context.addIssue({
+          code: 'custom',
+          message: `Unknown component style ID "${component.styleId}".`,
+          path: ['pages', index, 'components', componentIndex, 'styleId'],
+        });
+      } else if (style.componentType !== component.type) {
+        context.addIssue({
+          code: 'custom',
+          message: `Component style "${style.name}" targets ${style.componentType}, not ${component.type}.`,
+          path: ['pages', index, 'components', componentIndex, 'styleId'],
+        });
+      }
+    });
   });
 
   if (!ids.has(project.entryPage)) {
@@ -296,6 +376,7 @@ export const WebRadProjectSchema: z.ZodType<WebRadProject> = z
     name: projectNameSchema,
     entryPage: nonEmptyStringSchema,
     pages: z.array(PageModelSchema).min(1),
+    styles: z.array(ComponentStyleSchema),
     settings: ProjectSettingsSchema,
   })
   .strict()
@@ -318,10 +399,12 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z
     name: projectNameSchema,
     entryPage: nonEmptyStringSchema,
     pages: z.array(PageDescriptorSchema).min(1),
+    styles: z.array(ComponentStyleSchema),
     settings: ProjectSettingsSchema,
   })
   .strict()
   .superRefine((manifest, context) => {
+    indexComponentStyles(manifest.styles, context);
     const ids = new Set<string>();
     const names = new Set<string>();
     const paths = new Set<string>();
@@ -390,6 +473,12 @@ export function safeParseComponentNode(
   return ComponentNodeSchema.safeParse(input);
 }
 
+export function safeParseComponentStyle(
+  input: unknown,
+): ReturnType<typeof ComponentStyleSchema.safeParse> {
+  return ComponentStyleSchema.safeParse(input);
+}
+
 export function safeParsePage(input: unknown): ReturnType<typeof PageModelSchema.safeParse> {
   return PageModelSchema.safeParse(input);
 }
@@ -420,6 +509,12 @@ export function parseComponentNode(input: unknown): ComponentNode {
   return result.data;
 }
 
+export function parseComponentStyle(input: unknown): ComponentStyleModel {
+  const result = safeParseComponentStyle(input);
+  if (!result.success) throw issuesFrom(result.error);
+  return result.data;
+}
+
 export function parsePage(input: unknown): PageModel {
   const result = safeParsePage(input);
   if (!result.success) throw issuesFrom(result.error);
@@ -441,6 +536,8 @@ export function parseProjectManifest(input: unknown): ProjectManifest {
 // Lowercase aliases keep schema imports ergonomic without weakening the canonical names.
 export const boundsSchema = BoundsSchema;
 export const componentNodeSchema = ComponentNodeSchema;
+export const componentStyleClassesSchema = ComponentStyleClassesSchema;
+export const componentStyleSchema = ComponentStyleSchema;
 export const pageModelSchema = PageModelSchema;
 export const projectSettingsSchema = ProjectSettingsSchema;
 export const webRadProjectSchema = WebRadProjectSchema;

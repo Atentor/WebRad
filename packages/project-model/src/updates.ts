@@ -5,8 +5,16 @@ import {
   portableFileNameKey,
   validateComponentName,
 } from './naming.js';
-import { parseComponentNode, parsePage, parseProject } from './schemas.js';
-import type { Bounds, ComponentNode, PageModel, ProjectSettings, WebRadProject } from './types.js';
+import { parseComponentNode, parseComponentStyle, parsePage, parseProject } from './schemas.js';
+import type {
+  Bounds,
+  ComponentNode,
+  ComponentStyleClasses,
+  ComponentStyleModel,
+  PageModel,
+  ProjectSettings,
+  WebRadProject,
+} from './types.js';
 
 export function findComponent(page: PageModel, componentId: string): ComponentNode | undefined {
   return page.components.find((component) => component.id === componentId);
@@ -229,6 +237,135 @@ export function getPage(project: WebRadProject, pageId: string): PageModel {
     throw new ModelUpdateError(`Page ID "${pageId}" does not exist in project "${project.name}".`);
   }
   return page;
+}
+
+export function findComponentStyle(
+  project: WebRadProject,
+  styleId: string,
+): ComponentStyleModel | undefined {
+  return project.styles.find((style) => style.id === styleId);
+}
+
+export function getComponentStyle(project: WebRadProject, styleId: string): ComponentStyleModel {
+  const style = findComponentStyle(project, styleId);
+  if (style === undefined) {
+    throw new ModelUpdateError(
+      `Component style ID "${styleId}" does not exist in project "${project.name}".`,
+    );
+  }
+  return style;
+}
+
+export function addComponentStyle(
+  projectInput: WebRadProject,
+  styleInput: ComponentStyleModel,
+): WebRadProject {
+  const project = parseProject(projectInput);
+  const style = parseComponentStyle(styleInput);
+  return parseProject({ ...project, styles: [...project.styles, style] });
+}
+
+export type ComponentStylePatch = Partial<Omit<ComponentStyleModel, 'id'>> & {
+  readonly id?: string;
+};
+export type ComponentStyleUpdater =
+  ComponentStylePatch | ((style: ComponentStyleModel) => ComponentStyleModel);
+
+export function updateComponentStyle(
+  projectInput: WebRadProject,
+  styleId: string,
+  updater: ComponentStyleUpdater,
+): WebRadProject {
+  const project = parseProject(projectInput);
+  const current = getComponentStyle(project, styleId);
+  const updated =
+    typeof updater === 'function'
+      ? updater(current)
+      : ({ ...current, ...updater, id: current.id } satisfies ComponentStyleModel);
+
+  if (
+    updated.id !== current.id ||
+    (typeof updater !== 'function' && updater.id !== undefined && updater.id !== current.id)
+  ) {
+    throw new ModelUpdateError(
+      'Component style IDs are immutable and cannot be changed by an update.',
+    );
+  }
+
+  const parsedStyle = parseComponentStyle(updated);
+  const incompatibleReference = project.pages
+    .flatMap((page) => page.components)
+    .find(
+      (component) => component.styleId === styleId && component.type !== parsedStyle.componentType,
+    );
+  if (incompatibleReference !== undefined) {
+    throw new ModelUpdateError(
+      `Component style "${parsedStyle.name}" targets ${parsedStyle.componentType}, not ${incompatibleReference.type}.`,
+    );
+  }
+  return parseProject({
+    ...project,
+    styles: project.styles.map((style) => (style.id === styleId ? parsedStyle : style)),
+  });
+}
+
+export function updateComponentStyleClasses(
+  projectInput: WebRadProject,
+  styleId: string,
+  patch: Partial<ComponentStyleClasses>,
+): WebRadProject {
+  const style = getComponentStyle(projectInput, styleId);
+  return updateComponentStyle(projectInput, styleId, {
+    classes: { ...style.classes, ...patch },
+  });
+}
+
+function withoutComponentStyle(component: ComponentNode): ComponentNode {
+  const unbound = { ...component };
+  delete unbound.styleId;
+  return unbound;
+}
+
+/** Removes a style and atomically clears every reference to it across all pages. */
+export function removeComponentStyle(projectInput: WebRadProject, styleId: string): WebRadProject {
+  const project = parseProject(projectInput);
+  getComponentStyle(project, styleId);
+  return parseProject({
+    ...project,
+    pages: project.pages.map((page) => ({
+      ...page,
+      components: page.components.map((component) =>
+        component.styleId === styleId ? withoutComponentStyle(component) : component,
+      ),
+    })),
+    styles: project.styles.filter((style) => style.id !== styleId),
+  });
+}
+
+/** Assigns one compatible project style, or clears the assignment with `null`. */
+export function setComponentStyle(
+  projectInput: WebRadProject,
+  pageId: string,
+  componentId: string,
+  styleId: string | null,
+): WebRadProject {
+  const project = parseProject(projectInput);
+  const page = getPage(project, pageId);
+  const component = getComponent(page, componentId);
+
+  if (styleId !== null) {
+    const style = getComponentStyle(project, styleId);
+    if (style.componentType !== component.type) {
+      throw new ModelUpdateError(
+        `Component style "${style.name}" targets ${style.componentType}, not ${component.type}.`,
+      );
+    }
+  }
+
+  const updatedPage = updateComponent(page, componentId, (current) =>
+    styleId === null ? withoutComponentStyle(current) : { ...current, styleId },
+  );
+  return updatePage(project, pageId, () => updatedPage);
 }
 
 export type PagePatch = Partial<Omit<PageModel, 'id'>> & { readonly id?: string };

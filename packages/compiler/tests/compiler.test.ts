@@ -4,8 +4,11 @@ import path from 'node:path';
 
 import {
   addComponent,
+  addComponentStyle,
   bindComponentEvent,
+  createComponentStyle,
   createProject,
+  setComponentStyle,
   updatePage,
   type PageModel,
   type WebRadProject,
@@ -16,7 +19,11 @@ import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { compileProject, compileProjectToMemory } from '../src/index.js';
-import { GENERATED_APP_CSS } from '../src/styles.js';
+import {
+  collectTailwindCandidates,
+  compileTailwindStyles,
+  GENERATED_APP_CSS,
+} from '../src/styles.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -75,6 +82,25 @@ function executableProject(): WebRadProject {
   page = bindComponentEvent(page, rootId, 'OnCreate', 'PageMainCreate');
   page = bindComponentEvent(page, 'button-show', 'OnClick', 'BTNMostrarClick');
   return updatePage(project, page.id, page);
+}
+
+function styledExecutableProject(): WebRadProject {
+  const project = executableProject();
+  const style = createComponentStyle('Primary Button', 'WebButton', {
+    idFactory: () => 'style-primary-button',
+    classes: {
+      base: 'bg-blue-600 px-6 text-white tracking-[0.125em]',
+      hover: 'bg-blue-700',
+      focus: 'ring-2 ring-blue-300',
+      active: 'scale-95',
+      disabled: 'cursor-not-allowed opacity-50',
+      animation: 'transition-all duration-200 animate-pulse',
+      advanced:
+        'rounded-lg [box-shadow:0_4px_12px_rgb(0_0_0_/_0.25)] [&>span]:text-red-500 bg-blue-600',
+    },
+  });
+  const withStyle = addComponentStyle(project, style);
+  return setComponentStyle(withStyle, withStyle.pages[0]!.id, 'button-show', style.id);
 }
 
 describe('compileProject', () => {
@@ -173,6 +199,127 @@ export class PageMain extends PageMainGenerated {
     expect(GENERATED_APP_CSS).toContain('--wr-control-surface: #f5f7fa');
   });
 
+  it('compiles only saved Tailwind candidates with states, animation and arbitrary values', async () => {
+    const project = styledExecutableProject();
+    const css = await compileTailwindStyles(project.styles);
+    const candidates = collectTailwindCandidates(project.styles);
+
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        'bg-blue-600',
+        'hover:bg-blue-700',
+        'focus:ring-2',
+        'active:scale-95',
+        'disabled:opacity-50',
+        'aria-disabled:opacity-50',
+        'animate-pulse',
+        '[box-shadow:0_4px_12px_rgb(0_0_0_/_0.25)]',
+        '[&>span]:text-red-500',
+      ]),
+    );
+    expect(candidates.filter((candidate) => candidate === 'bg-blue-600')).toHaveLength(1);
+    expect(css).toContain('.bg-blue-600');
+    expect(css).toContain('.hover\\:bg-blue-700');
+    expect(css).toContain('.disabled\\:opacity-50');
+    expect(css).toContain('.aria-disabled\\:opacity-50');
+    expect(css).toContain('.animate-pulse');
+    expect(css).toContain('.tracking-\\[0\\.125em\\]');
+    expect(css).toContain('.\\[box-shadow\\:0_4px_12px_rgb\\(0_0_0_\\/_0\\.25\\)\\]');
+    expect(css).toContain('.\\[\\&\\>span\\]\\:text-red-500 > span');
+    expect(css).not.toContain('.m-96');
+    expect(css).not.toContain('::file-selector-button');
+  });
+
+  it('rejects brace expansion syntax instead of expanding authored candidates', async () => {
+    const style = createComponentStyle('Unsafe Expansion', 'WebButton', {
+      idFactory: () => 'style-unsafe-expansion',
+      classes: { advanced: 'bg-{red,blue}-500' },
+    });
+
+    await expect(compileTailwindStyles([style])).rejects.toThrow(
+      'Braces are reserved for @source expansion',
+    );
+  });
+
+  it('ships static Tailwind CSS and applies the selected style in the compiled browser app', async () => {
+    const result = await compileProjectToMemory(styledExecutableProject(), { userSources: {} });
+
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    const css = result.files['assets/app.css'] ?? '';
+    expect(css).toContain('@layer theme, base, components, utilities');
+    expect(css).toContain('@layer components');
+    expect(css).toContain('@layer utilities');
+    expect(css).toContain('.wr-webbutton');
+    expect(css).toContain('.bg-blue-600');
+    expect(result.files['assets/app.js']).not.toContain('@tailwindcss');
+
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      runScripts: 'outside-only',
+      url: 'https://preview.webrad.test/',
+    });
+    Object.defineProperties(dom.window, {
+      fetch: { value: globalThis.fetch },
+      Headers: { value: globalThis.Headers },
+    });
+    dom.window.eval(result.files['assets/app.js'] ?? '');
+    const button = dom.window.document.querySelector<HTMLElement>('[data-webrad-id="button-show"]');
+    expect(button).not.toBeNull();
+    expect([...(button?.classList ?? [])]).toEqual(
+      expect.arrayContaining([
+        'bg-blue-600',
+        'hover:bg-blue-700',
+        'disabled:opacity-50',
+        'animate-pulse',
+      ]),
+    );
+    dom.window.close();
+  });
+
+  it('preserves an empty style binding and lets it own paint properties', async () => {
+    const project = executableProject();
+    const emptyStyle = createComponentStyle('Empty Page', 'WebPage', {
+      idFactory: () => 'style-empty-page',
+    });
+    const withStyle = addComponentStyle(project, emptyStyle);
+    const assigned = setComponentStyle(
+      withStyle,
+      withStyle.pages[0]!.id,
+      withStyle.pages[0]!.rootComponentId,
+      emptyStyle.id,
+    );
+    const painted: WebRadProject = {
+      ...assigned,
+      pages: assigned.pages.map((page) => ({
+        ...page,
+        components: page.components.map((component) =>
+          component.id === page.rootComponentId
+            ? {
+                ...component,
+                props: { ...component.props, backgroundColor: 'rgb(255, 0, 0)' },
+              }
+            : component,
+        ),
+      })),
+    };
+
+    const result = await compileProjectToMemory(painted, { userSources: {} });
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    expect(result.files['assets/app.js']).toMatch(/"styleClassName":\s*""/u);
+
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      runScripts: 'outside-only',
+      url: 'https://preview.webrad.test/',
+    });
+    Object.defineProperties(dom.window, {
+      fetch: { value: globalThis.fetch },
+      Headers: { value: globalThis.Headers },
+    });
+    dom.window.eval(result.files['assets/app.js'] ?? '');
+    const page = dom.window.document.querySelector<HTMLElement>('[data-webrad-page-id]');
+    expect(page?.style.backgroundColor).toBe('');
+    dom.window.close();
+  });
+
   it('returns structured TypeScript diagnostics without writing a broken build', async () => {
     const outputDirectory = await temporaryDirectory();
     const result = await compileProject(executableProject(), {
@@ -263,5 +410,34 @@ export class PageMain extends PageMainGenerated {
     expect(
       result.diagnostics.some((diagnostic) => diagnostic.message.includes('mysteryProperty')),
     ).toBe(true);
+  });
+
+  it('rejects styles that target unknown or nonvisual registry entries', async () => {
+    const project = executableProject();
+    const unknown = createComponentStyle('Unknown Style', 'MissingControl', {
+      idFactory: () => 'style-unknown',
+    });
+    const nonvisual = createComponentStyle('API Style', 'WebApiClient', {
+      idFactory: () => 'style-api',
+    });
+    const invalidProject = addComponentStyle(addComponentStyle(project, unknown), nonvisual);
+
+    const result = await compileProjectToMemory(invalidProject, { userSources: {} });
+
+    expect(result.success).toBe(false);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'registry',
+          message: expect.stringContaining('unknown component type'),
+          path: ['styles', 0, 'componentType'],
+        }),
+        expect.objectContaining({
+          source: 'registry',
+          message: expect.stringContaining('nonvisual component type'),
+          path: ['styles', 1, 'componentType'],
+        }),
+      ]),
+    );
   });
 });

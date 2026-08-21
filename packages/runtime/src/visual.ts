@@ -15,6 +15,135 @@ export interface VisualComponentSource extends VisualPropertySource {
   };
 }
 
+/**
+ * Tailwind class groups stored by the project model. This deliberately uses a
+ * structural browser-safe contract so the runtime does not depend on the
+ * versioned project-model package.
+ */
+export interface TailwindClassGroups {
+  readonly base?: string;
+  readonly hover?: string;
+  readonly focus?: string;
+  readonly active?: string;
+  readonly disabled?: string;
+  readonly animation?: string;
+  readonly advanced?: string;
+}
+
+export interface TailwindStyleSource {
+  readonly classes: TailwindClassGroups;
+}
+
+/**
+ * Splits a Tailwind class expression while understanding arbitrary values,
+ * functions and quotes. Internal whitespace is normalized to Tailwind's `_`
+ * representation so every result is a valid DOM class token.
+ */
+export function tokenizeTailwindClasses(value: string): readonly string[] {
+  const tokens: string[] = [];
+  let token = '';
+  let quote: "'" | '"' | '`' | undefined;
+  let escaped = false;
+  const delimiters: string[] = [];
+  const closingDelimiter: Readonly<Record<string, string>> = {
+    '[': ']',
+    '(': ')',
+    '{': '}',
+  };
+
+  const commit = (): void => {
+    // A DOM class token cannot contain whitespace. Tailwind uses underscores to
+    // represent spaces inside arbitrary values (for example content strings).
+    const normalized = token.trim().replace(/\s+/gu, '_');
+    if (normalized.length > 0) tokens.push(normalized);
+    token = '';
+  };
+
+  for (const character of value) {
+    if (escaped) {
+      token += character;
+      escaped = false;
+      continue;
+    }
+    if (character === '\\') {
+      token += character;
+      escaped = true;
+      continue;
+    }
+    if (quote !== undefined) {
+      token += character;
+      if (character === quote) quote = undefined;
+      continue;
+    }
+    if (character === "'" || character === '"' || character === '`') {
+      token += character;
+      quote = character;
+      continue;
+    }
+    const closing = closingDelimiter[character];
+    if (closing !== undefined) {
+      token += character;
+      delimiters.push(closing);
+      continue;
+    }
+    if (delimiters.at(-1) === character) {
+      token += character;
+      delimiters.pop();
+      continue;
+    }
+    if (/\s/u.test(character) && delimiters.length === 0) {
+      commit();
+      continue;
+    }
+    token += character;
+  }
+  commit();
+  return tokens;
+}
+
+function stringClassGroup(groups: TailwindClassGroups, name: keyof TailwindClassGroups): string {
+  const value: unknown = groups[name];
+  return typeof value === 'string' ? value : '';
+}
+
+/** Resolves the exact class candidates applied to a styled component. */
+export function resolveComponentStyleClassNames(
+  style: TailwindStyleSource | null | undefined,
+): readonly string[] {
+  if (style === undefined || style === null || typeof style.classes !== 'object') return [];
+  const classes = style.classes;
+  const resolved: string[] = [];
+  const seen = new Set<string>();
+  const append = (className: string): void => {
+    if (className.length === 0 || seen.has(className)) return;
+    seen.add(className);
+    resolved.push(className);
+  };
+  const appendGroup = (name: keyof TailwindClassGroups, variants: readonly string[]): void => {
+    for (const className of tokenizeTailwindClasses(stringClassGroup(classes, name))) {
+      for (const variant of variants)
+        append(variant.length === 0 ? className : `${variant}:${className}`);
+    }
+  };
+
+  appendGroup('base', ['']);
+  appendGroup('animation', ['']);
+  appendGroup('advanced', ['']);
+  appendGroup('hover', ['hover']);
+  // focus-within makes focus styling work for compound controls such as WebCheckBox.
+  appendGroup('focus', ['focus', 'focus-within']);
+  appendGroup('active', ['active']);
+  // Every visual root exposes aria-disabled; native controls also expose :disabled.
+  appendGroup('disabled', ['disabled', 'aria-disabled']);
+  return resolved;
+}
+
+export function resolveComponentStyleClassName(
+  style: TailwindStyleSource | null | undefined,
+): string {
+  return resolveComponentStyleClassNames(style).join(' ');
+}
+
 export type VisualSizingMode = 'bounds' | 'fill';
 
 export interface ComponentVisualStyle {

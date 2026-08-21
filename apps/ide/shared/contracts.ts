@@ -1,4 +1,4 @@
-import type { WebRadProject } from '@webrad/project-model';
+import type { ComponentStyleModel, WebRadProject } from '@webrad/project-model';
 
 export const IDE_COMMANDS = [
   'file.newProject',
@@ -80,6 +80,14 @@ export interface BuildResponse {
   diagnostics: readonly BuildDiagnostic[];
 }
 
+export interface CompileStylesRequest {
+  readonly styles: readonly ComponentStyleModel[];
+}
+
+export interface CompileStylesResponse {
+  readonly css: string;
+}
+
 export interface WebRadBridge {
   project: {
     create(request: CreateProjectRequest): Promise<ProjectSession | null>;
@@ -94,6 +102,10 @@ export interface WebRadBridge {
   };
   build: {
     run(request: BuildRequest): Promise<BuildResponse>;
+  };
+  styles: {
+    /** Compiles the project style catalog for live design-time preview. */
+    compile(request: CompileStylesRequest): Promise<CompileStylesResponse>;
   };
   commands: {
     subscribe(listener: (command: IdeCommand) => void): () => void;

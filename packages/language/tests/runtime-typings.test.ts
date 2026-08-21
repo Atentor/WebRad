@@ -337,6 +337,11 @@ class EditorPage extends WebPage {
   WebListBox,
   WebPanel,
   WebTextArea,
+  resolveComponentStyleClassName,
+  resolveComponentStyleClassNames,
+  tokenizeTailwindClasses,
+  type RuntimeComponentNode,
+  type TailwindStyleSource,
   type WebNonvisualComponent,
   type WebSelectItem,
 } from '@webrad/runtime';
@@ -394,6 +399,28 @@ class EditorPage extends WebPage {
 declare const response: Response;
 const error = new WebApiError('Conflict', 409, 'Conflict', '/items', {}, response);
 Message(error.message);
+
+const reusableStyle: TailwindStyleSource = {
+  classes: {
+    base: 'bg-blue-600',
+    hover: 'bg-blue-700',
+    animation: 'transition-colors',
+  },
+};
+const runtimeNode: RuntimeComponentNode = {
+  id: 'button-id',
+  type: 'WebButton',
+  name: 'Button1',
+  parentId: 'page-id',
+  bounds: { x: 0, y: 0, width: 100, height: 32 },
+  props: {},
+  children: [],
+  styleClassName: resolveComponentStyleClassName(reusableStyle),
+};
+const styleClasses: readonly string[] = resolveComponentStyleClassNames(reusableStyle);
+const tokens: readonly string[] = tokenizeTailwindClasses(runtimeNode.styleClassName ?? '');
+void styleClasses;
+void tokens;
 `;
     const valid = createLanguageService(validSource);
     expect(valid.service.getSemanticDiagnostics(valid.fileName)).toEqual([]);

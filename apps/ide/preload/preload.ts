@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   BuildRequest,
   BuildResponse,
+  CompileStylesRequest,
+  CompileStylesResponse,
   CreateProjectRequest,
   IdeCommand,
   ProjectSession,
@@ -32,6 +34,10 @@ const bridge: WebRadBridge = {
   build: {
     run: (request: BuildRequest) =>
       ipcRenderer.invoke('webrad:build:run', request) as Promise<BuildResponse>,
+  },
+  styles: {
+    compile: (request: CompileStylesRequest) =>
+      ipcRenderer.invoke('webrad:styles:compile', request) as Promise<CompileStylesResponse>,
   },
   commands: {
     subscribe: (listener: (command: IdeCommand) => void) => {
