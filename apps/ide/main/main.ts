@@ -409,6 +409,38 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   );
   if (projectIcon !== welcomeIcon)
     throw new Error('Project icon does not match the application icon.');
+
+  const bottomDock = (await window.webContents.executeJavaScript(
+    `(() => {
+      const editor = document.querySelector('.wr-editor-slot');
+      const tray = document.querySelector('.wr-nonvisual-tray');
+      const bottom = document.querySelector('.wr-bottom-slot');
+      if (!(editor instanceof HTMLElement) || !(tray instanceof HTMLElement) || !(bottom instanceof HTMLElement)) {
+        return { ready: false };
+      }
+      const editorBounds = editor.getBoundingClientRect();
+      const trayBounds = tray.getBoundingClientRect();
+      const bottomBounds = bottom.getBoundingClientRect();
+      return {
+        ready: true,
+        belowNonvisualTray: bottomBounds.top >= trayBounds.bottom,
+        alignedWithEditor:
+          Math.abs(bottomBounds.left - editorBounds.left) <= 1 &&
+          Math.abs(bottomBounds.right - editorBounds.right) <= 1
+      };
+    })()`,
+    true,
+  )) as unknown;
+  if (
+    typeof bottomDock !== 'object' ||
+    bottomDock === null ||
+    Reflect.get(bottomDock, 'ready') !== true ||
+    Reflect.get(bottomDock, 'belowNonvisualTray') !== true ||
+    Reflect.get(bottomDock, 'alignedWithEditor') !== true
+  ) {
+    throw new Error(`Renderer bottom dock smoke failed: ${JSON.stringify(bottomDock)}`);
+  }
+  smokeLog('renderer bottom dock passed');
   smokeLog('renderer project open passed');
 
   const codeDispatched = (await window.webContents.executeJavaScript(

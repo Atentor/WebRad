@@ -22,6 +22,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: The visual and nonvisual MVP vertical paths, from persisted model through generated code and browser execution.
 - DONE: Every user-facing IDE window opens maximized after its renderer is ready, without exposing the hidden automated-smoke window.
 - DONE: The renderer toolbar uses compact grouped actions without duplicate WebRAD branding or a theme button; theme switching remains available from Tools > Toggle Theme.
+- DONE: Problems, Output, and Build are docked in the editor column below the nonvisual component tray, while the side rails remain full-height.
 - DONE: The root `Icon.svg` is the canonical application icon for native packages, windows, installers, favicon, and renderer branding.
 - DONE: Build and run resolves TypeScript standard libraries and esbuild resources explicitly in both Forge development and packaged applications.
 - DONE: Monaco provides project-wide TypeScript models, complete runtime/page typings, professional editing features and themes, live diagnostics, authoritative build markers, and navigable Problems.
