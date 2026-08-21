@@ -53,6 +53,7 @@ import { ObjectInspector } from './components/ObjectInspector';
 import { PreviewPane } from './components/PreviewPane';
 import { ProjectExplorer } from './components/ProjectExplorer';
 import { StatusBar } from './components/StatusBar';
+import { StylesWorkspace } from './components/StylesWorkspace';
 import { ToolPalette } from './components/ToolPalette';
 import { Toolbar } from './components/Toolbar';
 import {
@@ -66,6 +67,10 @@ import {
 import { canonicalMonacoResource } from './monaco-resource';
 import { DesignerController } from './state/designer-controller';
 import { ProjectController } from './state/project-controller';
+
+const STYLES_DOCUMENT_ID = 'webrad:project-styles';
+
+type ActiveWorkspace = 'page' | 'styles';
 
 function sourceKey(page: PageModel): string {
   return `pages/${page.name}.ts`;
@@ -153,6 +158,8 @@ export function App(): ReactElement {
   const [selection, setSelection] = useState(() => selectionManager.snapshot());
   const [openPageIds, setOpenPageIds] = useState<readonly string[]>([]);
   const [activePageId, setActivePageId] = useState<string | null>(null);
+  const [stylesOpen, setStylesOpen] = useState(false);
+  const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>('page');
   const [activeView, setActiveView] = useState<ViewMode>('design');
   const [selectedPaletteType, setSelectedPaletteType] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
@@ -181,8 +188,10 @@ export function App(): ReactElement {
     output: true,
   });
   const project = projectState.project;
-  const activePage =
-    project?.pages.find((page) => page.id === activePageId) ?? project?.pages[0] ?? null;
+  const stylesActive = activeWorkspace === 'styles' && project !== null;
+  const activePage = stylesActive
+    ? null
+    : (project?.pages.find((page) => page.id === activePageId) ?? null);
   const selectedComponents = useMemo(
     () => selectionNodes(activePage, selection.ids),
     [activePage, selection.ids],
@@ -221,6 +230,8 @@ export function App(): ReactElement {
       const initialPageId = session.project.entryPage || session.project.pages[0]?.id || null;
       setOpenPageIds(initialPageId ? [initialPageId] : []);
       setActivePageId(initialPageId);
+      setStylesOpen(false);
+      setActiveWorkspace('page');
       setActiveView('design');
       selectionManager.clear();
       designerController.clear();
@@ -267,10 +278,18 @@ export function App(): ReactElement {
       if (!project?.pages.some((page) => page.id === pageId)) return;
       setOpenPageIds((current) => (current.includes(pageId) ? current : [...current, pageId]));
       setActivePageId(pageId);
+      setActiveWorkspace('page');
       selectionManager.clear();
     },
     [project, selectionManager],
   );
+
+  const openStyles = useCallback((): void => {
+    if (!project) return;
+    setStylesOpen(true);
+    setActiveWorkspace('styles');
+    selectionManager.clear();
+  }, [project, selectionManager]);
 
   const updateActivePage = useCallback(
     (nextPage: PageModel): void => {
@@ -530,6 +549,7 @@ export function App(): ReactElement {
           current.includes(activePage.id) ? current : [...current, activePage.id],
         );
         setActivePageId(activePage.id);
+        setActiveWorkspace('page');
         setActiveView('code');
         setNavigateTo({
           resource: sourceUri(
@@ -639,6 +659,8 @@ export function App(): ReactElement {
       releaseMonacoWorkspace();
       setOpenPageIds([]);
       setActivePageId(null);
+      setStylesOpen(false);
+      setActiveWorkspace('page');
       selectionManager.clear();
       designerController.clear();
       setPreviewUrl(null);
@@ -668,6 +690,7 @@ export function App(): ReactElement {
       projectController.addPage(page);
       setOpenPageIds((current) => (current.includes(page.id) ? current : [...current, page.id]));
       setActivePageId(page.id);
+      setActiveWorkspace('page');
       selectionManager.clear();
       addOutput('PROJECT', `Added page ${name}.`);
     } catch (error) {
@@ -802,13 +825,13 @@ export function App(): ReactElement {
           window.dispatchEvent(new Event('webrad:find'));
           break;
         case 'view.design':
-          setActiveView('design');
+          if (activeWorkspace === 'page') setActiveView('design');
           break;
         case 'view.code':
-          setActiveView('code');
+          if (activeWorkspace === 'page') setActiveView('code');
           break;
         case 'view.preview':
-          setActiveView('preview');
+          if (activeWorkspace === 'page') setActiveView('preview');
           break;
         case 'view.projectExplorer':
           setVisiblePanels((current) => ({ ...current, explorer: !current.explorer }));
@@ -839,6 +862,7 @@ export function App(): ReactElement {
     },
     [
       addPageToProject,
+      activeWorkspace,
       activeView,
       closeProject,
       copySelection,
@@ -859,6 +883,7 @@ export function App(): ReactElement {
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent): void => {
       if (event.key === 'F12') {
+        if (activeWorkspace === 'styles') return;
         const target = event.target;
         if (
           activeView === 'code' &&
@@ -876,18 +901,27 @@ export function App(): ReactElement {
     };
     window.addEventListener('keydown', keyHandler);
     return () => window.removeEventListener('keydown', keyHandler);
-  }, [activeView, runProject]);
+  }, [activeView, activeWorkspace, runProject]);
 
-  const documents: readonly DocumentTab[] = useMemo(
-    () =>
-      openPageIds.flatMap((id) => {
-        const page = project?.pages.find((candidate) => candidate.id === id);
-        return page
-          ? [{ id, label: page.name, dirty: projectState.dirty, kind: 'page' as const }]
-          : [];
-      }),
-    [openPageIds, project, projectState.dirty],
-  );
+  const documents: readonly DocumentTab[] = useMemo(() => {
+    const pageDocuments = openPageIds.flatMap((id) => {
+      const page = project?.pages.find((candidate) => candidate.id === id);
+      return page
+        ? [{ id, label: page.name, dirty: projectState.dirty, kind: 'page' as const }]
+        : [];
+    });
+    return stylesOpen
+      ? [
+          ...pageDocuments,
+          {
+            id: STYLES_DOCUMENT_ID,
+            label: 'Styles',
+            dirty: false,
+            kind: 'styles' as const,
+          },
+        ]
+      : pageDocuments;
+  }, [openPageIds, project, projectState.dirty, stylesOpen]);
 
   const editorPageComponents = useMemo(
     () =>
@@ -1051,7 +1085,11 @@ export function App(): ReactElement {
     ],
   );
 
-  const editorContent = !activePage ? null : activeView === 'design' ? (
+  const editorContent = stylesActive ? (
+    <ErrorBoundary area="Styles">
+      <StylesWorkspace />
+    </ErrorBoundary>
+  ) : !activePage ? null : activeView === 'design' ? (
     <ErrorBoundary area="Designer">
       <DesignerSurface
         page={activePage}
@@ -1144,8 +1182,10 @@ export function App(): ReactElement {
               <ErrorBoundary area="Project Explorer">
                 <ProjectExplorer
                   project={project}
-                  activePageId={activePageId}
+                  activePageId={stylesActive ? null : activePageId}
+                  stylesActive={stylesActive}
                   onOpenPage={openPage}
+                  onOpenStyles={openStyles}
                   onAddPage={addPageToProject}
                   onDeletePage={deletePage}
                   onRenamePage={renamePage}
@@ -1178,10 +1218,18 @@ export function App(): ReactElement {
           editor={
             <EditorWorkspace
               documents={documents}
-              activeDocumentId={activePageId}
+              activeDocumentId={stylesActive ? STYLES_DOCUMENT_ID : activePageId}
               activeView={activeView}
-              onSelectDocument={openPage}
+              onSelectDocument={(id) => {
+                if (id === STYLES_DOCUMENT_ID) openStyles();
+                else openPage(id);
+              }}
               onCloseDocument={(id) => {
+                if (id === STYLES_DOCUMENT_ID) {
+                  setStylesOpen(false);
+                  if (activeWorkspace === 'styles') setActiveWorkspace('page');
+                  return;
+                }
                 setOpenPageIds((current) => current.filter((candidate) => candidate !== id));
                 if (activePageId === id) {
                   const remaining = openPageIds.filter((candidate) => candidate !== id);

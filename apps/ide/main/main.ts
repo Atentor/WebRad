@@ -441,6 +441,46 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     throw new Error(`Renderer bottom dock smoke failed: ${JSON.stringify(bottomDock)}`);
   }
   smokeLog('renderer bottom dock passed');
+
+  const stylesOpened = (await window.webContents.executeJavaScript(
+    `(() => {
+      const item = document.querySelector('.wr-project-tool-row');
+      if (!(item instanceof HTMLElement)) return false;
+      item.click();
+      return true;
+    })()`,
+    true,
+  )) as unknown;
+  if (stylesOpened !== true) throw new Error('Renderer smoke could not open Styles.');
+  const stylesNotice = await waitForRendererString(
+    window,
+    `(() => {
+      const workspace = document.querySelector('[aria-label="Styles editor"]');
+      const viewTabs = document.querySelector('.wr-view-tabs');
+      const notice = document.querySelector('.wr-styles-notice');
+      return workspace !== null && viewTabs === null ? notice?.textContent?.trim() ?? '' : '';
+    })()`,
+    'the visual Styles workspace',
+  );
+  if (!stylesNotice.includes('Tailwind integration')) {
+    throw new Error('Styles workspace does not identify its visual-only Tailwind boundary.');
+  }
+  const pageReopened = (await window.webContents.executeJavaScript(
+    `(() => {
+      const page = document.querySelector('.wr-page-row');
+      if (!(page instanceof HTMLElement)) return false;
+      page.click();
+      return true;
+    })()`,
+    true,
+  )) as unknown;
+  if (pageReopened !== true) throw new Error('Renderer smoke could not return from Styles.');
+  await waitForRendererString(
+    window,
+    `document.querySelector('.wr-designer-workspace') === null ? '' : 'ready'`,
+    'the Designer after Styles',
+  );
+  smokeLog('renderer Styles scaffold passed');
   smokeLog('renderer project open passed');
 
   const codeDispatched = (await window.webContents.executeJavaScript(

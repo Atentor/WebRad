@@ -384,6 +384,47 @@ describe('App MVP integration', () => {
     });
   });
 
+  it('opens the visual Styles workspace without persisting a provisional style model', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    const lifecycleCallsBeforeStyles = harness.setDirty.mock.calls.length;
+    const stylesItem = screen.getByRole('treeitem', { name: 'Styles' });
+
+    await user.click(stylesItem);
+
+    expect(stylesItem.getAttribute('aria-selected')).toBe('true');
+    expect(await screen.findByRole('region', { name: 'Styles editor' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Styles' })).toBeDefined();
+    expect(screen.getByRole('note').textContent).toContain('Tailwind integration');
+    expect((screen.getByRole('button', { name: 'New style' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(screen.queryByRole('tab', { name: 'Design' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Close Styles' })).toHaveLength(1);
+
+    await user.click(stylesItem);
+    expect(screen.getAllByRole('button', { name: 'Close Styles' })).toHaveLength(1);
+
+    await user.click(screen.getByRole('treeitem', { name: /PageMain/ }));
+    expect(await screen.findByRole('tab', { name: 'Design' })).toBeDefined();
+    expect(stylesItem.getAttribute('aria-selected')).toBe('false');
+
+    await user.click(screen.getByRole('button', { name: 'Styles' }));
+    await screen.findByRole('region', { name: 'Styles editor' });
+    await user.click(screen.getByRole('button', { name: 'Close Styles' }));
+    expect(await screen.findByRole('tab', { name: 'Design' })).toBeDefined();
+    expect(harness.save).not.toHaveBeenCalled();
+    expect(harness.setDirty.mock.calls.length).toBe(lifecycleCallsBeforeStyles);
+  });
+
   it('creates additional pages with the Page naming contract', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', {

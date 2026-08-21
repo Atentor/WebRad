@@ -7,7 +7,7 @@ export interface DocumentTab {
   id: string;
   label: string;
   dirty: boolean;
-  kind: 'page' | 'code';
+  kind: 'page' | 'code' | 'styles';
 }
 
 interface EditorWorkspaceProps {
@@ -29,6 +29,9 @@ export function EditorWorkspace({
   onSelectView,
   children,
 }: EditorWorkspaceProps): ReactElement {
+  const activeDocument = documents.find((document) => document.id === activeDocumentId);
+  const stylesDocumentActive = activeDocument?.kind === 'styles';
+
   return (
     <section className="wr-editor-workspace">
       <div className="wr-document-tabs" role="tablist" aria-label="Open documents">
@@ -40,7 +43,14 @@ export function EditorWorkspace({
             aria-selected={activeDocumentId === document.id}
           >
             <button type="button" onClick={() => onSelectDocument(document.id)}>
-              <span aria-hidden="true">{document.kind === 'page' ? '▱' : 'TS'}</span>
+              <span
+                className={
+                  document.kind === 'styles' ? 'material-icons wr-document-style-icon' : ''
+                }
+                aria-hidden="true"
+              >
+                {document.kind === 'styles' ? 'palette' : document.kind === 'page' ? '▱' : 'TS'}
+              </span>
               {document.label}
               {document.dirty && <em>*</em>}
             </button>
@@ -57,24 +67,28 @@ export function EditorWorkspace({
         ))}
       </div>
       {activeDocumentId ? (
-        <>
-          <div className="wr-view-tabs" role="tablist" aria-label="Document view">
-            {(['design', 'code', 'preview'] as const).map((view) => (
-              <button
-                key={view}
-                type="button"
-                role="tab"
-                aria-selected={activeView === view}
-                className={activeView === view ? 'active' : ''}
-                onClick={() => onSelectView(view)}
-              >
-                {view[0]?.toUpperCase()}
-                {view.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="wr-editor-content">{children}</div>
-        </>
+        stylesDocumentActive ? (
+          <div className="wr-editor-content wr-editor-content-full">{children}</div>
+        ) : (
+          <>
+            <div className="wr-view-tabs" role="tablist" aria-label="Document view">
+              {(['design', 'code', 'preview'] as const).map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeView === view}
+                  className={activeView === view ? 'active' : ''}
+                  onClick={() => onSelectView(view)}
+                >
+                  {view[0]?.toUpperCase()}
+                  {view.slice(1)}
+                </button>
+              ))}
+            </div>
+            <div className="wr-editor-content">{children}</div>
+          </>
+        )
       ) : (
         <div className="wr-welcome">
           <img className="wr-welcome-mark" src={applicationIconUrl} alt="" aria-hidden="true" />

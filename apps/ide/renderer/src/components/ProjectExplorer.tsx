@@ -6,7 +6,9 @@ import { Panel } from './Panel';
 interface ProjectExplorerProps {
   project: WebRadProject | null;
   activePageId: string | null;
+  stylesActive: boolean;
   onOpenPage: (pageId: string) => void;
+  onOpenStyles: () => void;
   onAddPage: () => void;
   onDeletePage: (pageId: string) => void;
   onRenamePage: (pageId: string, name: string) => void;
@@ -19,7 +21,9 @@ function FolderGlyph({ open = true }: { open?: boolean }): ReactElement {
 export function ProjectExplorer({
   project,
   activePageId,
+  stylesActive,
   onOpenPage,
+  onOpenStyles,
   onAddPage,
   onDeletePage,
   onRenamePage,
@@ -109,6 +113,25 @@ export function ProjectExplorer({
                 <span>{folder}</span>
               </div>
             ))}
+            <div
+              className={`wr-tree-row wr-project-tool-row ${stylesActive ? 'active' : ''}`}
+              role="treeitem"
+              aria-selected={stylesActive}
+              title="Open Styles"
+              tabIndex={0}
+              onClick={onOpenStyles}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpenStyles();
+                }
+              }}
+            >
+              <span className="material-icons wr-tree-action-icon" aria-hidden="true">
+                palette
+              </span>
+              <span>Styles</span>
+            </div>
             <div className="wr-tree-row" role="treeitem">
               <span className="wr-tree-glyph">⚙</span>
               <span>Project Settings</span>
