@@ -1,11 +1,11 @@
 export const CURRENT_PROJECT_FORMAT_VERSION = 1 as const;
-export const CURRENT_FORM_FORMAT_VERSION = 1 as const;
+export const CURRENT_PAGE_FORMAT_VERSION = 1 as const;
 
-/** Backwards-compatible name for consumers that only need the aggregate version. */
+/** Aggregate project format version. */
 export const PROJECT_FORMAT_VERSION = CURRENT_PROJECT_FORMAT_VERSION;
 
 export type ProjectFormatVersion = typeof CURRENT_PROJECT_FORMAT_VERSION;
-export type FormFormatVersion = typeof CURRENT_FORM_FORMAT_VERSION;
+export type PageFormatVersion = typeof CURRENT_PAGE_FORMAT_VERSION;
 export type LayoutMode = 'absolute' | 'flex' | 'grid';
 
 export interface Bounds {
@@ -28,8 +28,8 @@ export interface ComponentNode {
   readonly children: readonly string[];
 }
 
-export interface FormModel {
-  readonly formatVersion: FormFormatVersion;
+export interface PageModel {
+  readonly formatVersion: PageFormatVersion;
   readonly id: string;
   readonly name: string;
   readonly caption: string;
@@ -52,29 +52,29 @@ export interface WebRadProject {
   readonly formatVersion: ProjectFormatVersion;
   readonly id: string;
   readonly name: string;
-  /** ID of the form that starts the generated application. */
-  readonly entryForm: string;
+  /** ID of the page that starts the generated application. */
+  readonly entryPage: string;
   /** Complete in-memory aggregate and the single source of truth. */
-  readonly forms: readonly FormModel[];
+  readonly pages: readonly PageModel[];
   readonly settings: ProjectSettings;
 }
 
-/** A form entry stored in the lightweight `.wrproj` manifest. */
-export interface FormDescriptor {
+/** A page entry stored in the lightweight `.wrproj` manifest. */
+export interface PageDescriptor {
   readonly id: string;
   readonly name: string;
-  readonly formFile: string;
+  readonly pageFile: string;
   readonly generatedFile: string;
   readonly codeFile: string;
 }
 
-/** Disk manifest. Form contents live in the descriptor's `.wrform` file. */
+/** Disk manifest. Page contents live in the descriptor's `.wrpage` file. */
 export interface ProjectManifest {
   readonly formatVersion: ProjectFormatVersion;
   readonly id: string;
   readonly name: string;
-  readonly entryForm: string;
-  readonly forms: readonly FormDescriptor[];
+  readonly entryPage: string;
+  readonly pages: readonly PageDescriptor[];
   readonly settings: ProjectSettings;
 }
 
@@ -87,5 +87,5 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   outputDirectory: 'dist',
 });
 
-export const DEFAULT_FORM_WIDTH = 800;
-export const DEFAULT_FORM_HEIGHT = 600;
+export const DEFAULT_PAGE_WIDTH = 800;
+export const DEFAULT_PAGE_HEIGHT = 600;

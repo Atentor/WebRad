@@ -26,7 +26,7 @@ export class UnsupportedFormatVersionError extends ProjectModelError {
   public readonly foundVersion: number;
   public readonly currentVersion: number;
 
-  public constructor(kind: 'project' | 'form', foundVersion: number, currentVersion: number) {
+  public constructor(kind: 'project' | 'page', foundVersion: number, currentVersion: number) {
     super(
       `Unsupported ${kind} format version ${String(foundVersion)}; ` +
         `this WebRAD supports version ${String(currentVersion)}.`,
@@ -37,7 +37,7 @@ export class UnsupportedFormatVersionError extends ProjectModelError {
 }
 
 export class FutureFormatVersionError extends UnsupportedFormatVersionError {
-  public constructor(kind: 'project' | 'form', foundVersion: number, currentVersion: number) {
+  public constructor(kind: 'project' | 'page', foundVersion: number, currentVersion: number) {
     super(kind, foundVersion, currentVersion);
     this.name = 'FutureFormatVersionError';
     this.message =

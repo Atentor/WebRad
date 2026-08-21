@@ -69,7 +69,7 @@ export function installApplicationMenu(window: BrowserWindow): void {
     {
       label: 'Project',
       submenu: [
-        commandItem(window, 'Add Form', 'project.addForm'),
+        commandItem(window, 'Add Page', 'project.addPage'),
         commandItem(window, 'Build', 'project.build'),
       ],
     },
@@ -78,9 +78,7 @@ export function installApplicationMenu(window: BrowserWindow): void {
       submenu: [commandItem(window, 'Run', 'run.run', 'F9')],
     },
     { label: 'Component', submenu: [] },
-    { label: 'Tools', submenu: [
-      commandItem(window, 'Toggle Theme', 'view.toggleTheme'),
-    ] },
+    { label: 'Tools', submenu: [commandItem(window, 'Toggle Theme', 'view.toggleTheme')] },
     {
       label: 'Help',
       submenu: [

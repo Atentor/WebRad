@@ -1,6 +1,6 @@
 # WebRAD
 
-O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com formulários, componentes, propriedades, eventos, TypeScript e um fluxo real de compilação e visualização. A IDE desktop utiliza Electron e React; as aplicações geradas utilizam somente tecnologias do navegador.
+O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com páginas, componentes, propriedades, eventos, TypeScript e um fluxo real de compilação e visualização. A IDE desktop utiliza Electron e React; as aplicações geradas utilizam somente tecnologias do navegador.
 
 ## Pré-requisitos
 
@@ -29,6 +29,7 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
+npm run smoke:development
 npm run smoke:packaged
 ```
 
@@ -38,7 +39,7 @@ No PowerShell que bloqueia `npm.ps1`, substitua `npm` por `npm.cmd` nesses coman
 
 ## Empacotamento e distribuição
 
-O comando `npm run package` cria uma aplicação não instalada para a plataforma atual. O comando `npm run smoke:packaged` inicia exatamente esse artefato, abre pela IDE uma cópia temporária do projeto Hello, executa F9 pelo fluxo de compilação com IPC tipado, interage com o Preview isolado e verifica o resultado do evento gerado antes de encerrar. O comando `npm run make` aciona os geradores do Electron Forge para produzir os artefatos distribuíveis compatíveis com a plataforma atual.
+O comando `npm run smoke:development` inicia o Forge e o Vite reais, confirma que o shell React foi montado e percorre o fluxo completo da IDE sem reutilizar bundles obsoletos dos pacotes internos. O comando `npm run package` cria uma aplicação não instalada para a plataforma atual. O comando `npm run smoke:packaged` inicia exatamente esse artefato, abre pela IDE uma cópia temporária do projeto Hello, executa F9 pelo fluxo de compilação com IPC tipado, interage com o Preview isolado e verifica o resultado do evento gerado antes de encerrar. O comando `npm run make` aciona os geradores do Electron Forge para produzir os artefatos distribuíveis compatíveis com a plataforma atual.
 
 Para gerar o instalador destinado a outro computador Windows x64, execute no PowerShell:
 

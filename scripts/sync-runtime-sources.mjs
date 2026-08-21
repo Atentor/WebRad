@@ -9,7 +9,7 @@ const sourceFiles = [
   'api-client.ts',
   'component.ts',
   'controls.ts',
-  'form.ts',
+  'page.ts',
   'globals.ts',
   'index.ts',
   'render.ts',

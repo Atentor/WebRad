@@ -37,7 +37,7 @@ import 'monaco-editor/features/unicodeHighlighter/register';
 import 'monaco-editor/features/wordHighlighter/register';
 import 'monaco-editor/languages/definitions/typescript/register';
 import * as typescriptApi from 'monaco-editor/languages/features/typescript/register';
-import { supportsTypeScriptThisExpression } from './form-component-completions';
+import { supportsTypeScriptThisExpression } from './page-component-completions';
 import { canonicalMonacoResource } from './monaco-resource';
 
 export const WEBRAD_MONACO_DARK_THEME = 'webrad-dark';

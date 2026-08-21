@@ -31,15 +31,15 @@ function ToolButton({ command, label, glyph, disabled, onCommand }: ToolButtonPr
     >
       <span
         className="material-icons"
-        style={{ 
-          fontSize: '22px', 
+        style={{
+          fontSize: '22px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           lineHeight: '1',
           WebkitFontSmoothing: 'antialiased',
           MozOsxFontSmoothing: 'grayscale',
-          transform: 'translateZ(0)'
+          transform: 'translateZ(0)',
         }}
         aria-hidden="true"
       >
@@ -58,6 +58,9 @@ export function Toolbar({
 }: ToolbarProps): ReactElement {
   return (
     <header className="wr-toolbar" aria-label="Main toolbar">
+      <div className="wr-brand" aria-label="WebRAD">
+        <img className="wr-brand-mark" src={applicationIconUrl} alt="" aria-hidden="true" />
+      </div>
       <div className="wr-tool-group">
         <ToolButton
           command="file.newProject"
@@ -81,18 +84,8 @@ export function Toolbar({
       </div>
       <div className="wr-tool-separator" />
       <div className="wr-tool-group">
-        <ToolButton
-          command="edit.undo"
-          glyph="undo"
-          label="Undo (Ctrl+Z)"
-          onCommand={onCommand}
-        />
-        <ToolButton
-          command="edit.redo"
-          glyph="redo"
-          label="Redo (Ctrl+Y)"
-          onCommand={onCommand}
-        />
+        <ToolButton command="edit.undo" glyph="undo" label="Undo (Ctrl+Z)" onCommand={onCommand} />
+        <ToolButton command="edit.redo" glyph="redo" label="Redo (Ctrl+Y)" onCommand={onCommand} />
       </div>
       <div className="wr-tool-separator" />
       <ToolButton
@@ -102,7 +95,18 @@ export function Toolbar({
         disabled={!canRun}
         onCommand={onCommand}
       />
-      
+      <div className="wr-toolbar-spacer" />
+      <button
+        className="wr-theme-toggle"
+        type="button"
+        title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+        aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+        onClick={onToggleTheme}
+      >
+        <span className="material-icons" aria-hidden="true">
+          {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+        </span>
+      </button>
     </header>
   );
 }

@@ -16,7 +16,7 @@ project model -> generated source -> esbuild -> browser-only output
 
 ## Package boundaries
 
-- `packages/project-model`: versioned models, validation, migrations, serialization, naming, and immutable update operations.
+- `packages/project-model`: versioned models, validation, serialization, naming, and immutable update operations.
 - `packages/component-registry`: component metadata and registry behavior without React dependencies.
 - `packages/components`: React projection of the browser-safe visual contract exported by the runtime.
 - `packages/designer`: selection, commands/history, geometry, overlays, and design-time interaction. It may depend on the model and registry, never vice versa.
@@ -33,11 +33,11 @@ The browser window uses context isolation, sandboxing, and no Node integration. 
 
 ## Designer model
 
-The form surface renders real component DOM from the same browser-safe property projection and CSS used by the generated runtime. A separate design overlay owns hit testing, selection handles, marquee selection, drag, and resize. Pure geometry services calculate deltas, snapping, bounds, and multi-selection transforms. Pointer movement may use transient UI state; a command commits the model once at operation completion.
+The page surface renders real component DOM from the same browser-safe property projection and CSS used by the generated runtime. A separate design overlay owns hit testing, selection handles, marquee selection, drag, and resize. Pure geometry services calculate deltas, snapping, bounds, and multi-selection transforms. Pointer movement may use transient UI state; a command commits the model once at operation completion.
 
-Nonvisual nodes remain children of the form in the Project Model but are projected into a dedicated design-time tray instead of the canvas. Generated classes construct their typed runtime service instances directly from registered properties, immutable IDs, and user-facing names, while the compiler removes those nodes from the form DOM model. Nonvisual runtime objects therefore retain the same identity contract without pretending to own a DOM element: `id` remains stable and `name` reflects the current Project Model name.
+Nonvisual nodes remain children of the page in the Project Model but are projected into a dedicated design-time tray instead of the canvas. Generated classes construct their typed runtime service instances directly from registered properties, immutable IDs, and user-facing names, while the compiler removes those nodes from the page DOM model. Nonvisual runtime objects therefore retain the same identity contract without pretending to own a DOM element: `id` remains stable and `name` reflects the current Project Model name.
 
-Component IDs are immutable. Names are validated TypeScript identifiers unique within a form. Child coordinates are relative to their container. Layout is modeled with an explicit mode (`absolute`, `flex`, or `grid`) even though the first implementation edits absolute bounds.
+Component IDs are immutable. Names are validated TypeScript identifiers unique within a page. Child coordinates are relative to their container. Layout is modeled with an explicit mode (`absolute`, `flex`, or `grid`) even though the first implementation edits absolute bounds.
 
 ## Commands and selection
 
@@ -47,11 +47,11 @@ Component IDs are immutable. Names are validated TypeScript identifiers unique w
 
 Each user file owns one long-lived Monaco TypeScript model whose URI matches its project path. Models survive Design/Code/Preview switches so undo history, view state, cross-file definitions, references, rename, hover, signature help, formatting, inlay hints, and IntelliSense share one project-wide language-service graph. Model edits are projected back through `ProjectController`; the versioned Project Model and its user-source map remain the source of truth.
 
-Runtime declarations and every generated form declaration are synchronized as disposable TypeScript extra libraries. Stale models and declarations are removed when forms or projects change, while generated implementation files remain separate and replaceable. User files are changed only by explicit editor actions or TypeScript AST transformations. Event generation parses TypeScript, detects the target class/method, inserts a method through compiler AST nodes/printers, and returns a stable navigation range.
+Runtime declarations and every generated page declaration are synchronized as disposable TypeScript extra libraries. Stale models and declarations are removed when pages or projects change, while generated implementation files remain separate and replaceable. User files are changed only by explicit editor actions or TypeScript AST transformations. Event generation parses TypeScript, detects the target class/method, inserts a method through compiler AST nodes/printers, and returns a stable navigation range.
 
-Every non-root component in a form, visual or nonvisual, becomes a typed `public readonly Name: RuntimeType` field on the generated base class. Authored form methods access those instances as `this.Name`; the root component is the form instance itself (`this`) and is never duplicated as a generated field. Monaco complements TypeScript IntelliSense with Delphi-like suggestions labelled by component `Name`, but accepting one inserts the ordinary TypeScript expression `this.Name`. This keeps live diagnostics, build, and Preview on the same JavaScript semantics instead of introducing ambient component globals.
+Every non-root component in a page, visual or nonvisual, becomes a typed `public readonly Name: RuntimeType` field on the generated base class. Authored page methods access those instances as `this.Name`; the root component is the page instance itself (`this`) and is never duplicated as a generated field. Monaco complements TypeScript IntelliSense with Delphi-like suggestions labelled by component `Name`, but accepting one inserts the ordinary TypeScript expression `this.Name`. This keeps live diagnostics, build, and Preview on the same JavaScript semantics instead of introducing ambient component globals.
 
-For the registered MVP component set, Registry metadata and runtime declarations form one typed authoring contract: properties exposed by the Registry have corresponding runtime accessors on their component type, so completion after `this.Name.` reflects the API that executes in Preview. Renaming a component regenerates the field and declarations but deliberately does not rewrite user-authored TypeScript automatically. Existing references to the old name remain visible compiler diagnostics until the author updates them.
+For the registered MVP component set, Registry metadata and runtime declarations constitute one typed authoring contract: properties exposed by the Registry have corresponding runtime accessors on their component type, so completion after `this.Name.` reflects the API that executes in Preview. Renaming a component regenerates the field and declarations but deliberately does not rewrite user-authored TypeScript automatically. Existing references to the old name remain visible compiler diagnostics until the author updates them.
 
 Monaco reports syntax, suggestion, and semantic markers continuously for fast feedback. The Problems projection merges and deduplicates those markers with the last authoritative compiler result, preserves source/code/range metadata, and navigates either to source code or the affected model component. The standalone F9 compiler remains authoritative because the embedded Monaco TypeScript service and the build compiler can be different patch versions.
 

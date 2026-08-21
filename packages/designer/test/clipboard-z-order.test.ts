@@ -9,20 +9,20 @@ import {
   SendToBackCommand,
   sendToBack,
 } from '../src/z-order.js';
-import { formFixture } from './fixtures.js';
+import { pageFixture } from './fixtures.js';
 
 describe('designer clipboard', () => {
   it('copies normalized roots with complete descendant subtrees', () => {
-    const clipboard = copyComponents(formFixture(), ['inside', 'panel']);
+    const clipboard = copyComponents(pageFixture(), ['inside', 'panel']);
     expect(clipboard.rootIds).toEqual(['panel']);
     expect(clipboard.components.map(({ id }) => id)).toEqual(['panel', 'inside']);
     expect(clipboard.components.find(({ id }) => id === 'panel')?.children).toEqual(['inside']);
   });
 
   it('materializes fresh IDs, unique names, mapped relationships, and an 8px offset', () => {
-    const form = formFixture();
-    const clipboard = copyComponents(form, ['panel']);
-    const paste = materializePaste(form, clipboard, {
+    const page = pageFixture();
+    const clipboard = copyComponents(page, ['panel']);
+    const paste = materializePaste(page, clipboard, {
       createId: (sourceId) => `copy-${sourceId}`,
     });
 
@@ -41,7 +41,7 @@ describe('designer clipboard', () => {
   });
 
   it('pastes and reverses a subtree while reusing the same IDs on redo', () => {
-    const original = formFixture();
+    const original = pageFixture();
     const history = new CommandHistory(original);
     const command = new PasteComponentsCommand(copyComponents(original, ['panel']), {
       createId: (sourceId) => `pasted-${sourceId}`,
@@ -61,13 +61,13 @@ describe('designer clipboard', () => {
 
 describe('Z-order', () => {
   it('brings selected siblings to front and sends them to back while preserving their relative order', () => {
-    const form = formFixture();
-    expect(findDesignerComponent(bringToFront(form, ['a', 'b']), 'root').children).toEqual([
+    const page = pageFixture();
+    expect(findDesignerComponent(bringToFront(page, ['a', 'b']), 'root').children).toEqual([
       'panel',
       'a',
       'b',
     ]);
-    expect(findDesignerComponent(sendToBack(form, ['b', 'panel']), 'root').children).toEqual([
+    expect(findDesignerComponent(sendToBack(page, ['b', 'panel']), 'root').children).toEqual([
       'b',
       'panel',
       'a',
@@ -75,7 +75,7 @@ describe('Z-order', () => {
   });
 
   it('undoes and redoes exact sibling orders', () => {
-    const original = formFixture();
+    const original = pageFixture();
     const history = new CommandHistory(original);
     history.execute(new BringToFrontCommand('a'));
     expect(findDesignerComponent(history.state, 'root').children).toEqual(['b', 'panel', 'a']);

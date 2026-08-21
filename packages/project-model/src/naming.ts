@@ -1,5 +1,5 @@
 import { InvalidIdentifierError, InvalidProjectNameError } from './errors.js';
-import type { ComponentNode, FormModel } from './types.js';
+import type { ComponentNode, PageModel } from './types.js';
 
 // Binding identifiers cannot be ECMAScript/TypeScript reserved words. Contextual
 // keywords (for example `type`) remain valid identifiers and are intentionally allowed.
@@ -53,10 +53,10 @@ const RESERVED_WORDS = new Set([
   'constructor',
 ]);
 
-// Generated component fields live on a WebForm subclass. These names are part
+// Generated component fields live on a WebPage subclass. These names are part
 // of the browser runtime contract (including Object members) and cannot safely
 // be replaced by a component instance with an unrelated type.
-const GENERATED_FORM_BASE_MEMBER_NAMES = new Set([
+const GENERATED_PAGE_BASE_MEMBER_NAMES = new Set([
   '__defineGetter__',
   '__defineSetter__',
   '__lookupGetter__',
@@ -158,23 +158,23 @@ export function assertValidTypeScriptIdentifier(value: string): void {
   }
 }
 
-export function getGeneratedFormMemberNameError(value: string): string | undefined {
-  return GENERATED_FORM_BASE_MEMBER_NAMES.has(value)
-    ? `the name "${value}" conflicts with the generated form runtime API`
+export function getGeneratedPageMemberNameError(value: string): string | undefined {
+  return GENERATED_PAGE_BASE_MEMBER_NAMES.has(value)
+    ? `the name "${value}" conflicts with the generated page runtime API`
     : undefined;
 }
 
-export function getFormNameError(value: string): string | undefined {
+export function getPageNameError(value: string): string | undefined {
   const identifierError = getTypeScriptIdentifierError(value);
   if (identifierError !== undefined) return identifierError;
   if (WINDOWS_DEVICE_NAME_PATTERN.test(value)) {
-    return 'reserved Windows device names cannot be used as form names';
+    return 'reserved Windows device names cannot be used as page names';
   }
   return undefined;
 }
 
-export function assertValidFormName(value: string): void {
-  const reason = getFormNameError(value);
+export function assertValidPageName(value: string): void {
+  const reason = getPageNameError(value);
   if (reason !== undefined) throw new InvalidIdentifierError(value, reason);
 }
 
@@ -205,7 +205,7 @@ export function createSequentialName(baseName: string, existing: Iterable<string
 
 export function validateComponentName(
   name: string,
-  formOrComponents: FormModel | readonly ComponentNode[],
+  pageOrComponents: PageModel | readonly ComponentNode[],
   componentId?: string,
 ): NameValidationResult {
   const reason = getTypeScriptIdentifierError(name);
@@ -214,16 +214,16 @@ export function validateComponentName(
   }
 
   const components: readonly ComponentNode[] =
-    'components' in formOrComponents ? formOrComponents.components : formOrComponents;
+    'components' in pageOrComponents ? pageOrComponents.components : pageOrComponents;
   const isRoot =
-    'components' in formOrComponents && componentId === formOrComponents.rootComponentId;
-  const memberNameError = isRoot ? undefined : getGeneratedFormMemberNameError(name);
+    'components' in pageOrComponents && componentId === pageOrComponents.rootComponentId;
+  const memberNameError = isRoot ? undefined : getGeneratedPageMemberNameError(name);
   if (memberNameError !== undefined) return { valid: false, reason: memberNameError };
   const duplicate = components.some(
     (component) => component.name === name && component.id !== componentId,
   );
 
   return duplicate
-    ? { valid: false, reason: `the name "${name}" is already used in this form` }
+    ? { valid: false, reason: `the name "${name}" is already used in this page` }
     : { valid: true };
 }

@@ -1,22 +1,22 @@
 import type { WebComponent } from './component.js';
 import { WebPanel } from './controls.js';
 
-export interface CloseFormOptions {
+export interface ClosePageOptions {
   readonly remove?: boolean;
 }
 
-export type WebFormLayoutMode = 'absolute' | 'flex' | 'grid';
+export type WebPageLayoutMode = 'absolute' | 'flex' | 'grid';
 
-export class WebForm extends WebPanel {
+export class WebPage extends WebPanel {
   readonly #generatedBindings: Array<() => void> = [];
   #created = false;
 
-  public get layoutMode(): WebFormLayoutMode {
+  public get layoutMode(): WebPageLayoutMode {
     const layout = this.element.dataset.webradLayout;
     return layout === 'flex' || layout === 'grid' ? layout : 'absolute';
   }
 
-  public set layoutMode(value: WebFormLayoutMode) {
+  public set layoutMode(value: WebPageLayoutMode) {
     this.element.dataset.webradLayout = value;
     this.element.style.display = value === 'absolute' ? '' : value;
   }
@@ -30,7 +30,7 @@ export class WebForm extends WebPanel {
     this.emit('OnShow');
   }
 
-  public close(options: CloseFormOptions = {}): void {
+  public close(options: ClosePageOptions = {}): void {
     this.emit('OnHide');
     if (options.remove === true) this.element.remove();
     else this.hide();
@@ -41,7 +41,7 @@ export class WebForm extends WebPanel {
     for (const candidate of this.element.querySelectorAll<HTMLElement>('[data-webrad-id]')) {
       if (candidate.dataset.webradId === componentId) return candidate;
     }
-    throw new Error(`Component element "${componentId}" was not found in form "${this.name}".`);
+    throw new Error(`Component element "${componentId}" was not found in page "${this.name}".`);
   }
 
   protected bindGeneratedEvent(

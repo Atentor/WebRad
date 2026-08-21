@@ -1,9 +1,9 @@
-export interface FormComponentSymbol {
+export interface PageComponentSymbol {
   readonly name: string;
   readonly type: string;
 }
 
-export interface FormComponentCompletionContext {
+export interface PageComponentCompletionContext {
   readonly activeResource: string;
   readonly requestedResource: string;
   /** True only when Monaco's TypeScript worker accepts `this` at the cursor. */
@@ -32,13 +32,13 @@ export function supportsTypeScriptThisExpression(completionInfo: unknown): boole
 }
 
 /**
- * Selects the Delphi-style form fields that complement TypeScript completions.
+ * Selects the Delphi-style page fields that complement TypeScript completions.
  * Qualified member access is deliberately left to TypeScript's native provider.
  */
-export function formComponentCompletionSymbols(
-  components: readonly FormComponentSymbol[],
-  context: FormComponentCompletionContext,
-): readonly FormComponentSymbol[] {
+export function pageComponentCompletionSymbols(
+  components: readonly PageComponentSymbol[],
+  context: PageComponentCompletionContext,
+): readonly PageComponentSymbol[] {
   if (context.requestedResource !== context.activeResource) return [];
   if (!context.supportsThisExpression) return [];
 

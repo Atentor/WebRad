@@ -13,7 +13,7 @@ import {
   type WebInputType,
   type WebSelectItem,
 } from './controls.js';
-import { WebForm } from './form.js';
+import { WebPage } from './page.js';
 import {
   projectComponentVisual,
   readBooleanProperty,
@@ -38,7 +38,7 @@ export interface RuntimeComponentNode {
   readonly children: readonly string[];
 }
 
-export interface RuntimeFormModel {
+export interface RuntimePageModel {
   readonly id: string;
   readonly name: string;
   readonly caption: string;
@@ -166,9 +166,9 @@ function elementFactory(tagName: string): RuntimeComponentAdapter['createElement
 export const runtimeComponentRegistry = new RuntimeComponentRegistry();
 
 runtimeComponentRegistry
-  .register<WebForm>('WebForm', {
+  .register<WebPage>('WebPage', {
     createElement: elementFactory('section'),
-    createComponent: (element) => new WebForm(element),
+    createComponent: (element) => new WebPage(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
       component.element.setAttribute('role', 'application');
@@ -299,22 +299,22 @@ runtimeComponentRegistry
     },
   });
 
-export interface MountedRuntimeForm {
+export interface MountedRuntimePage {
   readonly element: HTMLElement;
-  readonly form: WebForm;
+  readonly page: WebPage;
   readonly components: ReadonlyMap<string, WebComponent>;
 }
 
-export interface MountFormOptions {
+export interface MountPageOptions {
   readonly replaceHostContents?: boolean;
   readonly registry?: RuntimeComponentRegistry;
 }
 
-export function mountForm(
-  model: RuntimeFormModel,
+export function mountPage(
+  model: RuntimePageModel,
   host: HTMLElement = document.body,
-  options: MountFormOptions = {},
-): MountedRuntimeForm {
+  options: MountPageOptions = {},
+): MountedRuntimePage {
   const registry = options.registry ?? runtimeComponentRegistry;
   const nodes = new Map(model.components.map((node) => [node.id, node]));
   const components = new Map<string, WebComponent>();
@@ -322,7 +322,7 @@ export function mountForm(
   const createBranch = (nodeId: string): HTMLElement => {
     const node = nodes.get(nodeId);
     if (node === undefined)
-      throw new Error(`Runtime form references unknown component "${nodeId}".`);
+      throw new Error(`Runtime page references unknown component "${nodeId}".`);
     const component = registry.create(host.ownerDocument, node);
     components.set(node.id, component);
     for (const childId of node.children) component.element.append(createBranch(childId));
@@ -331,15 +331,15 @@ export function mountForm(
 
   const rootElement = createBranch(model.rootComponentId);
   const rootComponent = components.get(model.rootComponentId);
-  if (!(rootComponent instanceof WebForm))
-    throw new Error('The runtime root component must be WebForm.');
+  if (!(rootComponent instanceof WebPage))
+    throw new Error('The runtime root component must be WebPage.');
   rootElement.style.position = 'relative';
   rootComponent.width = model.width;
   rootComponent.height = model.height;
   rootComponent.caption = model.caption;
   rootComponent.layoutMode = model.layoutMode;
-  rootElement.dataset.webradFormId = model.id;
+  rootElement.dataset.webradPageId = model.id;
   if (options.replaceHostContents ?? true) host.replaceChildren(rootElement);
   else host.append(rootElement);
-  return { element: rootElement, form: rootComponent, components };
+  return { element: rootElement, page: rootComponent, components };
 }

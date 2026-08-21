@@ -1,4 +1,4 @@
-import type { ComponentNode, FormModel } from '@webrad/project-model';
+import type { ComponentNode, PageModel } from '@webrad/project-model';
 
 export function component(
   id: string,
@@ -18,11 +18,11 @@ export function component(
   };
 }
 
-export function formFixture(): FormModel {
+export function pageFixture(): PageModel {
   return {
     formatVersion: 1,
-    id: 'form',
-    name: 'FrmMain',
+    id: 'page',
+    name: 'PageMain',
     caption: 'Main',
     width: 640,
     height: 480,
@@ -30,8 +30,8 @@ export function formFixture(): FormModel {
     rootComponentId: 'root',
     components: [
       component('root', null, {
-        type: 'WebForm',
-        name: 'FrmMain',
+        type: 'WebPage',
+        name: 'PageMain',
         bounds: { x: 0, y: 0, width: 640, height: 480 },
         children: ['a', 'b', 'panel'],
       }),

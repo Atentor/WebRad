@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { compileProject, type CompileProjectResult } from '@webrad/compiler';
 import {
   assembleProject,
-  deserializeForm,
+  deserializePage,
   deserializeProjectManifest,
 } from '@webrad/project-model';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -37,41 +37,41 @@ afterEach(async () => {
 });
 
 describe('examples/hello-webrad', () => {
-  it('loads the persisted v1 project and compiles it as an Electron-free browser app', async () => {
+  it('loads the persisted v1 Page project and compiles it as an Electron-free browser app', async () => {
     const manifestPath = path.join(exampleDirectory, 'HelloWebRad.wrproj');
     const manifest = deserializeProjectManifest(await fs.readFile(manifestPath, 'utf8'));
-    const descriptor = manifest.forms[0];
-    if (descriptor === undefined) throw new Error('HelloWebRad must describe FrmMain.');
+    const descriptor = manifest.pages[0];
+    if (descriptor === undefined) throw new Error('HelloWebRad must describe PageMain.');
 
-    const formPath = path.join(exampleDirectory, ...descriptor.formFile.split('/'));
+    const pagePath = path.join(exampleDirectory, ...descriptor.pageFile.split('/'));
     const generatedPath = path.join(exampleDirectory, ...descriptor.generatedFile.split('/'));
     const userCodePath = path.join(exampleDirectory, ...descriptor.codeFile.split('/'));
-    const form = deserializeForm(await fs.readFile(formPath, 'utf8'));
-    const project = assembleProject(manifest, [form]);
+    const page = deserializePage(await fs.readFile(pagePath, 'utf8'));
+    const project = assembleProject(manifest, [page]);
     const generatedCodeBefore = await fs.readFile(generatedPath, 'utf8');
     const userCodeBefore = await fs.readFile(userCodePath, 'utf8');
 
     expect(manifest).toMatchObject({
       formatVersion: 1,
       id: 'hello-webrad-project-v1',
-      entryForm: 'hello-webrad-form-main-v1',
+      entryPage: 'hello-webrad-form-main-v1',
     });
     expect(descriptor).toEqual({
       id: 'hello-webrad-form-main-v1',
-      name: 'FrmMain',
-      formFile: 'forms/FrmMain.wrform',
-      generatedFile: 'forms/FrmMain.generated.ts',
-      codeFile: 'forms/FrmMain.ts',
+      name: 'PageMain',
+      pageFile: 'pages/PageMain.wrpage',
+      generatedFile: 'pages/PageMain.generated.ts',
+      codeFile: 'pages/PageMain.ts',
     });
-    expect(project.forms).toEqual([form]);
-    expect(form.components.map((component) => component.name)).toEqual([
-      'FrmMain',
+    expect(project.pages).toEqual([page]);
+    expect(page.components.map((component) => component.name)).toEqual([
+      'PageMain',
       'LBLNome',
       'EDTNome',
       'BTNMostrar',
     ]);
 
-    const root = form.components.find((component) => component.id === form.rootComponentId);
+    const root = page.components.find((component) => component.id === page.rootComponentId);
     expect(root).toMatchObject({
       id: 'hello-webrad-component-form-main-v1',
       parentId: null,
@@ -82,18 +82,20 @@ describe('examples/hello-webrad', () => {
       ],
     });
     expect(
-      form.components
-        .filter((component) => component.id !== form.rootComponentId)
-        .every((component) => component.parentId === form.rootComponentId),
+      page.components
+        .filter((component) => component.id !== page.rootComponentId)
+        .every((component) => component.parentId === page.rootComponentId),
     ).toBe(true);
-    expect(form.components.find((component) => component.name === 'EDTNome')?.props).toMatchObject({
+    expect(page.components.find((component) => component.name === 'EDTNome')?.props).toMatchObject({
       readOnly: false,
       tabIndex: 0,
     });
     expect(
-      form.components.find((component) => component.name === 'BTNMostrar')?.events.OnClick,
+      page.components.find((component) => component.name === 'BTNMostrar')?.events.OnClick,
     ).toBe('BTNMostrarClick');
-    expect(generatedCodeBefore).toContain('export abstract class FrmMainGenerated extends WebForm');
+    expect(generatedCodeBefore).toContain(
+      'export abstract class PageMainGenerated extends WebPage',
+    );
     expect(generatedCodeBefore).toContain(
       "this.bindGeneratedEvent(this.BTNMostrar, 'OnClick', 'BTNMostrarClick')",
     );
@@ -115,8 +117,8 @@ describe('examples/hello-webrad', () => {
     expect(indexHtml).toContain('./assets/app.js');
     expect(indexHtml).toContain('./assets/app.css');
     expect(appJavaScript).toContain('BTNMostrarClick');
-    expect(appJavaScript).toContain('mountForm');
-    expect(appCss).toContain('.wr-webform');
+    expect(appJavaScript).toContain('mountPage');
+    expect(appCss).toContain('.wr-webpage');
     expect(result.previewHtml).toContain('<script>');
     expect(result.previewHtml).toContain('<style>');
     for (const browserArtifact of [indexHtml, appJavaScript, appCss, result.previewHtml]) {

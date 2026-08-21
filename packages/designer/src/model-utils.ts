@@ -1,23 +1,23 @@
-import type { Bounds, ComponentNode, FormModel } from '@webrad/project-model';
+import type { Bounds, ComponentNode, PageModel } from '@webrad/project-model';
 
 export class DesignerModelError extends Error {
   public override readonly name = 'DesignerModelError';
 }
 
-export function findDesignerComponent(form: FormModel, componentId: string): ComponentNode {
-  const component = form.components.find(({ id }) => id === componentId);
+export function findDesignerComponent(page: PageModel, componentId: string): ComponentNode {
+  const component = page.components.find(({ id }) => id === componentId);
   if (component === undefined) {
-    throw new DesignerModelError(`Component "${componentId}" does not exist in form "${form.id}".`);
+    throw new DesignerModelError(`Component "${componentId}" does not exist in page "${page.id}".`);
   }
   return component;
 }
 
-export function assertUniqueComponentIds(form: FormModel): void {
+export function assertUniqueComponentIds(page: PageModel): void {
   const ids = new Set<string>();
-  for (const component of form.components) {
+  for (const component of page.components) {
     if (ids.has(component.id)) {
       throw new DesignerModelError(
-        `Form "${form.id}" contains duplicate component ID "${component.id}".`,
+        `Page "${page.id}" contains duplicate component ID "${component.id}".`,
       );
     }
     ids.add(component.id);
@@ -35,14 +35,14 @@ export function cloneComponentNode(component: ComponentNode): ComponentNode {
 }
 
 export function replaceComponentNodes(
-  form: FormModel,
+  page: PageModel,
   replacements: ReadonlyMap<string, ComponentNode>,
-): FormModel {
+): PageModel {
   if (replacements.size === 0) {
-    return form;
+    return page;
   }
   let changed = false;
-  const components = form.components.map((component) => {
+  const components = page.components.map((component) => {
     const replacement = replacements.get(component.id);
     if (replacement === undefined) {
       return component;
@@ -50,31 +50,31 @@ export function replaceComponentNodes(
     changed ||= replacement !== component;
     return replacement;
   });
-  return changed ? { ...form, components } : form;
+  return changed ? { ...page, components } : page;
 }
 
 export function replaceComponentBounds(
-  form: FormModel,
+  page: PageModel,
   replacements: ReadonlyMap<string, Bounds>,
-): FormModel {
+): PageModel {
   const nodes = new Map<string, ComponentNode>();
   for (const [id, bounds] of replacements) {
-    const component = findDesignerComponent(form, id);
+    const component = findDesignerComponent(page, id);
     nodes.set(id, { ...component, bounds: { ...bounds } });
   }
-  return replaceComponentNodes(form, nodes);
+  return replaceComponentNodes(page, nodes);
 }
 
-export function getParentContentBounds(form: FormModel, parentId: string): Bounds {
-  if (parentId === form.rootComponentId) {
-    return { x: 0, y: 0, width: form.width, height: form.height };
+export function getParentContentBounds(page: PageModel, parentId: string): Bounds {
+  if (parentId === page.rootComponentId) {
+    return { x: 0, y: 0, width: page.width, height: page.height };
   }
-  const parent = findDesignerComponent(form, parentId);
+  const parent = findDesignerComponent(page, parentId);
   return { x: 0, y: 0, width: parent.bounds.width, height: parent.bounds.height };
 }
 
-export function collectSubtreeIds(form: FormModel, rootIds: readonly string[]): Set<string> {
-  const byId = new Map(form.components.map((component) => [component.id, component]));
+export function collectSubtreeIds(page: PageModel, rootIds: readonly string[]): Set<string> {
+  const byId = new Map(page.components.map((component) => [component.id, component]));
   const result = new Set<string>();
   const visiting = new Set<string>();
 
@@ -87,7 +87,7 @@ export function collectSubtreeIds(form: FormModel, rootIds: readonly string[]): 
     }
     const node = byId.get(id);
     if (node === undefined) {
-      throw new DesignerModelError(`Component "${id}" does not exist in form "${form.id}".`);
+      throw new DesignerModelError(`Component "${id}" does not exist in page "${page.id}".`);
     }
     visiting.add(id);
     for (const childId of node.children) {
@@ -103,14 +103,14 @@ export function collectSubtreeIds(form: FormModel, rootIds: readonly string[]): 
   return result;
 }
 
-export function normalizeTopLevelIds(form: FormModel, ids: Iterable<string>): string[] {
+export function normalizeTopLevelIds(page: PageModel, ids: Iterable<string>): string[] {
   const uniqueIds = [...new Set(ids)];
   const selected = new Set(uniqueIds);
-  const byId = new Map(form.components.map((component) => [component.id, component]));
+  const byId = new Map(page.components.map((component) => [component.id, component]));
 
   for (const id of uniqueIds) {
     if (!byId.has(id)) {
-      throw new DesignerModelError(`Component "${id}" does not exist in form "${form.id}".`);
+      throw new DesignerModelError(`Component "${id}" does not exist in page "${page.id}".`);
     }
   }
 

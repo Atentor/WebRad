@@ -14,17 +14,17 @@ import {
   type ComponentPropertyDefinition,
 } from '@webrad/component-registry';
 import {
-  createForm,
+  createPage,
   getComponent,
   type Bounds,
   type ComponentNode,
-  type FormModel,
+  type PageModel,
 } from '@webrad/project-model';
 import {
-  createUserFormSource,
+  createUserPageSource,
   ensureEventHandler,
   eventHandlerName,
-  generateFormTypings,
+  generatePageTypings,
   generateRuntimeTypings,
 } from '@webrad/language';
 import {
@@ -67,8 +67,8 @@ import { canonicalMonacoResource } from './monaco-resource';
 import { DesignerController } from './state/designer-controller';
 import { ProjectController } from './state/project-controller';
 
-function sourceKey(form: FormModel): string {
-  return `forms/${form.name}.ts`;
+function sourceKey(page: PageModel): string {
+  return `pages/${page.name}.ts`;
 }
 
 function sourceUri(rootPath: string | null, projectId: string, relativePath: string): string {
@@ -113,10 +113,10 @@ function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
 
-function selectionNodes(form: FormModel | null, ids: readonly string[]): readonly ComponentNode[] {
-  if (!form) return [];
+function selectionNodes(page: PageModel | null, ids: readonly string[]): readonly ComponentNode[] {
+  if (!page) return [];
   const idSet = new Set(ids);
-  return form.components.filter((component) => idSet.has(component.id));
+  return page.components.filter((component) => idSet.has(component.id));
 }
 
 function isTextEditingElement(element: Element | null): boolean {
@@ -151,8 +151,8 @@ export function App(): ReactElement {
     projectController.getSnapshot,
   );
   const [selection, setSelection] = useState(() => selectionManager.snapshot());
-  const [openFormIds, setOpenFormIds] = useState<readonly string[]>([]);
-  const [activeFormId, setActiveFormId] = useState<string | null>(null);
+  const [openPageIds, setOpenPageIds] = useState<readonly string[]>([]);
+  const [activePageId, setActivePageId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewMode>('design');
   const [selectedPaletteType, setSelectedPaletteType] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
@@ -181,15 +181,15 @@ export function App(): ReactElement {
     output: true,
   });
   const project = projectState.project;
-  const activeForm =
-    project?.forms.find((form) => form.id === activeFormId) ?? project?.forms[0] ?? null;
+  const activePage =
+    project?.pages.find((page) => page.id === activePageId) ?? project?.pages[0] ?? null;
   const selectedComponents = useMemo(
-    () => selectionNodes(activeForm, selection.ids),
-    [activeForm, selection.ids],
+    () => selectionNodes(activePage, selection.ids),
+    [activePage, selection.ids],
   );
   const primaryComponent =
-    activeForm && selection.primaryId
-      ? (activeForm.components.find((component) => component.id === selection.primaryId) ?? null)
+    activePage && selection.primaryId
+      ? (activePage.components.find((component) => component.id === selection.primaryId) ?? null)
       : null;
 
   const addOutput = useCallback((category: string, message: string): void => {
@@ -218,9 +218,9 @@ export function App(): ReactElement {
   const activateProjectSession = useCallback(
     (session: ProjectSession): void => {
       releaseMonacoWorkspace();
-      const initialFormId = session.project.entryForm || session.project.forms[0]?.id || null;
-      setOpenFormIds(initialFormId ? [initialFormId] : []);
-      setActiveFormId(initialFormId);
+      const initialPageId = session.project.entryPage || session.project.pages[0]?.id || null;
+      setOpenPageIds(initialPageId ? [initialPageId] : []);
+      setActivePageId(initialPageId);
       setActiveView('design');
       selectionManager.clear();
       designerController.clear();
@@ -250,8 +250,8 @@ export function App(): ReactElement {
   }, [projectState.revision]);
 
   useEffect(() => {
-    selectionManager.retain(new Set(activeForm?.components.map((component) => component.id) ?? []));
-  }, [activeForm, selectionManager]);
+    selectionManager.retain(new Set(activePage?.components.map((component) => component.id) ?? []));
+  }, [activePage, selectionManager]);
 
   useEffect(() => {
     const handleBoundaryError = (event: Event): void => {
@@ -262,41 +262,41 @@ export function App(): ReactElement {
     return () => window.removeEventListener('webrad:error', handleBoundaryError);
   }, [addOutput]);
 
-  const openForm = useCallback(
-    (formId: string): void => {
-      if (!project?.forms.some((form) => form.id === formId)) return;
-      setOpenFormIds((current) => (current.includes(formId) ? current : [...current, formId]));
-      setActiveFormId(formId);
+  const openPage = useCallback(
+    (pageId: string): void => {
+      if (!project?.pages.some((page) => page.id === pageId)) return;
+      setOpenPageIds((current) => (current.includes(pageId) ? current : [...current, pageId]));
+      setActivePageId(pageId);
       selectionManager.clear();
     },
     [project, selectionManager],
   );
 
-  const updateActiveForm = useCallback(
-    (nextForm: FormModel): void => {
-      if (!activeForm) return;
-      projectController.updateForm(activeForm.id, () => nextForm);
+  const updateActivePage = useCallback(
+    (nextPage: PageModel): void => {
+      if (!activePage) return;
+      projectController.updatePage(activePage.id, () => nextPage);
     },
-    [activeForm, projectController],
+    [activePage, projectController],
   );
 
   const commitDesignerCommand = useCallback(
-    (command: Parameters<DesignerController['execute']>[1]): FormModel | null => {
-      if (!activeForm) return null;
-      const next = designerController.execute(activeForm, command);
-      updateActiveForm(next);
+    (command: Parameters<DesignerController['execute']>[1]): PageModel | null => {
+      if (!activePage) return null;
+      const next = designerController.execute(activePage, command);
+      updateActivePage(next);
       return next;
     },
-    [activeForm, designerController, updateActiveForm],
+    [activePage, designerController, updateActivePage],
   );
 
   const addComponentAt = useCallback(
     (type: string, point: { x: number; y: number }, requestedParentId: string): void => {
-      if (!activeForm) return;
+      if (!activePage) return;
       try {
         const definition = requireComponentDefinition(type);
-        const parentId = definition.visual ? requestedParentId : activeForm.rootComponentId;
-        const parent = getComponent(activeForm, parentId);
+        const parentId = definition.visual ? requestedParentId : activePage.rootComponentId;
+        const parent = getComponent(activePage, parentId);
         const snapped = project?.settings.snapToGrid
           ? snapPoint(point, project.settings.gridSize)
           : point;
@@ -307,7 +307,7 @@ export function App(): ReactElement {
           ? Math.max(0, Math.min(snapped.y, parent.bounds.height - definition.defaultBounds.height))
           : 0;
         const node = componentRegistry.createComponent(type, {
-          existingNames: activeForm.components,
+          existingNames: activePage.components,
           parentId,
           x,
           y,
@@ -320,26 +320,26 @@ export function App(): ReactElement {
         reportError(error, 'DESIGNER');
       }
     },
-    [activeForm, addOutput, commitDesignerCommand, project, reportError, selectionManager],
+    [activePage, addOutput, commitDesignerCommand, project, reportError, selectionManager],
   );
 
   const moveComponents = useCallback(
     (ids: readonly string[], delta: { x: number; y: number }): void => {
-      if (!activeForm) return;
+      if (!activePage) return;
       try {
         const selected = new Set(ids);
         const topLevelIds = ids.filter((id) => {
-          let parentId = getComponent(activeForm, id).parentId;
+          let parentId = getComponent(activePage, id).parentId;
           while (parentId !== null) {
             if (selected.has(parentId)) return false;
-            parentId = getComponent(activeForm, parentId).parentId;
+            parentId = getComponent(activePage, parentId).parentId;
           }
           return true;
         });
         const groups = new Map<string, string[]>();
         for (const id of topLevelIds) {
-          if (id === activeForm.rootComponentId) continue;
-          const component = getComponent(activeForm, id);
+          if (id === activePage.rootComponentId) continue;
+          const component = getComponent(activePage, id);
           if (!component.parentId) continue;
           groups.set(component.parentId, [...(groups.get(component.parentId) ?? []), id]);
         }
@@ -347,13 +347,13 @@ export function App(): ReactElement {
           (group) => new MoveCommand(group, delta, { snapToGrid: false, constrainToParent: true }),
         );
         if (commands.length === 0) return;
-        const next = designerController.executeMany(activeForm, 'Move selection', commands);
-        updateActiveForm(next);
+        const next = designerController.executeMany(activePage, 'Move selection', commands);
+        updateActivePage(next);
       } catch (error) {
         reportError(error, 'DESIGNER');
       }
     },
-    [activeForm, designerController, reportError, updateActiveForm],
+    [activePage, designerController, reportError, updateActivePage],
   );
 
   const resizeComponent = useCallback(
@@ -368,8 +368,8 @@ export function App(): ReactElement {
   );
 
   const deleteSelection = useCallback((): void => {
-    if (!activeForm) return;
-    const ids = selection.ids.filter((id) => id !== activeForm.rootComponentId);
+    if (!activePage) return;
+    const ids = selection.ids.filter((id) => id !== activePage.rootComponentId);
     if (ids.length === 0) return;
     try {
       commitDesignerCommand(new RemoveComponentCommand(ids));
@@ -378,70 +378,70 @@ export function App(): ReactElement {
     } catch (error) {
       reportError(error, 'DESIGNER');
     }
-  }, [activeForm, addOutput, commitDesignerCommand, reportError, selection.ids, selectionManager]);
+  }, [activePage, addOutput, commitDesignerCommand, reportError, selection.ids, selectionManager]);
 
   const copySelection = useCallback((): void => {
-    if (!activeForm) return;
-    const ids = selection.ids.filter((id) => id !== activeForm.rootComponentId);
+    if (!activePage) return;
+    const ids = selection.ids.filter((id) => id !== activePage.rootComponentId);
     if (ids.length === 0) return;
     try {
-      designerController.copy(activeForm, ids);
+      designerController.copy(activePage, ids);
       addOutput('DESIGNER', `Copied ${ids.length} component${ids.length === 1 ? '' : 's'}.`);
     } catch (error) {
       reportError(error, 'DESIGNER');
     }
-  }, [activeForm, addOutput, designerController, reportError, selection.ids]);
+  }, [activePage, addOutput, designerController, reportError, selection.ids]);
 
   const pasteSelection = useCallback((): void => {
-    if (!activeForm || !project) return;
+    if (!activePage || !project) return;
     try {
-      const primary = selection.primaryId ? getComponent(activeForm, selection.primaryId) : null;
+      const primary = selection.primaryId ? getComponent(activePage, selection.primaryId) : null;
       const parentId =
         primary && componentRegistry.get(primary.type)?.canHaveChildren
           ? primary.id
-          : (primary?.parentId ?? activeForm.rootComponentId);
+          : (primary?.parentId ?? activePage.rootComponentId);
       const result = designerController.paste(
-        activeForm,
+        activePage,
         parentId,
         project.settings.gridSize,
         project.settings.snapToGrid,
       );
-      if (result.form !== activeForm) {
-        updateActiveForm(result.form);
+      if (result.page !== activePage) {
+        updateActivePage(result.page);
         selectionManager.set(result.selectedIds);
       }
     } catch (error) {
       reportError(error, 'DESIGNER');
     }
   }, [
-    activeForm,
+    activePage,
     designerController,
     project,
     reportError,
     selection.primaryId,
     selectionManager,
-    updateActiveForm,
+    updateActivePage,
   ]);
 
   const undo = useCallback((): void => {
-    if (!activeForm || !designerController.canUndo(activeForm)) return;
-    const next = designerController.undo(activeForm);
-    updateActiveForm(next);
+    if (!activePage || !designerController.canUndo(activePage)) return;
+    const next = designerController.undo(activePage);
+    updateActivePage(next);
     selectionManager.retain(new Set(next.components.map((component) => component.id)));
-  }, [activeForm, designerController, selectionManager, updateActiveForm]);
+  }, [activePage, designerController, selectionManager, updateActivePage]);
 
   const redo = useCallback((): void => {
-    if (!activeForm || !designerController.canRedo(activeForm)) return;
-    const next = designerController.redo(activeForm);
-    updateActiveForm(next);
-  }, [activeForm, designerController, updateActiveForm]);
+    if (!activePage || !designerController.canRedo(activePage)) return;
+    const next = designerController.redo(activePage);
+    updateActivePage(next);
+  }, [activePage, designerController, updateActivePage]);
 
   const changeZOrder = useCallback(
     (direction: 'front' | 'back'): void => {
-      if (!activeForm) return;
+      if (!activePage) return;
       const ids = selection.ids.filter((id) => {
-        if (id === activeForm.rootComponentId) return false;
-        const component = activeForm.components.find((candidate) => candidate.id === id);
+        if (id === activePage.rootComponentId) return false;
+        const component = activePage.components.find((candidate) => candidate.id === id);
         return component !== undefined && componentRegistry.get(component.type)?.visual === true;
       });
       if (ids.length === 0) return;
@@ -453,89 +453,89 @@ export function App(): ReactElement {
         reportError(error, 'DESIGNER');
       }
     },
-    [activeForm, commitDesignerCommand, reportError, selection.ids],
+    [activePage, commitDesignerCommand, reportError, selection.ids],
   );
 
   const changeProperty = useCallback(
     (_name: string, value: unknown, definition: ComponentPropertyDefinition): void => {
-      if (!activeForm || selectedComponents.length === 0) return;
+      if (!activePage || selectedComponents.length === 0) return;
       try {
         if (
           selectedComponents.length === 1 &&
-          selectedComponents[0]?.id === activeForm.rootComponentId &&
+          selectedComponents[0]?.id === activePage.rootComponentId &&
           definition.source === 'node' &&
           definition.name === 'name' &&
           typeof value === 'string'
         ) {
-          projectController.renameForm(activeForm.id, value);
+          projectController.renamePage(activePage.id, value);
           return;
         }
-        updateActiveForm(
-          designerController.changeProperty(activeForm, selectedComponents, definition, value),
+        updateActivePage(
+          designerController.changeProperty(activePage, selectedComponents, definition, value),
         );
       } catch (error) {
         reportError(error, 'DESIGNER');
       }
     },
     [
-      activeForm,
+      activePage,
       designerController,
       projectController,
       reportError,
       selectedComponents,
-      updateActiveForm,
+      updateActivePage,
     ],
   );
 
   const bindEvent = useCallback(
     (eventName: string, handlerName: string | null): void => {
-      if (!activeForm || !selection.primaryId) return;
+      if (!activePage || !selection.primaryId) return;
       try {
-        updateActiveForm(
-          designerController.bindEvent(activeForm, selection.primaryId, eventName, handlerName),
+        updateActivePage(
+          designerController.bindEvent(activePage, selection.primaryId, eventName, handlerName),
         );
       } catch (error) {
         reportError(error, 'LANGUAGE');
       }
     },
-    [activeForm, designerController, reportError, selection.primaryId, updateActiveForm],
+    [activePage, designerController, reportError, selection.primaryId, updateActivePage],
   );
 
   const createOrOpenEvent = useCallback(
     (componentId: string, eventName: string): void => {
-      if (!activeForm) return;
+      if (!activePage) return;
       try {
-        const component = getComponent(activeForm, componentId);
+        const component = getComponent(activePage, componentId);
         const handlerName =
           component.events[eventName] ?? eventHandlerName(component.name, eventName);
-        const key = sourceKey(activeForm);
-        const currentSource = projectState.userSources[key] ?? createUserFormSource(activeForm);
+        const key = sourceKey(activePage);
+        const currentSource = projectState.userSources[key] ?? createUserPageSource(activePage);
         const edit = ensureEventHandler(currentSource, {
-          className: activeForm.name,
+          className: activePage.name,
           componentName: component.name,
           componentType: component.type,
           eventName,
           handlerName,
           fileName: key,
         });
-        const nextForm = designerController.bindEvent(
-          activeForm,
+        const nextPage = designerController.bindEvent(
+          activePage,
           component.id,
           eventName,
           handlerName,
         );
-        updateActiveForm(nextForm);
+        updateActivePage(nextPage);
         if (edit.changed) projectController.setUserSource(key, edit.sourceText);
-        setOpenFormIds((current) =>
-          current.includes(activeForm.id) ? current : [...current, activeForm.id],
+        setOpenPageIds((current) =>
+          current.includes(activePage.id) ? current : [...current, activePage.id],
         );
-        setActiveFormId(activeForm.id);
+        setActivePageId(activePage.id);
         setActiveView('code');
         setNavigateTo({
           resource: sourceUri(
             projectState.rootPath,
             project?.id ?? 'project',
-            sourceKey(activeForm),
+            sourceKey(activePage),
           ),
           line: edit.location.line,
           column: edit.location.column,
@@ -550,7 +550,7 @@ export function App(): ReactElement {
       }
     },
     [
-      activeForm,
+      activePage,
       addOutput,
       designerController,
       projectController,
@@ -558,18 +558,18 @@ export function App(): ReactElement {
       projectState.rootPath,
       projectState.userSources,
       reportError,
-      updateActiveForm,
+      updateActivePage,
     ],
   );
 
   const createDefaultEvent = useCallback(
     (componentId: string): void => {
-      if (!activeForm) return;
-      const component = getComponent(activeForm, componentId);
+      if (!activePage) return;
+      const component = getComponent(activePage, componentId);
       const eventName = componentRegistry.get(component.type)?.defaultEvent;
       if (eventName) createOrOpenEvent(componentId, eventName);
     },
-    [activeForm, createOrOpenEvent],
+    [activePage, createOrOpenEvent],
   );
 
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
@@ -637,8 +637,8 @@ export function App(): ReactElement {
       if (!(await prepareToReplaceProject())) return;
       projectController.close();
       releaseMonacoWorkspace();
-      setOpenFormIds([]);
-      setActiveFormId(null);
+      setOpenPageIds([]);
+      setActivePageId(null);
       selectionManager.clear();
       designerController.clear();
       setPreviewUrl(null);
@@ -655,36 +655,39 @@ export function App(): ReactElement {
     selectionManager,
   ]);
 
-  const addFormToProject = useCallback((): void => {
+  const addPageToProject = useCallback((): void => {
     if (!project) return;
-    const suggested = `Frm${project.forms.length + 1}`;
-    const name = window.prompt('Form name', suggested)?.trim();
+    const occupiedNames = new Set(project.pages.map((page) => page.name));
+    let sequence = 2;
+    while (occupiedNames.has(`Page${String(sequence)}`)) sequence += 1;
+    const suggested = `Page${String(sequence)}`;
+    const name = window.prompt('Page name', suggested)?.trim();
     if (!name) return;
     try {
-      const form = createForm(name);
-      projectController.addForm(form);
-      setOpenFormIds((current) => (current.includes(form.id) ? current : [...current, form.id]));
-      setActiveFormId(form.id);
+      const page = createPage(name);
+      projectController.addPage(page);
+      setOpenPageIds((current) => (current.includes(page.id) ? current : [...current, page.id]));
+      setActivePageId(page.id);
       selectionManager.clear();
-      addOutput('PROJECT', `Added form ${name}.`);
+      addOutput('PROJECT', `Added page ${name}.`);
     } catch (error) {
       reportError(error, 'PROJECT');
     }
   }, [addOutput, project, projectController, reportError, selectionManager]);
 
-  const deleteForm = useCallback(
-    (formId: string): void => {
+  const deletePage = useCallback(
+    (pageId: string): void => {
       if (!project) return;
-      const form = project.forms.find((candidate) => candidate.id === formId);
-      if (!form || !window.confirm(`Delete ${form.name} from this project?`)) return;
+      const page = project.pages.find((candidate) => candidate.id === pageId);
+      if (!page || !window.confirm(`Delete ${page.name} from this project?`)) return;
       try {
-        const fallbackId = project.forms.find((candidate) => candidate.id !== formId)?.id ?? null;
-        projectController.removeForm(formId);
-        setOpenFormIds((current) => {
-          const remaining = current.filter((id) => id !== formId);
+        const fallbackId = project.pages.find((candidate) => candidate.id !== pageId)?.id ?? null;
+        projectController.removePage(pageId);
+        setOpenPageIds((current) => {
+          const remaining = current.filter((id) => id !== pageId);
           return remaining.length === 0 && fallbackId ? [fallbackId] : remaining;
         });
-        setActiveFormId((current) => (current === formId ? fallbackId : current));
+        setActivePageId((current) => (current === pageId ? fallbackId : current));
         selectionManager.clear();
       } catch (error) {
         reportError(error, 'PROJECT');
@@ -693,10 +696,10 @@ export function App(): ReactElement {
     [project, projectController, reportError, selectionManager],
   );
 
-  const renameForm = useCallback(
-    (formId: string, name: string): void => {
+  const renamePage = useCallback(
+    (pageId: string, name: string): void => {
       try {
-        projectController.renameForm(formId, name);
+        projectController.renamePage(pageId, name);
       } catch (error) {
         reportError(error, 'PROJECT');
       }
@@ -819,8 +822,8 @@ export function App(): ReactElement {
         case 'view.output':
           setVisiblePanels((current) => ({ ...current, output: !current.output }));
           break;
-        case 'project.addForm':
-          addFormToProject();
+        case 'project.addPage':
+          addPageToProject();
           break;
         case 'project.build':
         case 'run.run':
@@ -835,7 +838,7 @@ export function App(): ReactElement {
       }
     },
     [
-      addFormToProject,
+      addPageToProject,
       activeView,
       closeProject,
       copySelection,
@@ -877,21 +880,21 @@ export function App(): ReactElement {
 
   const documents: readonly DocumentTab[] = useMemo(
     () =>
-      openFormIds.flatMap((id) => {
-        const form = project?.forms.find((candidate) => candidate.id === id);
-        return form
-          ? [{ id, label: form.name, dirty: projectState.dirty, kind: 'form' as const }]
+      openPageIds.flatMap((id) => {
+        const page = project?.pages.find((candidate) => candidate.id === id);
+        return page
+          ? [{ id, label: page.name, dirty: projectState.dirty, kind: 'page' as const }]
           : [];
       }),
-    [openFormIds, project, projectState.dirty],
+    [openPageIds, project, projectState.dirty],
   );
 
-  const editorFormComponents = useMemo(
+  const editorPageComponents = useMemo(
     () =>
-      activeForm?.components
-        .filter((component) => component.id !== activeForm.rootComponentId)
+      activePage?.components
+        .filter((component) => component.id !== activePage.rootComponentId)
         .map((component) => ({ name: component.name, type: component.type })) ?? [],
-    [activeForm],
+    [activePage],
   );
 
   const projectSources = useMemo<Readonly<Record<string, string>>>(() => {
@@ -919,11 +922,11 @@ export function App(): ReactElement {
     if (!project) return Object.freeze({}) as Readonly<Record<string, string>>;
     return Object.fromEntries([
       ['file:///node_modules/@webrad/runtime/index.d.ts', generateRuntimeTypings()],
-      ...project.forms.map(
-        (form) =>
+      ...project.pages.map(
+        (page) =>
           [
-            sourceUri(projectState.rootPath, project.id, `forms/${form.name}.generated.d.ts`),
-            generateFormTypings(form),
+            sourceUri(projectState.rootPath, project.id, `pages/${page.name}.generated.d.ts`),
+            generatePageTypings(page),
           ] as const,
       ),
     ]);
@@ -983,20 +986,20 @@ export function App(): ReactElement {
     (problem: EditorProblem): void => {
       if (!project) return;
       if (problem.range === undefined) {
-        const formIndex =
-          problem.path?.[0] === 'forms' && typeof problem.path[1] === 'number'
+        const pageIndex =
+          problem.path?.[0] === 'pages' && typeof problem.path[1] === 'number'
             ? problem.path[1]
             : undefined;
-        const form = formIndex === undefined ? undefined : project.forms[formIndex];
-        if (form === undefined) return;
-        openForm(form.id);
+        const page = pageIndex === undefined ? undefined : project.pages[pageIndex];
+        if (page === undefined) return;
+        openPage(page.id);
         setActiveView('design');
         const componentIndex =
           problem.path?.[2] === 'components' && typeof problem.path[3] === 'number'
             ? problem.path[3]
             : undefined;
         const component =
-          componentIndex === undefined ? undefined : form.components[componentIndex];
+          componentIndex === undefined ? undefined : page.components[componentIndex];
         if (component === undefined) selectionManager.clear();
         else selectionManager.set([component.id], component.id);
         return;
@@ -1024,10 +1027,10 @@ export function App(): ReactElement {
               window.webrad.platform === 'win32',
             ));
       if (relativePath === undefined) return;
-      const form = project.forms.find((candidate) => sourceKey(candidate) === relativePath);
-      if (form === undefined) return;
+      const page = project.pages.find((candidate) => sourceKey(candidate) === relativePath);
+      if (page === undefined) return;
       const resource = sourceUri(projectState.rootPath, project.id, relativePath);
-      openForm(form.id);
+      openPage(page.id);
       setActiveView('code');
       setNavigateTo({
         resource,
@@ -1039,7 +1042,7 @@ export function App(): ReactElement {
       });
     },
     [
-      openForm,
+      openPage,
       project,
       projectState.rootPath,
       projectState.userSources,
@@ -1048,10 +1051,10 @@ export function App(): ReactElement {
     ],
   );
 
-  const editorContent = !activeForm ? null : activeView === 'design' ? (
+  const editorContent = !activePage ? null : activeView === 'design' ? (
     <ErrorBoundary area="Designer">
       <DesignerSurface
-        form={activeForm}
+        page={activePage}
         settings={
           project?.settings ?? {
             gridSize: 8,
@@ -1081,12 +1084,12 @@ export function App(): ReactElement {
   ) : activeView === 'code' ? (
     <ErrorBoundary area="Monaco">
       <CodeEditor
-        path={sourceUri(projectState.rootPath, project?.id ?? 'project', sourceKey(activeForm))}
-        value={projectState.userSources[sourceKey(activeForm)] ?? createUserFormSource(activeForm)}
+        path={sourceUri(projectState.rootPath, project?.id ?? 'project', sourceKey(activePage))}
+        value={projectState.userSources[sourceKey(activePage)] ?? createUserPageSource(activePage)}
         theme={theme}
-        breadcrumb={[project?.name ?? 'Project', 'Forms', `${activeForm.name}.ts`]}
+        breadcrumb={[project?.name ?? 'Project', 'Pages', `${activePage.name}.ts`]}
         extraLibraries={extraLibraries}
-        formComponents={editorFormComponents}
+        pageComponents={editorPageComponents}
         projectSources={projectSources}
         buildProblems={buildProblems}
         navigateTo={navigateTo}
@@ -1107,13 +1110,13 @@ export function App(): ReactElement {
     </ErrorBoundary>
   );
 
-  const status = !activeForm
+  const status = !activePage
     ? ({ kind: 'empty' } as const)
     : activeView === 'code'
       ? ({ kind: 'code', ...cursor } as const)
       : ({
           kind: 'designer',
-          name: primaryComponent?.name ?? activeForm.name,
+          name: primaryComponent?.name ?? activePage.name,
           bounds:
             primaryComponent && componentRegistry.get(primaryComponent.type)?.visual === true
               ? primaryComponent.bounds
@@ -1143,11 +1146,11 @@ export function App(): ReactElement {
               <ErrorBoundary area="Project Explorer">
                 <ProjectExplorer
                   project={project}
-                  activeFormId={activeFormId}
-                  onOpenForm={openForm}
-                  onAddForm={addFormToProject}
-                  onDeleteForm={deleteForm}
-                  onRenameForm={renameForm}
+                  activePageId={activePageId}
+                  onOpenPage={openPage}
+                  onAddPage={addPageToProject}
+                  onDeletePage={deletePage}
+                  onRenamePage={renamePage}
                 />
               </ErrorBoundary>
             ) : null
@@ -1159,15 +1162,15 @@ export function App(): ReactElement {
                   selectedType={selectedPaletteType}
                   onSelect={setSelectedPaletteType}
                   onInsert={(type) => {
-                    if (!activeForm) return;
+                    if (!activePage) return;
                     const definition = requireComponentDefinition(type);
                     addComponentAt(
                       type,
                       {
-                        x: Math.round((activeForm.width - definition.defaultBounds.width) / 2),
-                        y: Math.round((activeForm.height - definition.defaultBounds.height) / 2),
+                        x: Math.round((activePage.width - definition.defaultBounds.width) / 2),
+                        y: Math.round((activePage.height - definition.defaultBounds.height) / 2),
                       },
-                      activeForm.rootComponentId,
+                      activePage.rootComponentId,
                     );
                   }}
                 />
@@ -1177,14 +1180,14 @@ export function App(): ReactElement {
           editor={
             <EditorWorkspace
               documents={documents}
-              activeDocumentId={activeFormId}
+              activeDocumentId={activePageId}
               activeView={activeView}
-              onSelectDocument={openForm}
+              onSelectDocument={openPage}
               onCloseDocument={(id) => {
-                setOpenFormIds((current) => current.filter((candidate) => candidate !== id));
-                if (activeFormId === id) {
-                  const remaining = openFormIds.filter((candidate) => candidate !== id);
-                  setActiveFormId(remaining.at(-1) ?? null);
+                setOpenPageIds((current) => current.filter((candidate) => candidate !== id));
+                if (activePageId === id) {
+                  const remaining = openPageIds.filter((candidate) => candidate !== id);
+                  setActivePageId(remaining.at(-1) ?? null);
                 }
               }}
               onSelectView={setActiveView}
@@ -1197,17 +1200,17 @@ export function App(): ReactElement {
               <ErrorBoundary area="Object Inspector">
                 <ObjectInspector
                   selection={selectedComponents}
-                  form={activeForm}
+                  page={activePage}
                   definition={
-                    selectedComponents.length === 0 && activeForm
-                      ? componentRegistry.get('WebForm')
+                    selectedComponents.length === 0 && activePage
+                      ? componentRegistry.get('WebPage')
                       : undefined
                   }
-                  availableComponents={activeForm?.components}
+                  availableComponents={activePage?.components}
                   onPropertyChange={changeProperty}
                   onEventChange={(eventName, handlerName) => bindEvent(eventName, handlerName)}
                   onEventDoubleClick={(eventName) => {
-                    const targetId = selection.primaryId ?? activeForm?.rootComponentId;
+                    const targetId = selection.primaryId ?? activePage?.rootComponentId;
                     if (targetId) createOrOpenEvent(targetId, eventName);
                   }}
                 />

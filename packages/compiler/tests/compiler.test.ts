@@ -6,8 +6,8 @@ import {
   addComponent,
   bindComponentEvent,
   createProject,
-  updateForm,
-  type FormModel,
+  updatePage,
+  type PageModel,
   type WebRadProject,
 } from '@webrad/project-model';
 import { defaultComponentRegistry } from '@webrad/component-registry';
@@ -38,10 +38,10 @@ function executableProject(): WebRadProject {
   let sequence = 0;
   const idFactory = (): string => `stable-${String((sequence += 1))}`;
   const project = createProject('HelloWebRad', { idFactory });
-  let form: FormModel = project.forms[0] as FormModel;
-  const rootId = form.rootComponentId;
-  form = addComponent(
-    form,
+  let page: PageModel = project.pages[0] as PageModel;
+  const rootId = page.rootComponentId;
+  page = addComponent(
+    page,
     defaultComponentRegistry.createComponent('WebEdit', {
       id: 'edit-name',
       name: 'EDTNome',
@@ -51,8 +51,8 @@ function executableProject(): WebRadProject {
     }),
     rootId,
   );
-  form = addComponent(
-    form,
+  page = addComponent(
+    page,
     defaultComponentRegistry.createComponent('WebButton', {
       id: 'button-show',
       name: 'BTNMostrar',
@@ -62,8 +62,8 @@ function executableProject(): WebRadProject {
     }),
     rootId,
   );
-  form = addComponent(
-    form,
+  page = addComponent(
+    page,
     defaultComponentRegistry.createComponent('WebApiClient', {
       id: 'api-client',
       name: 'ApiClient1',
@@ -72,19 +72,19 @@ function executableProject(): WebRadProject {
     }),
     rootId,
   );
-  form = bindComponentEvent(form, rootId, 'OnCreate', 'FrmMainCreate');
-  form = bindComponentEvent(form, 'button-show', 'OnClick', 'BTNMostrarClick');
-  return updateForm(project, form.id, form);
+  page = bindComponentEvent(page, rootId, 'OnCreate', 'PageMainCreate');
+  page = bindComponentEvent(page, 'button-show', 'OnClick', 'BTNMostrarClick');
+  return updatePage(project, page.id, page);
 }
 
 describe('compileProject', () => {
   it('validates, typechecks and writes an ordinary browser application', async () => {
     const outputDirectory = await temporaryDirectory();
     const project = executableProject();
-    const originalUserSource = `import { FrmMainGenerated } from './FrmMain.generated';
+    const originalUserSource = `import { PageMainGenerated } from './PageMain.generated';
 
-export class FrmMain extends FrmMainGenerated {
-  public FrmMainCreate(): void {
+export class PageMain extends PageMainGenerated {
+  public PageMainCreate(): void {
     this.EDTNome.value = 'Ada';
     this.EDTNome.x = 36;
     const configuredBaseUrl = this.ApiClient1.baseUrl;
@@ -107,7 +107,7 @@ export class FrmMain extends FrmMainGenerated {
   }
 }
 `;
-    const userSources = { 'forms/FrmMain.ts': originalUserSource };
+    const userSources = { 'pages/PageMain.ts': originalUserSource };
 
     const result = await compileProject(project, { outputDirectory, userSources });
 
@@ -116,7 +116,7 @@ export class FrmMain extends FrmMainGenerated {
     expect(result.files['assets/app.js']).toContain('BTNMostrarClick');
     expect(result.files['assets/app.js']).toContain('https://api.example.test');
     expect(result.files['assets/app.js']).toContain('api-client');
-    expect(result.files['assets/app.css']).toContain('.wr-webform');
+    expect(result.files['assets/app.css']).toContain('.wr-webpage');
     expect(result.files['assets/app.css']).toContain('.wr-webbutton:hover:not(:disabled)');
     expect(result.previewHtml).toContain('<script>');
     expect(result.previewHtml).toContain('<style>');
@@ -125,11 +125,13 @@ export class FrmMain extends FrmMainGenerated {
     );
     await expect(
       fs.readFile(path.join(outputDirectory, 'assets', 'app.js'), 'utf8'),
-    ).resolves.toContain('mountForm');
-    await expect(fs.stat(path.join(outputDirectory, 'forms', 'FrmMain.ts'))).rejects.toMatchObject({
-      code: 'ENOENT',
-    });
-    expect(userSources['forms/FrmMain.ts']).toBe(originalUserSource);
+    ).resolves.toContain('mountPage');
+    await expect(fs.stat(path.join(outputDirectory, 'pages', 'PageMain.ts'))).rejects.toMatchObject(
+      {
+        code: 'ENOENT',
+      },
+    );
+    expect(userSources['pages/PageMain.ts']).toBe(originalUserSource);
 
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
       runScripts: 'outside-only',
@@ -141,9 +143,9 @@ export class FrmMain extends FrmMainGenerated {
     });
     expect(() => dom.window.eval(result.files['assets/app.js'] ?? '')).not.toThrow();
     expect(dom.window.document.querySelector('[data-webrad-id="api-client"]')).toBeNull();
-    const mountedForm = dom.window.document.querySelector<HTMLElement>('[data-webrad-form-id]');
-    expect(mountedForm).not.toBeNull();
-    const serializedContract = mountedForm?.dataset.runtimeContract;
+    const mountedPage = dom.window.document.querySelector<HTMLElement>('[data-webrad-page-id]');
+    expect(mountedPage).not.toBeNull();
+    const serializedContract = mountedPage?.dataset.runtimeContract;
     expect(serializedContract).toBeDefined();
     expect(JSON.parse(serializedContract ?? '{}') as unknown).toEqual({
       editId: 'edit-name',
@@ -176,8 +178,8 @@ export class FrmMain extends FrmMainGenerated {
     const result = await compileProject(executableProject(), {
       outputDirectory,
       userSources: {
-        'forms/FrmMain.ts': `import { FrmMainGenerated } from './FrmMain.generated';
-export class FrmMain extends FrmMainGenerated {
+        'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
+export class PageMain extends PageMainGenerated {
   broken: MissingType;
 }
 `,
@@ -189,7 +191,7 @@ export class FrmMain extends FrmMainGenerated {
       expect.objectContaining({
         category: 'error',
         source: 'typescript',
-        file: 'forms/FrmMain.ts',
+        file: 'pages/PageMain.ts',
       }),
     );
     await expect(fs.stat(path.join(outputDirectory, 'index.html'))).rejects.toMatchObject({
@@ -205,17 +207,17 @@ export class FrmMain extends FrmMainGenerated {
     });
 
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
-    expect(result.previewHtml).toContain('webradFormId');
+    expect(result.previewHtml).toContain('webradPageId');
     await expect(fs.stat(outputDirectory)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
-  it('rejects component names that collide with the generated form runtime API', async () => {
+  it('rejects component names that collide with the generated page runtime API', async () => {
     const project = executableProject();
     const invalidProject = {
       ...project,
-      forms: project.forms.map((form) => ({
-        ...form,
-        components: form.components.map((component) =>
+      pages: project.pages.map((page) => ({
+        ...page,
+        components: page.components.map((component) =>
           component.id === 'api-client' ? { ...component, name: 'show' } : component,
         ),
       })),
@@ -235,13 +237,13 @@ export class FrmMain extends FrmMainGenerated {
   it('rejects unknown or incorrectly typed component properties', async () => {
     let sequence = 0;
     const project = createProject('BrokenProps', () => `broken-${String((sequence += 1))}`);
-    const form = project.forms[0]!;
-    const root = form.components[0]!;
+    const page = project.pages[0]!;
+    const root = page.components[0]!;
     const invalidProject = {
       ...project,
-      forms: [
+      pages: [
         {
-          ...form,
+          ...page,
           components: [
             {
               ...root,

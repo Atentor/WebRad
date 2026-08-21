@@ -2,19 +2,19 @@ import { z } from 'zod';
 
 import { ProjectValidationError } from './errors.js';
 import {
-  getFormNameError,
-  getGeneratedFormMemberNameError,
+  getPageNameError,
+  getGeneratedPageMemberNameError,
   getProjectNameError,
   getTypeScriptIdentifierError,
   portableFileNameKey,
 } from './naming.js';
 import {
-  CURRENT_FORM_FORMAT_VERSION,
+  CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
   type Bounds,
   type ComponentNode,
-  type FormDescriptor,
-  type FormModel,
+  type PageDescriptor,
+  type PageModel,
   type ProjectManifest,
   type ProjectSettings,
   type WebRadProject,
@@ -36,8 +36,8 @@ const projectNameSchema = z.string().superRefine((value, context) => {
   if (error !== undefined) context.addIssue({ code: 'custom', message: error });
 });
 
-const formNameSchema = z.string().superRefine((value, context) => {
-  const error = getFormNameError(value);
+const pageNameSchema = z.string().superRefine((value, context) => {
+  const error = getPageNameError(value);
   if (error !== undefined) context.addIssue({ code: 'custom', message: error });
 });
 
@@ -86,11 +86,11 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   })
   .strict();
 
-function validateFormRelationships(form: FormModel, context: z.RefinementCtx): void {
+function validatePageRelationships(page: PageModel, context: z.RefinementCtx): void {
   const byId = new Map<string, ComponentNode>();
   const names = new Map<string, number>();
 
-  form.components.forEach((component, index) => {
+  page.components.forEach((component, index) => {
     const previousIdIndex = byId.has(component.id);
     if (previousIdIndex) {
       context.addIssue({
@@ -106,15 +106,15 @@ function validateFormRelationships(form: FormModel, context: z.RefinementCtx): v
     if (previousNameIndex !== undefined) {
       context.addIssue({
         code: 'custom',
-        message: `Component name "${component.name}" must be unique within a form.`,
+        message: `Component name "${component.name}" must be unique within a page.`,
         path: ['components', index, 'name'],
       });
     } else {
       names.set(component.name, index);
     }
 
-    if (component.id !== form.rootComponentId) {
-      const memberNameError = getGeneratedFormMemberNameError(component.name);
+    if (component.id !== page.rootComponentId) {
+      const memberNameError = getGeneratedPageMemberNameError(component.name);
       if (memberNameError !== undefined) {
         context.addIssue({
           code: 'custom',
@@ -125,11 +125,11 @@ function validateFormRelationships(form: FormModel, context: z.RefinementCtx): v
     }
   });
 
-  const root = byId.get(form.rootComponentId);
+  const root = byId.get(page.rootComponentId);
   if (root === undefined) {
     context.addIssue({
       code: 'custom',
-      message: 'rootComponentId must reference a component in this form.',
+      message: 'rootComponentId must reference a component in this page.',
       path: ['rootComponentId'],
     });
   } else {
@@ -137,20 +137,20 @@ function validateFormRelationships(form: FormModel, context: z.RefinementCtx): v
       context.addIssue({
         code: 'custom',
         message: 'The root component cannot have a parent.',
-        path: ['components', form.components.indexOf(root), 'parentId'],
+        path: ['components', page.components.indexOf(root), 'parentId'],
       });
     }
-    if (root.type !== 'WebForm') {
+    if (root.type !== 'WebPage') {
       context.addIssue({
         code: 'custom',
-        message: 'The root component must have type WebForm.',
-        path: ['components', form.components.indexOf(root), 'type'],
+        message: 'The root component must have type WebPage.',
+        path: ['components', page.components.indexOf(root), 'type'],
       });
     }
   }
 
-  form.components.forEach((component, componentIndex) => {
-    if (component.id !== form.rootComponentId && component.parentId === null) {
+  page.components.forEach((component, componentIndex) => {
+    if (component.id !== page.rootComponentId && component.parentId === null) {
       context.addIssue({
         code: 'custom',
         message: 'Every non-root component must have a parent.',
@@ -228,11 +228,11 @@ function validateFormRelationships(form: FormModel, context: z.RefinementCtx): v
       const current = byId.get(componentId);
       if (current !== undefined) pending.push(...current.children);
     }
-    form.components.forEach((component, componentIndex) => {
+    page.components.forEach((component, componentIndex) => {
       if (!reachable.has(component.id)) {
         context.addIssue({
           code: 'custom',
-          message: 'Every component must be reachable from the form root.',
+          message: 'Every component must be reachable from the page root.',
           path: ['components', componentIndex],
         });
       }
@@ -240,11 +240,11 @@ function validateFormRelationships(form: FormModel, context: z.RefinementCtx): v
   }
 }
 
-export const FormModelSchema: z.ZodType<FormModel> = z
+export const PageModelSchema: z.ZodType<PageModel> = z
   .object({
-    formatVersion: z.literal(CURRENT_FORM_FORMAT_VERSION),
+    formatVersion: z.literal(CURRENT_PAGE_FORMAT_VERSION),
     id: nonEmptyStringSchema,
-    name: formNameSchema,
+    name: pageNameSchema,
     caption: z.string(),
     width: positiveDimensionSchema,
     height: positiveDimensionSchema,
@@ -253,38 +253,38 @@ export const FormModelSchema: z.ZodType<FormModel> = z
     rootComponentId: nonEmptyStringSchema,
   })
   .strict()
-  .superRefine(validateFormRelationships);
+  .superRefine(validatePageRelationships);
 
 function validateProjectRelationships(project: WebRadProject, context: z.RefinementCtx): void {
   const ids = new Set<string>();
   const names = new Set<string>();
 
-  project.forms.forEach((form, index) => {
-    if (ids.has(form.id)) {
+  project.pages.forEach((page, index) => {
+    if (ids.has(page.id)) {
       context.addIssue({
         code: 'custom',
-        message: `Duplicate form ID "${form.id}".`,
-        path: ['forms', index, 'id'],
+        message: `Duplicate page ID "${page.id}".`,
+        path: ['pages', index, 'id'],
       });
     }
-    ids.add(form.id);
+    ids.add(page.id);
 
-    const nameKey = portableFileNameKey(form.name);
+    const nameKey = portableFileNameKey(page.name);
     if (names.has(nameKey)) {
       context.addIssue({
         code: 'custom',
-        message: `Form name "${form.name}" must be unique within a project on portable filesystems.`,
-        path: ['forms', index, 'name'],
+        message: `Page name "${page.name}" must be unique within a project on portable filesystems.`,
+        path: ['pages', index, 'name'],
       });
     }
     names.add(nameKey);
   });
 
-  if (!ids.has(project.entryForm)) {
+  if (!ids.has(project.entryPage)) {
     context.addIssue({
       code: 'custom',
-      message: 'entryForm must reference a form in this project.',
-      path: ['entryForm'],
+      message: 'entryPage must reference a page in this project.',
+      path: ['entryPage'],
     });
   }
 }
@@ -294,18 +294,18 @@ export const WebRadProjectSchema: z.ZodType<WebRadProject> = z
     formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),
     id: nonEmptyStringSchema,
     name: projectNameSchema,
-    entryForm: nonEmptyStringSchema,
-    forms: z.array(FormModelSchema).min(1),
+    entryPage: nonEmptyStringSchema,
+    pages: z.array(PageModelSchema).min(1),
     settings: ProjectSettingsSchema,
   })
   .strict()
   .superRefine(validateProjectRelationships);
 
-export const FormDescriptorSchema: z.ZodType<FormDescriptor> = z
+export const PageDescriptorSchema: z.ZodType<PageDescriptor> = z
   .object({
     id: nonEmptyStringSchema,
-    name: formNameSchema,
-    formFile: relativeProjectPathSchema,
+    name: pageNameSchema,
+    pageFile: relativeProjectPathSchema,
     generatedFile: relativeProjectPathSchema,
     codeFile: relativeProjectPathSchema,
   })
@@ -316,8 +316,8 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z
     formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),
     id: nonEmptyStringSchema,
     name: projectNameSchema,
-    entryForm: nonEmptyStringSchema,
-    forms: z.array(FormDescriptorSchema).min(1),
+    entryPage: nonEmptyStringSchema,
+    pages: z.array(PageDescriptorSchema).min(1),
     settings: ProjectSettingsSchema,
   })
   .strict()
@@ -326,12 +326,12 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z
     const names = new Set<string>();
     const paths = new Set<string>();
 
-    manifest.forms.forEach((descriptor, index) => {
+    manifest.pages.forEach((descriptor, index) => {
       if (ids.has(descriptor.id)) {
         context.addIssue({
           code: 'custom',
-          message: `Duplicate form ID "${descriptor.id}".`,
-          path: ['forms', index, 'id'],
+          message: `Duplicate page ID "${descriptor.id}".`,
+          path: ['pages', index, 'id'],
         });
       }
       ids.add(descriptor.id);
@@ -340,31 +340,31 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z
       if (names.has(nameKey)) {
         context.addIssue({
           code: 'custom',
-          message: `Duplicate form name "${descriptor.name}".`,
-          path: ['forms', index, 'name'],
+          message: `Duplicate page name "${descriptor.name}".`,
+          path: ['pages', index, 'name'],
         });
       }
       names.add(nameKey);
 
-      for (const key of ['formFile', 'generatedFile', 'codeFile'] as const) {
+      for (const key of ['pageFile', 'generatedFile', 'codeFile'] as const) {
         const filePath = descriptor[key];
         const pathKey = portableFileNameKey(filePath);
         if (paths.has(pathKey)) {
           context.addIssue({
             code: 'custom',
             message: `Project file path "${filePath}" is used more than once.`,
-            path: ['forms', index, key],
+            path: ['pages', index, key],
           });
         }
         paths.add(pathKey);
       }
     });
 
-    if (!ids.has(manifest.entryForm)) {
+    if (!ids.has(manifest.entryPage)) {
       context.addIssue({
         code: 'custom',
-        message: 'entryForm must reference a form descriptor.',
-        path: ['entryForm'],
+        message: 'entryPage must reference a page descriptor.',
+        path: ['entryPage'],
       });
     }
   });
@@ -390,8 +390,8 @@ export function safeParseComponentNode(
   return ComponentNodeSchema.safeParse(input);
 }
 
-export function safeParseForm(input: unknown): ReturnType<typeof FormModelSchema.safeParse> {
-  return FormModelSchema.safeParse(input);
+export function safeParsePage(input: unknown): ReturnType<typeof PageModelSchema.safeParse> {
+  return PageModelSchema.safeParse(input);
 }
 
 export function safeParseProject(input: unknown): ReturnType<typeof WebRadProjectSchema.safeParse> {
@@ -404,7 +404,7 @@ export function safeParseProjectManifest(
   return ProjectManifestSchema.safeParse(input);
 }
 
-export const validateForm = safeParseForm;
+export const validatePage = safeParsePage;
 export const validateProject = safeParseProject;
 export const validateProjectManifest = safeParseProjectManifest;
 
@@ -420,8 +420,8 @@ export function parseComponentNode(input: unknown): ComponentNode {
   return result.data;
 }
 
-export function parseForm(input: unknown): FormModel {
-  const result = safeParseForm(input);
+export function parsePage(input: unknown): PageModel {
+  const result = safeParsePage(input);
   if (!result.success) throw issuesFrom(result.error);
   return result.data;
 }
@@ -441,8 +441,8 @@ export function parseProjectManifest(input: unknown): ProjectManifest {
 // Lowercase aliases keep schema imports ergonomic without weakening the canonical names.
 export const boundsSchema = BoundsSchema;
 export const componentNodeSchema = ComponentNodeSchema;
-export const formModelSchema = FormModelSchema;
+export const pageModelSchema = PageModelSchema;
 export const projectSettingsSchema = ProjectSettingsSchema;
 export const webRadProjectSchema = WebRadProjectSchema;
-export const formDescriptorSchema = FormDescriptorSchema;
+export const pageDescriptorSchema = PageDescriptorSchema;
 export const projectManifestSchema = ProjectManifestSchema;

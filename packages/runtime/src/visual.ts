@@ -110,7 +110,7 @@ export function projectComponentVisual(
 export const WEBRAD_COMPONENT_CSS = `
 .wr-component { box-sizing: border-box; font: inherit; }
 .wr-component[hidden] { display: none !important; }
-.wr-webform { overflow: hidden; }
+.wr-webpage { overflow: hidden; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }
 .wr-webpanel { border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
 .wr-webedit, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }

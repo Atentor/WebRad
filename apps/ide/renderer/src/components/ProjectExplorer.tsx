@@ -5,11 +5,11 @@ import { Panel } from './Panel';
 
 interface ProjectExplorerProps {
   project: WebRadProject | null;
-  activeFormId: string | null;
-  onOpenForm: (formId: string) => void;
-  onAddForm: () => void;
-  onDeleteForm: (formId: string) => void;
-  onRenameForm: (formId: string, name: string) => void;
+  activePageId: string | null;
+  onOpenPage: (pageId: string) => void;
+  onAddPage: () => void;
+  onDeletePage: (pageId: string) => void;
+  onRenamePage: (pageId: string, name: string) => void;
 }
 
 function FolderGlyph({ open = true }: { open?: boolean }): ReactElement {
@@ -18,30 +18,30 @@ function FolderGlyph({ open = true }: { open?: boolean }): ReactElement {
 
 export function ProjectExplorer({
   project,
-  activeFormId,
-  onOpenForm,
-  onAddForm,
-  onDeleteForm,
-  onRenameForm,
+  activePageId,
+  onOpenPage,
+  onAddPage,
+  onDeletePage,
+  onRenamePage,
 }: ProjectExplorerProps): ReactElement {
-  const [editingFormId, setEditingFormId] = useState<string | null>(null);
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
 
-  const beginRename = (formId: string, name: string): void => {
-    setEditingFormId(formId);
+  const beginRename = (pageId: string, name: string): void => {
+    setEditingPageId(pageId);
     setDraftName(name);
   };
 
   const finishRename = (): void => {
-    if (editingFormId && draftName.trim()) onRenameForm(editingFormId, draftName.trim());
-    setEditingFormId(null);
+    if (editingPageId && draftName.trim()) onRenamePage(editingPageId, draftName.trim());
+    setEditingPageId(null);
   };
 
   return (
     <Panel
       title="Project Explorer"
       actions={
-        <button type="button" title="Add form" aria-label="Add form" onClick={onAddForm}>
+        <button type="button" title="Add page" aria-label="Add page" onClick={onAddPage}>
           ＋
         </button>
       }
@@ -58,42 +58,43 @@ export function ProjectExplorer({
           <div role="group" className="wr-tree-group">
             <div className="wr-tree-row wr-folder-row" role="treeitem" aria-expanded="true">
               <FolderGlyph />
-              <span>Forms</span>
-              <small>{project.forms.length}</small>
+              <span>Pages</span>
+              <small>{project.pages.length}</small>
             </div>
             <div role="group" className="wr-tree-group nested">
-              {project.forms.map((form) => (
+              {project.pages.map((page) => (
                 <div
-                  key={form.id}
-                  className={`wr-tree-row wr-form-row ${activeFormId === form.id ? 'active' : ''}`}
+                  key={page.id}
+                  className={`wr-tree-row wr-page-row ${activePageId === page.id ? 'active' : ''}`}
                   role="treeitem"
-                  aria-selected={activeFormId === form.id}
-                  onDoubleClick={() => onOpenForm(form.id)}
-                  onClick={() => onOpenForm(form.id)}
+                  aria-selected={activePageId === page.id}
+                  onDoubleClick={() => onOpenPage(page.id)}
+                  onClick={() => onOpenPage(page.id)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter') onOpenForm(form.id);
-                    if (event.key === 'F2') beginRename(form.id, form.name);
-                    if (event.key === 'Delete') onDeleteForm(form.id);
+                    if (event.key === 'Enter') onOpenPage(page.id);
+                    if (event.key === 'F2') beginRename(page.id, page.name);
+                    if (event.key === 'Delete') onDeletePage(page.id);
                   }}
                   tabIndex={0}
                 >
-                  <span className="wr-form-icon">▱</span>
-                  {editingFormId === form.id ? (
+                  <span className="wr-page-icon">▱</span>
+                  {editingPageId === page.id ? (
                     <input
                       autoFocus
+                      aria-label="Page name"
                       value={draftName}
                       onChange={(event) => setDraftName(event.target.value)}
                       onBlur={finishRename}
                       onKeyDown={(event) => {
                         event.stopPropagation();
                         if (event.key === 'Enter') finishRename();
-                        if (event.key === 'Escape') setEditingFormId(null);
+                        if (event.key === 'Escape') setEditingPageId(null);
                       }}
                     />
                   ) : (
-                    <span>{form.name}</span>
+                    <span>{page.name}</span>
                   )}
-                  {project.entryForm === form.id && <small title="Entry form">entry</small>}
+                  {project.entryPage === page.id && <small title="Entry page">entry</small>}
                 </div>
               ))}
             </div>

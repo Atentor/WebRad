@@ -10,7 +10,7 @@ const button = {
   id: 'button-id',
   type: 'WebButton',
   name: 'BTNMostrar',
-  parentId: 'form-id',
+  parentId: 'page-id',
   bounds: { x: 10, y: 20, width: 100, height: 32 },
   props: { caption: 'Mostrar', visible: true, enabled: true },
   events: { OnClick: 'BTNMostrarClick' },

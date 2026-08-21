@@ -50,7 +50,7 @@ function sharedAttributes(
 }
 
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
-  WebForm: ({ node, designTime }) => (
+  WebPage: ({ node, designTime }) => (
     <section
       {...sharedAttributes(node, designTime)}
       aria-label={readStringProperty(node, 'caption', node.name)}

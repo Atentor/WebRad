@@ -6,13 +6,13 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 | ---------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | 1. Repository foundation     | DONE        | npm workspaces, Electron Forge/Vite, React, strict TypeScript, lint, format, Vitest, desktop shell                                                | IDE builds; typecheck, lint, tests, and package build pass                                                 |
 | 2. IDE shell                 | DONE        | Menus/toolbars, resizable panels, Explorer, Palette, Inspector shell, Design/Code/Preview, output, status bar, themes                             | Packaged renderer smoke and shell interactions pass                                                        |
-| 3. Project model             | DONE        | Versioned model, registry, serialization, typed IPC, create/open/save/add/delete form                                                             | Round-trip, migration, validation, and persistence tests pass                                              |
-| 4. Designer basics           | DONE        | DOM runtime renderers, selection overlay, form/panel/label/edit/textarea/button/checkbox/combobox/image/listbox, add/drag/move/resize/delete/snap | Core design interactions and the complete MVP component set pass tests                                     |
+| 3. Project model             | DONE        | Versioned model, registry, serialization, typed IPC, create/open/save/add/delete page                                                             | Round-trip, schema rejection, validation, and persistence tests pass                                       |
+| 4. Designer basics           | DONE        | DOM runtime renderers, selection overlay, page/panel/label/edit/textarea/button/checkbox/combobox/image/listbox, add/drag/move/resize/delete/snap | Core design interactions and the complete MVP component set pass tests                                     |
 | 5. Object Inspector          | DONE        | Metadata-driven properties/events, validation, immediate model projection                                                                         | Typed property and event editors update the model                                                          |
 | 6. Commands and selection    | DONE        | Command pattern, transactions, undo/redo, clipboard, multi-select, z-order, marquee                                                               | History, clipboard, selection, and geometry tests pass                                                     |
 | 7. Monaco                    | DONE        | Project-wide models, full TypeScript IntelliSense, syntax themes, live/build diagnostics, Problems navigation, save, F12                          | Real bundle proves highlight/autocomplete; models, markers, declarations, navigation, and save are covered |
 | 8. Events                    | DONE        | AST method insertion, default event double-click, navigation                                                                                      | Existing methods are never duplicated                                                                      |
-| 9. WebRAD typings            | DONE        | Typed Registry runtime API, readonly `this.Name` form fields, and Delphi-like `Name` completion insertion                                         | Every non-root visual/nonvisual component is typed in generated declarations and native TypeScript         |
+| 9. WebRAD typings            | DONE        | Typed Registry runtime API, readonly `this.Name` page fields, and Delphi-like `Name` completion insertion                                         | Every non-root visual/nonvisual component is typed in generated declarations and native TypeScript         |
 | 10. Runtime/compiler/preview | DONE        | Browser runtime, independent esbuild pipeline, isolated preview protocol, F9                                                                      | Hello project compiles; development and packaged compiler smokes pass                                      |
 | 11. Nonvisual foundation     | DONE        | Registry-driven nonvisual tray, Inspector/persistence integration, generated service fields, and functional `WebApiClient`                        | Tray, code generation, browser exclusion, and runtime client pass tests                                    |
 | 12. Cross-platform packaging | IN PROGRESS | Windows/Linux validation and Forge packaging                                                                                                      | Windows package/smoke pass; Windows/Linux CI is configured                                                 |
@@ -23,12 +23,13 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Every user-facing IDE window opens maximized after its renderer is ready, without exposing the hidden automated-smoke window.
 - DONE: The root `Icon.svg` is the canonical application icon for native packages, windows, installers, favicon, and renderer branding.
 - DONE: Build and run resolves TypeScript standard libraries and esbuild resources explicitly in both Forge development and packaged applications.
-- DONE: Monaco provides project-wide TypeScript models, complete runtime/form typings, professional editing features and themes, live diagnostics, authoritative build markers, and navigable Problems.
+- DONE: Monaco provides project-wide TypeScript models, complete runtime/page typings, professional editing features and themes, live diagnostics, authoritative build markers, and navigable Problems.
 - DONE: Monaco buffers use canonical resource URIs, so edits survive focus/view changes and saving persists the exact current source on Windows and Linux.
 - DONE: Monaco inlay hints are disabled so inferred types and parameter labels never appear as synthetic code in the source view.
 - DONE: Monaco ships JetBrains Mono Light 300, including its real italic face, as self-hosted renderer assets instead of depending on an operating-system font.
 - DONE: distributable desktop artifacts use the public product name `WebRad` for the executable, installer, and Windows shortcut while retaining the lowercase npm package identifier.
 - DONE: Every non-root component is exposed as a typed readonly `this.Name` field; Delphi-like `Name` suggestions insert that standard TypeScript expression for consistent diagnostics, build, and Preview.
+- DONE: Page is the canonical web concept throughout the version 1 model, IDE, runtime, compiler, generated sources, paths, and documentation.
 - IN PROGRESS: Linux packaging evidence from CI; Windows packaging is locally proven.
 
 ## Validation evidence
@@ -45,7 +46,9 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 - Use npm workspaces to minimize bootstrap requirements on Windows and Linux.
 - Keep packages source-first during development, with explicit package exports and project references where useful.
-- Represent `.wrform` and the project manifest as versioned JSON while keeping user code in separate `.ts` files.
+- Exclude source-first `@webrad/*` workspaces from Vite dependency optimization while explicitly optimizing the CommonJS TypeScript distribution, so renamed exports cannot leave the development renderer on a stale bundle.
+- Represent `.wrpage` and the project manifest as versioned JSON while keeping user code in separate `.ts` files.
+- Keep the current Page contract at format version 1 and reject documents outside the current schema without carrying a migration layer.
 - Share browser-safe component property projection and CSS through `@webrad/runtime/visual`; keep design interaction exclusively in the Designer overlay.
 - Keep nonvisual nodes in the Project Model and tray, construct their typed services in generated code, and omit them from the final DOM model.
 - Treat `Icon.svg` as the application icon source of truth; commit checked PNG/ICO/ICNS derivatives required by native platforms.
@@ -54,5 +57,5 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Load Monaco through public granular feature entrypoints and omit only production renderer source maps; this preserves the professional TypeScript feature set while keeping the standard 4 GB package build deterministic.
 - Canonicalize every Monaco model, marker, navigation target, and extra-library URI through Monaco's URI implementation before comparing or registering it; user-source paths remain the Project Model keys.
 - Keep Monaco inlay hints disabled at both the editor and TypeScript service layers; autocomplete, signature help, diagnostics, and syntax highlighting remain enabled.
-- Generate a readonly typed field for every non-root component and represent the root form only as `this`; use stable DOM IDs for visual construction and pass stable `id`/`name` metadata to nonvisual services.
+- Generate a readonly typed field for every non-root component and represent the root page only as `this`; use stable DOM IDs for visual construction and pass stable `id`/`name` metadata to nonvisual services.
 - Present component names as Delphi-like completion labels while inserting `this.Name`; do not create ambient component globals or silently rewrite user source when a component is renamed.

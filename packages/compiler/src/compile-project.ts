@@ -26,15 +26,15 @@ function validateRegistry(
   registry: ComponentRegistry,
 ): readonly CompileDiagnostic[] {
   const diagnostics: CompileDiagnostic[] = [];
-  for (const [formIndex, form] of project.forms.entries()) {
-    for (const [componentIndex, component] of form.components.entries()) {
+  for (const [pageIndex, page] of project.pages.entries()) {
+    for (const [componentIndex, component] of page.components.entries()) {
       const definition = registry.get(component.type);
       if (definition === undefined) {
         diagnostics.push({
           category: 'error',
           source: 'registry',
           message: `Unknown component type "${component.type}".`,
-          path: ['forms', formIndex, 'components', componentIndex, 'type'],
+          path: ['pages', pageIndex, 'components', componentIndex, 'type'],
         });
         continue;
       }
@@ -43,7 +43,7 @@ function validateRegistry(
           category: 'error',
           source: 'registry',
           message: `${component.type} cannot contain child components.`,
-          path: ['forms', formIndex, 'components', componentIndex, 'children'],
+          path: ['pages', pageIndex, 'components', componentIndex, 'children'],
         });
       }
       const propertyDefinitions = new Map(
@@ -58,16 +58,16 @@ function validateRegistry(
             category: 'error',
             source: 'registry',
             message: `Property "${propertyName}" is not registered for ${component.type}.`,
-            path: ['forms', formIndex, 'components', componentIndex, 'props', propertyName],
+            path: ['pages', pageIndex, 'components', componentIndex, 'props', propertyName],
           });
           continue;
         }
-        if (!isValidPropertyValue(property, value, form.components)) {
+        if (!isValidPropertyValue(property, value, page.components)) {
           diagnostics.push({
             category: 'error',
             source: 'registry',
             message: `Property "${propertyName}" has an invalid ${property.type} value for ${component.type}.`,
-            path: ['forms', formIndex, 'components', componentIndex, 'props', propertyName],
+            path: ['pages', pageIndex, 'components', componentIndex, 'props', propertyName],
           });
         }
       }
@@ -77,7 +77,7 @@ function validateRegistry(
             category: 'error',
             source: 'registry',
             message: `Event "${eventName}" is not registered for ${component.type}.`,
-            path: ['forms', formIndex, 'components', componentIndex, 'events', eventName],
+            path: ['pages', pageIndex, 'components', componentIndex, 'events', eventName],
           });
         }
       }
@@ -89,7 +89,7 @@ function validateRegistry(
 function isValidPropertyValue(
   property: ComponentPropertyDefinition,
   value: unknown,
-  components: WebRadProject['forms'][number]['components'],
+  components: WebRadProject['pages'][number]['components'],
 ): boolean {
   switch (property.type) {
     case 'string':

@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 
 import { MVP_COMPONENT_TYPES, type MvpComponentType } from '@webrad/component-registry';
-import { parseForm, type ComponentNode, type FormModel } from '@webrad/project-model';
+import { parsePage, type ComponentNode, type PageModel } from '@webrad/project-model';
 
 import {
-  createUserFormSource,
+  createUserPageSource,
   ensureEventHandler,
-  generateFormArtifacts,
-  generateFormSource,
-  generateFormTypings,
+  generatePageArtifacts,
+  generatePageSource,
+  generatePageTypings,
   generateRuntimeTypings,
 } from '../src/index.js';
 
-type NonRootMvpComponentType = Exclude<MvpComponentType, 'WebForm'>;
+type NonRootMvpComponentType = Exclude<MvpComponentType, 'WebPage'>;
 
 interface MvpComponentFixture {
   readonly id: string;
@@ -39,7 +39,7 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
   const isApiClient = fixture.type === 'WebApiClient';
   return {
     ...fixture,
-    parentId: isPanel || isApiClient ? 'form-root' : 'stable-panel-main',
+    parentId: isPanel || isApiClient ? 'page-root' : 'stable-panel-main',
     bounds: { x: 16, y: 16, width: 120, height: 32 },
     props:
       fixture.type === 'WebApiClient'
@@ -56,26 +56,26 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
   };
 }
 
-function testForm(): FormModel {
-  return parseForm({
+function testPage(): PageModel {
+  return parsePage({
     formatVersion: 1,
-    id: 'form-model',
-    name: 'FrmMain',
+    id: 'page-model',
+    name: 'PageMain',
     caption: 'Main',
     width: 640,
     height: 480,
     layoutMode: 'absolute',
-    rootComponentId: 'form-root',
+    rootComponentId: 'page-root',
     components: [
       {
-        id: 'form-root',
-        type: 'WebForm',
-        name: 'FrmMain',
+        id: 'page-root',
+        type: 'WebPage',
+        name: 'PageMain',
         parentId: null,
         bounds: { x: 0, y: 0, width: 640, height: 480 },
         props: { caption: 'Main', visible: true, enabled: true },
         events: {
-          OnCreate: 'FrmMainCreate',
+          OnCreate: 'PageMainCreate',
           OnShow: null,
           OnHide: null,
           OnResize: null,
@@ -130,15 +130,15 @@ function createLanguageService(filesInput: Readonly<Record<string, string>>): ts
   return ts.createLanguageService(host);
 }
 
-describe('form language generation', () => {
+describe('page language generation', () => {
   it('generates separate executable source and editor typings from the model', () => {
-    const form = testForm();
-    const source = generateFormSource(form);
-    const typings = generateFormTypings(form);
-    const userSource = createUserFormSource(form);
-    const artifacts = generateFormArtifacts(form);
+    const page = testPage();
+    const source = generatePageSource(page);
+    const typings = generatePageTypings(page);
+    const userSource = createUserPageSource(page);
+    const artifacts = generatePageArtifacts(page);
 
-    expect(form.components.slice(1).map((component) => component.type)).toEqual(
+    expect(page.components.slice(1).map((component) => component.type)).toEqual(
       MVP_COMPONENT_TYPES.slice(1),
     );
     for (const component of MVP_COMPONENT_FIXTURES) {
@@ -156,43 +156,43 @@ describe('form language generation', () => {
     expect(source).toContain('"id":"api-client"');
     expect(source).toContain('"name":"ApiClient1"');
     expect(source).not.toContain('requireComponentElement("api-client")');
-    expect(source).not.toContain('public readonly FrmMain: WebForm;');
-    expect(typings).not.toContain('public readonly FrmMain: WebForm;');
-    expect(source).not.toContain('requireComponentElement("form-root")');
-    expect(source).toContain('this.bindGeneratedEvent(this, "OnCreate", "FrmMainCreate")');
+    expect(source).not.toContain('public readonly PageMain: WebPage;');
+    expect(typings).not.toContain('public readonly PageMain: WebPage;');
+    expect(source).not.toContain('requireComponentElement("page-root")');
+    expect(source).toContain('this.bindGeneratedEvent(this, "OnCreate", "PageMainCreate")');
     expect(source).toContain(
       'this.bindGeneratedEvent(this.BTNMostrar, "OnClick", "BTNMostrarClick")',
     );
-    const panel = form.components.find((component) => component.id === 'stable-panel-main');
+    const panel = page.components.find((component) => component.id === 'stable-panel-main');
     expect(panel?.children).toEqual(
       MVP_COMPONENT_FIXTURES.filter(
         (component) => component.type !== 'WebPanel' && component.type !== 'WebApiClient',
       ).map((component) => component.id),
     );
     expect(
-      form.components
-        .filter((component) => component.type !== 'WebForm' && component.type !== 'WebApiClient')
+      page.components
+        .filter((component) => component.type !== 'WebPage' && component.type !== 'WebApiClient')
         .slice(1)
         .every((component) => component.parentId === panel?.id),
     ).toBe(true);
-    expect(typings).toContain('export declare abstract class FrmMainGenerated extends WebForm');
-    expect(userSource).toContain('export class FrmMain extends FrmMainGenerated');
-    expect(artifacts.generatedFileName).toBe('forms/FrmMain.generated.ts');
-    expect(artifacts.userFileName).toBe('forms/FrmMain.ts');
+    expect(typings).toContain('export declare abstract class PageMainGenerated extends WebPage');
+    expect(userSource).toContain('export class PageMain extends PageMainGenerated');
+    expect(artifacts.generatedFileName).toBe('pages/PageMain.generated.ts');
+    expect(artifacts.userFileName).toBe('pages/PageMain.ts');
     expect(generateRuntimeTypings()).toContain("declare module '@webrad/runtime'");
   });
 
   it('provides typed this.Name completions for every generated MVP component', () => {
-    const form = testForm();
+    const page = testPage();
     const runtimeFileName = '/webrad-language-test/node_modules/@webrad/runtime/index.d.ts';
-    const generatedFileName = '/webrad-language-test/forms/FrmMain.generated.d.ts';
-    const userFileName = '/webrad-language-test/forms/FrmMain.ts';
+    const generatedFileName = '/webrad-language-test/pages/PageMain.generated.d.ts';
+    const userFileName = '/webrad-language-test/pages/PageMain.ts';
     const memberExpressions = MVP_COMPONENT_FIXTURES.map(
       (component) => `    this.${component.name};`,
     ).join('\n');
-    const userSource = `import { FrmMainGenerated } from './FrmMain.generated';
+    const userSource = `import { PageMainGenerated } from './PageMain.generated';
 
-export class FrmMain extends FrmMainGenerated {
+export class PageMain extends PageMainGenerated {
   inspectComponents(): void {
 ${memberExpressions}
   }
@@ -200,7 +200,7 @@ ${memberExpressions}
 `;
     const service = createLanguageService({
       [runtimeFileName]: generateRuntimeTypings(),
-      [generatedFileName]: generateFormTypings(form),
+      [generatedFileName]: generatePageTypings(page),
       [userFileName]: userSource,
     });
 
@@ -234,12 +234,12 @@ ${memberExpressions}
 describe('event handler AST editing', () => {
   it('inserts a typed async method and returns its navigation position', () => {
     const original = `// user formatting is retained
-export class FrmMain extends FrmMainGenerated {
+export class PageMain extends PageMainGenerated {
   readonly answer = 42;
 }
 `;
     const edit = ensureEventHandler(original, {
-      className: 'FrmMain',
+      className: 'PageMain',
       componentName: 'BTNMostrar',
       componentType: 'WebButton',
       eventName: 'OnClick',
@@ -252,7 +252,7 @@ export class FrmMain extends FrmMainGenerated {
     expect(edit.location.line).toBeGreaterThan(1);
 
     const second = ensureEventHandler(edit.sourceText, {
-      className: 'FrmMain',
+      className: 'PageMain',
       componentName: 'BTNMostrar',
       componentType: 'WebButton',
       eventName: 'OnClick',
@@ -265,10 +265,10 @@ export class FrmMain extends FrmMainGenerated {
   it('uses an existing aliased runtime type import', () => {
     const edit = ensureEventHandler(
       `import type { WebButton as Button } from '@webrad/runtime';
-export class FrmMain {}
+export class PageMain {}
 `,
       {
-        className: 'FrmMain',
+        className: 'PageMain',
         componentName: 'BTNMostrar',
         componentType: 'WebButton',
         eventName: 'OnClick',
@@ -279,12 +279,12 @@ export class FrmMain {}
   });
 
   it('does not duplicate an existing property-style handler', () => {
-    const source = `export class FrmMain {
+    const source = `export class PageMain {
   BTNMostrarClick = async (sender: WebButton): Promise<void> => {};
 }
 `;
     const edit = ensureEventHandler(source, {
-      className: 'FrmMain',
+      className: 'PageMain',
       componentName: 'BTNMostrar',
       componentType: 'WebButton',
       eventName: 'OnClick',

@@ -304,19 +304,19 @@ import { CodeEditor, releaseMonacoWorkspace } from './CodeEditor';
 
 type CodeEditorProps = Parameters<typeof CodeEditor>[0];
 
-const MAIN_RESOURCE = 'file:///C:/Projects/Demo/forms/FrmMain.ts';
-const OTHER_RESOURCE = 'file:///C:/Projects/Demo/forms/FrmOther.ts';
-const CANONICAL_MAIN_RESOURCE = 'file:///c%3A/Projects/Demo/forms/FrmMain.ts';
-const CANONICAL_OTHER_RESOURCE = 'file:///c%3A/Projects/Demo/forms/FrmOther.ts';
+const MAIN_RESOURCE = 'file:///C:/Projects/Demo/pages/PageMain.ts';
+const OTHER_RESOURCE = 'file:///C:/Projects/Demo/pages/PageOther.ts';
+const CANONICAL_MAIN_RESOURCE = 'file:///c%3A/Projects/Demo/pages/PageMain.ts';
+const CANONICAL_OTHER_RESOURCE = 'file:///c%3A/Projects/Demo/pages/PageOther.ts';
 
 function codeEditorProps(overrides: Partial<CodeEditorProps> = {}): CodeEditorProps {
   return {
-    breadcrumb: ['Demo', 'Forms', 'FrmMain.ts'],
+    breadcrumb: ['Demo', 'Pages', 'PageMain.ts'],
     buildProblems: [],
     extraLibraries: {
       'file:///node_modules/@webrad/runtime/index.d.ts': 'declare const Message: unknown;',
     },
-    formComponents: [
+    pageComponents: [
       { name: 'Button1', type: 'WebButton' },
       { name: 'ApiClient1', type: 'WebApiClient' },
     ],
@@ -327,11 +327,11 @@ function codeEditorProps(overrides: Partial<CodeEditorProps> = {}): CodeEditorPr
     onSourceChange: vi.fn(),
     path: MAIN_RESOURCE,
     projectSources: {
-      [MAIN_RESOURCE]: 'export class FrmMain {}',
-      [OTHER_RESOURCE]: 'export class FrmOther {}',
+      [MAIN_RESOURCE]: 'export class PageMain {}',
+      [OTHER_RESOURCE]: 'export class PageOther {}',
     },
     theme: 'dark',
-    value: 'export class FrmMain {}',
+    value: 'export class PageMain {}',
     ...overrides,
   };
 }
@@ -369,8 +369,8 @@ describe('CodeEditor professional Monaco workspace', () => {
     const props = codeEditorProps();
     const { container } = render(<CodeEditor {...props} />);
 
-    expect(screen.getByLabelText('FrmMain.ts code workspace')).toBeTruthy();
-    expect(screen.getByLabelText('Source path').textContent).toBe('Demo›Forms›FrmMain.ts');
+    expect(screen.getByLabelText('PageMain.ts code workspace')).toBeTruthy();
+    expect(screen.getByLabelText('Source path').textContent).toBe('Demo›Pages›PageMain.ts');
     expect(screen.getByLabelText('Editor shortcuts').textContent).toContain(
       'Ctrl+Space IntelliSense',
     );
@@ -380,7 +380,9 @@ describe('CodeEditor professional Monaco workspace', () => {
 
     expect(mocks.createModel).toHaveBeenCalledTimes(2);
     expect(mocks.models.get(CANONICAL_MAIN_RESOURCE)?.getLanguageId()).toBe('typescript');
-    expect(mocks.models.get(CANONICAL_OTHER_RESOURCE)?.getValue()).toBe('export class FrmOther {}');
+    expect(mocks.models.get(CANONICAL_OTHER_RESOURCE)?.getValue()).toBe(
+      'export class PageOther {}',
+    );
 
     expect(mocks.editorProps?.beforeMount).toBeTypeOf('function');
     mocks.editorProps?.beforeMount?.({});
@@ -420,21 +422,21 @@ describe('CodeEditor professional Monaco workspace', () => {
     expect(mainModel).toBeDefined();
     expect(otherModel).toBeDefined();
 
-    mainModel?.fireUserChange('export class FrmMain { answer = 42; }');
+    mainModel?.fireUserChange('export class PageMain { answer = 42; }');
     expect(onSourceChange).toHaveBeenCalledWith(
       MAIN_RESOURCE,
-      'export class FrmMain { answer = 42; }',
+      'export class PageMain { answer = 42; }',
     );
 
     onSourceChange.mockClear();
     const nextProps = codeEditorProps({
       onSourceChange,
-      projectSources: { [MAIN_RESOURCE]: 'export class FrmMain { answer = 43; }' },
-      value: 'export class FrmMain { answer = 43; }',
+      projectSources: { [MAIN_RESOURCE]: 'export class PageMain { answer = 43; }' },
+      value: 'export class PageMain { answer = 43; }',
     });
     rerender(<CodeEditor {...nextProps} />);
 
-    expect(mainModel?.setValue).toHaveBeenCalledWith('export class FrmMain { answer = 43; }');
+    expect(mainModel?.setValue).toHaveBeenCalledWith('export class PageMain { answer = 43; }');
     expect(onSourceChange).not.toHaveBeenCalled();
     expect(otherModel?.dispose).toHaveBeenCalledOnce();
     expect(mocks.models.has(CANONICAL_OTHER_RESOURCE)).toBe(false);
@@ -453,7 +455,7 @@ describe('CodeEditor professional Monaco workspace', () => {
     );
     const provider = mocks.completion.provider;
     expect(provider).toBeDefined();
-    if (provider === undefined) throw new Error('The form component provider was not registered.');
+    if (provider === undefined) throw new Error('The page component provider was not registered.');
 
     const bare = await provider.provideCompletionItems(
       {

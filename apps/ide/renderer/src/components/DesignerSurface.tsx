@@ -9,7 +9,7 @@ import {
   type Point,
   type ResizeHandle,
 } from '@webrad/designer';
-import type { Bounds, ComponentNode, FormModel, ProjectSettings } from '@webrad/project-model';
+import type { Bounds, ComponentNode, PageModel, ProjectSettings } from '@webrad/project-model';
 import {
   memo,
   useMemo,
@@ -21,7 +21,7 @@ import {
 } from 'react';
 
 interface DesignerSurfaceProps {
-  form: FormModel;
+  page: PageModel;
   settings: ProjectSettings;
   selectedIds: readonly string[];
   selectedPaletteType: string | null;
@@ -110,8 +110,8 @@ function localBoundsWithPreview(node: ComponentNode, interaction: Interaction | 
   return node.bounds;
 }
 
-function layoutForm(form: FormModel, interaction: Interaction | null): readonly LayoutNode[] {
-  const byId = new Map(form.components.map((node) => [node.id, node]));
+function layoutPage(page: PageModel, interaction: Interaction | null): readonly LayoutNode[] {
+  const byId = new Map(page.components.map((node) => [node.id, node]));
   const output: LayoutNode[] = [];
   let order = 0;
 
@@ -129,7 +129,7 @@ function layoutForm(form: FormModel, interaction: Interaction | null): readonly 
     }
   };
 
-  visitChildren(form.rootComponentId, { x: 0, y: 0 }, 0);
+  visitChildren(page.rootComponentId, { x: 0, y: 0 }, 0);
   return output;
 }
 
@@ -171,7 +171,7 @@ function pointInside(bounds: Bounds, point: Point): boolean {
 }
 
 export function DesignerSurface({
-  form,
+  page,
   settings,
   selectedIds,
   selectedPaletteType,
@@ -193,26 +193,26 @@ export function DesignerSurface({
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<Interaction | null>(null);
   const scale = zoom / 100;
-  const byId = useMemo(() => new Map(form.components.map((node) => [node.id, node])), [form]);
-  const layout = useMemo(() => layoutForm(form, interaction), [form, interaction]);
+  const byId = useMemo(() => new Map(page.components.map((node) => [node.id, node])), [page]);
+  const layout = useMemo(() => layoutPage(page, interaction), [page, interaction]);
   const layoutById = useMemo(() => new Map(layout.map((item) => [item.node.id, item])), [layout]);
-  const root = byId.get(form.rootComponentId);
+  const root = byId.get(page.rootComponentId);
   const nonvisualComponents = useMemo(
     () =>
-      form.components.filter(
+      page.components.filter(
         (node) =>
-          node.id !== form.rootComponentId && componentRegistry.get(node.type)?.visual === false,
+          node.id !== page.rootComponentId && componentRegistry.get(node.type)?.visual === false,
       ),
-    [form],
+    [page],
   );
   const movableSelectedIds = useMemo(
     () =>
       selectedIds.filter(
         (id) =>
-          id !== form.rootComponentId &&
+          id !== page.rootComponentId &&
           componentRegistry.get(byId.get(id)?.type ?? '')?.visual === true,
       ),
-    [byId, form.rootComponentId, selectedIds],
+    [byId, page.rootComponentId, selectedIds],
   );
 
   const eventPoint = (event: { clientX: number; clientY: number }): Point => {
@@ -238,12 +238,12 @@ export function DesignerSurface({
           parentId: parent.node.id,
           point: { x: point.x - parent.absoluteBounds.x, y: point.y - parent.absoluteBounds.y },
         }
-      : { parentId: form.rootComponentId, point };
+      : { parentId: page.rootComponentId, point };
   };
 
   const insertAt = (type: string, point: Point): void => {
     if (componentRegistry.get(type)?.visual === false) {
-      onAddComponent(type, { x: 0, y: 0 }, form.rootComponentId);
+      onAddComponent(type, { x: 0, y: 0 }, page.rootComponentId);
       return;
     }
     const target = insertionTarget(point);
@@ -297,8 +297,8 @@ export function DesignerSurface({
     const containerBounds = {
       x: 0,
       y: 0,
-      width: parent?.bounds.width ?? form.width,
-      height: parent?.bounds.height ?? form.height,
+      width: parent?.bounds.width ?? page.width,
+      height: parent?.bounds.height ?? page.height,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
     setInteraction({
@@ -339,7 +339,7 @@ export function DesignerSurface({
       const delta = constrainMovementDelta(interaction.selectionBounds, requested, {
         snapToGrid: settings.snapToGrid,
         gridSize: settings.gridSize,
-        containerBounds: { x: 0, y: 0, width: form.width, height: form.height },
+        containerBounds: { x: 0, y: 0, width: page.width, height: page.height },
       });
       setInteraction({ ...interaction, delta });
     } else if (interaction.kind === 'resize') {
@@ -372,7 +372,7 @@ export function DesignerSurface({
         height: interaction.current.y - interaction.start.y,
       });
       if (bounds.width < 2 && bounds.height < 2 && !interaction.additive) {
-        onSelect([form.rootComponentId], form.rootComponentId);
+        onSelect([page.rootComponentId], page.rootComponentId);
         setInteraction(null);
         return;
       }
@@ -426,7 +426,7 @@ export function DesignerSurface({
     event.preventDefault();
     const type = event.dataTransfer.getData('application/x-webrad-component');
     if (componentRegistry.get(type)?.visual === false) {
-      onAddComponent(type, { x: 0, y: 0 }, form.rootComponentId);
+      onAddComponent(type, { x: 0, y: 0 }, page.rootComponentId);
     }
   };
 
@@ -463,15 +463,15 @@ export function DesignerSurface({
       </div>
       <div className="wr-designer-scroll">
         <div
-          className="wr-form-zoom-frame"
-          style={{ width: form.width * scale, height: form.height * scale }}
+          className="wr-page-zoom-frame"
+          style={{ width: page.width * scale, height: page.height * scale }}
         >
           <div
             ref={surfaceRef}
-            className={`wr-form-surface ${settings.showGrid ? 'show-grid' : ''}`}
+            className={`wr-page-surface ${settings.showGrid ? 'show-grid' : ''}`}
             style={{
-              width: form.width,
-              height: form.height,
+              width: page.width,
+              height: page.height,
               transform: `scale(${scale})`,
               backgroundColor:
                 typeof root?.props.backgroundColor === 'string'

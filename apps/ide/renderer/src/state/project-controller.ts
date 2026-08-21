@@ -1,14 +1,14 @@
 import {
-  addForm as addFormToProject,
-  getForm,
+  addPage as addPageToProject,
+  getPage,
   parseProject,
-  removeForm as removeFormFromProject,
-  renameForm as renameFormInProject,
-  updateForm as updateProjectForm,
-  type FormModel,
+  removePage as removePageFromProject,
+  renamePage as renamePageInProject,
+  updatePage as updateProjectPage,
+  type PageModel,
   type WebRadProject,
 } from '@webrad/project-model';
-import { createUserFormSource, renameFormUserSource } from '@webrad/language';
+import { createUserPageSource, renamePageUserSource } from '@webrad/language';
 import type { ProjectSession, WebRadBridge } from '../../../shared/contracts';
 
 export interface ProjectControllerSnapshot {
@@ -43,8 +43,8 @@ const EMPTY_SNAPSHOT: ProjectControllerSnapshot = Object.freeze({
   error: null,
 });
 
-function sourcePath(formName: string): string {
-  return `forms/${formName}.ts`;
+function sourcePath(pageName: string): string {
+  return `pages/${pageName}.ts`;
 }
 
 function errorMessage(error: unknown): string {
@@ -111,8 +111,8 @@ export class ProjectController {
   public load(session: ProjectSession): void {
     const project = parseProject(session.project);
     const userSources: Record<string, string> = { ...session.userSources };
-    for (const form of project.forms) {
-      userSources[sourcePath(form.name)] ??= createUserFormSource(form);
+    for (const page of project.pages) {
+      userSources[sourcePath(page.name)] ??= createUserPageSource(page);
     }
     const normalizedSession = { ...session, project, userSources };
     const previousRoot = this.#snapshot.rootPath;
@@ -230,17 +230,17 @@ export class ProjectController {
     this.#commitEdit(projectInput, this.#snapshot.userSources);
   }
 
-  public updateForm(formId: string, updater: (form: FormModel) => FormModel): void {
+  public updatePage(pageId: string, updater: (page: PageModel) => PageModel): void {
     const project = this.#requireProject();
-    this.replaceProject(updateProjectForm(project, formId, updater));
+    this.replaceProject(updateProjectPage(project, pageId, updater));
   }
 
-  public findForm(formId: string): FormModel | undefined {
-    return this.#snapshot.project?.forms.find((form) => form.id === formId);
+  public findPage(pageId: string): PageModel | undefined {
+    return this.#snapshot.project?.pages.find((page) => page.id === pageId);
   }
 
-  public getForm(formId: string): FormModel {
-    return getForm(this.#requireProject(), formId);
+  public getPage(pageId: string): PageModel {
+    return getPage(this.#requireProject(), pageId);
   }
 
   public setUserSource(relativePath: string, source: string): void {
@@ -264,33 +264,33 @@ export class ProjectController {
     this.#emit();
   }
 
-  public addForm(form: FormModel, setAsEntry = false): void {
-    const project = addFormToProject(this.#requireProject(), form, setAsEntry);
-    const key = sourcePath(form.name);
+  public addPage(page: PageModel, setAsEntry = false): void {
+    const project = addPageToProject(this.#requireProject(), page, setAsEntry);
+    const key = sourcePath(page.name);
     const userSources = {
       ...this.#snapshot.userSources,
-      [key]: this.#snapshot.userSources[key] ?? createUserFormSource(form),
+      [key]: this.#snapshot.userSources[key] ?? createUserPageSource(page),
     };
     this.#commitEdit(project, userSources);
   }
 
-  public removeForm(formId: string): void {
+  public removePage(pageId: string): void {
     const project = this.#requireProject();
-    const form = getForm(project, formId);
-    const nextProject = removeFormFromProject(project, formId);
+    const page = getPage(project, pageId);
+    const nextProject = removePageFromProject(project, pageId);
     const userSources = { ...this.#snapshot.userSources };
-    delete userSources[sourcePath(form.name)];
+    delete userSources[sourcePath(page.name)];
     this.#commitEdit(nextProject, userSources);
   }
 
-  public renameForm(formId: string, newName: string): void {
+  public renamePage(pageId: string, newName: string): void {
     const project = this.#requireProject();
-    const oldForm = getForm(project, formId);
-    const nextProject = renameFormInProject(project, formId, newName);
-    const oldKey = sourcePath(oldForm.name);
+    const oldPage = getPage(project, pageId);
+    const nextProject = renamePageInProject(project, pageId, newName);
+    const oldKey = sourcePath(oldPage.name);
     const newKey = sourcePath(newName);
-    const source = this.#snapshot.userSources[oldKey] ?? createUserFormSource(oldForm);
-    const renamedSource = renameFormUserSource(source, oldForm.name, newName, oldKey).sourceText;
+    const source = this.#snapshot.userSources[oldKey] ?? createUserPageSource(oldPage);
+    const renamedSource = renamePageUserSource(source, oldPage.name, newName, oldKey).sourceText;
     const userSources = { ...this.#snapshot.userSources, [newKey]: renamedSource };
     delete userSources[oldKey];
     this.#commitEdit(nextProject, userSources);

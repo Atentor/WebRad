@@ -2,14 +2,14 @@
   "formatVersion": 1,
   "id": "hello-webrad-project-v1",
   "name": "HelloWebRad",
-  "entryForm": "hello-webrad-form-main-v1",
-  "forms": [
+  "entryPage": "hello-webrad-form-main-v1",
+  "pages": [
     {
       "id": "hello-webrad-form-main-v1",
-      "name": "FrmMain",
-      "formFile": "forms/FrmMain.wrform",
-      "generatedFile": "forms/FrmMain.generated.ts",
-      "codeFile": "forms/FrmMain.ts"
+      "name": "PageMain",
+      "pageFile": "pages/PageMain.wrpage",
+      "generatedFile": "pages/PageMain.generated.ts",
+      "codeFile": "pages/PageMain.ts"
     }
   ],
   "settings": {

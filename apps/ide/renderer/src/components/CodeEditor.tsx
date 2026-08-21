@@ -5,9 +5,9 @@ import tsWorker from 'monaco-editor/languages/features/typescript/ts.worker.js?w
 import { useCallback, useEffect, useRef, type ReactElement } from 'react';
 import type { EditorProblem } from '../editor-problems';
 import {
-  formComponentCompletionSymbols,
-  type FormComponentSymbol,
-} from '../form-component-completions';
+  pageComponentCompletionSymbols,
+  type PageComponentSymbol,
+} from '../page-component-completions';
 import { canonicalMonacoResource as canonicalResource } from '../monaco-resource';
 import {
   configureMonaco,
@@ -46,7 +46,7 @@ interface CodeEditorProps {
   readonly breadcrumb: readonly string[];
   readonly extraLibraries: Readonly<Record<string, string>>;
   readonly projectSources: Readonly<Record<string, string>>;
-  readonly formComponents: readonly FormComponentSymbol[];
+  readonly pageComponents: readonly PageComponentSymbol[];
   readonly buildProblems: readonly EditorProblem[];
   readonly navigateTo?: EditorNavigationTarget | null;
   readonly onSourceChange: (resource: string, value: string) => void;
@@ -251,7 +251,7 @@ export function CodeEditor({
   breadcrumb,
   extraLibraries,
   projectSources,
-  formComponents,
+  pageComponents,
   buildProblems,
   navigateTo,
   onSourceChange,
@@ -266,7 +266,7 @@ export function CodeEditor({
   const projectSourceUrisRef = useRef(new Set<string>());
   const projectSourceResourcesRef = useRef(new Map<string, string>());
   const completionResourceRef = useRef(canonicalResource(path));
-  const formComponentsRef = useRef(formComponents);
+  const pageComponentsRef = useRef(pageComponents);
   const onSourceChangeRef = useRef(onSourceChange);
   const onMarkersChangeRef = useRef(onMarkersChange);
   const onCursorChangeRef = useRef(onCursorChange);
@@ -281,8 +281,8 @@ export function CodeEditor({
 
   useEffect(() => {
     completionResourceRef.current = canonicalResource(path);
-    formComponentsRef.current = formComponents;
-  }, [formComponents, path]);
+    pageComponentsRef.current = pageComponents;
+  }, [pageComponents, path]);
 
   const publishMarkers = useCallback((): void => {
     const markers = [...projectSourceUrisRef.current].flatMap((resource) =>
@@ -378,7 +378,7 @@ export function CodeEditor({
           const wordPrefix = word.word.toLowerCase();
           if (
             requestedResource !== completionResourceRef.current ||
-            !formComponentsRef.current.some((component) =>
+            !pageComponentsRef.current.some((component) =>
               component.name.toLowerCase().startsWith(wordPrefix),
             )
           ) {
@@ -389,10 +389,10 @@ export function CodeEditor({
             model.getOffsetAt(position),
           );
           if (token?.isCancellationRequested === true) return { suggestions: [] };
-          const matchingComponents = formComponentsRef.current.filter((component) =>
+          const matchingComponents = pageComponentsRef.current.filter((component) =>
             component.name.toLowerCase().startsWith(wordPrefix),
           );
-          const components = formComponentCompletionSymbols(matchingComponents, {
+          const components = pageComponentCompletionSymbols(matchingComponents, {
             activeResource: completionResourceRef.current,
             requestedResource,
             supportsThisExpression,

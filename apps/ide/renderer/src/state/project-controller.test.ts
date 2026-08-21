@@ -1,4 +1,4 @@
-import { addForm as addFormToProject, createForm, createProject } from '@webrad/project-model';
+import { addPage as addPageToProject, createPage, createProject } from '@webrad/project-model';
 import { describe, expect, it, vi } from 'vitest';
 import type { ProjectSession, WebRadBridge } from '../../../shared/contracts';
 import { ProjectController } from './project-controller';
@@ -46,13 +46,13 @@ describe('ProjectController', () => {
     const controller = new ProjectController(fakeBridge(session));
     controller.load(session);
     const loaded = controller.getSnapshot();
-    const source = loaded.userSources['forms/FrmMain.ts'];
+    const source = loaded.userSources['pages/PageMain.ts'];
     expect(source).toBeDefined();
 
-    controller.setUserSource('forms\\FrmMain.ts', source!);
+    controller.setUserSource('pages\\PageMain.ts', source!);
     expect(controller.getSnapshot()).toBe(loaded);
 
-    controller.setUserSource('forms/FrmMain.ts', `${source!}\n// edited`);
+    controller.setUserSource('pages/PageMain.ts', `${source!}\n// edited`);
     expect(controller.getSnapshot().revision).toBe(loaded.revision + 1);
     controller.close();
     expect(controller.getSnapshot().revision).toBe(loaded.revision + 2);
@@ -69,8 +69,8 @@ describe('ProjectController', () => {
     const bridge = fakeBridge(session);
     const controller = new ProjectController(bridge);
     controller.load(session);
-    controller.addForm(createForm('FrmOther'));
-    expect(controller.getSnapshot().project?.forms).toHaveLength(2);
+    controller.addPage(createPage('PageOther'));
+    expect(controller.getSnapshot().project?.pages).toHaveLength(2);
     expect(controller.getSnapshot().dirty).toBe(true);
     await controller.save();
     expect(controller.getSnapshot().dirty).toBe(false);
@@ -100,18 +100,18 @@ describe('ProjectController', () => {
     const controller = new ProjectController(bridge);
     controller.load(session);
 
-    controller.setUserSource('forms/FrmMain.ts', '// before save');
+    controller.setUserSource('pages/PageMain.ts', '// before save');
     const saving = controller.save();
-    controller.setUserSource('forms/FrmMain.ts', '// during save');
+    controller.setUserSource('pages/PageMain.ts', '// during save');
     finishFirstSave?.({
       ...session,
-      userSources: { 'forms/FrmMain.ts': '// before save' },
+      userSources: { 'pages/PageMain.ts': '// before save' },
     });
 
     await saving;
     expect(save).toHaveBeenCalledTimes(2);
-    expect(save.mock.calls[1]?.[0].userSources['forms/FrmMain.ts']).toBe('// during save');
-    expect(controller.getSnapshot().userSources['forms/FrmMain.ts']).toBe('// during save');
+    expect(save.mock.calls[1]?.[0].userSources['pages/PageMain.ts']).toBe('// during save');
+    expect(controller.getSnapshot().userSources['pages/PageMain.ts']).toBe('// during save');
     expect(controller.getSnapshot().dirty).toBe(false);
   });
 
@@ -121,29 +121,29 @@ describe('ProjectController', () => {
       rootPath: 'C:/projects/Project1',
       projectFilePath: 'C:/projects/Project1/Project1.wrproj',
       project: initialProject,
-      userSources: { 'forms/FrmMain.ts': '// main source' },
+      userSources: { 'pages/PageMain.ts': '// main source' },
     };
     const controller = new ProjectController(fakeBridge(initialSession));
     controller.load(initialSession);
     const beforeRemove = controller.getSnapshot();
 
-    expect(() => controller.removeForm(initialProject.forms[0]!.id)).toThrow('at least one form');
+    expect(() => controller.removePage(initialProject.pages[0]!.id)).toThrow('at least one page');
     expect(controller.getSnapshot()).toBe(beforeRemove);
 
-    const otherForm = createForm('FrmOther');
-    const projectWithOther = addFormToProject(initialProject, otherForm);
+    const otherPage = createPage('PageOther');
+    const projectWithOther = addPageToProject(initialProject, otherPage);
     const sessionWithOther = {
       ...initialSession,
       project: projectWithOther,
       userSources: {
-        'forms/FrmMain.ts': '// main source',
-        'forms/FrmOther.ts': '// other source',
+        'pages/PageMain.ts': '// main source',
+        'pages/PageOther.ts': '// other source',
       },
     };
     controller.load(sessionWithOther);
     const beforeRename = controller.getSnapshot();
 
-    expect(() => controller.renameForm(otherForm.id, 'FrmMain')).toThrow('already exists');
+    expect(() => controller.renamePage(otherPage.id, 'PageMain')).toThrow('already exists');
     expect(controller.getSnapshot()).toBe(beforeRename);
   });
 
@@ -184,13 +184,13 @@ describe('ProjectController', () => {
       rootPath: 'C:/projects/Project1',
       projectFilePath: 'C:/projects/Project1/Project1.wrproj',
       project,
-      userSources: { 'forms/FrmMain.ts': '// initial' },
+      userSources: { 'pages/PageMain.ts': '// initial' },
     };
     const destinationSession = {
       ...session,
       rootPath: 'C:/copies/Project1',
       projectFilePath: 'C:/copies/Project1/Project1.wrproj',
-      userSources: { 'forms/FrmMain.ts': '// before save as' },
+      userSources: { 'pages/PageMain.ts': '// before save as' },
     };
     const bridge = fakeBridge(session);
     const saveAsResult = deferred<ProjectSession | null>();
@@ -203,23 +203,23 @@ describe('ProjectController', () => {
     }));
     const controller = new ProjectController(bridge);
     controller.load(session);
-    controller.setUserSource('forms/FrmMain.ts', '// before save as');
+    controller.setUserSource('pages/PageMain.ts', '// before save as');
 
     const saving = controller.saveAs();
-    controller.setUserSource('forms/FrmMain.ts', '// during save as');
+    controller.setUserSource('pages/PageMain.ts', '// during save as');
     saveAsResult.resolve(destinationSession);
 
     await expect(saving).resolves.toMatchObject({ rootPath: destinationSession.rootPath });
     expect(bridge.project.save).toHaveBeenCalledWith(
       expect.objectContaining({
         rootPath: destinationSession.rootPath,
-        userSources: { 'forms/FrmMain.ts': '// during save as' },
+        userSources: { 'pages/PageMain.ts': '// during save as' },
       }),
     );
     expect(controller.getSnapshot()).toMatchObject({
       rootPath: destinationSession.rootPath,
       dirty: false,
-      userSources: { 'forms/FrmMain.ts': '// during save as' },
+      userSources: { 'pages/PageMain.ts': '// during save as' },
     });
   });
 
@@ -247,11 +247,11 @@ describe('ProjectController', () => {
     bridge.project.save = save;
     const controller = new ProjectController(bridge);
     controller.load(sessionA);
-    controller.setUserSource('forms/FrmMain.ts', '// project A');
+    controller.setUserSource('pages/PageMain.ts', '// project A');
 
     const savingA = controller.save();
     controller.load(sessionB);
-    controller.setUserSource('forms/FrmMain.ts', '// project B');
+    controller.setUserSource('pages/PageMain.ts', '// project B');
     const savingB = controller.save();
 
     await expect(savingB).resolves.toMatchObject({ rootPath: sessionB.rootPath });
@@ -272,13 +272,13 @@ describe('ProjectController', () => {
       rootPath: 'C:/projects/Project1',
       projectFilePath: 'C:/projects/Project1/Project1.wrproj',
       project,
-      userSources: { 'forms/FrmMain.ts': '// initial' },
+      userSources: { 'pages/PageMain.ts': '// initial' },
     };
     const destination = {
       ...session,
       rootPath: 'C:/copies/Project1',
       projectFilePath: 'C:/copies/Project1/Project1.wrproj',
-      userSources: { 'forms/FrmMain.ts': '// before' },
+      userSources: { 'pages/PageMain.ts': '// before' },
     };
     const saveAsResult = deferred<ProjectSession | null>();
     const followUpSave = deferred<ProjectSession>();
@@ -287,10 +287,10 @@ describe('ProjectController', () => {
     bridge.project.save = vi.fn(() => followUpSave.promise);
     const controller = new ProjectController(bridge);
     controller.load(session);
-    controller.setUserSource('forms/FrmMain.ts', '// before');
+    controller.setUserSource('pages/PageMain.ts', '// before');
 
     const saving = controller.saveAs();
-    controller.setUserSource('forms/FrmMain.ts', '// during');
+    controller.setUserSource('pages/PageMain.ts', '// during');
     saveAsResult.resolve(destination);
     await vi.waitFor(() => expect(bridge.project.save).toHaveBeenCalledOnce());
     controller.close();

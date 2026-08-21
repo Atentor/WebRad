@@ -5,7 +5,7 @@ import {
   type ComponentPropertyDefinition,
   type ComponentRegistry,
 } from '@webrad/component-registry';
-import type { ComponentNode, FormModel } from '@webrad/project-model';
+import type { ComponentNode, PageModel } from '@webrad/project-model';
 import { useId, useMemo, useState, type ReactElement } from 'react';
 import { Panel } from './Panel';
 
@@ -26,8 +26,8 @@ interface InspectorCategory<T> {
 
 export interface ObjectInspectorProps {
   selection: readonly ComponentNode[];
-  form?: FormModel | null;
-  /** Optional metadata override, primarily useful when inspecting a form root. */
+  page?: PageModel | null;
+  /** Optional metadata override, primarily useful when inspecting a page root. */
   definition?: ComponentDefinition;
   availableComponents?: readonly ComponentNode[];
   onPropertyChange: (
@@ -121,14 +121,14 @@ function commonEvents(
 
 function resolveInspectedSelection(
   selection: readonly ComponentNode[],
-  form: FormModel | null | undefined,
+  page: PageModel | null | undefined,
   definition: ComponentDefinition | undefined,
 ): readonly ComponentNode[] {
-  if (selection.length > 0 || form === null || form === undefined || definition === undefined) {
+  if (selection.length > 0 || page === null || page === undefined || definition === undefined) {
     return selection;
   }
 
-  const root = form.components.find((component) => component.id === form.rootComponentId);
+  const root = page.components.find((component) => component.id === page.rootComponentId);
   return root?.type === definition.type ? [root] : selection;
 }
 
@@ -139,7 +139,7 @@ function reflectValue(target: object, propertyName: string): unknown {
 function readPropertyValue(
   component: ComponentNode,
   property: ComponentPropertyDefinition,
-  form: FormModel | null | undefined,
+  page: PageModel | null | undefined,
 ): unknown {
   let value: unknown;
   switch (property.source ?? 'props') {
@@ -149,8 +149,8 @@ function readPropertyValue(
     case 'bounds':
       value = reflectValue(component.bounds, property.name);
       break;
-    case 'form':
-      value = form === null || form === undefined ? undefined : reflectValue(form, property.name);
+    case 'page':
+      value = page === null || page === undefined ? undefined : reflectValue(page, property.name);
       break;
     case 'props':
       value = component.props[property.name];
@@ -371,7 +371,7 @@ function PropertyEditor({
 interface PropertyRowProps {
   readonly property: ComponentPropertyDefinition;
   readonly selection: readonly ComponentNode[];
-  readonly form: FormModel | null | undefined;
+  readonly page: PageModel | null | undefined;
   readonly availableComponents: readonly ComponentNode[];
   readonly onChange: ObjectInspectorProps['onPropertyChange'];
 }
@@ -379,13 +379,13 @@ interface PropertyRowProps {
 function PropertyRow({
   property,
   selection,
-  form,
+  page,
   availableComponents,
   onChange,
 }: PropertyRowProps): ReactElement {
   const editorId = useId();
   const value = sharedValue(
-    selection.map((component) => readPropertyValue(component, property, form)),
+    selection.map((component) => readPropertyValue(component, property, page)),
   );
   const multiple = value === MULTIPLE_VALUES;
 
@@ -459,7 +459,7 @@ function EventRow({
 
 export function ObjectInspector({
   selection,
-  form,
+  page,
   definition,
   availableComponents,
   onPropertyChange,
@@ -470,8 +470,8 @@ export function ObjectInspector({
   const [activeTab, setActiveTab] = useState<InspectorTab>('properties');
   const tabId = useId();
   const inspectedSelection = useMemo(
-    () => resolveInspectedSelection(selection, form, definition),
-    [definition, form, selection],
+    () => resolveInspectedSelection(selection, page, definition),
+    [definition, page, selection],
   );
   const definitions = useMemo(
     () => definitionsForSelection(inspectedSelection, definition, registry),
@@ -485,7 +485,7 @@ export function ObjectInspector({
     () => groupByCategory(definitions === null ? [] : commonEvents(definitions)),
     [definitions],
   );
-  const componentChoices = availableComponents ?? form?.components ?? inspectedSelection;
+  const componentChoices = availableComponents ?? page?.components ?? inspectedSelection;
   const primaryComponent = inspectedSelection.at(-1);
   const primaryDefinition =
     primaryComponent === undefined
@@ -561,7 +561,7 @@ export function ObjectInspector({
                         key={`${property.source ?? 'props'}:${property.name}`}
                         property={property}
                         selection={inspectedSelection}
-                        form={form}
+                        page={page}
                         availableComponents={componentChoices}
                         onChange={onPropertyChange}
                       />

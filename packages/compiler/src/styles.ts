@@ -30,7 +30,7 @@ body {
   background: #e5e7eb;
 }
 
-.wr-webform {
+.wr-webpage {
   color: #111827;
   background: #ffffff;
   border: 1px solid #cbd5e1;

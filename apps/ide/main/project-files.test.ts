@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { addForm, createForm, removeForm, updateForm } from '@webrad/project-model';
+import { addPage, createPage, removePage, updatePage } from '@webrad/project-model';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProjectFiles,
@@ -34,13 +34,31 @@ describe('project files', () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-project-'));
     temporaryRoots.push(parent);
     const session = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
-    const userPath = 'forms/FrmMain.ts';
+    const userPath = 'pages/PageMain.ts';
     await fs.writeFile(path.join(session.rootPath, userPath), '// preserved user code\n', 'utf8');
 
     const loaded = await loadProjectFiles(session.projectFilePath);
     expect(loaded.project.name).toBe('Project1');
-    expect(loaded.project.forms[0]?.name).toBe('FrmMain');
+    expect(loaded.project.pages[0]?.name).toBe('PageMain');
     expect(loaded.userSources[userPath]).toBe('// preserved user code\n');
+  });
+
+  it('preserves an owned authored source when the request source map omits it', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-owned-source-'));
+    temporaryRoots.push(parent);
+    const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
+    const sourcePath = path.join(initial.rootPath, 'pages', 'PageMain.ts');
+    const source = '// irreplaceable authored source\r\n';
+    await fs.writeFile(sourcePath, source, 'utf8');
+
+    const saved = await saveProjectFiles({
+      rootPath: initial.rootPath,
+      project: initial.project,
+      userSources: {},
+    });
+
+    await expect(fs.readFile(sourcePath, 'utf8')).resolves.toBe(source);
+    expect(saved.userSources).toEqual({ 'pages/PageMain.ts': source });
   });
 
   it('rejects traversal outside the project root', () => {
@@ -64,19 +82,19 @@ describe('project files', () => {
     await expect(resolveInsideProjectSecure(root, 'linked/secret.txt')).rejects.toThrow(/outside/);
   });
 
-  it('moves files retired by form deletion into the recoverable project trash', async () => {
+  it('moves files retired by page deletion into the recoverable project trash', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-retired-'));
     temporaryRoots.push(parent);
     const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
-    const otherForm = createForm('FrmOther');
-    const withOther = addForm(initial.project, otherForm);
+    const otherPage = createPage('PageOther');
+    const withOther = addPage(initial.project, otherPage);
     await saveProjectFiles({
       rootPath: initial.rootPath,
       project: withOther,
       userSources: defaultUserSources(withOther),
     });
 
-    const withoutOther = removeForm(withOther, otherForm.id);
+    const withoutOther = removePage(withOther, otherPage.id);
     await saveProjectFiles({
       rootPath: initial.rootPath,
       project: withoutOther,
@@ -84,32 +102,32 @@ describe('project files', () => {
     });
 
     await expect(
-      fs.stat(path.join(initial.rootPath, 'forms', 'FrmOther.wrform')),
+      fs.stat(path.join(initial.rootPath, 'pages', 'PageOther.wrpage')),
     ).rejects.toThrow();
     const archived = await fs.readdir(path.join(initial.rootPath, '.webrad', 'trash'), {
       recursive: true,
     });
-    expect(archived.some((entry) => String(entry).endsWith('FrmOther.wrform'))).toBe(true);
-    expect(archived.some((entry) => String(entry).endsWith('FrmOther.ts'))).toBe(true);
+    expect(archived.some((entry) => String(entry).endsWith('PageOther.wrpage'))).toBe(true);
+    expect(archived.some((entry) => String(entry).endsWith('PageOther.ts'))).toBe(true);
   });
 
-  it('archives old ownership before a deleted form name is reused', async () => {
+  it('archives old ownership before a deleted page name is reused', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-reused-'));
     temporaryRoots.push(parent);
     const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
-    const oldForm = createForm('FrmOther');
-    const withOldForm = addForm(initial.project, oldForm);
+    const oldPage = createPage('PageOther');
+    const withOldPage = addPage(initial.project, oldPage);
     await saveProjectFiles({
       rootPath: initial.rootPath,
-      project: withOldForm,
+      project: withOldPage,
       userSources: {
-        ...defaultUserSources(withOldForm),
-        'forms/FrmOther.ts': '// irreplaceable old source\n',
+        ...defaultUserSources(withOldPage),
+        'pages/PageOther.ts': '// irreplaceable old source\n',
       },
     });
 
-    const newForm = createForm('FrmOther');
-    const withReusedName = addForm(removeForm(withOldForm, oldForm.id), newForm);
+    const newPage = createPage('PageOther');
+    const withReusedName = addPage(removePage(withOldPage, oldPage.id), newPage);
     await saveProjectFiles({
       rootPath: initial.rootPath,
       project: withReusedName,
@@ -118,13 +136,13 @@ describe('project files', () => {
 
     const trashRoot = path.join(initial.rootPath, '.webrad', 'trash');
     const archived = await fs.readdir(trashRoot, { recursive: true });
-    const oldSourcePath = archived.find((entry) => String(entry).endsWith('FrmOther.ts'));
+    const oldSourcePath = archived.find((entry) => String(entry).endsWith('PageOther.ts'));
     expect(oldSourcePath).toBeDefined();
     await expect(fs.readFile(path.join(trashRoot, String(oldSourcePath)), 'utf8')).resolves.toBe(
       '// irreplaceable old source\n',
     );
     await expect(
-      fs.readFile(path.join(initial.rootPath, 'forms', 'FrmOther.ts'), 'utf8'),
+      fs.readFile(path.join(initial.rootPath, 'pages', 'PageOther.ts'), 'utf8'),
     ).resolves.not.toBe('// irreplaceable old source\n');
   });
 
@@ -132,9 +150,9 @@ describe('project files', () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-collision-'));
     temporaryRoots.push(parent);
     const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
-    const otherForm = createForm('FrmOther');
-    const withOther = addForm(initial.project, otherForm);
-    const collisionPath = path.join(initial.rootPath, 'forms', 'FrmOther.ts');
+    const otherPage = createPage('PageOther');
+    const withOther = addPage(initial.project, otherPage);
+    const collisionPath = path.join(initial.rootPath, 'pages', 'PageOther.ts');
     await fs.writeFile(collisionPath, '// user-owned file\n', 'utf8');
 
     await expect(
@@ -151,14 +169,14 @@ describe('project files', () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-concurrent-'));
     temporaryRoots.push(parent);
     const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
-    const otherForm = createForm('FrmOther');
-    const withOther = addForm(initial.project, otherForm);
+    const otherPage = createPage('PageOther');
+    const withOther = addPage(initial.project, otherPage);
     await saveProjectFiles({
       rootPath: initial.rootPath,
       project: withOther,
       userSources: defaultUserSources(withOther),
     });
-    const withoutOther = removeForm(withOther, otherForm.id);
+    const withoutOther = removePage(withOther, otherPage.id);
     const manifestBlocked = deferred();
     const releaseManifest = deferred();
     const rename = fs.rename.bind(fs);
@@ -192,8 +210,8 @@ describe('project files', () => {
     }
 
     const loaded = await loadProjectFiles(initial.projectFilePath);
-    expect(loaded.project.forms.map((form) => form.id)).toEqual(
-      withOther.forms.map((form) => form.id),
+    expect(loaded.project.pages.map((page) => page.id)).toEqual(
+      withOther.pages.map((page) => page.id),
     );
   });
 
@@ -201,12 +219,12 @@ describe('project files', () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-rollback-'));
     temporaryRoots.push(parent);
     const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
-    const form = initial.project.forms[0]!;
-    const changed = updateForm(initial.project, form.id, { caption: 'Changed caption' });
+    const page = initial.project.pages[0]!;
+    const changed = updatePage(initial.project, page.id, { caption: 'Changed caption' });
     const rename = fs.rename.bind(fs);
     let injectedFailure = false;
     const renameSpy = vi.spyOn(fs, 'rename').mockImplementation(async (source, destination) => {
-      if (!injectedFailure && String(destination).endsWith('FrmMain.generated.ts')) {
+      if (!injectedFailure && String(destination).endsWith('PageMain.generated.ts')) {
         injectedFailure = true;
         throw new Error('injected generated-file failure');
       }
@@ -226,7 +244,7 @@ describe('project files', () => {
     }
 
     const loaded = await loadProjectFiles(initial.projectFilePath);
-    expect(loaded.project.forms[0]?.caption).toBe(form.caption);
+    expect(loaded.project.pages[0]?.caption).toBe(page.caption);
   });
 
   it('rejects noncanonical manifest names and descriptor paths', async () => {
@@ -239,10 +257,17 @@ describe('project files', () => {
     await expect(loadProjectFiles(copyPath)).rejects.toThrow('must be named');
 
     const manifest = JSON.parse(manifestSource) as {
-      forms: { codeFile: string }[];
+      pages: { pageFile: string; generatedFile: string; codeFile: string }[];
     };
-    manifest.forms[0]!.codeFile = 'forms/custom.ts';
+    manifest.pages[0]!.codeFile = 'pages/custom.ts';
     await fs.writeFile(initial.projectFilePath, JSON.stringify(manifest), 'utf8');
     await expect(loadProjectFiles(initial.projectFilePath)).rejects.toThrow('codeFile');
+
+    const formerPaths = JSON.parse(manifestSource) as typeof manifest;
+    formerPaths.pages[0]!.pageFile = 'forms/PageMain.wrform';
+    formerPaths.pages[0]!.generatedFile = 'forms/PageMain.generated.ts';
+    formerPaths.pages[0]!.codeFile = 'forms/PageMain.ts';
+    await fs.writeFile(initial.projectFilePath, JSON.stringify(formerPaths), 'utf8');
+    await expect(loadProjectFiles(initial.projectFilePath)).rejects.toThrow('pageFile');
   });
 });

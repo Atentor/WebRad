@@ -66,13 +66,13 @@ describe('MVP component metadata', () => {
     }
   });
 
-  it('marks only form and panel as MVP containers', () => {
+  it('marks only page and panel as MVP containers', () => {
     expect(
       componentRegistry
         .list()
         .filter((item) => item.canHaveChildren)
         .map((item) => item.type),
-    ).toEqual(['WebForm', 'WebPanel']);
+    ).toEqual(['WebPage', 'WebPanel']);
   });
 
   it('provides the required WebButton default event and event set', () => {
@@ -93,7 +93,7 @@ describe('MVP component metadata', () => {
     const registry = createMvpComponentRegistry();
     expect(registry.categories()).toEqual(['Containers', 'Standard', 'Nonvisual']);
     expect(registry.listByCategory('Containers').map((item) => item.type)).toEqual([
-      'WebForm',
+      'WebPage',
       'WebPanel',
     ]);
     expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual(['WebApiClient']);

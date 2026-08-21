@@ -10,42 +10,42 @@ import {
   WebCheckBox,
   WebComboBox,
   WebEdit,
-  WebForm,
+  WebPage,
   WebImage,
   WebLabel,
   WebListBox,
   WebNonvisualComponent,
   WebPanel,
   WebTextArea,
-  mountForm,
+  mountPage,
   projectComponentVisual,
   runtimeEventName,
-  type RuntimeFormModel,
+  type RuntimePageModel,
 } from '../src/index.js';
 
-const formModel: RuntimeFormModel = {
-  id: 'form-model',
-  name: 'FrmMain',
-  caption: 'Main form',
+const pageModel: RuntimePageModel = {
+  id: 'page-model',
+  name: 'PageMain',
+  caption: 'Main page',
   width: 640,
   height: 480,
   layoutMode: 'absolute',
-  rootComponentId: 'form-root',
+  rootComponentId: 'page-root',
   components: [
     {
-      id: 'form-root',
-      type: 'WebForm',
-      name: 'FrmMain',
+      id: 'page-root',
+      type: 'WebPage',
+      name: 'PageMain',
       parentId: null,
       bounds: { x: 0, y: 0, width: 640, height: 480 },
-      props: { caption: 'Main form', visible: true, enabled: true },
+      props: { caption: 'Main page', visible: true, enabled: true },
       children: ['edit-name', 'button-show'],
     },
     {
       id: 'edit-name',
       type: 'WebEdit',
       name: 'EDTNome',
-      parentId: 'form-root',
+      parentId: 'page-root',
       bounds: { x: 16, y: 16, width: 180, height: 32 },
       props: { value: '', placeholder: 'Nome', visible: true, enabled: true },
       children: [],
@@ -54,7 +54,7 @@ const formModel: RuntimeFormModel = {
       id: 'button-show',
       type: 'WebButton',
       name: 'BTNMostrar',
-      parentId: 'form-root',
+      parentId: 'page-root',
       bounds: { x: 16, y: 64, width: 100, height: 32 },
       props: { caption: 'Mostrar', visible: true, enabled: true },
       children: [],
@@ -62,9 +62,9 @@ const formModel: RuntimeFormModel = {
   ],
 };
 
-const inspectorPropertyFormModel: RuntimeFormModel = {
-  id: 'property-form',
-  name: 'FrmProperties',
+const inspectorPropertyPageModel: RuntimePageModel = {
+  id: 'property-page',
+  name: 'PageProperties',
   caption: 'Runtime properties',
   width: 720,
   height: 540,
@@ -73,8 +73,8 @@ const inspectorPropertyFormModel: RuntimeFormModel = {
   components: [
     {
       id: 'property-root',
-      type: 'WebForm',
-      name: 'FrmProperties',
+      type: 'WebPage',
+      name: 'PageProperties',
       parentId: null,
       bounds: { x: 0, y: 0, width: 720, height: 540 },
       props: {
@@ -235,9 +235,9 @@ const inspectorPropertyFormModel: RuntimeFormModel = {
 
 describe('browser runtime', () => {
   it('mounts the real DOM hierarchy and exposes functional component wrappers', () => {
-    const mounted = mountForm(formModel);
-    const edit = new WebEdit(mounted.form.requireComponentElement('edit-name'));
-    const button = new WebButton(mounted.form.requireComponentElement('button-show'));
+    const mounted = mountPage(pageModel);
+    const edit = new WebEdit(mounted.page.requireComponentElement('edit-name'));
+    const button = new WebButton(mounted.page.requireComponentElement('button-show'));
     const clicks: string[] = [];
 
     edit.value = 'Ada';
@@ -246,21 +246,21 @@ describe('browser runtime', () => {
     };
     button.click();
 
-    expect(mounted.element.dataset.webradFormId).toBe('form-model');
+    expect(mounted.element.dataset.webradPageId).toBe('page-model');
     expect(button.element.classList.contains('wr-component')).toBe(true);
     expect(button.element.classList.contains('wr-webbutton')).toBe(true);
     expect(button.element.style.width).toBe('100px');
     expect(button.enabled).toBe(true);
     expect(edit.value).toBe('Ada');
     expect(clicks).toEqual(['Ada']);
-    mounted.form.close();
-    expect(mounted.form.visible).toBe(false);
-    mounted.form.show();
-    expect(mounted.form.visible).toBe(true);
+    mounted.page.close();
+    expect(mounted.page.visible).toBe(false);
+    mounted.page.show();
+    expect(mounted.page.visible).toBe(true);
   });
 
   it('wires generated handler names to user methods', () => {
-    class TestForm extends WebForm {
+    class TestPage extends WebPage {
       public readonly button = new WebButton(this.requireComponentElement('button-show'));
       public calls = 0;
 
@@ -274,10 +274,10 @@ describe('browser runtime', () => {
       }
     }
 
-    const mounted = mountForm(formModel);
-    const form = new TestForm(mounted.element);
-    form.button.click();
-    expect(form.calls).toBe(1);
+    const mounted = mountPage(pageModel);
+    const page = new TestPage(mounted.element);
+    page.button.click();
+    expect(page.calls).toBe(1);
   });
 
   it('provides functional wrappers for every initial visual control', () => {
@@ -366,15 +366,15 @@ describe('browser runtime', () => {
     expect(panel.caption).toBe('Customer details');
     expect(panel.element.getAttribute('aria-label')).toBe('Customer details');
 
-    const form = new WebForm(document.createElement('section'));
-    form.caption = 'Customers';
-    form.layoutMode = 'grid';
-    expect(form.caption).toBe('Customers');
-    expect(form.layoutMode).toBe('grid');
-    expect(form.element.dataset.webradLayout).toBe('grid');
-    expect(form.element.style.display).toBe('grid');
-    form.layoutMode = 'absolute';
-    expect(form.element.style.display).toBe('');
+    const page = new WebPage(document.createElement('section'));
+    page.caption = 'Customers';
+    page.layoutMode = 'grid';
+    expect(page.caption).toBe('Customers');
+    expect(page.layoutMode).toBe('grid');
+    expect(page.element.dataset.webradLayout).toBe('grid');
+    expect(page.element.style.display).toBe('grid');
+    page.layoutMode = 'absolute';
+    expect(page.element.style.display).toBe('');
 
     const label = new WebLabel(document.createElement('span'));
     label.width = 80;
@@ -412,9 +412,9 @@ describe('browser runtime', () => {
   });
 
   it('projects every MVP visual Inspector property through the runtime adapters', () => {
-    const mounted = mountForm(inspectorPropertyFormModel);
-    const element = (id: string): HTMLElement => mounted.form.requireComponentElement(id);
-    const form = mounted.form;
+    const mounted = mountPage(inspectorPropertyPageModel);
+    const element = (id: string): HTMLElement => mounted.page.requireComponentElement(id);
+    const page = mounted.page;
     const panel = new WebPanel(element('property-panel'));
     const label = new WebLabel(element('property-label'));
     const edit = new WebEdit(element('property-edit'));
@@ -425,8 +425,8 @@ describe('browser runtime', () => {
     const image = new WebImage(element('property-image'));
     const list = new WebListBox(element('property-list'));
 
-    expect(form).toMatchObject({
-      name: 'FrmProperties',
+    expect(page).toMatchObject({
+      name: 'PageProperties',
       caption: 'Runtime properties',
       width: 720,
       height: 540,

@@ -10,11 +10,11 @@ import {
   ResizeCommand,
 } from '../src/commands.js';
 import { DesignerModelError, findDesignerComponent } from '../src/model-utils.js';
-import { component, formFixture } from './fixtures.js';
+import { component, pageFixture } from './fixtures.js';
 
 describe('component commands', () => {
   it('adds a component at an exact model and sibling position and reverses it', () => {
-    const history = new CommandHistory(formFixture());
+    const history = new CommandHistory(pageFixture());
     history.execute(
       new AddComponentCommand(
         component('new', 'root', {
@@ -33,13 +33,13 @@ describe('component commands', () => {
       'panel',
     ]);
     history.undo();
-    expect(history.state).toEqual(formFixture());
+    expect(history.state).toEqual(pageFixture());
     history.redo();
     expect(findDesignerComponent(history.state, 'new').id).toBe('new');
   });
 
-  it('removes and restores a complete container subtree without taking a form snapshot', () => {
-    const original = formFixture();
+  it('removes and restores a complete container subtree without taking a page snapshot', () => {
+    const original = pageFixture();
     const history = new CommandHistory(original);
     history.execute(new RemoveComponentCommand(['panel', 'inside']));
     expect(history.state.components.map(({ id }) => id)).toEqual(['root', 'a', 'b']);
@@ -52,7 +52,7 @@ describe('component commands', () => {
   });
 
   it('moves a multi-selection with one shared delta and parent bounds', () => {
-    const history = new CommandHistory(formFixture());
+    const history = new CommandHistory(pageFixture());
     history.execute(new MoveCommand(['a', 'b'], { x: 1_000, y: -100 }));
 
     // Union right edge was 160, so the common X delta is clamped to 480.
@@ -74,12 +74,12 @@ describe('component commands', () => {
 
   it('refuses a multi-parent move because their coordinates are relative to different containers', () => {
     expect(() =>
-      new CommandHistory(formFixture()).execute(new MoveCommand(['a', 'inside'], { x: 1, y: 1 })),
+      new CommandHistory(pageFixture()).execute(new MoveCommand(['a', 'inside'], { x: 1, y: 1 })),
     ).toThrow(DesignerModelError);
   });
 
   it('resizes from handles with minimum size and supports a final-bounds command', () => {
-    const history = new CommandHistory(formFixture());
+    const history = new CommandHistory(pageFixture());
     history.execute(new ResizeCommand('a', 'w', { x: 100, y: 0 }, { minWidth: 16 }));
     expect(findDesignerComponent(history.state, 'a').bounds).toEqual({
       x: 34,
@@ -106,7 +106,7 @@ describe('component commands', () => {
   });
 
   it('changes a shared property and restores both present and absent old values', () => {
-    const history = new CommandHistory(formFixture());
+    const history = new CommandHistory(pageFixture());
     history.execute(new ChangePropertyCommand(['a', 'b'], 'enabled', false));
     expect(findDesignerComponent(history.state, 'a').props.enabled).toBe(false);
     expect(findDesignerComponent(history.state, 'b').props.enabled).toBe(false);
@@ -117,7 +117,7 @@ describe('component commands', () => {
   });
 
   it('renames without changing stable identity and rejects invalid or duplicate names', () => {
-    const history = new CommandHistory(formFixture());
+    const history = new CommandHistory(pageFixture());
     history.execute(new RenameComponentCommand('a', 'BTNSave'));
     expect(findDesignerComponent(history.state, 'a')).toMatchObject({ id: 'a', name: 'BTNSave' });
     history.undo();
@@ -131,7 +131,7 @@ describe('component commands', () => {
   });
 
   it('treats a multi-property transaction as one undo entry', () => {
-    const history = new CommandHistory(formFixture());
+    const history = new CommandHistory(pageFixture());
     history.runTransaction('Inspector multi-edit', () => {
       history.execute(new ChangePropertyCommand('a', 'caption', 'Save'));
       history.execute(new ChangePropertyCommand('b', 'caption', 'Save'));

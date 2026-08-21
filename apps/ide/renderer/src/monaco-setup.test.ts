@@ -187,15 +187,15 @@ describe('Monaco setup', () => {
 
   it('updates changed libraries and disposes registrations absent from the next snapshot', () => {
     synchronizeMonacoExtraLibraries({
-      'file:///forms/First.generated.d.ts': 'declare const first: 1;',
+      'file:///pages/First.generated.d.ts': 'declare const first: 1;',
       'file:///runtime.d.ts': 'declare const runtime: 1;',
     });
     const firstRegistration = mocks.registrations[0];
     const runtimeRegistration = mocks.registrations[1];
 
     synchronizeMonacoExtraLibraries({
-      'file:///forms/First.generated.d.ts': 'declare const first: 1;',
-      'file:///forms/Second.generated.d.ts': 'declare const second: 2;',
+      'file:///pages/First.generated.d.ts': 'declare const first: 1;',
+      'file:///pages/Second.generated.d.ts': 'declare const second: 2;',
     });
 
     expect(firstRegistration?.dispose).not.toHaveBeenCalled();
@@ -203,8 +203,8 @@ describe('Monaco setup', () => {
     expect(mocks.addExtraLib).toHaveBeenCalledTimes(3);
 
     synchronizeMonacoExtraLibraries({
-      'file:///forms/First.generated.d.ts': 'declare const first: 2;',
-      'file:///forms/Second.generated.d.ts': 'declare const second: 2;',
+      'file:///pages/First.generated.d.ts': 'declare const first: 2;',
+      'file:///pages/Second.generated.d.ts': 'declare const second: 2;',
     });
 
     expect(firstRegistration?.dispose).toHaveBeenCalledOnce();
@@ -217,12 +217,12 @@ describe('Monaco setup', () => {
 
   it('registers extra libraries with the same canonical Windows URI used by Monaco models', () => {
     synchronizeMonacoExtraLibraries({
-      'file:///C:/Projects/Demo/forms/FrmMain.generated.d.ts': 'export declare class Generated {}',
+      'file:///C:/Projects/Demo/pages/PageMain.generated.d.ts': 'export declare class Generated {}',
     });
 
     expect(mocks.addExtraLib).toHaveBeenCalledWith(
       'export declare class Generated {}',
-      'file:///c%3A/Projects/Demo/forms/FrmMain.generated.d.ts',
+      'file:///c%3A/Projects/Demo/pages/PageMain.generated.d.ts',
     );
   });
 
@@ -233,11 +233,11 @@ describe('Monaco setup', () => {
       isMemberCompletion: false,
     });
     await expect(
-      isTypeScriptThisExpressionPosition('file:///C:/Projects/Demo/forms/FrmMain.ts', 42),
+      isTypeScriptThisExpressionPosition('file:///C:/Projects/Demo/pages/PageMain.ts', 42),
     ).resolves.toBe(true);
     expect(mocks.getTypeScriptWorker).toHaveBeenCalledOnce();
     expect(mocks.getCompletionsAtPosition).toHaveBeenCalledWith(
-      'file:///c%3A/Projects/Demo/forms/FrmMain.ts',
+      'file:///c%3A/Projects/Demo/pages/PageMain.ts',
       42,
     );
 
@@ -247,7 +247,7 @@ describe('Monaco setup', () => {
       isMemberCompletion: false,
     });
     await expect(
-      isTypeScriptThisExpressionPosition('file:///C:/Projects/Demo/forms/FrmMain.ts', 84),
+      isTypeScriptThisExpressionPosition('file:///C:/Projects/Demo/pages/PageMain.ts', 84),
     ).resolves.toBe(false);
     expect(mocks.getTypeScriptWorker).toHaveBeenCalledOnce();
   });

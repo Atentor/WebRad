@@ -49,18 +49,18 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     caption: string;
   }
 
-  export interface CloseFormOptions {
-    /** Remove the form element from the document instead of hiding it. */
+  export interface ClosePageOptions {
+    /** Remove the page element from the document instead of hiding it. */
     readonly remove?: boolean;
   }
 
-  export type WebFormLayoutMode = 'absolute' | 'flex' | 'grid';
+  export type WebPageLayoutMode = 'absolute' | 'flex' | 'grid';
 
-  /** Base class for generated and user-authored forms. */
-  export class WebForm extends WebPanel {
-    layoutMode: WebFormLayoutMode;
+  /** Base class for generated and user-authored pages. */
+  export class WebPage extends WebPanel {
+    layoutMode: WebPageLayoutMode;
     show(): void;
-    close(options?: CloseFormOptions): void;
+    close(options?: ClosePageOptions): void;
     requireComponentElement(componentId: string): HTMLElement;
     protected bindGeneratedEvent(
       component: WebComponent,
@@ -225,7 +225,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly children: readonly string[];
   }
 
-  export interface RuntimeFormModel {
+  export interface RuntimePageModel {
     readonly id: string;
     readonly name: string;
     readonly caption: string;
@@ -251,22 +251,22 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
 
   export const runtimeComponentRegistry: RuntimeComponentRegistry;
 
-  export interface MountedRuntimeForm {
+  export interface MountedRuntimePage {
     readonly element: HTMLElement;
-    readonly form: WebForm;
+    readonly page: WebPage;
     readonly components: ReadonlyMap<string, WebComponent>;
   }
 
-  export interface MountFormOptions {
+  export interface MountPageOptions {
     readonly replaceHostContents?: boolean;
     readonly registry?: RuntimeComponentRegistry;
   }
 
-  export function mountForm(
-    model: RuntimeFormModel,
+  export function mountPage(
+    model: RuntimePageModel,
     host?: HTMLElement,
-    options?: MountFormOptions,
-  ): MountedRuntimeForm;
+    options?: MountPageOptions,
+  ): MountedRuntimePage;
 
   export interface VisualPropertySource {
     readonly props: Readonly<Record<string, unknown>>;

@@ -1,22 +1,22 @@
 import { ModelUpdateError } from './errors.js';
 import {
-  assertValidFormName,
+  assertValidPageName,
   assertValidTypeScriptIdentifier,
   portableFileNameKey,
   validateComponentName,
 } from './naming.js';
-import { parseComponentNode, parseForm, parseProject } from './schemas.js';
-import type { Bounds, ComponentNode, FormModel, ProjectSettings, WebRadProject } from './types.js';
+import { parseComponentNode, parsePage, parseProject } from './schemas.js';
+import type { Bounds, ComponentNode, PageModel, ProjectSettings, WebRadProject } from './types.js';
 
-export function findComponent(form: FormModel, componentId: string): ComponentNode | undefined {
-  return form.components.find((component) => component.id === componentId);
+export function findComponent(page: PageModel, componentId: string): ComponentNode | undefined {
+  return page.components.find((component) => component.id === componentId);
 }
 
-export function getComponent(form: FormModel, componentId: string): ComponentNode {
-  const component = findComponent(form, componentId);
+export function getComponent(page: PageModel, componentId: string): ComponentNode {
+  const component = findComponent(page, componentId);
   if (component === undefined) {
     throw new ModelUpdateError(
-      `Component ID "${componentId}" does not exist in form "${form.name}".`,
+      `Component ID "${componentId}" does not exist in page "${page.name}".`,
     );
   }
   return component;
@@ -26,12 +26,12 @@ export type ComponentPatch = Partial<Omit<ComponentNode, 'id'>> & { readonly id?
 export type ComponentUpdater = ComponentPatch | ((component: ComponentNode) => ComponentNode);
 
 export function updateComponent(
-  formInput: FormModel,
+  pageInput: PageModel,
   componentId: string,
   updater: ComponentUpdater,
-): FormModel {
-  const form = parseForm(formInput);
-  const current = getComponent(form, componentId);
+): PageModel {
+  const page = parsePage(pageInput);
+  const current = getComponent(page, componentId);
   const updated =
     typeof updater === 'function'
       ? updater(current)
@@ -45,84 +45,84 @@ export function updateComponent(
   }
 
   const parsedComponent = parseComponentNode(updated);
-  const components = form.components.map((component) =>
+  const components = page.components.map((component) =>
     component.id === componentId ? parsedComponent : component,
   );
-  return parseForm({ ...form, components });
+  return parsePage({ ...page, components });
 }
 
-export function renameComponent(form: FormModel, componentId: string, name: string): FormModel {
-  const validation = validateComponentName(name, form, componentId);
+export function renameComponent(page: PageModel, componentId: string, name: string): PageModel {
+  const validation = validateComponentName(name, page, componentId);
   if (!validation.valid) {
     throw new ModelUpdateError(validation.reason ?? `Invalid component name "${name}".`);
   }
-  return updateComponent(form, componentId, { name });
+  return updateComponent(page, componentId, { name });
 }
 
 export function updateComponentBounds(
-  form: FormModel,
+  page: PageModel,
   componentId: string,
   patch: Partial<Bounds>,
-): FormModel {
-  const current = getComponent(form, componentId);
-  return updateComponent(form, componentId, {
+): PageModel {
+  const current = getComponent(page, componentId);
+  return updateComponent(page, componentId, {
     bounds: { ...current.bounds, ...patch },
   });
 }
 
 export function updateComponentProps(
-  form: FormModel,
+  page: PageModel,
   componentId: string,
   patch: Readonly<Record<string, unknown>>,
-): FormModel {
-  const current = getComponent(form, componentId);
-  return updateComponent(form, componentId, { props: { ...current.props, ...patch } });
+): PageModel {
+  const current = getComponent(page, componentId);
+  return updateComponent(page, componentId, { props: { ...current.props, ...patch } });
 }
 
 export function removeComponentProperty(
-  form: FormModel,
+  page: PageModel,
   componentId: string,
   propertyName: string,
-): FormModel {
-  const current = getComponent(form, componentId);
+): PageModel {
+  const current = getComponent(page, componentId);
   const props: Record<string, unknown> = { ...current.props };
   delete props[propertyName];
-  return updateComponent(form, componentId, { props });
+  return updateComponent(page, componentId, { props });
 }
 
 export function bindComponentEvent(
-  form: FormModel,
+  page: PageModel,
   componentId: string,
   eventName: string,
   handlerName: string | null,
-): FormModel {
+): PageModel {
   if (handlerName !== null) {
     assertValidTypeScriptIdentifier(handlerName);
   }
-  const current = getComponent(form, componentId);
-  return updateComponent(form, componentId, {
+  const current = getComponent(page, componentId);
+  return updateComponent(page, componentId, {
     events: { ...current.events, [eventName]: handlerName },
   });
 }
 
 export function addComponent(
-  formInput: FormModel,
+  pageInput: PageModel,
   nodeInput: ComponentNode,
   parentId: string | null = nodeInput.parentId,
-): FormModel {
-  const form = parseForm(formInput);
+): PageModel {
+  const page = parsePage(pageInput);
   const node = parseComponentNode({ ...nodeInput, parentId });
 
-  if (findComponent(form, node.id) !== undefined) {
+  if (findComponent(page, node.id) !== undefined) {
     throw new ModelUpdateError(`Component ID "${node.id}" already exists.`);
   }
   if (node.children.length > 0) {
     throw new ModelUpdateError('A newly added component cannot already own child IDs.');
   }
 
-  let components = [...form.components];
+  let components = [...page.components];
   if (parentId !== null) {
-    const parent = getComponent(form, parentId);
+    const parent = getComponent(page, parentId);
     components = components.map((component) =>
       component.id === parentId
         ? { ...parent, children: [...parent.children, node.id] }
@@ -130,52 +130,52 @@ export function addComponent(
     );
   }
   components.push(node);
-  return parseForm({ ...form, components });
+  return parsePage({ ...page, components });
 }
 
-function collectDescendantIds(form: FormModel, componentId: string, output: Set<string>): void {
+function collectDescendantIds(page: PageModel, componentId: string, output: Set<string>): void {
   if (output.has(componentId)) return;
   output.add(componentId);
-  const component = getComponent(form, componentId);
-  component.children.forEach((childId) => collectDescendantIds(form, childId, output));
+  const component = getComponent(page, componentId);
+  component.children.forEach((childId) => collectDescendantIds(page, childId, output));
 }
 
-export function removeComponent(formInput: FormModel, componentId: string): FormModel {
-  const form = parseForm(formInput);
-  if (componentId === form.rootComponentId) {
-    throw new ModelUpdateError('The root WebForm component cannot be removed.');
+export function removeComponent(pageInput: PageModel, componentId: string): PageModel {
+  const page = parsePage(pageInput);
+  if (componentId === page.rootComponentId) {
+    throw new ModelUpdateError('The root WebPage component cannot be removed.');
   }
-  getComponent(form, componentId);
+  getComponent(page, componentId);
 
   const removedIds = new Set<string>();
-  collectDescendantIds(form, componentId, removedIds);
-  const components = form.components
+  collectDescendantIds(page, componentId, removedIds);
+  const components = page.components
     .filter((component) => !removedIds.has(component.id))
     .map((component) => ({
       ...component,
       children: component.children.filter((childId) => !removedIds.has(childId)),
     }));
 
-  return parseForm({ ...form, components });
+  return parsePage({ ...page, components });
 }
 
 export function reparentComponent(
-  formInput: FormModel,
+  pageInput: PageModel,
   componentId: string,
   newParentId: string | null,
   childIndex?: number,
-): FormModel {
-  const form = parseForm(formInput);
-  const component = getComponent(form, componentId);
-  if (componentId === form.rootComponentId) {
-    throw new ModelUpdateError('The root WebForm component cannot be reparented.');
+): PageModel {
+  const page = parsePage(pageInput);
+  const component = getComponent(page, componentId);
+  if (componentId === page.rootComponentId) {
+    throw new ModelUpdateError('The root WebPage component cannot be reparented.');
   }
   if (newParentId === componentId) {
     throw new ModelUpdateError('A component cannot be its own parent.');
   }
-  if (newParentId !== null) getComponent(form, newParentId);
+  if (newParentId !== null) getComponent(page, newParentId);
 
-  const components = form.components.map((candidate) => {
+  const components = page.components.map((candidate) => {
     if (candidate.id === componentId) {
       return { ...candidate, parentId: newParentId };
     }
@@ -197,16 +197,16 @@ export function reparentComponent(
     return candidate;
   });
 
-  return parseForm({ ...form, components });
+  return parsePage({ ...page, components });
 }
 
 export function reorderChildren(
-  formInput: FormModel,
+  pageInput: PageModel,
   parentId: string,
   orderedChildIds: readonly string[],
-): FormModel {
-  const form = parseForm(formInput);
-  const parent = getComponent(form, parentId);
+): PageModel {
+  const page = parsePage(pageInput);
+  const parent = getComponent(page, parentId);
   if (
     parent.children.length !== orderedChildIds.length ||
     parent.children.some((id) => !orderedChildIds.includes(id)) ||
@@ -216,107 +216,107 @@ export function reorderChildren(
       'A reordered child list must be an exact permutation of existing children.',
     );
   }
-  return updateComponent(form, parentId, { children: [...orderedChildIds] });
+  return updateComponent(page, parentId, { children: [...orderedChildIds] });
 }
 
-export function findForm(project: WebRadProject, formId: string): FormModel | undefined {
-  return project.forms.find((form) => form.id === formId);
+export function findPage(project: WebRadProject, pageId: string): PageModel | undefined {
+  return project.pages.find((page) => page.id === pageId);
 }
 
-export function getForm(project: WebRadProject, formId: string): FormModel {
-  const form = findForm(project, formId);
-  if (form === undefined) {
-    throw new ModelUpdateError(`Form ID "${formId}" does not exist in project "${project.name}".`);
+export function getPage(project: WebRadProject, pageId: string): PageModel {
+  const page = findPage(project, pageId);
+  if (page === undefined) {
+    throw new ModelUpdateError(`Page ID "${pageId}" does not exist in project "${project.name}".`);
   }
-  return form;
+  return page;
 }
 
-export type FormPatch = Partial<Omit<FormModel, 'id'>> & { readonly id?: string };
-export type FormUpdater = FormPatch | ((form: FormModel) => FormModel);
+export type PagePatch = Partial<Omit<PageModel, 'id'>> & { readonly id?: string };
+export type PageUpdater = PagePatch | ((page: PageModel) => PageModel);
 
-export function updateForm(
+export function updatePage(
   projectInput: WebRadProject,
-  formId: string,
-  updater: FormUpdater,
+  pageId: string,
+  updater: PageUpdater,
 ): WebRadProject {
   const project = parseProject(projectInput);
-  const current = getForm(project, formId);
+  const current = getPage(project, pageId);
   const updated =
     typeof updater === 'function'
       ? updater(current)
-      : ({ ...current, ...updater, id: current.id } satisfies FormModel);
+      : ({ ...current, ...updater, id: current.id } satisfies PageModel);
 
   if (
     updated.id !== current.id ||
     (typeof updater !== 'function' && updater.id !== undefined && updater.id !== current.id)
   ) {
-    throw new ModelUpdateError('Form IDs are immutable and cannot be changed by an update.');
+    throw new ModelUpdateError('Page IDs are immutable and cannot be changed by an update.');
   }
 
-  const parsedForm = parseForm(updated);
+  const parsedPage = parsePage(updated);
   return parseProject({
     ...project,
-    forms: project.forms.map((form) => (form.id === formId ? parsedForm : form)),
+    pages: project.pages.map((page) => (page.id === pageId ? parsedPage : page)),
   });
 }
 
-export function addForm(
+export function addPage(
   projectInput: WebRadProject,
-  formInput: FormModel,
+  pageInput: PageModel,
   setAsEntry = false,
 ): WebRadProject {
   const project = parseProject(projectInput);
-  const form = parseForm(formInput);
+  const page = parsePage(pageInput);
   return parseProject({
     ...project,
-    entryForm: setAsEntry ? form.id : project.entryForm,
-    forms: [...project.forms, form],
+    entryPage: setAsEntry ? page.id : project.entryPage,
+    pages: [...project.pages, page],
   });
 }
 
-export function removeForm(projectInput: WebRadProject, formId: string): WebRadProject {
+export function removePage(projectInput: WebRadProject, pageId: string): WebRadProject {
   const project = parseProject(projectInput);
-  getForm(project, formId);
-  if (project.forms.length === 1) {
-    throw new ModelUpdateError('A project must contain at least one form.');
+  getPage(project, pageId);
+  if (project.pages.length === 1) {
+    throw new ModelUpdateError('A project must contain at least one page.');
   }
-  const forms = project.forms.filter((form) => form.id !== formId);
+  const pages = project.pages.filter((page) => page.id !== pageId);
   return parseProject({
     ...project,
-    entryForm: project.entryForm === formId ? forms[0]?.id : project.entryForm,
-    forms,
+    entryPage: project.entryPage === pageId ? pages[0]?.id : project.entryPage,
+    pages,
   });
 }
 
-export function renameForm(
+export function renamePage(
   projectInput: WebRadProject,
-  formId: string,
+  pageId: string,
   name: string,
 ): WebRadProject {
-  assertValidFormName(name);
+  assertValidPageName(name);
   const project = parseProject(projectInput);
-  const form = getForm(project, formId);
+  const page = getPage(project, pageId);
   const nameKey = portableFileNameKey(name);
-  if (form.name !== name && portableFileNameKey(form.name) === nameKey) {
-    throw new ModelUpdateError('A form rename must differ by more than case or normalization.');
+  if (page.name !== name && portableFileNameKey(page.name) === nameKey) {
+    throw new ModelUpdateError('A page rename must differ by more than case or normalization.');
   }
   if (
-    project.forms.some(
-      (candidate) => candidate.id !== formId && portableFileNameKey(candidate.name) === nameKey,
+    project.pages.some(
+      (candidate) => candidate.id !== pageId && portableFileNameKey(candidate.name) === nameKey,
     )
   ) {
-    throw new ModelUpdateError(`Form name "${name}" already exists in this project.`);
+    throw new ModelUpdateError(`Page name "${name}" already exists in this project.`);
   }
-  const components = form.components.map((component) =>
-    component.id === form.rootComponentId ? { ...component, name } : component,
+  const components = page.components.map((component) =>
+    component.id === page.rootComponentId ? { ...component, name } : component,
   );
-  return updateForm(project, formId, { name, components });
+  return updatePage(project, pageId, { name, components });
 }
 
-export function setEntryForm(projectInput: WebRadProject, formId: string): WebRadProject {
+export function setEntryPage(projectInput: WebRadProject, pageId: string): WebRadProject {
   const project = parseProject(projectInput);
-  getForm(project, formId);
-  return parseProject({ ...project, entryForm: formId });
+  getPage(project, pageId);
+  return parseProject({ ...project, entryPage: pageId });
 }
 
 export function updateProjectSettings(

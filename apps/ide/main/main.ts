@@ -113,12 +113,12 @@ async function runPreviewProtocolSmoke(previewHtml: string | undefined): Promise
     });
     previewWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     await previewWindow.loadURL(previewUrl);
-    const renderedForms = (await previewWindow.webContents.executeJavaScript(
-      "document.querySelectorAll('[data-webrad-form-id]').length",
+    const renderedPages = (await previewWindow.webContents.executeJavaScript(
+      "document.querySelectorAll('[data-webrad-page-id]').length",
       true,
     )) as unknown;
-    if (renderedForms !== 1) {
-      throw new Error(`Preview renderer smoke failed: rendered forms=${String(renderedForms)}`);
+    if (renderedPages !== 1) {
+      throw new Error(`Preview renderer smoke failed: rendered pages=${String(renderedPages)}`);
     }
     smokeLog('preview renderer passed');
   } finally {
@@ -223,7 +223,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
       Number(Reflect.get(value, 'colors')) >= 3 &&
       Array.isArray(keywords) &&
       keywords.includes('import') &&
-      Reflect.get(value, 'formClass') === true &&
+      Reflect.get(value, 'pageClass') === true &&
       Reflect.get(value, 'inlayHintsHidden') === true
     );
   };
@@ -253,7 +253,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
         tokenClasses: tokenClasses.length,
         colors: colors.length,
         keywords: highlightedKeywords,
-        formClass: source.includes('FrmMainGenerated'),
+        pageClass: source.includes('PageMainGenerated'),
         eventHandler: source.includes('BTNMostrarClick'),
         inlayHintsHidden: !source.includes('message:'),
         samples: tokens.slice(0, 12),
@@ -284,7 +284,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
     process.platform === 'darwin' ? 'meta' : 'control';
   // Place the cursor on the empty line immediately before the handler's closing brace.
   // This is a real expression-statement position, so the custom Delphi-style provider
-  // must contribute the active form component Names without modifying the source.
+  // must contribute the active page component Names without modifying the source.
   sendRendererKey(window, 'End', [commandModifier]);
   sendRendererKey(window, 'Up');
   sendRendererKey(window, 'Up');

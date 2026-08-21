@@ -47,7 +47,7 @@ export interface CommandHistoryOptions {
 
 /**
  * An immutable-state command history. Commands store their own small inverse
- * deltas; the history itself never captures whole-form snapshots.
+ * deltas; the history itself never captures whole-page snapshots.
  */
 export class CommandHistory<TState> {
   readonly #listeners = new Set<HistoryListener<TState>>();

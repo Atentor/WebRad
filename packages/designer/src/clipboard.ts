@@ -1,4 +1,4 @@
-import type { ComponentNode, FormModel } from '@webrad/project-model';
+import type { ComponentNode, PageModel } from '@webrad/project-model';
 
 import type { Command } from './command-history.js';
 import { DEFAULT_GRID_SIZE, moveBoundsTogether, type Point } from './geometry.js';
@@ -61,21 +61,21 @@ function nextAvailableName(sourceName: string, usedNames: Set<string>): string {
 }
 
 export function copyComponents(
-  form: FormModel,
+  page: PageModel,
   componentIds: Iterable<string>,
 ): DesignerClipboardData {
-  const rootIds = normalizeTopLevelIds(form, componentIds);
+  const rootIds = normalizeTopLevelIds(page, componentIds);
   if (rootIds.length === 0) {
     throw new RangeError('At least one component ID is required.');
   }
-  if (rootIds.includes(form.rootComponentId)) {
-    throw new DesignerModelError('The form root component cannot be copied.');
+  if (rootIds.includes(page.rootComponentId)) {
+    throw new DesignerModelError('The page root component cannot be copied.');
   }
-  const copiedIds = collectSubtreeIds(form, rootIds);
+  const copiedIds = collectSubtreeIds(page, rootIds);
   return {
     version: 1,
     rootIds,
-    components: form.components.filter(({ id }) => copiedIds.has(id)).map(cloneComponentNode),
+    components: page.components.filter(({ id }) => copiedIds.has(id)).map(cloneComponentNode),
   };
 }
 
@@ -140,15 +140,15 @@ export function validateClipboardData(data: DesignerClipboardData): void {
 }
 
 export function materializePaste(
-  form: FormModel,
+  page: PageModel,
   data: DesignerClipboardData,
   options: PasteOptions = {},
 ): MaterializedPaste {
   validateClipboardData(data);
-  const parentId = options.parentId ?? form.rootComponentId;
-  findDesignerComponent(form, parentId);
+  const parentId = options.parentId ?? page.rootComponentId;
+  findDesignerComponent(page, parentId);
   const createId = options.createId ?? (() => createRandomId());
-  const existingIds = new Set(form.components.map(({ id }) => id));
+  const existingIds = new Set(page.components.map(({ id }) => id));
   const idMap = new Map<string, string>();
   const generatedIds = new Set<string>();
   data.components.forEach((component, index) => {
@@ -162,7 +162,7 @@ export function materializePaste(
     generatedIds.add(newId);
   });
 
-  const usedNames = new Set(form.components.map(({ name }) => name.toLocaleLowerCase()));
+  const usedNames = new Set(page.components.map(({ name }) => name.toLocaleLowerCase()));
   const rootSet = new Set(data.rootIds);
   let components = data.components.map((source) => {
     const id = idMap.get(source.id);
@@ -204,7 +204,7 @@ export function materializePaste(
       snapToGrid: options.snapToGrid,
       gridSize: options.gridSize,
       containerBounds:
-        options.constrainToParent === false ? undefined : getParentContentBounds(form, parentId),
+        options.constrainToParent === false ? undefined : getParentContentBounds(page, parentId),
     },
   );
   const movedRootBounds = new Map(pastedRootIds.map((id, index) => [id, move.bounds[index]]));
@@ -216,7 +216,7 @@ export function materializePaste(
   return { parentId, rootIds: pastedRootIds, components };
 }
 
-export class PasteComponentsCommand implements Command<FormModel> {
+export class PasteComponentsCommand implements Command<PageModel> {
   public readonly label = 'Paste components';
   readonly #data: DesignerClipboardData;
   readonly #options: PasteOptions;
@@ -232,10 +232,10 @@ export class PasteComponentsCommand implements Command<FormModel> {
     return this.#paste === null ? [] : [...this.#paste.rootIds];
   }
 
-  public execute(form: FormModel): FormModel {
+  public execute(page: PageModel): PageModel {
     if (this.#paste === null) {
-      const paste = materializePaste(form, this.#data, this.#options);
-      const parent = findDesignerComponent(form, paste.parentId);
+      const paste = materializePaste(page, this.#data, this.#options);
+      const parent = findDesignerComponent(page, paste.parentId);
       const requested = this.#options.siblingIndex;
       if (
         requested !== undefined &&
@@ -251,29 +251,29 @@ export class PasteComponentsCommand implements Command<FormModel> {
 
     const paste = this.#paste;
     const pastedIds = new Set(paste.components.map(({ id }) => id));
-    if (form.components.some(({ id }) => pastedIds.has(id))) {
+    if (page.components.some(({ id }) => pastedIds.has(id))) {
       throw new DesignerModelError('One or more pasted component IDs already exist.');
     }
-    const parent = findDesignerComponent(form, paste.parentId);
+    const parent = findDesignerComponent(page, paste.parentId);
     const children = [...parent.children];
     children.splice(this.#siblingIndex, 0, ...paste.rootIds);
-    const components = [...form.components, ...paste.components];
+    const components = [...page.components, ...paste.components];
     return replaceComponentNodes(
-      { ...form, components },
+      { ...page, components },
       new Map([[parent.id, { ...parent, children }]]),
     );
   }
 
-  public undo(form: FormModel): FormModel {
+  public undo(page: PageModel): PageModel {
     if (this.#paste === null) {
       throw new Error('Cannot undo a PasteComponentsCommand before it has executed.');
     }
     const pastedIds = new Set(this.#paste.components.map(({ id }) => id));
     const pastedRoots = new Set(this.#paste.rootIds);
-    const parent = findDesignerComponent(form, this.#paste.parentId);
+    const parent = findDesignerComponent(page, this.#paste.parentId);
     return {
-      ...form,
-      components: form.components
+      ...page,
+      components: page.components
         .filter(({ id }) => !pastedIds.has(id))
         .map((component) =>
           component.id === parent.id

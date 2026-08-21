@@ -3,7 +3,7 @@ import {
   validateComponentName,
   type Bounds,
   type ComponentNode,
-  type FormModel,
+  type PageModel,
 } from '@webrad/project-model';
 
 import type { Command } from './command-history.js';
@@ -42,7 +42,7 @@ function insertionIndex(requested: number | undefined, length: number, name: str
   return requested;
 }
 
-export class AddComponentCommand implements Command<FormModel> {
+export class AddComponentCommand implements Command<PageModel> {
   public readonly label = 'Add component';
   readonly #sourceNode: ComponentNode;
   readonly #options: AddComponentOptions;
@@ -66,8 +66,8 @@ export class AddComponentCommand implements Command<FormModel> {
     this.#options = { ...options };
   }
 
-  public execute(form: FormModel): FormModel {
-    if (form.components.some(({ id }) => id === this.#sourceNode.id)) {
+  public execute(page: PageModel): PageModel {
+    if (page.components.some(({ id }) => id === this.#sourceNode.id)) {
       throw new DesignerModelError(`Component ID "${this.#sourceNode.id}" already exists.`);
     }
 
@@ -75,16 +75,16 @@ export class AddComponentCommand implements Command<FormModel> {
       this.#addedNode?.parentId ??
       this.#options.parentId ??
       this.#sourceNode.parentId ??
-      form.rootComponentId;
+      page.rootComponentId;
     if (parentId === this.#sourceNode.id) {
       throw new DesignerModelError('A component cannot be its own parent.');
     }
-    const parent = findDesignerComponent(form, parentId);
+    const parent = findDesignerComponent(page, parentId);
     const node = this.#addedNode ?? { ...this.#sourceNode, parentId };
     if (this.#addedNode === null) {
       this.#componentIndex = insertionIndex(
         this.#options.componentIndex,
-        form.components.length,
+        page.components.length,
         'componentIndex',
       );
       this.#siblingIndex = insertionIndex(
@@ -95,25 +95,25 @@ export class AddComponentCommand implements Command<FormModel> {
       this.#addedNode = node;
     }
 
-    const components = [...form.components];
+    const components = [...page.components];
     components.splice(this.#componentIndex, 0, node);
-    const currentParent = findDesignerComponent({ ...form, components }, parentId);
+    const currentParent = findDesignerComponent({ ...page, components }, parentId);
     const children = [...currentParent.children];
     children.splice(this.#siblingIndex, 0, node.id);
     const replacements = new Map([[parentId, { ...currentParent, children }]]);
-    return replaceComponentNodes({ ...form, components }, replacements);
+    return replaceComponentNodes({ ...page, components }, replacements);
   }
 
-  public undo(form: FormModel): FormModel {
+  public undo(page: PageModel): PageModel {
     const node = this.#addedNode;
     if (node === null) {
       throw new Error('Cannot undo an AddComponentCommand before it has executed.');
     }
-    findDesignerComponent(form, node.id);
-    const parent = findDesignerComponent(form, node.parentId as string);
+    findDesignerComponent(page, node.id);
+    const parent = findDesignerComponent(page, node.parentId as string);
     return {
-      ...form,
-      components: form.components
+      ...page,
+      components: page.components
         .filter(({ id }) => id !== node.id)
         .map((component) =>
           component.id === parent.id
@@ -138,7 +138,7 @@ interface RemovedRootRecord {
   readonly siblingIndex: number;
 }
 
-export class RemoveComponentCommand implements Command<FormModel> {
+export class RemoveComponentCommand implements Command<PageModel> {
   public readonly label = 'Remove component';
   readonly #requestedIds: readonly string[];
   #removedNodes: readonly RemovedNodeRecord[] | null = null;
@@ -151,22 +151,22 @@ export class RemoveComponentCommand implements Command<FormModel> {
     }
   }
 
-  public execute(form: FormModel): FormModel {
+  public execute(page: PageModel): PageModel {
     if (this.#removedNodes === null || this.#removedRoots === null) {
-      const roots = normalizeTopLevelIds(form, this.#requestedIds);
-      if (roots.includes(form.rootComponentId)) {
-        throw new DesignerModelError('The form root component cannot be removed.');
+      const roots = normalizeTopLevelIds(page, this.#requestedIds);
+      if (roots.includes(page.rootComponentId)) {
+        throw new DesignerModelError('The page root component cannot be removed.');
       }
-      const removedIds = collectSubtreeIds(form, roots);
-      this.#removedNodes = form.components
+      const removedIds = collectSubtreeIds(page, roots);
+      this.#removedNodes = page.components
         .map((node, componentIndex) => ({ node, componentIndex }))
         .filter(({ node }) => removedIds.has(node.id));
       this.#removedRoots = roots.map((id) => {
-        const node = findDesignerComponent(form, id);
+        const node = findDesignerComponent(page, id);
         if (node.parentId === null) {
           throw new DesignerModelError(`Component "${id}" has no removable parent.`);
         }
-        const parent = findDesignerComponent(form, node.parentId);
+        const parent = findDesignerComponent(page, node.parentId);
         const siblingIndex = parent.children.indexOf(id);
         if (siblingIndex < 0) {
           throw new DesignerModelError(`Parent "${parent.id}" does not reference child "${id}".`);
@@ -178,8 +178,8 @@ export class RemoveComponentCommand implements Command<FormModel> {
     const removedIds = new Set(this.#removedNodes.map(({ node }) => node.id));
     const rootIds = new Set(this.#removedRoots.map(({ id }) => id));
     return {
-      ...form,
-      components: form.components
+      ...page,
+      components: page.components
         .filter(({ id }) => !removedIds.has(id))
         .map((component) =>
           this.#removedRoots?.some(({ parentId }) => parentId === component.id) === true
@@ -189,17 +189,17 @@ export class RemoveComponentCommand implements Command<FormModel> {
     };
   }
 
-  public undo(form: FormModel): FormModel {
+  public undo(page: PageModel): PageModel {
     if (this.#removedNodes === null || this.#removedRoots === null) {
       throw new Error('Cannot undo a RemoveComponentCommand before it has executed.');
     }
     for (const { node } of this.#removedNodes) {
-      if (form.components.some(({ id }) => id === node.id)) {
+      if (page.components.some(({ id }) => id === node.id)) {
         throw new DesignerModelError(`Cannot restore duplicate component ID "${node.id}".`);
       }
     }
 
-    const components = [...form.components];
+    const components = [...page.components];
     for (const record of [...this.#removedNodes].sort(
       (a, b) => a.componentIndex - b.componentIndex,
     )) {
@@ -214,14 +214,14 @@ export class RemoveComponentCommand implements Command<FormModel> {
     }
     const replacements = new Map<string, ComponentNode>();
     for (const [parentId, roots] of rootsByParent) {
-      const parent = findDesignerComponent({ ...form, components }, parentId);
+      const parent = findDesignerComponent({ ...page, components }, parentId);
       const children = [...parent.children];
       for (const root of roots.sort((a, b) => a.siblingIndex - b.siblingIndex)) {
         children.splice(root.siblingIndex, 0, root.id);
       }
       replacements.set(parentId, { ...parent, children });
     }
-    return replaceComponentNodes({ ...form, components }, replacements);
+    return replaceComponentNodes({ ...page, components }, replacements);
   }
 }
 
@@ -229,7 +229,7 @@ export interface MoveCommandOptions extends MovementOptions {
   readonly constrainToParent?: boolean;
 }
 
-export class MoveCommand implements Command<FormModel> {
+export class MoveCommand implements Command<PageModel> {
   public readonly label = 'Move component';
   readonly #componentIds: readonly string[];
   readonly #delta: Point;
@@ -252,11 +252,11 @@ export class MoveCommand implements Command<FormModel> {
     this.#options = { ...options };
   }
 
-  public execute(form: FormModel): FormModel {
+  public execute(page: PageModel): PageModel {
     if (this.#after === null) {
-      const components = this.#componentIds.map((id) => findDesignerComponent(form, id));
-      if (components.some(({ id }) => id === form.rootComponentId)) {
-        throw new DesignerModelError('The form root component cannot be moved.');
+      const components = this.#componentIds.map((id) => findDesignerComponent(page, id));
+      if (components.some(({ id }) => id === page.rootComponentId)) {
+        throw new DesignerModelError('The page root component cannot be moved.');
       }
       const parentId = components[0]?.parentId;
       if (
@@ -270,7 +270,7 @@ export class MoveCommand implements Command<FormModel> {
         this.#options.containerBounds ??
         (this.#options.constrainToParent === false
           ? undefined
-          : getParentContentBounds(form, parentId));
+          : getParentContentBounds(page, parentId));
       const result = moveBoundsTogether(
         components.map(({ bounds }) => bounds),
         this.#delta,
@@ -281,14 +281,14 @@ export class MoveCommand implements Command<FormModel> {
         components.map((component, index) => [component.id, result.bounds[index] as Bounds]),
       );
     }
-    return replaceComponentBounds(form, this.#after);
+    return replaceComponentBounds(page, this.#after);
   }
 
-  public undo(form: FormModel): FormModel {
+  public undo(page: PageModel): PageModel {
     if (this.#before === null) {
       throw new Error('Cannot undo a MoveCommand before it has executed.');
     }
-    return replaceComponentBounds(form, this.#before);
+    return replaceComponentBounds(page, this.#before);
   }
 }
 
@@ -305,7 +305,7 @@ type ResizeRequest =
       readonly options: ResizeCommandOptions;
     };
 
-export class ResizeCommand implements Command<FormModel> {
+export class ResizeCommand implements Command<PageModel> {
   public readonly label = 'Resize component';
   readonly #componentId: string;
   readonly #request: ResizeRequest;
@@ -342,12 +342,12 @@ export class ResizeCommand implements Command<FormModel> {
     }
   }
 
-  public execute(form: FormModel): FormModel {
+  public execute(page: PageModel): PageModel {
     if (this.#after === null) {
-      const component = findDesignerComponent(form, this.#componentId);
-      if (component.id === form.rootComponentId) {
+      const component = findDesignerComponent(page, this.#componentId);
+      if (component.id === page.rootComponentId) {
         throw new DesignerModelError(
-          'The form root component cannot be resized with ResizeCommand.',
+          'The page root component cannot be resized with ResizeCommand.',
         );
       }
       this.#before = component.bounds;
@@ -362,21 +362,21 @@ export class ResizeCommand implements Command<FormModel> {
           this.#request.options.containerBounds ??
           (this.#request.options.constrainToParent === false
             ? undefined
-            : getParentContentBounds(form, parentId));
+            : getParentContentBounds(page, parentId));
         this.#after = resizeBounds(component.bounds, this.#request.handle, this.#request.delta, {
           ...this.#request.options,
           containerBounds,
         });
       }
     }
-    return replaceComponentBounds(form, new Map([[this.#componentId, this.#after]]));
+    return replaceComponentBounds(page, new Map([[this.#componentId, this.#after]]));
   }
 
-  public undo(form: FormModel): FormModel {
+  public undo(page: PageModel): PageModel {
     if (this.#before === null) {
       throw new Error('Cannot undo a ResizeCommand before it has executed.');
     }
-    return replaceComponentBounds(form, new Map([[this.#componentId, this.#before]]));
+    return replaceComponentBounds(page, new Map([[this.#componentId, this.#before]]));
   }
 }
 
@@ -385,7 +385,7 @@ interface PreviousPropertyValue {
   readonly value: unknown;
 }
 
-export class ChangePropertyCommand implements Command<FormModel> {
+export class ChangePropertyCommand implements Command<PageModel> {
   public readonly label = 'Change property';
   readonly #componentIds: readonly string[];
   readonly #propertyName: string;
@@ -411,10 +411,10 @@ export class ChangePropertyCommand implements Command<FormModel> {
     this.#value = value;
   }
 
-  public execute(form: FormModel): FormModel {
+  public execute(page: PageModel): PageModel {
     const replacements = new Map<string, ComponentNode>();
     for (const id of this.#componentIds) {
-      const component = findDesignerComponent(form, id);
+      const component = findDesignerComponent(page, id);
       if (!this.#hasExecuted) {
         this.#previous.set(id, {
           existed: Object.hasOwn(component.props, this.#propertyName),
@@ -427,16 +427,16 @@ export class ChangePropertyCommand implements Command<FormModel> {
       });
     }
     this.#hasExecuted = true;
-    return replaceComponentNodes(form, replacements);
+    return replaceComponentNodes(page, replacements);
   }
 
-  public undo(form: FormModel): FormModel {
+  public undo(page: PageModel): PageModel {
     if (!this.#hasExecuted) {
       throw new Error('Cannot undo a ChangePropertyCommand before it has executed.');
     }
     const replacements = new Map<string, ComponentNode>();
     for (const id of this.#componentIds) {
-      const component = findDesignerComponent(form, id);
+      const component = findDesignerComponent(page, id);
       const previous = this.#previous.get(id);
       if (previous === undefined) {
         throw new Error(`Missing previous property value for "${id}".`);
@@ -449,7 +449,7 @@ export class ChangePropertyCommand implements Command<FormModel> {
       }
       replacements.set(id, { ...component, props });
     }
-    return replaceComponentNodes(form, replacements);
+    return replaceComponentNodes(page, replacements);
   }
 }
 
@@ -457,7 +457,7 @@ export function isValidComponentName(name: string): boolean {
   return getTypeScriptIdentifierError(name) === undefined;
 }
 
-export class RenameComponentCommand implements Command<FormModel> {
+export class RenameComponentCommand implements Command<PageModel> {
   public readonly label = 'Rename component';
   readonly #componentId: string;
   readonly #newName: string;
@@ -472,9 +472,9 @@ export class RenameComponentCommand implements Command<FormModel> {
     this.#newName = newName;
   }
 
-  public execute(form: FormModel): FormModel {
-    const component = findDesignerComponent(form, this.#componentId);
-    const validation = validateComponentName(this.#newName, form, this.#componentId);
+  public execute(page: PageModel): PageModel {
+    const component = findDesignerComponent(page, this.#componentId);
+    const validation = validateComponentName(this.#newName, page, this.#componentId);
     if (!validation.valid) {
       throw new DesignerModelError(
         `Component name "${this.#newName}" is invalid: ${validation.reason ?? 'unknown reason'}.`,
@@ -482,18 +482,18 @@ export class RenameComponentCommand implements Command<FormModel> {
     }
     this.#oldName ??= component.name;
     return replaceComponentNodes(
-      form,
+      page,
       new Map([[component.id, { ...component, name: this.#newName }]]),
     );
   }
 
-  public undo(form: FormModel): FormModel {
+  public undo(page: PageModel): PageModel {
     if (this.#oldName === null) {
       throw new Error('Cannot undo a RenameComponentCommand before it has executed.');
     }
-    const component = findDesignerComponent(form, this.#componentId);
+    const component = findDesignerComponent(page, this.#componentId);
     return replaceComponentNodes(
-      form,
+      page,
       new Map([[component.id, { ...component, name: this.#oldName }]]),
     );
   }

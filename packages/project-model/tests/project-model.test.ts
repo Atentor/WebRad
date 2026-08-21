@@ -1,33 +1,35 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  CURRENT_FORM_FORMAT_VERSION,
+  CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
   FutureFormatVersionError,
   ModelUpdateError,
   ProjectValidationError,
+  UnsupportedFormatVersionError,
   addComponent,
   assembleProject,
   bindComponentEvent,
-  createForm,
+  createPage,
   createProject,
   createSequentialName,
+  deserializePage,
   deserializeProject,
   deserializeProjectManifest,
-  getFormNameError,
+  getPageNameError,
   isValidTypeScriptIdentifier,
   projectToManifest,
   removeComponent,
   renameComponent,
-  renameForm,
+  renamePage,
   safeDeserializeProject,
-  safeParseForm,
+  safeParsePage,
   safeParseProject,
   serializeProject,
   serializeProjectManifest,
   updateComponentBounds,
   updateComponentProps,
-  updateForm,
+  updatePage,
   validateComponentName,
   type ComponentNode,
   type IdFactory,
@@ -63,16 +65,16 @@ function component(
 }
 
 describe('project factories', () => {
-  it('creates a complete aggregate with an entry form and WebForm root', () => {
+  it('creates a complete aggregate with an entry page and WebPage root', () => {
     const project = createProject('CustomerApp', {
-      idFactory: idSequence('project-id', 'form-id', 'root-id'),
+      idFactory: idSequence('project-id', 'page-id', 'root-id'),
     });
 
     expect(project).toMatchObject({
       formatVersion: CURRENT_PROJECT_FORMAT_VERSION,
       id: 'project-id',
       name: 'CustomerApp',
-      entryForm: 'form-id',
+      entryPage: 'page-id',
       settings: {
         gridSize: 8,
         snapToGrid: true,
@@ -80,39 +82,39 @@ describe('project factories', () => {
         outputDirectory: 'dist',
       },
     });
-    expect(project.forms).toHaveLength(1);
-    expect(project.forms[0]).toMatchObject({
-      formatVersion: CURRENT_FORM_FORMAT_VERSION,
-      id: 'form-id',
-      name: 'FrmMain',
+    expect(project.pages).toHaveLength(1);
+    expect(project.pages[0]).toMatchObject({
+      formatVersion: CURRENT_PAGE_FORMAT_VERSION,
+      id: 'page-id',
+      name: 'PageMain',
       layoutMode: 'absolute',
       rootComponentId: 'root-id',
     });
-    expect(project.forms[0]?.components[0]).toMatchObject({
+    expect(project.pages[0]?.components[0]).toMatchObject({
       id: 'root-id',
-      type: 'WebForm',
-      name: 'FrmMain',
+      type: 'WebPage',
+      name: 'PageMain',
       parentId: null,
     });
   });
 
   it('uses crypto UUIDs by default', () => {
-    const form = createForm('FrmMain');
-    expect(form.id).toMatch(
+    const page = createPage('PageMain');
+    expect(page.id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
-    expect(form.rootComponentId).not.toBe(form.id);
+    expect(page.rootComponentId).not.toBe(page.id);
   });
 
-  it('allows portable display names for projects while form names remain identifiers', () => {
-    const project = createProject('Customer App', idSequence('project-id', 'form-id', 'root-id'));
+  it('allows portable display names for projects while page names remain identifiers', () => {
+    const project = createProject('Customer App', idSequence('project-id', 'page-id', 'root-id'));
     expect(project.name).toBe('Customer App');
     expect(() =>
-      createProject('../CustomerApp', idSequence('project-id', 'form-id', 'root-id')),
+      createProject('../CustomerApp', idSequence('project-id', 'page-id', 'root-id')),
     ).toThrow('portable');
-    expect(() => createForm('Customer Form')).toThrow('TypeScript identifier');
-    expect(getFormNameError('CON')).toContain('reserved Windows device');
-    expect(() => createForm('CON')).toThrow(ProjectValidationError);
+    expect(() => createPage('Customer Page')).toThrow('TypeScript identifier');
+    expect(getPageNameError('CON')).toContain('reserved Windows device');
+    expect(() => createPage('CON')).toThrow(ProjectValidationError);
   });
 });
 
@@ -127,15 +129,15 @@ describe('name validation', () => {
 
   it('generates the first available sequential name and validates uniqueness', () => {
     expect(createSequentialName('Button', ['Button1', 'Button2', 'Button4'])).toBe('Button3');
-    const form = createForm('FrmMain', idSequence('form-id', 'root-id'));
+    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
     const withButton = addComponent(
-      form,
-      component('button-id', 'WebButton', 'Button1', form.rootComponentId),
+      page,
+      component('button-id', 'WebButton', 'Button1', page.rootComponentId),
     );
 
     expect(validateComponentName('Button1', withButton).valid).toBe(false);
     expect(validateComponentName('Button1', withButton, 'button-id').valid).toBe(true);
-    expect(() => renameComponent(withButton, 'button-id', 'FrmMain')).toThrow(ModelUpdateError);
+    expect(() => renameComponent(withButton, 'button-id', 'PageMain')).toThrow(ModelUpdateError);
     expect(validateComponentName('show', withButton, 'button-id')).toMatchObject({
       valid: false,
       reason: expect.stringContaining('runtime API'),
@@ -165,7 +167,7 @@ describe('name validation', () => {
         node.id === 'button-id' ? { ...node, name: 'element' } : node,
       ),
     };
-    const collisionResult = safeParseForm(collidingDocument);
+    const collisionResult = safeParsePage(collidingDocument);
     expect(collisionResult.success).toBe(false);
     if (!collisionResult.success) {
       expect(
@@ -177,16 +179,16 @@ describe('name validation', () => {
 
 describe('zod validation', () => {
   it('detects duplicate names and broken parent/child links without throwing', () => {
-    const form = createForm('FrmMain', idSequence('form-id', 'root-id'));
+    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
     const invalid = {
-      ...form,
+      ...page,
       components: [
-        ...form.components,
-        component('button-a', 'WebButton', 'Duplicate', form.rootComponentId),
+        ...page.components,
+        component('button-a', 'WebButton', 'Duplicate', page.rootComponentId),
         component('button-b', 'WebButton', 'Duplicate', 'missing-parent'),
       ],
     };
-    const result = safeParseForm(invalid);
+    const result = safeParsePage(invalid);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -197,10 +199,10 @@ describe('zod validation', () => {
     }
   });
 
-  it('rejects components that are disconnected from the form root', () => {
-    const form = createForm('FrmMain', idSequence('form-id', 'root-id'));
+  it('rejects components that are disconnected from the page root', () => {
+    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
     const orphan = component('orphan-id', 'WebButton', 'OrphanButton', null);
-    const result = safeParseForm({ ...form, components: [...form.components, orphan] });
+    const result = safeParsePage({ ...page, components: [...page.components, orphan] });
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -208,28 +210,28 @@ describe('zod validation', () => {
     }
   });
 
-  it('rejects non-JSON props, unknown fields, and invalid entry forms', () => {
-    const project = createProject('Project1', idSequence('project-id', 'form-id', 'root-id'));
-    const root = project.forms[0]?.components[0];
+  it('rejects non-JSON props, unknown fields, and invalid entry pages', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const root = project.pages[0]?.components[0];
     expect(root).toBeDefined();
     const invalidProps = {
       ...project,
-      forms: [
+      pages: [
         {
-          ...project.forms[0],
+          ...project.pages[0],
           components: [{ ...root, props: { callback: () => undefined } }],
         },
       ],
       extra: true,
     };
     expect(safeParseProject(invalidProps).success).toBe(false);
-    expect(safeParseProject({ ...project, entryForm: 'missing' }).success).toBe(false);
+    expect(safeParseProject({ ...project, entryPage: 'missing' }).success).toBe(false);
   });
 
-  it('rejects form names that collide on case-insensitive portable filesystems', () => {
-    const project = createProject('Project1', idSequence('project-id', 'form-id', 'root-id'));
-    const collidingForm = createForm('frmmain', idSequence('other-form', 'other-root'));
-    const result = safeParseProject({ ...project, forms: [...project.forms, collidingForm] });
+  it('rejects page names that collide on case-insensitive portable filesystems', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const collidingPage = createPage('pagemain', idSequence('other-page', 'other-root'));
+    const result = safeParseProject({ ...project, pages: [...project.pages, collidingPage] });
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -238,35 +240,35 @@ describe('zod validation', () => {
   });
 
   it('throws a useful validation error from strict parsers', () => {
-    const project = createProject('Project1', idSequence('project-id', 'form-id', 'root-id'));
-    expect(() => serializeProject({ ...project, entryForm: 'missing' })).toThrow(
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    expect(() => serializeProject({ ...project, entryPage: 'missing' })).toThrow(
       ProjectValidationError,
     );
   });
 });
 
-describe('serialization and migrations', () => {
+describe('serialization', () => {
   it('round-trips deterministically and sorts arbitrary property keys', () => {
-    const project = createProject('Project1', idSequence('project-id', 'form-id', 'root-id'));
-    const form = project.forms[0];
-    expect(form).toBeDefined();
-    if (form === undefined) return;
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const page = project.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
     const first = addComponent(
-      form,
-      component('button-id', 'WebButton', 'Button1', form.rootComponentId, {
+      page,
+      component('button-id', 'WebButton', 'Button1', page.rootComponentId, {
         zeta: 1,
         alpha: 2,
       }),
     );
     const second = addComponent(
-      form,
-      component('button-id', 'WebButton', 'Button1', form.rootComponentId, {
+      page,
+      component('button-id', 'WebButton', 'Button1', page.rootComponentId, {
         alpha: 2,
         zeta: 1,
       }),
     );
-    const firstProject = updateForm(project, form.id, () => first);
-    const secondProject = updateForm(project, form.id, () => second);
+    const firstProject = updatePage(project, page.id, () => first);
+    const secondProject = updatePage(project, page.id, () => second);
     const serialized = serializeProject(firstProject);
 
     expect(serialized).toBe(serializeProject(secondProject));
@@ -274,44 +276,63 @@ describe('serialization and migrations', () => {
     expect(deserializeProject(serialized)).toEqual(firstProject);
   });
 
-  it('migrates explicit version zero documents and fills old settings defaults', () => {
-    const project = createProject('Project1', idSequence('project-id', 'form-id', 'root-id'));
-    const form = project.forms[0];
-    expect(form).toBeDefined();
-    if (form === undefined) return;
-    const legacy = {
-      formatVersion: 0,
-      id: project.id,
-      name: project.name,
-      entryForm: project.entryForm,
-      forms: [
-        {
-          id: form.id,
-          name: form.name,
-          caption: form.caption,
-          width: form.width,
-          height: form.height,
-          components: form.components,
-          rootComponentId: form.rootComponentId,
-        },
-      ],
-      settings: { gridSize: 16 },
-    };
+  it('rejects the former Form-shaped version 1 contract', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const page = project.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
 
-    const migrated = deserializeProject(JSON.stringify(legacy));
-    expect(migrated.formatVersion).toBe(1);
-    expect(migrated.forms[0]?.formatVersion).toBe(1);
-    expect(migrated.forms[0]?.layoutMode).toBe('absolute');
-    expect(migrated.settings).toEqual({
-      gridSize: 16,
-      snapToGrid: true,
-      showGrid: true,
-      outputDirectory: 'dist',
-    });
+    expect(() =>
+      deserializeProject(
+        JSON.stringify({
+          formatVersion: 1,
+          id: project.id,
+          name: project.name,
+          entryForm: project.entryPage,
+          forms: [page],
+          settings: project.settings,
+        }),
+      ),
+    ).toThrow(ProjectValidationError);
+
+    expect(() =>
+      deserializeProjectManifest(
+        JSON.stringify({
+          formatVersion: 1,
+          id: project.id,
+          name: project.name,
+          entryForm: project.entryPage,
+          forms: [
+            {
+              id: page.id,
+              name: page.name,
+              formFile: `forms/${page.name}.wrform`,
+              generatedFile: `forms/${page.name}.generated.ts`,
+              codeFile: `forms/${page.name}.ts`,
+            },
+          ],
+          settings: project.settings,
+        }),
+      ),
+    ).toThrow(ProjectValidationError);
+
+    expect(() =>
+      deserializePage(
+        JSON.stringify({
+          ...page,
+          components: page.components.map((component) =>
+            component.id === page.rootComponentId ? { ...component, type: 'WebForm' } : component,
+          ),
+        }),
+      ),
+    ).toThrow(ProjectValidationError);
   });
 
-  it('rejects future versions and safely reports malformed JSON', () => {
-    const project = createProject('Project1', idSequence('project-id', 'form-id', 'root-id'));
+  it('rejects unsupported versions and safely reports malformed JSON', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    expect(() => deserializeProject(JSON.stringify({ ...project, formatVersion: 0 }))).toThrow(
+      UnsupportedFormatVersionError,
+    );
     expect(() => deserializeProject(JSON.stringify({ ...project, formatVersion: 99 }))).toThrow(
       FutureFormatVersionError,
     );
@@ -321,28 +342,28 @@ describe('serialization and migrations', () => {
   });
 
   it('creates a portable manifest and reassembles the aggregate', () => {
-    const project = createProject('Project1', idSequence('project-id', 'form-id', 'root-id'));
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const manifest = projectToManifest(project);
 
-    expect(manifest.forms[0]).toEqual({
-      id: 'form-id',
-      name: 'FrmMain',
-      formFile: 'forms/FrmMain.wrform',
-      generatedFile: 'forms/FrmMain.generated.ts',
-      codeFile: 'forms/FrmMain.ts',
+    expect(manifest.pages[0]).toEqual({
+      id: 'page-id',
+      name: 'PageMain',
+      pageFile: 'pages/PageMain.wrpage',
+      generatedFile: 'pages/PageMain.generated.ts',
+      codeFile: 'pages/PageMain.ts',
     });
     const serialized = serializeProjectManifest(manifest);
     const parsedManifest = deserializeProjectManifest(serialized);
-    expect(assembleProject(parsedManifest, project.forms)).toEqual(project);
+    expect(assembleProject(parsedManifest, project.pages)).toEqual(project);
   });
 });
 
 describe('immutable update helpers', () => {
   it('updates props, bounds, events, and names while retaining the component ID', () => {
-    const form = createForm('FrmMain', idSequence('form-id', 'root-id'));
+    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
     const initial = addComponent(
-      form,
-      component('button-id', 'WebButton', 'Button1', form.rootComponentId, { caption: 'Button' }),
+      page,
+      component('button-id', 'WebButton', 'Button1', page.rootComponentId, { caption: 'Button' }),
     );
     const renamed = renameComponent(initial, 'button-id', 'BTNGravar');
     const moved = updateComponentBounds(renamed, 'button-id', { x: 420, y: 300 });
@@ -365,11 +386,11 @@ describe('immutable update helpers', () => {
     });
   });
 
-  it('removes a component subtree without mutating the original form', () => {
-    const form = createForm('FrmMain', idSequence('form-id', 'root-id'));
+  it('removes a component subtree without mutating the original page', () => {
+    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
     const withPanel = addComponent(
-      form,
-      component('panel-id', 'WebPanel', 'Panel1', form.rootComponentId),
+      page,
+      component('panel-id', 'WebPanel', 'Panel1', page.rootComponentId),
     );
     const withLabel = addComponent(
       withPanel,
@@ -382,19 +403,19 @@ describe('immutable update helpers', () => {
     expect(removed.components[0]?.children).toEqual([]);
   });
 
-  it('renames a form and its root without changing either stable ID', () => {
-    const project = createProject('Project1', idSequence('project-id', 'form-id', 'root-id'));
-    const renamed = renameForm(project, 'form-id', 'FrmCustomers');
+  it('renames a page and its root without changing either stable ID', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const renamed = renamePage(project, 'page-id', 'PageCustomers');
 
-    expect(renamed.forms[0]).toMatchObject({
-      id: 'form-id',
-      name: 'FrmCustomers',
+    expect(renamed.pages[0]).toMatchObject({
+      id: 'page-id',
+      name: 'PageCustomers',
       rootComponentId: 'root-id',
     });
-    expect(renamed.forms[0]?.components[0]).toMatchObject({
+    expect(renamed.pages[0]?.components[0]).toMatchObject({
       id: 'root-id',
-      name: 'FrmCustomers',
+      name: 'PageCustomers',
     });
-    expect(() => renameForm(project, 'form-id', 'frmmain')).toThrow('more than case');
+    expect(() => renamePage(project, 'page-id', 'pagemain')).toThrow('more than case');
   });
 });

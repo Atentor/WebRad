@@ -7,7 +7,7 @@ export interface DocumentTab {
   id: string;
   label: string;
   dirty: boolean;
-  kind: 'form' | 'code';
+  kind: 'page' | 'code';
 }
 
 interface EditorWorkspaceProps {
@@ -40,7 +40,7 @@ export function EditorWorkspace({
             aria-selected={activeDocumentId === document.id}
           >
             <button type="button" onClick={() => onSelectDocument(document.id)}>
-              <span aria-hidden="true">{document.kind === 'form' ? '▱' : 'TS'}</span>
+              <span aria-hidden="true">{document.kind === 'page' ? '▱' : 'TS'}</span>
               {document.label}
               {document.dirty && <em>*</em>}
             </button>
@@ -80,7 +80,7 @@ export function EditorWorkspace({
           <img className="wr-welcome-mark" src={applicationIconUrl} alt="" aria-hidden="true" />
           <h1>WebRAD</h1>
           <p>
-            Build browser applications with forms, components, properties, events, and TypeScript.
+            Build browser applications with pages, components, properties, events, and TypeScript.
           </p>
           <div className="wr-welcome-shortcuts">
             <span>New Project</span>

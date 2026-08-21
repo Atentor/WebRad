@@ -29,6 +29,7 @@
     "build": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js package",
     "package": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js package",
     "make": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js make",
+    "smoke:development": "node scripts/smoke-development.mjs",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
     "validate": "npm run icons:check && npm run runtime:sources:check && npm run typecheck && npm run lint && npm test && npm run format:check && npm run build"
   },

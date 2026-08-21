@@ -1,7 +1,7 @@
 export type ComponentPropertyType =
   'string' | 'string-list' | 'number' | 'boolean' | 'enum' | 'color' | 'component';
 
-export type ComponentPropertySource = 'node' | 'bounds' | 'props' | 'form';
+export type ComponentPropertySource = 'node' | 'bounds' | 'props' | 'page';
 
 export interface ComponentPropertyDefinition {
   readonly name: string;

@@ -92,7 +92,7 @@ function event(name: string, category = 'Behavior'): ComponentEventDefinition {
   return { name, label: name, category };
 }
 
-const formBounds = { width: 800, height: 600 } as const;
+const pageBounds = { width: 800, height: 600 } as const;
 const panelBounds = { width: 240, height: 160 } as const;
 const labelBounds = { width: 80, height: 24 } as const;
 const editBounds = { width: 160, height: 32 } as const;
@@ -104,31 +104,31 @@ const imageBounds = { width: 160, height: 120 } as const;
 const listBoxBounds = { width: 180, height: 120 } as const;
 const apiClientBounds = { width: 112, height: 52 } as const;
 
-const webForm: ComponentDefinition = {
-  type: 'WebForm',
-  displayName: 'Form',
-  namePrefix: 'Form',
-  palette: { category: containersCategory, caption: 'Form' },
-  icon: 'component-form',
+const webPage: ComponentDefinition = {
+  type: 'WebPage',
+  displayName: 'Page',
+  namePrefix: 'Page',
+  palette: { category: containersCategory, caption: 'Page' },
+  icon: 'component-page',
   visual: true,
   canHaveChildren: true,
   defaultEvent: 'OnCreate',
-  defaultBounds: formBounds,
+  defaultBounds: pageBounds,
   defaults: {
-    caption: 'Form',
+    caption: 'Page',
     visible: true,
     enabled: true,
     backgroundColor: '#ffffff',
   },
   properties: [
-    ...geometryProperties(formBounds),
-    captionProperty('Form'),
+    ...geometryProperties(pageBounds),
+    captionProperty('Page'),
     {
       name: 'layoutMode',
       label: 'Layout',
       type: 'enum',
       category: 'Layout',
-      source: 'form',
+      source: 'page',
       defaultValue: 'absolute',
       options: ['absolute'],
     },
@@ -578,7 +578,7 @@ const webApiClient: ComponentDefinition = {
   visual: false,
   canHaveChildren: false,
   defaultEvent: null,
-  // Nonvisual nodes still carry model bounds for format compatibility. The Designer
+  // Nonvisual nodes still carry model bounds for model consistency. The Designer
   // projects them into its tray instead of interpreting these as canvas geometry.
   defaultBounds: apiClientBounds,
   defaults: {
@@ -599,7 +599,7 @@ const webApiClient: ComponentDefinition = {
 };
 
 export const MVP_COMPONENT_TYPES = [
-  'WebForm',
+  'WebPage',
   'WebPanel',
   'WebLabel',
   'WebEdit',
@@ -615,7 +615,7 @@ export const MVP_COMPONENT_TYPES = [
 export type MvpComponentType = (typeof MVP_COMPONENT_TYPES)[number];
 
 const mvpComponentDefinitions: readonly ComponentDefinition[] = [
-  webForm,
+  webPage,
   webPanel,
   webLabel,
   webEdit,

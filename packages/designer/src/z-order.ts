@@ -1,4 +1,4 @@
-import type { ComponentNode, FormModel } from '@webrad/project-model';
+import type { ComponentNode, PageModel } from '@webrad/project-model';
 
 import type { Command } from './command-history.js';
 import { DesignerModelError, findDesignerComponent, replaceComponentNodes } from './model-utils.js';
@@ -16,33 +16,33 @@ function reorderedChildren(
 }
 
 function replaceParentOrders(
-  form: FormModel,
+  page: PageModel,
   orders: ReadonlyMap<string, readonly string[]>,
-): FormModel {
+): PageModel {
   const replacements = new Map<string, ComponentNode>();
   for (const [parentId, children] of orders) {
-    const parent = findDesignerComponent(form, parentId);
+    const parent = findDesignerComponent(page, parentId);
     replacements.set(parentId, { ...parent, children: [...children] });
   }
-  return replaceComponentNodes(form, replacements);
+  return replaceComponentNodes(page, replacements);
 }
 
 export function changeZOrder(
-  form: FormModel,
+  page: PageModel,
   componentIds: Iterable<string>,
   direction: ZOrderDirection,
-): FormModel {
+): PageModel {
   const selectedIds = new Set(componentIds);
   if (selectedIds.size === 0) {
-    return form;
+    return page;
   }
-  if (selectedIds.has(form.rootComponentId)) {
-    throw new DesignerModelError('The form root component has no sibling Z-order.');
+  if (selectedIds.has(page.rootComponentId)) {
+    throw new DesignerModelError('The page root component has no sibling Z-order.');
   }
 
   const byParent = new Map<string, Set<string>>();
   for (const id of selectedIds) {
-    const component = findDesignerComponent(form, id);
+    const component = findDesignerComponent(page, id);
     if (component.parentId === null) {
       throw new DesignerModelError(`Component "${id}" has no parent Z-order.`);
     }
@@ -53,7 +53,7 @@ export function changeZOrder(
 
   const orders = new Map<string, readonly string[]>();
   for (const [parentId, ids] of byParent) {
-    const parent = findDesignerComponent(form, parentId);
+    const parent = findDesignerComponent(page, parentId);
     for (const id of ids) {
       if (!parent.children.includes(id)) {
         throw new DesignerModelError(`Parent "${parentId}" does not reference child "${id}".`);
@@ -61,18 +61,18 @@ export function changeZOrder(
     }
     orders.set(parentId, reorderedChildren(parent.children, ids, direction));
   }
-  return replaceParentOrders(form, orders);
+  return replaceParentOrders(page, orders);
 }
 
-export function bringToFront(form: FormModel, componentIds: Iterable<string>): FormModel {
-  return changeZOrder(form, componentIds, 'front');
+export function bringToFront(page: PageModel, componentIds: Iterable<string>): PageModel {
+  return changeZOrder(page, componentIds, 'front');
 }
 
-export function sendToBack(form: FormModel, componentIds: Iterable<string>): FormModel {
-  return changeZOrder(form, componentIds, 'back');
+export function sendToBack(page: PageModel, componentIds: Iterable<string>): PageModel {
+  return changeZOrder(page, componentIds, 'back');
 }
 
-export class ChangeZOrderCommand implements Command<FormModel> {
+export class ChangeZOrderCommand implements Command<PageModel> {
   public readonly label: string;
   readonly #componentIds: readonly string[];
   readonly #direction: ZOrderDirection;
@@ -90,11 +90,11 @@ export class ChangeZOrderCommand implements Command<FormModel> {
     this.label = direction === 'front' ? 'Bring to front' : 'Send to back';
   }
 
-  public execute(form: FormModel): FormModel {
+  public execute(page: PageModel): PageModel {
     if (this.#after === null) {
       const parentIds = new Set(
         this.#componentIds.map((id) => {
-          const parentId = findDesignerComponent(form, id).parentId;
+          const parentId = findDesignerComponent(page, id).parentId;
           if (parentId === null) {
             throw new DesignerModelError(`Component "${id}" has no parent Z-order.`);
           }
@@ -104,10 +104,10 @@ export class ChangeZOrderCommand implements Command<FormModel> {
       this.#before = new Map(
         [...parentIds].map((parentId) => [
           parentId,
-          [...findDesignerComponent(form, parentId).children],
+          [...findDesignerComponent(page, parentId).children],
         ]),
       );
-      const changed = changeZOrder(form, this.#componentIds, this.#direction);
+      const changed = changeZOrder(page, this.#componentIds, this.#direction);
       this.#after = new Map(
         [...parentIds].map((parentId) => [
           parentId,
@@ -115,14 +115,14 @@ export class ChangeZOrderCommand implements Command<FormModel> {
         ]),
       );
     }
-    return replaceParentOrders(form, this.#after);
+    return replaceParentOrders(page, this.#after);
   }
 
-  public undo(form: FormModel): FormModel {
+  public undo(page: PageModel): PageModel {
     if (this.#before === null) {
       throw new Error('Cannot undo a ChangeZOrderCommand before it has executed.');
     }
-    return replaceParentOrders(form, this.#before);
+    return replaceParentOrders(page, this.#before);
   }
 }
 

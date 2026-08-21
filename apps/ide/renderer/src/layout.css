@@ -573,7 +573,7 @@ button.wr-problem:focus-visible {
   object-fit: contain;
 }
 
-.wr-form-icon {
+.wr-page-icon {
   display: grid;
   place-items: center;
   width: 16px;
@@ -1010,12 +1010,12 @@ kbd {
   padding: 32px;
 }
 
-.wr-form-zoom-frame {
+.wr-page-zoom-frame {
   position: relative;
   margin: 0 auto 50px;
 }
 
-.wr-form-surface {
+.wr-page-surface {
   position: absolute;
   top: 0;
   left: 0;
@@ -1026,7 +1026,7 @@ kbd {
   outline: 1px solid #9ba4b0;
 }
 
-.wr-form-surface.show-grid {
+.wr-page-surface.show-grid {
   background-image: radial-gradient(circle, rgba(80, 90, 105, 0.38) 0.65px, transparent 0.8px);
 }
 

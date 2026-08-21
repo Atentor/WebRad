@@ -21,7 +21,7 @@ export const IDE_COMMANDS = [
   'view.objectInspector',
   'view.toolPalette',
   'view.output',
-  'project.addForm',
+  'project.addPage',
   'project.build',
   'run.run',
   'view.toggleTheme',

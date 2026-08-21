@@ -17,7 +17,7 @@ import {
 function marker(overrides: Partial<MonacoMarkerLike> = {}): MonacoMarkerLike {
   return {
     owner: 'typescript',
-    resource: { toString: () => 'file:///C:/Projects/Demo/forms/FrmMain.ts' },
+    resource: { toString: () => 'file:///C:/Projects/Demo/pages/PageMain.ts' },
     severity: 8,
     code: '2304',
     message: "Cannot find name 'MissingType'.",
@@ -35,7 +35,7 @@ function buildDiagnostic(overrides: Partial<BuildDiagnostic> = {}): BuildDiagnos
     source: 'typescript',
     code: 2304,
     message: "Cannot find name 'MissingType'.",
-    file: 'forms/FrmMain.ts',
+    file: 'pages/PageMain.ts',
     line: 4,
     column: 11,
     length: 11,
@@ -58,7 +58,7 @@ describe('editor problems', () => {
       category: 'error',
       source: 'ts',
       code: 'TS2304',
-      resource: 'file:///C:/Projects/Demo/forms/FrmMain.ts',
+      resource: 'file:///C:/Projects/Demo/pages/PageMain.ts',
       origins: ['monaco'],
       owners: ['typescript'],
       range: {
@@ -82,21 +82,21 @@ describe('editor problems', () => {
     const resolveResource = vi.fn((file: string) => `file:///C:/Projects/Demo/${file}`);
     const problem = normalizeBuildDiagnostic(
       buildDiagnostic({
-        file: 'forms\\FrmMain.ts',
-        path: ['forms', 0, 'components', 2, 'props', 'caption'],
+        file: 'pages\\PageMain.ts',
+        path: ['pages', 0, 'components', 2, 'props', 'caption'],
       }),
       { resolveResource },
     );
 
-    expect(resolveResource).toHaveBeenCalledWith('forms/FrmMain.ts');
+    expect(resolveResource).toHaveBeenCalledWith('pages/PageMain.ts');
     expect(problem).toMatchObject({
       category: 'error',
       source: 'typescript',
       code: 2304,
-      file: 'forms/FrmMain.ts',
-      resource: 'file:///C:/Projects/Demo/forms/FrmMain.ts',
+      file: 'pages/PageMain.ts',
+      resource: 'file:///C:/Projects/Demo/pages/PageMain.ts',
       length: 11,
-      path: ['forms', 0, 'components', 2, 'props', 'caption'],
+      path: ['pages', 0, 'components', 2, 'props', 'caption'],
       origins: ['build'],
       owners: [],
     });
@@ -104,7 +104,7 @@ describe('editor problems', () => {
 
   it('uses current source text to calculate a multiline build range', () => {
     const problem = normalizeBuildDiagnostic(
-      buildDiagnostic({ file: 'forms/Test.ts', line: 1, column: 2, length: 4 }),
+      buildDiagnostic({ file: 'pages/Test.ts', line: 1, column: 2, length: 4 }),
       { getSourceText: () => 'abc\ndef' },
     );
 
@@ -130,7 +130,7 @@ describe('editor problems', () => {
   });
 
   it('deduplicates the same Monaco and build diagnostic while retaining both origins', () => {
-    const resource = 'file:///C:/Projects/Demo/forms/FrmMain.ts';
+    const resource = 'file:///C:/Projects/Demo/pages/PageMain.ts';
     const problems = createEditorProblems([marker()], [buildDiagnostic()], {
       resolveResource: () => resource,
     });
@@ -138,7 +138,7 @@ describe('editor problems', () => {
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatchObject({
       code: '2304',
-      file: 'forms/FrmMain.ts',
+      file: 'pages/PageMain.ts',
       resource,
       origins: ['monaco', 'build'],
       owners: ['typescript'],
@@ -149,7 +149,7 @@ describe('editor problems', () => {
     const problems = mergeEditorProblems(
       normalizeMonacoMarkers([
         marker(),
-        marker({ resource: { toString: () => 'file:///C:/Projects/Demo/forms/Other.ts' } }),
+        marker({ resource: { toString: () => 'file:///C:/Projects/Demo/pages/Other.ts' } }),
       ]),
     );
 
@@ -178,7 +178,7 @@ describe('editor problems', () => {
   it('marks source ranges and model paths as navigable', () => {
     const located = normalizeBuildDiagnostic(buildDiagnostic());
     const modelPath = normalizeBuildDiagnostic(
-      buildDiagnostic({ file: undefined, line: undefined, path: ['forms', 0] }),
+      buildDiagnostic({ file: undefined, line: undefined, path: ['pages', 0] }),
     );
     const global = normalizeBuildDiagnostic(
       buildDiagnostic({ file: undefined, line: undefined, path: undefined }),

@@ -11,14 +11,14 @@ import {
 import {
   bindComponentEvent,
   getComponent,
-  parseForm,
-  serializeForm,
+  parsePage,
+  serializePage,
   type ComponentNode,
-  type FormModel,
+  type PageModel,
 } from '@webrad/project-model';
 import type { ComponentPropertyDefinition } from '@webrad/component-registry';
 
-class BindEventCommand implements Command<FormModel> {
+class BindEventCommand implements Command<PageModel> {
   public readonly label = 'Bind event';
   readonly #componentId: string;
   readonly #eventName: string;
@@ -31,44 +31,44 @@ class BindEventCommand implements Command<FormModel> {
     this.#handlerName = handlerName;
   }
 
-  public execute(form: FormModel): FormModel {
-    const component = getComponent(form, this.#componentId);
+  public execute(page: PageModel): PageModel {
+    const component = getComponent(page, this.#componentId);
     this.#previous ??= component.events[this.#eventName];
-    return bindComponentEvent(form, this.#componentId, this.#eventName, this.#handlerName);
+    return bindComponentEvent(page, this.#componentId, this.#eventName, this.#handlerName);
   }
 
-  public undo(form: FormModel): FormModel {
-    return bindComponentEvent(form, this.#componentId, this.#eventName, this.#previous ?? null);
+  public undo(page: PageModel): PageModel {
+    return bindComponentEvent(page, this.#componentId, this.#eventName, this.#previous ?? null);
   }
 }
 
-class ChangeFormPropertyCommand implements Command<FormModel> {
-  public readonly label = 'Change form property';
+class ChangePagePropertyCommand implements Command<PageModel> {
+  public readonly label = 'Change page property';
   readonly #property: 'layoutMode' | 'caption' | 'width' | 'height';
-  readonly #value: FormModel['layoutMode' | 'caption' | 'width' | 'height'];
-  #previous: FormModel['layoutMode' | 'caption' | 'width' | 'height'] | undefined;
+  readonly #value: PageModel['layoutMode' | 'caption' | 'width' | 'height'];
+  #previous: PageModel['layoutMode' | 'caption' | 'width' | 'height'] | undefined;
 
   public constructor(
     property: 'layoutMode' | 'caption' | 'width' | 'height',
-    value: FormModel['layoutMode' | 'caption' | 'width' | 'height'],
+    value: PageModel['layoutMode' | 'caption' | 'width' | 'height'],
   ) {
     this.#property = property;
     this.#value = value;
   }
 
-  public execute(form: FormModel): FormModel {
-    this.#previous ??= form[this.#property];
-    return parseForm({ ...form, [this.#property]: this.#value });
+  public execute(page: PageModel): PageModel {
+    this.#previous ??= page[this.#property];
+    return parsePage({ ...page, [this.#property]: this.#value });
   }
 
-  public undo(form: FormModel): FormModel {
-    if (this.#previous === undefined) throw new Error('Form property command has not executed.');
-    return parseForm({ ...form, [this.#property]: this.#previous });
+  public undo(page: PageModel): PageModel {
+    if (this.#previous === undefined) throw new Error('Page property command has not executed.');
+    return parsePage({ ...page, [this.#property]: this.#previous });
   }
 }
 
-class ChangeRootPropertyCommand implements Command<FormModel> {
-  public readonly label = 'Change form root property';
+class ChangeRootPropertyCommand implements Command<PageModel> {
+  public readonly label = 'Change page root property';
   readonly #propertyName: string;
   readonly #value: unknown;
   #previous: unknown;
@@ -79,145 +79,145 @@ class ChangeRootPropertyCommand implements Command<FormModel> {
     this.#value = value;
   }
 
-  public execute(form: FormModel): FormModel {
-    const root = getComponent(form, form.rootComponentId);
+  public execute(page: PageModel): PageModel {
+    const root = getComponent(page, page.rootComponentId);
     if (!this.#executed) {
       this.#previous =
         this.#propertyName === 'width' || this.#propertyName === 'height'
-          ? form[this.#propertyName]
+          ? page[this.#propertyName]
           : root.props[this.#propertyName];
       this.#executed = true;
     }
-    return this.#apply(form, this.#value);
+    return this.#apply(page, this.#value);
   }
 
-  public undo(form: FormModel): FormModel {
-    if (!this.#executed) throw new Error('Form root property command has not executed.');
-    return this.#apply(form, this.#previous);
+  public undo(page: PageModel): PageModel {
+    if (!this.#executed) throw new Error('Page root property command has not executed.');
+    return this.#apply(page, this.#previous);
   }
 
-  #apply(form: FormModel, value: unknown): FormModel {
-    const root = getComponent(form, form.rootComponentId);
+  #apply(page: PageModel, value: unknown): PageModel {
+    const root = getComponent(page, page.rootComponentId);
     if (
       (this.#propertyName === 'width' || this.#propertyName === 'height') &&
       typeof value === 'number'
     ) {
-      const components = form.components.map((component) =>
+      const components = page.components.map((component) =>
         component.id === root.id
           ? { ...component, bounds: { ...component.bounds, [this.#propertyName]: value } }
           : component,
       );
-      return parseForm({ ...form, [this.#propertyName]: value, components });
+      return parsePage({ ...page, [this.#propertyName]: value, components });
     }
-    const components = form.components.map((component) =>
+    const components = page.components.map((component) =>
       component.id === root.id
         ? { ...component, props: { ...component.props, [this.#propertyName]: value } }
         : component,
     );
-    return parseForm({
-      ...form,
-      caption: this.#propertyName === 'caption' && typeof value === 'string' ? value : form.caption,
+    return parsePage({
+      ...page,
+      caption: this.#propertyName === 'caption' && typeof value === 'string' ? value : page.caption,
       components,
     });
   }
 }
 
 export interface PasteResult {
-  readonly form: FormModel;
+  readonly page: PageModel;
   readonly selectedIds: readonly string[];
 }
 
 export class DesignerController {
-  readonly #histories = new Map<string, CommandHistory<FormModel>>();
+  readonly #histories = new Map<string, CommandHistory<PageModel>>();
   #clipboard: DesignerClipboardData | null = null;
 
-  public synchronize(form: FormModel): CommandHistory<FormModel> {
-    const current = this.#histories.get(form.id);
+  public synchronize(page: PageModel): CommandHistory<PageModel> {
+    const current = this.#histories.get(page.id);
     if (!current) {
-      const created = new CommandHistory(form, { maxEntries: 250 });
-      this.#histories.set(form.id, created);
+      const created = new CommandHistory(page, { maxEntries: 250 });
+      this.#histories.set(page.id, created);
       return created;
     }
-    if (current.state !== form && serializeForm(current.state) !== serializeForm(form)) {
-      current.reset(form);
+    if (current.state !== page && serializePage(current.state) !== serializePage(page)) {
+      current.reset(page);
     }
     return current;
   }
 
-  public execute(form: FormModel, command: Command<FormModel>): FormModel {
-    return this.synchronize(form).execute(command);
+  public execute(page: PageModel, command: Command<PageModel>): PageModel {
+    return this.synchronize(page).execute(command);
   }
 
   public executeMany(
-    form: FormModel,
+    page: PageModel,
     label: string,
-    commands: readonly Command<FormModel>[],
-  ): FormModel {
-    const history = this.synchronize(form);
+    commands: readonly Command<PageModel>[],
+  ): PageModel {
+    const history = this.synchronize(page);
     history.runTransaction(label, () => {
       commands.forEach((command) => history.execute(command));
     });
     return history.state;
   }
 
-  public undo(form: FormModel): FormModel {
-    return this.synchronize(form).undo();
+  public undo(page: PageModel): PageModel {
+    return this.synchronize(page).undo();
   }
 
-  public redo(form: FormModel): FormModel {
-    return this.synchronize(form).redo();
+  public redo(page: PageModel): PageModel {
+    return this.synchronize(page).redo();
   }
 
-  public canUndo(form: FormModel): boolean {
-    return this.synchronize(form).canUndo;
+  public canUndo(page: PageModel): boolean {
+    return this.synchronize(page).canUndo;
   }
 
-  public canRedo(form: FormModel): boolean {
-    return this.synchronize(form).canRedo;
+  public canRedo(page: PageModel): boolean {
+    return this.synchronize(page).canRedo;
   }
 
-  public copy(form: FormModel, selectedIds: readonly string[]): void {
-    this.#clipboard = copyComponents(form, selectedIds);
+  public copy(page: PageModel, selectedIds: readonly string[]): void {
+    this.#clipboard = copyComponents(page, selectedIds);
   }
 
   public paste(
-    form: FormModel,
-    parentId = form.rootComponentId,
+    page: PageModel,
+    parentId = page.rootComponentId,
     gridSize = 8,
     snapToGrid = true,
   ): PasteResult {
-    if (!this.#clipboard) return { form, selectedIds: [] };
+    if (!this.#clipboard) return { page, selectedIds: [] };
     const command = new PasteComponentsCommand(this.#clipboard, {
       parentId,
       gridSize,
       snapToGrid,
     });
-    const next = this.execute(form, command);
-    return { form: next, selectedIds: command.pastedRootIds };
+    const next = this.execute(page, command);
+    return { page: next, selectedIds: command.pastedRootIds };
   }
 
   public changeProperty(
-    form: FormModel,
+    page: PageModel,
     selected: readonly ComponentNode[],
     property: ComponentPropertyDefinition,
     value: unknown,
-  ): FormModel {
-    if (selected.length === 0) return form;
+  ): PageModel {
+    if (selected.length === 0) return page;
     const ids = selected.map((component) => component.id);
-    if (selected.length === 1 && selected[0]?.id === form.rootComponentId) {
+    if (selected.length === 1 && selected[0]?.id === page.rootComponentId) {
       if (property.name === 'caption' || property.name === 'width' || property.name === 'height') {
-        return this.execute(form, new ChangeRootPropertyCommand(property.name, value));
+        return this.execute(page, new ChangeRootPropertyCommand(property.name, value));
       }
-      if (property.source === 'bounds') return form;
+      if (property.source === 'bounds') return page;
     }
     if (property.source === 'node' && property.name === 'name') {
-      if (selected.length !== 1 || typeof value !== 'string') return form;
-      return this.execute(form, new RenameComponentCommand(selected[0]?.id ?? '', value));
+      if (selected.length !== 1 || typeof value !== 'string') return page;
+      return this.execute(page, new RenameComponentCommand(selected[0]?.id ?? '', value));
     }
     if (property.source === 'bounds') {
-      if (typeof value !== 'number' || !Number.isFinite(value)) return form;
+      if (typeof value !== 'number' || !Number.isFinite(value)) return page;
       return this.executeMany(
-        form,
+        page,
         `Change ${property.label ?? property.name}`,
         selected.map(
           (component) =>
@@ -225,27 +225,27 @@ export class DesignerController {
         ),
       );
     }
-    if (property.source === 'form') {
+    if (property.source === 'page') {
       const supported = new Set(['layoutMode', 'caption', 'width', 'height']);
-      if (!supported.has(property.name)) return form;
+      if (!supported.has(property.name)) return page;
       return this.execute(
-        form,
-        new ChangeFormPropertyCommand(
+        page,
+        new ChangePagePropertyCommand(
           property.name as 'layoutMode' | 'caption' | 'width' | 'height',
-          value as FormModel['layoutMode'],
+          value as PageModel['layoutMode'],
         ),
       );
     }
-    return this.execute(form, new ChangePropertyCommand(ids, property.name, value));
+    return this.execute(page, new ChangePropertyCommand(ids, property.name, value));
   }
 
   public bindEvent(
-    form: FormModel,
+    page: PageModel,
     componentId: string,
     eventName: string,
     handlerName: string | null,
-  ): FormModel {
-    return this.execute(form, new BindEventCommand(componentId, eventName, handlerName));
+  ): PageModel {
+    return this.execute(page, new BindEventCommand(componentId, eventName, handlerName));
   }
 
   public clear(): void {

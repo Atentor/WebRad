@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { createUserFormSource } from '@webrad/language';
+import { createUserPageSource } from '@webrad/language';
 import { createProject, type WebRadProject } from '@webrad/project-model';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -21,7 +21,7 @@ import { applicationIconUrl } from './application-assets';
 interface MockCodeEditorProps {
   readonly path: string;
   readonly value: string;
-  readonly formComponents: readonly { readonly name: string; readonly type: string }[];
+  readonly pageComponents: readonly { readonly name: string; readonly type: string }[];
   readonly navigateTo?: { readonly line: number } | null;
   readonly onSourceChange: (resource: string, value: string) => void;
   readonly onMarkersChange: (
@@ -52,14 +52,14 @@ vi.mock('./components/CodeEditor', () => ({
   CodeEditor: ({
     path,
     value,
-    formComponents,
+    pageComponents,
     navigateTo,
     onSourceChange,
     onMarkersChange,
     onSave,
   }: MockCodeEditorProps) => (
     <div data-testid="mock-monaco" data-navigation-line={navigateTo?.line}>
-      <output data-testid="mock-monaco-form-components">{JSON.stringify(formComponents)}</output>
+      <output data-testid="mock-monaco-page-components">{JSON.stringify(pageComponents)}</output>
       <textarea
         aria-label="Mock Monaco editor"
         value={value}
@@ -107,13 +107,13 @@ function initialSession(): ProjectSession {
   const project = createProject('MvpProject', {
     idFactory: () => `integration-id-${String((sequence += 1))}`,
   });
-  const form = project.forms[0];
-  if (form === undefined) throw new Error('The integration project requires FrmMain.');
+  const page = project.pages[0];
+  if (page === undefined) throw new Error('The integration project requires PageMain.');
   return {
     rootPath: 'C:\\Projects\\MvpProject',
     projectFilePath: 'C:\\Projects\\MvpProject\\MvpProject.wrproj',
     project,
-    userSources: { 'forms/FrmMain.ts': createUserFormSource(form) },
+    userSources: { 'pages/PageMain.ts': createUserPageSource(page) },
   };
 }
 
@@ -219,7 +219,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
 }
 
 function componentTypes(project: WebRadProject): readonly string[] {
-  return project.forms[0]?.components.map((component) => component.type) ?? [];
+  return project.pages[0]?.components.map((component) => component.type) ?? [];
 }
 
 function imageSource(selector: string): string | null {
@@ -255,6 +255,10 @@ describe('App MVP integration', () => {
     await user.type(projectName, 'MvpProject');
     await user.click(screen.getByRole('button', { name: 'Create project' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
+    expect(screen.getByText('Pages')).toBeDefined();
+    expect(screen.getAllByText('PageMain').length).toBeGreaterThan(0);
+    expect(screen.getByTitle('Entry page')).toBeDefined();
+    expect(screen.queryByText('Forms')).toBeNull();
     expect(imageSource('.wr-project-icon')).toBe(toolbarIconSource);
     expect(harness.create).toHaveBeenCalledWith({ name: 'MvpProject' });
 
@@ -299,7 +303,7 @@ describe('App MVP integration', () => {
     });
 
     await user.click(screen.getByRole('tab', { name: 'Code' }));
-    expect(screen.getByTestId('mock-monaco-form-components').textContent).toBe(
+    expect(screen.getByTestId('mock-monaco-page-components').textContent).toBe(
       JSON.stringify([
         { name: 'Label1', type: 'WebLabel' },
         { name: 'Edit1', type: 'WebEdit' },
@@ -312,19 +316,19 @@ describe('App MVP integration', () => {
     await screen.findByText('Saved MvpProject.');
     const saved = harness.persisted();
     expect(componentTypes(saved.project)).toEqual([
-      'WebForm',
+      'WebPage',
       'WebLabel',
       'WebEdit',
       'WebButton',
       'WebApiClient',
     ]);
     expect(
-      saved.project.forms[0]?.components.find((component) => component.name === 'ApiClientes')
+      saved.project.pages[0]?.components.find((component) => component.name === 'ApiClientes')
         ?.props.baseUrl,
     ).toBe('https://api.example.test/v1');
-    expect(saved.userSources['forms/FrmMain.ts']).toContain('// integration edit');
+    expect(saved.userSources['pages/PageMain.ts']).toContain('// integration edit');
     expect(
-      saved.project.forms[0]?.components.find((component) => component.name === 'BTNMostrar')
+      saved.project.pages[0]?.components.find((component) => component.name === 'BTNMostrar')
         ?.events.OnClick,
     ).toBe('BTNMostrarClick');
 
@@ -345,9 +349,9 @@ describe('App MVP integration', () => {
     expect(preview.getAttribute('sandbox')).toBe('allow-forms allow-modals allow-scripts');
     expect(harness.build).toHaveBeenCalledOnce();
     const buildRequest = harness.build.mock.calls[0]?.[0] as BuildRequest | undefined;
-    expect(buildRequest?.userSources['forms/FrmMain.ts']).toContain('// integration edit');
+    expect(buildRequest?.userSources['pages/PageMain.ts']).toContain('// integration edit');
     expect(componentTypes(buildRequest?.project ?? saved.project)).toEqual([
-      'WebForm',
+      'WebPage',
       'WebLabel',
       'WebEdit',
       'WebButton',
@@ -356,6 +360,37 @@ describe('App MVP integration', () => {
     expect(harness.save.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(harness.setDirty).toHaveBeenCalledWith(true);
     expect(harness.setDirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it('creates additional pages with the Page naming contract', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const prompt = vi
+      .spyOn(window, 'prompt')
+      .mockImplementation((_message, defaultValue) => defaultValue ?? null);
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await act(async () => {
+      harness.invokeCommand('project.addPage');
+    });
+
+    expect(prompt).toHaveBeenCalledWith('Page name', 'Page2');
+    expect((await screen.findAllByText('Page2')).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await screen.findByText('Saved MvpProject.');
+    expect(harness.persisted().project.pages.map((page) => page.name)).toEqual([
+      'PageMain',
+      'Page2',
+    ]);
+    expect(harness.persisted().userSources['pages/Page2.ts']).toContain(
+      'export class Page2 extends Page2Generated',
+    );
   });
 
   it('preserves the latest Monaco buffer after focus leaves the editor and Design-Code remounts it', async () => {
@@ -407,8 +442,8 @@ describe('App MVP integration', () => {
     await screen.findByText('Saved MvpProject.');
 
     const saveRequest = harness.save.mock.calls.at(-1)?.[0] as SaveProjectRequest | undefined;
-    expect(saveRequest?.userSources['forms/FrmMain.ts']).toBe(editedSource);
-    expect(harness.persisted().userSources['forms/FrmMain.ts']).toBe(editedSource);
+    expect(saveRequest?.userSources['pages/PageMain.ts']).toBe(editedSource);
+    expect(harness.persisted().userSources['pages/PageMain.ts']).toBe(editedSource);
     expect((screen.getByLabelText('Mock Monaco editor') as HTMLTextAreaElement).value).toBe(
       editedSource,
     );
@@ -502,7 +537,7 @@ describe('App MVP integration', () => {
           source: 'typescript',
           code: 2322,
           message: "Type 'string' is not assignable to type 'number'.",
-          file: 'forms/FrmMain.ts',
+          file: 'pages/PageMain.ts',
           line: 3,
           column: 7,
           length: 6,

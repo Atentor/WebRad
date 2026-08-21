@@ -4,12 +4,11 @@ import {
   ProjectParseError,
   UnsupportedFormatVersionError,
 } from './errors.js';
-import { parseForm, parseProject, parseProjectManifest } from './schemas.js';
+import { parsePage, parseProject, parseProjectManifest } from './schemas.js';
 import {
-  CURRENT_FORM_FORMAT_VERSION,
+  CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
-  DEFAULT_PROJECT_SETTINGS,
-  type FormModel,
+  type PageModel,
   type ProjectManifest,
   type WebRadProject,
 } from './types.js';
@@ -20,126 +19,24 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function readVersion(input: unknown, kind: 'project' | 'form'): number {
+function readVersion(input: unknown, kind: 'project' | 'page'): number {
   if (!isRecord(input) || !Number.isInteger(input.formatVersion)) {
     throw new ProjectParseError(`The ${kind} document must contain an integer formatVersion.`);
   }
   return input.formatVersion as number;
 }
 
-function assertSupportedVersion(
-  kind: 'project' | 'form',
+function assertCurrentVersion(
+  kind: 'project' | 'page',
   version: number,
   currentVersion: number,
 ): void {
   if (version > currentVersion) {
     throw new FutureFormatVersionError(kind, version, currentVersion);
   }
-  if (version < 0) {
+  if (version !== currentVersion) {
     throw new UnsupportedFormatVersionError(kind, version, currentVersion);
   }
-}
-
-function migrateSettingsV0(input: unknown): JsonRecord {
-  const settings = isRecord(input) ? input : {};
-  return {
-    gridSize:
-      typeof settings.gridSize === 'number' ? settings.gridSize : DEFAULT_PROJECT_SETTINGS.gridSize,
-    snapToGrid:
-      typeof settings.snapToGrid === 'boolean'
-        ? settings.snapToGrid
-        : DEFAULT_PROJECT_SETTINGS.snapToGrid,
-    showGrid:
-      typeof settings.showGrid === 'boolean'
-        ? settings.showGrid
-        : DEFAULT_PROJECT_SETTINGS.showGrid,
-    outputDirectory:
-      typeof settings.outputDirectory === 'string'
-        ? settings.outputDirectory
-        : DEFAULT_PROJECT_SETTINGS.outputDirectory,
-  };
-}
-
-function migrateFormV0(input: JsonRecord): JsonRecord {
-  const form = { ...input };
-  delete form.formatVersion;
-  return {
-    ...form,
-    formatVersion: CURRENT_FORM_FORMAT_VERSION,
-    layoutMode: form.layoutMode ?? 'absolute',
-  };
-}
-
-function migrateProjectV0(input: JsonRecord): JsonRecord {
-  const project = { ...input };
-  delete project.formatVersion;
-  return {
-    ...project,
-    formatVersion: CURRENT_PROJECT_FORMAT_VERSION,
-    forms: Array.isArray(project.forms)
-      ? project.forms.map((form) => (isRecord(form) ? migrateFormV0(form) : form))
-      : project.forms,
-    settings: migrateSettingsV0(project.settings),
-  };
-}
-
-/** Applies explicit, one-version-at-a-time migrations and returns a current raw document. */
-export function migrateProjectDocument(input: unknown): unknown {
-  let document = input;
-  let version = readVersion(document, 'project');
-  assertSupportedVersion('project', version, CURRENT_PROJECT_FORMAT_VERSION);
-
-  while (version < CURRENT_PROJECT_FORMAT_VERSION) {
-    if (version === 0 && isRecord(document)) {
-      document = migrateProjectV0(document);
-    } else {
-      throw new UnsupportedFormatVersionError('project', version, CURRENT_PROJECT_FORMAT_VERSION);
-    }
-    version = readVersion(document, 'project');
-  }
-
-  return document;
-}
-
-export function migrateFormDocument(input: unknown): unknown {
-  let document = input;
-  let version = readVersion(document, 'form');
-  assertSupportedVersion('form', version, CURRENT_FORM_FORMAT_VERSION);
-
-  while (version < CURRENT_FORM_FORMAT_VERSION) {
-    if (version === 0 && isRecord(document)) {
-      document = migrateFormV0(document);
-    } else {
-      throw new UnsupportedFormatVersionError('form', version, CURRENT_FORM_FORMAT_VERSION);
-    }
-    version = readVersion(document, 'form');
-  }
-
-  return document;
-}
-
-function migrateManifestDocument(input: unknown): unknown {
-  const version = readVersion(input, 'project');
-  assertSupportedVersion('project', version, CURRENT_PROJECT_FORMAT_VERSION);
-  if (version === CURRENT_PROJECT_FORMAT_VERSION) return input;
-  if (version === 0 && isRecord(input)) {
-    const manifest = { ...input };
-    delete manifest.formatVersion;
-    return {
-      ...manifest,
-      formatVersion: CURRENT_PROJECT_FORMAT_VERSION,
-      settings: migrateSettingsV0(manifest.settings),
-    };
-  }
-  throw new UnsupportedFormatVersionError('project', version, CURRENT_PROJECT_FORMAT_VERSION);
-}
-
-export function migrateProject(input: unknown): WebRadProject {
-  return parseProject(migrateProjectDocument(input));
-}
-
-export function migrateForm(input: unknown): FormModel {
-  return parseForm(migrateFormDocument(input));
 }
 
 const KEY_ORDER = new Map<string, number>(
@@ -149,10 +46,10 @@ const KEY_ORDER = new Map<string, number>(
     'type',
     'name',
     'caption',
-    'entryForm',
-    'forms',
+    'entryPage',
+    'pages',
     'settings',
-    'formFile',
+    'pageFile',
     'generatedFile',
     'codeFile',
     'width',
@@ -209,15 +106,19 @@ export function serializeProject(project: WebRadProject): string {
 }
 
 export function deserializeProject(text: string): WebRadProject {
-  return migrateProject(parseJson(text, 'project'));
+  const document = parseJson(text, 'project');
+  assertCurrentVersion('project', readVersion(document, 'project'), CURRENT_PROJECT_FORMAT_VERSION);
+  return parseProject(document);
 }
 
-export function serializeForm(form: FormModel): string {
-  return stableJson(parseForm(form));
+export function serializePage(page: PageModel): string {
+  return stableJson(parsePage(page));
 }
 
-export function deserializeForm(text: string): FormModel {
-  return migrateForm(parseJson(text, 'form'));
+export function deserializePage(text: string): PageModel {
+  const document = parseJson(text, 'page');
+  assertCurrentVersion('page', readVersion(document, 'page'), CURRENT_PAGE_FORMAT_VERSION);
+  return parsePage(document);
 }
 
 export function serializeProjectManifest(manifest: ProjectManifest): string {
@@ -225,7 +126,9 @@ export function serializeProjectManifest(manifest: ProjectManifest): string {
 }
 
 export function deserializeProjectManifest(text: string): ProjectManifest {
-  return parseProjectManifest(migrateManifestDocument(parseJson(text, 'project manifest')));
+  const document = parseJson(text, 'project manifest');
+  assertCurrentVersion('project', readVersion(document, 'project'), CURRENT_PROJECT_FORMAT_VERSION);
+  return parseProjectManifest(document);
 }
 
 export interface DeserializeSuccess<T> {
@@ -258,8 +161,8 @@ export function safeDeserializeProject(text: string): DeserializeResult<WebRadPr
   return safeDeserialize(() => deserializeProject(text));
 }
 
-export function safeDeserializeForm(text: string): DeserializeResult<FormModel> {
-  return safeDeserialize(() => deserializeForm(text));
+export function safeDeserializePage(text: string): DeserializeResult<PageModel> {
+  return safeDeserialize(() => deserializePage(text));
 }
 
 export function safeDeserializeProjectManifest(text: string): DeserializeResult<ProjectManifest> {

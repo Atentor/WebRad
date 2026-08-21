@@ -137,17 +137,20 @@ function completionNames(
 
 describe('Monaco runtime typings', () => {
   it('stays in parity with every public runtime export', () => {
-    expect(runtimeModuleExports(generateRuntimeTypings())).toEqual(publicRuntimeExports());
+    const typingsExports = runtimeModuleExports(generateRuntimeTypings());
+    const runtimeExports = publicRuntimeExports();
+    expect(typingsExports).toEqual(runtimeExports);
+    expect(runtimeExports).not.toContain('WebForm');
   });
 
-  it('offers component, form, API client, and collection completions', () => {
+  it('offers component, page, API client, and collection completions', () => {
     const marked = extractMarkers(`import {
   WebApiClient,
   WebButton,
   WebCheckBox,
   WebComboBox,
   WebEdit,
-  WebForm,
+  WebPage,
   WebImage,
   WebLabel,
   WebListBox,
@@ -155,7 +158,7 @@ describe('Monaco runtime typings', () => {
   WebTextArea,
 } from '@webrad/runtime';
 
-class EditorForm extends WebForm {
+class EditorPage extends WebPage {
   configure(
     panel: WebPanel,
     label: WebLabel,
@@ -178,7 +181,7 @@ class EditorForm extends WebForm {
     image./*@image*/objectFit;
     list./*@list*/selectedIndex;
     api./*@api*/request;
-    this./*@form*/show;
+    this./*@page*/show;
   }
 }
 `);
@@ -284,7 +287,7 @@ class EditorForm extends WebForm {
         'request',
       ]),
     );
-    expect(completions('form')).toEqual(
+    expect(completions('page')).toEqual(
       expect.arrayContaining([
         ...commonVisualProperties,
         'bindGeneratedEvent',
@@ -302,7 +305,7 @@ class EditorForm extends WebForm {
       WebCheckBox: 'checkBox',
       WebComboBox: 'combo',
       WebEdit: 'edit',
-      WebForm: 'form',
+      WebPage: 'page',
       WebImage: 'image',
       WebLabel: 'label',
       WebListBox: 'list',
@@ -328,7 +331,7 @@ class EditorForm extends WebForm {
   WebButton,
   WebComboBox,
   WebEdit,
-  WebForm,
+  WebPage,
   WebImage,
   WebLabel,
   WebListBox,
@@ -338,7 +341,7 @@ class EditorForm extends WebForm {
   type WebSelectItem,
 } from '@webrad/runtime';
 
-class EditorForm extends WebForm {
+class EditorPage extends WebPage {
   configure(
     panel: WebPanel,
     label: WebLabel,
@@ -399,19 +402,19 @@ Message(error.message);
   WebApiClient,
   WebButton,
   WebEdit,
-  WebForm,
+  WebPage,
   WebImage,
   WebListBox,
 } from '@webrad/runtime';
 declare const button: WebButton;
 declare const edit: WebEdit;
-declare const form: WebForm;
+declare const page: WebPage;
 declare const image: WebImage;
 declare const list: WebListBox;
 declare const api: WebApiClient;
 button.caption = 42;
 edit.inputType = 'date';
-form.layoutMode = 'table';
+page.layoutMode = 'table';
 image.objectFit = 'stretch';
 list.multiple = 'yes';
 api.baseUrl = 42;

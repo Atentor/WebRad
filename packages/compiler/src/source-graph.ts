@@ -1,8 +1,8 @@
 import path from 'node:path';
 
 import type { ComponentRegistry } from '@webrad/component-registry';
-import type { FormModel, WebRadProject } from '@webrad/project-model';
-import { createUserFormSource, generateFormSource } from '@webrad/language';
+import type { PageModel, WebRadProject } from '@webrad/project-model';
+import { createUserPageSource, generatePageSource } from '@webrad/language';
 
 import runtimeSources from './runtime-sources.json';
 import { GENERATED_APP_CSS } from './styles.js';
@@ -41,12 +41,12 @@ export function virtualAbsolutePath(portablePath: string): string {
   return path.resolve(VIRTUAL_ROOT, ...portablePath.split('/'));
 }
 
-function formSourcePath(form: FormModel): string {
-  return `forms/${form.name}.ts`;
+function pageSourcePath(page: PageModel): string {
+  return `pages/${page.name}.ts`;
 }
 
-function generatedSourcePath(form: FormModel): string {
-  return `forms/${form.name}.generated.ts`;
+function generatedSourcePath(page: PageModel): string {
+  return `pages/${page.name}.generated.ts`;
 }
 
 function createGlobalTypings(): string {
@@ -66,15 +66,15 @@ export {};
 `;
 }
 
-function runtimeFormModel(form: FormModel, registry: ComponentRegistry): FormModel {
+function runtimePageModel(page: PageModel, registry: ComponentRegistry): PageModel {
   const visualIds = new Set(
-    form.components
+    page.components
       .filter((component) => registry.require(component.type).visual)
       .map((component) => component.id),
   );
   return {
-    ...form,
-    components: form.components
+    ...page,
+    components: page.components
       .filter((component) => visualIds.has(component.id))
       .map((component) => ({
         ...component,
@@ -84,25 +84,25 @@ function runtimeFormModel(form: FormModel, registry: ComponentRegistry): FormMod
 }
 
 function createEntrySource(project: WebRadProject, registry: ComponentRegistry): string {
-  const entryForm = project.forms.find((form) => form.id === project.entryForm);
-  if (entryForm === undefined) throw new Error('The validated project has no entry form.');
-  const serializedForm = JSON.stringify(runtimeFormModel(entryForm, registry));
+  const entryPage = project.pages.find((page) => page.id === project.entryPage);
+  if (entryPage === undefined) throw new Error('The validated project has no entry page.');
+  const serializedPage = JSON.stringify(runtimePageModel(entryPage, registry));
   return `import {
   Confirm,
   Message,
   Navigate,
-  mountForm,
+  mountPage,
 } from '@webrad/runtime';
-import type { RuntimeFormModel } from '@webrad/runtime';
-import { ${entryForm.name} } from './forms/${entryForm.name}';
+import type { RuntimePageModel } from '@webrad/runtime';
+import { ${entryPage.name} } from './pages/${entryPage.name}';
 import './app.css';
 
 Object.assign(globalThis, { Confirm, Message, Navigate });
 
-const model = ${serializedForm} as unknown as RuntimeFormModel;
-const mounted = mountForm(model, document.body);
-const form = new ${entryForm.name}(mounted.element);
-form.show();
+const model = ${serializedPage} as unknown as RuntimePageModel;
+const mounted = mountPage(model, document.body);
+const page = new ${entryPage.name}(mounted.element);
+page.show();
 `;
 }
 
@@ -141,12 +141,12 @@ export function createVirtualSourceGraph(
     sources.set(virtualAbsolutePath(normalized), contents);
   }
 
-  for (const form of project.forms) {
-    const userPath = virtualAbsolutePath(formSourcePath(form));
-    if (!sources.has(userPath)) sources.set(userPath, createUserFormSource(form));
+  for (const page of project.pages) {
+    const userPath = virtualAbsolutePath(pageSourcePath(page));
+    if (!sources.has(userPath)) sources.set(userPath, createUserPageSource(page));
     sources.set(
-      virtualAbsolutePath(generatedSourcePath(form)),
-      generateFormSource(form, { registry }),
+      virtualAbsolutePath(generatedSourcePath(page)),
+      generatePageSource(page, { registry }),
     );
   }
 

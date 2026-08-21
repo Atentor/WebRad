@@ -180,7 +180,7 @@ export function findEventHandler(
   >,
 ): SourceLocation | undefined {
   const sourceFile = ts.createSourceFile(
-    request.fileName ?? 'Form.ts',
+    request.fileName ?? 'Page.ts',
     sourceText,
     ts.ScriptTarget.Latest,
     true,
@@ -287,20 +287,20 @@ export function ensureEventHandler(
 export const insertEventHandler = ensureEventHandler;
 export const ensureHandler = ensureEventHandler;
 
-export interface RenameFormSourceResult {
+export interface RenamePageSourceResult {
   readonly sourceText: string;
   readonly changed: boolean;
 }
 
-/** Renames a form class and its generated-base import using TypeScript AST spans. */
-export function renameFormUserSource(
+/** Renames a page class and its generated-base import using TypeScript AST spans. */
+export function renamePageUserSource(
   sourceText: string,
-  oldFormName: string,
-  newFormName: string,
-  fileName = `${oldFormName}.ts`,
-): RenameFormSourceResult {
-  assertIdentifier(oldFormName, 'Old form name');
-  assertIdentifier(newFormName, 'New form name');
+  oldPageName: string,
+  newPageName: string,
+  fileName = `${oldPageName}.ts`,
+): RenamePageSourceResult {
+  assertIdentifier(oldPageName, 'Old page name');
+  assertIdentifier(newPageName, 'New page name');
   const sourceFile = ts.createSourceFile(
     fileName,
     sourceText,
@@ -308,17 +308,17 @@ export function renameFormUserSource(
     true,
     ts.ScriptKind.TS,
   );
-  const declaration = findClass(sourceFile, oldFormName);
+  const declaration = findClass(sourceFile, oldPageName);
   if (!declaration?.name) {
-    throw new LanguageEditError(`Class "${oldFormName}" was not found in ${fileName}.`);
+    throw new LanguageEditError(`Class "${oldPageName}" was not found in ${fileName}.`);
   }
-  const oldGeneratedName = `${oldFormName}Generated`;
-  const newGeneratedName = `${newFormName}Generated`;
+  const oldGeneratedName = `${oldPageName}Generated`;
+  const newGeneratedName = `${newPageName}Generated`;
   const edits: { position: number; end: number; text: string }[] = [
     {
       position: declaration.name.getStart(sourceFile),
       end: declaration.name.getEnd(),
-      text: newFormName,
+      text: newPageName,
     },
   ];
 
@@ -326,11 +326,11 @@ export function renameFormUserSource(
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) {
       continue;
     }
-    if (statement.moduleSpecifier.text === `./${oldFormName}.generated`) {
+    if (statement.moduleSpecifier.text === `./${oldPageName}.generated`) {
       edits.push({
         position: statement.moduleSpecifier.getStart(sourceFile),
         end: statement.moduleSpecifier.getEnd(),
-        text: JSON.stringify(`./${newFormName}.generated`),
+        text: JSON.stringify(`./${newPageName}.generated`),
       });
     }
     const bindings = statement.importClause?.namedBindings;

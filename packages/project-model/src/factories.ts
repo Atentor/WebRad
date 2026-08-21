@@ -1,15 +1,15 @@
 import { ModelUpdateError, ProjectModelError } from './errors.js';
 import { assertValidProjectName, assertValidTypeScriptIdentifier } from './naming.js';
-import { parseForm, parseProject, parseProjectManifest } from './schemas.js';
+import { parsePage, parseProject, parseProjectManifest } from './schemas.js';
 import {
-  CURRENT_FORM_FORMAT_VERSION,
+  CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
-  DEFAULT_FORM_HEIGHT,
-  DEFAULT_FORM_WIDTH,
+  DEFAULT_PAGE_HEIGHT,
+  DEFAULT_PAGE_WIDTH,
   DEFAULT_PROJECT_SETTINGS,
   type ComponentNode,
-  type FormDescriptor,
-  type FormModel,
+  type PageDescriptor,
+  type PageModel,
   type IdFactory,
   type LayoutMode,
   type ProjectManifest,
@@ -43,14 +43,14 @@ export function createDefaultRoot(
 ): ComponentNode {
   assertValidTypeScriptIdentifier(name);
   const width =
-    typeof options === 'function' ? DEFAULT_FORM_WIDTH : (options.width ?? DEFAULT_FORM_WIDTH);
+    typeof options === 'function' ? DEFAULT_PAGE_WIDTH : (options.width ?? DEFAULT_PAGE_WIDTH);
   const height =
-    typeof options === 'function' ? DEFAULT_FORM_HEIGHT : (options.height ?? DEFAULT_FORM_HEIGHT);
+    typeof options === 'function' ? DEFAULT_PAGE_HEIGHT : (options.height ?? DEFAULT_PAGE_HEIGHT);
   const caption = typeof options === 'function' ? name : (options.caption ?? name);
 
   return {
     id: resolveFactory(options)(),
-    type: 'WebForm',
+    type: 'WebPage',
     name,
     parentId: null,
     bounds: { x: 0, y: 0, width, height },
@@ -70,29 +70,29 @@ export function createDefaultRoot(
   };
 }
 
-export interface CreateFormOptions extends CreateDefaultRootOptions {
+export interface CreatePageOptions extends CreateDefaultRootOptions {
   readonly layoutMode?: LayoutMode;
 }
 
-export function createForm(
-  name = 'FrmMain',
-  options: CreateFormOptions | IdFactory = {},
-): FormModel {
+export function createPage(
+  name = 'PageMain',
+  options: CreatePageOptions | IdFactory = {},
+): PageModel {
   assertValidTypeScriptIdentifier(name);
   const idFactory = resolveFactory(options);
   const width =
-    typeof options === 'function' ? DEFAULT_FORM_WIDTH : (options.width ?? DEFAULT_FORM_WIDTH);
+    typeof options === 'function' ? DEFAULT_PAGE_WIDTH : (options.width ?? DEFAULT_PAGE_WIDTH);
   const height =
-    typeof options === 'function' ? DEFAULT_FORM_HEIGHT : (options.height ?? DEFAULT_FORM_HEIGHT);
+    typeof options === 'function' ? DEFAULT_PAGE_HEIGHT : (options.height ?? DEFAULT_PAGE_HEIGHT);
   const caption = typeof options === 'function' ? name : (options.caption ?? name);
   const layoutMode =
     typeof options === 'function' ? 'absolute' : (options.layoutMode ?? 'absolute');
-  const formId = idFactory();
+  const pageId = idFactory();
   const root = createDefaultRoot(name, { idFactory, caption, width, height });
 
-  return parseForm({
-    formatVersion: CURRENT_FORM_FORMAT_VERSION,
-    id: formId,
+  return parsePage({
+    formatVersion: CURRENT_PAGE_FORMAT_VERSION,
+    id: pageId,
     name,
     caption,
     width,
@@ -105,10 +105,10 @@ export function createForm(
 
 export interface CreateProjectOptions {
   readonly idFactory?: IdFactory;
-  readonly formName?: string;
-  readonly formCaption?: string;
-  readonly formWidth?: number;
-  readonly formHeight?: number;
+  readonly pageName?: string;
+  readonly pageCaption?: string;
+  readonly pageWidth?: number;
+  readonly pageHeight?: number;
   readonly settings?: Partial<ProjectSettings>;
 }
 
@@ -119,13 +119,13 @@ export function createProject(
   assertValidProjectName(name);
   const idFactory = resolveFactory(options);
   const projectId = idFactory();
-  const form = createForm(
-    typeof options === 'function' ? 'FrmMain' : (options.formName ?? 'FrmMain'),
+  const page = createPage(
+    typeof options === 'function' ? 'PageMain' : (options.pageName ?? 'PageMain'),
     {
       idFactory,
-      caption: typeof options === 'function' ? undefined : options.formCaption,
-      width: typeof options === 'function' ? undefined : options.formWidth,
-      height: typeof options === 'function' ? undefined : options.formHeight,
+      caption: typeof options === 'function' ? undefined : options.pageCaption,
+      width: typeof options === 'function' ? undefined : options.pageWidth,
+      height: typeof options === 'function' ? undefined : options.pageHeight,
     },
   );
   const settings = {
@@ -137,19 +137,19 @@ export function createProject(
     formatVersion: CURRENT_PROJECT_FORMAT_VERSION,
     id: projectId,
     name,
-    entryForm: form.id,
-    forms: [form],
+    entryPage: page.id,
+    pages: [page],
     settings,
   });
 }
 
-export function createFormDescriptor(form: FormModel): FormDescriptor {
-  const parsed = parseForm(form);
-  const basePath = `forms/${parsed.name}`;
+export function createPageDescriptor(page: PageModel): PageDescriptor {
+  const parsed = parsePage(page);
+  const basePath = `pages/${parsed.name}`;
   return {
     id: parsed.id,
     name: parsed.name,
-    formFile: `${basePath}.wrform`,
+    pageFile: `${basePath}.wrpage`,
     generatedFile: `${basePath}.generated.ts`,
     codeFile: `${basePath}.ts`,
   };
@@ -161,45 +161,45 @@ export function projectToManifest(project: WebRadProject): ProjectManifest {
     formatVersion: parsed.formatVersion,
     id: parsed.id,
     name: parsed.name,
-    entryForm: parsed.entryForm,
-    forms: parsed.forms.map(createFormDescriptor),
+    entryPage: parsed.entryPage,
+    pages: parsed.pages.map(createPageDescriptor),
     settings: parsed.settings,
   });
 }
 
-/** Reassembles the in-memory source-of-truth aggregate from a manifest and form files. */
+/** Reassembles the in-memory source-of-truth aggregate from a manifest and page files. */
 export function assembleProject(
   manifestInput: ProjectManifest,
-  formDocuments: Iterable<FormModel>,
+  pageDocuments: Iterable<PageModel>,
 ): WebRadProject {
   const manifest = parseProjectManifest(manifestInput);
-  const formsById = new Map<string, FormModel>();
+  const pagesById = new Map<string, PageModel>();
 
-  for (const input of formDocuments) {
-    const form = parseForm(input);
-    if (formsById.has(form.id)) {
-      throw new ModelUpdateError(`Form ID "${form.id}" was supplied more than once.`);
+  for (const input of pageDocuments) {
+    const page = parsePage(input);
+    if (pagesById.has(page.id)) {
+      throw new ModelUpdateError(`Page ID "${page.id}" was supplied more than once.`);
     }
-    formsById.set(form.id, form);
+    pagesById.set(page.id, page);
   }
 
-  const forms = manifest.forms.map((descriptor) => {
-    const form = formsById.get(descriptor.id);
-    if (form === undefined) {
-      throw new ModelUpdateError(`Missing form document for descriptor "${descriptor.name}".`);
+  const pages = manifest.pages.map((descriptor) => {
+    const page = pagesById.get(descriptor.id);
+    if (page === undefined) {
+      throw new ModelUpdateError(`Missing page document for descriptor "${descriptor.name}".`);
     }
-    if (form.name !== descriptor.name) {
+    if (page.name !== descriptor.name) {
       throw new ModelUpdateError(
-        `Form descriptor name "${descriptor.name}" does not match document name "${form.name}".`,
+        `Page descriptor name "${descriptor.name}" does not match document name "${page.name}".`,
       );
     }
-    formsById.delete(descriptor.id);
-    return form;
+    pagesById.delete(descriptor.id);
+    return page;
   });
 
-  if (formsById.size > 0) {
+  if (pagesById.size > 0) {
     throw new ModelUpdateError(
-      'One or more form documents are not listed in the project manifest.',
+      'One or more page documents are not listed in the project manifest.',
     );
   }
 
@@ -207,12 +207,12 @@ export function assembleProject(
     formatVersion: manifest.formatVersion,
     id: manifest.id,
     name: manifest.name,
-    entryForm: manifest.entryForm,
-    forms,
+    entryPage: manifest.entryPage,
+    pages,
     settings: manifest.settings,
   });
 }
 
 export const createWebRadProject = createProject;
-export const createFormModel = createForm;
+export const createPageModel = createPage;
 export const toProjectManifest = projectToManifest;

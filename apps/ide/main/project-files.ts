@@ -4,17 +4,17 @@ import { randomUUID } from 'node:crypto';
 import {
   assembleProject,
   createProject,
-  deserializeForm,
+  deserializePage,
   deserializeProjectManifest,
   parseProject,
   projectToManifest,
-  serializeForm,
+  serializePage,
   serializeProjectManifest,
-  type FormModel,
+  type PageModel,
   type ProjectManifest,
   type WebRadProject,
 } from '@webrad/project-model';
-import { createUserFormSource, generateFormSource } from '@webrad/language';
+import { createUserPageSource, generatePageSource } from '@webrad/language';
 import type { ProjectSession, SaveProjectRequest } from '../shared/contracts';
 
 const PROJECT_EXTENSION = '.wrproj';
@@ -98,8 +98,8 @@ async function writeUtf8(filePath: string, content: string): Promise<void> {
 }
 
 function descriptorPaths(manifest: ProjectManifest): readonly string[] {
-  return manifest.forms.flatMap((descriptor) => [
-    descriptor.formFile,
+  return manifest.pages.flatMap((descriptor) => [
+    descriptor.pageFile,
     descriptor.generatedFile,
     descriptor.codeFile,
   ]);
@@ -138,11 +138,11 @@ async function withRootOperation<T>(rootPath: string, operation: () => Promise<T
   }
 }
 
-type ArtifactKind = 'form' | 'generated' | 'code';
+type ArtifactKind = 'page' | 'generated' | 'code';
 
 interface OwnedArtifact {
   readonly projectId: string;
-  readonly formId: string;
+  readonly pageId: string;
   readonly kind: ArtifactKind;
   readonly relativePath: string;
 }
@@ -166,22 +166,22 @@ interface PendingCleanup {
 const PENDING_CLEANUP_PATH = '.webrad/pending-cleanup.json';
 
 function manifestArtifacts(manifest: ProjectManifest): readonly OwnedArtifact[] {
-  return manifest.forms.flatMap((descriptor) => [
+  return manifest.pages.flatMap((descriptor) => [
     {
       projectId: manifest.id,
-      formId: descriptor.id,
-      kind: 'form' as const,
-      relativePath: descriptor.formFile,
+      pageId: descriptor.id,
+      kind: 'page' as const,
+      relativePath: descriptor.pageFile,
     },
     {
       projectId: manifest.id,
-      formId: descriptor.id,
+      pageId: descriptor.id,
       kind: 'generated' as const,
       relativePath: descriptor.generatedFile,
     },
     {
       projectId: manifest.id,
-      formId: descriptor.id,
+      pageId: descriptor.id,
       kind: 'code' as const,
       relativePath: descriptor.codeFile,
     },
@@ -190,7 +190,7 @@ function manifestArtifacts(manifest: ProjectManifest): readonly OwnedArtifact[] 
 
 function sameOwner(left: OwnedArtifact, right: OwnedArtifact): boolean {
   return (
-    left.projectId === right.projectId && left.formId === right.formId && left.kind === right.kind
+    left.projectId === right.projectId && left.pageId === right.pageId && left.kind === right.kind
   );
 }
 
@@ -225,27 +225,27 @@ async function restoreWrites(entries: readonly RollbackEntry[]): Promise<readonl
   return errors;
 }
 
-function sourcePathFor(form: FormModel): string {
-  return `forms/${form.name}.ts`;
+function sourcePathFor(page: PageModel): string {
+  return `pages/${page.name}.ts`;
 }
 
 export function defaultUserSources(project: WebRadProject): Record<string, string> {
   return Object.fromEntries(
-    project.forms.map((form) => [sourcePathFor(form), createUserFormSource(form)]),
+    project.pages.map((page) => [sourcePathFor(page), createUserPageSource(page)]),
   );
 }
 
 function validateCanonicalDescriptors(manifest: ProjectManifest): void {
-  for (const descriptor of manifest.forms) {
-    const basePath = `forms/${descriptor.name}`;
+  for (const descriptor of manifest.pages) {
+    const basePath = `pages/${descriptor.name}`;
     const expected = {
-      formFile: `${basePath}.wrform`,
+      pageFile: `${basePath}.wrpage`,
       generatedFile: `${basePath}.generated.ts`,
       codeFile: `${basePath}.ts`,
     } as const;
-    for (const key of ['formFile', 'generatedFile', 'codeFile'] as const) {
+    for (const key of ['pageFile', 'generatedFile', 'codeFile'] as const) {
       if (descriptor[key] !== expected[key]) {
-        throw new Error(`Form descriptor ${descriptor.name}.${key} must be "${expected[key]}".`);
+        throw new Error(`Page descriptor ${descriptor.name}.${key} must be "${expected[key]}".`);
       }
     }
   }
@@ -396,43 +396,51 @@ async function saveProjectFilesUnlocked(
 
   const writes: ArtifactWrite[] = [];
   const resolvedUserSources: Record<string, string> = {};
-  for (const form of project.forms) {
-    const descriptor = manifest.forms.find((candidate) => candidate.id === form.id);
-    if (!descriptor) throw new Error(`No manifest descriptor was generated for ${form.name}.`);
+  for (const page of project.pages) {
+    const descriptor = manifest.pages.find((candidate) => candidate.id === page.id);
+    if (!descriptor) throw new Error(`No manifest descriptor was generated for ${page.name}.`);
     writes.push({
       projectId: manifest.id,
-      formId: descriptor.id,
-      kind: 'form',
-      relativePath: descriptor.formFile,
-      targetPath: await resolveInsideProjectSecure(rootPath, descriptor.formFile),
-      content: serializeForm(form),
+      pageId: descriptor.id,
+      kind: 'page',
+      relativePath: descriptor.pageFile,
+      targetPath: await resolveInsideProjectSecure(rootPath, descriptor.pageFile),
+      content: serializePage(page),
     });
     writes.push({
       projectId: manifest.id,
-      formId: descriptor.id,
+      pageId: descriptor.id,
       kind: 'generated',
       relativePath: descriptor.generatedFile,
       targetPath: await resolveInsideProjectSecure(rootPath, descriptor.generatedFile),
-      content: generateFormSource(form),
+      content: generatePageSource(page),
     });
     const sourceKey = descriptor.codeFile.replaceAll('\\', '/');
     const userFilePath = await resolveInsideProjectSecure(rootPath, descriptor.codeFile);
     let userSource = request.userSources[sourceKey];
     if (userSource === undefined) {
-      const previousOwner = previousByPath.get(pathKey(descriptor.codeFile));
-      if (previousOwner && sameOwner(previousOwner, currentByPath.get(pathKey(sourceKey))!)) {
+      const previousSource = previousArtifacts.find(
+        (artifact) =>
+          artifact.projectId === manifest.id &&
+          artifact.pageId === descriptor.id &&
+          artifact.kind === 'code',
+      );
+      if (previousSource !== undefined) {
         try {
-          userSource = await fs.readFile(userFilePath, 'utf8');
+          userSource = await fs.readFile(
+            await resolveInsideProjectSecure(rootPath, previousSource.relativePath),
+            'utf8',
+          );
         } catch (error) {
           if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
         }
       }
     }
-    userSource ??= createUserFormSource(form);
+    userSource ??= createUserPageSource(page);
     resolvedUserSources[sourceKey] = userSource;
     writes.push({
       projectId: manifest.id,
-      formId: descriptor.id,
+      pageId: descriptor.id,
       kind: 'code',
       relativePath: descriptor.codeFile,
       targetPath: userFilePath,
@@ -487,13 +495,14 @@ async function loadProjectFilesUnlocked(projectFilePath: string): Promise<Projec
   validateManifestProjectName(manifest, absoluteProjectFile);
   validateCanonicalDescriptors(manifest);
   await tryApplyPendingCleanup(rootPath, manifest);
-  const forms: FormModel[] = [];
+  const pages: PageModel[] = [];
   const userSources: Record<string, string> = {};
 
-  for (const descriptor of manifest.forms) {
-    const formPath = await resolveInsideProjectSecure(rootPath, descriptor.formFile);
-    forms.push(deserializeForm(await fs.readFile(formPath, 'utf8')));
-    const sourceKey = descriptor.codeFile.replaceAll('\\', '/');
+  for (const descriptor of manifest.pages) {
+    const pagePath = await resolveInsideProjectSecure(rootPath, descriptor.pageFile);
+    const page = deserializePage(await fs.readFile(pagePath, 'utf8'));
+    pages.push(page);
+    const sourceKey = sourcePathFor(page);
     try {
       userSources[sourceKey] = await fs.readFile(
         await resolveInsideProjectSecure(rootPath, descriptor.codeFile),
@@ -504,7 +513,7 @@ async function loadProjectFilesUnlocked(projectFilePath: string): Promise<Projec
     }
   }
 
-  const project = assembleProject(manifest, forms);
+  const project = assembleProject(manifest, pages);
   return { rootPath, projectFilePath: absoluteProjectFile, project, userSources };
 }
 

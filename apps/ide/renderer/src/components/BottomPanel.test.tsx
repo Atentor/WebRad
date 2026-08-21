@@ -24,7 +24,7 @@ function problem(
       source: 'typescript',
       code: category === 'error' ? 2304 : undefined,
       message,
-      file: 'forms/FrmMain.ts',
+      file: 'pages/PageMain.ts',
       line,
       column: 3,
       length: 4,
@@ -91,11 +91,11 @@ describe('BottomPanel', () => {
     const onProblemActivate = vi.fn();
     render(<BottomPanel {...props({ onProblemActivate })} />);
     const row = screen.getByRole('button', {
-      name: /Error\. Cannot find name 'MissingType'\.\. forms\/FrmMain\.ts:4:3\. typescript 2304/,
+      name: /Error\. Cannot find name 'MissingType'\.\. pages\/PageMain\.ts:4:3\. typescript 2304/,
     });
 
     expect(row.textContent).toContain('typescript 2304');
-    expect(row.textContent).toContain('forms/FrmMain.ts:4:3');
+    expect(row.textContent).toContain('pages/PageMain.ts:4:3');
     await user.click(row);
     expect(onProblemActivate).toHaveBeenLastCalledWith(problems[0]);
 

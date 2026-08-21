@@ -41,7 +41,7 @@ function groupByCategory(
   const categories = new Map<string, ComponentDefinition[]>();
 
   for (const definition of definitions) {
-    if (definition.type === 'WebForm' || !matchesSearch(definition, query)) continue;
+    if (definition.type === 'WebPage' || !matchesSearch(definition, query)) continue;
     const category = categories.get(definition.palette.category) ?? [];
     category.push(definition);
     categories.set(definition.palette.category, category);
