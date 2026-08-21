@@ -22,6 +22,7 @@ export default defineConfig({
   // after a public export is added or renamed.
   optimizeDeps: {
     exclude: [...workspacePackages],
+    force: true,
     // Language services import the CommonJS TypeScript distribution, which
     // still needs Vite's ESM interop even when its workspace consumer is excluded.
     include: ['typescript'],
