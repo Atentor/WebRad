@@ -849,24 +849,6 @@ button.wr-problem:focus-visible {
   text-transform: uppercase;
 }
 
-.wr-styles-notice {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 35px;
-  padding: 6px 18px;
-  border-bottom: 1px solid color-mix(in srgb, var(--wr-accent) 30%, var(--wr-border));
-  background: color-mix(in srgb, var(--wr-accent-soft) 58%, var(--wr-panel-bg));
-  color: var(--wr-muted-text);
-  font-size: 11.5px;
-}
-
-.wr-styles-notice .wr-icon {
-  width: 16px;
-  height: 16px;
-  color: var(--wr-accent);
-}
-
 .wr-styles-body {
   display: grid;
   min-width: 0;
@@ -1779,8 +1761,7 @@ button.wr-problem:focus-visible {
     grid-template-columns: minmax(180px, 215px) minmax(300px, 1fr);
   }
 
-  .wr-styles-header p,
-  .wr-styles-notice {
+  .wr-styles-header p {
     display: none;
   }
 

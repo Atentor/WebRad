@@ -460,19 +460,16 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     true,
   )) as unknown;
   if (stylesOpened !== true) throw new Error('Renderer smoke could not open Styles.');
-  const stylesNotice = await waitForRendererString(
+  const stylesWorkspace = await waitForRendererString(
     window,
     `(() => {
       const workspace = document.querySelector('[aria-label="Styles editor"]');
       const viewTabs = document.querySelector('.wr-view-tabs');
-      const notice = document.querySelector('.wr-styles-notice');
-      return workspace !== null && viewTabs === null ? notice?.textContent?.trim() ?? '' : '';
+      return workspace !== null && viewTabs === null ? 'ready' : '';
     })()`,
     'the visual Styles workspace',
   );
-  if (!stylesNotice.includes('properties and values visually')) {
-    throw new Error('Styles workspace does not expose its visual property editor guidance.');
-  }
+  if (stylesWorkspace !== 'ready') throw new Error('Styles workspace did not open without the removed guidance banner.');
   await waitForRendererString(
     window,
     `Array.from(document.querySelectorAll('.wr-style-list strong')).some((item) => item.textContent?.trim() === 'PrimaryButton') ? 'ready' : ''`,

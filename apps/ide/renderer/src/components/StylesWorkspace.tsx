@@ -241,14 +241,6 @@ export function StylesWorkspace({
         <span className="wr-styles-preview-badge">Visual editor</span>
       </header>
 
-      <div className="wr-styles-notice" role="note">
-        <Icon name="info" />
-        <span>
-          Choose properties and values visually. WebRAD generates the styling internally and updates
-          the preview automatically.
-        </span>
-      </div>
-
       <div className="wr-styles-body">
         <aside className="wr-style-library" aria-label="Style library">
           <div className="wr-style-section-heading">
