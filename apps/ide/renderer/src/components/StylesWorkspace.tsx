@@ -4,61 +4,47 @@ import {
   type ComponentRegistry,
 } from '@webrad/component-registry';
 import { ComponentView, SharedComponentStyles } from '@webrad/components';
-import type { ComponentStyleModel } from '@webrad/project-model';
-import { resolveComponentStyleClassName, tokenizeTailwindClasses } from '@webrad/runtime/visual';
+import {
+  portableFileNameKey,
+  type ComponentStyleModel,
+  type ComponentStyleStateName,
+} from '@webrad/project-model';
+import { resolveComponentStylePreviewClassName } from '@webrad/runtime/visual';
 import { useId, useMemo, useState, type FormEvent, type ReactElement } from 'react';
-
-type StyleClassState = keyof ComponentStyleModel['classes'];
+import { Icon } from './Icon';
+import { VisualStyleEditor } from './VisualStyleEditor';
 
 interface StyleStateDefinition {
-  readonly key: StyleClassState;
+  readonly key: ComponentStyleStateName;
   readonly label: string;
   readonly description: string;
-  readonly example: string;
 }
 
 const STYLE_STATES: readonly StyleStateDefinition[] = [
   {
     key: 'base',
     label: 'Base',
-    description: 'Utilities that are always applied to the component.',
-    example: 'px-4 py-2 rounded-lg bg-blue-600 text-white shadow-sm',
+    description: 'The component’s normal appearance. Other states build on these settings.',
   },
   {
     key: 'hover',
     label: 'Hover',
-    description: 'Utilities applied while the pointer is over the component.',
-    example: 'bg-blue-700 shadow-md scale-105',
+    description: 'Appearance while the pointer is over the component.',
   },
   {
     key: 'focus',
     label: 'Focus',
-    description: 'Utilities applied when the component has keyboard focus.',
-    example: 'outline-none ring-2 ring-blue-400 ring-offset-2',
+    description: 'Appearance when the component receives keyboard focus.',
   },
   {
     key: 'active',
     label: 'Active',
-    description: 'Utilities applied while the component is being activated.',
-    example: 'scale-95 shadow-none',
+    description: 'Appearance while the component is being pressed or activated.',
   },
   {
     key: 'disabled',
     label: 'Disabled',
-    description: 'Utilities applied when the component is disabled.',
-    example: 'opacity-50 cursor-not-allowed grayscale',
-  },
-  {
-    key: 'animation',
-    label: 'Animation',
-    description: 'Transition and animation utilities shared by all interaction states.',
-    example: 'transition-all duration-200 ease-out animate-pulse',
-  },
-  {
-    key: 'advanced',
-    label: 'Advanced',
-    description: 'Complete Tailwind variants, arbitrary values, and descendant selectors.',
-    example: 'dark:bg-slate-900 max-sm:w-full [&>svg]:size-4 [--accent:#2563eb]',
+    description: 'Appearance when the component is unavailable for interaction.',
   },
 ] as const;
 
@@ -84,15 +70,11 @@ function suggestedStyleName(
   styles: readonly ComponentStyleModel[],
 ): string {
   const base = `${definition?.displayName ?? 'Component'} Style`;
-  const occupied = new Set(styles.map((style) => style.name.toLowerCase()));
-  if (!occupied.has(base.toLowerCase())) return base;
+  const occupied = new Set(styles.map((style) => portableFileNameKey(style.name)));
+  if (!occupied.has(portableFileNameKey(base))) return base;
   let sequence = 2;
-  while (occupied.has(`${base} ${String(sequence)}`.toLowerCase())) sequence += 1;
+  while (occupied.has(portableFileNameKey(`${base} ${String(sequence)}`))) sequence += 1;
   return `${base} ${String(sequence)}`;
-}
-
-function classCount(value: string): number {
-  return tokenizeTailwindClasses(value).length;
 }
 
 function componentGlyph(definition: ComponentDefinition | undefined): ReactElement {
@@ -120,7 +102,8 @@ function StyleNameEditor({ style, styles, onCommit }: StyleNameEditorProps): Rea
     }
     const duplicate = styles.some(
       (candidate) =>
-        candidate.id !== style.id && candidate.name.toLowerCase() === name.toLowerCase(),
+        candidate.id !== style.id &&
+        portableFileNameKey(candidate.name) === portableFileNameKey(name),
     );
     if (duplicate) {
       setDraft(style.name);
@@ -178,7 +161,7 @@ export function StylesWorkspace({
     suggestedStyleName(visualDefinitions[0], styles),
   );
   const [createError, setCreateError] = useState<string | null>(null);
-  const [activeState, setActiveState] = useState<StyleClassState>('base');
+  const [activeState, setActiveState] = useState<ComponentStyleStateName>('base');
   const selectedStyle = styles.find((style) => style.id === selectedId) ?? styles[0];
   const selectedDefinition =
     selectedStyle === undefined ? undefined : registry.get(selectedStyle.componentType);
@@ -214,7 +197,7 @@ export function StylesWorkspace({
       setCreateError('Enter a style name.');
       return;
     }
-    if (styles.some((style) => style.name.toLowerCase() === name.toLowerCase())) {
+    if (styles.some((style) => portableFileNameKey(style.name) === portableFileNameKey(name))) {
       setCreateError('A style with this name already exists.');
       return;
     }
@@ -250,23 +233,19 @@ export function StylesWorkspace({
       <style data-webrad-project-styles>{compiledCss}</style>
       <SharedComponentStyles />
       <header className="wr-styles-header">
-        <span className="material-icons wr-styles-header-icon" aria-hidden="true">
-          palette
-        </span>
+        <Icon name="palette" className="wr-styles-header-icon" />
         <div>
           <h1>Styles</h1>
-          <p>Create reusable Tailwind styles and assign them to compatible components.</p>
+          <p>Create reusable visual styles and assign them to compatible components.</p>
         </div>
-        <span className="wr-styles-preview-badge">Tailwind CSS</span>
+        <span className="wr-styles-preview-badge">Visual editor</span>
       </header>
 
       <div className="wr-styles-notice" role="note">
-        <span className="material-icons" aria-hidden="true">
-          info
-        </span>
+        <Icon name="info" />
         <span>
-          Enter Tailwind utilities separated by spaces. State prefixes are applied automatically;
-          use Advanced for complete variants and arbitrary values.
+          Choose properties and values visually. WebRAD generates the styling internally and updates
+          the preview automatically.
         </span>
       </div>
 
@@ -278,9 +257,7 @@ export function StylesWorkspace({
               <h2>Style library</h2>
             </div>
             <button type="button" onClick={beginCreate} disabled={visualDefinitions.length === 0}>
-              <span className="material-icons" aria-hidden="true">
-                add
-              </span>
+              <Icon name="add" />
               New style
             </button>
           </div>
@@ -335,9 +312,7 @@ export function StylesWorkspace({
 
             {styles.length === 0 && !creating ? (
               <div className="wr-style-library-empty">
-                <span className="material-icons" aria-hidden="true">
-                  layers
-                </span>
+                <Icon name="layers" />
                 <strong>No styles yet</strong>
                 <p>Create a reusable style for one of the visual component types.</p>
               </div>
@@ -374,13 +349,11 @@ export function StylesWorkspace({
         <div className="wr-style-configurator">
           {selectedStyle === undefined ? (
             <div className="wr-style-configurator-empty">
-              <span className="material-icons" aria-hidden="true">
-                style
-              </span>
+              <Icon name="style" />
               <h2>Create your first component style</h2>
               <p>
-                Choose a component type, configure its Tailwind states, then assign the style from
-                the Object Inspector.
+                Choose a component type, customize its visual states, then assign the style from the
+                Object Inspector.
               </p>
               <button type="button" onClick={beginCreate} disabled={visualDefinitions.length === 0}>
                 New style
@@ -407,9 +380,7 @@ export function StylesWorkspace({
                     title="Delete style"
                     aria-label={`Delete ${selectedStyle.name}`}
                   >
-                    <span className="material-icons" aria-hidden="true">
-                      delete
-                    </span>
+                    <Icon name="delete" />
                   </button>
                 </div>
               </div>
@@ -419,80 +390,77 @@ export function StylesWorkspace({
                   <button
                     type="button"
                     role="tab"
+                    aria-label={state.label}
                     aria-selected={activeState === state.key}
                     className={activeState === state.key ? 'active' : ''}
                     key={state.key}
                     onClick={() => setActiveState(state.key)}
                   >
                     {state.label}
-                    {classCount(selectedStyle.classes[state.key]) > 0 && (
-                      <span aria-label={`${state.label} configured`} />
+                    {Object.keys(selectedStyle.states[state.key]).length > 0 && (
+                      <span title={`${state.label} configured`} aria-hidden="true" />
                     )}
                   </button>
                 ))}
               </div>
 
-              <section className="wr-style-class-editor" aria-label="Tailwind class editor">
-                <div className="wr-style-class-editor-heading">
-                  <div>
-                    <span>{activeStateDefinition.label} state</span>
-                    <h2>Tailwind classes</h2>
-                  </div>
-                  <span>{classCount(selectedStyle.classes[activeState])} utilities</span>
+              <div className="wr-style-state-guidance" role="note">
+                <Icon name="info" />
+                <div>
+                  <strong>{activeStateDefinition.label} state</strong>
+                  <span>{activeStateDefinition.description}</span>
                 </div>
-                <p>{activeStateDefinition.description}</p>
-                <textarea
-                  aria-label={`${activeStateDefinition.label} Tailwind classes`}
-                  value={selectedStyle.classes[activeState]}
-                  placeholder={activeStateDefinition.example}
-                  spellCheck={false}
-                  rows={5}
-                  onChange={(event) =>
+              </div>
+
+              <div className="wr-style-editor-layout">
+                <VisualStyleEditor
+                  key={`${selectedStyle.id}-${activeState}`}
+                  componentType={selectedStyle.componentType}
+                  stateName={activeState}
+                  properties={selectedStyle.states[activeState]}
+                  onChange={(properties) =>
                     onUpdateStyle({
                       ...selectedStyle,
-                      classes: {
-                        ...selectedStyle.classes,
-                        [activeState]: event.target.value,
+                      states: {
+                        ...selectedStyle.states,
+                        [activeState]: properties,
                       },
                     })
                   }
                 />
-                <div className="wr-style-class-example">
-                  <span className="material-icons" aria-hidden="true">
-                    lightbulb
-                  </span>
-                  <span>
-                    <strong>Example</strong>
-                    <code>{activeStateDefinition.example}</code>
-                  </span>
-                </div>
-              </section>
 
-              <section className="wr-style-component-preview" aria-label="Component style preview">
-                <div className="wr-style-preview-heading">
-                  <div>
-                    <span>Preview</span>
-                    <h3>{selectedDefinition?.displayName ?? selectedStyle.componentType}</h3>
+                <section
+                  className="wr-style-component-preview"
+                  aria-label="Component style preview"
+                >
+                  <div className="wr-style-preview-heading">
+                    <div>
+                      <span>Live preview</span>
+                      <h3>{selectedDefinition?.displayName ?? selectedStyle.componentType}</h3>
+                    </div>
+                    <span>{activeStateDefinition.label}</span>
                   </div>
-                  <span>{activeStateDefinition.label}</span>
-                </div>
-                <div className="wr-style-preview-canvas">
-                  <div className="wr-style-preview-frame" data-style-preview={selectedStyle.id}>
-                    {previewNode === undefined ? (
-                      <span className="wr-style-preview-unavailable">
-                        Preview unavailable for unregistered or nonvisual component type{' '}
-                        <code>{selectedStyle.componentType}</code>.
-                      </span>
-                    ) : (
-                      <ComponentView
-                        node={previewNode}
-                        designTime
-                        styleClassName={resolveComponentStyleClassName(selectedStyle)}
-                      />
-                    )}
+                  <div className="wr-style-preview-canvas">
+                    <div className="wr-style-preview-frame" data-style-preview={selectedStyle.id}>
+                      {previewNode === undefined ? (
+                        <span className="wr-style-preview-unavailable">
+                          Preview unavailable for unregistered or nonvisual component type{' '}
+                          <code>{selectedStyle.componentType}</code>.
+                        </span>
+                      ) : (
+                        <ComponentView
+                          node={previewNode}
+                          designTime
+                          styleClassName={resolveComponentStylePreviewClassName(
+                            selectedStyle,
+                            activeState,
+                          )}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
-              </section>
+                </section>
+              </div>
             </>
           )}
         </div>

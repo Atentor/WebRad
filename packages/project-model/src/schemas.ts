@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { ProjectValidationError } from './errors.js';
+import { COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME } from './style-properties.js';
 import {
   getPageNameError,
   getGeneratedPageMemberNameError,
@@ -11,14 +12,19 @@ import {
 import {
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
+  COMPONENT_STYLE_PROPERTY_NAMES,
+  COMPONENT_STYLE_STATE_NAMES,
   type Bounds,
   type ComponentNode,
-  type ComponentStyleClasses,
   type ComponentStyleModel,
+  type ComponentStyleProperties,
+  type ComponentStyleStates,
   type PageDescriptor,
   type PageModel,
   type ProjectManifest,
   type ProjectSettings,
+  type StyleLengthValue,
+  type StylePropertyValue,
   type WebRadProject,
 } from './types.js';
 
@@ -85,15 +91,109 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z
   })
   .strict();
 
-export const ComponentStyleClassesSchema: z.ZodType<ComponentStyleClasses> = z
+export const StyleLengthValueSchema: z.ZodType<StyleLengthValue> = z
   .object({
-    base: z.string(),
-    hover: z.string(),
-    focus: z.string(),
-    active: z.string(),
-    disabled: z.string(),
-    animation: z.string(),
-    advanced: z.string(),
+    value: z.number().finite(),
+    unit: z.enum(['px', 'rem', '%', 'vw', 'vh']),
+  })
+  .strict();
+
+export const StylePropertyValueSchema: z.ZodType<StylePropertyValue> = z.union([
+  z.string(),
+  z.number().finite(),
+  StyleLengthValueSchema,
+]);
+
+function validateStylePropertyValue(
+  value: StylePropertyValue,
+  propertyName: (typeof COMPONENT_STYLE_PROPERTY_NAMES)[number],
+  addIssue: (message: string) => void,
+): void {
+  const definition = COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME.get(propertyName);
+  if (definition === undefined) {
+    addIssue(`Unknown style property "${propertyName}".`);
+    return;
+  }
+
+  const { editor } = definition;
+  if (editor.kind === 'enum') {
+    if (typeof value !== 'string' || !editor.options.some((option) => option.value === value)) {
+      addIssue(`Expected one of the supported ${definition.label.toLowerCase()} values.`);
+    }
+    return;
+  }
+
+  if (editor.kind === 'color') {
+    const isKeyword =
+      typeof value === 'string' && editor.keywords.some((option) => option.value === value);
+    const isHexColor = typeof value === 'string' && /^#[\da-f]{6}$/iu.test(value);
+    if (!isKeyword && !isHexColor) {
+      addIssue(`${definition.label} must be a hexadecimal color or a supported keyword.`);
+    }
+    return;
+  }
+
+  if (editor.kind === 'number') {
+    if (
+      typeof value !== 'number' ||
+      !Number.isFinite(value) ||
+      value < editor.min ||
+      value > editor.max ||
+      (editor.integer === true && !Number.isInteger(value))
+    ) {
+      addIssue(
+        `${definition.label} must be a${editor.integer === true ? 'n integer' : ' number'} between ${String(editor.min)} and ${String(editor.max)}.`,
+      );
+    }
+    return;
+  }
+
+  if (typeof value === 'string') {
+    if (editor.keywords?.some((option) => option.value === value) !== true) {
+      addIssue(`${definition.label} must use a supported keyword or numeric length.`);
+    }
+    return;
+  }
+  if (typeof value !== 'object' || value === null || !('value' in value) || !('unit' in value)) {
+    addIssue(`${definition.label} must be a numeric length.`);
+    return;
+  }
+
+  const length = value as StyleLengthValue;
+  if (!editor.units.includes(length.unit)) {
+    addIssue(`${definition.label} does not support the ${length.unit} unit.`);
+  }
+  if (
+    !Number.isFinite(length.value) ||
+    Math.abs(length.value) > 1_000_000 ||
+    (editor.allowNegative !== true && length.value < 0) ||
+    (editor.min !== undefined && length.value < editor.min) ||
+    (editor.max !== undefined && length.value > editor.max)
+  ) {
+    addIssue(`${definition.label} is outside its supported numeric range.`);
+  }
+}
+
+export const ComponentStylePropertiesSchema: z.ZodType<ComponentStyleProperties> = z
+  .partialRecord(z.enum(COMPONENT_STYLE_PROPERTY_NAMES), StylePropertyValueSchema)
+  .superRefine((properties, context) => {
+    for (const [propertyName, value] of Object.entries(properties)) {
+      if (value === undefined) continue;
+      validateStylePropertyValue(
+        value,
+        propertyName as (typeof COMPONENT_STYLE_PROPERTY_NAMES)[number],
+        (message) => context.addIssue({ code: 'custom', message, path: [propertyName] }),
+      );
+    }
+  });
+
+export const ComponentStyleStatesSchema: z.ZodType<ComponentStyleStates> = z
+  .object({
+    base: ComponentStylePropertiesSchema,
+    hover: ComponentStylePropertiesSchema,
+    focus: ComponentStylePropertiesSchema,
+    active: ComponentStylePropertiesSchema,
+    disabled: ComponentStylePropertiesSchema,
   })
   .strict();
 
@@ -102,9 +202,28 @@ export const ComponentStyleSchema: z.ZodType<ComponentStyleModel> = z
     id: nonEmptyStringSchema,
     name: componentStyleNameSchema,
     componentType: identifierSchema,
-    classes: ComponentStyleClassesSchema,
+    states: ComponentStyleStatesSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((style, context) => {
+    for (const stateName of COMPONENT_STYLE_STATE_NAMES) {
+      for (const propertyName of Object.keys(style.states[stateName])) {
+        const definition = COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME.get(
+          propertyName as (typeof COMPONENT_STYLE_PROPERTY_NAMES)[number],
+        );
+        if (
+          definition?.componentTypes !== undefined &&
+          !definition.componentTypes.includes(style.componentType)
+        ) {
+          context.addIssue({
+            code: 'custom',
+            message: `${definition.label} is not available for ${style.componentType}.`,
+            path: ['states', stateName, propertyName],
+          });
+        }
+      }
+    }
+  });
 
 export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   .object({
@@ -536,7 +655,8 @@ export function parseProjectManifest(input: unknown): ProjectManifest {
 // Lowercase aliases keep schema imports ergonomic without weakening the canonical names.
 export const boundsSchema = BoundsSchema;
 export const componentNodeSchema = ComponentNodeSchema;
-export const componentStyleClassesSchema = ComponentStyleClassesSchema;
+export const componentStylePropertiesSchema = ComponentStylePropertiesSchema;
+export const componentStyleStatesSchema = ComponentStyleStatesSchema;
 export const componentStyleSchema = ComponentStyleSchema;
 export const pageModelSchema = PageModelSchema;
 export const projectSettingsSchema = ProjectSettingsSchema;

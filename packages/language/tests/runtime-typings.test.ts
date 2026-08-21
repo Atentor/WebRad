@@ -339,6 +339,8 @@ class EditorPage extends WebPage {
   WebTextArea,
   resolveComponentStyleClassName,
   resolveComponentStyleClassNames,
+  resolveComponentStylePreviewClassName,
+  resolveStylePropertyCandidate,
   tokenizeTailwindClasses,
   type RuntimeComponentNode,
   type TailwindStyleSource,
@@ -401,10 +403,12 @@ const error = new WebApiError('Conflict', 409, 'Conflict', '/items', {}, respons
 Message(error.message);
 
 const reusableStyle: TailwindStyleSource = {
-  classes: {
-    base: 'bg-blue-600',
-    hover: 'bg-blue-700',
-    animation: 'transition-colors',
+  states: {
+    base: { backgroundColor: '#2563eb', transitionProperty: 'colors' },
+    hover: { backgroundColor: '#1d4ed8' },
+    focus: {},
+    active: {},
+    disabled: {},
   },
 };
 const runtimeNode: RuntimeComponentNode = {
@@ -418,8 +422,15 @@ const runtimeNode: RuntimeComponentNode = {
   styleClassName: resolveComponentStyleClassName(reusableStyle),
 };
 const styleClasses: readonly string[] = resolveComponentStyleClassNames(reusableStyle);
+const hoverPreview: string = resolveComponentStylePreviewClassName(reusableStyle, 'hover');
+const backgroundCandidate: string | undefined = resolveStylePropertyCandidate(
+  'backgroundColor',
+  '#2563eb',
+);
 const tokens: readonly string[] = tokenizeTailwindClasses(runtimeNode.styleClassName ?? '');
 void styleClasses;
+void hoverPreview;
+void backgroundCandidate;
 void tokens;
 `;
     const valid = createLanguageService(validSource);

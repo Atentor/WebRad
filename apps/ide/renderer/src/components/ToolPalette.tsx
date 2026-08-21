@@ -4,6 +4,7 @@ import {
   type ComponentRegistry,
 } from '@webrad/component-registry';
 import { useMemo, useState, type DragEvent, type ReactElement } from 'react';
+import { Icon } from './Icon';
 import { Panel } from './Panel';
 
 export const WEBRAD_COMPONENT_DRAG_TYPE = 'application/x-webrad-component';
@@ -88,7 +89,7 @@ export function ToolPalette({
     <Panel title="Tool Palette" className="wr-tool-palette">
       <div className="wr-palette-search">
         <span className="wr-palette-search-icon" aria-hidden="true">
-          &#128269;
+          <Icon name="search" />
         </span>
         <input
           type="search"
@@ -126,7 +127,7 @@ export function ToolPalette({
                   onClick={() => toggleCategory(category.name)}
                 >
                   <span className="wr-palette-chevron" aria-hidden="true">
-                    {expanded ? '\u25be' : '\u25b8'}
+                    <Icon name={expanded ? 'chevron-down' : 'chevron-right'} />
                   </span>
                   <span>{category.name}</span>
                   <small>{category.components.length}</small>

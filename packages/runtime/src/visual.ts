@@ -15,23 +15,20 @@ export interface VisualComponentSource extends VisualPropertySource {
   };
 }
 
-/**
- * Tailwind class groups stored by the project model. This deliberately uses a
- * structural browser-safe contract so the runtime does not depend on the
- * versioned project-model package.
- */
-export interface TailwindClassGroups {
-  readonly base?: string;
-  readonly hover?: string;
-  readonly focus?: string;
-  readonly active?: string;
-  readonly disabled?: string;
-  readonly animation?: string;
-  readonly advanced?: string;
+/** Browser-safe structural counterpart of the versioned project style model. */
+export type ComponentStyleStateName = 'base' | 'hover' | 'focus' | 'active' | 'disabled';
+export type StyleLengthUnit = 'px' | 'rem' | '%' | 'vw' | 'vh';
+
+export interface StyleLengthValue {
+  readonly value: number;
+  readonly unit: StyleLengthUnit;
 }
 
+export type StylePropertyValue = string | number | StyleLengthValue;
+export type TailwindStyleProperties = Readonly<Record<string, StylePropertyValue | undefined>>;
+
 export interface TailwindStyleSource {
-  readonly classes: TailwindClassGroups;
+  readonly states: Readonly<Record<ComponentStyleStateName, TailwindStyleProperties>>;
 }
 
 /**
@@ -101,40 +98,377 @@ export function tokenizeTailwindClasses(value: string): readonly string[] {
   return tokens;
 }
 
-function stringClassGroup(groups: TailwindClassGroups, name: keyof TailwindClassGroups): string {
-  const value: unknown = groups[name];
-  return typeof value === 'string' ? value : '';
+function isStyleLengthValue(value: unknown): value is StyleLengthValue {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'value' in value &&
+    typeof value.value === 'number' &&
+    Number.isFinite(value.value) &&
+    Math.abs(value.value) <= 1_000_000 &&
+    'unit' in value &&
+    (value.unit === 'px' ||
+      value.unit === 'rem' ||
+      value.unit === '%' ||
+      value.unit === 'vw' ||
+      value.unit === 'vh')
+  );
 }
 
-/** Resolves the exact class candidates applied to a styled component. */
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function formatNumber(value: number): string {
+  return Object.is(value, -0) ? '0' : String(value);
+}
+
+function lengthClass(prefix: string, value: unknown, important = false): string | undefined {
+  const suffix = important ? '!' : '';
+  if (typeof value === 'string' && /^[a-z0-9][a-z0-9-]*$/u.test(value)) {
+    return `${prefix}-${value}${suffix}`;
+  }
+  if (!isStyleLengthValue(value)) return undefined;
+  return `${prefix}-[${formatNumber(value.value)}${value.unit}]${suffix}`;
+}
+
+function percentageFractionClass(prefix: string, value: unknown): string | undefined {
+  const number = finiteNumber(value);
+  return number === undefined ? undefined : `${prefix}-[${formatNumber(number / 100)}]`;
+}
+
+function degreeClass(prefix: string, value: unknown): string | undefined {
+  const number = finiteNumber(value);
+  return number === undefined ? undefined : `${prefix}-[${formatNumber(number)}deg]`;
+}
+
+function millisecondsClass(prefix: string, value: unknown): string | undefined {
+  const number = finiteNumber(value);
+  return number === undefined ? undefined : `${prefix}-[${formatNumber(number)}ms]`;
+}
+
+function prefixedEnumClass(prefix: string, value: unknown): string | undefined {
+  const name = stringValue(value);
+  return name === undefined ? undefined : `${prefix}-${name}`;
+}
+
+function mappedEnumClass(
+  value: unknown,
+  values: Readonly<Record<string, string>>,
+): string | undefined {
+  const name = stringValue(value);
+  return name === undefined ? undefined : values[name];
+}
+
+function colorClass(prefix: string, value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (value === 'current') return `${prefix}-current`;
+  if (value === 'transparent' || value === 'inherit') return `${prefix}-${value}`;
+  return /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/iu.test(value)
+    ? `${prefix}-[${value}]`
+    : undefined;
+}
+
+const FLEX_DIRECTION_CLASSES: Readonly<Record<string, string>> = {
+  row: 'flex-row',
+  'row-reverse': 'flex-row-reverse',
+  column: 'flex-col',
+  'column-reverse': 'flex-col-reverse',
+};
+
+const FLEX_WRAP_CLASSES: Readonly<Record<string, string>> = {
+  nowrap: 'flex-nowrap',
+  wrap: 'flex-wrap',
+  'wrap-reverse': 'flex-wrap-reverse',
+};
+
+const TEXT_TRANSFORM_CLASSES: Readonly<Record<string, string>> = {
+  none: 'normal-case',
+  uppercase: 'uppercase',
+  lowercase: 'lowercase',
+  capitalize: 'capitalize',
+};
+
+const TEXT_DECORATION_CLASSES: Readonly<Record<string, string>> = {
+  none: 'no-underline',
+  underline: 'underline',
+  overline: 'overline',
+  lineThrough: 'line-through',
+};
+
+const FONT_STYLE_CLASSES: Readonly<Record<string, string>> = {
+  normal: 'not-italic',
+  italic: 'italic',
+};
+
+const WHITE_SPACE_CLASSES: Readonly<Record<string, string>> = {
+  normal: 'whitespace-normal',
+  nowrap: 'whitespace-nowrap',
+  pre: 'whitespace-pre',
+  preLine: 'whitespace-pre-line',
+  preWrap: 'whitespace-pre-wrap',
+  breakSpaces: 'whitespace-break-spaces',
+};
+
+const TIMING_CLASSES: Readonly<Record<string, string>> = {
+  linear: 'ease-linear',
+  easeIn: 'ease-in',
+  easeOut: 'ease-out',
+  easeInOut: 'ease-in-out',
+};
+
+const ANIMATION_TIMING_VALUES: Readonly<Record<string, string>> = {
+  linear: 'linear',
+  easeIn: 'ease-in',
+  easeOut: 'ease-out',
+  easeInOut: 'ease-in-out',
+};
+
+const ANIMATION_ITERATIONS: Readonly<Record<string, string>> = {
+  once: '1',
+  twice: '2',
+  three: '3',
+  infinite: 'infinite',
+};
+
+/** Converts one validated visual property to its exact Tailwind v4 candidate. */
+export function resolveStylePropertyCandidate(
+  propertyName: string,
+  value: StylePropertyValue,
+): string | undefined {
+  switch (propertyName) {
+    case 'display':
+      return stringValue(value);
+    case 'overflow':
+      return prefixedEnumClass('overflow', value);
+    case 'flexDirection':
+      return mappedEnumClass(value, FLEX_DIRECTION_CLASSES);
+    case 'flexWrap':
+      return mappedEnumClass(value, FLEX_WRAP_CLASSES);
+    case 'justifyContent':
+      return prefixedEnumClass('justify', value);
+    case 'alignItems':
+      return prefixedEnumClass('items', value);
+    case 'alignContent':
+      return prefixedEnumClass('content', value);
+    case 'gridColumns': {
+      const number = finiteNumber(value);
+      return number === undefined || !Number.isInteger(number)
+        ? undefined
+        : `grid-cols-${formatNumber(number)}`;
+    }
+    case 'gridRows': {
+      const number = finiteNumber(value);
+      return number === undefined || !Number.isInteger(number)
+        ? undefined
+        : `grid-rows-${formatNumber(number)}`;
+    }
+    case 'gap':
+      return lengthClass('gap', value);
+    case 'rowGap':
+      return lengthClass('gap-y', value);
+    case 'columnGap':
+      return lengthClass('gap-x', value);
+    case 'width':
+      return lengthClass('w', value, true);
+    case 'height':
+      return lengthClass('h', value, true);
+    case 'minWidth':
+      return lengthClass('min-w', value, true);
+    case 'maxWidth':
+      return lengthClass('max-w', value, true);
+    case 'minHeight':
+      return lengthClass('min-h', value, true);
+    case 'maxHeight':
+      return lengthClass('max-h', value, true);
+    case 'marginTop':
+      return lengthClass('mt', value);
+    case 'marginRight':
+      return lengthClass('mr', value);
+    case 'marginBottom':
+      return lengthClass('mb', value);
+    case 'marginLeft':
+      return lengthClass('ml', value);
+    case 'paddingTop':
+      return lengthClass('pt', value);
+    case 'paddingRight':
+      return lengthClass('pr', value);
+    case 'paddingBottom':
+      return lengthClass('pb', value);
+    case 'paddingLeft':
+      return lengthClass('pl', value);
+    case 'fontFamily':
+      return prefixedEnumClass('font', value);
+    case 'fontSize':
+      return lengthClass('text', value);
+    case 'fontWeight':
+      return prefixedEnumClass('font', value);
+    case 'lineHeight':
+      return lengthClass('leading', value);
+    case 'letterSpacing':
+      return lengthClass('tracking', value);
+    case 'textAlign':
+      return prefixedEnumClass('text', value);
+    case 'textTransform':
+      return mappedEnumClass(value, TEXT_TRANSFORM_CLASSES);
+    case 'textDecoration':
+      return mappedEnumClass(value, TEXT_DECORATION_CLASSES);
+    case 'fontStyle':
+      return mappedEnumClass(value, FONT_STYLE_CLASSES);
+    case 'whiteSpace':
+      return mappedEnumClass(value, WHITE_SPACE_CLASSES);
+    case 'textColor':
+      return colorClass('text', value);
+    case 'backgroundColor':
+      return colorClass('bg', value);
+    case 'borderWidth':
+      return lengthClass('border', value);
+    case 'borderStyle':
+      return prefixedEnumClass('border', value);
+    case 'borderColor':
+      return colorClass('border', value);
+    case 'borderRadius':
+      return lengthClass('rounded', value);
+    case 'outlineWidth':
+      return lengthClass('outline', value);
+    case 'outlineStyle':
+      return prefixedEnumClass('outline', value);
+    case 'outlineColor':
+      return colorClass('outline', value);
+    case 'outlineOffset':
+      return lengthClass('outline-offset', value);
+    case 'ringWidth':
+      return lengthClass('ring', value);
+    case 'ringColor':
+      return colorClass('ring', value);
+    case 'ringOffsetWidth':
+      return lengthClass('ring-offset', value);
+    case 'ringOffsetColor':
+      return colorClass('ring-offset', value);
+    case 'boxShadow':
+      return prefixedEnumClass('shadow', value);
+    case 'opacity':
+      return percentageFractionClass('opacity', value);
+    case 'blur':
+      return lengthClass('blur', value);
+    case 'brightness':
+      return percentageFractionClass('brightness', value);
+    case 'contrast':
+      return percentageFractionClass('contrast', value);
+    case 'grayscale':
+      return percentageFractionClass('grayscale', value);
+    case 'saturate':
+      return percentageFractionClass('saturate', value);
+    case 'translateX':
+      return lengthClass('translate-x', value);
+    case 'translateY':
+      return lengthClass('translate-y', value);
+    case 'scale':
+      return percentageFractionClass('scale', value);
+    case 'rotate':
+      return degreeClass('rotate', value);
+    case 'skewX':
+      return degreeClass('skew-x', value);
+    case 'skewY':
+      return degreeClass('skew-y', value);
+    case 'transformOrigin':
+      return prefixedEnumClass('origin', value);
+    case 'transitionProperty':
+      return prefixedEnumClass('transition', value);
+    case 'transitionDuration':
+      return millisecondsClass('duration', value);
+    case 'transitionDelay':
+      return millisecondsClass('delay', value);
+    case 'transitionTimingFunction':
+      return mappedEnumClass(value, TIMING_CLASSES);
+    case 'animationName':
+      return prefixedEnumClass('animate', value);
+    case 'animationDuration': {
+      const number = finiteNumber(value);
+      return number === undefined ? undefined : `[animation-duration:${formatNumber(number)}ms]!`;
+    }
+    case 'animationIterationCount': {
+      const name = stringValue(value);
+      const count = name === undefined ? undefined : ANIMATION_ITERATIONS[name];
+      return count === undefined ? undefined : `[animation-iteration-count:${count}]!`;
+    }
+    case 'animationTimingFunction': {
+      const name = stringValue(value);
+      const timing = name === undefined ? undefined : ANIMATION_TIMING_VALUES[name];
+      return timing === undefined ? undefined : `[animation-timing-function:${timing}]!`;
+    }
+    case 'cursor':
+      return prefixedEnumClass('cursor', value);
+    case 'userSelect':
+      return prefixedEnumClass('select', value);
+    case 'pointerEvents':
+      return prefixedEnumClass('pointer-events', value);
+    case 'objectFit':
+    case 'objectPosition':
+      return prefixedEnumClass('object', value);
+    default:
+      return undefined;
+  }
+}
+
+/** Returns raw candidates for a single state, preserving metadata order from the model object. */
+export function resolveComponentStyleStateClassNames(
+  properties: TailwindStyleProperties | null | undefined,
+): readonly string[] {
+  if (properties === undefined || properties === null || typeof properties !== 'object') return [];
+  const resolved: string[] = [];
+  const seen = new Set<string>();
+  for (const [propertyName, value] of Object.entries(properties)) {
+    if (value === undefined) continue;
+    const candidate = resolveStylePropertyCandidate(propertyName, value);
+    if (candidate === undefined || seen.has(candidate)) continue;
+    seen.add(candidate);
+    resolved.push(candidate);
+  }
+  return resolved;
+}
+
+function stateProperties(
+  style: TailwindStyleSource | null | undefined,
+  stateName: ComponentStyleStateName,
+): TailwindStyleProperties | undefined {
+  if (style === undefined || style === null || typeof style.states !== 'object') return undefined;
+  const properties: unknown = style.states[stateName];
+  return typeof properties === 'object' && properties !== null
+    ? (properties as TailwindStyleProperties)
+    : undefined;
+}
+
+/** Resolves the exact real-state class candidates applied to a styled component. */
 export function resolveComponentStyleClassNames(
   style: TailwindStyleSource | null | undefined,
 ): readonly string[] {
-  if (style === undefined || style === null || typeof style.classes !== 'object') return [];
-  const classes = style.classes;
   const resolved: string[] = [];
   const seen = new Set<string>();
-  const append = (className: string): void => {
-    if (className.length === 0 || seen.has(className)) return;
-    seen.add(className);
-    resolved.push(className);
-  };
-  const appendGroup = (name: keyof TailwindClassGroups, variants: readonly string[]): void => {
-    for (const className of tokenizeTailwindClasses(stringClassGroup(classes, name))) {
-      for (const variant of variants)
-        append(variant.length === 0 ? className : `${variant}:${className}`);
+  const appendState = (stateName: ComponentStyleStateName, variants: readonly string[]): void => {
+    for (const candidate of resolveComponentStyleStateClassNames(
+      stateProperties(style, stateName),
+    )) {
+      for (const variant of variants) {
+        const className = variant.length === 0 ? candidate : `${variant}:${candidate}`;
+        if (seen.has(className)) continue;
+        seen.add(className);
+        resolved.push(className);
+      }
     }
   };
 
-  appendGroup('base', ['']);
-  appendGroup('animation', ['']);
-  appendGroup('advanced', ['']);
-  appendGroup('hover', ['hover']);
-  // focus-within makes focus styling work for compound controls such as WebCheckBox.
-  appendGroup('focus', ['focus', 'focus-within']);
-  appendGroup('active', ['active']);
+  appendState('base', ['']);
+  appendState('hover', ['hover']);
+  // focus-within supports compound controls such as WebCheckBox.
+  appendState('focus', ['focus', 'focus-within']);
+  appendState('active', ['active']);
   // Every visual root exposes aria-disabled; native controls also expose :disabled.
-  appendGroup('disabled', ['disabled', 'aria-disabled']);
+  appendState('disabled', ['disabled', 'aria-disabled']);
   return resolved;
 }
 
@@ -142,6 +476,20 @@ export function resolveComponentStyleClassName(
   style: TailwindStyleSource | null | undefined,
 ): string {
   return resolveComponentStyleClassNames(style).join(' ');
+}
+
+/**
+ * Resolves the forced Designer preview. The selected state overrides base by
+ * property before candidates are generated, so CSS source order cannot make a
+ * base value win accidentally.
+ */
+export function resolveComponentStylePreviewClassName(
+  style: TailwindStyleSource | null | undefined,
+  stateName: ComponentStyleStateName,
+): string {
+  const base = stateProperties(style, 'base') ?? {};
+  const selected = stateName === 'base' ? {} : (stateProperties(style, stateName) ?? {});
+  return resolveComponentStyleStateClassNames({ ...base, ...selected }).join(' ');
 }
 
 export type VisualSizingMode = 'bounds' | 'fill';

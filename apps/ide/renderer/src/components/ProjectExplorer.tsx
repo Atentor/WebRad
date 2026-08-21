@@ -1,6 +1,7 @@
 import type { WebRadProject } from '@webrad/project-model';
 import { useState, type ReactElement } from 'react';
 import { applicationIconUrl } from '../application-assets';
+import { Icon } from './Icon';
 import { Panel } from './Panel';
 
 interface ProjectExplorerProps {
@@ -15,7 +16,7 @@ interface ProjectExplorerProps {
 }
 
 function FolderGlyph({ open = true }: { open?: boolean }): ReactElement {
-  return <span className="wr-tree-glyph">{open ? '▾' : '▸'}</span>;
+  return <Icon name={open ? 'chevron-down' : 'chevron-right'} className="wr-tree-glyph" />;
 }
 
 export function ProjectExplorer({
@@ -46,7 +47,7 @@ export function ProjectExplorer({
       title="Project Explorer"
       actions={
         <button type="button" title="Add page" aria-label="Add page" onClick={onAddPage}>
-          ＋
+          <Icon name="add" />
         </button>
       }
     >
@@ -81,7 +82,7 @@ export function ProjectExplorer({
                   }}
                   tabIndex={0}
                 >
-                  <span className="wr-page-icon">▱</span>
+                  <Icon name="page" className="wr-page-icon" />
                   {editingPageId === page.id ? (
                     <input
                       autoFocus
@@ -127,13 +128,11 @@ export function ProjectExplorer({
                 }
               }}
             >
-              <span className="material-icons wr-tree-action-icon" aria-hidden="true">
-                palette
-              </span>
+              <Icon name="palette" className="wr-tree-action-icon" />
               <span>Styles</span>
             </div>
             <div className="wr-tree-row" role="treeitem">
-              <span className="wr-tree-glyph">⚙</span>
+              <Icon name="settings" className="wr-tree-glyph" />
               <span>Project Settings</span>
             </div>
           </div>

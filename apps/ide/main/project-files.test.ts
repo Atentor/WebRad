@@ -72,9 +72,17 @@ describe('project files', () => {
     });
     const style = createComponentStyle('Primary Button', 'WebButton', {
       idFactory: () => 'style-id',
-      classes: {
-        base: 'rounded bg-blue-600 px-4 py-2 text-white',
-        hover: 'bg-blue-700',
+      states: {
+        base: {
+          borderRadius: 'md',
+          backgroundColor: '#2563eb',
+          paddingLeft: { value: 16, unit: 'px' },
+          paddingRight: { value: 16, unit: 'px' },
+          paddingTop: { value: 8, unit: 'px' },
+          paddingBottom: { value: 8, unit: 'px' },
+          textColor: '#ffffff',
+        },
+        hover: { backgroundColor: '#1d4ed8' },
       },
     });
     const withButton = updatePage(initial.project, page.id, withButtonPage);

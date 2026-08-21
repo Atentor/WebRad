@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import { applicationIconUrl } from '../application-assets';
+import { Icon } from './Icon';
 
 export type ViewMode = 'design' | 'code' | 'preview';
 
@@ -43,14 +44,13 @@ export function EditorWorkspace({
             aria-selected={activeDocumentId === document.id}
           >
             <button type="button" onClick={() => onSelectDocument(document.id)}>
-              <span
-                className={
-                  document.kind === 'styles' ? 'material-icons wr-document-style-icon' : ''
-                }
-                aria-hidden="true"
-              >
-                {document.kind === 'styles' ? 'palette' : document.kind === 'page' ? '▱' : 'TS'}
-              </span>
+              {document.kind === 'styles' ? (
+                <Icon name="palette" className="wr-document-style-icon" />
+              ) : document.kind === 'page' ? (
+                <Icon name="page" className="wr-document-page-icon" />
+              ) : (
+                <span aria-hidden="true">TS</span>
+              )}
               {document.label}
               {document.dirty && <em>*</em>}
             </button>
@@ -61,7 +61,7 @@ export function EditorWorkspace({
               aria-label={`Close ${document.label}`}
               onClick={() => onCloseDocument(document.id)}
             >
-              ×
+              <Icon name="close" />
             </button>
           </div>
         ))}

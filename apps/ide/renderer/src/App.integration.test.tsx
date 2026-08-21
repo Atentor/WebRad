@@ -161,7 +161,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     };
   });
   const compileStyles = vi.fn(async (): Promise<{ readonly css: string }> => ({
-    css: '.bg-blue-600 { background-color: rgb(37 99 235); }',
+    css: '.generated-style { background-color: rgb(37 99 235); }',
   }));
   const setDirty = vi.fn((dirty: boolean): void => {
     void dirty;
@@ -425,9 +425,7 @@ describe('App MVP integration', () => {
     expect(stylesItem.getAttribute('aria-selected')).toBe('true');
     expect(await screen.findByRole('region', { name: 'Styles editor' })).toBeDefined();
     expect(screen.getByRole('heading', { name: 'Styles' })).toBeDefined();
-    expect(screen.getByRole('note').textContent).toContain(
-      'State prefixes are applied automatically',
-    );
+    expect(screen.getByRole('note').textContent).toContain('generates the styling internally');
     expect(screen.queryByRole('tab', { name: 'Design' })).toBeNull();
 
     await user.click(screen.getAllByRole('button', { name: 'New style' })[0]!);
@@ -437,29 +435,49 @@ describe('App MVP integration', () => {
     await user.type(createName, 'Primary Button Draft');
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
-    const baseClasses = await screen.findByLabelText('Base Tailwind classes');
-    fireEvent.change(baseClasses, {
-      target: { value: 'px-4 py-2 rounded-lg bg-blue-600 text-white' },
+    const openCategory = async (name: string): Promise<void> => {
+      const category = screen.getByRole('button', { name: new RegExp(`^${name}`) });
+      if (category.getAttribute('aria-expanded') !== 'true') await user.click(category);
+    };
+    const configure = async (label: string): Promise<void> => {
+      await user.click(screen.getByLabelText(`Configure ${label}`));
+    };
+
+    expect(document.querySelector('textarea')).toBeNull();
+    await openCategory('Colors');
+    await configure('Background color');
+    fireEvent.change(screen.getByLabelText('Background color'), {
+      target: { value: '#2563eb' },
     });
+    await configure('Text color');
+    fireEvent.change(screen.getByLabelText('Text color'), {
+      target: { value: '#ffffff' },
+    });
+    await openCategory('Border');
+    await configure('Border radius');
+    fireEvent.change(screen.getByLabelText('Border radius value'), {
+      target: { value: '8' },
+    });
+    await openCategory('Animation');
+    await configure('Transition property');
+    await configure('Transition duration');
+    await configure('Transition easing');
+
     await user.click(screen.getByRole('tab', { name: 'Hover' }));
-    fireEvent.change(screen.getByLabelText('Hover Tailwind classes'), {
-      target: { value: 'bg-blue-700 scale-105' },
+    await openCategory('Colors');
+    await configure('Background color');
+    fireEvent.change(screen.getByLabelText('Background color'), {
+      target: { value: '#1d4ed8' },
     });
-    await user.click(screen.getByRole('tab', { name: 'Animation' }));
-    fireEvent.change(screen.getByLabelText('Animation Tailwind classes'), {
-      target: { value: 'transition-all duration-200 ease-out' },
-    });
-    await user.click(screen.getByRole('tab', { name: 'Advanced' }));
-    fireEvent.change(screen.getByLabelText('Advanced Tailwind classes'), {
-      target: { value: 'dark:bg-slate-900 [&>svg]:size-4' },
-    });
+    await openCategory('Transform');
+    await configure('Scale');
+    fireEvent.change(screen.getByLabelText('Scale'), { target: { value: '105' } });
     const buttonPreview = document.querySelector<HTMLElement>(
       '[data-style-preview] [data-component-type="WebButton"]',
     );
-    expect(buttonPreview?.classList.contains('bg-blue-600')).toBe(true);
-    expect(buttonPreview?.classList.contains('hover:bg-blue-700')).toBe(true);
+    expect(buttonPreview?.classList.contains('bg-[#1d4ed8]')).toBe(true);
+    expect(buttonPreview?.classList.contains('scale-[1.05]')).toBe(true);
     expect(buttonPreview?.classList.contains('transition-all')).toBe(true);
-    expect(buttonPreview?.classList.contains('dark:bg-slate-900')).toBe(true);
     const styleName = screen.getByLabelText('Style name');
     await user.clear(styleName);
     await user.type(styleName, 'Primary Button');
@@ -471,17 +489,28 @@ describe('App MVP integration', () => {
     await user.clear(screen.getByLabelText('New style name'));
     await user.type(screen.getByLabelText('New style name'), 'Muted Label');
     await user.click(screen.getByRole('button', { name: 'Create' }));
-    fireEvent.change(await screen.findByLabelText('Base Tailwind classes'), {
-      target: { value: 'text-slate-500 text-sm' },
+    await openCategory('Colors');
+    await configure('Text color');
+    fireEvent.change(screen.getByLabelText('Text color'), {
+      target: { value: '#64748b' },
     });
+    await openCategory('Typography');
+    await configure('Font size');
+    fireEvent.change(screen.getByLabelText('Font size value'), { target: { value: '14' } });
 
     await user.click(screen.getByRole('button', { name: 'New style' }));
     await user.selectOptions(screen.getByLabelText('Component type'), 'WebPage');
     await user.clear(screen.getByLabelText('New style name'));
     await user.type(screen.getByLabelText('New style name'), 'Page Surface');
     await user.click(screen.getByRole('button', { name: 'Create' }));
-    fireEvent.change(await screen.findByLabelText('Base Tailwind classes'), {
-      target: { value: 'bg-slate-100 text-slate-900' },
+    await openCategory('Colors');
+    await configure('Background color');
+    fireEvent.change(screen.getByLabelText('Background color'), {
+      target: { value: '#f1f5f9' },
+    });
+    await configure('Text color');
+    fireEvent.change(screen.getByLabelText('Text color'), {
+      target: { value: '#0f172a' },
     });
 
     await waitFor(() => expect(harness.compileStyles).toHaveBeenCalled());
@@ -501,7 +530,7 @@ describe('App MVP integration', () => {
       expect(
         document
           .querySelector('[data-component-type="WebPage"]')
-          ?.classList.contains('bg-slate-100'),
+          ?.classList.contains('bg-[#f1f5f9]'),
       ).toBe(true);
     });
     const firstButtonHit = selectDesignerComponent('Button1: WebButton');
@@ -522,7 +551,7 @@ describe('App MVP integration', () => {
           .querySelector(
             `[data-component-type="WebButton"][data-component-id="${firstButtonId ?? ''}"]`,
           )
-          ?.classList.contains('hover:bg-blue-700'),
+          ?.classList.contains('hover:bg-[#1d4ed8]'),
       ).toBe(true);
     });
 
@@ -549,11 +578,16 @@ describe('App MVP integration', () => {
     const primaryStyle = savedWithStyles.styles.find((style) => style.name === 'Primary Button');
     const mutedStyle = savedWithStyles.styles.find((style) => style.name === 'Muted Label');
     const pageStyle = savedWithStyles.styles.find((style) => style.name === 'Page Surface');
-    expect(primaryStyle?.classes).toMatchObject({
-      base: 'px-4 py-2 rounded-lg bg-blue-600 text-white',
-      hover: 'bg-blue-700 scale-105',
-      animation: 'transition-all duration-200 ease-out',
-      advanced: 'dark:bg-slate-900 [&>svg]:size-4',
+    expect(primaryStyle?.states).toMatchObject({
+      base: {
+        backgroundColor: '#2563eb',
+        textColor: '#ffffff',
+        borderRadius: { value: 8, unit: 'px' },
+        transitionProperty: 'all',
+        transitionDuration: 200,
+        transitionTimingFunction: 'easeOut',
+      },
+      hover: { backgroundColor: '#1d4ed8', scale: 105 },
     });
     expect(
       savedWithStyles.pages[0]?.components
@@ -595,7 +629,7 @@ describe('App MVP integration', () => {
       savedAfterDelete.pages[0]?.components.find((component) => component.type === 'WebLabel')
         ?.styleId,
     ).toBe(mutedStyle?.id);
-  });
+  }, 15_000);
 
   it('creates additional pages with the Page naming contract', async () => {
     const harness = createBridgeHarness(initialSession());

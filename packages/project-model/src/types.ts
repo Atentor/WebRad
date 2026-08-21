@@ -30,23 +30,119 @@ export interface ComponentNode {
   readonly children: readonly string[];
 }
 
-/** Tailwind utility groups authored for one component interaction state. */
-export interface ComponentStyleClasses {
-  readonly base: string;
-  readonly hover: string;
-  readonly focus: string;
-  readonly active: string;
-  readonly disabled: string;
-  readonly animation: string;
-  readonly advanced: string;
+export const COMPONENT_STYLE_STATE_NAMES = [
+  'base',
+  'hover',
+  'focus',
+  'active',
+  'disabled',
+] as const;
+
+export type ComponentStyleStateName = (typeof COMPONENT_STYLE_STATE_NAMES)[number];
+
+export const COMPONENT_STYLE_PROPERTY_NAMES = [
+  'display',
+  'overflow',
+  'flexDirection',
+  'flexWrap',
+  'justifyContent',
+  'alignItems',
+  'alignContent',
+  'gridColumns',
+  'gridRows',
+  'gap',
+  'rowGap',
+  'columnGap',
+  'width',
+  'height',
+  'minWidth',
+  'maxWidth',
+  'minHeight',
+  'maxHeight',
+  'marginTop',
+  'marginRight',
+  'marginBottom',
+  'marginLeft',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'lineHeight',
+  'letterSpacing',
+  'textAlign',
+  'textTransform',
+  'textDecoration',
+  'fontStyle',
+  'whiteSpace',
+  'textColor',
+  'backgroundColor',
+  'borderWidth',
+  'borderStyle',
+  'borderColor',
+  'borderRadius',
+  'outlineWidth',
+  'outlineStyle',
+  'outlineColor',
+  'outlineOffset',
+  'ringWidth',
+  'ringColor',
+  'ringOffsetWidth',
+  'ringOffsetColor',
+  'boxShadow',
+  'opacity',
+  'blur',
+  'brightness',
+  'contrast',
+  'grayscale',
+  'saturate',
+  'translateX',
+  'translateY',
+  'scale',
+  'rotate',
+  'skewX',
+  'skewY',
+  'transformOrigin',
+  'transitionProperty',
+  'transitionDuration',
+  'transitionDelay',
+  'transitionTimingFunction',
+  'animationName',
+  'animationDuration',
+  'animationIterationCount',
+  'animationTimingFunction',
+  'cursor',
+  'userSelect',
+  'pointerEvents',
+  'objectFit',
+  'objectPosition',
+] as const;
+
+export type ComponentStylePropertyName = (typeof COMPONENT_STYLE_PROPERTY_NAMES)[number];
+export type StyleLengthUnit = 'px' | 'rem' | '%' | 'vw' | 'vh';
+
+export interface StyleLengthValue {
+  readonly value: number;
+  readonly unit: StyleLengthUnit;
 }
+
+export type StylePropertyValue = string | number | StyleLengthValue;
+export type ComponentStyleProperties = Readonly<
+  Partial<Record<ComponentStylePropertyName, StylePropertyValue>>
+>;
+
+export type ComponentStyleStates = Readonly<
+  Record<ComponentStyleStateName, ComponentStyleProperties>
+>;
 
 /** Reusable project-level style. Its immutable ID is referenced by component nodes. */
 export interface ComponentStyleModel {
   readonly id: string;
   readonly name: string;
   readonly componentType: string;
-  readonly classes: ComponentStyleClasses;
+  readonly states: ComponentStyleStates;
 }
 
 export interface PageModel {
@@ -112,14 +208,13 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   outputDirectory: 'dist',
 });
 
-export const EMPTY_COMPONENT_STYLE_CLASSES: Readonly<ComponentStyleClasses> = Object.freeze({
-  base: '',
-  hover: '',
-  focus: '',
-  active: '',
-  disabled: '',
-  animation: '',
-  advanced: '',
+export const EMPTY_COMPONENT_STYLE_PROPERTIES: ComponentStyleProperties = Object.freeze({});
+export const EMPTY_COMPONENT_STYLE_STATES: ComponentStyleStates = Object.freeze({
+  base: EMPTY_COMPONENT_STYLE_PROPERTIES,
+  hover: EMPTY_COMPONENT_STYLE_PROPERTIES,
+  focus: EMPTY_COMPONENT_STYLE_PROPERTIES,
+  active: EMPTY_COMPONENT_STYLE_PROPERTIES,
+  disabled: EMPTY_COMPONENT_STYLE_PROPERTIES,
 });
 
 export const DEFAULT_PAGE_WIDTH = 800;

@@ -1,6 +1,7 @@
 import type { ComponentStyleModel } from '@webrad/project-model';
 import {
   resolveComponentStyleClassNames,
+  resolveComponentStyleStateClassNames,
   type TailwindStyleSource,
   WEBRAD_COMPONENT_CSS,
 } from '@webrad/runtime/visual';
@@ -62,6 +63,7 @@ function escapeCssString(value: string): string {
 /** Returns every exact utility candidate authored in the reusable style library. */
 export function collectTailwindCandidates(
   styles: readonly TailwindStyleSource[],
+  includePreviewStates = false,
 ): readonly string[] {
   const candidates: string[] = [];
   const seen = new Set<string>();
@@ -76,12 +78,25 @@ export function collectTailwindCandidates(
       seen.add(candidate);
       candidates.push(candidate);
     }
+    if (includePreviewStates) {
+      for (const stateName of ['hover', 'focus', 'active', 'disabled'] as const) {
+        for (const candidate of resolveComponentStyleStateClassNames(style.states[stateName])) {
+          if (seen.has(candidate)) continue;
+          seen.add(candidate);
+          candidates.push(candidate);
+        }
+      }
+    }
   }
   return candidates;
 }
 
-function tailwindInput(styles: readonly TailwindStyleSource[], componentCss?: string): string {
-  const candidates = collectTailwindCandidates(styles);
+function tailwindInput(
+  styles: readonly TailwindStyleSource[],
+  componentCss?: string,
+  includePreviewStates = false,
+): string {
+  const candidates = collectTailwindCandidates(styles, includePreviewStates);
   const sourceDirective =
     candidates.length === 0 ? '' : `\n@source inline("${escapeCssString(candidates.join(' '))}");`;
   const components = componentCss === undefined ? '' : `\n@layer components {\n${componentCss}\n}`;
@@ -94,6 +109,7 @@ function tailwindInput(styles: readonly TailwindStyleSource[], componentCss?: st
 async function processTailwind(
   styles: readonly TailwindStyleSource[],
   componentCss?: string,
+  includePreviewStates = false,
 ): Promise<string> {
   const result = await postcss([
     tailwindcss({
@@ -101,7 +117,7 @@ async function processTailwind(
       optimize: false,
       transformAssetUrls: false,
     }),
-  ]).process(tailwindInput(styles, componentCss), { from: undefined });
+  ]).process(tailwindInput(styles, componentCss, includePreviewStates), { from: undefined });
   return result.css;
 }
 
@@ -110,7 +126,7 @@ async function processTailwind(
  * browser output; generated applications never load Tailwind at runtime.
  */
 export function compileTailwindStyles(styles: readonly ComponentStyleModel[]): Promise<string> {
-  return processTailwind(styles);
+  return processTailwind(styles, undefined, true);
 }
 
 /** Compiles the complete generated application stylesheet with correct layer precedence. */

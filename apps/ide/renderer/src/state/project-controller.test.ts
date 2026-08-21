@@ -98,7 +98,10 @@ describe('ProjectController', () => {
     controller.updateStyle({
       ...style,
       name: 'Application Surface',
-      classes: { ...style.classes, base: 'bg-slate-100 text-slate-900' },
+      states: {
+        ...style.states,
+        base: { backgroundColor: '#f1f5f9', textColor: '#0f172a' },
+      },
     });
     const page = controller.getSnapshot().project?.pages[0];
     expect(page).toBeDefined();
@@ -115,7 +118,7 @@ describe('ProjectController', () => {
       id: style.id,
       name: 'Application Surface',
       componentType: 'WebPage',
-      classes: { base: 'bg-slate-100 text-slate-900' },
+      states: { base: { backgroundColor: '#f1f5f9', textColor: '#0f172a' } },
     });
     expect(controller.getSnapshot().project?.pages[0]?.components[0]?.styleId).toBe(style.id);
     expect(controller.getSnapshot().dirty).toBe(true);

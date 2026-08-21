@@ -17,14 +17,38 @@
       "id": "hello-webrad-style-button-primary-v1",
       "name": "PrimaryButton",
       "componentType": "WebButton",
-      "classes": {
-        "base": "bg-sky-600 text-white border-transparent rounded-lg shadow-md font-medium select-none",
-        "hover": "bg-sky-700 -translate-y-0.5 shadow-lg",
-        "focus": "outline-none ring-2 ring-sky-400 ring-offset-2",
-        "active": "translate-y-0 scale-95",
-        "disabled": "opacity-50 cursor-not-allowed",
-        "animation": "transition duration-200 ease-out motion-reduce:transition-none",
-        "advanced": ""
+      "states": {
+        "base": {
+          "backgroundColor": "#0284c7",
+          "textColor": "#ffffff",
+          "borderColor": "transparent",
+          "borderRadius": "lg",
+          "boxShadow": "md",
+          "fontWeight": "medium",
+          "userSelect": "none",
+          "transitionProperty": "all",
+          "transitionDuration": 200,
+          "transitionTimingFunction": "easeOut"
+        },
+        "hover": {
+          "backgroundColor": "#0369a1",
+          "translateY": { "value": -2, "unit": "px" },
+          "boxShadow": "lg"
+        },
+        "focus": {
+          "outlineStyle": "none",
+          "ringWidth": { "value": 2, "unit": "px" },
+          "ringColor": "#38bdf8",
+          "ringOffsetWidth": { "value": 2, "unit": "px" }
+        },
+        "active": {
+          "translateY": { "value": 0, "unit": "px" },
+          "scale": 95
+        },
+        "disabled": {
+          "opacity": 50,
+          "cursor": "not-allowed"
+        }
       }
     }
   ],

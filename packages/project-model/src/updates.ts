@@ -9,10 +9,12 @@ import { parseComponentNode, parseComponentStyle, parsePage, parseProject } from
 import type {
   Bounds,
   ComponentNode,
-  ComponentStyleClasses,
   ComponentStyleModel,
+  ComponentStylePropertyName,
+  ComponentStyleStateName,
   PageModel,
   ProjectSettings,
+  StylePropertyValue,
   WebRadProject,
 } from './types.js';
 
@@ -309,14 +311,40 @@ export function updateComponentStyle(
   });
 }
 
-export function updateComponentStyleClasses(
+export type ComponentStylePropertyPatch = Partial<
+  Readonly<Record<ComponentStylePropertyName, StylePropertyValue | null>>
+>;
+
+/** Updates one visual state. A null value removes that property from the state. */
+export function updateComponentStyleState(
   projectInput: WebRadProject,
   styleId: string,
-  patch: Partial<ComponentStyleClasses>,
+  stateName: ComponentStyleStateName,
+  patch: ComponentStylePropertyPatch,
 ): WebRadProject {
   const style = getComponentStyle(projectInput, styleId);
+  const properties: Record<string, StylePropertyValue> = { ...style.states[stateName] };
+  for (const [propertyName, value] of Object.entries(patch)) {
+    if (value === null) delete properties[propertyName];
+    else if (value !== undefined) properties[propertyName] = value;
+  }
   return updateComponentStyle(projectInput, styleId, {
-    classes: { ...style.classes, ...patch },
+    states: {
+      ...style.states,
+      [stateName]: properties,
+    },
+  });
+}
+
+export function setComponentStyleProperty(
+  projectInput: WebRadProject,
+  styleId: string,
+  stateName: ComponentStyleStateName,
+  propertyName: ComponentStylePropertyName,
+  value: StylePropertyValue | null,
+): WebRadProject {
+  return updateComponentStyleState(projectInput, styleId, stateName, {
+    [propertyName]: value,
   });
 }
 

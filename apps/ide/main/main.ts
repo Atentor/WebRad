@@ -470,8 +470,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     })()`,
     'the visual Styles workspace',
   );
-  if (!stylesNotice.includes('Tailwind utilities')) {
-    throw new Error('Styles workspace does not expose its Tailwind class editor guidance.');
+  if (!stylesNotice.includes('properties and values visually')) {
+    throw new Error('Styles workspace does not expose its visual property editor guidance.');
   }
   await waitForRendererString(
     window,
@@ -495,14 +495,14 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   );
   await waitForRendererString(
     window,
-    `document.querySelector('[data-component-type="WebButton"]')?.classList.contains('bg-sky-600') === true ? 'ready' : ''`,
-    'the selected style classes in the Designer',
+    `document.querySelector('[data-component-type="WebButton"]')?.classList.contains('bg-[#0284c7]') === true ? 'ready' : ''`,
+    'the selected visual style in the Designer',
   );
   const compiledStylesState = await waitForRendererString(
     window,
     `(() => {
       const styleSheets = Array.from(document.querySelectorAll('style[data-webrad-project-styles]'));
-      if (styleSheets.some((style) => style.textContent?.includes('.bg-sky-600'))) return 'ready';
+      if (styleSheets.some((style) => style.textContent?.includes('background-color: #0284c7'))) return 'ready';
       const error = Array.from(document.querySelectorAll('.wr-output-line span'))
         .map((item) => item.textContent?.trim() ?? '')
         .find((message) => message.includes('Could not compile the live style preview'));
@@ -558,8 +558,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
       return {
         message: globalThis.__webradSmokeMessage,
         styled:
-          button.classList.contains('bg-sky-600') &&
-          button.classList.contains('hover:bg-sky-700') &&
+          button.classList.contains('bg-[#0284c7]') &&
+          button.classList.contains('hover:bg-[#0369a1]') &&
           computedButton.color === 'rgb(255, 255, 255)' &&
           computedButton.borderRadius === '8px' &&
           computedButton.boxShadow !== 'none' &&

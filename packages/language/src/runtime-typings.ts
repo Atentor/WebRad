@@ -281,26 +281,40 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     };
   }
 
-  export interface TailwindClassGroups {
-    readonly base?: string;
-    readonly hover?: string;
-    readonly focus?: string;
-    readonly active?: string;
-    readonly disabled?: string;
-    readonly animation?: string;
-    readonly advanced?: string;
+  export type ComponentStyleStateName = 'base' | 'hover' | 'focus' | 'active' | 'disabled';
+  export type StyleLengthUnit = 'px' | 'rem' | '%' | 'vw' | 'vh';
+
+  export interface StyleLengthValue {
+    readonly value: number;
+    readonly unit: StyleLengthUnit;
   }
 
+  export type StylePropertyValue = string | number | StyleLengthValue;
+  export type TailwindStyleProperties = Readonly<
+    Record<string, StylePropertyValue | undefined>
+  >;
+
   export interface TailwindStyleSource {
-    readonly classes: TailwindClassGroups;
+    readonly states: Readonly<Record<ComponentStyleStateName, TailwindStyleProperties>>;
   }
 
   export function tokenizeTailwindClasses(value: string): readonly string[];
+  export function resolveStylePropertyCandidate(
+    propertyName: string,
+    value: StylePropertyValue,
+  ): string | undefined;
+  export function resolveComponentStyleStateClassNames(
+    properties: TailwindStyleProperties | null | undefined,
+  ): readonly string[];
   export function resolveComponentStyleClassNames(
     style: TailwindStyleSource | null | undefined,
   ): readonly string[];
   export function resolveComponentStyleClassName(
     style: TailwindStyleSource | null | undefined,
+  ): string;
+  export function resolveComponentStylePreviewClassName(
+    style: TailwindStyleSource | null | undefined,
+    stateName: ComponentStyleStateName,
   ): string;
 
   export type VisualSizingMode = 'bounds' | 'fill';

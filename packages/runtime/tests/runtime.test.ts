@@ -21,6 +21,8 @@ import {
   projectComponentVisual,
   resolveComponentStyleClassName,
   resolveComponentStyleClassNames,
+  resolveComponentStylePreviewClassName,
+  resolveStylePropertyCandidate,
   runtimeEventName,
   tokenizeTailwindClasses,
   type RuntimePageModel,
@@ -512,41 +514,49 @@ describe('browser runtime', () => {
     expect(runtimeEventName('OnCUSTOM')).toBe('custom');
   });
 
-  it('resolves reusable Tailwind groups, interaction states and arbitrary values safely', () => {
+  it('resolves structured style properties, interaction states and safe arbitrary values', () => {
     const style = {
-      classes: {
-        base: "px-4 bg-blue-600 [content:'hello world']",
-        hover: 'bg-blue-700',
-        focus: 'ring-2',
-        active: 'scale-95',
-        disabled: 'cursor-not-allowed opacity-50',
-        animation: 'transition-all animate-pulse',
-        advanced: 'rounded-lg bg-blue-600',
+      states: {
+        base: {
+          paddingLeft: { value: 16, unit: 'px' as const },
+          backgroundColor: '#2563eb',
+          transitionProperty: 'all',
+          animationName: 'pulse',
+          borderRadius: 'lg',
+        },
+        hover: { backgroundColor: '#1d4ed8' },
+        focus: { ringWidth: { value: 2, unit: 'px' as const } },
+        active: { scale: 95 },
+        disabled: { cursor: 'not-allowed', opacity: 50 },
       },
     };
 
-    expect(tokenizeTailwindClasses(style.classes.base)).toEqual([
+    expect(tokenizeTailwindClasses("px-4 bg-blue-600 [content:'hello world']")).toEqual([
       'px-4',
       'bg-blue-600',
       "[content:'hello_world']",
     ]);
     expect(resolveComponentStyleClassNames(style)).toEqual([
-      'px-4',
-      'bg-blue-600',
-      "[content:'hello_world']",
+      'pl-[16px]',
+      'bg-[#2563eb]',
       'transition-all',
       'animate-pulse',
       'rounded-lg',
-      'hover:bg-blue-700',
-      'focus:ring-2',
-      'focus-within:ring-2',
-      'active:scale-95',
+      'hover:bg-[#1d4ed8]',
+      'focus:ring-[2px]',
+      'focus-within:ring-[2px]',
+      'active:scale-[0.95]',
       'disabled:cursor-not-allowed',
       'aria-disabled:cursor-not-allowed',
-      'disabled:opacity-50',
-      'aria-disabled:opacity-50',
+      'disabled:opacity-[0.5]',
+      'aria-disabled:opacity-[0.5]',
     ]);
-    expect(resolveComponentStyleClassName(style)).toContain('hover:bg-blue-700');
+    expect(resolveComponentStyleClassName(style)).toContain('hover:bg-[#1d4ed8]');
+    expect(resolveComponentStylePreviewClassName(style, 'hover')).toContain('bg-[#1d4ed8]');
+    expect(resolveComponentStylePreviewClassName(style, 'hover')).not.toContain('bg-[#2563eb]');
+    expect(resolveStylePropertyCandidate('animationDuration', 750)).toBe(
+      '[animation-duration:750ms]!',
+    );
   });
 
   it('applies compiled style classes to the real browser element', () => {

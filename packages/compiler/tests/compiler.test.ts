@@ -6,15 +6,18 @@ import {
   addComponent,
   addComponentStyle,
   bindComponentEvent,
+  COMPONENT_STYLE_PROPERTY_DEFINITIONS,
   createComponentStyle,
   createProject,
   setComponentStyle,
   updatePage,
   type PageModel,
+  type StylePropertyValue,
   type WebRadProject,
 } from '@webrad/project-model';
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { WEBRAD_COMPONENT_CSS } from '@webrad/runtime/visual';
+import { resolveStylePropertyCandidate } from '@webrad/runtime/visual';
 import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -88,15 +91,31 @@ function styledExecutableProject(): WebRadProject {
   const project = executableProject();
   const style = createComponentStyle('Primary Button', 'WebButton', {
     idFactory: () => 'style-primary-button',
-    classes: {
-      base: 'bg-blue-600 px-6 text-white tracking-[0.125em]',
-      hover: 'bg-blue-700',
-      focus: 'ring-2 ring-blue-300',
-      active: 'scale-95',
-      disabled: 'cursor-not-allowed opacity-50',
-      animation: 'transition-all duration-200 animate-pulse',
-      advanced:
-        'rounded-lg [box-shadow:0_4px_12px_rgb(0_0_0_/_0.25)] [&>span]:text-red-500 bg-blue-600',
+    states: {
+      base: {
+        backgroundColor: '#2563eb',
+        paddingLeft: { value: 24, unit: 'px' },
+        paddingRight: { value: 24, unit: 'px' },
+        textColor: '#ffffff',
+        letterSpacing: { value: 0.125, unit: 'rem' },
+        borderRadius: 'lg',
+        boxShadow: 'md',
+        transitionProperty: 'all',
+        transitionDuration: 200,
+        animationName: 'pulse',
+        animationDuration: 750,
+        animationIterationCount: 'infinite',
+      },
+      hover: { backgroundColor: '#1d4ed8' },
+      focus: {
+        outlineWidth: { value: 2, unit: 'px' },
+        outlineStyle: 'solid',
+        outlineColor: '#38bdf8',
+        ringWidth: { value: 2, unit: 'px' },
+        ringColor: '#93c5fd',
+      },
+      active: { scale: 95 },
+      disabled: { cursor: 'not-allowed', opacity: 50 },
     },
   });
   const withStyle = addComponentStyle(project, style);
@@ -199,46 +218,109 @@ export class PageMain extends PageMainGenerated {
     expect(GENERATED_APP_CSS).toContain('--wr-control-surface: #f5f7fa');
   });
 
-  it('compiles only saved Tailwind candidates with states, animation and arbitrary values', async () => {
+  it('compiles structured states, animations and safe arbitrary values', async () => {
     const project = styledExecutableProject();
     const css = await compileTailwindStyles(project.styles);
     const candidates = collectTailwindCandidates(project.styles);
 
     expect(candidates).toEqual(
       expect.arrayContaining([
-        'bg-blue-600',
-        'hover:bg-blue-700',
-        'focus:ring-2',
-        'active:scale-95',
-        'disabled:opacity-50',
-        'aria-disabled:opacity-50',
+        'bg-[#2563eb]',
+        'hover:bg-[#1d4ed8]',
+        'focus:ring-[2px]',
+        'focus:outline-[2px]',
+        'active:scale-[0.95]',
+        'disabled:opacity-[0.5]',
+        'aria-disabled:opacity-[0.5]',
         'animate-pulse',
-        '[box-shadow:0_4px_12px_rgb(0_0_0_/_0.25)]',
-        '[&>span]:text-red-500',
+        '[animation-duration:750ms]!',
+        '[animation-iteration-count:infinite]!',
       ]),
     );
-    expect(candidates.filter((candidate) => candidate === 'bg-blue-600')).toHaveLength(1);
-    expect(css).toContain('.bg-blue-600');
-    expect(css).toContain('.hover\\:bg-blue-700');
-    expect(css).toContain('.disabled\\:opacity-50');
-    expect(css).toContain('.aria-disabled\\:opacity-50');
+    expect(candidates.filter((candidate) => candidate === 'bg-[#2563eb]')).toHaveLength(1);
+    expect(css).toContain('background-color: #2563eb');
+    expect(css).toContain('.bg-\\[\\#1d4ed8\\] {');
+    expect(css).toContain('.hover\\:bg-\\[\\#1d4ed8\\]');
+    expect(css).toContain('.disabled\\:opacity-\\[0\\.5\\]');
+    expect(css).toContain('.aria-disabled\\:opacity-\\[0\\.5\\]');
     expect(css).toContain('.animate-pulse');
-    expect(css).toContain('.tracking-\\[0\\.125em\\]');
-    expect(css).toContain('.\\[box-shadow\\:0_4px_12px_rgb\\(0_0_0_\\/_0\\.25\\)\\]');
-    expect(css).toContain('.\\[\\&\\>span\\]\\:text-red-500 > span');
+    expect(css).toContain('.tracking-\\[0\\.125rem\\]');
+    expect(css).toContain('.\\[animation-duration\\:750ms\\]\\!');
     expect(css).not.toContain('.m-96');
     expect(css).not.toContain('::file-selector-button');
   });
 
-  it('rejects brace expansion syntax instead of expanding authored candidates', async () => {
-    const style = createComponentStyle('Unsafe Expansion', 'WebButton', {
-      idFactory: () => 'style-unsafe-expansion',
-      classes: { advanced: 'bg-{red,blue}-500' },
-    });
-
-    await expect(compileTailwindStyles([style])).rejects.toThrow(
-      'Braces are reserved for @source expansion',
+  it('generates and compiles a real Tailwind rule for every metadata default', async () => {
+    const styles = COMPONENT_STYLE_PROPERTY_DEFINITIONS.map((definition) =>
+      createComponentStyle(
+        `Default ${definition.label}`,
+        definition.componentTypes?.[0] ?? 'WebButton',
+        {
+          idFactory: () => `style-${definition.name}`,
+          states: { base: { [definition.name]: definition.defaultValue } },
+        },
+      ),
     );
+    const candidates = COMPONENT_STYLE_PROPERTY_DEFINITIONS.map((definition) => {
+      const candidate = resolveStylePropertyCandidate(definition.name, definition.defaultValue);
+      expect(candidate, definition.name).toBeDefined();
+      return candidate as string;
+    });
+    const css = await compileTailwindStyles(styles);
+    const escapeClassName = (candidate: string): string =>
+      candidate.replace(/([^a-zA-Z0-9_-])/gu, '\\$1');
+
+    for (const candidate of candidates) {
+      expect(css, candidate).toContain(`.${escapeClassName(candidate)}`);
+    }
+  });
+
+  it('generates a real Tailwind rule for every value offered by the visual editor', async () => {
+    const valuesFor = (
+      definition: (typeof COMPONENT_STYLE_PROPERTY_DEFINITIONS)[number],
+    ): readonly StylePropertyValue[] => {
+      const { editor } = definition;
+      switch (editor.kind) {
+        case 'enum':
+          return editor.options.map((option) => option.value);
+        case 'color':
+          return [...editor.keywords.map((option) => option.value), '#123456'];
+        case 'number':
+          return [...new Set([editor.min, definition.defaultValue as number, editor.max])];
+        case 'length': {
+          const numericValue = editor.allowNegative === true ? -2 : Math.max(editor.min ?? 0, 2);
+          return [
+            ...(editor.keywords?.map((option) => option.value) ?? []),
+            ...editor.units.map((unit) => ({ value: numericValue, unit }) as const),
+          ];
+        }
+      }
+    };
+    const entries = COMPONENT_STYLE_PROPERTY_DEFINITIONS.flatMap((definition) =>
+      valuesFor(definition).map((value, index) => ({ definition, value, index })),
+    );
+    const styles = entries.map(({ definition, value, index }) =>
+      createComponentStyle(
+        `Option ${definition.name} ${String(index)}`,
+        definition.componentTypes?.[0] ?? 'WebButton',
+        {
+          idFactory: () => `style-${definition.name}-${String(index)}`,
+          states: { base: { [definition.name]: value } },
+        },
+      ),
+    );
+    const candidates = entries.map(({ definition, value }) => {
+      const candidate = resolveStylePropertyCandidate(definition.name, value);
+      expect(candidate, `${definition.name}: ${JSON.stringify(value)}`).toBeDefined();
+      return candidate as string;
+    });
+    const css = await compileTailwindStyles(styles);
+    const escapeClassName = (candidate: string): string =>
+      candidate.replace(/([^a-zA-Z0-9_-])/gu, '\\$1');
+
+    for (const candidate of candidates) {
+      expect(css, candidate).toContain(`.${escapeClassName(candidate)}`);
+    }
   });
 
   it('ships static Tailwind CSS and applies the selected style in the compiled browser app', async () => {
@@ -250,7 +332,8 @@ export class PageMain extends PageMainGenerated {
     expect(css).toContain('@layer components');
     expect(css).toContain('@layer utilities');
     expect(css).toContain('.wr-webbutton');
-    expect(css).toContain('.bg-blue-600');
+    expect(css).toContain('.bg-\\[\\#2563eb\\]');
+    expect(css).not.toContain('.bg-\\[\\#1d4ed8\\] {');
     expect(result.files['assets/app.js']).not.toContain('@tailwindcss');
 
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -266,9 +349,9 @@ export class PageMain extends PageMainGenerated {
     expect(button).not.toBeNull();
     expect([...(button?.classList ?? [])]).toEqual(
       expect.arrayContaining([
-        'bg-blue-600',
-        'hover:bg-blue-700',
-        'disabled:opacity-50',
+        'bg-[#2563eb]',
+        'hover:bg-[#1d4ed8]',
+        'disabled:opacity-[0.5]',
         'animate-pulse',
       ]),
     );

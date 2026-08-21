@@ -7,10 +7,11 @@ import {
   DEFAULT_PAGE_HEIGHT,
   DEFAULT_PAGE_WIDTH,
   DEFAULT_PROJECT_SETTINGS,
-  EMPTY_COMPONENT_STYLE_CLASSES,
+  EMPTY_COMPONENT_STYLE_PROPERTIES,
   type ComponentNode,
-  type ComponentStyleClasses,
   type ComponentStyleModel,
+  type ComponentStyleProperties,
+  type ComponentStyleStateName,
   type PageDescriptor,
   type PageModel,
   type IdFactory,
@@ -35,7 +36,7 @@ function resolveFactory(
 
 export interface CreateComponentStyleOptions {
   readonly idFactory?: IdFactory;
-  readonly classes?: Partial<ComponentStyleClasses>;
+  readonly states?: Partial<Readonly<Record<ComponentStyleStateName, ComponentStyleProperties>>>;
 }
 
 /** Creates an unbound reusable style with a stable identity. */
@@ -45,13 +46,17 @@ export function createComponentStyle(
   options: CreateComponentStyleOptions | IdFactory = {},
 ): ComponentStyleModel {
   assertValidTypeScriptIdentifier(componentType);
+  const states = typeof options === 'function' ? undefined : options.states;
   return parseComponentStyle({
     id: resolveFactory(options)(),
     name,
     componentType,
-    classes: {
-      ...EMPTY_COMPONENT_STYLE_CLASSES,
-      ...(typeof options === 'function' ? {} : options.classes),
+    states: {
+      base: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.base },
+      hover: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.hover },
+      focus: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.focus },
+      active: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.active },
+      disabled: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.disabled },
     },
   });
 }

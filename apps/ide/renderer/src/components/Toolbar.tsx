@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { IdeCommand } from '../../../shared/contracts';
+import { Icon, type IconName } from './Icon';
 
 interface ToolbarProps {
   onCommand: (command: IdeCommand) => void;
@@ -10,7 +11,7 @@ interface ToolbarProps {
 interface ToolButtonProps {
   command: IdeCommand;
   label: string;
-  glyph: string;
+  glyph: IconName;
   disabled?: boolean;
   onCommand: (command: IdeCommand) => void;
 }
@@ -25,9 +26,7 @@ function ToolButton({ command, label, glyph, disabled, onCommand }: ToolButtonPr
       disabled={disabled}
       onClick={() => onCommand(command)}
     >
-      <span className="material-icons" aria-hidden="true">
-        {glyph}
-      </span>
+      <Icon name={glyph} />
     </button>
   );
 }
@@ -44,7 +43,7 @@ export function Toolbar({ onCommand, canSave, canRun }: ToolbarProps): ReactElem
         />
         <ToolButton
           command="file.openProject"
-          glyph="folder_open"
+          glyph="folder-open"
           label="Open project (Ctrl+O)"
           onCommand={onCommand}
         />
@@ -65,7 +64,7 @@ export function Toolbar({ onCommand, canSave, canRun }: ToolbarProps): ReactElem
       <div className="wr-tool-group" role="group" aria-label="Run actions">
         <ToolButton
           command="run.run"
-          glyph="play_arrow"
+          glyph="play"
           label="Build and run (F9)"
           disabled={!canRun}
           onCommand={onCommand}

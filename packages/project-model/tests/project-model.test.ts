@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
+  COMPONENT_STYLE_PROPERTY_DEFINITIONS,
+  COMPONENT_STYLE_PROPERTY_NAMES,
   FutureFormatVersionError,
   ModelUpdateError,
   ProjectValidationError,
@@ -26,6 +28,7 @@ import {
   renameComponent,
   renamePage,
   safeDeserializeProject,
+  safeParseComponentStyle,
   safeParsePage,
   safeParseProject,
   setComponentStyle,
@@ -34,7 +37,7 @@ import {
   updateComponentBounds,
   updateComponentProps,
   updateComponentStyle,
-  updateComponentStyleClasses,
+  updateComponentStyleState,
   updatePage,
   validateComponentName,
   type ComponentNode,
@@ -124,26 +127,49 @@ describe('project factories', () => {
     expect(() => createPage('CON')).toThrow(ProjectValidationError);
   });
 
-  it('creates reusable styles with every supported Tailwind class group', () => {
+  it('creates reusable styles with five structured visual states', () => {
     const style = createComponentStyle('Primary Button', 'WebButton', {
       idFactory: idSequence('style-id'),
-      classes: { base: 'rounded-lg bg-blue-600', hover: 'bg-blue-700' },
+      states: {
+        base: { borderRadius: 'lg', backgroundColor: '#2563eb' },
+        hover: { backgroundColor: '#1d4ed8' },
+      },
     });
 
     expect(style).toEqual({
       id: 'style-id',
       name: 'Primary Button',
       componentType: 'WebButton',
-      classes: {
-        base: 'rounded-lg bg-blue-600',
-        hover: 'bg-blue-700',
-        focus: '',
-        active: '',
-        disabled: '',
-        animation: '',
-        advanced: '',
+      states: {
+        base: { borderRadius: 'lg', backgroundColor: '#2563eb' },
+        hover: { backgroundColor: '#1d4ed8' },
+        focus: {},
+        active: {},
+        disabled: {},
       },
     });
+  });
+
+  it('publishes one valid and useful editor default for every style property', () => {
+    expect(COMPONENT_STYLE_PROPERTY_DEFINITIONS.map(({ name }) => name)).toEqual(
+      COMPONENT_STYLE_PROPERTY_NAMES,
+    );
+    for (const definition of COMPONENT_STYLE_PROPERTY_DEFINITIONS) {
+      expect(definition.description.length, definition.name).toBeGreaterThan(0);
+      const result = safeParseComponentStyle({
+        id: `style-${definition.name}`,
+        name: `Style ${definition.label}`,
+        componentType: definition.componentTypes?.[0] ?? 'WebButton',
+        states: {
+          base: { [definition.name]: definition.defaultValue },
+          hover: {},
+          focus: {},
+          active: {},
+          disabled: {},
+        },
+      });
+      expect(result.success, definition.name).toBe(true);
+    }
   });
 });
 
@@ -331,6 +357,34 @@ describe('zod validation', () => {
         true,
       );
     }
+  });
+
+  it('rejects unsafe, out-of-range, inapplicable, and legacy style values', () => {
+    const valid = createComponentStyle('Primary', 'WebButton', idSequence('style-id'));
+    const invalidValues = [
+      { backgroundColor: 'rgb(1, 2, 3)' },
+      { opacity: 101 },
+      { paddingLeft: { value: -1, unit: 'px' } },
+      { marginLeft: { value: 1_000_001, unit: 'px' } },
+      { objectFit: 'cover' },
+    ];
+
+    for (const base of invalidValues) {
+      expect(
+        safeParseComponentStyle({
+          ...valid,
+          states: { ...valid.states, base },
+        }).success,
+      ).toBe(false);
+    }
+    expect(
+      safeParseComponentStyle({
+        id: 'legacy-style',
+        name: 'Legacy',
+        componentType: 'WebButton',
+        classes: { base: 'bg-red-500' },
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -541,20 +595,30 @@ describe('immutable update helpers', () => {
     const style = createComponentStyle('Primary', 'WebButton', idSequence('style-id'));
     const withStyle = addComponentStyle(withButton, style);
     const assigned = setComponentStyle(withStyle, page.id, 'button-id', style.id);
-    const updated = updateComponentStyleClasses(assigned, style.id, {
-      base: 'rounded bg-blue-600 text-white',
-      hover: 'bg-blue-700',
-      animation: 'transition-colors duration-150',
+    const withBase = updateComponentStyleState(assigned, style.id, 'base', {
+      borderRadius: 'md',
+      backgroundColor: '#2563eb',
+      textColor: '#ffffff',
+      transitionProperty: 'colors',
+      transitionDuration: 150,
+    });
+    const updated = updateComponentStyleState(withBase, style.id, 'hover', {
+      backgroundColor: '#1d4ed8',
     });
     const renamed = updateComponentStyle(updated, style.id, { name: 'Primary Action' });
 
     expect(renamed.styles[0]).toMatchObject({
       id: 'style-id',
       name: 'Primary Action',
-      classes: {
-        base: 'rounded bg-blue-600 text-white',
-        hover: 'bg-blue-700',
-        animation: 'transition-colors duration-150',
+      states: {
+        base: {
+          borderRadius: 'md',
+          backgroundColor: '#2563eb',
+          textColor: '#ffffff',
+          transitionProperty: 'colors',
+          transitionDuration: 150,
+        },
+        hover: { backgroundColor: '#1d4ed8' },
       },
     });
     expect(renamed.pages[0]?.components.find((node) => node.id === 'button-id')?.styleId).toBe(
