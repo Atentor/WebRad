@@ -230,6 +230,7 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   Reflect.deleteProperty(window, 'webrad');
+  document.documentElement.removeAttribute('data-theme');
 });
 
 describe('App MVP integration', () => {
@@ -244,9 +245,10 @@ describe('App MVP integration', () => {
 
     render(<App />);
     expect(screen.getByRole('heading', { name: 'WebRAD' })).toBeDefined();
-    const toolbarIconSource = imageSource('.wr-brand-mark');
-    expect(toolbarIconSource).toBe(applicationIconUrl);
-    expect(imageSource('.wr-welcome-mark')).toBe(toolbarIconSource);
+    expect(screen.getByRole('toolbar', { name: 'Main toolbar' })).toBeDefined();
+    expect(document.querySelector('.wr-brand-mark')).toBeNull();
+    expect(document.querySelector('.wr-theme-toggle')).toBeNull();
+    expect(imageSource('.wr-welcome-mark')).toBe(applicationIconUrl);
 
     await user.click(screen.getByRole('button', { name: 'New project (Ctrl+N)' }));
     await screen.findByRole('dialog', { name: 'Create a new project' });
@@ -259,7 +261,7 @@ describe('App MVP integration', () => {
     expect(screen.getAllByText('PageMain').length).toBeGreaterThan(0);
     expect(screen.getByTitle('Entry page')).toBeDefined();
     expect(screen.queryByText('Forms')).toBeNull();
-    expect(imageSource('.wr-project-icon')).toBe(toolbarIconSource);
+    expect(imageSource('.wr-project-icon')).toBe(applicationIconUrl);
     expect(harness.create).toHaveBeenCalledWith({ name: 'MvpProject' });
 
     await user.dblClick(screen.getByRole('button', { name: 'Label' }));
@@ -360,6 +362,26 @@ describe('App MVP integration', () => {
     expect(harness.save.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(harness.setDirty).toHaveBeenCalledWith(true);
     expect(harness.setDirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it('keeps theme switching in the Tools command without rendering a toolbar button', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+
+    render(<App />);
+
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(screen.queryByRole('button', { name: /Switch to .* theme/ })).toBeNull();
+
+    act(() => {
+      harness.invokeCommand('view.toggleTheme');
+    });
+    await waitFor(() => {
+      expect(document.documentElement.dataset.theme).toBe('light');
+    });
   });
 
   it('creates additional pages with the Page naming contract', async () => {

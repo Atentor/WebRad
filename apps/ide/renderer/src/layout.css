@@ -9,80 +9,74 @@
 .wr-toolbar {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 0px;
+  gap: 4px;
+  padding: 0 6px;
   border-bottom: 1px solid var(--wr-border);
   background: var(--wr-panel-bg);
-  box-shadow: 0 1px 7px var(--wr-shadow);
+  box-shadow: 0 1px 5px color-mix(in srgb, var(--wr-shadow) 70%, transparent);
   z-index: 5;
-}
-
-.wr-brand {
-  display: flex;
-  align-items: center;
-  gap: 0px;
-  min-width: 118px;
-  font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-}
-
-.wr-brand-mark {
-  display: block;
-  flex: none;
-  width: 23px;
-  height: 23px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 3px rgba(32, 135, 224, 0.35));
 }
 
 .wr-tool-group {
   display: flex;
   align-items: center;
-  gap: 0px;
-}
-
-.wr-tool-button,
-.wr-theme-toggle {
-  border: 0;
-  border-radius: 0px;
-  background: transparent;
-  cursor: default;
+  gap: 2px;
 }
 
 .wr-tool-button {
   display: grid;
   place-items: center;
-  width: 29px;
-  height: 29px;
-  font-size: 17px;
+  width: 32px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  cursor: default;
+  transition:
+    color 100ms ease,
+    border-color 100ms ease,
+    background-color 100ms ease;
 }
 
-.wr-tool-button:hover:not(:disabled),
-.wr-theme-toggle:hover {
+.wr-tool-button .material-icons {
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transform: translateZ(0);
+}
+
+.wr-tool-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--wr-border-strong) 58%, transparent);
   background: var(--wr-surface-hover);
+  color: var(--wr-text);
+}
+
+.wr-tool-button:active:not(:disabled) {
+  border-color: color-mix(in srgb, var(--wr-accent) 45%, var(--wr-border));
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
 }
 
 .wr-tool-button:disabled {
   color: var(--wr-muted-text);
-  opacity: 0.45;
+  opacity: 0.38;
 }
 
 .wr-tool-separator {
+  flex: none;
   width: 1px;
-  height: 22px;
-  margin: 0 3px;
-  background: var(--wr-border);
+  height: 18px;
+  margin: 0 2px;
+  background: color-mix(in srgb, var(--wr-border-strong) 70%, transparent);
 }
 
-.wr-toolbar-spacer,
 .wr-status-spacer {
   flex: 1;
-}
-
-.wr-theme-toggle {
-  padding: 6px 9px;
-  color: var(--wr-muted-text);
 }
 
 .wr-workbench {

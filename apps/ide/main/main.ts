@@ -342,7 +342,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     `(() => ({
       shell: Boolean(document.querySelector('.wr-ide-shell')),
       toolbar: Boolean(document.querySelector('.wr-toolbar')),
-      brandIcon: document.querySelector('img.wr-brand-mark')?.src ?? '',
+      toolbarBrandIcon: Boolean(document.querySelector('img.wr-brand-mark')),
+      toolbarThemeToggle: Boolean(document.querySelector('.wr-theme-toggle')),
       welcomeIcon: document.querySelector('img.wr-welcome-mark')?.src ?? '',
       favicon: document.querySelector('link[rel~="icon"]')?.href ?? '',
       bridge: Object.keys(globalThis.webrad ?? {}).sort()
@@ -354,7 +355,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   }
   const shell = Reflect.get(shellResult, 'shell');
   const toolbar = Reflect.get(shellResult, 'toolbar');
-  const brandIcon = Reflect.get(shellResult, 'brandIcon');
+  const toolbarBrandIcon = Reflect.get(shellResult, 'toolbarBrandIcon');
+  const toolbarThemeToggle = Reflect.get(shellResult, 'toolbarThemeToggle');
   const welcomeIcon = Reflect.get(shellResult, 'welcomeIcon');
   const favicon = Reflect.get(shellResult, 'favicon');
   const bridge = Reflect.get(shellResult, 'bridge');
@@ -362,10 +364,11 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   if (
     shell !== true ||
     toolbar !== true ||
-    typeof brandIcon !== 'string' ||
-    brandIcon.length === 0 ||
-    welcomeIcon !== brandIcon ||
-    favicon !== brandIcon ||
+    toolbarBrandIcon !== false ||
+    toolbarThemeToggle !== false ||
+    typeof welcomeIcon !== 'string' ||
+    welcomeIcon.length === 0 ||
+    favicon !== welcomeIcon ||
     !Array.isArray(bridge) ||
     JSON.stringify(bridge) !== JSON.stringify(expectedBridge)
   ) {
@@ -375,12 +378,12 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const loadedIcon = await waitForRendererString(
     window,
     `(() => {
-      const icon = document.querySelector('img.wr-brand-mark');
+      const icon = document.querySelector('img.wr-welcome-mark');
       return icon instanceof HTMLImageElement && icon.complete && icon.naturalWidth > 0 ? icon.src : '';
     })()`,
     'the WebRAD application icon',
   );
-  if (loadedIcon !== brandIcon) throw new Error('Renderer application icons do not match.');
+  if (loadedIcon !== welcomeIcon) throw new Error('Renderer application icons do not match.');
   smokeLog('renderer application icon passed');
 
   if (smokeProjectPath === undefined) return;
@@ -404,7 +407,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     `document.querySelector('img.wr-project-icon')?.src ?? ''`,
     'the project application icon',
   );
-  if (projectIcon !== brandIcon)
+  if (projectIcon !== welcomeIcon)
     throw new Error('Project icon does not match the application icon.');
   smokeLog('renderer project open passed');
 

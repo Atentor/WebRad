@@ -1137,8 +1137,6 @@ export function App(): ReactElement {
               onCommand={executeCommand}
               canSave={project !== null && !projectState.saving}
               canRun={project !== null && projectState.rootPath !== null && !building}
-              theme={theme}
-              onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
             />
           }
           explorer={
