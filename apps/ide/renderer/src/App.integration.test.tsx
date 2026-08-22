@@ -413,6 +413,10 @@ describe('App MVP integration', () => {
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
+    await user.click(screen.getByRole('button', { name: 'Collapse Pages' }));
+    expect(screen.queryByRole('treeitem', { name: /PageMain/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Expand Pages' }));
+    expect(await screen.findByRole('treeitem', { name: /PageMain/ })).toBeDefined();
     await user.dblClick(screen.getByTitle('Select Button; drag or double-click to insert'));
     await screen.findByTitle('Button1: WebButton');
     await user.dblClick(screen.getByTitle('Select Button; drag or double-click to insert'));

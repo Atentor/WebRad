@@ -592,6 +592,24 @@ button.wr-problem:focus-visible {
   text-align: center;
 }
 
+.wr-tree-toggle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.wr-tree-toggle:focus-visible {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: 1px;
+}
+
 .wr-project-row .wr-tree-glyph,
 .wr-folder-row .wr-tree-glyph {
   width: 16px;

@@ -12,8 +12,28 @@ interface ProjectExplorerProps {
   onRenamePage: (pageId: string, name: string) => void;
 }
 
-function FolderGlyph({ open = true }: { open?: boolean }): ReactElement {
-  return <Icon name={open ? 'chevron-down' : 'chevron-right'} className="wr-tree-glyph" />;
+function FolderGlyph({
+  open = true,
+  label,
+  onToggle,
+}: {
+  open?: boolean;
+  label?: string;
+  onToggle?: () => void;
+}): ReactElement {
+  const icon = <Icon name={open ? 'chevron-down' : 'chevron-right'} className="wr-tree-glyph" />;
+  if (!onToggle || !label) return icon;
+  return (
+    <button
+      type="button"
+      className="wr-tree-toggle"
+      aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
+      aria-expanded={open}
+      onClick={onToggle}
+    >
+      {icon}
+    </button>
+  );
 }
 
 export function ProjectExplorer({
@@ -26,6 +46,7 @@ export function ProjectExplorer({
 }: ProjectExplorerProps): ReactElement {
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
+  const [pagesExpanded, setPagesExpanded] = useState(true);
 
   const beginRename = (pageId: string, name: string): void => {
     setEditingPageId(pageId);
@@ -51,48 +72,58 @@ export function ProjectExplorer({
       ) : (
         <div className="wr-project-tree" role="tree" aria-label={`${project.name} project`}>
           <div role="group" className="wr-tree-group">
-            <div className="wr-tree-row wr-folder-row" role="treeitem" aria-expanded="true">
-              <FolderGlyph />
+            <div
+              className="wr-tree-row wr-folder-row"
+              role="treeitem"
+              aria-expanded={pagesExpanded}
+            >
+              <FolderGlyph
+                open={pagesExpanded}
+                label="Pages"
+                onToggle={() => setPagesExpanded((current) => !current)}
+              />
               <span>Pages</span>
               <small>{project.pages.length}</small>
             </div>
-            <div role="group" className="wr-tree-group nested">
-              {project.pages.map((page) => (
-                <div
-                  key={page.id}
-                  className={`wr-tree-row wr-page-row ${activePageId === page.id ? 'active' : ''}`}
-                  role="treeitem"
-                  aria-selected={activePageId === page.id}
-                  onDoubleClick={() => onOpenPage(page.id)}
-                  onClick={() => onOpenPage(page.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') onOpenPage(page.id);
-                    if (event.key === 'F2') beginRename(page.id, page.name);
-                    if (event.key === 'Delete') onDeletePage(page.id);
-                  }}
-                  tabIndex={0}
-                >
-                  <Icon name="page" className="wr-page-icon" />
-                  {editingPageId === page.id ? (
-                    <input
-                      autoFocus
-                      aria-label="Page name"
-                      value={draftName}
-                      onChange={(event) => setDraftName(event.target.value)}
-                      onBlur={finishRename}
-                      onKeyDown={(event) => {
-                        event.stopPropagation();
-                        if (event.key === 'Enter') finishRename();
-                        if (event.key === 'Escape') setEditingPageId(null);
-                      }}
-                    />
-                  ) : (
-                    <span>{page.name}</span>
-                  )}
-                  {project.entryPage === page.id && <small title="Entry page">entry</small>}
-                </div>
-              ))}
-            </div>
+            {pagesExpanded && (
+              <div role="group" className="wr-tree-group nested">
+                {project.pages.map((page) => (
+                  <div
+                    key={page.id}
+                    className={`wr-tree-row wr-page-row ${activePageId === page.id ? 'active' : ''}`}
+                    role="treeitem"
+                    aria-selected={activePageId === page.id}
+                    onDoubleClick={() => onOpenPage(page.id)}
+                    onClick={() => onOpenPage(page.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') onOpenPage(page.id);
+                      if (event.key === 'F2') beginRename(page.id, page.name);
+                      if (event.key === 'Delete') onDeletePage(page.id);
+                    }}
+                    tabIndex={0}
+                  >
+                    <Icon name="page" className="wr-page-icon" />
+                    {editingPageId === page.id ? (
+                      <input
+                        autoFocus
+                        aria-label="Page name"
+                        value={draftName}
+                        onChange={(event) => setDraftName(event.target.value)}
+                        onBlur={finishRename}
+                        onKeyDown={(event) => {
+                          event.stopPropagation();
+                          if (event.key === 'Enter') finishRename();
+                          if (event.key === 'Escape') setEditingPageId(null);
+                        }}
+                      />
+                    ) : (
+                      <span>{page.name}</span>
+                    )}
+                    {project.entryPage === page.id && <small title="Entry page">entry</small>}
+                  </div>
+                ))}
+              </div>
+            )}
             {['Models', 'Units', 'Assets'].map((folder) => (
               <div
                 className="wr-tree-row wr-folder-row"
