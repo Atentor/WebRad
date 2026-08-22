@@ -5,10 +5,9 @@ interface PreviewPaneProps {
   url: string | null;
   running: boolean;
   diagnostics: readonly BuildDiagnostic[];
-  onRun: () => void;
 }
 
-export function PreviewPane({ url, running, diagnostics, onRun }: PreviewPaneProps): ReactElement {
+export function PreviewPane({ url, running, diagnostics }: PreviewPaneProps): ReactElement {
   if (running) {
     return (
       <div className="wr-preview-state" role="status">
@@ -27,22 +26,12 @@ export function PreviewPane({ url, running, diagnostics, onRun }: PreviewPanePro
           {firstError?.message ??
             'Run the compiler to render the actual generated application here.'}
         </span>
-        <button type="button" onClick={onRun}>
-          Build and run
-        </button>
       </div>
     );
   }
 
   return (
     <div className="wr-preview-pane">
-      <div className="wr-preview-toolbar">
-        <span className="wr-preview-indicator" />
-        <span>Sandboxed browser preview</span>
-        <button type="button" onClick={onRun}>
-          Refresh
-        </button>
-      </div>
       <iframe
         title="WebRAD application preview"
         sandbox="allow-forms allow-modals allow-scripts"

@@ -1253,12 +1253,7 @@ export function App(): ReactElement {
     </ErrorBoundary>
   ) : (
     <ErrorBoundary area="Preview">
-      <PreviewPane
-        url={previewUrl}
-        running={building}
-        diagnostics={buildDiagnostics}
-        onRun={() => void runProject()}
-      />
+      <PreviewPane url={previewUrl} running={building} diagnostics={buildDiagnostics} />
     </ErrorBoundary>
   );
 
