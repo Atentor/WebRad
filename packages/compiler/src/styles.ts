@@ -32,18 +32,18 @@ body {
 }
 
 body {
-  display: grid;
-  place-items: start center;
-  padding: 24px;
+  min-width: 100vw;
+  min-height: 100vh;
   color: #1f2937;
-  background: #e5e7eb;
+  background: #ffffff;
 }
 
 .wr-webpage {
+  width: 100vw !important;
+  min-height: 100vh;
+  height: 100vh !important;
   color: #111827;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 16px 40px rgb(15 23 42 / 18%);
 }
 
 ${WEBRAD_COMPONENT_CSS}
