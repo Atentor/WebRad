@@ -622,6 +622,13 @@ button.wr-problem:focus-visible {
   color: var(--wr-accent);
 }
 
+.wr-project-tools .wr-project-icon,
+.wr-project-tools .wr-tree-action-icon,
+.wr-project-tools .wr-tree-glyph {
+  width: 18px;
+  height: 18px;
+}
+
 .wr-project-tool-row {
   cursor: default;
 }
