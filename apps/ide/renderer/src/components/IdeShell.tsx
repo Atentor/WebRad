@@ -11,6 +11,7 @@ interface IdeShellProps {
   toolbar: ReactNode;
   explorer: ReactNode;
   palette: ReactNode;
+  projectTools: ReactNode;
   editor: ReactNode;
   inspector: ReactNode;
   bottom: ReactNode;
@@ -31,6 +32,7 @@ export function IdeShell({
   toolbar,
   explorer,
   palette,
+  projectTools,
   editor,
   inspector,
   bottom,
@@ -110,7 +112,11 @@ export function IdeShell({
           role="separator"
           {...splitterProps('right')}
         />
-        <aside className="wr-inspector-slot">{inspector}</aside>
+        <aside className="wr-inspector-slot">
+          <div className="wr-right-section wr-project-tools-slot">{projectTools}</div>
+          <div className="wr-horizontal-divider" />
+          <div className="wr-right-section wr-object-inspector-slot">{inspector}</div>
+        </aside>
         <div
           className="wr-splitter wr-splitter-horizontal"
           role="separator"

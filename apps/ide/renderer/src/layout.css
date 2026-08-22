@@ -123,6 +123,18 @@
 .wr-inspector-slot {
   grid-column: 5;
   grid-row: 1 / 4;
+  display: grid;
+  grid-template-rows: minmax(120px, 0.42fr) 5px minmax(220px, 1fr);
+}
+
+.wr-right-section {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wr-project-tools-slot,
+.wr-object-inspector-slot {
+  background: var(--wr-panel-bg);
 }
 
 .wr-bottom-slot {
@@ -578,6 +590,12 @@ button.wr-problem:focus-visible {
   color: var(--wr-muted-text);
   font-size: 11px;
   text-align: center;
+}
+
+.wr-project-row .wr-tree-glyph,
+.wr-folder-row .wr-tree-glyph {
+  width: 16px;
+  height: 16px;
 }
 
 .wr-project-icon {

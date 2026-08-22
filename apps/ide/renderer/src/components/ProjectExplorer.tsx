@@ -1,15 +1,12 @@
 import type { WebRadProject } from '@webrad/project-model';
 import { useState, type ReactElement } from 'react';
-import { applicationIconUrl } from '../application-assets';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
 
 interface ProjectExplorerProps {
   project: WebRadProject | null;
   activePageId: string | null;
-  stylesActive: boolean;
   onOpenPage: (pageId: string) => void;
-  onOpenStyles: () => void;
   onAddPage: () => void;
   onDeletePage: (pageId: string) => void;
   onRenamePage: (pageId: string, name: string) => void;
@@ -22,9 +19,7 @@ function FolderGlyph({ open = true }: { open?: boolean }): ReactElement {
 export function ProjectExplorer({
   project,
   activePageId,
-  stylesActive,
   onOpenPage,
-  onOpenStyles,
   onAddPage,
   onDeletePage,
   onRenamePage,
@@ -55,11 +50,6 @@ export function ProjectExplorer({
         <div className="wr-empty-state">Create or open a project to begin.</div>
       ) : (
         <div className="wr-project-tree" role="tree" aria-label={`${project.name} project`}>
-          <div className="wr-tree-row wr-project-row" role="treeitem" aria-expanded="true">
-            <FolderGlyph />
-            <img className="wr-project-icon" src={applicationIconUrl} alt="" aria-hidden="true" />
-            <strong>{project.name}</strong>
-          </div>
           <div role="group" className="wr-tree-group">
             <div className="wr-tree-row wr-folder-row" role="treeitem" aria-expanded="true">
               <FolderGlyph />
@@ -114,27 +104,6 @@ export function ProjectExplorer({
                 <span>{folder}</span>
               </div>
             ))}
-            <div
-              className={`wr-tree-row wr-project-tool-row ${stylesActive ? 'active' : ''}`}
-              role="treeitem"
-              aria-selected={stylesActive}
-              title="Open Styles"
-              tabIndex={0}
-              onClick={onOpenStyles}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  onOpenStyles();
-                }
-              }}
-            >
-              <Icon name="palette" className="wr-tree-action-icon" />
-              <span>Styles</span>
-            </div>
-            <div className="wr-tree-row" role="treeitem">
-              <Icon name="settings" className="wr-tree-glyph" />
-              <span>Project Settings</span>
-            </div>
           </div>
         </div>
       )}

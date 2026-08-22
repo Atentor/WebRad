@@ -53,6 +53,7 @@ import { NewProjectDialog } from './components/NewProjectDialog';
 import { ObjectInspector } from './components/ObjectInspector';
 import { PreviewPane } from './components/PreviewPane';
 import { ProjectExplorer } from './components/ProjectExplorer';
+import { ProjectTools } from './components/ProjectTools';
 import { StatusBar } from './components/StatusBar';
 import { StylesWorkspace } from './components/StylesWorkspace';
 import { ToolPalette } from './components/ToolPalette';
@@ -1296,9 +1297,7 @@ export function App(): ReactElement {
                 <ProjectExplorer
                   project={project}
                   activePageId={stylesActive ? null : activePageId}
-                  stylesActive={stylesActive}
                   onOpenPage={openPage}
-                  onOpenStyles={openStyles}
                   onAddPage={addPageToProject}
                   onDeletePage={deletePage}
                   onRenamePage={renamePage}
@@ -1324,6 +1323,17 @@ export function App(): ReactElement {
                       activePage.rootComponentId,
                     );
                   }}
+                />
+              </ErrorBoundary>
+            ) : null
+          }
+          projectTools={
+            visiblePanels.inspector ? (
+              <ErrorBoundary area="Project Tools">
+                <ProjectTools
+                  project={project}
+                  stylesActive={stylesActive}
+                  onOpenStyles={openStyles}
                 />
               </ErrorBoundary>
             ) : null
