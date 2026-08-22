@@ -45,12 +45,14 @@ describe('VisualStyleEditor', () => {
     expect(container.querySelector('textarea')).toBeNull();
     expect(screen.queryByText(/Tailwind class/i)).toBeNull();
 
+    await user.click(screen.getByRole('button', { name: /^Layout/ }));
     await user.click(screen.getByLabelText('Configure Display'));
     expect(currentProperties()).toMatchObject({ display: 'block' });
     await user.selectOptions(screen.getByLabelText('Display'), 'flex');
     expect(currentProperties()).toMatchObject({ display: 'flex' });
 
     await user.click(screen.getByRole('button', { name: /^Spacing/ }));
+    expect(screen.queryByLabelText('Configure Display')).toBeNull();
     await user.click(screen.getByLabelText('Configure Padding top'));
     fireEvent.change(screen.getByLabelText('Padding top value'), { target: { value: '20' } });
     await user.selectOptions(screen.getByLabelText('Padding top unit'), 'rem');
@@ -59,6 +61,7 @@ describe('VisualStyleEditor', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /^Colors/ }));
+    expect(screen.queryByLabelText('Configure Padding top')).toBeNull();
     await user.click(screen.getByLabelText('Configure Background color'));
     fireEvent.change(screen.getByLabelText('Background color'), {
       target: { value: '#2563eb' },
@@ -70,6 +73,7 @@ describe('VisualStyleEditor', () => {
     fireEvent.change(screen.getByLabelText('Opacity'), { target: { value: '65' } });
     expect(currentProperties()).toMatchObject({ opacity: 65 });
 
+    await user.click(screen.getByRole('button', { name: /^Colors/ }));
     await user.click(screen.getByRole('button', { name: 'Clear Background color' }));
     expect(currentProperties()).not.toHaveProperty('backgroundColor');
   });
@@ -82,6 +86,7 @@ describe('VisualStyleEditor', () => {
     expect(screen.queryByRole('button', { name: /^Layout/ })).toBeNull();
     expect(screen.getByRole('button', { name: /^Animation/ })).toBeDefined();
 
+    await user.click(screen.getByRole('button', { name: /^Animation/ }));
     await user.click(screen.getByLabelText('Configure Animation'));
     await user.selectOptions(screen.getByLabelText('Animation'), 'bounce');
     await user.click(screen.getByLabelText('Configure Transition duration'));

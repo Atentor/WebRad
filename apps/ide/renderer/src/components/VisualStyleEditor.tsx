@@ -38,7 +38,8 @@ interface PropertyCategory {
 
 interface CollapsiblePropertyCategoryProps {
   readonly category: PropertyCategory;
-  readonly defaultExpanded: boolean;
+  readonly expanded: boolean;
+  readonly onToggle: () => void;
   readonly children: ReactNode;
 }
 
@@ -67,14 +68,9 @@ function groupDefinitions(
   }
 
   return [...groups].map(([name, group]) => {
-    const sorted = [...group].sort((left, right) => {
-      const leftConfigured = properties[left.name] === undefined ? 1 : 0;
-      const rightConfigured = properties[right.name] === undefined ? 1 : 0;
-      return leftConfigured - rightConfigured;
-    });
     return {
       name,
-      definitions: sorted,
+      definitions: group,
       configuredCount: group.filter((definition) => properties[definition.name] !== undefined)
         .length,
     };
@@ -83,10 +79,10 @@ function groupDefinitions(
 
 function CollapsiblePropertyCategory({
   category,
-  defaultExpanded,
+  expanded,
+  onToggle,
   children,
 }: CollapsiblePropertyCategoryProps): ReactElement {
-  const [expanded, setExpanded] = useState(defaultExpanded);
   return (
     <section
       className={`wr-style-property-category${category.name === 'Animation' ? ' wr-style-animation-category' : ''}`}
@@ -96,7 +92,7 @@ function CollapsiblePropertyCategory({
         className="wr-style-category-summary"
         aria-label={`${category.name}, ${String(category.configuredCount)} configured, ${String(category.definitions.length)} properties`}
         aria-expanded={expanded}
-        onClick={() => setExpanded((current) => !current)}
+        onClick={onToggle}
       >
         <span>{category.name}</span>
         <span>
@@ -326,6 +322,7 @@ export function VisualStyleEditor({
 }: VisualStyleEditorProps): ReactElement {
   const searchId = useId();
   const [search, setSearch] = useState('');
+  const [openCategoryName, setOpenCategoryName] = useState<string | null | undefined>(undefined);
   const normalizedSearch = search.trim().toLowerCase();
   const applicableDefinitions = useMemo(
     () =>
@@ -386,12 +383,16 @@ export function VisualStyleEditor({
       </div>
 
       <div className="wr-style-property-categories">
-        {categories.map((category, index) => (
+        {categories.map((category) => (
           <CollapsiblePropertyCategory
             category={category}
             key={`${stateName}-${category.name}-${normalizedSearch.length > 0 ? 'search' : 'all'}`}
-            defaultExpanded={
-              normalizedSearch.length > 0 || category.configuredCount > 0 || index < 2
+            expanded={openCategoryName !== undefined && openCategoryName === category.name}
+            onToggle={() =>
+              setOpenCategoryName((current) => {
+                if (current === undefined) return category.name;
+                return current === category.name ? null : category.name;
+              })
             }
           >
             {category.definitions.map((definition) => {

@@ -442,7 +442,12 @@ describe('App MVP integration', () => {
 
     const openCategory = async (name: string): Promise<void> => {
       const category = screen.getByRole('button', { name: new RegExp(`^${name}`) });
-      if (category.getAttribute('aria-expanded') !== 'true') await user.click(category);
+      const expandedCategories = screen
+        .getAllByRole('button')
+        .filter((button) => button.getAttribute('aria-expanded') === 'true');
+      if (category.getAttribute('aria-expanded') !== 'true' || expandedCategories.length > 1) {
+        await user.click(category);
+      }
     };
     const configure = async (label: string): Promise<void> => {
       await user.click(screen.getByLabelText(`Configure ${label}`));

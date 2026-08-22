@@ -1312,8 +1312,8 @@ button.wr-problem:focus-visible {
 }
 
 .wr-style-delete-button .wr-icon {
-  width: 15px;
-  height: 15px;
+  width: 22px;
+  height: 22px;
 }
 
 .wr-style-editor-layout {
@@ -1460,9 +1460,14 @@ button.wr-problem:focus-visible {
 
 .wr-style-category-summary > span:first-child::before {
   display: inline-block;
-  margin-right: 6px;
+  width: 28px;
+  height: 28px;
+  margin-right: 5px;
   color: var(--wr-muted-text);
   content: '›';
+  font-size: 28px;
+  line-height: 28px;
+  text-align: center;
   transform: rotate(0deg);
   transition: transform 120ms ease;
 }
