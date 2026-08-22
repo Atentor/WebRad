@@ -17,34 +17,28 @@ import { VisualStyleEditor } from './VisualStyleEditor';
 interface StyleStateDefinition {
   readonly key: ComponentStyleStateName;
   readonly label: string;
-  readonly description: string;
 }
 
 const STYLE_STATES: readonly StyleStateDefinition[] = [
   {
     key: 'base',
     label: 'Base',
-    description: 'The component’s normal appearance. Other states build on these settings.',
   },
   {
     key: 'hover',
     label: 'Hover',
-    description: 'Appearance while the pointer is over the component.',
   },
   {
     key: 'focus',
     label: 'Focus',
-    description: 'Appearance when the component receives keyboard focus.',
   },
   {
     key: 'active',
     label: 'Active',
-    description: 'Appearance while the component is being pressed or activated.',
   },
   {
     key: 'disabled',
     label: 'Disabled',
-    description: 'Appearance when the component is unavailable for interaction.',
   },
 ] as const;
 
@@ -232,14 +226,6 @@ export function StylesWorkspace({
     <section className="wr-styles-workspace" aria-label="Styles editor">
       <style data-webrad-project-styles>{compiledCss}</style>
       <SharedComponentStyles />
-      <header className="wr-styles-header">
-        <Icon name="palette" className="wr-styles-header-icon" />
-        <div>
-          <h1>Styles</h1>
-          <p>Create reusable visual styles and assign them to compatible components.</p>
-        </div>
-        <span className="wr-styles-preview-badge">Visual editor</span>
-      </header>
 
       <div className="wr-styles-body">
         <aside className="wr-style-library" aria-label="Style library">
@@ -394,14 +380,6 @@ export function StylesWorkspace({
                     )}
                   </button>
                 ))}
-              </div>
-
-              <div className="wr-style-state-guidance" role="note">
-                <Icon name="info" />
-                <div>
-                  <strong>{activeStateDefinition.label} state</strong>
-                  <span>{activeStateDefinition.description}</span>
-                </div>
               </div>
 
               <div className="wr-style-editor-layout">

@@ -428,7 +428,7 @@ describe('App MVP integration', () => {
     await user.click(stylesItem);
     expect(stylesItem.getAttribute('aria-selected')).toBe('true');
     expect(await screen.findByRole('region', { name: 'Styles editor' })).toBeDefined();
-    expect(screen.getByRole('heading', { name: 'Styles' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Style library' })).toBeDefined();
     expect(screen.getByRole('tree', { name: 'MvpProject project tools' })).toBeDefined();
     expect(screen.queryByRole('note')).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Design' })).toBeNull();
