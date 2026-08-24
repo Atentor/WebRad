@@ -845,7 +845,7 @@ button.wr-problem:focus-visible {
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-columns: minmax(210px, 250px) minmax(340px, 1fr);
+  grid-template-columns: clamp(210px, 17vw, 250px) minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -957,10 +957,12 @@ button.wr-problem:focus-visible {
 }
 
 .wr-style-configurator {
-  min-width: 300px;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   padding: 16px;
+  container-name: style-configurator;
+  container-type: inline-size;
 }
 
 .wr-style-configurator-heading {
@@ -1014,7 +1016,7 @@ button.wr-problem:focus-visible {
 }
 
 .wr-style-component-preview {
-  align-self: stretch;
+  align-self: start;
   overflow: hidden;
 }
 
@@ -1312,7 +1314,7 @@ button.wr-problem:focus-visible {
 
 .wr-style-editor-layout {
   display: grid;
-  grid-template-columns: minmax(390px, 1.3fr) minmax(250px, 0.7fr);
+  grid-template-columns: minmax(200px, 1fr) minmax(180px, 0.9fr);
   align-items: start;
   gap: 12px;
 }
@@ -1674,7 +1676,8 @@ button.wr-problem:focus-visible {
 
 .wr-style-editor-layout > .wr-style-component-preview {
   position: sticky;
-  top: 0;
+  top: 12px;
+  z-index: 1;
 }
 
 .wr-style-preview-frame {
@@ -1703,13 +1706,21 @@ button.wr-problem:focus-visible {
   font-family: 'JetBrains Mono', monospace;
 }
 
-@media (max-width: 1100px) {
-  .wr-style-editor-layout {
+/* The editor's usable width is smaller than the window because of the IDE rails.
+   Compact the inner controls from that width while preserving the preview column. */
+@container style-configurator (max-width: 560px) {
+  .wr-style-property-row {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .wr-style-editor-layout > .wr-style-component-preview {
-    position: static;
+  .wr-style-preview-canvas {
+    min-height: 120px;
+    padding: 12px;
+  }
+
+  .wr-style-preview-frame {
+    min-height: 58px;
+    padding: 10px 14px;
   }
 }
 
