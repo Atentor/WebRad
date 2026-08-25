@@ -14,6 +14,7 @@ import {
   type WebSelectItem,
 } from './controls.js';
 import { WebPage } from './page.js';
+import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
   applyRuntimeLayout,
   resolveRuntimeContainerLayout,
@@ -253,17 +254,27 @@ runtimeComponentRegistry
     },
   })
   .register<WebButton>('WebButton', {
-    createElement: (document) => {
+    createElement: (document, node) => {
       const element = document.createElement('button');
       element.type = 'button';
+      const requestedIcon = readStringProperty(node, 'icon', 'add');
+      const icon = createWebRadIconElement(
+        document,
+        isWebRadIconName(requestedIcon) ? requestedIcon : 'add',
+      );
+      icon.classList.add('wr-button-icon');
+      icon.dataset.webradButtonIcon = '';
       const textContent = document.createElement('span');
       textContent.dataset.webradTextContent = '';
-      element.append(textContent);
+      textContent.classList.add('wr-button-text');
+      element.append(icon, textContent);
       return element;
     },
     createComponent: (element) => new WebButton(buttonElement(element)),
     applyProperties: (component, node) => {
       applyCommon(component, node);
+      const requestedIcon = readStringProperty(node, 'icon', 'add');
+      component.icon = isWebRadIconName(requestedIcon) ? requestedIcon : 'add';
       component.caption = readStringProperty(node, 'caption', node.name);
     },
   })

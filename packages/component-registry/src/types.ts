@@ -1,5 +1,5 @@
 export type ComponentPropertyType =
-  'string' | 'string-list' | 'number' | 'boolean' | 'enum' | 'color' | 'component';
+  'string' | 'string-list' | 'number' | 'boolean' | 'enum' | 'icon' | 'color' | 'component';
 
 export type ComponentPropertySource =
   'node' | 'bounds' | 'props' | 'page' | 'layout-container' | 'layout-item';

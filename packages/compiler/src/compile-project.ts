@@ -121,6 +121,7 @@ function isValidPropertyValue(
     case 'boolean':
       return typeof value === 'boolean';
     case 'enum':
+    case 'icon':
       return typeof value === 'string' && (property.options?.includes(value) ?? false);
     case 'component':
       return (

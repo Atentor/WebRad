@@ -442,12 +442,13 @@ export function VisualStyleEditor({
         (definition) =>
           (definition.componentTypes === undefined ||
             definition.componentTypes.includes(componentType)) &&
+          (definition.stateNames === undefined || definition.stateNames.includes(stateName)) &&
           (normalizedSearch.length === 0 ||
             definition.label.toLowerCase().includes(normalizedSearch) ||
             definition.category.toLowerCase().includes(normalizedSearch) ||
             definition.description?.toLowerCase().includes(normalizedSearch) === true),
       ),
-    [componentType, definitions, normalizedSearch],
+    [componentType, definitions, normalizedSearch, stateName],
   );
   const categories = useMemo(
     () => groupDefinitions(applicableDefinitions, properties),

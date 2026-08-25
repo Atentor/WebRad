@@ -298,6 +298,13 @@ describe('App MVP integration', () => {
       const button = document.querySelector<HTMLElement>('[data-component-type="WebButton"]');
       expect(button?.textContent).toBe('Mostrar');
     });
+    await user.selectOptions(screen.getByLabelText('Icon'), 'save');
+    await waitFor(() => {
+      const buttonIcon = document.querySelector<SVGPathElement>(
+        '[data-component-type="WebButton"] [data-webrad-button-icon] path',
+      );
+      expect(buttonIcon?.getAttribute('d')).toContain('M5 3h12');
+    });
 
     await user.click(screen.getByRole('tab', { name: 'Events' }));
     await user.dblClick(screen.getByLabelText('OnClick'));
@@ -341,6 +348,10 @@ describe('App MVP integration', () => {
       'WebButton',
       'WebApiClient',
     ]);
+    expect(
+      saved.project.pages[0]?.components.find((component) => component.name === 'BTNMostrar')?.props
+        .icon,
+    ).toBe('save');
     expect(
       saved.project.pages[0]?.components.find((component) => component.name === 'ApiClientes')
         ?.props.baseUrl,

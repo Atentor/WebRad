@@ -10,6 +10,9 @@
     }
   },
   "types": "./src/index.ts",
+  "dependencies": {
+    "@webrad/runtime": "0.1.0"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"

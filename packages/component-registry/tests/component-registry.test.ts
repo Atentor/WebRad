@@ -157,6 +157,12 @@ describe('MVP component metadata', () => {
     const button = componentRegistry.require('WebButton');
     expect(button.defaultEvent).toBe('OnClick');
     expect(button.defaults.caption).toBe('Button');
+    expect(button.defaults.icon).toBe('add');
+    expect(button.properties.find((property) => property.name === 'icon')).toMatchObject({
+      type: 'icon',
+      source: 'props',
+      options: expect.arrayContaining(['add', 'save', 'search']),
+    });
     expect(button.defaultBounds).toEqual({ width: 100, height: 32 });
     expect(button.events.map((item) => item.name)).toEqual([
       'OnClick',
@@ -267,7 +273,7 @@ describe('sequential names and node defaults', () => {
       parentId: 'root-id',
       layout: defaultLayout(),
       bounds: { x: 420, y: 300, width: 100, height: 32 },
-      props: { caption: 'Gravar', visible: true, enabled: true, tabIndex: 0 },
+      props: { caption: 'Gravar', icon: 'add', visible: true, enabled: true, tabIndex: 0 },
       events: {
         OnClick: null,
         OnFocus: null,

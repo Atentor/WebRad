@@ -11,6 +11,10 @@
     "./visual": {
       "types": "./src/visual.ts",
       "default": "./src/visual.ts"
+    },
+    "./icons": {
+      "types": "./src/icons.ts",
+      "default": "./src/icons.ts"
     }
   },
   "types": "./src/index.ts",

@@ -26,6 +26,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Problems, Output, and Build are docked in the editor column below the nonvisual component tray, while the side rails remain full-height.
 - DONE: Project Explorer Styles provides persisted, reusable, component-compatible Tailwind styles with metadata-driven visual properties for five states, including exclusive solid/gradient choices for text, backgrounds, and radius-safe layered borders, live Designer preview, Inspector assignment, and static compiler output without requiring class or code entry.
 - DONE: New projects seed an editable Aurora default style for every visual component; page roots and visual palette/canvas insertion bind the compatible default automatically, while the protected defaults remain available for future components.
+- DONE: Buttons support a shared local SVG icon catalogue: style-owned text/text+icon/icon-only presentation and four placements are rendered consistently in the Styles preview, Designer, and generated browser runtime, while each button keeps an individually selectable typed icon.
 - DONE: The Styles editor adapts to its actual available workspace width, avoiding horizontal overflow beside IDE rails while keeping the live preview visible during property scrolling.
 - DONE: The root `Icon.svg` is the canonical application icon for native packages, windows, installers, favicon, and renderer branding.
 - DONE: Build and run resolves TypeScript standard libraries and esbuild resources explicitly in both Forge development and packaged applications.

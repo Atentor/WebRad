@@ -1,4 +1,5 @@
 import type {
+  ComponentStyleStateName,
   ComponentStylePropertyName,
   LinearGradientDirection,
   StyleLengthUnit,
@@ -10,6 +11,7 @@ export type ComponentStylePropertyCategory =
   | 'Dimensions'
   | 'Spacing'
   | 'Typography'
+  | 'Content'
   | 'Colors'
   | 'Border'
   | 'Effects'
@@ -64,6 +66,8 @@ export interface ComponentStylePropertyDefinition {
   readonly editor: ComponentStylePropertyEditor;
   /** Omitted when the property applies to every visual component type. */
   readonly componentTypes?: readonly string[];
+  /** Omitted when the property is valid for every interaction state. */
+  readonly stateNames?: readonly ComponentStyleStateName[];
 }
 
 /** Pairs that cannot be configured together within the same interaction state. */
@@ -98,6 +102,7 @@ function enumProperty(
   category: ComponentStylePropertyCategory,
   values: readonly (readonly [value: string, label: string])[],
   componentTypes?: readonly string[],
+  stateNames?: readonly ComponentStyleStateName[],
 ): ComponentStylePropertyDefinition {
   return {
     name,
@@ -107,6 +112,7 @@ function enumProperty(
     description: `Configure ${label.toLocaleLowerCase('en-US')}.`,
     editor: { kind: 'enum', options: options(values) },
     ...(componentTypes === undefined ? {} : { componentTypes }),
+    ...(stateNames === undefined ? {} : { stateNames }),
   };
 }
 
@@ -481,6 +487,32 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ['preWrap', 'Preserve and wrap'],
     ['breakSpaces', 'Break spaces'],
   ]),
+
+  enumProperty(
+    'buttonContentMode',
+    'Button content',
+    'Content',
+    [
+      ['text', 'Text only'],
+      ['text-icon', 'Text and icon'],
+      ['icon', 'Icon only'],
+    ],
+    ['WebButton'],
+    ['base'],
+  ),
+  enumProperty(
+    'buttonIconPosition',
+    'Icon position',
+    'Content',
+    [
+      ['left', 'Left'],
+      ['right', 'Right'],
+      ['top', 'Top'],
+      ['bottom', 'Bottom'],
+    ],
+    ['WebButton'],
+    ['base'],
+  ),
 
   colorProperty('textColor', 'Text color', 'Colors'),
   gradientProperty('textGradient', 'Text gradient', 'Colors', [

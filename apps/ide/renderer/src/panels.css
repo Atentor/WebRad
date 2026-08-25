@@ -380,6 +380,33 @@
   color: var(--wr-text);
 }
 
+.wr-inspector-icon-editor {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  padding: 0 7px;
+}
+
+.wr-inspector-icon-editor .wr-inspector-select {
+  flex: 1;
+}
+
+.wr-inspector-icon-preview {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  color: var(--wr-accent);
+}
+
+.wr-inspector-icon-preview .wr-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .wr-inspector-number {
   font-variant-numeric: tabular-nums;
 }

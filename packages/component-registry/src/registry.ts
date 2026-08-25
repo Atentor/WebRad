@@ -145,7 +145,7 @@ export function validateComponentDefinition(definition: ComponentDefinition): vo
       );
     }
     if (
-      property.type === 'enum' &&
+      (property.type === 'enum' || property.type === 'icon') &&
       (property.options === undefined || property.options.length === 0)
     ) {
       throw new InvalidComponentDefinitionError(

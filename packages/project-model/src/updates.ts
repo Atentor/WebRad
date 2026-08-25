@@ -295,12 +295,13 @@ export function updateComponentStyle(
     );
   }
 
+  if (current.preset === 'default' && updated.componentType !== current.componentType) {
+    throw new ModelUpdateError('A default component style must keep its component type.');
+  }
+
   const parsedStyle = parseComponentStyle(updated);
   if (parsedStyle.preset !== current.preset) {
     throw new ModelUpdateError('A component style preset cannot be changed after creation.');
-  }
-  if (current.preset === 'default' && parsedStyle.componentType !== current.componentType) {
-    throw new ModelUpdateError('A default component style must keep its component type.');
   }
   const incompatibleReference = project.pages
     .flatMap((page) => page.components)

@@ -325,6 +325,13 @@ export const ComponentStyleSchema: z.ZodType<ComponentStyleModel> = z
             path: ['states', stateName, propertyName],
           });
         }
+        if (definition?.stateNames !== undefined && !definition.stateNames.includes(stateName)) {
+          context.addIssue({
+            code: 'custom',
+            message: `${definition.label} is only available in the ${definition.stateNames.join(', ')} state.`,
+            path: ['states', stateName, propertyName],
+          });
+        }
       }
     }
   });

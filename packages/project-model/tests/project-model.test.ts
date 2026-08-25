@@ -292,6 +292,22 @@ describe('project factories', () => {
     }
   });
 
+  it('keeps the semantic button presentation on the base style state', () => {
+    const valid = createComponentStyle('Icon Button', 'WebButton', {
+      idFactory: idSequence('style-icon-button'),
+      states: {
+        base: { buttonContentMode: 'text-icon', buttonIconPosition: 'right' },
+      },
+    });
+    expect(safeParseComponentStyle(valid).success).toBe(true);
+    expect(
+      safeParseComponentStyle({
+        ...valid,
+        states: { ...valid.states, hover: { buttonContentMode: 'icon' } },
+      }).success,
+    ).toBe(false);
+  });
+
   it('publishes one valid and useful editor default for every style property', () => {
     expect(COMPONENT_STYLE_PROPERTY_DEFINITIONS.map(({ name }) => name)).toEqual(
       COMPONENT_STYLE_PROPERTY_NAMES,
@@ -877,6 +893,11 @@ describe('immutable update helpers', () => {
     const defaultButton = findDefaultComponentStyle(project.styles, 'WebButton');
     expect(defaultButton).toBeDefined();
     if (defaultButton === undefined) return;
+
+    expect(defaultButton.states.base).toMatchObject({
+      buttonContentMode: 'text',
+      buttonIconPosition: 'left',
+    });
 
     expect(() => removeComponentStyle(project, defaultButton.id)).toThrow(
       'Default component styles cannot be removed',

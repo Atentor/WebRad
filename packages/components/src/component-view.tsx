@@ -7,6 +7,7 @@ import {
   readStringProperty,
   tokenizeTailwindClasses,
 } from '@webrad/runtime/visual';
+import { getWebRadIconShapes, isWebRadIconName, type WebRadIconShape } from '@webrad/runtime/icons';
 import type { CSSProperties, ReactElement, ReactNode } from 'react';
 
 export type ComponentEventName =
@@ -58,6 +59,51 @@ function sharedAttributes(
   };
 }
 
+function renderWebRadIconShape(shape: WebRadIconShape, index: number): ReactElement {
+  if (shape.kind === 'path') {
+    return (
+      <path
+        d={shape.d}
+        fill={shape.fill}
+        key={`${shape.kind}-${String(index)}`}
+        stroke={shape.stroke}
+        strokeWidth={shape.strokeWidth}
+      />
+    );
+  }
+  return (
+    <circle
+      cx={shape.cx}
+      cy={shape.cy}
+      fill={shape.fill}
+      key={`${shape.kind}-${String(index)}`}
+      r={shape.r}
+      stroke={shape.stroke}
+      strokeWidth={shape.strokeWidth}
+    />
+  );
+}
+
+function ButtonIcon({ name }: { readonly name: string }): ReactElement {
+  const iconName = isWebRadIconName(name) ? name : 'add';
+  return (
+    <svg
+      aria-hidden="true"
+      className="wr-button-icon"
+      data-webrad-button-icon=""
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
+      {getWebRadIconShapes(iconName).map((shape, index) => renderWebRadIconShape(shape, index))}
+    </svg>
+  );
+}
+
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
   WebPage: ({ node, designTime, styleClassName, children }) => (
     <section
@@ -106,16 +152,23 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       onChange={() => onEvent?.('OnChange', node)}
     />
   ),
-  WebButton: ({ node, designTime, styleClassName, onEvent }) => (
-    <button
-      {...sharedAttributes(node, designTime, styleClassName)}
-      type="button"
-      disabled={!readBooleanProperty(node, 'enabled', true)}
-      onClick={() => onEvent?.('OnClick', node)}
-    >
-      <span data-webrad-text-content="">{readStringProperty(node, 'caption', 'Button')}</span>
-    </button>
-  ),
+  WebButton: ({ node, designTime, styleClassName, onEvent }) => {
+    const caption = readStringProperty(node, 'caption', 'Button');
+    return (
+      <button
+        {...sharedAttributes(node, designTime, styleClassName)}
+        aria-label={caption}
+        type="button"
+        disabled={!readBooleanProperty(node, 'enabled', true)}
+        onClick={() => onEvent?.('OnClick', node)}
+      >
+        <ButtonIcon name={readStringProperty(node, 'icon', 'add')} />
+        <span className="wr-button-text" data-webrad-text-content="">
+          {caption}
+        </span>
+      </button>
+    );
+  },
   WebCheckBox: ({ node, designTime, styleClassName, onEvent }) => (
     <label {...sharedAttributes(node, designTime, styleClassName)}>
       <input

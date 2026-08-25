@@ -1,4 +1,10 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
+import {
+  createWebRadIconElement,
+  isWebRadIconName,
+  setWebRadIconElementContent,
+  type WebRadIconName,
+} from './icons.js';
 
 function textContentElement(element: HTMLElement): HTMLElement | null {
   return element.querySelector<HTMLElement>('[data-webrad-text-content]');
@@ -12,6 +18,26 @@ function setText(element: HTMLElement, value: string): void {
   const textContent = textContentElement(element);
   if (textContent === null) element.textContent = value;
   else textContent.textContent = value;
+}
+
+function ensureButtonTextContentElement(element: HTMLButtonElement): HTMLElement {
+  const existing = textContentElement(element);
+  if (existing !== null) return existing;
+  const text = element.ownerDocument.createElement('span');
+  text.classList.add('wr-button-text');
+  text.dataset.webradTextContent = '';
+  element.append(text);
+  return text;
+}
+
+function ensureButtonIconElement(element: HTMLButtonElement): SVGSVGElement {
+  const existing = element.querySelector<SVGSVGElement>('[data-webrad-button-icon]');
+  if (existing !== null) return existing;
+  const icon = createWebRadIconElement(element.ownerDocument, 'add');
+  icon.classList.add('wr-button-icon');
+  icon.dataset.webradButtonIcon = '';
+  element.insertBefore(icon, textContentElement(element));
+  return icon;
 }
 
 export class WebLabel extends WebComponent<HTMLElement> {
@@ -165,6 +191,9 @@ export class WebTextArea extends WebComponent<HTMLTextAreaElement> {
   }
 }
 
+/** Closed icon catalogue accepted by the Button Inspector and browser runtime. */
+export type WebButtonIcon = WebRadIconName;
+
 export class WebButton extends WebComponent<HTMLButtonElement> {
   public constructor(element: HTMLElement) {
     if (!(element instanceof HTMLButtonElement)) {
@@ -178,7 +207,20 @@ export class WebButton extends WebComponent<HTMLButtonElement> {
   }
 
   public set caption(value: string) {
-    setText(this.element, value);
+    ensureButtonTextContentElement(this.element).textContent = value;
+    this.element.setAttribute('aria-label', value);
+  }
+
+  public get icon(): WebButtonIcon {
+    const value = this.element.dataset.webradButtonIcon;
+    return isWebRadIconName(value) ? value : 'add';
+  }
+
+  public set icon(value: WebButtonIcon) {
+    const icon = ensureButtonIconElement(this.element);
+    const normalized = isWebRadIconName(value) ? value : 'add';
+    setWebRadIconElementContent(icon, normalized);
+    this.element.dataset.webradButtonIcon = normalized;
   }
 
   public click(): void {

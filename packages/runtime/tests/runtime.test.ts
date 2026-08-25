@@ -549,7 +549,7 @@ describe('browser runtime', () => {
     });
 
     expect(projection).toMatchObject({
-      classNames: ['wr-component', 'wr-webbutton'],
+      classNames: ['wr-component', 'wr-webbutton', 'wr-button-content-text', 'wr-button-icon-left'],
       enabled: false,
       visible: false,
       tabIndex: 3,
@@ -973,6 +973,37 @@ describe('browser runtime', () => {
     new WebButton(button).caption = 'Updated button';
     expect(textContent?.textContent).toBe('Updated button');
     expect(mounted.page.requireComponentElement('edit-name').style.backgroundColor).toBe('');
+  });
+
+  it('renders an individually selected button icon while applying its style presentation', () => {
+    const styledModel: RuntimePageModel = {
+      ...pageModel,
+      components: pageModel.components.map((component) =>
+        component.id === 'button-show'
+          ? {
+              ...component,
+              props: { ...component.props, icon: 'save' },
+              styleClassName:
+                '[&_.wr-button-icon]:block [&_.wr-button-text]:sr-only flex-col-reverse',
+            }
+          : component,
+      ),
+    };
+
+    const mounted = mountPage(styledModel);
+    const button = mounted.page.requireComponentElement('button-show');
+    const icon = button.querySelector<SVGSVGElement>('[data-webrad-button-icon]');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    expect(icon?.querySelector('path')?.getAttribute('d')).toContain('M5 3h12');
+    expect(button.classList).toContain('[&_.wr-button-icon]:block');
+    expect(button.classList).toContain('[&_.wr-button-text]:sr-only');
+    expect(button.classList).toContain('flex-col-reverse');
+    expect(button.getAttribute('aria-label')).toBe('Mostrar');
+    expect(button.querySelector('[data-webrad-text-content]')?.textContent).toBe('Mostrar');
+    const runtimeButton = new WebButton(button);
+    runtimeButton.icon = 'play';
+    expect(runtimeButton.icon).toBe('play');
+    expect(icon?.querySelector('path')?.getAttribute('d')).toContain('m8 5 11 7');
   });
 });
 

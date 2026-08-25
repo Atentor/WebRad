@@ -6,7 +6,9 @@ import {
   type ComponentRegistry,
 } from '@webrad/component-registry';
 import type { ComponentNode, ComponentStyleModel, PageModel } from '@webrad/project-model';
+import { isWebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
 import { useId, useMemo, useState, type ReactElement } from 'react';
+import { Icon } from './Icon';
 import { Panel } from './Panel';
 import { responsiveLayoutPropertyReference } from '../layout-property';
 
@@ -326,6 +328,34 @@ function PropertyEditor({
           ))}
         </select>
       );
+    case 'icon': {
+      const iconName = !multiple && isWebRadIconName(text) ? text : undefined;
+      return (
+        <div className="wr-inspector-icon-editor">
+          <span className="wr-inspector-icon-preview" aria-hidden="true">
+            {iconName === undefined ? <span>—</span> : <Icon name={iconName} />}
+          </span>
+          <select
+            id={id}
+            className="wr-inspector-select"
+            value={multiple ? MULTIPLE_OPTION_VALUE : text}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            {multiple && (
+              <option value={MULTIPLE_OPTION_VALUE} disabled>
+                {MULTIPLE_VALUES_LABEL}
+              </option>
+            )}
+            {property.options?.map((option) => (
+              <option value={option} key={option}>
+                {isWebRadIconName(option) ? webRadIconLabel(option) : option}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
     case 'color':
       return (
         <div className="wr-inspector-color-editor">

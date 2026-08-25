@@ -158,6 +158,24 @@ describe('VisualStyleEditor', () => {
     });
   });
 
+  it('shows button presentation only on the base state', async () => {
+    const user = userEvent.setup();
+    const base = render(<VisualEditorHarness stateName="base" />);
+    await user.click(screen.getByRole('button', { name: /^Content/ }));
+    await user.click(screen.getByLabelText('Configure Button content'));
+    await user.selectOptions(screen.getByLabelText('Button content'), 'text-icon');
+    await user.click(screen.getByLabelText('Configure Icon position'));
+    await user.selectOptions(screen.getByLabelText('Icon position'), 'bottom');
+    expect(currentProperties()).toMatchObject({
+      buttonContentMode: 'text-icon',
+      buttonIconPosition: 'bottom',
+    });
+    base.unmount();
+
+    render(<VisualEditorHarness stateName="hover" />);
+    expect(screen.queryByRole('button', { name: /^Content/ })).toBeNull();
+  });
+
   it('uses metadata component compatibility to show image-only properties', async () => {
     const user = userEvent.setup();
     const buttonView = render(<VisualEditorHarness />);

@@ -1,4 +1,5 @@
 import { componentRegistry, ComponentRegistry } from './registry.js';
+import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 import type {
   ComponentDefinition,
   ComponentEventDefinition,
@@ -573,11 +574,26 @@ const webButton: ComponentDefinition = {
   defaultBounds: buttonBounds,
   defaults: {
     caption: 'Button',
+    icon: 'add',
     visible: true,
     enabled: true,
     tabIndex: 0,
   },
-  properties: [...geometryProperties(buttonBounds), tabIndexProperty(), captionProperty('Button')],
+  properties: [
+    ...geometryProperties(buttonBounds),
+    tabIndexProperty(),
+    captionProperty('Button'),
+    {
+      name: 'icon',
+      label: 'Icon',
+      type: 'icon',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'add',
+      options: WEBRAD_ICON_NAMES,
+      description: 'Choose the icon used by this button when its style shows an icon.',
+    },
+  ],
   events: [
     event('OnClick'),
     event('OnFocus'),

@@ -435,6 +435,19 @@ export function resolveStylePropertyCandidate(
       return mappedEnumClass(value, FONT_STYLE_CLASSES);
     case 'whiteSpace':
       return mappedEnumClass(value, WHITE_SPACE_CLASSES);
+    case 'buttonContentMode':
+      return mappedEnumClass(value, {
+        text: '[&_.wr-button-icon]:hidden',
+        'text-icon': '[&_.wr-button-icon]:block',
+        icon: '[&_.wr-button-icon]:block [&_.wr-button-text]:sr-only',
+      });
+    case 'buttonIconPosition':
+      return mappedEnumClass(value, {
+        left: 'flex-row',
+        right: 'flex-row-reverse',
+        top: 'flex-col',
+        bottom: 'flex-col-reverse',
+      });
     case 'textColor':
       return colorClass('text', value);
     case 'textGradient':
@@ -744,7 +757,7 @@ export interface ComponentVisualStyle {
 }
 
 export interface ComponentVisualProjection {
-  readonly classNames: readonly [base: 'wr-component', type: string];
+  readonly classNames: readonly string[];
   readonly style: ComponentVisualStyle;
   readonly visible: boolean;
   readonly enabled: boolean;
@@ -813,7 +826,11 @@ export function projectComponentVisual(
   };
 
   return {
-    classNames: ['wr-component', `wr-${source.type.toLowerCase()}`],
+    classNames: [
+      'wr-component',
+      `wr-${source.type.toLowerCase()}`,
+      ...(source.type === 'WebButton' ? ['wr-button-content-text', 'wr-button-icon-left'] : []),
+    ],
     style,
     visible: readBooleanProperty(source, 'visible', true),
     enabled: readBooleanProperty(source, 'enabled', true),
@@ -831,8 +848,11 @@ export const WEBRAD_COMPONENT_CSS = `
 .wr-webpanel { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
 .wr-webedit, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { --webrad-border-gradient-surface: var(--wr-input-bg, #11151c); border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
 .wr-webedit:focus, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
-.wr-webbutton { --webrad-border-gradient-surface: var(--wr-button-bg, #343b49); border: 1px solid var(--wr-control-border, #677184); border-radius: 4px; background: var(--wr-button-bg, #343b49); color: inherit; padding: 4px 12px; }
+.wr-webbutton { --webrad-border-gradient-surface: var(--wr-button-bg, #343b49); display: inline-flex; align-items: center; justify-content: center; gap: .45em; border: 1px solid var(--wr-control-border, #677184); border-radius: 4px; background: var(--wr-button-bg, #343b49); color: inherit; padding: 4px 12px; }
 .wr-webbutton:hover:not(:disabled) { --webrad-border-gradient-surface: var(--wr-button-hover, #414a5a); background: var(--wr-button-hover, #414a5a); }
+.wr-button-icon { display: block; width: 1em; height: 1em; flex: none; }
+.wr-button-content-text .wr-button-icon { display: none; }
+.wr-button-icon-left { flex-direction: row; }
 .wr-webcheckbox { display: flex; align-items: center; gap: 7px; }
 .wr-webimage { display: block; object-fit: contain; border: 1px dashed var(--wr-control-border, #677184); color: var(--wr-muted-text, #8e98aa); }
 `.trim();

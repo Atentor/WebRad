@@ -162,6 +162,8 @@ export const COMPONENT_STYLE_PROPERTY_NAMES = [
   'textDecoration',
   'fontStyle',
   'whiteSpace',
+  'buttonContentMode',
+  'buttonIconPosition',
   'textColor',
   'textGradient',
   'backgroundColor',

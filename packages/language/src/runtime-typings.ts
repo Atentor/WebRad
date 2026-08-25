@@ -183,9 +183,30 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     set onInput(handler: WebComponentEventHandler<this> | null);
   }
 
+  export type WebButtonIcon =
+    | 'add'
+    | 'chevron-down'
+    | 'chevron-right'
+    | 'close'
+    | 'delete'
+    | 'folder-open'
+    | 'info'
+    | 'layers'
+    | 'lightbulb'
+    | 'palette'
+    | 'page'
+    | 'play'
+    | 'redo'
+    | 'save'
+    | 'search'
+    | 'settings'
+    | 'style'
+    | 'undo';
+
   export class WebButton extends WebComponent<HTMLButtonElement> {
     constructor(element: HTMLElement);
     caption: string;
+    icon: WebButtonIcon;
     click(): void;
     set onClick(handler: WebComponentEventHandler<this> | null);
   }
@@ -430,7 +451,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   }
 
   export interface ComponentVisualProjection {
-    readonly classNames: readonly [base: 'wr-component', type: string];
+    readonly classNames: readonly string[];
     readonly style: ComponentVisualStyle;
     readonly visible: boolean;
     readonly enabled: boolean;

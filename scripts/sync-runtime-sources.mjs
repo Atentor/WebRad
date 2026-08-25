@@ -11,6 +11,7 @@ const sourceFiles = [
   'controls.ts',
   'page.ts',
   'globals.ts',
+  'icons.ts',
   'index.ts',
   'layout.ts',
   'render.ts',
