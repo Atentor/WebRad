@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 import { ProjectValidationError } from './errors.js';
-import { COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME } from './style-properties.js';
+import {
+  COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME,
+  COMPONENT_STYLE_PROPERTY_EXCLUSIVE_PAIRS,
+} from './style-properties.js';
 import {
   getPageNameError,
   getGeneratedPageMemberNameError,
@@ -273,6 +276,16 @@ export const ComponentStylePropertiesSchema: z.ZodType<ComponentStyleProperties>
         propertyName as (typeof COMPONENT_STYLE_PROPERTY_NAMES)[number],
         (message) => context.addIssue({ code: 'custom', message, path: [propertyName] }),
       );
+    }
+    for (const [first, second] of COMPONENT_STYLE_PROPERTY_EXCLUSIVE_PAIRS) {
+      if (properties[first] === undefined || properties[second] === undefined) continue;
+      const firstLabel = COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME.get(first)?.label ?? first;
+      const secondLabel = COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME.get(second)?.label ?? second;
+      context.addIssue({
+        code: 'custom',
+        message: `${firstLabel} and ${secondLabel} are mutually exclusive.`,
+        path: [second],
+      });
     }
   });
 

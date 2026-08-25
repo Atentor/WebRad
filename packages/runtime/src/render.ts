@@ -205,7 +205,13 @@ runtimeComponentRegistry
     },
   })
   .register<WebLabel>('WebLabel', {
-    createElement: elementFactory('span'),
+    createElement: (document) => {
+      const element = document.createElement('span');
+      const textContent = document.createElement('span');
+      textContent.dataset.webradTextContent = '';
+      element.append(textContent);
+      return element;
+    },
     createComponent: (element) => new WebLabel(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
@@ -250,6 +256,9 @@ runtimeComponentRegistry
     createElement: (document) => {
       const element = document.createElement('button');
       element.type = 'button';
+      const textContent = document.createElement('span');
+      textContent.dataset.webradTextContent = '';
+      element.append(textContent);
       return element;
     },
     createComponent: (element) => new WebButton(buttonElement(element)),
@@ -265,6 +274,7 @@ runtimeComponentRegistry
       input.type = 'checkbox';
       const caption = document.createElement('span');
       caption.dataset.webradCheckboxCaption = '';
+      caption.dataset.webradTextContent = '';
       label.append(input, caption);
       return label;
     },

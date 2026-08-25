@@ -77,7 +77,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
   ),
   WebLabel: ({ node, designTime, styleClassName }) => (
     <span {...sharedAttributes(node, designTime, styleClassName)}>
-      {readStringProperty(node, 'caption', 'Label')}
+      <span data-webrad-text-content="">{readStringProperty(node, 'caption', 'Label')}</span>
     </span>
   ),
   WebEdit: ({ node, designTime, styleClassName, onEvent }) => (
@@ -113,7 +113,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       disabled={!readBooleanProperty(node, 'enabled', true)}
       onClick={() => onEvent?.('OnClick', node)}
     >
-      {readStringProperty(node, 'caption', 'Button')}
+      <span data-webrad-text-content="">{readStringProperty(node, 'caption', 'Button')}</span>
     </button>
   ),
   WebCheckBox: ({ node, designTime, styleClassName, onEvent }) => (
@@ -125,7 +125,9 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
         tabIndex={designTime ? -1 : undefined}
         onChange={() => onEvent?.('OnChange', node)}
       />
-      <span>{readStringProperty(node, 'caption', 'CheckBox')}</span>
+      <span data-webrad-checkbox-caption="" data-webrad-text-content="">
+        {readStringProperty(node, 'caption', 'CheckBox')}
+      </span>
     </label>
   ),
   WebComboBox: ({ node, designTime, styleClassName, onEvent }) => {

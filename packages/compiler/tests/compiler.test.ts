@@ -17,8 +17,11 @@ import {
   type WebRadProject,
 } from '@webrad/project-model';
 import { defaultComponentRegistry } from '@webrad/component-registry';
-import { WEBRAD_COMPONENT_CSS } from '@webrad/runtime/visual';
-import { resolveStylePropertyCandidate } from '@webrad/runtime/visual';
+import {
+  resolveStylePropertyCandidate,
+  tokenizeTailwindClasses,
+  WEBRAD_COMPONENT_CSS,
+} from '@webrad/runtime/visual';
 import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -94,18 +97,30 @@ function styledExecutableProject(): WebRadProject {
     idFactory: () => 'style-primary-button',
     states: {
       base: {
-        backgroundColor: '#2563eb',
+        textGradient: {
+          kind: 'linear',
+          direction: 'to-right',
+          from: '#f59e0b',
+          to: '#ef4444',
+        },
         backgroundGradient: {
           kind: 'linear',
           direction: 'to-bottom-right',
           from: '#2563eb',
           to: '#7c3aed',
         },
+        borderWidth: { value: 4, unit: 'px' },
+        borderStyle: 'solid',
+        borderGradient: {
+          kind: 'linear',
+          direction: 'to-bottom',
+          from: '#22c55e',
+          to: '#06b6d4',
+        },
         paddingLeft: { value: 24, unit: 'px' },
         paddingRight: { value: 24, unit: 'px' },
-        textColor: '#ffffff',
         letterSpacing: { value: 0.125, unit: 'rem' },
-        borderRadius: 'lg',
+        borderRadius: { value: 40, unit: 'px' },
         boxShadow: 'md',
         transitionProperty: 'all',
         transitionDuration: 200,
@@ -114,7 +129,6 @@ function styledExecutableProject(): WebRadProject {
         animationIterationCount: 'infinite',
       },
       hover: {
-        backgroundColor: '#1d4ed8',
         backgroundGradient: {
           kind: 'linear',
           direction: 'to-top',
@@ -240,10 +254,16 @@ export class PageMain extends PageMainGenerated {
 
     expect(candidates).toEqual(
       expect.arrayContaining([
-        'bg-[#2563eb]',
-        'bg-[linear-gradient(to_bottom_right,#2563eb,#7c3aed)]',
-        'hover:bg-[#1d4ed8]',
-        'hover:bg-[linear-gradient(to_top,#1d4ed8,#0f172a)]',
+        '[&_[data-webrad-text-content]]:bg-[linear-gradient(to_right,#f59e0b,#ef4444)]',
+        '[&_[data-webrad-text-content]]:bg-clip-text',
+        '[&_[data-webrad-text-content]]:text-transparent',
+        'border',
+        'border-transparent',
+        '[border-style:solid]',
+        '[background:linear-gradient(to_bottom_right,#2563eb,#7c3aed)_padding-box,linear-gradient(to_bottom,#22c55e,#06b6d4)_border-box]',
+        'border-[4px]',
+        'rounded-[40px]',
+        'hover:[background:linear-gradient(to_top,#1d4ed8,#0f172a)_padding-box,linear-gradient(to_bottom,#22c55e,#06b6d4)_border-box]',
         'focus:ring-[2px]',
         'focus:outline-[2px]',
         'active:scale-[0.95]',
@@ -254,12 +274,15 @@ export class PageMain extends PageMainGenerated {
         '[animation-iteration-count:infinite]!',
       ]),
     );
-    expect(candidates.filter((candidate) => candidate === 'bg-[#2563eb]')).toHaveLength(1);
-    expect(css).toContain('background-color: #2563eb');
-    expect(css).toContain('background-image: linear-gradient(to bottom right,#2563eb,#7c3aed);');
-    expect(css).toContain('.bg-\\[\\#1d4ed8\\] {');
-    expect(css).toContain('.hover\\:bg-\\[\\#1d4ed8\\]');
-    expect(css).toContain('.hover\\:bg-\\[linear-gradient\\(to_top\\,\\#1d4ed8\\,\\#0f172a\\)\\]');
+    expect(css).toContain('border-color: transparent;');
+    expect(css).toContain('border-radius: 40px;');
+    expect(css).toContain(
+      'background: linear-gradient(to bottom right,#2563eb,#7c3aed) padding-box,linear-gradient(to bottom,#22c55e,#06b6d4) border-box;',
+    );
+    expect(css).toContain(
+      '.hover\\:\\[background\\:linear-gradient\\(to_top\\,\\#1d4ed8\\,\\#0f172a\\)_padding-box\\,linear-gradient\\(to_bottom\\,\\#22c55e\\,\\#06b6d4\\)_border-box\\]:hover',
+    );
+    expect(css).not.toContain('border-image:');
     expect(css).toContain('.disabled\\:opacity-\\[0\\.5\\]');
     expect(css).toContain('.aria-disabled\\:opacity-\\[0\\.5\\]');
     expect(css).toContain('.animate-pulse');
@@ -280,10 +303,13 @@ export class PageMain extends PageMainGenerated {
         },
       ),
     );
-    const candidates = COMPONENT_STYLE_PROPERTY_DEFINITIONS.map((definition) => {
-      const candidate = resolveStylePropertyCandidate(definition.name, definition.defaultValue);
-      expect(candidate, definition.name).toBeDefined();
-      return candidate as string;
+    const candidates = COMPONENT_STYLE_PROPERTY_DEFINITIONS.flatMap((definition) => {
+      const candidateExpression = resolveStylePropertyCandidate(
+        definition.name,
+        definition.defaultValue,
+      );
+      expect(candidateExpression, definition.name).toBeDefined();
+      return tokenizeTailwindClasses(candidateExpression ?? '');
     });
     const css = await compileTailwindStyles(styles);
     const escapeClassName = (candidate: string): string =>
@@ -338,10 +364,10 @@ export class PageMain extends PageMainGenerated {
         },
       ),
     );
-    const candidates = entries.map(({ definition, value }) => {
-      const candidate = resolveStylePropertyCandidate(definition.name, value);
-      expect(candidate, `${definition.name}: ${JSON.stringify(value)}`).toBeDefined();
-      return candidate as string;
+    const candidates = entries.flatMap(({ definition, value }) => {
+      const candidateExpression = resolveStylePropertyCandidate(definition.name, value);
+      expect(candidateExpression, `${definition.name}: ${JSON.stringify(value)}`).toBeDefined();
+      return tokenizeTailwindClasses(candidateExpression ?? '');
     });
     const css = await compileTailwindStyles(styles);
     const escapeClassName = (candidate: string): string =>
@@ -361,8 +387,9 @@ export class PageMain extends PageMainGenerated {
     expect(css).toContain('@layer components');
     expect(css).toContain('@layer utilities');
     expect(css).toContain('.wr-webbutton');
-    expect(css).toContain('.bg-\\[\\#2563eb\\]');
-    expect(css).not.toContain('.bg-\\[\\#1d4ed8\\] {');
+    expect(css).toContain(
+      '.\\[background\\:linear-gradient\\(to_bottom_right\\,\\#2563eb\\,\\#7c3aed\\)_padding-box\\,linear-gradient\\(to_bottom\\,\\#22c55e\\,\\#06b6d4\\)_border-box\\]',
+    );
     expect(result.files['assets/app.js']).not.toContain('@tailwindcss');
 
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -378,8 +405,11 @@ export class PageMain extends PageMainGenerated {
     expect(button).not.toBeNull();
     expect([...(button?.classList ?? [])]).toEqual(
       expect.arrayContaining([
-        'bg-[#2563eb]',
-        'hover:bg-[#1d4ed8]',
+        '[&_[data-webrad-text-content]]:bg-[linear-gradient(to_right,#f59e0b,#ef4444)]',
+        'border-[4px]',
+        'rounded-[40px]',
+        '[background:linear-gradient(to_bottom_right,#2563eb,#7c3aed)_padding-box,linear-gradient(to_bottom,#22c55e,#06b6d4)_border-box]',
+        'hover:[background:linear-gradient(to_top,#1d4ed8,#0f172a)_padding-box,linear-gradient(to_bottom,#22c55e,#06b6d4)_border-box]',
         'disabled:opacity-[0.5]',
         'animate-pulse',
       ]),

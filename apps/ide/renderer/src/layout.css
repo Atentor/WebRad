@@ -1601,19 +1601,8 @@ button.wr-problem:focus-visible {
 .wr-style-gradient-control {
   display: grid;
   min-width: 0;
-  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
   gap: 5px;
-}
-
-.wr-style-gradient-swatch {
-  grid-row: 1 / span 2;
-  width: 28px;
-  height: 100%;
-  min-height: 58px;
-  border: 1px solid var(--wr-border-strong);
-  border-radius: 4px;
-  background-color: var(--wr-surface);
 }
 
 .wr-style-gradient-colors {

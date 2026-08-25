@@ -1,7 +1,17 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
 
+function textContentElement(element: HTMLElement): HTMLElement | null {
+  return element.querySelector<HTMLElement>('[data-webrad-text-content]');
+}
+
 function textFrom(element: HTMLElement): string {
-  return element.textContent ?? '';
+  return textContentElement(element)?.textContent ?? element.textContent ?? '';
+}
+
+function setText(element: HTMLElement, value: string): void {
+  const textContent = textContentElement(element);
+  if (textContent === null) element.textContent = value;
+  else textContent.textContent = value;
 }
 
 export class WebLabel extends WebComponent<HTMLElement> {
@@ -10,7 +20,7 @@ export class WebLabel extends WebComponent<HTMLElement> {
   }
 
   public set caption(value: string) {
-    this.element.textContent = value;
+    setText(this.element, value);
   }
 
   public get text(): string {
@@ -168,7 +178,7 @@ export class WebButton extends WebComponent<HTMLButtonElement> {
   }
 
   public set caption(value: string) {
-    this.element.textContent = value;
+    setText(this.element, value);
   }
 
   public click(): void {

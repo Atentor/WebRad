@@ -1,4 +1,5 @@
 import {
+  COMPONENT_STYLE_PROPERTY_EXCLUSIVE_PAIRS,
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
   LINEAR_GRADIENT_DIRECTIONS,
   type BackgroundGradientValue,
@@ -188,15 +189,21 @@ function ColorControl({ definition, value, onChange }: PropertyControlProps): Re
   );
 }
 
-function gradientCssDirection(direction: string): string {
-  return direction.replaceAll('-', ' ');
-}
-
 function gradientDirection(
   value: string,
   fallback: LinearGradientDirection,
 ): LinearGradientDirection {
   return LINEAR_GRADIENT_DIRECTIONS.find((direction) => direction === value) ?? fallback;
+}
+
+function exclusivePropertyName(
+  name: ComponentStylePropertyName,
+): ComponentStylePropertyName | undefined {
+  const pair = COMPONENT_STYLE_PROPERTY_EXCLUSIVE_PAIRS.find(
+    ([first, second]) => first === name || second === name,
+  );
+  if (pair === undefined) return undefined;
+  return pair[0] === name ? pair[1] : pair[0];
 }
 
 function GradientControl({ definition, value, onChange }: PropertyControlProps): ReactElement {
@@ -220,13 +227,6 @@ function GradientControl({ definition, value, onChange }: PropertyControlProps):
 
   return (
     <div className="wr-style-gradient-control">
-      <span
-        className="wr-style-gradient-swatch"
-        aria-hidden="true"
-        style={{
-          backgroundImage: `linear-gradient(${gradientCssDirection(gradient.direction)}, ${gradient.from}, ${gradient.to})`,
-        }}
-      />
       <select
         aria-label={`${definition.label} direction`}
         value={gradient.direction}
@@ -463,7 +463,11 @@ export function VisualStyleEditor({
       ...properties,
     };
     if (value === undefined) delete next[name];
-    else next[name] = value;
+    else {
+      next[name] = value;
+      const exclusiveProperty = exclusivePropertyName(name);
+      if (exclusiveProperty !== undefined) delete next[exclusiveProperty];
+    }
     onChange(next);
   };
 

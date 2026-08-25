@@ -1,7 +1,8 @@
 import type { ComponentStyleModel } from '@webrad/project-model';
 import {
   resolveComponentStyleClassNames,
-  resolveComponentStyleStateClassNames,
+  resolveComponentStylePreviewClassName,
+  tokenizeTailwindClasses,
   type TailwindStyleSource,
   WEBRAD_COMPONENT_CSS,
 } from '@webrad/runtime/visual';
@@ -80,7 +81,9 @@ export function collectTailwindCandidates(
     }
     if (includePreviewStates) {
       for (const stateName of ['hover', 'focus', 'active', 'disabled'] as const) {
-        for (const candidate of resolveComponentStyleStateClassNames(style.states[stateName])) {
+        for (const candidate of tokenizeTailwindClasses(
+          resolveComponentStylePreviewClassName(style, stateName),
+        )) {
           if (seen.has(candidate)) continue;
           seen.add(candidate);
           candidates.push(candidate);

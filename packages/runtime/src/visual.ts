@@ -220,10 +220,71 @@ function colorClass(prefix: string, value: unknown): string | undefined {
     : undefined;
 }
 
-function backgroundGradientClass(value: unknown): string | undefined {
+function linearGradientValue(value: unknown): string | undefined {
   if (!isBackgroundGradientValue(value)) return undefined;
   const direction = value.direction.replaceAll('-', '_');
-  return `bg-[linear-gradient(${direction},${value.from.toLowerCase()},${value.to.toLowerCase()})]`;
+  return `linear-gradient(${direction},${value.from.toLowerCase()},${value.to.toLowerCase()})`;
+}
+
+function backgroundGradientClass(value: unknown): string | undefined {
+  const gradient = linearGradientValue(value);
+  return gradient === undefined ? undefined : `bg-[${gradient}]`;
+}
+
+function textGradientClass(value: unknown): string | undefined {
+  const background = backgroundGradientClass(value);
+  if (background === undefined) return undefined;
+  const target = '[&_[data-webrad-text-content]]';
+  return `${target}:${background} ${target}:bg-clip-text ${target}:text-transparent`;
+}
+
+const DEFAULT_BORDER_GRADIENT_FILL =
+  'linear-gradient(var(--webrad-border-gradient-surface,transparent),var(--webrad-border-gradient-surface,transparent))';
+
+function backgroundColorValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (/^#[\da-f]{6}$/iu.test(value)) return value.toLowerCase();
+  if (value === 'transparent') return value;
+  if (value === 'current') return 'currentColor';
+  return undefined;
+}
+
+function backgroundFillValue(properties: TailwindStyleProperties): string {
+  const gradient = linearGradientValue(properties.backgroundGradient);
+  if (gradient !== undefined) return gradient;
+  const color = backgroundColorValue(properties.backgroundColor);
+  return color === undefined ? DEFAULT_BORDER_GRADIENT_FILL : `linear-gradient(${color},${color})`;
+}
+
+function backgroundResetClass(properties: TailwindStyleProperties): string {
+  const gradient = linearGradientValue(properties.backgroundGradient);
+  if (gradient !== undefined) return `[background:${gradient}]`;
+  const color = backgroundColorValue(properties.backgroundColor);
+  if (color !== undefined) return `[background:${color}]`;
+  if (properties.backgroundColor === 'inherit') return '[background:inherit]';
+  return '[background:var(--webrad-border-gradient-surface,transparent)]';
+}
+
+function borderGradientClass(value: unknown): string | undefined {
+  const gradient = linearGradientValue(value);
+  if (gradient === undefined) return undefined;
+  return [
+    'border',
+    'border-transparent',
+    '[border-style:solid]',
+    `[background:${DEFAULT_BORDER_GRADIENT_FILL}_padding-box,${gradient}_border-box]`,
+  ].join(' ');
+}
+
+function borderGradientClassForProperties(properties: TailwindStyleProperties): string | undefined {
+  const gradient = linearGradientValue(properties.borderGradient);
+  if (gradient === undefined) return undefined;
+  return [
+    'border',
+    'border-transparent',
+    '[border-style:solid]',
+    `[background:${backgroundFillValue(properties)}_padding-box,${gradient}_border-box]`,
+  ].join(' ');
 }
 
 const FLEX_DIRECTION_CLASSES: Readonly<Record<string, string>> = {
@@ -288,7 +349,7 @@ const ANIMATION_ITERATIONS: Readonly<Record<string, string>> = {
   infinite: 'infinite',
 };
 
-/** Converts one validated visual property to its exact Tailwind v4 candidate. */
+/** Converts one validated visual property to a Tailwind v4 candidate expression. */
 export function resolveStylePropertyCandidate(
   propertyName: string,
   value: StylePropertyValue,
@@ -376,6 +437,8 @@ export function resolveStylePropertyCandidate(
       return mappedEnumClass(value, WHITE_SPACE_CLASSES);
     case 'textColor':
       return colorClass('text', value);
+    case 'textGradient':
+      return textGradientClass(value);
     case 'backgroundColor':
       return colorClass('bg', value);
     case 'backgroundGradient':
@@ -386,6 +449,8 @@ export function resolveStylePropertyCandidate(
       return prefixedEnumClass('border', value);
     case 'borderColor':
       return colorClass('border', value);
+    case 'borderGradient':
+      return borderGradientClass(value);
     case 'borderRadius':
       return lengthClass('rounded', value);
     case 'outlineWidth':
@@ -470,21 +535,93 @@ export function resolveStylePropertyCandidate(
   }
 }
 
+const ROOT_PAINT_PROPERTY_NAMES = new Set([
+  'backgroundColor',
+  'backgroundGradient',
+  'borderColor',
+  'borderGradient',
+]);
+
+function isRootPaintProperty(propertyName: string): boolean {
+  return ROOT_PAINT_PROPERTY_NAMES.has(propertyName);
+}
+
+function appendCandidateExpression(
+  target: string[],
+  seen: Set<string>,
+  candidateExpression: string | undefined,
+): void {
+  if (candidateExpression === undefined) return;
+  for (const candidate of tokenizeTailwindClasses(candidateExpression)) {
+    if (seen.has(candidate)) continue;
+    seen.add(candidate);
+    target.push(candidate);
+  }
+}
+
+function resolveRootPaintClassNames(
+  properties: TailwindStyleProperties,
+  forceBackgroundReset: boolean,
+): readonly string[] {
+  const resolved: string[] = [];
+  const seen = new Set<string>();
+
+  const borderGradient = borderGradientClassForProperties(properties);
+  if (borderGradient !== undefined) {
+    appendCandidateExpression(resolved, seen, borderGradient);
+    return resolved;
+  }
+
+  if (forceBackgroundReset) {
+    appendCandidateExpression(resolved, seen, backgroundResetClass(properties));
+  } else {
+    appendCandidateExpression(resolved, seen, colorClass('bg', properties.backgroundColor));
+    appendCandidateExpression(
+      resolved,
+      seen,
+      backgroundGradientClass(properties.backgroundGradient),
+    );
+  }
+  appendCandidateExpression(resolved, seen, colorClass('border', properties.borderColor));
+  return resolved;
+}
+
+function resolveComponentStyleStateClassNamesInternal(
+  properties: TailwindStyleProperties | null | undefined,
+  rootPaintProperties: TailwindStyleProperties | null | undefined = properties,
+  forceBackgroundReset = false,
+): readonly string[] {
+  if (properties === undefined || properties === null || typeof properties !== 'object') return [];
+  const rootPaint =
+    rootPaintProperties === undefined || rootPaintProperties === null
+      ? properties
+      : rootPaintProperties;
+  const resolved: string[] = [];
+  const seen = new Set<string>();
+  let appendedRootPaint = false;
+  for (const [propertyName, value] of Object.entries(properties)) {
+    if (value === undefined) continue;
+    if (isRootPaintProperty(propertyName)) {
+      if (appendedRootPaint) continue;
+      appendedRootPaint = true;
+      for (const candidate of resolveRootPaintClassNames(rootPaint, forceBackgroundReset)) {
+        if (seen.has(candidate)) continue;
+        seen.add(candidate);
+        resolved.push(candidate);
+      }
+      continue;
+    }
+    const candidateExpression = resolveStylePropertyCandidate(propertyName, value);
+    appendCandidateExpression(resolved, seen, candidateExpression);
+  }
+  return resolved;
+}
+
 /** Returns raw candidates for a single state, preserving metadata order from the model object. */
 export function resolveComponentStyleStateClassNames(
   properties: TailwindStyleProperties | null | undefined,
 ): readonly string[] {
-  if (properties === undefined || properties === null || typeof properties !== 'object') return [];
-  const resolved: string[] = [];
-  const seen = new Set<string>();
-  for (const [propertyName, value] of Object.entries(properties)) {
-    if (value === undefined) continue;
-    const candidate = resolveStylePropertyCandidate(propertyName, value);
-    if (candidate === undefined || seen.has(candidate)) continue;
-    seen.add(candidate);
-    resolved.push(candidate);
-  }
-  return resolved;
+  return resolveComponentStyleStateClassNamesInternal(properties);
 }
 
 function stateProperties(
@@ -498,16 +635,63 @@ function stateProperties(
     : undefined;
 }
 
+function mergeStateProperties(
+  base: TailwindStyleProperties,
+  selected: TailwindStyleProperties,
+): TailwindStyleProperties {
+  const merged: Record<string, StylePropertyValue | undefined> = { ...base, ...selected };
+
+  // A state-specific solid paint replaces the inherited gradient (and vice
+  // versa), even though the two values live under different property keys.
+  // This avoids leaving a base background image or border gradient behind.
+  if (selected.backgroundColor !== undefined) delete merged.backgroundGradient;
+  if (selected.backgroundGradient !== undefined) delete merged.backgroundColor;
+  if (selected.borderColor !== undefined) delete merged.borderGradient;
+  if (selected.borderGradient !== undefined) delete merged.borderColor;
+
+  return merged;
+}
+
+function hasRootPaintProperties(properties: TailwindStyleProperties): boolean {
+  return Object.entries(properties).some(
+    ([propertyName, value]) => value !== undefined && isRootPaintProperty(propertyName),
+  );
+}
+
+function hasBorderGradient(properties: TailwindStyleProperties): boolean {
+  return linearGradientValue(properties.borderGradient) !== undefined;
+}
+
+function hasBackgroundGradient(properties: TailwindStyleProperties): boolean {
+  return linearGradientValue(properties.backgroundGradient) !== undefined;
+}
+
+function requiresBackgroundReset(
+  base: TailwindStyleProperties,
+  selected: TailwindStyleProperties,
+  effective: TailwindStyleProperties,
+): boolean {
+  if (!hasRootPaintProperties(selected)) return false;
+  if (hasBorderGradient(base) && !hasBorderGradient(effective)) return true;
+  return hasBackgroundGradient(base) && selected.backgroundColor !== undefined;
+}
+
 /** Resolves the exact real-state class candidates applied to a styled component. */
 export function resolveComponentStyleClassNames(
   style: TailwindStyleSource | null | undefined,
 ): readonly string[] {
   const resolved: string[] = [];
   const seen = new Set<string>();
+  const base = stateProperties(style, 'base') ?? {};
   const appendState = (stateName: ComponentStyleStateName, variants: readonly string[]): void => {
-    for (const candidate of resolveComponentStyleStateClassNames(
-      stateProperties(style, stateName),
-    )) {
+    const selected = stateName === 'base' ? base : (stateProperties(style, stateName) ?? {});
+    const effective = stateName === 'base' ? base : mergeStateProperties(base, selected);
+    const candidates = resolveComponentStyleStateClassNamesInternal(
+      selected,
+      effective,
+      stateName !== 'base' && requiresBackgroundReset(base, selected, effective),
+    );
+    for (const candidate of candidates) {
       for (const variant of variants) {
         const className = variant.length === 0 ? candidate : `${variant}:${candidate}`;
         if (seen.has(className)) continue;
@@ -544,7 +728,7 @@ export function resolveComponentStylePreviewClassName(
 ): string {
   const base = stateProperties(style, 'base') ?? {};
   const selected = stateName === 'base' ? {} : (stateProperties(style, stateName) ?? {});
-  return resolveComponentStyleStateClassNames({ ...base, ...selected }).join(' ');
+  return resolveComponentStyleStateClassNames(mergeStateProperties(base, selected)).join(' ');
 }
 
 export type VisualSizingMode = 'bounds' | 'fill';
@@ -640,15 +824,15 @@ export function projectComponentVisual(
 
 /** Shared component styling. Hosts may override the custom properties to theme it. */
 export const WEBRAD_COMPONENT_CSS = `
-.wr-component { box-sizing: border-box; font: inherit; }
+.wr-component { --webrad-border-gradient-surface: transparent; box-sizing: border-box; font: inherit; }
 .wr-component[hidden] { display: none !important; }
-.wr-webpage { overflow: hidden; }
+.wr-webpage { --webrad-border-gradient-surface: var(--wr-page-surface, #ffffff); overflow: hidden; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }
-.wr-webpanel { border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
-.wr-webedit, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
+.wr-webpanel { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
+.wr-webedit, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { --webrad-border-gradient-surface: var(--wr-input-bg, #11151c); border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
 .wr-webedit:focus, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
-.wr-webbutton { border: 1px solid var(--wr-control-border, #677184); border-radius: 4px; background: var(--wr-button-bg, #343b49); color: inherit; padding: 4px 12px; }
-.wr-webbutton:hover:not(:disabled) { background: var(--wr-button-hover, #414a5a); }
+.wr-webbutton { --webrad-border-gradient-surface: var(--wr-button-bg, #343b49); border: 1px solid var(--wr-control-border, #677184); border-radius: 4px; background: var(--wr-button-bg, #343b49); color: inherit; padding: 4px 12px; }
+.wr-webbutton:hover:not(:disabled) { --webrad-border-gradient-surface: var(--wr-button-hover, #414a5a); background: var(--wr-button-hover, #414a5a); }
 .wr-webcheckbox { display: flex; align-items: center; gap: 7px; }
 .wr-webimage { display: block; object-fit: contain; border: 1px dashed var(--wr-control-border, #677184); color: var(--wr-muted-text, #8e98aa); }
 `.trim();

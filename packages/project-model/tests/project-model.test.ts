@@ -223,6 +223,34 @@ describe('project factories', () => {
     }
   });
 
+  it('keeps color and gradient properties mutually exclusive per state', () => {
+    const valid = createComponentStyle('Exclusive Background', 'WebButton', {
+      idFactory: idSequence('style-exclusive-background'),
+      states: {
+        base: { backgroundColor: '#2563eb' },
+      },
+    });
+
+    const gradient = {
+      kind: 'linear',
+      direction: 'to-right',
+      from: '#2563eb',
+      to: '#7c3aed',
+    } as const;
+    for (const base of [
+      { textColor: '#2563eb', textGradient: gradient },
+      { backgroundColor: '#2563eb', backgroundGradient: gradient },
+      { borderColor: '#2563eb', borderGradient: gradient },
+    ]) {
+      expect(
+        safeParseComponentStyle({
+          ...valid,
+          states: { ...valid.states, base },
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   it('publishes one valid and useful editor default for every style property', () => {
     expect(COMPONENT_STYLE_PROPERTY_DEFINITIONS.map(({ name }) => name)).toEqual(
       COMPONENT_STYLE_PROPERTY_NAMES,

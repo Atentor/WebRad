@@ -38,16 +38,29 @@ describe('StylesWorkspace', () => {
       idFactory: () => 'interactive-style',
       states: {
         base: {
-          backgroundColor: '#2563eb',
+          textGradient: {
+            kind: 'linear',
+            direction: 'to-right',
+            from: '#f59e0b',
+            to: '#ef4444',
+          },
           backgroundGradient: {
             kind: 'linear',
             direction: 'to-right',
             from: '#2563eb',
             to: '#7c3aed',
           },
+          borderWidth: { value: 4, unit: 'px' },
+          borderStyle: 'solid',
+          borderGradient: {
+            kind: 'linear',
+            direction: 'to-bottom',
+            from: '#22c55e',
+            to: '#06b6d4',
+          },
+          borderRadius: { value: 40, unit: 'px' },
         },
         hover: {
-          backgroundColor: '#1d4ed8',
           backgroundGradient: {
             kind: 'linear',
             direction: 'to-bottom',
@@ -73,19 +86,30 @@ describe('StylesWorkspace', () => {
       document.querySelector<HTMLButtonElement>(
         '[data-style-preview] [data-component-type="WebButton"]',
       )!;
-    expect(previewButton().classList.contains('bg-[#2563eb]')).toBe(true);
+    expect(previewButton().classList.contains('border-[4px]')).toBe(true);
+    expect(previewButton().classList.contains('rounded-[40px]')).toBe(true);
     expect(
-      previewButton().classList.contains('bg-[linear-gradient(to_right,#2563eb,#7c3aed)]'),
+      previewButton().classList.contains(
+        '[&_[data-webrad-text-content]]:bg-[linear-gradient(to_right,#f59e0b,#ef4444)]',
+      ),
     ).toBe(true);
+    expect(
+      previewButton().classList.contains(
+        '[background:linear-gradient(to_right,#2563eb,#7c3aed)_padding-box,linear-gradient(to_bottom,#22c55e,#06b6d4)_border-box]',
+      ),
+    ).toBe(true);
+    expect(previewButton().querySelector('[data-webrad-text-content]')).not.toBeNull();
 
     await user.click(screen.getByRole('tab', { name: 'Hover' }));
-    expect(previewButton().classList.contains('bg-[#1d4ed8]')).toBe(true);
-    expect(previewButton().classList.contains('hover:bg-[#1d4ed8]')).toBe(false);
     expect(
-      previewButton().classList.contains('bg-[linear-gradient(to_bottom,#1d4ed8,#0ea5e9)]'),
+      previewButton().classList.contains(
+        '[background:linear-gradient(to_bottom,#1d4ed8,#0ea5e9)_padding-box,linear-gradient(to_bottom,#22c55e,#06b6d4)_border-box]',
+      ),
     ).toBe(true);
     expect(
-      previewButton().classList.contains('bg-[linear-gradient(to_right,#2563eb,#7c3aed)]'),
+      previewButton().classList.contains(
+        '[background:linear-gradient(to_right,#2563eb,#7c3aed)_padding-box,linear-gradient(to_bottom,#22c55e,#06b6d4)_border-box]',
+      ),
     ).toBe(false);
 
     await user.click(screen.getByRole('tab', { name: 'Focus' }));

@@ -409,7 +409,6 @@ Message(error.message);
 const reusableStyle: TailwindStyleSource = {
   states: {
     base: {
-      backgroundColor: '#2563eb',
       backgroundGradient: {
         kind: 'linear',
         direction: 'to-bottom-right',

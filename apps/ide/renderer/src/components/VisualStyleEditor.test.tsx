@@ -80,7 +80,6 @@ describe('VisualStyleEditor', () => {
       target: { value: '#8b5cf6' },
     });
     expect(currentProperties()).toMatchObject({
-      backgroundColor: '#2563eb',
       backgroundGradient: {
         kind: 'linear',
         direction: 'to-bottom-right',
@@ -88,6 +87,23 @@ describe('VisualStyleEditor', () => {
         to: '#8b5cf6',
       },
     });
+    expect(currentProperties()).not.toHaveProperty('backgroundColor');
+    expect(container.querySelector('.wr-style-gradient-swatch')).toBeNull();
+
+    await user.click(screen.getByLabelText('Configure Text color'));
+    fireEvent.change(screen.getByLabelText('Text color'), { target: { value: '#f59e0b' } });
+    expect(currentProperties()).toMatchObject({ textColor: '#f59e0b' });
+    await user.click(screen.getByLabelText('Configure Text gradient'));
+    await user.selectOptions(screen.getByLabelText('Text gradient direction'), 'to-left');
+    expect(currentProperties()).toMatchObject({
+      textGradient: {
+        kind: 'linear',
+        direction: 'to-left',
+        from: '#2563eb',
+        to: '#7c3aed',
+      },
+    });
+    expect(currentProperties()).not.toHaveProperty('textColor');
 
     await user.click(screen.getByRole('button', { name: /^Effects/ }));
     await user.click(screen.getByLabelText('Configure Opacity'));
@@ -97,9 +113,27 @@ describe('VisualStyleEditor', () => {
     await user.click(screen.getByRole('button', { name: /^Colors/ }));
     await user.click(screen.getByRole('button', { name: 'Clear Background gradient' }));
     expect(currentProperties()).not.toHaveProperty('backgroundGradient');
-    expect(currentProperties()).toMatchObject({ backgroundColor: '#2563eb' });
+    expect(currentProperties()).not.toHaveProperty('backgroundColor');
+    await user.click(screen.getByLabelText('Configure Background color'));
+    expect(currentProperties()).toMatchObject({ backgroundColor: '#ffffff' });
+    expect(currentProperties()).not.toHaveProperty('backgroundGradient');
     await user.click(screen.getByRole('button', { name: 'Clear Background color' }));
     expect(currentProperties()).not.toHaveProperty('backgroundColor');
+
+    await user.click(screen.getByRole('button', { name: /^Border/ }));
+    await user.click(screen.getByLabelText('Configure Border color'));
+    fireEvent.change(screen.getByLabelText('Border color'), { target: { value: '#22c55e' } });
+    expect(currentProperties()).toMatchObject({ borderColor: '#22c55e' });
+    await user.click(screen.getByLabelText('Configure Border gradient'));
+    expect(currentProperties()).toMatchObject({
+      borderGradient: {
+        kind: 'linear',
+        direction: 'to-right',
+        from: '#2563eb',
+        to: '#7c3aed',
+      },
+    });
+    expect(currentProperties()).not.toHaveProperty('borderColor');
   });
 
   it('filters the catalog by human labels and exposes visual animation controls', async () => {

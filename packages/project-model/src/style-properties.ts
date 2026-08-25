@@ -66,6 +66,13 @@ export interface ComponentStylePropertyDefinition {
   readonly componentTypes?: readonly string[];
 }
 
+/** Pairs that cannot be configured together within the same interaction state. */
+export const COMPONENT_STYLE_PROPERTY_EXCLUSIVE_PAIRS = [
+  ['textColor', 'textGradient'],
+  ['backgroundColor', 'backgroundGradient'],
+  ['borderColor', 'borderGradient'],
+] as const satisfies readonly (readonly [ComponentStylePropertyName, ComponentStylePropertyName])[];
+
 const ALL_LENGTH_UNITS = ['px', 'rem', '%', 'vw', 'vh'] as const;
 const SPACING_UNITS = ['px', 'rem', '%'] as const;
 const GRADIENT_DIRECTIONS = [
@@ -214,6 +221,7 @@ function gradientProperty(
   name: ComponentStylePropertyName,
   label: string,
   category: ComponentStylePropertyCategory,
+  componentTypes?: readonly string[],
 ): ComponentStylePropertyDefinition {
   return {
     name,
@@ -230,6 +238,7 @@ function gradientProperty(
       kind: 'gradient',
       directions: options(GRADIENT_DIRECTIONS),
     },
+    ...(componentTypes === undefined ? {} : { componentTypes }),
   };
 }
 
@@ -474,6 +483,11 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
   ]),
 
   colorProperty('textColor', 'Text color', 'Colors'),
+  gradientProperty('textGradient', 'Text gradient', 'Colors', [
+    'WebLabel',
+    'WebButton',
+    'WebCheckBox',
+  ]),
   colorProperty('backgroundColor', 'Background color', 'Colors'),
   gradientProperty('backgroundGradient', 'Background gradient', 'Colors'),
 
@@ -486,6 +500,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ['double', 'Double'],
   ]),
   colorProperty('borderColor', 'Border color', 'Border'),
+  gradientProperty('borderGradient', 'Border gradient', 'Border'),
   lengthProperty('borderRadius', 'Border radius', 'Border', {
     units: ['px', 'rem', '%'],
     min: 0,

@@ -26,6 +26,7 @@ describe('ComponentView', () => {
     expect(markup).toContain('Mostrar');
     expect(markup).toContain('<button');
     expect(markup).toContain('class="wr-component wr-webbutton"');
+    expect(markup).toContain('data-webrad-text-content=""');
   });
 
   it('projects the selected reusable style classes onto the component root', () => {
