@@ -553,14 +553,15 @@ function EventRow({
   const text = editorText(multiple ? undefined : value, multiple);
 
   return (
-    <div className="wr-inspector-row wr-inspector-event-row" title={eventDefinition.description}>
+    <div
+      className="wr-inspector-row wr-inspector-event-row"
+      title={eventDefinition.description}
+      onDoubleClick={() => onDoubleClick(eventDefinition.name, eventDefinition)}
+    >
       <label className="wr-inspector-name" htmlFor={editorId}>
         {eventDefinition.label ?? eventDefinition.name}
       </label>
-      <div
-        className="wr-inspector-value"
-        onDoubleClick={() => onDoubleClick(eventDefinition.name, eventDefinition)}
-      >
+      <div className="wr-inspector-value">
         <input
           id={editorId}
           className="wr-inspector-input wr-inspector-event-input"

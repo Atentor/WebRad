@@ -1,4 +1,8 @@
-import { type WebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
+import {
+  type WebRadIconName,
+  webRadIconLabel,
+  webRadIconMatchesSearch,
+} from '@webrad/runtime/icons';
 import {
   useEffect,
   useId,
@@ -39,17 +43,13 @@ export function IconPickerDialog({
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
   const [search, setSearch] = useState('');
-  const normalizedSearch = search.trim().toLocaleLowerCase('en-US');
+  const searchQuery = search.trim();
   const matchingIcons = useMemo(
     () =>
-      normalizedSearch.length === 0
+      searchQuery.length === 0
         ? icons
-        : icons.filter((icon) => {
-            const name = icon.toLocaleLowerCase('en-US');
-            const label = webRadIconLabel(icon).toLocaleLowerCase('en-US');
-            return name.includes(normalizedSearch) || label.includes(normalizedSearch);
-          }),
-    [icons, normalizedSearch],
+        : icons.filter((icon) => webRadIconMatchesSearch(icon, searchQuery)),
+    [icons, searchQuery],
   );
   const focusedIcon =
     selected !== undefined && matchingIcons.includes(selected) ? selected : matchingIcons[0];

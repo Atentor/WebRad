@@ -65,25 +65,30 @@ describe('IconPickerDialog', () => {
     expect(onSelect).toHaveBeenCalledWith('chevron-down');
   });
 
-  it('finds login, logout, and door-direction variants by their labels', async () => {
+  it('finds canonical icons through labels and non-displayed aliases', async () => {
     const user = userEvent.setup();
     render(
       <IconPickerDialog
-        icons={['login', 'logout', 'door-in', 'door-out']}
+        icons={['add', 'close', 'login', 'logout', 'door-in', 'door-out']}
         onClose={vi.fn()}
         onSelect={vi.fn()}
       />,
     );
 
     const search = screen.getByRole('searchbox', { name: 'Search icons' });
-    await user.type(search, 'door out');
+    await user.type(search, 'door exit');
     expect(screen.getByRole('button', { name: 'Select Door Out icon' })).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Select Door In icon' })).toBeNull();
 
     await user.clear(search);
-    await user.type(search, 'login');
+    await user.type(search, 'log in');
     expect(screen.getByRole('button', { name: 'Select Login icon' })).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Select Logout icon' })).toBeNull();
+
+    await user.clear(search);
+    await user.type(search, 'plus');
+    expect(screen.getByRole('button', { name: 'Select Add icon' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Select Close icon' })).toBeNull();
   });
 
   it('keeps focus in the search and announces an empty result set', async () => {

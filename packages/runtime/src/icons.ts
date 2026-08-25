@@ -106,14 +106,10 @@ export const WEBRAD_ICON_NAMES = [
   'video',
   'login',
   'logout',
-  'log-in',
-  'log-out',
   'sign-in',
   'sign-out',
   'door-in',
   'door-out',
-  'door-enter',
-  'door-exit',
   'door-open',
   'door-closed',
   'key',
@@ -134,8 +130,6 @@ export const WEBRAD_ICON_NAMES = [
   'password',
   'at-sign',
   'scan-face',
-  'plus',
-  'x',
   'circle',
   'circle-dot',
   'square',
@@ -566,14 +560,6 @@ const WEBRAD_ICON_SHAPES: Readonly<Record<WebRadIconName, readonly WebRadIconSha
     { kind: 'path', d: 'M5 4h6v16H5' },
     { kind: 'path', d: 'M21 12H10m4-4-4 4 4 4' },
   ],
-  'log-in': [
-    { kind: 'path', d: 'M14 3h5v18h-5' },
-    { kind: 'path', d: 'M3 12h11m-5-5 5 5-5 5' },
-  ],
-  'log-out': [
-    { kind: 'path', d: 'M5 3h5v18H5' },
-    { kind: 'path', d: 'M21 12H10m4-5-4 5 4 5' },
-  ],
   'sign-in': [
     { kind: 'circle', cx: '8', cy: '7', r: '3' },
     { kind: 'path', d: 'M3 19a5 5 0 0 1 10 0M13 12h8m-3-3 3 3-3 3' },
@@ -589,14 +575,6 @@ const WEBRAD_ICON_SHAPES: Readonly<Record<WebRadIconName, readonly WebRadIconSha
   'door-out': [
     { kind: 'path', d: 'M4 3h6v18H4zM21 12H9m4-4-4 4 4 4' },
     { kind: 'circle', cx: '7', cy: '12', r: '.7', fill: 'currentColor', stroke: 'none' },
-  ],
-  'door-enter': [
-    { kind: 'path', d: 'M13 4h7v16h-7M3 12h10m-3-3 3 3-3 3' },
-    { kind: 'path', d: 'M17 8v.01M17 16v.01', strokeWidth: 2.4 },
-  ],
-  'door-exit': [
-    { kind: 'path', d: 'M4 4h7v16H4M21 12H11m3-3-3 3 3 3' },
-    { kind: 'path', d: 'M7 8v.01M7 16v.01', strokeWidth: 2.4 },
   ],
   'door-open': [
     { kind: 'path', d: 'M5 21V4l11-2v19zM16 2l3 2v17' },
@@ -684,8 +662,6 @@ const WEBRAD_ICON_SHAPES: Readonly<Record<WebRadIconName, readonly WebRadIconSha
     { kind: 'circle', cx: '12', cy: '11', r: '3.5' },
     { kind: 'path', d: 'M8.5 18a4.5 4.5 0 0 1 7 0' },
   ],
-  plus: [{ kind: 'path', d: 'M12 4v16M4 12h16' }],
-  x: [{ kind: 'path', d: 'm5 5 14 14M19 5 5 19' }],
   circle: [{ kind: 'circle', cx: '12', cy: '12', r: '8' }],
   'circle-dot': [
     { kind: 'circle', cx: '12', cy: '12', r: '8' },
@@ -801,8 +777,9 @@ const WEBRAD_ICON_SHAPES: Readonly<Record<WebRadIconName, readonly WebRadIconSha
     { kind: 'path', d: 'M5 7H4v14h12v-1' },
   ],
   files: [
-    { kind: 'path', d: 'M8 3h8l3 3v12H8zM16 3v4h3' },
-    { kind: 'path', d: 'M5 7H4v14h12v-1' },
+    { kind: 'path', d: 'M7 3h9l4 4v14H7zM16 3v5h4' },
+    { kind: 'path', d: 'M10 12h6M10 16h6' },
+    { kind: 'path', d: 'M4 7H3v14h12' },
   ],
   'hard-drive': [
     { kind: 'path', d: 'M4 5h16v14H4zM4 15h16' },
@@ -856,10 +833,14 @@ const WEBRAD_ICON_SHAPES: Readonly<Record<WebRadIconName, readonly WebRadIconSha
     { kind: 'path', d: 'M4 5h16v14H4z' },
     { kind: 'path', d: 'M4 15h5l2-3h2l2 3h5M12 11V3m-3 3 3-3 3 3' },
   ],
-  reply: [{ kind: 'path', d: 'm9 7-5 5 5 5M4 12h9a7 7 0 0 1 7 7' }],
+  reply: [
+    { kind: 'path', d: 'M4 5h16v12H9l-5 3z' },
+    { kind: 'path', d: 'm12 9-4 3 4 3M8 12h7' },
+  ],
   'reply-all': [
-    { kind: 'path', d: 'm10 7-5 5 5 5M5 12h9a7 7 0 0 1 7 7' },
-    { kind: 'path', d: 'm15 7-5 5 5 5' },
+    { kind: 'path', d: 'M4 5h16v12H9l-5 3z' },
+    { kind: 'path', d: 'm10 9-4 3 4 3M6 12h10' },
+    { kind: 'path', d: 'm15 9-4 3 4 3' },
   ],
   'forward-mail': [
     { kind: 'path', d: 'M4 5h12v8H4zM4 7l6 4 6-4' },
@@ -952,12 +933,39 @@ const WEBRAD_ICON_SHAPES: Readonly<Record<WebRadIconName, readonly WebRadIconSha
   ],
 };
 
+/**
+ * Search-only aliases preserve natural terms for canonical icons without
+ * presenting duplicate choices in the button icon gallery.
+ */
+const WEBRAD_ICON_SEARCH_ALIASES: Readonly<Partial<Record<WebRadIconName, readonly string[]>>> = {
+  add: ['plus'],
+  close: ['x'],
+  login: ['log-in', 'log in'],
+  logout: ['log-out', 'log out'],
+  'door-in': ['door-enter', 'door enter'],
+  'door-out': ['door-exit', 'door exit'],
+};
+
 export function isWebRadIconName(value: unknown): value is WebRadIconName {
   return typeof value === 'string' && WEBRAD_ICON_NAMES.includes(value as WebRadIconName);
 }
 
 export function webRadIconLabel(name: WebRadIconName): string {
   return name.replaceAll('-', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function normalizeWebRadIconSearchTerm(value: string): string {
+  return value.toLocaleLowerCase('en-US').replaceAll(/[\s_-]+/g, '');
+}
+
+/** Matches an icon by canonical ID, display label, or a non-displayed alias. */
+export function webRadIconMatchesSearch(name: WebRadIconName, query: string): boolean {
+  const normalizedQuery = normalizeWebRadIconSearchTerm(query);
+  if (normalizedQuery.length === 0) return true;
+
+  return [name, webRadIconLabel(name), ...(WEBRAD_ICON_SEARCH_ALIASES[name] ?? [])].some((term) =>
+    normalizeWebRadIconSearchTerm(term).includes(normalizedQuery),
+  );
 }
 
 export function getWebRadIconShapes(name: WebRadIconName): readonly WebRadIconShape[] {

@@ -23,7 +23,7 @@ interface MockCodeEditorProps {
   readonly path: string;
   readonly value: string;
   readonly pageComponents: readonly { readonly name: string; readonly type: string }[];
-  readonly navigateTo?: { readonly line: number } | null;
+  readonly navigateTo?: { readonly line: number; readonly column?: number } | null;
   readonly onSourceChange: (resource: string, value: string) => void;
   readonly onMarkersChange: (
     markers: readonly {
@@ -59,7 +59,11 @@ vi.mock('./components/CodeEditor', () => ({
     onMarkersChange,
     onSave,
   }: MockCodeEditorProps) => (
-    <div data-testid="mock-monaco" data-navigation-line={navigateTo?.line}>
+    <div
+      data-testid="mock-monaco"
+      data-navigation-line={navigateTo?.line}
+      data-navigation-column={navigateTo?.column}
+    >
       <output data-testid="mock-monaco-page-components">{JSON.stringify(pageComponents)}</output>
       <textarea
         aria-label="Mock Monaco editor"
@@ -322,6 +326,11 @@ describe('App MVP integration', () => {
     await user.dblClick(screen.getByLabelText('OnClick'));
     const editor = (await screen.findByLabelText('Mock Monaco editor')) as HTMLTextAreaElement;
     expect(editor.value).toContain('async BTNMostrarClick(sender: WebButton): Promise<void>');
+    const handlerLine =
+      editor.value.split('\n').findIndex((line) => line.includes('BTNMostrarClick')) + 1;
+    const navigation = screen.getByTestId('mock-monaco');
+    expect(Number(navigation.dataset.navigationLine)).toBeGreaterThan(handlerLine);
+    expect(Number(navigation.dataset.navigationColumn)).toBeGreaterThan(0);
     fireEvent.change(editor, { target: { value: `${editor.value}\n// integration edit\n` } });
 
     await user.click(screen.getByRole('tab', { name: 'Design' }));

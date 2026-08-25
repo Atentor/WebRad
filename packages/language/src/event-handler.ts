@@ -24,6 +24,8 @@ export interface EventHandlerEdit {
   readonly changed: boolean;
   readonly methodName: string;
   readonly location: SourceLocation;
+  /** Collapsed cursor target inside the handler body. */
+  readonly cursor: SourceLocation;
 }
 
 export class LanguageEditError extends Error {
@@ -81,15 +83,53 @@ function findHandlerMember(
   return declaration.members.find((member) => memberName(member) === methodName);
 }
 
-function locationOf(sourceFile: ts.SourceFile, member: ts.ClassElement): SourceLocation {
-  const start = member.name?.getStart(sourceFile) ?? member.getStart(sourceFile);
+function sourceLocation(sourceFile: ts.SourceFile, start: number, end: number): SourceLocation {
   const lineAndColumn = sourceFile.getLineAndCharacterOfPosition(start);
   return {
     start,
-    end: member.end,
+    end,
     line: lineAndColumn.line + 1,
     column: lineAndColumn.character + 1,
   };
+}
+
+function locationOf(sourceFile: ts.SourceFile, member: ts.ClassElement): SourceLocation {
+  const start = member.name?.getStart(sourceFile) ?? member.getStart(sourceFile);
+  return sourceLocation(sourceFile, start, member.end);
+}
+
+function handlerBody(member: ts.ClassElement): ts.ConciseBody | undefined {
+  if (ts.isMethodDeclaration(member)) return member.body;
+  if (!ts.isPropertyDeclaration(member)) return undefined;
+  const initializer = member.initializer;
+  if (initializer === undefined) return undefined;
+  if (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) {
+    return initializer.body;
+  }
+  return undefined;
+}
+
+function firstEditablePositionInBlock(sourceFile: ts.SourceFile, block: ts.Block): number {
+  const firstStatement = block.statements[0];
+  if (firstStatement !== undefined) return firstStatement.getStart(sourceFile);
+
+  const closingBrace = block.getEnd() - 1;
+  let position = block.getStart(sourceFile) + 1;
+  while (position < closingBrace) {
+    const character = sourceFile.text[position];
+    if (character !== ' ' && character !== '\t' && character !== '\r' && character !== '\n') break;
+    position += 1;
+  }
+  return position;
+}
+
+function cursorLocationOf(sourceFile: ts.SourceFile, member: ts.ClassElement): SourceLocation {
+  const body = handlerBody(member);
+  if (body === undefined) return locationOf(sourceFile, member);
+  const position = ts.isBlock(body)
+    ? firstEditablePositionInBlock(sourceFile, body)
+    : body.getStart(sourceFile);
+  return sourceLocation(sourceFile, position, position);
 }
 
 function importedLocalName(sourceFile: ts.SourceFile, importedName: string): string | undefined {
@@ -224,7 +264,14 @@ export function ensureEventHandler(
   const existing = findHandlerMember(declaration, methodName);
   if (existing !== undefined) {
     const location = locationOf(sourceFile, existing);
-    return { sourceText, text: sourceText, changed: false, methodName, location };
+    return {
+      sourceText,
+      text: sourceText,
+      changed: false,
+      methodName,
+      location,
+      cursor: cursorLocationOf(sourceFile, existing),
+    };
   }
 
   const localTypeName =
@@ -281,6 +328,7 @@ export function ensureEventHandler(
     changed: true,
     methodName,
     location: locationOf(updatedSourceFile, updatedMethod),
+    cursor: cursorLocationOf(updatedSourceFile, updatedMethod),
   };
 }
 

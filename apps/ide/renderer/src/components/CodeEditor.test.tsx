@@ -509,6 +509,32 @@ describe('CodeEditor professional Monaco workspace', () => {
     expect(otherResource.suggestions).toEqual([]);
   });
 
+  it('applies a pending navigation when Monaco mounts after switching to Code', () => {
+    const navigation = {
+      column: 5,
+      endColumn: 5,
+      endLine: 8,
+      line: 8,
+      requestId: 1,
+      resource: MAIN_RESOURCE,
+    };
+    render(<CodeEditor {...codeEditorProps({ navigateTo: navigation })} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+
+    mocks.editorProps?.onMount?.(editor);
+
+    expect(editor.setSelection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startLineNumber: 8,
+        startColumn: 5,
+        endLineNumber: 8,
+        endColumn: 5,
+      }),
+    );
+    expect(editor.revealRangeInCenter).toHaveBeenCalledOnce();
+    expect(editor.focus).toHaveBeenCalledOnce();
+  });
+
   it('publishes live markers, applies build markers, navigates, saves, and opens Find', () => {
     const onCursorChange = vi.fn();
     const onMarkersChange = vi.fn();

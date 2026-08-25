@@ -271,6 +271,8 @@ export function CodeEditor({
   const onMarkersChangeRef = useRef(onMarkersChange);
   const onCursorChangeRef = useRef(onCursorChange);
   const onSaveRef = useRef(onSave);
+  const navigateToRef = useRef<EditorNavigationTarget | null | undefined>(navigateTo);
+  const appliedNavigationRequestRef = useRef<number | null>(null);
 
   useEffect(() => {
     onSourceChangeRef.current = onSourceChange;
@@ -278,6 +280,10 @@ export function CodeEditor({
     onCursorChangeRef.current = onCursorChange;
     onSaveRef.current = onSave;
   }, [onCursorChange, onMarkersChange, onSave, onSourceChange]);
+
+  useEffect(() => {
+    navigateToRef.current = navigateTo;
+  }, [navigateTo]);
 
   useEffect(() => {
     completionResourceRef.current = canonicalResource(path);
@@ -361,6 +367,35 @@ export function CodeEditor({
     });
   }, []);
 
+  const applyNavigation = useCallback(
+    (
+      editor: monacoApi.editor.IStandaloneCodeEditor,
+      target: EditorNavigationTarget | null | undefined,
+    ): boolean => {
+      if (target === null || target === undefined) return false;
+      const model = editor.getModel();
+      if (model === null || model.uri.toString() !== canonicalResource(target.resource))
+        return false;
+      if (appliedNavigationRequestRef.current === target.requestId) {
+        editor.focus();
+        return true;
+      }
+
+      const range = new monacoApi.Range(
+        target.line,
+        target.column ?? 1,
+        target.endLine ?? target.line,
+        target.endColumn ?? target.column ?? 1,
+      );
+      editor.setSelection(range);
+      editor.revealRangeInCenter(range);
+      editor.focus();
+      appliedNavigationRequestRef.current = target.requestId;
+      return true;
+    },
+    [],
+  );
+
   const beforeMount = (): void => {
     configureMonaco();
     synchronizeMonacoExtraLibraries(extraLibraries);
@@ -438,9 +473,10 @@ export function CodeEditor({
     synchronizeProjectModels();
     synchronizeMonacoExtraLibraries(extraLibraries);
     synchronizeBuildMarkers(buildProblems);
+    const navigated = applyNavigation(editor, navigateToRef.current);
     publishCursor(editor);
     publishMarkers();
-    editor.focus();
+    if (!navigated) editor.focus();
   };
 
   useEffect(() => {
@@ -458,19 +494,9 @@ export function CodeEditor({
 
   useEffect(() => {
     const editor = editorRef.current;
-    if (navigateTo === null || navigateTo === undefined || editor === null) return;
-    const model = editor.getModel();
-    if (model === null || model.uri.toString() !== canonicalResource(navigateTo.resource)) return;
-    const range = new monacoApi.Range(
-      navigateTo.line,
-      navigateTo.column ?? 1,
-      navigateTo.endLine ?? navigateTo.line,
-      navigateTo.endColumn ?? navigateTo.column ?? 1,
-    );
-    editor.setSelection(range);
-    editor.revealRangeInCenter(range);
-    editor.focus();
-  }, [navigateTo, path]);
+    if (editor === null || !applyNavigation(editor, navigateTo)) return;
+    publishCursor(editor);
+  }, [applyNavigation, navigateTo, path, publishCursor]);
 
   useEffect(() => {
     const openFind = (): void => {

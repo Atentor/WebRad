@@ -256,6 +256,12 @@ export class PageMain extends PageMainGenerated {
     expect(edit.sourceText).toContain('async BTNMostrarClick(sender: WebButton): Promise<void>');
     expect(edit.sourceText).toContain('readonly answer = 42;');
     expect(edit.location.line).toBeGreaterThan(1);
+    const handlerStart = edit.sourceText.indexOf('async BTNMostrarClick');
+    const bodyStart = edit.sourceText.indexOf('{', handlerStart);
+    const bodyEnd = edit.sourceText.indexOf('}', bodyStart);
+    expect(edit.cursor.start).toBeGreaterThan(bodyStart);
+    expect(edit.cursor.start).toBeLessThanOrEqual(bodyEnd);
+    expect(edit.cursor.end).toBe(edit.cursor.start);
 
     const second = ensureEventHandler(edit.sourceText, {
       className: 'PageMain',
@@ -266,6 +272,25 @@ export class PageMain extends PageMainGenerated {
     expect(second.changed).toBe(false);
     expect(second.sourceText).toBe(edit.sourceText);
     expect(second.location).toEqual(edit.location);
+    expect(second.cursor).toEqual(edit.cursor);
+  });
+
+  it('returns the first statement inside an existing handler body as its cursor target', () => {
+    const source = `export class PageMain {
+  async BTNMostrarClick(sender: WebButton): Promise<void> {
+    const answer = sender;
+  }
+}
+`;
+    const edit = ensureEventHandler(source, {
+      className: 'PageMain',
+      componentName: 'BTNMostrar',
+      componentType: 'WebButton',
+      eventName: 'OnClick',
+    });
+
+    expect(edit.changed).toBe(false);
+    expect(source.slice(edit.cursor.start)).toMatch(/^const answer = sender;/);
   });
 
   it('uses an existing aliased runtime type import', () => {
@@ -298,5 +323,9 @@ export class PageMain {}
 
     expect(edit.changed).toBe(false);
     expect(edit.sourceText).toBe(source);
+    const bodyStart = source.indexOf('{', source.indexOf('BTNMostrarClick'));
+    const bodyEnd = source.indexOf('}', bodyStart);
+    expect(edit.cursor.start).toBeGreaterThan(bodyStart);
+    expect(edit.cursor.start).toBeLessThanOrEqual(bodyEnd);
   });
 });

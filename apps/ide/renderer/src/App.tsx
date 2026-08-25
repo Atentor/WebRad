@@ -680,8 +680,8 @@ export function App(): ReactElement {
             project?.id ?? 'project',
             sourceKey(activePage),
           ),
-          line: edit.location.line,
-          column: edit.location.column,
+          line: edit.cursor.line,
+          column: edit.cursor.column,
           requestId: (navigationRequestRef.current += 1),
         });
         addOutput(
