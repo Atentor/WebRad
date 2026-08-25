@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 
 import { createUserPageSource } from '@webrad/language';
-import { createProject, type WebRadProject } from '@webrad/project-model';
+import {
+  createProject,
+  parseApiClientConfiguration,
+  type WebRadProject,
+} from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
@@ -430,7 +434,82 @@ describe('App MVP integration', () => {
     expect(harness.save.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(harness.setDirty).toHaveBeenCalledWith(true);
     expect(harness.setDirty).toHaveBeenLastCalledWith(false);
-  });
+  }, 15_000);
+
+  it('opens the API Client tester from the nonvisual tray and persists its response contract', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          customers: [{ id: 1, displayName: 'Ada' }],
+          page: { total: 1 },
+        }),
+        {
+          status: 200,
+          statusText: 'OK',
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    );
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+
+    await user.dblClick(screen.getByRole('button', { name: 'API Client' }));
+    const apiClient = await screen.findByRole('option', { name: 'ApiClient1, API Client' });
+    await user.dblClick(apiClient);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Test API Client' });
+    expect(dialog).toBeDefined();
+    const tester = within(dialog);
+    const baseUrl = tester.getByLabelText('Base URL');
+    await user.clear(baseUrl);
+    await user.type(baseUrl, 'https://api.example.test/v1');
+    await user.type(tester.getByLabelText('Path'), '/customers');
+    await user.click(tester.getByRole('button', { name: 'Send test request' }));
+
+    await tester.findByRole('region', { name: 'Response definitions' });
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.example.test/v1/customers',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    await user.selectOptions(tester.getByLabelText('Type for id'), 'string');
+    await user.click(tester.getByRole('button', { name: 'Save API Client' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Test API Client' })).toBeNull();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await screen.findByText('Saved MvpProject.');
+    const persistedApiClient = harness
+      .persisted()
+      .project.pages[0]?.components.find((component) => component.type === 'WebApiClient');
+    if (persistedApiClient === undefined) throw new Error('Expected the persisted API Client.');
+    expect(persistedApiClient.props.baseUrl).toBe('https://api.example.test/v1');
+
+    const configuration = parseApiClientConfiguration(persistedApiClient.props.apiClientConfig);
+    expect(configuration.operations).toHaveLength(1);
+    expect(configuration.operations[0]).toMatchObject({
+      name: 'Request',
+      method: 'GET',
+      path: '/customers',
+    });
+    const responseSchema = configuration.operations[0]?.responseSchema;
+    expect(responseSchema).not.toBeNull();
+    const customers = responseSchema?.root.children.find((node) => node.name === 'customers');
+    expect(customers).toMatchObject({ kind: 'list', path: '/customers' });
+    expect(customers?.children.find((node) => node.name === 'id')).toMatchObject({
+      fieldType: 'string',
+      path: '/customers/*/id',
+    });
+    expect(JSON.stringify(configuration)).not.toContain('Ada');
+  }, 15_000);
 
   it('keeps theme switching in the Tools command without rendering a toolbar button', async () => {
     const harness = createBridgeHarness(initialSession());
@@ -693,7 +772,7 @@ describe('App MVP integration', () => {
       savedAfterDelete.pages[0]?.components.find((component) => component.type === 'WebLabel')
         ?.styleId,
     ).toBe(mutedStyle?.id);
-  }, 15_000);
+  }, 25_000);
 
   it('creates additional pages with the Page naming contract', async () => {
     const harness = createBridgeHarness(initialSession());

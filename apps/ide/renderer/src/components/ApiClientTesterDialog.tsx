@@ -102,7 +102,10 @@ function isAbsoluteUrl(value: string): boolean {
 function joinUrl(baseUrl: string, path: string): string {
   if (baseUrl.length === 0 || isAbsoluteUrl(path)) return path;
   if (isAbsoluteUrl(baseUrl)) {
-    return new URL(path.startsWith('/') ? path.slice(1) : path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`).href;
+    return new URL(
+      path.startsWith('/') ? path.slice(1) : path,
+      baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`,
+    ).href;
   }
   const left = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   const right = path.startsWith('/') ? path.slice(1) : path;
@@ -125,8 +128,12 @@ function createTestRequest(
   configuration: ApiClientConfiguration,
   operation: ApiClientOperation,
 ): { readonly url: string; readonly init: RequestInit } {
-  const url = appendEnabledParameters(joinUrl(baseUrl.trim(), operation.path.trim()), operation.query);
-  if (url.length === 0) throw new Error('Enter a base URL or an absolute operation path before testing.');
+  const url = appendEnabledParameters(
+    joinUrl(baseUrl.trim(), operation.path.trim()),
+    operation.query,
+  );
+  if (url.length === 0)
+    throw new Error('Enter a base URL or an absolute operation path before testing.');
   const headers = new Headers();
   [...configuration.defaultHeaders, ...operation.headers].forEach((parameter) => {
     if (parameter.enabled && parameter.name.trim().length > 0) {
@@ -235,7 +242,9 @@ function ParameterList({ label, parameters, onChange }: ParameterListProps): Rea
               <button
                 type="button"
                 aria-label={`Remove ${label.toLocaleLowerCase()} ${parameter.name || parameter.id}`}
-                onClick={() => onChange(parameters.filter((candidate) => candidate.id !== parameter.id))}
+                onClick={() =>
+                  onChange(parameters.filter((candidate) => candidate.id !== parameter.id))
+                }
               >
                 Remove
               </button>
@@ -264,8 +273,15 @@ interface SchemaNodeEditorProps {
   readonly depth: number;
   readonly selectedIds: ReadonlySet<string>;
   readonly ancestorIds: readonly string[];
-  readonly onSelectedChange: (node: ApiClientSchemaNode, selected: boolean, ancestors: readonly string[]) => void;
-  readonly onPatch: (nodeId: string, patch: Partial<Pick<ApiClientSchemaNode, 'fieldType' | 'nullable'>>) => void;
+  readonly onSelectedChange: (
+    node: ApiClientSchemaNode,
+    selected: boolean,
+    ancestors: readonly string[],
+  ) => void;
+  readonly onPatch: (
+    nodeId: string,
+    patch: Partial<Pick<ApiClientSchemaNode, 'fieldType' | 'nullable'>>,
+  ) => void;
 }
 
 function SchemaNodeEditor({
@@ -294,7 +310,11 @@ function SchemaNodeEditor({
           aria-label={`Type for ${node.name}`}
           value={node.fieldType}
           disabled={!editableField}
-          onChange={(event) => onPatch(node.id, { fieldType: event.currentTarget.value as ApiClientSchemaNode['fieldType'] })}
+          onChange={(event) =>
+            onPatch(node.id, {
+              fieldType: event.currentTarget.value as ApiClientSchemaNode['fieldType'],
+            })
+          }
         >
           {editableField ? (
             API_CLIENT_FIELD_TYPES.filter((type) => type !== 'object' && type !== 'list').map(
@@ -338,7 +358,7 @@ function SchemaNodeEditor({
 }
 
 function responseJson(text: string, contentType: string): unknown | undefined {
-  if (!/[/+]json(?:;|$)/iu.test(contentType) && !/^[\[{]/u.test(text.trim())) return undefined;
+  if (!/[/+]json(?:;|$)/iu.test(contentType) && !/^(?:\[|\{)/u.test(text.trim())) return undefined;
   try {
     return JSON.parse(text) as unknown;
   } catch {
@@ -346,7 +366,10 @@ function responseJson(text: string, contentType: string): unknown | undefined {
   }
 }
 
-function testResultBody(text: string): { readonly bodyText: string; readonly bodyTruncated: boolean } {
+function testResultBody(text: string): {
+  readonly bodyText: string;
+  readonly bodyTruncated: boolean;
+} {
   if (text.length <= MAX_RESPONSE_PREVIEW_LENGTH) return { bodyText: text, bodyTruncated: false };
   return {
     bodyText: `${text.slice(0, MAX_RESPONSE_PREVIEW_LENGTH)}\n\n… Response preview truncated …`,
@@ -379,7 +402,9 @@ export function ApiClientTesterDialog({
   );
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<ReadonlySet<string>>(() => {
     const schema = configuration.operations[0]?.responseSchema;
-    return schema === null || schema === undefined ? new Set<string>() : collectInferredNodeIds(schema.root);
+    return schema === null || schema === undefined
+      ? new Set<string>()
+      : collectInferredNodeIds(schema.root);
   });
   const [sending, setSending] = useState(false);
   const [testResult, setTestResult] = useState<ApiTestResult | null>(null);
@@ -401,11 +426,6 @@ export function ApiClientTesterDialog({
     };
   }, []);
 
-  useEffect(() => {
-    if (operation?.id === selectedOperationId) return;
-    setSelectedOperationId(operation?.id ?? '');
-  }, [operation?.id, selectedOperationId]);
-
   const updateOperation = (
     operationId: string,
     update: (current: ApiClientOperation) => ApiClientOperation,
@@ -420,9 +440,13 @@ export function ApiClientTesterDialog({
 
   const selectOperation = (id: string): void => {
     setSelectedOperationId(id);
-    const schema = configuration.operations.find((candidate) => candidate.id === id)?.responseSchema;
+    const schema = configuration.operations.find(
+      (candidate) => candidate.id === id,
+    )?.responseSchema;
     setSelectedSchemaIds(
-      schema === null || schema === undefined ? new Set<string>() : collectInferredNodeIds(schema.root),
+      schema === null || schema === undefined
+        ? new Set<string>()
+        : collectInferredNodeIds(schema.root),
     );
     setTestResult(null);
     setError(null);
@@ -450,7 +474,10 @@ export function ApiClientTesterDialog({
     setError(null);
     setTestResult(null);
     try {
-      const response = await globalThis.fetch(request.url, { ...request.init, signal: controller.signal });
+      const response = await globalThis.fetch(request.url, {
+        ...request.init,
+        signal: controller.signal,
+      });
       const rawText = await response.text();
       const preview = testResultBody(rawText);
       const json = responseJson(rawText, response.headers.get('content-type') ?? '');
@@ -464,7 +491,10 @@ export function ApiClientTesterDialog({
         json,
       };
       setTestResult(result);
-      if (json !== undefined) {
+      // HTTP errors often have a JSON error envelope. It is useful to display
+      // that payload, but it must not replace or extend the successful output
+      // contract that other components will consume.
+      if (response.ok && json !== undefined) {
         const inferred = inferApiClientResponseSchema(json);
         const schema = reconcileApiClientResponseSchema(inferred, operation.responseSchema);
         setSchema(operation.id, schema);
@@ -474,7 +504,9 @@ export function ApiClientTesterDialog({
       const aborted = controller.signal.aborted;
       const reason = aborted
         ? `The request was cancelled or exceeded its ${String(timeoutMs)} ms timeout.`
-        : (caught instanceof Error ? caught.message : String(caught));
+        : caught instanceof Error
+          ? caught.message
+          : String(caught);
       setError(
         `${reason} Browser API tests require the target API to permit this application's origin through CORS.`,
       );
@@ -490,11 +522,14 @@ export function ApiClientTesterDialog({
       const selectedConfiguration: ApiClientConfiguration = {
         ...configuration,
         operations: configuration.operations.map((candidate) =>
-          candidate.responseSchema === null
+          candidate.id !== selectedOperationId || candidate.responseSchema === null
             ? candidate
             : {
                 ...candidate,
-                responseSchema: pruneApiClientResponseSchema(candidate.responseSchema, selectedSchemaIds),
+                responseSchema: pruneApiClientResponseSchema(
+                  candidate.responseSchema,
+                  selectedSchemaIds,
+                ),
               },
         ),
       };
@@ -533,7 +568,9 @@ export function ApiClientTesterDialog({
     return createPortal(<div />, document.body);
   }
 
-  const destructiveMethod = !['GET', 'HEAD', 'OPTIONS'].includes(operation.method.trim().toUpperCase());
+  const destructiveMethod = !['GET', 'HEAD', 'OPTIONS'].includes(
+    operation.method.trim().toUpperCase(),
+  );
   const responseSchema = operation.responseSchema;
 
   return createPortal(
@@ -564,7 +601,8 @@ export function ApiClientTesterDialog({
         </header>
         <div className="wr-api-client-content">
           <p className="wr-modal-description" id={descriptionId}>
-            Configure requests and save only the response contract. Browser tests execute real requests and require CORS support from the API.
+            Configure requests and save only the response contract. Browser tests execute real
+            requests and require CORS support from the API.
           </p>
           <div className="wr-api-client-layout">
             <aside className="wr-api-operations" aria-label="API operations">
@@ -584,13 +622,12 @@ export function ApiClientTesterDialog({
                   Add
                 </button>
               </div>
-              <div className="wr-api-operation-list" role="listbox" aria-label="Saved API operations">
+              <nav className="wr-api-operation-list" aria-label="Saved API operations">
                 {configuration.operations.map((candidate) => (
                   <button
                     key={candidate.id}
                     type="button"
-                    role="option"
-                    aria-selected={candidate.id === operation.id}
+                    aria-pressed={candidate.id === operation.id}
                     className={candidate.id === operation.id ? 'selected' : ''}
                     onClick={() => selectOperation(candidate.id)}
                   >
@@ -598,7 +635,7 @@ export function ApiClientTesterDialog({
                     <small>{candidate.method || 'GET'}</small>
                   </button>
                 ))}
-              </div>
+              </nav>
               <button
                 type="button"
                 className="wr-api-remove-operation"
@@ -647,7 +684,9 @@ export function ApiClientTesterDialog({
               <ParameterList
                 label="Default headers"
                 parameters={configuration.defaultHeaders}
-                onChange={(defaultHeaders) => setConfiguration((current) => ({ ...current, defaultHeaders }))}
+                onChange={(defaultHeaders) =>
+                  setConfiguration((current) => ({ ...current, defaultHeaders }))
+                }
               />
               <div className="wr-api-operation-form">
                 <div className="wr-api-fields three-columns">
@@ -657,7 +696,10 @@ export function ApiClientTesterDialog({
                       aria-label="Operation name"
                       value={operation.name}
                       spellCheck={false}
-                      onChange={(event) => updateOperation(operation.id, (current) => ({ ...current, name: event.currentTarget.value }))}
+                      onChange={(event) => {
+                        const name = event.currentTarget.value;
+                        updateOperation(operation.id, (current) => ({ ...current, name }));
+                      }}
                     />
                   </label>
                   <label>
@@ -667,7 +709,10 @@ export function ApiClientTesterDialog({
                       list={methodListId}
                       value={operation.method}
                       spellCheck={false}
-                      onChange={(event) => updateOperation(operation.id, (current) => ({ ...current, method: event.currentTarget.value.toUpperCase() }))}
+                      onChange={(event) => {
+                        const method = event.currentTarget.value.toUpperCase();
+                        updateOperation(operation.id, (current) => ({ ...current, method }));
+                      }}
                     />
                     <datalist id={methodListId}>
                       {HTTP_METHOD_SUGGESTIONS.map((method) => (
@@ -680,10 +725,10 @@ export function ApiClientTesterDialog({
                     <select
                       aria-label="Credentials"
                       value={operation.credentials}
-                      onChange={(event) => updateOperation(operation.id, (current) => ({
-                        ...current,
-                        credentials: event.currentTarget.value as ApiClientCredentials,
-                      }))}
+                      onChange={(event) => {
+                        const credentials = event.currentTarget.value as ApiClientCredentials;
+                        updateOperation(operation.id, (current) => ({ ...current, credentials }));
+                      }}
                     >
                       {API_CLIENT_CREDENTIALS.map((credentials) => (
                         <option value={credentials} key={credentials}>
@@ -701,7 +746,10 @@ export function ApiClientTesterDialog({
                       value={operation.path}
                       placeholder="/customers"
                       spellCheck={false}
-                      onChange={(event) => updateOperation(operation.id, (current) => ({ ...current, path: event.currentTarget.value }))}
+                      onChange={(event) => {
+                        const path = event.currentTarget.value;
+                        updateOperation(operation.id, (current) => ({ ...current, path }));
+                      }}
                     />
                   </label>
                   <label>
@@ -716,8 +764,14 @@ export function ApiClientTesterDialog({
                       onChange={(event) => {
                         const raw = event.currentTarget.value;
                         const value = raw.length === 0 ? null : Number(raw);
-                        if (value === null || (Number.isInteger(value) && value >= 1 && value <= 120_000)) {
-                          updateOperation(operation.id, (current) => ({ ...current, timeoutMs: value }));
+                        if (
+                          value === null ||
+                          (Number.isInteger(value) && value >= 1 && value <= 120_000)
+                        ) {
+                          updateOperation(operation.id, (current) => ({
+                            ...current,
+                            timeoutMs: value,
+                          }));
                         }
                       }}
                     />
@@ -726,12 +780,16 @@ export function ApiClientTesterDialog({
                 <ParameterList
                   label="Headers"
                   parameters={operation.headers}
-                  onChange={(headers) => updateOperation(operation.id, (current) => ({ ...current, headers }))}
+                  onChange={(headers) =>
+                    updateOperation(operation.id, (current) => ({ ...current, headers }))
+                  }
                 />
                 <ParameterList
                   label="Query parameters"
                   parameters={operation.query}
-                  onChange={(query) => updateOperation(operation.id, (current) => ({ ...current, query }))}
+                  onChange={(query) =>
+                    updateOperation(operation.id, (current) => ({ ...current, query }))
+                  }
                 />
                 <div className="wr-api-body-editor">
                   <label>
@@ -739,10 +797,13 @@ export function ApiClientTesterDialog({
                     <select
                       aria-label="Body type"
                       value={operation.body.kind}
-                      onChange={(event) => updateOperation(operation.id, (current) => ({
-                        ...current,
-                        body: { ...current.body, kind: event.currentTarget.value as ApiClientBodyKind },
-                      }))}
+                      onChange={(event) => {
+                        const kind = event.currentTarget.value as ApiClientBodyKind;
+                        updateOperation(operation.id, (current) => ({
+                          ...current,
+                          body: { ...current.body, kind },
+                        }));
+                      }}
                     >
                       {API_CLIENT_BODY_KINDS.map((kind) => (
                         <option value={kind} key={kind}>
@@ -759,24 +820,34 @@ export function ApiClientTesterDialog({
                         value={operation.body.content}
                         placeholder={operation.body.kind === 'json' ? '{\n  "name": "Ada"\n}' : ''}
                         spellCheck={false}
-                        onChange={(event) => updateOperation(operation.id, (current) => ({
-                          ...current,
-                          body: { ...current.body, content: event.currentTarget.value },
-                        }))}
+                        onChange={(event) => {
+                          const content = event.currentTarget.value;
+                          updateOperation(operation.id, (current) => ({
+                            ...current,
+                            body: { ...current.body, content },
+                          }));
+                        }}
                       />
                     </label>
                   )}
                 </div>
                 {destructiveMethod && (
                   <p className="wr-api-write-warning" role="note">
-                    This {operation.method.toUpperCase()} test performs a real write operation against the target API.
+                    This {operation.method.toUpperCase()} test performs a real write operation
+                    against the target API.
                   </p>
                 )}
                 <p className="wr-api-secret-warning">
-                  Headers are persisted in the project and generated application. Do not save production secrets; inject them from application code at runtime.
+                  Headers are persisted in the project and generated application. Do not save
+                  production secrets; inject them from application code at runtime.
                 </p>
                 <div className="wr-api-test-actions">
-                  <button type="button" className="primary" disabled={sending} onClick={() => void testOperation()}>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={sending}
+                    onClick={() => void testOperation()}
+                  >
                     {sending ? 'Sending…' : 'Send test request'}
                   </button>
                   {sending && (
@@ -794,7 +865,9 @@ export function ApiClientTesterDialog({
                     </div>
                   ) : testResult !== null ? (
                     <>
-                      <div className={`wr-api-response-status ${testResult.status >= 400 ? 'error' : ''}`}>
+                      <div
+                        className={`wr-api-response-status ${testResult.status >= 400 ? 'error' : ''}`}
+                      >
                         <strong>
                           {String(testResult.status)} {testResult.statusText}
                         </strong>
@@ -813,7 +886,9 @@ export function ApiClientTesterDialog({
                         </dl>
                       </details>
                       <label className="wr-api-response-body">
-                        <span>Response body{testResult.bodyTruncated ? ' (preview truncated)' : ''}</span>
+                        <span>
+                          Response body{testResult.bodyTruncated ? ' (preview truncated)' : ''}
+                        </span>
                         <textarea readOnly value={testResult.bodyText} />
                       </label>
                     </>
@@ -825,7 +900,9 @@ export function ApiClientTesterDialog({
                   <div className="wr-api-section-heading">
                     <div>
                       <span>Response definitions</span>
-                      <small>Choose the fields, objects, and lists that future components may bind to.</small>
+                      <small>
+                        Choose the fields, objects, and lists that future components may bind to.
+                      </small>
                     </div>
                   </div>
                   <ul>

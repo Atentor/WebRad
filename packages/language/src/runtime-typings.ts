@@ -259,6 +259,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
 
   export type QueryValue = string | number | boolean | null | undefined;
 
+  export const WEB_API_RESPONSE_TYPES: readonly ['auto', 'json', 'text', 'blob', 'arrayBuffer'];
   export type WebApiResponseType = 'auto' | 'json' | 'text' | 'blob' | 'arrayBuffer';
   export type WebApiBodyKind = 'none' | 'json' | 'text' | 'form-urlencoded';
   export type WebApiCredentials = 'omit' | 'same-origin' | 'include';
@@ -360,6 +361,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
   export class WebApiClient<TOutputs extends object = Record<string, unknown>> extends WebNonvisualComponent {
     constructor(options?: WebApiClientOptions | string);
     baseUrl: string;
+    readonly apiClientConfig: WebApiClientConfiguration;
     readonly operations: readonly WebApiOperation[];
     readonly data: Readonly<Partial<TOutputs>>;
     readonly status: WebApiOperationStatus;

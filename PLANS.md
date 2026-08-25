@@ -17,6 +17,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 | 11. Nonvisual foundation     | DONE        | Registry-driven nonvisual tray, Inspector/persistence integration, generated service fields, and functional `WebApiClient`                        | Tray, code generation, browser exclusion, and runtime client pass tests                                    |
 | 12. Cross-platform packaging | IN PROGRESS | Windows/Linux validation and Forge packaging                                                                                                      | Windows package/smoke pass; Windows/Linux CI is configured                                                 |
 | 13. Responsive layout engine | DONE        | Version 2 per-node container/item layout contract, shared runtime projection, and responsive Designer interaction                                 | Runtime and Designer reflow from one model across fixed, anchored, row, and column containers              |
+| 14. API Client contracts     | IN PROGRESS | Versioned named API operations, direct browser tester, saved response-contract trees, and typed nonvisual outputs                                 | Tester action, model/schema, generated typings, runtime sources, and focused tests pass together           |
 
 ## Current work
 
@@ -38,6 +39,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Every non-root component is exposed as a typed readonly `this.Name` field; Delphi-like `Name` suggestions insert that standard TypeScript expression for consistent diagnostics, build, and Preview.
 - DONE: The version 2 responsive-layout contract replaces page-level layout mode with per-node container and item rules; runtime and Designer reflow from that one persisted model across fixed, anchored, row, and column containers.
 - IN PROGRESS: Linux packaging evidence from CI; Windows packaging is locally proven.
+- IN PROGRESS: API Client requests are being expanded from a base URL into versioned named operations with saved field/object/list contracts for future data-bound components.
 
 ## Validation evidence
 
@@ -62,6 +64,9 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Persist responsive rules on every component as `layout.container` and `layout.item`; preserve `bounds` only as the fixed-layout fallback so runtime and Designer share one geometry source.
 - Share browser-safe component property projection and CSS through `@webrad/runtime/visual`; keep design interaction exclusively in the Designer overlay.
 - Keep nonvisual nodes in the Project Model and tray, construct their typed services in generated code, and omit them from the final DOM model.
+- Keep the API Client's request and response contract in an optional, schema-versioned component property so existing format-v2 projects remain readable without a project-format migration.
+- Persist only API operation metadata and selected response-schema definitions, never sampled response data; stable operation and schema-node IDs are future binding keys.
+- Send API Client test and generated-runtime traffic with browser `fetch`; do not route arbitrary endpoints through Electron, and preserve the target API's CORS and authentication boundary.
 - Treat `Icon.svg` as the application icon source of truth; commit checked PNG/ICO/ICNS derivatives required by native platforms.
 - Resolve compiler resources from `node_modules` during Forge development and from copied `resources` in packaged applications; never rely on the Vite main bundle directory for TypeScript standard libraries.
 - Treat Monaco diagnostics as immediate authoring feedback and F9 diagnostics as authoritative; merge both in Problems and invalidate completed build results whenever the project revision changes.

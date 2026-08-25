@@ -1,6 +1,7 @@
 import {
   AddComponentCommand,
   BringToFrontCommand,
+  ChangePropertyCommand,
   MoveCommand,
   ReorderComponentsCommand,
   RemoveComponentCommand,
@@ -12,12 +13,14 @@ import {
 import {
   componentRegistry,
   requireComponentDefinition,
+  type ComponentDesignerAction,
   type ComponentPropertyDefinition,
 } from '@webrad/component-registry';
 import {
   applyDefaultComponentStyle,
   createPage,
   getComponent,
+  type ApiClientConfiguration,
   type Bounds,
   type ComponentNode,
   type ComponentStyleModel,
@@ -41,6 +44,7 @@ import {
 } from 'react';
 import type { BuildDiagnostic, IdeCommand, ProjectSession } from '../../shared/contracts';
 import { BottomPanel, type BottomPanelTab, type OutputEntry } from './components/BottomPanel';
+import { ApiClientTesterDialog } from './components/ApiClientTesterDialog';
 import {
   CodeEditor,
   releaseMonacoWorkspace,
@@ -177,6 +181,7 @@ export function App(): ReactElement {
   const [building, setBuilding] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectError, setNewProjectError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<EditorCursorStatus>({
@@ -208,6 +213,12 @@ export function App(): ReactElement {
     activePage && selection.primaryId
       ? (activePage.components.find((component) => component.id === selection.primaryId) ?? null)
       : null;
+  const apiClientTesterComponent = useMemo(() => {
+    if (activePage === null || apiClientTesterComponentId === null) return null;
+    return (
+      activePage.components.find((component) => component.id === apiClientTesterComponentId) ?? null
+    );
+  }, [activePage, apiClientTesterComponentId]);
 
   const addOutput = useCallback((category: string, message: string): void => {
     setOutput((current) => [
@@ -248,6 +259,7 @@ export function App(): ReactElement {
       setBuildDiagnostics([]);
       setMonacoMarkers([]);
       setBottomPanelTab('output');
+      setApiClientTesterComponentId(null);
       addOutput('PROJECT', `Opened ${session.project.name}.`);
     },
     [addOutput, designerController, selectionManager],
@@ -705,14 +717,59 @@ export function App(): ReactElement {
     ],
   );
 
-  const createDefaultEvent = useCallback(
+  const runDesignerAction = useCallback(
+    (action: ComponentDesignerAction, component: ComponentNode): void => {
+      if (action === 'api-client-tester') {
+        selectionManager.selectSingle(component.id);
+        setApiClientTesterComponentId(component.id);
+      }
+    },
+    [selectionManager],
+  );
+
+  const activateComponent = useCallback(
     (componentId: string): void => {
       if (!activePage) return;
-      const component = getComponent(activePage, componentId);
-      const eventName = componentRegistry.get(component.type)?.defaultEvent;
-      if (eventName) createOrOpenEvent(componentId, eventName);
+      try {
+        const component = getComponent(activePage, componentId);
+        const definition = componentRegistry.get(component.type);
+        if (definition?.designerAction !== undefined) {
+          runDesignerAction(definition.designerAction, component);
+          return;
+        }
+        if (typeof definition?.defaultEvent === 'string') {
+          createOrOpenEvent(componentId, definition.defaultEvent);
+        }
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
     },
-    [activePage, createOrOpenEvent],
+    [activePage, createOrOpenEvent, reportError, runDesignerAction],
+  );
+
+  const saveApiClientConfiguration = useCallback(
+    (baseUrl: string, configuration: ApiClientConfiguration): void => {
+      if (!activePage || apiClientTesterComponent === null) return;
+      try {
+        const next = designerController.executeMany(activePage, 'Configure API Client', [
+          new ChangePropertyCommand(apiClientTesterComponent.id, 'baseUrl', baseUrl),
+          new ChangePropertyCommand(apiClientTesterComponent.id, 'apiClientConfig', configuration),
+        ]);
+        updateActivePage(next);
+        setApiClientTesterComponentId(null);
+        addOutput('DESIGNER', `Configured API Client ${apiClientTesterComponent.name}.`);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activePage,
+      addOutput,
+      apiClientTesterComponent,
+      designerController,
+      reportError,
+      updateActivePage,
+    ],
   );
 
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
@@ -791,6 +848,7 @@ export function App(): ReactElement {
       setCompiledStylesCss('');
       setBuildDiagnostics([]);
       setMonacoMarkers([]);
+      setApiClientTesterComponentId(null);
     } catch (error) {
       reportError(error, 'PROJECT');
     }
@@ -1250,7 +1308,7 @@ export function App(): ReactElement {
         onBringToFront={() => changeZOrder('front')}
         onSendToBack={() => changeZOrder('back')}
         onZoomChange={setZoom}
-        onDefaultEvent={createDefaultEvent}
+        onComponentActivate={activateComponent}
       />
     </ErrorBoundary>
   ) : activeView === 'code' ? (
@@ -1290,7 +1348,7 @@ export function App(): ReactElement {
               : undefined,
           zoom,
         } as const);
-  const modalOpen = newProjectDialogOpen || iconPickerOpen;
+  const modalOpen = newProjectDialogOpen || iconPickerOpen || apiClientTesterComponent !== null;
 
   return (
     <>
@@ -1395,6 +1453,7 @@ export function App(): ReactElement {
                   styles={project?.styles}
                   onStyleChange={changeStyle}
                   onPropertyChange={changeProperty}
+                  onDesignerAction={(action, component) => runDesignerAction(action, component)}
                   onIconPickerOpenChange={setIconPickerOpen}
                   onEventChange={(eventName, handlerName) => bindEvent(eventName, handlerName)}
                   onEventDoubleClick={(eventName) => {
@@ -1440,6 +1499,13 @@ export function App(): ReactElement {
             setNewProjectError(null);
           }}
           onCreate={(name) => void submitNewProject(name)}
+        />
+      )}
+      {apiClientTesterComponent !== null && (
+        <ApiClientTesterDialog
+          component={apiClientTesterComponent}
+          onClose={() => setApiClientTesterComponentId(null)}
+          onSave={saveApiClientConfiguration}
         />
       )}
     </>

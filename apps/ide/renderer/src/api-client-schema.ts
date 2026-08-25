@@ -7,7 +7,8 @@ import type {
 export type ApiSchemaIdFactory = (prefix: string) => string;
 
 function defaultIdFactory(prefix: string): string {
-  const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const id =
+    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `${prefix}-${id}`;
 }
 
@@ -35,9 +36,7 @@ function scalarType(values: readonly unknown[]): ApiClientFieldType {
     if (strings.every((value) => /^\d{4}-\d{2}-\d{2}$/u.test(value))) return 'date';
     if (
       strings.every((value) =>
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/u.test(
-          value,
-        ),
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/u.test(value),
       )
     ) {
       return 'datetime';
@@ -136,7 +135,16 @@ function matchingNode(
   node: ApiClientSchemaNode,
   candidates: readonly ApiClientSchemaNode[],
 ): ApiClientSchemaNode | undefined {
-  return candidates.find((candidate) => candidate.path === node.path && candidate.kind === node.kind);
+  return candidates.find(
+    (candidate) => candidate.path === node.path && candidate.kind === node.kind,
+  );
+}
+
+function hasNodeAtPath(
+  node: ApiClientSchemaNode,
+  candidates: readonly ApiClientSchemaNode[],
+): boolean {
+  return candidates.some((candidate) => candidate.path === node.path);
 }
 
 /**
@@ -154,23 +162,34 @@ export function reconcileApiClientResponseSchema(
     node: ApiClientSchemaNode,
     previous: ApiClientSchemaNode | undefined,
   ): ApiClientSchemaNode => {
+    // A response can legitimately change shape at a path (for example from an
+    // object to `null` or a scalar). In that case it is a replacement, not a
+    // missing field: preserving the old node would create an invalid tree or
+    // duplicate generated TypeScript properties.
+    const compatiblePrevious =
+      previous !== undefined && previous.path === node.path && previous.kind === node.kind
+        ? previous
+        : undefined;
     const reconciledChildren = node.children.map((child) =>
-      reconcile(child, previous === undefined ? undefined : matchingNode(child, previous.children)),
+      reconcile(
+        child,
+        compatiblePrevious === undefined
+          ? undefined
+          : matchingNode(child, compatiblePrevious.children),
+      ),
     );
     const preservedChildren =
-      previous === undefined
+      compatiblePrevious === undefined
         ? []
-        : previous.children.filter(
-            (child) => matchingNode(child, node.children) === undefined,
-          );
+        : compatiblePrevious.children.filter((child) => !hasNodeAtPath(child, node.children));
     return {
       ...node,
-      ...(previous === undefined
+      ...(compatiblePrevious === undefined
         ? {}
         : {
-            id: previous.id,
-            fieldType: previous.fieldType,
-            nullable: previous.nullable,
+            id: compatiblePrevious.id,
+            fieldType: compatiblePrevious.fieldType,
+            nullable: compatiblePrevious.nullable,
           }),
       children: [...reconciledChildren, ...preservedChildren],
     };

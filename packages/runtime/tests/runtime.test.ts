@@ -1192,6 +1192,7 @@ describe('WebApiClient', () => {
       },
     });
     const transitions: string[] = [];
+    expect(api.apiClientConfig.operations[0]?.name).toBe('LoadCustomers');
     const unsubscribe = api.subscribe(() => {
       transitions.push(api.getOperationState('LoadCustomers').status);
     });

@@ -99,7 +99,10 @@ export class WebApiError<TBody = unknown> extends Error {
 }
 
 export class WebApiTimeoutError extends Error {
-  public constructor(public readonly timeoutMs: number, public readonly url: string) {
+  public constructor(
+    public readonly timeoutMs: number,
+    public readonly url: string,
+  ) {
     super(`The API request to ${url} timed out after ${String(timeoutMs)} ms.`);
     this.name = 'WebApiTimeoutError';
   }
@@ -180,7 +183,10 @@ function responseType(value: unknown): WebApiResponseType {
     : 'auto';
 }
 
-async function readResponseBody(response: Response, requestedType: WebApiResponseType): Promise<unknown> {
+async function readResponseBody(
+  response: Response,
+  requestedType: WebApiResponseType,
+): Promise<unknown> {
   if (response.status === 204 || response.status === 205) return undefined;
   switch (requestedType) {
     case 'blob':
@@ -210,7 +216,11 @@ function finiteTimeout(value: unknown, fallback: number): number {
 function normalizeParameters(value: unknown): readonly WebApiParameter[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((candidate, index) => {
-    if (!isRecord(candidate) || typeof candidate.name !== 'string' || typeof candidate.value !== 'string') {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.name !== 'string' ||
+      typeof candidate.value !== 'string'
+    ) {
       return [];
     }
     return [
@@ -230,7 +240,8 @@ function normalizeParameters(value: unknown): readonly WebApiParameter[] {
 function normalizeBody(value: unknown): WebApiRequestBody {
   if (!isRecord(value)) return { kind: 'none', content: '' };
   const kind = value.kind;
-  const supported = kind === 'none' || kind === 'json' || kind === 'text' || kind === 'form-urlencoded';
+  const supported =
+    kind === 'none' || kind === 'json' || kind === 'text' || kind === 'form-urlencoded';
   return {
     kind: supported ? kind : 'none',
     content: typeof value.content === 'string' ? value.content : '',
@@ -273,7 +284,8 @@ function normalizeResponseSchema(value: unknown): WebApiResponseSchema | null {
 }
 
 function normalizeOperation(value: unknown, index: number): WebApiOperation | null {
-  if (!isRecord(value) || typeof value.name !== 'string' || typeof value.method !== 'string') return null;
+  if (!isRecord(value) || typeof value.name !== 'string' || typeof value.method !== 'string')
+    return null;
   const credentials = value.credentials;
   return {
     id:
@@ -291,7 +303,9 @@ function normalizeOperation(value: unknown, index: number): WebApiOperation | nu
         ? credentials
         : 'omit',
     timeoutMs:
-      typeof value.timeoutMs === 'number' && Number.isInteger(value.timeoutMs) && value.timeoutMs >= 1
+      typeof value.timeoutMs === 'number' &&
+      Number.isInteger(value.timeoutMs) &&
+      value.timeoutMs >= 1
         ? Math.min(value.timeoutMs, 120_000)
         : null,
     responseSchema: normalizeResponseSchema(value.responseSchema),
@@ -325,7 +339,9 @@ function configuredBody(body: WebApiRequestBody, headers: Headers): unknown {
         return JSON.parse(body.content) as unknown;
       } catch (error) {
         const detail = error instanceof Error ? ` ${error.message}` : '';
-        throw new TypeError(`The configured JSON request body is invalid.${detail}`);
+        throw new TypeError(`The configured JSON request body is invalid.${detail}`, {
+          cause: error,
+        });
       }
     case 'text':
       if (!headers.has('content-type')) headers.set('content-type', 'text/plain;charset=UTF-8');
@@ -344,7 +360,10 @@ interface TimeoutSignal {
   readonly timedOut: () => boolean;
 }
 
-function timeoutSignal(signal: AbortSignal | null | undefined, timeoutMs: number | null): TimeoutSignal {
+function timeoutSignal(
+  signal: AbortSignal | null | undefined,
+  timeoutMs: number | null,
+): TimeoutSignal {
   if (timeoutMs === null || timeoutMs === undefined) {
     return { signal: signal ?? undefined, cleanUp: () => undefined, timedOut: () => false };
   }
@@ -439,6 +458,11 @@ export class WebApiClient<
 
   public set baseUrl(value: string) {
     this.#baseUrl = value;
+  }
+
+  /** Immutable normalized contract configured for this client instance. */
+  public get apiClientConfig(): WebApiClientConfiguration {
+    return this.#configuration;
   }
 
   /** Saved operation metadata, safe for a Table or another consumer to inspect. */
@@ -584,7 +608,8 @@ export class WebApiClient<
       }
     }
     new Headers(options.headers).forEach((value, name) => headers.set(name, value));
-    const body = options.body === undefined ? configuredBody(operation.body, headers) : options.body;
+    const body =
+      options.body === undefined ? configuredBody(operation.body, headers) : options.body;
     const timeoutMs = options.timeoutMs ?? operation.timeoutMs ?? this.#configuration.timeoutMs;
     const path = appendParameters(operation.path, operation.query);
     try {
@@ -624,7 +649,8 @@ export class WebApiClient<
     const operation = this.#configuration.operations.find(
       (candidate) => candidate.name === operationName,
     );
-    if (operation?.responseSchema === null || operation?.responseSchema === undefined) return undefined;
+    if (operation?.responseSchema === null || operation?.responseSchema === undefined)
+      return undefined;
     const node = findSchemaNode(operation.responseSchema.root, schemaNodeIdOrPath);
     if (node === undefined) return undefined;
     return resolvePointer(this.#data[operationName as keyof TOutputs], node.path) as T | undefined;
