@@ -1,9 +1,12 @@
 import {
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
+  LINEAR_GRADIENT_DIRECTIONS,
+  type BackgroundGradientValue,
   type ComponentStyleProperties,
   type ComponentStylePropertyDefinition,
   type ComponentStylePropertyName,
   type ComponentStyleStateName,
+  type LinearGradientDirection,
   type StyleLengthUnit,
   type StyleLengthValue,
   type StylePropertyValue,
@@ -46,7 +49,36 @@ interface CollapsiblePropertyCategoryProps {
 const HEX_COLOR = /^#[\da-f]{6}$/i;
 
 function isLengthValue(value: StylePropertyValue): value is StyleLengthValue {
-  return typeof value === 'object';
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'value' in value &&
+    typeof value.value === 'number' &&
+    Number.isFinite(value.value) &&
+    'unit' in value &&
+    (value.unit === 'px' ||
+      value.unit === 'rem' ||
+      value.unit === '%' ||
+      value.unit === 'vw' ||
+      value.unit === 'vh')
+  );
+}
+
+function isLinearGradientValue(value: StylePropertyValue): value is BackgroundGradientValue {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    value.kind === 'linear' &&
+    'direction' in value &&
+    typeof value.direction === 'string' &&
+    'from' in value &&
+    typeof value.from === 'string' &&
+    HEX_COLOR.test(value.from) &&
+    'to' in value &&
+    typeof value.to === 'string' &&
+    HEX_COLOR.test(value.to)
+  );
 }
 
 function clamp(value: number, minimum: number | undefined, maximum: number | undefined): number {
@@ -152,6 +184,84 @@ function ColorControl({ definition, value, onChange }: PropertyControlProps): Re
           <span>{value.toUpperCase()}</span>
         </label>
       )}
+    </div>
+  );
+}
+
+function gradientCssDirection(direction: string): string {
+  return direction.replaceAll('-', ' ');
+}
+
+function gradientDirection(
+  value: string,
+  fallback: LinearGradientDirection,
+): LinearGradientDirection {
+  return LINEAR_GRADIENT_DIRECTIONS.find((direction) => direction === value) ?? fallback;
+}
+
+function GradientControl({ definition, value, onChange }: PropertyControlProps): ReactElement {
+  if (definition.editor.kind !== 'gradient') throw new Error('Expected a gradient style editor.');
+  const editor = definition.editor;
+  const fallbackDirection = gradientDirection(editor.directions[0]?.value ?? '', 'to-right');
+  const defaultGradient: BackgroundGradientValue = isLinearGradientValue(definition.defaultValue)
+    ? definition.defaultValue
+    : {
+        kind: 'linear',
+        direction: fallbackDirection,
+        from: '#2563eb',
+        to: '#7c3aed',
+      };
+  const gradient: BackgroundGradientValue = isLinearGradientValue(value) ? value : defaultGradient;
+  const changeGradient = (
+    patch: Partial<Pick<BackgroundGradientValue, 'direction' | 'from' | 'to'>>,
+  ): void => {
+    onChange({ ...gradient, ...patch });
+  };
+
+  return (
+    <div className="wr-style-gradient-control">
+      <span
+        className="wr-style-gradient-swatch"
+        aria-hidden="true"
+        style={{
+          backgroundImage: `linear-gradient(${gradientCssDirection(gradient.direction)}, ${gradient.from}, ${gradient.to})`,
+        }}
+      />
+      <select
+        aria-label={`${definition.label} direction`}
+        value={gradient.direction}
+        onChange={(event) =>
+          changeGradient({ direction: gradientDirection(event.target.value, gradient.direction) })
+        }
+      >
+        {editor.directions.map((direction) => (
+          <option value={direction.value} key={direction.value}>
+            {direction.label}
+          </option>
+        ))}
+      </select>
+      <div className="wr-style-gradient-colors">
+        <label className="wr-style-gradient-color-picker">
+          <span>From</span>
+          <input
+            type="color"
+            aria-label={`${definition.label} from color`}
+            value={gradient.from}
+            onChange={(event) => changeGradient({ from: event.target.value })}
+          />
+          <code>{gradient.from.toUpperCase()}</code>
+        </label>
+        <label className="wr-style-gradient-color-picker">
+          <span>To</span>
+          <input
+            type="color"
+            aria-label={`${definition.label} to color`}
+            value={gradient.to}
+            onChange={(event) => changeGradient({ to: event.target.value })}
+          />
+          <code>{gradient.to.toUpperCase()}</code>
+        </label>
+      </div>
     </div>
   );
 }
@@ -269,6 +379,8 @@ function PropertyControl(props: PropertyControlProps): ReactElement {
       return <LengthControl {...props} />;
     case 'color':
       return <ColorControl {...props} />;
+    case 'gradient':
+      return <GradientControl {...props} />;
     case 'number':
       return <NumberControl {...props} />;
   }

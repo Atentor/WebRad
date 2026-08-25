@@ -795,11 +795,25 @@ describe('browser runtime', () => {
         base: {
           paddingLeft: { value: 16, unit: 'px' as const },
           backgroundColor: '#2563eb',
+          backgroundGradient: {
+            kind: 'linear' as const,
+            direction: 'to-bottom-right' as const,
+            from: '#2563eb',
+            to: '#7c3aed',
+          },
           transitionProperty: 'all',
           animationName: 'pulse',
           borderRadius: 'lg',
         },
-        hover: { backgroundColor: '#1d4ed8' },
+        hover: {
+          backgroundColor: '#1d4ed8',
+          backgroundGradient: {
+            kind: 'linear' as const,
+            direction: 'to-top' as const,
+            from: '#1d4ed8',
+            to: '#0f172a',
+          },
+        },
         focus: { ringWidth: { value: 2, unit: 'px' as const } },
         active: { scale: 95 },
         disabled: { cursor: 'not-allowed', opacity: 50 },
@@ -814,10 +828,12 @@ describe('browser runtime', () => {
     expect(resolveComponentStyleClassNames(style)).toEqual([
       'pl-[16px]',
       'bg-[#2563eb]',
+      'bg-[linear-gradient(to_bottom_right,#2563eb,#7c3aed)]',
       'transition-all',
       'animate-pulse',
       'rounded-lg',
       'hover:bg-[#1d4ed8]',
+      'hover:bg-[linear-gradient(to_top,#1d4ed8,#0f172a)]',
       'focus:ring-[2px]',
       'focus-within:ring-[2px]',
       'active:scale-[0.95]',
@@ -829,6 +845,20 @@ describe('browser runtime', () => {
     expect(resolveComponentStyleClassName(style)).toContain('hover:bg-[#1d4ed8]');
     expect(resolveComponentStylePreviewClassName(style, 'hover')).toContain('bg-[#1d4ed8]');
     expect(resolveComponentStylePreviewClassName(style, 'hover')).not.toContain('bg-[#2563eb]');
+    expect(resolveComponentStylePreviewClassName(style, 'hover')).toContain(
+      'bg-[linear-gradient(to_top,#1d4ed8,#0f172a)]',
+    );
+    expect(resolveComponentStylePreviewClassName(style, 'hover')).not.toContain(
+      'bg-[linear-gradient(to_bottom-right,#2563eb,#7c3aed)]',
+    );
+    expect(
+      resolveStylePropertyCandidate('backgroundGradient', {
+        kind: 'linear',
+        direction: 'to-right',
+        from: 'rgb(1, 2, 3)',
+        to: '#ffffff',
+      }),
+    ).toBeUndefined();
     expect(resolveStylePropertyCandidate('animationDuration', 750)).toBe(
       '[animation-duration:750ms]!',
     );

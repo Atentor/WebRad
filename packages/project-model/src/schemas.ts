@@ -15,6 +15,8 @@ import {
   CURRENT_PROJECT_FORMAT_VERSION,
   COMPONENT_STYLE_PROPERTY_NAMES,
   COMPONENT_STYLE_STATE_NAMES,
+  LINEAR_GRADIENT_DIRECTIONS,
+  type BackgroundGradientValue,
   LAYOUT_ALIGN_ITEMS_VALUES,
   LAYOUT_ANCHORS,
   LAYOUT_ITEM_SIZING_MODES,
@@ -164,10 +166,24 @@ export const StyleLengthValueSchema: z.ZodType<StyleLengthValue> = z
   })
   .strict();
 
+const hexColorSchema = z
+  .string()
+  .regex(/^#[\da-f]{6}$/iu, 'Expected a six-digit hexadecimal color.');
+
+export const BackgroundGradientValueSchema: z.ZodType<BackgroundGradientValue> = z
+  .object({
+    kind: z.literal('linear'),
+    direction: z.enum(LINEAR_GRADIENT_DIRECTIONS),
+    from: hexColorSchema,
+    to: hexColorSchema,
+  })
+  .strict();
+
 export const StylePropertyValueSchema: z.ZodType<StylePropertyValue> = z.union([
   z.string(),
   z.number().finite(),
   StyleLengthValueSchema,
+  BackgroundGradientValueSchema,
 ]);
 
 function validateStylePropertyValue(
@@ -195,6 +211,13 @@ function validateStylePropertyValue(
     const isHexColor = typeof value === 'string' && /^#[\da-f]{6}$/iu.test(value);
     if (!isKeyword && !isHexColor) {
       addIssue(`${definition.label} must be a hexadecimal color or a supported keyword.`);
+    }
+    return;
+  }
+
+  if (editor.kind === 'gradient') {
+    if (!BackgroundGradientValueSchema.safeParse(value).success) {
+      addIssue(`${definition.label} must be a supported two-color linear gradient.`);
     }
     return;
   }

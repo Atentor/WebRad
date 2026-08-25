@@ -1598,6 +1598,74 @@ button.wr-problem:focus-visible {
   gap: 5px;
 }
 
+.wr-style-gradient-control {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+}
+
+.wr-style-gradient-swatch {
+  grid-row: 1 / span 2;
+  width: 28px;
+  height: 100%;
+  min-height: 58px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  background-color: var(--wr-surface);
+}
+
+.wr-style-gradient-colors {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.wr-style-gradient-color-picker {
+  display: grid;
+  min-width: 0;
+  height: 29px;
+  grid-template-columns: auto 25px minmax(0, 1fr);
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+  color: var(--wr-muted-text);
+  cursor: pointer;
+}
+
+.wr-style-gradient-color-picker > span {
+  color: var(--wr-muted-text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.wr-style-gradient-color-picker input[type='color'] {
+  width: 25px;
+  height: 21px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.wr-style-gradient-color-picker code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--wr-muted-text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .wr-style-color-picker {
   display: flex;
   height: 29px;

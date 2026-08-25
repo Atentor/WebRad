@@ -37,8 +37,24 @@ describe('StylesWorkspace', () => {
     const style = createComponentStyle('Interactive Button', 'WebButton', {
       idFactory: () => 'interactive-style',
       states: {
-        base: { backgroundColor: '#2563eb' },
-        hover: { backgroundColor: '#1d4ed8' },
+        base: {
+          backgroundColor: '#2563eb',
+          backgroundGradient: {
+            kind: 'linear',
+            direction: 'to-right',
+            from: '#2563eb',
+            to: '#7c3aed',
+          },
+        },
+        hover: {
+          backgroundColor: '#1d4ed8',
+          backgroundGradient: {
+            kind: 'linear',
+            direction: 'to-bottom',
+            from: '#1d4ed8',
+            to: '#0ea5e9',
+          },
+        },
         focus: { ringWidth: { value: 2, unit: 'px' }, ringColor: '#0ea5e9' },
         active: { scale: 95 },
         disabled: { opacity: 45 },
@@ -58,10 +74,19 @@ describe('StylesWorkspace', () => {
         '[data-style-preview] [data-component-type="WebButton"]',
       )!;
     expect(previewButton().classList.contains('bg-[#2563eb]')).toBe(true);
+    expect(
+      previewButton().classList.contains('bg-[linear-gradient(to_right,#2563eb,#7c3aed)]'),
+    ).toBe(true);
 
     await user.click(screen.getByRole('tab', { name: 'Hover' }));
     expect(previewButton().classList.contains('bg-[#1d4ed8]')).toBe(true);
     expect(previewButton().classList.contains('hover:bg-[#1d4ed8]')).toBe(false);
+    expect(
+      previewButton().classList.contains('bg-[linear-gradient(to_bottom,#1d4ed8,#0ea5e9)]'),
+    ).toBe(true);
+    expect(
+      previewButton().classList.contains('bg-[linear-gradient(to_right,#2563eb,#7c3aed)]'),
+    ).toBe(false);
 
     await user.click(screen.getByRole('tab', { name: 'Focus' }));
     expect(previewButton().classList.contains('ring-[2px]')).toBe(true);

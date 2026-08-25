@@ -38,7 +38,7 @@ function currentProperties(): Record<string, unknown> {
 }
 
 describe('VisualStyleEditor', () => {
-  it('edits enum, length, color, and number values without exposing class or CSS inputs', async () => {
+  it('edits enum, length, color, gradient, and number values without exposing class or CSS inputs', async () => {
     const user = userEvent.setup();
     const { container } = render(<VisualEditorHarness />);
 
@@ -68,12 +68,36 @@ describe('VisualStyleEditor', () => {
     });
     expect(currentProperties()).toMatchObject({ backgroundColor: '#2563eb' });
 
+    await user.click(screen.getByLabelText('Configure Background gradient'));
+    await user.selectOptions(
+      screen.getByLabelText('Background gradient direction'),
+      'to-bottom-right',
+    );
+    fireEvent.change(screen.getByLabelText('Background gradient from color'), {
+      target: { value: '#0ea5e9' },
+    });
+    fireEvent.change(screen.getByLabelText('Background gradient to color'), {
+      target: { value: '#8b5cf6' },
+    });
+    expect(currentProperties()).toMatchObject({
+      backgroundColor: '#2563eb',
+      backgroundGradient: {
+        kind: 'linear',
+        direction: 'to-bottom-right',
+        from: '#0ea5e9',
+        to: '#8b5cf6',
+      },
+    });
+
     await user.click(screen.getByRole('button', { name: /^Effects/ }));
     await user.click(screen.getByLabelText('Configure Opacity'));
     fireEvent.change(screen.getByLabelText('Opacity'), { target: { value: '65' } });
     expect(currentProperties()).toMatchObject({ opacity: 65 });
 
     await user.click(screen.getByRole('button', { name: /^Colors/ }));
+    await user.click(screen.getByRole('button', { name: 'Clear Background gradient' }));
+    expect(currentProperties()).not.toHaveProperty('backgroundGradient');
+    expect(currentProperties()).toMatchObject({ backgroundColor: '#2563eb' });
     await user.click(screen.getByRole('button', { name: 'Clear Background color' }));
     expect(currentProperties()).not.toHaveProperty('backgroundColor');
   });

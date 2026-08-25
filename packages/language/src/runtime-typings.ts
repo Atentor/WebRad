@@ -372,7 +372,24 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly unit: StyleLengthUnit;
   }
 
-  export type StylePropertyValue = string | number | StyleLengthValue;
+  export type LinearGradientDirection =
+    | 'to-right'
+    | 'to-bottom-right'
+    | 'to-bottom'
+    | 'to-bottom-left'
+    | 'to-left'
+    | 'to-top-left'
+    | 'to-top'
+    | 'to-top-right';
+
+  export interface BackgroundGradientValue {
+    readonly kind: 'linear';
+    readonly direction: LinearGradientDirection;
+    readonly from: string;
+    readonly to: string;
+  }
+
+  export type StylePropertyValue = string | number | StyleLengthValue | BackgroundGradientValue;
   export type TailwindStyleProperties = Readonly<
     Record<string, StylePropertyValue | undefined>
   >;

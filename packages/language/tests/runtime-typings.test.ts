@@ -408,7 +408,16 @@ Message(error.message);
 
 const reusableStyle: TailwindStyleSource = {
   states: {
-    base: { backgroundColor: '#2563eb', transitionProperty: 'colors' },
+    base: {
+      backgroundColor: '#2563eb',
+      backgroundGradient: {
+        kind: 'linear',
+        direction: 'to-bottom-right',
+        from: '#2563eb',
+        to: '#7c3aed',
+      },
+      transitionProperty: 'colors',
+    },
     hover: { backgroundColor: '#1d4ed8' },
     focus: {},
     active: {},
@@ -460,10 +469,20 @@ const backgroundCandidate: string | undefined = resolveStylePropertyCandidate(
   'backgroundColor',
   '#2563eb',
 );
+const gradientCandidate: string | undefined = resolveStylePropertyCandidate(
+  'backgroundGradient',
+  {
+    kind: 'linear',
+    direction: 'to-right',
+    from: '#2563eb',
+    to: '#7c3aed',
+  },
+);
 const tokens: readonly string[] = tokenizeTailwindClasses(runtimeNode.styleClassName ?? '');
 void styleClasses;
 void hoverPreview;
 void backgroundCandidate;
+void gradientCandidate;
 void tokens;
 `;
     const valid = createLanguageService(validSource);

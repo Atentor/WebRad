@@ -171,6 +171,58 @@ describe('project factories', () => {
     });
   });
 
+  it('accepts only safe structured two-color linear background gradients', () => {
+    const valid = createComponentStyle('Gradient Button', 'WebButton', {
+      idFactory: idSequence('style-gradient'),
+      states: {
+        base: {
+          backgroundGradient: {
+            kind: 'linear',
+            direction: 'to-bottom-right',
+            from: '#2563eb',
+            to: '#7c3aed',
+          },
+        },
+      },
+    });
+
+    expect(safeParseComponentStyle(valid).success).toBe(true);
+    for (const backgroundGradient of [
+      {
+        kind: 'radial',
+        direction: 'to-right',
+        from: '#2563eb',
+        to: '#7c3aed',
+      },
+      {
+        kind: 'linear',
+        direction: 'to-center',
+        from: '#2563eb',
+        to: '#7c3aed',
+      },
+      {
+        kind: 'linear',
+        direction: 'to-right',
+        from: 'rgb(37, 99, 235)',
+        to: '#7c3aed',
+      },
+      {
+        kind: 'linear',
+        direction: 'to-right',
+        from: '#2563eb',
+        to: '#7c3aed',
+        css: 'url(https://example.invalid)',
+      },
+    ]) {
+      expect(
+        safeParseComponentStyle({
+          ...valid,
+          states: { ...valid.states, base: { backgroundGradient } },
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   it('publishes one valid and useful editor default for every style property', () => {
     expect(COMPONENT_STYLE_PROPERTY_DEFINITIONS.map(({ name }) => name)).toEqual(
       COMPONENT_STYLE_PROPERTY_NAMES,
@@ -435,6 +487,40 @@ describe('zod validation', () => {
 });
 
 describe('serialization', () => {
+  it('round-trips structured gradients in their stable field order', () => {
+    const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const project = addComponentStyle(
+      initial,
+      createComponentStyle('Gradient Button', 'WebButton', {
+        idFactory: idSequence('style-gradient'),
+        states: {
+          base: {
+            backgroundGradient: {
+              to: '#7c3aed',
+              from: '#2563eb',
+              direction: 'to-bottom-right',
+              kind: 'linear',
+            },
+          },
+        },
+      }),
+    );
+
+    const serialized = serializeProject(project);
+    const gradientOffset = serialized.indexOf('"backgroundGradient"');
+    expect(gradientOffset).toBeGreaterThanOrEqual(0);
+    expect(serialized.indexOf('"kind"', gradientOffset)).toBeLessThan(
+      serialized.indexOf('"direction"', gradientOffset),
+    );
+    expect(serialized.indexOf('"direction"', gradientOffset)).toBeLessThan(
+      serialized.indexOf('"from"', gradientOffset),
+    );
+    expect(serialized.indexOf('"from"', gradientOffset)).toBeLessThan(
+      serialized.indexOf('"to"', gradientOffset),
+    );
+    expect(deserializeProject(serialized)).toEqual(project);
+  });
+
   it('round-trips deterministically and sorts arbitrary property keys', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = project.pages[0];

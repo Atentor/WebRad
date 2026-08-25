@@ -1,4 +1,9 @@
-import type { ComponentStylePropertyName, StyleLengthUnit, StylePropertyValue } from './types.js';
+import type {
+  ComponentStylePropertyName,
+  LinearGradientDirection,
+  StyleLengthUnit,
+  StylePropertyValue,
+} from './types.js';
 
 export type ComponentStylePropertyCategory =
   | 'Layout'
@@ -37,6 +42,10 @@ export type ComponentStylePropertyEditor =
       readonly keywords: readonly StyleEditorOption[];
     }
   | {
+      readonly kind: 'gradient';
+      readonly directions: readonly StyleEditorOption[];
+    }
+  | {
       readonly kind: 'number';
       readonly min: number;
       readonly max: number;
@@ -59,6 +68,16 @@ export interface ComponentStylePropertyDefinition {
 
 const ALL_LENGTH_UNITS = ['px', 'rem', '%', 'vw', 'vh'] as const;
 const SPACING_UNITS = ['px', 'rem', '%'] as const;
+const GRADIENT_DIRECTIONS = [
+  ['to-right', 'To right'],
+  ['to-bottom-right', 'To bottom right'],
+  ['to-bottom', 'To bottom'],
+  ['to-bottom-left', 'To bottom left'],
+  ['to-left', 'To left'],
+  ['to-top-left', 'To top left'],
+  ['to-top', 'To top'],
+  ['to-top-right', 'To top right'],
+] as const satisfies readonly (readonly [LinearGradientDirection, string])[];
 
 function options(
   values: readonly (readonly [value: string, label: string])[],
@@ -187,6 +206,29 @@ function colorProperty(
         ['current', 'Current color'],
         ['inherit', 'Inherit'],
       ]),
+    },
+  };
+}
+
+function gradientProperty(
+  name: ComponentStylePropertyName,
+  label: string,
+  category: ComponentStylePropertyCategory,
+): ComponentStylePropertyDefinition {
+  return {
+    name,
+    label,
+    category,
+    defaultValue: {
+      kind: 'linear',
+      direction: 'to-right',
+      from: '#2563eb',
+      to: '#7c3aed',
+    },
+    description: `Configure ${label.toLocaleLowerCase('en-US')} without arbitrary CSS.`,
+    editor: {
+      kind: 'gradient',
+      directions: options(GRADIENT_DIRECTIONS),
     },
   };
 }
@@ -433,6 +475,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
 
   colorProperty('textColor', 'Text color', 'Colors'),
   colorProperty('backgroundColor', 'Background color', 'Colors'),
+  gradientProperty('backgroundGradient', 'Background gradient', 'Colors'),
 
   lengthProperty('borderWidth', 'Border width', 'Border', { units: ['px', 'rem'], min: 0 }),
   enumProperty('borderStyle', 'Border style', 'Border', [

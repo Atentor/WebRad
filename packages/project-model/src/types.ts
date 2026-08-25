@@ -99,6 +99,27 @@ export const COMPONENT_STYLE_STATE_NAMES = [
 
 export type ComponentStyleStateName = (typeof COMPONENT_STYLE_STATE_NAMES)[number];
 
+export const LINEAR_GRADIENT_DIRECTIONS = [
+  'to-right',
+  'to-bottom-right',
+  'to-bottom',
+  'to-bottom-left',
+  'to-left',
+  'to-top-left',
+  'to-top',
+  'to-top-right',
+] as const;
+
+export type LinearGradientDirection = (typeof LINEAR_GRADIENT_DIRECTIONS)[number];
+
+/** A bounded, serializable linear background gradient; arbitrary CSS is never persisted. */
+export interface BackgroundGradientValue {
+  readonly kind: 'linear';
+  readonly direction: LinearGradientDirection;
+  readonly from: string;
+  readonly to: string;
+}
+
 export const COMPONENT_STYLE_PROPERTY_NAMES = [
   'display',
   'overflow',
@@ -138,6 +159,7 @@ export const COMPONENT_STYLE_PROPERTY_NAMES = [
   'whiteSpace',
   'textColor',
   'backgroundColor',
+  'backgroundGradient',
   'borderWidth',
   'borderStyle',
   'borderColor',
@@ -187,7 +209,7 @@ export interface StyleLengthValue {
   readonly unit: StyleLengthUnit;
 }
 
-export type StylePropertyValue = string | number | StyleLengthValue;
+export type StylePropertyValue = string | number | StyleLengthValue | BackgroundGradientValue;
 export type ComponentStyleProperties = Readonly<
   Partial<Record<ComponentStylePropertyName, StylePropertyValue>>
 >;

@@ -11,6 +11,7 @@ import {
   createProject,
   setComponentStyle,
   updatePage,
+  type BackgroundGradientValue,
   type PageModel,
   type StylePropertyValue,
   type WebRadProject,
@@ -94,6 +95,12 @@ function styledExecutableProject(): WebRadProject {
     states: {
       base: {
         backgroundColor: '#2563eb',
+        backgroundGradient: {
+          kind: 'linear',
+          direction: 'to-bottom-right',
+          from: '#2563eb',
+          to: '#7c3aed',
+        },
         paddingLeft: { value: 24, unit: 'px' },
         paddingRight: { value: 24, unit: 'px' },
         textColor: '#ffffff',
@@ -106,7 +113,15 @@ function styledExecutableProject(): WebRadProject {
         animationDuration: 750,
         animationIterationCount: 'infinite',
       },
-      hover: { backgroundColor: '#1d4ed8' },
+      hover: {
+        backgroundColor: '#1d4ed8',
+        backgroundGradient: {
+          kind: 'linear',
+          direction: 'to-top',
+          from: '#1d4ed8',
+          to: '#0f172a',
+        },
+      },
       focus: {
         outlineWidth: { value: 2, unit: 'px' },
         outlineStyle: 'solid',
@@ -226,7 +241,9 @@ export class PageMain extends PageMainGenerated {
     expect(candidates).toEqual(
       expect.arrayContaining([
         'bg-[#2563eb]',
+        'bg-[linear-gradient(to_bottom_right,#2563eb,#7c3aed)]',
         'hover:bg-[#1d4ed8]',
+        'hover:bg-[linear-gradient(to_top,#1d4ed8,#0f172a)]',
         'focus:ring-[2px]',
         'focus:outline-[2px]',
         'active:scale-[0.95]',
@@ -239,8 +256,10 @@ export class PageMain extends PageMainGenerated {
     );
     expect(candidates.filter((candidate) => candidate === 'bg-[#2563eb]')).toHaveLength(1);
     expect(css).toContain('background-color: #2563eb');
+    expect(css).toContain('background-image: linear-gradient(to bottom right,#2563eb,#7c3aed);');
     expect(css).toContain('.bg-\\[\\#1d4ed8\\] {');
     expect(css).toContain('.hover\\:bg-\\[\\#1d4ed8\\]');
+    expect(css).toContain('.hover\\:bg-\\[linear-gradient\\(to_top\\,\\#1d4ed8\\,\\#0f172a\\)\\]');
     expect(css).toContain('.disabled\\:opacity-\\[0\\.5\\]');
     expect(css).toContain('.aria-disabled\\:opacity-\\[0\\.5\\]');
     expect(css).toContain('.animate-pulse');
@@ -285,6 +304,16 @@ export class PageMain extends PageMainGenerated {
           return editor.options.map((option) => option.value);
         case 'color':
           return [...editor.keywords.map((option) => option.value), '#123456'];
+        case 'gradient':
+          return editor.directions.map(
+            (direction) =>
+              ({
+                kind: 'linear',
+                direction: direction.value as BackgroundGradientValue['direction'],
+                from: '#123456',
+                to: '#abcdef',
+              }) satisfies BackgroundGradientValue,
+          );
         case 'number':
           return [...new Set([editor.min, definition.defaultValue as number, editor.max])];
         case 'length': {

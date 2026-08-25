@@ -24,7 +24,25 @@ export interface StyleLengthValue {
   readonly unit: StyleLengthUnit;
 }
 
-export type StylePropertyValue = string | number | StyleLengthValue;
+export type LinearGradientDirection =
+  | 'to-right'
+  | 'to-bottom-right'
+  | 'to-bottom'
+  | 'to-bottom-left'
+  | 'to-left'
+  | 'to-top-left'
+  | 'to-top'
+  | 'to-top-right';
+
+/** Browser-safe counterpart of the validated project-model gradient value. */
+export interface BackgroundGradientValue {
+  readonly kind: 'linear';
+  readonly direction: LinearGradientDirection;
+  readonly from: string;
+  readonly to: string;
+}
+
+export type StylePropertyValue = string | number | StyleLengthValue | BackgroundGradientValue;
 export type TailwindStyleProperties = Readonly<Record<string, StylePropertyValue | undefined>>;
 
 export interface TailwindStyleSource {
@@ -115,6 +133,35 @@ function isStyleLengthValue(value: unknown): value is StyleLengthValue {
   );
 }
 
+const LINEAR_GRADIENT_DIRECTIONS: ReadonlySet<LinearGradientDirection> = new Set([
+  'to-right',
+  'to-bottom-right',
+  'to-bottom',
+  'to-bottom-left',
+  'to-left',
+  'to-top-left',
+  'to-top',
+  'to-top-right',
+]);
+
+function isBackgroundGradientValue(value: unknown): value is BackgroundGradientValue {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    value.kind === 'linear' &&
+    'direction' in value &&
+    typeof value.direction === 'string' &&
+    LINEAR_GRADIENT_DIRECTIONS.has(value.direction as LinearGradientDirection) &&
+    'from' in value &&
+    typeof value.from === 'string' &&
+    /^#[\da-f]{6}$/iu.test(value.from) &&
+    'to' in value &&
+    typeof value.to === 'string' &&
+    /^#[\da-f]{6}$/iu.test(value.to)
+  );
+}
+
 function finiteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
@@ -171,6 +218,12 @@ function colorClass(prefix: string, value: unknown): string | undefined {
   return /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/iu.test(value)
     ? `${prefix}-[${value}]`
     : undefined;
+}
+
+function backgroundGradientClass(value: unknown): string | undefined {
+  if (!isBackgroundGradientValue(value)) return undefined;
+  const direction = value.direction.replaceAll('-', '_');
+  return `bg-[linear-gradient(${direction},${value.from.toLowerCase()},${value.to.toLowerCase()})]`;
 }
 
 const FLEX_DIRECTION_CLASSES: Readonly<Record<string, string>> = {
@@ -325,6 +378,8 @@ export function resolveStylePropertyCandidate(
       return colorClass('text', value);
     case 'backgroundColor':
       return colorClass('bg', value);
+    case 'backgroundGradient':
+      return backgroundGradientClass(value);
     case 'borderWidth':
       return lengthClass('border', value);
     case 'borderStyle':
