@@ -8,6 +8,8 @@ export interface EventHandlerRequest {
   readonly handlerName?: string;
   readonly fileName?: string;
   readonly senderName?: string;
+  /** Optional runtime detail type for the generated CustomEvent parameter. */
+  readonly eventDetailType?: string;
   readonly async?: boolean;
 }
 
@@ -152,6 +154,7 @@ function createMethod(
   methodName: string,
   senderName: string,
   componentTypeName: string,
+  eventDetailTypeName: string | undefined,
   asynchronous: boolean,
 ): ts.MethodDeclaration {
   return ts.factory.createMethodDeclaration(
@@ -169,6 +172,20 @@ function createMethod(
         ts.factory.createTypeReferenceNode(componentTypeName),
         undefined,
       ),
+      ...(eventDetailTypeName === undefined
+        ? []
+        : [
+            ts.factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              ts.factory.createIdentifier('event'),
+              undefined,
+              ts.factory.createTypeReferenceNode('CustomEvent', [
+                ts.factory.createTypeReferenceNode(eventDetailTypeName),
+              ]),
+              undefined,
+            ),
+          ]),
     ],
     asynchronous
       ? ts.factory.createTypeReferenceNode('Promise', [
@@ -248,6 +265,9 @@ export function ensureEventHandler(
   assertIdentifier(request.componentType, 'Component type');
   assertIdentifier(methodName, 'Handler name');
   assertIdentifier(senderName, 'Sender parameter');
+  if (request.eventDetailType !== undefined) {
+    assertIdentifier(request.eventDetailType, 'Event detail type');
+  }
 
   const fileName = request.fileName ?? `${request.className}.ts`;
   const sourceFile = ts.createSourceFile(
@@ -276,7 +296,17 @@ export function ensureEventHandler(
 
   const localTypeName =
     importedLocalName(sourceFile, request.componentType) ?? request.componentType;
-  const method = createMethod(methodName, senderName, localTypeName, request.async ?? true);
+  const localEventDetailTypeName =
+    request.eventDetailType === undefined
+      ? undefined
+      : (importedLocalName(sourceFile, request.eventDetailType) ?? request.eventDetailType);
+  const method = createMethod(
+    methodName,
+    senderName,
+    localTypeName,
+    localEventDetailTypeName,
+    request.async ?? true,
+  );
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
   const printedMethod = printer.printNode(ts.EmitHint.Unspecified, method, sourceFile);
   const indent = insertionIndent(sourceText, declaration);
@@ -287,18 +317,18 @@ export function ensureEventHandler(
       text: `\n${indentPrintedNode(printedMethod, indent)}\n${indent.slice(0, -2)}`,
     },
   ];
-  if (importedLocalName(sourceFile, request.componentType) === undefined) {
+  const missingImports = [request.componentType, request.eventDetailType].filter(
+    (typeName): typeName is string =>
+      typeName !== undefined && importedLocalName(sourceFile, typeName) === undefined,
+  );
+  for (const typeName of missingImports) {
     const importDeclaration = ts.factory.createImportDeclaration(
       undefined,
       ts.factory.createImportClause(
         true,
         undefined,
         ts.factory.createNamedImports([
-          ts.factory.createImportSpecifier(
-            false,
-            undefined,
-            ts.factory.createIdentifier(request.componentType),
-          ),
+          ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier(typeName)),
         ]),
       ),
       ts.factory.createStringLiteral('@webrad/runtime'),

@@ -194,7 +194,7 @@ describe('MVP component metadata', () => {
     expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual(['WebApiClient']);
   });
 
-  it('describes WebApiClient as a functional nonvisual service with no fake events', () => {
+  it('describes WebApiClient as a functional nonvisual service with request lifecycle events', () => {
     const apiClient = componentRegistry.require('WebApiClient');
     expect(apiClient.visual).toBe(false);
     expect(apiClient.canHaveChildren).toBe(false);
@@ -233,7 +233,12 @@ describe('MVP component metadata', () => {
       source: 'props',
       designerAction: 'api-client-tester',
     });
-    expect(apiClient.events).toEqual([]);
+    expect(apiClient.events.map((eventDefinition) => eventDefinition.name)).toEqual([
+      'OnRequest',
+      'OnSuccess',
+      'OnError',
+      'OnComplete',
+    ]);
   });
 });
 
@@ -365,7 +370,12 @@ describe('sequential names and node defaults', () => {
           ],
         },
       },
-      events: {},
+      events: {
+        OnRequest: null,
+        OnSuccess: null,
+        OnError: null,
+        OnComplete: null,
+      },
       children: [],
     });
   });

@@ -1,4 +1,4 @@
-export type WebComponentEventHandler<TSender extends WebComponent = WebComponent> = (
+export type WebComponentEventHandler<TSender = WebComponent> = (
   sender: TSender,
   event: Event,
 ) => void | Promise<void>;
@@ -19,6 +19,10 @@ const EVENT_NAME_MAP: Readonly<Record<string, string>> = Object.freeze({
   OnMouseLeave: 'mouseleave',
   OnMouseUp: 'mouseup',
   OnResize: 'webrad:resize',
+  OnRequest: 'webrad:request',
+  OnSuccess: 'webrad:success',
+  OnError: 'webrad:error',
+  OnComplete: 'webrad:complete',
   OnShow: 'webrad:show',
 });
 
@@ -51,12 +55,45 @@ export interface WebNonvisualComponentOptions {
 
 /** Browser-safe identity shared by services that do not own a DOM element. */
 export class WebNonvisualComponent {
+  readonly #events = new EventTarget();
+  readonly #eventDisposers = new Map<string, () => void>();
   public readonly id: string;
   public readonly name: string;
 
   public constructor(options: WebNonvisualComponentOptions = {}) {
     this.id = options.id ?? '';
     this.name = options.name ?? '';
+  }
+
+  /** Binds a generated page handler to a nonvisual component lifecycle event. */
+  public bindEvent(eventName: string, handler: WebComponentEventHandler<this> | null): () => void {
+    this.#eventDisposers.get(eventName)?.();
+    this.#eventDisposers.delete(eventName);
+    if (handler === null) return () => undefined;
+
+    const listener: EventListener = (event) => {
+      void handler(this, event);
+    };
+    const browserEventName = runtimeEventName(eventName);
+    this.#events.addEventListener(browserEventName, listener);
+    const dispose = (): void => {
+      this.#events.removeEventListener(browserEventName, listener);
+      if (this.#eventDisposers.get(eventName) === dispose) this.#eventDisposers.delete(eventName);
+    };
+    this.#eventDisposers.set(eventName, dispose);
+    return dispose;
+  }
+
+  /** Emits a lifecycle event without requiring a DOM element. */
+  public emit(eventName: string, detail?: unknown): boolean {
+    return this.#events.dispatchEvent(
+      new CustomEvent(runtimeEventName(eventName), { cancelable: true, detail }),
+    );
+  }
+
+  public dispose(): void {
+    for (const dispose of [...this.#eventDisposers.values()]) dispose();
+    this.#eventDisposers.clear();
   }
 }
 

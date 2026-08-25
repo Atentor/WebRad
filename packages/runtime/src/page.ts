@@ -1,4 +1,4 @@
-import type { WebComponent } from './component.js';
+import type { WebComponent, WebNonvisualComponent } from './component.js';
 import { WebPanel } from './controls.js';
 import type { RuntimeContainerLayoutMode } from './layout.js';
 
@@ -57,7 +57,7 @@ export class WebPage extends WebPanel {
   }
 
   protected bindGeneratedEvent(
-    component: WebComponent,
+    component: WebComponent | WebNonvisualComponent,
     eventName: string,
     handlerName: string,
   ): void {

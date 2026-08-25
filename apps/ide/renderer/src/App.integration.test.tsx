@@ -343,11 +343,24 @@ describe('App MVP integration', () => {
     expect(
       document.querySelector('[data-component-id][title="ApiClient1: WebApiClient"]'),
     ).toBeNull();
+    await user.click(screen.getByRole('tab', { name: 'Events' }));
+    expect(screen.getByLabelText('OnRequest')).toBeDefined();
+    expect(screen.getByLabelText('OnSuccess')).toBeDefined();
+    expect(screen.getByLabelText('OnError')).toBeDefined();
+    expect(screen.getByLabelText('OnComplete')).toBeDefined();
+    await user.dblClick(screen.getByLabelText('OnSuccess'));
+    const apiEventEditor = (await screen.findByLabelText(
+      'Mock Monaco editor',
+    )) as HTMLTextAreaElement;
+    expect(apiEventEditor.value).toContain(
+      'async ApiClient1Success(sender: WebApiClient, event: CustomEvent<WebApiOperationEventDetail>): Promise<void>',
+    );
     await user.click(screen.getByRole('tab', { name: 'Properties' }));
     await waitFor(() => {
       expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('ApiClient1');
     });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'ApiClientes' } });
+    await user.click(screen.getByRole('tab', { name: 'Design' }));
     await screen.findByRole('option', { name: 'ApiClientes, API Client' });
     fireEvent.change(screen.getByLabelText('Base URL'), {
       target: { value: 'https://api.example.test/v1' },

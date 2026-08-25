@@ -822,7 +822,12 @@ const webApiClient: ComponentDefinition = {
       designerAction: 'api-client-tester',
     },
   ],
-  events: [],
+  events: [
+    event('OnRequest', 'Request'),
+    event('OnSuccess', 'Request'),
+    event('OnError', 'Request'),
+    event('OnComplete', 'Request'),
+  ],
 };
 
 export const MVP_COMPONENT_TYPES = [

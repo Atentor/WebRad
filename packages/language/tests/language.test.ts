@@ -53,7 +53,12 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
         : fixture.type === 'WebButton'
           ? { caption: 'Mostrar', visible: true, enabled: true }
           : {},
-    events: fixture.type === 'WebButton' ? { OnClick: 'BTNMostrarClick' } : {},
+    events:
+      fixture.type === 'WebButton'
+        ? { OnClick: 'BTNMostrarClick' }
+        : fixture.type === 'WebApiClient'
+          ? { OnSuccess: 'ApiClient1Success' }
+          : {},
     children: isPanel
       ? MVP_COMPONENT_FIXTURES.filter(
           (candidate) => candidate.type !== 'WebPanel' && candidate.type !== 'WebApiClient',
@@ -168,6 +173,9 @@ describe('page language generation', () => {
     expect(source).toContain('this.bindGeneratedEvent(this, "OnCreate", "PageMainCreate")');
     expect(source).toContain(
       'this.bindGeneratedEvent(this.BTNMostrar, "OnClick", "BTNMostrarClick")',
+    );
+    expect(source).toContain(
+      'this.bindGeneratedEvent(this.ApiClient1, "OnSuccess", "ApiClient1Success")',
     );
     const panel = page.components.find((component) => component.id === 'stable-panel-main');
     expect(panel?.children).toEqual(
@@ -307,6 +315,24 @@ export class PageMain {}
     );
     expect(edit.sourceText).toContain('sender: Button');
     expect(edit.sourceText.match(/@webrad\/runtime/g)).toHaveLength(1);
+  });
+
+  it('inserts an API Client lifecycle handler with typed event details', () => {
+    const edit = ensureEventHandler('export class PageMain {}\n', {
+      className: 'PageMain',
+      componentName: 'ApiClient1',
+      componentType: 'WebApiClient',
+      eventName: 'OnSuccess',
+      eventDetailType: 'WebApiOperationEventDetail',
+    });
+
+    expect(edit.sourceText).toContain(
+      'async ApiClient1Success(sender: WebApiClient, event: CustomEvent<WebApiOperationEventDetail>): Promise<void>',
+    );
+    expect(edit.sourceText).toContain('import type { WebApiClient } from "@webrad/runtime";');
+    expect(edit.sourceText).toContain(
+      'import type { WebApiOperationEventDetail } from "@webrad/runtime";',
+    );
   });
 
   it('does not duplicate an existing property-style handler', () => {

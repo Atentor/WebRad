@@ -669,6 +669,8 @@ export function App(): ReactElement {
           componentName: component.name,
           componentType: component.type,
           eventName,
+          eventDetailType:
+            component.type === 'WebApiClient' ? 'WebApiOperationEventDetail' : undefined,
           handlerName,
           fileName: key,
         });

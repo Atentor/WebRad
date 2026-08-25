@@ -84,6 +84,12 @@ export interface WebApiOperationState<T = unknown> {
   readonly updatedAt?: number;
 }
 
+/** Details supplied by the WebApiClient request lifecycle events. */
+export interface WebApiOperationEventDetail<T = unknown> {
+  readonly operation: WebApiOperation;
+  readonly state: WebApiOperationState<T>;
+}
+
 export class WebApiError<TBody = unknown> extends Error {
   public constructor(
     message: string,
@@ -594,12 +600,18 @@ export class WebApiClient<
       );
     }
     const current = this.#states.get(operation.name);
+    const previousData = current?.data as T | undefined;
     this.#lastOperationName = operation.name;
-    this.#states.set(operation.name, {
+    const loadingState: WebApiOperationState<T> = {
       status: 'loading',
-      ...(current?.data === undefined ? {} : { data: current.data }),
-    });
+      ...(previousData === undefined ? {} : { data: previousData }),
+    };
+    this.#states.set(operation.name, loadingState);
     this.#notify();
+    this.emit('OnRequest', {
+      operation,
+      state: loadingState,
+    } satisfies WebApiOperationEventDetail<T>);
 
     const headers = new Headers(this.#headers);
     for (const parameter of [...this.#configuration.defaultHeaders, ...operation.headers]) {
@@ -622,21 +634,29 @@ export class WebApiClient<
         timeoutMs,
       });
       this.#data = { ...this.#data, [operation.name]: result } as Partial<TOutputs>;
-      this.#states.set(operation.name, {
+      const successState: WebApiOperationState<T> = {
         status: 'success',
         data: result,
         updatedAt: Date.now(),
-      });
+      };
+      this.#states.set(operation.name, successState);
       this.#notify();
+      const detail = { operation, state: successState } satisfies WebApiOperationEventDetail<T>;
+      this.emit('OnSuccess', detail);
+      this.emit('OnComplete', detail);
       return result;
     } catch (error) {
-      this.#states.set(operation.name, {
+      const errorState: WebApiOperationState<T> = {
         status: 'error',
-        ...(current?.data === undefined ? {} : { data: current.data }),
+        ...(previousData === undefined ? {} : { data: previousData }),
         error,
         updatedAt: Date.now(),
-      });
+      };
+      this.#states.set(operation.name, errorState);
       this.#notify();
+      const detail = { operation, state: errorState } satisfies WebApiOperationEventDetail<T>;
+      this.emit('OnError', detail);
+      this.emit('OnComplete', detail);
       throw error;
     }
   }

@@ -4,7 +4,7 @@ const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'
 
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   /** Handler used by every WebRAD component event. */
-  export type WebComponentEventHandler<TSender extends WebComponent = WebComponent> = (
+  export type WebComponentEventHandler<TSender = WebComponent> = (
     sender: TSender,
     event: Event,
   ) => void | Promise<void>;
@@ -22,6 +22,9 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     constructor(options?: WebNonvisualComponentOptions);
     readonly id: string;
     readonly name: string;
+    bindEvent(eventName: string, handler: WebComponentEventHandler<this> | null): () => void;
+    emit(eventName: string, detail?: unknown): boolean;
+    dispose(): void;
   }
 
   /** Base browser-side wrapper shared by every visual WebRAD component. */
@@ -333,6 +336,11 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly data?: T;
     readonly error?: unknown;
     readonly updatedAt?: number;
+  }
+
+  export interface WebApiOperationEventDetail<T = unknown> {
+    readonly operation: WebApiOperation;
+    readonly state: WebApiOperationState<T>;
   }
 
   export class WebApiError<TBody = unknown> extends Error {

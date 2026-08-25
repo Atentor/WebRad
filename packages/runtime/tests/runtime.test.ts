@@ -1192,10 +1192,16 @@ describe('WebApiClient', () => {
       },
     });
     const transitions: string[] = [];
+    const lifecycleEvents: Array<{ readonly name: string; readonly detail: unknown }> = [];
     expect(api.apiClientConfig.operations[0]?.name).toBe('LoadCustomers');
     const unsubscribe = api.subscribe(() => {
       transitions.push(api.getOperationState('LoadCustomers').status);
     });
+    for (const eventName of ['OnRequest', 'OnSuccess', 'OnError', 'OnComplete'] as const) {
+      api.bindEvent(eventName, (_sender, event) => {
+        lifecycleEvents.push({ name: eventName, detail: (event as CustomEvent).detail });
+      });
+    }
 
     await expect(api.execute('LoadCustomers')).resolves.toEqual({
       payload: {
@@ -1215,6 +1221,19 @@ describe('WebApiClient', () => {
       data: api.data.LoadCustomers,
     });
     expect(transitions).toEqual(['loading', 'success']);
+    expect(lifecycleEvents.map((event) => event.name)).toEqual([
+      'OnRequest',
+      'OnSuccess',
+      'OnComplete',
+    ]);
+    expect(lifecycleEvents[0]?.detail).toMatchObject({
+      operation: { name: 'LoadCustomers' },
+      state: { status: 'loading' },
+    });
+    expect(lifecycleEvents[1]?.detail).toMatchObject({
+      operation: { name: 'LoadCustomers' },
+      state: { status: 'success', data: api.data.LoadCustomers },
+    });
     expect(api.getOutputById<number>('LoadCustomers', 'customer-total')).toBe(2);
     expect(api.getOutputById<number>('LoadCustomers', '/payload/total')).toBe(2);
     expect(
@@ -1265,6 +1284,12 @@ describe('WebApiClient', () => {
         ],
       },
     });
+    const lifecycleEvents: Array<{ readonly name: string; readonly detail: unknown }> = [];
+    for (const eventName of ['OnRequest', 'OnSuccess', 'OnError', 'OnComplete'] as const) {
+      api.bindEvent(eventName, (_sender, event) => {
+        lifecycleEvents.push({ name: eventName, detail: (event as CustomEvent).detail });
+      });
+    }
 
     await expect(api.execute('LoadItems')).resolves.toEqual({ items: ['first'] });
     await expect(api.execute('LoadItems')).rejects.toMatchObject({
@@ -1283,6 +1308,18 @@ describe('WebApiClient', () => {
         error: expect.any(WebApiError),
       },
     );
+    expect(lifecycleEvents.map((event) => event.name)).toEqual([
+      'OnRequest',
+      'OnSuccess',
+      'OnComplete',
+      'OnRequest',
+      'OnError',
+      'OnComplete',
+    ]);
+    expect(lifecycleEvents[4]?.detail).toMatchObject({
+      operation: { name: 'LoadItems' },
+      state: { status: 'error', error: expect.any(WebApiError) },
+    });
   });
 
   it('turns a configured operation timeout into a WebApiTimeoutError and error state', async () => {

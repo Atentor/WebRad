@@ -337,6 +337,28 @@ async function waitForPreviewFrame(window: BrowserWindow, url: string): Promise<
   throw new Error(`Timed out waiting for Preview frame ${url}.`);
 }
 
+async function waitForPreviewFrameResult(
+  frame: WebFrameMain,
+  expression: string,
+  description: string,
+  timeoutMilliseconds = 20_000,
+): Promise<unknown> {
+  const deadline = Date.now() + timeoutMilliseconds;
+  let lastResult: unknown;
+  while (Date.now() < deadline) {
+    try {
+      lastResult = await frame.executeJavaScript(expression, true);
+      if (lastResult === true) return lastResult;
+    } catch {
+      // The frame can briefly be unavailable while the isolated Preview navigates.
+    }
+    await wait(50);
+  }
+  throw new Error(
+    `Timed out waiting for ${description}. Last result: ${JSON.stringify(lastResult)}`,
+  );
+}
+
 async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const shellResult = (await window.webContents.executeJavaScript(
     `(() => ({
@@ -542,6 +564,14 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     'PreviewPane after F9',
   );
   const previewFrame = await waitForPreviewFrame(window, previewUrl);
+  await waitForPreviewFrameResult(
+    previewFrame,
+    `(() =>
+      document.querySelector('[data-webrad-name="EDTNome"]') instanceof HTMLInputElement &&
+      document.querySelector('[data-webrad-name="BTNMostrar"]') instanceof HTMLButtonElement
+    )()`,
+    'the mounted Preview controls after F9',
+  );
   const interaction = (await previewFrame.executeJavaScript(
     `(() => {
       globalThis.__webradSmokeMessage = '';
