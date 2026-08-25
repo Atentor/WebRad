@@ -46,6 +46,7 @@ const KEY_ORDER = new Map<string, number>(
     'type',
     'name',
     'componentType',
+    'preset',
     'caption',
     'entryPage',
     'pages',

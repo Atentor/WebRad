@@ -154,6 +154,36 @@ describe('StylesWorkspace', () => {
     expect(onDeleteStyle).toHaveBeenCalledWith(style.id);
   });
 
+  it('keeps seeded default styles editable while protecting them from deletion', async () => {
+    const style = createComponentStyle('Default Button', 'WebButton', {
+      idFactory: () => 'default-button-style',
+      preset: 'default',
+    });
+    const onUpdateStyle = vi.fn();
+    const onDeleteStyle = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <StylesWorkspace
+        styles={[style]}
+        onCreateStyle={vi.fn(() => null)}
+        onUpdateStyle={onUpdateStyle}
+        onDeleteStyle={onDeleteStyle}
+      />,
+    );
+
+    const deleteButton = screen.getByRole('button', {
+      name: 'Default Button is a protected default style',
+    });
+    expect((deleteButton as HTMLButtonElement).disabled).toBe(true);
+    await user.click(deleteButton);
+    expect(onDeleteStyle).not.toHaveBeenCalled();
+
+    const styleName = screen.getByLabelText('Style name');
+    fireEvent.change(styleName, { target: { value: 'Aurora Button' } });
+    fireEvent.blur(styleName);
+    expect(onUpdateStyle).toHaveBeenCalledWith({ ...style, name: 'Aurora Button' });
+  });
+
   it('rejects duplicate names using the same Unicode normalization as the project model', () => {
     const style = createComponentStyle('Café', 'WebButton', {
       idFactory: () => 'normalized-style',

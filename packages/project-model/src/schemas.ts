@@ -14,6 +14,7 @@ import {
 } from './naming.js';
 import {
   CONTAINER_LAYOUT_MODES,
+  COMPONENT_STYLE_PRESETS,
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
   COMPONENT_STYLE_PROPERTY_NAMES,
@@ -304,6 +305,7 @@ export const ComponentStyleSchema: z.ZodType<ComponentStyleModel> = z
     id: nonEmptyStringSchema,
     name: componentStyleNameSchema,
     componentType: identifierSchema,
+    preset: z.enum(COMPONENT_STYLE_PRESETS).optional(),
     states: ComponentStyleStatesSchema,
   })
   .strict()
@@ -510,6 +512,7 @@ function indexComponentStyles(
 ): ReadonlyMap<string, ComponentStyleModel> {
   const byId = new Map<string, ComponentStyleModel>();
   const names = new Set<string>();
+  const defaultTypes = new Set<string>();
 
   styles.forEach((style, index) => {
     if (byId.has(style.id)) {
@@ -531,6 +534,17 @@ function indexComponentStyles(
       });
     }
     names.add(nameKey);
+
+    if (style.preset === 'default') {
+      if (defaultTypes.has(style.componentType)) {
+        context.addIssue({
+          code: 'custom',
+          message: `A default component style for ${style.componentType} already exists.`,
+          path: ['styles', index, 'preset'],
+        });
+      }
+      defaultTypes.add(style.componentType);
+    }
   });
 
   return byId;

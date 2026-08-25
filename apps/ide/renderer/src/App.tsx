@@ -15,6 +15,7 @@ import {
   type ComponentPropertyDefinition,
 } from '@webrad/component-registry';
 import {
+  applyDefaultComponentStyle,
   createPage,
   getComponent,
   type Bounds,
@@ -352,12 +353,15 @@ export function App(): ReactElement {
         const y = definition.visual
           ? Math.max(0, Math.min(snapped.y, parent.bounds.height - definition.defaultBounds.height))
           : 0;
-        const node = componentRegistry.createComponent(type, {
+        const createdNode = componentRegistry.createComponent(type, {
           existingNames: activePage.components,
           parentId,
           x,
           y,
         }) as ComponentNode;
+        const node = definition.visual
+          ? applyDefaultComponentStyle(createdNode, project?.styles ?? [])
+          : createdNode;
         commitDesignerCommand(new AddComponentCommand(node, { parentId }));
         setSelectedPaletteType(null);
         selectionManager.selectSingle(node.id);

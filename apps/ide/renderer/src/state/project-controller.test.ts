@@ -77,6 +77,11 @@ describe('ProjectController', () => {
     controller.load(session);
     controller.addPage(createPage('PageOther'));
     expect(controller.getSnapshot().project?.pages).toHaveLength(2);
+    expect(controller.getSnapshot().project?.pages[1]?.components[0]?.styleId).toBe(
+      project.styles.find(
+        (style) => style.componentType === 'WebPage' && style.preset === 'default',
+      )?.id,
+    );
     expect(controller.getSnapshot().dirty).toBe(true);
     await controller.save();
     expect(controller.getSnapshot().dirty).toBe(false);
@@ -114,7 +119,9 @@ describe('ProjectController', () => {
       ),
     );
 
-    expect(controller.getSnapshot().project?.styles[0]).toMatchObject({
+    expect(
+      controller.getSnapshot().project?.styles.find((candidate) => candidate.id === style.id),
+    ).toMatchObject({
       id: style.id,
       name: 'Application Surface',
       componentType: 'WebPage',
@@ -125,7 +132,7 @@ describe('ProjectController', () => {
     expect(bridge.lifecycle.setDirty).toHaveBeenCalledWith(true);
 
     controller.removeStyle(style.id);
-    expect(controller.getSnapshot().project?.styles).toEqual([]);
+    expect(controller.getSnapshot().project?.styles).toEqual(project.styles);
     expect(controller.getSnapshot().project?.pages[0]?.components[0]?.styleId).toBeUndefined();
   });
 

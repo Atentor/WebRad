@@ -1,4 +1,5 @@
 import { ModelUpdateError } from './errors.js';
+import { applyDefaultComponentStyle } from './default-styles.js';
 import {
   assertValidPageName,
   assertValidTypeScriptIdentifier,
@@ -295,6 +296,12 @@ export function updateComponentStyle(
   }
 
   const parsedStyle = parseComponentStyle(updated);
+  if (parsedStyle.preset !== current.preset) {
+    throw new ModelUpdateError('A component style preset cannot be changed after creation.');
+  }
+  if (current.preset === 'default' && parsedStyle.componentType !== current.componentType) {
+    throw new ModelUpdateError('A default component style must keep its component type.');
+  }
   const incompatibleReference = project.pages
     .flatMap((page) => page.components)
     .find(
@@ -357,7 +364,12 @@ function withoutComponentStyle(component: ComponentNode): ComponentNode {
 /** Removes a style and atomically clears every reference to it across all pages. */
 export function removeComponentStyle(projectInput: WebRadProject, styleId: string): WebRadProject {
   const project = parseProject(projectInput);
-  getComponentStyle(project, styleId);
+  const style = getComponentStyle(project, styleId);
+  if (style.preset === 'default') {
+    throw new ModelUpdateError(
+      'Default component styles cannot be removed. Customize them instead.',
+    );
+  }
   return parseProject({
     ...project,
     pages: project.pages.map((page) => ({
@@ -432,10 +444,13 @@ export function addPage(
 ): WebRadProject {
   const project = parseProject(projectInput);
   const page = parsePage(pageInput);
+  const styledPage = updateComponent(page, page.rootComponentId, (root) =>
+    applyDefaultComponentStyle(root, project.styles),
+  );
   return parseProject({
     ...project,
-    entryPage: setAsEntry ? page.id : project.entryPage,
-    pages: [...project.pages, page],
+    entryPage: setAsEntry ? styledPage.id : project.entryPage,
+    pages: [...project.pages, styledPage],
   });
 }
 

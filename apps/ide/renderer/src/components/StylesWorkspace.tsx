@@ -209,6 +209,7 @@ export function StylesWorkspace({
 
   const deleteSelectedStyle = (): void => {
     if (selectedStyle === undefined) return;
+    if (selectedStyle.preset === 'default') return;
     if (
       !window.confirm(
         `Delete style "${selectedStyle.name}"? Components using it will be set to None.`,
@@ -314,7 +315,10 @@ export function StylesWorkspace({
                       {componentGlyph(definition)}
                       <span>
                         <strong>{style.name}</strong>
-                        <small>{definition?.displayName ?? style.componentType}</small>
+                        <small>
+                          {style.preset === 'default' ? 'Default · ' : ''}
+                          {definition?.displayName ?? style.componentType}
+                        </small>
                       </span>
                     </button>
                   );
@@ -355,8 +359,17 @@ export function StylesWorkspace({
                     type="button"
                     className="wr-style-delete-button"
                     onClick={deleteSelectedStyle}
-                    title="Delete style"
-                    aria-label={`Delete ${selectedStyle.name}`}
+                    disabled={selectedStyle.preset === 'default'}
+                    title={
+                      selectedStyle.preset === 'default'
+                        ? 'Default styles cannot be deleted.'
+                        : 'Delete style'
+                    }
+                    aria-label={
+                      selectedStyle.preset === 'default'
+                        ? `${selectedStyle.name} is a protected default style`
+                        : `Delete ${selectedStyle.name}`
+                    }
                   >
                     <Icon name="delete" />
                   </button>

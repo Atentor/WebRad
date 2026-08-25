@@ -1,4 +1,9 @@
 import { ModelUpdateError, ProjectModelError } from './errors.js';
+import {
+  applyDefaultComponentStyle,
+  defaultComponentStyleId,
+  DEFAULT_COMPONENT_STYLE_DEFINITIONS,
+} from './default-styles.js';
 import { assertValidProjectName, assertValidTypeScriptIdentifier } from './naming.js';
 import { parseComponentStyle, parsePage, parseProject, parseProjectManifest } from './schemas.js';
 import {
@@ -12,6 +17,7 @@ import {
   type ComponentNode,
   type ComponentStyleModel,
   type ComponentStyleProperties,
+  type ComponentStylePreset,
   type ComponentStyleStateName,
   type PageDescriptor,
   type PageModel,
@@ -36,6 +42,7 @@ function resolveFactory(
 
 export interface CreateComponentStyleOptions {
   readonly idFactory?: IdFactory;
+  readonly preset?: ComponentStylePreset;
   readonly states?: Partial<Readonly<Record<ComponentStyleStateName, ComponentStyleProperties>>>;
 }
 
@@ -47,10 +54,12 @@ export function createComponentStyle(
 ): ComponentStyleModel {
   assertValidTypeScriptIdentifier(componentType);
   const states = typeof options === 'function' ? undefined : options.states;
+  const preset = typeof options === 'function' ? undefined : options.preset;
   return parseComponentStyle({
     id: resolveFactory(options)(),
     name,
     componentType,
+    ...(preset === undefined ? {} : { preset }),
     states: {
       base: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.base },
       hover: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.hover },
@@ -59,6 +68,17 @@ export function createComponentStyle(
       disabled: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.disabled },
     },
   });
+}
+
+/** Creates the protected visual library seeded into every new project. */
+export function createDefaultComponentStyles(projectId: string): readonly ComponentStyleModel[] {
+  return DEFAULT_COMPONENT_STYLE_DEFINITIONS.map((definition) =>
+    createComponentStyle(definition.name, definition.componentType, {
+      idFactory: () => defaultComponentStyleId(projectId, definition.componentType),
+      preset: 'default',
+      states: definition.states,
+    }),
+  );
 }
 
 export interface CreateDefaultRootOptions {
@@ -159,14 +179,23 @@ export function createProject(
     ...DEFAULT_PROJECT_SETTINGS,
     ...(typeof options === 'function' ? {} : options.settings),
   };
+  const styles = createDefaultComponentStyles(projectId);
+  const styledPage = parsePage({
+    ...page,
+    components: page.components.map((component) =>
+      component.id === page.rootComponentId
+        ? applyDefaultComponentStyle(component, styles)
+        : component,
+    ),
+  });
 
   return parseProject({
     formatVersion: CURRENT_PROJECT_FORMAT_VERSION,
     id: projectId,
     name,
     entryPage: page.id,
-    pages: [page],
-    styles: [],
+    pages: [styledPage],
+    styles,
     settings,
   });
 }

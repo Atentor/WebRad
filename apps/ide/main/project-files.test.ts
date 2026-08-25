@@ -52,15 +52,22 @@ describe('project files', () => {
     const manifest = JSON.parse(await fs.readFile(session.projectFilePath, 'utf8')) as {
       formatVersion: number;
       pages: { pageFile: string }[];
+      styles: { id: string; componentType: string; preset?: string }[];
     };
     expect(manifest.formatVersion).toBe(CURRENT_PROJECT_FORMAT_VERSION);
+    expect(manifest.styles).toHaveLength(10);
+    const defaultPageStyle = manifest.styles.find(
+      (style) => style.componentType === 'WebPage' && style.preset === 'default',
+    );
+    expect(defaultPageStyle).toBeDefined();
     const pageFile = manifest.pages[0]?.pageFile;
     expect(pageFile).toBeDefined();
     if (pageFile === undefined) return;
     const pageDocument = JSON.parse(
       await fs.readFile(path.join(session.rootPath, ...pageFile.split('/')), 'utf8'),
-    ) as { formatVersion: number };
+    ) as { formatVersion: number; components: { id: string; styleId?: string }[] };
     expect(pageDocument.formatVersion).toBe(CURRENT_PAGE_FORMAT_VERSION);
+    expect(pageDocument.components[0]?.styleId).toBe(defaultPageStyle?.id);
 
     const loaded = await loadProjectFiles(session.projectFilePath);
     expect(loaded.project.name).toBe('Project1');
@@ -115,7 +122,8 @@ describe('project files', () => {
       styles: unknown[];
       pages: { pageFile: string }[];
     };
-    expect(manifest.styles).toEqual([style]);
+    expect(manifest.styles).toEqual(expect.arrayContaining([style]));
+    expect(manifest.styles).toHaveLength(initial.project.styles.length + 1);
     const pageFile = manifest.pages[0]?.pageFile;
     expect(pageFile).toBeDefined();
     if (pageFile === undefined) return;

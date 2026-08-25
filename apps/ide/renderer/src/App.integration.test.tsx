@@ -350,6 +350,25 @@ describe('App MVP integration', () => {
       saved.project.pages[0]?.components.find((component) => component.name === 'BTNMostrar')
         ?.events.OnClick,
     ).toBe('BTNMostrarClick');
+    const defaultStyleIdByType = new Map(
+      saved.project.styles
+        .filter((style) => style.preset === 'default')
+        .map((style) => [style.componentType, style.id]),
+    );
+    expect(
+      saved.project.pages[0]?.components.find((component) => component.type === 'WebPage')?.styleId,
+    ).toBe(defaultStyleIdByType.get('WebPage'));
+    expect(
+      saved.project.pages[0]?.components.find((component) => component.type === 'WebLabel')
+        ?.styleId,
+    ).toBe(defaultStyleIdByType.get('WebLabel'));
+    expect(
+      saved.project.pages[0]?.components.find((component) => component.type === 'WebEdit')?.styleId,
+    ).toBe(defaultStyleIdByType.get('WebEdit'));
+    expect(
+      saved.project.pages[0]?.components.find((component) => component.type === 'WebButton')
+        ?.styleId,
+    ).toBe(defaultStyleIdByType.get('WebButton'));
 
     await act(async () => {
       harness.invokeCommand('file.closeProject');
@@ -533,6 +552,7 @@ describe('App MVP integration', () => {
     const pageStyleSelect = (await screen.findByLabelText('Style')) as HTMLSelectElement;
     expect([...pageStyleSelect.options].map((option) => option.text)).toEqual([
       'None',
+      'Default Page',
       'Page Surface',
     ]);
     await user.selectOptions(pageStyleSelect, screen.getByRole('option', { name: 'Page Surface' }));
@@ -547,6 +567,7 @@ describe('App MVP integration', () => {
     const buttonStyleSelect = (await screen.findByLabelText('Style')) as HTMLSelectElement;
     expect([...buttonStyleSelect.options].map((option) => option.text)).toEqual([
       'None',
+      'Default Button',
       'Primary Button',
     ]);
     await user.selectOptions(
@@ -574,6 +595,7 @@ describe('App MVP integration', () => {
     const labelStyleSelect = screen.getByLabelText('Style') as HTMLSelectElement;
     expect([...labelStyleSelect.options].map((option) => option.text)).toEqual([
       'None',
+      'Default Label',
       'Muted Label',
     ]);
     expect([...labelStyleSelect.options].some((option) => option.text === 'Primary Button')).toBe(
@@ -584,7 +606,7 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await screen.findByText('Saved MvpProject.');
     const savedWithStyles = harness.persisted().project;
-    expect(savedWithStyles.styles).toHaveLength(3);
+    expect(savedWithStyles.styles).toHaveLength(13);
     const primaryStyle = savedWithStyles.styles.find((style) => style.name === 'Primary Button');
     const mutedStyle = savedWithStyles.styles.find((style) => style.name === 'Muted Label');
     const pageStyle = savedWithStyles.styles.find((style) => style.name === 'Page Surface');
@@ -619,17 +641,17 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Delete Primary Button' }));
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await waitFor(() => {
-      expect(harness.persisted().project.styles.map((style) => style.name)).toEqual([
-        'Muted Label',
-        'Page Surface',
-      ]);
+      const styles = harness.persisted().project.styles;
+      expect(styles).toHaveLength(12);
+      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(10);
+      expect(styles.some((style) => style.name === 'Primary Button')).toBe(false);
+      expect(styles.some((style) => style.name === 'Muted Label')).toBe(true);
+      expect(styles.some((style) => style.name === 'Page Surface')).toBe(true);
     });
 
     const savedAfterDelete = harness.persisted().project;
-    expect(savedAfterDelete.styles.map((style) => style.name)).toEqual([
-      'Muted Label',
-      'Page Surface',
-    ]);
+    expect(savedAfterDelete.styles).toHaveLength(12);
+    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(10);
     expect(
       savedAfterDelete.pages[0]?.components
         .filter((component) => component.type === 'WebButton')

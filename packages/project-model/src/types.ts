@@ -99,6 +99,11 @@ export const COMPONENT_STYLE_STATE_NAMES = [
 
 export type ComponentStyleStateName = (typeof COMPONENT_STYLE_STATE_NAMES)[number];
 
+/** Built-in style families that are seeded with every newly created project. */
+export const COMPONENT_STYLE_PRESETS = ['default'] as const;
+
+export type ComponentStylePreset = (typeof COMPONENT_STYLE_PRESETS)[number];
+
 export const LINEAR_GRADIENT_DIRECTIONS = [
   'to-right',
   'to-bottom-right',
@@ -225,6 +230,8 @@ export interface ComponentStyleModel {
   readonly id: string;
   readonly name: string;
   readonly componentType: string;
+  /** Identifies a protected built-in style seeded by the project factory. */
+  readonly preset?: ComponentStylePreset;
   readonly states: ComponentStyleStates;
 }
 

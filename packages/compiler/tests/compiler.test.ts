@@ -572,12 +572,12 @@ export class PageMain extends PageMainGenerated {
         expect.objectContaining({
           source: 'registry',
           message: expect.stringContaining('unknown component type'),
-          path: ['styles', 0, 'componentType'],
+          path: ['styles', project.styles.length, 'componentType'],
         }),
         expect.objectContaining({
           source: 'registry',
           message: expect.stringContaining('nonvisual component type'),
-          path: ['styles', 1, 'componentType'],
+          path: ['styles', project.styles.length + 1, 'componentType'],
         }),
       ]),
     );

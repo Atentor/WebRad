@@ -12,6 +12,7 @@ import {
   UnsupportedFormatVersionError,
   addComponent,
   addComponentStyle,
+  addPage,
   assembleProject,
   bindComponentEvent,
   createDefaultComponentLayout,
@@ -22,6 +23,7 @@ import {
   deserializePage,
   deserializeProject,
   deserializeProjectManifest,
+  findDefaultComponentStyle,
   getPageNameError,
   isValidTypeScriptIdentifier,
   projectToManifest,
@@ -95,7 +97,21 @@ describe('project factories', () => {
       },
     });
     expect(project.pages).toHaveLength(1);
-    expect(project.styles).toEqual([]);
+    expect(project.styles).toHaveLength(10);
+    expect(project.styles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ componentType: 'WebPage', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebPanel', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebLabel', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebEdit', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebTextArea', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebButton', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebCheckBox', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebComboBox', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebImage', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebListBox', preset: 'default' }),
+      ]),
+    );
     expect(project.pages[0]).toMatchObject({
       formatVersion: CURRENT_PAGE_FORMAT_VERSION,
       id: 'page-id',
@@ -112,6 +128,21 @@ describe('project factories', () => {
         item: { width: 'fixed', height: 'fixed' },
       },
     });
+    expect(project.pages[0]?.components[0]?.styleId).toBe(
+      findDefaultComponentStyle(project.styles, 'WebPage')?.id,
+    );
+  });
+
+  it('binds every newly added page root to the default WebPage style', () => {
+    const project = createProject('CustomerApp', {
+      idFactory: idSequence('project-id', 'page-id', 'root-id'),
+    });
+    const page = createPage('PageSettings', idSequence('settings-page-id', 'settings-root-id'));
+    const updated = addPage(project, page);
+
+    expect(updated.pages[1]?.components[0]?.styleId).toBe(
+      findDefaultComponentStyle(updated.styles, 'WebPage')?.id,
+    );
   });
 
   it('uses crypto UUIDs by default', () => {
@@ -485,6 +516,32 @@ describe('zod validation', () => {
     }
   });
 
+  it('allows one protected default style per component type', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const existing = findDefaultComponentStyle(project.styles, 'WebButton');
+    expect(existing).toBeDefined();
+    if (existing === undefined) return;
+
+    const duplicate = safeParseProject({
+      ...project,
+      styles: [
+        ...project.styles,
+        {
+          ...existing,
+          id: 'another-default-button-style',
+          name: 'Another Default Button',
+        },
+      ],
+    });
+
+    expect(duplicate.success).toBe(false);
+    if (!duplicate.success) {
+      expect(duplicate.error.issues.some((issue) => issue.message.includes('already exists'))).toBe(
+        true,
+      );
+    }
+  });
+
   it('rejects unsafe, out-of-range, inapplicable, and legacy style values', () => {
     const valid = createComponentStyle('Primary', 'WebButton', idSequence('style-id'));
     const invalidValues = [
@@ -770,7 +827,7 @@ describe('immutable update helpers', () => {
     });
     const renamed = updateComponentStyle(updated, style.id, { name: 'Primary Action' });
 
-    expect(renamed.styles[0]).toMatchObject({
+    expect(renamed.styles.find((candidate) => candidate.id === style.id)).toMatchObject({
       id: 'style-id',
       name: 'Primary Action',
       states: {
@@ -798,11 +855,25 @@ describe('immutable update helpers', () => {
     );
 
     const removed = removeComponentStyle(renamed, style.id);
-    expect(removed.styles).toEqual([]);
+    expect(removed.styles).toEqual(initial.styles);
     expect(removed.pages[0]?.components.find((node) => node.id === 'button-id')).not.toHaveProperty(
       'styleId',
     );
-    expect(renamed.styles).toHaveLength(1);
+    expect(renamed.styles).toHaveLength(initial.styles.length + 1);
+  });
+
+  it('keeps the seeded default styles available for future component insertion', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const defaultButton = findDefaultComponentStyle(project.styles, 'WebButton');
+    expect(defaultButton).toBeDefined();
+    if (defaultButton === undefined) return;
+
+    expect(() => removeComponentStyle(project, defaultButton.id)).toThrow(
+      'Default component styles cannot be removed',
+    );
+    expect(() =>
+      updateComponentStyle(project, defaultButton.id, { componentType: 'WebLabel' }),
+    ).toThrow('must keep its component type');
   });
 
   it('rejects incompatible assignments and supports explicit unbinding', () => {
