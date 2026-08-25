@@ -38,6 +38,38 @@ function definition(type = 'WebThing'): ComponentDefinition {
   };
 }
 
+function defaultLayout() {
+  return {
+    container: {
+      mode: 'fixed',
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      gap: 0,
+      wrap: false,
+      justifyContent: 'start',
+      alignItems: 'start',
+    },
+    item: {
+      width: 'fixed',
+      height: 'fixed',
+      minWidth: 0,
+      maxWidth: null,
+      minHeight: 0,
+      maxHeight: null,
+      grow: 0,
+      shrink: true,
+      horizontalAnchor: 'start',
+      verticalAnchor: 'start',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+    },
+  };
+}
+
 describe('MVP component metadata', () => {
   it('registers the ten visual controls and WebApiClient in a stable order', () => {
     expect(componentRegistry.list().map((item) => item.type)).toEqual(MVP_COMPONENT_TYPES);
@@ -73,6 +105,52 @@ describe('MVP component metadata', () => {
         .filter((item) => item.canHaveChildren)
         .map((item) => item.type),
     ).toEqual(['WebPage', 'WebPanel']);
+  });
+
+  it('exposes structural responsive-layout metadata only where it applies', () => {
+    const containerPropertyNames = [
+      'containerMode',
+      'containerPaddingTop',
+      'containerPaddingRight',
+      'containerPaddingBottom',
+      'containerPaddingLeft',
+      'containerGap',
+      'containerWrap',
+      'containerJustifyContent',
+      'containerAlignItems',
+    ];
+    const itemPropertyNames = [
+      'itemWidth',
+      'itemHeight',
+      'itemMinWidth',
+      'itemMaxWidth',
+      'itemMinHeight',
+      'itemMaxHeight',
+      'itemGrow',
+      'itemShrink',
+      'itemHorizontalAnchor',
+      'itemVerticalAnchor',
+      'itemLeft',
+      'itemRight',
+      'itemTop',
+      'itemBottom',
+    ];
+
+    for (const type of ['WebPage', 'WebPanel']) {
+      const definition = componentRegistry.require(type);
+      expect(
+        definition.properties
+          .filter((property) => property.source === 'layout-container')
+          .map((property) => property.name),
+      ).toEqual(containerPropertyNames);
+    }
+    for (const definition of componentRegistry.list().filter((definition) => definition.visual)) {
+      expect(
+        definition.properties
+          .filter((property) => property.source === 'layout-item')
+          .map((property) => property.name),
+      ).toEqual(itemPropertyNames);
+    }
   });
 
   it('provides the required WebButton default event and event set', () => {
@@ -187,6 +265,7 @@ describe('sequential names and node defaults', () => {
       type: 'WebButton',
       name: 'Button2',
       parentId: 'root-id',
+      layout: defaultLayout(),
       bounds: { x: 420, y: 300, width: 100, height: 32 },
       props: { caption: 'Gravar', visible: true, enabled: true, tabIndex: 0 },
       events: {
@@ -213,6 +292,7 @@ describe('sequential names and node defaults', () => {
       type: 'WebApiClient',
       name: 'ApiClient2',
       parentId: 'root-id',
+      layout: defaultLayout(),
       bounds: { x: 0, y: 0, width: 112, height: 52 },
       props: { baseUrl: 'https://api.example.test/v1' },
       events: {},
@@ -229,6 +309,11 @@ describe('sequential names and node defaults', () => {
     expect(Array.isArray(secondItems)).toBe(true);
     if (Array.isArray(firstItems)) firstItems.push('changed');
     expect(secondItems).toEqual([]);
+    expect(first.layout).toEqual(defaultLayout());
+    expect(second.layout).toEqual(defaultLayout());
+    expect(first.layout).not.toBe(second.layout);
+    expect(first.layout.container).not.toBe(second.layout.container);
+    expect(first.layout.item).not.toBe(second.layout.item);
   });
 
   it('rejects explicit duplicate names and invalid sizes', () => {

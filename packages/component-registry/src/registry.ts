@@ -180,6 +180,38 @@ function createId(): string {
   return globalThis.crypto.randomUUID();
 }
 
+function createDefaultLayout(): RegisteredComponentNode['layout'] {
+  return {
+    container: {
+      mode: 'fixed',
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      gap: 0,
+      wrap: false,
+      justifyContent: 'start',
+      alignItems: 'start',
+    },
+    item: {
+      width: 'fixed',
+      height: 'fixed',
+      minWidth: 0,
+      maxWidth: null,
+      minHeight: 0,
+      maxHeight: null,
+      grow: 0,
+      shrink: true,
+      horizontalAnchor: 'start',
+      verticalAnchor: 'start',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+    },
+  };
+}
+
 export class ComponentRegistry {
   readonly #definitions = new Map<string, ComponentDefinition>();
 
@@ -270,6 +302,7 @@ export class ComponentRegistry {
       type,
       name,
       parentId: options.parentId ?? null,
+      layout: createDefaultLayout(),
       bounds: {
         x: options.x ?? 0,
         y: options.y ?? 0,

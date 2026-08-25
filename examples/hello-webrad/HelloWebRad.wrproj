@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "hello-webrad-project-v1",
   "name": "HelloWebRad",
   "entryPage": "hello-webrad-form-main-v1",

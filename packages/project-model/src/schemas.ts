@@ -10,15 +10,23 @@ import {
   portableFileNameKey,
 } from './naming.js';
 import {
+  CONTAINER_LAYOUT_MODES,
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
   COMPONENT_STYLE_PROPERTY_NAMES,
   COMPONENT_STYLE_STATE_NAMES,
+  LAYOUT_ALIGN_ITEMS_VALUES,
+  LAYOUT_ANCHORS,
+  LAYOUT_ITEM_SIZING_MODES,
+  LAYOUT_JUSTIFY_CONTENT_VALUES,
   type Bounds,
+  type ComponentLayout,
   type ComponentNode,
   type ComponentStyleModel,
   type ComponentStyleProperties,
   type ComponentStyleStates,
+  type ContainerLayout,
+  type LayoutItem,
   type PageDescriptor,
   type PageModel,
   type ProjectManifest,
@@ -56,6 +64,7 @@ const componentStyleNameSchema = nonEmptyStringSchema.refine(
 
 const finiteCoordinateSchema = z.number().finite();
 const positiveDimensionSchema = z.number().finite().positive();
+const nonNegativeFiniteSchema = z.number().finite().nonnegative();
 const relativeProjectPathSchema = z
   .string()
   .min(1)
@@ -77,12 +86,69 @@ export const BoundsSchema: z.ZodType<Bounds> = z
   })
   .strict();
 
+export const ContainerLayoutSchema: z.ZodType<ContainerLayout> = z
+  .object({
+    mode: z.enum(CONTAINER_LAYOUT_MODES),
+    paddingTop: nonNegativeFiniteSchema,
+    paddingRight: nonNegativeFiniteSchema,
+    paddingBottom: nonNegativeFiniteSchema,
+    paddingLeft: nonNegativeFiniteSchema,
+    gap: nonNegativeFiniteSchema,
+    wrap: z.boolean(),
+    justifyContent: z.enum(LAYOUT_JUSTIFY_CONTENT_VALUES),
+    alignItems: z.enum(LAYOUT_ALIGN_ITEMS_VALUES),
+  })
+  .strict();
+
+export const LayoutItemSchema: z.ZodType<LayoutItem> = z
+  .object({
+    width: z.enum(LAYOUT_ITEM_SIZING_MODES),
+    height: z.enum(LAYOUT_ITEM_SIZING_MODES),
+    minWidth: nonNegativeFiniteSchema,
+    maxWidth: nonNegativeFiniteSchema.nullable(),
+    minHeight: nonNegativeFiniteSchema,
+    maxHeight: nonNegativeFiniteSchema.nullable(),
+    grow: nonNegativeFiniteSchema,
+    shrink: z.boolean(),
+    horizontalAnchor: z.enum(LAYOUT_ANCHORS),
+    verticalAnchor: z.enum(LAYOUT_ANCHORS),
+    left: finiteCoordinateSchema,
+    right: finiteCoordinateSchema,
+    top: finiteCoordinateSchema,
+    bottom: finiteCoordinateSchema,
+  })
+  .strict()
+  .superRefine((item, context) => {
+    if (item.maxWidth !== null && item.maxWidth < item.minWidth) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Maximum width must be greater than or equal to minimum width.',
+        path: ['maxWidth'],
+      });
+    }
+    if (item.maxHeight !== null && item.maxHeight < item.minHeight) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Maximum height must be greater than or equal to minimum height.',
+        path: ['maxHeight'],
+      });
+    }
+  });
+
+export const ComponentLayoutSchema: z.ZodType<ComponentLayout> = z
+  .object({
+    container: ContainerLayoutSchema,
+    item: LayoutItemSchema,
+  })
+  .strict();
+
 export const ComponentNodeSchema: z.ZodType<ComponentNode> = z
   .object({
     id: nonEmptyStringSchema,
     type: identifierSchema,
     name: identifierSchema,
     parentId: nonEmptyStringSchema.nullable(),
+    layout: ComponentLayoutSchema,
     bounds: BoundsSchema,
     props: z.record(z.string(), z.json()),
     events: z.record(z.string(), z.string().min(1).nullable()),
@@ -396,7 +462,6 @@ export const PageModelSchema: z.ZodType<PageModel> = z
     caption: z.string(),
     width: positiveDimensionSchema,
     height: positiveDimensionSchema,
-    layoutMode: z.enum(['absolute', 'flex', 'grid']),
     components: z.array(ComponentNodeSchema).min(1),
     rootComponentId: nonEmptyStringSchema,
   })
@@ -586,6 +651,12 @@ export function safeParseBounds(input: unknown): ReturnType<typeof BoundsSchema.
   return BoundsSchema.safeParse(input);
 }
 
+export function safeParseComponentLayout(
+  input: unknown,
+): ReturnType<typeof ComponentLayoutSchema.safeParse> {
+  return ComponentLayoutSchema.safeParse(input);
+}
+
 export function safeParseComponentNode(
   input: unknown,
 ): ReturnType<typeof ComponentNodeSchema.safeParse> {
@@ -622,6 +693,12 @@ export function parseBounds(input: unknown): Bounds {
   return result.data;
 }
 
+export function parseComponentLayout(input: unknown): ComponentLayout {
+  const result = safeParseComponentLayout(input);
+  if (!result.success) throw issuesFrom(result.error);
+  return result.data;
+}
+
 export function parseComponentNode(input: unknown): ComponentNode {
   const result = safeParseComponentNode(input);
   if (!result.success) throw issuesFrom(result.error);
@@ -654,6 +731,9 @@ export function parseProjectManifest(input: unknown): ProjectManifest {
 
 // Lowercase aliases keep schema imports ergonomic without weakening the canonical names.
 export const boundsSchema = BoundsSchema;
+export const containerLayoutSchema = ContainerLayoutSchema;
+export const layoutItemSchema = LayoutItemSchema;
+export const componentLayoutSchema = ComponentLayoutSchema;
 export const componentNodeSchema = ComponentNodeSchema;
 export const componentStylePropertiesSchema = ComponentStylePropertiesSchema;
 export const componentStyleStatesSchema = ComponentStyleStatesSchema;

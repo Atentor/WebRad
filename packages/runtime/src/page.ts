@@ -1,11 +1,13 @@
 import type { WebComponent } from './component.js';
 import { WebPanel } from './controls.js';
+import type { RuntimeContainerLayoutMode } from './layout.js';
 
 export interface ClosePageOptions {
   readonly remove?: boolean;
 }
 
-export type WebPageLayoutMode = 'absolute' | 'flex' | 'grid';
+/** The root container's current responsive layout mode. */
+export type WebPageLayoutMode = RuntimeContainerLayoutMode;
 
 export class WebPage extends WebPanel {
   readonly #generatedBindings: Array<() => void> = [];
@@ -13,12 +15,22 @@ export class WebPage extends WebPanel {
 
   public get layoutMode(): WebPageLayoutMode {
     const layout = this.element.dataset.webradLayout;
-    return layout === 'flex' || layout === 'grid' ? layout : 'absolute';
+    return layout === 'align-to-parent' || layout === 'row' || layout === 'column'
+      ? layout
+      : 'fixed';
   }
 
   public set layoutMode(value: WebPageLayoutMode) {
     this.element.dataset.webradLayout = value;
-    this.element.style.display = value === 'absolute' ? '' : value;
+    if (value === 'row' || value === 'column') {
+      this.element.dataset.webradLayoutDisplay = 'flex';
+      if (!this.element.hidden) this.element.style.setProperty('display', 'flex', 'important');
+      this.element.style.setProperty('flex-direction', value, 'important');
+      return;
+    }
+    delete this.element.dataset.webradLayoutDisplay;
+    this.element.style.removeProperty('display');
+    this.element.style.removeProperty('flex-direction');
   }
 
   public override show(): void {

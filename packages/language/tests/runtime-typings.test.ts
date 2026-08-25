@@ -318,6 +318,10 @@ class EditorPage extends WebPage {
       expect({
         type: definition.type,
         missingProperties: definition.properties
+          .filter((property) => {
+            const source = property.source ?? 'props';
+            return source === 'props' || source === 'node' || source === 'bounds';
+          })
           .map((property) => property.name)
           .filter((property) => !available.includes(property)),
       }).toEqual({ type: definition.type, missingProperties: [] });
@@ -361,7 +365,7 @@ class EditorPage extends WebPage {
     api: WebApiClient,
   ): void {
     this.caption = 'Editor';
-    this.layoutMode = 'absolute';
+    this.layoutMode = 'fixed';
     panel.caption = 'Details';
     panel.x = 10;
     panel.y = 20;
@@ -416,6 +420,35 @@ const runtimeNode: RuntimeComponentNode = {
   type: 'WebButton',
   name: 'Button1',
   parentId: 'page-id',
+  layout: {
+    container: {
+      mode: 'fixed',
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      gap: 0,
+      wrap: false,
+      justifyContent: 'start',
+      alignItems: 'start',
+    },
+    item: {
+      width: 'fixed',
+      height: 'fixed',
+      minWidth: 0,
+      maxWidth: null,
+      minHeight: 0,
+      maxHeight: null,
+      grow: 0,
+      shrink: true,
+      horizontalAnchor: 'start',
+      verticalAnchor: 'start',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+    },
+  },
   bounds: { x: 0, y: 0, width: 100, height: 32 },
   props: {},
   children: [],

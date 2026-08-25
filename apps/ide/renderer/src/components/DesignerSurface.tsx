@@ -11,13 +11,18 @@ import {
 } from '@webrad/designer';
 import type { Bounds, ComponentNode, PageModel, ProjectSettings } from '@webrad/project-model';
 import type { ComponentStyleModel } from '@webrad/project-model';
+import { projectRuntimeLayout, type RuntimeContainerLayout } from '@webrad/runtime';
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   memo,
+  useCallback,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type DragEvent,
+  type KeyboardEvent,
   type PointerEvent,
   type ReactElement,
 } from 'react';
@@ -33,6 +38,15 @@ interface DesignerSurfaceProps {
   onSelect: (ids: readonly string[], primaryId?: string) => void;
   onAddComponent: (type: string, point: Point, parentId: string) => void;
   onMoveComponents: (ids: readonly string[], delta: Point) => void;
+  /**
+   * The host owns the structural command. `beforeComponentId` is null when the
+   * selection should be appended to the parent's visual children.
+   */
+  onReorderComponents?: (
+    parentId: string,
+    componentIds: readonly string[],
+    beforeComponentId: string | null,
+  ) => void;
   onResizeComponent: (id: string, bounds: Bounds) => void;
   onDeleteSelection: () => void;
   onCopy: () => void;
@@ -45,6 +59,15 @@ interface DesignerSurfaceProps {
   onDefaultEvent: (componentId: string) => void;
 }
 
+const VIEWPORTS = {
+  desktop: { label: 'Desktop', width: 1280 },
+  tablet: { label: 'Tablet', width: 768 },
+  mobile: { label: 'Mobile', width: 390 },
+} as const;
+
+type ViewportName = keyof typeof VIEWPORTS;
+type ContainerLayoutMode = ComponentNode['layout']['container']['mode'];
+
 interface LayoutNode {
   node: ComponentNode;
   absoluteBounds: Bounds;
@@ -52,14 +75,22 @@ interface LayoutNode {
   depth: number;
 }
 
+interface ReorderTarget {
+  parentId: string;
+  beforeComponentId: string | null;
+  indicatorBounds: Bounds;
+}
+
 interface DragInteraction {
   kind: 'drag';
+  mode: 'move' | 'reorder';
   pointerId: number;
   start: Point;
   ids: readonly string[];
   originalBounds: ReadonlyMap<string, Bounds>;
   selectionBounds: Bounds;
   delta: Point;
+  reorderTarget?: ReorderTarget;
 }
 
 interface ResizeInteraction {
@@ -99,8 +130,43 @@ function unionBounds(bounds: readonly Bounds[]): Bounds {
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
+function pointInside(bounds: Bounds, point: Point): boolean {
+  return (
+    point.x >= bounds.x &&
+    point.y >= bounds.y &&
+    point.x <= bounds.x + bounds.width &&
+    point.y <= bounds.y + bounds.height
+  );
+}
+
+function sameBounds(left: Bounds, right: Bounds): boolean {
+  const tolerance = 0.05;
+  return (
+    Math.abs(left.x - right.x) < tolerance &&
+    Math.abs(left.y - right.y) < tolerance &&
+    Math.abs(left.width - right.width) < tolerance &&
+    Math.abs(left.height - right.height) < tolerance
+  );
+}
+
+function sameBoundsMap(
+  left: ReadonlyMap<string, Bounds>,
+  right: ReadonlyMap<string, Bounds>,
+): boolean {
+  if (left.size !== right.size) return false;
+  for (const [id, bounds] of left) {
+    const next = right.get(id);
+    if (next === undefined || !sameBounds(bounds, next)) return false;
+  }
+  return true;
+}
+
 function localBoundsWithPreview(node: ComponentNode, interaction: Interaction | null): Bounds {
-  if (interaction?.kind === 'drag' && interaction.ids.includes(node.id)) {
+  if (
+    interaction?.kind === 'drag' &&
+    interaction.mode === 'move' &&
+    interaction.ids.includes(node.id)
+  ) {
     const original = interaction.originalBounds.get(node.id) ?? node.bounds;
     return {
       ...original,
@@ -114,33 +180,87 @@ function localBoundsWithPreview(node: ComponentNode, interaction: Interaction | 
   return node.bounds;
 }
 
-function layoutPage(page: PageModel, interaction: Interaction | null): readonly LayoutNode[] {
-  const byId = new Map(page.components.map((node) => [node.id, node]));
+function buildLayout(
+  page: PageModel,
+  byId: ReadonlyMap<string, ComponentNode>,
+  measuredBounds: ReadonlyMap<string, Bounds>,
+): readonly LayoutNode[] {
   const output: LayoutNode[] = [];
   let order = 0;
-
   const visitChildren = (parentId: string, origin: Point, depth: number): void => {
     const parent = byId.get(parentId);
     if (!parent) return;
     for (const childId of parent.children) {
       const child = byId.get(childId);
       if (!child || componentRegistry.get(child.type)?.visual !== true) continue;
-      const local = localBoundsWithPreview(child, interaction);
-      const absoluteBounds = { ...local, x: origin.x + local.x, y: origin.y + local.y };
+      const fallback = {
+        ...child.bounds,
+        x: origin.x + child.bounds.x,
+        y: origin.y + child.bounds.y,
+      };
+      const absoluteBounds = measuredBounds.get(child.id) ?? fallback;
       output.push({ node: child, absoluteBounds, order, depth });
       order += 1;
       visitChildren(child.id, { x: absoluteBounds.x, y: absoluteBounds.y }, depth + 1);
     }
   };
-
   visitChildren(page.rootComponentId, { x: 0, y: 0 }, 0);
   return output;
+}
+
+function reactStyle(
+  declarations: Readonly<Record<string, string>>,
+  additional: CSSProperties = {},
+): CSSProperties {
+  const converted: Record<string, string> = {};
+  for (const [property, value] of Object.entries(declarations)) {
+    const reactProperty = property.replace(/-([a-z])/gu, (_match, character: string) =>
+      character.toUpperCase(),
+    );
+    converted[reactProperty] = value;
+  }
+  return { ...additional, ...converted } as CSSProperties;
+}
+
+function projectItemStyle(
+  node: ComponentNode,
+  parentContainer: RuntimeContainerLayout | undefined,
+  interaction: Interaction | null,
+): CSSProperties {
+  const bounds = localBoundsWithPreview(node, interaction);
+  return reactStyle(projectRuntimeLayout({ ...node, bounds }, parentContainer).item, {
+    boxSizing: 'border-box',
+  });
+}
+
+function projectChildrenStyle(node: ComponentNode): CSSProperties {
+  return reactStyle(projectRuntimeLayout(node).container, {
+    boxSizing: 'border-box',
+    width: '100%',
+    height: '100%',
+    minWidth: 0,
+    minHeight: 0,
+  });
+}
+
+function isFlowMode(mode: ContainerLayoutMode): boolean {
+  return mode === 'row' || mode === 'column';
+}
+
+function parentModeOf(
+  node: ComponentNode,
+  byId: ReadonlyMap<string, ComponentNode>,
+): ContainerLayoutMode {
+  return node.parentId === null
+    ? 'fixed'
+    : (byId.get(node.parentId)?.layout.container.mode ?? 'fixed');
 }
 
 interface RuntimeNodeProps {
   node: ComponentNode;
   byId: ReadonlyMap<string, ComponentNode>;
   styleClassNames: ReadonlyMap<string, string>;
+  parentContainer: RuntimeContainerLayout;
   interaction: Interaction | null;
 }
 
@@ -148,13 +268,23 @@ const RuntimeNode = memo(function RuntimeNode({
   node,
   byId,
   styleClassNames,
+  parentContainer,
   interaction,
 }: RuntimeNodeProps): ReactElement {
-  const bounds = localBoundsWithPreview(node, interaction);
+  const children = node.children
+    .map((childId) => byId.get(childId))
+    .filter(
+      (child): child is ComponentNode =>
+        child !== undefined && componentRegistry.get(child.type)?.visual === true,
+    );
+  const isContainer = children.length > 0;
   return (
     <div
-      className={`wr-runtime-node${node.children.length > 0 ? ' wr-runtime-container' : ''}`}
-      style={{ left: bounds.x, top: bounds.y, width: bounds.width, height: bounds.height }}
+      className={`wr-runtime-node wr-runtime-item-${parentContainer.mode}${
+        isContainer ? ' wr-runtime-container' : ''
+      }`}
+      data-designer-node-id={node.id}
+      style={projectItemStyle(node, parentContainer, interaction)}
     >
       <ComponentView
         node={node}
@@ -163,30 +293,132 @@ const RuntimeNode = memo(function RuntimeNode({
           node.styleId === undefined ? undefined : (styleClassNames.get(node.styleId) ?? '')
         }
       >
-        {node.children.map((childId) => {
-          const child = byId.get(childId);
-          return child && componentRegistry.get(child.type)?.visual === true ? (
-            <RuntimeNode
-              key={child.id}
-              node={child}
-              byId={byId}
-              styleClassNames={styleClassNames}
-              interaction={interaction}
-            />
-          ) : null;
-        })}
+        {isContainer && (
+          <div
+            className={`wr-runtime-children wr-runtime-children-${node.layout.container.mode}`}
+            style={projectChildrenStyle(node)}
+          >
+            {children.map((child) => (
+              <RuntimeNode
+                key={child.id}
+                node={child}
+                byId={byId}
+                styleClassNames={styleClassNames}
+                parentContainer={node.layout.container}
+                interaction={interaction}
+              />
+            ))}
+          </div>
+        )}
       </ComponentView>
     </div>
   );
 });
 
-function pointInside(bounds: Bounds, point: Point): boolean {
-  return (
-    point.x >= bounds.x &&
-    point.y >= bounds.y &&
-    point.x <= bounds.x + bounds.width &&
-    point.y <= bounds.y + bounds.height
-  );
+function reorderTargetForPoint(
+  parent: ComponentNode,
+  draggedIds: readonly string[],
+  point: Point,
+  layoutById: ReadonlyMap<string, LayoutNode>,
+): ReorderTarget | undefined {
+  if (!isFlowMode(parent.layout.container.mode)) return undefined;
+  const dragged = new Set(draggedIds);
+  const siblings = parent.children
+    .map((id) => layoutById.get(id))
+    .filter((item): item is LayoutNode => item !== undefined && !dragged.has(item.node.id));
+  if (siblings.length === 0) return undefined;
+
+  const row = parent.layout.container.mode === 'row';
+  const ordered = [...siblings].sort((left, right) => {
+    const leftCross = row ? left.absoluteBounds.y : left.absoluteBounds.x;
+    const rightCross = row ? right.absoluteBounds.y : right.absoluteBounds.x;
+    if (leftCross !== rightCross) return leftCross - rightCross;
+    const leftMain = row ? left.absoluteBounds.x : left.absoluteBounds.y;
+    const rightMain = row ? right.absoluteBounds.x : right.absoluteBounds.y;
+    return leftMain - rightMain;
+  });
+
+  let before: LayoutNode | undefined;
+  if (!row) {
+    before = ordered.find(
+      (item) => point.y < item.absoluteBounds.y + item.absoluteBounds.height / 2,
+    );
+  } else {
+    const rows: LayoutNode[][] = [];
+    for (const item of ordered) {
+      const currentRow = rows.at(-1);
+      const reference = currentRow?.[0];
+      const sameRow =
+        reference !== undefined &&
+        Math.abs(item.absoluteBounds.y - reference.absoluteBounds.y) <=
+          Math.max(4, Math.min(item.absoluteBounds.height, reference.absoluteBounds.height) / 2);
+      if (!sameRow || currentRow === undefined) rows.push([item]);
+      else currentRow.push(item);
+    }
+    const firstRow = rows[0];
+    const lastRow = rows.at(-1);
+    if (firstRow !== undefined && lastRow !== undefined) {
+      const firstBounds = firstRow[0]?.absoluteBounds;
+      const lastBounds = lastRow.at(-1)?.absoluteBounds;
+      if (firstBounds !== undefined && point.y < firstBounds.y) {
+        before = firstRow[0];
+      } else if (lastBounds !== undefined && point.y <= lastBounds.y + lastBounds.height) {
+        const targetRow = rows.reduce((closest, candidate) => {
+          const closestBounds = closest[0]?.absoluteBounds;
+          const candidateBounds = candidate[0]?.absoluteBounds;
+          if (closestBounds === undefined || candidateBounds === undefined) return closest;
+          const closestDistance = Math.abs(point.y - (closestBounds.y + closestBounds.height / 2));
+          const candidateDistance = Math.abs(
+            point.y - (candidateBounds.y + candidateBounds.height / 2),
+          );
+          return candidateDistance < closestDistance ? candidate : closest;
+        }, firstRow);
+        before = targetRow.find(
+          (item) => point.x < item.absoluteBounds.x + item.absoluteBounds.width / 2,
+        );
+        if (before === undefined) {
+          const rowIndex = rows.indexOf(targetRow);
+          before = rowIndex < rows.length - 1 ? rows[rowIndex + 1]?.[0] : undefined;
+        }
+      }
+    }
+  }
+  if (before !== undefined) {
+    const bounds = before.absoluteBounds;
+    return {
+      parentId: parent.id,
+      beforeComponentId: before.node.id,
+      indicatorBounds: row
+        ? { x: bounds.x - 2, y: bounds.y, width: 4, height: bounds.height }
+        : { x: bounds.x, y: bounds.y - 2, width: bounds.width, height: 4 },
+    };
+  }
+
+  const last = ordered.at(-1);
+  if (last === undefined) return undefined;
+  const bounds = last.absoluteBounds;
+  return {
+    parentId: parent.id,
+    beforeComponentId: null,
+    indicatorBounds: row
+      ? { x: bounds.x + bounds.width - 2, y: bounds.y, width: 4, height: bounds.height }
+      : { x: bounds.x, y: bounds.y + bounds.height - 2, width: bounds.width, height: 4 },
+  };
+}
+
+function hasReorderChanged(
+  parent: ComponentNode,
+  componentIds: readonly string[],
+  beforeComponentId: string | null,
+): boolean {
+  if (componentIds.length !== 1) return true;
+  const componentId = componentIds[0];
+  if (componentId === undefined) return false;
+  const originalIndex = parent.children.indexOf(componentId);
+  if (originalIndex < 0) return false;
+  const nextSibling =
+    parent.children.slice(originalIndex + 1).find((id) => id !== componentId) ?? null;
+  return beforeComponentId !== nextSibling;
 }
 
 export function DesignerSurface({
@@ -200,6 +432,7 @@ export function DesignerSurface({
   onSelect,
   onAddComponent,
   onMoveComponents,
+  onReorderComponents,
   onResizeComponent,
   onDeleteSelection,
   onCopy,
@@ -213,13 +446,23 @@ export function DesignerSurface({
 }: DesignerSurfaceProps): ReactElement {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<Interaction | null>(null);
+  const [viewportName, setViewportName] = useState<ViewportName>('desktop');
+  const [measuredBounds, setMeasuredBounds] = useState<ReadonlyMap<string, Bounds>>(
+    () => new Map(),
+  );
   const scale = zoom / 100;
+  const viewport = VIEWPORTS[viewportName];
+  const viewportWidth = viewport.width;
+  const viewportHeight = page.height;
   const byId = useMemo(() => new Map(page.components.map((node) => [node.id, node])), [page]);
   const styleClassNames = useMemo(
     () => new Map(styles.map((style) => [style.id, resolveComponentStyleClassName(style)])),
     [styles],
   );
-  const layout = useMemo(() => layoutPage(page, interaction), [page, interaction]);
+  const layout = useMemo(
+    () => buildLayout(page, byId, measuredBounds),
+    [byId, measuredBounds, page],
+  );
   const layoutById = useMemo(() => new Map(layout.map((item) => [item.node.id, item])), [layout]);
   const root = byId.get(page.rootComponentId);
   const rootStyleClassName =
@@ -232,7 +475,7 @@ export function DesignerSurface({
       ),
     [page],
   );
-  const movableSelectedIds = useMemo(
+  const selectedVisualIds = useMemo(
     () =>
       selectedIds.filter(
         (id) =>
@@ -241,6 +484,64 @@ export function DesignerSurface({
       ),
     [byId, page.rootComponentId, selectedIds],
   );
+  const positionMovableSelectedIds = useMemo(() => {
+    const allFixed = selectedVisualIds.every((id) => {
+      const node = byId.get(id);
+      return node !== undefined && parentModeOf(node, byId) === 'fixed';
+    });
+    return allFixed ? selectedVisualIds : [];
+  }, [byId, selectedVisualIds]);
+
+  const measureLayout = useCallback((): void => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const surfaceBounds = surface.getBoundingClientRect();
+    if (surfaceBounds.width <= 0 || surfaceBounds.height <= 0) return;
+    const horizontalScale =
+      surface.clientWidth > 0 ? surface.clientWidth / surfaceBounds.width : 1 / scale;
+    const verticalScale =
+      surface.clientHeight > 0 ? surface.clientHeight / surfaceBounds.height : 1 / scale;
+    const next = new Map<string, Bounds>();
+    for (const element of surface.querySelectorAll<HTMLElement>('[data-designer-node-id]')) {
+      const id = element.dataset.designerNodeId;
+      if (id === undefined) continue;
+      const bounds = element.getBoundingClientRect();
+      next.set(id, {
+        x: (bounds.left - surfaceBounds.left) * horizontalScale,
+        y: (bounds.top - surfaceBounds.top) * verticalScale,
+        width: bounds.width * horizontalScale,
+        height: bounds.height * verticalScale,
+      });
+    }
+    setMeasuredBounds((current) => (sameBoundsMap(current, next) ? current : next));
+  }, [scale]);
+
+  useLayoutEffect(() => {
+    measureLayout();
+  }, [interaction, measureLayout, page, viewportHeight, viewportWidth]);
+
+  useLayoutEffect(() => {
+    const surface = surfaceRef.current;
+    if (!surface || typeof ResizeObserver === 'undefined') return undefined;
+    let frame: number | undefined;
+    const scheduleMeasure = (): void => {
+      if (frame !== undefined) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = undefined;
+        measureLayout();
+      });
+    };
+    const observer = new ResizeObserver(scheduleMeasure);
+    observer.observe(surface);
+    for (const element of surface.querySelectorAll<HTMLElement>('[data-designer-node-id]')) {
+      observer.observe(element);
+    }
+    scheduleMeasure();
+    return () => {
+      observer.disconnect();
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+    };
+  }, [measureLayout, page.components, viewportHeight, viewportWidth]);
 
   const eventPoint = (event: { clientX: number; clientY: number }): Point => {
     const rectangle = surfaceRef.current?.getBoundingClientRect();
@@ -294,6 +595,24 @@ export function DesignerSurface({
     }
     const ids = selectedIds.includes(node.id) ? selectedIds : [node.id];
     onSelect(ids, node.id);
+    const parentMode = parentModeOf(node, byId);
+    // Anchored components have no safe x/y mutation. Selection and resize are
+    // retained; an anchor-aware command can be supplied later by the host.
+    if (parentMode === 'align-to-parent') return;
+
+    const parent = node.parentId === null ? undefined : byId.get(node.parentId);
+    const canReorder =
+      parent !== undefined &&
+      isFlowMode(parentMode) &&
+      ids.length === 1 &&
+      ids.every((id) => byId.get(id)?.parentId === parent.id);
+    const canMove = ids.every((id) => {
+      const selected = byId.get(id);
+      return selected !== undefined && parentModeOf(selected, byId) === 'fixed';
+    });
+    // Flow items have no meaningful x/y to mutate. Block a mixed selection
+    // rather than accidentally issuing a MoveCommand for invisible bounds.
+    if (!canReorder && !canMove) return;
     const originalBounds = new Map<string, Bounds>();
     const absolute = ids
       .map((id) => layoutById.get(id))
@@ -305,12 +624,16 @@ export function DesignerSurface({
     event.currentTarget.setPointerCapture(event.pointerId);
     setInteraction({
       kind: 'drag',
+      mode: canReorder ? 'reorder' : 'move',
       pointerId: event.pointerId,
       start: point,
       ids,
       originalBounds,
       selectionBounds: unionBounds(absolute),
       delta: { x: 0, y: 0 },
+      ...(canReorder && parent !== undefined
+        ? { reorderTarget: reorderTargetForPoint(parent, ids, point, layoutById) }
+        : {}),
     });
   };
 
@@ -321,12 +644,8 @@ export function DesignerSurface({
   ): void => {
     event.stopPropagation();
     const parent = node.parentId ? byId.get(node.parentId) : undefined;
-    const containerBounds = {
-      x: 0,
-      y: 0,
-      width: parent?.bounds.width ?? page.width,
-      height: parent?.bounds.height ?? page.height,
-    };
+    const measuredParent =
+      parent === undefined ? undefined : layoutById.get(parent.id)?.absoluteBounds;
     event.currentTarget.setPointerCapture(event.pointerId);
     setInteraction({
       kind: 'resize',
@@ -336,7 +655,12 @@ export function DesignerSurface({
       handle,
       originalBounds: node.bounds,
       currentBounds: node.bounds,
-      containerBounds,
+      containerBounds: {
+        x: 0,
+        y: 0,
+        width: measuredParent?.width ?? parent?.bounds.width ?? viewportWidth,
+        height: measuredParent?.height ?? parent?.bounds.height ?? viewportHeight,
+      },
     });
   };
 
@@ -363,10 +687,23 @@ export function DesignerSurface({
     const current = eventPoint(event);
     const requested = { x: current.x - interaction.start.x, y: current.y - interaction.start.y };
     if (interaction.kind === 'drag') {
+      if (interaction.mode === 'reorder') {
+        const firstId = interaction.ids[0];
+        const dragged = firstId === undefined ? undefined : byId.get(firstId);
+        const parent = dragged?.parentId === null ? undefined : byId.get(dragged?.parentId ?? '');
+        setInteraction({
+          ...interaction,
+          reorderTarget:
+            parent === undefined
+              ? undefined
+              : reorderTargetForPoint(parent, interaction.ids, current, layoutById),
+        });
+        return;
+      }
       const delta = constrainMovementDelta(interaction.selectionBounds, requested, {
         snapToGrid: settings.snapToGrid,
         gridSize: settings.gridSize,
-        containerBounds: { x: 0, y: 0, width: page.width, height: page.height },
+        containerBounds: { x: 0, y: 0, width: viewportWidth, height: viewportHeight },
       });
       setInteraction({ ...interaction, delta });
     } else if (interaction.kind === 'resize') {
@@ -387,11 +724,28 @@ export function DesignerSurface({
 
   const finishInteraction = (event: PointerEvent<HTMLDivElement>): void => {
     if (!interaction || interaction.pointerId !== event.pointerId) return;
-    if (interaction.kind === 'drag' && (interaction.delta.x !== 0 || interaction.delta.y !== 0)) {
-      onMoveComponents(interaction.ids, interaction.delta);
+    if (interaction.kind === 'drag') {
+      if (interaction.mode === 'move' && (interaction.delta.x !== 0 || interaction.delta.y !== 0)) {
+        onMoveComponents(interaction.ids, interaction.delta);
+      } else if (interaction.mode === 'reorder') {
+        const firstId = interaction.ids[0];
+        const dragged = firstId === undefined ? undefined : byId.get(firstId);
+        const parent = dragged?.parentId === null ? undefined : byId.get(dragged?.parentId ?? '');
+        const target =
+          parent === undefined
+            ? undefined
+            : reorderTargetForPoint(parent, interaction.ids, eventPoint(event), layoutById);
+        if (
+          parent !== undefined &&
+          target !== undefined &&
+          hasReorderChanged(parent, interaction.ids, target.beforeComponentId)
+        ) {
+          onReorderComponents?.(target.parentId, interaction.ids, target.beforeComponentId);
+        }
+      }
     } else if (interaction.kind === 'resize') {
       onResizeComponent(interaction.id, interaction.currentBounds);
-    } else if (interaction.kind === 'marquee') {
+    } else {
       const bounds = normalizeBounds({
         x: interaction.start.x,
         y: interaction.start.y,
@@ -411,8 +765,8 @@ export function DesignerSurface({
     setInteraction(null);
   };
 
-  const handleKeyboard = (event: React.KeyboardEvent<HTMLElement>): void => {
-    if (event.key.startsWith('Arrow') && movableSelectedIds.length > 0) {
+  const handleKeyboard = (event: KeyboardEvent<HTMLElement>): void => {
+    if (event.key.startsWith('Arrow') && positionMovableSelectedIds.length > 0) {
       const distance = event.shiftKey ? 8 : 1;
       const deltas: Record<string, Point> = {
         ArrowLeft: { x: -distance, y: 0 },
@@ -423,7 +777,7 @@ export function DesignerSurface({
       const delta = deltas[event.key];
       if (delta) {
         event.preventDefault();
-        onMoveComponents(movableSelectedIds, delta);
+        onMoveComponents(positionMovableSelectedIds, delta);
       }
     } else if (event.key === 'Delete') {
       event.preventDefault();
@@ -466,17 +820,34 @@ export function DesignerSurface({
           height: interaction.current.y - interaction.start.y,
         })
       : null;
+  const reorderIndicator =
+    interaction?.kind === 'drag' && interaction.mode === 'reorder'
+      ? interaction.reorderTarget?.indicatorBounds
+      : undefined;
 
   return (
     <div className="wr-designer-workspace">
       <div className="wr-designer-toolbar">
-        <button type="button" disabled={movableSelectedIds.length === 0} onClick={onBringToFront}>
+        <button type="button" disabled={selectedVisualIds.length === 0} onClick={onBringToFront}>
           Bring to Front
         </button>
-        <button type="button" disabled={movableSelectedIds.length === 0} onClick={onSendToBack}>
+        <button type="button" disabled={selectedVisualIds.length === 0} onClick={onSendToBack}>
           Send to Back
         </button>
         <span />
+        <label>
+          Viewport
+          <select
+            value={viewportName}
+            onChange={(event) => setViewportName(event.target.value as ViewportName)}
+          >
+            {Object.entries(VIEWPORTS).map(([name, option]) => (
+              <option value={name} key={name}>
+                {option.label} ({option.width}px)
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           Zoom
           <select value={zoom} onChange={(event) => onZoomChange(Number(event.target.value))}>
@@ -491,14 +862,15 @@ export function DesignerSurface({
       <div className="wr-designer-scroll">
         <div
           className="wr-page-zoom-frame"
-          style={{ width: page.width * scale, height: page.height * scale }}
+          style={{ width: viewportWidth * scale, height: viewportHeight * scale }}
         >
           <div
             ref={surfaceRef}
             className="wr-page-surface"
+            data-viewport={viewportName}
             style={{
-              width: page.width,
-              height: page.height,
+              width: viewportWidth,
+              height: viewportHeight,
               transform: `scale(${scale})`,
             }}
             tabIndex={0}
@@ -514,18 +886,24 @@ export function DesignerSurface({
                     style={{ backgroundSize: `${settings.gridSize}px ${settings.gridSize}px` }}
                   />
                 )}
-                {root.children.map((childId) => {
-                  const child = byId.get(childId);
-                  return child && componentRegistry.get(child.type)?.visual === true ? (
-                    <RuntimeNode
-                      key={child.id}
-                      node={child}
-                      byId={byId}
-                      styleClassNames={styleClassNames}
-                      interaction={interaction}
-                    />
-                  ) : null;
-                })}
+                <div
+                  className={`wr-runtime-children wr-runtime-children-${root.layout.container.mode}`}
+                  style={projectChildrenStyle(root)}
+                >
+                  {root.children.map((childId) => {
+                    const child = byId.get(childId);
+                    return child && componentRegistry.get(child.type)?.visual === true ? (
+                      <RuntimeNode
+                        key={child.id}
+                        node={child}
+                        byId={byId}
+                        styleClassNames={styleClassNames}
+                        parentContainer={root.layout.container}
+                        interaction={interaction}
+                      />
+                    ) : null;
+                  })}
+                </div>
               </ComponentView>
             )}
             <div
@@ -539,6 +917,7 @@ export function DesignerSurface({
             >
               {layout.map(({ node, absoluteBounds, order }) => {
                 const selected = selectedIds.includes(node.id);
+                const parentMode = parentModeOf(node, byId);
                 return (
                   <div
                     className={`wr-design-hit ${selected ? 'selected' : ''}`}
@@ -551,7 +930,11 @@ export function DesignerSurface({
                       height: absoluteBounds.height,
                       zIndex: order + 1,
                     }}
-                    title={`${node.name}: ${node.type}`}
+                    title={`${node.name}: ${node.type}${
+                      parentMode === 'align-to-parent'
+                        ? ' (anchored; use layout controls to move)'
+                        : ''
+                    }`}
                     onDoubleClick={(event) => {
                       event.stopPropagation();
                       onDefaultEvent(node.id);
@@ -571,6 +954,17 @@ export function DesignerSurface({
                   </div>
                 );
               })}
+              {reorderIndicator && (
+                <div
+                  className="wr-flow-drop-indicator"
+                  style={{
+                    left: reorderIndicator.x,
+                    top: reorderIndicator.y,
+                    width: reorderIndicator.width,
+                    height: reorderIndicator.height,
+                  }}
+                />
+              )}
               {marqueeBounds && (
                 <div
                   className="wr-selection-marquee"

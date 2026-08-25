@@ -15,6 +15,12 @@ import {
 } from './controls.js';
 import { WebPage } from './page.js';
 import {
+  applyRuntimeLayout,
+  resolveRuntimeContainerLayout,
+  type RuntimeComponentLayout,
+  type RuntimeContainerLayout,
+} from './layout.js';
+import {
   projectComponentVisual,
   readBooleanProperty,
   readIntegerProperty,
@@ -34,6 +40,8 @@ export interface RuntimeComponentNode {
   readonly type: string;
   readonly name: string;
   readonly parentId: string | null;
+  /** Instance-owned responsive layout. */
+  readonly layout: RuntimeComponentLayout;
   readonly bounds: RuntimeBounds;
   readonly props: Readonly<Record<string, unknown>>;
   readonly children: readonly string[];
@@ -47,7 +55,6 @@ export interface RuntimePageModel {
   readonly caption: string;
   readonly width: number;
   readonly height: number;
-  readonly layoutMode: 'absolute' | 'flex' | 'grid';
   readonly components: readonly RuntimeComponentNode[];
   readonly rootComponentId: string;
 }
@@ -149,8 +156,9 @@ function applyCommon(component: WebComponent, node: RuntimeComponentNode): void 
   );
   component.width = node.bounds.width;
   component.height = node.bounds.height;
-  // A selected Tailwind style owns paint properties. Bounds and positioning
-  // remain model-owned so the visual layout stays deterministic.
+  // A selected Tailwind style owns paint properties. The structural layout is
+  // applied after the hierarchy exists, when each child can read its parent's
+  // persisted container mode.
   if (node.styleClassName === undefined) {
     component.backgroundColor = visual.style.backgroundColor ?? '';
     component.color = visual.style.color ?? '';
@@ -159,6 +167,9 @@ function applyCommon(component: WebComponent, node: RuntimeComponentNode): void 
     element.style.borderWidth = visual.style.borderWidth ?? '';
   }
   if (node.parentId !== null) {
+    // Preserve the historic registry.create() behavior for callers that create
+    // a standalone node. mountPage() replaces this legacy fallback with the
+    // responsive projection below.
     element.style.position = 'absolute';
     component.x = node.bounds.x;
     component.y = node.bounds.y;
@@ -345,11 +356,29 @@ export function mountPage(
   const rootComponent = components.get(model.rootComponentId);
   if (!(rootComponent instanceof WebPage))
     throw new Error('The runtime root component must be WebPage.');
-  rootElement.style.position = 'relative';
   rootComponent.width = model.width;
   rootComponent.height = model.height;
   rootComponent.caption = model.caption;
-  rootComponent.layoutMode = model.layoutMode;
+
+  const applyBranchLayout = (
+    nodeId: string,
+    parentContainer: RuntimeContainerLayout | undefined,
+    isPageRoot = false,
+  ): void => {
+    const node = nodes.get(nodeId);
+    const component = components.get(nodeId);
+    if (node === undefined || component === undefined) {
+      throw new Error(`Runtime page layout references unknown component "${nodeId}".`);
+    }
+    applyRuntimeLayout(component.element, node, parentContainer, { isPageRoot });
+    const container = resolveRuntimeContainerLayout(node.layout);
+    for (const childId of node.children) applyBranchLayout(childId, container);
+  };
+  applyBranchLayout(model.rootComponentId, undefined, true);
+  rootElement.dataset.webradLayout = resolveRuntimeContainerLayout(
+    nodes.get(model.rootComponentId)?.layout,
+  ).mode;
+
   rootElement.dataset.webradPageId = model.id;
   if (options.replaceHostContents ?? true) host.replaceChildren(rootElement);
   else host.append(rootElement);

@@ -1,4 +1,8 @@
-import type { ComponentNode, PageModel } from '@webrad/project-model';
+import {
+  createDefaultComponentLayout,
+  type ComponentNode,
+  type PageModel,
+} from '@webrad/project-model';
 
 export function component(
   id: string,
@@ -10,6 +14,7 @@ export function component(
     type: 'WebButton',
     name: id,
     parentId,
+    layout: createDefaultComponentLayout(),
     bounds: { x: 0, y: 0, width: 40, height: 24 },
     props: {},
     events: {},
@@ -20,13 +25,12 @@ export function component(
 
 export function pageFixture(): PageModel {
   return {
-    formatVersion: 1,
+    formatVersion: 2,
     id: 'page',
     name: 'PageMain',
     caption: 'Main',
     width: 640,
     height: 480,
-    layoutMode: 'absolute',
     rootComponentId: 'root',
     components: [
       component('root', null, {

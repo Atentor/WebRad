@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 
 import { MVP_COMPONENT_TYPES, type MvpComponentType } from '@webrad/component-registry';
-import { parsePage, type ComponentNode, type PageModel } from '@webrad/project-model';
+import {
+  createDefaultComponentLayout,
+  parsePage,
+  type ComponentNode,
+  type PageModel,
+} from '@webrad/project-model';
 
 import {
   createUserPageSource,
@@ -40,6 +45,7 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
   return {
     ...fixture,
     parentId: isPanel || isApiClient ? 'page-root' : 'stable-panel-main',
+    layout: createDefaultComponentLayout(),
     bounds: { x: 16, y: 16, width: 120, height: 32 },
     props:
       fixture.type === 'WebApiClient'
@@ -58,13 +64,12 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
 
 function testPage(): PageModel {
   return parsePage({
-    formatVersion: 1,
+    formatVersion: 2,
     id: 'page-model',
     name: 'PageMain',
     caption: 'Main',
     width: 640,
     height: 480,
-    layoutMode: 'absolute',
     rootComponentId: 'page-root',
     components: [
       {
@@ -72,6 +77,7 @@ function testPage(): PageModel {
         type: 'WebPage',
         name: 'PageMain',
         parentId: null,
+        layout: createDefaultComponentLayout(),
         bounds: { x: 0, y: 0, width: 640, height: 480 },
         props: { caption: 'Main', visible: true, enabled: true },
         events: {

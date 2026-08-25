@@ -8,6 +8,7 @@ import {
 import type { ComponentNode, ComponentStyleModel, PageModel } from '@webrad/project-model';
 import { useId, useMemo, useState, type ReactElement } from 'react';
 import { Panel } from './Panel';
+import { responsiveLayoutPropertyReference } from '../layout-property';
 
 const MULTIPLE_VALUES = Symbol('multiple-values');
 const MULTIPLE_VALUES_LABEL = '(multiple values)';
@@ -152,6 +153,15 @@ function readPropertyValue(
     case 'bounds':
       value = reflectValue(component.bounds, property.name);
       break;
+    case 'layout-container':
+    case 'layout-item': {
+      const reference = responsiveLayoutPropertyReference(property);
+      value =
+        reference === undefined
+          ? undefined
+          : reflectValue(component.layout[reference.target], reference.field);
+      break;
+    }
     case 'page':
       value = page === null || page === undefined ? undefined : reflectValue(page, property.name);
       break;
@@ -269,7 +279,10 @@ function PropertyEditor({
           placeholder={placeholder}
           readOnly={disabled}
           onChange={(event) => {
-            if (event.target.value.trim().length === 0) return;
+            if (event.target.value.trim().length === 0) {
+              if (property.nullable === true) onChange(null);
+              return;
+            }
             const numberValue = Number(event.target.value);
             if (Number.isFinite(numberValue)) onChange(numberValue);
           }}

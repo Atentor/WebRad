@@ -2011,10 +2011,12 @@ kbd {
   pointer-events: none;
 }
 
-/* Runtime layout positions both containers; mirror that containing block in the Designer. */
-.wr-page-surface > .wr-webpage,
-.wr-runtime-node > .wr-webpanel {
+/* The page owns the responsive viewport. Runtime nodes below are either flow
+   items or absolute items depending on their parent's persisted layout. */
+.wr-page-surface > .wr-webpage {
   position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .wr-design-overlay {
@@ -2023,8 +2025,19 @@ kbd {
 }
 
 .wr-runtime-node {
-  position: absolute;
   overflow: visible;
+  min-width: 0;
+  min-height: 0;
+}
+
+.wr-runtime-node > .wr-component {
+  width: 100%;
+  height: 100%;
+}
+
+.wr-runtime-children {
+  min-width: 0;
+  min-height: 0;
 }
 
 .wr-design-overlay {
@@ -2134,6 +2147,15 @@ kbd {
   z-index: 10000;
   border: 1px solid var(--wr-selection);
   background: color-mix(in srgb, var(--wr-selection) 14%, transparent);
+  pointer-events: none;
+}
+
+.wr-flow-drop-indicator {
+  position: absolute;
+  z-index: 10001;
+  border-radius: 2px;
+  background: var(--wr-selection);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ffffff 45%, transparent);
   pointer-events: none;
 }
 

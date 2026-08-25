@@ -5,7 +5,10 @@ import {
   addComponent,
   addComponentStyle,
   addPage,
+  CURRENT_PAGE_FORMAT_VERSION,
+  CURRENT_PROJECT_FORMAT_VERSION,
   createComponentStyle,
+  createDefaultComponentLayout,
   createPage,
   removePage,
   setComponentStyle,
@@ -46,6 +49,19 @@ describe('project files', () => {
     const userPath = 'pages/PageMain.ts';
     await fs.writeFile(path.join(session.rootPath, userPath), '// preserved user code\n', 'utf8');
 
+    const manifest = JSON.parse(await fs.readFile(session.projectFilePath, 'utf8')) as {
+      formatVersion: number;
+      pages: { pageFile: string }[];
+    };
+    expect(manifest.formatVersion).toBe(CURRENT_PROJECT_FORMAT_VERSION);
+    const pageFile = manifest.pages[0]?.pageFile;
+    expect(pageFile).toBeDefined();
+    if (pageFile === undefined) return;
+    const pageDocument = JSON.parse(
+      await fs.readFile(path.join(session.rootPath, ...pageFile.split('/')), 'utf8'),
+    ) as { formatVersion: number };
+    expect(pageDocument.formatVersion).toBe(CURRENT_PAGE_FORMAT_VERSION);
+
     const loaded = await loadProjectFiles(session.projectFilePath);
     expect(loaded.project.name).toBe('Project1');
     expect(loaded.project.pages[0]?.name).toBe('PageMain');
@@ -65,6 +81,7 @@ describe('project files', () => {
       type: 'WebButton',
       name: 'Button1',
       parentId: page.rootComponentId,
+      layout: createDefaultComponentLayout(),
       bounds: { x: 16, y: 16, width: 120, height: 36 },
       props: { caption: 'Save', visible: true, enabled: true },
       events: { OnClick: null },

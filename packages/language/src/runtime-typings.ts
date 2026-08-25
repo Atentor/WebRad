@@ -54,7 +54,90 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly remove?: boolean;
   }
 
-  export type WebPageLayoutMode = 'absolute' | 'flex' | 'grid';
+  export type RuntimeContainerLayoutMode = 'fixed' | 'align-to-parent' | 'row' | 'column';
+  export type RuntimeLayoutItemSizingMode = 'fixed' | 'stretch' | 'fit-content';
+  export type RuntimeLayoutAnchor = 'start' | 'center' | 'end' | 'stretch';
+  export type RuntimeLayoutJustifyContent =
+    | 'start'
+    | 'center'
+    | 'end'
+    | 'space-between'
+    | 'space-around';
+  export type RuntimeLayoutAlignItems = 'start' | 'center' | 'end' | 'stretch';
+
+  export interface RuntimeContainerLayout {
+    readonly mode: RuntimeContainerLayoutMode;
+    readonly paddingTop: number;
+    readonly paddingRight: number;
+    readonly paddingBottom: number;
+    readonly paddingLeft: number;
+    readonly gap: number;
+    readonly wrap: boolean;
+    readonly justifyContent: RuntimeLayoutJustifyContent;
+    readonly alignItems: RuntimeLayoutAlignItems;
+  }
+
+  export interface RuntimeLayoutItem {
+    readonly width: RuntimeLayoutItemSizingMode;
+    readonly height: RuntimeLayoutItemSizingMode;
+    readonly minWidth: number;
+    readonly maxWidth: number | null;
+    readonly minHeight: number;
+    readonly maxHeight: number | null;
+    readonly grow: number;
+    readonly shrink: boolean;
+    readonly horizontalAnchor: RuntimeLayoutAnchor;
+    readonly verticalAnchor: RuntimeLayoutAnchor;
+    readonly left: number;
+    readonly right: number;
+    readonly top: number;
+    readonly bottom: number;
+  }
+
+  export interface RuntimeComponentLayout {
+    readonly container: RuntimeContainerLayout;
+    readonly item: RuntimeLayoutItem;
+  }
+
+  export interface RuntimeLayoutBounds {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  }
+
+  /** Structural node subset accepted by the browser-safe layout projector. */
+  export interface RuntimeLayoutNode {
+    readonly type?: string;
+    readonly bounds: RuntimeLayoutBounds;
+    readonly children?: readonly string[];
+    readonly layout?: RuntimeComponentLayout;
+  }
+
+  export interface RuntimeLayoutProjection {
+    readonly container: Readonly<Record<string, string>>;
+    readonly item: Readonly<Record<string, string>>;
+  }
+
+  export interface ApplyRuntimeLayoutOptions {
+    readonly isPageRoot?: boolean;
+  }
+
+  export function resolveRuntimeContainerLayout(
+    layout: RuntimeComponentLayout | undefined,
+  ): RuntimeContainerLayout;
+  export function projectRuntimeLayout(
+    node: RuntimeLayoutNode,
+    parentContainer?: RuntimeContainerLayout,
+  ): RuntimeLayoutProjection;
+  export function applyRuntimeLayout(
+    element: HTMLElement,
+    node: RuntimeLayoutNode,
+    parentContainer?: RuntimeContainerLayout,
+    options?: ApplyRuntimeLayoutOptions,
+  ): RuntimeLayoutProjection;
+
+  export type WebPageLayoutMode = RuntimeContainerLayoutMode;
 
   /** Base class for generated and user-authored pages. */
   export class WebPage extends WebPanel {
@@ -220,6 +303,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly type: string;
     readonly name: string;
     readonly parentId: string | null;
+    readonly layout: RuntimeComponentLayout;
     readonly bounds: RuntimeBounds;
     readonly props: Readonly<Record<string, unknown>>;
     readonly children: readonly string[];
@@ -232,7 +316,6 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly caption: string;
     readonly width: number;
     readonly height: number;
-    readonly layoutMode: 'absolute' | 'flex' | 'grid';
     readonly components: readonly RuntimeComponentNode[];
     readonly rootComponentId: string;
   }

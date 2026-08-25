@@ -16,6 +16,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 | 10. Runtime/compiler/preview | DONE        | Browser runtime, independent esbuild pipeline, isolated preview protocol, F9                                                                      | Hello project compiles; development and packaged compiler smokes pass                                      |
 | 11. Nonvisual foundation     | DONE        | Registry-driven nonvisual tray, Inspector/persistence integration, generated service fields, and functional `WebApiClient`                        | Tray, code generation, browser exclusion, and runtime client pass tests                                    |
 | 12. Cross-platform packaging | IN PROGRESS | Windows/Linux validation and Forge packaging                                                                                                      | Windows package/smoke pass; Windows/Linux CI is configured                                                 |
+| 13. Responsive layout engine | DONE        | Version 2 per-node container/item layout contract, shared runtime projection, and responsive Designer interaction                                 | Runtime and Designer reflow from one model across fixed, anchored, row, and column containers              |
 
 ## Current work
 
@@ -33,7 +34,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Monaco ships JetBrains Mono Light 300, including its real italic face, as self-hosted renderer assets instead of depending on an operating-system font.
 - DONE: distributable desktop artifacts use the public product name `WebRad` for the executable, installer, and Windows shortcut while retaining the lowercase npm package identifier.
 - DONE: Every non-root component is exposed as a typed readonly `this.Name` field; Delphi-like `Name` suggestions insert that standard TypeScript expression for consistent diagnostics, build, and Preview.
-- DONE: Page is the canonical web concept throughout the version 1 model, IDE, runtime, compiler, generated sources, paths, and documentation.
+- DONE: The version 2 responsive-layout contract replaces page-level layout mode with per-node container and item rules; runtime and Designer reflow from that one persisted model across fixed, anchored, row, and column containers.
 - IN PROGRESS: Linux packaging evidence from CI; Windows packaging is locally proven.
 
 ## Validation evidence
@@ -45,6 +46,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Language and renderer tests cover every MVP component as a generated `this.Name` member, concrete non-`any` runtime types, Registry property completion, stable visual IDs, nonvisual identity, root-as-`this`, and the exact completion insertion text.
 - Application icon validation checks generated PNG/ICO/ICNS assets, renderer reuse of the SVG, packaged native icon loading, and the Windows Squirrel installer.
 - The persisted Hello WebRAD example is compiled, mounted in a DOM, edited, clicked, and verified to call `Message` with the live input value.
+- Responsive-layout tests cover version 2 validation and serialization, Registry controls, runtime fixed/anchored/flex projection, Designer viewport reflow, and drag reorder for row/column containers.
 - The development and packaged smokes start the real Forge bundles, open a Hello project through the UI/preload/IPC path, verify the Monaco editor through F12, dispatch F9, wait for `PreviewPane`, enter `Ada`, click the generated button inside the sandbox, verify `Olá Ada`, then exit automatically.
 
 ## Decision log
@@ -53,8 +55,9 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Keep packages source-first during development, with explicit package exports and project references where useful.
 - Exclude source-first `@webrad/*` workspaces from Vite dependency optimization while explicitly optimizing the CommonJS TypeScript distribution, so renamed exports cannot leave the development renderer on a stale bundle.
 - Represent `.wrpage` and the project manifest as versioned JSON while keeping user code in separate `.ts` files.
-- Keep the current Page contract at format version 1 and reject documents outside the current schema without carrying a migration layer.
-- Store reusable style identities and component references in the version 1 Project Model; compile exact Tailwind candidates to static utility CSS with no Preflight or browser Tailwind dependency.
+- Keep the current Page contract at format version 2 and reject version 1 or future documents outside the current schema without carrying a migration layer.
+- Store reusable style identities and component references in the version 2 Project Model; compile exact Tailwind candidates to static utility CSS with no Preflight or browser Tailwind dependency.
+- Persist responsive rules on every component as `layout.container` and `layout.item`; preserve `bounds` only as the fixed-layout fallback so runtime and Designer share one geometry source.
 - Share browser-safe component property projection and CSS through `@webrad/runtime/visual`; keep design interaction exclusively in the Designer overlay.
 - Keep nonvisual nodes in the Project Model and tray, construct their typed services in generated code, and omit them from the final DOM model.
 - Treat `Icon.svg` as the application icon source of truth; commit checked PNG/ICO/ICNS derivatives required by native platforms.

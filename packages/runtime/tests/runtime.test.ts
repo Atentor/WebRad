@@ -19,22 +19,76 @@ import {
   WebTextArea,
   mountPage,
   projectComponentVisual,
+  projectRuntimeLayout,
   resolveComponentStyleClassName,
   resolveComponentStyleClassNames,
   resolveComponentStylePreviewClassName,
   resolveStylePropertyCandidate,
   runtimeEventName,
   tokenizeTailwindClasses,
+  type RuntimeComponentLayout,
+  type RuntimeComponentNode,
   type RuntimePageModel,
 } from '../src/index.js';
 
-const pageModel: RuntimePageModel = {
+function responsiveLayout(
+  container: Partial<RuntimeComponentLayout['container']> = {},
+  item: Partial<RuntimeComponentLayout['item']> = {},
+): RuntimeComponentLayout {
+  return {
+    container: {
+      mode: 'fixed',
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      gap: 0,
+      wrap: false,
+      justifyContent: 'start',
+      alignItems: 'start',
+      ...container,
+    },
+    item: {
+      width: 'fixed',
+      height: 'fixed',
+      minWidth: 0,
+      maxWidth: null,
+      minHeight: 0,
+      maxHeight: null,
+      grow: 0,
+      shrink: true,
+      horizontalAnchor: 'start',
+      verticalAnchor: 'start',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+      ...item,
+    },
+  };
+}
+
+type RuntimeNodeWithoutLayout = Omit<RuntimeComponentNode, 'layout'>;
+type RuntimePageWithoutNodeLayouts = Omit<RuntimePageModel, 'components'> & {
+  readonly components: readonly RuntimeNodeWithoutLayout[];
+};
+
+function withDefaultLayouts(model: RuntimePageWithoutNodeLayouts): RuntimePageModel {
+  return {
+    ...model,
+    components: model.components.map((component) => ({
+      ...component,
+      layout: responsiveLayout(),
+    })),
+  };
+}
+
+const pageModel = withDefaultLayouts({
   id: 'page-model',
   name: 'PageMain',
   caption: 'Main page',
   width: 640,
   height: 480,
-  layoutMode: 'absolute',
   rootComponentId: 'page-root',
   components: [
     {
@@ -65,15 +119,14 @@ const pageModel: RuntimePageModel = {
       children: [],
     },
   ],
-};
+});
 
-const inspectorPropertyPageModel: RuntimePageModel = {
+const inspectorPropertyPageModel = withDefaultLayouts({
   id: 'property-page',
   name: 'PageProperties',
   caption: 'Runtime properties',
   width: 720,
   height: 540,
-  layoutMode: 'absolute',
   rootComponentId: 'property-root',
   components: [
     {
@@ -236,7 +289,7 @@ const inspectorPropertyPageModel: RuntimePageModel = {
       children: [],
     },
   ],
-};
+});
 
 describe('browser runtime', () => {
   it('mounts the real DOM hierarchy and exposes functional component wrappers', () => {
@@ -373,12 +426,13 @@ describe('browser runtime', () => {
 
     const page = new WebPage(document.createElement('section'));
     page.caption = 'Customers';
-    page.layoutMode = 'grid';
+    page.layoutMode = 'column';
     expect(page.caption).toBe('Customers');
-    expect(page.layoutMode).toBe('grid');
-    expect(page.element.dataset.webradLayout).toBe('grid');
-    expect(page.element.style.display).toBe('grid');
-    page.layoutMode = 'absolute';
+    expect(page.layoutMode).toBe('column');
+    expect(page.element.dataset.webradLayout).toBe('column');
+    expect(page.element.style.display).toBe('flex');
+    expect(page.element.style.flexDirection).toBe('column');
+    page.layoutMode = 'fixed';
     expect(page.element.style.display).toBe('');
 
     const label = new WebLabel(document.createElement('span'));
@@ -433,9 +487,7 @@ describe('browser runtime', () => {
     expect(page).toMatchObject({
       name: 'PageProperties',
       caption: 'Runtime properties',
-      width: 720,
-      height: 540,
-      layoutMode: 'absolute',
+      layoutMode: 'fixed',
       visible: true,
       enabled: true,
       backgroundColor: 'white',
@@ -512,6 +564,229 @@ describe('browser runtime', () => {
     });
     expect(WEBRAD_COMPONENT_CSS).toContain('.wr-component[hidden]');
     expect(runtimeEventName('OnCUSTOM')).toBe('custom');
+  });
+
+  it('projects fixed, anchored and flow layout rules as browser-native CSS', () => {
+    const anchoredParent = responsiveLayout({ mode: 'align-to-parent' });
+    const anchored = {
+      type: 'WebButton',
+      bounds: { x: -12, y: 8, width: 120, height: 32 },
+      layout: responsiveLayout(
+        {},
+        {
+          width: 'stretch',
+          height: 'fixed',
+          horizontalAnchor: 'stretch',
+          verticalAnchor: 'end',
+          left: 12,
+          right: 20,
+          bottom: 8,
+          minWidth: 64,
+          maxWidth: 480,
+        },
+      ),
+    };
+    const anchoredProjection = projectRuntimeLayout(anchored, anchoredParent.container);
+    expect(anchoredProjection.item).toMatchObject({
+      position: 'absolute',
+      left: '12px',
+      right: '20px',
+      bottom: '8px',
+      height: '32px',
+      'min-width': '64px',
+      'max-width': '480px',
+    });
+    expect(anchoredProjection.item.width).toBeUndefined();
+
+    const rowParent = responsiveLayout({ mode: 'row', gap: 12, wrap: true });
+    const flowing = {
+      type: 'WebPanel',
+      bounds: { x: 0, y: 0, width: 180, height: 80 },
+      layout: responsiveLayout({}, { width: 'stretch', height: 'fit-content', grow: 2 }),
+    };
+    const flowProjection = projectRuntimeLayout(flowing, rowParent.container);
+    expect(flowProjection.container).toEqual({ position: 'relative' });
+    expect(flowProjection.item).toMatchObject({
+      position: 'relative',
+      width: 'auto',
+      height: 'fit-content',
+      'flex-basis': '0px',
+      'flex-grow': '2',
+      'flex-shrink': '1',
+    });
+  });
+
+  it('mounts responsive containers with structural layout that wins over reusable style dimensions', () => {
+    const responsivePage: RuntimePageModel = {
+      id: 'responsive-page',
+      name: 'ResponsivePage',
+      caption: 'Responsive page',
+      width: 800,
+      height: 600,
+      rootComponentId: 'responsive-root',
+      components: [
+        {
+          id: 'responsive-root',
+          type: 'WebPage',
+          name: 'ResponsivePage',
+          parentId: null,
+          bounds: { x: 0, y: 0, width: 800, height: 600 },
+          layout: responsiveLayout({
+            mode: 'row',
+            paddingTop: 16,
+            paddingRight: 20,
+            paddingBottom: 16,
+            paddingLeft: 20,
+            gap: 12,
+            wrap: true,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }),
+          props: { caption: 'Responsive page', visible: true, enabled: true },
+          children: ['responsive-stretch', 'responsive-fixed'],
+        },
+        {
+          id: 'responsive-stretch',
+          type: 'WebPanel',
+          name: 'StretchPanel',
+          parentId: 'responsive-root',
+          bounds: { x: 0, y: 0, width: 240, height: 96 },
+          layout: responsiveLayout(
+            { mode: 'column', gap: 8 },
+            { width: 'stretch', height: 'fixed', minWidth: 160, grow: 2, shrink: true },
+          ),
+          props: { visible: true, enabled: true },
+          styleClassName: 'w-full! h-full!',
+          children: [],
+        },
+        {
+          id: 'responsive-fixed',
+          type: 'WebButton',
+          name: 'FixedButton',
+          parentId: 'responsive-root',
+          bounds: { x: 0, y: 0, width: 112, height: 40 },
+          layout: responsiveLayout({}, { width: 'fixed', height: 'fixed', shrink: false }),
+          props: { caption: 'Save', visible: true, enabled: true },
+          children: [],
+        },
+      ],
+    };
+
+    const mounted = mountPage(responsivePage);
+    const root = mounted.element;
+    const stretch = mounted.page.requireComponentElement('responsive-stretch');
+    const fixed = mounted.page.requireComponentElement('responsive-fixed');
+
+    expect(root.style.display).toBe('flex');
+    expect(root.style.flexDirection).toBe('row');
+    expect(root.style.flexWrap).toBe('wrap');
+    expect(root.style.justifyContent).toBe('space-between');
+    expect(root.style.alignItems).toBe('center');
+    expect(root.style.width).toBe('100vw');
+    expect(root.style.height).toBe('100dvh');
+    expect(root.style.getPropertyPriority('width')).toBe('important');
+    expect(root.style.getPropertyPriority('display')).toBe('important');
+
+    expect(stretch.style.position).toBe('relative');
+    expect(stretch.style.width).toBe('auto');
+    expect(stretch.style.height).toBe('96px');
+    expect(stretch.style.flexBasis).toBe('0px');
+    expect(stretch.style.flexGrow).toBe('2');
+    expect(stretch.style.minWidth).toBe('160px');
+    expect(stretch.style.getPropertyPriority('width')).toBe('important');
+
+    const stretchPanel = new WebPanel(stretch);
+    stretchPanel.hide();
+    expect(stretch.hidden).toBe(true);
+    expect(stretch.style.display).toBe('none');
+    expect(stretch.style.getPropertyPriority('display')).toBe('important');
+    stretchPanel.show();
+    expect(stretch.hidden).toBe(false);
+    expect(stretch.style.display).toBe('flex');
+    expect(stretch.style.getPropertyPriority('display')).toBe('important');
+
+    expect(fixed.style.position).toBe('relative');
+    expect(fixed.style.width).toBe('112px');
+    expect(fixed.style.height).toBe('40px');
+    expect(fixed.style.flexShrink).toBe('0');
+  });
+
+  it('uses insets and centering for align-to-parent containers', () => {
+    const alignedPage: RuntimePageModel = {
+      id: 'aligned-page',
+      name: 'AlignedPage',
+      caption: 'Aligned page',
+      width: 800,
+      height: 600,
+      rootComponentId: 'aligned-root',
+      components: [
+        {
+          id: 'aligned-root',
+          type: 'WebPage',
+          name: 'AlignedPage',
+          parentId: null,
+          bounds: { x: 0, y: 0, width: 800, height: 600 },
+          layout: responsiveLayout({ mode: 'align-to-parent' }),
+          props: { caption: 'Aligned page', visible: true, enabled: true },
+          children: ['fill-panel', 'center-label'],
+        },
+        {
+          id: 'fill-panel',
+          type: 'WebPanel',
+          name: 'FillPanel',
+          parentId: 'aligned-root',
+          bounds: { x: 0, y: 0, width: 300, height: 120 },
+          layout: responsiveLayout(
+            {},
+            {
+              width: 'stretch',
+              height: 'fixed',
+              horizontalAnchor: 'stretch',
+              verticalAnchor: 'start',
+              left: 24,
+              right: 32,
+              top: 18,
+            },
+          ),
+          props: { visible: true, enabled: true },
+          children: [],
+        },
+        {
+          id: 'center-label',
+          type: 'WebLabel',
+          name: 'CenterLabel',
+          parentId: 'aligned-root',
+          bounds: { x: 0, y: 0, width: 100, height: 24 },
+          layout: responsiveLayout(
+            {},
+            {
+              width: 'fit-content',
+              height: 'fit-content',
+              horizontalAnchor: 'center',
+              verticalAnchor: 'center',
+              left: -8,
+              top: 4,
+            },
+          ),
+          props: { caption: 'Centered', visible: true, enabled: true },
+          children: [],
+        },
+      ],
+    };
+
+    const mounted = mountPage(alignedPage);
+    const fillPanel = mounted.page.requireComponentElement('fill-panel');
+    const centerLabel = mounted.page.requireComponentElement('center-label');
+
+    expect(fillPanel.style.position).toBe('absolute');
+    expect(fillPanel.style.left).toBe('24px');
+    expect(fillPanel.style.right).toBe('32px');
+    expect(fillPanel.style.top).toBe('18px');
+    expect(fillPanel.style.width).toBe('');
+    expect(fillPanel.style.height).toBe('120px');
+    expect(centerLabel.style.left).toBe('calc(50% - 8px)');
+    expect(centerLabel.style.top).toBe('calc(50% + 4px)');
+    expect(centerLabel.style.translate).toBe('-50% -50%');
   });
 
   it('resolves structured style properties, interaction states and safe arbitrary values', () => {

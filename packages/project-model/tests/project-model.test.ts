@@ -5,6 +5,7 @@ import {
   CURRENT_PROJECT_FORMAT_VERSION,
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
   COMPONENT_STYLE_PROPERTY_NAMES,
+  DEFAULT_COMPONENT_LAYOUT,
   FutureFormatVersionError,
   ModelUpdateError,
   ProjectValidationError,
@@ -13,6 +14,7 @@ import {
   addComponentStyle,
   assembleProject,
   bindComponentEvent,
+  createDefaultComponentLayout,
   createComponentStyle,
   createPage,
   createProject,
@@ -66,6 +68,7 @@ function component(
     type,
     name,
     parentId,
+    layout: createDefaultComponentLayout(),
     bounds: { x: 8, y: 8, width: 100, height: 32 },
     props,
     events: { OnClick: null },
@@ -97,7 +100,6 @@ describe('project factories', () => {
       formatVersion: CURRENT_PAGE_FORMAT_VERSION,
       id: 'page-id',
       name: 'PageMain',
-      layoutMode: 'absolute',
       rootComponentId: 'root-id',
     });
     expect(project.pages[0]?.components[0]).toMatchObject({
@@ -105,6 +107,10 @@ describe('project factories', () => {
       type: 'WebPage',
       name: 'PageMain',
       parentId: null,
+      layout: {
+        container: { mode: 'fixed' },
+        item: { width: 'fixed', height: 'fixed' },
+      },
     });
   });
 
@@ -114,6 +120,21 @@ describe('project factories', () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
     expect(page.rootComponentId).not.toBe(page.id);
+  });
+
+  it('materializes an independent fixed responsive-layout contract for each component', () => {
+    const first = createDefaultComponentLayout();
+    const second = createDefaultComponentLayout();
+    const project = createProject('CustomerApp', {
+      idFactory: idSequence('project-id', 'page-id', 'root-id'),
+    });
+
+    expect(first).toEqual(DEFAULT_COMPONENT_LAYOUT);
+    expect(second).toEqual(DEFAULT_COMPONENT_LAYOUT);
+    expect(first).not.toBe(second);
+    expect(first.container).not.toBe(second.container);
+    expect(first.item).not.toBe(second.item);
+    expect(project.pages[0]?.components[0]?.layout).toEqual(DEFAULT_COMPONENT_LAYOUT);
   });
 
   it('allows portable display names for projects while page names remain identifiers', () => {
@@ -233,6 +254,31 @@ describe('name validation', () => {
 });
 
 describe('zod validation', () => {
+  it('requires complete valid responsive layout data on every component', () => {
+    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const root = page.components[0];
+    expect(root).toBeDefined();
+    if (root === undefined) return;
+
+    const missingLayout = { ...root } as Record<string, unknown>;
+    delete missingLayout.layout;
+    expect(safeParsePage({ ...page, components: [missingLayout] }).success).toBe(false);
+
+    const invalidMaximum = {
+      ...page,
+      components: [
+        {
+          ...root,
+          layout: {
+            ...root.layout,
+            item: { ...root.layout.item, minWidth: 100, maxWidth: 99 },
+          },
+        },
+      ],
+    };
+    expect(safeParsePage(invalidMaximum).success).toBe(false);
+  });
+
   it('detects duplicate names and broken parent/child links without throwing', () => {
     const page = createPage('PageMain', idSequence('page-id', 'root-id'));
     const invalid = {
@@ -417,7 +463,7 @@ describe('serialization', () => {
     expect(deserializeProject(serialized)).toEqual(firstProject);
   });
 
-  it('rejects the former Form-shaped version 1 contract', () => {
+  it('rejects the former Form-shaped contract at the current format version', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = project.pages[0];
     expect(page).toBeDefined();
@@ -426,7 +472,7 @@ describe('serialization', () => {
     expect(() =>
       deserializeProject(
         JSON.stringify({
-          formatVersion: 1,
+          formatVersion: CURRENT_PROJECT_FORMAT_VERSION,
           id: project.id,
           name: project.name,
           entryForm: project.entryPage,
@@ -439,7 +485,7 @@ describe('serialization', () => {
     expect(() =>
       deserializeProjectManifest(
         JSON.stringify({
-          formatVersion: 1,
+          formatVersion: CURRENT_PROJECT_FORMAT_VERSION,
           id: project.id,
           name: project.name,
           entryForm: project.entryPage,
@@ -488,6 +534,9 @@ describe('serialization', () => {
 
   it('rejects unsupported versions and safely reports malformed JSON', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    expect(() => deserializeProject(JSON.stringify({ ...project, formatVersion: 1 }))).toThrow(
+      UnsupportedFormatVersionError,
+    );
     expect(() => deserializeProject(JSON.stringify({ ...project, formatVersion: 0 }))).toThrow(
       UnsupportedFormatVersionError,
     );

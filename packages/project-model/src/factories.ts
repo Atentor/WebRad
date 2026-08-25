@@ -4,6 +4,7 @@ import { parseComponentStyle, parsePage, parseProject, parseProjectManifest } fr
 import {
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
+  createDefaultComponentLayout,
   DEFAULT_PAGE_HEIGHT,
   DEFAULT_PAGE_WIDTH,
   DEFAULT_PROJECT_SETTINGS,
@@ -15,7 +16,6 @@ import {
   type PageDescriptor,
   type PageModel,
   type IdFactory,
-  type LayoutMode,
   type ProjectManifest,
   type ProjectSettings,
   type WebRadProject,
@@ -84,6 +84,7 @@ export function createDefaultRoot(
     type: 'WebPage',
     name,
     parentId: null,
+    layout: createDefaultComponentLayout(),
     bounds: { x: 0, y: 0, width, height },
     props: {
       caption,
@@ -101,9 +102,7 @@ export function createDefaultRoot(
   };
 }
 
-export interface CreatePageOptions extends CreateDefaultRootOptions {
-  readonly layoutMode?: LayoutMode;
-}
+export type CreatePageOptions = CreateDefaultRootOptions;
 
 export function createPage(
   name = 'PageMain',
@@ -116,8 +115,6 @@ export function createPage(
   const height =
     typeof options === 'function' ? DEFAULT_PAGE_HEIGHT : (options.height ?? DEFAULT_PAGE_HEIGHT);
   const caption = typeof options === 'function' ? name : (options.caption ?? name);
-  const layoutMode =
-    typeof options === 'function' ? 'absolute' : (options.layoutMode ?? 'absolute');
   const pageId = idFactory();
   const root = createDefaultRoot(name, { idFactory, caption, width, height });
 
@@ -128,7 +125,6 @@ export function createPage(
     caption,
     width,
     height,
-    layoutMode,
     components: [root],
     rootComponentId: root.id,
   });

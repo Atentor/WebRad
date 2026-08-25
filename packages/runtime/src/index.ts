@@ -3,5 +3,6 @@ export * from './component.js';
 export * from './controls.js';
 export * from './page.js';
 export * from './globals.js';
+export * from './layout.js';
 export * from './render.js';
 export * from './visual.js';

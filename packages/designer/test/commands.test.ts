@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { CommandHistory } from '../src/command-history.js';
 import {
   AddComponentCommand,
+  ChangeLayoutPropertyCommand,
   ChangePropertyCommand,
   MoveCommand,
+  ReorderComponentsCommand,
   RemoveComponentCommand,
   RenameComponentCommand,
   ResizeCommand,
@@ -114,6 +116,44 @@ describe('component commands', () => {
     history.undo();
     expect(findDesignerComponent(history.state, 'a').props.enabled).toBe(true);
     expect(Object.hasOwn(findDesignerComponent(history.state, 'b').props, 'enabled')).toBe(false);
+  });
+
+  it('changes responsive container and item rules as reversible model deltas', () => {
+    const history = new CommandHistory(pageFixture());
+    history.execute(new ChangeLayoutPropertyCommand('root', 'container', 'mode', 'row'));
+    history.execute(new ChangeLayoutPropertyCommand(['a', 'b'], 'item', 'width', 'stretch'));
+
+    expect(findDesignerComponent(history.state, 'root').layout.container.mode).toBe('row');
+    expect(findDesignerComponent(history.state, 'a').layout.item.width).toBe('stretch');
+    expect(findDesignerComponent(history.state, 'b').layout.item.width).toBe('stretch');
+
+    history.undo();
+    expect(findDesignerComponent(history.state, 'a').layout.item.width).toBe('fixed');
+    expect(findDesignerComponent(history.state, 'b').layout.item.width).toBe('fixed');
+    history.undo();
+    expect(findDesignerComponent(history.state, 'root').layout.container.mode).toBe('fixed');
+
+    expect(() =>
+      history.execute(new ChangeLayoutPropertyCommand('a', 'item', 'missingRule', 'value')),
+    ).toThrow(DesignerModelError);
+  });
+
+  it('reorders direct flow siblings while preserving component IDs and undo history', () => {
+    const history = new CommandHistory(pageFixture());
+    history.execute(new ReorderComponentsCommand('root', 'b', 'a'));
+    expect(findDesignerComponent(history.state, 'root').children).toEqual(['b', 'a', 'panel']);
+    expect(findDesignerComponent(history.state, 'b').parentId).toBe('root');
+
+    history.undo();
+    expect(findDesignerComponent(history.state, 'root').children).toEqual(['a', 'b', 'panel']);
+    history.redo();
+    expect(findDesignerComponent(history.state, 'root').children).toEqual(['b', 'a', 'panel']);
+
+    expect(() =>
+      new CommandHistory(pageFixture()).execute(
+        new ReorderComponentsCommand('root', 'inside', null),
+      ),
+    ).toThrow(DesignerModelError);
   });
 
   it('renames without changing stable identity and rejects invalid or duplicate names', () => {

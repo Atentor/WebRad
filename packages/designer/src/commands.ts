@@ -2,7 +2,9 @@ import {
   getTypeScriptIdentifierError,
   validateComponentName,
   type Bounds,
+  type ContainerLayout,
   type ComponentNode,
+  type LayoutItem,
   type PageModel,
 } from '@webrad/project-model';
 
@@ -453,6 +455,177 @@ export class ChangePropertyCommand implements Command<PageModel> {
   }
 }
 
+export type LayoutPropertyTarget = 'container' | 'item';
+
+type LayoutPropertyRecord = ContainerLayout | LayoutItem;
+
+function replaceLayoutProperty(
+  component: ComponentNode,
+  target: LayoutPropertyTarget,
+  propertyName: string,
+  value: unknown,
+): ComponentNode {
+  const current = component.layout[target] as LayoutPropertyRecord;
+  if (!Object.hasOwn(current, propertyName)) {
+    throw new DesignerModelError(
+      `Unknown ${target} layout property "${propertyName}" for component "${component.id}".`,
+    );
+  }
+  return {
+    ...component,
+    layout: {
+      ...component.layout,
+      [target]: { ...current, [propertyName]: value },
+    },
+  } as ComponentNode;
+}
+
+/** Changes one persisted responsive-layout rule and preserves its undo delta. */
+export class ChangeLayoutPropertyCommand implements Command<PageModel> {
+  public readonly label = 'Change responsive layout';
+  readonly #componentIds: readonly string[];
+  readonly #target: LayoutPropertyTarget;
+  readonly #propertyName: string;
+  readonly #value: unknown;
+  #previous = new Map<string, unknown>();
+  #hasExecuted = false;
+
+  public constructor(
+    componentIds: string | readonly string[],
+    target: LayoutPropertyTarget,
+    propertyName: string,
+    value: unknown,
+  ) {
+    this.#componentIds = [
+      ...new Set(typeof componentIds === 'string' ? [componentIds] : componentIds),
+    ];
+    if (this.#componentIds.length === 0) {
+      throw new RangeError('At least one component is required to change responsive layout.');
+    }
+    this.#target = target;
+    this.#propertyName = propertyName;
+    this.#value = value;
+  }
+
+  public execute(page: PageModel): PageModel {
+    const replacements = new Map<string, ComponentNode>();
+    for (const id of this.#componentIds) {
+      const component = findDesignerComponent(page, id);
+      const current = component.layout[this.#target] as LayoutPropertyRecord;
+      if (!this.#hasExecuted) this.#previous.set(id, Reflect.get(current, this.#propertyName));
+      replacements.set(
+        id,
+        replaceLayoutProperty(component, this.#target, this.#propertyName, this.#value),
+      );
+    }
+    this.#hasExecuted = true;
+    return replaceComponentNodes(page, replacements);
+  }
+
+  public undo(page: PageModel): PageModel {
+    if (!this.#hasExecuted) {
+      throw new Error('Cannot undo a ChangeLayoutPropertyCommand before it has executed.');
+    }
+    const replacements = new Map<string, ComponentNode>();
+    for (const id of this.#componentIds) {
+      const previous = this.#previous.get(id);
+      if (previous === undefined) {
+        throw new Error(`Missing previous responsive-layout value for component "${id}".`);
+      }
+      const component = findDesignerComponent(page, id);
+      replacements.set(
+        id,
+        replaceLayoutProperty(component, this.#target, this.#propertyName, previous),
+      );
+    }
+    return replaceComponentNodes(page, replacements);
+  }
+}
+
+/**
+ * Reorders direct siblings without altering component identity, bounds, or
+ * parentage. Flow containers use this ordered child list as their visual
+ * sequence, so it is the persisted counterpart of a canvas drag reorder.
+ */
+export class ReorderComponentsCommand implements Command<PageModel> {
+  public readonly label = 'Reorder components';
+  readonly #parentId: string;
+  readonly #componentIds: readonly string[];
+  readonly #beforeComponentId: string | null;
+  #before: readonly string[] | null = null;
+  #after: readonly string[] | null = null;
+
+  public constructor(
+    parentId: string,
+    componentIds: string | readonly string[],
+    beforeComponentId: string | null,
+  ) {
+    this.#parentId = parentId;
+    this.#componentIds = [
+      ...new Set(typeof componentIds === 'string' ? [componentIds] : componentIds),
+    ];
+    if (this.#componentIds.length === 0) {
+      throw new RangeError('At least one component is required to reorder siblings.');
+    }
+    this.#beforeComponentId = beforeComponentId;
+  }
+
+  public execute(page: PageModel): PageModel {
+    const parent = findDesignerComponent(page, this.#parentId);
+    if (this.#after === null) {
+      const moved = new Set(this.#componentIds);
+      for (const componentId of this.#componentIds) {
+        const component = findDesignerComponent(page, componentId);
+        if (component.parentId !== parent.id || !parent.children.includes(component.id)) {
+          throw new DesignerModelError(
+            `Component "${component.id}" is not a direct child of "${parent.id}".`,
+          );
+        }
+      }
+      if (
+        this.#beforeComponentId !== null &&
+        (!parent.children.includes(this.#beforeComponentId) || moved.has(this.#beforeComponentId))
+      ) {
+        throw new DesignerModelError(
+          `Reorder target "${this.#beforeComponentId}" must be an unmoved child of "${parent.id}".`,
+        );
+      }
+
+      this.#before = [...parent.children];
+      const remaining = parent.children.filter((componentId) => !moved.has(componentId));
+      const insertionIndex =
+        this.#beforeComponentId === null
+          ? remaining.length
+          : remaining.indexOf(this.#beforeComponentId);
+      if (insertionIndex < 0) {
+        throw new DesignerModelError(
+          `Unable to resolve a valid reorder position in "${parent.id}".`,
+        );
+      }
+      this.#after = [
+        ...remaining.slice(0, insertionIndex),
+        ...this.#componentIds,
+        ...remaining.slice(insertionIndex),
+      ];
+    }
+    return replaceComponentNodes(
+      page,
+      new Map([[parent.id, { ...parent, children: this.#after }]]),
+    );
+  }
+
+  public undo(page: PageModel): PageModel {
+    if (this.#before === null) {
+      throw new Error('Cannot undo a ReorderComponentsCommand before it has executed.');
+    }
+    const parent = findDesignerComponent(page, this.#parentId);
+    return replaceComponentNodes(
+      page,
+      new Map([[parent.id, { ...parent, children: this.#before }]]),
+    );
+  }
+}
+
 export function isValidComponentName(name: string): boolean {
   return getTypeScriptIdentifierError(name) === undefined;
 }
@@ -501,8 +674,10 @@ export class RenameComponentCommand implements Command<PageModel> {
 
 export {
   AddComponentCommand as AddCommand,
+  ChangeLayoutPropertyCommand as ChangeLayoutProperty,
   ChangePropertyCommand as ChangeProperty,
   MoveCommand as Move,
+  ReorderComponentsCommand as ReorderComponents,
   RemoveComponentCommand as RemoveCommand,
   RenameComponentCommand as RenameCommand,
   ResizeCommand as Resize,

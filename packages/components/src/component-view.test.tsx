@@ -3,6 +3,7 @@
 import { render } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { createDefaultComponentLayout } from '@webrad/project-model';
 import { ComponentView, hasComponentRenderer } from './component-view';
 import { WEBRAD_COMPONENT_CSS } from './styles';
 
@@ -11,6 +12,7 @@ const button = {
   type: 'WebButton',
   name: 'BTNMostrar',
   parentId: 'page-id',
+  layout: createDefaultComponentLayout(),
   bounds: { x: 10, y: 20, width: 100, height: 32 },
   props: { caption: 'Mostrar', visible: true, enabled: true },
   events: { OnClick: 'BTNMostrarClick' },

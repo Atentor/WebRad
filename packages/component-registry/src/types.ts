@@ -1,7 +1,8 @@
 export type ComponentPropertyType =
   'string' | 'string-list' | 'number' | 'boolean' | 'enum' | 'color' | 'component';
 
-export type ComponentPropertySource = 'node' | 'bounds' | 'props' | 'page';
+export type ComponentPropertySource =
+  'node' | 'bounds' | 'props' | 'page' | 'layout-container' | 'layout-item';
 
 export interface ComponentPropertyDefinition {
   readonly name: string;
@@ -13,6 +14,8 @@ export interface ComponentPropertyDefinition {
   readonly options?: readonly string[];
   readonly description?: string;
   readonly readOnly?: boolean;
+  /** Enables an explicit null value for structural numeric controls. */
+  readonly nullable?: boolean;
 }
 
 export interface ComponentEventDefinition {
@@ -30,6 +33,42 @@ export interface PaletteMetadata {
 export interface DefaultComponentBounds {
   readonly width: number;
   readonly height: number;
+}
+
+/** Structural counterpart of the project-model layout contract. */
+export interface RegisteredContainerLayout {
+  readonly mode: 'fixed' | 'align-to-parent' | 'row' | 'column';
+  readonly paddingTop: number;
+  readonly paddingRight: number;
+  readonly paddingBottom: number;
+  readonly paddingLeft: number;
+  readonly gap: number;
+  readonly wrap: boolean;
+  readonly justifyContent: 'start' | 'center' | 'end' | 'space-between' | 'space-around';
+  readonly alignItems: 'start' | 'center' | 'end' | 'stretch';
+}
+
+/** Structural counterpart of the project-model layout item contract. */
+export interface RegisteredLayoutItem {
+  readonly width: 'fixed' | 'stretch' | 'fit-content';
+  readonly height: 'fixed' | 'stretch' | 'fit-content';
+  readonly minWidth: number;
+  readonly maxWidth: number | null;
+  readonly minHeight: number;
+  readonly maxHeight: number | null;
+  readonly grow: number;
+  readonly shrink: boolean;
+  readonly horizontalAnchor: 'start' | 'center' | 'end' | 'stretch';
+  readonly verticalAnchor: 'start' | 'center' | 'end' | 'stretch';
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+}
+
+export interface RegisteredComponentLayout {
+  readonly container: RegisteredContainerLayout;
+  readonly item: RegisteredLayoutItem;
 }
 
 export interface ComponentDefinition {
@@ -55,6 +94,7 @@ export interface RegisteredComponentNode {
   readonly type: string;
   readonly name: string;
   readonly parentId: string | null;
+  readonly layout: RegisteredComponentLayout;
   readonly bounds: {
     readonly x: number;
     readonly y: number;

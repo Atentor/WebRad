@@ -2,6 +2,7 @@ import {
   AddComponentCommand,
   BringToFrontCommand,
   MoveCommand,
+  ReorderComponentsCommand,
   RemoveComponentCommand,
   ResizeCommand,
   SelectionManager,
@@ -399,6 +400,19 @@ export function App(): ReactElement {
       }
     },
     [activePage, designerController, reportError, updateActivePage],
+  );
+
+  const reorderComponents = useCallback(
+    (parentId: string, componentIds: readonly string[], beforeComponentId: string | null): void => {
+      try {
+        commitDesignerCommand(
+          new ReorderComponentsCommand(parentId, componentIds, beforeComponentId),
+        );
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [commitDesignerCommand, reportError],
   );
 
   const resizeComponent = useCallback(
@@ -1221,6 +1235,7 @@ export function App(): ReactElement {
         onSelect={(ids, primaryId) => selectionManager.set(ids, primaryId)}
         onAddComponent={addComponentAt}
         onMoveComponents={moveComponents}
+        onReorderComponents={reorderComponents}
         onResizeComponent={resizeComponent}
         onDeleteSelection={deleteSelection}
         onCopy={copySelection}

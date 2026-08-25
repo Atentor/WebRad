@@ -37,7 +37,7 @@ afterEach(async () => {
 });
 
 describe('examples/hello-webrad', () => {
-  it('loads the persisted v1 Page project and compiles it as an Electron-free browser app', async () => {
+  it('loads the persisted responsive Page project and compiles it as an Electron-free browser app', async () => {
     const manifestPath = path.join(exampleDirectory, 'HelloWebRad.wrproj');
     const manifest = deserializeProjectManifest(await fs.readFile(manifestPath, 'utf8'));
     const descriptor = manifest.pages[0];
@@ -52,7 +52,7 @@ describe('examples/hello-webrad', () => {
     const userCodeBefore = await fs.readFile(userCodePath, 'utf8');
 
     expect(manifest).toMatchObject({
-      formatVersion: 1,
+      formatVersion: 2,
       id: 'hello-webrad-project-v1',
       entryPage: 'hello-webrad-form-main-v1',
     });

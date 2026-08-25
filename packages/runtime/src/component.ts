@@ -80,6 +80,17 @@ export class WebComponent<TElement extends HTMLElement = HTMLElement> {
 
   public set visible(value: boolean) {
     this.element.hidden = !value;
+    if (!value) {
+      // Layout uses inline !important for structural display so a reusable
+      // style cannot turn a row or column into a different display mode. Keep
+      // the visibility API authoritative over that structural projection.
+      this.element.style.setProperty('display', 'none', 'important');
+      return;
+    }
+
+    const layoutDisplay = this.element.dataset.webradLayoutDisplay;
+    if (layoutDisplay === undefined) this.element.style.removeProperty('display');
+    else this.element.style.setProperty('display', layoutDisplay, 'important');
   }
 
   public get enabled(): boolean {

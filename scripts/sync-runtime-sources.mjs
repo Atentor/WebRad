@@ -12,6 +12,7 @@ const sourceFiles = [
   'page.ts',
   'globals.ts',
   'index.ts',
+  'layout.ts',
   'render.ts',
   'visual.ts',
 ];

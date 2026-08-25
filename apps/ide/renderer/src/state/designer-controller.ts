@@ -1,4 +1,5 @@
 import {
+  ChangeLayoutPropertyCommand,
   ChangePropertyCommand,
   CommandHistory,
   copyComponents,
@@ -17,6 +18,7 @@ import {
   type PageModel,
 } from '@webrad/project-model';
 import type { ComponentPropertyDefinition } from '@webrad/component-registry';
+import { responsiveLayoutPropertyReference } from '../layout-property';
 
 class BindEventCommand implements Command<PageModel> {
   public readonly label = 'Bind event';
@@ -94,39 +96,14 @@ class ChangeStyleCommand implements Command<PageModel> {
   }
 }
 
-class ChangePagePropertyCommand implements Command<PageModel> {
-  public readonly label = 'Change page property';
-  readonly #property: 'layoutMode' | 'caption' | 'width' | 'height';
-  readonly #value: PageModel['layoutMode' | 'caption' | 'width' | 'height'];
-  #previous: PageModel['layoutMode' | 'caption' | 'width' | 'height'] | undefined;
-
-  public constructor(
-    property: 'layoutMode' | 'caption' | 'width' | 'height',
-    value: PageModel['layoutMode' | 'caption' | 'width' | 'height'],
-  ) {
-    this.#property = property;
-    this.#value = value;
-  }
-
-  public execute(page: PageModel): PageModel {
-    this.#previous ??= page[this.#property];
-    return parsePage({ ...page, [this.#property]: this.#value });
-  }
-
-  public undo(page: PageModel): PageModel {
-    if (this.#previous === undefined) throw new Error('Page property command has not executed.');
-    return parsePage({ ...page, [this.#property]: this.#previous });
-  }
-}
-
 class ChangeRootPropertyCommand implements Command<PageModel> {
   public readonly label = 'Change page root property';
-  readonly #propertyName: string;
+  readonly #propertyName: 'caption' | 'width' | 'height';
   readonly #value: unknown;
   #previous: unknown;
   #executed = false;
 
-  public constructor(propertyName: string, value: unknown) {
+  public constructor(propertyName: 'caption' | 'width' | 'height', value: unknown) {
     this.#propertyName = propertyName;
     this.#value = value;
   }
@@ -277,15 +254,12 @@ export class DesignerController {
         ),
       );
     }
-    if (property.source === 'page') {
-      const supported = new Set(['layoutMode', 'caption', 'width', 'height']);
-      if (!supported.has(property.name)) return page;
+    if (property.source === 'layout-container' || property.source === 'layout-item') {
+      const reference = responsiveLayoutPropertyReference(property);
+      if (reference === undefined) return page;
       return this.execute(
         page,
-        new ChangePagePropertyCommand(
-          property.name as 'layoutMode' | 'caption' | 'width' | 'height',
-          value as PageModel['layoutMode'],
-        ),
+        new ChangeLayoutPropertyCommand(ids, reference.target, reference.field, value),
       );
     }
     return this.execute(page, new ChangePropertyCommand(ids, property.name, value));

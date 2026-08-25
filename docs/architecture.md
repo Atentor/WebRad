@@ -34,13 +34,13 @@ The browser window uses context isolation, sandboxing, and no Node integration. 
 
 ## Designer model
 
-The page surface renders real component DOM from the same browser-safe property projection and CSS used by the generated runtime. A separate design overlay owns hit testing, selection handles, marquee selection, drag, and resize. Pure geometry services calculate deltas, snapping, bounds, and multi-selection transforms. Pointer movement may use transient UI state; a command commits the model once at operation completion.
+The page surface renders real component DOM from the same browser-safe property projection and CSS used by the generated runtime. Both project the version 2 `ComponentNode.layout` contract while retaining `bounds` for fixed-layout fallback. A separate design overlay owns hit testing, selection handles, marquee selection, drag, and resize. Pure geometry services calculate deltas, snapping, bounds, and multi-selection transforms. Pointer movement may use transient UI state; a command commits the model once at operation completion.
 
 Reusable styles remain project-level model records with stable IDs. The Styles workspace edits their Tailwind candidate groups, the Inspector offers only styles whose registered target type matches the selected visual component, and the Designer injects debounced CSS compiled through the narrow preload capability. Generated runtime nodes contain only the resolved static class names, so applications have no dependency on the Project Model or Tailwind compiler.
 
 Nonvisual nodes remain children of the page in the Project Model but are projected into a dedicated design-time tray instead of the canvas. Generated classes construct their typed runtime service instances directly from registered properties, immutable IDs, and user-facing names, while the compiler removes those nodes from the page DOM model. Nonvisual runtime objects therefore retain the same identity contract without pretending to own a DOM element: `id` remains stable and `name` reflects the current Project Model name.
 
-Component IDs are immutable. Names are validated TypeScript identifiers unique within a page. Child coordinates are relative to their container. Layout is modeled with an explicit mode (`absolute`, `flex`, or `grid`) even though the first implementation edits absolute bounds.
+Component IDs are immutable. Names are validated TypeScript identifiers unique within a page. Version 2 removes page-level `layoutMode`: each component persists a container mode (`fixed`, `align-to-parent`, `row`, or `column`) plus item sizing, constraints, anchors, and insets. `bounds` remains the deterministic geometry fallback for fixed mode. Runtime and Designer implementations must derive their layout from this shared Project Model contract rather than retaining independent layout state.
 
 ## Commands and selection
 
