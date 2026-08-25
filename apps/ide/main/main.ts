@@ -469,7 +469,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     })()`,
     'the visual Styles workspace',
   );
-  if (stylesWorkspace !== 'ready') throw new Error('Styles workspace did not open without the removed guidance banner.');
+  if (stylesWorkspace !== 'ready')
+    throw new Error('Styles workspace did not open without the removed guidance banner.');
   await waitForRendererString(
     window,
     `Array.from(document.querySelectorAll('.wr-style-list strong')).some((item) => item.textContent?.trim() === 'PrimaryButton') ? 'ready' : ''`,

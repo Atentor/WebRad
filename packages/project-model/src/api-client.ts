@@ -112,10 +112,15 @@ const schemaPathSchema = z
   .refine((value) => value.length === 0 || value.startsWith('/'), {
     message: 'A response schema path must be empty or start with "/".',
   });
-const operationNameSchema = z.string().trim().min(1).max(120).superRefine((value, context) => {
-  const error = getTypeScriptIdentifierError(value);
-  if (error !== undefined) context.addIssue({ code: 'custom', message: error });
-});
+const operationNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .superRefine((value, context) => {
+    const error = getTypeScriptIdentifierError(value);
+    if (error !== undefined) context.addIssue({ code: 'custom', message: error });
+  });
 
 export const ApiClientParameterSchema: z.ZodType<ApiClientParameter> = z
   .object({
@@ -133,10 +138,7 @@ export const ApiClientRequestBodySchema: z.ZodType<ApiClientRequestBody> = z
   })
   .strict();
 
-function validateSchemaNode(
-  node: ApiClientSchemaNode,
-  context: z.RefinementCtx,
-): void {
+function validateSchemaNode(node: ApiClientSchemaNode, context: z.RefinementCtx): void {
   if (node.kind === 'field' && (node.fieldType === 'object' || node.fieldType === 'list')) {
     context.addIssue({
       code: 'custom',
@@ -196,7 +198,9 @@ function collectSchemaNodeIds(
     });
   }
   ids.add(node.id);
-  node.children.forEach((child, index) => collectSchemaNodeIds(child, ids, context, [...path, 'children', index]));
+  node.children.forEach((child, index) =>
+    collectSchemaNodeIds(child, ids, context, [...path, 'children', index]),
+  );
 }
 
 export const ApiClientResponseSchemaSchema: z.ZodType<ApiClientResponseSchema> = z

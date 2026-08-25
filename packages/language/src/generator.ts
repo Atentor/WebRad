@@ -86,11 +86,7 @@ function schemaTypeName(
       node.children.length === 0
         ? 'unknown'
         : node.children.length === 1 && node.children[0]?.name === '$item'
-          ? schemaTypeName(
-              node.children[0],
-              `${prefix}Item`,
-              builder,
-            )
+          ? schemaTypeName(node.children[0], `${prefix}Item`, builder)
           : schemaObjectTypeName(node.children, `${prefix}Item`, builder);
     return nullableType(`readonly ${itemType}[]`, node.nullable);
   }
