@@ -303,7 +303,9 @@ describe('App MVP integration', () => {
     expect(screen.queryByRole('combobox', { name: 'Icon' })).toBeNull();
     await user.click(iconPicker);
     const iconDialog = await screen.findByRole('dialog', { name: 'Choose an icon' });
-    expect(iconDialog.querySelectorAll('svg')).toHaveLength(WEBRAD_ICON_NAMES.length);
+    expect(iconDialog.querySelectorAll('.wr-icon-picker-option .wr-icon')).toHaveLength(
+      WEBRAD_ICON_NAMES.length,
+    );
     await user.click(screen.getByRole('button', { name: 'Select Save icon' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Choose an icon' })).toBeNull();

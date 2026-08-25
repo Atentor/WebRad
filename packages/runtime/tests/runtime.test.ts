@@ -1038,6 +1038,9 @@ describe('browser runtime', () => {
     runtimeButton.icon = 'play';
     expect(runtimeButton.icon).toBe('play');
     expect(icon?.querySelector('path')?.getAttribute('d')).toContain('m8 5 11 7');
+    runtimeButton.icon = 'door-in';
+    expect(runtimeButton.icon).toBe('door-in');
+    expect(icon?.querySelector('path')).not.toBeNull();
   });
 });
 

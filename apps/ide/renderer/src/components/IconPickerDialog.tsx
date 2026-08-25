@@ -1,5 +1,13 @@
 import { type WebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactElement } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactElement,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 
@@ -23,15 +31,31 @@ export function IconPickerDialog({
 }: IconPickerDialogProps): ReactElement {
   const titleId = useId();
   const descriptionId = useId();
+  const searchId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
-  const initialFocusRef = useRef<HTMLButtonElement | null>(null);
-  const initialIcon = selected !== undefined && icons.includes(selected) ? selected : icons[0];
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const iconButtonRefs = useRef(new Map<WebRadIconName, HTMLButtonElement>());
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
+  const [search, setSearch] = useState('');
+  const normalizedSearch = search.trim().toLocaleLowerCase('en-US');
+  const matchingIcons = useMemo(
+    () =>
+      normalizedSearch.length === 0
+        ? icons
+        : icons.filter((icon) => {
+            const name = icon.toLocaleLowerCase('en-US');
+            const label = webRadIconLabel(icon).toLocaleLowerCase('en-US');
+            return name.includes(normalizedSearch) || label.includes(normalizedSearch);
+          }),
+    [icons, normalizedSearch],
+  );
+  const focusedIcon =
+    selected !== undefined && matchingIcons.includes(selected) ? selected : matchingIcons[0];
 
   useEffect(() => {
-    initialFocusRef.current?.focus();
+    searchRef.current?.focus();
     const returnFocus = returnFocusRef.current;
     return () => {
       if (returnFocus?.isConnected) returnFocus.focus();
@@ -48,7 +72,9 @@ export function IconPickerDialog({
     if (event.key !== 'Tab') return;
 
     const focusable = [
-      ...(dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []),
+      ...(dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled)',
+      ) ?? []),
     ];
     const first = focusable[0];
     const last = focusable.at(-1);
@@ -60,6 +86,17 @@ export function IconPickerDialog({
       event.preventDefault();
       first.focus();
     }
+  };
+
+  const focusMatchingIcon = (): void => {
+    if (focusedIcon !== undefined) iconButtonRefs.current.get(focusedIcon)?.focus();
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key !== 'ArrowDown') return;
+    if (focusedIcon === undefined) return;
+    event.preventDefault();
+    focusMatchingIcon();
   };
 
   return createPortal(
@@ -90,27 +127,48 @@ export function IconPickerDialog({
           <p id={descriptionId} className="wr-modal-description">
             Select an icon to apply it to the selected button.
           </p>
-          <div className="wr-icon-picker-grid" aria-label="Available icons">
-            {icons.map((icon) => {
-              const label = webRadIconLabel(icon);
-              const receivesInitialFocus = icon === initialIcon;
-              return (
-                <button
-                  ref={receivesInitialFocus ? initialFocusRef : undefined}
-                  type="button"
-                  className={`wr-icon-picker-option${icon === selected ? ' selected' : ''}`}
-                  key={icon}
-                  aria-label={`Select ${label} icon`}
-                  aria-pressed={icon === selected}
-                  data-icon-picker-option={icon}
-                  onClick={() => onSelect(icon)}
-                >
-                  <Icon name={icon} />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
+          <label className="wr-icon-picker-search" htmlFor={searchId}>
+            <span>Search icons</span>
+            <input
+              ref={searchRef}
+              id={searchId}
+              type="search"
+              value={search}
+              placeholder="Search by name"
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={handleSearchKeyDown}
+            />
+          </label>
+          {matchingIcons.length > 0 ? (
+            <div className="wr-icon-picker-grid" aria-label="Available icons">
+              {matchingIcons.map((icon) => {
+                const label = webRadIconLabel(icon);
+                return (
+                  <button
+                    ref={(element) => {
+                      if (element === null) iconButtonRefs.current.delete(icon);
+                      else iconButtonRefs.current.set(icon, element);
+                    }}
+                    type="button"
+                    className={`wr-icon-picker-option${icon === selected ? ' selected' : ''}`}
+                    key={icon}
+                    aria-label={`Select ${label} icon`}
+                    aria-pressed={icon === selected}
+                    data-icon-picker-option={icon}
+                    onClick={() => onSelect(icon)}
+                  >
+                    <Icon name={icon} />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="wr-icon-picker-empty" role="status">
+              <strong>No icons found</strong>
+              <span>Try another name or label.</span>
+            </div>
+          )}
         </div>
         <footer className="wr-modal-actions wr-icon-picker-actions">
           <button type="button" onClick={onClose}>

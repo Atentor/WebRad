@@ -27,7 +27,7 @@ describe('IconPickerDialog', () => {
     const dialog = screen.getByRole('dialog', { name: 'Choose an icon' });
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(dialog.querySelectorAll('.wr-icon')).toHaveLength(2);
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Select Add icon' }));
+    expect(document.activeElement).toBe(screen.getByRole('searchbox', { name: 'Search icons' }));
 
     await user.click(screen.getByRole('button', { name: 'Select Save icon' }));
     expect(onSelect).toHaveBeenCalledWith('save');
@@ -39,11 +39,63 @@ describe('IconPickerDialog', () => {
     trigger.remove();
   });
 
-  it('focuses the first available icon when the current icon is not in the gallery', () => {
+  it('filters by icon name or label without selecting, and focuses the best matching result', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <IconPickerDialog
+        icons={['add', 'chevron-down', 'save']}
+        selected="add"
+        onClose={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+
+    const search = screen.getByRole('searchbox', { name: 'Search icons' });
+    await user.type(search, 'chevron down');
+    expect(screen.queryByRole('button', { name: 'Select Add icon' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Select Chevron Down icon' })).toBeDefined();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Select Chevron Down icon' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Select Chevron Down icon' }));
+    expect(onSelect).toHaveBeenCalledWith('chevron-down');
+  });
+
+  it('finds login, logout, and door-direction variants by their labels', async () => {
+    const user = userEvent.setup();
+    render(
+      <IconPickerDialog
+        icons={['login', 'logout', 'door-in', 'door-out']}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const search = screen.getByRole('searchbox', { name: 'Search icons' });
+    await user.type(search, 'door out');
+    expect(screen.getByRole('button', { name: 'Select Door Out icon' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Select Door In icon' })).toBeNull();
+
+    await user.clear(search);
+    await user.type(search, 'login');
+    expect(screen.getByRole('button', { name: 'Select Login icon' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Select Logout icon' })).toBeNull();
+  });
+
+  it('keeps focus in the search and announces an empty result set', async () => {
+    const user = userEvent.setup();
     render(
       <IconPickerDialog icons={['save']} selected="add" onClose={vi.fn()} onSelect={vi.fn()} />,
     );
 
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Select Save icon' }));
+    const search = screen.getByRole('searchbox', { name: 'Search icons' });
+    await user.type(search, 'missing');
+    expect(screen.getByRole('status').textContent).toContain('No icons found');
+    expect(document.activeElement).toBe(search);
+    expect(screen.queryByRole('button', { name: 'Select Save icon' })).toBeNull();
   });
 });

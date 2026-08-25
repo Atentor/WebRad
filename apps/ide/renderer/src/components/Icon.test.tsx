@@ -3,9 +3,24 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { Icon } from './Icon';
 
+const AUTH_AND_DOOR_ICON_NAMES = [
+  'login',
+  'logout',
+  'log-in',
+  'log-out',
+  'sign-in',
+  'sign-out',
+  'door-in',
+  'door-out',
+  'door-enter',
+  'door-exit',
+  'door-open',
+  'door-closed',
+] as const;
+
 describe('Icon', () => {
-  it('provides 100 local icons across common button actions', () => {
-    expect(WEBRAD_ICON_NAMES).toHaveLength(100);
+  it('provides a broad local catalogue across common button actions', () => {
+    expect(WEBRAD_ICON_NAMES.length).toBeGreaterThanOrEqual(200);
     expect(new Set(WEBRAD_ICON_NAMES).size).toBe(WEBRAD_ICON_NAMES.length);
     expect(WEBRAD_ICON_NAMES).toEqual(
       expect.arrayContaining([
@@ -15,6 +30,11 @@ describe('Icon', () => {
         'download-cloud',
         'mail',
         'video',
+        'shield-check',
+        'file-code',
+        'message-circle',
+        'credit-card',
+        ...AUTH_AND_DOOR_ICON_NAMES,
       ]),
     );
   });
