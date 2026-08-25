@@ -25,6 +25,7 @@ export function IconPickerDialog({
   const descriptionId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
   const initialFocusRef = useRef<HTMLButtonElement | null>(null);
+  const initialIcon = selected !== undefined && icons.includes(selected) ? selected : icons[0];
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
@@ -90,10 +91,9 @@ export function IconPickerDialog({
             Select an icon to apply it to the selected button.
           </p>
           <div className="wr-icon-picker-grid" aria-label="Available icons">
-            {icons.map((icon, index) => {
+            {icons.map((icon) => {
               const label = webRadIconLabel(icon);
-              const receivesInitialFocus =
-                icon === selected || (selected === undefined && index === 0);
+              const receivesInitialFocus = icon === initialIcon;
               return (
                 <button
                   ref={receivesInitialFocus ? initialFocusRef : undefined}

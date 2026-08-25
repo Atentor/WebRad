@@ -62,7 +62,7 @@ describe('ComponentView', () => {
     const view = render(
       <ComponentView
         node={{ ...button, props: { ...button.props, icon: 'save' } }}
-        styleClassName="[&_.wr-button-icon]:block [&_.wr-button-icon]:text-[#f59e0b] [&_.wr-button-text]:sr-only flex-col-reverse"
+        styleClassName="[&_.wr-button-icon]:block [&_.wr-button-icon]:w-[24px]! [&_.wr-button-icon]:h-[24px]! [&_.wr-button-icon]:text-[#f59e0b] [&_.wr-button-text]:sr-only flex-col-reverse"
       />,
     );
     const element = view.getByRole('button', { name: 'Mostrar' });
@@ -71,6 +71,8 @@ describe('ComponentView', () => {
       'M5 3h12',
     );
     expect(element.classList).toContain('[&_.wr-button-icon]:block');
+    expect(element.classList).toContain('[&_.wr-button-icon]:w-[24px]!');
+    expect(element.classList).toContain('[&_.wr-button-icon]:h-[24px]!');
     expect(element.classList).toContain('[&_.wr-button-icon]:text-[#f59e0b]');
     expect(element.classList).toContain('[&_.wr-button-text]:sr-only');
     expect(element.classList).toContain('flex-col-reverse');

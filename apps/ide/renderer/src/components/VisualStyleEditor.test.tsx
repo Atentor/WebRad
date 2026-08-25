@@ -158,41 +158,35 @@ describe('VisualStyleEditor', () => {
     });
   });
 
-  it('shows button presentation only on the base state', async () => {
+  it('groups button icon styles and keeps presentation on the base state', async () => {
     const user = userEvent.setup();
     const base = render(<VisualEditorHarness stateName="base" />);
-    await user.click(screen.getByRole('button', { name: /^Content/ }));
+    await user.click(screen.getByRole('button', { name: /^Icon/ }));
     await user.click(screen.getByLabelText('Configure Button content'));
     await user.selectOptions(screen.getByLabelText('Button content'), 'text-icon');
     await user.click(screen.getByLabelText('Configure Icon position'));
     await user.selectOptions(screen.getByLabelText('Icon position'), 'bottom');
+    await user.click(screen.getByLabelText('Configure Icon size'));
+    fireEvent.change(screen.getByLabelText('Icon size value'), { target: { value: '24' } });
+    await user.click(screen.getByLabelText('Configure Icon color'));
     expect(currentProperties()).toMatchObject({
       buttonContentMode: 'text-icon',
       buttonIconPosition: 'bottom',
+      buttonIconSize: { value: 24, unit: 'px' },
+      buttonIconColor: 'current',
     });
     base.unmount();
 
-    render(<VisualEditorHarness stateName="hover" />);
-    expect(screen.queryByRole('button', { name: /^Content/ })).toBeNull();
-  });
-
-  it('offers icon color only for button styles, including interaction states', async () => {
-    const user = userEvent.setup();
-    const base = render(<VisualEditorHarness componentType="WebButton" stateName="base" />);
-    await user.click(screen.getByRole('button', { name: /^Colors/ }));
-    expect(screen.getByLabelText('Configure Icon color')).toBeDefined();
-    await user.click(screen.getByLabelText('Configure Icon color'));
-    expect(currentProperties()).toMatchObject({ buttonIconColor: 'current' });
-    base.unmount();
-
     const hover = render(<VisualEditorHarness componentType="WebButton" stateName="hover" />);
-    await user.click(screen.getByRole('button', { name: /^Colors/ }));
+    await user.click(screen.getByRole('button', { name: /^Icon/ }));
     expect(screen.getByLabelText('Configure Icon color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Icon size')).toBeDefined();
+    expect(screen.queryByLabelText('Configure Button content')).toBeNull();
+    expect(screen.queryByLabelText('Configure Icon position')).toBeNull();
     hover.unmount();
 
     render(<VisualEditorHarness componentType="WebLabel" stateName="base" />);
-    await user.click(screen.getByRole('button', { name: /^Colors/ }));
-    expect(screen.queryByLabelText('Configure Icon color')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Icon/ })).toBeNull();
   });
 
   it('uses metadata component compatibility to show image-only properties', async () => {

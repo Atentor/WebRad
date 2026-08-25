@@ -170,6 +170,7 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
         fontWeight: 'semibold',
         buttonContentMode: 'text-icon',
         buttonIconPosition: 'left',
+        buttonIconSize: px(16),
         boxShadow: 'sm',
         cursor: 'pointer',
         transitionProperty: 'all',

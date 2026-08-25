@@ -934,15 +934,18 @@ describe('browser runtime', () => {
     );
   });
 
-  it('targets a button SVG icon with its own state-aware style color', () => {
+  it('targets a button SVG icon with its own state-aware size and color', () => {
+    expect(resolveStylePropertyCandidate('buttonIconSize', { value: 24, unit: 'px' })).toBe(
+      '[&_.wr-button-icon]:w-[24px]! [&_.wr-button-icon]:h-[24px]!',
+    );
     expect(resolveStylePropertyCandidate('buttonIconColor', '#f59e0b')).toBe(
       '[&_.wr-button-icon]:text-[#f59e0b]',
     );
     expect(
       resolveComponentStyleClassNames({
         states: {
-          base: { buttonIconColor: '#f59e0b' },
-          hover: { buttonIconColor: '#38bdf8' },
+          base: { buttonIconSize: { value: 24, unit: 'px' }, buttonIconColor: '#f59e0b' },
+          hover: { buttonIconSize: { value: 20, unit: 'px' }, buttonIconColor: '#38bdf8' },
           focus: {},
           active: {},
           disabled: {},
@@ -950,7 +953,11 @@ describe('browser runtime', () => {
       }),
     ).toEqual(
       expect.arrayContaining([
+        '[&_.wr-button-icon]:w-[24px]!',
+        '[&_.wr-button-icon]:h-[24px]!',
         '[&_.wr-button-icon]:text-[#f59e0b]',
+        'hover:[&_.wr-button-icon]:w-[20px]!',
+        'hover:[&_.wr-button-icon]:h-[20px]!',
         'hover:[&_.wr-button-icon]:text-[#38bdf8]',
       ]),
     );

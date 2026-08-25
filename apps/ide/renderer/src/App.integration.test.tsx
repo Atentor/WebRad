@@ -2,6 +2,7 @@
 
 import { createUserPageSource } from '@webrad/language';
 import { createProject, type WebRadProject } from '@webrad/project-model';
+import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -302,7 +303,7 @@ describe('App MVP integration', () => {
     expect(screen.queryByRole('combobox', { name: 'Icon' })).toBeNull();
     await user.click(iconPicker);
     const iconDialog = await screen.findByRole('dialog', { name: 'Choose an icon' });
-    expect(iconDialog.querySelectorAll('svg')).toHaveLength(18);
+    expect(iconDialog.querySelectorAll('svg')).toHaveLength(WEBRAD_ICON_NAMES.length);
     await user.click(screen.getByRole('button', { name: 'Select Save icon' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Choose an icon' })).toBeNull();

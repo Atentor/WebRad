@@ -4,6 +4,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { MVP_COMPONENT_DEFINITIONS } from '@webrad/component-registry';
+import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 
 import { generateRuntimeTypings } from '../src/runtime-typings.js';
 
@@ -136,6 +137,13 @@ function completionNames(
 }
 
 describe('Monaco runtime typings', () => {
+  it('derives every button icon literal from the shared local catalogue', () => {
+    const typings = generateRuntimeTypings();
+    for (const icon of WEBRAD_ICON_NAMES) {
+      expect(typings).toContain(`| '${icon}'`);
+    }
+  });
+
   it('stays in parity with every public runtime export', () => {
     const typingsExports = runtimeModuleExports(generateRuntimeTypings());
     const runtimeExports = publicRuntimeExports();

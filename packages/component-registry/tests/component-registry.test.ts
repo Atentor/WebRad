@@ -161,7 +161,7 @@ describe('MVP component metadata', () => {
     expect(button.properties.find((property) => property.name === 'icon')).toMatchObject({
       type: 'icon',
       source: 'props',
-      options: expect.arrayContaining(['add', 'save', 'search']),
+      options: expect.arrayContaining(['add', 'save', 'search', 'calendar', 'chart-line', 'video']),
     });
     expect(button.defaultBounds).toEqual({ width: 100, height: 32 });
     expect(button.events.map((item) => item.name)).toEqual([

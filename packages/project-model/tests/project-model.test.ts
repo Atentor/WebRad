@@ -299,9 +299,13 @@ describe('project factories', () => {
         base: {
           buttonContentMode: 'text-icon',
           buttonIconPosition: 'right',
+          buttonIconSize: { value: 24, unit: 'px' },
           buttonIconColor: '#f59e0b',
         },
-        hover: { buttonIconColor: '#38bdf8' },
+        hover: {
+          buttonIconSize: { value: 20, unit: 'px' },
+          buttonIconColor: '#38bdf8',
+        },
       },
     });
     expect(safeParseComponentStyle(valid).success).toBe(true);
@@ -315,7 +319,7 @@ describe('project factories', () => {
       safeParseComponentStyle({
         ...valid,
         componentType: 'WebLabel',
-        states: { ...valid.states, base: { buttonIconColor: '#f59e0b' } },
+        states: { ...valid.states, base: { buttonIconSize: { value: 24, unit: 'px' } } },
       }).success,
     ).toBe(false);
   });
@@ -909,6 +913,7 @@ describe('immutable update helpers', () => {
     expect(defaultButton.states.base).toMatchObject({
       buttonContentMode: 'text-icon',
       buttonIconPosition: 'left',
+      buttonIconSize: { value: 16, unit: 'px' },
     });
 
     expect(() => removeComponentStyle(project, defaultButton.id)).toThrow(

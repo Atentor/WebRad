@@ -1,3 +1,7 @@
+import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
+
+const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'`).join('\n');
+
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   /** Handler used by every WebRAD component event. */
   export type WebComponentEventHandler<TSender extends WebComponent = WebComponent> = (
@@ -184,24 +188,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   }
 
   export type WebButtonIcon =
-    | 'add'
-    | 'chevron-down'
-    | 'chevron-right'
-    | 'close'
-    | 'delete'
-    | 'folder-open'
-    | 'info'
-    | 'layers'
-    | 'lightbulb'
-    | 'palette'
-    | 'page'
-    | 'play'
-    | 'redo'
-    | 'save'
-    | 'search'
-    | 'settings'
-    | 'style'
-    | 'undo';
+${WEB_BUTTON_ICON_TYPINGS};
 
   export class WebButton extends WebComponent<HTMLButtonElement> {
     constructor(element: HTMLElement);

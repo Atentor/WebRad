@@ -448,6 +448,13 @@ export function resolveStylePropertyCandidate(
         top: 'flex-col',
         bottom: 'flex-col-reverse',
       });
+    case 'buttonIconSize': {
+      const width = lengthClass('w', value, true);
+      const height = lengthClass('h', value, true);
+      return width === undefined || height === undefined
+        ? undefined
+        : `[&_.wr-button-icon]:${width} [&_.wr-button-icon]:${height}`;
+    }
     case 'textColor':
       return colorClass('text', value);
     case 'buttonIconColor': {

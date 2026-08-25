@@ -11,7 +11,7 @@ export type ComponentStylePropertyCategory =
   | 'Dimensions'
   | 'Spacing'
   | 'Typography'
-  | 'Content'
+  | 'Icon'
   | 'Colors'
   | 'Border'
   | 'Effects'
@@ -147,6 +147,7 @@ interface LengthPropertyOptions {
   readonly step?: number;
   readonly defaultValue?: StylePropertyValue;
   readonly componentTypes?: readonly string[];
+  readonly stateNames?: readonly ComponentStyleStateName[];
 }
 
 function lengthProperty(
@@ -171,6 +172,7 @@ function lengthProperty(
       ...(settings.step === undefined ? {} : { step: settings.step }),
     },
     ...(settings.componentTypes === undefined ? {} : { componentTypes: settings.componentTypes }),
+    ...(settings.stateNames === undefined ? {} : { stateNames: settings.stateNames }),
   };
 }
 
@@ -501,7 +503,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
   enumProperty(
     'buttonContentMode',
     'Button content',
-    'Content',
+    'Icon',
     [
       ['text', 'Text only'],
       ['text-icon', 'Text and icon'],
@@ -513,7 +515,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
   enumProperty(
     'buttonIconPosition',
     'Icon position',
-    'Content',
+    'Icon',
     [
       ['left', 'Left'],
       ['right', 'Right'],
@@ -523,12 +525,18 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ['WebButton'],
     ['base'],
   ),
-
-  colorProperty('textColor', 'Text color', 'Colors'),
-  colorProperty('buttonIconColor', 'Icon color', 'Colors', {
+  lengthProperty('buttonIconSize', 'Icon size', 'Icon', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 16, unit: 'px' },
+    componentTypes: ['WebButton'],
+  }),
+  colorProperty('buttonIconColor', 'Icon color', 'Icon', {
     componentTypes: ['WebButton'],
     defaultValue: 'current',
   }),
+
+  colorProperty('textColor', 'Text color', 'Colors'),
   gradientProperty('textGradient', 'Text gradient', 'Colors', [
     'WebLabel',
     'WebButton',

@@ -38,4 +38,12 @@ describe('IconPickerDialog', () => {
     expect(document.activeElement).toBe(trigger);
     trigger.remove();
   });
+
+  it('focuses the first available icon when the current icon is not in the gallery', () => {
+    render(
+      <IconPickerDialog icons={['save']} selected="add" onClose={vi.fn()} onSelect={vi.fn()} />,
+    );
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Select Save icon' }));
+  });
 });
