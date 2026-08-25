@@ -131,6 +131,16 @@ describe('project factories', () => {
     expect(project.pages[0]?.components[0]?.styleId).toBe(
       findDefaultComponentStyle(project.styles, 'WebPage')?.id,
     );
+    const defaultCheckBox = findDefaultComponentStyle(project.styles, 'WebCheckBox');
+    expect(defaultCheckBox).toBeDefined();
+    if (defaultCheckBox !== undefined) {
+      expect(defaultCheckBox.states.base).not.toHaveProperty('backgroundColor');
+      expect(defaultCheckBox.states.base).not.toHaveProperty('backgroundGradient');
+      expect(defaultCheckBox.states.base).not.toHaveProperty('borderWidth');
+      expect(defaultCheckBox.states.base).not.toHaveProperty('borderStyle');
+      expect(defaultCheckBox.states.base).not.toHaveProperty('borderColor');
+      expect(defaultCheckBox.states.base).not.toHaveProperty('borderGradient');
+    }
   });
 
   it('binds every newly added page root to the default WebPage style', () => {

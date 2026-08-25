@@ -204,11 +204,6 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     componentType: 'WebCheckBox',
     states: {
       base: {
-        backgroundGradient: gradient('to-right', '#f8fbff', '#f5f3ff'),
-        borderWidth: px(1),
-        borderStyle: 'solid',
-        borderGradient: subtleBorder,
-        borderRadius: px(8),
         textColor: '#334155',
         fontFamily: 'sans',
         fontSize: px(14),
@@ -225,8 +220,6 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
         ringOffsetColor: '#ffffff',
       },
       disabled: {
-        backgroundColor: '#f1f5f9',
-        borderColor: '#e2e8f0',
         textColor: '#64748b',
         cursor: 'not-allowed',
       },
