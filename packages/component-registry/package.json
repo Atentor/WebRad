@@ -11,6 +11,7 @@
   },
   "types": "./src/index.ts",
   "dependencies": {
+    "@webrad/project-model": "0.1.0",
     "@webrad/runtime": "0.1.0"
   },
   "scripts": {

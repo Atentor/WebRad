@@ -7,10 +7,12 @@ import {
   addComponentStyle,
   bindComponentEvent,
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
+  createDefaultApiClientConfiguration,
   createComponentStyle,
   createProject,
   setComponentStyle,
   updatePage,
+  type ApiClientConfiguration,
   type BackgroundGradientValue,
   type PageModel,
   type StylePropertyValue,
@@ -91,6 +93,60 @@ function executableProject(): WebRadProject {
   return updatePage(project, page.id, page);
 }
 
+function customersApiClientConfiguration(): ApiClientConfiguration {
+  const defaults = createDefaultApiClientConfiguration();
+  const request = defaults.operations[0];
+  if (request === undefined) throw new Error('Expected an API Client default operation.');
+
+  return {
+    ...defaults,
+    defaultHeaders: [
+      { id: 'accept-header', name: 'Accept', value: 'application/json', enabled: true },
+    ],
+    timeoutMs: 15_000,
+    operations: [
+      {
+        ...request,
+        id: 'load-customers',
+        name: 'LoadCustomers',
+        path: '/customers',
+        query: [{ id: 'page-query', name: 'page', value: '1', enabled: true }],
+        responseSchema: {
+          version: 1,
+          root: {
+            id: 'customers-response',
+            name: 'Response',
+            path: '',
+            kind: 'list',
+            fieldType: 'list',
+            nullable: false,
+            children: [
+              {
+                id: 'customer-id',
+                name: 'id',
+                path: '/*/id',
+                kind: 'field',
+                fieldType: 'integer',
+                nullable: false,
+                children: [],
+              },
+              {
+                id: 'customer-name',
+                name: 'name',
+                path: '/*/name',
+                kind: 'field',
+                fieldType: 'string',
+                nullable: true,
+                children: [],
+              },
+            ],
+          },
+        },
+      },
+    ],
+  };
+}
+
 function styledExecutableProject(): WebRadProject {
   const project = executableProject();
   const style = createComponentStyle('Primary Button', 'WebButton', {
@@ -152,6 +208,31 @@ function styledExecutableProject(): WebRadProject {
 }
 
 describe('compileProject', () => {
+  it('accepts a registered, typed API Client response contract', async () => {
+    const project = executableProject();
+    const configuration = customersApiClientConfiguration();
+    const configuredProject: WebRadProject = {
+      ...project,
+      pages: project.pages.map((page) => ({
+        ...page,
+        components: page.components.map((component) =>
+          component.id === 'api-client'
+            ? {
+                ...component,
+                props: { ...component.props, apiClientConfig: configuration },
+              }
+            : component,
+        ),
+      })),
+    };
+
+    const result = await compileProjectToMemory(configuredProject, { userSources: {} });
+
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    expect(result.files['assets/app.js']).toContain('LoadCustomers');
+    expect(result.files['assets/app.js']).toContain('customer-name');
+  });
+
   it('validates, typechecks and writes an ordinary browser application', async () => {
     const outputDirectory = await temporaryDirectory();
     const project = executableProject();

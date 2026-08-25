@@ -1,6 +1,7 @@
 import {
   defaultComponentRegistry,
   type ComponentDefinition,
+  type ComponentDesignerAction,
   type ComponentEventDefinition,
   type ComponentPropertyDefinition,
   type ComponentRegistry,
@@ -50,6 +51,12 @@ export interface ObjectInspectorProps {
     definition: ComponentEventDefinition,
   ) => void;
   onEventDoubleClick: (eventName: string, definition: ComponentEventDefinition) => void;
+  /** Runs a Registry-declared design-time workflow for the selected component. */
+  onDesignerAction?: (
+    action: ComponentDesignerAction,
+    component: ComponentNode,
+    property: ComponentPropertyDefinition,
+  ) => void;
   /** Keeps the application shell inert while an Inspector icon picker is open. */
   onIconPickerOpenChange?: (open: boolean) => void;
   /** Reusable styles from the open project. Only type-compatible styles are displayed. */
@@ -229,6 +236,7 @@ interface PropertyEditorProps {
   readonly multiple: boolean;
   readonly availableComponents: readonly ComponentNode[];
   readonly onChange: (value: unknown) => void;
+  readonly onDesignerAction?: (action: ComponentDesignerAction) => void;
   readonly onIconPickerOpenChange?: (open: boolean) => void;
 }
 
@@ -320,6 +328,7 @@ function PropertyEditor({
   multiple,
   availableComponents,
   onChange,
+  onDesignerAction,
   onIconPickerOpenChange,
 }: PropertyEditorProps): ReactElement {
   const text = editorText(value, multiple);
@@ -486,6 +495,23 @@ function PropertyEditor({
         </select>
       );
     }
+    case 'api-client-config': {
+      const action = property.designerAction;
+      return (
+        <button
+          id={id}
+          type="button"
+          className="wr-inspector-action"
+          disabled={disabled || multiple || action === undefined}
+          title={property.description}
+          onClick={() => {
+            if (action !== undefined) onDesignerAction?.(action);
+          }}
+        >
+          Configure and test…
+        </button>
+      );
+    }
   }
 }
 
@@ -495,6 +521,7 @@ interface PropertyRowProps {
   readonly page: PageModel | null | undefined;
   readonly availableComponents: readonly ComponentNode[];
   readonly onChange: ObjectInspectorProps['onPropertyChange'];
+  readonly onDesignerAction?: ObjectInspectorProps['onDesignerAction'];
   readonly onIconPickerOpenChange?: (open: boolean) => void;
 }
 
@@ -504,6 +531,7 @@ function PropertyRow({
   page,
   availableComponents,
   onChange,
+  onDesignerAction,
   onIconPickerOpenChange,
 }: PropertyRowProps): ReactElement {
   const editorId = useId();
@@ -525,6 +553,10 @@ function PropertyRow({
           multiple={multiple}
           availableComponents={availableComponents}
           onChange={(nextValue) => onChange(property.name, nextValue, property)}
+          onDesignerAction={(action) => {
+            const component = selection.at(-1);
+            if (component !== undefined) onDesignerAction?.(action, component, property);
+          }}
           onIconPickerOpenChange={onIconPickerOpenChange}
         />
       </div>
@@ -590,6 +622,7 @@ export function ObjectInspector({
   onPropertyChange,
   onEventChange,
   onEventDoubleClick,
+  onDesignerAction,
   onIconPickerOpenChange,
   styles = [],
   onStyleChange,
@@ -750,6 +783,7 @@ export function ObjectInspector({
                         page={page}
                         availableComponents={componentChoices}
                         onChange={onPropertyChange}
+                        onDesignerAction={onDesignerAction}
                         onIconPickerOpenChange={onIconPickerOpenChange}
                       />
                     ))}

@@ -199,8 +199,40 @@ describe('MVP component metadata', () => {
     expect(apiClient.visual).toBe(false);
     expect(apiClient.canHaveChildren).toBe(false);
     expect(apiClient.defaultEvent).toBeNull();
-    expect(apiClient.defaults).toEqual({ baseUrl: '' });
-    expect(apiClient.properties.map((property) => property.name)).toEqual(['name', 'baseUrl']);
+    expect(apiClient.designerAction).toBe('api-client-tester');
+    expect(apiClient.defaults).toEqual({
+      baseUrl: '',
+      apiClientConfig: {
+        schemaVersion: 1,
+        defaultHeaders: [],
+        timeoutMs: 30_000,
+        operations: [
+          {
+            id: 'operation-1',
+            name: 'Request',
+            method: 'GET',
+            path: '',
+            headers: [],
+            query: [],
+            body: { kind: 'none', content: '' },
+            credentials: 'omit',
+            timeoutMs: null,
+            responseSchema: null,
+          },
+        ],
+      },
+    });
+    expect(apiClient.properties.map((property) => property.name)).toEqual([
+      'name',
+      'baseUrl',
+      'apiClientConfig',
+    ]);
+    expect(apiClient.properties.at(-1)).toMatchObject({
+      name: 'apiClientConfig',
+      type: 'api-client-config',
+      source: 'props',
+      designerAction: 'api-client-tester',
+    });
     expect(apiClient.events).toEqual([]);
   });
 });
@@ -311,10 +343,51 @@ describe('sequential names and node defaults', () => {
       parentId: 'root-id',
       layout: defaultLayout(),
       bounds: { x: 0, y: 0, width: 112, height: 52 },
-      props: { baseUrl: 'https://api.example.test/v1' },
+      props: {
+        baseUrl: 'https://api.example.test/v1',
+        apiClientConfig: {
+          schemaVersion: 1,
+          defaultHeaders: [],
+          timeoutMs: 30_000,
+          operations: [
+            {
+              id: 'operation-1',
+              name: 'Request',
+              method: 'GET',
+              path: '',
+              headers: [],
+              query: [],
+              body: { kind: 'none', content: '' },
+              credentials: 'omit',
+              timeoutMs: null,
+              responseSchema: null,
+            },
+          ],
+        },
+      },
       events: {},
       children: [],
     });
+  });
+
+  it('gives each API client an independent structured default configuration', () => {
+    const first = componentRegistry.createComponent('WebApiClient', { id: 'api-first' });
+    const second = componentRegistry.createComponent('WebApiClient', { id: 'api-second' });
+
+    const firstConfig = first.props.apiClientConfig;
+    const secondConfig = second.props.apiClientConfig;
+    expect(firstConfig).toEqual(secondConfig);
+    expect(firstConfig).not.toBe(secondConfig);
+    if (
+      typeof firstConfig === 'object' &&
+      firstConfig !== null &&
+      typeof secondConfig === 'object' &&
+      secondConfig !== null
+    ) {
+      expect(Reflect.get(firstConfig, 'operations')).not.toBe(
+        Reflect.get(secondConfig, 'operations'),
+      );
+    }
   });
 
   it('does not share mutable default values between created nodes', () => {

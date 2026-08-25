@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { ApiClientConfigurationSchema } from './api-client.js';
 import { ProjectValidationError } from './errors.js';
 import {
   COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME,
@@ -161,7 +162,19 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z
     styleId: nonEmptyStringSchema.optional(),
     children: z.array(nonEmptyStringSchema),
   })
-  .strict();
+  .strict()
+  .superRefine((component, context) => {
+    if (component.type !== 'WebApiClient' || component.props.apiClientConfig === undefined) return;
+    const result = ApiClientConfigurationSchema.safeParse(component.props.apiClientConfig);
+    if (result.success) return;
+    for (const issue of result.error.issues) {
+      context.addIssue({
+        code: 'custom',
+        message: `Invalid API Client configuration: ${issue.message}`,
+        path: ['props', 'apiClientConfig', ...issue.path],
+      });
+    }
+  });
 
 export const StyleLengthValueSchema: z.ZodType<StyleLengthValue> = z
   .object({

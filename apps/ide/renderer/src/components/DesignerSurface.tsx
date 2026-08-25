@@ -56,7 +56,13 @@ interface DesignerSurfaceProps {
   onBringToFront: () => void;
   onSendToBack: () => void;
   onZoomChange: (zoom: number) => void;
-  onDefaultEvent: (componentId: string) => void;
+  /** Activates a component-specific Designer action, such as its default event or editor. */
+  onComponentActivate?: (componentId: string) => void;
+  /**
+   * Legacy activation callback retained while callers migrate to
+   * `onComponentActivate`.
+   */
+  onDefaultEvent?: (componentId: string) => void;
 }
 
 const VIEWPORTS = {
@@ -442,6 +448,7 @@ export function DesignerSurface({
   onBringToFront,
   onSendToBack,
   onZoomChange,
+  onComponentActivate,
   onDefaultEvent,
 }: DesignerSurfaceProps): ReactElement {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -576,6 +583,14 @@ export function DesignerSurface({
     }
     const target = insertionTarget(point);
     onAddComponent(type, target.point, target.parentId);
+  };
+
+  const activateComponent = (componentId: string): void => {
+    if (onComponentActivate !== undefined) {
+      onComponentActivate(componentId);
+      return;
+    }
+    onDefaultEvent?.(componentId);
   };
 
   const startComponentDrag = (event: PointerEvent<HTMLDivElement>, node: ComponentNode): void => {
@@ -937,7 +952,7 @@ export function DesignerSurface({
                     }`}
                     onDoubleClick={(event) => {
                       event.stopPropagation();
-                      onDefaultEvent(node.id);
+                      activateComponent(node.id);
                     }}
                     onPointerDown={(event) => startComponentDrag(event, node)}
                   >
@@ -1012,7 +1027,7 @@ export function DesignerSurface({
                   className={`wr-nonvisual-item${selected ? ' selected' : ''}`}
                   data-nonvisual-component-id={node.id}
                   key={node.id}
-                  title={`${node.name}: ${node.type}`}
+                  title={`${node.name}: ${node.type}. Double-click to activate.`}
                   onClick={(event) => {
                     const next = event.shiftKey
                       ? selected
@@ -1020,6 +1035,11 @@ export function DesignerSurface({
                         : [...selectedIds, node.id]
                       : [node.id];
                     onSelect(next, node.id);
+                  }}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    onSelect([node.id], node.id);
+                    activateComponent(node.id);
                   }}
                   onKeyDown={handleKeyboard}
                 >

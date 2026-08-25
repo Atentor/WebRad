@@ -6,7 +6,11 @@ import {
   type ComponentPropertyDefinition,
   type ComponentRegistry,
 } from '@webrad/component-registry';
-import { safeParseProject, type WebRadProject } from '@webrad/project-model';
+import {
+  ApiClientConfigurationSchema,
+  safeParseProject,
+  type WebRadProject,
+} from '@webrad/project-model';
 import type { BuildFailure } from 'esbuild';
 
 import { bundleSources } from './bundle.js';
@@ -128,6 +132,8 @@ function isValidPropertyValue(
         value === null ||
         (typeof value === 'string' && components.some((component) => component.id === value))
       );
+    case 'api-client-config':
+      return ApiClientConfigurationSchema.safeParse(value).success;
   }
 }
 

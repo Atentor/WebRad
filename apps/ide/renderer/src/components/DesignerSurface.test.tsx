@@ -4,6 +4,7 @@ import {
   createDefaultComponentLayout,
   createPage,
   DEFAULT_PROJECT_SETTINGS,
+  type ComponentNode,
   type PageModel,
 } from '@webrad/project-model';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -60,15 +61,58 @@ function responsivePage(): PageModel {
   };
 }
 
-function renderSurface(onReorderComponents = vi.fn()) {
-  return render(
+function pageWithApiClient(): PageModel {
+  const page = responsivePage();
+  const root = page.components.find((component) => component.id === page.rootComponentId);
+  if (root === undefined) throw new Error('Expected page root.');
+  const apiClient: ComponentNode = {
+    id: 'api-client',
+    type: 'WebApiClient',
+    name: 'ApiClient1',
+    parentId: root.id,
+    layout: createDefaultComponentLayout(),
+    bounds: { x: 0, y: 0, width: 0, height: 0 },
+    props: { baseUrl: '' },
+    events: {},
+    children: [],
+  };
+  return {
+    ...page,
+    components: [
+      ...page.components.map((component) =>
+        component.id === root.id
+          ? { ...component, children: [...component.children, apiClient.id] }
+          : component,
+      ),
+      apiClient,
+    ],
+  };
+}
+
+interface RenderSurfaceOptions {
+  readonly onSelect?: (ids: readonly string[], primaryId?: string) => void;
+  readonly onReorderComponents?: (
+    parentId: string,
+    componentIds: readonly string[],
+    beforeComponentId: string | null,
+  ) => void;
+  readonly onComponentActivate?: (componentId: string) => void;
+  readonly onDefaultEvent?: (componentId: string) => void;
+}
+
+function renderSurface(page: PageModel = responsivePage(), options: RenderSurfaceOptions = {}) {
+  const onSelect = options.onSelect ?? vi.fn();
+  const onReorderComponents = options.onReorderComponents ?? vi.fn();
+  const onComponentActivate = options.onComponentActivate ?? vi.fn();
+  const onDefaultEvent = options.onDefaultEvent ?? vi.fn();
+  const view = render(
     <DesignerSurface
-      page={responsivePage()}
+      page={page}
       settings={DEFAULT_PROJECT_SETTINGS}
       selectedIds={[]}
       selectedPaletteType={null}
       zoom={100}
-      onSelect={vi.fn()}
+      onSelect={onSelect}
       onAddComponent={vi.fn()}
       onMoveComponents={vi.fn()}
       onReorderComponents={onReorderComponents}
@@ -81,9 +125,11 @@ function renderSurface(onReorderComponents = vi.fn()) {
       onBringToFront={vi.fn()}
       onSendToBack={vi.fn()}
       onZoomChange={vi.fn()}
-      onDefaultEvent={vi.fn()}
+      onComponentActivate={onComponentActivate}
+      onDefaultEvent={onDefaultEvent}
     />,
   );
+  return { ...view, onSelect, onReorderComponents, onComponentActivate, onDefaultEvent };
 }
 
 describe('DesignerSurface responsive projection', () => {
@@ -108,7 +154,7 @@ describe('DesignerSurface responsive projection', () => {
       configurable: true,
       value: vi.fn(),
     });
-    const { container } = renderSurface(onReorderComponents);
+    const { container } = renderSurface(responsivePage(), { onReorderComponents });
     const first = container.querySelector<HTMLElement>('.wr-design-hit[data-component-id="first"]');
     const overlay = container.querySelector<HTMLElement>('.wr-design-overlay');
     if (first === null || overlay === null) throw new Error('Expected designer hit targets.');
@@ -118,5 +164,34 @@ describe('DesignerSurface responsive projection', () => {
     fireEvent.pointerUp(overlay, { pointerId: 1, clientX: 420, clientY: 38 });
 
     expect(onReorderComponents).toHaveBeenCalledWith('designer-2', ['first'], null);
+  });
+
+  it('activates visual and nonvisual components through the generic callback', () => {
+    const onSelect = vi.fn();
+    const onComponentActivate = vi.fn();
+    const onDefaultEvent = vi.fn();
+    const { container } = renderSurface(pageWithApiClient(), {
+      onSelect,
+      onComponentActivate,
+      onDefaultEvent,
+    });
+    const visual = container.querySelector<HTMLElement>(
+      '.wr-design-hit[data-component-id="first"]',
+    );
+    if (visual === null) throw new Error('Expected visual component hit target.');
+
+    fireEvent.doubleClick(visual);
+    expect(onComponentActivate).toHaveBeenCalledWith('first');
+
+    const apiClient = screen.getByRole('option', { name: 'ApiClient1, API Client' });
+    expect(apiClient.getAttribute('title')).toBe(
+      'ApiClient1: WebApiClient. Double-click to activate.',
+    );
+    fireEvent.doubleClick(apiClient);
+
+    expect(onSelect).toHaveBeenLastCalledWith(['api-client'], 'api-client');
+    expect(onComponentActivate).toHaveBeenLastCalledWith('api-client');
+    expect(onComponentActivate).toHaveBeenCalledTimes(2);
+    expect(onDefaultEvent).not.toHaveBeenCalled();
   });
 });

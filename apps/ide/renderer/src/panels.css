@@ -412,6 +412,31 @@
   cursor: not-allowed;
 }
 
+.wr-inspector-action {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--wr-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.wr-inspector-action:hover:not(:disabled),
+.wr-inspector-action:focus-visible {
+  background: var(--wr-input-bg);
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+
+.wr-inspector-action:disabled {
+  color: var(--wr-muted-text);
+  cursor: not-allowed;
+}
+
 .wr-inspector-icon-picker-preview {
   display: grid;
   width: 18px;

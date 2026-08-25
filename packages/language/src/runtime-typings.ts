@@ -259,16 +259,79 @@ ${WEB_BUTTON_ICON_TYPINGS};
 
   export type QueryValue = string | number | boolean | null | undefined;
 
-  export interface WebApiRequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
+  export type WebApiResponseType = 'auto' | 'json' | 'text' | 'blob' | 'arrayBuffer';
+  export type WebApiBodyKind = 'none' | 'json' | 'text' | 'form-urlencoded';
+  export type WebApiCredentials = 'omit' | 'same-origin' | 'include';
+  export type WebApiOperationStatus = 'idle' | 'loading' | 'success' | 'error';
+
+  export interface WebApiParameter {
+    readonly id: string;
+    readonly name: string;
+    readonly value: string;
+    readonly enabled: boolean;
+  }
+
+  export interface WebApiRequestBody {
+    readonly kind: WebApiBodyKind;
+    readonly content: string;
+  }
+
+  export interface WebApiResponseSchemaNode {
+    readonly id: string;
+    readonly name: string;
+    readonly path: string;
+    readonly kind: 'field' | 'object' | 'list';
+    readonly fieldType: string;
+    readonly nullable: boolean;
+    readonly children: readonly WebApiResponseSchemaNode[];
+  }
+
+  export interface WebApiResponseSchema {
+    readonly version: 1;
+    readonly root: WebApiResponseSchemaNode;
+  }
+
+  export interface WebApiOperation {
+    readonly id: string;
+    readonly name: string;
+    readonly method: string;
+    readonly path: string;
+    readonly headers: readonly WebApiParameter[];
+    readonly query: readonly WebApiParameter[];
+    readonly body: WebApiRequestBody;
+    readonly credentials: WebApiCredentials;
+    readonly timeoutMs: number | null;
+    readonly responseSchema: WebApiResponseSchema | null;
+  }
+
+  export interface WebApiClientConfiguration {
+    readonly schemaVersion: number;
+    readonly defaultHeaders: readonly WebApiParameter[];
+    readonly timeoutMs: number;
+    readonly operations: readonly WebApiOperation[];
+  }
+
+  export interface WebApiRequestOptions extends Omit<RequestInit, 'body' | 'headers' | 'signal'> {
     readonly body?: unknown;
     readonly headers?: HeadersInit;
     readonly query?: Readonly<Record<string, QueryValue | readonly QueryValue[]>>;
+    readonly signal?: AbortSignal | null;
+    readonly timeoutMs?: number | null;
+    readonly responseType?: WebApiResponseType;
   }
 
   export interface WebApiClientOptions extends WebNonvisualComponentOptions {
     readonly baseUrl?: string;
     readonly headers?: HeadersInit;
     readonly fetch?: typeof globalThis.fetch;
+    readonly apiClientConfig?: WebApiClientConfiguration;
+  }
+
+  export interface WebApiOperationState<T = unknown> {
+    readonly status: WebApiOperationStatus;
+    readonly data?: T;
+    readonly error?: unknown;
+    readonly updatedAt?: number;
   }
 
   export class WebApiError<TBody = unknown> extends Error {
@@ -287,16 +350,35 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly response: Response;
   }
 
-  /** Fetch-based HTTP client with JSON bodies, query parameters, and typed responses. */
-  export class WebApiClient extends WebNonvisualComponent {
+  export class WebApiTimeoutError extends Error {
+    constructor(timeoutMs: number, url: string);
+    readonly timeoutMs: number;
+    readonly url: string;
+  }
+
+  /** Fetch-based HTTP client with direct calls and typed configured operations. */
+  export class WebApiClient<TOutputs extends object = Record<string, unknown>> extends WebNonvisualComponent {
     constructor(options?: WebApiClientOptions | string);
     baseUrl: string;
+    readonly operations: readonly WebApiOperation[];
+    readonly data: Readonly<Partial<TOutputs>>;
+    readonly status: WebApiOperationStatus;
+    readonly error: unknown;
+    getOperationState<T = unknown>(operationName: string): WebApiOperationState<T>;
+    subscribe(listener: () => void): () => void;
     request<T>(path: string, options?: WebApiRequestOptions): Promise<T>;
     get<T>(path: string, options?: WebApiRequestOptions): Promise<T>;
     post<T>(path: string, body?: unknown, options?: WebApiRequestOptions): Promise<T>;
     put<T>(path: string, body?: unknown, options?: WebApiRequestOptions): Promise<T>;
     patch<T>(path: string, body?: unknown, options?: WebApiRequestOptions): Promise<T>;
     delete<T>(path: string, options?: WebApiRequestOptions): Promise<T>;
+    execute<K extends keyof TOutputs & string>(
+      operationName: K,
+      options?: WebApiRequestOptions,
+    ): Promise<TOutputs[K]>;
+    execute<T = unknown>(operationName: string, options?: WebApiRequestOptions): Promise<T>;
+    getOutputById<T = unknown>(operationName: string, schemaNodeIdOrPath: string): T | undefined;
+    getList<T = unknown>(operationName: string, schemaNodeIdOrPath: string): readonly T[];
   }
 
   export interface RuntimeBounds {

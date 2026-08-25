@@ -1,4 +1,5 @@
 import { componentRegistry, ComponentRegistry } from './registry.js';
+import { createDefaultApiClientConfiguration } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 import type {
   ComponentDefinition,
@@ -791,11 +792,13 @@ const webApiClient: ComponentDefinition = {
   visual: false,
   canHaveChildren: false,
   defaultEvent: null,
+  designerAction: 'api-client-tester',
   // Nonvisual nodes still carry model bounds for model consistency. The Designer
   // projects them into its tray instead of interpreting these as canvas geometry.
   defaultBounds: apiClientBounds,
   defaults: {
     baseUrl: '',
+    apiClientConfig: createDefaultApiClientConfiguration(),
   },
   properties: [
     { name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' },
@@ -806,6 +809,17 @@ const webApiClient: ComponentDefinition = {
       category: 'Connection',
       source: 'props',
       defaultValue: '',
+    },
+    {
+      name: 'apiClientConfig',
+      label: 'Operations & Response Schema',
+      type: 'api-client-config',
+      category: 'API Client',
+      source: 'props',
+      defaultValue: createDefaultApiClientConfiguration(),
+      description:
+        'Configure named requests, test endpoints, and save typed response fields, objects, and lists.',
+      designerAction: 'api-client-tester',
     },
   ],
   events: [],

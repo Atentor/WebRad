@@ -1,3 +1,4 @@
+export * from './api-client.js';
 export * from './default-styles.js';
 export * from './errors.js';
 export * from './factories.js';

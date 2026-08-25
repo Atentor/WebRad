@@ -1,5 +1,16 @@
 export type ComponentPropertyType =
-  'string' | 'string-list' | 'number' | 'boolean' | 'enum' | 'icon' | 'color' | 'component';
+  | 'string'
+  | 'string-list'
+  | 'number'
+  | 'boolean'
+  | 'enum'
+  | 'icon'
+  | 'color'
+  | 'component'
+  | 'api-client-config';
+
+/** Named design-time actions kept in the Component Registry metadata. */
+export type ComponentDesignerAction = 'api-client-tester';
 
 export type ComponentPropertySource =
   'node' | 'bounds' | 'props' | 'page' | 'layout-container' | 'layout-item';
@@ -16,6 +27,8 @@ export interface ComponentPropertyDefinition {
   readonly readOnly?: boolean;
   /** Enables an explicit null value for structural numeric controls. */
   readonly nullable?: boolean;
+  /** Optional specialized designer workflow associated with this property. */
+  readonly designerAction?: ComponentDesignerAction;
 }
 
 export interface ComponentEventDefinition {
@@ -81,6 +94,8 @@ export interface ComponentDefinition {
   readonly visual: boolean;
   readonly canHaveChildren: boolean;
   readonly defaultEvent: string | null;
+  /** Optional action activated by a double-click in the Designer. */
+  readonly designerAction?: ComponentDesignerAction;
   readonly defaultBounds: DefaultComponentBounds;
   /** Default values materialized into ComponentNode.props. */
   readonly defaults: Readonly<Record<string, unknown>>;

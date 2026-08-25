@@ -6,6 +6,7 @@ import {
   WEBRAD_COMPONENT_CSS,
   WebApiClient,
   WebApiError,
+  WebApiTimeoutError,
   WebButton,
   WebCheckBox,
   WebComboBox,
@@ -1087,5 +1088,264 @@ describe('WebApiClient', () => {
     const request = api.get('/private');
     await expect(request).rejects.toBeInstanceOf(WebApiError);
     await expect(request).rejects.toMatchObject({ status: 403, body: { message: 'denied' } });
+  });
+
+  it('executes a configured operation, publishes its state, and exposes saved outputs', async () => {
+    type CustomerResponse = {
+      readonly payload: {
+        readonly customers: readonly { readonly id: number; readonly name: string }[];
+        readonly total: number;
+      };
+    };
+
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input));
+      expect(url.href).toBe(
+        'https://api.example.test/v1/customers?existing=yes&page=2&filter=gold+tier',
+      );
+      expect(init?.method).toBe('POST');
+      expect(init?.credentials).toBe('include');
+      const headers = new Headers(init?.headers);
+      expect(headers.get('x-tenant')).toBe('north');
+      expect(headers.get('x-operation')).toBe('load-customers');
+      expect(headers.get('x-disabled')).toBeNull();
+      expect(headers.get('content-type')).toBe('application/json');
+      expect(init?.body).toBe('{"active":true,"limit":2}');
+      return new Response(
+        JSON.stringify({
+          payload: {
+            customers: [
+              { id: 10, name: 'Ada' },
+              { id: 11, name: 'Linus' },
+            ],
+            total: 2,
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    const api = new WebApiClient<{ readonly LoadCustomers: CustomerResponse }>({
+      baseUrl: 'https://api.example.test/v1',
+      fetch: fetchMock,
+      apiClientConfig: {
+        schemaVersion: 1,
+        defaultHeaders: [
+          { id: 'tenant', name: 'X-Tenant', value: 'north', enabled: true },
+          { id: 'disabled', name: 'X-Disabled', value: 'ignored', enabled: false },
+        ],
+        timeoutMs: 5_000,
+        operations: [
+          {
+            id: 'load-customers',
+            name: 'LoadCustomers',
+            method: 'POST',
+            path: '/customers?existing=yes',
+            headers: [
+              {
+                id: 'operation-header',
+                name: 'X-Operation',
+                value: 'load-customers',
+                enabled: true,
+              },
+            ],
+            query: [
+              { id: 'page', name: 'page', value: '2', enabled: true },
+              { id: 'filter', name: 'filter', value: 'gold tier', enabled: true },
+              { id: 'ignored-query', name: 'ignored', value: 'true', enabled: false },
+            ],
+            body: { kind: 'json', content: '{"active":true,"limit":2}' },
+            credentials: 'include',
+            timeoutMs: null,
+            responseSchema: {
+              version: 1,
+              root: {
+                id: 'response-root',
+                name: 'Response',
+                path: '',
+                kind: 'object',
+                fieldType: 'object',
+                nullable: false,
+                children: [
+                  {
+                    id: 'customer-list',
+                    name: 'Customers',
+                    path: '/payload/customers',
+                    kind: 'list',
+                    fieldType: 'list',
+                    nullable: false,
+                    children: [],
+                  },
+                  {
+                    id: 'customer-total',
+                    name: 'Total',
+                    path: '/payload/total',
+                    kind: 'field',
+                    fieldType: 'integer',
+                    nullable: false,
+                    children: [],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    });
+    const transitions: string[] = [];
+    const unsubscribe = api.subscribe(() => {
+      transitions.push(api.getOperationState('LoadCustomers').status);
+    });
+
+    await expect(api.execute('LoadCustomers')).resolves.toEqual({
+      payload: {
+        customers: [
+          { id: 10, name: 'Ada' },
+          { id: 11, name: 'Linus' },
+        ],
+        total: 2,
+      },
+    });
+    unsubscribe();
+
+    expect(api.status).toBe('success');
+    expect(api.error).toBeUndefined();
+    expect(api.getOperationState<CustomerResponse>('LoadCustomers')).toMatchObject({
+      status: 'success',
+      data: api.data.LoadCustomers,
+    });
+    expect(transitions).toEqual(['loading', 'success']);
+    expect(api.getOutputById<number>('LoadCustomers', 'customer-total')).toBe(2);
+    expect(api.getOutputById<number>('LoadCustomers', '/payload/total')).toBe(2);
+    expect(
+      api.getList<{ readonly id: number; readonly name: string }>('LoadCustomers', 'customer-list'),
+    ).toEqual([
+      { id: 10, name: 'Ada' },
+      { id: 11, name: 'Linus' },
+    ]);
+    expect(api.getList('LoadCustomers', 'customer-total')).toEqual([]);
+  });
+
+  it('keeps the last successful configured result when a later execution fails', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response('{"items":["first"]}', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response('{"message":"unavailable"}', {
+          status: 503,
+          statusText: 'Unavailable',
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    const api = new WebApiClient<{ readonly LoadItems: { readonly items: readonly string[] } }>({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      apiClientConfig: {
+        schemaVersion: 1,
+        defaultHeaders: [],
+        timeoutMs: 5_000,
+        operations: [
+          {
+            id: 'load-items',
+            name: 'LoadItems',
+            method: 'GET',
+            path: '/items',
+            headers: [],
+            query: [],
+            body: { kind: 'none', content: '' },
+            credentials: 'omit',
+            timeoutMs: null,
+            responseSchema: null,
+          },
+        ],
+      },
+    });
+
+    await expect(api.execute('LoadItems')).resolves.toEqual({ items: ['first'] });
+    await expect(api.execute('LoadItems')).rejects.toMatchObject({
+      name: 'WebApiError',
+      status: 503,
+      body: { message: 'unavailable' },
+    });
+
+    expect(api.status).toBe('error');
+    expect(api.error).toBeInstanceOf(WebApiError);
+    expect(api.data.LoadItems).toEqual({ items: ['first'] });
+    expect(api.getOperationState<{ readonly items: readonly string[] }>('LoadItems')).toMatchObject(
+      {
+        status: 'error',
+        data: { items: ['first'] },
+        error: expect.any(WebApiError),
+      },
+    );
+  });
+
+  it('turns a configured operation timeout into a WebApiTimeoutError and error state', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn<typeof fetch>(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal;
+            if (signal?.aborted) {
+              reject(signal.reason);
+              return;
+            }
+            signal?.addEventListener(
+              'abort',
+              () => reject(new DOMException('The request was aborted.', 'AbortError')),
+              { once: true },
+            );
+          }),
+      );
+      const api = new WebApiClient<{ readonly LoadSlow: unknown }>({
+        baseUrl: 'https://api.example.test',
+        fetch: fetchMock,
+        apiClientConfig: {
+          schemaVersion: 1,
+          defaultHeaders: [],
+          timeoutMs: 20,
+          operations: [
+            {
+              id: 'load-slow',
+              name: 'LoadSlow',
+              method: 'GET',
+              path: '/slow',
+              headers: [],
+              query: [],
+              body: { kind: 'none', content: '' },
+              credentials: 'omit',
+              timeoutMs: null,
+              responseSchema: null,
+            },
+          ],
+        },
+      });
+      const transitions: string[] = [];
+      api.subscribe(() => transitions.push(api.getOperationState('LoadSlow').status));
+
+      const timedOut = expect(api.execute('LoadSlow')).rejects.toMatchObject({
+        name: 'WebApiTimeoutError',
+        timeoutMs: 20,
+        url: 'https://api.example.test/slow',
+      });
+      await vi.advanceTimersByTimeAsync(20);
+      await timedOut;
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(api.status).toBe('error');
+      expect(api.error).toBeInstanceOf(WebApiTimeoutError);
+      expect(api.getOperationState('LoadSlow')).toMatchObject({
+        status: 'error',
+        error: expect.any(WebApiTimeoutError),
+      });
+      expect(transitions).toEqual(['loading', 'error']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
