@@ -203,6 +203,23 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Data Grid',
+    componentType: 'WebDataGrid',
+    states: {
+      base: {
+        backgroundGradient: subtleSurface,
+        borderWidth: px(1),
+        borderStyle: 'solid',
+        borderGradient: subtleBorder,
+        borderRadius: px(12),
+        textColor: '#0f172a',
+        fontFamily: 'sans',
+        fontSize: px(14),
+        boxShadow: 'sm',
+      },
+    },
+  },
+  {
     name: 'Default Check Box',
     componentType: 'WebCheckBox',
     states: {

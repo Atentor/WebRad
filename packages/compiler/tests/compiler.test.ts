@@ -147,6 +147,65 @@ function customersApiClientConfiguration(): ApiClientConfiguration {
   };
 }
 
+function dataGridExecutableProject(): WebRadProject {
+  const project = executableProject();
+  const page = project.pages[0];
+  if (page === undefined) throw new Error('Expected an initial page.');
+  const configuredPage: PageModel = {
+    ...page,
+    components: page.components.map((component) =>
+      component.id === 'api-client'
+        ? {
+            ...component,
+            props: { ...component.props, apiClientConfig: customersApiClientConfiguration() },
+          }
+        : component,
+    ),
+  };
+  const withGrid = addComponent(
+    configuredPage,
+    defaultComponentRegistry.createComponent('WebDataGrid', {
+      id: 'data-grid',
+      name: 'DataGrid1',
+      parentId: configuredPage.rootComponentId,
+      x: 24,
+      y: 128,
+      props: {
+        dataGridConfig: {
+          schemaVersion: 1,
+          apiClientId: 'api-client',
+          operationId: 'load-customers',
+          listPath: '',
+          columnCount: 3,
+          showHeader: true,
+          stickyHeader: true,
+          showFooter: true,
+          stickyFooter: true,
+          columns: [
+            {
+              id: 'name',
+              header: 'Name',
+              fieldPath: '/name',
+              cellKind: 'text',
+              footer: 'Customers',
+            },
+            { id: 'id', header: 'ID', fieldPath: '/id', cellKind: 'button', footer: '' },
+            {
+              id: 'active',
+              header: 'Active',
+              fieldPath: '/active',
+              cellKind: 'checkbox',
+              footer: '',
+            },
+          ],
+        },
+      },
+    }),
+    configuredPage.rootComponentId,
+  );
+  return updatePage(project, withGrid.id, withGrid);
+}
+
 function styledExecutableProject(): WebRadProject {
   const project = executableProject();
   const style = createComponentStyle('Primary Button', 'WebButton', {
@@ -231,6 +290,48 @@ describe('compileProject', () => {
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['assets/app.js']).toContain('LoadCustomers');
     expect(result.files['assets/app.js']).toContain('customer-name');
+  });
+
+  it('generates a Data Grid bound to a selected API operation and response list', async () => {
+    const result = await compileProjectToMemory(dataGridExecutableProject(), { userSources: {} });
+
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    expect(result.files['assets/app.js']).toContain('bindApiClient');
+    expect(result.files['assets/app.js']).toContain('wr-data-grid-table');
+  });
+
+  it('rejects a Data Grid list binding that is not present in the selected API contract', async () => {
+    const project = dataGridExecutableProject();
+    const invalidProject: WebRadProject = {
+      ...project,
+      pages: project.pages.map((page) => ({
+        ...page,
+        components: page.components.map((component) =>
+          component.id === 'data-grid'
+            ? {
+                ...component,
+                props: {
+                  ...component.props,
+                  dataGridConfig: {
+                    ...(component.props.dataGridConfig as object),
+                    listPath: '/missing',
+                  },
+                },
+              }
+            : component,
+        ),
+      })),
+    };
+
+    const result = await compileProjectToMemory(invalidProject, { userSources: {} });
+    expect(result.success).toBe(false);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: 'WebDataGrid listPath must reference a saved list response field.',
+        }),
+      ]),
+    );
   });
 
   it('validates, typechecks and writes an ordinary browser application', async () => {

@@ -27,6 +27,45 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     dispose(): void;
   }
 
+  export const WEB_DATA_GRID_CELL_KINDS: readonly ['text', 'image', 'button', 'checkbox'];
+  export type WebDataGridCellKind = (typeof WEB_DATA_GRID_CELL_KINDS)[number];
+
+  export interface WebDataGridColumn {
+    readonly id: string;
+    readonly header: string;
+    readonly fieldPath: string;
+    readonly cellKind: WebDataGridCellKind;
+    readonly footer: string;
+  }
+
+  export interface WebDataGridConfiguration {
+    readonly schemaVersion: number;
+    readonly apiClientId: string | null;
+    readonly operationId: string | null;
+    readonly listPath: string;
+    readonly columnCount: number;
+    readonly showHeader: boolean;
+    readonly stickyHeader: boolean;
+    readonly showFooter: boolean;
+    readonly stickyFooter: boolean;
+    readonly columns: readonly WebDataGridColumn[];
+  }
+
+  export interface WebDataGridCellEventDetail {
+    readonly rowIndex: number;
+    readonly row: unknown;
+    readonly column: WebDataGridColumn;
+  }
+
+  export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridConfiguration;
+
+  export class WebDataGrid extends WebComponent<HTMLDivElement> {
+    constructor(element: HTMLElement);
+    configuration: WebDataGridConfiguration;
+    dataGridConfig: WebDataGridConfiguration;
+    bindApiClient(apiClient: WebApiClient | null): void;
+  }
+
   /** Base browser-side wrapper shared by every visual WebRAD component. */
   export class WebComponent<TElement extends HTMLElement = HTMLElement> {
     readonly element: TElement;

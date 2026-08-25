@@ -1,5 +1,8 @@
 import { componentRegistry, ComponentRegistry } from './registry.js';
-import { createDefaultApiClientConfiguration } from '@webrad/project-model';
+import {
+  createDefaultApiClientConfiguration,
+  createDefaultDataGridConfiguration,
+} from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 import type {
   ComponentDefinition,
@@ -309,6 +312,7 @@ const comboBoxBounds = { width: 160, height: 32 } as const;
 const imageBounds = { width: 160, height: 120 } as const;
 const listBoxBounds = { width: 180, height: 120 } as const;
 const apiClientBounds = { width: 112, height: 52 } as const;
+const dataGridBounds = { width: 640, height: 320 } as const;
 
 const webPage: ComponentDefinition = {
   type: 'WebPage',
@@ -830,6 +834,37 @@ const webApiClient: ComponentDefinition = {
   ],
 };
 
+const webDataGrid: ComponentDefinition = {
+  type: 'WebDataGrid',
+  displayName: 'Data Grid',
+  namePrefix: 'DataGrid',
+  palette: { category: standardCategory, caption: 'Data Grid' },
+  icon: 'component-list-box',
+  visual: true,
+  canHaveChildren: false,
+  defaultEvent: null,
+  defaultBounds: dataGridBounds,
+  defaults: {
+    visible: true,
+    enabled: true,
+    dataGridConfig: createDefaultDataGridConfiguration(),
+  },
+  properties: [
+    ...geometryProperties(dataGridBounds),
+    {
+      name: 'dataGridConfig',
+      label: 'Data source and columns',
+      type: 'data-grid-config',
+      category: 'Data Grid',
+      source: 'props',
+      defaultValue: createDefaultDataGridConfiguration(),
+      description:
+        'Choose an API Client operation and one response list, then configure repeated text, image, button, or checkbox cells.',
+    },
+  ],
+  events: [event('OnCellClick', 'Data')],
+};
+
 export const MVP_COMPONENT_TYPES = [
   'WebPage',
   'WebPanel',
@@ -841,6 +876,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebComboBox',
   'WebImage',
   'WebListBox',
+  'WebDataGrid',
   'WebApiClient',
 ] as const;
 
@@ -857,6 +893,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webComboBox,
   webImage,
   webListBox,
+  webDataGrid,
   webApiClient,
 ];
 

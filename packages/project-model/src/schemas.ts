@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
+import { DataGridConfigurationSchema } from './data-grid.js';
 import { ProjectValidationError } from './errors.js';
 import {
   COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME,
@@ -164,14 +165,24 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z
   })
   .strict()
   .superRefine((component, context) => {
-    if (component.type !== 'WebApiClient' || component.props.apiClientConfig === undefined) return;
-    const result = ApiClientConfigurationSchema.safeParse(component.props.apiClientConfig);
+    const propertyName =
+      component.type === 'WebApiClient'
+        ? 'apiClientConfig'
+        : component.type === 'WebDataGrid'
+          ? 'dataGridConfig'
+          : undefined;
+    if (propertyName === undefined || component.props[propertyName] === undefined) return;
+    const schema =
+      component.type === 'WebApiClient'
+        ? ApiClientConfigurationSchema
+        : DataGridConfigurationSchema;
+    const result = schema.safeParse(component.props[propertyName]);
     if (result.success) return;
     for (const issue of result.error.issues) {
       context.addIssue({
         code: 'custom',
-        message: `Invalid API Client configuration: ${issue.message}`,
-        path: ['props', 'apiClientConfig', ...issue.path],
+        message: `Invalid ${component.type === 'WebApiClient' ? 'API Client' : 'Data Grid'} configuration: ${issue.message}`,
+        path: ['props', propertyName, ...issue.path],
       });
     }
   });

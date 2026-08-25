@@ -16,6 +16,7 @@ import {
 import { useEffect, useId, useMemo, useState, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { IconPickerDialog } from './IconPickerDialog';
+import { DataGridConfigurationEditor } from './DataGridConfigurationEditor';
 import { Panel } from './Panel';
 import { responsiveLayoutPropertyReference } from '../layout-property';
 
@@ -512,6 +513,16 @@ function PropertyEditor({
         </button>
       );
     }
+    case 'data-grid-config':
+      return (
+        <DataGridConfigurationEditor
+          availableComponents={availableComponents}
+          disabled={disabled || multiple}
+          id={id}
+          value={value}
+          onChange={onChange}
+        />
+      );
   }
 }
 

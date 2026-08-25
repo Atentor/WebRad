@@ -1,4 +1,5 @@
 import type { ComponentNode } from '@webrad/project-model';
+import { normalizeDataGridConfiguration } from '@webrad/project-model';
 import {
   projectComponentVisual,
   readBooleanProperty,
@@ -251,6 +252,71 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
           </option>
         ))}
       </select>
+    );
+  },
+  WebDataGrid: ({ node, designTime, styleClassName }) => {
+    const configuration = normalizeDataGridConfiguration(node.props.dataGridConfig);
+    return (
+      <div
+        {...sharedAttributes(node, designTime, styleClassName)}
+        role="table"
+        aria-label={node.name}
+      >
+        <div className="wr-data-grid-scroll">
+          <table className="wr-data-grid-table">
+            {configuration.showHeader && (
+              <thead
+                className={configuration.stickyHeader ? 'wr-data-grid-sticky-header' : undefined}
+              >
+                <tr>
+                  {configuration.columns.map((column) => (
+                    <th key={column.id} scope="col">
+                      {column.header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody>
+              {[0, 1, 2].map((rowIndex) => (
+                <tr key={rowIndex}>
+                  {configuration.columns.map((column) => (
+                    <td key={column.id}>
+                      {column.cellKind === 'image' ? (
+                        <span aria-label={column.header} role="img">
+                          Image
+                        </span>
+                      ) : column.cellKind === 'button' ? (
+                        <button type="button">{column.header || 'Button'}</button>
+                      ) : column.cellKind === 'checkbox' ? (
+                        <input
+                          aria-label={column.header}
+                          checked={rowIndex % 2 === 0}
+                          readOnly
+                          type="checkbox"
+                        />
+                      ) : (
+                        column.fieldPath || 'Value'
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+            {configuration.showFooter && (
+              <tfoot
+                className={configuration.stickyFooter ? 'wr-data-grid-sticky-footer' : undefined}
+              >
+                <tr>
+                  {configuration.columns.map((column) => (
+                    <td key={column.id}>{column.footer}</td>
+                  ))}
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
     );
   },
 });

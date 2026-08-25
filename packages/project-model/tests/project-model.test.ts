@@ -97,7 +97,7 @@ describe('project factories', () => {
       },
     });
     expect(project.pages).toHaveLength(1);
-    expect(project.styles).toHaveLength(10);
+    expect(project.styles).toHaveLength(11);
     expect(project.styles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ componentType: 'WebPage', preset: 'default' }),
@@ -110,6 +110,7 @@ describe('project factories', () => {
         expect.objectContaining({ componentType: 'WebComboBox', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebImage', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebListBox', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebDataGrid', preset: 'default' }),
       ]),
     );
     expect(project.pages[0]).toMatchObject({

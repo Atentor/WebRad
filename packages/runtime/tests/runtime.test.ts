@@ -10,6 +10,7 @@ import {
   WebButton,
   WebCheckBox,
   WebComboBox,
+  WebDataGrid,
   WebEdit,
   WebPage,
   WebImage,
@@ -1385,5 +1386,112 @@ describe('WebApiClient', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('WebDataGrid', () => {
+  it('renders only the latest configured API result and binds typed cell renderers', async () => {
+    const fetchMock = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({
+            payload: {
+              customers: [
+                { name: 'Ada', avatar: 'https://example.test/ada.png', active: true },
+                { name: 'Linus', avatar: 'https://example.test/linus.png', active: false },
+              ],
+            },
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+    );
+    const api = new WebApiClient({
+      id: 'customers-api',
+      fetch: fetchMock,
+      apiClientConfig: {
+        schemaVersion: 1,
+        defaultHeaders: [],
+        timeoutMs: 30_000,
+        operations: [
+          {
+            id: 'load-customers',
+            name: 'LoadCustomers',
+            method: 'GET',
+            path: 'https://api.example.test/customers',
+            headers: [],
+            query: [],
+            body: { kind: 'none', content: '' },
+            credentials: 'omit',
+            timeoutMs: null,
+            responseSchema: {
+              version: 1,
+              root: {
+                id: 'response',
+                name: 'Response',
+                path: '',
+                kind: 'object',
+                fieldType: 'object',
+                nullable: false,
+                children: [
+                  {
+                    id: 'customers',
+                    name: 'customers',
+                    path: '/payload/customers',
+                    kind: 'list',
+                    fieldType: 'list',
+                    nullable: false,
+                    children: [],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    });
+    const host = document.createElement('div');
+    const grid = new WebDataGrid(host);
+    grid.dataGridConfig = {
+      schemaVersion: 1,
+      apiClientId: 'customers-api',
+      operationId: 'load-customers',
+      listPath: '/payload/customers',
+      columnCount: 4,
+      showHeader: true,
+      stickyHeader: true,
+      showFooter: true,
+      stickyFooter: true,
+      columns: [
+        { id: 'name', header: 'Name', fieldPath: '/name', cellKind: 'text', footer: '2 customers' },
+        { id: 'avatar', header: 'Avatar', fieldPath: '/avatar', cellKind: 'image', footer: '' },
+        { id: 'action', header: 'Action', fieldPath: '/name', cellKind: 'button', footer: '' },
+        { id: 'active', header: 'Active', fieldPath: '/active', cellKind: 'checkbox', footer: '' },
+      ],
+    };
+    grid.bindApiClient(api);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('No data');
+
+    const clicked: unknown[] = [];
+    grid.bindEvent('OnCellClick', (_sender, event) => {
+      clicked.push((event as CustomEvent).detail);
+    });
+    await api.execute('LoadCustomers');
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(host.querySelector('thead')?.className).toContain('wr-data-grid-sticky-header');
+    expect(host.querySelector('tfoot')?.className).toContain('wr-data-grid-sticky-footer');
+    expect(host.querySelectorAll('tbody tr')).toHaveLength(2);
+    expect(host.querySelector('tbody td')?.textContent).toBe('Ada');
+    expect(host.querySelector<HTMLImageElement>('img')?.src).toBe('https://example.test/ada.png');
+    expect(host.querySelector<HTMLButtonElement>('button')?.textContent).toBe('Ada');
+    expect(host.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    expect(host.querySelector('tfoot td')?.textContent).toBe('2 customers');
+
+    host.querySelector<HTMLButtonElement>('button')?.click();
+    expect(clicked).toEqual([
+      expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
+    ]);
   });
 });

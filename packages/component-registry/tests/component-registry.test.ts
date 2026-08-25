@@ -71,9 +71,9 @@ function defaultLayout() {
 }
 
 describe('MVP component metadata', () => {
-  it('registers the ten visual controls and WebApiClient in a stable order', () => {
+  it('registers the eleven visual controls and WebApiClient in a stable order', () => {
     expect(componentRegistry.list().map((item) => item.type)).toEqual(MVP_COMPONENT_TYPES);
-    expect(componentRegistry.size).toBe(11);
+    expect(componentRegistry.size).toBe(12);
     expect(
       componentRegistry
         .list()
@@ -292,7 +292,7 @@ describe('ComponentRegistry behavior', () => {
   it('supports the conceptual static global registry API', () => {
     expect(ComponentRegistry.has('WebButton')).toBe(true);
     expect(ComponentRegistry.get('WebButton')).toBe(componentRegistry.get('WebButton'));
-    expect(ComponentRegistry.list()).toHaveLength(11);
+    expect(ComponentRegistry.list()).toHaveLength(12);
   });
 });
 

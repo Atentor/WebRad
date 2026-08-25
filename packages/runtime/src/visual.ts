@@ -868,4 +868,16 @@ export const WEBRAD_COMPONENT_CSS = `
 .wr-button-icon-left { flex-direction: row; }
 .wr-webcheckbox { display: flex; align-items: center; gap: 7px; }
 .wr-webimage { display: block; object-fit: contain; border: 1px dashed var(--wr-control-border, #677184); color: var(--wr-muted-text, #8e98aa); }
+.wr-webdatagrid { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); display: block; overflow: hidden; border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); color: inherit; }
+.wr-data-grid-scroll { width: 100%; height: 100%; overflow: auto; }
+.wr-data-grid-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.wr-data-grid-table th, .wr-data-grid-table td { min-width: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding: 8px 10px; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.wr-data-grid-table th { background: color-mix(in srgb, currentColor 10%, transparent); font-weight: 600; }
+.wr-data-grid-table tfoot td { background: color-mix(in srgb, currentColor 7%, transparent); font-weight: 600; }
+.wr-data-grid-sticky-header th { position: sticky; z-index: 1; top: 0; }
+.wr-data-grid-sticky-footer td { position: sticky; z-index: 1; bottom: 0; }
+.wr-data-grid-image { display: block; width: 100%; height: 36px; object-fit: contain; }
+.wr-data-grid-button { max-width: 100%; border: 0; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, transparent); color: inherit; cursor: pointer; padding: 4px 8px; }
+.wr-data-grid-checkbox { accent-color: currentColor; }
+.wr-data-grid-empty { color: var(--wr-muted-text, #8e98aa); font-style: italic; text-align: center !important; }
 `.trim();

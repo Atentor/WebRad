@@ -14,6 +14,7 @@ import {
   type WebSelectItem,
 } from './controls.js';
 import { WebPage } from './page.js';
+import { WebDataGrid, normalizeWebDataGridConfiguration } from './data-grid.js';
 import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
   applyRuntimeLayout,
@@ -340,6 +341,14 @@ runtimeComponentRegistry
       } else {
         component.value = readStringProperty(node, 'value');
       }
+    },
+  })
+  .register<WebDataGrid>('WebDataGrid', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebDataGrid(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.dataGridConfig = normalizeWebDataGridConfiguration(node.props.dataGridConfig);
     },
   });
 

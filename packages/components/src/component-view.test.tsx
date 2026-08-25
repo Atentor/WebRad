@@ -32,6 +32,55 @@ describe('ComponentView', () => {
     expect(markup).toContain('data-webrad-text-content=""');
   });
 
+  it('renders the Data Grid design-time table with configured headers and footer', () => {
+    const markup = renderToStaticMarkup(
+      <ComponentView
+        node={{
+          ...button,
+          id: 'data-grid-id',
+          type: 'WebDataGrid',
+          name: 'DataGrid1',
+          props: {
+            dataGridConfig: {
+              schemaVersion: 1,
+              apiClientId: null,
+              operationId: null,
+              listPath: '',
+              columnCount: 2,
+              showHeader: true,
+              stickyHeader: true,
+              showFooter: true,
+              stickyFooter: true,
+              columns: [
+                {
+                  id: 'name',
+                  header: 'Name',
+                  fieldPath: '/name',
+                  cellKind: 'text',
+                  footer: 'Total',
+                },
+                {
+                  id: 'active',
+                  header: 'Active',
+                  fieldPath: '/active',
+                  cellKind: 'checkbox',
+                  footer: '',
+                },
+              ],
+            },
+            visible: true,
+            enabled: true,
+          },
+        }}
+      />,
+    );
+
+    expect(markup).toContain('wr-webdatagrid');
+    expect(markup).toContain('<th scope="col">Name</th>');
+    expect(markup).toContain('Total');
+    expect(markup).toContain('<td>/name</td>');
+  });
+
   it('projects the selected reusable style classes onto the component root', () => {
     const markup = renderToStaticMarkup(
       <ComponentView

@@ -8,6 +8,7 @@ import {
 } from '@webrad/component-registry';
 import {
   ApiClientConfigurationSchema,
+  DataGridConfigurationSchema,
   safeParseProject,
   type WebRadProject,
 } from '@webrad/project-model';
@@ -86,6 +87,82 @@ function validateRegistry(
           });
         }
       }
+      if (component.type === 'WebDataGrid') {
+        const configuration = DataGridConfigurationSchema.safeParse(component.props.dataGridConfig);
+        if (!configuration.success) continue;
+        const dataGridPath = [
+          'pages',
+          pageIndex,
+          'components',
+          componentIndex,
+          'props',
+          'dataGridConfig',
+        ];
+        if (configuration.data.apiClientId === null) {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message: 'WebDataGrid must reference a WebApiClient.',
+            path: [...dataGridPath, 'apiClientId'],
+          });
+          continue;
+        }
+        const apiClient = page.components.find(
+          (candidate) => candidate.id === configuration.data.apiClientId,
+        );
+        if (apiClient?.type !== 'WebApiClient') {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message: 'WebDataGrid apiClientId must reference a WebApiClient on the same page.',
+            path: [...dataGridPath, 'apiClientId'],
+          });
+          continue;
+        }
+        const apiConfiguration = ApiClientConfigurationSchema.safeParse(
+          apiClient.props.apiClientConfig,
+        );
+        const operation = apiConfiguration.success
+          ? apiConfiguration.data.operations.find(
+              (candidate) => candidate.id === configuration.data.operationId,
+            )
+          : undefined;
+        if (operation === undefined) {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message:
+              'WebDataGrid operationId must reference an operation of the selected WebApiClient.',
+            path: [...dataGridPath, 'operationId'],
+          });
+          continue;
+        }
+        const findSchemaNode = (node: {
+          readonly path: string;
+          readonly kind: string;
+          readonly children: readonly unknown[];
+        }): { readonly path: string; readonly kind: string } | undefined => {
+          if (node.path === configuration.data.listPath) return node;
+          for (const child of node.children) {
+            if (typeof child !== 'object' || child === null) continue;
+            const candidate = findSchemaNode(child as typeof node);
+            if (candidate !== undefined) return candidate;
+          }
+          return undefined;
+        };
+        const listNode =
+          operation.responseSchema === null
+            ? undefined
+            : findSchemaNode(operation.responseSchema.root);
+        if (listNode?.kind !== 'list') {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message: 'WebDataGrid listPath must reference a saved list response field.',
+            path: [...dataGridPath, 'listPath'],
+          });
+        }
+      }
     }
   }
   for (const [styleIndex, style] of project.styles.entries()) {
@@ -134,6 +211,8 @@ function isValidPropertyValue(
       );
     case 'api-client-config':
       return ApiClientConfigurationSchema.safeParse(value).success;
+    case 'data-grid-config':
+      return DataGridConfigurationSchema.safeParse(value).success;
   }
 }
 

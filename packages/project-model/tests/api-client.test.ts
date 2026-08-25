@@ -2,14 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ApiClientConfigurationSchema,
+  DataGridConfigurationSchema,
   createDefaultApiClientConfiguration,
   createDefaultComponentLayout,
+  createDefaultDataGridConfiguration,
   createPage,
   deserializePage,
   normalizeApiClientConfiguration,
   safeParsePage,
   serializePage,
   type ApiClientConfiguration,
+  type DataGridConfiguration,
   type PageModel,
 } from '../src/index.js';
 
@@ -147,6 +150,68 @@ describe('persisted API Client configuration', () => {
       baseUrl: 'https://api.example.test',
       apiClientConfig: configuration,
     });
+  });
+
+  it('persists a typed Data Grid binding to a nested API response list', () => {
+    const apiConfiguration = validConfiguration();
+    const dataGridConfiguration: DataGridConfiguration = {
+      ...createDefaultDataGridConfiguration(),
+      apiClientId: 'api-client',
+      operationId: 'operation-customers',
+      listPath: '/customers',
+      columns: [
+        {
+          id: 'customer-name',
+          header: 'Customer',
+          fieldPath: '/name',
+          cellKind: 'text',
+          footer: 'Total',
+        },
+        {
+          id: 'customer-id',
+          header: 'ID',
+          fieldPath: '/id',
+          cellKind: 'button',
+          footer: '',
+        },
+        {
+          id: 'customer-active',
+          header: 'Active',
+          fieldPath: '/active',
+          cellKind: 'checkbox',
+          footer: '',
+        },
+      ],
+    };
+    const apiPage = pageWithApiClientConfiguration(apiConfiguration);
+    const root = apiPage.components[0];
+    if (root === undefined) throw new Error('Expected a page root.');
+    const page: PageModel = {
+      ...apiPage,
+      components: [
+        { ...root, children: [...root.children, 'data-grid'] },
+        ...apiPage.components.slice(1),
+        {
+          id: 'data-grid',
+          type: 'WebDataGrid',
+          name: 'DataGrid1',
+          parentId: root.id,
+          layout: createDefaultComponentLayout(),
+          bounds: { x: 20, y: 40, width: 640, height: 320 },
+          props: { dataGridConfig: dataGridConfiguration },
+          events: {},
+          children: [],
+        },
+      ],
+    };
+
+    expect(DataGridConfigurationSchema.safeParse(dataGridConfiguration).success).toBe(true);
+    expect(safeParsePage(page).success).toBe(true);
+    expect(
+      deserializePage(serializePage(page)).components.find(
+        (component) => component.id === 'data-grid',
+      )?.props,
+    ).toEqual({ dataGridConfig: dataGridConfiguration });
   });
 
   it('rejects invalid operation identities and invalid response-schema trees', () => {

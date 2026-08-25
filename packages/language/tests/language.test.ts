@@ -36,6 +36,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-combo-box-kind', type: 'WebComboBox', name: 'CBOTipo' },
   { id: 'stable-image-logo', type: 'WebImage', name: 'IMGLogo' },
   { id: 'stable-list-box-results', type: 'WebListBox', name: 'LSTResultados' },
+  { id: 'data-grid', type: 'WebDataGrid', name: 'DataGrid1' },
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
 ] as const satisfies readonly MvpComponentFixture[];
 
@@ -50,9 +51,32 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
     props:
       fixture.type === 'WebApiClient'
         ? { baseUrl: 'https://api.example.test' }
-        : fixture.type === 'WebButton'
-          ? { caption: 'Mostrar', visible: true, enabled: true }
-          : {},
+        : fixture.type === 'WebDataGrid'
+          ? {
+              dataGridConfig: {
+                schemaVersion: 1,
+                apiClientId: 'api-client',
+                operationId: 'operation-1',
+                listPath: '',
+                columnCount: 1,
+                showHeader: true,
+                stickyHeader: true,
+                showFooter: false,
+                stickyFooter: true,
+                columns: [
+                  {
+                    id: 'column-1',
+                    header: 'Name',
+                    fieldPath: '/name',
+                    cellKind: 'text',
+                    footer: '',
+                  },
+                ],
+              },
+            }
+          : fixture.type === 'WebButton'
+            ? { caption: 'Mostrar', visible: true, enabled: true }
+            : {},
     events:
       fixture.type === 'WebButton'
         ? { OnClick: 'BTNMostrarClick' }
@@ -163,6 +187,10 @@ describe('page language generation', () => {
       }
     }
     expect(source).toContain('this.ApiClient1 = new WebApiClient(');
+    expect(source).toContain(
+      'this.DataGrid1 = new WebDataGrid(this.requireComponentElement("data-grid"))',
+    );
+    expect(source).toContain('this.DataGrid1.bindApiClient(this.ApiClient1)');
     expect(source).toContain('"baseUrl":"https://api.example.test"');
     expect(source).toContain('"id":"api-client"');
     expect(source).toContain('"name":"ApiClient1"');

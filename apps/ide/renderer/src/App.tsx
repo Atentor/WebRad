@@ -670,7 +670,11 @@ export function App(): ReactElement {
           componentType: component.type,
           eventName,
           eventDetailType:
-            component.type === 'WebApiClient' ? 'WebApiOperationEventDetail' : undefined,
+            component.type === 'WebApiClient'
+              ? 'WebApiOperationEventDetail'
+              : component.type === 'WebDataGrid'
+                ? 'WebDataGridCellEventDetail'
+                : undefined,
           handlerName,
           fileName: key,
         });

@@ -157,6 +157,7 @@ describe('Monaco runtime typings', () => {
   WebButton,
   WebCheckBox,
   WebComboBox,
+  WebDataGrid,
   WebEdit,
   WebPage,
   WebImage,
@@ -177,6 +178,7 @@ class EditorPage extends WebPage {
     combo: WebComboBox,
     image: WebImage,
     list: WebListBox,
+    grid: WebDataGrid,
     api: WebApiClient,
   ): void {
     panel./*@panel*/caption;
@@ -188,6 +190,7 @@ class EditorPage extends WebPage {
     combo./*@combo*/items;
     image./*@image*/objectFit;
     list./*@list*/selectedIndex;
+    grid./*@grid*/configuration;
     api./*@api*/request;
     this./*@page*/show;
   }
@@ -282,6 +285,9 @@ class EditorPage extends WebPage {
         'value',
       ]),
     );
+    expect(completions('grid')).toEqual(
+      expect.arrayContaining([...commonVisualProperties, 'bindApiClient', 'configuration']),
+    );
     expect(completions('api')).toEqual(
       expect.arrayContaining([
         'baseUrl',
@@ -313,6 +319,7 @@ class EditorPage extends WebPage {
       WebCheckBox: 'checkBox',
       WebComboBox: 'combo',
       WebEdit: 'edit',
+      WebDataGrid: 'grid',
       WebPage: 'page',
       WebImage: 'image',
       WebLabel: 'label',

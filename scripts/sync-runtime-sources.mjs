@@ -8,6 +8,7 @@ const outputPath = path.join(repositoryRoot, 'packages', 'compiler', 'src', 'run
 const sourceFiles = [
   'api-client.ts',
   'component.ts',
+  'data-grid.ts',
   'controls.ts',
   'page.ts',
   'globals.ts',

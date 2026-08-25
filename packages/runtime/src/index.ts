@@ -1,5 +1,6 @@
 export * from './api-client.js';
 export * from './component.js';
+export * from './data-grid.js';
 export * from './controls.js';
 export * from './page.js';
 export * from './globals.js';

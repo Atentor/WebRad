@@ -7,7 +7,8 @@ export type ComponentPropertyType =
   | 'icon'
   | 'color'
   | 'component'
-  | 'api-client-config';
+  | 'api-client-config'
+  | 'data-grid-config';
 
 /** Named design-time actions kept in the Component Registry metadata. */
 export type ComponentDesignerAction = 'api-client-tester';
