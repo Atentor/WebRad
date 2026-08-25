@@ -176,6 +176,25 @@ describe('VisualStyleEditor', () => {
     expect(screen.queryByRole('button', { name: /^Content/ })).toBeNull();
   });
 
+  it('offers icon color only for button styles, including interaction states', async () => {
+    const user = userEvent.setup();
+    const base = render(<VisualEditorHarness componentType="WebButton" stateName="base" />);
+    await user.click(screen.getByRole('button', { name: /^Colors/ }));
+    expect(screen.getByLabelText('Configure Icon color')).toBeDefined();
+    await user.click(screen.getByLabelText('Configure Icon color'));
+    expect(currentProperties()).toMatchObject({ buttonIconColor: 'current' });
+    base.unmount();
+
+    const hover = render(<VisualEditorHarness componentType="WebButton" stateName="hover" />);
+    await user.click(screen.getByRole('button', { name: /^Colors/ }));
+    expect(screen.getByLabelText('Configure Icon color')).toBeDefined();
+    hover.unmount();
+
+    render(<VisualEditorHarness componentType="WebLabel" stateName="base" />);
+    await user.click(screen.getByRole('button', { name: /^Colors/ }));
+    expect(screen.queryByLabelText('Configure Icon color')).toBeNull();
+  });
+
   it('uses metadata component compatibility to show image-only properties', async () => {
     const user = userEvent.setup();
     const buttonView = render(<VisualEditorHarness />);

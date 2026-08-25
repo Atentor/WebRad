@@ -26,7 +26,7 @@ describe('ComponentView', () => {
     expect(markup).toContain('Mostrar');
     expect(markup).toContain('<button');
     expect(markup).toContain(
-      'class="wr-component wr-webbutton wr-button-content-text wr-button-icon-left"',
+      'class="wr-component wr-webbutton wr-button-content-text-icon wr-button-icon-left"',
     );
     expect(markup).toContain('data-webrad-button-icon=""');
     expect(markup).toContain('data-webrad-text-content=""');
@@ -44,7 +44,7 @@ describe('ComponentView', () => {
     );
 
     expect(markup).toContain(
-      'class="wr-component wr-webbutton wr-button-content-text wr-button-icon-left bg-blue-600 hover:bg-blue-700 disabled:opacity-50 animate-pulse"',
+      'class="wr-component wr-webbutton wr-button-content-text-icon wr-button-icon-left bg-blue-600 hover:bg-blue-700 disabled:opacity-50 animate-pulse"',
     );
     expect(markup).not.toContain('background-color:red');
     expect(markup).not.toContain('color:white');
@@ -62,7 +62,7 @@ describe('ComponentView', () => {
     const view = render(
       <ComponentView
         node={{ ...button, props: { ...button.props, icon: 'save' } }}
-        styleClassName="[&_.wr-button-icon]:block [&_.wr-button-text]:sr-only flex-col-reverse"
+        styleClassName="[&_.wr-button-icon]:block [&_.wr-button-icon]:text-[#f59e0b] [&_.wr-button-text]:sr-only flex-col-reverse"
       />,
     );
     const element = view.getByRole('button', { name: 'Mostrar' });
@@ -71,6 +71,7 @@ describe('ComponentView', () => {
       'M5 3h12',
     );
     expect(element.classList).toContain('[&_.wr-button-icon]:block');
+    expect(element.classList).toContain('[&_.wr-button-icon]:text-[#f59e0b]');
     expect(element.classList).toContain('[&_.wr-button-text]:sr-only');
     expect(element.classList).toContain('flex-col-reverse');
     expect(element.querySelector('[data-webrad-text-content]')?.textContent).toBe('Mostrar');

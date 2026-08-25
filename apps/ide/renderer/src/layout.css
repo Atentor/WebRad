@@ -2499,6 +2499,79 @@ kbd {
   cursor: pointer;
 }
 
+.wr-icon-picker-dialog {
+  display: flex;
+  width: min(620px, 100%);
+  max-height: min(680px, calc(100vh - 48px));
+  flex-direction: column;
+}
+
+.wr-icon-picker-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.wr-icon-picker-grid {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  overflow: auto;
+  padding: 2px;
+  user-select: none;
+}
+
+.wr-icon-picker-option {
+  display: flex;
+  min-height: 72px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 6px;
+  overflow: hidden;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-panel-alt);
+  color: var(--wr-muted-text);
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.wr-icon-picker-option:hover,
+.wr-icon-picker-option[aria-pressed='true'] {
+  border-color: var(--wr-accent);
+  background: color-mix(in srgb, var(--wr-accent) 14%, var(--wr-panel-alt));
+  color: var(--wr-text);
+}
+
+.wr-icon-picker-option:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 1px;
+}
+
+.wr-icon-picker-option .wr-icon {
+  width: 23px;
+  height: 23px;
+  color: var(--wr-accent);
+}
+
+.wr-icon-picker-option span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-icon-picker-actions {
+  padding: 0 20px 18px;
+}
+
 .wr-modal-actions button:hover:not(:disabled) {
   background: var(--wr-surface-hover);
 }

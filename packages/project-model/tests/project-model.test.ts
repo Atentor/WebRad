@@ -296,7 +296,12 @@ describe('project factories', () => {
     const valid = createComponentStyle('Icon Button', 'WebButton', {
       idFactory: idSequence('style-icon-button'),
       states: {
-        base: { buttonContentMode: 'text-icon', buttonIconPosition: 'right' },
+        base: {
+          buttonContentMode: 'text-icon',
+          buttonIconPosition: 'right',
+          buttonIconColor: '#f59e0b',
+        },
+        hover: { buttonIconColor: '#38bdf8' },
       },
     });
     expect(safeParseComponentStyle(valid).success).toBe(true);
@@ -304,6 +309,13 @@ describe('project factories', () => {
       safeParseComponentStyle({
         ...valid,
         states: { ...valid.states, hover: { buttonContentMode: 'icon' } },
+      }).success,
+    ).toBe(false);
+    expect(
+      safeParseComponentStyle({
+        ...valid,
+        componentType: 'WebLabel',
+        states: { ...valid.states, base: { buttonIconColor: '#f59e0b' } },
       }).success,
     ).toBe(false);
   });
@@ -895,7 +907,7 @@ describe('immutable update helpers', () => {
     if (defaultButton === undefined) return;
 
     expect(defaultButton.states.base).toMatchObject({
-      buttonContentMode: 'text',
+      buttonContentMode: 'text-icon',
       buttonIconPosition: 'left',
     });
 

@@ -298,7 +298,16 @@ describe('App MVP integration', () => {
       const button = document.querySelector<HTMLElement>('[data-component-type="WebButton"]');
       expect(button?.textContent).toBe('Mostrar');
     });
-    await user.selectOptions(screen.getByLabelText('Icon'), 'save');
+    const iconPicker = screen.getByRole('button', { name: 'Icon' });
+    expect(screen.queryByRole('combobox', { name: 'Icon' })).toBeNull();
+    await user.click(iconPicker);
+    const iconDialog = await screen.findByRole('dialog', { name: 'Choose an icon' });
+    expect(iconDialog.querySelectorAll('svg')).toHaveLength(18);
+    await user.click(screen.getByRole('button', { name: 'Select Save icon' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Choose an icon' })).toBeNull();
+      expect(document.activeElement).toBe(iconPicker);
+    });
     await waitFor(() => {
       const buttonIcon = document.querySelector<SVGPathElement>(
         '[data-component-type="WebButton"] [data-webrad-button-icon] path',

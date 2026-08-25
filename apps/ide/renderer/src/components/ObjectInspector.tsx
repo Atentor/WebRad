@@ -6,9 +6,15 @@ import {
   type ComponentRegistry,
 } from '@webrad/component-registry';
 import type { ComponentNode, ComponentStyleModel, PageModel } from '@webrad/project-model';
-import { isWebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
-import { useId, useMemo, useState, type ReactElement } from 'react';
+import {
+  WEBRAD_ICON_NAMES,
+  isWebRadIconName,
+  type WebRadIconName,
+  webRadIconLabel,
+} from '@webrad/runtime/icons';
+import { useEffect, useId, useMemo, useState, type ReactElement } from 'react';
 import { Icon } from './Icon';
+import { IconPickerDialog } from './IconPickerDialog';
 import { Panel } from './Panel';
 import { responsiveLayoutPropertyReference } from '../layout-property';
 
@@ -44,6 +50,8 @@ export interface ObjectInspectorProps {
     definition: ComponentEventDefinition,
   ) => void;
   onEventDoubleClick: (eventName: string, definition: ComponentEventDefinition) => void;
+  /** Keeps the application shell inert while an Inspector icon picker is open. */
+  onIconPickerOpenChange?: (open: boolean) => void;
   /** Reusable styles from the open project. Only type-compatible styles are displayed. */
   styles?: readonly ComponentStyleModel[];
   onStyleChange?: (styleId: string | null) => void;
@@ -221,6 +229,88 @@ interface PropertyEditorProps {
   readonly multiple: boolean;
   readonly availableComponents: readonly ComponentNode[];
   readonly onChange: (value: unknown) => void;
+  readonly onIconPickerOpenChange?: (open: boolean) => void;
+}
+
+interface IconPropertyEditorProps {
+  readonly id: string;
+  readonly property: ComponentPropertyDefinition;
+  readonly value: unknown;
+  readonly multiple: boolean;
+  readonly disabled: boolean;
+  readonly onChange: (value: unknown) => void;
+  readonly onPickerOpenChange?: (open: boolean) => void;
+}
+
+function availableIconNames(property: ComponentPropertyDefinition): readonly WebRadIconName[] {
+  const configured = (property.options ?? WEBRAD_ICON_NAMES).filter(isWebRadIconName);
+  return configured.length > 0 ? configured : WEBRAD_ICON_NAMES;
+}
+
+function IconPropertyEditor({
+  id,
+  property,
+  value,
+  multiple,
+  disabled,
+  onChange,
+  onPickerOpenChange,
+}: IconPropertyEditorProps): ReactElement {
+  const [open, setOpen] = useState(false);
+  const icons = useMemo(() => availableIconNames(property), [property]);
+  const iconName = !multiple && isWebRadIconName(value) ? value : undefined;
+  const label = multiple
+    ? MULTIPLE_VALUES_LABEL
+    : iconName === undefined
+      ? 'Choose icon'
+      : webRadIconLabel(iconName);
+
+  useEffect(
+    () => () => {
+      onPickerOpenChange?.(false);
+    },
+    [onPickerOpenChange],
+  );
+
+  const openPicker = (): void => {
+    onPickerOpenChange?.(true);
+    setOpen(true);
+  };
+  const closePicker = (): void => {
+    onPickerOpenChange?.(false);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        id={id}
+        type="button"
+        className="wr-inspector-icon-picker"
+        aria-label={property.label ?? property.name}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        disabled={disabled}
+        onClick={openPicker}
+      >
+        <span className="wr-inspector-icon-picker-preview" aria-hidden="true">
+          {iconName === undefined ? <span>—</span> : <Icon name={iconName} />}
+        </span>
+        <span>{label}</span>
+      </button>
+      {open && (
+        <IconPickerDialog
+          icons={icons}
+          selected={iconName}
+          onClose={closePicker}
+          onSelect={(icon) => {
+            onChange(icon);
+            closePicker();
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 function PropertyEditor({
@@ -230,6 +320,7 @@ function PropertyEditor({
   multiple,
   availableComponents,
   onChange,
+  onIconPickerOpenChange,
 }: PropertyEditorProps): ReactElement {
   const text = editorText(value, multiple);
   const placeholder = multiple ? MULTIPLE_VALUES_LABEL : undefined;
@@ -328,34 +419,18 @@ function PropertyEditor({
           ))}
         </select>
       );
-    case 'icon': {
-      const iconName = !multiple && isWebRadIconName(text) ? text : undefined;
+    case 'icon':
       return (
-        <div className="wr-inspector-icon-editor">
-          <span className="wr-inspector-icon-preview" aria-hidden="true">
-            {iconName === undefined ? <span>—</span> : <Icon name={iconName} />}
-          </span>
-          <select
-            id={id}
-            className="wr-inspector-select"
-            value={multiple ? MULTIPLE_OPTION_VALUE : text}
-            disabled={disabled}
-            onChange={(event) => onChange(event.target.value)}
-          >
-            {multiple && (
-              <option value={MULTIPLE_OPTION_VALUE} disabled>
-                {MULTIPLE_VALUES_LABEL}
-              </option>
-            )}
-            {property.options?.map((option) => (
-              <option value={option} key={option}>
-                {isWebRadIconName(option) ? webRadIconLabel(option) : option}
-              </option>
-            ))}
-          </select>
-        </div>
+        <IconPropertyEditor
+          id={id}
+          property={property}
+          value={value}
+          multiple={multiple}
+          disabled={disabled}
+          onChange={onChange}
+          onPickerOpenChange={onIconPickerOpenChange}
+        />
       );
-    }
     case 'color':
       return (
         <div className="wr-inspector-color-editor">
@@ -420,6 +495,7 @@ interface PropertyRowProps {
   readonly page: PageModel | null | undefined;
   readonly availableComponents: readonly ComponentNode[];
   readonly onChange: ObjectInspectorProps['onPropertyChange'];
+  readonly onIconPickerOpenChange?: (open: boolean) => void;
 }
 
 function PropertyRow({
@@ -428,6 +504,7 @@ function PropertyRow({
   page,
   availableComponents,
   onChange,
+  onIconPickerOpenChange,
 }: PropertyRowProps): ReactElement {
   const editorId = useId();
   const value = sharedValue(
@@ -448,6 +525,7 @@ function PropertyRow({
           multiple={multiple}
           availableComponents={availableComponents}
           onChange={(nextValue) => onChange(property.name, nextValue, property)}
+          onIconPickerOpenChange={onIconPickerOpenChange}
         />
       </div>
     </div>
@@ -511,6 +589,7 @@ export function ObjectInspector({
   onPropertyChange,
   onEventChange,
   onEventDoubleClick,
+  onIconPickerOpenChange,
   styles = [],
   onStyleChange,
   registry = defaultComponentRegistry,
@@ -670,6 +749,7 @@ export function ObjectInspector({
                         page={page}
                         availableComponents={componentChoices}
                         onChange={onPropertyChange}
+                        onIconPickerOpenChange={onIconPickerOpenChange}
                       />
                     ))}
                   </section>

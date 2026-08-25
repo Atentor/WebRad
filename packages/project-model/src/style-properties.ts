@@ -196,21 +196,29 @@ function defaultLengthValue(name: ComponentStylePropertyName): StylePropertyValu
   return { value: 0, unit: 'px' };
 }
 
+interface ColorPropertyOptions {
+  readonly defaultValue?: string;
+  readonly componentTypes?: readonly string[];
+  readonly stateNames?: readonly ComponentStyleStateName[];
+}
+
 function colorProperty(
   name: ComponentStylePropertyName,
   label: string,
   category: ComponentStylePropertyCategory,
+  settings: ColorPropertyOptions = {},
 ): ComponentStylePropertyDefinition {
   return {
     name,
     label,
     category,
     defaultValue:
-      name === 'backgroundColor'
+      settings.defaultValue ??
+      (name === 'backgroundColor'
         ? '#ffffff'
         : name === 'ringColor' || name === 'outlineColor'
           ? '#0ea5e9'
-          : '#000000',
+          : '#000000'),
     description: `Configure ${label.toLocaleLowerCase('en-US')}.`,
     editor: {
       kind: 'color',
@@ -220,6 +228,8 @@ function colorProperty(
         ['inherit', 'Inherit'],
       ]),
     },
+    ...(settings.componentTypes === undefined ? {} : { componentTypes: settings.componentTypes }),
+    ...(settings.stateNames === undefined ? {} : { stateNames: settings.stateNames }),
   };
 }
 
@@ -515,6 +525,10 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
   ),
 
   colorProperty('textColor', 'Text color', 'Colors'),
+  colorProperty('buttonIconColor', 'Icon color', 'Colors', {
+    componentTypes: ['WebButton'],
+    defaultValue: 'current',
+  }),
   gradientProperty('textGradient', 'Text gradient', 'Colors', [
     'WebLabel',
     'WebButton',

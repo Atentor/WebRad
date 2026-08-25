@@ -450,6 +450,10 @@ export function resolveStylePropertyCandidate(
       });
     case 'textColor':
       return colorClass('text', value);
+    case 'buttonIconColor': {
+      const color = colorClass('text', value);
+      return color === undefined ? undefined : `[&_.wr-button-icon]:${color}`;
+    }
     case 'textGradient':
       return textGradientClass(value);
     case 'backgroundColor':
@@ -829,7 +833,9 @@ export function projectComponentVisual(
     classNames: [
       'wr-component',
       `wr-${source.type.toLowerCase()}`,
-      ...(source.type === 'WebButton' ? ['wr-button-content-text', 'wr-button-icon-left'] : []),
+      ...(source.type === 'WebButton'
+        ? ['wr-button-content-text-icon', 'wr-button-icon-left']
+        : []),
     ],
     style,
     visible: readBooleanProperty(source, 'visible', true),

@@ -168,7 +168,7 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
         textColor: '#ffffff',
         fontFamily: 'sans',
         fontWeight: 'semibold',
-        buttonContentMode: 'text',
+        buttonContentMode: 'text-icon',
         buttonIconPosition: 'left',
         boxShadow: 'sm',
         cursor: 'pointer',

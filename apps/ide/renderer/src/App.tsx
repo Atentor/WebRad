@@ -176,6 +176,7 @@ export function App(): ReactElement {
   const [compiledStylesCss, setCompiledStylesCss] = useState('');
   const [building, setBuilding] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectError, setNewProjectError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<EditorCursorStatus>({
@@ -1289,13 +1290,14 @@ export function App(): ReactElement {
               : undefined,
           zoom,
         } as const);
+  const modalOpen = newProjectDialogOpen || iconPickerOpen;
 
   return (
     <>
       <div
         className="wr-ide-modal-host"
-        inert={newProjectDialogOpen ? true : undefined}
-        aria-hidden={newProjectDialogOpen ? true : undefined}
+        inert={modalOpen ? true : undefined}
+        aria-hidden={modalOpen ? true : undefined}
       >
         <IdeShell
           toolbar={
@@ -1393,6 +1395,7 @@ export function App(): ReactElement {
                   styles={project?.styles}
                   onStyleChange={changeStyle}
                   onPropertyChange={changeProperty}
+                  onIconPickerOpenChange={setIconPickerOpen}
                   onEventChange={(eventName, handlerName) => bindEvent(eventName, handlerName)}
                   onEventDoubleClick={(eventName) => {
                     const targetId = selection.primaryId ?? activePage?.rootComponentId;

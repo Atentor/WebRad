@@ -549,7 +549,12 @@ describe('browser runtime', () => {
     });
 
     expect(projection).toMatchObject({
-      classNames: ['wr-component', 'wr-webbutton', 'wr-button-content-text', 'wr-button-icon-left'],
+      classNames: [
+        'wr-component',
+        'wr-webbutton',
+        'wr-button-content-text-icon',
+        'wr-button-icon-left',
+      ],
       enabled: false,
       visible: false,
       tabIndex: 3,
@@ -926,6 +931,28 @@ describe('browser runtime', () => {
     );
     expect(resolveComponentStylePreviewClassName(solidHover, 'hover')).toEqual(
       expect.stringContaining('bg-[#ffffff]'),
+    );
+  });
+
+  it('targets a button SVG icon with its own state-aware style color', () => {
+    expect(resolveStylePropertyCandidate('buttonIconColor', '#f59e0b')).toBe(
+      '[&_.wr-button-icon]:text-[#f59e0b]',
+    );
+    expect(
+      resolveComponentStyleClassNames({
+        states: {
+          base: { buttonIconColor: '#f59e0b' },
+          hover: { buttonIconColor: '#38bdf8' },
+          focus: {},
+          active: {},
+          disabled: {},
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        '[&_.wr-button-icon]:text-[#f59e0b]',
+        'hover:[&_.wr-button-icon]:text-[#38bdf8]',
+      ]),
     );
   });
 
