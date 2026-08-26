@@ -2643,8 +2643,9 @@ kbd {
 }
 
 .wr-modal button:disabled,
-.wr-modal input:disabled {
-  cursor: wait;
+.wr-modal input:disabled,
+.wr-modal select:disabled {
+  cursor: not-allowed;
   opacity: 0.58;
 }
 

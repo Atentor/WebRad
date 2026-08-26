@@ -45,6 +45,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Generated page wrappers rehydrate every Data Grid's persisted configuration before API binding, so all grids subscribed to a client render each new successful operation result.
 - DONE: The Data Grid configurator uses a compact, high-density layout that keeps sizing, appearance, and column controls readable while reducing modal scrolling.
 - DONE: Default Data Grid headers and footers use solid Aurora-compatible surfaces, with the same non-transparent fallbacks for existing projects that have not customized those properties.
+- DONE: Disabled modal controls use the standard `not-allowed` cursor; `wait` is reserved for actual request or editor loading feedback.
 
 ## Validation evidence
 
