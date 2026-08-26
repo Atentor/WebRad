@@ -392,6 +392,14 @@ function applyGridLayout(
     '--wr-data-grid-cell-padding-y',
     `${String(configuration.cellPaddingVertical)}px`,
   );
+  content.style.setProperty(
+    '--wr-data-grid-config-horizontal-line-width',
+    configuration.showHorizontalLines ? '1px' : '0px',
+  );
+  content.style.setProperty(
+    '--wr-data-grid-config-vertical-line-width',
+    configuration.showVerticalLines ? '1px' : '0px',
+  );
   content.dataset.webradRowHeightMode = configuration.rowHeightMode;
   content.dataset.webradWrapText = String(configuration.wrapText);
 }
@@ -470,6 +478,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
         ? 'wr-data-grid-horizontal-lines'
         : 'wr-data-grid-no-horizontal-lines',
       configuration.showVerticalLines ? 'wr-data-grid-vertical-lines' : '',
+      configuration.showFooter ? 'wr-data-grid-has-footer' : '',
     ]
       .filter((className) => className.length > 0)
       .join(' ');

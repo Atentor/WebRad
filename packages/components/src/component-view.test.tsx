@@ -107,6 +107,7 @@ describe('ComponentView', () => {
     expect(markup).toContain('>/name</div>');
     expect(markup).toContain('data-webrad-row-height-mode="dynamic"');
     expect(markup).toContain('--wr-data-grid-columns:120px 88px');
+    expect(markup).toContain('wr-data-grid-has-footer');
   });
 
   it('projects the selected reusable style classes onto the component root', () => {

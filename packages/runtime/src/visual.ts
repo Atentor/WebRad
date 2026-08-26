@@ -289,6 +289,47 @@ function colorClass(prefix: string, value: unknown): string | undefined {
     : undefined;
 }
 
+function cssColorValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (value === 'current') return 'currentColor';
+  if (value === 'transparent' || value === 'inherit') return value;
+  return /^#[\da-f]{6}$/iu.test(value) ? value.toLowerCase() : undefined;
+}
+
+function cssLengthValue(value: unknown): string | undefined {
+  if (typeof value === 'string' && /^[a-z][a-z0-9-]*$/u.test(value)) return value;
+  return isStyleLengthValue(value) ? `${formatNumber(value.value)}${value.unit}` : undefined;
+}
+
+function cssVariableClass(variableName: string, value: string | undefined): string | undefined {
+  return value === undefined ? undefined : `[${variableName}:${value}]`;
+}
+
+const DATA_GRID_FONT_WEIGHT_VALUES: Readonly<Record<string, string>> = {
+  thin: '100',
+  extralight: '200',
+  light: '300',
+  normal: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
+  extrabold: '800',
+  black: '900',
+};
+
+function dataGridLineVisibilityClass(
+  axis: 'horizontal' | 'vertical',
+  value: unknown,
+): string | undefined {
+  const mode = stringValue(value);
+  const prefix = `--wr-data-grid-${axis}-line`;
+  if (mode === 'hide') return cssVariableClass(`${prefix}-override-width`, '0px');
+  if (mode === 'show') {
+    return cssVariableClass(`${prefix}-override-width`, `var(${prefix}-width,1px)`);
+  }
+  return undefined;
+}
+
 function linearGradientValue(value: unknown): string | undefined {
   if (!isBackgroundGradientValue(value)) return undefined;
   const direction = value.direction.replaceAll('-', '_');
@@ -523,6 +564,68 @@ export function resolveStylePropertyCandidate(
       return width === undefined || height === undefined
         ? undefined
         : `[&_.wr-button-icon]:${width} [&_.wr-button-icon]:${height}`;
+    }
+    case 'dataGridHorizontalLineVisibility':
+      return dataGridLineVisibilityClass('horizontal', value);
+    case 'dataGridHorizontalLineColor':
+      return cssVariableClass('--wr-data-grid-horizontal-line-color', cssColorValue(value));
+    case 'dataGridHorizontalLineWidth':
+      return cssVariableClass('--wr-data-grid-horizontal-line-width', cssLengthValue(value));
+    case 'dataGridHorizontalLineStyle':
+      return cssVariableClass('--wr-data-grid-horizontal-line-style', stringValue(value));
+    case 'dataGridVerticalLineVisibility':
+      return dataGridLineVisibilityClass('vertical', value);
+    case 'dataGridVerticalLineColor':
+      return cssVariableClass('--wr-data-grid-vertical-line-color', cssColorValue(value));
+    case 'dataGridVerticalLineWidth':
+      return cssVariableClass('--wr-data-grid-vertical-line-width', cssLengthValue(value));
+    case 'dataGridVerticalLineStyle':
+      return cssVariableClass('--wr-data-grid-vertical-line-style', stringValue(value));
+    case 'dataGridHeaderBackgroundColor':
+      return cssVariableClass('--wr-data-grid-header-background-color', cssColorValue(value));
+    case 'dataGridHeaderTextColor':
+      return cssVariableClass('--wr-data-grid-header-text-color', cssColorValue(value));
+    case 'dataGridHeaderBorderColor':
+      return cssVariableClass('--wr-data-grid-header-border-color', cssColorValue(value));
+    case 'dataGridHeaderBorderWidth':
+      return cssVariableClass('--wr-data-grid-header-border-width', cssLengthValue(value));
+    case 'dataGridHeaderBorderStyle':
+      return cssVariableClass('--wr-data-grid-header-border-style', stringValue(value));
+    case 'dataGridHeaderHeight':
+      return cssVariableClass('--wr-data-grid-header-height', cssLengthValue(value));
+    case 'dataGridHeaderPaddingX':
+      return cssVariableClass('--wr-data-grid-header-padding-x', cssLengthValue(value));
+    case 'dataGridHeaderPaddingY':
+      return cssVariableClass('--wr-data-grid-header-padding-y', cssLengthValue(value));
+    case 'dataGridHeaderFontWeight': {
+      const weight = stringValue(value);
+      return cssVariableClass(
+        '--wr-data-grid-header-font-weight',
+        weight === undefined ? undefined : DATA_GRID_FONT_WEIGHT_VALUES[weight],
+      );
+    }
+    case 'dataGridFooterBackgroundColor':
+      return cssVariableClass('--wr-data-grid-footer-background-color', cssColorValue(value));
+    case 'dataGridFooterTextColor':
+      return cssVariableClass('--wr-data-grid-footer-text-color', cssColorValue(value));
+    case 'dataGridFooterBorderColor':
+      return cssVariableClass('--wr-data-grid-footer-border-color', cssColorValue(value));
+    case 'dataGridFooterBorderWidth':
+      return cssVariableClass('--wr-data-grid-footer-border-width', cssLengthValue(value));
+    case 'dataGridFooterBorderStyle':
+      return cssVariableClass('--wr-data-grid-footer-border-style', stringValue(value));
+    case 'dataGridFooterHeight':
+      return cssVariableClass('--wr-data-grid-footer-height', cssLengthValue(value));
+    case 'dataGridFooterPaddingX':
+      return cssVariableClass('--wr-data-grid-footer-padding-x', cssLengthValue(value));
+    case 'dataGridFooterPaddingY':
+      return cssVariableClass('--wr-data-grid-footer-padding-y', cssLengthValue(value));
+    case 'dataGridFooterFontWeight': {
+      const weight = stringValue(value);
+      return cssVariableClass(
+        '--wr-data-grid-footer-font-weight',
+        weight === undefined ? undefined : DATA_GRID_FONT_WEIGHT_VALUES[weight],
+      );
     }
     case 'textColor':
       return colorClass('text', value);
@@ -941,18 +1044,19 @@ export const WEBRAD_COMPONENT_CSS = `
 .wr-data-grid-scroll { width: 100%; height: 100%; overflow: auto; }
 .wr-data-grid-content { width: 100%; min-width: var(--wr-data-grid-min-width, 0); }
 .wr-data-grid-row { display: grid; grid-template-columns: var(--wr-data-grid-columns); min-width: var(--wr-data-grid-min-width, 0); }
-.wr-data-grid-cell { box-sizing: border-box; min-width: 0; min-height: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding: var(--wr-data-grid-cell-padding-y, 8px) var(--wr-data-grid-cell-padding-x, 10px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wr-data-grid-cell { box-sizing: border-box; min-width: 0; min-height: 0; padding: var(--wr-data-grid-cell-padding-y, 8px) var(--wr-data-grid-cell-padding-x, 10px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wr-data-grid-body-row > .wr-data-grid-cell { border-bottom-width: var(--wr-data-grid-horizontal-line-override-width, var(--wr-data-grid-horizontal-line-width, var(--wr-data-grid-config-horizontal-line-width, 1px))); border-bottom-style: var(--wr-data-grid-horizontal-line-style, solid); border-bottom-color: var(--wr-data-grid-horizontal-line-color, color-mix(in srgb, currentColor 15%, transparent)); }
+.wr-data-grid-has-footer .wr-data-grid-body-row:last-child > .wr-data-grid-cell { border-bottom-width: 0; }
+.wr-data-grid-row > .wr-data-grid-cell:not(:first-child) { border-inline-start-width: var(--wr-data-grid-vertical-line-override-width, var(--wr-data-grid-vertical-line-width, var(--wr-data-grid-config-vertical-line-width, 0px))); border-inline-start-style: var(--wr-data-grid-vertical-line-style, solid); border-inline-start-color: var(--wr-data-grid-vertical-line-color, color-mix(in srgb, currentColor 15%, transparent)); }
 .wr-data-grid-body-row > .wr-data-grid-cell:focus-visible { outline: 2px solid var(--wr-accent, #4da3ff); outline-offset: -2px; }
 .wr-data-grid-content[data-webrad-wrap-text='true'] .wr-data-grid-cell { overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
-.wr-data-grid-header-cell { background: color-mix(in srgb, currentColor 10%, transparent); font-weight: 600; }
-.wr-data-grid-footer-cell { background: color-mix(in srgb, currentColor 7%, transparent); font-weight: 600; }
+.wr-data-grid-header-cell { height: var(--wr-data-grid-header-height, auto); border-bottom-width: var(--wr-data-grid-header-border-width, var(--wr-data-grid-horizontal-line-override-width, var(--wr-data-grid-horizontal-line-width, var(--wr-data-grid-config-horizontal-line-width, 1px)))); border-bottom-style: var(--wr-data-grid-header-border-style, var(--wr-data-grid-horizontal-line-style, solid)); border-bottom-color: var(--wr-data-grid-header-border-color, var(--wr-data-grid-horizontal-line-color, color-mix(in srgb, currentColor 15%, transparent))); background: var(--wr-data-grid-header-background-color, color-mix(in srgb, currentColor 10%, transparent)); color: var(--wr-data-grid-header-text-color, inherit); font-weight: var(--wr-data-grid-header-font-weight, 600); padding: var(--wr-data-grid-header-padding-y, var(--wr-data-grid-cell-padding-y, 8px)) var(--wr-data-grid-header-padding-x, var(--wr-data-grid-cell-padding-x, 10px)); }
+.wr-data-grid-footer-cell { height: var(--wr-data-grid-footer-height, auto); border-top-width: var(--wr-data-grid-footer-border-width, var(--wr-data-grid-horizontal-line-override-width, var(--wr-data-grid-horizontal-line-width, var(--wr-data-grid-config-horizontal-line-width, 1px)))); border-top-style: var(--wr-data-grid-footer-border-style, var(--wr-data-grid-horizontal-line-style, solid)); border-top-color: var(--wr-data-grid-footer-border-color, var(--wr-data-grid-horizontal-line-color, color-mix(in srgb, currentColor 15%, transparent))); background: var(--wr-data-grid-footer-background-color, color-mix(in srgb, currentColor 7%, transparent)); color: var(--wr-data-grid-footer-text-color, inherit); font-weight: var(--wr-data-grid-footer-font-weight, 600); padding: var(--wr-data-grid-footer-padding-y, var(--wr-data-grid-cell-padding-y, 8px)) var(--wr-data-grid-footer-padding-x, var(--wr-data-grid-cell-padding-x, 10px)); }
 .wr-data-grid-sticky-header { position: sticky; z-index: 1; top: 0; }
 .wr-data-grid-sticky-footer { position: sticky; z-index: 1; bottom: 0; }
 .wr-data-grid-content[data-webrad-row-height-mode='fixed'] .wr-data-grid-body-row { height: var(--wr-data-grid-fixed-row-height, 40px); max-height: var(--wr-data-grid-fixed-row-height, 40px); }
 .wr-data-grid-content[data-webrad-row-height-mode='fixed'] .wr-data-grid-body-row > .wr-data-grid-cell { height: var(--wr-data-grid-fixed-row-height, 40px); }
 .wr-data-grid-content[data-webrad-row-height-mode='dynamic'] .wr-data-grid-body-row { min-height: var(--wr-data-grid-min-row-height, 36px); max-height: var(--wr-data-grid-max-row-height, none); }
-.wr-data-grid-no-horizontal-lines .wr-data-grid-cell { border-bottom-color: transparent; }
-.wr-data-grid-vertical-lines .wr-data-grid-cell:not(:first-child) { border-inline-start: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
 .wr-data-grid-striped .wr-data-grid-body-row:nth-child(even) > .wr-data-grid-cell { background: color-mix(in srgb, currentColor 5%, transparent); }
 .wr-data-grid-image { display: block; width: 100%; max-width: 100%; height: 36px; max-height: 100%; object-fit: contain; }
 .wr-data-grid-button { max-width: 100%; border: 0; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, transparent); color: inherit; cursor: pointer; padding: 4px 8px; }

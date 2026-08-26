@@ -189,6 +189,83 @@ describe('VisualStyleEditor', () => {
     expect(screen.queryByRole('button', { name: /^Icon/ })).toBeNull();
   });
 
+  it('exposes Data Grid lines and independently configurable header and footer on the base state', async () => {
+    const user = userEvent.setup();
+    const grid = render(<VisualEditorHarness componentType="WebDataGrid" stateName="base" />);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Data Grid Lines, 0 configured, 8 properties' }),
+    );
+    expect(screen.getByLabelText('Configure Horizontal line visibility')).toBeDefined();
+    expect(screen.getByLabelText('Configure Horizontal line color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Horizontal line width')).toBeDefined();
+    expect(screen.getByLabelText('Configure Horizontal line style')).toBeDefined();
+    expect(screen.getByLabelText('Configure Vertical line visibility')).toBeDefined();
+    expect(screen.getByLabelText('Configure Vertical line color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Vertical line width')).toBeDefined();
+    expect(screen.getByLabelText('Configure Vertical line style')).toBeDefined();
+
+    await user.click(screen.getByLabelText('Configure Horizontal line visibility'));
+    await user.selectOptions(screen.getByLabelText('Horizontal line visibility'), 'hide');
+    await user.click(screen.getByLabelText('Configure Vertical line width'));
+    fireEvent.change(screen.getByLabelText('Vertical line width value'), {
+      target: { value: '2' },
+    });
+    expect(currentProperties()).toMatchObject({
+      dataGridHorizontalLineVisibility: 'hide',
+      dataGridVerticalLineWidth: { value: 2, unit: 'px' },
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Data Grid Header, 0 configured, 9 properties' }),
+    );
+    expect(screen.getByLabelText('Configure Header background color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Header text color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Header border color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Header border width')).toBeDefined();
+    expect(screen.getByLabelText('Configure Header border style')).toBeDefined();
+    expect(screen.getByLabelText('Configure Header height')).toBeDefined();
+    expect(screen.getByLabelText('Configure Header horizontal padding')).toBeDefined();
+    expect(screen.getByLabelText('Configure Header vertical padding')).toBeDefined();
+    expect(screen.getByLabelText('Configure Header font weight')).toBeDefined();
+
+    await user.click(screen.getByLabelText('Configure Header border style'));
+    await user.selectOptions(screen.getByLabelText('Header border style'), 'dashed');
+    expect(currentProperties()).toMatchObject({ dataGridHeaderBorderStyle: 'dashed' });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Data Grid Footer, 0 configured, 9 properties' }),
+    );
+    expect(screen.getByLabelText('Configure Footer background color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Footer text color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Footer border color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Footer border width')).toBeDefined();
+    expect(screen.getByLabelText('Configure Footer border style')).toBeDefined();
+    expect(screen.getByLabelText('Configure Footer height')).toBeDefined();
+    expect(screen.getByLabelText('Configure Footer horizontal padding')).toBeDefined();
+    expect(screen.getByLabelText('Configure Footer vertical padding')).toBeDefined();
+    expect(screen.getByLabelText('Configure Footer font weight')).toBeDefined();
+
+    await user.click(screen.getByLabelText('Configure Footer height'));
+    await user.selectOptions(screen.getByLabelText('Footer height mode'), 'custom');
+    fireEvent.change(screen.getByLabelText('Footer height value'), { target: { value: '36' } });
+    expect(currentProperties()).toMatchObject({
+      dataGridFooterHeight: { value: 36, unit: 'px' },
+    });
+    grid.unmount();
+
+    const hover = render(<VisualEditorHarness componentType="WebDataGrid" stateName="hover" />);
+    expect(screen.queryByRole('button', { name: /^Data Grid Lines,/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Data Grid Header,/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Data Grid Footer,/ })).toBeNull();
+    hover.unmount();
+
+    render(<VisualEditorHarness componentType="WebButton" stateName="base" />);
+    expect(screen.queryByRole('button', { name: /^Data Grid Lines,/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Data Grid Header,/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Data Grid Footer,/ })).toBeNull();
+  });
+
   it('uses metadata component compatibility to show image-only properties', async () => {
     const user = userEvent.setup();
     const buttonView = render(<VisualEditorHarness />);

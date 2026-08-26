@@ -325,6 +325,91 @@ describe('project factories', () => {
     ).toBe(false);
   });
 
+  it('publishes Data Grid-only line, header, and footer visual properties on the base state', () => {
+    const dataGridDefinitions = COMPONENT_STYLE_PROPERTY_DEFINITIONS.filter((definition) =>
+      definition.name.startsWith('dataGrid'),
+    );
+    expect(dataGridDefinitions.map(({ name, category }) => ({ name, category }))).toEqual([
+      { name: 'dataGridHorizontalLineVisibility', category: 'Data Grid Lines' },
+      { name: 'dataGridHorizontalLineColor', category: 'Data Grid Lines' },
+      { name: 'dataGridHorizontalLineWidth', category: 'Data Grid Lines' },
+      { name: 'dataGridHorizontalLineStyle', category: 'Data Grid Lines' },
+      { name: 'dataGridVerticalLineVisibility', category: 'Data Grid Lines' },
+      { name: 'dataGridVerticalLineColor', category: 'Data Grid Lines' },
+      { name: 'dataGridVerticalLineWidth', category: 'Data Grid Lines' },
+      { name: 'dataGridVerticalLineStyle', category: 'Data Grid Lines' },
+      { name: 'dataGridHeaderBackgroundColor', category: 'Data Grid Header' },
+      { name: 'dataGridHeaderTextColor', category: 'Data Grid Header' },
+      { name: 'dataGridHeaderBorderColor', category: 'Data Grid Header' },
+      { name: 'dataGridHeaderBorderWidth', category: 'Data Grid Header' },
+      { name: 'dataGridHeaderBorderStyle', category: 'Data Grid Header' },
+      { name: 'dataGridHeaderHeight', category: 'Data Grid Header' },
+      { name: 'dataGridHeaderPaddingX', category: 'Data Grid Header' },
+      { name: 'dataGridHeaderPaddingY', category: 'Data Grid Header' },
+      { name: 'dataGridHeaderFontWeight', category: 'Data Grid Header' },
+      { name: 'dataGridFooterBackgroundColor', category: 'Data Grid Footer' },
+      { name: 'dataGridFooterTextColor', category: 'Data Grid Footer' },
+      { name: 'dataGridFooterBorderColor', category: 'Data Grid Footer' },
+      { name: 'dataGridFooterBorderWidth', category: 'Data Grid Footer' },
+      { name: 'dataGridFooterBorderStyle', category: 'Data Grid Footer' },
+      { name: 'dataGridFooterHeight', category: 'Data Grid Footer' },
+      { name: 'dataGridFooterPaddingX', category: 'Data Grid Footer' },
+      { name: 'dataGridFooterPaddingY', category: 'Data Grid Footer' },
+      { name: 'dataGridFooterFontWeight', category: 'Data Grid Footer' },
+    ]);
+    expect(
+      dataGridDefinitions.every(
+        (definition) =>
+          definition.componentTypes?.length === 1 &&
+          definition.componentTypes[0] === 'WebDataGrid' &&
+          definition.stateNames?.length === 1 &&
+          definition.stateNames[0] === 'base',
+      ),
+    ).toBe(true);
+
+    const valid = createComponentStyle('Grid Appearance', 'WebDataGrid', {
+      idFactory: idSequence('style-grid-appearance'),
+      states: {
+        base: {
+          dataGridHorizontalLineVisibility: 'show',
+          dataGridHorizontalLineColor: '#0ea5e9',
+          dataGridHorizontalLineWidth: { value: 2, unit: 'px' },
+          dataGridHorizontalLineStyle: 'dashed',
+          dataGridVerticalLineVisibility: 'hide',
+          dataGridVerticalLineColor: '#a855f7',
+          dataGridVerticalLineWidth: { value: 1, unit: 'rem' },
+          dataGridVerticalLineStyle: 'dotted',
+          dataGridHeaderBackgroundColor: '#e2e8f0',
+          dataGridHeaderTextColor: '#0f172a',
+          dataGridHeaderBorderColor: '#cbd5e1',
+          dataGridHeaderBorderWidth: { value: 2, unit: 'px' },
+          dataGridHeaderBorderStyle: 'solid',
+          dataGridHeaderHeight: { value: 44, unit: 'px' },
+          dataGridHeaderPaddingX: { value: 12, unit: 'px' },
+          dataGridHeaderPaddingY: { value: 6, unit: 'px' },
+          dataGridHeaderFontWeight: 'bold',
+          dataGridFooterBackgroundColor: '#f1f5f9',
+          dataGridFooterTextColor: '#0f172a',
+          dataGridFooterBorderColor: '#cbd5e1',
+          dataGridFooterBorderWidth: { value: 1, unit: 'px' },
+          dataGridFooterBorderStyle: 'double',
+          dataGridFooterHeight: 'auto',
+          dataGridFooterPaddingX: { value: 14, unit: 'px' },
+          dataGridFooterPaddingY: { value: 7, unit: 'px' },
+          dataGridFooterFontWeight: 'medium',
+        },
+      },
+    });
+    expect(safeParseComponentStyle(valid).success).toBe(true);
+    expect(safeParseComponentStyle({ ...valid, componentType: 'WebButton' }).success).toBe(false);
+    expect(
+      safeParseComponentStyle({
+        ...valid,
+        states: { ...valid.states, hover: { dataGridHeaderTextColor: '#0f172a' } },
+      }).success,
+    ).toBe(false);
+  });
+
   it('publishes one valid and useful editor default for every style property', () => {
     expect(COMPONENT_STYLE_PROPERTY_DEFINITIONS.map(({ name }) => name)).toEqual(
       COMPONENT_STYLE_PROPERTY_NAMES,

@@ -41,7 +41,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: The version 2 responsive-layout contract replaces page-level layout mode with per-node container and item rules; runtime and Designer reflow from that one persisted model across fixed, anchored, row, and column containers.
 - DONE: Windows packaging and packaged smoke are locally proven; the CI workflow validates development and packaged applications on Windows and Linux.
 - DONE: API Client lifecycle events (`OnRequest`, `OnSuccess`, `OnError`, and `OnComplete`) are available in the Inspector, generated bindings, and browser runtime.
-- DONE: Dynamic Data Grid has a transactional dedicated modal for API binding, column order and cell settings, mixed fixed/dynamic column widths, configurable row sizing, padding, wrapping, alignment, lines, stripes, empty state, and matching Designer/generated-runtime projection.
+- DONE: Dynamic Data Grid has a transactional dedicated modal for API binding, column order and cell settings, mixed fixed/dynamic column widths, configurable row sizing, padding, wrapping, alignment, lines, stripes, empty state, and matching Designer/generated-runtime projection. Its Data Grid-only Styles groups independently control horizontal and vertical line visibility, color, width, and style, plus the header and footer background/text, separator border, height, padding, and font weight.
 
 ## Validation evidence
 
@@ -55,7 +55,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Application icon validation checks generated PNG/ICO/ICNS assets, renderer reuse of the SVG, packaged native icon loading, and the Windows Squirrel installer.
 - The persisted Hello WebRAD example is compiled, mounted in a DOM, edited, clicked, and verified to call `Message` with the live input value.
 - Responsive-layout tests cover version 2 validation and serialization, Registry controls, runtime fixed/anchored/flex projection, Designer viewport reflow, and drag reorder for row/column containers.
-- Dynamic Data Grid tests cover v1-to-v2 configuration migration, fixed and dynamic track constraints, dialog save/cancel/reorder behavior, Inspector persistence, Designer projection, generated runtime behavior, and public runtime-typing parity.
+- Dynamic Data Grid tests cover v1-to-v2 configuration migration, fixed and dynamic track constraints, dialog save/cancel/reorder behavior, Inspector persistence, base-only reusable line/header/footer styles, Designer projection, generated runtime behavior, and public runtime-typing parity.
 - The development and packaged smokes start the real Forge bundles, open a Hello project through the UI/preload/IPC path, verify the Monaco editor through F12, dispatch F9, wait for `PreviewPane`, enter `Ada`, click the generated button inside the sandbox, verify `Olá Ada`, then exit automatically.
 
 ## Decision log

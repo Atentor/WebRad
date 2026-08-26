@@ -124,6 +124,51 @@ describe('StylesWorkspace', () => {
     expect(previewButton().disabled).toBe(true);
   });
 
+  it('renders a footer and projects Data Grid CSS-variable classes onto the live preview root', () => {
+    const style = createComponentStyle('Operations Grid', 'WebDataGrid', {
+      idFactory: () => 'operations-grid-style',
+      states: {
+        base: {
+          dataGridHorizontalLineVisibility: 'hide',
+          dataGridVerticalLineVisibility: 'show',
+          dataGridVerticalLineColor: '#0ea5e9',
+          dataGridVerticalLineWidth: { value: 2, unit: 'px' },
+          dataGridHeaderBackgroundColor: '#0f172a',
+          dataGridHeaderBorderStyle: 'dashed',
+          dataGridFooterBackgroundColor: '#fef3c7',
+          dataGridFooterBorderWidth: { value: 3, unit: 'px' },
+          dataGridFooterFontWeight: 'bold',
+        },
+      },
+    });
+    render(
+      <StylesWorkspace
+        styles={[style]}
+        onCreateStyle={vi.fn(() => null)}
+        onUpdateStyle={vi.fn()}
+        onDeleteStyle={vi.fn()}
+      />,
+    );
+
+    const previewGrid = document.querySelector<HTMLElement>(
+      '[data-style-preview] [data-component-type="WebDataGrid"]',
+    );
+    if (previewGrid === null) throw new Error('Expected the Data Grid preview root.');
+
+    expect(screen.getByText('Footer 1')).toBeDefined();
+    expect(previewGrid.classList).toContain('[--wr-data-grid-horizontal-line-override-width:0px]');
+    expect(previewGrid.classList).toContain(
+      '[--wr-data-grid-vertical-line-override-width:var(--wr-data-grid-vertical-line-width,1px)]',
+    );
+    expect(previewGrid.classList).toContain('[--wr-data-grid-vertical-line-color:#0ea5e9]');
+    expect(previewGrid.classList).toContain('[--wr-data-grid-vertical-line-width:2px]');
+    expect(previewGrid.classList).toContain('[--wr-data-grid-header-background-color:#0f172a]');
+    expect(previewGrid.classList).toContain('[--wr-data-grid-header-border-style:dashed]');
+    expect(previewGrid.classList).toContain('[--wr-data-grid-footer-background-color:#fef3c7]');
+    expect(previewGrid.classList).toContain('[--wr-data-grid-footer-border-width:3px]');
+    expect(previewGrid.classList).toContain('[--wr-data-grid-footer-font-weight:700]');
+  });
+
   it('keeps an unregistered style editable and deletable without attempting to render it', async () => {
     const style = createComponentStyle('Future Control', 'WebFutureControl', () => 'future-style');
     const onUpdateStyle = vi.fn();

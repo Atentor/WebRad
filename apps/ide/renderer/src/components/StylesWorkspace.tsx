@@ -5,6 +5,7 @@ import {
 } from '@webrad/component-registry';
 import { ComponentView, SharedComponentStyles } from '@webrad/components';
 import {
+  createDefaultDataGridConfiguration,
   portableFileNameKey,
   type ComponentStyleModel,
   type ComponentStyleStateName,
@@ -43,6 +44,27 @@ const STYLE_STATES: readonly StyleStateDefinition[] = [
 ] as const;
 
 const DEFAULT_STYLE_STATE = STYLE_STATES[0]!;
+
+function createPreviewProps(
+  componentType: string,
+  activeState: ComponentStyleStateName,
+): Record<string, unknown> {
+  const props: Record<string, unknown> = { enabled: activeState !== 'disabled' };
+  if (componentType !== 'WebDataGrid') return props;
+
+  const dataGridConfig = createDefaultDataGridConfiguration();
+  return {
+    ...props,
+    dataGridConfig: {
+      ...dataGridConfig,
+      showFooter: true,
+      columns: dataGridConfig.columns.map((column, index) => ({
+        ...column,
+        footer: `Footer ${String(index + 1)}`,
+      })),
+    },
+  };
+}
 
 interface StylesWorkspaceProps {
   readonly styles: readonly ComponentStyleModel[];
@@ -170,7 +192,7 @@ export function StylesWorkspace({
             name: 'StylePreview',
             width: 180,
             height: 72,
-            props: { enabled: activeState !== 'disabled' },
+            props: createPreviewProps(selectedStyle.componentType, activeState),
           }),
     [activeState, registry, selectedDefinition, selectedStyle],
   );

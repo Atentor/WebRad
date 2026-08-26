@@ -966,6 +966,66 @@ describe('browser runtime', () => {
     );
   });
 
+  it('projects Data Grid line, header, and footer properties through CSS variables', () => {
+    expect(resolveStylePropertyCandidate('dataGridHorizontalLineVisibility', 'show')).toBe(
+      '[--wr-data-grid-horizontal-line-override-width:var(--wr-data-grid-horizontal-line-width,1px)]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridVerticalLineVisibility', 'hide')).toBe(
+      '[--wr-data-grid-vertical-line-override-width:0px]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridHorizontalLineColor', 'current')).toBe(
+      '[--wr-data-grid-horizontal-line-color:currentColor]',
+    );
+    expect(
+      resolveStylePropertyCandidate('dataGridVerticalLineWidth', { value: 2, unit: 'rem' }),
+    ).toBe('[--wr-data-grid-vertical-line-width:2rem]');
+    expect(resolveStylePropertyCandidate('dataGridHeaderBackgroundColor', '#0f172a')).toBe(
+      '[--wr-data-grid-header-background-color:#0f172a]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridHeaderFontWeight', 'bold')).toBe(
+      '[--wr-data-grid-header-font-weight:700]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridFooterHeight', 'auto')).toBe(
+      '[--wr-data-grid-footer-height:auto]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridFooterPaddingY', { value: 6, unit: 'px' })).toBe(
+      '[--wr-data-grid-footer-padding-y:6px]',
+    );
+
+    expect(
+      resolveComponentStyleClassNames({
+        states: {
+          base: {
+            dataGridHorizontalLineVisibility: 'show',
+            dataGridHorizontalLineStyle: 'dashed',
+            dataGridVerticalLineVisibility: 'hide',
+            dataGridHeaderBorderWidth: { value: 2, unit: 'px' },
+            dataGridHeaderTextColor: '#f8fafc',
+            dataGridFooterBackgroundColor: '#e2e8f0',
+            dataGridFooterFontWeight: 'medium',
+          },
+          hover: {},
+          focus: {},
+          active: {},
+          disabled: {},
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        '[--wr-data-grid-horizontal-line-override-width:var(--wr-data-grid-horizontal-line-width,1px)]',
+        '[--wr-data-grid-horizontal-line-style:dashed]',
+        '[--wr-data-grid-vertical-line-override-width:0px]',
+        '[--wr-data-grid-header-border-width:2px]',
+        '[--wr-data-grid-header-text-color:#f8fafc]',
+        '[--wr-data-grid-footer-background-color:#e2e8f0]',
+        '[--wr-data-grid-footer-font-weight:500]',
+      ]),
+    );
+    expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-config-horizontal-line-width');
+    expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-header-border-width');
+    expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-footer-border-width');
+  });
+
   it('applies compiled style classes to the real browser element', () => {
     const styledModel: RuntimePageModel = {
       ...pageModel,
@@ -1564,6 +1624,9 @@ describe('WebDataGrid', () => {
     expect(host.querySelector('.wr-data-grid-footer-row')?.className).toContain(
       'wr-data-grid-sticky-footer',
     );
+    expect(host.querySelector('.wr-data-grid-content')?.className).toContain(
+      'wr-data-grid-has-footer',
+    );
     expect(host.querySelectorAll('.wr-data-grid-body-row')).toHaveLength(2);
     expect(host.querySelector('.wr-data-grid-body-row .wr-data-grid-cell')?.textContent).toBe(
       'Ada',
@@ -1577,6 +1640,12 @@ describe('WebDataGrid', () => {
     expect(content?.dataset.webradWrapText).toBe('true');
     expect(content?.style.getPropertyValue('--wr-data-grid-columns')).toBe('160px 72px 120px 88px');
     expect(content?.style.getPropertyValue('--wr-data-grid-fixed-row-height')).toBe('48px');
+    expect(content?.style.getPropertyValue('--wr-data-grid-config-horizontal-line-width')).toBe(
+      '1px',
+    );
+    expect(content?.style.getPropertyValue('--wr-data-grid-config-vertical-line-width')).toBe(
+      '1px',
+    );
 
     const firstCell = host.querySelector<HTMLDivElement>(
       '.wr-data-grid-body-row .wr-data-grid-cell',

@@ -18,6 +18,9 @@ export type ComponentStylePropertyCategory =
   | 'Transform'
   | 'Animation'
   | 'Interaction'
+  | 'Data Grid Lines'
+  | 'Data Grid Header'
+  | 'Data Grid Footer'
   | 'Image';
 
 export interface StyleEditorOption {
@@ -347,6 +350,38 @@ const TIMING_OPTIONS = [
   ['easeInOut', 'Ease in and out'],
 ] as const;
 
+const DATA_GRID_COMPONENT_TYPES = ['WebDataGrid'] as const;
+const DATA_GRID_BASE_STATE_NAMES = ['base'] as const;
+const DATA_GRID_BASE_SETTINGS = {
+  componentTypes: DATA_GRID_COMPONENT_TYPES,
+  stateNames: DATA_GRID_BASE_STATE_NAMES,
+} as const;
+
+const DATA_GRID_LINE_VISIBILITY_OPTIONS = [
+  ['show', 'Show'],
+  ['hide', 'Hide'],
+] as const;
+
+const DATA_GRID_LINE_STYLE_OPTIONS = [
+  ['solid', 'Solid'],
+  ['dashed', 'Dashed'],
+  ['dotted', 'Dotted'],
+  ['double', 'Double'],
+  ['none', 'None'],
+] as const;
+
+const DATA_GRID_FONT_WEIGHT_OPTIONS = [
+  ['semibold', 'Semi bold (600)'],
+  ['thin', 'Thin (100)'],
+  ['extralight', 'Extra light (200)'],
+  ['light', 'Light (300)'],
+  ['normal', 'Normal (400)'],
+  ['medium', 'Medium (500)'],
+  ['bold', 'Bold (700)'],
+  ['extrabold', 'Extra bold (800)'],
+  ['black', 'Black (900)'],
+] as const;
+
 export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStylePropertyDefinition[] = [
   {
     name: 'display',
@@ -673,6 +708,167 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ['auto', 'Auto'],
     ['none', 'None'],
   ]),
+
+  enumProperty(
+    'dataGridHorizontalLineVisibility',
+    'Horizontal line visibility',
+    'Data Grid Lines',
+    DATA_GRID_LINE_VISIBILITY_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  colorProperty('dataGridHorizontalLineColor', 'Horizontal line color', 'Data Grid Lines', {
+    defaultValue: 'current',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridHorizontalLineWidth', 'Horizontal line width', 'Data Grid Lines', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 1, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridHorizontalLineStyle',
+    'Horizontal line style',
+    'Data Grid Lines',
+    DATA_GRID_LINE_STYLE_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  enumProperty(
+    'dataGridVerticalLineVisibility',
+    'Vertical line visibility',
+    'Data Grid Lines',
+    DATA_GRID_LINE_VISIBILITY_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  colorProperty('dataGridVerticalLineColor', 'Vertical line color', 'Data Grid Lines', {
+    defaultValue: 'current',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridVerticalLineWidth', 'Vertical line width', 'Data Grid Lines', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 1, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridVerticalLineStyle',
+    'Vertical line style',
+    'Data Grid Lines',
+    DATA_GRID_LINE_STYLE_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+
+  colorProperty('dataGridHeaderBackgroundColor', 'Header background color', 'Data Grid Header', {
+    defaultValue: '#e2e8f0',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  colorProperty('dataGridHeaderTextColor', 'Header text color', 'Data Grid Header', {
+    defaultValue: '#0f172a',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  colorProperty('dataGridHeaderBorderColor', 'Header border color', 'Data Grid Header', {
+    defaultValue: '#cbd5e1',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridHeaderBorderWidth', 'Header border width', 'Data Grid Header', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 1, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridHeaderBorderStyle',
+    'Header border style',
+    'Data Grid Header',
+    DATA_GRID_LINE_STYLE_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  lengthProperty('dataGridHeaderHeight', 'Header height', 'Data Grid Header', {
+    units: ['px', 'rem'],
+    keywords: [['auto', 'Auto']],
+    min: 0,
+    defaultValue: 'auto',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridHeaderPaddingX', 'Header horizontal padding', 'Data Grid Header', {
+    units: SPACING_UNITS,
+    min: 0,
+    defaultValue: { value: 10, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridHeaderPaddingY', 'Header vertical padding', 'Data Grid Header', {
+    units: SPACING_UNITS,
+    min: 0,
+    defaultValue: { value: 8, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridHeaderFontWeight',
+    'Header font weight',
+    'Data Grid Header',
+    DATA_GRID_FONT_WEIGHT_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+
+  colorProperty('dataGridFooterBackgroundColor', 'Footer background color', 'Data Grid Footer', {
+    defaultValue: '#f1f5f9',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  colorProperty('dataGridFooterTextColor', 'Footer text color', 'Data Grid Footer', {
+    defaultValue: '#0f172a',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  colorProperty('dataGridFooterBorderColor', 'Footer border color', 'Data Grid Footer', {
+    defaultValue: '#cbd5e1',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridFooterBorderWidth', 'Footer border width', 'Data Grid Footer', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 1, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridFooterBorderStyle',
+    'Footer border style',
+    'Data Grid Footer',
+    DATA_GRID_LINE_STYLE_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  lengthProperty('dataGridFooterHeight', 'Footer height', 'Data Grid Footer', {
+    units: ['px', 'rem'],
+    keywords: [['auto', 'Auto']],
+    min: 0,
+    defaultValue: 'auto',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridFooterPaddingX', 'Footer horizontal padding', 'Data Grid Footer', {
+    units: SPACING_UNITS,
+    min: 0,
+    defaultValue: { value: 10, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridFooterPaddingY', 'Footer vertical padding', 'Data Grid Footer', {
+    units: SPACING_UNITS,
+    min: 0,
+    defaultValue: { value: 8, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridFooterFontWeight',
+    'Footer font weight',
+    'Data Grid Footer',
+    DATA_GRID_FONT_WEIGHT_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
 
   enumProperty(
     'objectFit',
