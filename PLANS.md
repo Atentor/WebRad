@@ -46,6 +46,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: The Data Grid configurator uses a compact, high-density layout that keeps sizing, appearance, and column controls readable while reducing modal scrolling.
 - DONE: Default Data Grid headers and footers use solid Aurora-compatible surfaces, with the same non-transparent fallbacks for existing projects that have not customized those properties.
 - DONE: Disabled modal controls use the standard `not-allowed` cursor; `wait` is reserved for actual request or editor loading feedback.
+- DONE: The API Client tester/configurator now uses the same high-density modal treatment as Data Grid configuration, reducing control, section, navigation, and footer spacing without hiding any request-contract settings.
 
 ## Validation evidence
 

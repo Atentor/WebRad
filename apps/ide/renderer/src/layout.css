@@ -2652,26 +2652,42 @@ kbd {
 .wr-api-client-dialog {
   display: flex;
   width: min(1160px, 100%);
-  max-height: min(820px, calc(100vh - 48px));
+  max-height: min(760px, calc(100vh - 32px));
   flex-direction: column;
+}
+
+.wr-api-client-dialog .wr-modal-header {
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.wr-api-client-dialog .wr-modal-eyebrow {
+  margin-bottom: 2px;
+  font-size: 9.5px;
+}
+
+.wr-api-client-dialog .wr-modal-header h2 {
+  font-size: 15px;
 }
 
 .wr-api-client-content {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 18px 20px 0;
+  padding: 11px 14px 0;
 }
 
 .wr-api-client-content > .wr-modal-description {
   max-width: 840px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .wr-api-client-layout {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  grid-template-columns: minmax(164px, 200px) minmax(0, 1fr);
   border: 1px solid var(--wr-border);
   border-radius: 6px;
   overflow: hidden;
@@ -2689,12 +2705,12 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  min-height: 38px;
-  padding: 8px 10px;
+  gap: 8px;
+  min-height: 30px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--wr-border);
   color: var(--wr-muted-text);
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -2702,13 +2718,13 @@ kbd {
 
 .wr-api-section-heading > div {
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .wr-api-section-heading small {
   max-width: 520px;
   color: var(--wr-muted-text);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 400;
   letter-spacing: normal;
   line-height: 1.35;
@@ -2719,8 +2735,8 @@ kbd {
 .wr-api-parameter-row button,
 .wr-api-remove-operation,
 .wr-api-test-actions button {
-  min-height: 26px;
-  padding: 3px 8px;
+  min-height: 24px;
+  padding: 2px 7px;
   border: 1px solid var(--wr-border-strong);
   border-radius: 4px;
   background: var(--wr-control-surface);
@@ -2741,21 +2757,21 @@ kbd {
 
 .wr-api-operation-list {
   display: grid;
-  min-height: 78px;
+  min-height: 64px;
   flex: 1;
   align-content: start;
-  gap: 3px;
+  gap: 2px;
   overflow: auto;
-  padding: 7px;
+  padding: 5px;
 }
 
 .wr-api-operation-list button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 7px 8px;
+  padding: 5px 6px;
   overflow: hidden;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -2780,7 +2796,7 @@ kbd {
 }
 
 .wr-api-operation-list strong {
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 .wr-api-operation-list small {
@@ -2789,28 +2805,28 @@ kbd {
 }
 
 .wr-api-remove-operation {
-  margin: 8px;
+  margin: 5px;
   color: var(--wr-danger);
 }
 
 .wr-api-request-editor {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 9px;
   min-width: 0;
-  padding: 14px;
+  padding: 10px;
 }
 
 .wr-api-operation-form {
   display: grid;
-  gap: 14px;
-  padding-top: 2px;
+  gap: 9px;
+  padding-top: 1px;
   border-top: 1px solid var(--wr-border);
 }
 
 .wr-api-fields {
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 
 .wr-api-fields.two-columns {
@@ -2826,9 +2842,9 @@ kbd {
 .wr-api-response-body {
   display: grid;
   min-width: 0;
-  gap: 5px;
+  gap: 3px;
   color: var(--wr-muted-text);
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.045em;
   text-transform: uppercase;
@@ -2847,7 +2863,7 @@ kbd {
   background: var(--wr-input-bg);
   color: var(--wr-text);
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
@@ -2857,8 +2873,8 @@ kbd {
 .wr-api-fields select,
 .wr-api-body-editor select,
 .wr-api-parameter-row input:not([type='checkbox']) {
-  height: 31px;
-  padding: 0 8px;
+  height: 28px;
+  padding: 0 7px;
 }
 
 .wr-api-fields input:focus-visible,
@@ -2874,32 +2890,32 @@ kbd {
 
 .wr-api-parameter-list {
   display: grid;
-  gap: 7px;
+  gap: 4px;
 }
 
 .wr-api-parameter-list .wr-api-section-heading {
   min-height: auto;
-  padding: 0 0 6px;
+  padding: 0 0 3px;
   border-bottom: 0;
 }
 
 .wr-api-empty {
   margin: 0;
   color: var(--wr-muted-text);
-  font-size: 11px;
+  font-size: 10.5px;
   font-style: italic;
 }
 
 .wr-api-parameter-rows {
   display: grid;
-  gap: 5px;
+  gap: 3px;
 }
 
 .wr-api-parameter-row {
   display: grid;
   grid-template-columns: 18px minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .wr-api-parameter-row input[type='checkbox'] {
@@ -2910,8 +2926,8 @@ kbd {
 }
 
 .wr-api-parameter-row button {
-  min-height: 30px;
-  padding-inline: 7px;
+  min-height: 28px;
+  padding-inline: 6px;
   color: var(--wr-muted-text);
   font-size: 10.5px;
 }
@@ -2919,14 +2935,14 @@ kbd {
 .wr-api-body-editor {
   display: grid;
   grid-template-columns: minmax(132px, 0.33fr) minmax(0, 1fr);
-  gap: 10px;
+  gap: 7px;
 }
 
 .wr-api-body-editor textarea,
 .wr-api-response-body textarea {
-  min-height: 112px;
+  min-height: 96px;
   resize: vertical;
-  padding: 8px;
+  padding: 7px;
   line-height: 1.4;
   white-space: pre;
 }
@@ -2934,13 +2950,13 @@ kbd {
 .wr-api-write-warning,
 .wr-api-secret-warning {
   margin: 0;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid color-mix(in srgb, var(--wr-warning, #d79d32) 52%, var(--wr-border));
   border-radius: 4px;
   background: color-mix(in srgb, var(--wr-warning, #d79d32) 10%, transparent);
   color: var(--wr-text);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .wr-api-secret-warning {
@@ -2952,7 +2968,7 @@ kbd {
 .wr-api-test-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .wr-api-test-actions button.primary {
@@ -2963,8 +2979,8 @@ kbd {
 
 .wr-api-test-result {
   display: grid;
-  gap: 10px;
-  padding: 10px;
+  gap: 7px;
+  padding: 8px;
   border: 1px solid var(--wr-border);
   border-radius: 5px;
   background: var(--wr-panel-alt);
@@ -2974,9 +2990,9 @@ kbd {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   color: var(--wr-success, #72bc88);
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .wr-api-response-status.error {
@@ -2999,7 +3015,7 @@ kbd {
 
 .wr-api-test-result details {
   color: var(--wr-muted-text);
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .wr-api-test-result summary {
@@ -3009,8 +3025,8 @@ kbd {
 .wr-api-response-headers {
   display: grid;
   grid-template-columns: minmax(90px, 0.4fr) minmax(0, 1fr);
-  gap: 4px 8px;
-  margin: 8px 0 0;
+  gap: 3px 6px;
+  margin: 6px 0 0;
   color: var(--wr-text);
 }
 
@@ -3038,19 +3054,19 @@ kbd {
 .wr-api-schema-editor > ul,
 .wr-api-schema-node > ul {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .wr-api-schema-editor > ul {
-  padding: 8px;
+  padding: 6px;
 }
 
 .wr-api-schema-node {
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .wr-api-schema-node > ul {
@@ -3061,12 +3077,12 @@ kbd {
   display: grid;
   grid-template-columns: 18px minmax(82px, 0.7fr) minmax(80px, 1fr) minmax(96px, 0.65fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
-  padding: 5px 6px;
+  padding: 4px 5px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--wr-surface-hover) 38%, transparent);
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .wr-api-schema-node-main > input[type='checkbox'],
@@ -3097,7 +3113,7 @@ kbd {
 
 .wr-api-schema-node-main select {
   min-width: 0;
-  height: 25px;
+  height: 24px;
   padding: 0 4px;
   border: 1px solid var(--wr-control-border);
   border-radius: 3px;
@@ -3117,8 +3133,14 @@ kbd {
 .wr-api-client-actions {
   flex: 0 0 auto;
   margin: 0;
-  padding: 14px 20px 18px;
+  padding: 10px 14px 12px;
   border-top: 1px solid var(--wr-border);
+}
+
+.wr-api-client-actions button {
+  min-width: 88px;
+  height: 28px;
+  padding: 0 12px;
 }
 
 .wr-data-grid-configuration-dialog {
