@@ -3170,14 +3170,14 @@ kbd {
 
 .wr-data-grid-configuration-dialog {
   display: flex;
-  width: min(1220px, 100%);
-  max-height: min(780px, calc(100vh - 32px));
+  width: min(980px, 100%);
+  max-height: min(720px, calc(100vh - 40px));
   flex-direction: column;
 }
 
 .wr-data-grid-configuration-dialog .wr-modal-header {
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 10px 12px;
 }
 
 .wr-data-grid-configuration-dialog .wr-modal-eyebrow {
@@ -3186,7 +3186,7 @@ kbd {
 }
 
 .wr-data-grid-configuration-dialog .wr-modal-header h2 {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .wr-modal .wr-data-grid-configuration-form {
@@ -3201,42 +3201,53 @@ kbd {
 .wr-data-grid-configuration-content {
   display: grid;
   min-height: 0;
-  gap: 9px;
-  overflow: auto;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 11px 14px 0;
+  padding: 10px 12px 0;
+  scrollbar-gutter: stable;
 }
 
 .wr-data-grid-configuration-content > .wr-modal-description {
-  max-width: 780px;
-  font-size: 11px;
+  max-width: 720px;
+  font-size: 10.5px;
   line-height: 1.35;
 }
 
 .wr-data-grid-configuration-section {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 7px;
+  padding: 9px;
   border: 1px solid var(--wr-border);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--wr-panel-alt) 58%, transparent);
+  border-radius: 5px;
+  background: var(--wr-panel-alt);
+}
+
+.wr-data-grid-configuration-content > .wr-data-grid-configuration-section:last-of-type {
+  gap: 6px;
+  padding: 2px 0 0;
+  border: 0;
+  background: transparent;
 }
 
 .wr-data-grid-configuration-section > h3,
 .wr-data-grid-configuration-section-heading h3 {
   margin: 0;
   color: var(--wr-text);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
 }
 
 .wr-data-grid-configuration-fields {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .wr-data-grid-configuration-fields.three-columns {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.35fr) minmax(0, 0.9fr);
 }
 
 .wr-data-grid-configuration-fields.four-columns {
@@ -3251,9 +3262,9 @@ kbd {
 .wr-data-grid-configuration-empty-message {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 2px;
   color: var(--wr-muted-text);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.045em;
   text-transform: uppercase;
@@ -3264,14 +3275,14 @@ kbd {
 .wr-data-grid-configuration-empty-message input {
   width: 100%;
   min-width: 0;
-  height: 28px;
-  padding: 0 7px;
+  height: 27px;
+  padding: 0 6px;
   border: 1px solid var(--wr-control-border);
   border-radius: 4px;
   background: var(--wr-input-bg);
   color: var(--wr-text);
   font: inherit;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
@@ -3286,9 +3297,12 @@ kbd {
 }
 
 .wr-data-grid-configuration-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 10px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--wr-panel-bg);
 }
 
 .wr-data-grid-configuration-toggles label {
@@ -3307,7 +3321,7 @@ kbd {
 }
 
 .wr-data-grid-configuration-empty-message {
-  max-width: 360px;
+  width: min(320px, 100%);
 }
 
 .wr-data-grid-configuration-section-heading {
@@ -3330,8 +3344,8 @@ kbd {
 
 .wr-data-grid-configuration-section-heading > button,
 .wr-data-grid-column-actions button {
-  min-height: 24px;
-  padding: 2px 7px;
+  min-height: 22px;
+  padding: 2px 6px;
   border: 1px solid var(--wr-border-strong);
   border-radius: 4px;
   background: var(--wr-control-surface);
@@ -3355,29 +3369,31 @@ kbd {
 
 .wr-data-grid-column-list {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .wr-data-grid-column-card {
   display: grid;
-  gap: 7px;
-  padding: 8px;
+  gap: 6px;
+  padding: 7px;
   border: 1px solid color-mix(in srgb, var(--wr-border) 85%, transparent);
-  border-radius: 5px;
-  background: var(--wr-panel-bg);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--wr-panel-bg) 78%, var(--wr-panel-alt));
 }
 
 .wr-data-grid-column-card > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 7px;
+  gap: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--wr-border) 72%, transparent);
 }
 
 .wr-data-grid-column-card h4 {
   margin: 0;
   color: var(--wr-text);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -3395,8 +3411,28 @@ kbd {
 .wr-data-grid-configuration-actions {
   flex: 0 0 auto;
   margin: 0;
-  padding: 10px 14px 12px;
+  padding: 8px 12px 10px;
   border-top: 1px solid var(--wr-border);
+}
+
+.wr-data-grid-configuration-actions button {
+  min-width: 88px;
+  height: 28px;
+  padding: 0 12px;
+}
+
+@media (max-width: 860px) {
+  .wr-data-grid-configuration-fields.four-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wr-data-grid-configuration-fields.five-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .wr-data-grid-configuration-toggles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -3456,23 +3492,17 @@ kbd {
   }
 
   .wr-data-grid-configuration-content {
-    padding: 14px 14px 0;
+    padding: 10px 10px 0;
   }
 
   .wr-data-grid-configuration-fields.three-columns,
   .wr-data-grid-configuration-fields.four-columns,
   .wr-data-grid-configuration-fields.five-columns {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .wr-data-grid-configuration-section-heading,
-  .wr-data-grid-column-card > header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .wr-data-grid-column-actions {
-    justify-content: start;
+  .wr-data-grid-configuration-fields.three-columns label:last-child {
+    grid-column: 1 / -1;
   }
 
   .wr-api-response-status {
@@ -3491,5 +3521,28 @@ kbd {
   .wr-api-schema-node-main select,
   .wr-api-nullable {
     grid-column: 2 / span 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .wr-data-grid-configuration-fields.three-columns,
+  .wr-data-grid-configuration-fields.four-columns,
+  .wr-data-grid-configuration-fields.five-columns,
+  .wr-data-grid-configuration-toggles {
+    grid-template-columns: 1fr;
+  }
+
+  .wr-data-grid-configuration-fields.three-columns label:last-child {
+    grid-column: auto;
+  }
+
+  .wr-data-grid-configuration-section-heading,
+  .wr-data-grid-column-card > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .wr-data-grid-column-actions {
+    justify-content: start;
   }
 }
