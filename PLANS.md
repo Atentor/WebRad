@@ -47,6 +47,8 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Default Data Grid headers and footers use solid Aurora-compatible surfaces, with the same non-transparent fallbacks for existing projects that have not customized those properties.
 - DONE: Disabled modal controls use the standard `not-allowed` cursor; `wait` is reserved for actual request or editor loading feedback.
 - DONE: The API Client tester/configurator now uses the same high-density modal treatment as Data Grid configuration, reducing control, section, navigation, and footer spacing without hiding any request-contract settings.
+- DONE: API Client uses a finite two-panel workspace with an explicit, always visible right-editor scrollbar for dynamic request and response contracts; operations retain an independent list scroll and accessible destructive action.
+- DONE: Dynamic response-schema sections preserve their full intrinsic height, so overflow reaches the right editor's scrollbar instead of being clipped inside the response card.
 
 ## Validation evidence
 

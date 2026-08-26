@@ -2652,7 +2652,8 @@ kbd {
 .wr-api-client-dialog {
   display: flex;
   width: min(1160px, 100%);
-  max-height: min(760px, calc(100vh - 32px));
+  height: min(760px, calc(100vh - 32px));
+  max-height: none;
   flex-direction: column;
 }
 
@@ -2671,33 +2672,41 @@ kbd {
 }
 
 .wr-api-client-content {
+  display: flex;
   min-height: 0;
-  overflow: auto;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
   overscroll-behavior: contain;
   padding: 11px 14px 0;
 }
 
 .wr-api-client-content > .wr-modal-description {
+  flex: 0 0 auto;
   max-width: 840px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   font-size: 11px;
   line-height: 1.35;
 }
 
 .wr-api-client-layout {
   display: grid;
+  flex: 1 1 0;
   min-height: 0;
   grid-template-columns: minmax(164px, 200px) minmax(0, 1fr);
-  border: 1px solid var(--wr-border);
-  border-radius: 6px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 8px;
   overflow: hidden;
 }
 
 .wr-api-operations {
-  display: flex;
+  display: grid;
   min-height: 0;
-  flex-direction: column;
-  border-right: 1px solid var(--wr-border);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
   background: var(--wr-panel-alt);
 }
 
@@ -2757,11 +2766,12 @@ kbd {
 
 .wr-api-operation-list {
   display: grid;
-  min-height: 64px;
-  flex: 1;
+  min-height: 0;
   align-content: start;
   gap: 2px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 5px;
 }
 
@@ -2805,16 +2815,30 @@ kbd {
 }
 
 .wr-api-remove-operation {
-  margin: 5px;
+  width: 100%;
+  min-height: 34px;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--wr-border);
+  border-radius: 0;
+  background: transparent;
   color: var(--wr-danger);
 }
 
 .wr-api-request-editor {
   display: grid;
   align-content: start;
+  min-height: 0;
   gap: 9px;
   min-width: 0;
   padding: 10px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-panel-bg);
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .wr-api-operation-form {
@@ -3046,6 +3070,7 @@ kbd {
 }
 
 .wr-api-schema-editor {
+  min-block-size: max-content;
   overflow: hidden;
   border: 1px solid var(--wr-border);
   border-radius: 5px;
@@ -3380,29 +3405,44 @@ kbd {
   }
 
   .wr-api-client-dialog {
-    max-height: calc(100vh - 24px);
+    height: calc(100vh - 24px);
+    max-height: none;
   }
 
   .wr-api-client-content {
+    display: block;
+    overflow: auto;
     padding: 14px 14px 0;
   }
 
+  .wr-api-client-content > .wr-modal-description {
+    margin-bottom: 10px;
+  }
+
   .wr-api-client-layout {
+    flex: none;
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow: visible;
   }
 
   .wr-api-operations {
-    max-height: 180px;
-    border-right: 0;
-    border-bottom: 1px solid var(--wr-border);
+    min-height: auto;
   }
 
   .wr-api-operation-list {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    max-height: min(132px, max(64px, calc(100vh - 260px)));
   }
 
   .wr-api-remove-operation {
     justify-self: start;
+  }
+
+  .wr-api-request-editor {
+    min-height: auto;
+    overflow: visible;
+    scrollbar-gutter: auto;
   }
 
   .wr-api-fields.two-columns,
