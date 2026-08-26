@@ -1025,6 +1025,12 @@ describe('browser runtime', () => {
     expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-config-horizontal-line-width');
     expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-header-border-width');
     expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-footer-border-width');
+    expect(WEBRAD_COMPONENT_CSS).toContain(
+      'background: var(--wr-data-grid-header-background-color, #e0e7ff)',
+    );
+    expect(WEBRAD_COMPONENT_CSS).toContain(
+      'background: var(--wr-data-grid-footer-background-color, #f8fafc)',
+    );
   });
 
   it('applies compiled style classes to the real browser element', () => {

@@ -132,6 +132,12 @@ describe('project factories', () => {
     expect(project.pages[0]?.components[0]?.styleId).toBe(
       findDefaultComponentStyle(project.styles, 'WebPage')?.id,
     );
+    expect(findDefaultComponentStyle(project.styles, 'WebDataGrid')?.states.base).toMatchObject({
+      dataGridHeaderBackgroundColor: '#e0e7ff',
+      dataGridHeaderTextColor: '#1e3a8a',
+      dataGridFooterBackgroundColor: '#f8fafc',
+      dataGridFooterTextColor: '#334155',
+    });
     const defaultCheckBox = findDefaultComponentStyle(project.styles, 'WebCheckBox');
     expect(defaultCheckBox).toBeDefined();
     if (defaultCheckBox !== undefined) {

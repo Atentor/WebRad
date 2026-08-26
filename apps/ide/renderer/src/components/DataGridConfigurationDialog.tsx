@@ -453,7 +453,7 @@ export function DataGridConfigurationDialog({
               aria-labelledby={`${titleId}-rows`}
             >
               <h3 id={`${titleId}-rows`}>Rows and appearance</h3>
-              <div className="wr-data-grid-configuration-fields four-columns">
+              <div className="wr-data-grid-configuration-fields five-columns">
                 <label>
                   <span>Row height</span>
                   <select

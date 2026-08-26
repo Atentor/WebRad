@@ -43,6 +43,8 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: API Client lifecycle events (`OnRequest`, `OnSuccess`, `OnError`, and `OnComplete`) are available in the Inspector, generated bindings, and browser runtime.
 - DONE: Dynamic Data Grid has a transactional dedicated modal for API binding, column order and cell settings, mixed fixed/dynamic column widths, configurable row sizing, padding, wrapping, alignment, lines, stripes, empty state, and matching Designer/generated-runtime projection. Its Data Grid-only Styles groups independently control horizontal and vertical line visibility, color, width, and style, plus the header and footer background/text, separator border, height, padding, and font weight.
 - DONE: Generated page wrappers rehydrate every Data Grid's persisted configuration before API binding, so all grids subscribed to a client render each new successful operation result.
+- DONE: The Data Grid configurator uses a compact, high-density layout that keeps sizing, appearance, and column controls readable while reducing modal scrolling.
+- DONE: Default Data Grid headers and footers use solid Aurora-compatible surfaces, with the same non-transparent fallbacks for existing projects that have not customized those properties.
 
 ## Validation evidence
 

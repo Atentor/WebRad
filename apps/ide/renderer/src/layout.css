@@ -3123,8 +3123,22 @@ kbd {
 .wr-data-grid-configuration-dialog {
   display: flex;
   width: min(1220px, 100%);
-  max-height: min(860px, calc(100vh - 48px));
+  max-height: min(780px, calc(100vh - 32px));
   flex-direction: column;
+}
+
+.wr-data-grid-configuration-dialog .wr-modal-header {
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.wr-data-grid-configuration-dialog .wr-modal-eyebrow {
+  margin-bottom: 2px;
+  font-size: 9.5px;
+}
+
+.wr-data-grid-configuration-dialog .wr-modal-header h2 {
+  font-size: 15px;
 }
 
 .wr-modal .wr-data-grid-configuration-form {
@@ -3139,20 +3153,22 @@ kbd {
 .wr-data-grid-configuration-content {
   display: grid;
   min-height: 0;
-  gap: 14px;
+  gap: 9px;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 18px 20px 0;
+  padding: 11px 14px 0;
 }
 
 .wr-data-grid-configuration-content > .wr-modal-description {
   max-width: 780px;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .wr-data-grid-configuration-section {
   display: grid;
-  gap: 12px;
-  padding: 14px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--wr-border);
   border-radius: 6px;
   background: color-mix(in srgb, var(--wr-panel-alt) 58%, transparent);
@@ -3162,13 +3178,13 @@ kbd {
 .wr-data-grid-configuration-section-heading h3 {
   margin: 0;
   color: var(--wr-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .wr-data-grid-configuration-fields {
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 
 .wr-data-grid-configuration-fields.three-columns {
@@ -3179,13 +3195,17 @@ kbd {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.wr-data-grid-configuration-fields.five-columns {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .wr-data-grid-configuration-fields label,
 .wr-data-grid-configuration-empty-message {
   display: grid;
   min-width: 0;
-  gap: 5px;
+  gap: 3px;
   color: var(--wr-muted-text);
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.045em;
   text-transform: uppercase;
@@ -3196,14 +3216,14 @@ kbd {
 .wr-data-grid-configuration-empty-message input {
   width: 100%;
   min-width: 0;
-  height: 31px;
-  padding: 0 8px;
+  height: 28px;
+  padding: 0 7px;
   border: 1px solid var(--wr-control-border);
   border-radius: 4px;
   background: var(--wr-input-bg);
   color: var(--wr-text);
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
@@ -3220,33 +3240,33 @@ kbd {
 .wr-data-grid-configuration-toggles {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
+  gap: 5px 10px;
 }
 
 .wr-data-grid-configuration-toggles label {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   color: var(--wr-text);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .wr-data-grid-configuration-toggles input {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   margin: 0;
   accent-color: var(--wr-accent);
 }
 
 .wr-data-grid-configuration-empty-message {
-  max-width: 440px;
+  max-width: 360px;
 }
 
 .wr-data-grid-configuration-section-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .wr-data-grid-configuration-section-heading > div {
@@ -3254,23 +3274,23 @@ kbd {
 }
 
 .wr-data-grid-configuration-section-heading p {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--wr-muted-text);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 10px;
+  line-height: 1.25;
 }
 
 .wr-data-grid-configuration-section-heading > button,
 .wr-data-grid-column-actions button {
-  min-height: 27px;
-  padding: 4px 8px;
+  min-height: 24px;
+  padding: 2px 7px;
   border: 1px solid var(--wr-border-strong);
   border-radius: 4px;
   background: var(--wr-control-surface);
   color: var(--wr-text);
   cursor: pointer;
   font: inherit;
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .wr-data-grid-configuration-section-heading > button:hover:not(:disabled),
@@ -3287,13 +3307,13 @@ kbd {
 
 .wr-data-grid-column-list {
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 
 .wr-data-grid-column-card {
   display: grid;
-  gap: 10px;
-  padding: 11px;
+  gap: 7px;
+  padding: 8px;
   border: 1px solid color-mix(in srgb, var(--wr-border) 85%, transparent);
   border-radius: 5px;
   background: var(--wr-panel-bg);
@@ -3303,13 +3323,13 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 7px;
 }
 
 .wr-data-grid-column-card h4 {
   margin: 0;
   color: var(--wr-text);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
 }
 
@@ -3317,7 +3337,7 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   justify-content: end;
-  gap: 5px;
+  gap: 4px;
 }
 
 .wr-data-grid-column-actions button:last-child {
@@ -3327,7 +3347,7 @@ kbd {
 .wr-data-grid-configuration-actions {
   flex: 0 0 auto;
   margin: 0;
-  padding: 14px 20px 18px;
+  padding: 10px 14px 12px;
   border-top: 1px solid var(--wr-border);
 }
 
@@ -3377,7 +3397,8 @@ kbd {
   }
 
   .wr-data-grid-configuration-fields.three-columns,
-  .wr-data-grid-configuration-fields.four-columns {
+  .wr-data-grid-configuration-fields.four-columns,
+  .wr-data-grid-configuration-fields.five-columns {
     grid-template-columns: 1fr;
   }
 
