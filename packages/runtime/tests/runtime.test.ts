@@ -30,6 +30,7 @@ import {
   tokenizeTailwindClasses,
   type RuntimeComponentLayout,
   type RuntimeComponentNode,
+  type WebDataGridConfiguration,
   type RuntimePageModel,
 } from '../src/index.js';
 import { resolveDataGridColumnTrackWidths } from '../src/visual.js';
@@ -1666,5 +1667,161 @@ describe('WebDataGrid', () => {
       expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
     ]);
     host.remove();
+  });
+
+  it('updates every grid bound to one API client after each successful execution', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            payload: {
+              customers: [
+                { name: 'Ada', status: 'Active' },
+                { name: 'Linus', status: 'Pending' },
+              ],
+            },
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            payload: {
+              customers: [{ name: 'Grace', status: 'Suspended' }],
+            },
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    const api = new WebApiClient({
+      id: 'customers-api',
+      fetch: fetchMock,
+      apiClientConfig: {
+        schemaVersion: 1,
+        defaultHeaders: [],
+        timeoutMs: 30_000,
+        operations: [
+          {
+            id: 'load-customers',
+            name: 'LoadCustomers',
+            method: 'GET',
+            path: 'https://api.example.test/customers',
+            headers: [],
+            query: [],
+            body: { kind: 'none', content: '' },
+            credentials: 'omit',
+            timeoutMs: null,
+            responseSchema: {
+              version: 1,
+              root: {
+                id: 'response',
+                name: 'Response',
+                path: '',
+                kind: 'object',
+                fieldType: 'object',
+                nullable: false,
+                children: [
+                  {
+                    id: 'customers',
+                    name: 'customers',
+                    path: '/payload/customers',
+                    kind: 'list',
+                    fieldType: 'list',
+                    nullable: false,
+                    children: [],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    });
+    const namesHost = document.createElement('div');
+    const statusesHost = document.createElement('div');
+    document.body.append(namesHost, statusesHost);
+
+    const bindGrid = (
+      host: HTMLDivElement,
+      id: string,
+      header: string,
+      fieldPath: string,
+    ): WebDataGrid => {
+      const grid = new WebDataGrid(host);
+      const configuration: WebDataGridConfiguration = {
+        schemaVersion: 2,
+        apiClientId: 'customers-api',
+        operationId: 'load-customers',
+        listPath: '/payload/customers',
+        columnCount: 1,
+        showHeader: true,
+        stickyHeader: true,
+        showFooter: false,
+        stickyFooter: true,
+        rowHeightMode: 'dynamic',
+        fixedRowHeight: 40,
+        minRowHeight: 36,
+        maxRowHeight: null,
+        cellPaddingHorizontal: 10,
+        cellPaddingVertical: 8,
+        wrapText: false,
+        stripedRows: false,
+        showHorizontalLines: true,
+        showVerticalLines: false,
+        emptyMessage: 'No customers',
+        columns: [
+          {
+            id,
+            header,
+            fieldPath,
+            cellKind: 'text',
+            footer: '',
+            widthMode: 'dynamic',
+            width: 180,
+            minWidth: 96,
+            maxWidth: null,
+            flex: 1,
+            headerAlign: 'start',
+            cellAlign: 'start',
+          },
+        ],
+      };
+      grid.dataGridConfig = configuration;
+      grid.bindApiClient(api);
+      return grid;
+    };
+
+    const namesGrid = bindGrid(namesHost, 'name', 'Name', '/name');
+    const statusesGrid = bindGrid(statusesHost, 'status', 'Status', '/status');
+    try {
+      expect(namesHost.textContent).toContain('No customers');
+      expect(statusesHost.textContent).toContain('No customers');
+
+      await api.execute('LoadCustomers');
+
+      expect(namesHost.querySelectorAll('.wr-data-grid-body-row')).toHaveLength(2);
+      expect(statusesHost.querySelectorAll('.wr-data-grid-body-row')).toHaveLength(2);
+      expect(namesHost.textContent).toContain('Ada');
+      expect(namesHost.textContent).toContain('Linus');
+      expect(statusesHost.textContent).toContain('Active');
+      expect(statusesHost.textContent).toContain('Pending');
+
+      await api.execute('LoadCustomers');
+
+      expect(namesHost.querySelectorAll('.wr-data-grid-body-row')).toHaveLength(1);
+      expect(statusesHost.querySelectorAll('.wr-data-grid-body-row')).toHaveLength(1);
+      expect(namesHost.textContent).toContain('Grace');
+      expect(namesHost.textContent).not.toContain('Ada');
+      expect(statusesHost.textContent).toContain('Suspended');
+      expect(statusesHost.textContent).not.toContain('Pending');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      namesGrid.dispose();
+      statusesGrid.dispose();
+      namesHost.remove();
+      statusesHost.remove();
+    }
   });
 });

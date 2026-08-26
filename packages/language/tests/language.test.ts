@@ -190,6 +190,9 @@ describe('page language generation', () => {
     expect(source).toContain(
       'this.DataGrid1 = new WebDataGrid(this.requireComponentElement("data-grid"))',
     );
+    expect(source).toContain('this.DataGrid1.dataGridConfig = {');
+    expect(source).toContain('"apiClientId":"api-client"');
+    expect(source).toContain('"operationId":"operation-1"');
     expect(source).toContain('this.DataGrid1.bindApiClient(this.ApiClient1)');
     expect(source).toContain('"baseUrl":"https://api.example.test"');
     expect(source).toContain('"id":"api-client"');

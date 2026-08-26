@@ -222,6 +222,20 @@ function componentMemberType(
   return outputType === undefined ? component.type : `WebApiClient<${outputType}>`;
 }
 
+/**
+ * Visual components are initially projected into the DOM by mountPage(), then
+ * wrapped again by the generated page class for authored code. Components with
+ * runtime-only state must therefore receive their persisted configuration on
+ * the generated wrapper as well. Otherwise a subsequent API binding would use
+ * the wrapper's defaults instead of the model-backed Data Grid binding.
+ */
+function componentInitialization(component: ComponentNode): readonly string[] {
+  if (component.type !== 'WebDataGrid') return [];
+  return [
+    `    this.${component.name}.dataGridConfig = ${JSON.stringify(component.props.dataGridConfig)};`,
+  ];
+}
+
 export function generatePageSource(
   pageInput: PageModel,
   options: GeneratePageOptions = {},
@@ -260,6 +274,7 @@ export function generatePageSource(
         apiClientTypes.typeByComponentId,
       )};`,
     );
+    lines.push(...componentInitialization(component));
   }
   if ((gridBindings.length > 0 || events.length > 0) && components.length > 0) lines.push('');
   for (const binding of gridBindings) {
