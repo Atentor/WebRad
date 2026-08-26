@@ -16,7 +16,6 @@ import {
 import { useEffect, useId, useMemo, useState, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { IconPickerDialog } from './IconPickerDialog';
-import { DataGridConfigurationEditor } from './DataGridConfigurationEditor';
 import { Panel } from './Panel';
 import { responsiveLayoutPropertyReference } from '../layout-property';
 
@@ -513,16 +512,25 @@ function PropertyEditor({
         </button>
       );
     }
-    case 'data-grid-config':
+    case 'data-grid-config': {
+      const action = property.designerAction;
       return (
-        <DataGridConfigurationEditor
-          availableComponents={availableComponents}
-          disabled={disabled || multiple}
+        <button
           id={id}
-          value={value}
-          onChange={onChange}
-        />
+          type="button"
+          className="wr-inspector-action"
+          aria-label="Configure Data Grid"
+          aria-haspopup="dialog"
+          disabled={disabled || multiple || action === undefined}
+          title={property.description}
+          onClick={() => {
+            if (action !== undefined) onDesignerAction?.(action);
+          }}
+        >
+          Configure Data Grid…
+        </button>
       );
+    }
   }
 }
 

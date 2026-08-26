@@ -32,6 +32,7 @@ import {
   type RuntimeComponentNode,
   type RuntimePageModel,
 } from '../src/index.js';
+import { resolveDataGridColumnTrackWidths } from '../src/visual.js';
 
 function responsiveLayout(
   container: Partial<RuntimeComponentLayout['container']> = {},
@@ -1390,6 +1391,19 @@ describe('WebApiClient', () => {
 });
 
 describe('WebDataGrid', () => {
+  it('distributes dynamic tracks by weight while enforcing their maximum widths', () => {
+    expect(
+      resolveDataGridColumnTrackWidths(
+        [
+          { widthMode: 'dynamic', width: 180, minWidth: 100, maxWidth: null, flex: 2 },
+          { widthMode: 'dynamic', width: 180, minWidth: 100, maxWidth: 200, flex: 1 },
+          { widthMode: 'fixed', width: 80, minWidth: 80, maxWidth: 80, flex: 1 },
+        ],
+        800,
+      ),
+    ).toEqual([520, 200, 80]);
+  });
+
   it('renders only the latest configured API result and binds typed cell renderers', async () => {
     const fetchMock = vi.fn<typeof fetch>(
       async () =>
@@ -1450,9 +1464,10 @@ describe('WebDataGrid', () => {
       },
     });
     const host = document.createElement('div');
+    document.body.append(host);
     const grid = new WebDataGrid(host);
     grid.dataGridConfig = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       apiClientId: 'customers-api',
       operationId: 'load-customers',
       listPath: '/payload/customers',
@@ -1461,17 +1476,80 @@ describe('WebDataGrid', () => {
       stickyHeader: true,
       showFooter: true,
       stickyFooter: true,
+      rowHeightMode: 'fixed',
+      fixedRowHeight: 48,
+      minRowHeight: 36,
+      maxRowHeight: null,
+      cellPaddingHorizontal: 12,
+      cellPaddingVertical: 6,
+      wrapText: true,
+      stripedRows: true,
+      showHorizontalLines: true,
+      showVerticalLines: true,
+      emptyMessage: 'No customers',
       columns: [
-        { id: 'name', header: 'Name', fieldPath: '/name', cellKind: 'text', footer: '2 customers' },
-        { id: 'avatar', header: 'Avatar', fieldPath: '/avatar', cellKind: 'image', footer: '' },
-        { id: 'action', header: 'Action', fieldPath: '/name', cellKind: 'button', footer: '' },
-        { id: 'active', header: 'Active', fieldPath: '/active', cellKind: 'checkbox', footer: '' },
+        {
+          id: 'name',
+          header: 'Name',
+          fieldPath: '/name',
+          cellKind: 'text',
+          footer: '2 customers',
+          widthMode: 'dynamic',
+          width: 180,
+          minWidth: 160,
+          maxWidth: null,
+          flex: 2,
+          headerAlign: 'start',
+          cellAlign: 'start',
+        },
+        {
+          id: 'avatar',
+          header: 'Avatar',
+          fieldPath: '/avatar',
+          cellKind: 'image',
+          footer: '',
+          widthMode: 'fixed',
+          width: 72,
+          minWidth: 72,
+          maxWidth: 72,
+          flex: 1,
+          headerAlign: 'center',
+          cellAlign: 'center',
+        },
+        {
+          id: 'action',
+          header: 'Action',
+          fieldPath: '/name',
+          cellKind: 'button',
+          footer: '',
+          widthMode: 'dynamic',
+          width: 180,
+          minWidth: 120,
+          maxWidth: 260,
+          flex: 1,
+          headerAlign: 'center',
+          cellAlign: 'center',
+        },
+        {
+          id: 'active',
+          header: 'Active',
+          fieldPath: '/active',
+          cellKind: 'checkbox',
+          footer: '',
+          widthMode: 'fixed',
+          width: 88,
+          minWidth: 88,
+          maxWidth: 88,
+          flex: 1,
+          headerAlign: 'end',
+          cellAlign: 'end',
+        },
       ],
     };
     grid.bindApiClient(api);
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(host.textContent).toContain('No data');
+    expect(host.textContent).toContain('No customers');
 
     const clicked: unknown[] = [];
     grid.bindEvent('OnCellClick', (_sender, event) => {
@@ -1480,18 +1558,44 @@ describe('WebDataGrid', () => {
     await api.execute('LoadCustomers');
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(host.querySelector('thead')?.className).toContain('wr-data-grid-sticky-header');
-    expect(host.querySelector('tfoot')?.className).toContain('wr-data-grid-sticky-footer');
-    expect(host.querySelectorAll('tbody tr')).toHaveLength(2);
-    expect(host.querySelector('tbody td')?.textContent).toBe('Ada');
+    expect(host.querySelector('.wr-data-grid-header-row')?.className).toContain(
+      'wr-data-grid-sticky-header',
+    );
+    expect(host.querySelector('.wr-data-grid-footer-row')?.className).toContain(
+      'wr-data-grid-sticky-footer',
+    );
+    expect(host.querySelectorAll('.wr-data-grid-body-row')).toHaveLength(2);
+    expect(host.querySelector('.wr-data-grid-body-row .wr-data-grid-cell')?.textContent).toBe(
+      'Ada',
+    );
     expect(host.querySelector<HTMLImageElement>('img')?.src).toBe('https://example.test/ada.png');
     expect(host.querySelector<HTMLButtonElement>('button')?.textContent).toBe('Ada');
     expect(host.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
-    expect(host.querySelector('tfoot td')?.textContent).toBe('2 customers');
+    expect(host.querySelector('.wr-data-grid-footer-cell')?.textContent).toBe('2 customers');
+    const content = host.querySelector<HTMLElement>('.wr-data-grid-content');
+    expect(content?.dataset.webradRowHeightMode).toBe('fixed');
+    expect(content?.dataset.webradWrapText).toBe('true');
+    expect(content?.style.getPropertyValue('--wr-data-grid-columns')).toBe('160px 72px 120px 88px');
+    expect(content?.style.getPropertyValue('--wr-data-grid-fixed-row-height')).toBe('48px');
+
+    const firstCell = host.querySelector<HTMLDivElement>(
+      '.wr-data-grid-body-row .wr-data-grid-cell',
+    );
+    const nextCell = firstCell?.nextElementSibling as HTMLDivElement | null;
+    expect(firstCell?.tabIndex).toBe(0);
+    firstCell?.focus();
+    firstCell?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' }));
+    expect(document.activeElement).toBe(nextCell);
+    nextCell?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
+    expect(clicked).toEqual([
+      expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
+    ]);
 
     host.querySelector<HTMLButtonElement>('button')?.click();
     expect(clicked).toEqual([
       expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
+      expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
     ]);
+    host.remove();
   });
 });

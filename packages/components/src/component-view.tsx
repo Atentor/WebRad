@@ -1,11 +1,15 @@
-import type { ComponentNode } from '@webrad/project-model';
-import { normalizeDataGridConfiguration } from '@webrad/project-model';
+import {
+  normalizeDataGridConfiguration,
+  type DataGridConfiguration,
+  type ComponentNode,
+} from '@webrad/project-model';
 import {
   projectComponentVisual,
   readBooleanProperty,
   readIntegerProperty,
   readStringListProperty,
   readStringProperty,
+  resolveDataGridColumnTrackWidths,
   tokenizeTailwindClasses,
 } from '@webrad/runtime/visual';
 import { getWebRadIconShapes, isWebRadIconName, type WebRadIconShape } from '@webrad/runtime/icons';
@@ -103,6 +107,31 @@ function ButtonIcon({ name }: { readonly name: string }): ReactElement {
       {getWebRadIconShapes(iconName).map((shape, index) => renderWebRadIconShape(shape, index))}
     </svg>
   );
+}
+
+function dataGridLayoutStyle(
+  configuration: DataGridConfiguration,
+  availableWidth: number,
+): CSSProperties {
+  const minWidth = configuration.columns.reduce(
+    (total, column) => total + (column.widthMode === 'fixed' ? column.width : column.minWidth),
+    0,
+  );
+  return {
+    '--wr-data-grid-columns': resolveDataGridColumnTrackWidths(
+      configuration.columns,
+      Math.max(availableWidth, minWidth),
+    )
+      .map((width) => `${String(width)}px`)
+      .join(' '),
+    '--wr-data-grid-min-width': `${String(minWidth)}px`,
+    '--wr-data-grid-fixed-row-height': `${String(configuration.fixedRowHeight)}px`,
+    '--wr-data-grid-min-row-height': `${String(configuration.minRowHeight)}px`,
+    '--wr-data-grid-max-row-height':
+      configuration.maxRowHeight === null ? 'none' : `${String(configuration.maxRowHeight)}px`,
+    '--wr-data-grid-cell-padding-x': `${String(configuration.cellPaddingHorizontal)}px`,
+    '--wr-data-grid-cell-padding-y': `${String(configuration.cellPaddingVertical)}px`,
+  } as CSSProperties;
 }
 
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
@@ -256,38 +285,66 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
   },
   WebDataGrid: ({ node, designTime, styleClassName }) => {
     const configuration = normalizeDataGridConfiguration(node.props.dataGridConfig);
+    const contentClassName = [
+      'wr-data-grid-content',
+      configuration.stripedRows ? 'wr-data-grid-striped' : '',
+      configuration.showHorizontalLines
+        ? 'wr-data-grid-horizontal-lines'
+        : 'wr-data-grid-no-horizontal-lines',
+      configuration.showVerticalLines ? 'wr-data-grid-vertical-lines' : '',
+    ]
+      .filter((className) => className.length > 0)
+      .join(' ');
     return (
       <div
         {...sharedAttributes(node, designTime, styleClassName)}
-        role="table"
+        role="grid"
         aria-label={node.name}
       >
         <div className="wr-data-grid-scroll">
-          <table className="wr-data-grid-table">
+          <div
+            className={contentClassName}
+            data-webrad-row-height-mode={configuration.rowHeightMode}
+            data-webrad-wrap-text={String(configuration.wrapText)}
+            style={dataGridLayoutStyle(configuration, node.bounds.width)}
+          >
             {configuration.showHeader && (
-              <thead
-                className={configuration.stickyHeader ? 'wr-data-grid-sticky-header' : undefined}
+              <div
+                className={`wr-data-grid-row wr-data-grid-header-row${configuration.stickyHeader ? ' wr-data-grid-sticky-header' : ''}`}
+                role="row"
               >
-                <tr>
-                  {configuration.columns.map((column) => (
-                    <th key={column.id} scope="col">
-                      {column.header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+                {configuration.columns.map((column) => (
+                  <div
+                    className="wr-data-grid-cell wr-data-grid-header-cell"
+                    data-webrad-data-grid-column={column.id}
+                    key={column.id}
+                    role="columnheader"
+                    style={{ textAlign: column.headerAlign }}
+                  >
+                    {column.header}
+                  </div>
+                ))}
+              </div>
             )}
-            <tbody>
+            <div className="wr-data-grid-body" role="rowgroup">
               {[0, 1, 2].map((rowIndex) => (
-                <tr key={rowIndex}>
+                <div className="wr-data-grid-row wr-data-grid-body-row" key={rowIndex} role="row">
                   {configuration.columns.map((column) => (
-                    <td key={column.id}>
+                    <div
+                      className="wr-data-grid-cell"
+                      data-webrad-data-grid-column={column.id}
+                      key={column.id}
+                      role="gridcell"
+                      style={{ textAlign: column.cellAlign }}
+                    >
                       {column.cellKind === 'image' ? (
                         <span aria-label={column.header} role="img">
                           Image
                         </span>
                       ) : column.cellKind === 'button' ? (
-                        <button type="button">{column.header || 'Button'}</button>
+                        <button className="wr-data-grid-button" type="button">
+                          {column.header || 'Button'}
+                        </button>
                       ) : column.cellKind === 'checkbox' ? (
                         <input
                           aria-label={column.header}
@@ -298,23 +355,30 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
                       ) : (
                         column.fieldPath || 'Value'
                       )}
-                    </td>
+                    </div>
                   ))}
-                </tr>
+                </div>
               ))}
-            </tbody>
+            </div>
             {configuration.showFooter && (
-              <tfoot
-                className={configuration.stickyFooter ? 'wr-data-grid-sticky-footer' : undefined}
+              <div
+                className={`wr-data-grid-row wr-data-grid-footer-row${configuration.stickyFooter ? ' wr-data-grid-sticky-footer' : ''}`}
+                role="row"
               >
-                <tr>
-                  {configuration.columns.map((column) => (
-                    <td key={column.id}>{column.footer}</td>
-                  ))}
-                </tr>
-              </tfoot>
+                {configuration.columns.map((column) => (
+                  <div
+                    className="wr-data-grid-cell wr-data-grid-footer-cell"
+                    data-webrad-data-grid-column={column.id}
+                    key={column.id}
+                    role="gridcell"
+                    style={{ textAlign: column.cellAlign }}
+                  >
+                    {column.footer}
+                  </div>
+                ))}
+              </div>
             )}
-          </table>
+          </div>
         </div>
       </div>
     );

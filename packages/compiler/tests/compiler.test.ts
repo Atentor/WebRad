@@ -297,7 +297,7 @@ describe('compileProject', () => {
 
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['assets/app.js']).toContain('bindApiClient');
-    expect(result.files['assets/app.js']).toContain('wr-data-grid-table');
+    expect(result.files['assets/app.js']).toContain('wr-data-grid-content');
   });
 
   it('rejects a Data Grid list binding that is not present in the selected API contract', async () => {

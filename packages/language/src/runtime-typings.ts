@@ -30,12 +30,28 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   export const WEB_DATA_GRID_CELL_KINDS: readonly ['text', 'image', 'button', 'checkbox'];
   export type WebDataGridCellKind = (typeof WEB_DATA_GRID_CELL_KINDS)[number];
 
+  export const WEB_DATA_GRID_COLUMN_WIDTH_MODES: readonly ['fixed', 'dynamic'];
+  export type WebDataGridColumnWidthMode = (typeof WEB_DATA_GRID_COLUMN_WIDTH_MODES)[number];
+
+  export const WEB_DATA_GRID_ROW_HEIGHT_MODES: readonly ['fixed', 'dynamic'];
+  export type WebDataGridRowHeightMode = (typeof WEB_DATA_GRID_ROW_HEIGHT_MODES)[number];
+
+  export const WEB_DATA_GRID_HORIZONTAL_ALIGNMENTS: readonly ['start', 'center', 'end'];
+  export type WebDataGridHorizontalAlignment = (typeof WEB_DATA_GRID_HORIZONTAL_ALIGNMENTS)[number];
+
   export interface WebDataGridColumn {
     readonly id: string;
     readonly header: string;
     readonly fieldPath: string;
     readonly cellKind: WebDataGridCellKind;
     readonly footer: string;
+    readonly widthMode: WebDataGridColumnWidthMode;
+    readonly width: number;
+    readonly minWidth: number;
+    readonly maxWidth: number | null;
+    readonly flex: number;
+    readonly headerAlign: WebDataGridHorizontalAlignment;
+    readonly cellAlign: WebDataGridHorizontalAlignment;
   }
 
   export interface WebDataGridConfiguration {
@@ -48,6 +64,17 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly stickyHeader: boolean;
     readonly showFooter: boolean;
     readonly stickyFooter: boolean;
+    readonly rowHeightMode: WebDataGridRowHeightMode;
+    readonly fixedRowHeight: number;
+    readonly minRowHeight: number;
+    readonly maxRowHeight: number | null;
+    readonly cellPaddingHorizontal: number;
+    readonly cellPaddingVertical: number;
+    readonly wrapText: boolean;
+    readonly stripedRows: boolean;
+    readonly showHorizontalLines: boolean;
+    readonly showVerticalLines: boolean;
+    readonly emptyMessage: string;
     readonly columns: readonly WebDataGridColumn[];
   }
 
@@ -503,6 +530,14 @@ ${WEB_BUTTON_ICON_TYPINGS};
     };
   }
 
+  export interface DataGridColumnTrackSource {
+    readonly widthMode: 'fixed' | 'dynamic';
+    readonly width: number;
+    readonly minWidth: number;
+    readonly maxWidth: number | null;
+    readonly flex: number;
+  }
+
   export type ComponentStyleStateName = 'base' | 'hover' | 'focus' | 'active' | 'disabled';
   export type StyleLengthUnit = 'px' | 'rem' | '%' | 'vw' | 'vh';
 
@@ -538,6 +573,10 @@ ${WEB_BUTTON_ICON_TYPINGS};
   }
 
   export function tokenizeTailwindClasses(value: string): readonly string[];
+  export function resolveDataGridColumnTrackWidths(
+    columns: readonly DataGridColumnTrackSource[],
+    availableWidth: number,
+  ): readonly number[];
   export function resolveStylePropertyCandidate(
     propertyName: string,
     value: StylePropertyValue,

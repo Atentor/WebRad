@@ -11,7 +11,7 @@ export type ComponentPropertyType =
   | 'data-grid-config';
 
 /** Named design-time actions kept in the Component Registry metadata. */
-export type ComponentDesignerAction = 'api-client-tester';
+export type ComponentDesignerAction = 'api-client-tester' | 'data-grid-configurator';
 
 export type ComponentPropertySource =
   'node' | 'bounds' | 'props' | 'page' | 'layout-container' | 'layout-item';

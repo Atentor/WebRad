@@ -42,7 +42,7 @@ describe('ComponentView', () => {
           name: 'DataGrid1',
           props: {
             dataGridConfig: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               apiClientId: null,
               operationId: null,
               listPath: '',
@@ -51,6 +51,17 @@ describe('ComponentView', () => {
               stickyHeader: true,
               showFooter: true,
               stickyFooter: true,
+              rowHeightMode: 'dynamic',
+              fixedRowHeight: 40,
+              minRowHeight: 42,
+              maxRowHeight: 160,
+              cellPaddingHorizontal: 12,
+              cellPaddingVertical: 6,
+              wrapText: true,
+              stripedRows: true,
+              showHorizontalLines: true,
+              showVerticalLines: true,
+              emptyMessage: 'No records',
               columns: [
                 {
                   id: 'name',
@@ -58,6 +69,13 @@ describe('ComponentView', () => {
                   fieldPath: '/name',
                   cellKind: 'text',
                   footer: 'Total',
+                  widthMode: 'dynamic',
+                  width: 180,
+                  minWidth: 120,
+                  maxWidth: null,
+                  flex: 2,
+                  headerAlign: 'start',
+                  cellAlign: 'start',
                 },
                 {
                   id: 'active',
@@ -65,6 +83,13 @@ describe('ComponentView', () => {
                   fieldPath: '/active',
                   cellKind: 'checkbox',
                   footer: '',
+                  widthMode: 'fixed',
+                  width: 88,
+                  minWidth: 88,
+                  maxWidth: 88,
+                  flex: 1,
+                  headerAlign: 'center',
+                  cellAlign: 'center',
                 },
               ],
             },
@@ -76,9 +101,12 @@ describe('ComponentView', () => {
     );
 
     expect(markup).toContain('wr-webdatagrid');
-    expect(markup).toContain('<th scope="col">Name</th>');
+    expect(markup).toContain('role="columnheader"');
+    expect(markup).toContain('data-webrad-data-grid-column="name"');
     expect(markup).toContain('Total');
-    expect(markup).toContain('<td>/name</td>');
+    expect(markup).toContain('>/name</div>');
+    expect(markup).toContain('data-webrad-row-height-mode="dynamic"');
+    expect(markup).toContain('--wr-data-grid-columns:120px 88px');
   });
 
   it('projects the selected reusable style classes onto the component root', () => {

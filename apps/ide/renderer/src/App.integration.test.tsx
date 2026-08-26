@@ -4,6 +4,7 @@ import { createUserPageSource } from '@webrad/language';
 import {
   createProject,
   parseApiClientConfiguration,
+  parseDataGridConfiguration,
   type WebRadProject,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
@@ -523,6 +524,55 @@ describe('App MVP integration', () => {
     });
     expect(JSON.stringify(configuration)).not.toContain('Ada');
   }, 15_000);
+
+  it('opens the dedicated Data Grid editor and persists mixed column and row sizing', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+
+    await user.dblClick(screen.getByRole('button', { name: 'Data Grid' }));
+    await screen.findByTitle('DataGrid1: WebDataGrid');
+    const configure = screen.getByRole('button', { name: 'Configure Data Grid' });
+    await user.click(configure);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Configure Data Grid' });
+    const editor = within(dialog);
+    await user.selectOptions(editor.getByLabelText('Width mode for Data Grid column 1'), 'fixed');
+    const fixedWidth = editor.getByLabelText('Fixed width for Data Grid column 1');
+    await user.clear(fixedWidth);
+    await user.type(fixedWidth, '240');
+    await user.selectOptions(editor.getByLabelText('Data Grid row height mode'), 'fixed');
+    const fixedHeight = editor.getByLabelText('Fixed Data Grid row height');
+    await user.clear(fixedHeight);
+    await user.type(fixedHeight, '52');
+    await user.click(editor.getByRole('button', { name: 'Save Data Grid' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Configure Data Grid' })).toBeNull();
+      expect(document.activeElement).toBe(configure);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await screen.findByText('Saved MvpProject.');
+    const dataGrid = harness
+      .persisted()
+      .project.pages[0]?.components.find((component) => component.type === 'WebDataGrid');
+    if (dataGrid === undefined) throw new Error('Expected the persisted Data Grid.');
+    expect(parseDataGridConfiguration(dataGrid.props.dataGridConfig)).toMatchObject({
+      schemaVersion: 2,
+      rowHeightMode: 'fixed',
+      fixedRowHeight: 52,
+      columns: expect.arrayContaining([
+        expect.objectContaining({ widthMode: 'fixed', width: 240 }),
+      ]),
+    });
+  });
 
   it('keeps theme switching in the Tools command without rendering a toolbar button', async () => {
     const harness = createBridgeHarness(initialSession());

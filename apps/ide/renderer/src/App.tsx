@@ -24,6 +24,7 @@ import {
   type Bounds,
   type ComponentNode,
   type ComponentStyleModel,
+  type DataGridConfiguration,
   type PageModel,
 } from '@webrad/project-model';
 import {
@@ -52,6 +53,7 @@ import {
   type EditorNavigationTarget,
 } from './components/CodeEditor';
 import { DesignerSurface } from './components/DesignerSurface';
+import { DataGridConfigurationDialog } from './components/DataGridConfigurationDialog';
 import { EditorWorkspace, type DocumentTab, type ViewMode } from './components/EditorWorkspace';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { IdeShell } from './components/IdeShell';
@@ -182,6 +184,9 @@ export function App(): ReactElement {
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
+  const [dataGridConfiguratorComponentId, setDataGridConfiguratorComponentId] = useState<
+    string | null
+  >(null);
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectError, setNewProjectError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<EditorCursorStatus>({
@@ -219,6 +224,13 @@ export function App(): ReactElement {
       activePage.components.find((component) => component.id === apiClientTesterComponentId) ?? null
     );
   }, [activePage, apiClientTesterComponentId]);
+  const dataGridConfiguratorComponent = useMemo(() => {
+    if (activePage === null || dataGridConfiguratorComponentId === null) return null;
+    return (
+      activePage.components.find((component) => component.id === dataGridConfiguratorComponentId) ??
+      null
+    );
+  }, [activePage, dataGridConfiguratorComponentId]);
 
   const addOutput = useCallback((category: string, message: string): void => {
     setOutput((current) => [
@@ -260,6 +272,7 @@ export function App(): ReactElement {
       setMonacoMarkers([]);
       setBottomPanelTab('output');
       setApiClientTesterComponentId(null);
+      setDataGridConfiguratorComponentId(null);
       addOutput('PROJECT', `Opened ${session.project.name}.`);
     },
     [addOutput, designerController, selectionManager],
@@ -725,9 +738,11 @@ export function App(): ReactElement {
 
   const runDesignerAction = useCallback(
     (action: ComponentDesignerAction, component: ComponentNode): void => {
+      selectionManager.selectSingle(component.id);
       if (action === 'api-client-tester') {
-        selectionManager.selectSingle(component.id);
         setApiClientTesterComponentId(component.id);
+      } else if (action === 'data-grid-configurator') {
+        setDataGridConfiguratorComponentId(component.id);
       }
     },
     [selectionManager],
@@ -772,6 +787,34 @@ export function App(): ReactElement {
       activePage,
       addOutput,
       apiClientTesterComponent,
+      designerController,
+      reportError,
+      updateActivePage,
+    ],
+  );
+
+  const saveDataGridConfiguration = useCallback(
+    (configuration: DataGridConfiguration): void => {
+      if (!activePage || dataGridConfiguratorComponent === null) return;
+      try {
+        const next = designerController.executeMany(activePage, 'Configure Data Grid', [
+          new ChangePropertyCommand(
+            dataGridConfiguratorComponent.id,
+            'dataGridConfig',
+            configuration,
+          ),
+        ]);
+        updateActivePage(next);
+        setDataGridConfiguratorComponentId(null);
+        addOutput('DESIGNER', `Configured Data Grid ${dataGridConfiguratorComponent.name}.`);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activePage,
+      addOutput,
+      dataGridConfiguratorComponent,
       designerController,
       reportError,
       updateActivePage,
@@ -855,6 +898,7 @@ export function App(): ReactElement {
       setBuildDiagnostics([]);
       setMonacoMarkers([]);
       setApiClientTesterComponentId(null);
+      setDataGridConfiguratorComponentId(null);
     } catch (error) {
       reportError(error, 'PROJECT');
     }
@@ -1354,7 +1398,11 @@ export function App(): ReactElement {
               : undefined,
           zoom,
         } as const);
-  const modalOpen = newProjectDialogOpen || iconPickerOpen || apiClientTesterComponent !== null;
+  const modalOpen =
+    newProjectDialogOpen ||
+    iconPickerOpen ||
+    apiClientTesterComponent !== null ||
+    dataGridConfiguratorComponent !== null;
 
   return (
     <>
@@ -1512,6 +1560,14 @@ export function App(): ReactElement {
           component={apiClientTesterComponent}
           onClose={() => setApiClientTesterComponentId(null)}
           onSave={saveApiClientConfiguration}
+        />
+      )}
+      {dataGridConfiguratorComponent !== null && (
+        <DataGridConfigurationDialog
+          availableComponents={activePage?.components ?? []}
+          component={dataGridConfiguratorComponent}
+          onClose={() => setDataGridConfiguratorComponentId(null)}
+          onSave={saveDataGridConfiguration}
         />
       )}
     </>

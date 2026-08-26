@@ -9,6 +9,7 @@ import {
   createPage,
   deserializePage,
   normalizeApiClientConfiguration,
+  parseDataGridConfiguration,
   safeParsePage,
   serializePage,
   type ApiClientConfiguration,
@@ -154,27 +155,47 @@ describe('persisted API Client configuration', () => {
 
   it('persists a typed Data Grid binding to a nested API response list', () => {
     const apiConfiguration = validConfiguration();
+    const defaults = createDefaultDataGridConfiguration();
     const dataGridConfiguration: DataGridConfiguration = {
-      ...createDefaultDataGridConfiguration(),
+      ...defaults,
       apiClientId: 'api-client',
       operationId: 'operation-customers',
       listPath: '/customers',
+      rowHeightMode: 'dynamic',
+      minRowHeight: 44,
+      maxRowHeight: 160,
+      cellPaddingHorizontal: 14,
+      cellPaddingVertical: 6,
+      wrapText: true,
+      stripedRows: true,
+      showVerticalLines: true,
       columns: [
         {
+          ...defaults.columns[0]!,
           id: 'customer-name',
           header: 'Customer',
           fieldPath: '/name',
           cellKind: 'text',
           footer: 'Total',
+          widthMode: 'dynamic',
+          minWidth: 180,
+          maxWidth: null,
+          flex: 2,
         },
         {
+          ...defaults.columns[1]!,
           id: 'customer-id',
           header: 'ID',
           fieldPath: '/id',
           cellKind: 'button',
           footer: '',
+          widthMode: 'fixed',
+          width: 96,
+          headerAlign: 'end',
+          cellAlign: 'end',
         },
         {
+          ...defaults.columns[2]!,
           id: 'customer-active',
           header: 'Active',
           fieldPath: '/active',
@@ -212,6 +233,134 @@ describe('persisted API Client configuration', () => {
         (component) => component.id === 'data-grid',
       )?.props,
     ).toEqual({ dataGridConfig: dataGridConfiguration });
+  });
+
+  it('upgrades strict v1 Data Grid bindings without losing their stable column IDs', () => {
+    const legacy = {
+      schemaVersion: 1,
+      apiClientId: 'api-client',
+      operationId: 'operation-customers',
+      listPath: '/customers',
+      columnCount: 1,
+      showHeader: true,
+      stickyHeader: true,
+      showFooter: false,
+      stickyFooter: true,
+      columns: [
+        {
+          id: 'customer-name',
+          header: 'Customer',
+          fieldPath: '/name',
+          cellKind: 'text',
+          footer: '',
+        },
+      ],
+    };
+
+    expect(DataGridConfigurationSchema.safeParse(legacy).success).toBe(true);
+    expect(parseDataGridConfiguration(legacy)).toMatchObject({
+      schemaVersion: 2,
+      apiClientId: 'api-client',
+      operationId: 'operation-customers',
+      listPath: '/customers',
+      rowHeightMode: 'dynamic',
+      columns: [
+        {
+          id: 'customer-name',
+          widthMode: 'dynamic',
+          minWidth: 96,
+          flex: 1,
+        },
+      ],
+    });
+  });
+
+  it('materializes a v2 Data Grid configuration when a page contains a v1 binding', () => {
+    const legacy = {
+      schemaVersion: 1,
+      apiClientId: 'api-client',
+      operationId: 'operation-customers',
+      listPath: '/customers',
+      columnCount: 1,
+      showHeader: true,
+      stickyHeader: true,
+      showFooter: false,
+      stickyFooter: true,
+      columns: [
+        {
+          id: 'customer-name',
+          header: 'Customer',
+          fieldPath: '/name',
+          cellKind: 'text',
+          footer: '',
+        },
+      ],
+    };
+    const apiPage = pageWithApiClientConfiguration(validConfiguration());
+    const root = apiPage.components[0];
+    if (root === undefined) throw new Error('Expected a page root.');
+    const page: PageModel = {
+      ...apiPage,
+      components: [
+        { ...root, children: [...root.children, 'data-grid'] },
+        ...apiPage.components.slice(1),
+        {
+          id: 'data-grid',
+          type: 'WebDataGrid',
+          name: 'DataGrid1',
+          parentId: root.id,
+          layout: createDefaultComponentLayout(),
+          bounds: { x: 20, y: 40, width: 640, height: 320 },
+          props: { dataGridConfig: legacy },
+          events: {},
+          children: [],
+        },
+      ],
+    };
+
+    const expected = parseDataGridConfiguration(legacy);
+    const parsed = safeParsePage(page);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+
+    expect(
+      parsed.data.components.find((component) => component.id === 'data-grid')?.props
+        .dataGridConfig,
+    ).toEqual(expected);
+    expect(
+      deserializePage(JSON.stringify(page)).components.find(
+        (component) => component.id === 'data-grid',
+      )?.props.dataGridConfig,
+    ).toEqual(expected);
+    expect(
+      deserializePage(serializePage(page)).components.find(
+        (component) => component.id === 'data-grid',
+      )?.props.dataGridConfig,
+    ).toEqual(expected);
+  });
+
+  it('rejects Data Grid dimensions whose maximum is below its minimum', () => {
+    const defaults = createDefaultDataGridConfiguration();
+    expect(
+      DataGridConfigurationSchema.safeParse({
+        ...defaults,
+        minRowHeight: 60,
+        maxRowHeight: 40,
+      }).success,
+    ).toBe(false);
+    expect(
+      DataGridConfigurationSchema.safeParse({
+        ...defaults,
+        columns: [
+          {
+            ...defaults.columns[0]!,
+            minWidth: 180,
+            maxWidth: 120,
+          },
+          ...defaults.columns.slice(1),
+        ],
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects invalid operation identities and invalid response-schema trees', () => {

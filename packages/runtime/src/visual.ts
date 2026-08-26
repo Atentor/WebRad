@@ -15,6 +15,75 @@ export interface VisualComponentSource extends VisualPropertySource {
   };
 }
 
+/**
+ * Browser-safe sizing subset shared by the Data Grid renderer and its
+ * design-time projection. Dynamic tracks use a weighted distribution after
+ * fixed tracks and minimum widths are reserved.
+ */
+export interface DataGridColumnTrackSource {
+  readonly widthMode: 'fixed' | 'dynamic';
+  readonly width: number;
+  readonly minWidth: number;
+  readonly maxWidth: number | null;
+  readonly flex: number;
+}
+
+function safeDataGridSize(value: number, fallback: number): number {
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/**
+ * Resolves fixed and weighted dynamic Data Grid columns to pixel tracks for a
+ * particular viewport. A dynamic maximum is a real cap: once reached, the
+ * remaining width is redistributed among the other dynamic columns.
+ */
+export function resolveDataGridColumnTrackWidths(
+  columns: readonly DataGridColumnTrackSource[],
+  availableWidth: number,
+): readonly number[] {
+  const widths = columns.map((column) =>
+    column.widthMode === 'fixed'
+      ? safeDataGridSize(column.width, 0)
+      : safeDataGridSize(column.minWidth, 0),
+  );
+  const minimumWidth = widths.reduce((total, width) => total + width, 0);
+  let remainingWidth = Math.max(0, safeDataGridSize(availableWidth, minimumWidth) - minimumWidth);
+  let expandable = columns
+    .map((column, index) => ({ column, index }))
+    .filter(({ column, index }) => {
+      const currentWidth = widths[index] ?? 0;
+      return (
+        column.widthMode === 'dynamic' &&
+        (column.maxWidth === null || currentWidth < column.maxWidth)
+      );
+    });
+
+  while (remainingWidth > 0.001 && expandable.length > 0) {
+    const totalFlex = expandable.reduce(
+      (total, { column }) => total + Math.max(0.1, safeDataGridSize(column.flex, 1)),
+      0,
+    );
+    let consumedWidth = 0;
+    for (const { column, index } of expandable) {
+      const desiredWidth =
+        (remainingWidth * Math.max(0.1, safeDataGridSize(column.flex, 1))) / totalFlex;
+      const maximumWidth = column.maxWidth === null ? Number.POSITIVE_INFINITY : column.maxWidth;
+      const currentWidth = widths[index] ?? 0;
+      const addition = Math.min(desiredWidth, Math.max(0, maximumWidth - currentWidth));
+      widths[index] = currentWidth + addition;
+      consumedWidth += addition;
+    }
+    if (consumedWidth <= 0.001) break;
+    remainingWidth -= consumedWidth;
+    expandable = expandable.filter(({ column, index }) => {
+      const currentWidth = widths[index] ?? 0;
+      return column.maxWidth === null || currentWidth < column.maxWidth - 0.001;
+    });
+  }
+
+  return widths.map((width) => Math.round(width * 1000) / 1000);
+}
+
 /** Browser-safe structural counterpart of the versioned project style model. */
 export type ComponentStyleStateName = 'base' | 'hover' | 'focus' | 'active' | 'disabled';
 export type StyleLengthUnit = 'px' | 'rem' | '%' | 'vw' | 'vh';
@@ -870,13 +939,22 @@ export const WEBRAD_COMPONENT_CSS = `
 .wr-webimage { display: block; object-fit: contain; border: 1px dashed var(--wr-control-border, #677184); color: var(--wr-muted-text, #8e98aa); }
 .wr-webdatagrid { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); display: block; overflow: hidden; border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); color: inherit; }
 .wr-data-grid-scroll { width: 100%; height: 100%; overflow: auto; }
-.wr-data-grid-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.wr-data-grid-table th, .wr-data-grid-table td { min-width: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding: 8px 10px; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-.wr-data-grid-table th { background: color-mix(in srgb, currentColor 10%, transparent); font-weight: 600; }
-.wr-data-grid-table tfoot td { background: color-mix(in srgb, currentColor 7%, transparent); font-weight: 600; }
-.wr-data-grid-sticky-header th { position: sticky; z-index: 1; top: 0; }
-.wr-data-grid-sticky-footer td { position: sticky; z-index: 1; bottom: 0; }
-.wr-data-grid-image { display: block; width: 100%; height: 36px; object-fit: contain; }
+.wr-data-grid-content { width: 100%; min-width: var(--wr-data-grid-min-width, 0); }
+.wr-data-grid-row { display: grid; grid-template-columns: var(--wr-data-grid-columns); min-width: var(--wr-data-grid-min-width, 0); }
+.wr-data-grid-cell { box-sizing: border-box; min-width: 0; min-height: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding: var(--wr-data-grid-cell-padding-y, 8px) var(--wr-data-grid-cell-padding-x, 10px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wr-data-grid-body-row > .wr-data-grid-cell:focus-visible { outline: 2px solid var(--wr-accent, #4da3ff); outline-offset: -2px; }
+.wr-data-grid-content[data-webrad-wrap-text='true'] .wr-data-grid-cell { overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
+.wr-data-grid-header-cell { background: color-mix(in srgb, currentColor 10%, transparent); font-weight: 600; }
+.wr-data-grid-footer-cell { background: color-mix(in srgb, currentColor 7%, transparent); font-weight: 600; }
+.wr-data-grid-sticky-header { position: sticky; z-index: 1; top: 0; }
+.wr-data-grid-sticky-footer { position: sticky; z-index: 1; bottom: 0; }
+.wr-data-grid-content[data-webrad-row-height-mode='fixed'] .wr-data-grid-body-row { height: var(--wr-data-grid-fixed-row-height, 40px); max-height: var(--wr-data-grid-fixed-row-height, 40px); }
+.wr-data-grid-content[data-webrad-row-height-mode='fixed'] .wr-data-grid-body-row > .wr-data-grid-cell { height: var(--wr-data-grid-fixed-row-height, 40px); }
+.wr-data-grid-content[data-webrad-row-height-mode='dynamic'] .wr-data-grid-body-row { min-height: var(--wr-data-grid-min-row-height, 36px); max-height: var(--wr-data-grid-max-row-height, none); }
+.wr-data-grid-no-horizontal-lines .wr-data-grid-cell { border-bottom-color: transparent; }
+.wr-data-grid-vertical-lines .wr-data-grid-cell:not(:first-child) { border-inline-start: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+.wr-data-grid-striped .wr-data-grid-body-row:nth-child(even) > .wr-data-grid-cell { background: color-mix(in srgb, currentColor 5%, transparent); }
+.wr-data-grid-image { display: block; width: 100%; max-width: 100%; height: 36px; max-height: 100%; object-fit: contain; }
 .wr-data-grid-button { max-width: 100%; border: 0; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, transparent); color: inherit; cursor: pointer; padding: 4px 8px; }
 .wr-data-grid-checkbox { accent-color: currentColor; }
 .wr-data-grid-empty { color: var(--wr-muted-text, #8e98aa); font-style: italic; text-align: center !important; }

@@ -150,42 +150,78 @@ export const ComponentLayoutSchema: z.ZodType<ComponentLayout> = z
   })
   .strict();
 
-export const ComponentNodeSchema: z.ZodType<ComponentNode> = z
-  .object({
-    id: nonEmptyStringSchema,
-    type: identifierSchema,
-    name: identifierSchema,
-    parentId: nonEmptyStringSchema.nullable(),
-    layout: ComponentLayoutSchema,
-    bounds: BoundsSchema,
-    props: z.record(z.string(), z.json()),
-    events: z.record(z.string(), z.string().min(1).nullable()),
-    styleId: nonEmptyStringSchema.optional(),
-    children: z.array(nonEmptyStringSchema),
-  })
-  .strict()
-  .superRefine((component, context) => {
-    const propertyName =
-      component.type === 'WebApiClient'
-        ? 'apiClientConfig'
-        : component.type === 'WebDataGrid'
-          ? 'dataGridConfig'
-          : undefined;
-    if (propertyName === undefined || component.props[propertyName] === undefined) return;
-    const schema =
-      component.type === 'WebApiClient'
-        ? ApiClientConfigurationSchema
-        : DataGridConfigurationSchema;
-    const result = schema.safeParse(component.props[propertyName]);
-    if (result.success) return;
-    for (const issue of result.error.issues) {
-      context.addIssue({
-        code: 'custom',
-        message: `Invalid ${component.type === 'WebApiClient' ? 'API Client' : 'Data Grid'} configuration: ${issue.message}`,
-        path: ['props', propertyName, ...issue.path],
-      });
-    }
-  });
+/**
+ * Materializes versioned component-property values before the component is
+ * validated. This makes the Project Model's parsed output the canonical
+ * representation, rather than merely accepting an older persisted shape.
+ */
+function materializeComponentProperties(input: unknown): unknown {
+  if (
+    input === null ||
+    typeof input !== 'object' ||
+    Array.isArray(input) ||
+    !('type' in input) ||
+    !('props' in input) ||
+    input.type !== 'WebDataGrid' ||
+    input.props === null ||
+    typeof input.props !== 'object' ||
+    Array.isArray(input.props) ||
+    !('dataGridConfig' in input.props)
+  ) {
+    return input;
+  }
+
+  const configuration = DataGridConfigurationSchema.safeParse(input.props.dataGridConfig);
+  if (!configuration.success) return input;
+
+  return {
+    ...input,
+    props: {
+      ...input.props,
+      dataGridConfig: configuration.data,
+    },
+  };
+}
+
+export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
+  materializeComponentProperties,
+  z
+    .object({
+      id: nonEmptyStringSchema,
+      type: identifierSchema,
+      name: identifierSchema,
+      parentId: nonEmptyStringSchema.nullable(),
+      layout: ComponentLayoutSchema,
+      bounds: BoundsSchema,
+      props: z.record(z.string(), z.json()),
+      events: z.record(z.string(), z.string().min(1).nullable()),
+      styleId: nonEmptyStringSchema.optional(),
+      children: z.array(nonEmptyStringSchema),
+    })
+    .strict()
+    .superRefine((component, context) => {
+      const propertyName =
+        component.type === 'WebApiClient'
+          ? 'apiClientConfig'
+          : component.type === 'WebDataGrid'
+            ? 'dataGridConfig'
+            : undefined;
+      if (propertyName === undefined || component.props[propertyName] === undefined) return;
+      const schema =
+        component.type === 'WebApiClient'
+          ? ApiClientConfigurationSchema
+          : DataGridConfigurationSchema;
+      const result = schema.safeParse(component.props[propertyName]);
+      if (result.success) return;
+      for (const issue of result.error.issues) {
+        context.addIssue({
+          code: 'custom',
+          message: `Invalid ${component.type === 'WebApiClient' ? 'API Client' : 'Data Grid'} configuration: ${issue.message}`,
+          path: ['props', propertyName, ...issue.path],
+        });
+      }
+    }),
+);
 
 export const StyleLengthValueSchema: z.ZodType<StyleLengthValue> = z
   .object({

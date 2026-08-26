@@ -843,6 +843,7 @@ const webDataGrid: ComponentDefinition = {
   visual: true,
   canHaveChildren: false,
   defaultEvent: null,
+  designerAction: 'data-grid-configurator',
   defaultBounds: dataGridBounds,
   defaults: {
     visible: true,
@@ -859,7 +860,8 @@ const webDataGrid: ComponentDefinition = {
       source: 'props',
       defaultValue: createDefaultDataGridConfiguration(),
       description:
-        'Choose an API Client operation and one response list, then configure repeated text, image, button, or checkbox cells.',
+        'Configure the source, columns, responsive widths, row sizing, and cell layout in the Data Grid editor.',
+      designerAction: 'data-grid-configurator',
     },
   ],
   events: [event('OnCellClick', 'Data')],

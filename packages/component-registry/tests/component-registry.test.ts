@@ -240,6 +240,30 @@ describe('MVP component metadata', () => {
       'OnComplete',
     ]);
   });
+
+  it('opens the dedicated Data Grid configurator through registry metadata', () => {
+    const dataGrid = componentRegistry.require('WebDataGrid');
+    expect(dataGrid.designerAction).toBe('data-grid-configurator');
+    expect(dataGrid.defaults.dataGridConfig).toMatchObject({
+      schemaVersion: 2,
+      rowHeightMode: 'dynamic',
+      minRowHeight: 36,
+      columns: expect.arrayContaining([
+        expect.objectContaining({
+          widthMode: 'dynamic',
+          minWidth: 96,
+          flex: 1,
+        }),
+      ]),
+    });
+    expect(
+      dataGrid.properties.find((property) => property.name === 'dataGridConfig'),
+    ).toMatchObject({
+      type: 'data-grid-config',
+      source: 'props',
+      designerAction: 'data-grid-configurator',
+    });
+  });
 });
 
 describe('ComponentRegistry behavior', () => {

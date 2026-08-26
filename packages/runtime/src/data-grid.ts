@@ -1,8 +1,18 @@
-import { WebApiClient } from './api-client.js';
+import type { WebApiClient } from './api-client.js';
 import { WebComponent } from './component.js';
+import { resolveDataGridColumnTrackWidths } from './visual.js';
 
 export const WEB_DATA_GRID_CELL_KINDS = ['text', 'image', 'button', 'checkbox'] as const;
 export type WebDataGridCellKind = (typeof WEB_DATA_GRID_CELL_KINDS)[number];
+
+export const WEB_DATA_GRID_COLUMN_WIDTH_MODES = ['fixed', 'dynamic'] as const;
+export type WebDataGridColumnWidthMode = (typeof WEB_DATA_GRID_COLUMN_WIDTH_MODES)[number];
+
+export const WEB_DATA_GRID_ROW_HEIGHT_MODES = ['fixed', 'dynamic'] as const;
+export type WebDataGridRowHeightMode = (typeof WEB_DATA_GRID_ROW_HEIGHT_MODES)[number];
+
+export const WEB_DATA_GRID_HORIZONTAL_ALIGNMENTS = ['start', 'center', 'end'] as const;
+export type WebDataGridHorizontalAlignment = (typeof WEB_DATA_GRID_HORIZONTAL_ALIGNMENTS)[number];
 
 export interface WebDataGridColumn {
   readonly id: string;
@@ -10,6 +20,13 @@ export interface WebDataGridColumn {
   readonly fieldPath: string;
   readonly cellKind: WebDataGridCellKind;
   readonly footer: string;
+  readonly widthMode: WebDataGridColumnWidthMode;
+  readonly width: number;
+  readonly minWidth: number;
+  readonly maxWidth: number | null;
+  readonly flex: number;
+  readonly headerAlign: WebDataGridHorizontalAlignment;
+  readonly cellAlign: WebDataGridHorizontalAlignment;
 }
 
 export interface WebDataGridConfiguration {
@@ -22,6 +39,17 @@ export interface WebDataGridConfiguration {
   readonly stickyHeader: boolean;
   readonly showFooter: boolean;
   readonly stickyFooter: boolean;
+  readonly rowHeightMode: WebDataGridRowHeightMode;
+  readonly fixedRowHeight: number;
+  readonly minRowHeight: number;
+  readonly maxRowHeight: number | null;
+  readonly cellPaddingHorizontal: number;
+  readonly cellPaddingVertical: number;
+  readonly wrapText: boolean;
+  readonly stripedRows: boolean;
+  readonly showHorizontalLines: boolean;
+  readonly showVerticalLines: boolean;
+  readonly emptyMessage: string;
   readonly columns: readonly WebDataGridColumn[];
 }
 
@@ -33,6 +61,24 @@ export interface WebDataGridCellEventDetail {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function finiteNumberInRange(
+  value: unknown,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
+    ? value
+    : fallback;
+}
+
+function nullableNumberInRange(value: unknown, minimum: number, maximum: number): number | null {
+  if (value === null || value === undefined) return null;
+  return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
+    ? value
+    : null;
 }
 
 function pointerTokens(pointer: string): readonly string[] {
@@ -73,9 +119,15 @@ function cellBoolean(value: unknown): boolean {
   return value === true || value === 1 || value === 'true' || value === '1';
 }
 
+function normalizeAlignment(value: unknown): WebDataGridHorizontalAlignment {
+  return value === 'center' || value === 'end' || value === 'start' ? value : 'start';
+}
+
 function normalizeColumn(value: unknown, index: number): WebDataGridColumn {
   const source = isRecord(value) ? value : {};
   const kind = source.cellKind;
+  const minWidth = finiteNumberInRange(source.minWidth, 96, 1, 10_000);
+  const rawMaxWidth = nullableNumberInRange(source.maxWidth, 1, 10_000);
   return {
     id:
       typeof source.id === 'string' && source.id.length > 0
@@ -88,6 +140,13 @@ function normalizeColumn(value: unknown, index: number): WebDataGridColumn {
         ? kind
         : 'text',
     footer: typeof source.footer === 'string' ? source.footer : '',
+    widthMode: source.widthMode === 'fixed' ? 'fixed' : 'dynamic',
+    width: finiteNumberInRange(source.width, 180, 1, 10_000),
+    minWidth,
+    maxWidth: rawMaxWidth !== null && rawMaxWidth >= minWidth ? rawMaxWidth : null,
+    flex: finiteNumberInRange(source.flex, 1, 0.1, 100),
+    headerAlign: normalizeAlignment(source.headerAlign),
+    cellAlign: normalizeAlignment(source.cellAlign),
   };
 }
 
@@ -106,10 +165,22 @@ export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridCo
             fieldPath: '',
             cellKind: 'text' as const,
             footer: '',
+            widthMode: 'dynamic' as const,
+            width: 180,
+            minWidth: 96,
+            maxWidth: null,
+            flex: 1,
+            headerAlign: 'start' as const,
+            cellAlign: 'start' as const,
           },
         ];
+  const minRowHeight = finiteNumberInRange(source.minRowHeight, 36, 0, 10_000);
+  const rawMaxRowHeight = nullableNumberInRange(source.maxRowHeight, 1, 10_000);
   return {
-    schemaVersion: typeof source.schemaVersion === 'number' ? source.schemaVersion : 1,
+    schemaVersion:
+      typeof source.schemaVersion === 'number' && Number.isFinite(source.schemaVersion)
+        ? source.schemaVersion
+        : 2,
     apiClientId: typeof source.apiClientId === 'string' ? source.apiClientId : null,
     operationId: typeof source.operationId === 'string' ? source.operationId : null,
     listPath: typeof source.listPath === 'string' ? source.listPath : '',
@@ -118,19 +189,116 @@ export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridCo
     stickyHeader: source.stickyHeader !== false,
     showFooter: source.showFooter === true,
     stickyFooter: source.stickyFooter !== false,
+    rowHeightMode: source.rowHeightMode === 'fixed' ? 'fixed' : 'dynamic',
+    fixedRowHeight: finiteNumberInRange(source.fixedRowHeight, 40, 1, 10_000),
+    minRowHeight,
+    maxRowHeight:
+      rawMaxRowHeight !== null && rawMaxRowHeight >= minRowHeight ? rawMaxRowHeight : null,
+    cellPaddingHorizontal: finiteNumberInRange(source.cellPaddingHorizontal, 10, 0, 10_000),
+    cellPaddingVertical: finiteNumberInRange(source.cellPaddingVertical, 8, 0, 10_000),
+    wrapText: source.wrapText === true,
+    stripedRows: source.stripedRows === true,
+    showHorizontalLines: source.showHorizontalLines !== false,
+    showVerticalLines: source.showVerticalLines === true,
+    emptyMessage: typeof source.emptyMessage === 'string' ? source.emptyMessage : 'No data',
     columns: normalizedColumns,
   };
 }
 
-function tableCell(
+function gridTemplateColumns(
+  columns: readonly WebDataGridColumn[],
+  availableWidth: number,
+): string {
+  return resolveDataGridColumnTrackWidths(columns, availableWidth)
+    .map((width) => `${String(width)}px`)
+    .join(' ');
+}
+
+function minimumGridWidth(columns: readonly WebDataGridColumn[]): number {
+  return columns.reduce(
+    (total, column) => total + (column.widthMode === 'fixed' ? column.width : column.minWidth),
+    0,
+  );
+}
+
+function focusDataGridCell(cell: HTMLDivElement): void {
+  const grid = cell.closest('[role="grid"]');
+  if (grid === null) return;
+  for (const candidate of grid.querySelectorAll<HTMLDivElement>(
+    '.wr-data-grid-body-row > .wr-data-grid-cell:not(.wr-data-grid-empty)',
+  )) {
+    candidate.tabIndex = -1;
+  }
+  cell.tabIndex = 0;
+  cell.focus();
+}
+
+function moveDataGridCellFocus(
+  cell: HTMLDivElement,
+  rowOffset: number,
+  columnOffset: number,
+): void {
+  const body = cell.closest('.wr-data-grid-body');
+  const currentRow = cell.parentElement;
+  if (body === null || currentRow === null) return;
+  const rows = Array.from(body.children).filter(
+    (candidate): candidate is HTMLDivElement =>
+      candidate instanceof HTMLDivElement && candidate.classList.contains('wr-data-grid-body-row'),
+  );
+  const rowIndex = rows.indexOf(currentRow as HTMLDivElement);
+  const cells = Array.from(currentRow.children).filter(
+    (candidate): candidate is HTMLDivElement =>
+      candidate instanceof HTMLDivElement &&
+      candidate.classList.contains('wr-data-grid-cell') &&
+      !candidate.classList.contains('wr-data-grid-empty'),
+  );
+  const columnIndex = cells.indexOf(cell);
+  const targetRow = rows[rowIndex + rowOffset];
+  if (targetRow === undefined || columnIndex < 0) return;
+  const targetCells = Array.from(targetRow.children).filter(
+    (candidate): candidate is HTMLDivElement =>
+      candidate instanceof HTMLDivElement &&
+      candidate.classList.contains('wr-data-grid-cell') &&
+      !candidate.classList.contains('wr-data-grid-empty'),
+  );
+  const target = targetCells[columnIndex + columnOffset];
+  if (target !== undefined) focusDataGridCell(target);
+}
+
+function appendGridCell(
+  document: Document,
+  row: HTMLDivElement,
+  className: string,
+  role: 'columnheader' | 'gridcell',
+  column: WebDataGridColumn,
+  columnIndex: number,
+): HTMLDivElement {
+  const cell = document.createElement('div');
+  cell.className = className;
+  cell.setAttribute('role', role);
+  cell.setAttribute('aria-colindex', String(columnIndex + 1));
+  cell.dataset.webradDataGridColumn = column.id;
+  cell.style.textAlign = column.cellAlign;
+  row.append(cell);
+  return cell;
+}
+
+function dataCell(
   document: Document,
   column: WebDataGridColumn,
-  row: unknown,
+  rowValue: unknown,
+  rowIndex: number,
+  columnIndex: number,
   onCellClick: () => void,
-): HTMLTableCellElement {
-  const cell = document.createElement('td');
+): HTMLDivElement {
+  const cell = document.createElement('div');
+  cell.className = 'wr-data-grid-cell';
+  cell.setAttribute('role', 'gridcell');
+  cell.setAttribute('aria-colindex', String(columnIndex + 1));
+  cell.tabIndex = rowIndex === 0 && columnIndex === 0 ? 0 : -1;
   cell.dataset.webradDataGridColumn = column.id;
-  const value = resolvePointer(row, column.fieldPath);
+  cell.style.textAlign = column.cellAlign;
+  const value = resolvePointer(rowValue, column.fieldPath);
   switch (column.cellKind) {
     case 'image': {
       const image = document.createElement('img');
@@ -162,12 +330,74 @@ function tableCell(
       cell.textContent = cellText(value);
       break;
   }
-  cell.addEventListener('click', onCellClick);
+  cell.addEventListener('focus', () => focusDataGridCell(cell));
+  cell.addEventListener('click', (event) => {
+    if (event.target === cell) focusDataGridCell(cell);
+    onCellClick();
+  });
+  cell.addEventListener('keydown', (event) => {
+    if (event.target !== cell) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onCellClick();
+      return;
+    }
+    const movement: readonly [number, number] | undefined =
+      event.key === 'ArrowLeft'
+        ? [0, -1]
+        : event.key === 'ArrowRight'
+          ? [0, 1]
+          : event.key === 'ArrowUp'
+            ? [-1, 0]
+            : event.key === 'ArrowDown'
+              ? [1, 0]
+              : undefined;
+    if (movement === undefined) return;
+    event.preventDefault();
+    moveDataGridCellFocus(cell, movement[0], movement[1]);
+  });
   return cell;
 }
 
+function applyGridLayout(
+  content: HTMLDivElement,
+  configuration: WebDataGridConfiguration,
+  availableWidth: number,
+): void {
+  content.style.setProperty(
+    '--wr-data-grid-columns',
+    gridTemplateColumns(configuration.columns, availableWidth),
+  );
+  content.style.setProperty(
+    '--wr-data-grid-min-width',
+    `${String(minimumGridWidth(configuration.columns))}px`,
+  );
+  content.style.setProperty(
+    '--wr-data-grid-fixed-row-height',
+    `${String(configuration.fixedRowHeight)}px`,
+  );
+  content.style.setProperty(
+    '--wr-data-grid-min-row-height',
+    `${String(configuration.minRowHeight)}px`,
+  );
+  content.style.setProperty(
+    '--wr-data-grid-max-row-height',
+    configuration.maxRowHeight === null ? 'none' : `${String(configuration.maxRowHeight)}px`,
+  );
+  content.style.setProperty(
+    '--wr-data-grid-cell-padding-x',
+    `${String(configuration.cellPaddingHorizontal)}px`,
+  );
+  content.style.setProperty(
+    '--wr-data-grid-cell-padding-y',
+    `${String(configuration.cellPaddingVertical)}px`,
+  );
+  content.dataset.webradRowHeightMode = configuration.rowHeightMode;
+  content.dataset.webradWrapText = String(configuration.wrapText);
+}
+
 /**
- * A visual table which projects the latest result of a configured named
+ * A visual grid which projects the latest result of a configured named
  * WebApiClient operation. It never triggers a request; authored page code owns
  * execution through `api.execute(...)`.
  */
@@ -175,6 +405,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   #configuration: WebDataGridConfiguration = normalizeWebDataGridConfiguration(undefined);
   #apiClient: WebApiClient | null = null;
   #unsubscribe: (() => void) | null = null;
+  #resizeObserver: ResizeObserver | null = null;
 
   public constructor(element: HTMLElement) {
     if (!(element instanceof HTMLDivElement)) {
@@ -219,34 +450,69 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   }
 
   #render(): void {
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = null;
     const document = this.element.ownerDocument;
     const configuration = this.#configuration;
     const scroll = document.createElement('div');
     scroll.className = 'wr-data-grid-scroll';
-    const table = document.createElement('table');
-    table.className = 'wr-data-grid-table';
+    scroll.setAttribute('role', 'grid');
+    scroll.setAttribute(
+      'aria-label',
+      this.element.getAttribute('aria-label') ?? (this.name || 'Data Grid'),
+    );
+    scroll.setAttribute('aria-colcount', String(configuration.columnCount));
+    const content = document.createElement('div');
+    content.className = [
+      'wr-data-grid-content',
+      configuration.stripedRows ? 'wr-data-grid-striped' : '',
+      configuration.showHorizontalLines
+        ? 'wr-data-grid-horizontal-lines'
+        : 'wr-data-grid-no-horizontal-lines',
+      configuration.showVerticalLines ? 'wr-data-grid-vertical-lines' : '',
+    ]
+      .filter((className) => className.length > 0)
+      .join(' ');
+    applyGridLayout(content, configuration, minimumGridWidth(configuration.columns));
 
     if (configuration.showHeader) {
-      const header = document.createElement('thead');
-      if (configuration.stickyHeader) header.className = 'wr-data-grid-sticky-header';
-      const row = document.createElement('tr');
-      for (const column of configuration.columns) {
-        const cell = document.createElement('th');
-        cell.scope = 'col';
+      const header = document.createElement('div');
+      header.className = [
+        'wr-data-grid-row',
+        'wr-data-grid-header-row',
+        configuration.stickyHeader ? 'wr-data-grid-sticky-header' : '',
+      ]
+        .filter((className) => className.length > 0)
+        .join(' ');
+      header.setAttribute('role', 'row');
+      for (const [columnIndex, column] of configuration.columns.entries()) {
+        const cell = appendGridCell(
+          document,
+          header,
+          'wr-data-grid-cell wr-data-grid-header-cell',
+          'columnheader',
+          column,
+          columnIndex,
+        );
+        cell.style.textAlign = column.headerAlign;
         cell.textContent = column.header;
-        row.append(cell);
       }
-      header.append(row);
-      table.append(header);
+      content.append(header);
     }
 
-    const body = document.createElement('tbody');
+    const body = document.createElement('div');
+    body.className = 'wr-data-grid-body';
+    body.setAttribute('role', 'rowgroup');
     const rows = this.#rows();
+    scroll.setAttribute('aria-rowcount', String(rows.length + (configuration.showHeader ? 1 : 0)));
     for (const [rowIndex, rowValue] of rows.entries()) {
-      const row = document.createElement('tr');
-      for (const column of configuration.columns) {
+      const row = document.createElement('div');
+      row.className = 'wr-data-grid-row wr-data-grid-body-row';
+      row.setAttribute('role', 'row');
+      row.setAttribute('aria-rowindex', String(rowIndex + (configuration.showHeader ? 2 : 1)));
+      for (const [columnIndex, column] of configuration.columns.entries()) {
         row.append(
-          tableCell(document, column, rowValue, () => {
+          dataCell(document, column, rowValue, rowIndex, columnIndex, () => {
             this.emit('OnCellClick', {
               rowIndex,
               row: rowValue,
@@ -258,36 +524,64 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       body.append(row);
     }
     if (rows.length === 0) {
-      const row = document.createElement('tr');
-      const cell = document.createElement('td');
-      cell.className = 'wr-data-grid-empty';
-      cell.colSpan = configuration.columnCount;
-      cell.textContent = 'No data';
+      const row = document.createElement('div');
+      row.className = 'wr-data-grid-row wr-data-grid-body-row';
+      row.setAttribute('role', 'row');
+      const cell = document.createElement('div');
+      cell.className = 'wr-data-grid-cell wr-data-grid-empty';
+      cell.setAttribute('role', 'gridcell');
+      cell.style.gridColumn = `1 / span ${String(configuration.columnCount)}`;
+      cell.textContent = configuration.emptyMessage;
       row.append(cell);
       body.append(row);
     }
-    table.append(body);
+    content.append(body);
 
     if (configuration.showFooter) {
-      const footer = document.createElement('tfoot');
-      if (configuration.stickyFooter) footer.className = 'wr-data-grid-sticky-footer';
-      const row = document.createElement('tr');
-      for (const column of configuration.columns) {
-        const cell = document.createElement('td');
+      const footer = document.createElement('div');
+      footer.className = [
+        'wr-data-grid-row',
+        'wr-data-grid-footer-row',
+        configuration.stickyFooter ? 'wr-data-grid-sticky-footer' : '',
+      ]
+        .filter((className) => className.length > 0)
+        .join(' ');
+      footer.setAttribute('role', 'row');
+      for (const [columnIndex, column] of configuration.columns.entries()) {
+        const cell = appendGridCell(
+          document,
+          footer,
+          'wr-data-grid-cell wr-data-grid-footer-cell',
+          'gridcell',
+          column,
+          columnIndex,
+        );
         cell.textContent = column.footer;
-        row.append(cell);
       }
-      footer.append(row);
-      table.append(footer);
+      content.append(footer);
     }
 
-    scroll.append(table);
+    scroll.append(content);
     this.element.replaceChildren(scroll);
+    const updateColumnTracks = (): void => {
+      applyGridLayout(
+        content,
+        configuration,
+        Math.max(scroll.clientWidth, minimumGridWidth(configuration.columns)),
+      );
+    };
+    updateColumnTracks();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.#resizeObserver = new ResizeObserver(updateColumnTracks);
+      this.#resizeObserver.observe(scroll);
+    }
   }
 
   public override dispose(): void {
     this.#unsubscribe?.();
     this.#unsubscribe = null;
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = null;
     super.dispose();
   }
 }
