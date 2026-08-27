@@ -756,7 +756,13 @@ export function DataGridConfigurationDialog({
                         </button>
                       </div>
                     </header>
-                    <div className="wr-data-grid-configuration-fields four-columns">
+                    <div
+                      className={`wr-data-grid-configuration-fields ${
+                        column.cellKind === 'button' || column.cellKind === 'checkbox'
+                          ? 'five-columns'
+                          : 'four-columns'
+                      }`}
+                    >
                       <label>
                         <span>Header</span>
                         <input
@@ -805,6 +811,26 @@ export function DataGridConfigurationDialog({
                           ))}
                         </select>
                       </label>
+                      {(column.cellKind === 'button' || column.cellKind === 'checkbox') && (
+                        <label>
+                          <span>Fixed caption</span>
+                          <input
+                            aria-label={`Fixed caption for Data Grid column ${String(index + 1)}`}
+                            value={column.fixedCaption}
+                            maxLength={256}
+                            placeholder={
+                              column.cellKind === 'button'
+                                ? 'Use dynamic field value'
+                                : 'Optional checkbox label'
+                            }
+                            spellCheck={false}
+                            onChange={(event) => {
+                              const fixedCaption = event.currentTarget.value;
+                              updateColumn(index, (current) => ({ ...current, fixedCaption }));
+                            }}
+                          />
+                        </label>
+                      )}
                       <label>
                         <span>Footer</span>
                         <input

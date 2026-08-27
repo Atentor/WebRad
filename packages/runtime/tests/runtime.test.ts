@@ -20,6 +20,7 @@ import {
   WebPanel,
   WebTextArea,
   mountPage,
+  normalizeWebDataGridConfiguration,
   projectComponentVisual,
   projectRuntimeLayout,
   resolveComponentStyleClassName,
@@ -967,7 +968,7 @@ describe('browser runtime', () => {
     );
   });
 
-  it('projects Data Grid line, header, and footer properties through CSS variables', () => {
+  it('projects Data Grid line, surface, and inner-control properties through CSS variables', () => {
     expect(resolveStylePropertyCandidate('dataGridHorizontalLineVisibility', 'show')).toBe(
       '[--wr-data-grid-horizontal-line-override-width:var(--wr-data-grid-horizontal-line-width,1px)]',
     );
@@ -991,6 +992,30 @@ describe('browser runtime', () => {
     );
     expect(resolveStylePropertyCandidate('dataGridFooterPaddingY', { value: 6, unit: 'px' })).toBe(
       '[--wr-data-grid-footer-padding-y:6px]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridButtonBackgroundColor', '#e0e7ff')).toBe(
+      '[--wr-data-grid-button-background-color:#e0e7ff]',
+    );
+    expect(
+      resolveStylePropertyCandidate('dataGridButtonBorderRadius', { value: 6, unit: 'px' }),
+    ).toBe('[--wr-data-grid-button-border-radius:6px]');
+    expect(resolveStylePropertyCandidate('dataGridButtonFontWeight', 'semibold')).toBe(
+      '[--wr-data-grid-button-font-weight:600]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridCheckboxAccentColor', '#2563eb')).toBe(
+      '[--wr-data-grid-checkbox-accent-color:#2563eb]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridCheckboxSize', { value: 16, unit: 'px' })).toBe(
+      '[--wr-data-grid-checkbox-size:16px]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridCheckboxTextColor', '#334155')).toBe(
+      '[--wr-data-grid-checkbox-text-color:#334155]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridCheckboxFontWeight', 'medium')).toBe(
+      '[--wr-data-grid-checkbox-font-weight:500]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridCheckboxGap', { value: 6, unit: 'px' })).toBe(
+      '[--wr-data-grid-checkbox-gap:6px]',
     );
 
     expect(
@@ -1031,6 +1056,14 @@ describe('browser runtime', () => {
     expect(WEBRAD_COMPONENT_CSS).toContain(
       'background: var(--wr-data-grid-footer-background-color, #f8fafc)',
     );
+    expect(WEBRAD_COMPONENT_CSS).toContain('.wr-data-grid-button-caption');
+    expect(WEBRAD_COMPONENT_CSS).toContain('.wr-data-grid-checkbox-control');
+    expect(WEBRAD_COMPONENT_CSS).toContain('.wr-data-grid-checkbox-caption');
+    expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-button-background-color');
+    expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-checkbox-accent-color');
+    expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-checkbox-text-color');
+    expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-checkbox-font-weight');
+    expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-checkbox-gap');
   });
 
   it('applies compiled style classes to the real browser element', () => {
@@ -1471,6 +1504,22 @@ describe('WebDataGrid', () => {
     ).toEqual([520, 200, 80]);
   });
 
+  it('normalizes fixed cell captions while preserving legacy configurations', () => {
+    const configuration = normalizeWebDataGridConfiguration({
+      columns: [
+        { id: 'action', cellKind: 'button', fixedCaption: 'Open customer' },
+        { id: 'selected', cellKind: 'checkbox' },
+        { id: 'invalid-caption', cellKind: 'button', fixedCaption: 42 },
+      ],
+    });
+
+    expect(configuration.columns.map((column) => column.fixedCaption)).toEqual([
+      'Open customer',
+      '',
+      '',
+    ]);
+  });
+
   it('renders only the latest configured API result and binds typed cell renderers', async () => {
     const fetchMock = vi.fn<typeof fetch>(
       async () =>
@@ -1560,6 +1609,7 @@ describe('WebDataGrid', () => {
           header: 'Name',
           fieldPath: '/name',
           cellKind: 'text',
+          fixedCaption: '',
           footer: '2 customers',
           widthMode: 'dynamic',
           width: 180,
@@ -1574,6 +1624,7 @@ describe('WebDataGrid', () => {
           header: 'Avatar',
           fieldPath: '/avatar',
           cellKind: 'image',
+          fixedCaption: '',
           footer: '',
           widthMode: 'fixed',
           width: 72,
@@ -1588,6 +1639,7 @@ describe('WebDataGrid', () => {
           header: 'Action',
           fieldPath: '/name',
           cellKind: 'button',
+          fixedCaption: 'Open customer',
           footer: '',
           widthMode: 'dynamic',
           width: 180,
@@ -1602,6 +1654,7 @@ describe('WebDataGrid', () => {
           header: 'Active',
           fieldPath: '/active',
           cellKind: 'checkbox',
+          fixedCaption: 'Enabled',
           footer: '',
           widthMode: 'fixed',
           width: 88,
@@ -1639,8 +1692,13 @@ describe('WebDataGrid', () => {
       'Ada',
     );
     expect(host.querySelector<HTMLImageElement>('img')?.src).toBe('https://example.test/ada.png');
-    expect(host.querySelector<HTMLButtonElement>('button')?.textContent).toBe('Ada');
+    expect(host.querySelector<HTMLButtonElement>('.wr-data-grid-button')?.textContent).toBe(
+      'Open customer',
+    );
+    expect(host.querySelector('.wr-data-grid-button-caption')?.textContent).toBe('Open customer');
     expect(host.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    expect(host.querySelector('.wr-data-grid-checkbox-caption')?.textContent).toBe('Enabled');
+    expect(host.querySelector('.wr-data-grid-checkbox-control')).not.toBeNull();
     expect(host.querySelector('.wr-data-grid-footer-cell')?.textContent).toBe('2 customers');
     const content = host.querySelector<HTMLElement>('.wr-data-grid-content');
     expect(content?.dataset.webradRowHeightMode).toBe('fixed');
@@ -1653,6 +1711,13 @@ describe('WebDataGrid', () => {
     expect(content?.style.getPropertyValue('--wr-data-grid-config-vertical-line-width')).toBe(
       '1px',
     );
+
+    grid.dataGridConfig = {
+      ...grid.dataGridConfig,
+      columns: grid.dataGridConfig.columns.map((column) => ({ ...column, fixedCaption: '' })),
+    };
+    expect(host.querySelector<HTMLButtonElement>('.wr-data-grid-button')?.textContent).toBe('Ada');
+    expect(host.querySelector('.wr-data-grid-checkbox-caption')).toBeNull();
 
     const firstCell = host.querySelector<HTMLDivElement>(
       '.wr-data-grid-body-row .wr-data-grid-cell',
@@ -1783,6 +1848,7 @@ describe('WebDataGrid', () => {
             header,
             fieldPath,
             cellKind: 'text',
+            fixedCaption: '',
             footer: '',
             widthMode: 'dynamic',
             width: 180,

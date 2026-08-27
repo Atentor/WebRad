@@ -189,7 +189,7 @@ describe('VisualStyleEditor', () => {
     expect(screen.queryByRole('button', { name: /^Icon/ })).toBeNull();
   });
 
-  it('exposes Data Grid lines and independently configurable header and footer on the base state', async () => {
+  it('exposes Data Grid surfaces and embedded controls on the base state', async () => {
     const user = userEvent.setup();
     const grid = render(<VisualEditorHarness componentType="WebDataGrid" stateName="base" />);
 
@@ -252,18 +252,60 @@ describe('VisualStyleEditor', () => {
     expect(currentProperties()).toMatchObject({
       dataGridFooterHeight: { value: 36, unit: 'px' },
     });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Data Grid Button, 0 configured, 9 properties' }),
+    );
+    expect(screen.getByLabelText('Configure Button background color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Button text color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Button border color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Button border width')).toBeDefined();
+    expect(screen.getByLabelText('Configure Button border style')).toBeDefined();
+    expect(screen.getByLabelText('Configure Button border radius')).toBeDefined();
+    expect(screen.getByLabelText('Configure Button horizontal padding')).toBeDefined();
+    expect(screen.getByLabelText('Configure Button vertical padding')).toBeDefined();
+    expect(screen.getByLabelText('Configure Button font weight')).toBeDefined();
+
+    await user.click(screen.getByLabelText('Configure Button border radius'));
+    fireEvent.change(screen.getByLabelText('Button border radius value'), {
+      target: { value: '8' },
+    });
+    expect(currentProperties()).toMatchObject({
+      dataGridButtonBorderRadius: { value: 8, unit: 'px' },
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Data Grid Checkbox, 0 configured, 5 properties' }),
+    );
+    expect(screen.getByLabelText('Configure Checkbox accent color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Checkbox size')).toBeDefined();
+    expect(screen.getByLabelText('Configure Checkbox caption color')).toBeDefined();
+    expect(screen.getByLabelText('Configure Checkbox caption font weight')).toBeDefined();
+    expect(screen.getByLabelText('Configure Checkbox caption gap')).toBeDefined();
+
+    await user.click(screen.getByLabelText('Configure Checkbox size'));
+    fireEvent.change(screen.getByLabelText('Checkbox size value'), {
+      target: { value: '18' },
+    });
+    expect(currentProperties()).toMatchObject({
+      dataGridCheckboxSize: { value: 18, unit: 'px' },
+    });
     grid.unmount();
 
     const hover = render(<VisualEditorHarness componentType="WebDataGrid" stateName="hover" />);
     expect(screen.queryByRole('button', { name: /^Data Grid Lines,/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Data Grid Header,/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Data Grid Footer,/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Data Grid Button,/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Data Grid Checkbox,/ })).toBeNull();
     hover.unmount();
 
     render(<VisualEditorHarness componentType="WebButton" stateName="base" />);
     expect(screen.queryByRole('button', { name: /^Data Grid Lines,/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Data Grid Header,/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Data Grid Footer,/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Data Grid Button,/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Data Grid Checkbox,/ })).toBeNull();
   });
 
   it('uses metadata component compatibility to show image-only properties', async () => {

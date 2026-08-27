@@ -19,6 +19,7 @@ export interface WebDataGridColumn {
   readonly header: string;
   readonly fieldPath: string;
   readonly cellKind: WebDataGridCellKind;
+  readonly fixedCaption: string;
   readonly footer: string;
   readonly widthMode: WebDataGridColumnWidthMode;
   readonly width: number;
@@ -139,6 +140,7 @@ function normalizeColumn(value: unknown, index: number): WebDataGridColumn {
       kind === 'image' || kind === 'button' || kind === 'checkbox' || kind === 'text'
         ? kind
         : 'text',
+    fixedCaption: typeof source.fixedCaption === 'string' ? source.fixedCaption : '',
     footer: typeof source.footer === 'string' ? source.footer : '',
     widthMode: source.widthMode === 'fixed' ? 'fixed' : 'dynamic',
     width: finiteNumberInRange(source.width, 180, 1, 10_000),
@@ -164,6 +166,7 @@ export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridCo
             header: 'Column 1',
             fieldPath: '',
             cellKind: 'text' as const,
+            fixedCaption: '',
             footer: '',
             widthMode: 'dynamic' as const,
             width: 180,
@@ -312,18 +315,33 @@ function dataCell(
       const button = document.createElement('button');
       button.className = 'wr-data-grid-button';
       button.type = 'button';
-      button.textContent = cellText(value);
+      const caption = document.createElement('span');
+      caption.className = 'wr-data-grid-button-caption';
+      caption.textContent = column.fixedCaption.length > 0 ? column.fixedCaption : cellText(value);
+      button.append(caption);
       cell.append(button);
       break;
     }
     case 'checkbox': {
+      const control = document.createElement('label');
+      control.className = 'wr-data-grid-checkbox-control';
       const checkbox = document.createElement('input');
       checkbox.className = 'wr-data-grid-checkbox';
       checkbox.type = 'checkbox';
       checkbox.checked = cellBoolean(value);
       checkbox.disabled = true;
-      checkbox.setAttribute('aria-label', column.header);
-      cell.append(checkbox);
+      checkbox.setAttribute(
+        'aria-label',
+        column.fixedCaption.length > 0 ? column.fixedCaption : column.header,
+      );
+      control.append(checkbox);
+      if (column.fixedCaption.length > 0) {
+        const caption = document.createElement('span');
+        caption.className = 'wr-data-grid-checkbox-caption';
+        caption.textContent = column.fixedCaption;
+        control.append(caption);
+      }
+      cell.append(control);
       break;
     }
     case 'text':

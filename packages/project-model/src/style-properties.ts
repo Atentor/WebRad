@@ -21,6 +21,8 @@ export type ComponentStylePropertyCategory =
   | 'Data Grid Lines'
   | 'Data Grid Header'
   | 'Data Grid Footer'
+  | 'Data Grid Button'
+  | 'Data Grid Checkbox'
   | 'Image';
 
 export interface StyleEditorOption {
@@ -869,6 +871,88 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     DATA_GRID_COMPONENT_TYPES,
     DATA_GRID_BASE_STATE_NAMES,
   ),
+
+  colorProperty('dataGridButtonBackgroundColor', 'Button background color', 'Data Grid Button', {
+    defaultValue: '#e0e7ff',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  colorProperty('dataGridButtonTextColor', 'Button text color', 'Data Grid Button', {
+    defaultValue: '#1e3a8a',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  colorProperty('dataGridButtonBorderColor', 'Button border color', 'Data Grid Button', {
+    defaultValue: '#c7d2fe',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridButtonBorderWidth', 'Button border width', 'Data Grid Button', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 1, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridButtonBorderStyle',
+    'Button border style',
+    'Data Grid Button',
+    DATA_GRID_LINE_STYLE_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  lengthProperty('dataGridButtonBorderRadius', 'Button border radius', 'Data Grid Button', {
+    units: ['px', 'rem', '%'],
+    min: 0,
+    defaultValue: { value: 6, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridButtonPaddingX', 'Button horizontal padding', 'Data Grid Button', {
+    units: SPACING_UNITS,
+    min: 0,
+    defaultValue: { value: 8, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridButtonPaddingY', 'Button vertical padding', 'Data Grid Button', {
+    units: SPACING_UNITS,
+    min: 0,
+    defaultValue: { value: 4, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridButtonFontWeight',
+    'Button font weight',
+    'Data Grid Button',
+    DATA_GRID_FONT_WEIGHT_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+
+  colorProperty('dataGridCheckboxAccentColor', 'Checkbox accent color', 'Data Grid Checkbox', {
+    defaultValue: '#2563eb',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  lengthProperty('dataGridCheckboxSize', 'Checkbox size', 'Data Grid Checkbox', {
+    units: ['px', 'rem'],
+    min: 1,
+    defaultValue: { value: 16, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  colorProperty('dataGridCheckboxTextColor', 'Checkbox caption color', 'Data Grid Checkbox', {
+    defaultValue: '#334155',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  enumProperty(
+    'dataGridCheckboxFontWeight',
+    'Checkbox caption font weight',
+    'Data Grid Checkbox',
+    DATA_GRID_FONT_WEIGHT_OPTIONS,
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  lengthProperty('dataGridCheckboxGap', 'Checkbox caption gap', 'Data Grid Checkbox', {
+    units: SPACING_UNITS,
+    min: 0,
+    defaultValue: { value: 6, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
 
   enumProperty(
     'objectFit',

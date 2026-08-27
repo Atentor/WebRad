@@ -53,6 +53,8 @@ function createPreviewProps(
   if (componentType !== 'WebDataGrid') return props;
 
   const dataGridConfig = createDefaultDataGridConfiguration();
+  const middleColumnIndex = Math.floor(dataGridConfig.columns.length / 2);
+  const lastColumnIndex = dataGridConfig.columns.length - 1;
   return {
     ...props,
     dataGridConfig: {
@@ -60,6 +62,18 @@ function createPreviewProps(
       showFooter: true,
       columns: dataGridConfig.columns.map((column, index) => ({
         ...column,
+        cellKind:
+          index === middleColumnIndex
+            ? 'checkbox'
+            : index === lastColumnIndex
+              ? 'button'
+              : column.cellKind,
+        fixedCaption:
+          index === middleColumnIndex
+            ? 'Enabled'
+            : index === lastColumnIndex
+              ? 'View'
+              : column.fixedCaption,
         footer: `Footer ${String(index + 1)}`,
       })),
     },

@@ -348,15 +348,25 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
                         </span>
                       ) : column.cellKind === 'button' ? (
                         <button className="wr-data-grid-button" type="button">
-                          {column.header || 'Button'}
+                          <span className="wr-data-grid-button-caption">
+                            {column.fixedCaption || column.header || 'Button'}
+                          </span>
                         </button>
                       ) : column.cellKind === 'checkbox' ? (
-                        <input
-                          aria-label={column.header}
-                          checked={rowIndex % 2 === 0}
-                          readOnly
-                          type="checkbox"
-                        />
+                        <label className="wr-data-grid-checkbox-control">
+                          <input
+                            aria-label={column.fixedCaption || column.header}
+                            checked={rowIndex % 2 === 0}
+                            className="wr-data-grid-checkbox"
+                            readOnly
+                            type="checkbox"
+                          />
+                          {column.fixedCaption.length > 0 && (
+                            <span className="wr-data-grid-checkbox-caption">
+                              {column.fixedCaption}
+                            </span>
+                          )}
+                        </label>
                       ) : (
                         column.fieldPath || 'Value'
                       )}

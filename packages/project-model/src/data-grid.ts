@@ -26,6 +26,8 @@ export interface DataGridColumn {
   /** JSON Pointer relative to one item, such as `/customer/name`. */
   readonly fieldPath: string;
   readonly cellKind: DataGridCellKind;
+  /** Static caption rendered by button and checkbox cells. */
+  readonly fixedCaption: string;
   /** Static content for the optional fixed footer row. */
   readonly footer: string;
   /** A fixed pixel width or a dynamic track that shares available space. */
@@ -89,6 +91,9 @@ export const DataGridColumnSchema: z.ZodType<DataGridColumn> = z
     header: z.string().max(256),
     fieldPath: pointerSchema,
     cellKind: z.enum(DATA_GRID_CELL_KINDS),
+    // The default keeps persisted v2 configurations written before captions
+    // were introduced compatible without incrementing the contract version.
+    fixedCaption: z.string().max(256).default(''),
     footer: z.string().max(4_096),
     widthMode: z.enum(DATA_GRID_COLUMN_WIDTH_MODES),
     width: positivePixelSchema,
@@ -253,6 +258,7 @@ function migrateLegacyDataGridConfiguration(value: unknown): unknown {
     emptyMessage: 'No data',
     columns: legacy.data.columns.map((column) => ({
       ...column,
+      fixedCaption: '',
       widthMode: 'dynamic',
       width: 180,
       minWidth: 96,
@@ -301,6 +307,7 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       header: 'Column 1',
       fieldPath: '',
       cellKind: 'text',
+      fixedCaption: '',
       footer: '',
       widthMode: 'dynamic',
       width: 180,
@@ -315,6 +322,7 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       header: 'Column 2',
       fieldPath: '',
       cellKind: 'text',
+      fixedCaption: '',
       footer: '',
       widthMode: 'dynamic',
       width: 180,
@@ -329,6 +337,7 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       header: 'Column 3',
       fieldPath: '',
       cellKind: 'text',
+      fixedCaption: '',
       footer: '',
       widthMode: 'dynamic',
       width: 180,

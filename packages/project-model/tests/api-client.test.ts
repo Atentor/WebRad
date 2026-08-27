@@ -188,6 +188,7 @@ describe('persisted API Client configuration', () => {
           header: 'ID',
           fieldPath: '/id',
           cellKind: 'button',
+          fixedCaption: 'View',
           footer: '',
           widthMode: 'fixed',
           width: 96,
@@ -200,6 +201,7 @@ describe('persisted API Client configuration', () => {
           header: 'Active',
           fieldPath: '/active',
           cellKind: 'checkbox',
+          fixedCaption: 'Active',
           footer: '',
         },
       ],
@@ -267,12 +269,42 @@ describe('persisted API Client configuration', () => {
       columns: [
         {
           id: 'customer-name',
+          fixedCaption: '',
           widthMode: 'dynamic',
           minWidth: 96,
           flex: 1,
         },
       ],
     });
+  });
+
+  it('normalizes fixed captions in Data Grid columns without changing schema version 2', () => {
+    const defaults = createDefaultDataGridConfiguration();
+    const configurationWrittenBeforeCaptions = {
+      ...defaults,
+      columns: defaults.columns.map(({ fixedCaption, ...column }) => {
+        expect(fixedCaption).toBe('');
+        return column;
+      }),
+    };
+
+    const parsed = parseDataGridConfiguration(configurationWrittenBeforeCaptions);
+    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.columns.map((column) => column.fixedCaption)).toEqual(['', '', '']);
+
+    expect(
+      DataGridConfigurationSchema.safeParse({
+        ...defaults,
+        columns: [
+          {
+            ...defaults.columns[0]!,
+            cellKind: 'button',
+            fixedCaption: 'Open details',
+          },
+          ...defaults.columns.slice(1),
+        ],
+      }).success,
+    ).toBe(true);
   });
 
   it('materializes a v2 Data Grid configuration when a page contains a v1 binding', () => {

@@ -124,7 +124,7 @@ describe('StylesWorkspace', () => {
     expect(previewButton().disabled).toBe(true);
   });
 
-  it('renders a footer and projects Data Grid CSS-variable classes onto the live preview root', () => {
+  it('renders representative Data Grid controls and projects CSS-variable classes onto the live preview root', () => {
     const style = createComponentStyle('Operations Grid', 'WebDataGrid', {
       idFactory: () => 'operations-grid-style',
       states: {
@@ -138,6 +138,8 @@ describe('StylesWorkspace', () => {
           dataGridFooterBackgroundColor: '#fef3c7',
           dataGridFooterBorderWidth: { value: 3, unit: 'px' },
           dataGridFooterFontWeight: 'bold',
+          dataGridButtonBackgroundColor: '#dbeafe',
+          dataGridCheckboxAccentColor: '#2563eb',
         },
       },
     });
@@ -156,6 +158,10 @@ describe('StylesWorkspace', () => {
     if (previewGrid === null) throw new Error('Expected the Data Grid preview root.');
 
     expect(screen.getByText('Footer 1')).toBeDefined();
+    expect(previewGrid.querySelectorAll('.wr-data-grid-checkbox-control')).toHaveLength(3);
+    expect(previewGrid.querySelectorAll('.wr-data-grid-button')).toHaveLength(3);
+    expect(screen.getAllByText('Enabled')).toHaveLength(3);
+    expect(screen.getAllByText('View')).toHaveLength(3);
     expect(previewGrid.classList).toContain('[--wr-data-grid-horizontal-line-override-width:0px]');
     expect(previewGrid.classList).toContain(
       '[--wr-data-grid-vertical-line-override-width:var(--wr-data-grid-vertical-line-width,1px)]',
@@ -167,6 +173,8 @@ describe('StylesWorkspace', () => {
     expect(previewGrid.classList).toContain('[--wr-data-grid-footer-background-color:#fef3c7]');
     expect(previewGrid.classList).toContain('[--wr-data-grid-footer-border-width:3px]');
     expect(previewGrid.classList).toContain('[--wr-data-grid-footer-font-weight:700]');
+    expect(previewGrid.classList).toContain('[--wr-data-grid-button-background-color:#dbeafe]');
+    expect(previewGrid.classList).toContain('[--wr-data-grid-checkbox-accent-color:#2563eb]');
   });
 
   it('keeps an unregistered style editable and deletable without attempting to render it', async () => {

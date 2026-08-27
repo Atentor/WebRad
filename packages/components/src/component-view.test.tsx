@@ -67,7 +67,8 @@ describe('ComponentView', () => {
                   id: 'name',
                   header: 'Name',
                   fieldPath: '/name',
-                  cellKind: 'text',
+                  cellKind: 'button',
+                  fixedCaption: 'View',
                   footer: 'Total',
                   widthMode: 'dynamic',
                   width: 180,
@@ -82,6 +83,7 @@ describe('ComponentView', () => {
                   header: 'Active',
                   fieldPath: '/active',
                   cellKind: 'checkbox',
+                  fixedCaption: 'Enabled',
                   footer: '',
                   widthMode: 'fixed',
                   width: 88,
@@ -104,7 +106,11 @@ describe('ComponentView', () => {
     expect(markup).toContain('role="columnheader"');
     expect(markup).toContain('data-webrad-data-grid-column="name"');
     expect(markup).toContain('Total');
-    expect(markup).toContain('>/name</div>');
+    expect(markup).toContain('wr-data-grid-button-caption');
+    expect(markup).toContain('>View</span>');
+    expect(markup).toContain('wr-data-grid-checkbox-control');
+    expect(markup).toContain('wr-data-grid-checkbox-caption');
+    expect(markup).toContain('>Enabled</span>');
     expect(markup).toContain('data-webrad-row-height-mode="dynamic"');
     expect(markup).toContain('--wr-data-grid-columns:120px 88px');
     expect(markup).toContain('wr-data-grid-has-footer');

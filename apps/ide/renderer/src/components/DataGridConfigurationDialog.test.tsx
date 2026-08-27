@@ -203,6 +203,33 @@ describe('DataGridConfigurationDialog', () => {
     ]);
   });
 
+  it('offers and saves fixed captions for button and checkbox columns', async () => {
+    const onSave = vi.fn();
+    render(
+      <DataGridConfigurationDialog
+        availableComponents={[]}
+        component={createDataGridComponent()}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    const user = userEvent.setup();
+
+    expect(screen.queryByLabelText('Fixed caption for Data Grid column 1')).toBeNull();
+    await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 1'), 'button');
+    await user.type(screen.getByLabelText('Fixed caption for Data Grid column 1'), 'View');
+    await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 2'), 'checkbox');
+    await user.type(screen.getByLabelText('Fixed caption for Data Grid column 2'), 'Enabled');
+    expect(screen.queryByLabelText('Fixed caption for Data Grid column 3')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Save Data Grid' }));
+
+    const saved = onSave.mock.calls[0]?.[0] as DataGridConfiguration;
+    expect(saved.columns[0]).toMatchObject({ cellKind: 'button', fixedCaption: 'View' });
+    expect(saved.columns[1]).toMatchObject({ cellKind: 'checkbox', fixedCaption: 'Enabled' });
+    expect(saved.columns[2]?.fixedCaption).toBe('');
+  });
+
   it('clears field bindings that do not exist in a newly selected response list', async () => {
     const defaults = createDefaultDataGridConfiguration();
     const onSave = vi.fn();
