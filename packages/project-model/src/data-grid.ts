@@ -21,11 +21,11 @@ export type DataGridRowHeightMode = (typeof DATA_GRID_ROW_HEIGHT_MODES)[number];
 export const DATA_GRID_HORIZONTAL_ALIGNMENTS = ['start', 'center', 'end'] as const;
 export type DataGridHorizontalAlignment = (typeof DATA_GRID_HORIZONTAL_ALIGNMENTS)[number];
 
-/** One repeated grid cell, bound to a field relative to the selected list item. */
+/** One repeated grid cell, optionally bound to a field relative to the selected list item. */
 export interface DataGridColumn {
   readonly id: string;
   readonly header: string;
-  /** JSON Pointer relative to one item, such as `/customer/name`. */
+  /** JSON Pointer relative to one item, such as `/customer/name`; empty means unbound. */
   readonly fieldPath: string;
   readonly cellKind: DataGridCellKind;
   /** Static caption rendered by button and checkbox cells. */

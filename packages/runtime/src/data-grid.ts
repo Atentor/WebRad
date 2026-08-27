@@ -305,7 +305,8 @@ function dataCell(
   cell.tabIndex = rowIndex === 0 && columnIndex === 0 ? 0 : -1;
   cell.dataset.webradDataGridColumn = column.id;
   cell.style.textAlign = column.cellAlign;
-  const value = resolvePointer(rowValue, column.fieldPath);
+  const value =
+    column.fieldPath.length === 0 ? undefined : resolvePointer(rowValue, column.fieldPath);
   switch (column.cellKind) {
     case 'image': {
       const image = document.createElement('img');

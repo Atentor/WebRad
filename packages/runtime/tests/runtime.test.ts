@@ -1742,6 +1742,14 @@ describe('WebDataGrid', () => {
     expect(iconOnlyButton?.querySelector('.wr-data-grid-button-caption')).toBeNull();
     expect(iconOnlyButton?.querySelector('.wr-button-icon')).not.toBeNull();
 
+    grid.dataGridConfig = {
+      ...grid.dataGridConfig,
+      columns: grid.dataGridConfig.columns.map((column) =>
+        column.id === 'name' ? { ...column, fieldPath: '' } : column,
+      ),
+    };
+    expect(host.querySelector('.wr-data-grid-body-row .wr-data-grid-cell')?.textContent).toBe('');
+
     const firstCell = host.querySelector<HTMLDivElement>(
       '.wr-data-grid-body-row .wr-data-grid-cell',
     );

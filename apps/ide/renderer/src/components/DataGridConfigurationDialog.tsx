@@ -120,7 +120,7 @@ function operationSchemaChoices(
  * Field paths are relative to the currently selected response-list item. A
  * path that belonged to another API, endpoint, or list would silently render
  * empty cells at runtime, so retain only bindings represented by the current
- * contract. The empty path remains a deliberate, safe "whole item" choice.
+ * contract. The empty path remains a deliberate, safe unbound choice.
  */
 function reconcileColumnFieldPaths(
   columns: readonly DataGridColumn[],
