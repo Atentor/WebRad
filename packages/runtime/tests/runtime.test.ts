@@ -969,7 +969,7 @@ describe('browser runtime', () => {
     );
   });
 
-  it('projects Data Grid line, surface, and inner-control properties through CSS variables', () => {
+  it('projects Data Grid line, surface, and inner-control properties through scoped style classes', () => {
     expect(resolveStylePropertyCandidate('dataGridHorizontalLineVisibility', 'show')).toBe(
       '[--wr-data-grid-horizontal-line-override-width:var(--wr-data-grid-horizontal-line-width,1px)]',
     );
@@ -993,6 +993,18 @@ describe('browser runtime', () => {
     );
     expect(resolveStylePropertyCandidate('dataGridFooterPaddingY', { value: 6, unit: 'px' })).toBe(
       '[--wr-data-grid-footer-padding-y:6px]',
+    );
+    expect(resolveStylePropertyCandidate('dataGridButtonContentMode', 'icon')).toBe(
+      '[&_.wr-data-grid-button-icon-slot]:block [&_.wr-data-grid-button_.wr-data-grid-button-caption]:sr-only',
+    );
+    expect(resolveStylePropertyCandidate('dataGridButtonIconPosition', 'bottom')).toBe(
+      '[&_.wr-data-grid-button]:flex-col-reverse',
+    );
+    expect(resolveStylePropertyCandidate('dataGridButtonIconSize', { value: 24, unit: 'px' })).toBe(
+      '[&_.wr-data-grid-button_.wr-button-icon]:w-[24px]! [&_.wr-data-grid-button_.wr-button-icon]:h-[24px]!',
+    );
+    expect(resolveStylePropertyCandidate('dataGridButtonIconColor', '#f59e0b')).toBe(
+      '[&_.wr-data-grid-button_.wr-button-icon]:text-[#f59e0b]',
     );
     expect(resolveStylePropertyCandidate('dataGridButtonBackgroundColor', '#e0e7ff')).toBe(
       '[--wr-data-grid-button-background-color:#e0e7ff]',
@@ -1030,6 +1042,10 @@ describe('browser runtime', () => {
             dataGridHeaderTextColor: '#f8fafc',
             dataGridFooterBackgroundColor: '#e2e8f0',
             dataGridFooterFontWeight: 'medium',
+            dataGridButtonContentMode: 'icon',
+            dataGridButtonIconPosition: 'bottom',
+            dataGridButtonIconSize: { value: 24, unit: 'px' },
+            dataGridButtonIconColor: '#f59e0b',
           },
           hover: {},
           focus: {},
@@ -1046,6 +1062,12 @@ describe('browser runtime', () => {
         '[--wr-data-grid-header-text-color:#f8fafc]',
         '[--wr-data-grid-footer-background-color:#e2e8f0]',
         '[--wr-data-grid-footer-font-weight:500]',
+        '[&_.wr-data-grid-button-icon-slot]:block',
+        '[&_.wr-data-grid-button_.wr-data-grid-button-caption]:sr-only',
+        '[&_.wr-data-grid-button]:flex-col-reverse',
+        '[&_.wr-data-grid-button_.wr-button-icon]:w-[24px]!',
+        '[&_.wr-data-grid-button_.wr-button-icon]:h-[24px]!',
+        '[&_.wr-data-grid-button_.wr-button-icon]:text-[#f59e0b]',
       ]),
     );
     expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-config-horizontal-line-width');
@@ -1058,6 +1080,12 @@ describe('browser runtime', () => {
       'background: var(--wr-data-grid-footer-background-color, #f8fafc)',
     );
     expect(WEBRAD_COMPONENT_CSS).toContain('.wr-data-grid-button-caption');
+    expect(WEBRAD_COMPONENT_CSS).toContain(
+      '.wr-data-grid-button-icon-slot { position: relative; display: block; flex: 0 0 16px; min-width: 0; min-height: 0; width: 16px; height: 16px; line-height: 0; }',
+    );
+    expect(WEBRAD_COMPONENT_CSS).toContain(
+      '.wr-data-grid-button-icon-slot > .wr-data-grid-button-icon { position: absolute; top: 50%; left: 50%; display: block; transform: translate(-50%, -50%); }',
+    );
     expect(WEBRAD_COMPONENT_CSS).toContain('.wr-data-grid-checkbox-control');
     expect(WEBRAD_COMPONENT_CSS).toContain('.wr-data-grid-checkbox-caption');
     expect(WEBRAD_COMPONENT_CSS).toContain('--wr-data-grid-button-background-color');
@@ -1705,6 +1733,10 @@ describe('WebDataGrid', () => {
     const buttonIcon = host.querySelector<SVGSVGElement>(
       '.wr-data-grid-button .wr-button-icon.wr-data-grid-button-icon',
     );
+    expect(buttonIcon?.parentElement?.classList.contains('wr-data-grid-button-icon-slot')).toBe(
+      true,
+    );
+    expect(buttonIcon?.parentElement?.getAttribute('aria-hidden')).toBe('true');
     expect(buttonIcon?.dataset.webradButtonIcon).toBe('');
     expect(buttonIcon?.getAttribute('aria-hidden')).toBe('true');
     expect(buttonIcon?.getAttribute('viewBox')).toBe('0 0 24 24');

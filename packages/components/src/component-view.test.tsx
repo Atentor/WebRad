@@ -113,6 +113,8 @@ describe('ComponentView', () => {
     expect(markup).toContain('Total');
     expect(markup).toContain('wr-data-grid-button-caption');
     expect(markup).toContain('>View</span>');
+    expect(markup).toContain('aria-hidden="true" class="wr-data-grid-button-icon-slot"');
+    expect(markup).toContain('class="wr-data-grid-button-icon-slot"');
     expect(markup).toContain('class="wr-button-icon wr-data-grid-button-icon"');
     expect(markup).toContain('data-webrad-button-icon=""');
     expect(markup).toContain('wr-data-grid-checkbox-control');
@@ -152,6 +154,9 @@ describe('ComponentView', () => {
     expect(buttons).toHaveLength(3);
     for (const cellButton of buttons) {
       expect(cellButton.getAttribute('aria-label')).toBe('Run action');
+      expect(
+        cellButton.querySelector('.wr-data-grid-button-icon-slot')?.getAttribute('aria-hidden'),
+      ).toBe('true');
       expect(cellButton.querySelector('.wr-button-icon.wr-data-grid-button-icon')).not.toBeNull();
       expect(cellButton.querySelector('.wr-data-grid-button-caption')).toBeNull();
       expect(cellButton.textContent).toBe('');

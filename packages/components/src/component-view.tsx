@@ -130,7 +130,9 @@ function DataGridButtonPreview({ column }: { readonly column: DataGridColumn }):
       type="button"
     >
       {column.buttonIcon !== null && (
-        <ButtonIcon className="wr-data-grid-button-icon" name={column.buttonIcon} />
+        <span aria-hidden="true" className="wr-data-grid-button-icon-slot">
+          <ButtonIcon className="wr-data-grid-button-icon" name={column.buttonIcon} />
+        </span>
       )}
       {caption.length > 0 && <span className="wr-data-grid-button-caption">{caption}</span>}
     </button>

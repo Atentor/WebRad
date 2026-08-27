@@ -343,10 +343,14 @@ function dataCell(
             : '';
       if (captionText.length === 0) button.setAttribute('aria-label', column.header || 'Button');
       if (column.buttonIcon !== null) {
+        const iconSlot = document.createElement('span');
+        iconSlot.className = 'wr-data-grid-button-icon-slot';
+        iconSlot.setAttribute('aria-hidden', 'true');
         const icon = createWebRadIconElement(document, column.buttonIcon);
         icon.classList.add('wr-button-icon', 'wr-data-grid-button-icon');
         icon.dataset.webradButtonIcon = '';
-        button.append(icon);
+        iconSlot.append(icon);
+        button.append(iconSlot);
       }
       if (captionText.length > 0) {
         const caption = document.createElement('span');

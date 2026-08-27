@@ -124,7 +124,7 @@ describe('StylesWorkspace', () => {
     expect(previewButton().disabled).toBe(true);
   });
 
-  it('renders representative Data Grid controls and projects CSS-variable classes onto the live preview root', () => {
+  it('renders representative Data Grid controls and projects their style classes onto the live preview root', () => {
     const style = createComponentStyle('Operations Grid', 'WebDataGrid', {
       idFactory: () => 'operations-grid-style',
       states: {
@@ -138,6 +138,10 @@ describe('StylesWorkspace', () => {
           dataGridFooterBackgroundColor: '#fef3c7',
           dataGridFooterBorderWidth: { value: 3, unit: 'px' },
           dataGridFooterFontWeight: 'bold',
+          dataGridButtonContentMode: 'icon',
+          dataGridButtonIconPosition: 'bottom',
+          dataGridButtonIconSize: { value: 24, unit: 'px' },
+          dataGridButtonIconColor: '#f59e0b',
           dataGridButtonBackgroundColor: '#dbeafe',
           dataGridCheckboxAccentColor: '#2563eb',
         },
@@ -174,6 +178,16 @@ describe('StylesWorkspace', () => {
     expect(previewGrid.classList).toContain('[--wr-data-grid-footer-background-color:#fef3c7]');
     expect(previewGrid.classList).toContain('[--wr-data-grid-footer-border-width:3px]');
     expect(previewGrid.classList).toContain('[--wr-data-grid-footer-font-weight:700]');
+    expect(previewGrid.classList).toContain('[&_.wr-data-grid-button-icon-slot]:block');
+    expect(previewGrid.classList).toContain(
+      '[&_.wr-data-grid-button_.wr-data-grid-button-caption]:sr-only',
+    );
+    expect(previewGrid.classList).toContain('[&_.wr-data-grid-button]:flex-col-reverse');
+    expect(previewGrid.classList).toContain('[&_.wr-data-grid-button_.wr-button-icon]:w-[24px]!');
+    expect(previewGrid.classList).toContain('[&_.wr-data-grid-button_.wr-button-icon]:h-[24px]!');
+    expect(previewGrid.classList).toContain(
+      '[&_.wr-data-grid-button_.wr-button-icon]:text-[#f59e0b]',
+    );
     expect(previewGrid.classList).toContain('[--wr-data-grid-button-background-color:#dbeafe]');
     expect(previewGrid.classList).toContain('[--wr-data-grid-checkbox-accent-color:#2563eb]');
   });

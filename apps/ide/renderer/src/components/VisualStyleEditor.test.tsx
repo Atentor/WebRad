@@ -254,8 +254,12 @@ describe('VisualStyleEditor', () => {
     });
 
     await user.click(
-      screen.getByRole('button', { name: 'Data Grid Button, 0 configured, 9 properties' }),
+      screen.getByRole('button', { name: 'Data Grid Button, 0 configured, 13 properties' }),
     );
+    expect(screen.getByLabelText('Configure Button content')).toBeDefined();
+    expect(screen.getByLabelText('Configure Icon position')).toBeDefined();
+    expect(screen.getByLabelText('Configure Icon size')).toBeDefined();
+    expect(screen.getByLabelText('Configure Icon color')).toBeDefined();
     expect(screen.getByLabelText('Configure Button background color')).toBeDefined();
     expect(screen.getByLabelText('Configure Button text color')).toBeDefined();
     expect(screen.getByLabelText('Configure Button border color')).toBeDefined();
@@ -265,6 +269,22 @@ describe('VisualStyleEditor', () => {
     expect(screen.getByLabelText('Configure Button horizontal padding')).toBeDefined();
     expect(screen.getByLabelText('Configure Button vertical padding')).toBeDefined();
     expect(screen.getByLabelText('Configure Button font weight')).toBeDefined();
+
+    await user.click(screen.getByLabelText('Configure Button content'));
+    await user.selectOptions(screen.getByLabelText('Button content'), 'icon');
+    await user.click(screen.getByLabelText('Configure Icon position'));
+    await user.selectOptions(screen.getByLabelText('Icon position'), 'bottom');
+    await user.click(screen.getByLabelText('Configure Icon size'));
+    fireEvent.change(screen.getByLabelText('Icon size value'), { target: { value: '24' } });
+    await user.click(screen.getByLabelText('Configure Icon color'));
+    await user.selectOptions(screen.getByLabelText('Icon color type'), 'custom');
+    fireEvent.change(screen.getByLabelText('Icon color'), { target: { value: '#f59e0b' } });
+    expect(currentProperties()).toMatchObject({
+      dataGridButtonContentMode: 'icon',
+      dataGridButtonIconPosition: 'bottom',
+      dataGridButtonIconSize: { value: 24, unit: 'px' },
+      dataGridButtonIconColor: '#f59e0b',
+    });
 
     await user.click(screen.getByLabelText('Configure Button border radius'));
     fireEvent.change(screen.getByLabelText('Button border radius value'), {

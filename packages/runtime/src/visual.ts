@@ -627,6 +627,31 @@ export function resolveStylePropertyCandidate(
         weight === undefined ? undefined : DATA_GRID_FONT_WEIGHT_VALUES[weight],
       );
     }
+    case 'dataGridButtonContentMode':
+      return mappedEnumClass(value, {
+        text: '[&_.wr-data-grid-button-icon-slot]:hidden',
+        'text-icon':
+          '[&_.wr-data-grid-button-icon-slot]:block [&_.wr-data-grid-button_.wr-data-grid-button-caption]:block',
+        icon: '[&_.wr-data-grid-button-icon-slot]:block [&_.wr-data-grid-button_.wr-data-grid-button-caption]:sr-only',
+      });
+    case 'dataGridButtonIconPosition':
+      return mappedEnumClass(value, {
+        left: '[&_.wr-data-grid-button]:flex-row',
+        right: '[&_.wr-data-grid-button]:flex-row-reverse',
+        top: '[&_.wr-data-grid-button]:flex-col',
+        bottom: '[&_.wr-data-grid-button]:flex-col-reverse',
+      });
+    case 'dataGridButtonIconSize': {
+      const width = lengthClass('w', value, true);
+      const height = lengthClass('h', value, true);
+      return width === undefined || height === undefined
+        ? undefined
+        : `[&_.wr-data-grid-button_.wr-button-icon]:${width} [&_.wr-data-grid-button_.wr-button-icon]:${height}`;
+    }
+    case 'dataGridButtonIconColor': {
+      const color = colorClass('text', value);
+      return color === undefined ? undefined : `[&_.wr-data-grid-button_.wr-button-icon]:${color}`;
+    }
     case 'dataGridButtonBackgroundColor':
       return cssVariableClass('--wr-data-grid-button-background-color', cssColorValue(value));
     case 'dataGridButtonTextColor':
@@ -1098,6 +1123,8 @@ export const WEBRAD_COMPONENT_CSS = `
 .wr-data-grid-striped .wr-data-grid-body-row:nth-child(even) > .wr-data-grid-cell { background: color-mix(in srgb, currentColor 5%, transparent); }
 .wr-data-grid-image { display: block; width: 100%; max-width: 100%; height: 36px; max-height: 100%; object-fit: contain; }
 .wr-data-grid-button { display: inline-flex; max-width: 100%; align-items: center; justify-content: center; gap: .45em; border-width: var(--wr-data-grid-button-border-width, 1px); border-style: var(--wr-data-grid-button-border-style, solid); border-color: var(--wr-data-grid-button-border-color, #c7d2fe); border-radius: var(--wr-data-grid-button-border-radius, 6px); background: var(--wr-data-grid-button-background-color, #e0e7ff); color: var(--wr-data-grid-button-text-color, #1e3a8a); cursor: pointer; font-weight: var(--wr-data-grid-button-font-weight, 600); padding: var(--wr-data-grid-button-padding-y, 4px) var(--wr-data-grid-button-padding-x, 8px); }
+.wr-data-grid-button-icon-slot { position: relative; display: block; flex: 0 0 16px; min-width: 0; min-height: 0; width: 16px; height: 16px; line-height: 0; }
+.wr-data-grid-button-icon-slot > .wr-data-grid-button-icon { position: absolute; top: 50%; left: 50%; display: block; transform: translate(-50%, -50%); }
 .wr-data-grid-button-caption { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wr-data-grid-checkbox-control { display: inline-flex; max-width: 100%; align-items: center; gap: var(--wr-data-grid-checkbox-gap, 6px); color: var(--wr-data-grid-checkbox-text-color, #334155); font-weight: var(--wr-data-grid-checkbox-font-weight, 500); }
 .wr-data-grid-checkbox { flex: none; width: var(--wr-data-grid-checkbox-size, 16px); height: var(--wr-data-grid-checkbox-size, 16px); margin: 0; accent-color: var(--wr-data-grid-checkbox-accent-color, #2563eb); }

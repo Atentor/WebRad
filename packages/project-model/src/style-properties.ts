@@ -872,6 +872,41 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     DATA_GRID_BASE_STATE_NAMES,
   ),
 
+  enumProperty(
+    'dataGridButtonContentMode',
+    'Button content',
+    'Data Grid Button',
+    [
+      ['text', 'Text only'],
+      ['text-icon', 'Text and icon'],
+      ['icon', 'Icon only'],
+    ],
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  enumProperty(
+    'dataGridButtonIconPosition',
+    'Icon position',
+    'Data Grid Button',
+    [
+      ['left', 'Left'],
+      ['right', 'Right'],
+      ['top', 'Top'],
+      ['bottom', 'Bottom'],
+    ],
+    DATA_GRID_COMPONENT_TYPES,
+    DATA_GRID_BASE_STATE_NAMES,
+  ),
+  lengthProperty('dataGridButtonIconSize', 'Icon size', 'Data Grid Button', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 16, unit: 'px' },
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
+  colorProperty('dataGridButtonIconColor', 'Icon color', 'Data Grid Button', {
+    defaultValue: 'current',
+    ...DATA_GRID_BASE_SETTINGS,
+  }),
   colorProperty('dataGridButtonBackgroundColor', 'Button background color', 'Data Grid Button', {
     defaultValue: '#e0e7ff',
     ...DATA_GRID_BASE_SETTINGS,
