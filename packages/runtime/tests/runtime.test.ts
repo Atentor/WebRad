@@ -31,6 +31,7 @@ import {
   tokenizeTailwindClasses,
   type RuntimeComponentLayout,
   type RuntimeComponentNode,
+  type WebDataGridCellEventDetail,
   type WebDataGridConfiguration,
   type RuntimePageModel,
 } from '../src/index.js';
@@ -1676,9 +1677,9 @@ describe('WebDataGrid', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(host.textContent).toContain('No customers');
 
-    const clicked: unknown[] = [];
+    const clicked: WebDataGridCellEventDetail[] = [];
     grid.bindEvent('OnCellClick', (_sender, event) => {
-      clicked.push((event as CustomEvent).detail);
+      clicked.push((event as CustomEvent<WebDataGridCellEventDetail>).detail);
     });
     await api.execute('LoadCustomers');
 
@@ -1760,14 +1761,28 @@ describe('WebDataGrid', () => {
     expect(document.activeElement).toBe(nextCell);
     nextCell?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
     expect(clicked).toEqual([
-      expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
+      expect.objectContaining({
+        rowIndex: 0,
+        columnIndex: 1,
+        value: 'https://example.test/ada.png',
+        row: expect.objectContaining({ name: 'Ada' }),
+      }),
     ]);
+    expect(clicked[0]?.getValue<string>('name')).toBe('Ada');
+    expect(clicked[0]?.getValue<boolean>('/active')).toBe(true);
+    expect(clicked[0]?.getValue('missing')).toBeUndefined();
 
     host.querySelector<HTMLButtonElement>('button')?.click();
     expect(clicked).toEqual([
-      expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
-      expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
+      expect.objectContaining({ rowIndex: 0, columnIndex: 1 }),
+      expect.objectContaining({
+        rowIndex: 0,
+        columnIndex: 2,
+        value: undefined,
+        row: expect.objectContaining({ name: 'Ada' }),
+      }),
     ]);
+    expect(clicked[1]?.getValue<string>('name')).toBe('Ada');
     grid.dataGridConfig = {
       ...grid.dataGridConfig,
       columns: grid.dataGridConfig.columns.map((column) =>

@@ -58,8 +58,13 @@ export interface WebDataGridConfiguration {
 
 export interface WebDataGridCellEventDetail {
   readonly rowIndex: number;
+  readonly columnIndex: number;
   readonly row: unknown;
   readonly column: WebDataGridColumn;
+  /** Value bound to the clicked column, or undefined when it has no Field. */
+  readonly value: unknown;
+  /** Reads another value from the same row by property name or JSON Pointer. */
+  readonly getValue: <T = unknown>(fieldNameOrPath: string) => T | undefined;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -107,6 +112,17 @@ function resolvePointer(value: unknown, pointer: string): unknown {
     }
   }
   return current;
+}
+
+function dataGridRowValue<T = unknown>(row: unknown, fieldNameOrPath: string): T | undefined {
+  const field = fieldNameOrPath.trim();
+  if (field.length === 0) return undefined;
+  const value = field.startsWith('/')
+    ? resolvePointer(row, field)
+    : isRecord(row)
+      ? row[field]
+      : undefined;
+  return value as T | undefined;
 }
 
 function cellText(value: unknown): string {
@@ -296,7 +312,7 @@ function dataCell(
   rowValue: unknown,
   rowIndex: number,
   columnIndex: number,
-  onCellClick: () => void,
+  onCellClick: (value: unknown) => void,
 ): HTMLDivElement {
   const cell = document.createElement('div');
   cell.className = 'wr-data-grid-cell';
@@ -305,8 +321,7 @@ function dataCell(
   cell.tabIndex = rowIndex === 0 && columnIndex === 0 ? 0 : -1;
   cell.dataset.webradDataGridColumn = column.id;
   cell.style.textAlign = column.cellAlign;
-  const value =
-    column.fieldPath.length === 0 ? undefined : resolvePointer(rowValue, column.fieldPath);
+  const value = dataGridRowValue(rowValue, column.fieldPath);
   switch (column.cellKind) {
     case 'image': {
       const image = document.createElement('img');
@@ -371,13 +386,13 @@ function dataCell(
   cell.addEventListener('focus', () => focusDataGridCell(cell));
   cell.addEventListener('click', (event) => {
     if (event.target === cell) focusDataGridCell(cell);
-    onCellClick();
+    onCellClick(value);
   });
   cell.addEventListener('keydown', (event) => {
     if (event.target !== cell) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onCellClick();
+      onCellClick(value);
       return;
     }
     const movement: readonly [number, number] | undefined =
@@ -559,11 +574,15 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       row.setAttribute('aria-rowindex', String(rowIndex + (configuration.showHeader ? 2 : 1)));
       for (const [columnIndex, column] of configuration.columns.entries()) {
         row.append(
-          dataCell(document, column, rowValue, rowIndex, columnIndex, () => {
+          dataCell(document, column, rowValue, rowIndex, columnIndex, (value) => {
             this.emit('OnCellClick', {
               rowIndex,
+              columnIndex,
               row: rowValue,
               column,
+              value,
+              getValue: <T = unknown>(fieldNameOrPath: string) =>
+                dataGridRowValue<T>(rowValue, fieldNameOrPath),
             } satisfies WebDataGridCellEventDetail);
           }),
         );

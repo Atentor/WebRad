@@ -363,6 +363,7 @@ class EditorPage extends WebPage {
   tokenizeTailwindClasses,
   type RuntimeComponentNode,
   type TailwindStyleSource,
+  type WebDataGridCellEventDetail,
   type WebNonvisualComponent,
   type WebSelectItem,
 } from '@webrad/runtime';
@@ -420,6 +421,14 @@ class EditorPage extends WebPage {
 declare const response: Response;
 const error = new WebApiError('Conflict', 409, 'Conflict', '/items', {}, response);
 Message(error.message);
+
+declare const gridCellEvent: CustomEvent<WebDataGridCellEventDetail>;
+const clickedUrl = gridCellEvent.detail.getValue<string>('url');
+const clickedValue: unknown = gridCellEvent.detail.value;
+const clickedColumnIndex: number = gridCellEvent.detail.columnIndex;
+void clickedUrl;
+void clickedValue;
+void clickedColumnIndex;
 
 const reusableStyle: TailwindStyleSource = {
   states: {

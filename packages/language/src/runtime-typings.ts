@@ -82,8 +82,11 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
 
   export interface WebDataGridCellEventDetail {
     readonly rowIndex: number;
+    readonly columnIndex: number;
     readonly row: unknown;
     readonly column: WebDataGridColumn;
+    readonly value: unknown;
+    readonly getValue: <T = unknown>(fieldNameOrPath: string) => T | undefined;
   }
 
   export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridConfiguration;
