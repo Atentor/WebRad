@@ -29,7 +29,7 @@ function createDataGridComponent(
   };
 }
 
-function createApiClientComponent(): ComponentNode {
+function createApiClientComponent(includeWholeItemField = false): ComponentNode {
   const configuration = createDefaultApiClientConfiguration();
   const operation = configuration.operations[0];
   if (operation === undefined) throw new Error('Expected a default API operation.');
@@ -64,6 +64,19 @@ function createApiClientComponent(): ComponentNode {
                     fieldType: 'list',
                     nullable: false,
                     children: [
+                      ...(includeWholeItemField
+                        ? [
+                            {
+                              id: 'customer-item',
+                              name: 'Customer item',
+                              path: '/customers/*',
+                              kind: 'field' as const,
+                              fieldType: 'string' as const,
+                              nullable: false,
+                              children: [],
+                            },
+                          ]
+                        : []),
                       {
                         id: 'customer-name',
                         name: 'name',
@@ -228,6 +241,80 @@ describe('DataGridConfigurationDialog', () => {
     expect(saved.columns[0]).toMatchObject({ cellKind: 'button', fixedCaption: 'View' });
     expect(saved.columns[1]).toMatchObject({ cellKind: 'checkbox', fixedCaption: 'Enabled' });
     expect(saved.columns[2]?.fixedCaption).toBe('');
+  });
+
+  it('keeps one explicit no-field choice selectable for a bound response list', async () => {
+    const defaults = createDefaultDataGridConfiguration();
+    const onSave = vi.fn();
+    render(
+      <DataGridConfigurationDialog
+        availableComponents={[createApiClientComponent(true)]}
+        component={createDataGridComponent({
+          ...defaults,
+          apiClientId: 'api-client-1',
+          operationId: 'operation-1',
+          listPath: '/customers',
+          columns: defaults.columns.map((column, index) =>
+            index === 0 ? { ...column, fieldPath: '/name' } : column,
+          ),
+        })}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    const user = userEvent.setup();
+    const field = screen.getByLabelText(
+      'Dynamic field for Data Grid column 1',
+    ) as HTMLSelectElement;
+
+    expect([...field.options].filter((option) => option.value.length === 0)).toHaveLength(1);
+    expect(screen.getAllByRole('option', { name: '(no field)' })).toHaveLength(3);
+    await user.selectOptions(field, '');
+    expect(field.value).toBe('');
+
+    await user.click(screen.getByRole('button', { name: 'Save Data Grid' }));
+    const saved = onSave.mock.calls[0]?.[0] as DataGridConfiguration;
+    expect(saved.columns[0]?.fieldPath).toBe('');
+  });
+
+  it('offers an optional icon picker only for button columns', async () => {
+    const onSave = vi.fn();
+    render(
+      <DataGridConfigurationDialog
+        availableComponents={[]}
+        component={createDataGridComponent()}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    const user = userEvent.setup();
+
+    expect(screen.queryByLabelText('Button icon for Data Grid column 1')).toBeNull();
+    await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 1'), 'button');
+    await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 2'), 'checkbox');
+    expect(screen.queryByLabelText('Button icon for Data Grid column 2')).toBeNull();
+
+    const iconPicker = screen.getByLabelText('Button icon for Data Grid column 1');
+    expect(iconPicker.textContent).toContain('Choose icon');
+    await user.click(iconPicker);
+    expect(screen.getByRole('dialog', { name: 'Choose an icon' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'No icon' })).toHaveProperty('disabled', true);
+
+    await user.click(screen.getByRole('button', { name: 'Select Save icon' }));
+    expect(screen.queryByRole('dialog', { name: 'Choose an icon' })).toBeNull();
+    expect(iconPicker.textContent).toContain('Save');
+
+    await user.click(iconPicker);
+    await user.click(screen.getByRole('button', { name: 'No icon' }));
+    expect(iconPicker.textContent).toContain('Choose icon');
+
+    await user.click(iconPicker);
+    await user.click(screen.getByRole('button', { name: 'Select Add icon' }));
+    await user.click(screen.getByRole('button', { name: 'Save Data Grid' }));
+
+    const saved = onSave.mock.calls[0]?.[0] as DataGridConfiguration;
+    expect(saved.columns[0]).toMatchObject({ cellKind: 'button', buttonIcon: 'add' });
+    expect(saved.columns[1]).toMatchObject({ cellKind: 'checkbox', buttonIcon: null });
   });
 
   it('clears field bindings that do not exist in a newly selected response list', async () => {

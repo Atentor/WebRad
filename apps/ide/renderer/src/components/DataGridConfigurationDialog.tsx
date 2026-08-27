@@ -12,6 +12,7 @@ import {
   type DataGridHorizontalAlignment,
   type DataGridRowHeightMode,
 } from '@webrad/project-model';
+import { WEBRAD_ICON_NAMES, webRadIconLabel } from '@webrad/runtime/icons';
 import {
   useEffect,
   useId,
@@ -22,6 +23,8 @@ import {
   type ReactElement,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { Icon } from './Icon';
+import { IconPickerDialog } from './IconPickerDialog';
 
 export interface DataGridConfigurationDialogProps {
   readonly component: ComponentNode;
@@ -136,14 +139,6 @@ function reconcileColumnFieldPaths(
   return changed ? reconciled : columns;
 }
 
-function fieldPlaceholder(
-  operation: { readonly responseSchema: ApiClientResponseSchema | null } | undefined,
-): string {
-  if (operation === undefined) return '(select an endpoint first)';
-  if (operation.responseSchema === null) return '(endpoint has no response contract)';
-  return '(whole list item)';
-}
-
 function numberFromInput(value: string, minimum: number): number | undefined {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= minimum ? parsed : undefined;
@@ -240,6 +235,7 @@ export function DataGridConfigurationDialog({
   const [draft, setDraft] = useState<DataGridConfiguration>(() =>
     createDraft(component.props.dataGridConfig),
   );
+  const [iconPickerColumnId, setIconPickerColumnId] = useState<string | null>(null);
 
   const apiClients = availableComponents.filter((candidate) => candidate.type === 'WebApiClient');
   const apiClient = apiClients.find((candidate) => candidate.id === draft.apiClientId);
@@ -255,6 +251,12 @@ export function DataGridConfigurationDialog({
     collectListChoices(operation.responseSchema.root, listChoices);
   }
   const fieldChoices = operationSchemaChoices(operation?.responseSchema, draft.listPath);
+  const iconPickerColumn =
+    iconPickerColumnId === null
+      ? undefined
+      : draft.columns.find(
+          (column) => column.id === iconPickerColumnId && column.cellKind === 'button',
+        );
 
   useEffect(() => {
     apiClientRef.current?.focus();
@@ -758,9 +760,11 @@ export function DataGridConfigurationDialog({
                     </header>
                     <div
                       className={`wr-data-grid-configuration-fields ${
-                        column.cellKind === 'button' || column.cellKind === 'checkbox'
-                          ? 'five-columns'
-                          : 'four-columns'
+                        column.cellKind === 'button'
+                          ? 'six-columns'
+                          : column.cellKind === 'checkbox'
+                            ? 'five-columns'
+                            : 'four-columns'
                       }`}
                     >
                       <label>
@@ -803,12 +807,14 @@ export function DataGridConfigurationDialog({
                             updateColumn(index, (current) => ({ ...current, fieldPath }));
                           }}
                         >
-                          <option value="">{fieldPlaceholder(operation)}</option>
-                          {fieldChoices.map((choice) => (
-                            <option key={choice.path} value={choice.path}>
-                              {choice.label}
-                            </option>
-                          ))}
+                          <option value="">(no field)</option>
+                          {fieldChoices
+                            .filter((choice) => choice.path.length > 0)
+                            .map((choice) => (
+                              <option key={choice.path} value={choice.path}>
+                                {choice.label}
+                              </option>
+                            ))}
                         </select>
                       </label>
                       {(column.cellKind === 'button' || column.cellKind === 'checkbox') && (
@@ -830,6 +836,32 @@ export function DataGridConfigurationDialog({
                             }}
                           />
                         </label>
+                      )}
+                      {column.cellKind === 'button' && (
+                        <div className="wr-data-grid-configuration-field">
+                          <span>Icon</span>
+                          <button
+                            type="button"
+                            className="wr-data-grid-icon-picker"
+                            aria-label={`Button icon for Data Grid column ${String(index + 1)}`}
+                            aria-expanded={iconPickerColumnId === column.id}
+                            aria-haspopup="dialog"
+                            onClick={() => setIconPickerColumnId(column.id)}
+                          >
+                            <span className="wr-data-grid-icon-picker-preview" aria-hidden="true">
+                              {column.buttonIcon === null ? (
+                                <span>—</span>
+                              ) : (
+                                <Icon name={column.buttonIcon} />
+                              )}
+                            </span>
+                            <span>
+                              {column.buttonIcon === null
+                                ? 'Choose icon'
+                                : webRadIconLabel(column.buttonIcon)}
+                            </span>
+                          </button>
+                        </div>
                       )}
                       <label>
                         <span>Footer</span>
@@ -977,6 +1009,31 @@ export function DataGridConfigurationDialog({
           </footer>
         </form>
       </section>
+      {iconPickerColumn !== undefined && (
+        <IconPickerDialog
+          icons={WEBRAD_ICON_NAMES}
+          selected={iconPickerColumn.buttonIcon ?? undefined}
+          onClose={() => setIconPickerColumnId(null)}
+          onClear={() => {
+            updateDraft((current) => ({
+              ...current,
+              columns: current.columns.map((column) =>
+                column.id === iconPickerColumn.id ? { ...column, buttonIcon: null } : column,
+              ),
+            }));
+            setIconPickerColumnId(null);
+          }}
+          onSelect={(buttonIcon) => {
+            updateDraft((current) => ({
+              ...current,
+              columns: current.columns.map((column) =>
+                column.id === iconPickerColumn.id ? { ...column, buttonIcon } : column,
+              ),
+            }));
+            setIconPickerColumnId(null);
+          }}
+        />
+      )}
     </div>,
     document.body,
   );

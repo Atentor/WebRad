@@ -15,6 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@webrad/runtime": "0.1.0",
     "zod": "4.4.3"
   }
 }

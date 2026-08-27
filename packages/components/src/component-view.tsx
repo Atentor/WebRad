@@ -1,7 +1,8 @@
 import {
   normalizeDataGridConfiguration,
-  type DataGridConfiguration,
   type ComponentNode,
+  type DataGridColumn,
+  type DataGridConfiguration,
 } from '@webrad/project-model';
 import {
   projectComponentVisual,
@@ -89,12 +90,18 @@ function renderWebRadIconShape(shape: WebRadIconShape, index: number): ReactElem
   );
 }
 
-function ButtonIcon({ name }: { readonly name: string }): ReactElement {
+function ButtonIcon({
+  name,
+  className = '',
+}: {
+  readonly name: string;
+  readonly className?: string;
+}): ReactElement {
   const iconName = isWebRadIconName(name) ? name : 'add';
   return (
     <svg
       aria-hidden="true"
-      className="wr-button-icon"
+      className={`wr-button-icon${className.length > 0 ? ` ${className}` : ''}`}
       data-webrad-button-icon=""
       fill="none"
       focusable="false"
@@ -106,6 +113,27 @@ function ButtonIcon({ name }: { readonly name: string }): ReactElement {
     >
       {getWebRadIconShapes(iconName).map((shape, index) => renderWebRadIconShape(shape, index))}
     </svg>
+  );
+}
+
+function DataGridButtonPreview({ column }: { readonly column: DataGridColumn }): ReactElement {
+  const caption =
+    column.fixedCaption.length > 0
+      ? column.fixedCaption
+      : column.fieldPath.length > 0
+        ? column.header || 'Value'
+        : '';
+  return (
+    <button
+      aria-label={caption.length > 0 ? undefined : column.header || 'Button'}
+      className="wr-data-grid-button"
+      type="button"
+    >
+      {column.buttonIcon !== null && (
+        <ButtonIcon className="wr-data-grid-button-icon" name={column.buttonIcon} />
+      )}
+      {caption.length > 0 && <span className="wr-data-grid-button-caption">{caption}</span>}
+    </button>
   );
 }
 
@@ -347,11 +375,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
                           Image
                         </span>
                       ) : column.cellKind === 'button' ? (
-                        <button className="wr-data-grid-button" type="button">
-                          <span className="wr-data-grid-button-caption">
-                            {column.fixedCaption || column.header || 'Button'}
-                          </span>
-                        </button>
+                        <DataGridButtonPreview column={column} />
                       ) : column.cellKind === 'checkbox' ? (
                         <label className="wr-data-grid-checkbox-control">
                           <input

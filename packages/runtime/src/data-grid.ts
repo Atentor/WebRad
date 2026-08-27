@@ -1,5 +1,6 @@
 import type { WebApiClient } from './api-client.js';
 import { WebComponent } from './component.js';
+import { createWebRadIconElement, isWebRadIconName, type WebRadIconName } from './icons.js';
 import { resolveDataGridColumnTrackWidths } from './visual.js';
 
 export const WEB_DATA_GRID_CELL_KINDS = ['text', 'image', 'button', 'checkbox'] as const;
@@ -20,6 +21,7 @@ export interface WebDataGridColumn {
   readonly fieldPath: string;
   readonly cellKind: WebDataGridCellKind;
   readonly fixedCaption: string;
+  readonly buttonIcon: WebRadIconName | null;
   readonly footer: string;
   readonly widthMode: WebDataGridColumnWidthMode;
   readonly width: number;
@@ -141,6 +143,7 @@ function normalizeColumn(value: unknown, index: number): WebDataGridColumn {
         ? kind
         : 'text',
     fixedCaption: typeof source.fixedCaption === 'string' ? source.fixedCaption : '',
+    buttonIcon: isWebRadIconName(source.buttonIcon) ? source.buttonIcon : null,
     footer: typeof source.footer === 'string' ? source.footer : '',
     widthMode: source.widthMode === 'fixed' ? 'fixed' : 'dynamic',
     width: finiteNumberInRange(source.width, 180, 1, 10_000),
@@ -167,6 +170,7 @@ export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridCo
             fieldPath: '',
             cellKind: 'text' as const,
             fixedCaption: '',
+            buttonIcon: null,
             footer: '',
             widthMode: 'dynamic' as const,
             width: 180,
@@ -315,10 +319,25 @@ function dataCell(
       const button = document.createElement('button');
       button.className = 'wr-data-grid-button';
       button.type = 'button';
-      const caption = document.createElement('span');
-      caption.className = 'wr-data-grid-button-caption';
-      caption.textContent = column.fixedCaption.length > 0 ? column.fixedCaption : cellText(value);
-      button.append(caption);
+      const captionText =
+        column.fixedCaption.length > 0
+          ? column.fixedCaption
+          : column.fieldPath.length > 0
+            ? cellText(value)
+            : '';
+      if (captionText.length === 0) button.setAttribute('aria-label', column.header || 'Button');
+      if (column.buttonIcon !== null) {
+        const icon = createWebRadIconElement(document, column.buttonIcon);
+        icon.classList.add('wr-button-icon', 'wr-data-grid-button-icon');
+        icon.dataset.webradButtonIcon = '';
+        button.append(icon);
+      }
+      if (captionText.length > 0) {
+        const caption = document.createElement('span');
+        caption.className = 'wr-data-grid-button-caption';
+        caption.textContent = captionText;
+        button.append(caption);
+      }
       cell.append(button);
       break;
     }

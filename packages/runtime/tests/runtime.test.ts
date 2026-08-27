@@ -1507,9 +1507,9 @@ describe('WebDataGrid', () => {
   it('normalizes fixed cell captions while preserving legacy configurations', () => {
     const configuration = normalizeWebDataGridConfiguration({
       columns: [
-        { id: 'action', cellKind: 'button', fixedCaption: 'Open customer' },
+        { id: 'action', cellKind: 'button', fixedCaption: 'Open customer', buttonIcon: 'eye' },
         { id: 'selected', cellKind: 'checkbox' },
-        { id: 'invalid-caption', cellKind: 'button', fixedCaption: 42 },
+        { id: 'invalid-caption', cellKind: 'button', fixedCaption: 42, buttonIcon: 'invalid' },
       ],
     });
 
@@ -1518,6 +1518,7 @@ describe('WebDataGrid', () => {
       '',
       '',
     ]);
+    expect(configuration.columns.map((column) => column.buttonIcon)).toEqual(['eye', null, null]);
   });
 
   it('renders only the latest configured API result and binds typed cell renderers', async () => {
@@ -1610,6 +1611,7 @@ describe('WebDataGrid', () => {
           fieldPath: '/name',
           cellKind: 'text',
           fixedCaption: '',
+          buttonIcon: null,
           footer: '2 customers',
           widthMode: 'dynamic',
           width: 180,
@@ -1625,6 +1627,7 @@ describe('WebDataGrid', () => {
           fieldPath: '/avatar',
           cellKind: 'image',
           fixedCaption: '',
+          buttonIcon: null,
           footer: '',
           widthMode: 'fixed',
           width: 72,
@@ -1640,6 +1643,7 @@ describe('WebDataGrid', () => {
           fieldPath: '/name',
           cellKind: 'button',
           fixedCaption: 'Open customer',
+          buttonIcon: 'eye',
           footer: '',
           widthMode: 'dynamic',
           width: 180,
@@ -1655,6 +1659,7 @@ describe('WebDataGrid', () => {
           fieldPath: '/active',
           cellKind: 'checkbox',
           fixedCaption: 'Enabled',
+          buttonIcon: null,
           footer: '',
           widthMode: 'fixed',
           width: 88,
@@ -1696,6 +1701,12 @@ describe('WebDataGrid', () => {
       'Open customer',
     );
     expect(host.querySelector('.wr-data-grid-button-caption')?.textContent).toBe('Open customer');
+    const buttonIcon = host.querySelector<SVGSVGElement>(
+      '.wr-data-grid-button .wr-button-icon.wr-data-grid-button-icon',
+    );
+    expect(buttonIcon?.dataset.webradButtonIcon).toBe('');
+    expect(buttonIcon?.getAttribute('aria-hidden')).toBe('true');
+    expect(buttonIcon?.getAttribute('viewBox')).toBe('0 0 24 24');
     expect(host.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
     expect(host.querySelector('.wr-data-grid-checkbox-caption')?.textContent).toBe('Enabled');
     expect(host.querySelector('.wr-data-grid-checkbox-control')).not.toBeNull();
@@ -1719,6 +1730,18 @@ describe('WebDataGrid', () => {
     expect(host.querySelector<HTMLButtonElement>('.wr-data-grid-button')?.textContent).toBe('Ada');
     expect(host.querySelector('.wr-data-grid-checkbox-caption')).toBeNull();
 
+    grid.dataGridConfig = {
+      ...grid.dataGridConfig,
+      columns: grid.dataGridConfig.columns.map((column) =>
+        column.id === 'action' ? { ...column, fieldPath: '' } : column,
+      ),
+    };
+    const iconOnlyButton = host.querySelector<HTMLButtonElement>('.wr-data-grid-button');
+    expect(iconOnlyButton?.textContent).toBe('');
+    expect(iconOnlyButton?.getAttribute('aria-label')).toBe('Action');
+    expect(iconOnlyButton?.querySelector('.wr-data-grid-button-caption')).toBeNull();
+    expect(iconOnlyButton?.querySelector('.wr-button-icon')).not.toBeNull();
+
     const firstCell = host.querySelector<HTMLDivElement>(
       '.wr-data-grid-body-row .wr-data-grid-cell',
     );
@@ -1737,6 +1760,13 @@ describe('WebDataGrid', () => {
       expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
       expect.objectContaining({ rowIndex: 0, row: expect.objectContaining({ name: 'Ada' }) }),
     ]);
+    grid.dataGridConfig = {
+      ...grid.dataGridConfig,
+      columns: grid.dataGridConfig.columns.map((column) =>
+        column.id === 'action' ? { ...column, buttonIcon: null } : column,
+      ),
+    };
+    expect(host.querySelector('.wr-data-grid-button .wr-button-icon')).toBeNull();
     host.remove();
   });
 
@@ -1849,6 +1879,7 @@ describe('WebDataGrid', () => {
             fieldPath,
             cellKind: 'text',
             fixedCaption: '',
+            buttonIcon: null,
             footer: '',
             widthMode: 'dynamic',
             width: 180,

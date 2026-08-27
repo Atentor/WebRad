@@ -160,6 +160,7 @@ describe('StylesWorkspace', () => {
     expect(screen.getByText('Footer 1')).toBeDefined();
     expect(previewGrid.querySelectorAll('.wr-data-grid-checkbox-control')).toHaveLength(3);
     expect(previewGrid.querySelectorAll('.wr-data-grid-button')).toHaveLength(3);
+    expect(previewGrid.querySelectorAll('.wr-data-grid-button-icon')).toHaveLength(3);
     expect(screen.getAllByText('Enabled')).toHaveLength(3);
     expect(screen.getAllByText('View')).toHaveLength(3);
     expect(previewGrid.classList).toContain('[--wr-data-grid-horizontal-line-override-width:0px]');

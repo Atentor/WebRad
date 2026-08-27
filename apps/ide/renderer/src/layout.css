@@ -3258,7 +3258,12 @@ kbd {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.wr-data-grid-configuration-fields.six-columns {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
 .wr-data-grid-configuration-fields label,
+.wr-data-grid-configuration-field,
 .wr-data-grid-configuration-empty-message {
   display: grid;
   min-width: 0;
@@ -3272,6 +3277,7 @@ kbd {
 
 .wr-data-grid-configuration-fields input,
 .wr-data-grid-configuration-fields select,
+.wr-data-grid-icon-picker,
 .wr-data-grid-configuration-empty-message input {
   width: 100%;
   min-width: 0;
@@ -3290,10 +3296,45 @@ kbd {
 
 .wr-data-grid-configuration-fields input:focus-visible,
 .wr-data-grid-configuration-fields select:focus-visible,
+.wr-data-grid-icon-picker:focus-visible,
 .wr-data-grid-configuration-empty-message input:focus-visible {
   border-color: var(--wr-accent);
   outline: 1px solid var(--wr-accent);
   outline-offset: -1px;
+}
+
+.wr-data-grid-icon-picker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.wr-data-grid-icon-picker:hover {
+  border-color: var(--wr-accent);
+  background: var(--wr-surface-hover);
+}
+
+.wr-data-grid-icon-picker > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-data-grid-icon-picker-preview {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  place-items: center;
+  color: var(--wr-accent);
+}
+
+.wr-data-grid-icon-picker-preview .wr-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .wr-data-grid-configuration-toggles {
@@ -3430,6 +3471,10 @@ kbd {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .wr-data-grid-configuration-fields.six-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .wr-data-grid-configuration-toggles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3497,7 +3542,8 @@ kbd {
 
   .wr-data-grid-configuration-fields.three-columns,
   .wr-data-grid-configuration-fields.four-columns,
-  .wr-data-grid-configuration-fields.five-columns {
+  .wr-data-grid-configuration-fields.five-columns,
+  .wr-data-grid-configuration-fields.six-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3528,6 +3574,7 @@ kbd {
   .wr-data-grid-configuration-fields.three-columns,
   .wr-data-grid-configuration-fields.four-columns,
   .wr-data-grid-configuration-fields.five-columns,
+  .wr-data-grid-configuration-fields.six-columns,
   .wr-data-grid-configuration-toggles {
     grid-template-columns: 1fr;
   }

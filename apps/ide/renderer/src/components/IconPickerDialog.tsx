@@ -19,6 +19,8 @@ interface IconPickerDialogProps {
   readonly icons: readonly WebRadIconName[];
   readonly selected?: WebRadIconName;
   readonly onClose: () => void;
+  /** Enables consumers whose icon is optional to clear the current selection. */
+  readonly onClear?: () => void;
   readonly onSelect: (icon: WebRadIconName) => void;
 }
 
@@ -31,6 +33,7 @@ export function IconPickerDialog({
   icons,
   selected,
   onClose,
+  onClear,
   onSelect,
 }: IconPickerDialogProps): ReactElement {
   const titleId = useId();
@@ -171,6 +174,11 @@ export function IconPickerDialog({
           )}
         </div>
         <footer className="wr-modal-actions wr-icon-picker-actions">
+          {onClear !== undefined && (
+            <button type="button" disabled={selected === undefined} onClick={onClear}>
+              No icon
+            </button>
+          )}
           <button type="button" onClick={onClose}>
             Cancel
           </button>

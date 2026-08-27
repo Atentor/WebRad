@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { WEBRAD_ICON_NAMES, type WebRadIconName } from '@webrad/runtime/icons';
+
 /** Version of the persisted Data Grid contract stored in a component property. */
 export const DATA_GRID_CONFIGURATION_VERSION = 2 as const;
 
@@ -28,6 +30,8 @@ export interface DataGridColumn {
   readonly cellKind: DataGridCellKind;
   /** Static caption rendered by button and checkbox cells. */
   readonly fixedCaption: string;
+  /** Optional catalogue icon rendered by button cells. */
+  readonly buttonIcon: WebRadIconName | null;
   /** Static content for the optional fixed footer row. */
   readonly footer: string;
   /** A fixed pixel width or a dynamic track that shares available space. */
@@ -94,6 +98,9 @@ export const DataGridColumnSchema: z.ZodType<DataGridColumn> = z
     // The default keeps persisted v2 configurations written before captions
     // were introduced compatible without incrementing the contract version.
     fixedCaption: z.string().max(256).default(''),
+    // A null default likewise keeps existing v2 columns compatible while the
+    // shared catalogue rejects icon identifiers that WebButton cannot render.
+    buttonIcon: z.enum(WEBRAD_ICON_NAMES).nullable().default(null),
     footer: z.string().max(4_096),
     widthMode: z.enum(DATA_GRID_COLUMN_WIDTH_MODES),
     width: positivePixelSchema,
@@ -259,6 +266,7 @@ function migrateLegacyDataGridConfiguration(value: unknown): unknown {
     columns: legacy.data.columns.map((column) => ({
       ...column,
       fixedCaption: '',
+      buttonIcon: null,
       widthMode: 'dynamic',
       width: 180,
       minWidth: 96,
@@ -308,6 +316,7 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       fieldPath: '',
       cellKind: 'text',
       fixedCaption: '',
+      buttonIcon: null,
       footer: '',
       widthMode: 'dynamic',
       width: 180,
@@ -323,6 +332,7 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       fieldPath: '',
       cellKind: 'text',
       fixedCaption: '',
+      buttonIcon: null,
       footer: '',
       widthMode: 'dynamic',
       width: 180,
@@ -338,6 +348,7 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       fieldPath: '',
       cellKind: 'text',
       fixedCaption: '',
+      buttonIcon: null,
       footer: '',
       widthMode: 'dynamic',
       width: 180,

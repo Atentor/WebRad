@@ -45,6 +45,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly fieldPath: string;
     readonly cellKind: WebDataGridCellKind;
     readonly fixedCaption: string;
+    readonly buttonIcon: WebButtonIcon | null;
     readonly footer: string;
     readonly widthMode: WebDataGridColumnWidthMode;
     readonly width: number;

@@ -74,6 +74,7 @@ function createPreviewProps(
             : index === lastColumnIndex
               ? 'View'
               : column.fixedCaption,
+        buttonIcon: index === lastColumnIndex ? 'eye' : column.buttonIcon,
         footer: `Footer ${String(index + 1)}`,
       })),
     },

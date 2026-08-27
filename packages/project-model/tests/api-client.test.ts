@@ -189,6 +189,7 @@ describe('persisted API Client configuration', () => {
           fieldPath: '/id',
           cellKind: 'button',
           fixedCaption: 'View',
+          buttonIcon: 'external-link',
           footer: '',
           widthMode: 'fixed',
           width: 96,
@@ -270,6 +271,7 @@ describe('persisted API Client configuration', () => {
         {
           id: 'customer-name',
           fixedCaption: '',
+          buttonIcon: null,
           widthMode: 'dynamic',
           minWidth: 96,
           flex: 1,
@@ -278,33 +280,51 @@ describe('persisted API Client configuration', () => {
     });
   });
 
-  it('normalizes fixed captions in Data Grid columns without changing schema version 2', () => {
+  it('normalizes added Data Grid cell presentation without changing schema version 2', () => {
     const defaults = createDefaultDataGridConfiguration();
-    const configurationWrittenBeforeCaptions = {
+    expect(defaults.columns.every((column) => column.fixedCaption === '')).toBe(true);
+    expect(defaults.columns.every((column) => column.buttonIcon === null)).toBe(true);
+
+    const configurationWrittenBeforeCellPresentation = {
       ...defaults,
-      columns: defaults.columns.map(({ fixedCaption, ...column }) => {
+      columns: defaults.columns.map(({ fixedCaption, buttonIcon, ...column }) => {
         expect(fixedCaption).toBe('');
+        expect(buttonIcon).toBeNull();
         return column;
       }),
     };
 
-    const parsed = parseDataGridConfiguration(configurationWrittenBeforeCaptions);
+    const parsed = parseDataGridConfiguration(configurationWrittenBeforeCellPresentation);
     expect(parsed.schemaVersion).toBe(2);
     expect(parsed.columns.map((column) => column.fixedCaption)).toEqual(['', '', '']);
+    expect(parsed.columns.map((column) => column.buttonIcon)).toEqual([null, null, null]);
 
+    const buttonConfiguration = {
+      ...defaults,
+      columns: [
+        {
+          ...defaults.columns[0]!,
+          cellKind: 'button' as const,
+          fixedCaption: 'Open details',
+          buttonIcon: 'external-link' as const,
+        },
+        ...defaults.columns.slice(1),
+      ],
+    };
+    expect(parseDataGridConfiguration(buttonConfiguration).columns[0]).toMatchObject({
+      cellKind: 'button',
+      fixedCaption: 'Open details',
+      buttonIcon: 'external-link',
+    });
     expect(
       DataGridConfigurationSchema.safeParse({
-        ...defaults,
+        ...buttonConfiguration,
         columns: [
-          {
-            ...defaults.columns[0]!,
-            cellKind: 'button',
-            fixedCaption: 'Open details',
-          },
-          ...defaults.columns.slice(1),
+          { ...buttonConfiguration.columns[0]!, buttonIcon: 'not-in-the-icon-catalogue' },
+          ...buttonConfiguration.columns.slice(1),
         ],
       }).success,
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('materializes a v2 Data Grid configuration when a page contains a v1 binding', () => {

@@ -3,7 +3,10 @@
 import { render } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { createDefaultComponentLayout } from '@webrad/project-model';
+import {
+  createDefaultComponentLayout,
+  createDefaultDataGridConfiguration,
+} from '@webrad/project-model';
 import { ComponentView, hasComponentRenderer } from './component-view';
 import { WEBRAD_COMPONENT_CSS } from './styles';
 
@@ -69,6 +72,7 @@ describe('ComponentView', () => {
                   fieldPath: '/name',
                   cellKind: 'button',
                   fixedCaption: 'View',
+                  buttonIcon: 'eye',
                   footer: 'Total',
                   widthMode: 'dynamic',
                   width: 180,
@@ -84,6 +88,7 @@ describe('ComponentView', () => {
                   fieldPath: '/active',
                   cellKind: 'checkbox',
                   fixedCaption: 'Enabled',
+                  buttonIcon: null,
                   footer: '',
                   widthMode: 'fixed',
                   width: 88,
@@ -108,12 +113,65 @@ describe('ComponentView', () => {
     expect(markup).toContain('Total');
     expect(markup).toContain('wr-data-grid-button-caption');
     expect(markup).toContain('>View</span>');
+    expect(markup).toContain('class="wr-button-icon wr-data-grid-button-icon"');
+    expect(markup).toContain('data-webrad-button-icon=""');
     expect(markup).toContain('wr-data-grid-checkbox-control');
     expect(markup).toContain('wr-data-grid-checkbox-caption');
     expect(markup).toContain('>Enabled</span>');
     expect(markup).toContain('data-webrad-row-height-mode="dynamic"');
     expect(markup).toContain('--wr-data-grid-columns:120px 88px');
     expect(markup).toContain('wr-data-grid-has-footer');
+  });
+
+  it('renders an icon-only Data Grid button when both caption and field are empty', () => {
+    const defaults = createDefaultDataGridConfiguration();
+    const iconOnlyColumn = {
+      ...defaults.columns[0]!,
+      header: 'Run action',
+      fieldPath: '',
+      cellKind: 'button' as const,
+      fixedCaption: '',
+      buttonIcon: 'play' as const,
+    };
+    const node = {
+      ...button,
+      id: 'icon-grid-id',
+      type: 'WebDataGrid',
+      name: 'IconGrid',
+      props: {
+        dataGridConfig: {
+          ...defaults,
+          columnCount: 1,
+          columns: [iconOnlyColumn],
+        },
+      },
+    };
+    const view = render(<ComponentView node={node} />);
+
+    const buttons = view.container.querySelectorAll<HTMLButtonElement>('.wr-data-grid-button');
+    expect(buttons).toHaveLength(3);
+    for (const cellButton of buttons) {
+      expect(cellButton.getAttribute('aria-label')).toBe('Run action');
+      expect(cellButton.querySelector('.wr-button-icon.wr-data-grid-button-icon')).not.toBeNull();
+      expect(cellButton.querySelector('.wr-data-grid-button-caption')).toBeNull();
+      expect(cellButton.textContent).toBe('');
+    }
+
+    view.rerender(
+      <ComponentView
+        node={{
+          ...node,
+          props: {
+            dataGridConfig: {
+              ...defaults,
+              columnCount: 1,
+              columns: [{ ...iconOnlyColumn, buttonIcon: null }],
+            },
+          },
+        }}
+      />,
+    );
+    expect(view.container.querySelector('.wr-data-grid-button .wr-button-icon')).toBeNull();
   });
 
   it('projects the selected reusable style classes onto the component root', () => {
