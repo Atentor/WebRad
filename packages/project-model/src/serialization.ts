@@ -4,7 +4,7 @@ import {
   ProjectParseError,
   UnsupportedFormatVersionError,
 } from './errors.js';
-import { parsePage, parseProject, parseProjectManifest } from './schemas.js';
+import { parsePage, parseProject, parseProjectManifest, parseVisualDocument } from './schemas.js';
 import {
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
@@ -50,6 +50,7 @@ const KEY_ORDER = new Map<string, number>(
     'caption',
     'entryPage',
     'pages',
+    'reusableElements',
     'styles',
     'settings',
     'pageFile',
@@ -152,6 +153,11 @@ export function deserializeProject(text: string): WebRadProject {
 
 export function serializePage(page: PageModel): string {
   return stableJson(parsePage(page));
+}
+
+/** Serializes a page-shaped visual document, including reusable definitions. */
+export function serializeVisualDocument(document: PageModel): string {
+  return stableJson(parseVisualDocument(document));
 }
 
 export function deserializePage(text: string): PageModel {

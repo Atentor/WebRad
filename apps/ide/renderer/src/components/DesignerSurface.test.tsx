@@ -3,13 +3,16 @@
 import {
   createDefaultComponentLayout,
   createPage,
+  createReusableElement,
   DEFAULT_PROJECT_SETTINGS,
   type ComponentNode,
   type PageModel,
+  type ReusableElementModel,
 } from '@webrad/project-model';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DesignerSurface } from './DesignerSurface';
+import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 
 afterEach(cleanup);
 
@@ -89,7 +92,81 @@ function pageWithApiClient(): PageModel {
   };
 }
 
+function pageWithFloatingReusableElement(): {
+  readonly page: PageModel;
+  readonly reusableElement: ReusableElementModel;
+  readonly instance: ComponentNode;
+} {
+  const page = responsivePage();
+  const pageRoot = page.components.find((component) => component.id === page.rootComponentId);
+  if (pageRoot === undefined) throw new Error('Expected page root.');
+
+  let reusableIdSequence = 0;
+  const reusableElement = createReusableElement('CustomerCard', {
+    idFactory: () => `customer-card-${String((reusableIdSequence += 1))}`,
+  });
+  const reusableRoot = reusableElement.components.find(
+    (component) => component.id === reusableElement.rootComponentId,
+  );
+  if (reusableRoot === undefined) throw new Error('Expected reusable root.');
+  const reusableLabel: ComponentNode = {
+    id: 'customer-card-label',
+    type: 'WebLabel',
+    name: 'CustomerCardLabel',
+    parentId: reusableRoot.id,
+    layout: createDefaultComponentLayout(),
+    bounds: { x: 12, y: 12, width: 180, height: 28 },
+    props: { caption: 'Customer summary', visible: true, enabled: true },
+    events: { OnClick: null },
+    children: [],
+  };
+  const reusableDefinition: ReusableElementModel = {
+    ...reusableElement,
+    components: [{ ...reusableRoot, children: [reusableLabel.id] }, reusableLabel],
+  };
+  const instance: ComponentNode = {
+    id: 'customer-card-instance',
+    type: 'WebReusableElement',
+    name: 'CustomerCardInstance',
+    parentId: pageRoot.id,
+    layout: createDefaultComponentLayout(),
+    bounds: { x: 32, y: 48, width: 360, height: 240 },
+    props: {
+      reusableElementId: reusableDefinition.id,
+      placement: 'floating',
+      floatingHorizontalAnchor: 'right',
+      floatingVerticalAnchor: 'bottom',
+      floatingZIndex: 240,
+      visible: true,
+      enabled: true,
+    },
+    events: {},
+    children: [],
+  };
+  return {
+    page: {
+      ...page,
+      components: [
+        ...page.components.map((component) =>
+          component.id === pageRoot.id
+            ? { ...component, children: [...component.children, instance.id] }
+            : component,
+        ),
+        instance,
+      ],
+    },
+    reusableElement: reusableDefinition,
+    instance,
+  };
+}
+
 interface RenderSurfaceOptions {
+  readonly selectedIds?: readonly string[];
+  readonly onAddReusableElement?: (
+    reusableElementId: string,
+    point: { x: number; y: number },
+    parentId: string,
+  ) => void;
   readonly onSelect?: (ids: readonly string[], primaryId?: string) => void;
   readonly onReorderComponents?: (
     parentId: string,
@@ -97,26 +174,34 @@ interface RenderSurfaceOptions {
     beforeComponentId: string | null,
   ) => void;
   readonly onComponentActivate?: (componentId: string) => void;
+  readonly onOpenReusableElement?: (reusableElementId: string) => void;
   readonly onDefaultEvent?: (componentId: string) => void;
+  readonly onResizeComponent?: (id: string, bounds: ComponentNode['bounds']) => void;
+  readonly reusableElements?: readonly ReusableElementModel[];
 }
 
 function renderSurface(page: PageModel = responsivePage(), options: RenderSurfaceOptions = {}) {
   const onSelect = options.onSelect ?? vi.fn();
+  const onAddReusableElement = options.onAddReusableElement ?? vi.fn();
   const onReorderComponents = options.onReorderComponents ?? vi.fn();
   const onComponentActivate = options.onComponentActivate ?? vi.fn();
+  const onOpenReusableElement = options.onOpenReusableElement ?? vi.fn();
   const onDefaultEvent = options.onDefaultEvent ?? vi.fn();
+  const onResizeComponent = options.onResizeComponent ?? vi.fn();
   const view = render(
     <DesignerSurface
       page={page}
+      reusableElements={options.reusableElements}
       settings={DEFAULT_PROJECT_SETTINGS}
-      selectedIds={[]}
+      selectedIds={options.selectedIds ?? []}
       selectedPaletteType={null}
       zoom={100}
       onSelect={onSelect}
       onAddComponent={vi.fn()}
+      onAddReusableElement={onAddReusableElement}
       onMoveComponents={vi.fn()}
       onReorderComponents={onReorderComponents}
-      onResizeComponent={vi.fn()}
+      onResizeComponent={onResizeComponent}
       onDeleteSelection={vi.fn()}
       onCopy={vi.fn()}
       onPaste={vi.fn()}
@@ -126,10 +211,20 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
       onSendToBack={vi.fn()}
       onZoomChange={vi.fn()}
       onComponentActivate={onComponentActivate}
+      onOpenReusableElement={onOpenReusableElement}
       onDefaultEvent={onDefaultEvent}
     />,
   );
-  return { ...view, onSelect, onReorderComponents, onComponentActivate, onDefaultEvent };
+  return {
+    ...view,
+    onSelect,
+    onAddReusableElement,
+    onReorderComponents,
+    onComponentActivate,
+    onOpenReusableElement,
+    onDefaultEvent,
+    onResizeComponent,
+  };
 }
 
 describe('DesignerSurface responsive projection', () => {
@@ -193,5 +288,122 @@ describe('DesignerSurface responsive projection', () => {
     expect(onComponentActivate).toHaveBeenLastCalledWith('api-client');
     expect(onComponentActivate).toHaveBeenCalledTimes(2);
     expect(onDefaultEvent).not.toHaveBeenCalled();
+  });
+
+  it('renders, selects, and opens a floating reusable-component instance', () => {
+    Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const fixture = pageWithFloatingReusableElement();
+    const onSelect = vi.fn();
+    const onOpenReusableElement = vi.fn();
+    const { container } = renderSurface(fixture.page, {
+      onSelect,
+      onOpenReusableElement,
+      reusableElements: [fixture.reusableElement],
+    });
+    const instance = container.querySelector<HTMLElement>(
+      '[data-component-id="customer-card-instance"][data-webrad-reusable-instance="true"]',
+    );
+    const renderedDefinition = container.querySelector<HTMLElement>(
+      '[data-reusable-element-id="customer-card-1"]',
+    );
+    const hitTarget = container.querySelector<HTMLElement>(
+      '.wr-design-hit[data-component-id="customer-card-instance"]',
+    );
+    const runtimeNode = container.querySelector<HTMLElement>(
+      '[data-designer-node-id="customer-card-instance"]',
+    );
+    if (
+      instance === null ||
+      renderedDefinition === null ||
+      hitTarget === null ||
+      runtimeNode === null
+    ) {
+      throw new Error('Expected a rendered reusable component instance.');
+    }
+
+    expect(renderedDefinition.textContent).toContain('Customer summary');
+    expect(runtimeNode.style.position).toBe('absolute');
+    expect(runtimeNode.style.left).toBe('888px');
+    expect(runtimeNode.style.top).toBe('312px');
+    expect(runtimeNode.parentElement?.className).toContain('wr-designer-floating-layer');
+    expect(hitTarget.style.zIndex).toBe('10240');
+
+    fireEvent.pointerDown(hitTarget, {
+      button: 0,
+      pointerId: 3,
+      clientX: 40,
+      clientY: 56,
+    });
+    expect(onSelect).toHaveBeenCalledWith([fixture.instance.id], fixture.instance.id);
+
+    fireEvent.doubleClick(hitTarget);
+    expect(onOpenReusableElement).toHaveBeenCalledWith(fixture.reusableElement.id);
+  });
+
+  it('inserts a reusable component from the dedicated drag data type', () => {
+    const fixture = pageWithFloatingReusableElement();
+    const onAddReusableElement = vi.fn();
+    const { container } = renderSurface(fixture.page, {
+      onAddReusableElement,
+      reusableElements: [fixture.reusableElement],
+    });
+    const overlay = container.querySelector<HTMLElement>('.wr-design-overlay');
+    if (overlay === null) throw new Error('Expected the design overlay.');
+
+    // jsdom has no DragEvent implementation; MouseEvent preserves the drop
+    // coordinates while dataTransfer supplies the reusable element payload.
+    const dropEvent = new MouseEvent('drop', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 100,
+      clientY: 20,
+    });
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+      value: {
+        getData: (type: string) =>
+          type === WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE ? fixture.reusableElement.id : '',
+      },
+    });
+    fireEvent(overlay, dropEvent);
+
+    expect(onAddReusableElement).toHaveBeenCalledWith(
+      fixture.reusableElement.id,
+      { x: 100, y: 20 },
+      fixture.page.rootComponentId,
+    );
+  });
+
+  it('resizes a right/bottom floating instance in viewport coordinates', () => {
+    Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const fixture = pageWithFloatingReusableElement();
+    const onResizeComponent = vi.fn();
+    const { container } = renderSurface(fixture.page, {
+      selectedIds: [fixture.instance.id],
+      onResizeComponent,
+      reusableElements: [fixture.reusableElement],
+    });
+    const handle = container.querySelector<HTMLElement>(
+      `.wr-design-hit[data-component-id="${fixture.instance.id}"] .handle-se`,
+    );
+    const overlay = container.querySelector<HTMLElement>('.wr-design-overlay');
+    if (handle === null || overlay === null)
+      throw new Error('Expected the floating resize handle.');
+
+    fireEvent.pointerDown(handle, { pointerId: 9, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(overlay, { pointerId: 9, clientX: 20, clientY: 10 });
+    fireEvent.pointerUp(overlay, { pointerId: 9, clientX: 20, clientY: 10 });
+
+    expect(onResizeComponent).toHaveBeenCalledWith(fixture.instance.id, {
+      x: 8,
+      y: 40,
+      width: 384,
+      height: 248,
+    });
   });
 });

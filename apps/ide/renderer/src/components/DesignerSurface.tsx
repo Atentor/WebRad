@@ -9,7 +9,13 @@ import {
   type Point,
   type ResizeHandle,
 } from '@webrad/designer';
-import type { Bounds, ComponentNode, PageModel, ProjectSettings } from '@webrad/project-model';
+import type {
+  Bounds,
+  ComponentNode,
+  PageModel,
+  ProjectSettings,
+  ReusableElementModel,
+} from '@webrad/project-model';
 import type { ComponentStyleModel } from '@webrad/project-model';
 import { projectRuntimeLayout, type RuntimeContainerLayout } from '@webrad/runtime';
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
@@ -26,9 +32,12 @@ import {
   type PointerEvent,
   type ReactElement,
 } from 'react';
+import { createPortal } from 'react-dom';
+import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 
 interface DesignerSurfaceProps {
   page: PageModel;
+  reusableElements?: readonly ReusableElementModel[];
   settings: ProjectSettings;
   styles?: readonly ComponentStyleModel[];
   compiledStylesCss?: string;
@@ -37,6 +46,7 @@ interface DesignerSurfaceProps {
   zoom: number;
   onSelect: (ids: readonly string[], primaryId?: string) => void;
   onAddComponent: (type: string, point: Point, parentId: string) => void;
+  onAddReusableElement?: (reusableElementId: string, point: Point, parentId: string) => void;
   onMoveComponents: (ids: readonly string[], delta: Point) => void;
   /**
    * The host owns the structural command. `beforeComponentId` is null when the
@@ -58,6 +68,8 @@ interface DesignerSurfaceProps {
   onZoomChange: (zoom: number) => void;
   /** Activates a component-specific Designer action, such as its default event or editor. */
   onComponentActivate?: (componentId: string) => void;
+  /** Opens the source definition instead of editing reusable children in-place. */
+  onOpenReusableElement?: (reusableElementId: string) => void;
   /**
    * Legacy activation callback retained while callers migrate to
    * `onComponentActivate`.
@@ -80,6 +92,8 @@ interface LayoutNode {
   order: number;
   depth: number;
 }
+
+type DesignViewport = Pick<Bounds, 'width' | 'height'>;
 
 interface ReorderTarget {
   parentId: string;
@@ -167,6 +181,39 @@ function sameBoundsMap(
   return true;
 }
 
+function isFloatingReusableElement(node: ComponentNode): boolean {
+  return node.type === 'WebReusableElement' && node.props.placement === 'floating';
+}
+
+function floatingHorizontalAnchor(node: ComponentNode): 'left' | 'center' | 'right' {
+  const value = node.props.floatingHorizontalAnchor;
+  return value === 'center' || value === 'right' ? value : 'left';
+}
+
+function floatingVerticalAnchor(node: ComponentNode): 'top' | 'center' | 'bottom' {
+  const value = node.props.floatingVerticalAnchor;
+  return value === 'center' || value === 'bottom' ? value : 'top';
+}
+
+function floatingLayer(node: ComponentNode): number {
+  const value = node.props.floatingZIndex;
+  return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) : 100;
+}
+
+/** Converts a visual drag to the stored edge-offset axes of a floating item. */
+function movementDeltaForNode(node: ComponentNode, delta: Point): Point {
+  if (!isFloatingReusableElement(node)) return delta;
+  return {
+    x: floatingHorizontalAnchor(node) === 'right' ? -delta.x : delta.x,
+    y: floatingVerticalAnchor(node) === 'bottom' ? -delta.y : delta.y,
+  };
+}
+
+function movementSignature(node: ComponentNode): string {
+  const delta = movementDeltaForNode(node, { x: 1, y: 1 });
+  return `${isFloatingReusableElement(node) ? 'floating' : 'in-flow'}:${String(delta.x)}:${String(delta.y)}`;
+}
+
 function localBoundsWithPreview(node: ComponentNode, interaction: Interaction | null): Bounds {
   if (
     interaction?.kind === 'drag' &&
@@ -174,10 +221,11 @@ function localBoundsWithPreview(node: ComponentNode, interaction: Interaction | 
     interaction.ids.includes(node.id)
   ) {
     const original = interaction.originalBounds.get(node.id) ?? node.bounds;
+    const delta = movementDeltaForNode(node, interaction.delta);
     return {
       ...original,
-      x: original.x + interaction.delta.x,
-      y: original.y + interaction.delta.y,
+      x: original.x + delta.x,
+      y: original.y + delta.y,
     };
   }
   if (interaction?.kind === 'resize' && interaction.id === node.id) {
@@ -232,11 +280,79 @@ function projectItemStyle(
   node: ComponentNode,
   parentContainer: RuntimeContainerLayout | undefined,
   interaction: Interaction | null,
+  designViewport: DesignViewport,
 ): CSSProperties {
   const bounds = localBoundsWithPreview(node, interaction);
-  return reactStyle(projectRuntimeLayout({ ...node, bounds }, parentContainer).item, {
-    boxSizing: 'border-box',
-  });
+  const item = projectRuntimeLayout({ ...node, bounds }, parentContainer).item;
+  if (!isFloatingReusableElement(node)) {
+    return reactStyle(item, {
+      boxSizing: 'border-box',
+    });
+  }
+
+  const visualBounds = floatingVisualBounds(node, bounds, designViewport);
+  const structuralStyles = Object.fromEntries(
+    Object.entries(item).filter(
+      ([property]) => !['position', 'left', 'right', 'top', 'bottom'].includes(property),
+    ),
+  );
+  return reactStyle(
+    {
+      ...structuralStyles,
+      position: 'absolute',
+      left: `${String(visualBounds.x)}px`,
+      top: `${String(visualBounds.y)}px`,
+    },
+    {
+      boxSizing: 'border-box',
+    },
+  );
+}
+
+/** Projects persisted floating offsets to the simulated design viewport. */
+function floatingVisualBounds(
+  node: ComponentNode,
+  bounds: Bounds,
+  designViewport: DesignViewport,
+): Bounds {
+  const x =
+    floatingHorizontalAnchor(node) === 'right'
+      ? designViewport.width - bounds.x - bounds.width
+      : floatingHorizontalAnchor(node) === 'center'
+        ? designViewport.width / 2 + bounds.x - bounds.width / 2
+        : bounds.x;
+  const y =
+    floatingVerticalAnchor(node) === 'bottom'
+      ? designViewport.height - bounds.y - bounds.height
+      : floatingVerticalAnchor(node) === 'center'
+        ? designViewport.height / 2 + bounds.y - bounds.height / 2
+        : bounds.y;
+  return { ...bounds, x, y };
+}
+
+/** Converts an interactive viewport resize back to the persisted anchor offsets. */
+function floatingPersistedBounds(
+  node: ComponentNode,
+  visualBounds: Bounds,
+  designViewport: DesignViewport,
+): Bounds {
+  const x =
+    floatingHorizontalAnchor(node) === 'right'
+      ? designViewport.width - visualBounds.x - visualBounds.width
+      : floatingHorizontalAnchor(node) === 'center'
+        ? visualBounds.x - designViewport.width / 2 + visualBounds.width / 2
+        : visualBounds.x;
+  const y =
+    floatingVerticalAnchor(node) === 'bottom'
+      ? designViewport.height - visualBounds.y - visualBounds.height
+      : floatingVerticalAnchor(node) === 'center'
+        ? visualBounds.y - designViewport.height / 2 + visualBounds.height / 2
+        : visualBounds.y;
+  return { ...visualBounds, x, y };
+}
+
+function designHitZIndex(node: ComponentNode, order: number): number {
+  return isFloatingReusableElement(node) ? 10_000 + floatingLayer(node) : order + 1;
 }
 
 function projectChildrenStyle(node: ComponentNode): CSSProperties {
@@ -257,40 +373,145 @@ function parentModeOf(
   node: ComponentNode,
   byId: ReadonlyMap<string, ComponentNode>,
 ): ContainerLayoutMode {
+  if (isFloatingReusableElement(node)) return 'fixed';
   return node.parentId === null
     ? 'fixed'
     : (byId.get(node.parentId)?.layout.container.mode ?? 'fixed');
 }
 
+function reusableElementId(node: ComponentNode): string | undefined {
+  const value = node.props.reusableElementId;
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
 interface RuntimeNodeProps {
   node: ComponentNode;
   byId: ReadonlyMap<string, ComponentNode>;
+  reusableElementsById: ReadonlyMap<string, ReusableElementModel>;
   styleClassNames: ReadonlyMap<string, string>;
   parentContainer: RuntimeContainerLayout;
   interaction: Interaction | null;
+  designViewport: DesignViewport;
+  floatingHost: HTMLElement | null;
 }
 
-const RuntimeNode = memo(function RuntimeNode({
-  node,
-  byId,
-  styleClassNames,
-  parentContainer,
-  interaction,
-}: RuntimeNodeProps): ReactElement {
-  const children = node.children
+interface ReusableDefinitionNodeProps {
+  readonly node: ComponentNode;
+  readonly byId: ReadonlyMap<string, ComponentNode>;
+  readonly reusableElementsById: ReadonlyMap<string, ReusableElementModel>;
+  readonly styleClassNames: ReadonlyMap<string, string>;
+  readonly parentContainer: RuntimeContainerLayout;
+  readonly interaction: Interaction | null;
+  readonly ancestry: readonly string[];
+  readonly designViewport: DesignViewport;
+  readonly floatingHost: HTMLElement | null;
+}
+
+function renderDesignerNode(
+  node: ComponentNode,
+  floatingHost: HTMLElement | null,
+  element: ReactElement,
+): ReactElement {
+  return isFloatingReusableElement(node) && floatingHost !== null
+    ? createPortal(element, floatingHost)
+    : element;
+}
+
+function reusableVisualChildren(
+  node: ComponentNode,
+  byId: ReadonlyMap<string, ComponentNode>,
+): readonly ComponentNode[] {
+  return node.children
     .map((childId) => byId.get(childId))
     .filter(
       (child): child is ComponentNode =>
         child !== undefined && componentRegistry.get(child.type)?.visual === true,
     );
-  const isContainer = children.length > 0;
+}
+
+function ReusableDefinitionContent({
+  instance,
+  reusableElement,
+  reusableElementsById,
+  styleClassNames,
+  interaction,
+  ancestry,
+  designViewport,
+  floatingHost,
+}: {
+  readonly instance: ComponentNode;
+  readonly reusableElement: ReusableElementModel;
+  readonly reusableElementsById: ReadonlyMap<string, ReusableElementModel>;
+  readonly styleClassNames: ReadonlyMap<string, string>;
+  readonly interaction: Interaction | null;
+  readonly ancestry: readonly string[];
+  readonly designViewport: DesignViewport;
+  readonly floatingHost: HTMLElement | null;
+}): ReactElement | null {
+  if (ancestry.includes(reusableElement.id)) return null;
+  const byId = new Map(reusableElement.components.map((component) => [component.id, component]));
+  const root = byId.get(reusableElement.rootComponentId);
+  if (root === undefined) return null;
+  const children = reusableVisualChildren(root, byId);
   return (
+    <div className="wr-reusable-definition-root" data-reusable-element-id={reusableElement.id}>
+      <ComponentView
+        node={root}
+        designTime
+        styleClassName={
+          root.styleId === undefined ? undefined : (styleClassNames.get(root.styleId) ?? '')
+        }
+      >
+        {children.length > 0 && (
+          <div
+            className={`wr-runtime-children wr-runtime-children-${root.layout.container.mode}`}
+            style={projectChildrenStyle(root)}
+          >
+            {children.map((child) => (
+              <ReusableDefinitionNode
+                key={`${instance.id}:${child.id}`}
+                node={child}
+                byId={byId}
+                reusableElementsById={reusableElementsById}
+                styleClassNames={styleClassNames}
+                parentContainer={root.layout.container}
+                interaction={interaction}
+                ancestry={[...ancestry, reusableElement.id]}
+                designViewport={designViewport}
+                floatingHost={floatingHost}
+              />
+            ))}
+          </div>
+        )}
+      </ComponentView>
+    </div>
+  );
+}
+
+function ReusableDefinitionNode({
+  node,
+  byId,
+  reusableElementsById,
+  styleClassNames,
+  parentContainer,
+  interaction,
+  ancestry,
+  designViewport,
+  floatingHost,
+}: ReusableDefinitionNodeProps): ReactElement {
+  const children = reusableVisualChildren(node, byId);
+  const referencedReusableElementId = reusableElementId(node);
+  const reusableElement =
+    node.type === 'WebReusableElement' && referencedReusableElementId !== undefined
+      ? reusableElementsById.get(referencedReusableElementId)
+      : undefined;
+  const isContainer = children.length > 0 || reusableElement !== undefined;
+  const element = (
     <div
       className={`wr-runtime-node wr-runtime-item-${parentContainer.mode}${
         isContainer ? ' wr-runtime-container' : ''
       }`}
-      data-designer-node-id={node.id}
-      style={projectItemStyle(node, parentContainer, interaction)}
+      style={projectItemStyle(node, parentContainer, interaction, designViewport)}
     >
       <ComponentView
         node={node}
@@ -299,26 +520,115 @@ const RuntimeNode = memo(function RuntimeNode({
           node.styleId === undefined ? undefined : (styleClassNames.get(node.styleId) ?? '')
         }
       >
-        {isContainer && (
-          <div
-            className={`wr-runtime-children wr-runtime-children-${node.layout.container.mode}`}
-            style={projectChildrenStyle(node)}
-          >
-            {children.map((child) => (
-              <RuntimeNode
-                key={child.id}
-                node={child}
-                byId={byId}
-                styleClassNames={styleClassNames}
-                parentContainer={node.layout.container}
-                interaction={interaction}
-              />
-            ))}
-          </div>
+        {reusableElement !== undefined ? (
+          <ReusableDefinitionContent
+            instance={node}
+            reusableElement={reusableElement}
+            reusableElementsById={reusableElementsById}
+            styleClassNames={styleClassNames}
+            interaction={interaction}
+            ancestry={ancestry}
+            designViewport={designViewport}
+            floatingHost={floatingHost}
+          />
+        ) : (
+          children.length > 0 && (
+            <div
+              className={`wr-runtime-children wr-runtime-children-${node.layout.container.mode}`}
+              style={projectChildrenStyle(node)}
+            >
+              {children.map((child) => (
+                <ReusableDefinitionNode
+                  key={child.id}
+                  node={child}
+                  byId={byId}
+                  reusableElementsById={reusableElementsById}
+                  styleClassNames={styleClassNames}
+                  parentContainer={node.layout.container}
+                  interaction={interaction}
+                  ancestry={ancestry}
+                  designViewport={designViewport}
+                  floatingHost={floatingHost}
+                />
+              ))}
+            </div>
+          )
         )}
       </ComponentView>
     </div>
   );
+  return renderDesignerNode(node, floatingHost, element);
+}
+
+const RuntimeNode = memo(function RuntimeNode({
+  node,
+  byId,
+  reusableElementsById,
+  styleClassNames,
+  parentContainer,
+  interaction,
+  designViewport,
+  floatingHost,
+}: RuntimeNodeProps): ReactElement {
+  const children = reusableVisualChildren(node, byId);
+  const referencedReusableElementId = reusableElementId(node);
+  const reusableElement =
+    node.type === 'WebReusableElement' && referencedReusableElementId !== undefined
+      ? reusableElementsById.get(referencedReusableElementId)
+      : undefined;
+  const isContainer = children.length > 0 || reusableElement !== undefined;
+  const element = (
+    <div
+      className={`wr-runtime-node wr-runtime-item-${parentContainer.mode}${
+        isContainer ? ' wr-runtime-container' : ''
+      }`}
+      data-designer-node-id={node.id}
+      style={projectItemStyle(node, parentContainer, interaction, designViewport)}
+    >
+      <ComponentView
+        node={node}
+        designTime
+        styleClassName={
+          node.styleId === undefined ? undefined : (styleClassNames.get(node.styleId) ?? '')
+        }
+      >
+        {reusableElement !== undefined ? (
+          <ReusableDefinitionContent
+            instance={node}
+            reusableElement={reusableElement}
+            reusableElementsById={reusableElementsById}
+            styleClassNames={styleClassNames}
+            interaction={interaction}
+            ancestry={[]}
+            designViewport={designViewport}
+            floatingHost={floatingHost}
+          />
+        ) : (
+          children.length > 0 && (
+            <div
+              className={`wr-runtime-children wr-runtime-children-${node.layout.container.mode}`}
+              style={projectChildrenStyle(node)}
+            >
+              {children.map((child) => (
+                <RuntimeNode
+                  key={child.id}
+                  node={child}
+                  byId={byId}
+                  reusableElementsById={reusableElementsById}
+                  styleClassNames={styleClassNames}
+                  parentContainer={node.layout.container}
+                  interaction={interaction}
+                  designViewport={designViewport}
+                  floatingHost={floatingHost}
+                />
+              ))}
+            </div>
+          )
+        )}
+      </ComponentView>
+    </div>
+  );
+  return renderDesignerNode(node, floatingHost, element);
 });
 
 function reorderTargetForPoint(
@@ -429,6 +739,7 @@ function hasReorderChanged(
 
 export function DesignerSurface({
   page,
+  reusableElements = [],
   settings,
   styles = [],
   compiledStylesCss = '',
@@ -437,6 +748,7 @@ export function DesignerSurface({
   zoom,
   onSelect,
   onAddComponent,
+  onAddReusableElement,
   onMoveComponents,
   onReorderComponents,
   onResizeComponent,
@@ -449,10 +761,12 @@ export function DesignerSurface({
   onSendToBack,
   onZoomChange,
   onComponentActivate,
+  onOpenReusableElement,
   onDefaultEvent,
 }: DesignerSurfaceProps): ReactElement {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<Interaction | null>(null);
+  const [floatingHost, setFloatingHost] = useState<HTMLElement | null>(null);
   const [viewportName, setViewportName] = useState<ViewportName>('desktop');
   const [measuredBounds, setMeasuredBounds] = useState<ReadonlyMap<string, Bounds>>(
     () => new Map(),
@@ -462,6 +776,10 @@ export function DesignerSurface({
   const viewportWidth = viewport.width;
   const viewportHeight = page.height;
   const byId = useMemo(() => new Map(page.components.map((node) => [node.id, node])), [page]);
+  const reusableElementsById = useMemo(
+    () => new Map(reusableElements.map((reusableElement) => [reusableElement.id, reusableElement])),
+    [reusableElements],
+  );
   const styleClassNames = useMemo(
     () => new Map(styles.map((style) => [style.id, resolveComponentStyleClassName(style)])),
     [styles],
@@ -496,7 +814,15 @@ export function DesignerSurface({
       const node = byId.get(id);
       return node !== undefined && parentModeOf(node, byId) === 'fixed';
     });
-    return allFixed ? selectedVisualIds : [];
+    const first = selectedVisualIds[0] === undefined ? undefined : byId.get(selectedVisualIds[0]);
+    const signature = first === undefined ? undefined : movementSignature(first);
+    const matchingAxes =
+      signature !== undefined &&
+      selectedVisualIds.every((id) => {
+        const node = byId.get(id);
+        return node !== undefined && movementSignature(node) === signature;
+      });
+    return allFixed && matchingAxes ? selectedVisualIds : [];
   }, [byId, selectedVisualIds]);
 
   const measureLayout = useCallback((): void => {
@@ -525,7 +851,7 @@ export function DesignerSurface({
 
   useLayoutEffect(() => {
     measureLayout();
-  }, [interaction, measureLayout, page, viewportHeight, viewportWidth]);
+  }, [floatingHost, interaction, measureLayout, page, viewportHeight, viewportWidth]);
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
@@ -548,7 +874,7 @@ export function DesignerSurface({
       observer.disconnect();
       if (frame !== undefined) window.cancelAnimationFrame(frame);
     };
-  }, [measureLayout, page.components, viewportHeight, viewportWidth]);
+  }, [floatingHost, measureLayout, page.components, viewportHeight, viewportWidth]);
 
   const eventPoint = (event: { clientX: number; clientY: number }): Point => {
     const rectangle = surfaceRef.current?.getBoundingClientRect();
@@ -585,7 +911,19 @@ export function DesignerSurface({
     onAddComponent(type, target.point, target.parentId);
   };
 
+  const insertReusableElementAt = (reusableElementId: string, point: Point): void => {
+    const target = insertionTarget(point);
+    onAddReusableElement?.(reusableElementId, target.point, target.parentId);
+  };
+
   const activateComponent = (componentId: string): void => {
+    const component = byId.get(componentId);
+    const referencedReusableElementId =
+      component === undefined ? undefined : reusableElementId(component);
+    if (referencedReusableElementId !== undefined && onOpenReusableElement !== undefined) {
+      onOpenReusableElement(referencedReusableElementId);
+      return;
+    }
     if (onComponentActivate !== undefined) {
       onComponentActivate(componentId);
       return;
@@ -621,10 +959,19 @@ export function DesignerSurface({
       isFlowMode(parentMode) &&
       ids.length === 1 &&
       ids.every((id) => byId.get(id)?.parentId === parent.id);
-    const canMove = ids.every((id) => {
-      const selected = byId.get(id);
-      return selected !== undefined && parentModeOf(selected, byId) === 'fixed';
-    });
+    const firstSelected = ids[0] === undefined ? undefined : byId.get(ids[0]);
+    const selectedSignature =
+      firstSelected === undefined ? undefined : movementSignature(firstSelected);
+    const canMove =
+      selectedSignature !== undefined &&
+      ids.every((id) => {
+        const selected = byId.get(id);
+        return (
+          selected !== undefined &&
+          parentModeOf(selected, byId) === 'fixed' &&
+          movementSignature(selected) === selectedSignature
+        );
+      });
     // Flow items have no meaningful x/y to mutate. Block a mixed selection
     // rather than accidentally issuing a MoveCommand for invisible bounds.
     if (!canReorder && !canMove) return;
@@ -673,8 +1020,12 @@ export function DesignerSurface({
       containerBounds: {
         x: 0,
         y: 0,
-        width: measuredParent?.width ?? parent?.bounds.width ?? viewportWidth,
-        height: measuredParent?.height ?? parent?.bounds.height ?? viewportHeight,
+        width: isFloatingReusableElement(node)
+          ? viewportWidth
+          : (measuredParent?.width ?? parent?.bounds.width ?? viewportWidth),
+        height: isFloatingReusableElement(node)
+          ? viewportHeight
+          : (measuredParent?.height ?? parent?.bounds.height ?? viewportHeight),
       },
     });
   };
@@ -722,15 +1073,33 @@ export function DesignerSurface({
       });
       setInteraction({ ...interaction, delta });
     } else if (interaction.kind === 'resize') {
+      const node = byId.get(interaction.id);
+      const resizeOptions = {
+        snapToGrid: settings.snapToGrid,
+        gridSize: settings.gridSize,
+        minWidth: 8,
+        minHeight: 8,
+        containerBounds: interaction.containerBounds,
+      };
+      const currentBounds =
+        node !== undefined && isFloatingReusableElement(node)
+          ? floatingPersistedBounds(
+              node,
+              resizeBounds(
+                floatingVisualBounds(node, interaction.originalBounds, {
+                  width: viewportWidth,
+                  height: viewportHeight,
+                }),
+                interaction.handle,
+                requested,
+                resizeOptions,
+              ),
+              { width: viewportWidth, height: viewportHeight },
+            )
+          : resizeBounds(interaction.originalBounds, interaction.handle, requested, resizeOptions);
       setInteraction({
         ...interaction,
-        currentBounds: resizeBounds(interaction.originalBounds, interaction.handle, requested, {
-          snapToGrid: settings.snapToGrid,
-          gridSize: settings.gridSize,
-          minWidth: 8,
-          minHeight: 8,
-          containerBounds: interaction.containerBounds,
-        }),
+        currentBounds,
       });
     } else {
       setInteraction({ ...interaction, current });
@@ -741,7 +1110,11 @@ export function DesignerSurface({
     if (!interaction || interaction.pointerId !== event.pointerId) return;
     if (interaction.kind === 'drag') {
       if (interaction.mode === 'move' && (interaction.delta.x !== 0 || interaction.delta.y !== 0)) {
-        onMoveComponents(interaction.ids, interaction.delta);
+        const first = interaction.ids[0] === undefined ? undefined : byId.get(interaction.ids[0]);
+        onMoveComponents(
+          interaction.ids,
+          first === undefined ? interaction.delta : movementDeltaForNode(first, interaction.delta),
+        );
       } else if (interaction.mode === 'reorder') {
         const firstId = interaction.ids[0];
         const dragged = firstId === undefined ? undefined : byId.get(firstId);
@@ -792,7 +1165,14 @@ export function DesignerSurface({
       const delta = deltas[event.key];
       if (delta) {
         event.preventDefault();
-        onMoveComponents(positionMovableSelectedIds, delta);
+        const first =
+          positionMovableSelectedIds[0] === undefined
+            ? undefined
+            : byId.get(positionMovableSelectedIds[0]);
+        onMoveComponents(
+          positionMovableSelectedIds,
+          first === undefined ? delta : movementDeltaForNode(first, delta),
+        );
       }
     } else if (event.key === 'Delete') {
       event.preventDefault();
@@ -814,6 +1194,11 @@ export function DesignerSurface({
 
   const handleDrop = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault();
+    const reusableElementId = event.dataTransfer.getData(WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE);
+    if (reusableElementId.length > 0) {
+      insertReusableElementAt(reusableElementId, eventPoint(event));
+      return;
+    }
     const type = event.dataTransfer.getData('application/x-webrad-component');
     if (type) insertAt(type, eventPoint(event));
   };
@@ -912,15 +1297,19 @@ export function DesignerSurface({
                         key={child.id}
                         node={child}
                         byId={byId}
+                        reusableElementsById={reusableElementsById}
                         styleClassNames={styleClassNames}
                         parentContainer={root.layout.container}
                         interaction={interaction}
+                        designViewport={{ width: viewportWidth, height: viewportHeight }}
+                        floatingHost={floatingHost}
                       />
                     ) : null;
                   })}
                 </div>
               </ComponentView>
             )}
+            <div className="wr-designer-floating-layer" ref={setFloatingHost} />
             <div
               className="wr-design-overlay"
               onPointerDown={startMarquee}
@@ -943,7 +1332,7 @@ export function DesignerSurface({
                       top: absoluteBounds.y,
                       width: absoluteBounds.width,
                       height: absoluteBounds.height,
-                      zIndex: order + 1,
+                      zIndex: designHitZIndex(node, order),
                     }}
                     title={`${node.name}: ${node.type}${
                       parentMode === 'align-to-parent'

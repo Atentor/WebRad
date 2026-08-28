@@ -58,6 +58,7 @@ export interface RuntimeLayoutNode {
   readonly type?: string;
   readonly bounds: RuntimeLayoutBounds;
   readonly children?: readonly string[];
+  readonly props?: Readonly<Record<string, unknown>>;
   /** Optional only to preserve mounting of pre-responsive generated models. */
   readonly layout?: RuntimeComponentLayout;
 }
@@ -72,6 +73,8 @@ export interface RuntimeLayoutProjection {
 export interface ApplyRuntimeLayoutOptions {
   /** The root owns the viewport instead of taking its legacy bounds. */
   readonly isPageRoot?: boolean;
+  /** A reusable definition root fills its placement instance. */
+  readonly isReusableRoot?: boolean;
 }
 
 const DEFAULT_CONTAINER_LAYOUT: RuntimeContainerLayout = Object.freeze({
@@ -129,6 +132,7 @@ const LAYOUT_PROPERTIES = [
   'top',
   'translate',
   'width',
+  'z-index',
 ] as const;
 
 function finite(value: unknown, fallback: number): number {
@@ -258,6 +262,63 @@ function fixedItemStyles(
     top: coordinatePixels(node.bounds.y),
     width: pixels(node.bounds.width),
     height: pixels(node.bounds.height),
+    ...minMaxStyles(item),
+  };
+}
+
+function floatingAnchor(
+  value: unknown,
+  fallback: 'left' | 'center' | 'right',
+): 'left' | 'center' | 'right' {
+  return value === 'left' || value === 'center' || value === 'right' ? value : fallback;
+}
+
+function floatingVerticalAnchor(
+  value: unknown,
+  fallback: 'top' | 'center' | 'bottom',
+): 'top' | 'center' | 'bottom' {
+  return value === 'top' || value === 'center' || value === 'bottom' ? value : fallback;
+}
+
+function isFloatingReusableElement(node: RuntimeLayoutNode): boolean {
+  return node.type === 'WebReusableElement' && node.props?.placement === 'floating';
+}
+
+/**
+ * Floating reusable instances are viewport-owned overlays. Their persisted
+ * bounds remain the instance's responsive design-time dimensions; anchors
+ * only choose the viewport edge from which x/y offsets are measured.
+ */
+function floatingReusableItemStyles(
+  node: RuntimeLayoutNode,
+  item: RuntimeLayoutItem,
+): Readonly<Record<string, string>> {
+  const horizontal = floatingAnchor(node.props?.floatingHorizontalAnchor, 'left');
+  const vertical = floatingVerticalAnchor(node.props?.floatingVerticalAnchor, 'top');
+  const zIndex = finite(node.props?.floatingZIndex, 100);
+  const horizontalStyles: Readonly<Record<string, string>> =
+    horizontal === 'right'
+      ? { right: coordinatePixels(node.bounds.x) }
+      : horizontal === 'center'
+        ? {
+            left: `calc(50vw + ${coordinatePixels(node.bounds.x)} - ${pixels(node.bounds.width / 2)})`,
+          }
+        : { left: coordinatePixels(node.bounds.x) };
+  const verticalStyles: Readonly<Record<string, string>> =
+    vertical === 'bottom'
+      ? { bottom: coordinatePixels(node.bounds.y) }
+      : vertical === 'center'
+        ? {
+            top: `calc(50dvh + ${coordinatePixels(node.bounds.y)} - ${pixels(node.bounds.height / 2)})`,
+          }
+        : { top: coordinatePixels(node.bounds.y) };
+  return {
+    position: 'fixed',
+    ...horizontalStyles,
+    ...verticalStyles,
+    width: pixels(node.bounds.width),
+    height: pixels(node.bounds.height),
+    'z-index': String(Math.trunc(zIndex)),
     ...minMaxStyles(item),
   };
 }
@@ -395,6 +456,7 @@ function projectItem(
   parent: RuntimeContainerLayout | undefined,
 ): Readonly<Record<string, string>> {
   const item = normalizeItem(node.layout);
+  if (isFloatingReusableElement(node)) return floatingReusableItemStyles(node, item);
   const mode = parent?.mode ?? 'fixed';
   switch (mode) {
     case 'align-to-parent':
@@ -455,7 +517,15 @@ export function applyRuntimeLayout(
         height: '100dvh',
         'min-height': '100dvh',
       }
-    : projection.item;
+    : options.isReusableRoot
+      ? {
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          'min-width': '0px',
+          'min-height': '0px',
+        }
+      : projection.item;
   setImportantStyles(element, { ...projection.container, ...rootStyles });
   return projection;
 }

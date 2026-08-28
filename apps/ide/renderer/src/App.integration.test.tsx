@@ -843,9 +843,6 @@ describe('App MVP integration', () => {
       configurable: true,
       value: harness.bridge,
     });
-    const prompt = vi
-      .spyOn(window, 'prompt')
-      .mockImplementation((_message, defaultValue) => defaultValue ?? null);
     const user = userEvent.setup();
 
     render(<App />);
@@ -855,7 +852,14 @@ describe('App MVP integration', () => {
       harness.invokeCommand('project.addPage');
     });
 
-    expect(prompt).toHaveBeenCalledWith('Page name', 'Page2');
+    const dialog = await screen.findByRole('dialog', { name: 'Add page' });
+    const pageName = within(dialog).getByRole('textbox', { name: 'Page name' });
+    expect((pageName as HTMLInputElement).value).toBe('Page2');
+    await user.click(within(dialog).getByRole('button', { name: 'Add page' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Add page' })).toBeNull();
+    });
+
     expect((await screen.findAllByText('Page2')).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await screen.findByText('Saved MvpProject.');
@@ -866,6 +870,53 @@ describe('App MVP integration', () => {
     expect(harness.persisted().userSources['pages/Page2.ts']).toContain(
       'export class Page2 extends Page2Generated',
     );
+  });
+
+  it('creates a reusable definition and inserts its page-owned instance', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await act(async () => {
+      harness.invokeCommand('project.addReusableElement');
+    });
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add reusable component' });
+    const name = within(dialog).getByRole('textbox', { name: 'Reusable component name' });
+    await user.clear(name);
+    await user.type(name, 'CustomerCard');
+    await user.click(within(dialog).getByRole('button', { name: 'Add reusable component' }));
+    const projectTree = screen.getByRole('tree', { name: 'MvpProject project' });
+    await within(projectTree).findByRole('treeitem', { name: 'CustomerCard', selected: true });
+    const openDocuments = screen.getByRole('tablist', { name: 'Open documents' });
+    expect(
+      within(openDocuments).getByRole('tab', { name: /CustomerCard/, selected: true }),
+    ).toBeDefined();
+    expect(screen.queryByRole('tab', { name: 'Code' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Design' })).toBeDefined();
+
+    await user.click(screen.getByRole('treeitem', { name: /PageMain/ }));
+    await screen.findByRole('tab', { name: 'Code' });
+    await user.click(
+      screen.getByTitle('Insert CustomerCard; drag it onto the page or click to insert'),
+    );
+    await screen.findByTitle('Reusable1: WebReusableElement');
+
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await screen.findByText('Saved MvpProject.');
+    const saved = harness.persisted().project;
+    const reusable = saved.reusableElements[0];
+    expect(reusable).toMatchObject({ name: 'CustomerCard' });
+    expect(
+      saved.pages[0]?.components.find((component) => component.type === 'WebReusableElement')
+        ?.props,
+    ).toMatchObject({ reusableElementId: reusable?.id, placement: 'in-flow' });
   });
 
   it('preserves the latest Monaco buffer after focus leaves the editor and Design-Code remounts it', async () => {

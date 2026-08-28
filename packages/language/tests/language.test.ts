@@ -28,6 +28,7 @@ interface MvpComponentFixture {
 
 const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-panel-main', type: 'WebPanel', name: 'PanelMain' },
+  { id: 'reusable-card', type: 'WebReusableElement', name: 'ReusableCard' },
   { id: 'stable-label-status', type: 'WebLabel', name: 'LBLStatus' },
   { id: 'stable-edit-name', type: 'WebEdit', name: 'EDTNome' },
   { id: 'stable-text-area-notes', type: 'WebTextArea', name: 'MEMNotas' },
@@ -76,7 +77,17 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
             }
           : fixture.type === 'WebButton'
             ? { caption: 'Mostrar', visible: true, enabled: true }
-            : {},
+            : fixture.type === 'WebReusableElement'
+              ? {
+                  reusableElementId: 'shared-card',
+                  placement: 'in-flow',
+                  floatingHorizontalAnchor: 'left',
+                  floatingVerticalAnchor: 'top',
+                  floatingZIndex: 100,
+                  visible: true,
+                  enabled: true,
+                }
+              : {},
     events:
       fixture.type === 'WebButton'
         ? { OnClick: 'BTNMostrarClick' }

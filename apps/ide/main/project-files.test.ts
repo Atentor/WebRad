@@ -5,15 +5,18 @@ import {
   addComponent,
   addComponentStyle,
   addPage,
+  addReusableElement,
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
   createComponentStyle,
   createDefaultComponentLayout,
   createPage,
+  createReusableElement,
   removePage,
   setComponentStyle,
   updatePage,
 } from '@webrad/project-model';
+import { defaultComponentRegistry } from '@webrad/component-registry';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProjectFiles,
@@ -136,6 +139,75 @@ describe('project files', () => {
 
     const loaded = await loadProjectFiles(saved.projectFilePath);
     expect(loaded.project).toEqual(project);
+  });
+
+  it('persists reusable definitions in the manifest and restores instance references', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-reusable-elements-'));
+    temporaryRoots.push(parent);
+    const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
+    const reusableDefinition = createReusableElement('CustomerCard', {
+      idFactory: (() => {
+        let sequence = 0;
+        return () => `customer-card-${String((sequence += 1))}`;
+      })(),
+      width: 240,
+      height: 96,
+    });
+    const withReusableDefinition = addReusableElement(initial.project, reusableDefinition);
+    const page = withReusableDefinition.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+
+    const reusableInstance = defaultComponentRegistry.createComponent('WebReusableElement', {
+      id: 'customer-card-instance',
+      name: 'CustomerCardInstance',
+      parentId: page.rootComponentId,
+      x: 24,
+      y: 36,
+      props: {
+        reusableElementId: reusableDefinition.id,
+        placement: 'floating',
+        floatingHorizontalAnchor: 'right',
+        floatingVerticalAnchor: 'bottom',
+        floatingZIndex: 220,
+      },
+    });
+    const project = updatePage(
+      withReusableDefinition,
+      page.id,
+      addComponent(page, reusableInstance, page.rootComponentId),
+    );
+
+    const saved = await saveProjectFiles({
+      rootPath: initial.rootPath,
+      project,
+      userSources: defaultUserSources(project),
+    });
+    const manifest = JSON.parse(await fs.readFile(saved.projectFilePath, 'utf8')) as {
+      reusableElements: {
+        id: string;
+        name: string;
+        rootComponentId: string;
+        components: { id: string }[];
+      }[];
+    };
+
+    expect(manifest.reusableElements).toHaveLength(1);
+    expect(manifest.reusableElements[0]).toMatchObject({
+      id: reusableDefinition.id,
+      name: reusableDefinition.name,
+      rootComponentId: reusableDefinition.rootComponentId,
+    });
+    expect(manifest.reusableElements[0]?.components.map((component) => component.id)).toEqual(
+      reusableDefinition.components.map((component) => component.id),
+    );
+
+    const loaded = await loadProjectFiles(saved.projectFilePath);
+    expect(loaded.project.reusableElements).toEqual(project.reusableElements);
+    expect(
+      loaded.project.pages[0]?.components.find((component) => component.id === reusableInstance.id)
+        ?.props.reusableElementId,
+    ).toBe(reusableDefinition.id);
   });
 
   it('preserves an owned authored source when the request source map omits it', async () => {

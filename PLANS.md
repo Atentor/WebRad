@@ -27,7 +27,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: The renderer toolbar uses compact grouped actions without duplicate WebRAD branding or a theme button; theme switching remains available from Tools > Toggle Theme.
 - DONE: Problems, Output, and Build are docked in the editor column below the nonvisual component tray, while the side rails remain full-height.
 - DONE: Project Explorer Styles provides persisted, reusable, component-compatible Tailwind styles with metadata-driven visual properties for five states, including exclusive solid/gradient choices for text, backgrounds, and radius-safe layered borders, live Designer preview, Inspector assignment, and static compiler output without requiring class or code entry.
-- DONE: New projects seed an editable Aurora default style for every visual component; page roots and visual palette/canvas insertion bind the compatible default automatically, while the protected defaults remain available for future components.
+- DONE: New projects seed an editable Aurora default style for every standard visual rendering component; page roots and visual palette/canvas insertion bind the compatible default automatically, while the transparent reusable-placement wrapper remains unstyled and the protected defaults remain available for future components.
 - DONE: Buttons support an expanded shared local SVG catalogue: the Default Button uses text plus a left 16px icon, the `Icon` style group owns its base presentation plus state-aware color and size, those settings render consistently in the Styles preview, Designer, and generated browser runtime, and each button selects its typed icon from an accessible visual gallery with canonical ID/label search. Search recognizes common aliases such as `log in` and `door enter` without displaying redundant icon choices.
 - DONE: The Styles editor adapts to its actual available workspace width, avoiding horizontal overflow beside IDE rails while keeping the live preview visible during property scrolling.
 - DONE: The root `Icon.svg` is the canonical application icon for native packages, windows, installers, favicon, and renderer branding.
@@ -54,6 +54,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: API Client uses a finite two-panel workspace with an explicit, always visible right-editor scrollbar for dynamic request and response contracts; operations retain an independent list scroll and accessible destructive action.
 - DONE: Dynamic response-schema sections preserve their full intrinsic height, so overflow reaches the right editor's scrollbar instead of being clipped inside the response card.
 - DONE: The Data Grid configurator uses a narrower, cleaner responsive surface with aligned appearance toggles, lighter section hierarchy, compact column cards, and fixed actions around one content scroll area.
+- DONE: Reusable Components are page-shaped, design-only visual definitions stored inline in the project manifest. A named definition can be dragged or inserted into any page as a stable-ID `WebReusableElement` reference, including nested acyclic definitions; instances retain their own responsive layout or can be made viewport-fixed with anchors and layer. Runtime expansion scopes each rendered definition node to its placement, preventing DOM/runtime identity collisions. The current vertical slice intentionally has no reusable code-behind or event binding surface.
 
 ## Validation evidence
 
@@ -69,6 +70,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Responsive-layout tests cover version 2 validation and serialization, Registry controls, runtime fixed/anchored/flex projection, Designer viewport reflow, and drag reorder for row/column containers.
 - Dynamic Data Grid tests cover v1-to-v2 configuration migration, fixed and dynamic track constraints, dialog save/cancel/reorder behavior, Inspector persistence, base-only reusable line/header/footer styles, Designer projection, generated runtime behavior, and public runtime-typing parity.
 - Data Grid runtime regression coverage verifies that multiple grids bound to one API Client replace their rows after each successful execution.
+- Reusable Component coverage validates legacy v2 normalization without `reusableElements`, valid and unknown references, cyclic-reference rejection, removal protection, Designer palette/drop behavior, and runtime expansion/floating layout isolation.
 - The development and packaged smokes start the real Forge bundles, open a Hello project through the UI/preload/IPC path, verify the Monaco editor through F12, dispatch F9, wait for `PreviewPane`, enter `Ada`, click the generated button inside the sandbox, verify `Olá Ada`, then exit automatically.
 
 ## Decision log
@@ -84,6 +86,8 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Keep nonvisual nodes in the Project Model and tray, construct their typed services in generated code, and omit them from the final DOM model.
 - Keep the API Client's request and response contract in an optional, schema-versioned component property so existing format-v2 projects remain readable without a project-format migration.
 - Persist only API operation metadata and selected response-schema definitions, never sampled response data; stable operation and schema-node IDs are future binding keys.
+- Persist reusable visual definitions inline as `reusableElements` in the `.wrproj` manifest rather than treating them as navigable pages or generating independent source files. A `WebReusableElement` stores only a stable reference and placement-owned layout; validation rejects missing references and recursive definition graphs, and removal remains safe-by-default while references exist.
+- Expand reusable definitions only in the browser runtime. The Project Model preserves immutable template IDs, while each placement receives scoped physical runtime IDs; floating placement is an instance-level viewport overlay and never changes the shared definition.
 - Send API Client test and generated-runtime traffic with browser `fetch`; do not route arbitrary endpoints through Electron, and preserve the target API's CORS and authentication boundary.
 - Treat `Icon.svg` as the application icon source of truth; commit checked PNG/ICO/ICNS derivatives required by native platforms.
 - Resolve compiler resources from `node_modules` during Forge development and from copied `resources` in packaged applications; never rely on the Vite main bundle directory for TypeScript standard libraries.

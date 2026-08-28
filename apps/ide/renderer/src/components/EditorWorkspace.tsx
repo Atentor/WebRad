@@ -8,7 +8,7 @@ export interface DocumentTab {
   id: string;
   label: string;
   dirty: boolean;
-  kind: 'page' | 'code' | 'styles';
+  kind: 'page' | 'reusable' | 'code' | 'styles';
 }
 
 interface EditorWorkspaceProps {
@@ -48,6 +48,8 @@ export function EditorWorkspace({
                 <Icon name="palette" className="wr-document-style-icon" />
               ) : document.kind === 'page' ? (
                 <Icon name="page" className="wr-document-page-icon" />
+              ) : document.kind === 'reusable' ? (
+                <span aria-hidden="true">R</span>
               ) : (
                 <span aria-hidden="true">TS</span>
               )}
@@ -72,7 +74,10 @@ export function EditorWorkspace({
         ) : (
           <>
             <div className="wr-view-tabs" role="tablist" aria-label="Document view">
-              {(['design', 'code', 'preview'] as const).map((view) => (
+              {(activeDocument?.kind === 'reusable'
+                ? (['design'] as const)
+                : (['design', 'code', 'preview'] as const)
+              ).map((view) => (
                 <button
                   key={view}
                   type="button"

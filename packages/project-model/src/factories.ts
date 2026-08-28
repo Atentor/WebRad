@@ -5,7 +5,13 @@ import {
   DEFAULT_COMPONENT_STYLE_DEFINITIONS,
 } from './default-styles.js';
 import { assertValidProjectName, assertValidTypeScriptIdentifier } from './naming.js';
-import { parseComponentStyle, parsePage, parseProject, parseProjectManifest } from './schemas.js';
+import {
+  parseComponentStyle,
+  parsePage,
+  parseProject,
+  parseProjectManifest,
+  parseReusableElement,
+} from './schemas.js';
 import {
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
@@ -21,6 +27,7 @@ import {
   type ComponentStyleStateName,
   type PageDescriptor,
   type PageModel,
+  type ReusableElementModel,
   type IdFactory,
   type ProjectManifest,
   type ProjectSettings,
@@ -150,6 +157,58 @@ export function createPage(
   });
 }
 
+export type CreateReusableElementOptions = CreateDefaultRootOptions;
+
+/**
+ * Creates a page-shaped reusable visual definition. Its WebPanel root makes
+ * it safe to mount inside another page without inheriting page lifecycle or
+ * viewport ownership semantics.
+ */
+export function createReusableElement(
+  name = 'ReusableElement',
+  options: CreateReusableElementOptions | IdFactory = {},
+): ReusableElementModel {
+  assertValidTypeScriptIdentifier(name);
+  const idFactory = resolveFactory(options);
+  const width = typeof options === 'function' ? 360 : (options.width ?? 360);
+  const height = typeof options === 'function' ? 240 : (options.height ?? 240);
+  const caption = typeof options === 'function' ? name : (options.caption ?? name);
+  const reusableId = idFactory();
+  const root: ComponentNode = {
+    id: idFactory(),
+    type: 'WebPanel',
+    name,
+    parentId: null,
+    layout: createDefaultComponentLayout(),
+    bounds: { x: 0, y: 0, width, height },
+    props: {
+      caption,
+      visible: true,
+      enabled: true,
+      backgroundColor: 'transparent',
+      borderColor: '#808080',
+    },
+    events: {
+      OnClick: null,
+      OnDblClick: null,
+      OnMouseEnter: null,
+      OnMouseLeave: null,
+    },
+    children: [],
+  };
+
+  return parseReusableElement({
+    formatVersion: CURRENT_PAGE_FORMAT_VERSION,
+    id: reusableId,
+    name,
+    caption,
+    width,
+    height,
+    components: [root],
+    rootComponentId: root.id,
+  });
+}
+
 export interface CreateProjectOptions {
   readonly idFactory?: IdFactory;
   readonly pageName?: string;
@@ -195,6 +254,7 @@ export function createProject(
     name,
     entryPage: page.id,
     pages: [styledPage],
+    reusableElements: [],
     styles,
     settings,
   });
@@ -220,6 +280,7 @@ export function projectToManifest(project: WebRadProject): ProjectManifest {
     name: parsed.name,
     entryPage: parsed.entryPage,
     pages: parsed.pages.map(createPageDescriptor),
+    reusableElements: parsed.reusableElements,
     styles: parsed.styles,
     settings: parsed.settings,
   });
@@ -267,6 +328,7 @@ export function assembleProject(
     name: manifest.name,
     entryPage: manifest.entryPage,
     pages,
+    reusableElements: manifest.reusableElements,
     styles: manifest.styles,
     settings: manifest.settings,
   });
@@ -274,4 +336,5 @@ export function assembleProject(
 
 export const createWebRadProject = createProject;
 export const createPageModel = createPage;
+export const createReusableElementModel = createReusableElement;
 export const toProjectManifest = projectToManifest;

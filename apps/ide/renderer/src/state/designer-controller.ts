@@ -12,8 +12,8 @@ import {
 import {
   bindComponentEvent,
   getComponent,
-  parsePage,
-  serializePage,
+  parseVisualDocument,
+  serializeVisualDocument,
   type ComponentNode,
   type PageModel,
 } from '@webrad/project-model';
@@ -85,7 +85,7 @@ class ChangeStyleCommand implements Command<PageModel> {
     page: PageModel,
     resolveStyleId: (component: ComponentNode) => string | null | undefined,
   ): PageModel {
-    return parsePage({
+    return parseVisualDocument({
       ...page,
       components: page.components.map((component) =>
         this.#componentIds.has(component.id)
@@ -136,14 +136,14 @@ class ChangeRootPropertyCommand implements Command<PageModel> {
           ? { ...component, bounds: { ...component.bounds, [this.#propertyName]: value } }
           : component,
       );
-      return parsePage({ ...page, [this.#propertyName]: value, components });
+      return parseVisualDocument({ ...page, [this.#propertyName]: value, components });
     }
     const components = page.components.map((component) =>
       component.id === root.id
         ? { ...component, props: { ...component.props, [this.#propertyName]: value } }
         : component,
     );
-    return parsePage({
+    return parseVisualDocument({
       ...page,
       caption: this.#propertyName === 'caption' && typeof value === 'string' ? value : page.caption,
       components,
@@ -167,7 +167,10 @@ export class DesignerController {
       this.#histories.set(page.id, created);
       return created;
     }
-    if (current.state !== page && serializePage(current.state) !== serializePage(page)) {
+    if (
+      current.state !== page &&
+      serializeVisualDocument(current.state) !== serializeVisualDocument(page)
+    ) {
       current.reset(page);
     }
     return current;

@@ -1,16 +1,22 @@
 import {
   addComponentStyle,
   addPage as addPageToProject,
+  addReusableElement as addReusableElementToProject,
   createComponentStyle,
   getPage,
+  getReusableElement,
   parseProject,
   removeComponentStyle,
   removePage as removePageFromProject,
+  removeReusableElement as removeReusableElementFromProject,
   renamePage as renamePageInProject,
+  renameReusableElement as renameReusableElementInProject,
   updateComponentStyle,
   updatePage as updateProjectPage,
+  updateReusableElement as updateProjectReusableElement,
   type ComponentStyleModel,
   type PageModel,
+  type ReusableElementModel,
   type WebRadProject,
 } from '@webrad/project-model';
 import { createUserPageSource, renamePageUserSource } from '@webrad/language';
@@ -264,6 +270,24 @@ export class ProjectController {
     return getPage(this.#requireProject(), pageId);
   }
 
+  public updateReusableElement(
+    reusableElementId: string,
+    updater: (reusableElement: ReusableElementModel) => ReusableElementModel,
+  ): void {
+    const project = this.#requireProject();
+    this.replaceProject(updateProjectReusableElement(project, reusableElementId, updater));
+  }
+
+  public findReusableElement(reusableElementId: string): ReusableElementModel | undefined {
+    return this.#snapshot.project?.reusableElements.find(
+      (reusableElement) => reusableElement.id === reusableElementId,
+    );
+  }
+
+  public getReusableElement(reusableElementId: string): ReusableElementModel {
+    return getReusableElement(this.#requireProject(), reusableElementId);
+  }
+
   public setUserSource(relativePath: string, source: string): void {
     const normalizedPath = relativePath.replaceAll('\\', '/');
     if (this.#snapshot.userSources[normalizedPath] === source) return;
@@ -293,6 +317,23 @@ export class ProjectController {
       [key]: this.#snapshot.userSources[key] ?? createUserPageSource(page),
     };
     this.#commitEdit(project, userSources);
+  }
+
+  public addReusableElement(reusableElement: ReusableElementModel): void {
+    const project = addReusableElementToProject(this.#requireProject(), reusableElement);
+    this.#commitEdit(project, this.#snapshot.userSources);
+  }
+
+  public removeReusableElement(reusableElementId: string): void {
+    this.replaceProject(
+      removeReusableElementFromProject(this.#requireProject(), reusableElementId),
+    );
+  }
+
+  public renameReusableElement(reusableElementId: string, name: string): void {
+    this.replaceProject(
+      renameReusableElementInProject(this.#requireProject(), reusableElementId, name),
+    );
   }
 
   public removePage(pageId: string): void {

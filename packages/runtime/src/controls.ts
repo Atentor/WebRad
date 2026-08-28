@@ -451,3 +451,54 @@ export class WebPanel extends WebComponent<HTMLElement> {
     this.element.setAttribute('aria-label', value);
   }
 }
+
+/**
+ * Wrapper for one placement of a project reusable definition. The definition
+ * is expanded by mountPage(), while this component owns the instance element
+ * that generated page code can address.
+ */
+export class WebReusableElement extends WebPanel {
+  public get reusableElementId(): string {
+    return this.element.dataset.webradReusableElementId ?? '';
+  }
+
+  public set reusableElementId(value: string) {
+    this.element.dataset.webradReusableElementId = value;
+  }
+
+  public get placement(): 'in-flow' | 'floating' {
+    return this.element.dataset.webradReusablePlacement === 'floating' ? 'floating' : 'in-flow';
+  }
+
+  public set placement(value: 'in-flow' | 'floating') {
+    this.element.dataset.webradReusablePlacement = value;
+  }
+
+  public get floatingHorizontalAnchor(): 'left' | 'center' | 'right' {
+    const value = this.element.dataset.webradFloatingHorizontalAnchor;
+    return value === 'center' || value === 'right' ? value : 'left';
+  }
+
+  public set floatingHorizontalAnchor(value: 'left' | 'center' | 'right') {
+    this.element.dataset.webradFloatingHorizontalAnchor = value;
+  }
+
+  public get floatingVerticalAnchor(): 'top' | 'center' | 'bottom' {
+    const value = this.element.dataset.webradFloatingVerticalAnchor;
+    return value === 'center' || value === 'bottom' ? value : 'top';
+  }
+
+  public set floatingVerticalAnchor(value: 'top' | 'center' | 'bottom') {
+    this.element.dataset.webradFloatingVerticalAnchor = value;
+  }
+
+  public get floatingZIndex(): number {
+    const value = Number(this.element.dataset.webradFloatingZIndex);
+    return Number.isFinite(value) ? value : 100;
+  }
+
+  public set floatingZIndex(value: number) {
+    if (!Number.isFinite(value)) throw new TypeError('floatingZIndex must be finite.');
+    this.element.dataset.webradFloatingZIndex = String(Math.trunc(value));
+  }
+}

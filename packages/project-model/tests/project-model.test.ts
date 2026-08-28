@@ -13,12 +13,14 @@ import {
   addComponent,
   addComponentStyle,
   addPage,
+  addReusableElement,
   assembleProject,
   bindComponentEvent,
   createDefaultComponentLayout,
   createComponentStyle,
   createPage,
   createProject,
+  createReusableElement,
   createSequentialName,
   deserializePage,
   deserializeProject,
@@ -29,6 +31,7 @@ import {
   projectToManifest,
   removeComponent,
   removeComponentStyle,
+  removeReusableElement,
   renameComponent,
   renamePage,
   safeDeserializeProject,
@@ -756,6 +759,211 @@ describe('zod validation', () => {
         classes: { base: 'bg-red-500' },
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('reusable elements', () => {
+  it('normalizes a legacy v2 project without reusableElements to an empty collection', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const legacy = JSON.parse(serializeProject(project)) as Record<string, unknown>;
+    delete legacy.reusableElements;
+
+    const parsed = deserializeProject(JSON.stringify(legacy));
+
+    expect(parsed.reusableElements).toEqual([]);
+    expect(serializeProject(parsed)).toContain('"reusableElements": []');
+  });
+
+  it('accepts a page instance that references a registered reusable definition', () => {
+    const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const reusable = createReusableElement(
+      'Navigation',
+      idSequence('navigation-id', 'navigation-root-id'),
+    );
+    const withReusable = addReusableElement(initial, reusable);
+    const page = withReusable.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+
+    const pageWithInstance = addComponent(
+      page,
+      component(
+        'navigation-instance-id',
+        'WebReusableElement',
+        'Navigation1',
+        page.rootComponentId,
+        {
+          reusableElementId: reusable.id,
+        },
+      ),
+    );
+    const project = updatePage(withReusable, page.id, () => pageWithInstance);
+
+    const parsed = safeParseProject(project);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.reusableElements).toEqual([
+      expect.objectContaining({ id: reusable.id, name: 'Navigation' }),
+    ]);
+    expect(
+      parsed.data.pages[0]?.components.find((node) => node.id === 'navigation-instance-id')?.props,
+    ).toMatchObject({
+      reusableElementId: reusable.id,
+      placement: 'in-flow',
+      floatingHorizontalAnchor: 'left',
+      floatingVerticalAnchor: 'top',
+      floatingZIndex: 100,
+    });
+  });
+
+  it('rejects invalid reusable placement settings in the aggregate model', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const reusable = createReusableElement(
+      'Navigation',
+      idSequence('navigation-id', 'navigation-root-id'),
+    );
+    const withReusable = addReusableElement(project, reusable);
+    const page = withReusable.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+
+    const pageWithInvalidInstance = addComponent(
+      page,
+      component(
+        'invalid-floating-instance-id',
+        'WebReusableElement',
+        'InvalidFloating',
+        page.rootComponentId,
+        {
+          reusableElementId: reusable.id,
+          placement: 'viewport',
+          floatingHorizontalAnchor: 'middle',
+          floatingVerticalAnchor: 'middle',
+          floatingZIndex: 1.5,
+        },
+      ),
+    );
+
+    const result = safeParseProject({ ...withReusable, pages: [pageWithInvalidInstance] });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.filter((issue) =>
+          issue.message.includes('reusable component floating'),
+        ),
+      ).toHaveLength(3);
+      expect(result.error.issues.some((issue) => issue.message.includes('placement must be'))).toBe(
+        true,
+      );
+    }
+  });
+
+  it('rejects an instance that references an unknown reusable definition', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const page = project.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+    const pageWithInvalidInstance = addComponent(
+      page,
+      component(
+        'missing-instance-id',
+        'WebReusableElement',
+        'MissingReusable',
+        page.rootComponentId,
+        {
+          reusableElementId: 'missing-reusable-id',
+        },
+      ),
+    );
+
+    const result = safeParseProject({ ...project, pages: [pageWithInvalidInstance] });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) =>
+          issue.message.includes('Unknown reusable component ID'),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('rejects cyclic reusable references', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const navigation = createReusableElement(
+      'Navigation',
+      idSequence('navigation-id', 'navigation-root-id'),
+    );
+    const accountMenu = createReusableElement(
+      'AccountMenu',
+      idSequence('account-menu-id', 'account-menu-root-id'),
+    );
+    const navigationWithAccountMenu = addComponent(
+      navigation,
+      component(
+        'navigation-account-instance-id',
+        'WebReusableElement',
+        'AccountMenu1',
+        navigation.rootComponentId,
+        { reusableElementId: accountMenu.id },
+      ),
+    );
+    const accountMenuWithNavigation = addComponent(
+      accountMenu,
+      component(
+        'account-navigation-instance-id',
+        'WebReusableElement',
+        'Navigation1',
+        accountMenu.rootComponentId,
+        { reusableElementId: navigation.id },
+      ),
+    );
+
+    const result = safeParseProject({
+      ...project,
+      reusableElements: [navigationWithAccountMenu, accountMenuWithNavigation],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) =>
+          issue.message.includes('cannot reference each other recursively'),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('blocks removal while a reusable definition still has an instance', () => {
+    const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const reusable = createReusableElement(
+      'Navigation',
+      idSequence('navigation-id', 'navigation-root-id'),
+    );
+    const withReusable = addReusableElement(initial, reusable);
+    const page = withReusable.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+    const projectWithInstance = updatePage(
+      withReusable,
+      page.id,
+      addComponent(
+        page,
+        component(
+          'navigation-instance-id',
+          'WebReusableElement',
+          'Navigation1',
+          page.rootComponentId,
+          { reusableElementId: reusable.id },
+        ),
+      ),
+    );
+
+    expect(() => removeReusableElement(projectWithInstance, reusable.id)).toThrow(
+      'still used by 1 instance',
+    );
+    expect(projectWithInstance.reusableElements).toHaveLength(1);
   });
 });
 

@@ -27,6 +27,9 @@ import {
   LAYOUT_ANCHORS,
   LAYOUT_ITEM_SIZING_MODES,
   LAYOUT_JUSTIFY_CONTENT_VALUES,
+  REUSABLE_ELEMENT_HORIZONTAL_ANCHORS,
+  REUSABLE_ELEMENT_PLACEMENTS,
+  REUSABLE_ELEMENT_VERTICAL_ANCHORS,
   type Bounds,
   type ComponentLayout,
   type ComponentNode,
@@ -39,6 +42,7 @@ import {
   type PageModel,
   type ProjectManifest,
   type ProjectSettings,
+  type ReusableElementModel,
   type StyleLengthValue,
   type StylePropertyValue,
   type WebRadProject,
@@ -84,6 +88,20 @@ const relativeProjectPathSchema = z
       value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..'),
     'Expected a normalized relative project path.',
   );
+
+/**
+ * Reusable definitions were added as a backwards-compatible project field.
+ * Older v2 projects did not persist the field, so materialize an empty
+ * collection before strict schema validation makes the parsed Project Model
+ * canonical again.
+ */
+function materializeReusableElements(input: unknown): unknown {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return input;
+  const candidate = input as Readonly<Record<string, unknown>>;
+  return Object.hasOwn(candidate, 'reusableElements')
+    ? input
+    : { ...candidate, reusableElements: [] };
+}
 
 export const BoundsSchema: z.ZodType<Bounds> = z
   .object({
@@ -162,14 +180,27 @@ function materializeComponentProperties(input: unknown): unknown {
     Array.isArray(input) ||
     !('type' in input) ||
     !('props' in input) ||
-    input.type !== 'WebDataGrid' ||
     input.props === null ||
     typeof input.props !== 'object' ||
-    Array.isArray(input.props) ||
-    !('dataGridConfig' in input.props)
+    Array.isArray(input.props)
   ) {
     return input;
   }
+
+  if (input.type === 'WebReusableElement') {
+    return {
+      ...input,
+      props: {
+        placement: 'in-flow',
+        floatingHorizontalAnchor: 'left',
+        floatingVerticalAnchor: 'top',
+        floatingZIndex: 100,
+        ...input.props,
+      },
+    };
+  }
+
+  if (input.type !== 'WebDataGrid' || !('dataGridConfig' in input.props)) return input;
 
   const configuration = DataGridConfigurationSchema.safeParse(input.props.dataGridConfig);
   if (!configuration.success) return input;
@@ -405,7 +436,11 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   })
   .strict();
 
-function validatePageRelationships(page: PageModel, context: z.RefinementCtx): void {
+function validateDocumentRelationships(
+  page: PageModel,
+  context: z.RefinementCtx,
+  allowedRootTypes: readonly string[],
+): void {
   const byId = new Map<string, ComponentNode>();
   const names = new Map<string, number>();
 
@@ -459,10 +494,10 @@ function validatePageRelationships(page: PageModel, context: z.RefinementCtx): v
         path: ['components', page.components.indexOf(root), 'parentId'],
       });
     }
-    if (root.type !== 'WebPage') {
+    if (!allowedRootTypes.includes(root.type)) {
       context.addIssue({
         code: 'custom',
-        message: 'The root component must have type WebPage.',
+        message: `The root component must have type ${allowedRootTypes.join(' or ')}.`,
         path: ['components', page.components.indexOf(root), 'type'],
       });
     }
@@ -559,7 +594,22 @@ function validatePageRelationships(page: PageModel, context: z.RefinementCtx): v
   }
 }
 
-export const PageModelSchema: z.ZodType<PageModel> = z
+function validatePageRelationships(page: PageModel, context: z.RefinementCtx): void {
+  validateDocumentRelationships(page, context, ['WebPage']);
+}
+
+function validateReusableElementRelationships(
+  reusableElement: ReusableElementModel,
+  context: z.RefinementCtx,
+): void {
+  validateDocumentRelationships(reusableElement, context, ['WebPanel']);
+}
+
+function validateVisualDocumentRelationships(page: PageModel, context: z.RefinementCtx): void {
+  validateDocumentRelationships(page, context, ['WebPage', 'WebPanel']);
+}
+
+const DocumentModelSchema = z
   .object({
     formatVersion: z.literal(CURRENT_PAGE_FORMAT_VERSION),
     id: nonEmptyStringSchema,
@@ -570,8 +620,21 @@ export const PageModelSchema: z.ZodType<PageModel> = z
     components: z.array(ComponentNodeSchema).min(1),
     rootComponentId: nonEmptyStringSchema,
   })
-  .strict()
-  .superRefine(validatePageRelationships);
+  .strict();
+
+export const PageModelSchema: z.ZodType<PageModel> =
+  DocumentModelSchema.superRefine(validatePageRelationships);
+
+export const ReusableElementModelSchema: z.ZodType<ReusableElementModel> =
+  DocumentModelSchema.superRefine(validateReusableElementRelationships);
+
+/**
+ * Structural document validation for designer commands before their result is
+ * committed to either a navigable page or a reusable definition.
+ */
+export const VisualDocumentModelSchema: z.ZodType<PageModel> = DocumentModelSchema.superRefine(
+  validateVisualDocumentRelationships,
+);
 
 function indexComponentStyles(
   styles: readonly ComponentStyleModel[],
@@ -661,6 +724,206 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     });
   });
 
+  const reusableById = new Map<string, ReusableElementModel>();
+  project.reusableElements.forEach((reusableElement, index) => {
+    if (ids.has(reusableElement.id)) {
+      context.addIssue({
+        code: 'custom',
+        message: `Reusable component ID "${reusableElement.id}" conflicts with an existing page or reusable component.`,
+        path: ['reusableElements', index, 'id'],
+      });
+    }
+    ids.add(reusableElement.id);
+    reusableById.set(reusableElement.id, reusableElement);
+
+    const nameKey = portableFileNameKey(reusableElement.name);
+    if (names.has(nameKey)) {
+      context.addIssue({
+        code: 'custom',
+        message: `Reusable component name "${reusableElement.name}" must be unique within a project on portable filesystems.`,
+        path: ['reusableElements', index, 'name'],
+      });
+    }
+    names.add(nameKey);
+
+    const root = reusableElement.components.find(
+      (component) => component.id === reusableElement.rootComponentId,
+    );
+    if (root?.type !== 'WebPanel') {
+      context.addIssue({
+        code: 'custom',
+        message: 'A reusable component must have a WebPanel root.',
+        path: ['reusableElements', index, 'rootComponentId'],
+      });
+    }
+
+    reusableElement.components.forEach((component, componentIndex) => {
+      if (component.styleId === undefined) return;
+      const style = stylesById.get(component.styleId);
+      if (style === undefined) {
+        context.addIssue({
+          code: 'custom',
+          message: `Unknown component style ID "${component.styleId}".`,
+          path: ['reusableElements', index, 'components', componentIndex, 'styleId'],
+        });
+      } else if (style.componentType !== component.type) {
+        context.addIssue({
+          code: 'custom',
+          message: `Component style "${style.name}" targets ${style.componentType}, not ${component.type}.`,
+          path: ['reusableElements', index, 'components', componentIndex, 'styleId'],
+        });
+      }
+    });
+  });
+
+  const reusableReferences = new Map<string, readonly string[]>();
+  const validateReusableInstanceProperties = (
+    component: ComponentNode,
+    path: readonly (string | number)[],
+  ): void => {
+    const placement = component.props.placement;
+    if (
+      typeof placement !== 'string' ||
+      !REUSABLE_ELEMENT_PLACEMENTS.includes(
+        placement as (typeof REUSABLE_ELEMENT_PLACEMENTS)[number],
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A reusable component placement must be in-flow or floating.',
+        path: [...path, 'placement'],
+      });
+    }
+
+    const horizontalAnchor = component.props.floatingHorizontalAnchor;
+    if (
+      typeof horizontalAnchor !== 'string' ||
+      !REUSABLE_ELEMENT_HORIZONTAL_ANCHORS.includes(
+        horizontalAnchor as (typeof REUSABLE_ELEMENT_HORIZONTAL_ANCHORS)[number],
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A reusable component floating horizontal anchor is invalid.',
+        path: [...path, 'floatingHorizontalAnchor'],
+      });
+    }
+
+    const verticalAnchor = component.props.floatingVerticalAnchor;
+    if (
+      typeof verticalAnchor !== 'string' ||
+      !REUSABLE_ELEMENT_VERTICAL_ANCHORS.includes(
+        verticalAnchor as (typeof REUSABLE_ELEMENT_VERTICAL_ANCHORS)[number],
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A reusable component floating vertical anchor is invalid.',
+        path: [...path, 'floatingVerticalAnchor'],
+      });
+    }
+
+    const layer = component.props.floatingZIndex;
+    if (typeof layer !== 'number' || !Number.isFinite(layer) || !Number.isInteger(layer)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A reusable component floating layer must be a finite integer.',
+        path: [...path, 'floatingZIndex'],
+      });
+    }
+  };
+  const validateReusableReferences = (
+    document: PageModel,
+    documentPath: 'pages' | 'reusableElements',
+    documentIndex: number,
+  ): readonly string[] => {
+    const references: string[] = [];
+    document.components.forEach((component, componentIndex) => {
+      if (component.type !== 'WebReusableElement') return;
+      const componentPropsPath = [
+        documentPath,
+        documentIndex,
+        'components',
+        componentIndex,
+        'props',
+      ] as const;
+      validateReusableInstanceProperties(component, componentPropsPath);
+      const reusableId = component.props.reusableElementId;
+      if (typeof reusableId !== 'string' || reusableId.length === 0) {
+        context.addIssue({
+          code: 'custom',
+          message: 'A reusable component instance must reference a reusable component.',
+          path: [...componentPropsPath, 'reusableElementId'],
+        });
+        return;
+      }
+      if (!reusableById.has(reusableId)) {
+        context.addIssue({
+          code: 'custom',
+          message: `Unknown reusable component ID "${reusableId}".`,
+          path: [...componentPropsPath, 'reusableElementId'],
+        });
+        return;
+      }
+      references.push(reusableId);
+    });
+    return references;
+  };
+
+  project.pages.forEach((page, index) => {
+    validateReusableReferences(page, 'pages', index);
+  });
+  project.reusableElements.forEach((reusableElement, index) => {
+    reusableReferences.set(
+      reusableElement.id,
+      validateReusableReferences(reusableElement, 'reusableElements', index),
+    );
+  });
+
+  const active = new Set<string>();
+  const completed = new Set<string>();
+  const cyclicIds = new Set<string>();
+  const visitReusable = (reusableId: string, trail: readonly string[]): void => {
+    if (completed.has(reusableId)) return;
+    if (active.has(reusableId)) {
+      const cycleStart = trail.indexOf(reusableId);
+      for (const id of trail.slice(cycleStart < 0 ? 0 : cycleStart)) cyclicIds.add(id);
+      return;
+    }
+    active.add(reusableId);
+    for (const reference of reusableReferences.get(reusableId) ?? []) {
+      visitReusable(reference, [...trail, reusableId]);
+    }
+    active.delete(reusableId);
+    completed.add(reusableId);
+  };
+  for (const reusableId of reusableById.keys()) visitReusable(reusableId, []);
+  if (cyclicIds.size > 0) {
+    project.reusableElements.forEach((reusableElement, reusableIndex) => {
+      if (!cyclicIds.has(reusableElement.id)) return;
+      reusableElement.components.forEach((component, componentIndex) => {
+        if (
+          component.type === 'WebReusableElement' &&
+          typeof component.props.reusableElementId === 'string' &&
+          cyclicIds.has(component.props.reusableElementId)
+        ) {
+          context.addIssue({
+            code: 'custom',
+            message: 'Reusable components cannot reference each other recursively.',
+            path: [
+              'reusableElements',
+              reusableIndex,
+              'components',
+              componentIndex,
+              'props',
+              'reusableElementId',
+            ],
+          });
+        }
+      });
+    });
+  }
+
   if (!ids.has(project.entryPage)) {
     context.addIssue({
       code: 'custom',
@@ -670,18 +933,22 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
   }
 }
 
-export const WebRadProjectSchema: z.ZodType<WebRadProject> = z
-  .object({
-    formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),
-    id: nonEmptyStringSchema,
-    name: projectNameSchema,
-    entryPage: nonEmptyStringSchema,
-    pages: z.array(PageModelSchema).min(1),
-    styles: z.array(ComponentStyleSchema),
-    settings: ProjectSettingsSchema,
-  })
-  .strict()
-  .superRefine(validateProjectRelationships);
+export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
+  materializeReusableElements,
+  z
+    .object({
+      formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),
+      id: nonEmptyStringSchema,
+      name: projectNameSchema,
+      entryPage: nonEmptyStringSchema,
+      pages: z.array(PageModelSchema).min(1),
+      reusableElements: z.array(ReusableElementModelSchema),
+      styles: z.array(ComponentStyleSchema),
+      settings: ProjectSettingsSchema,
+    })
+    .strict()
+    .superRefine(validateProjectRelationships),
+);
 
 export const PageDescriptorSchema: z.ZodType<PageDescriptor> = z
   .object({
@@ -693,65 +960,90 @@ export const PageDescriptorSchema: z.ZodType<PageDescriptor> = z
   })
   .strict();
 
-export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z
-  .object({
-    formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),
-    id: nonEmptyStringSchema,
-    name: projectNameSchema,
-    entryPage: nonEmptyStringSchema,
-    pages: z.array(PageDescriptorSchema).min(1),
-    styles: z.array(ComponentStyleSchema),
-    settings: ProjectSettingsSchema,
-  })
-  .strict()
-  .superRefine((manifest, context) => {
-    indexComponentStyles(manifest.styles, context);
-    const ids = new Set<string>();
-    const names = new Set<string>();
-    const paths = new Set<string>();
+export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z.preprocess(
+  materializeReusableElements,
+  z
+    .object({
+      formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),
+      id: nonEmptyStringSchema,
+      name: projectNameSchema,
+      entryPage: nonEmptyStringSchema,
+      pages: z.array(PageDescriptorSchema).min(1),
+      reusableElements: z.array(ReusableElementModelSchema),
+      styles: z.array(ComponentStyleSchema),
+      settings: ProjectSettingsSchema,
+    })
+    .strict()
+    .superRefine((manifest, context) => {
+      indexComponentStyles(manifest.styles, context);
+      const ids = new Set<string>();
+      const names = new Set<string>();
+      const paths = new Set<string>();
 
-    manifest.pages.forEach((descriptor, index) => {
-      if (ids.has(descriptor.id)) {
-        context.addIssue({
-          code: 'custom',
-          message: `Duplicate page ID "${descriptor.id}".`,
-          path: ['pages', index, 'id'],
-        });
-      }
-      ids.add(descriptor.id);
-
-      const nameKey = portableFileNameKey(descriptor.name);
-      if (names.has(nameKey)) {
-        context.addIssue({
-          code: 'custom',
-          message: `Duplicate page name "${descriptor.name}".`,
-          path: ['pages', index, 'name'],
-        });
-      }
-      names.add(nameKey);
-
-      for (const key of ['pageFile', 'generatedFile', 'codeFile'] as const) {
-        const filePath = descriptor[key];
-        const pathKey = portableFileNameKey(filePath);
-        if (paths.has(pathKey)) {
+      manifest.pages.forEach((descriptor, index) => {
+        if (ids.has(descriptor.id)) {
           context.addIssue({
             code: 'custom',
-            message: `Project file path "${filePath}" is used more than once.`,
-            path: ['pages', index, key],
+            message: `Duplicate page ID "${descriptor.id}".`,
+            path: ['pages', index, 'id'],
           });
         }
-        paths.add(pathKey);
-      }
-    });
+        ids.add(descriptor.id);
 
-    if (!ids.has(manifest.entryPage)) {
-      context.addIssue({
-        code: 'custom',
-        message: 'entryPage must reference a page descriptor.',
-        path: ['entryPage'],
+        const nameKey = portableFileNameKey(descriptor.name);
+        if (names.has(nameKey)) {
+          context.addIssue({
+            code: 'custom',
+            message: `Duplicate page name "${descriptor.name}".`,
+            path: ['pages', index, 'name'],
+          });
+        }
+        names.add(nameKey);
+
+        for (const key of ['pageFile', 'generatedFile', 'codeFile'] as const) {
+          const filePath = descriptor[key];
+          const pathKey = portableFileNameKey(filePath);
+          if (paths.has(pathKey)) {
+            context.addIssue({
+              code: 'custom',
+              message: `Project file path "${filePath}" is used more than once.`,
+              path: ['pages', index, key],
+            });
+          }
+          paths.add(pathKey);
+        }
       });
-    }
-  });
+
+      if (!ids.has(manifest.entryPage)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'entryPage must reference a page descriptor.',
+          path: ['entryPage'],
+        });
+      }
+      const reusableIds = new Set<string>();
+      const reusableNames = new Set<string>();
+      manifest.reusableElements.forEach((reusableElement, index) => {
+        if (ids.has(reusableElement.id) || reusableIds.has(reusableElement.id)) {
+          context.addIssue({
+            code: 'custom',
+            message: `Reusable component ID "${reusableElement.id}" conflicts with a page or reusable component.`,
+            path: ['reusableElements', index, 'id'],
+          });
+        }
+        reusableIds.add(reusableElement.id);
+        const nameKey = portableFileNameKey(reusableElement.name);
+        if (names.has(nameKey) || reusableNames.has(nameKey)) {
+          context.addIssue({
+            code: 'custom',
+            message: `Duplicate reusable component name "${reusableElement.name}".`,
+            path: ['reusableElements', index, 'name'],
+          });
+        }
+        reusableNames.add(nameKey);
+      });
+    }),
+);
 
 function issuesFrom(error: z.ZodError): ProjectValidationError {
   return new ProjectValidationError(
@@ -790,6 +1082,18 @@ export function safeParsePage(input: unknown): ReturnType<typeof PageModelSchema
   return PageModelSchema.safeParse(input);
 }
 
+export function safeParseReusableElement(
+  input: unknown,
+): ReturnType<typeof ReusableElementModelSchema.safeParse> {
+  return ReusableElementModelSchema.safeParse(input);
+}
+
+export function safeParseVisualDocument(
+  input: unknown,
+): ReturnType<typeof VisualDocumentModelSchema.safeParse> {
+  return VisualDocumentModelSchema.safeParse(input);
+}
+
 export function safeParseProject(input: unknown): ReturnType<typeof WebRadProjectSchema.safeParse> {
   return WebRadProjectSchema.safeParse(input);
 }
@@ -801,6 +1105,7 @@ export function safeParseProjectManifest(
 }
 
 export const validatePage = safeParsePage;
+export const validateReusableElement = safeParseReusableElement;
 export const validateProject = safeParseProject;
 export const validateProjectManifest = safeParseProjectManifest;
 
@@ -834,6 +1139,18 @@ export function parsePage(input: unknown): PageModel {
   return result.data;
 }
 
+export function parseReusableElement(input: unknown): ReusableElementModel {
+  const result = safeParseReusableElement(input);
+  if (!result.success) throw issuesFrom(result.error);
+  return result.data;
+}
+
+export function parseVisualDocument(input: unknown): PageModel {
+  const result = safeParseVisualDocument(input);
+  if (!result.success) throw issuesFrom(result.error);
+  return result.data;
+}
+
 export function parseProject(input: unknown): WebRadProject {
   const result = safeParseProject(input);
   if (!result.success) throw issuesFrom(result.error);
@@ -856,6 +1173,8 @@ export const componentStylePropertiesSchema = ComponentStylePropertiesSchema;
 export const componentStyleStatesSchema = ComponentStyleStatesSchema;
 export const componentStyleSchema = ComponentStyleSchema;
 export const pageModelSchema = PageModelSchema;
+export const reusableElementModelSchema = ReusableElementModelSchema;
+export const visualDocumentModelSchema = VisualDocumentModelSchema;
 export const projectSettingsSchema = ProjectSettingsSchema;
 export const webRadProjectSchema = WebRadProjectSchema;
 export const pageDescriptorSchema = PageDescriptorSchema;

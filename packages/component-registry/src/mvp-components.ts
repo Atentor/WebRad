@@ -2,6 +2,9 @@ import { componentRegistry, ComponentRegistry } from './registry.js';
 import {
   createDefaultApiClientConfiguration,
   createDefaultDataGridConfiguration,
+  REUSABLE_ELEMENT_HORIZONTAL_ANCHORS,
+  REUSABLE_ELEMENT_PLACEMENTS,
+  REUSABLE_ELEMENT_VERTICAL_ANCHORS,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 import type {
@@ -313,6 +316,7 @@ const imageBounds = { width: 160, height: 120 } as const;
 const listBoxBounds = { width: 180, height: 120 } as const;
 const apiClientBounds = { width: 112, height: 52 } as const;
 const dataGridBounds = { width: 640, height: 320 } as const;
+const reusableElementBounds = { width: 360, height: 240 } as const;
 
 const webPage: ComponentDefinition = {
   type: 'WebPage',
@@ -390,6 +394,81 @@ const webPanel: ComponentDefinition = {
     event('OnMouseEnter', 'Mouse'),
     event('OnMouseLeave', 'Mouse'),
   ],
+};
+
+/**
+ * A placement-owned instance of a project reusable definition. The referenced
+ * definition remains in the Project Model, so this node intentionally cannot
+ * own ordinary component children.
+ */
+const webReusableElement: ComponentDefinition = {
+  type: 'WebReusableElement',
+  displayName: 'Reusable Component',
+  namePrefix: 'Reusable',
+  palette: { category: containersCategory, caption: 'Reusable Component' },
+  icon: 'component-panel',
+  visual: true,
+  canHaveChildren: false,
+  defaultEvent: null,
+  defaultBounds: reusableElementBounds,
+  defaults: {
+    reusableElementId: '',
+    placement: 'in-flow',
+    floatingHorizontalAnchor: 'left',
+    floatingVerticalAnchor: 'top',
+    floatingZIndex: 100,
+    visible: true,
+    enabled: true,
+  },
+  properties: [
+    ...geometryProperties(reusableElementBounds),
+    {
+      name: 'reusableElementId',
+      label: 'Reusable component',
+      type: 'reusable-element',
+      category: 'Reusable component',
+      source: 'props',
+      defaultValue: '',
+      description: 'The shared component definition rendered by this instance.',
+    },
+    {
+      name: 'placement',
+      label: 'Placement',
+      type: 'enum',
+      category: 'Reusable component',
+      source: 'props',
+      defaultValue: 'in-flow',
+      options: REUSABLE_ELEMENT_PLACEMENTS,
+      description: 'Floating instances are fixed to the viewport and do not consume page flow.',
+    },
+    {
+      name: 'floatingHorizontalAnchor',
+      label: 'Floating horizontal anchor',
+      type: 'enum',
+      category: 'Floating placement',
+      source: 'props',
+      defaultValue: 'left',
+      options: REUSABLE_ELEMENT_HORIZONTAL_ANCHORS,
+    },
+    {
+      name: 'floatingVerticalAnchor',
+      label: 'Floating vertical anchor',
+      type: 'enum',
+      category: 'Floating placement',
+      source: 'props',
+      defaultValue: 'top',
+      options: REUSABLE_ELEMENT_VERTICAL_ANCHORS,
+    },
+    {
+      name: 'floatingZIndex',
+      label: 'Floating layer',
+      type: 'number',
+      category: 'Floating placement',
+      source: 'props',
+      defaultValue: 100,
+    },
+  ],
+  events: [],
 };
 
 const webLabel: ComponentDefinition = {
@@ -870,6 +949,7 @@ const webDataGrid: ComponentDefinition = {
 export const MVP_COMPONENT_TYPES = [
   'WebPage',
   'WebPanel',
+  'WebReusableElement',
   'WebLabel',
   'WebEdit',
   'WebTextArea',
@@ -887,6 +967,7 @@ export type MvpComponentType = (typeof MVP_COMPONENT_TYPES)[number];
 const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webPage,
   webPanel,
+  webReusableElement,
   webLabel,
   webEdit,
   webTextArea,

@@ -19,6 +19,7 @@ import {
   WebNonvisualComponent,
   WebPanel,
   WebTextArea,
+  expandReusableElements,
   mountPage,
   normalizeWebDataGridConfiguration,
   projectComponentVisual,
@@ -625,6 +626,241 @@ describe('browser runtime', () => {
       'flex-grow': '2',
       'flex-shrink': '1',
     });
+  });
+
+  it('expands reusable placements with isolated IDs and anchors floating instances to the viewport', () => {
+    const reusablePage: RuntimePageModel = {
+      id: 'reusable-runtime-page',
+      name: 'ReusableRuntimePage',
+      caption: 'Reusable runtime page',
+      width: 800,
+      height: 600,
+      rootComponentId: 'reusable-page-root',
+      components: [
+        {
+          id: 'reusable-page-root',
+          type: 'WebPage',
+          name: 'ReusableRuntimePage',
+          parentId: null,
+          bounds: { x: 0, y: 0, width: 800, height: 600 },
+          layout: responsiveLayout(),
+          props: { caption: 'Reusable runtime page', visible: true, enabled: true },
+          children: ['inline-card-instance', 'floating-card-instance'],
+        },
+        {
+          id: 'inline-card-instance',
+          type: 'WebReusableElement',
+          name: 'InlineCard',
+          parentId: 'reusable-page-root',
+          bounds: { x: 32, y: 48, width: 240, height: 96 },
+          layout: responsiveLayout(),
+          props: {
+            reusableElementId: 'reusable-card',
+            placement: 'inline',
+            visible: true,
+            enabled: true,
+          },
+          children: [],
+        },
+        {
+          id: 'floating-card-instance',
+          type: 'WebReusableElement',
+          name: 'FloatingCard',
+          parentId: 'reusable-page-root',
+          bounds: { x: 24, y: 36, width: 240, height: 96 },
+          layout: responsiveLayout(),
+          props: {
+            reusableElementId: 'reusable-card',
+            placement: 'floating',
+            floatingHorizontalAnchor: 'right',
+            floatingVerticalAnchor: 'bottom',
+            floatingZIndex: 420,
+            visible: true,
+            enabled: true,
+          },
+          children: [],
+        },
+      ],
+      reusableElements: [
+        {
+          id: 'reusable-card',
+          name: 'ReusableCard',
+          caption: 'Reusable card',
+          width: 240,
+          height: 96,
+          rootComponentId: 'reusable-card-root',
+          components: [
+            {
+              id: 'reusable-card-root',
+              type: 'WebPanel',
+              name: 'ReusableCardRoot',
+              parentId: null,
+              bounds: { x: 0, y: 0, width: 240, height: 96 },
+              layout: responsiveLayout(),
+              props: { visible: true, enabled: true },
+              children: ['reusable-card-label'],
+            },
+            {
+              id: 'reusable-card-label',
+              type: 'WebLabel',
+              name: 'ReusableCardLabel',
+              parentId: 'reusable-card-root',
+              bounds: { x: 12, y: 16, width: 160, height: 24 },
+              layout: responsiveLayout(),
+              props: { caption: 'Shared card', visible: true, enabled: true },
+              children: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    const host = document.createElement('div');
+    const mounted = mountPage(reusablePage, host);
+    const inlineDefinitionRoot = mounted.page.requireComponentElement(
+      'inline-card-instance:reusable-card-root',
+    );
+    const floatingDefinitionRoot = mounted.page.requireComponentElement(
+      'floating-card-instance:reusable-card-root',
+    );
+    const inlineDefinitionLabel = mounted.page.requireComponentElement(
+      'inline-card-instance:reusable-card-label',
+    );
+    const floatingDefinitionLabel = mounted.page.requireComponentElement(
+      'floating-card-instance:reusable-card-label',
+    );
+    const inlineInstance = mounted.page.requireComponentElement('inline-card-instance');
+    const floatingInstance = mounted.page.requireComponentElement('floating-card-instance');
+
+    expect(mounted.components.has('inline-card-instance:reusable-card-root')).toBe(true);
+    expect(mounted.components.has('floating-card-instance:reusable-card-root')).toBe(true);
+    expect(mounted.components.has('inline-card-instance:reusable-card-label')).toBe(true);
+    expect(mounted.components.has('floating-card-instance:reusable-card-label')).toBe(true);
+    expect(inlineDefinitionRoot).not.toBe(floatingDefinitionRoot);
+    expect(inlineDefinitionLabel).not.toBe(floatingDefinitionLabel);
+    expect(inlineDefinitionRoot.dataset.webradTemplateId).toBe('reusable-card-root');
+    expect(floatingDefinitionRoot.dataset.webradTemplateId).toBe('reusable-card-root');
+    expect(host.querySelectorAll('[data-webrad-template-id="reusable-card-label"]')).toHaveLength(
+      2,
+    );
+    expect(inlineDefinitionRoot.parentElement).toBe(inlineInstance);
+    expect(floatingDefinitionRoot.parentElement).toBe(floatingInstance);
+    expect(mounted.element.contains(floatingInstance)).toBe(false);
+    expect(floatingInstance.parentElement?.dataset.webradFloatingOwner).toBe(reusablePage.id);
+
+    expect(inlineInstance.style.position).toBe('absolute');
+    expect(floatingInstance.style.position).toBe('fixed');
+    expect(floatingInstance.style.right).toBe('24px');
+    expect(floatingInstance.style.bottom).toBe('36px');
+    expect(floatingInstance.style.left).toBe('');
+    expect(floatingInstance.style.top).toBe('');
+    expect(floatingInstance.style.zIndex).toBe('420');
+    expect(floatingInstance.style.getPropertyPriority('position')).toBe('important');
+  });
+
+  it('allocates a unique physical ID when a scoped reusable ID collides with a page ID', () => {
+    const collidingPage: RuntimePageModel = {
+      id: 'collision-page',
+      name: 'CollisionPage',
+      caption: 'Collision page',
+      width: 640,
+      height: 480,
+      rootComponentId: 'collision-root',
+      components: [
+        {
+          id: 'collision-root',
+          type: 'WebPage',
+          name: 'CollisionPage',
+          parentId: null,
+          bounds: { x: 0, y: 0, width: 640, height: 480 },
+          layout: responsiveLayout(),
+          props: { caption: 'Collision page', visible: true, enabled: true },
+          children: ['instance', 'instance:template-root'],
+        },
+        {
+          id: 'instance',
+          type: 'WebReusableElement',
+          name: 'CardInstance',
+          parentId: 'collision-root',
+          bounds: { x: 16, y: 16, width: 200, height: 80 },
+          layout: responsiveLayout(),
+          props: { reusableElementId: 'card', placement: 'in-flow', visible: true, enabled: true },
+          children: [],
+        },
+        {
+          id: 'instance:template-root',
+          type: 'WebLabel',
+          name: 'PersistedSibling',
+          parentId: 'collision-root',
+          bounds: { x: 240, y: 16, width: 120, height: 24 },
+          layout: responsiveLayout(),
+          props: { caption: 'Persisted sibling', visible: true, enabled: true },
+          children: [],
+        },
+      ],
+      reusableElements: [
+        {
+          id: 'card',
+          name: 'Card',
+          caption: 'Card',
+          width: 200,
+          height: 80,
+          rootComponentId: 'template-root',
+          components: [
+            {
+              id: 'template-root',
+              type: 'WebPanel',
+              name: 'CardRoot',
+              parentId: null,
+              bounds: { x: 0, y: 0, width: 200, height: 80 },
+              layout: responsiveLayout(),
+              props: { visible: true, enabled: true },
+              children: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    const expanded = expandReusableElements(collidingPage);
+    const clonedRoot = expanded.components.find((node) => node.templateId === 'template-root');
+    expect(clonedRoot?.id).toBeDefined();
+    expect(clonedRoot?.id).not.toBe('instance:template-root');
+
+    const mounted = mountPage(collidingPage, document.createElement('div'));
+    expect(mounted.page.requireComponentElement('instance:template-root').dataset.webradType).toBe(
+      'WebLabel',
+    );
+    expect(mounted.page.requireComponentElement(clonedRoot?.id ?? '').dataset.webradType).toBe(
+      'WebPanel',
+    );
+  });
+
+  it('rejects a runtime reusable instance with no supplied definition', () => {
+    const root = pageModel.components.find((node) => node.id === pageModel.rootComponentId);
+    if (root === undefined) throw new Error('Expected the runtime page root.');
+    const invalidInstance: RuntimeComponentNode = {
+      id: 'unresolved-instance',
+      type: 'WebReusableElement',
+      name: 'UnresolvedInstance',
+      parentId: root.id,
+      bounds: { x: 12, y: 12, width: 160, height: 80 },
+      layout: responsiveLayout(),
+      props: { reusableElementId: 'missing-definition', placement: 'in-flow' },
+      children: [],
+    };
+
+    expect(() =>
+      expandReusableElements({
+        ...pageModel,
+        components: [
+          { ...root, children: [...root.children, invalidInstance.id] },
+          ...pageModel.components.filter((node) => node.id !== root.id),
+          invalidInstance,
+        ],
+        reusableElements: [],
+      }),
+    ).toThrow('references unknown reusable component');
   });
 
   it('mounts responsive containers with structural layout that wins over reusable style dimensions', () => {

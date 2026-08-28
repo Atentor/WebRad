@@ -6,7 +6,12 @@ import {
   type ComponentPropertyDefinition,
   type ComponentRegistry,
 } from '@webrad/component-registry';
-import type { ComponentNode, ComponentStyleModel, PageModel } from '@webrad/project-model';
+import type {
+  ComponentNode,
+  ComponentStyleModel,
+  PageModel,
+  ReusableElementModel,
+} from '@webrad/project-model';
 import {
   WEBRAD_ICON_NAMES,
   isWebRadIconName,
@@ -40,6 +45,7 @@ export interface ObjectInspectorProps {
   /** Optional metadata override, primarily useful when inspecting a page root. */
   definition?: ComponentDefinition;
   availableComponents?: readonly ComponentNode[];
+  availableReusableElements?: readonly ReusableElementModel[];
   onPropertyChange: (
     propertyName: string,
     value: unknown,
@@ -51,6 +57,8 @@ export interface ObjectInspectorProps {
     definition: ComponentEventDefinition,
   ) => void;
   onEventDoubleClick: (eventName: string, definition: ComponentEventDefinition) => void;
+  /** Reusable definitions are visual-only until reusable event code is supported. */
+  eventsEnabled?: boolean;
   /** Runs a Registry-declared design-time workflow for the selected component. */
   onDesignerAction?: (
     action: ComponentDesignerAction,
@@ -235,6 +243,7 @@ interface PropertyEditorProps {
   readonly value: unknown;
   readonly multiple: boolean;
   readonly availableComponents: readonly ComponentNode[];
+  readonly availableReusableElements: readonly ReusableElementModel[];
   readonly onChange: (value: unknown) => void;
   readonly onDesignerAction?: (action: ComponentDesignerAction) => void;
   readonly onIconPickerOpenChange?: (open: boolean) => void;
@@ -327,6 +336,7 @@ function PropertyEditor({
   value,
   multiple,
   availableComponents,
+  availableReusableElements,
   onChange,
   onDesignerAction,
   onIconPickerOpenChange,
@@ -495,6 +505,35 @@ function PropertyEditor({
         </select>
       );
     }
+    case 'reusable-element': {
+      const selectedValue = multiple ? MULTIPLE_OPTION_VALUE : text;
+      const currentIsAvailable = availableReusableElements.some(
+        (reusableElement) => reusableElement.id === selectedValue,
+      );
+      return (
+        <select
+          id={id}
+          className="wr-inspector-select"
+          value={selectedValue}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {multiple && (
+            <option value={MULTIPLE_OPTION_VALUE} disabled>
+              {MULTIPLE_VALUES_LABEL}
+            </option>
+          )}
+          {!multiple && text.length > 0 && !currentIsAvailable && (
+            <option value={text}>{text}</option>
+          )}
+          {availableReusableElements.map((reusableElement) => (
+            <option value={reusableElement.id} key={reusableElement.id}>
+              {reusableElement.name}
+            </option>
+          ))}
+        </select>
+      );
+    }
     case 'api-client-config': {
       const action = property.designerAction;
       return (
@@ -539,6 +578,7 @@ interface PropertyRowProps {
   readonly selection: readonly ComponentNode[];
   readonly page: PageModel | null | undefined;
   readonly availableComponents: readonly ComponentNode[];
+  readonly availableReusableElements: readonly ReusableElementModel[];
   readonly onChange: ObjectInspectorProps['onPropertyChange'];
   readonly onDesignerAction?: ObjectInspectorProps['onDesignerAction'];
   readonly onIconPickerOpenChange?: (open: boolean) => void;
@@ -549,6 +589,7 @@ function PropertyRow({
   selection,
   page,
   availableComponents,
+  availableReusableElements,
   onChange,
   onDesignerAction,
   onIconPickerOpenChange,
@@ -571,6 +612,7 @@ function PropertyRow({
           value={multiple ? undefined : value}
           multiple={multiple}
           availableComponents={availableComponents}
+          availableReusableElements={availableReusableElements}
           onChange={(nextValue) => onChange(property.name, nextValue, property)}
           onDesignerAction={(action) => {
             const component = selection.at(-1);
@@ -638,9 +680,11 @@ export function ObjectInspector({
   page,
   definition,
   availableComponents,
+  availableReusableElements = [],
   onPropertyChange,
   onEventChange,
   onEventDoubleClick,
+  eventsEnabled = true,
   onDesignerAction,
   onIconPickerOpenChange,
   styles = [],
@@ -700,6 +744,7 @@ export function ObjectInspector({
   const eventsTabId = `${tabId}-events-tab`;
   const propertiesPanelId = `${tabId}-properties-panel`;
   const eventsPanelId = `${tabId}-events-panel`;
+  const activeInspectorTab: InspectorTab = eventsEnabled ? activeTab : 'properties';
 
   return (
     <Panel title="Object Inspector" className="wr-object-inspector">
@@ -726,27 +771,29 @@ export function ObjectInspector({
               id={propertiesTabId}
               type="button"
               role="tab"
-              aria-selected={activeTab === 'properties'}
+              aria-selected={activeInspectorTab === 'properties'}
               aria-controls={propertiesPanelId}
-              className={activeTab === 'properties' ? 'active' : ''}
+              className={activeInspectorTab === 'properties' ? 'active' : ''}
               onClick={() => setActiveTab('properties')}
             >
               Properties
             </button>
-            <button
-              id={eventsTabId}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'events'}
-              aria-controls={eventsPanelId}
-              className={activeTab === 'events' ? 'active' : ''}
-              onClick={() => setActiveTab('events')}
-            >
-              Events
-            </button>
+            {eventsEnabled && (
+              <button
+                id={eventsTabId}
+                type="button"
+                role="tab"
+                aria-selected={activeInspectorTab === 'events'}
+                aria-controls={eventsPanelId}
+                className={activeInspectorTab === 'events' ? 'active' : ''}
+                onClick={() => setActiveTab('events')}
+              >
+                Events
+              </button>
+            )}
           </div>
 
-          {activeTab === 'properties' ? (
+          {activeInspectorTab === 'properties' ? (
             <div
               id={propertiesPanelId}
               className="wr-inspector-grid"
@@ -801,6 +848,7 @@ export function ObjectInspector({
                         selection={inspectedSelection}
                         page={page}
                         availableComponents={componentChoices}
+                        availableReusableElements={availableReusableElements}
                         onChange={onPropertyChange}
                         onDesignerAction={onDesignerAction}
                         onIconPickerOpenChange={onIconPickerOpenChange}

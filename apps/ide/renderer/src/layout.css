@@ -2111,6 +2111,14 @@ kbd {
   min-height: 0;
 }
 
+.wr-designer-floating-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+}
+
 .wr-design-overlay {
   z-index: 2;
   touch-action: none;

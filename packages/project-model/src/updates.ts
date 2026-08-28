@@ -6,7 +6,14 @@ import {
   portableFileNameKey,
   validateComponentName,
 } from './naming.js';
-import { parseComponentNode, parseComponentStyle, parsePage, parseProject } from './schemas.js';
+import {
+  parseComponentNode,
+  parseComponentStyle,
+  parsePage,
+  parseProject,
+  parseReusableElement,
+  parseVisualDocument,
+} from './schemas.js';
 import type {
   Bounds,
   ComponentNode,
@@ -15,6 +22,7 @@ import type {
   ComponentStyleStateName,
   PageModel,
   ProjectSettings,
+  ReusableElementModel,
   StylePropertyValue,
   WebRadProject,
 } from './types.js';
@@ -41,7 +49,7 @@ export function updateComponent(
   componentId: string,
   updater: ComponentUpdater,
 ): PageModel {
-  const page = parsePage(pageInput);
+  const page = parseVisualDocument(pageInput);
   const current = getComponent(page, componentId);
   const updated =
     typeof updater === 'function'
@@ -59,7 +67,7 @@ export function updateComponent(
   const components = page.components.map((component) =>
     component.id === componentId ? parsedComponent : component,
   );
-  return parsePage({ ...page, components });
+  return parseVisualDocument({ ...page, components });
 }
 
 export function renameComponent(page: PageModel, componentId: string, name: string): PageModel {
@@ -121,7 +129,7 @@ export function addComponent(
   nodeInput: ComponentNode,
   parentId: string | null = nodeInput.parentId,
 ): PageModel {
-  const page = parsePage(pageInput);
+  const page = parseVisualDocument(pageInput);
   const node = parseComponentNode({ ...nodeInput, parentId });
 
   if (findComponent(page, node.id) !== undefined) {
@@ -141,7 +149,7 @@ export function addComponent(
     );
   }
   components.push(node);
-  return parsePage({ ...page, components });
+  return parseVisualDocument({ ...page, components });
 }
 
 function collectDescendantIds(page: PageModel, componentId: string, output: Set<string>): void {
@@ -152,7 +160,7 @@ function collectDescendantIds(page: PageModel, componentId: string, output: Set<
 }
 
 export function removeComponent(pageInput: PageModel, componentId: string): PageModel {
-  const page = parsePage(pageInput);
+  const page = parseVisualDocument(pageInput);
   if (componentId === page.rootComponentId) {
     throw new ModelUpdateError('The root WebPage component cannot be removed.');
   }
@@ -167,7 +175,7 @@ export function removeComponent(pageInput: PageModel, componentId: string): Page
       children: component.children.filter((childId) => !removedIds.has(childId)),
     }));
 
-  return parsePage({ ...page, components });
+  return parseVisualDocument({ ...page, components });
 }
 
 export function reparentComponent(
@@ -176,7 +184,7 @@ export function reparentComponent(
   newParentId: string | null,
   childIndex?: number,
 ): PageModel {
-  const page = parsePage(pageInput);
+  const page = parseVisualDocument(pageInput);
   const component = getComponent(page, componentId);
   if (componentId === page.rootComponentId) {
     throw new ModelUpdateError('The root WebPage component cannot be reparented.');
@@ -208,7 +216,7 @@ export function reparentComponent(
     return candidate;
   });
 
-  return parsePage({ ...page, components });
+  return parseVisualDocument({ ...page, components });
 }
 
 export function reorderChildren(
@@ -216,7 +224,7 @@ export function reorderChildren(
   parentId: string,
   orderedChildIds: readonly string[],
 ): PageModel {
-  const page = parsePage(pageInput);
+  const page = parseVisualDocument(pageInput);
   const parent = getComponent(page, parentId);
   if (
     parent.children.length !== orderedChildIds.length ||
@@ -240,6 +248,26 @@ export function getPage(project: WebRadProject, pageId: string): PageModel {
     throw new ModelUpdateError(`Page ID "${pageId}" does not exist in project "${project.name}".`);
   }
   return page;
+}
+
+export function findReusableElement(
+  project: WebRadProject,
+  reusableElementId: string,
+): ReusableElementModel | undefined {
+  return project.reusableElements.find((element) => element.id === reusableElementId);
+}
+
+export function getReusableElement(
+  project: WebRadProject,
+  reusableElementId: string,
+): ReusableElementModel {
+  const reusableElement = findReusableElement(project, reusableElementId);
+  if (reusableElement === undefined) {
+    throw new ModelUpdateError(
+      `Reusable component ID "${reusableElementId}" does not exist in project "${project.name}".`,
+    );
+  }
+  return reusableElement;
 }
 
 export function findComponentStyle(
@@ -362,7 +390,7 @@ function withoutComponentStyle(component: ComponentNode): ComponentNode {
   return unbound;
 }
 
-/** Removes a style and atomically clears every reference to it across all pages. */
+/** Removes a style and atomically clears every reference across project documents. */
 export function removeComponentStyle(projectInput: WebRadProject, styleId: string): WebRadProject {
   const project = parseProject(projectInput);
   const style = getComponentStyle(project, styleId);
@@ -379,6 +407,12 @@ export function removeComponentStyle(projectInput: WebRadProject, styleId: strin
         component.styleId === styleId ? withoutComponentStyle(component) : component,
       ),
     })),
+    reusableElements: project.reusableElements.map((reusableElement) => ({
+      ...reusableElement,
+      components: reusableElement.components.map((component) =>
+        component.styleId === styleId ? withoutComponentStyle(component) : component,
+      ),
+    })),
     styles: project.styles.filter((style) => style.id !== styleId),
   });
 }
@@ -391,8 +425,10 @@ export function setComponentStyle(
   styleId: string | null,
 ): WebRadProject {
   const project = parseProject(projectInput);
-  const page = getPage(project, pageId);
-  const component = getComponent(page, componentId);
+  const page = findPage(project, pageId);
+  const reusableElement = page === undefined ? findReusableElement(project, pageId) : undefined;
+  const document = page ?? reusableElement ?? getPage(project, pageId);
+  const component = getComponent(document, componentId);
 
   if (styleId !== null) {
     const style = getComponentStyle(project, styleId);
@@ -403,10 +439,12 @@ export function setComponentStyle(
     }
   }
 
-  const updatedPage = updateComponent(page, componentId, (current) =>
+  const updatedDocument = updateComponent(document, componentId, (current) =>
     styleId === null ? withoutComponentStyle(current) : { ...current, styleId },
   );
-  return updatePage(project, pageId, () => updatedPage);
+  return page !== undefined
+    ? updatePage(project, pageId, () => updatedDocument)
+    : updateReusableElement(project, pageId, () => updatedDocument);
 }
 
 export type PagePatch = Partial<Omit<PageModel, 'id'>> & { readonly id?: string };
@@ -455,6 +493,114 @@ export function addPage(
   });
 }
 
+export type ReusableElementPatch = Partial<Omit<ReusableElementModel, 'id'>> & {
+  readonly id?: string;
+};
+export type ReusableElementUpdater =
+  ReusableElementPatch | ((reusableElement: ReusableElementModel) => ReusableElementModel);
+
+export function updateReusableElement(
+  projectInput: WebRadProject,
+  reusableElementId: string,
+  updater: ReusableElementUpdater,
+): WebRadProject {
+  const project = parseProject(projectInput);
+  const current = getReusableElement(project, reusableElementId);
+  const updated =
+    typeof updater === 'function'
+      ? updater(current)
+      : ({ ...current, ...updater, id: current.id } satisfies ReusableElementModel);
+  if (
+    updated.id !== current.id ||
+    (typeof updater !== 'function' && updater.id !== undefined && updater.id !== current.id)
+  ) {
+    throw new ModelUpdateError('Reusable component IDs are immutable and cannot be changed.');
+  }
+  const parsedReusableElement = parseReusableElement(updated);
+  return parseProject({
+    ...project,
+    reusableElements: project.reusableElements.map((reusableElement) =>
+      reusableElement.id === reusableElementId ? parsedReusableElement : reusableElement,
+    ),
+  });
+}
+
+export function addReusableElement(
+  projectInput: WebRadProject,
+  reusableElementInput: ReusableElementModel,
+): WebRadProject {
+  const project = parseProject(projectInput);
+  const reusableElement = parseReusableElement(reusableElementInput);
+  const root = getComponent(reusableElement, reusableElement.rootComponentId);
+  if (root.type !== 'WebPanel') {
+    throw new ModelUpdateError('A reusable component must have a WebPanel root.');
+  }
+  const styledReusableElement = updateComponent(reusableElement, root.id, (current) =>
+    applyDefaultComponentStyle(current, project.styles),
+  );
+  return parseProject({
+    ...project,
+    reusableElements: [...project.reusableElements, styledReusableElement],
+  });
+}
+
+function reusableReferenceCount(project: WebRadProject, reusableElementId: string): number {
+  return [...project.pages, ...project.reusableElements].reduce(
+    (count, document) =>
+      count +
+      document.components.filter(
+        (component) =>
+          component.type === 'WebReusableElement' &&
+          component.props.reusableElementId === reusableElementId,
+      ).length,
+    0,
+  );
+}
+
+export function removeReusableElement(
+  projectInput: WebRadProject,
+  reusableElementId: string,
+): WebRadProject {
+  const project = parseProject(projectInput);
+  getReusableElement(project, reusableElementId);
+  const references = reusableReferenceCount(project, reusableElementId);
+  if (references > 0) {
+    throw new ModelUpdateError(
+      `Reusable component is still used by ${String(references)} instance${references === 1 ? '' : 's'}.`,
+    );
+  }
+  return parseProject({
+    ...project,
+    reusableElements: project.reusableElements.filter(
+      (reusableElement) => reusableElement.id !== reusableElementId,
+    ),
+  });
+}
+
+export function renameReusableElement(
+  projectInput: WebRadProject,
+  reusableElementId: string,
+  name: string,
+): WebRadProject {
+  assertValidPageName(name);
+  const project = parseProject(projectInput);
+  const reusableElement = getReusableElement(project, reusableElementId);
+  const nameKey = portableFileNameKey(name);
+  if (
+    project.pages.some((page) => portableFileNameKey(page.name) === nameKey) ||
+    project.reusableElements.some(
+      (candidate) =>
+        candidate.id !== reusableElementId && portableFileNameKey(candidate.name) === nameKey,
+    )
+  ) {
+    throw new ModelUpdateError(`Reusable component name "${name}" already exists in this project.`);
+  }
+  const components = reusableElement.components.map((component) =>
+    component.id === reusableElement.rootComponentId ? { ...component, name } : component,
+  );
+  return updateReusableElement(project, reusableElementId, { name, components });
+}
+
 export function removePage(projectInput: WebRadProject, pageId: string): WebRadProject {
   const project = parseProject(projectInput);
   getPage(project, pageId);
@@ -484,7 +630,8 @@ export function renamePage(
   if (
     project.pages.some(
       (candidate) => candidate.id !== pageId && portableFileNameKey(candidate.name) === nameKey,
-    )
+    ) ||
+    project.reusableElements.some((candidate) => portableFileNameKey(candidate.name) === nameKey)
   ) {
     throw new ModelUpdateError(`Page name "${name}" already exists in this project.`);
   }

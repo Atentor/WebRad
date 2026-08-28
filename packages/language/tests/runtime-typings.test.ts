@@ -164,12 +164,14 @@ describe('Monaco runtime typings', () => {
   WebLabel,
   WebListBox,
   WebPanel,
+  WebReusableElement,
   WebTextArea,
 } from '@webrad/runtime';
 
 class EditorPage extends WebPage {
   configure(
     panel: WebPanel,
+    reusable: WebReusableElement,
     label: WebLabel,
     edit: WebEdit,
     textArea: WebTextArea,
@@ -182,6 +184,7 @@ class EditorPage extends WebPage {
     api: WebApiClient,
   ): void {
     panel./*@panel*/caption;
+    reusable./*@reusable*/placement;
     label./*@label*/autoSize;
     edit./*@edit*/inputType;
     textArea./*@textArea*/rows;
@@ -217,6 +220,16 @@ class EditorPage extends WebPage {
 
     expect(completions('panel')).toEqual(
       expect.arrayContaining([...commonVisualProperties, 'caption']),
+    );
+    expect(completions('reusable')).toEqual(
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'reusableElementId',
+        'placement',
+        'floatingHorizontalAnchor',
+        'floatingVerticalAnchor',
+        'floatingZIndex',
+      ]),
     );
     expect(completions('label')).toEqual(
       expect.arrayContaining([...commonVisualProperties, 'autoSize', 'caption', 'text']),
@@ -325,6 +338,7 @@ class EditorPage extends WebPage {
       WebLabel: 'label',
       WebListBox: 'list',
       WebPanel: 'panel',
+      WebReusableElement: 'reusable',
       WebTextArea: 'textArea',
     };
     for (const definition of MVP_COMPONENT_DEFINITIONS) {
@@ -355,6 +369,7 @@ class EditorPage extends WebPage {
   WebLabel,
   WebListBox,
   WebPanel,
+  WebReusableElement,
   WebTextArea,
   resolveComponentStyleClassName,
   resolveComponentStyleClassNames,
@@ -371,6 +386,7 @@ class EditorPage extends WebPage {
 class EditorPage extends WebPage {
   configure(
     panel: WebPanel,
+    reusable: WebReusableElement,
     label: WebLabel,
     edit: WebEdit,
     textArea: WebTextArea,
@@ -383,6 +399,10 @@ class EditorPage extends WebPage {
     this.caption = 'Editor';
     this.layoutMode = 'fixed';
     panel.caption = 'Details';
+    reusable.placement = 'floating';
+    reusable.floatingHorizontalAnchor = 'right';
+    reusable.floatingVerticalAnchor = 'bottom';
+    reusable.floatingZIndex = 300;
     panel.x = 10;
     panel.y = 20;
     panel.width = 320;

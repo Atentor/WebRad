@@ -7,6 +7,7 @@ export type ComponentPropertyType =
   | 'icon'
   | 'color'
   | 'component'
+  | 'reusable-element'
   | 'api-client-config'
   | 'data-grid-config';
 

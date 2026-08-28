@@ -185,6 +185,15 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       {children}
     </section>
   ),
+  WebReusableElement: ({ node, designTime, styleClassName, children }) => (
+    <section
+      {...sharedAttributes(node, designTime, styleClassName)}
+      aria-label={readStringProperty(node, 'caption', node.name)}
+      data-webrad-reusable-instance="true"
+    >
+      {children}
+    </section>
+  ),
   WebLabel: ({ node, designTime, styleClassName }) => (
     <span {...sharedAttributes(node, designTime, styleClassName)}>
       <span data-webrad-text-content="">{readStringProperty(node, 'caption', 'Label')}</span>

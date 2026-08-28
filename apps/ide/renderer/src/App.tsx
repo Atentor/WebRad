@@ -19,6 +19,7 @@ import {
 import {
   applyDefaultComponentStyle,
   createPage,
+  createReusableElement,
   getComponent,
   type ApiClientConfiguration,
   type Bounds,
@@ -53,6 +54,7 @@ import {
   type EditorNavigationTarget,
 } from './components/CodeEditor';
 import { DesignerSurface } from './components/DesignerSurface';
+import { AddPageDialog, type AddDocumentKind } from './components/AddPageDialog';
 import { DataGridConfigurationDialog } from './components/DataGridConfigurationDialog';
 import { EditorWorkspace, type DocumentTab, type ViewMode } from './components/EditorWorkspace';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -182,6 +184,7 @@ export function App(): ReactElement {
   const [compiledStylesCss, setCompiledStylesCss] = useState('');
   const [building, setBuilding] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
+  const [addDocumentDialogKind, setAddDocumentDialogKind] = useState<AddDocumentKind | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
   const [dataGridConfiguratorComponentId, setDataGridConfiguratorComponentId] = useState<
@@ -209,7 +212,15 @@ export function App(): ReactElement {
   const stylesActive = activeWorkspace === 'styles' && project !== null;
   const activePage = stylesActive
     ? null
-    : (project?.pages.find((page) => page.id === activePageId) ?? null);
+    : (project?.pages.find((page) => page.id === activePageId) ??
+      project?.reusableElements.find((reusableElement) => reusableElement.id === activePageId) ??
+      null);
+  const activeDocumentKind =
+    activePage === null
+      ? null
+      : project?.pages.some((page) => page.id === activePage.id)
+        ? 'page'
+        : 'reusable';
   const selectedComponents = useMemo(
     () => selectionNodes(activePage, selection.ids),
     [activePage, selection.ids],
@@ -273,6 +284,7 @@ export function App(): ReactElement {
       setBottomPanelTab('output');
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
+      setAddDocumentDialogKind(null);
       addOutput('PROJECT', `Opened ${session.project.name}.`);
     },
     [addOutput, designerController, selectionManager],
@@ -329,10 +341,14 @@ export function App(): ReactElement {
 
   const openPage = useCallback(
     (pageId: string): void => {
-      if (!project?.pages.some((page) => page.id === pageId)) return;
+      const document =
+        project?.pages.find((page) => page.id === pageId) ??
+        project?.reusableElements.find((reusableElement) => reusableElement.id === pageId);
+      if (document === undefined) return;
       setOpenPageIds((current) => (current.includes(pageId) ? current : [...current, pageId]));
       setActivePageId(pageId);
       setActiveWorkspace('page');
+      setActiveView('design');
       selectionManager.clear();
     },
     [project, selectionManager],
@@ -348,9 +364,13 @@ export function App(): ReactElement {
   const updateActivePage = useCallback(
     (nextPage: PageModel): void => {
       if (!activePage) return;
-      projectController.updatePage(activePage.id, () => nextPage);
+      if (activeDocumentKind === 'reusable') {
+        projectController.updateReusableElement(activePage.id, () => nextPage);
+      } else {
+        projectController.updatePage(activePage.id, () => nextPage);
+      }
     },
-    [activePage, projectController],
+    [activeDocumentKind, activePage, projectController],
   );
 
   const commitDesignerCommand = useCallback(
@@ -368,6 +388,9 @@ export function App(): ReactElement {
       if (!activePage) return;
       try {
         const definition = requireComponentDefinition(type);
+        if (activeDocumentKind === 'reusable' && !definition.visual) {
+          throw new Error('Reusable components can contain visual components only.');
+        }
         const parentId = definition.visual ? requestedParentId : activePage.rootComponentId;
         const parent = getComponent(activePage, parentId);
         const snapped = project?.settings.snapToGrid
@@ -396,7 +419,66 @@ export function App(): ReactElement {
         reportError(error, 'DESIGNER');
       }
     },
-    [activePage, addOutput, commitDesignerCommand, project, reportError, selectionManager],
+    [
+      activeDocumentKind,
+      activePage,
+      addOutput,
+      commitDesignerCommand,
+      project,
+      reportError,
+      selectionManager,
+    ],
+  );
+
+  const addReusableElementAt = useCallback(
+    (
+      reusableElementId: string,
+      point: { x: number; y: number },
+      requestedParentId: string,
+    ): void => {
+      if (!activePage || !project?.reusableElements.some((item) => item.id === reusableElementId)) {
+        return;
+      }
+      try {
+        if (activeDocumentKind === 'reusable' && reusableElementId === activePage.id) {
+          throw new Error('A reusable component cannot contain an instance of itself.');
+        }
+        const definition = requireComponentDefinition('WebReusableElement');
+        const parent = getComponent(activePage, requestedParentId);
+        const snapped = project.settings.snapToGrid
+          ? snapPoint(point, project.settings.gridSize)
+          : point;
+        const x = Math.max(
+          0,
+          Math.min(snapped.x, parent.bounds.width - definition.defaultBounds.width),
+        );
+        const y = Math.max(
+          0,
+          Math.min(snapped.y, parent.bounds.height - definition.defaultBounds.height),
+        );
+        const node = componentRegistry.createComponent('WebReusableElement', {
+          existingNames: activePage.components,
+          parentId: requestedParentId,
+          x,
+          y,
+          props: { reusableElementId },
+        }) as ComponentNode;
+        commitDesignerCommand(new AddComponentCommand(node, { parentId: requestedParentId }));
+        selectionManager.selectSingle(node.id);
+        addOutput('DESIGNER', `Added reusable component ${node.name}.`);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activeDocumentKind,
+      activePage,
+      addOutput,
+      commitDesignerCommand,
+      project,
+      reportError,
+      selectionManager,
+    ],
   );
 
   const moveComponents = useCallback(
@@ -419,9 +501,18 @@ export function App(): ReactElement {
           if (!component.parentId) continue;
           groups.set(component.parentId, [...(groups.get(component.parentId) ?? []), id]);
         }
-        const commands = [...groups.values()].map(
-          (group) => new MoveCommand(group, delta, { snapToGrid: false, constrainToParent: true }),
-        );
+        const commands = [...groups.values()].map((group) => {
+          const hasFloatingReusableElement = group.some((id) => {
+            const component = getComponent(activePage, id);
+            return (
+              component.type === 'WebReusableElement' && component.props.placement === 'floating'
+            );
+          });
+          return new MoveCommand(group, delta, {
+            snapToGrid: false,
+            constrainToParent: !hasFloatingReusableElement,
+          });
+        });
         if (commands.length === 0) return;
         const next = designerController.executeMany(activePage, 'Move selection', commands);
         updateActivePage(next);
@@ -556,7 +647,11 @@ export function App(): ReactElement {
           definition.name === 'name' &&
           typeof value === 'string'
         ) {
-          projectController.renamePage(activePage.id, value);
+          if (activeDocumentKind === 'reusable') {
+            projectController.renameReusableElement(activePage.id, value);
+          } else {
+            projectController.renamePage(activePage.id, value);
+          }
           return;
         }
         updateActivePage(
@@ -568,6 +663,7 @@ export function App(): ReactElement {
     },
     [
       activePage,
+      activeDocumentKind,
       designerController,
       projectController,
       reportError,
@@ -657,6 +753,15 @@ export function App(): ReactElement {
   const bindEvent = useCallback(
     (eventName: string, handlerName: string | null): void => {
       if (!activePage || !selection.primaryId) return;
+      if (activeDocumentKind !== 'page') {
+        reportError(
+          new Error(
+            'Reusable component events are not available yet; bind the event on its host page.',
+          ),
+          'DESIGNER',
+        );
+        return;
+      }
       try {
         updateActivePage(
           designerController.bindEvent(activePage, selection.primaryId, eventName, handlerName),
@@ -665,12 +770,28 @@ export function App(): ReactElement {
         reportError(error, 'LANGUAGE');
       }
     },
-    [activePage, designerController, reportError, selection.primaryId, updateActivePage],
+    [
+      activeDocumentKind,
+      activePage,
+      designerController,
+      reportError,
+      selection.primaryId,
+      updateActivePage,
+    ],
   );
 
   const createOrOpenEvent = useCallback(
     (componentId: string, eventName: string): void => {
       if (!activePage) return;
+      if (activeDocumentKind !== 'page') {
+        reportError(
+          new Error(
+            'Reusable component events are not available yet; bind the event on its host page.',
+          ),
+          'DESIGNER',
+        );
+        return;
+      }
       try {
         const component = getComponent(activePage, componentId);
         const handlerName =
@@ -725,6 +846,7 @@ export function App(): ReactElement {
     },
     [
       activePage,
+      activeDocumentKind,
       addOutput,
       designerController,
       projectController,
@@ -899,6 +1021,7 @@ export function App(): ReactElement {
       setMonacoMarkers([]);
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
+      setAddDocumentDialogKind(null);
     } catch (error) {
       reportError(error, 'PROJECT');
     }
@@ -910,26 +1033,45 @@ export function App(): ReactElement {
     selectionManager,
   ]);
 
+  const openAddDocumentDialog = useCallback(
+    (kind: AddDocumentKind): void => {
+      if (!project) return;
+      setAddDocumentDialogKind(kind);
+    },
+    [project],
+  );
+
   const addPageToProject = useCallback((): void => {
-    if (!project) return;
-    const occupiedNames = new Set(project.pages.map((page) => page.name));
-    let sequence = 2;
-    while (occupiedNames.has(`Page${String(sequence)}`)) sequence += 1;
-    const suggested = `Page${String(sequence)}`;
-    const name = window.prompt('Page name', suggested)?.trim();
-    if (!name) return;
-    try {
-      const page = createPage(name);
-      projectController.addPage(page);
-      setOpenPageIds((current) => (current.includes(page.id) ? current : [...current, page.id]));
-      setActivePageId(page.id);
-      setActiveWorkspace('page');
-      selectionManager.clear();
-      addOutput('PROJECT', `Added page ${name}.`);
-    } catch (error) {
-      reportError(error, 'PROJECT');
-    }
-  }, [addOutput, project, projectController, reportError, selectionManager]);
+    openAddDocumentDialog('page');
+  }, [openAddDocumentDialog]);
+
+  const addReusableElementToProject = useCallback((): void => {
+    openAddDocumentDialog('reusable');
+  }, [openAddDocumentDialog]);
+
+  const submitAddDocument = useCallback(
+    (name: string): void => {
+      const kind = addDocumentDialogKind;
+      if (!project || kind === null) return;
+      try {
+        const document = kind === 'page' ? createPage(name) : createReusableElement(name);
+        if (kind === 'page') projectController.addPage(document);
+        else projectController.addReusableElement(document);
+        setOpenPageIds((current) =>
+          current.includes(document.id) ? current : [...current, document.id],
+        );
+        setActivePageId(document.id);
+        setActiveWorkspace('page');
+        setActiveView('design');
+        selectionManager.clear();
+        setAddDocumentDialogKind(null);
+        addOutput('PROJECT', `Added ${kind === 'page' ? 'page' : 'reusable component'} ${name}.`);
+      } catch (error) {
+        reportError(error, 'PROJECT');
+      }
+    },
+    [addDocumentDialogKind, addOutput, project, projectController, reportError, selectionManager],
+  );
 
   const deletePage = useCallback(
     (pageId: string): void => {
@@ -956,6 +1098,49 @@ export function App(): ReactElement {
     (pageId: string, name: string): void => {
       try {
         projectController.renamePage(pageId, name);
+      } catch (error) {
+        reportError(error, 'PROJECT');
+      }
+    },
+    [projectController, reportError],
+  );
+
+  const deleteReusableElement = useCallback(
+    (reusableElementId: string): void => {
+      if (!project) return;
+      const reusableElement = project.reusableElements.find(
+        (candidate) => candidate.id === reusableElementId,
+      );
+      if (
+        !reusableElement ||
+        !window.confirm(`Delete reusable component ${reusableElement.name} from this project?`)
+      ) {
+        return;
+      }
+      try {
+        projectController.removeReusableElement(reusableElementId);
+        const fallbackId = project.pages[0]?.id ?? null;
+        setOpenPageIds((current) => {
+          const remaining = current.filter((id) => id !== reusableElementId);
+          if (activePageId !== reusableElementId || fallbackId === null) return remaining;
+          return remaining.includes(fallbackId) ? remaining : [...remaining, fallbackId];
+        });
+        if (activePageId === reusableElementId) {
+          setActivePageId(fallbackId);
+          setActiveView('design');
+        }
+        selectionManager.clear();
+      } catch (error) {
+        reportError(error, 'PROJECT');
+      }
+    },
+    [activePageId, project, projectController, reportError, selectionManager],
+  );
+
+  const renameReusableElement = useCallback(
+    (reusableElementId: string, name: string): void => {
+      try {
+        projectController.renameReusableElement(reusableElementId, name);
       } catch (error) {
         reportError(error, 'PROJECT');
       }
@@ -1013,7 +1198,7 @@ export function App(): ReactElement {
   const executeCommand = useCallback(
     (command: IdeCommand): void => {
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
-      if (newProjectDialogOpen) return;
+      if (newProjectDialogOpen || addDocumentDialogKind !== null) return;
       if (
         command.startsWith('edit.') &&
         (activeView !== 'design' || isTextEditingElement(document.activeElement))
@@ -1061,10 +1246,12 @@ export function App(): ReactElement {
           if (activeWorkspace === 'page') setActiveView('design');
           break;
         case 'view.code':
-          if (activeWorkspace === 'page') setActiveView('code');
+          if (activeWorkspace === 'page' && activeDocumentKind !== 'reusable')
+            setActiveView('code');
           break;
         case 'view.preview':
-          if (activeWorkspace === 'page') setActiveView('preview');
+          if (activeWorkspace === 'page' && activeDocumentKind !== 'reusable')
+            setActiveView('preview');
           break;
         case 'view.projectExplorer':
           setVisiblePanels((current) => ({ ...current, explorer: !current.explorer }));
@@ -1081,6 +1268,9 @@ export function App(): ReactElement {
         case 'project.addPage':
           addPageToProject();
           break;
+        case 'project.addReusableElement':
+          addReusableElementToProject();
+          break;
         case 'project.build':
         case 'run.run':
           void runProject();
@@ -1095,8 +1285,11 @@ export function App(): ReactElement {
     },
     [
       addPageToProject,
+      addReusableElementToProject,
+      activeDocumentKind,
       activeWorkspace,
       activeView,
+      addDocumentDialogKind,
       closeProject,
       copySelection,
       deleteSelection,
@@ -1117,6 +1310,10 @@ export function App(): ReactElement {
     const keyHandler = (event: KeyboardEvent): void => {
       if (event.key === 'F12') {
         if (activeWorkspace === 'styles') return;
+        if (activeDocumentKind === 'reusable') {
+          setActiveView('design');
+          return;
+        }
         const target = event.target;
         if (
           activeView === 'code' &&
@@ -1134,14 +1331,25 @@ export function App(): ReactElement {
     };
     window.addEventListener('keydown', keyHandler);
     return () => window.removeEventListener('keydown', keyHandler);
-  }, [activeView, activeWorkspace, runProject]);
+  }, [activeDocumentKind, activeView, activeWorkspace, runProject]);
 
   const documents: readonly DocumentTab[] = useMemo(() => {
-    const pageDocuments = openPageIds.flatMap((id) => {
+    const pageDocuments: readonly DocumentTab[] = openPageIds.flatMap<DocumentTab>((id) => {
       const page = project?.pages.find((candidate) => candidate.id === id);
-      return page
-        ? [{ id, label: page.name, dirty: projectState.dirty, kind: 'page' as const }]
-        : [];
+      if (page !== undefined) {
+        return [{ id, label: page.name, dirty: projectState.dirty, kind: 'page' as const }];
+      }
+      const reusableElement = project?.reusableElements.find((candidate) => candidate.id === id);
+      return reusableElement === undefined
+        ? []
+        : [
+            {
+              id,
+              label: reusableElement.name,
+              dirty: projectState.dirty,
+              kind: 'reusable' as const,
+            },
+          ];
     });
     return stylesOpen
       ? [
@@ -1328,10 +1536,11 @@ export function App(): ReactElement {
         onDeleteStyle={deleteStyle}
       />
     </ErrorBoundary>
-  ) : !activePage ? null : activeView === 'design' ? (
+  ) : !activePage ? null : activeView === 'design' || activeDocumentKind === 'reusable' ? (
     <ErrorBoundary area="Designer">
       <DesignerSurface
         page={activePage}
+        reusableElements={project?.reusableElements}
         styles={project?.styles}
         compiledStylesCss={compiledStylesCss}
         settings={
@@ -1347,6 +1556,7 @@ export function App(): ReactElement {
         zoom={zoom}
         onSelect={(ids, primaryId) => selectionManager.set(ids, primaryId)}
         onAddComponent={addComponentAt}
+        onAddReusableElement={addReusableElementAt}
         onMoveComponents={moveComponents}
         onReorderComponents={reorderComponents}
         onResizeComponent={resizeComponent}
@@ -1359,6 +1569,7 @@ export function App(): ReactElement {
         onSendToBack={() => changeZOrder('back')}
         onZoomChange={setZoom}
         onComponentActivate={activateComponent}
+        onOpenReusableElement={openPage}
       />
     </ErrorBoundary>
   ) : activeView === 'code' ? (
@@ -1400,6 +1611,7 @@ export function App(): ReactElement {
         } as const);
   const modalOpen =
     newProjectDialogOpen ||
+    addDocumentDialogKind !== null ||
     iconPickerOpen ||
     apiClientTesterComponent !== null ||
     dataGridConfiguratorComponent !== null;
@@ -1424,11 +1636,20 @@ export function App(): ReactElement {
               <ErrorBoundary area="Project Explorer">
                 <ProjectExplorer
                   project={project}
-                  activePageId={stylesActive ? null : activePageId}
+                  activePageId={
+                    stylesActive || activeDocumentKind === 'reusable' ? null : activePageId
+                  }
                   onOpenPage={openPage}
                   onAddPage={addPageToProject}
                   onDeletePage={deletePage}
                   onRenamePage={renamePage}
+                  activeReusableElementId={
+                    stylesActive || activeDocumentKind !== 'reusable' ? null : activePageId
+                  }
+                  onOpenReusableElement={openPage}
+                  onAddReusableElement={addReusableElementToProject}
+                  onDeleteReusableElement={deleteReusableElement}
+                  onRenameReusableElement={renameReusableElement}
                 />
               </ErrorBoundary>
             ) : null
@@ -1447,6 +1668,19 @@ export function App(): ReactElement {
                       {
                         x: Math.round((activePage.width - definition.defaultBounds.width) / 2),
                         y: Math.round((activePage.height - definition.defaultBounds.height) / 2),
+                      },
+                      activePage.rootComponentId,
+                    );
+                  }}
+                  reusableElements={project?.reusableElements}
+                  allowNonvisual={activeDocumentKind !== 'reusable'}
+                  onInsertReusableElement={(reusableElementId) => {
+                    if (!activePage) return;
+                    addReusableElementAt(
+                      reusableElementId,
+                      {
+                        x: Math.round(activePage.width / 2 - 180),
+                        y: Math.round(activePage.height / 2 - 120),
                       },
                       activePage.rootComponentId,
                     );
@@ -1481,11 +1715,21 @@ export function App(): ReactElement {
                   if (activeWorkspace === 'styles') setActiveWorkspace('page');
                   return;
                 }
-                setOpenPageIds((current) => current.filter((candidate) => candidate !== id));
-                if (activePageId === id) {
-                  const remaining = openPageIds.filter((candidate) => candidate !== id);
-                  setActivePageId(remaining.at(-1) ?? null);
-                }
+                setOpenPageIds((current) => {
+                  const remaining = current.filter((candidate) => candidate !== id);
+                  if (activePageId !== id) return remaining;
+                  const nextId = remaining.at(-1) ?? null;
+                  setActivePageId(nextId);
+                  if (
+                    nextId !== null &&
+                    project?.reusableElements.some(
+                      (reusableElement) => reusableElement.id === nextId,
+                    )
+                  ) {
+                    setActiveView('design');
+                  }
+                  return remaining;
+                });
               }}
               onSelectView={setActiveView}
             >
@@ -1500,10 +1744,15 @@ export function App(): ReactElement {
                   page={activePage}
                   definition={
                     selectedComponents.length === 0 && activePage
-                      ? componentRegistry.get('WebPage')
+                      ? componentRegistry.get(
+                          activePage.components.find(
+                            (component) => component.id === activePage.rootComponentId,
+                          )?.type ?? 'WebPage',
+                        )
                       : undefined
                   }
                   availableComponents={activePage?.components}
+                  availableReusableElements={project?.reusableElements}
                   styles={project?.styles}
                   onStyleChange={changeStyle}
                   onPropertyChange={changeProperty}
@@ -1514,6 +1763,7 @@ export function App(): ReactElement {
                     const targetId = selection.primaryId ?? activePage?.rootComponentId;
                     if (targetId) createOrOpenEvent(targetId, eventName);
                   }}
+                  eventsEnabled={activeDocumentKind === 'page'}
                 />
               </ErrorBoundary>
             ) : null
@@ -1553,6 +1803,28 @@ export function App(): ReactElement {
             setNewProjectError(null);
           }}
           onCreate={(name) => void submitNewProject(name)}
+        />
+      )}
+      {addDocumentDialogKind !== null && project !== null && (
+        <AddPageDialog
+          key={addDocumentDialogKind}
+          kind={addDocumentDialogKind}
+          suggestedName={(() => {
+            const occupiedNames = new Set([
+              ...project.pages.map((page) => page.name),
+              ...project.reusableElements.map((reusableElement) => reusableElement.name),
+            ]);
+            const prefix = addDocumentDialogKind === 'page' ? 'Page' : 'Reusable';
+            let sequence = addDocumentDialogKind === 'page' ? 2 : 1;
+            while (occupiedNames.has(`${prefix}${String(sequence)}`)) sequence += 1;
+            return `${prefix}${String(sequence)}`;
+          })()}
+          occupiedNames={[
+            ...project.pages.map((page) => page.name),
+            ...project.reusableElements.map((reusableElement) => reusableElement.name),
+          ]}
+          onCancel={() => setAddDocumentDialogKind(null)}
+          onCreate={submitAddDocument}
         />
       )}
       {apiClientTesterComponent !== null && (

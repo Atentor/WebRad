@@ -32,24 +32,44 @@ function validateRegistry(
   registry: ComponentRegistry,
 ): readonly CompileDiagnostic[] {
   const diagnostics: CompileDiagnostic[] = [];
-  for (const [pageIndex, page] of project.pages.entries()) {
-    for (const [componentIndex, component] of page.components.entries()) {
+  const documents = [
+    ...project.pages.map((document, index) => ({
+      document,
+      path: ['pages', index] as const,
+      reusable: false,
+    })),
+    ...project.reusableElements.map((document, index) => ({
+      document,
+      path: ['reusableElements', index] as const,
+      reusable: true,
+    })),
+  ];
+  for (const { document, path, reusable } of documents) {
+    for (const [componentIndex, component] of document.components.entries()) {
       const definition = registry.get(component.type);
       if (definition === undefined) {
         diagnostics.push({
           category: 'error',
           source: 'registry',
           message: `Unknown component type "${component.type}".`,
-          path: ['pages', pageIndex, 'components', componentIndex, 'type'],
+          path: [...path, 'components', componentIndex, 'type'],
         });
         continue;
+      }
+      if (reusable && !definition.visual) {
+        diagnostics.push({
+          category: 'error',
+          source: 'registry',
+          message: 'Reusable components can contain visual components only.',
+          path: [...path, 'components', componentIndex, 'type'],
+        });
       }
       if (!definition.canHaveChildren && component.children.length > 0) {
         diagnostics.push({
           category: 'error',
           source: 'registry',
           message: `${component.type} cannot contain child components.`,
-          path: ['pages', pageIndex, 'components', componentIndex, 'children'],
+          path: [...path, 'components', componentIndex, 'children'],
         });
       }
       const propertyDefinitions = new Map(
@@ -64,16 +84,16 @@ function validateRegistry(
             category: 'error',
             source: 'registry',
             message: `Property "${propertyName}" is not registered for ${component.type}.`,
-            path: ['pages', pageIndex, 'components', componentIndex, 'props', propertyName],
+            path: [...path, 'components', componentIndex, 'props', propertyName],
           });
           continue;
         }
-        if (!isValidPropertyValue(property, value, page.components)) {
+        if (!isValidPropertyValue(property, value, document.components, project.reusableElements)) {
           diagnostics.push({
             category: 'error',
             source: 'registry',
             message: `Property "${propertyName}" has an invalid ${property.type} value for ${component.type}.`,
-            path: ['pages', pageIndex, 'components', componentIndex, 'props', propertyName],
+            path: [...path, 'components', componentIndex, 'props', propertyName],
           });
         }
       }
@@ -83,21 +103,14 @@ function validateRegistry(
             category: 'error',
             source: 'registry',
             message: `Event "${eventName}" is not registered for ${component.type}.`,
-            path: ['pages', pageIndex, 'components', componentIndex, 'events', eventName],
+            path: [...path, 'components', componentIndex, 'events', eventName],
           });
         }
       }
       if (component.type === 'WebDataGrid') {
         const configuration = DataGridConfigurationSchema.safeParse(component.props.dataGridConfig);
         if (!configuration.success) continue;
-        const dataGridPath = [
-          'pages',
-          pageIndex,
-          'components',
-          componentIndex,
-          'props',
-          'dataGridConfig',
-        ];
+        const dataGridPath = [...path, 'components', componentIndex, 'props', 'dataGridConfig'];
         if (configuration.data.apiClientId === null) {
           diagnostics.push({
             category: 'error',
@@ -107,7 +120,7 @@ function validateRegistry(
           });
           continue;
         }
-        const apiClient = page.components.find(
+        const apiClient = document.components.find(
           (candidate) => candidate.id === configuration.data.apiClientId,
         );
         if (apiClient?.type !== 'WebApiClient') {
@@ -190,6 +203,7 @@ function isValidPropertyValue(
   property: ComponentPropertyDefinition,
   value: unknown,
   components: WebRadProject['pages'][number]['components'],
+  reusableElements: WebRadProject['reusableElements'],
 ): boolean {
   switch (property.type) {
     case 'string':
@@ -208,6 +222,11 @@ function isValidPropertyValue(
       return (
         value === null ||
         (typeof value === 'string' && components.some((component) => component.id === value))
+      );
+    case 'reusable-element':
+      return (
+        typeof value === 'string' &&
+        reusableElements.some((reusableElement) => reusableElement.id === value)
       );
     case 'api-client-config':
       return ApiClientConfigurationSchema.safeParse(value).success;

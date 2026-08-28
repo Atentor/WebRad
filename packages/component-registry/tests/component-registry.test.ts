@@ -71,9 +71,9 @@ function defaultLayout() {
 }
 
 describe('MVP component metadata', () => {
-  it('registers the eleven visual controls and WebApiClient in a stable order', () => {
+  it('registers the reusable visual wrapper, controls, and WebApiClient in a stable order', () => {
     expect(componentRegistry.list().map((item) => item.type)).toEqual(MVP_COMPONENT_TYPES);
-    expect(componentRegistry.size).toBe(12);
+    expect(componentRegistry.size).toBe(13);
     expect(
       componentRegistry
         .list()
@@ -93,7 +93,9 @@ describe('MVP component metadata', () => {
       expect(component.properties.some((property) => property.name === 'name')).toBe(true);
       if (component.visual) {
         expect(component.properties.some((property) => property.name === 'width')).toBe(true);
-        expect(component.events.length).toBeGreaterThan(0);
+        if (component.type !== 'WebReusableElement') {
+          expect(component.events.length).toBeGreaterThan(0);
+        }
       }
     }
   });
@@ -190,6 +192,7 @@ describe('MVP component metadata', () => {
     expect(registry.listByCategory('Containers').map((item) => item.type)).toEqual([
       'WebPage',
       'WebPanel',
+      'WebReusableElement',
     ]);
     expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual(['WebApiClient']);
   });
@@ -316,7 +319,7 @@ describe('ComponentRegistry behavior', () => {
   it('supports the conceptual static global registry API', () => {
     expect(ComponentRegistry.has('WebButton')).toBe(true);
     expect(ComponentRegistry.get('WebButton')).toBe(componentRegistry.get('WebButton'));
-    expect(ComponentRegistry.list()).toHaveLength(12);
+    expect(ComponentRegistry.list()).toHaveLength(13);
   });
 });
 

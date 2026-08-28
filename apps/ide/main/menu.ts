@@ -70,6 +70,7 @@ export function installApplicationMenu(window: BrowserWindow): void {
       label: 'Project',
       submenu: [
         commandItem(window, 'Add Page', 'project.addPage'),
+        commandItem(window, 'Add Reusable Component', 'project.addReusableElement'),
         commandItem(window, 'Build', 'project.build'),
       ],
     },

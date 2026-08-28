@@ -5,11 +5,13 @@ import path from 'node:path';
 import {
   addComponent,
   addComponentStyle,
+  addReusableElement,
   bindComponentEvent,
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
   createDefaultApiClientConfiguration,
   createComponentStyle,
   createProject,
+  createReusableElement,
   setComponentStyle,
   updatePage,
   type ApiClientConfiguration,
@@ -28,6 +30,7 @@ import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { compileProject, compileProjectToMemory } from '../src/index.js';
+import { createVirtualSourceGraph } from '../src/source-graph.js';
 import {
   collectTailwindCandidates,
   compileTailwindStyles,
@@ -266,7 +269,65 @@ function styledExecutableProject(): WebRadProject {
   return setComponentStyle(withStyle, withStyle.pages[0]!.id, 'button-show', style.id);
 }
 
+function reusableElementExecutableProject(): WebRadProject {
+  let sequence = 0;
+  const idFactory = (): string => `reusable-${String((sequence += 1))}`;
+  const project = createProject('ReusableCompile', { idFactory });
+  const reusableDefinition = createReusableElement('CustomerCard', {
+    idFactory,
+    width: 240,
+    height: 96,
+  });
+  const withReusableDefinition = addReusableElement(project, reusableDefinition);
+  const page = withReusableDefinition.pages[0];
+  if (page === undefined) throw new Error('Expected the initial page.');
+
+  const reusableInstance = defaultComponentRegistry.createComponent('WebReusableElement', {
+    id: 'customer-card-instance',
+    name: 'CustomerCardInstance',
+    parentId: page.rootComponentId,
+    x: 24,
+    y: 36,
+    props: {
+      reusableElementId: reusableDefinition.id,
+      placement: 'floating',
+      floatingHorizontalAnchor: 'right',
+      floatingVerticalAnchor: 'bottom',
+      floatingZIndex: 220,
+    },
+  });
+  const pageWithReusableInstance = addComponent(page, reusableInstance, page.rootComponentId);
+  return updatePage(withReusableDefinition, page.id, pageWithReusableInstance);
+}
+
 describe('compileProject', () => {
+  it('serializes reusable definitions into the runtime model and compiles without diagnostics', async () => {
+    const project = reusableElementExecutableProject();
+    const reusableDefinition = project.reusableElements[0];
+    if (reusableDefinition === undefined) throw new Error('Expected a reusable definition.');
+
+    const graph = createVirtualSourceGraph(
+      project,
+      {},
+      defaultComponentRegistry,
+      GENERATED_APP_CSS,
+    );
+    const entrySource = graph.sources.get(graph.entryPath);
+    if (entrySource === undefined) throw new Error('Expected the compiler entry source.');
+
+    expect(graph.diagnostics).toEqual([]);
+    expect(entrySource).toContain('"reusableElements":[');
+    expect(entrySource).toContain(`"id":"${reusableDefinition.id}"`);
+    expect(entrySource).toContain(`"reusableElementId":"${reusableDefinition.id}"`);
+
+    const result = await compileProjectToMemory(project, { userSources: {} });
+
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.files['assets/app.js']).toContain('reusableElements');
+    expect(result.files['assets/app.js']).toContain(reusableDefinition.id);
+  });
+
   it('accepts a registered, typed API Client response contract', async () => {
     const project = executableProject();
     const configuration = customersApiClientConfiguration();

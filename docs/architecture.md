@@ -13,6 +13,7 @@ Electron main -> typed preload bridge -> React renderer
 
 project model -> generated source -> esbuild -> browser-only output
              `-> reusable styles -> Tailwind/PostCSS -> static app.css
+             `-> reusable definitions -> runtime instance expansion
 ```
 
 ## Package boundaries
@@ -41,6 +42,18 @@ Reusable styles remain project-level model records with stable IDs. The Styles w
 Nonvisual nodes remain children of the page in the Project Model but are projected into a dedicated design-time tray instead of the canvas. Generated classes construct their typed runtime service instances directly from registered properties, immutable IDs, and user-facing names, while the compiler removes those nodes from the page DOM model. Nonvisual runtime objects therefore retain the same identity contract without pretending to own a DOM element: `id` remains stable and `name` reflects the current Project Model name.
 
 Component IDs are immutable. Names are validated TypeScript identifiers unique within a page. Version 2 removes page-level `layoutMode`: each component persists a container mode (`fixed`, `align-to-parent`, `row`, or `column`) plus item sizing, constraints, anchors, and insets. `bounds` remains the deterministic geometry fallback for fixed mode. Runtime and Designer implementations must derive their layout from this shared Project Model contract rather than retaining independent layout state.
+
+## Reusable visual components
+
+Reusable Components follow the same model-first boundary. The project manifest owns a `reusableElements` collection of page-shaped visual definitions, each with a `WebPanel` root; they are not routes and do not have standalone source files. The Registry supplies one visual, childless `WebReusableElement` wrapper type. A wrapper is placed in a page or another definition through its `reusableElementId` property, while the definition remains the sole owner of its child hierarchy. The Designer renders that reference in place, opens the definition in a Design-only tab, and presents definitions as draggable palette entries. No IDE view reconstructs a reusable by copying its children into the placement node.
+
+The aggregate validator resolves every reference across pages and definitions, requires globally unambiguous page/reusable IDs and portable names, rejects recursive definition graphs, and blocks definition removal while references remain. This validation lives in `packages/project-model`; the Designer, compiler, and runtime consume only validated aggregates. Legacy v2 manifests without the additive collection normalize to `[]` before becoming the canonical in-memory model.
+
+At runtime, `mountPage()` expands definitions after compilation and before DOM construction. The immutable IDs in a definition are template identities only. Each placement gets a physical runtime ID scoped by its own instance ID, including nested placements, so component maps, DOM attributes, and mutable browser objects are isolated even when one definition is mounted repeatedly. The runtime never persists those clones back into the Project Model.
+
+Instance geometry belongs to the `WebReusableElement` wrapper, not the definition. In-flow instances use the normal shared responsive-layout projection. A wrapper with `placement: "floating"` instead projects as a fixed viewport overlay with its own horizontal/vertical viewport anchors, bounds offsets, and z-index; it leaves the shared definition and its layout untouched. The runtime hosts floating instance DOM in a page-owned sibling overlay layer outside the styled page tree, so transforms or clipping on a panel cannot turn the fixed placement into a parent-relative element. The definition root fills the wrapper, which preserves its visual composition at every placement size.
+
+This first reusable vertical slice is visual-only. Reusable definitions have Design but no Code or Preview tab, no generated class or user source, and no event code-behind. The wrapper is still a normal page-owned visual component and can be addressed from that page's generated class, but the definition's descendants are not hoisted into page fields and its persisted event bindings are not generated or bound. Nonvisual services and reusable-scoped behavior/data contracts are deferred rather than simulated.
 
 ## Commands and selection
 

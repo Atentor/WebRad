@@ -127,6 +127,15 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     caption: string;
   }
 
+  /** One instance of a shared reusable component definition. */
+  export class WebReusableElement extends WebPanel {
+    reusableElementId: string;
+    placement: 'in-flow' | 'floating';
+    floatingHorizontalAnchor: 'left' | 'center' | 'right';
+    floatingVerticalAnchor: 'top' | 'center' | 'bottom';
+    floatingZIndex: number;
+  }
+
   export interface ClosePageOptions {
     /** Remove the page element from the document instead of hiding it. */
     readonly remove?: boolean;
@@ -189,6 +198,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly type?: string;
     readonly bounds: RuntimeLayoutBounds;
     readonly children?: readonly string[];
+    readonly props?: Readonly<Record<string, unknown>>;
     readonly layout?: RuntimeComponentLayout;
   }
 
@@ -199,6 +209,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
 
   export interface ApplyRuntimeLayoutOptions {
     readonly isPageRoot?: boolean;
+    readonly isReusableRoot?: boolean;
   }
 
   export function resolveRuntimeContainerLayout(
@@ -471,6 +482,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
 
   export interface RuntimeComponentNode {
     readonly id: string;
+    readonly templateId?: string;
+    readonly reusableRoot?: boolean;
     readonly type: string;
     readonly name: string;
     readonly parentId: string | null;
@@ -481,6 +494,16 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly styleClassName?: string;
   }
 
+  export interface RuntimeReusableElementModel {
+    readonly id: string;
+    readonly name: string;
+    readonly caption: string;
+    readonly width: number;
+    readonly height: number;
+    readonly components: readonly RuntimeComponentNode[];
+    readonly rootComponentId: string;
+  }
+
   export interface RuntimePageModel {
     readonly id: string;
     readonly name: string;
@@ -489,6 +512,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly height: number;
     readonly components: readonly RuntimeComponentNode[];
     readonly rootComponentId: string;
+    readonly reusableElements?: readonly RuntimeReusableElementModel[];
   }
 
   export interface RuntimeComponentAdapter<T extends WebComponent = WebComponent> {
@@ -505,6 +529,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
   }
 
   export const runtimeComponentRegistry: RuntimeComponentRegistry;
+
+  export function expandReusableElements(model: RuntimePageModel): RuntimePageModel;
 
   export interface MountedRuntimePage {
     readonly element: HTMLElement;

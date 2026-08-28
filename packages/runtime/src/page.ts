@@ -6,6 +6,24 @@ export interface ClosePageOptions {
   readonly remove?: boolean;
 }
 
+function floatingLayersForPage(element: HTMLElement): readonly HTMLElement[] {
+  const pageId = element.dataset.webradPageId;
+  if (pageId === undefined) return [];
+  const roots = [element.parentElement, element.ownerDocument].filter(
+    (root): root is HTMLElement | Document => root !== null,
+  );
+  const seen = new Set<HTMLElement>();
+  const layers: HTMLElement[] = [];
+  for (const root of roots) {
+    for (const layer of root.querySelectorAll<HTMLElement>('[data-webrad-floating-owner]')) {
+      if (layer.dataset.webradFloatingOwner !== pageId || seen.has(layer)) continue;
+      seen.add(layer);
+      layers.push(layer);
+    }
+  }
+  return layers;
+}
+
 /** The root container's current responsive layout mode. */
 export type WebPageLayoutMode = RuntimeContainerLayoutMode;
 
@@ -35,6 +53,7 @@ export class WebPage extends WebPanel {
 
   public override show(): void {
     super.show();
+    for (const layer of floatingLayersForPage(this.element)) layer.hidden = false;
     if (!this.#created) {
       this.#created = true;
       this.emit('OnCreate');
@@ -44,14 +63,29 @@ export class WebPage extends WebPanel {
 
   public close(options: ClosePageOptions = {}): void {
     this.emit('OnHide');
-    if (options.remove === true) this.element.remove();
-    else this.hide();
+    if (options.remove === true) {
+      const floatingLayers = floatingLayersForPage(this.element);
+      this.element.remove();
+      for (const layer of floatingLayers) layer.remove();
+    } else {
+      this.hide();
+    }
+  }
+
+  public override hide(): void {
+    super.hide();
+    for (const layer of floatingLayersForPage(this.element)) layer.hidden = true;
   }
 
   public requireComponentElement(componentId: string): HTMLElement {
     if (this.element.dataset.webradId === componentId) return this.element;
     for (const candidate of this.element.querySelectorAll<HTMLElement>('[data-webrad-id]')) {
       if (candidate.dataset.webradId === componentId) return candidate;
+    }
+    for (const layer of floatingLayersForPage(this.element)) {
+      for (const candidate of layer.querySelectorAll<HTMLElement>('[data-webrad-id]')) {
+        if (candidate.dataset.webradId === componentId) return candidate;
+      }
     }
     throw new Error(`Component element "${componentId}" was not found in page "${this.name}".`);
   }
@@ -71,6 +105,7 @@ export class WebPage extends WebPanel {
 
   public override dispose(): void {
     for (const dispose of this.#generatedBindings.splice(0)) dispose();
+    for (const layer of floatingLayersForPage(this.element)) layer.remove();
     super.dispose();
   }
 }

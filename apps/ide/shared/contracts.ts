@@ -22,6 +22,7 @@ export const IDE_COMMANDS = [
   'view.toolPalette',
   'view.output',
   'project.addPage',
+  'project.addReusableElement',
   'project.build',
   'run.run',
   'view.toggleTheme',

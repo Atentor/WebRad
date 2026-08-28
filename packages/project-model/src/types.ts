@@ -28,6 +28,18 @@ export type LayoutJustifyContent = (typeof LAYOUT_JUSTIFY_CONTENT_VALUES)[number
 export const LAYOUT_ALIGN_ITEMS_VALUES = ['start', 'center', 'end', 'stretch'] as const;
 export type LayoutAlignItems = (typeof LAYOUT_ALIGN_ITEMS_VALUES)[number];
 
+/** Instance placement modes for a `WebReusableElement` wrapper. */
+export const REUSABLE_ELEMENT_PLACEMENTS = ['in-flow', 'floating'] as const;
+export type ReusableElementPlacement = (typeof REUSABLE_ELEMENT_PLACEMENTS)[number];
+
+/** Viewport edges used by floating reusable-component instances. */
+export const REUSABLE_ELEMENT_HORIZONTAL_ANCHORS = ['left', 'center', 'right'] as const;
+export type ReusableElementHorizontalAnchor = (typeof REUSABLE_ELEMENT_HORIZONTAL_ANCHORS)[number];
+
+/** Viewport edges used by floating reusable-component instances. */
+export const REUSABLE_ELEMENT_VERTICAL_ANCHORS = ['top', 'center', 'bottom'] as const;
+export type ReusableElementVerticalAnchor = (typeof REUSABLE_ELEMENT_VERTICAL_ANCHORS)[number];
+
 export interface Bounds {
   readonly x: number;
   readonly y: number;
@@ -294,6 +306,14 @@ export interface PageModel {
   readonly rootComponentId: string;
 }
 
+/**
+ * A reusable visual composition. It intentionally has the same document shape
+ * as a page so the Designer can edit it with the same responsive-layout and
+ * history commands. It is kept in a separate project collection and is never
+ * a navigable application route.
+ */
+export type ReusableElementModel = PageModel;
+
 export interface ProjectSettings {
   readonly gridSize: number;
   readonly snapToGrid: boolean;
@@ -310,6 +330,11 @@ export interface WebRadProject {
   readonly entryPage: string;
   /** Complete in-memory aggregate and the single source of truth. */
   readonly pages: readonly PageModel[];
+  /**
+   * Reusable visual definitions. Page components reference these by stable ID;
+   * their child nodes are not copied into each instance.
+   */
+  readonly reusableElements: readonly ReusableElementModel[];
   /** Reusable Tailwind styles shared by compatible components across all pages. */
   readonly styles: readonly ComponentStyleModel[];
   readonly settings: ProjectSettings;
@@ -331,6 +356,8 @@ export interface ProjectManifest {
   readonly name: string;
   readonly entryPage: string;
   readonly pages: readonly PageDescriptor[];
+  /** Small reusable documents are stored with the manifest; they have no route or user code file. */
+  readonly reusableElements: readonly ReusableElementModel[];
   /** Styles remain inline because they are small project-level metadata. */
   readonly styles: readonly ComponentStyleModel[];
   readonly settings: ProjectSettings;

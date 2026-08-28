@@ -66,20 +66,20 @@ export {};
 `;
 }
 
-function runtimePageModel(
-  page: PageModel,
+function runtimeDocumentModel(
+  document: PageModel,
   styles: WebRadProject['styles'],
   registry: ComponentRegistry,
 ) {
   const visualIds = new Set(
-    page.components
+    document.components
       .filter((component) => registry.require(component.type).visual)
       .map((component) => component.id),
   );
   const stylesById = new Map(styles.map((style) => [style.id, style]));
   return {
-    ...page,
-    components: page.components
+    ...document,
+    components: document.components
       .filter((component) => visualIds.has(component.id))
       .map((component) => {
         const style =
@@ -95,10 +95,26 @@ function runtimePageModel(
   };
 }
 
+function runtimePageModel(
+  page: PageModel,
+  styles: WebRadProject['styles'],
+  registry: ComponentRegistry,
+  reusableElements: WebRadProject['reusableElements'],
+) {
+  return {
+    ...runtimeDocumentModel(page, styles, registry),
+    reusableElements: reusableElements.map((reusableElement) =>
+      runtimeDocumentModel(reusableElement, styles, registry),
+    ),
+  };
+}
+
 function createEntrySource(project: WebRadProject, registry: ComponentRegistry): string {
   const entryPage = project.pages.find((page) => page.id === project.entryPage);
   if (entryPage === undefined) throw new Error('The validated project has no entry page.');
-  const serializedPage = JSON.stringify(runtimePageModel(entryPage, project.styles, registry));
+  const serializedPage = JSON.stringify(
+    runtimePageModel(entryPage, project.styles, registry, project.reusableElements),
+  );
   return `import {
   Confirm,
   Message,
