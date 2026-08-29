@@ -252,16 +252,49 @@ function minMaxStyles(item: RuntimeLayoutItem): Readonly<Record<string, string>>
   };
 }
 
+/**
+ * Projects one axis inside a fixed container. Fixed is kept as the legacy
+ * geometry fallback, while stretch and fit-content remain meaningful for a
+ * responsive instance without requiring its parent to become a flex layout.
+ */
+function fixedAxisStyles(
+  axis: 'horizontal' | 'vertical',
+  sizing: RuntimeLayoutItemSizingMode,
+  leadingOffset: number,
+  trailingInset: number,
+  fixedSize: number,
+): Readonly<Record<string, string>> {
+  const start = axis === 'horizontal' ? 'left' : 'top';
+  const end = axis === 'horizontal' ? 'right' : 'bottom';
+  const dimension = axis === 'horizontal' ? 'width' : 'height';
+
+  switch (sizing) {
+    case 'stretch':
+      return {
+        [start]: coordinatePixels(leadingOffset),
+        [end]: coordinatePixels(trailingInset),
+      };
+    case 'fit-content':
+      return {
+        [start]: coordinatePixels(leadingOffset),
+        [dimension]: 'fit-content',
+      };
+    case 'fixed':
+      return {
+        [start]: coordinatePixels(leadingOffset),
+        [dimension]: pixels(fixedSize),
+      };
+  }
+}
+
 function fixedItemStyles(
   node: RuntimeLayoutNode,
   item: RuntimeLayoutItem,
 ): Readonly<Record<string, string>> {
   return {
     position: 'absolute',
-    left: coordinatePixels(node.bounds.x),
-    top: coordinatePixels(node.bounds.y),
-    width: pixels(node.bounds.width),
-    height: pixels(node.bounds.height),
+    ...fixedAxisStyles('horizontal', item.width, node.bounds.x, item.right, node.bounds.width),
+    ...fixedAxisStyles('vertical', item.height, node.bounds.y, item.bottom, node.bounds.height),
     ...minMaxStyles(item),
   };
 }

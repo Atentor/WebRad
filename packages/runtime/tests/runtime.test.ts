@@ -747,6 +747,26 @@ describe('browser runtime', () => {
     });
     expect(anchoredProjection.item.width).toBeUndefined();
 
+    const responsiveReusableInFixedContainer = {
+      type: 'WebReusableElement',
+      bounds: { x: 24, y: 36, width: 240, height: 96 },
+      layout: responsiveLayout(
+        {},
+        { width: 'stretch', height: 'fit-content', right: 20, bottom: 12 },
+      ),
+      props: { reusableElementId: 'customer-card', placement: 'in-flow' },
+    };
+    const fixedReusableProjection = projectRuntimeLayout(responsiveReusableInFixedContainer);
+    expect(fixedReusableProjection.item).toMatchObject({
+      position: 'absolute',
+      left: '24px',
+      right: '20px',
+      top: '36px',
+      height: 'fit-content',
+    });
+    expect(fixedReusableProjection.item.width).toBeUndefined();
+    expect(fixedReusableProjection.item.bottom).toBeUndefined();
+
     const rowParent = responsiveLayout({ mode: 'row', gap: 12, wrap: true });
     const flowing = {
       type: 'WebPanel',

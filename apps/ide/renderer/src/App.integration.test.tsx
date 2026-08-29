@@ -907,6 +907,8 @@ describe('App MVP integration', () => {
       screen.getByTitle('Insert CustomerCard; drag it onto the page or click to insert'),
     );
     await screen.findByTitle('Reusable1: WebReusableElement');
+    await user.selectOptions(screen.getByLabelText('Responsive width'), 'stretch');
+    await user.selectOptions(screen.getByLabelText('Responsive height'), 'fit-content');
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await screen.findByText('Saved MvpProject.');
@@ -917,6 +919,10 @@ describe('App MVP integration', () => {
       saved.pages[0]?.components.find((component) => component.type === 'WebReusableElement')
         ?.props,
     ).toMatchObject({ reusableElementId: reusable?.id, placement: 'in-flow' });
+    expect(
+      saved.pages[0]?.components.find((component) => component.type === 'WebReusableElement')
+        ?.layout.item,
+    ).toMatchObject({ width: 'stretch', height: 'fit-content' });
   });
 
   it('preserves the latest Monaco buffer after focus leaves the editor and Design-Code remounts it', async () => {
