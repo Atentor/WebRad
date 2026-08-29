@@ -46,6 +46,7 @@ import {
   updateComponentStyle,
   updateComponentStyleState,
   updatePage,
+  updateProjectSettings,
   validateComponentName,
   type ComponentNode,
   type IdFactory,
@@ -93,6 +94,10 @@ describe('project factories', () => {
       name: 'CustomerApp',
       entryPage: 'page-id',
       settings: {
+        applicationName: 'CustomerApp',
+        applicationDescription: '',
+        locale: 'pt-BR',
+        timeZone: 'America/Sao_Paulo',
         gridSize: 8,
         snapToGrid: true,
         showGrid: true,
@@ -181,6 +186,41 @@ describe('project factories', () => {
     expect(updated.pages[1]?.components[0]?.styleId).toBe(
       findDefaultComponentStyle(updated.styles, 'WebPage')?.id,
     );
+  });
+
+  it('persists general settings and materializes defaults for existing v2 projects', () => {
+    const project = createProject('CustomerApp', {
+      idFactory: idSequence('project-id', 'page-id', 'root-id'),
+    });
+    const updated = updateProjectSettings(project, {
+      applicationName: 'Customer Portal',
+      applicationDescription: 'Customer self-service area.',
+      locale: 'en-US',
+      timeZone: 'America/New_York',
+    });
+
+    expect(updated.settings).toMatchObject({
+      applicationName: 'Customer Portal',
+      applicationDescription: 'Customer self-service area.',
+      locale: 'en-US',
+      timeZone: 'America/New_York',
+    });
+
+    const legacy = JSON.parse(serializeProject(project)) as {
+      readonly settings: Record<string, unknown>;
+    };
+    delete legacy.settings.applicationName;
+    delete legacy.settings.applicationDescription;
+    delete legacy.settings.locale;
+    delete legacy.settings.timeZone;
+    const restored = deserializeProject(JSON.stringify(legacy));
+
+    expect(restored.settings).toMatchObject({
+      applicationName: 'CustomerApp',
+      applicationDescription: '',
+      locale: 'pt-BR',
+      timeZone: 'America/Sao_Paulo',
+    });
   });
 
   it('uses crypto UUIDs by default', () => {

@@ -236,6 +236,7 @@ export function createProject(
   );
   const settings = {
     ...DEFAULT_PROJECT_SETTINGS,
+    applicationName: name,
     ...(typeof options === 'function' ? {} : options.settings),
   };
   const styles = createDefaultComponentStyles(projectId);

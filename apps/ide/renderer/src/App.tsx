@@ -20,6 +20,7 @@ import {
   applyDefaultComponentStyle,
   createPage,
   createReusableElement,
+  DEFAULT_PROJECT_SETTINGS,
   getComponent,
   type ApiClientConfiguration,
   type Bounds,
@@ -27,6 +28,7 @@ import {
   type ComponentStyleModel,
   type DataGridConfiguration,
   type PageModel,
+  type ProjectSettings,
 } from '@webrad/project-model';
 import {
   createUserPageSource,
@@ -914,6 +916,19 @@ export function App(): ReactElement {
     ],
   );
 
+  const saveProjectSettings = useCallback(
+    (settings: ProjectSettings): void => {
+      try {
+        projectController.updateProjectSettings(settings);
+        setProjectSettingsDialogOpen(false);
+        addOutput('PROJECT', 'Saved general project settings.');
+      } catch (error) {
+        reportError(error, 'PROJECT');
+      }
+    },
+    [addOutput, projectController, reportError],
+  );
+
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
     if (!projectState.dirty) return true;
     if (window.confirm('Save unsaved changes before continuing?')) {
@@ -1531,14 +1546,7 @@ export function App(): ReactElement {
         reusableElements={project?.reusableElements}
         styles={project?.styles}
         compiledStylesCss={compiledStylesCss}
-        settings={
-          project?.settings ?? {
-            gridSize: 8,
-            snapToGrid: true,
-            showGrid: true,
-            outputDirectory: 'dist',
-          }
-        }
+        settings={project?.settings ?? DEFAULT_PROJECT_SETTINGS}
         selectedIds={selection.ids}
         selectedPaletteType={selectedPaletteType}
         zoom={zoom}
@@ -1821,7 +1829,9 @@ export function App(): ReactElement {
       {projectSettingsDialogOpen && project !== null && (
         <ProjectSettingsDialog
           projectName={project.name}
+          settings={project.settings}
           onClose={() => setProjectSettingsDialogOpen(false)}
+          onSave={saveProjectSettings}
         />
       )}
       {apiClientTesterComponent !== null && (

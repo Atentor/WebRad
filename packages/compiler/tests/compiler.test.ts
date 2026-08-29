@@ -16,6 +16,7 @@ import {
   createReusableElement,
   setComponentStyle,
   updatePage,
+  updateProjectSettings,
   type ApiClientConfiguration,
   type BackgroundGradientValue,
   type PageModel,
@@ -591,7 +592,11 @@ export class PageDetails extends PageDetailsGenerated {
 
   it('validates, typechecks and writes an ordinary browser application', async () => {
     const outputDirectory = await temporaryDirectory();
-    const project = executableProject();
+    const project = updateProjectSettings(executableProject(), {
+      applicationName: 'Hello & <WebRAD>',
+      applicationDescription: 'A customer <portal> & workspace.',
+      locale: 'en-US',
+    });
     const originalUserSource = `import { PageMainGenerated } from './PageMain.generated';
 
 export class PageMain extends PageMainGenerated {
@@ -624,6 +629,13 @@ export class PageMain extends PageMainGenerated {
 
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['index.html']).toContain('./assets/app.js');
+    expect(result.files['index.html']).toContain(
+      '<html lang="en-US" data-webrad-time-zone="America/Sao_Paulo">',
+    );
+    expect(result.files['index.html']).toContain('<title>Hello &amp; &lt;WebRAD&gt;</title>');
+    expect(result.files['index.html']).toContain(
+      '<meta name="description" content="A customer &lt;portal&gt; &amp; workspace." />',
+    );
     expect(result.files['assets/app.js']).toContain('BTNMostrarClick');
     expect(result.files['assets/app.js']).toContain('https://api.example.test');
     expect(result.files['assets/app.js']).toContain('api-client');
@@ -631,6 +643,9 @@ export class PageMain extends PageMainGenerated {
     expect(result.files['assets/app.css']).toContain('.wr-webbutton:hover:not(:disabled)');
     expect(result.previewHtml).toContain('<script>');
     expect(result.previewHtml).toContain('<style>');
+    expect(result.previewHtml).toContain(
+      '<html lang="en-US" data-webrad-time-zone="America/Sao_Paulo">',
+    );
     await expect(fs.readFile(path.join(outputDirectory, 'index.html'), 'utf8')).resolves.toContain(
       '<!doctype html>',
     );

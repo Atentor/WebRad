@@ -21,6 +21,12 @@ MyProject/
 
 The `.wrproj` manifest contains the project ID, display name, entry page ID, page descriptors, reusable visual definitions, reusable component styles, and settings. A `.wrpage` contains page metadata and component nodes. Component and style references use immutable IDs; names are user-facing labels and are not identities.
 
+## General project settings
+
+`settings` stores the application-facing `applicationName`, `applicationDescription`, `locale`, and `timeZone`, alongside the existing Designer grid settings and `outputDirectory`. The application name, description, and locale are emitted to both compiled and Preview HTML as the document title, optional description metadata, and `lang` attribute. The configured IANA time zone is emitted as `data-webrad-time-zone` on the root HTML element so generated application code can use the same project default without reading IDE state.
+
+`applicationName` defaults to the project display name for new projects. Existing valid v2 aggregates and manifests receive deterministic defaults for all general settings during parsing, then write their canonical values on the next serialization; this additive compatibility rule does not change `formatVersion`. The grid size, visibility, and snapping values are consumed directly by the Designer projection.
+
 ## Reusable visual components
 
 `reusableElements: ReusableElementModel[]` is stored inline in the manifest. A reusable element deliberately uses the same document shape as a page (`formatVersion`, immutable `id`, `name`, `caption`, dimensions, component nodes, and `rootComponentId`) so it can use the normal Designer, history, bounds, responsive-layout contract, events, and typed code-behind. It is nevertheless a definition, not a page: its root must be `WebPanel`, it has no route, page descriptor, or `.wrpage`. Its deterministic sources are `reusables/<Name>.generated.ts` and `reusables/<Name>.ts`; its document ID and portable name must be unique across both pages and reusable definitions.

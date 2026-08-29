@@ -19,6 +19,7 @@ import {
   COMPONENT_STYLE_PRESETS,
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
+  DEFAULT_PROJECT_SETTINGS,
   COMPONENT_STYLE_PROPERTY_NAMES,
   COMPONENT_STYLE_STATE_NAMES,
   LINEAR_GRADIENT_DIRECTIONS,
@@ -90,17 +91,29 @@ const relativeProjectPathSchema = z
   );
 
 /**
- * Reusable definitions were added as a backwards-compatible project field.
- * Older v2 projects did not persist the field, so materialize an empty
- * collection before strict schema validation makes the parsed Project Model
- * canonical again.
+ * Some additive v2 fields were introduced after projects using the same
+ * format version already existed. Materialize their deterministic defaults
+ * before strict schema validation, keeping persisted aggregates canonical.
  */
-function materializeReusableElements(input: unknown): unknown {
+function materializeProjectDefaults(input: unknown): unknown {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) return input;
   const candidate = input as Readonly<Record<string, unknown>>;
-  return Object.hasOwn(candidate, 'reusableElements')
-    ? input
-    : { ...candidate, reusableElements: [] };
+  const settings = candidate.settings;
+  const applicationName =
+    typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;
+  return {
+    ...candidate,
+    ...(Object.hasOwn(candidate, 'reusableElements') ? {} : { reusableElements: [] }),
+    ...(settings !== null && typeof settings === 'object' && !Array.isArray(settings)
+      ? {
+          settings: {
+            ...DEFAULT_PROJECT_SETTINGS,
+            applicationName,
+            ...settings,
+          },
+        }
+      : {}),
+  };
 }
 
 export const BoundsSchema: z.ZodType<Bounds> = z
@@ -429,6 +442,16 @@ export const ComponentStyleSchema: z.ZodType<ComponentStyleModel> = z
 
 export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   .object({
+    applicationName: z.string().trim().min(1).max(120),
+    applicationDescription: z.string().trim().max(500),
+    locale: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/, 'Expected a BCP 47 locale.'),
+    timeZone: z
+      .string()
+      .trim()
+      .regex(/^(?:UTC|[A-Za-z_+-]+(?:\/[A-Za-z_+-]+)+)$/, 'Expected an IANA time-zone.'),
     gridSize: z.number().int().positive(),
     snapToGrid: z.boolean(),
     showGrid: z.boolean(),
@@ -934,7 +957,7 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
 }
 
 export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
-  materializeReusableElements,
+  materializeProjectDefaults,
   z
     .object({
       formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),
@@ -961,7 +984,7 @@ export const PageDescriptorSchema: z.ZodType<PageDescriptor> = z
   .strict();
 
 export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z.preprocess(
-  materializeReusableElements,
+  materializeProjectDefaults,
   z
     .object({
       formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),

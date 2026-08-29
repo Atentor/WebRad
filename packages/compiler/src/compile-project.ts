@@ -364,7 +364,7 @@ export async function compileProject(
     }
     const files = {
       ...bundle.files,
-      'index.html': createIndexHtml(project.name),
+      'index.html': createIndexHtml(project.settings),
     };
     const diagnostics = [...preBundleDiagnostics, ...bundle.diagnostics];
     if (options.write ?? true) await writeOutputFiles(outputDirectory, files);
@@ -373,7 +373,7 @@ export async function compileProject(
       outputDirectory,
       diagnostics,
       files,
-      previewHtml: createPreviewHtml(project.name, javaScript, css),
+      previewHtml: createPreviewHtml(project.settings, javaScript, css),
     };
   } catch (error) {
     const diagnostics = isBuildFailure(error)

@@ -315,6 +315,14 @@ export interface PageModel {
 export type ReusableElementModel = PageModel;
 
 export interface ProjectSettings {
+  /** Human-facing application title. It may differ from the project file name. */
+  readonly applicationName: string;
+  /** Optional plain-text description emitted as browser metadata. */
+  readonly applicationDescription: string;
+  /** BCP 47 locale used by the generated document, for example `pt-BR`. */
+  readonly locale: string;
+  /** IANA time-zone identifier selected as the project's default. */
+  readonly timeZone: string;
   readonly gridSize: number;
   readonly snapToGrid: boolean;
   readonly showGrid: boolean;
@@ -369,6 +377,10 @@ export interface ProjectManifest {
 export type IdFactory = () => string;
 
 export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze({
+  applicationName: 'WebRAD Application',
+  applicationDescription: '',
+  locale: 'pt-BR',
+  timeZone: 'America/Sao_Paulo',
   gridSize: 8,
   snapToGrid: true,
   showGrid: true,

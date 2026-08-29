@@ -872,7 +872,7 @@ describe('App MVP integration', () => {
     );
   });
 
-  it('opens the project settings planning modal from the Project panel', async () => {
+  it('saves general project settings from the Project panel while keeping future sections available', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', {
       configurable: true,
@@ -892,10 +892,27 @@ describe('App MVP integration', () => {
     expect(
       within(dialog).getByRole('heading', { name: 'CORS e origens confiáveis' }),
     ).toBeDefined();
-    await user.click(within(dialog).getByRole('button', { name: 'Fechar' }));
+    await user.click(within(dialog).getByRole('tab', { name: 'Geral' }));
+    const applicationName = within(dialog).getByRole('textbox', { name: /^Nome da aplicação/ });
+    await user.clear(applicationName);
+    await user.type(applicationName, 'Mvp Portal');
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar alterações' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Configurações de MvpProject' })).toBeNull();
     });
+
+    await user.click(screen.getByTitle('Open Project Settings'));
+    const reopenedDialog = await screen.findByRole('dialog', {
+      name: 'Configurações de MvpProject',
+    });
+    expect(
+      (
+        within(reopenedDialog).getByRole('textbox', {
+          name: /^Nome da aplicação/,
+        }) as HTMLInputElement
+      ).value,
+    ).toBe('Mvp Portal');
+    await user.click(within(reopenedDialog).getByRole('button', { name: 'Cancelar' }));
   });
 
   it('creates a reusable definition and inserts its page-owned instance', async () => {

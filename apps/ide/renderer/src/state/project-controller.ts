@@ -11,11 +11,13 @@ import {
   removeReusableElement as removeReusableElementFromProject,
   renamePage as renamePageInProject,
   renameReusableElement as renameReusableElementInProject,
+  updateProjectSettings as updateSettingsInProject,
   updateComponentStyle,
   updatePage as updateProjectPage,
   updateReusableElement as updateProjectReusableElement,
   type ComponentStyleModel,
   type PageModel,
+  type ProjectSettings,
   type ReusableElementModel,
   type WebRadProject,
 } from '@webrad/project-model';
@@ -251,6 +253,10 @@ export class ProjectController {
 
   public replaceProject(projectInput: WebRadProject): void {
     this.#commitEdit(projectInput, this.#snapshot.userSources);
+  }
+
+  public updateProjectSettings(patch: Partial<ProjectSettings>): void {
+    this.replaceProject(updateSettingsInProject(this.#requireProject(), patch));
   }
 
   public createStyle(name: string, componentType: string): ComponentStyleModel {
