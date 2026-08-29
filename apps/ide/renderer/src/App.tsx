@@ -35,6 +35,7 @@ import {
   createUserReusableElementSource,
   ensureEventHandler,
   eventHandlerName,
+  generateEnvironmentTypings,
   generatePageTypings,
   generateReusableElementTypings,
   generateRuntimeTypings,
@@ -1380,6 +1381,10 @@ export function App(): ReactElement {
     if (!project) return Object.freeze({}) as Readonly<Record<string, string>>;
     return Object.fromEntries([
       ['file:///node_modules/@webrad/runtime/index.d.ts', generateRuntimeTypings()],
+      [
+        sourceUri(projectState.rootPath, project.id, 'webrad-environment.d.ts'),
+        generateEnvironmentTypings(project.settings.environmentVariables),
+      ],
       ...project.pages.map(
         (page) =>
           [

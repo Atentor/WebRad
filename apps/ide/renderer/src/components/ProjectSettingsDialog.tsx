@@ -1,4 +1,8 @@
-import type { ProjectSettings } from '@webrad/project-model';
+import type {
+  ProjectEnvironment,
+  ProjectEnvironmentVariable,
+  ProjectSettings,
+} from '@webrad/project-model';
 import type { WebRadIconName } from '@webrad/runtime/icons';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
@@ -53,7 +57,7 @@ const SETTINGS_SECTIONS = [
     label: 'Variáveis de ambiente',
     icon: 'terminal',
     title: 'Variáveis de ambiente',
-    description: 'Valores separados por ambiente para desenvolvimento, homologação e produção.',
+    description: 'Valores separados por ambiente para desenvolvimento e produção.',
     items: [
       'Chaves públicas e URLs de serviços',
       'Ambientes de desenvolvimento e produção',
@@ -198,6 +202,13 @@ const TIME_ZONE_OPTIONS = [
 
 const GRID_SIZE_OPTIONS = [4, 8, 12, 16, 20, 24, 32, 40, 48, 64] as const;
 
+const ENVIRONMENT_OPTIONS = [
+  ['development', 'Desenvolvimento'],
+  ['production', 'Produção'],
+] as const satisfies readonly (readonly [ProjectEnvironment, string])[];
+
+const ENVIRONMENT_VARIABLE_NAME = /^[A-Z][A-Z0-9_]*$/;
+
 function includesOption(options: readonly (readonly [string, string])[], value: string): boolean {
   return options.some(([optionValue]) => optionValue === value);
 }
@@ -208,9 +219,20 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
     left.applicationDescription !== right.applicationDescription ||
     left.locale !== right.locale ||
     left.timeZone !== right.timeZone ||
+    left.environment !== right.environment ||
     left.gridSize !== right.gridSize ||
     left.snapToGrid !== right.snapToGrid ||
-    left.showGrid !== right.showGrid
+    left.showGrid !== right.showGrid ||
+    left.environmentVariables.length !== right.environmentVariables.length ||
+    left.environmentVariables.some((variable, index) => {
+      const other = right.environmentVariables[index];
+      return (
+        other === undefined ||
+        variable.name !== other.name ||
+        variable.values.development !== other.values.development ||
+        variable.values.production !== other.values.production
+      );
+    })
   );
 }
 
@@ -232,6 +254,7 @@ export function ProjectSettingsDialog({
   const activeSection =
     SETTINGS_SECTIONS.find((section) => section.id === activeSectionId) ?? SETTINGS_SECTIONS[0];
   const isGeneralSection = activeSection.id === 'general';
+  const isEnvironmentSection = activeSection.id === 'environment';
   const hasChanges = settingsChanged(settings, draft);
 
   useEffect(() => {
@@ -247,16 +270,71 @@ export function ProjectSettingsDialog({
     setSaveError(null);
   };
 
+  const updateEnvironmentVariable = (
+    index: number,
+    update: (variable: ProjectEnvironmentVariable) => ProjectEnvironmentVariable,
+  ): void => {
+    setDraft((current) => ({
+      ...current,
+      environmentVariables: current.environmentVariables.map((variable, variableIndex) =>
+        variableIndex === index ? update(variable) : variable,
+      ),
+    }));
+    setSaveError(null);
+  };
+
+  const addEnvironmentVariable = (): void => {
+    if (draft.environmentVariables.length >= 100) return;
+    setDraft((current) => ({
+      ...current,
+      environmentVariables: [
+        ...current.environmentVariables,
+        {
+          name: '',
+          values: { development: '', production: '' },
+        },
+      ],
+    }));
+    setSaveError(null);
+  };
+
+  const removeEnvironmentVariable = (index: number): void => {
+    setDraft((current) => ({
+      ...current,
+      environmentVariables: current.environmentVariables.filter(
+        (_variable, variableIndex) => variableIndex !== index,
+      ),
+    }));
+    setSaveError(null);
+  };
+
   const save = (): void => {
     const applicationName = draft.applicationName.trim();
     if (applicationName.length === 0) {
       setSaveError('Informe o nome da aplicação.');
       return;
     }
+    const environmentVariables = draft.environmentVariables.map((variable) => ({
+      ...variable,
+      name: variable.name.trim(),
+    }));
+    const variableNames = new Set<string>();
+    for (const variable of environmentVariables) {
+      if (!ENVIRONMENT_VARIABLE_NAME.test(variable.name)) {
+        setSaveError('Use nomes de variável em maiúsculas, como API_BASE_URL.');
+        return;
+      }
+      if (variableNames.has(variable.name)) {
+        setSaveError(`A variável ${variable.name} foi informada mais de uma vez.`);
+        return;
+      }
+      variableNames.add(variable.name);
+    }
     onSave({
       ...draft,
       applicationName,
       applicationDescription: draft.applicationDescription.trim(),
+      environmentVariables,
     });
   };
 
@@ -311,8 +389,8 @@ export function ProjectSettingsDialog({
         </header>
         <div className="wr-project-settings-content">
           <p id={descriptionId} className="wr-modal-description">
-            As opções em Geral são salvas no projeto e aplicadas à saída gerada. As demais áreas
-            continuam disponíveis para planejamento.
+            As opções em Geral são salvas no projeto. Variáveis de ambiente também são salvas e
+            aplicadas à saída gerada. As demais áreas continuam disponíveis para planejamento.
           </p>
           <div className="wr-project-settings-layout">
             <nav
@@ -351,7 +429,9 @@ export function ProjectSettingsDialog({
                 <Icon name={activeSection.icon} />
                 <div>
                   <span>
-                    {isGeneralSection ? 'Aplicado ao projeto' : 'Planejamento de configuração'}
+                    {isGeneralSection || isEnvironmentSection
+                      ? 'Aplicado ao projeto'
+                      : 'Planejamento de configuração'}
                   </span>
                   <h3>{activeSection.title}</h3>
                 </div>
@@ -477,6 +557,119 @@ export function ProjectSettingsDialog({
                     </div>
                   )}
                 </>
+              ) : isEnvironmentSection ? (
+                <>
+                  <p>{activeSection.description}</p>
+                  <label className="wr-project-settings-field full-width">
+                    <span>Ambiente usado em Preview e Build</span>
+                    <select
+                      value={draft.environment}
+                      onChange={(event) =>
+                        updateDraft({
+                          environment: event.currentTarget.value as ProjectEnvironment,
+                        })
+                      }
+                    >
+                      {ENVIRONMENT_OPTIONS.map(([value, label]) => (
+                        <option value={value} key={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <small>O valor desse ambiente será exposto como Env.NOME no navegador.</small>
+                  </label>
+                  <div className="wr-project-settings-environment-heading">
+                    <div>
+                      <h4>Variáveis</h4>
+                      <p>Use nomes em maiúsculas com sublinhado, como API_BASE_URL.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="wr-project-settings-add-variable"
+                      disabled={draft.environmentVariables.length >= 100}
+                      onClick={addEnvironmentVariable}
+                    >
+                      Adicionar variável
+                    </button>
+                  </div>
+                  <div className="wr-project-settings-security-note" role="note">
+                    Os valores são incorporados no JavaScript do navegador. Nunca use senhas, tokens
+                    privados ou outros segredos aqui.
+                  </div>
+                  {draft.environmentVariables.length === 0 ? (
+                    <div className="wr-project-settings-empty-environment">
+                      Nenhuma variável configurada. Adicione uma para usá-la no código como
+                      <code>Env.NOME_DA_VARIAVEL</code>.
+                    </div>
+                  ) : (
+                    <div className="wr-project-settings-environment-list">
+                      {draft.environmentVariables.map((variable, index) => (
+                        <div className="wr-project-settings-environment-row" key={index}>
+                          <label className="wr-project-settings-field">
+                            <span>Nome da variável</span>
+                            <input
+                              type="text"
+                              value={variable.name}
+                              maxLength={80}
+                              placeholder="API_BASE_URL"
+                              spellCheck={false}
+                              onChange={(event) => {
+                                const name = event.currentTarget.value;
+                                updateEnvironmentVariable(index, (current) => ({
+                                  ...current,
+                                  name,
+                                }));
+                              }}
+                            />
+                          </label>
+                          <label className="wr-project-settings-field">
+                            <span>
+                              Valor para{' '}
+                              {
+                                ENVIRONMENT_OPTIONS.find(
+                                  ([value]) => value === draft.environment,
+                                )?.[1]
+                              }
+                            </span>
+                            <input
+                              type="text"
+                              value={variable.values[draft.environment]}
+                              maxLength={10_000}
+                              spellCheck={false}
+                              onChange={(event) => {
+                                const value = event.currentTarget.value;
+                                updateEnvironmentVariable(index, (current) => ({
+                                  ...current,
+                                  values: {
+                                    ...current.values,
+                                    [draft.environment]: value,
+                                  },
+                                }));
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="wr-project-settings-remove-variable"
+                            aria-label={`Remover ${variable.name || `variável ${String(index + 1)}`}`}
+                            onClick={() => removeEnvironmentVariable(index)}
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {saveError !== null && (
+                    <div
+                      className="wr-project-settings-error"
+                      id={`${descriptionId}-error`}
+                      role="alert"
+                    >
+                      {saveError}
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
                   <p>{activeSection.description}</p>
@@ -496,7 +689,7 @@ export function ProjectSettingsDialog({
           </div>
         </div>
         <footer className="wr-modal-actions wr-project-settings-actions">
-          {isGeneralSection ? (
+          {isGeneralSection || isEnvironmentSection ? (
             <>
               <button type="button" onClick={onClose}>
                 Cancelar

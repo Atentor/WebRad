@@ -98,6 +98,8 @@ describe('project factories', () => {
         applicationDescription: '',
         locale: 'pt-BR',
         timeZone: 'America/Sao_Paulo',
+        environment: 'development',
+        environmentVariables: [],
         gridSize: 8,
         snapToGrid: true,
         showGrid: true,
@@ -197,6 +199,16 @@ describe('project factories', () => {
       applicationDescription: 'Customer self-service area.',
       locale: 'en-US',
       timeZone: 'America/New_York',
+      environment: 'production',
+      environmentVariables: [
+        {
+          name: 'API_BASE_URL',
+          values: {
+            development: 'http://localhost:3000',
+            production: 'https://api.example.test',
+          },
+        },
+      ],
     });
 
     expect(updated.settings).toMatchObject({
@@ -204,6 +216,8 @@ describe('project factories', () => {
       applicationDescription: 'Customer self-service area.',
       locale: 'en-US',
       timeZone: 'America/New_York',
+      environment: 'production',
+      environmentVariables: [expect.objectContaining({ name: 'API_BASE_URL' })],
     });
 
     const legacy = JSON.parse(serializeProject(project)) as {
@@ -213,6 +227,8 @@ describe('project factories', () => {
     delete legacy.settings.applicationDescription;
     delete legacy.settings.locale;
     delete legacy.settings.timeZone;
+    delete legacy.settings.environment;
+    delete legacy.settings.environmentVariables;
     const restored = deserializeProject(JSON.stringify(legacy));
 
     expect(restored.settings).toMatchObject({
@@ -220,6 +236,36 @@ describe('project factories', () => {
       applicationDescription: '',
       locale: 'pt-BR',
       timeZone: 'America/Sao_Paulo',
+      environment: 'development',
+      environmentVariables: [],
+    });
+
+    const stagingProject = JSON.parse(serializeProject(updated)) as {
+      readonly settings: Record<string, unknown>;
+    };
+    stagingProject.settings.environment = 'staging';
+    stagingProject.settings.environmentVariables = [
+      {
+        name: 'API_BASE_URL',
+        values: {
+          development: 'http://localhost:3000',
+          staging: 'https://staging.example.test',
+          production: 'https://api.example.test',
+        },
+      },
+    ];
+
+    expect(deserializeProject(JSON.stringify(stagingProject)).settings).toMatchObject({
+      environment: 'production',
+      environmentVariables: [
+        {
+          name: 'API_BASE_URL',
+          values: {
+            development: 'http://localhost:3000',
+            production: 'https://staging.example.test',
+          },
+        },
+      ],
     });
   });
 

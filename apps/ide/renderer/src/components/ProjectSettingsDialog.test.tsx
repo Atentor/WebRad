@@ -67,6 +67,48 @@ describe('ProjectSettingsDialog', () => {
     );
   });
 
+  it('edits values per environment and saves a Monaco-visible variable', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Variáveis de ambiente' }));
+    await user.click(screen.getByRole('button', { name: 'Adicionar variável' }));
+    const name = screen.getByRole('textbox', { name: 'Nome da variável' });
+    await user.type(name, 'API_BASE_URL');
+    const developmentValue = screen.getByRole('textbox', { name: /^Valor para Desenvolvimento/ });
+    await user.type(developmentValue, 'http://localhost:3000');
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /^Ambiente usado em Preview e Build/ }),
+      'production',
+    );
+    const productionValue = screen.getByRole('textbox', { name: /^Valor para Produção/ });
+    await user.type(productionValue, 'https://api.example.test');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        environment: 'production',
+        environmentVariables: [
+          {
+            name: 'API_BASE_URL',
+            values: {
+              development: 'http://localhost:3000',
+              production: 'https://api.example.test',
+            },
+          },
+        ],
+      }),
+    );
+  });
+
   it('closes with Escape and returns its close action', () => {
     const onClose = vi.fn();
     render(

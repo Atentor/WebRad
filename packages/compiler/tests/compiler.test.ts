@@ -596,6 +596,16 @@ export class PageDetails extends PageDetailsGenerated {
       applicationName: 'Hello & <WebRAD>',
       applicationDescription: 'A customer <portal> & workspace.',
       locale: 'en-US',
+      environment: 'production',
+      environmentVariables: [
+        {
+          name: 'API_BASE_URL',
+          values: {
+            development: 'http://localhost:3000',
+            production: 'https://api.production.example.test',
+          },
+        },
+      ],
     });
     const originalUserSource = `import { PageMainGenerated } from './PageMain.generated';
 
@@ -615,6 +625,7 @@ export class PageMain extends PageMainGenerated {
       apiId: this.ApiClient1.id,
       apiName: this.ApiClient1.name,
       apiBaseUrl: this.ApiClient1.baseUrl,
+      environmentBaseUrl: Env.API_BASE_URL,
     });
   }
 
@@ -638,6 +649,7 @@ export class PageMain extends PageMainGenerated {
     );
     expect(result.files['assets/app.js']).toContain('BTNMostrarClick');
     expect(result.files['assets/app.js']).toContain('https://api.example.test');
+    expect(result.files['assets/app.js']).toContain('https://api.production.example.test');
     expect(result.files['assets/app.js']).toContain('api-client');
     expect(result.files['assets/app.css']).toContain('.wr-webpage');
     expect(result.files['assets/app.css']).toContain('.wr-webbutton:hover:not(:disabled)');
@@ -683,6 +695,7 @@ export class PageMain extends PageMainGenerated {
       apiId: 'api-client',
       apiName: 'ApiClient1',
       apiBaseUrl: 'https://api.example.test/v1',
+      environmentBaseUrl: 'https://api.production.example.test',
     });
     const editElement = dom.window.document.querySelector('[data-webrad-id="edit-name"]');
     expect(editElement).toBeInstanceOf(dom.window.HTMLInputElement);

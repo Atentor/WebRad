@@ -31,6 +31,7 @@ import {
   REUSABLE_ELEMENT_HORIZONTAL_ANCHORS,
   REUSABLE_ELEMENT_PLACEMENTS,
   REUSABLE_ELEMENT_VERTICAL_ANCHORS,
+  PROJECT_ENVIRONMENTS,
   type Bounds,
   type ComponentLayout,
   type ComponentNode,
@@ -42,6 +43,7 @@ import {
   type PageDescriptor,
   type PageModel,
   type ProjectManifest,
+  type ProjectEnvironmentVariable,
   type ProjectSettings,
   type ReusableElementModel,
   type StyleLengthValue,
@@ -106,13 +108,49 @@ function materializeProjectDefaults(input: unknown): unknown {
     ...(Object.hasOwn(candidate, 'reusableElements') ? {} : { reusableElements: [] }),
     ...(settings !== null && typeof settings === 'object' && !Array.isArray(settings)
       ? {
-          settings: {
+          settings: materializeEnvironmentSettings({
             ...DEFAULT_PROJECT_SETTINGS,
             applicationName,
             ...settings,
-          },
+          }),
         }
       : {}),
+  };
+}
+
+/**
+ * Environment variables initially supported a staging value while retaining
+ * format version 2. Keep those files readable after reducing the public
+ * contract to development and production. If staging was active, carry its
+ * value into production so the previously selected runtime value is kept.
+ */
+function materializeEnvironmentSettings(settings: Readonly<Record<string, unknown>>): unknown {
+  const stagingWasActive = settings.environment === 'staging';
+  const environmentVariables = settings.environmentVariables;
+  const normalizedVariables = Array.isArray(environmentVariables)
+    ? environmentVariables.map((variable) => {
+        if (variable === null || typeof variable !== 'object' || Array.isArray(variable)) {
+          return variable;
+        }
+        const candidate = variable as Readonly<Record<string, unknown>>;
+        const values = candidate.values;
+        if (values === null || typeof values !== 'object' || Array.isArray(values)) {
+          return variable;
+        }
+        const { staging, ...supportedValues } = values as Readonly<Record<string, unknown>>;
+        return {
+          ...candidate,
+          values: {
+            ...supportedValues,
+            ...(stagingWasActive ? { production: staging } : {}),
+          },
+        };
+      })
+    : environmentVariables;
+  return {
+    ...settings,
+    ...(settings.environment === 'staging' ? { environment: 'production' } : {}),
+    ...(Array.isArray(environmentVariables) ? { environmentVariables: normalizedVariables } : {}),
   };
 }
 
@@ -440,6 +478,27 @@ export const ComponentStyleSchema: z.ZodType<ComponentStyleModel> = z
     }
   });
 
+const environmentVariableNameSchema = z
+  .string()
+  .regex(/^[A-Z][A-Z0-9_]*$/, 'Expected an uppercase environment variable name.');
+
+const environmentVariableValueSchema = z
+  .string()
+  .max(10_000)
+  .refine((value) => !value.includes('\0'), 'Environment variable values cannot contain NUL.');
+
+export const ProjectEnvironmentVariableSchema: z.ZodType<ProjectEnvironmentVariable> = z
+  .object({
+    name: environmentVariableNameSchema,
+    values: z
+      .object({
+        development: environmentVariableValueSchema,
+        production: environmentVariableValueSchema,
+      })
+      .strict(),
+  })
+  .strict();
+
 export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   .object({
     applicationName: z.string().trim().min(1).max(120),
@@ -452,12 +511,27 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
       .string()
       .trim()
       .regex(/^(?:UTC|[A-Za-z_+-]+(?:\/[A-Za-z_+-]+)+)$/, 'Expected an IANA time-zone.'),
+    environment: z.enum(PROJECT_ENVIRONMENTS),
+    environmentVariables: z.array(ProjectEnvironmentVariableSchema).max(100),
     gridSize: z.number().int().positive(),
     snapToGrid: z.boolean(),
     showGrid: z.boolean(),
     outputDirectory: relativeProjectPathSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((settings, context) => {
+    const names = new Set<string>();
+    settings.environmentVariables.forEach((variable, index) => {
+      if (names.has(variable.name)) {
+        context.addIssue({
+          code: 'custom',
+          message: `Duplicate environment variable "${variable.name}".`,
+          path: ['environmentVariables', index, 'name'],
+        });
+      }
+      names.add(variable.name);
+    });
+  });
 
 function validateDocumentRelationships(
   page: PageModel,

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { MVP_COMPONENT_DEFINITIONS } from '@webrad/component-registry';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 
+import { generateEnvironmentTypings } from '../src/environment-typings.js';
 import { generateRuntimeTypings } from '../src/runtime-typings.js';
 
 const compilerOptions: ts.CompilerOptions = {
@@ -90,16 +91,25 @@ function extractMarkers(source: string): MarkedSource {
   return { text: text + remaining, positions };
 }
 
-function createLanguageService(source: string): {
+function createLanguageService(
+  source: string,
+  environmentTypings?: string,
+): {
   readonly fileName: string;
   readonly service: ts.LanguageService;
 } {
   const typingsFileName = fileURLToPath(new URL('./webrad-runtime.virtual.d.ts', import.meta.url));
+  const environmentFileName = fileURLToPath(
+    new URL('./webrad-environment.virtual.d.ts', import.meta.url),
+  );
   const sourceFileName = fileURLToPath(new URL('./editor-contract.virtual.ts', import.meta.url));
   const canonicalFileName = (fileName: string): string =>
     fileName.replaceAll('\\', '/').toLocaleLowerCase();
   const files = new Map<string, string>([
     [canonicalFileName(typingsFileName), generateRuntimeTypings()],
+    ...(environmentTypings === undefined
+      ? []
+      : [[canonicalFileName(environmentFileName), environmentTypings] as const]),
     [canonicalFileName(sourceFileName), source],
   ]);
   const host: ts.LanguageServiceHost = {
@@ -109,7 +119,11 @@ function createLanguageService(source: string): {
     getCurrentDirectory: () => fileURLToPath(new URL('.', import.meta.url)),
     getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
     getDirectories: ts.sys.getDirectories,
-    getScriptFileNames: () => [typingsFileName, sourceFileName],
+    getScriptFileNames: () => [
+      typingsFileName,
+      ...(environmentTypings === undefined ? [] : [environmentFileName]),
+      sourceFileName,
+    ],
     getScriptSnapshot: (fileName) => {
       const contents = files.get(canonicalFileName(fileName)) ?? ts.sys.readFile(fileName);
       return contents === undefined ? undefined : ts.ScriptSnapshot.fromString(contents);
@@ -355,6 +369,31 @@ class EditorPage extends WebPage {
           .filter((property) => !available.includes(property)),
       }).toEqual({ type: definition.type, missingProperties: [] });
     }
+  });
+
+  it('offers the configured environment variables through the global Env object', () => {
+    const marked = extractMarkers(`class EditorPage {
+  read(): string {
+    return Env./*@environment*/API_BASE_URL;
+  }
+}`);
+    const { fileName, service } = createLanguageService(
+      marked.text,
+      generateEnvironmentTypings([
+        {
+          name: 'API_BASE_URL',
+          values: {
+            development: 'http://localhost:3000',
+            production: 'https://api.example.test',
+          },
+        },
+      ]),
+    );
+    const position = marked.positions.get('environment');
+    if (position === undefined) throw new Error('Missing environment completion marker.');
+
+    expect(completionNames(service, fileName, position)).toContain('API_BASE_URL');
+    expect(service.getSemanticDiagnostics(fileName)).toEqual([]);
   });
 
   it('accepts the supported authoring contract and reports invalid assignments', () => {

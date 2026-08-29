@@ -6,6 +6,7 @@ import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   createUserPageSource,
   createUserReusableElementSource,
+  generateEnvironmentTypings,
   generatePageSource,
   generateReusableElementSource,
 } from '@webrad/language';
@@ -153,6 +154,12 @@ function createEntrySource(project: WebRadProject, registry: ComponentRegistry):
   }`;
     })
     .join(',\n');
+  const environmentValues = Object.fromEntries(
+    project.settings.environmentVariables.map((variable) => [
+      variable.name,
+      variable.values[project.settings.environment],
+    ]),
+  );
   return `import {
   Confirm,
   Message,
@@ -196,12 +203,13 @@ function createReusableElements(
 const routes: readonly RuntimePageRoute[] = [
 ${routes}
 ];
+const Env = Object.freeze(${JSON.stringify(environmentValues)});
 const router = new WebPageRouter(routes, document.body);
 const Navigate = (destination: string | URL, options: NavigateOptions = {}): void => {
   router.navigateBrowser(destination, options);
 };
 
-Object.assign(globalThis, { Confirm, Message, Navigate });
+Object.assign(globalThis, { Confirm, Message, Navigate, Env });
 router.start(${JSON.stringify(entryPage.id)});
 `;
 }
@@ -267,6 +275,10 @@ export function createVirtualSourceGraph(
   sources.set(entryPath, createEntrySource(project, registry));
   sources.set(stylePath, generatedAppCss);
   sources.set(virtualAbsolutePath('webrad-globals.d.ts'), createGlobalTypings());
+  sources.set(
+    virtualAbsolutePath('webrad-environment.d.ts'),
+    generateEnvironmentTypings(project.settings.environmentVariables),
+  );
   sources.set(virtualAbsolutePath('styles.d.ts'), `declare module '*.css';\n`);
   return { sources, entryPath, stylePath, diagnostics };
 }

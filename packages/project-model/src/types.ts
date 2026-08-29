@@ -314,6 +314,16 @@ export interface PageModel {
  */
 export type ReusableElementModel = PageModel;
 
+export const PROJECT_ENVIRONMENTS = ['development', 'production'] as const;
+export type ProjectEnvironment = (typeof PROJECT_ENVIRONMENTS)[number];
+
+/** A browser-visible value for every environment supported by a project. */
+export interface ProjectEnvironmentVariable {
+  /** Uppercase identifier used as `Env.NAME` in authored TypeScript. */
+  readonly name: string;
+  readonly values: Readonly<Record<ProjectEnvironment, string>>;
+}
+
 export interface ProjectSettings {
   /** Human-facing application title. It may differ from the project file name. */
   readonly applicationName: string;
@@ -323,6 +333,10 @@ export interface ProjectSettings {
   readonly locale: string;
   /** IANA time-zone identifier selected as the project's default. */
   readonly timeZone: string;
+  /** Environment whose values are embedded in Preview and the next Build. */
+  readonly environment: ProjectEnvironment;
+  /** Browser-visible variables, each with one value per environment. */
+  readonly environmentVariables: readonly ProjectEnvironmentVariable[];
   readonly gridSize: number;
   readonly snapToGrid: boolean;
   readonly showGrid: boolean;
@@ -381,6 +395,8 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   applicationDescription: '',
   locale: 'pt-BR',
   timeZone: 'America/Sao_Paulo',
+  environment: 'development',
+  environmentVariables: [],
   gridSize: 8,
   snapToGrid: true,
   showGrid: true,
