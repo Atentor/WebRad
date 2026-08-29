@@ -29,7 +29,7 @@ type ProjectSettingsSectionId =
 
 interface ProjectSettingsSection {
   readonly id: ProjectSettingsSectionId;
-  readonly group: 'Projeto' | 'Segurança' | 'Plataforma';
+  readonly group: 'Project' | 'Security' | 'Platform';
   readonly label: string;
   readonly icon: WebRadIconName;
   readonly title: string;
@@ -40,155 +40,147 @@ interface ProjectSettingsSection {
 const SETTINGS_SECTIONS = [
   {
     id: 'general',
-    group: 'Projeto',
-    label: 'Geral',
+    group: 'Project',
+    label: 'General',
     icon: 'settings',
-    title: 'Configurações gerais',
-    description: 'Identidade, comportamento padrão e preferências do projeto web.',
+    title: 'General settings',
+    description: 'Identity, default behavior, and preferences for this web project.',
     items: [
-      'Nome e descrição da aplicação',
-      'Idioma, fuso horário e região',
-      'Configurações do Designer',
+      'Application name and description',
+      'Language, time zone, and region',
+      'Designer settings',
     ],
   },
   {
     id: 'environment',
-    group: 'Projeto',
-    label: 'Variáveis de ambiente',
+    group: 'Project',
+    label: 'Environment variables',
     icon: 'terminal',
-    title: 'Variáveis de ambiente',
-    description: 'Valores separados por ambiente para desenvolvimento e produção.',
+    title: 'Environment variables',
+    description: 'Values separated by environment for development and production.',
     items: [
-      'Chaves públicas e URLs de serviços',
-      'Ambientes de desenvolvimento e produção',
-      'Referências a segredos sem expô-los no cliente',
+      'Public keys and service URLs',
+      'Development and production environments',
+      'References to secrets without exposing them in the client',
     ],
   },
   {
     id: 'icons',
-    group: 'Projeto',
-    label: 'Ícones',
+    group: 'Project',
+    label: 'Icons',
     icon: 'image',
-    title: 'Ícones da aplicação',
-    description: 'Recursos visuais usados pelo navegador, atalhos e instalação da aplicação.',
+    title: 'Application icons',
+    description: 'Visual assets used by the browser, shortcuts, and application installation.',
     items: [
-      'Favicon e ícones de aba',
-      'Ícones para atalhos e dispositivos',
-      'Variações clara, escura e adaptável',
+      'Favicon and tab icons',
+      'Icons for shortcuts and devices',
+      'Light, dark, and adaptive variants',
     ],
   },
   {
     id: 'domain',
-    group: 'Projeto',
-    label: 'Domínio e URLs',
+    group: 'Project',
+    label: 'Domain and URLs',
     icon: 'globe',
-    title: 'Domínio e URLs',
-    description: 'Endereços públicos, URL base e rotas usadas fora da navegação interna.',
+    title: 'Domain and URLs',
+    description: 'Public addresses, the base URL, and routes used outside internal navigation.',
     items: [
-      'Domínio principal e domínios alternativos',
-      'URL base da aplicação',
-      'Redirecionamentos e URLs canônicas',
+      'Primary and alternate domains',
+      'Application base URL',
+      'Redirects and canonical URLs',
     ],
   },
   {
     id: 'authentication',
-    group: 'Segurança',
-    label: 'Autenticação e JWT',
+    group: 'Security',
+    label: 'Authentication and JWT',
     icon: 'key-round',
-    title: 'Autenticação e JWT',
-    description: 'Políticas de sessão e integração com provedores de identidade.',
+    title: 'Authentication and JWT',
+    description: 'Session policies and integration with identity providers.',
     items: [
-      'Provedor de autenticação',
-      'Expiração, renovação e armazenamento de sessão',
-      'Emissor, audiência e permissões de JWT',
+      'Authentication provider',
+      'Session expiration, renewal, and storage',
+      'JWT issuer, audience, and permissions',
     ],
   },
   {
     id: 'cors',
-    group: 'Segurança',
-    label: 'CORS e origens',
+    group: 'Security',
+    label: 'CORS and origins',
     icon: 'shield-check',
-    title: 'CORS e origens confiáveis',
-    description: 'Origens permitidas para chamadas entre a aplicação e serviços web.',
+    title: 'CORS and trusted origins',
+    description: 'Origins allowed for calls between the application and web services.',
     items: [
-      'Origens por ambiente',
-      'Métodos e cabeçalhos permitidos',
-      'Cookies e credenciais entre origens',
+      'Origins by environment',
+      'Allowed methods and headers',
+      'Cross-origin cookies and credentials',
     ],
   },
   {
     id: 'headers',
-    group: 'Segurança',
-    label: 'Headers e CSP',
+    group: 'Security',
+    label: 'Headers and CSP',
     icon: 'shield',
-    title: 'Headers e Content Security Policy',
-    description: 'Diretrizes para reduzir superfícies de ataque no navegador.',
-    items: [
-      'Content Security Policy',
-      'Headers de segurança e HTTPS',
-      'Permissões de recursos do navegador',
-    ],
+    title: 'Headers and Content Security Policy',
+    description: 'Directives that reduce attack surfaces in the browser.',
+    items: ['Content Security Policy', 'Security headers and HTTPS', 'Browser feature permissions'],
   },
   {
     id: 'build',
-    group: 'Plataforma',
-    label: 'Build e publicação',
+    group: 'Platform',
+    label: 'Build and publishing',
     icon: 'upload-cloud',
-    title: 'Build e publicação',
-    description: 'Opções para a saída do navegador e a entrega da aplicação.',
-    items: [
-      'Diretório de saída e perfil de build',
-      'Ambiente de publicação',
-      'Cache de arquivos estáticos',
-    ],
+    title: 'Build and publishing',
+    description: 'Options for browser output and application delivery.',
+    items: ['Output directory and build profile', 'Publishing environment', 'Static asset caching'],
   },
   {
     id: 'pwa',
-    group: 'Plataforma',
-    label: 'PWA e metadados',
+    group: 'Platform',
+    label: 'PWA and metadata',
     icon: 'smartphone',
-    title: 'PWA e metadados',
-    description: 'Informações de instalação, compartilhamento e apresentação no navegador.',
+    title: 'PWA and metadata',
+    description: 'Information for installation, sharing, and presentation in the browser.',
     items: [
-      'Manifesto e tela inicial',
-      'Tema, cores e ícones instaláveis',
-      'Título, descrição e metadados sociais',
+      'Manifest and splash screen',
+      'Theme, colors, and installable icons',
+      'Title, description, and social metadata',
     ],
   },
   {
     id: 'integrations',
-    group: 'Plataforma',
-    label: 'APIs e integrações',
+    group: 'Platform',
+    label: 'APIs and integrations',
     icon: 'link',
-    title: 'APIs e integrações',
-    description: 'Configurações compartilhadas para serviços externos e webhooks.',
+    title: 'APIs and integrations',
+    description: 'Shared settings for external services and webhooks.',
     items: [
-      'Endpoints e gateways',
-      'Webhooks e chaves de integração',
-      'Políticas de timeout e repetições',
+      'Endpoints and gateways',
+      'Webhooks and integration keys',
+      'Timeout and retry policies',
     ],
   },
   {
     id: 'observability',
-    group: 'Plataforma',
-    label: 'Logs e monitoramento',
+    group: 'Platform',
+    label: 'Logs and monitoring',
     icon: 'chart-line',
-    title: 'Logs e monitoramento',
-    description: 'Observabilidade para identificar erros e acompanhar o uso da aplicação.',
+    title: 'Logs and monitoring',
+    description: 'Observability for identifying errors and tracking application use.',
     items: [
-      'Nível e destino dos logs',
-      'Monitoramento de erros',
-      'Métricas de desempenho e disponibilidade',
+      'Log level and destination',
+      'Error monitoring',
+      'Performance and availability metrics',
     ],
   },
 ] as const satisfies readonly ProjectSettingsSection[];
 
-const SETTINGS_GROUPS = ['Projeto', 'Segurança', 'Plataforma'] as const;
+const SETTINGS_GROUPS = ['Project', 'Security', 'Platform'] as const;
 
 const LOCALE_OPTIONS = [
-  ['pt-BR', 'Português (Brasil)'],
+  ['pt-BR', 'Portuguese (Brazil)'],
   ['en-US', 'English (United States)'],
-  ['es-ES', 'Español (España)'],
+  ['es-ES', 'Spanish (Spain)'],
 ] as const;
 
 const TIME_ZONE_OPTIONS = [
@@ -203,8 +195,8 @@ const TIME_ZONE_OPTIONS = [
 const GRID_SIZE_OPTIONS = [4, 8, 12, 16, 20, 24, 32, 40, 48, 64] as const;
 
 const ENVIRONMENT_OPTIONS = [
-  ['development', 'Desenvolvimento'],
-  ['production', 'Produção'],
+  ['development', 'Development'],
+  ['production', 'Production'],
 ] as const satisfies readonly (readonly [ProjectEnvironment, string])[];
 
 const ENVIRONMENT_VARIABLE_NAME = /^[A-Z][A-Z0-9_]*$/;
@@ -311,7 +303,7 @@ export function ProjectSettingsDialog({
   const save = (): void => {
     const applicationName = draft.applicationName.trim();
     if (applicationName.length === 0) {
-      setSaveError('Informe o nome da aplicação.');
+      setSaveError('Enter an application name.');
       return;
     }
     const environmentVariables = draft.environmentVariables.map((variable) => ({
@@ -321,11 +313,11 @@ export function ProjectSettingsDialog({
     const variableNames = new Set<string>();
     for (const variable of environmentVariables) {
       if (!ENVIRONMENT_VARIABLE_NAME.test(variable.name)) {
-        setSaveError('Use nomes de variável em maiúsculas, como API_BASE_URL.');
+        setSaveError('Use uppercase variable names, such as API_BASE_URL.');
         return;
       }
       if (variableNames.has(variable.name)) {
-        setSaveError(`A variável ${variable.name} foi informada mais de uma vez.`);
+        setSaveError(`Variable ${variable.name} is listed more than once.`);
         return;
       }
       variableNames.add(variable.name);
@@ -375,13 +367,13 @@ export function ProjectSettingsDialog({
       >
         <header className="wr-modal-header">
           <div>
-            <span className="wr-modal-eyebrow">Projeto / Configurações</span>
-            <h2 id={titleId}>Configurações de {projectName}</h2>
+            <span className="wr-modal-eyebrow">Project / Settings</span>
+            <h2 id={titleId}>Settings for {projectName}</h2>
           </div>
           <button
             type="button"
             className="wr-modal-close"
-            aria-label="Fechar configurações do projeto"
+            aria-label="Close project settings"
             onClick={onClose}
           >
             ×
@@ -389,14 +381,14 @@ export function ProjectSettingsDialog({
         </header>
         <div className="wr-project-settings-content">
           <p id={descriptionId} className="wr-modal-description">
-            As opções em Geral são salvas no projeto. Variáveis de ambiente também são salvas e
-            aplicadas à saída gerada. As demais áreas continuam disponíveis para planejamento.
+            General settings and environment variables are saved in the project and applied to the
+            generated output. Other areas remain available for planning.
           </p>
           <div className="wr-project-settings-layout">
             <nav
               className="wr-project-settings-nav"
               role="tablist"
-              aria-label="Seções de configurações do projeto"
+              aria-label="Project settings sections"
             >
               {SETTINGS_GROUPS.map((group) => (
                 <div className="wr-project-settings-nav-group" key={group}>
@@ -430,8 +422,8 @@ export function ProjectSettingsDialog({
                 <div>
                   <span>
                     {isGeneralSection || isEnvironmentSection
-                      ? 'Aplicado ao projeto'
-                      : 'Planejamento de configuração'}
+                      ? 'Applied to project'
+                      : 'Configuration planning'}
                   </span>
                   <h3>{activeSection.title}</h3>
                 </div>
@@ -441,7 +433,7 @@ export function ProjectSettingsDialog({
                   <p>{activeSection.description}</p>
                   <div className="wr-project-settings-fields">
                     <label className="wr-project-settings-field full-width">
-                      <span>Nome da aplicação</span>
+                      <span>Application name</span>
                       <input
                         type="text"
                         value={draft.applicationName}
@@ -452,10 +444,12 @@ export function ProjectSettingsDialog({
                           updateDraft({ applicationName: event.currentTarget.value })
                         }
                       />
-                      <small>Usado no título da aba e nos metadados da aplicação gerada.</small>
+                      <small>
+                        Used in the browser tab title and generated application metadata.
+                      </small>
                     </label>
                     <label className="wr-project-settings-field full-width">
-                      <span>Descrição</span>
+                      <span>Description</span>
                       <textarea
                         value={draft.applicationDescription}
                         rows={3}
@@ -464,10 +458,10 @@ export function ProjectSettingsDialog({
                           updateDraft({ applicationDescription: event.currentTarget.value })
                         }
                       />
-                      <small>Opcional. Publicada como a descrição da página.</small>
+                      <small>Optional. Published as the page description.</small>
                     </label>
                     <label className="wr-project-settings-field">
-                      <span>Idioma e região</span>
+                      <span>Language and region</span>
                       <select
                         value={draft.locale}
                         onChange={(event) => updateDraft({ locale: event.currentTarget.value })}
@@ -481,10 +475,10 @@ export function ProjectSettingsDialog({
                           </option>
                         ))}
                       </select>
-                      <small>Define o atributo de idioma do documento HTML.</small>
+                      <small>Sets the language attribute of the HTML document.</small>
                     </label>
                     <label className="wr-project-settings-field">
-                      <span>Fuso horário padrão</span>
+                      <span>Default time zone</span>
                       <select
                         value={draft.timeZone}
                         onChange={(event) => updateDraft({ timeZone: event.currentTarget.value })}
@@ -498,14 +492,12 @@ export function ProjectSettingsDialog({
                           </option>
                         ))}
                       </select>
-                      <small>
-                        Disponibilizado na aplicação gerada como preferência do projeto.
-                      </small>
+                      <small>Exposed in the generated application as a project preference.</small>
                     </label>
                   </div>
                   <fieldset className="wr-project-settings-designer-options">
                     <legend>Designer</legend>
-                    <p>Preferências usadas ao posicionar e editar componentes neste projeto.</p>
+                    <p>Preferences used while placing and editing components in this project.</p>
                     <div className="wr-project-settings-toggles">
                       <label>
                         <input
@@ -515,7 +507,7 @@ export function ProjectSettingsDialog({
                             updateDraft({ showGrid: event.currentTarget.checked })
                           }
                         />
-                        <span>Mostrar grade no Designer</span>
+                        <span>Show grid in Designer</span>
                       </label>
                       <label>
                         <input
@@ -525,11 +517,11 @@ export function ProjectSettingsDialog({
                             updateDraft({ snapToGrid: event.currentTarget.checked })
                           }
                         />
-                        <span>Ajustar componentes à grade</span>
+                        <span>Snap components to grid</span>
                       </label>
                     </div>
                     <label className="wr-project-settings-field grid-size">
-                      <span>Tamanho da grade</span>
+                      <span>Grid size</span>
                       <select
                         value={String(draft.gridSize)}
                         onChange={(event) =>
@@ -561,7 +553,7 @@ export function ProjectSettingsDialog({
                 <>
                   <p>{activeSection.description}</p>
                   <label className="wr-project-settings-field full-width">
-                    <span>Ambiente usado em Preview e Build</span>
+                    <span>Environment used for Preview and Build</span>
                     <select
                       value={draft.environment}
                       onChange={(event) =>
@@ -576,12 +568,14 @@ export function ProjectSettingsDialog({
                         </option>
                       ))}
                     </select>
-                    <small>O valor desse ambiente será exposto como Env.NOME no navegador.</small>
+                    <small>
+                      The value from this environment is exposed as Env.NAME in the browser.
+                    </small>
                   </label>
                   <div className="wr-project-settings-environment-heading">
                     <div>
-                      <h4>Variáveis</h4>
-                      <p>Use nomes em maiúsculas com sublinhado, como API_BASE_URL.</p>
+                      <h4>Variables</h4>
+                      <p>Use uppercase names with underscores, such as API_BASE_URL.</p>
                     </div>
                     <button
                       type="button"
@@ -589,16 +583,16 @@ export function ProjectSettingsDialog({
                       disabled={draft.environmentVariables.length >= 100}
                       onClick={addEnvironmentVariable}
                     >
-                      Adicionar variável
+                      Add variable
                     </button>
                   </div>
                   <div className="wr-project-settings-security-note" role="note">
-                    Os valores são incorporados no JavaScript do navegador. Nunca use senhas, tokens
-                    privados ou outros segredos aqui.
+                    Values are embedded in browser JavaScript. Never use passwords, private tokens,
+                    or other secrets here.
                   </div>
                   {draft.environmentVariables.length === 0 ? (
                     <div className="wr-project-settings-empty-environment">
-                      Nenhuma variável configurada. Adicione uma para usá-la no código como
+                      No variables are configured. Add one to use it in code as
                       <code>Env.NOME_DA_VARIAVEL</code>.
                     </div>
                   ) : (
@@ -606,7 +600,7 @@ export function ProjectSettingsDialog({
                       {draft.environmentVariables.map((variable, index) => (
                         <div className="wr-project-settings-environment-row" key={index}>
                           <label className="wr-project-settings-field">
-                            <span>Nome da variável</span>
+                            <span>Variable name</span>
                             <input
                               type="text"
                               value={variable.name}
@@ -624,7 +618,7 @@ export function ProjectSettingsDialog({
                           </label>
                           <label className="wr-project-settings-field">
                             <span>
-                              Valor para{' '}
+                              Value for{' '}
                               {
                                 ENVIRONMENT_OPTIONS.find(
                                   ([value]) => value === draft.environment,
@@ -651,10 +645,10 @@ export function ProjectSettingsDialog({
                           <button
                             type="button"
                             className="wr-project-settings-remove-variable"
-                            aria-label={`Remover ${variable.name || `variável ${String(index + 1)}`}`}
+                            aria-label={`Remove ${variable.name || `variable ${String(index + 1)}`}`}
                             onClick={() => removeEnvironmentVariable(index)}
                           >
-                            Remover
+                            Remove
                           </button>
                         </div>
                       ))}
@@ -673,15 +667,15 @@ export function ProjectSettingsDialog({
               ) : (
                 <>
                   <p>{activeSection.description}</p>
-                  <h4>Opções previstas</h4>
+                  <h4>Planned options</h4>
                   <ul>
                     {activeSection.items.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
                   <div className="wr-project-settings-note" role="note">
-                    A estrutura de dados e os controles de edição serão adicionados quando essas
-                    configurações forem implementadas.
+                    Data structures and editing controls will be added when these settings are
+                    implemented.
                   </div>
                 </>
               )}
@@ -692,15 +686,15 @@ export function ProjectSettingsDialog({
           {isGeneralSection || isEnvironmentSection ? (
             <>
               <button type="button" onClick={onClose}>
-                Cancelar
+                Cancel
               </button>
               <button type="button" className="primary" disabled={!hasChanges} onClick={save}>
-                Salvar alterações
+                Save changes
               </button>
             </>
           ) : (
             <button type="button" className="primary" onClick={onClose}>
-              Fechar
+              Close
             </button>
           )}
         </footer>

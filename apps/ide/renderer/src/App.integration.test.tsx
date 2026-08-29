@@ -885,34 +885,32 @@ describe('App MVP integration', () => {
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByTitle('Open Project Settings'));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Configurações de MvpProject' });
-    expect(within(dialog).getByRole('tab', { name: 'Variáveis de ambiente' })).toBeDefined();
-    expect(within(dialog).getByRole('tab', { name: 'Autenticação e JWT' })).toBeDefined();
-    await user.click(within(dialog).getByRole('tab', { name: 'CORS e origens' }));
-    expect(
-      within(dialog).getByRole('heading', { name: 'CORS e origens confiáveis' }),
-    ).toBeDefined();
-    await user.click(within(dialog).getByRole('tab', { name: 'Geral' }));
-    const applicationName = within(dialog).getByRole('textbox', { name: /^Nome da aplicação/ });
+    const dialog = await screen.findByRole('dialog', { name: 'Settings for MvpProject' });
+    expect(within(dialog).getByRole('tab', { name: 'Environment variables' })).toBeDefined();
+    expect(within(dialog).getByRole('tab', { name: 'Authentication and JWT' })).toBeDefined();
+    await user.click(within(dialog).getByRole('tab', { name: 'CORS and origins' }));
+    expect(within(dialog).getByRole('heading', { name: 'CORS and trusted origins' })).toBeDefined();
+    await user.click(within(dialog).getByRole('tab', { name: 'General' }));
+    const applicationName = within(dialog).getByRole('textbox', { name: /^Application name/ });
     await user.clear(applicationName);
     await user.type(applicationName, 'Mvp Portal');
-    await user.click(within(dialog).getByRole('button', { name: 'Salvar alterações' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Configurações de MvpProject' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Settings for MvpProject' })).toBeNull();
     });
 
     await user.click(screen.getByTitle('Open Project Settings'));
     const reopenedDialog = await screen.findByRole('dialog', {
-      name: 'Configurações de MvpProject',
+      name: 'Settings for MvpProject',
     });
     expect(
       (
         within(reopenedDialog).getByRole('textbox', {
-          name: /^Nome da aplicação/,
+          name: /^Application name/,
         }) as HTMLInputElement
       ).value,
     ).toBe('Mvp Portal');
-    await user.click(within(reopenedDialog).getByRole('button', { name: 'Cancelar' }));
+    await user.click(within(reopenedDialog).getByRole('button', { name: 'Cancel' }));
   });
 
   it('creates a reusable definition and inserts its page-owned instance', async () => {

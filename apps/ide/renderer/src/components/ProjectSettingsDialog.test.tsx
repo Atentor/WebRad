@@ -24,17 +24,17 @@ describe('ProjectSettingsDialog', () => {
       />,
     );
 
-    expect(screen.getByRole('dialog', { name: 'Configurações de Portal' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'Variáveis de ambiente' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'Ícones' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'Autenticação e JWT' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'CORS e origens' })).toBeDefined();
+    expect(screen.getByRole('dialog', { name: 'Settings for Portal' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Environment variables' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Icons' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Authentication and JWT' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'CORS and origins' })).toBeDefined();
 
-    await user.click(screen.getByRole('tab', { name: 'CORS e origens' }));
-    expect(screen.getByRole('heading', { name: 'CORS e origens confiáveis' })).toBeDefined();
-    expect(screen.getByText('Métodos e cabeçalhos permitidos')).toBeDefined();
-    expect(screen.getByText(/As opções em Geral são salvas no projeto/i)).toBeDefined();
-    expect(screen.getByRole('note').textContent).toContain('estrutura de dados');
+    await user.click(screen.getByRole('tab', { name: 'CORS and origins' }));
+    expect(screen.getByRole('heading', { name: 'CORS and trusted origins' })).toBeDefined();
+    expect(screen.getByText('Allowed methods and headers')).toBeDefined();
+    expect(screen.getByText(/General settings and environment variables are saved/i)).toBeDefined();
+    expect(screen.getByRole('note').textContent).toContain('Data structures');
   });
 
   it('saves general metadata and Designer preferences as one project settings update', async () => {
@@ -49,13 +49,16 @@ describe('ProjectSettingsDialog', () => {
       />,
     );
 
-    const applicationName = screen.getByRole('textbox', { name: /^Nome da aplicação/ });
+    const applicationName = screen.getByRole('textbox', { name: /^Application name/ });
     await user.clear(applicationName);
     await user.type(applicationName, 'Portal do Cliente');
-    await user.selectOptions(screen.getByRole('combobox', { name: /^Idioma e região/ }), 'en-US');
-    await user.click(screen.getByRole('checkbox', { name: 'Mostrar grade no Designer' }));
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Tamanho da grade' }), '16');
-    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /^Language and region/ }),
+      'en-US',
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Show grid in Designer' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Grid size' }), '16');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -79,19 +82,19 @@ describe('ProjectSettingsDialog', () => {
       />,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Variáveis de ambiente' }));
-    await user.click(screen.getByRole('button', { name: 'Adicionar variável' }));
-    const name = screen.getByRole('textbox', { name: 'Nome da variável' });
+    await user.click(screen.getByRole('tab', { name: 'Environment variables' }));
+    await user.click(screen.getByRole('button', { name: 'Add variable' }));
+    const name = screen.getByRole('textbox', { name: 'Variable name' });
     await user.type(name, 'API_BASE_URL');
-    const developmentValue = screen.getByRole('textbox', { name: /^Valor para Desenvolvimento/ });
+    const developmentValue = screen.getByRole('textbox', { name: /^Value for Development/ });
     await user.type(developmentValue, 'http://localhost:3000');
     await user.selectOptions(
-      screen.getByRole('combobox', { name: /^Ambiente usado em Preview e Build/ }),
+      screen.getByRole('combobox', { name: /^Environment used for Preview and Build/ }),
       'production',
     );
-    const productionValue = screen.getByRole('textbox', { name: /^Valor para Produção/ });
+    const productionValue = screen.getByRole('textbox', { name: /^Value for Production/ });
     await user.type(productionValue, 'https://api.example.test');
-    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
