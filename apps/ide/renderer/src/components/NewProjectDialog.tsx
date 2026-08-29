@@ -118,7 +118,8 @@ export function NewProjectDialog({
         </header>
         <form onSubmit={submit}>
           <p id={descriptionId} className="wr-modal-description">
-            Choose a project name. WebRAD will ask for the parent folder next.
+            Choose a project name. WebRAD will then ask for the project folder; select or create the
+            folder that should contain the project files.
           </p>
           <label className="wr-modal-field">
             <span>Project name</span>

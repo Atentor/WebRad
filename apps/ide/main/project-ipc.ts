@@ -118,9 +118,8 @@ async function createProjectHandler(
   requireTrustedSender(event);
   const request = createProjectSchema.parse(input);
   // Directory capabilities always come from a native picker, never an arbitrary renderer path.
-  const parentDirectory = await chooseDirectory('Choose a folder for the new WebRAD project');
-  if (!parentDirectory) return null;
-  const rootPath = path.join(parentDirectory, request.name);
+  const rootPath = await chooseDirectory('Choose or create the folder for the new WebRAD project');
+  if (!rootPath) return null;
   await ensureNewDestination(rootPath);
   const session = await createProjectFiles(rootPath, request.name);
   grantRoot(event, session.rootPath);

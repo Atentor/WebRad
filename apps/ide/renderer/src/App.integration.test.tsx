@@ -1039,6 +1039,10 @@ describe('App MVP integration', () => {
     await act(async () => harness.invokeCommand('file.newProject'));
 
     await screen.findByRole('dialog', { name: 'Create a new project' });
+    expect(
+      screen.getByText(/WebRAD will then ask for the project folder; select or create the folder/i)
+        .textContent,
+    ).toContain('project folder');
     await act(async () => harness.invokeCommand('file.openProject'));
     expect(harness.open).not.toHaveBeenCalled();
 

@@ -58,6 +58,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Project Settings opens an accessible, responsive planning modal with a left navigation for general settings, environment variables, icons, domains, build/publication, PWA metadata, JWT/authentication, CORS, security headers/CSP, integrations, and observability. It deliberately does not persist or simulate settings until their versioned Project Model contracts are implemented.
 - DONE: Reusable component instances honor `Responsive width` and `Responsive height` in fixed containers as well: `stretch` uses the instance's design-time leading offset and its trailing inset, while `fit-content` leaves that axis to browser content sizing. The same shared runtime projection drives Designer and generated applications.
 - DONE: Generated browser apps register every Project Model page in a browser-only `WebPageRouter`. `Navigate('PageName')` or a stable page ID swaps pages internally without reloading, while `#/PageName` provides direct-link and browser history support; non-page destinations retain normal browser navigation.
+- DONE: New Project now uses the folder selected in the native picker as the project root, avoiding an extra nested folder named after the project.
 
 ## Validation evidence
 
