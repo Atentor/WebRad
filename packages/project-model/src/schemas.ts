@@ -32,6 +32,7 @@ import {
   REUSABLE_ELEMENT_PLACEMENTS,
   REUSABLE_ELEMENT_VERTICAL_ANCHORS,
   PROJECT_ENVIRONMENTS,
+  PROJECT_APPLICATION_ICON_MEDIA_TYPES,
   type Bounds,
   type ComponentLayout,
   type ComponentNode,
@@ -44,6 +45,7 @@ import {
   type PageModel,
   type ProjectManifest,
   type ProjectEnvironmentVariable,
+  type ProjectApplicationIcon,
   type ProjectSettings,
   type ReusableElementModel,
   type StyleLengthValue,
@@ -487,6 +489,41 @@ const environmentVariableValueSchema = z
   .max(10_000)
   .refine((value) => !value.includes('\0'), 'Environment variable values cannot contain NUL.');
 
+const projectApplicationIconFileNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .refine(
+    (value) => !value.includes('/') && !value.includes('\\') && !value.includes('\0'),
+    'Expected an icon file name without path separators.',
+  );
+
+const projectApplicationIconDataUrlSchema = z
+  .string()
+  .max(1_400_000)
+  .regex(
+    /^data:image\/(?:svg\+xml|png);base64,(?=.+$)(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+    'Expected a base64 SVG or PNG data URL.',
+  );
+
+export const ProjectApplicationIconSchema: z.ZodType<ProjectApplicationIcon> = z
+  .object({
+    fileName: projectApplicationIconFileNameSchema,
+    mediaType: z.enum(PROJECT_APPLICATION_ICON_MEDIA_TYPES),
+    dataUrl: projectApplicationIconDataUrlSchema,
+  })
+  .strict()
+  .superRefine((icon, context) => {
+    if (!icon.dataUrl.startsWith(`data:${icon.mediaType};base64,`)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Application icon data URL does not match its media type.',
+        path: ['dataUrl'],
+      });
+    }
+  });
+
 export const ProjectEnvironmentVariableSchema: z.ZodType<ProjectEnvironmentVariable> = z
   .object({
     name: environmentVariableNameSchema,
@@ -511,6 +548,7 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
       .string()
       .trim()
       .regex(/^(?:UTC|[A-Za-z_+-]+(?:\/[A-Za-z_+-]+)+)$/, 'Expected an IANA time-zone.'),
+    applicationIcon: ProjectApplicationIconSchema.nullable(),
     environment: z.enum(PROJECT_ENVIRONMENTS),
     environmentVariables: z.array(ProjectEnvironmentVariableSchema).max(100),
     gridSize: z.number().int().positive(),

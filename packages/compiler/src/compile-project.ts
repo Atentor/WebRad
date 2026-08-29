@@ -10,6 +10,7 @@ import {
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
   safeParseProject,
+  type ProjectApplicationIcon,
   type WebRadProject,
 } from '@webrad/project-model';
 import type { BuildFailure } from 'esbuild';
@@ -245,16 +246,30 @@ function failedResult(
 async function writeOutputFiles(
   outputDirectory: string,
   files: Readonly<Record<string, string>>,
+  binaryFiles: Readonly<Record<string, Uint8Array>> = {},
 ): Promise<void> {
-  for (const [relativePath, contents] of Object.entries(files)) {
+  for (const [relativePath, contents] of [
+    ...Object.entries(files),
+    ...Object.entries(binaryFiles),
+  ]) {
     const target = path.resolve(outputDirectory, ...relativePath.split('/'));
     const relative = path.relative(outputDirectory, target);
     if (relative.startsWith('..') || path.isAbsolute(relative)) {
       throw new Error(`Compiler output escaped its output directory: ${relativePath}`);
     }
     await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, contents, 'utf8');
+    await fs.writeFile(target, contents);
   }
+}
+
+function applicationIconOutputPath(icon: ProjectApplicationIcon): string {
+  const extension = icon.mediaType === 'image/svg+xml' ? 'svg' : 'png';
+  return `assets/icons/application.${extension}`;
+}
+
+function decodeApplicationIcon(icon: ProjectApplicationIcon): Uint8Array {
+  const prefix = `data:${icon.mediaType};base64,`;
+  return Uint8Array.from(Buffer.from(icon.dataUrl.slice(prefix.length), 'base64'));
 }
 
 function buildFailureDiagnostics(error: BuildFailure): readonly CompileDiagnostic[] {
@@ -362,12 +377,23 @@ export async function compileProject(
         },
       ]);
     }
+    const iconOutputPath =
+      project.settings.applicationIcon === null
+        ? null
+        : applicationIconOutputPath(project.settings.applicationIcon);
+    const binaryFiles =
+      project.settings.applicationIcon === null || iconOutputPath === null
+        ? {}
+        : { [iconOutputPath]: decodeApplicationIcon(project.settings.applicationIcon) };
     const files = {
       ...bundle.files,
-      'index.html': createIndexHtml(project.settings),
+      'index.html': createIndexHtml(
+        project.settings,
+        iconOutputPath === null ? null : `./${iconOutputPath}`,
+      ),
     };
     const diagnostics = [...preBundleDiagnostics, ...bundle.diagnostics];
-    if (options.write ?? true) await writeOutputFiles(outputDirectory, files);
+    if (options.write ?? true) await writeOutputFiles(outputDirectory, files, binaryFiles);
     return {
       success: true,
       outputDirectory,

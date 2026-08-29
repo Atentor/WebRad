@@ -1,3 +1,5 @@
+import type { ProjectApplicationIcon } from '@webrad/project-model';
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -11,6 +13,7 @@ export interface HtmlDocumentMetadata {
   readonly applicationDescription: string;
   readonly locale: string;
   readonly timeZone: string;
+  readonly applicationIcon: ProjectApplicationIcon | null;
 }
 
 function descriptionTag(description: string): string {
@@ -19,13 +22,22 @@ function descriptionTag(description: string): string {
     : `    <meta name="description" content="${escapeHtml(description)}" />\n`;
 }
 
-export function createIndexHtml(metadata: HtmlDocumentMetadata): string {
+function applicationIconTag(icon: ProjectApplicationIcon | null, href: string | null): string {
+  if (icon === null || href === null) return '';
+  return `    <link rel="icon" type="${escapeHtml(icon.mediaType)}" href="${escapeHtml(href)}" />\n`;
+}
+
+export function createIndexHtml(
+  metadata: HtmlDocumentMetadata,
+  applicationIconHref: string | null,
+): string {
   return `<!doctype html>
 <html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(metadata.applicationName)}</title>
+${applicationIconTag(metadata.applicationIcon, applicationIconHref)}
     <link rel="stylesheet" href="./assets/app.css" />
   </head>
   <body>
@@ -54,6 +66,7 @@ export function createPreviewHtml(
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(metadata.applicationName)}</title>
+${applicationIconTag(metadata.applicationIcon, metadata.applicationIcon?.dataUrl ?? null)}
     <style>${styleSafe(css)}</style>
   </head>
   <body>

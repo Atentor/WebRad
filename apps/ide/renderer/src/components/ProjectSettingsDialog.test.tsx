@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { createProject } from '@webrad/project-model';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog';
@@ -33,7 +33,9 @@ describe('ProjectSettingsDialog', () => {
     await user.click(screen.getByRole('tab', { name: 'CORS and origins' }));
     expect(screen.getByRole('heading', { name: 'CORS and trusted origins' })).toBeDefined();
     expect(screen.getByText('Allowed methods and headers')).toBeDefined();
-    expect(screen.getByText(/General settings and environment variables are saved/i)).toBeDefined();
+    expect(
+      screen.getByText(/General settings, environment variables, and application icons are saved/i),
+    ).toBeDefined();
     expect(screen.getByRole('note').textContent).toContain('Data structures');
   });
 
@@ -108,6 +110,42 @@ describe('ProjectSettingsDialog', () => {
             },
           },
         ],
+      }),
+    );
+  });
+
+  it('accepts an SVG application icon and persists it with the project settings', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Icons' }));
+    const icon = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'portal-icon.svg', {
+      type: 'image/svg+xml',
+    });
+    fireEvent.change(screen.getByTestId('application-icon-input'), {
+      target: { files: [icon] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('img', { name: 'Application icon preview' })).toBeDefined();
+    });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationIcon: expect.objectContaining({
+          fileName: 'portal-icon.svg',
+          mediaType: 'image/svg+xml',
+          dataUrl: expect.stringMatching(/^data:image\/svg\+xml;base64,/),
+        }),
       }),
     );
   });

@@ -1,4 +1,6 @@
 import type {
+  ProjectApplicationIcon,
+  ProjectApplicationIconMediaType,
   ProjectEnvironment,
   ProjectEnvironmentVariable,
   ProjectSettings,
@@ -200,6 +202,29 @@ const ENVIRONMENT_OPTIONS = [
 ] as const satisfies readonly (readonly [ProjectEnvironment, string])[];
 
 const ENVIRONMENT_VARIABLE_NAME = /^[A-Z][A-Z0-9_]*$/;
+const MAX_APPLICATION_ICON_BYTES = 1_000_000;
+
+function applicationIconMediaType(file: File): ProjectApplicationIconMediaType | null {
+  const fileName = file.name.toLowerCase();
+  if (file.type === 'image/svg+xml' || fileName.endsWith('.svg')) return 'image/svg+xml';
+  if (file.type === 'image/png' || fileName.endsWith('.png')) return 'image/png';
+  return null;
+}
+
+function readIconDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error('The icon could not be read.'));
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        reject(new Error('The icon could not be read.'));
+        return;
+      }
+      resolve(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 function includesOption(options: readonly (readonly [string, string])[], value: string): boolean {
   return options.some(([optionValue]) => optionValue === value);
@@ -211,6 +236,9 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
     left.applicationDescription !== right.applicationDescription ||
     left.locale !== right.locale ||
     left.timeZone !== right.timeZone ||
+    left.applicationIcon?.fileName !== right.applicationIcon?.fileName ||
+    left.applicationIcon?.mediaType !== right.applicationIcon?.mediaType ||
+    left.applicationIcon?.dataUrl !== right.applicationIcon?.dataUrl ||
     left.environment !== right.environment ||
     left.gridSize !== right.gridSize ||
     left.snapToGrid !== right.snapToGrid ||
@@ -237,16 +265,20 @@ export function ProjectSettingsDialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
+  const iconInputRef = useRef<HTMLInputElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
   const [activeSectionId, setActiveSectionId] = useState<ProjectSettingsSectionId>('general');
   const [draft, setDraft] = useState<ProjectSettings>(settings);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [iconError, setIconError] = useState<string | null>(null);
   const activeSection =
     SETTINGS_SECTIONS.find((section) => section.id === activeSectionId) ?? SETTINGS_SECTIONS[0];
   const isGeneralSection = activeSection.id === 'general';
   const isEnvironmentSection = activeSection.id === 'environment';
+  const isIconsSection = activeSection.id === 'icons';
+  const isEditableSection = isGeneralSection || isEnvironmentSection || isIconsSection;
   const hasChanges = settingsChanged(settings, draft);
 
   useEffect(() => {
@@ -298,6 +330,31 @@ export function ProjectSettingsDialog({
       ),
     }));
     setSaveError(null);
+  };
+
+  const selectApplicationIcon = async (file: File | undefined): Promise<void> => {
+    if (file === undefined) return;
+    const mediaType = applicationIconMediaType(file);
+    if (mediaType === null) {
+      setIconError('Choose an SVG or PNG image.');
+      return;
+    }
+    if (file.size === 0 || file.size > MAX_APPLICATION_ICON_BYTES) {
+      setIconError('Choose an icon between 1 byte and 1 MB.');
+      return;
+    }
+    try {
+      const dataUrl = await readIconDataUrl(file);
+      const applicationIcon: ProjectApplicationIcon = {
+        fileName: file.name,
+        mediaType,
+        dataUrl,
+      };
+      updateDraft({ applicationIcon });
+      setIconError(null);
+    } catch (error) {
+      setIconError(error instanceof Error ? error.message : 'The icon could not be read.');
+    }
   };
 
   const save = (): void => {
@@ -381,8 +438,8 @@ export function ProjectSettingsDialog({
         </header>
         <div className="wr-project-settings-content">
           <p id={descriptionId} className="wr-modal-description">
-            General settings and environment variables are saved in the project and applied to the
-            generated output. Other areas remain available for planning.
+            General settings, environment variables, and application icons are saved in the project
+            and applied to the generated output. Other areas remain available for planning.
           </p>
           <div className="wr-project-settings-layout">
             <nav
@@ -420,11 +477,7 @@ export function ProjectSettingsDialog({
               <div className="wr-project-settings-panel-heading">
                 <Icon name={activeSection.icon} />
                 <div>
-                  <span>
-                    {isGeneralSection || isEnvironmentSection
-                      ? 'Applied to project'
-                      : 'Configuration planning'}
-                  </span>
+                  <span>{isEditableSection ? 'Applied to project' : 'Configuration planning'}</span>
                   <h3>{activeSection.title}</h3>
                 </div>
               </div>
@@ -664,6 +717,68 @@ export function ProjectSettingsDialog({
                     </div>
                   )}
                 </>
+              ) : isIconsSection ? (
+                <>
+                  <p>{activeSection.description}</p>
+                  <div className="wr-project-settings-icon-card">
+                    <div className="wr-project-settings-icon-preview">
+                      {draft.applicationIcon === null ? (
+                        <Icon name="image" />
+                      ) : (
+                        <img src={draft.applicationIcon.dataUrl} alt="Application icon preview" />
+                      )}
+                    </div>
+                    <div className="wr-project-settings-icon-details">
+                      <h4>Browser icon</h4>
+                      <p>
+                        {draft.applicationIcon === null
+                          ? 'No icon selected. Choose an SVG or PNG file up to 1 MB.'
+                          : `${draft.applicationIcon.fileName} · ${draft.applicationIcon.mediaType}`}
+                      </p>
+                      <div className="wr-project-settings-icon-upload">
+                        <button type="button" onClick={() => iconInputRef.current?.click()}>
+                          {draft.applicationIcon === null ? 'Choose SVG or PNG' : 'Replace icon'}
+                        </button>
+                        <span>SVG or PNG · 1 MB max</span>
+                        <input
+                          ref={iconInputRef}
+                          type="file"
+                          accept="image/svg+xml,image/png,.svg,.png"
+                          className="wr-project-settings-icon-file-input"
+                          data-testid="application-icon-input"
+                          tabIndex={-1}
+                          aria-hidden="true"
+                          onChange={(event) => {
+                            const file = event.currentTarget.files?.[0];
+                            event.currentTarget.value = '';
+                            void selectApplicationIcon(file);
+                          }}
+                        />
+                      </div>
+                      {draft.applicationIcon !== null && (
+                        <button
+                          type="button"
+                          className="wr-project-settings-remove-icon"
+                          onClick={() => {
+                            updateDraft({ applicationIcon: null });
+                            setIconError(null);
+                          }}
+                        >
+                          Remove icon
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="wr-project-settings-security-note" role="note">
+                    The icon is saved with the project, shown in Preview, and emitted as the
+                    generated application's favicon.
+                  </div>
+                  {iconError !== null && (
+                    <div className="wr-project-settings-error" role="alert">
+                      {iconError}
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
                   <p>{activeSection.description}</p>
@@ -683,7 +798,7 @@ export function ProjectSettingsDialog({
           </div>
         </div>
         <footer className="wr-modal-actions wr-project-settings-actions">
-          {isGeneralSection || isEnvironmentSection ? (
+          {isEditableSection ? (
             <>
               <button type="button" onClick={onClose}>
                 Cancel

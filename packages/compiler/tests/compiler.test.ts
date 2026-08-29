@@ -596,6 +596,12 @@ export class PageDetails extends PageDetailsGenerated {
       applicationName: 'Hello & <WebRAD>',
       applicationDescription: 'A customer <portal> & workspace.',
       locale: 'en-US',
+      applicationIcon: {
+        fileName: 'hello.svg',
+        mediaType: 'image/svg+xml',
+        dataUrl:
+          'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=',
+      },
       environment: 'production',
       environmentVariables: [
         {
@@ -645,6 +651,9 @@ export class PageMain extends PageMainGenerated {
     );
     expect(result.files['index.html']).toContain('<title>Hello &amp; &lt;WebRAD&gt;</title>');
     expect(result.files['index.html']).toContain(
+      '<link rel="icon" type="image/svg+xml" href="./assets/icons/application.svg" />',
+    );
+    expect(result.files['index.html']).toContain(
       '<meta name="description" content="A customer &lt;portal&gt; &amp; workspace." />',
     );
     expect(result.files['assets/app.js']).toContain('BTNMostrarClick');
@@ -655,6 +664,7 @@ export class PageMain extends PageMainGenerated {
     expect(result.files['assets/app.css']).toContain('.wr-webbutton:hover:not(:disabled)');
     expect(result.previewHtml).toContain('<script>');
     expect(result.previewHtml).toContain('<style>');
+    expect(result.previewHtml).toContain('data:image/svg+xml;base64,');
     expect(result.previewHtml).toContain(
       '<html lang="en-US" data-webrad-time-zone="America/Sao_Paulo">',
     );
@@ -664,6 +674,9 @@ export class PageMain extends PageMainGenerated {
     await expect(
       fs.readFile(path.join(outputDirectory, 'assets', 'app.js'), 'utf8'),
     ).resolves.toContain('mountPage');
+    await expect(
+      fs.readFile(path.join(outputDirectory, 'assets', 'icons', 'application.svg'), 'utf8'),
+    ).resolves.toContain('<svg');
     await expect(fs.stat(path.join(outputDirectory, 'pages', 'PageMain.ts'))).rejects.toMatchObject(
       {
         code: 'ENOENT',

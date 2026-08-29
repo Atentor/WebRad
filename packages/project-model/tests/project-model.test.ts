@@ -199,6 +199,11 @@ describe('project factories', () => {
       applicationDescription: 'Customer self-service area.',
       locale: 'en-US',
       timeZone: 'America/New_York',
+      applicationIcon: {
+        fileName: 'customer.svg',
+        mediaType: 'image/svg+xml',
+        dataUrl: 'data:image/svg+xml;base64,PHN2Zy8+',
+      },
       environment: 'production',
       environmentVariables: [
         {
@@ -216,6 +221,7 @@ describe('project factories', () => {
       applicationDescription: 'Customer self-service area.',
       locale: 'en-US',
       timeZone: 'America/New_York',
+      applicationIcon: expect.objectContaining({ fileName: 'customer.svg' }),
       environment: 'production',
       environmentVariables: [expect.objectContaining({ name: 'API_BASE_URL' })],
     });
@@ -227,6 +233,7 @@ describe('project factories', () => {
     delete legacy.settings.applicationDescription;
     delete legacy.settings.locale;
     delete legacy.settings.timeZone;
+    delete legacy.settings.applicationIcon;
     delete legacy.settings.environment;
     delete legacy.settings.environmentVariables;
     const restored = deserializeProject(JSON.stringify(legacy));
@@ -236,6 +243,7 @@ describe('project factories', () => {
       applicationDescription: '',
       locale: 'pt-BR',
       timeZone: 'America/Sao_Paulo',
+      applicationIcon: null,
       environment: 'development',
       environmentVariables: [],
     });

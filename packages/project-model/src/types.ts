@@ -317,6 +317,18 @@ export type ReusableElementModel = PageModel;
 export const PROJECT_ENVIRONMENTS = ['development', 'production'] as const;
 export type ProjectEnvironment = (typeof PROJECT_ENVIRONMENTS)[number];
 
+export const PROJECT_APPLICATION_ICON_MEDIA_TYPES = ['image/svg+xml', 'image/png'] as const;
+export type ProjectApplicationIconMediaType = (typeof PROJECT_APPLICATION_ICON_MEDIA_TYPES)[number];
+
+/** A portable browser icon stored with the project and emitted by the compiler. */
+export interface ProjectApplicationIcon {
+  /** Original file name, used only for identification in Project Settings. */
+  readonly fileName: string;
+  readonly mediaType: ProjectApplicationIconMediaType;
+  /** Base64 data URL so the project remains self-contained and portable. */
+  readonly dataUrl: string;
+}
+
 /** A browser-visible value for every environment supported by a project. */
 export interface ProjectEnvironmentVariable {
   /** Uppercase identifier used as `Env.NAME` in authored TypeScript. */
@@ -333,6 +345,8 @@ export interface ProjectSettings {
   readonly locale: string;
   /** IANA time-zone identifier selected as the project's default. */
   readonly timeZone: string;
+  /** Optional browser icon used as the generated application's favicon. */
+  readonly applicationIcon: ProjectApplicationIcon | null;
   /** Environment whose values are embedded in Preview and the next Build. */
   readonly environment: ProjectEnvironment;
   /** Browser-visible variables, each with one value per environment. */
@@ -395,6 +409,7 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   applicationDescription: '',
   locale: 'pt-BR',
   timeZone: 'America/Sao_Paulo',
+  applicationIcon: null,
   environment: 'development',
   environmentVariables: [],
   gridSize: 8,
