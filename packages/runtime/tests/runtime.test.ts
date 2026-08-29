@@ -18,6 +18,7 @@ import {
   WebListBox,
   WebNonvisualComponent,
   WebPanel,
+  WebPageRouter,
   WebTextArea,
   expandReusableElements,
   mountPage,
@@ -127,6 +128,34 @@ const pageModel = withDefaultLayouts({
     },
   ],
 });
+
+function navigationPageModel(
+  id: string,
+  name: string,
+  child: RuntimeNodeWithoutLayout,
+): RuntimePageModel {
+  const rootComponentId = `${id}-root`;
+  return withDefaultLayouts({
+    id,
+    name,
+    caption: name,
+    width: 480,
+    height: 320,
+    rootComponentId,
+    components: [
+      {
+        id: rootComponentId,
+        type: 'WebPage',
+        name,
+        parentId: null,
+        bounds: { x: 0, y: 0, width: 480, height: 320 },
+        props: { caption: name, visible: true, enabled: true },
+        children: [child.id],
+      },
+      { ...child, parentId: rootComponentId },
+    ],
+  });
+}
 
 const inspectorPropertyPageModel = withDefaultLayouts({
   id: 'property-page',
@@ -343,6 +372,114 @@ describe('browser runtime', () => {
     const page = new TestPage(mounted.element);
     page.button.click();
     expect(page.calls).toBe(1);
+  });
+
+  it('routes authored pages from a button click and releases the previous page bindings', () => {
+    const firstPageModel = navigationPageModel('page-main', 'PageMain', {
+      id: 'go-details',
+      type: 'WebButton',
+      name: 'BTNGoDetails',
+      parentId: null,
+      bounds: { x: 24, y: 32, width: 128, height: 36 },
+      props: { caption: 'Details', visible: true, enabled: true },
+      children: [],
+    });
+    const secondPageModel = navigationPageModel('page-details', 'PageDetails', {
+      id: 'details-label',
+      type: 'WebLabel',
+      name: 'LBLDetails',
+      parentId: null,
+      bounds: { x: 24, y: 32, width: 200, height: 28 },
+      props: { caption: 'Details page', visible: true, enabled: true },
+      children: [],
+    });
+    const lifecycle: string[] = [];
+
+    class PageMain extends WebPage {
+      public readonly goDetails: WebButton;
+
+      public constructor(element: HTMLElement) {
+        super(element);
+        this.goDetails = new WebButton(this.requireComponentElement('go-details'));
+        this.bindGeneratedEvent(this, 'OnCreate', 'PageMainCreate');
+        this.bindGeneratedEvent(this, 'OnShow', 'PageMainShow');
+        this.bindGeneratedEvent(this, 'OnHide', 'PageMainHide');
+        this.bindGeneratedEvent(this.goDetails, 'OnClick', 'BTNGoDetailsClick');
+      }
+
+      public PageMainCreate(): void {
+        lifecycle.push('main:create');
+      }
+
+      public PageMainShow(): void {
+        lifecycle.push('main:show');
+      }
+
+      public PageMainHide(): void {
+        lifecycle.push('main:hide');
+      }
+
+      public BTNGoDetailsClick(): void {
+        router.navigate('page-details');
+      }
+    }
+
+    class PageDetails extends WebPage {
+      public constructor(element: HTMLElement) {
+        super(element);
+        this.bindGeneratedEvent(this, 'OnCreate', 'PageDetailsCreate');
+        this.bindGeneratedEvent(this, 'OnShow', 'PageDetailsShow');
+      }
+
+      public PageDetailsCreate(): void {
+        lifecycle.push('details:create');
+      }
+
+      public PageDetailsShow(): void {
+        lifecycle.push('details:show');
+      }
+    }
+
+    const host = document.createElement('main');
+    document.body.append(host);
+    const router = new WebPageRouter(
+      [
+        {
+          id: firstPageModel.id,
+          name: firstPageModel.name,
+          model: firstPageModel,
+          createPage: (element) => new PageMain(element),
+        },
+        {
+          id: secondPageModel.id,
+          name: secondPageModel.name,
+          model: secondPageModel,
+          createPage: (element) => new PageDetails(element),
+        },
+      ],
+      host,
+    );
+
+    const main = router.navigate('PageMain') as PageMain;
+    expect(host.querySelector('[data-webrad-page-id="page-main"]')).not.toBeNull();
+    main.goDetails.click();
+
+    expect(router.activeRoute?.id).toBe('page-details');
+    expect(host.querySelector('[data-webrad-page-id="page-main"]')).toBeNull();
+    expect(host.querySelector('[data-webrad-page-id="page-details"]')).not.toBeNull();
+    expect(lifecycle).toEqual([
+      'main:create',
+      'main:show',
+      'main:hide',
+      'details:create',
+      'details:show',
+    ]);
+    expect(router.findRoute('page-main')?.name).toBe('PageMain');
+    expect(() => router.navigate('MissingPage')).toThrow('No WebRAD page route matches');
+
+    router.dispose();
+    expect(host.childElementCount).toBe(0);
+    host.remove();
   });
 
   it('provides functional wrappers for every initial visual control', () => {

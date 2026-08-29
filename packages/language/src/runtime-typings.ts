@@ -336,7 +336,10 @@ ${WEB_BUTTON_ICON_TYPINGS};
   export function Message(message: unknown): void;
   /** Asks the application user to confirm an action. */
   export function Confirm(message: unknown): boolean;
-  /** Navigates the application or opens a destination in another window. */
+  /**
+   * Navigates an internal project page when its name or ID is provided by a
+   * compiled app; otherwise navigates the browser or opens another window.
+   */
   export function Navigate(destination: string | URL, options?: NavigateOptions): void;
   export const message: typeof Message;
   export const confirm: typeof Confirm;
@@ -548,6 +551,29 @@ ${WEB_BUTTON_ICON_TYPINGS};
     host?: HTMLElement,
     options?: MountPageOptions,
   ): MountedRuntimePage;
+
+  /** Creates the authored wrapper for a page after its visual DOM is mounted. */
+  export type RuntimePageFactory = (element: HTMLElement) => WebPage;
+
+  /** One route that can be mounted by the browser-side page router. */
+  export interface RuntimePageRoute {
+    readonly id: string;
+    readonly name: string;
+    readonly model: RuntimePageModel;
+    readonly createPage: RuntimePageFactory;
+  }
+
+  /** Mounts one authored project page at a time and resolves IDs or page names. */
+  export class WebPageRouter {
+    constructor(routes: readonly RuntimePageRoute[], host?: HTMLElement);
+    readonly activePage: WebPage | null;
+    readonly activeRoute: RuntimePageRoute | null;
+    findRoute(destination: string): RuntimePageRoute | undefined;
+    start(entryDestination: string): WebPage;
+    navigateBrowser(destination: string | URL, options?: NavigateOptions): void;
+    navigate(destination: string): WebPage;
+    dispose(): void;
+  }
 
   export interface VisualPropertySource {
     readonly props: Readonly<Record<string, unknown>>;

@@ -55,6 +55,12 @@ Instance geometry belongs to the `WebReusableElement` wrapper, not the definitio
 
 This first reusable vertical slice is visual-only. Reusable definitions have Design but no Code or Preview tab, no generated class or user source, and no event code-behind. The wrapper is still a normal page-owned visual component and can be addressed from that page's generated class, but the definition's descendants are not hoisted into page fields and its persisted event bindings are not generated or bound. Nonvisual services and reusable-scoped behavior/data contracts are deferred rather than simulated.
 
+## Internal page navigation
+
+The compiler registers every project page, its runtime visual model, and its authored class in one browser-side `WebPageRouter`. An event handler navigates inside the application with `Navigate('PageName')` or the stable page ID. When the destination exactly matches a registered project page, the generated bootstrap swaps the mounted page without reloading the browser: it emits `OnHide`, removes the previous page and its floating layer, disposes generated bindings, mounts the target, and invokes its normal `OnCreate`/`OnShow` lifecycle. Page-local runtime state is therefore recreated on each route activation.
+
+The canonical internal URL is a static-host-safe hash such as `#/PageDetails`. Direct links and browser back/forward events resolve through the same router, with an empty or unknown hash falling back to the project entry page. Destinations that do not match a project page retain `Navigate`'s browser behavior, including external URLs and explicit new-window targets.
+
 ## Commands and selection
 
 `SelectionManager` owns ordered selected IDs and anchor selection. `CommandHistory` owns executable reversible commands and transactions; it does not store whole-project snapshots per edit. Multi-property edits form one transaction.

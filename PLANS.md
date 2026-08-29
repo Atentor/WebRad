@@ -55,6 +55,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Dynamic response-schema sections preserve their full intrinsic height, so overflow reaches the right editor's scrollbar instead of being clipped inside the response card.
 - DONE: The Data Grid configurator uses a narrower, cleaner responsive surface with aligned appearance toggles, lighter section hierarchy, compact column cards, and fixed actions around one content scroll area.
 - DONE: Reusable Components are page-shaped, design-only visual definitions stored inline in the project manifest. A named definition can be dragged or inserted into any page as a stable-ID `WebReusableElement` reference, including nested acyclic definitions; instances retain their own responsive layout or can be made viewport-fixed with anchors and layer. Runtime expansion scopes each rendered definition node to its placement, preventing DOM/runtime identity collisions. The current vertical slice intentionally has no reusable code-behind or event binding surface.
+- DONE: Generated browser apps register every Project Model page in a browser-only `WebPageRouter`. `Navigate('PageName')` or a stable page ID swaps pages internally without reloading, while `#/PageName` provides direct-link and browser history support; non-page destinations retain normal browser navigation.
 
 ## Validation evidence
 
@@ -71,6 +72,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Dynamic Data Grid tests cover v1-to-v2 configuration migration, fixed and dynamic track constraints, dialog save/cancel/reorder behavior, Inspector persistence, base-only reusable line/header/footer styles, Designer projection, generated runtime behavior, and public runtime-typing parity.
 - Data Grid runtime regression coverage verifies that multiple grids bound to one API Client replace their rows after each successful execution.
 - Reusable Component coverage validates legacy v2 normalization without `reusableElements`, valid and unknown references, cyclic-reference rejection, removal protection, Designer palette/drop behavior, and runtime expansion/floating layout isolation.
+- Internal navigation coverage verifies runtime page lifecycle/binding disposal, a compiled button handler that routes to another page, direct hash loading, and returning to the entry page through hash history.
 - The development and packaged smokes start the real Forge bundles, open a Hello project through the UI/preload/IPC path, verify the Monaco editor through F12, dispatch F9, wait for `PreviewPane`, enter `Ada`, click the generated button inside the sandbox, verify `Olá Ada`, then exit automatically.
 
 ## Decision log
@@ -88,6 +90,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Persist only API operation metadata and selected response-schema definitions, never sampled response data; stable operation and schema-node IDs are future binding keys.
 - Persist reusable visual definitions inline as `reusableElements` in the `.wrproj` manifest rather than treating them as navigable pages or generating independent source files. A `WebReusableElement` stores only a stable reference and placement-owned layout; validation rejects missing references and recursive definition graphs, and removal remains safe-by-default while references exist.
 - Expand reusable definitions only in the browser runtime. The Project Model preserves immutable template IDs, while each placement receives scoped physical runtime IDs; floating placement is an instance-level viewport overlay and never changes the shared definition.
+- Compile every project page into a route table and extend the generated global `Navigate` only for exact page-name or stable-ID matches. Hash routes keep static browser builds linkable without requiring server-side path rewrites; all other destinations remain ordinary browser navigation.
 - Send API Client test and generated-runtime traffic with browser `fetch`; do not route arbitrary endpoints through Electron, and preserve the target API's CORS and authentication boundary.
 - Treat `Icon.svg` as the application icon source of truth; commit checked PNG/ICO/ICNS derivatives required by native platforms.
 - Resolve compiler resources from `node_modules` during Forge development and from copied `resources` in packaged applications; never rely on the Vite main bundle directory for TypeScript standard libraries.

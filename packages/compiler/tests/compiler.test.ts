@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  addPage,
   addComponent,
   addComponentStyle,
   addReusableElement,
@@ -10,6 +11,7 @@ import {
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
   createDefaultApiClientConfiguration,
   createComponentStyle,
+  createPage,
   createProject,
   createReusableElement,
   setComponentStyle,
@@ -300,6 +302,22 @@ function reusableElementExecutableProject(): WebRadProject {
   return updatePage(withReusableDefinition, page.id, pageWithReusableInstance);
 }
 
+function internallyNavigableProject(): WebRadProject {
+  const project = executableProject();
+  const detailsPage = bindComponentEvent(
+    createPage('PageDetails', {
+      idFactory: (() => {
+        let sequence = 0;
+        return () => `details-${String((sequence += 1))}`;
+      })(),
+    }),
+    'details-2',
+    'OnCreate',
+    'PageDetailsCreate',
+  );
+  return addPage(project, detailsPage);
+}
+
 describe('compileProject', () => {
   it('serializes reusable definitions into the runtime model and compiles without diagnostics', async () => {
     const project = reusableElementExecutableProject();
@@ -326,6 +344,94 @@ describe('compileProject', () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.files['assets/app.js']).toContain('reusableElements');
     expect(result.files['assets/app.js']).toContain(reusableDefinition.id);
+  });
+
+  it('compiles in-app page navigation for button handlers and hash links', async () => {
+    const project = internallyNavigableProject();
+    const mainPage = project.pages.find((page) => page.name === 'PageMain');
+    const detailsPage = project.pages.find((page) => page.name === 'PageDetails');
+    if (mainPage === undefined || detailsPage === undefined)
+      throw new Error('Expected the compiled page routes.');
+    const userSources = {
+      'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
+
+export class PageMain extends PageMainGenerated {
+  public BTNMostrarClick(): void {
+    Navigate('PageDetails');
+  }
+}
+`,
+      'pages/PageDetails.ts': `import { PageDetailsGenerated } from './PageDetails.generated';
+
+export class PageDetails extends PageDetailsGenerated {
+  public PageDetailsCreate(): void {
+    this.element.dataset.pageDetailsCreated = 'true';
+  }
+}
+`,
+    };
+    const graph = createVirtualSourceGraph(
+      project,
+      userSources,
+      defaultComponentRegistry,
+      GENERATED_APP_CSS,
+    );
+    const entrySource = graph.sources.get(graph.entryPath);
+    if (entrySource === undefined) throw new Error('Expected the compiler entry source.');
+
+    expect(entrySource).toContain("import { PageDetails } from './pages/PageDetails';");
+    expect(entrySource).toContain('WebPageRouter');
+    expect(entrySource).toContain(`id: ${JSON.stringify(detailsPage.id)}`);
+
+    const result = await compileProjectToMemory(project, { userSources });
+
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    const application = result.files['assets/app.js'] ?? '';
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      runScripts: 'outside-only',
+      url: 'https://preview.webrad.test/',
+    });
+    Object.defineProperties(dom.window, {
+      fetch: { value: globalThis.fetch },
+      Headers: { value: globalThis.Headers },
+    });
+    dom.window.eval(application);
+    const button = dom.window.document.querySelector('[data-webrad-id="button-show"]');
+    expect(button).toBeInstanceOf(dom.window.HTMLButtonElement);
+    if (!(button instanceof dom.window.HTMLButtonElement)) {
+      throw new TypeError('Compiled navigation button did not render.');
+    }
+    button.click();
+    expect(dom.window.location.hash).toBe('#/PageDetails');
+    expect(dom.window.document.querySelector(`[data-webrad-page-id="${mainPage.id}"]`)).toBeNull();
+    const detailsElement = dom.window.document.querySelector<HTMLElement>(
+      `[data-webrad-page-id="${detailsPage.id}"]`,
+    );
+    expect(detailsElement?.dataset.pageDetailsCreated).toBe('true');
+    await new Promise<void>((resolve) => {
+      dom.window.addEventListener('hashchange', () => resolve(), { once: true });
+      dom.window.location.hash = '';
+    });
+    expect(
+      dom.window.document.querySelector(`[data-webrad-page-id="${mainPage.id}"]`),
+    ).not.toBeNull();
+    dom.window.close();
+
+    const linkedDom = new JSDOM('<!doctype html><html><body></body></html>', {
+      runScripts: 'outside-only',
+      url: 'https://preview.webrad.test/#/PageDetails',
+    });
+    Object.defineProperties(linkedDom.window, {
+      fetch: { value: globalThis.fetch },
+      Headers: { value: globalThis.Headers },
+    });
+    expect(() => linkedDom.window.eval(application)).not.toThrow();
+    expect(
+      linkedDom.window.document.querySelector<HTMLElement>(
+        `[data-webrad-page-id="${detailsPage.id}"]`,
+      )?.dataset.pageDetailsCreated,
+    ).toBe('true');
+    linkedDom.window.close();
   });
 
   it('accepts a registered, typed API Client response contract', async () => {

@@ -3,6 +3,7 @@ export * from './component.js';
 export * from './data-grid.js';
 export * from './controls.js';
 export * from './page.js';
+export * from './page-router.js';
 export * from './globals.js';
 export * from './layout.js';
 export * from './render.js';

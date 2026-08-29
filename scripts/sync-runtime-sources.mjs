@@ -11,6 +11,7 @@ const sourceFiles = [
   'data-grid.ts',
   'controls.ts',
   'page.ts',
+  'page-router.ts',
   'globals.ts',
   'icons.ts',
   'index.ts',

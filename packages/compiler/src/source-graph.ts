@@ -53,7 +53,6 @@ function createGlobalTypings(): string {
   return `import type {
   Confirm as RuntimeConfirm,
   Message as RuntimeMessage,
-  Navigate as RuntimeNavigate,
 } from '@webrad/runtime';
 
 declare global {
@@ -112,25 +111,42 @@ function runtimePageModel(
 function createEntrySource(project: WebRadProject, registry: ComponentRegistry): string {
   const entryPage = project.pages.find((page) => page.id === project.entryPage);
   if (entryPage === undefined) throw new Error('The validated project has no entry page.');
-  const serializedPage = JSON.stringify(
-    runtimePageModel(entryPage, project.styles, registry, project.reusableElements),
-  );
+  const pageImports = project.pages
+    .map((page) => `import { ${page.name} } from './pages/${page.name}';`)
+    .join('\n');
+  const routes = project.pages
+    .map((page) => {
+      const model = JSON.stringify(
+        runtimePageModel(page, project.styles, registry, project.reusableElements),
+      );
+      return `  {
+    id: ${JSON.stringify(page.id)},
+    name: ${JSON.stringify(page.name)},
+    model: ${model} as unknown as RuntimePageModel,
+    createPage: (element: HTMLElement) => new ${page.name}(element),
+  }`;
+    })
+    .join(',\n');
   return `import {
   Confirm,
   Message,
-  Navigate,
-  mountPage,
+  Navigate as RuntimeNavigate,
+  WebPageRouter,
 } from '@webrad/runtime';
-import type { RuntimePageModel } from '@webrad/runtime';
-import { ${entryPage.name} } from './pages/${entryPage.name}';
+import type { NavigateOptions, RuntimePageModel, RuntimePageRoute } from '@webrad/runtime';
+${pageImports}
 import './app.css';
 
-Object.assign(globalThis, { Confirm, Message, Navigate });
+const routes: readonly RuntimePageRoute[] = [
+${routes}
+];
+const router = new WebPageRouter(routes, document.body);
+const Navigate = (destination: string | URL, options: NavigateOptions = {}): void => {
+  router.navigateBrowser(destination, options);
+};
 
-const model = ${serializedPage} as unknown as RuntimePageModel;
-const mounted = mountPage(model, document.body);
-const page = new ${entryPage.name}(mounted.element);
-page.show();
+Object.assign(globalThis, { Confirm, Message, Navigate });
+router.start(${JSON.stringify(entryPage.id)});
 `;
 }
 
