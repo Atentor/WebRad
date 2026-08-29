@@ -46,6 +46,7 @@ import {
   type ProjectManifest,
   type ProjectEnvironmentVariable,
   type ProjectApplicationIcon,
+  type ProjectSeoSettings,
   type ProjectSettings,
   type ReusableElementModel,
   type StyleLengthValue,
@@ -524,6 +525,31 @@ export const ProjectApplicationIconSchema: z.ZodType<ProjectApplicationIcon> = z
     }
   });
 
+const optionalHttpUrlSchema = z
+  .string()
+  .trim()
+  .max(2_048)
+  .refine((value) => {
+    if (value.length === 0) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, 'Expected an absolute HTTP(S) URL or an empty value.');
+
+export const ProjectSeoSettingsSchema: z.ZodType<ProjectSeoSettings> = z
+  .object({
+    canonicalUrl: optionalHttpUrlSchema,
+    keywords: z.string().trim().max(500),
+    allowIndexing: z.boolean(),
+    socialTitle: z.string().trim().max(120),
+    socialDescription: z.string().trim().max(500),
+    socialImageUrl: optionalHttpUrlSchema,
+  })
+  .strict();
+
 export const ProjectEnvironmentVariableSchema: z.ZodType<ProjectEnvironmentVariable> = z
   .object({
     name: environmentVariableNameSchema,
@@ -549,6 +575,7 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
       .trim()
       .regex(/^(?:UTC|[A-Za-z_+-]+(?:\/[A-Za-z_+-]+)+)$/, 'Expected an IANA time-zone.'),
     applicationIcon: ProjectApplicationIconSchema.nullable(),
+    seo: ProjectSeoSettingsSchema,
     environment: z.enum(PROJECT_ENVIRONMENTS),
     environmentVariables: z.array(ProjectEnvironmentVariableSchema).max(100),
     gridSize: z.number().int().positive(),

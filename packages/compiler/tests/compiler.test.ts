@@ -602,6 +602,14 @@ export class PageDetails extends PageDetailsGenerated {
         dataUrl:
           'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=',
       },
+      seo: {
+        canonicalUrl: 'https://portal.example.test/?source=web&campaign=launch',
+        keywords: 'customer portal, support & accounts',
+        allowIndexing: false,
+        socialTitle: 'Portal & <Share>',
+        socialDescription: 'Manage <accounts> & support.',
+        socialImageUrl: 'https://cdn.example.test/portal-share.png',
+      },
       environment: 'production',
       environmentVariables: [
         {
@@ -656,6 +664,24 @@ export class PageMain extends PageMainGenerated {
     expect(result.files['index.html']).toContain(
       '<meta name="description" content="A customer &lt;portal&gt; &amp; workspace." />',
     );
+    expect(result.files['index.html']).toContain(
+      '<link rel="canonical" href="https://portal.example.test/?source=web&amp;campaign=launch" />',
+    );
+    expect(result.files['index.html']).toContain(
+      '<meta name="keywords" content="customer portal, support &amp; accounts" />',
+    );
+    expect(result.files['index.html']).toContain(
+      '<meta name="robots" content="noindex, nofollow" />',
+    );
+    expect(result.files['index.html']).toContain(
+      '<meta property="og:title" content="Portal &amp; &lt;Share&gt;" />',
+    );
+    expect(result.files['index.html']).toContain(
+      '<meta property="og:image" content="https://cdn.example.test/portal-share.png" />',
+    );
+    expect(result.files['index.html']).toContain(
+      '<meta name="twitter:card" content="summary_large_image" />',
+    );
     expect(result.files['assets/app.js']).toContain('BTNMostrarClick');
     expect(result.files['assets/app.js']).toContain('https://api.example.test');
     expect(result.files['assets/app.js']).toContain('https://api.production.example.test');
@@ -665,6 +691,9 @@ export class PageMain extends PageMainGenerated {
     expect(result.previewHtml).toContain('<script>');
     expect(result.previewHtml).toContain('<style>');
     expect(result.previewHtml).toContain('data:image/svg+xml;base64,');
+    expect(result.previewHtml).toContain(
+      '<meta property="og:title" content="Portal &amp; &lt;Share&gt;" />',
+    );
     expect(result.previewHtml).toContain(
       '<html lang="en-US" data-webrad-time-zone="America/Sao_Paulo">',
     );

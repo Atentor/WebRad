@@ -329,6 +329,26 @@ export interface ProjectApplicationIcon {
   readonly dataUrl: string;
 }
 
+/**
+ * Search-engine and social-card metadata emitted with the generated HTML.
+ * URLs are optional because a project can be designed and previewed before it
+ * has a public deployment address.
+ */
+export interface ProjectSeoSettings {
+  /** Optional public URL used for the canonical and shared page URL. */
+  readonly canonicalUrl: string;
+  /** Optional comma-separated terms emitted as the document keywords metadata. */
+  readonly keywords: string;
+  /** Whether crawlers should be allowed to index and follow the application. */
+  readonly allowIndexing: boolean;
+  /** Optional Open Graph and Twitter card title; applicationName is the fallback. */
+  readonly socialTitle: string;
+  /** Optional Open Graph and Twitter card description; applicationDescription is the fallback. */
+  readonly socialDescription: string;
+  /** Optional public HTTP(S) image URL used by Open Graph and Twitter cards. */
+  readonly socialImageUrl: string;
+}
+
 /** A browser-visible value for every environment supported by a project. */
 export interface ProjectEnvironmentVariable {
   /** Uppercase identifier used as `Env.NAME` in authored TypeScript. */
@@ -347,6 +367,8 @@ export interface ProjectSettings {
   readonly timeZone: string;
   /** Optional browser icon used as the generated application's favicon. */
   readonly applicationIcon: ProjectApplicationIcon | null;
+  /** Search-engine and social sharing metadata for the generated document. */
+  readonly seo: ProjectSeoSettings;
   /** Environment whose values are embedded in Preview and the next Build. */
   readonly environment: ProjectEnvironment;
   /** Browser-visible variables, each with one value per environment. */
@@ -404,12 +426,22 @@ export interface ProjectManifest {
 
 export type IdFactory = () => string;
 
+export const DEFAULT_PROJECT_SEO_SETTINGS: Readonly<ProjectSeoSettings> = Object.freeze({
+  canonicalUrl: '',
+  keywords: '',
+  allowIndexing: true,
+  socialTitle: '',
+  socialDescription: '',
+  socialImageUrl: '',
+});
+
 export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze({
   applicationName: 'WebRAD Application',
   applicationDescription: '',
   locale: 'pt-BR',
   timeZone: 'America/Sao_Paulo',
   applicationIcon: null,
+  seo: DEFAULT_PROJECT_SEO_SETTINGS,
   environment: 'development',
   environmentVariables: [],
   gridSize: 8,

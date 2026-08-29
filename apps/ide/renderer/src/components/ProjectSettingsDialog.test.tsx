@@ -27,6 +27,7 @@ describe('ProjectSettingsDialog', () => {
     expect(screen.getByRole('dialog', { name: 'Settings for Portal' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Environment variables' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Icons' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'SEO and sharing' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Authentication and JWT' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'CORS and origins' })).toBeDefined();
 
@@ -34,7 +35,9 @@ describe('ProjectSettingsDialog', () => {
     expect(screen.getByRole('heading', { name: 'CORS and trusted origins' })).toBeDefined();
     expect(screen.getByText('Allowed methods and headers')).toBeDefined();
     expect(
-      screen.getByText(/General settings, environment variables, and application icons are saved/i),
+      screen.getByText(
+        /General settings, environment variables, application icons, and SEO metadata/i,
+      ),
     ).toBeDefined();
     expect(screen.getByRole('note').textContent).toContain('Data structures');
   });
@@ -146,6 +149,52 @@ describe('ProjectSettingsDialog', () => {
           mediaType: 'image/svg+xml',
           dataUrl: expect.stringMatching(/^data:image\/svg\+xml;base64,/),
         }),
+      }),
+    );
+  });
+
+  it('saves SEO and social sharing metadata for generated HTML', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'SEO and sharing' }));
+    await user.type(
+      screen.getByRole('textbox', { name: /^Canonical URL/ }),
+      'https://portal.example.test',
+    );
+    await user.type(screen.getByRole('textbox', { name: /^Keywords/ }), 'customers, support');
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Allow search engines to index this application' }),
+    );
+    await user.type(screen.getByRole('textbox', { name: /^Share title/ }), 'Customer portal');
+    await user.type(
+      screen.getByRole('textbox', { name: /^Share description/ }),
+      'Manage your account.',
+    );
+    await user.type(
+      screen.getByRole('textbox', { name: /^Share image URL/ }),
+      'https://cdn.example.test/share.png',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seo: {
+          canonicalUrl: 'https://portal.example.test',
+          keywords: 'customers, support',
+          allowIndexing: false,
+          socialTitle: 'Customer portal',
+          socialDescription: 'Manage your account.',
+          socialImageUrl: 'https://cdn.example.test/share.png',
+        },
       }),
     );
   });

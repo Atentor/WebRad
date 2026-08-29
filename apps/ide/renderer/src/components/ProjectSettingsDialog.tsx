@@ -20,7 +20,7 @@ type ProjectSettingsSectionId =
   | 'general'
   | 'environment'
   | 'icons'
-  | 'domain'
+  | 'seo'
   | 'build'
   | 'pwa'
   | 'authentication'
@@ -80,16 +80,16 @@ const SETTINGS_SECTIONS = [
     ],
   },
   {
-    id: 'domain',
+    id: 'seo',
     group: 'Project',
-    label: 'Domain and URLs',
+    label: 'SEO and sharing',
     icon: 'globe',
-    title: 'Domain and URLs',
-    description: 'Public addresses, the base URL, and routes used outside internal navigation.',
+    title: 'SEO and social sharing',
+    description: 'Metadata for search engines and the previews shown when a public link is shared.',
     items: [
-      'Primary and alternate domains',
-      'Application base URL',
-      'Redirects and canonical URLs',
+      'Canonical URL and search indexing',
+      'Open Graph and Twitter cards',
+      'Share title, description, and image',
     ],
   },
   {
@@ -204,6 +204,16 @@ const ENVIRONMENT_OPTIONS = [
 const ENVIRONMENT_VARIABLE_NAME = /^[A-Z][A-Z0-9_]*$/;
 const MAX_APPLICATION_ICON_BYTES = 1_000_000;
 
+function isAbsoluteHttpUrl(value: string): boolean {
+  if (value.length === 0) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function applicationIconMediaType(file: File): ProjectApplicationIconMediaType | null {
   const fileName = file.name.toLowerCase();
   if (file.type === 'image/svg+xml' || fileName.endsWith('.svg')) return 'image/svg+xml';
@@ -239,6 +249,12 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
     left.applicationIcon?.fileName !== right.applicationIcon?.fileName ||
     left.applicationIcon?.mediaType !== right.applicationIcon?.mediaType ||
     left.applicationIcon?.dataUrl !== right.applicationIcon?.dataUrl ||
+    left.seo.canonicalUrl !== right.seo.canonicalUrl ||
+    left.seo.keywords !== right.seo.keywords ||
+    left.seo.allowIndexing !== right.seo.allowIndexing ||
+    left.seo.socialTitle !== right.seo.socialTitle ||
+    left.seo.socialDescription !== right.seo.socialDescription ||
+    left.seo.socialImageUrl !== right.seo.socialImageUrl ||
     left.environment !== right.environment ||
     left.gridSize !== right.gridSize ||
     left.snapToGrid !== right.snapToGrid ||
@@ -278,7 +294,9 @@ export function ProjectSettingsDialog({
   const isGeneralSection = activeSection.id === 'general';
   const isEnvironmentSection = activeSection.id === 'environment';
   const isIconsSection = activeSection.id === 'icons';
-  const isEditableSection = isGeneralSection || isEnvironmentSection || isIconsSection;
+  const isSeoSection = activeSection.id === 'seo';
+  const isEditableSection =
+    isGeneralSection || isEnvironmentSection || isIconsSection || isSeoSection;
   const hasChanges = settingsChanged(settings, draft);
 
   useEffect(() => {
@@ -363,6 +381,22 @@ export function ProjectSettingsDialog({
       setSaveError('Enter an application name.');
       return;
     }
+    const seo = {
+      ...draft.seo,
+      canonicalUrl: draft.seo.canonicalUrl.trim(),
+      keywords: draft.seo.keywords.trim(),
+      socialTitle: draft.seo.socialTitle.trim(),
+      socialDescription: draft.seo.socialDescription.trim(),
+      socialImageUrl: draft.seo.socialImageUrl.trim(),
+    };
+    if (!isAbsoluteHttpUrl(seo.canonicalUrl)) {
+      setSaveError('Enter an absolute HTTP(S) canonical URL, or leave it empty.');
+      return;
+    }
+    if (!isAbsoluteHttpUrl(seo.socialImageUrl)) {
+      setSaveError('Enter an absolute HTTP(S) social image URL, or leave it empty.');
+      return;
+    }
     const environmentVariables = draft.environmentVariables.map((variable) => ({
       ...variable,
       name: variable.name.trim(),
@@ -383,6 +417,7 @@ export function ProjectSettingsDialog({
       ...draft,
       applicationName,
       applicationDescription: draft.applicationDescription.trim(),
+      seo,
       environmentVariables,
     });
   };
@@ -438,8 +473,9 @@ export function ProjectSettingsDialog({
         </header>
         <div className="wr-project-settings-content">
           <p id={descriptionId} className="wr-modal-description">
-            General settings, environment variables, and application icons are saved in the project
-            and applied to the generated output. Other areas remain available for planning.
+            General settings, environment variables, application icons, and SEO metadata are saved
+            in the project and applied to the generated output. Other areas remain available for
+            planning.
           </p>
           <div className="wr-project-settings-layout">
             <nav
@@ -776,6 +812,130 @@ export function ProjectSettingsDialog({
                   {iconError !== null && (
                     <div className="wr-project-settings-error" role="alert">
                       {iconError}
+                    </div>
+                  )}
+                </>
+              ) : isSeoSection ? (
+                <>
+                  <p>{activeSection.description}</p>
+                  <fieldset className="wr-project-settings-seo-options">
+                    <legend>Search engines</legend>
+                    <p>
+                      These values are included in the generated HTML. A canonical URL is optional
+                      until the application has a public address.
+                    </p>
+                    <div className="wr-project-settings-fields">
+                      <label className="wr-project-settings-field full-width">
+                        <span>Canonical URL</span>
+                        <input
+                          type="url"
+                          value={draft.seo.canonicalUrl}
+                          maxLength={2048}
+                          placeholder="https://www.example.com"
+                          spellCheck={false}
+                          onChange={(event) =>
+                            updateDraft({
+                              seo: { ...draft.seo, canonicalUrl: event.currentTarget.value },
+                            })
+                          }
+                        />
+                        <small>
+                          Optional public URL used by canonical and shared-link metadata.
+                        </small>
+                      </label>
+                      <label className="wr-project-settings-field full-width">
+                        <span>Keywords</span>
+                        <input
+                          type="text"
+                          value={draft.seo.keywords}
+                          maxLength={500}
+                          placeholder="customer portal, accounts, support"
+                          onChange={(event) =>
+                            updateDraft({
+                              seo: { ...draft.seo, keywords: event.currentTarget.value },
+                            })
+                          }
+                        />
+                        <small>Optional comma-separated terms for search metadata.</small>
+                      </label>
+                    </div>
+                    <div className="wr-project-settings-toggles">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={draft.seo.allowIndexing}
+                          onChange={(event) =>
+                            updateDraft({
+                              seo: { ...draft.seo, allowIndexing: event.currentTarget.checked },
+                            })
+                          }
+                        />
+                        <span>Allow search engines to index this application</span>
+                      </label>
+                    </div>
+                  </fieldset>
+                  <fieldset className="wr-project-settings-seo-options">
+                    <legend>Social sharing</legend>
+                    <p>
+                      Open Graph and Twitter card values fall back to the application name and
+                      description when left empty.
+                    </p>
+                    <div className="wr-project-settings-fields">
+                      <label className="wr-project-settings-field full-width">
+                        <span>Share title</span>
+                        <input
+                          type="text"
+                          value={draft.seo.socialTitle}
+                          maxLength={120}
+                          placeholder={draft.applicationName}
+                          onChange={(event) =>
+                            updateDraft({
+                              seo: { ...draft.seo, socialTitle: event.currentTarget.value },
+                            })
+                          }
+                        />
+                        <small>Optional title displayed in link previews.</small>
+                      </label>
+                      <label className="wr-project-settings-field full-width">
+                        <span>Share description</span>
+                        <textarea
+                          value={draft.seo.socialDescription}
+                          rows={3}
+                          maxLength={500}
+                          placeholder={draft.applicationDescription || 'Describe the shared page.'}
+                          onChange={(event) =>
+                            updateDraft({
+                              seo: { ...draft.seo, socialDescription: event.currentTarget.value },
+                            })
+                          }
+                        />
+                        <small>Optional description displayed in link previews.</small>
+                      </label>
+                      <label className="wr-project-settings-field full-width">
+                        <span>Share image URL</span>
+                        <input
+                          type="url"
+                          value={draft.seo.socialImageUrl}
+                          maxLength={2048}
+                          placeholder="https://www.example.com/share-card.png"
+                          spellCheck={false}
+                          onChange={(event) =>
+                            updateDraft({
+                              seo: { ...draft.seo, socialImageUrl: event.currentTarget.value },
+                            })
+                          }
+                        />
+                        <small>Optional public image URL for Open Graph and Twitter cards.</small>
+                      </label>
+                    </div>
+                  </fieldset>
+                  {saveError !== null && (
+                    <div
+                      className="wr-project-settings-error"
+                      id={`${descriptionId}-error`}
+                      role="alert"
+                    >
+                      {saveError}
                     </div>
                   )}
                 </>
