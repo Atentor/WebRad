@@ -2650,6 +2650,180 @@ kbd {
   background: color-mix(in srgb, var(--wr-selection) 82%, #ffffff);
 }
 
+.wr-project-settings-dialog {
+  display: flex;
+  width: min(980px, 100%);
+  height: min(670px, calc(100vh - 48px));
+  max-height: none;
+  flex-direction: column;
+}
+
+.wr-project-settings-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 0;
+  overflow: hidden;
+}
+
+.wr-project-settings-content > .wr-modal-description {
+  max-width: 760px;
+}
+
+.wr-project-settings-layout {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(196px, 232px) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+}
+
+.wr-project-settings-nav {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+  border-right: 1px solid var(--wr-border);
+  background: var(--wr-panel-alt);
+}
+
+.wr-project-settings-nav-group + .wr-project-settings-nav-group {
+  margin-top: 14px;
+}
+
+.wr-project-settings-nav-group > span {
+  display: block;
+  padding: 0 8px 5px;
+  color: var(--wr-muted-text);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wr-project-settings-nav button {
+  display: flex;
+  width: 100%;
+  min-height: 31px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  cursor: pointer;
+  font-size: 11.5px;
+  text-align: left;
+}
+
+.wr-project-settings-nav button:hover,
+.wr-project-settings-nav button.active {
+  border-color: color-mix(in srgb, var(--wr-accent) 40%, var(--wr-border));
+  background: color-mix(in srgb, var(--wr-accent) 14%, var(--wr-panel-alt));
+  color: var(--wr-text);
+}
+
+.wr-project-settings-nav button:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 1px;
+}
+
+.wr-project-settings-nav .wr-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--wr-accent);
+}
+
+.wr-project-settings-panel {
+  min-width: 0;
+  overflow: auto;
+  padding: 28px 32px;
+}
+
+.wr-project-settings-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.wr-project-settings-panel-heading > .wr-icon {
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  color: var(--wr-accent);
+}
+
+.wr-project-settings-panel-heading span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--wr-muted-text);
+  font-size: 10.5px;
+}
+
+.wr-project-settings-panel h3 {
+  margin: 0;
+  color: var(--wr-text);
+  font-size: 18px;
+}
+
+.wr-project-settings-panel > p {
+  max-width: 600px;
+  margin: 22px 0 20px;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.wr-project-settings-panel h4 {
+  margin: 0 0 9px;
+  color: var(--wr-text);
+  font-size: 11.5px;
+}
+
+.wr-project-settings-panel ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-project-settings-panel li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.wr-project-settings-panel li::before {
+  position: absolute;
+  left: 0;
+  color: var(--wr-accent);
+  content: '•';
+}
+
+.wr-project-settings-note {
+  max-width: 620px;
+  margin-top: 26px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--wr-accent) 30%, var(--wr-border));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--wr-accent) 7%, transparent);
+  color: var(--wr-muted-text);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.wr-project-settings-actions {
+  padding: 14px 18px 18px;
+}
+
 .wr-modal button:disabled,
 .wr-modal input:disabled,
 .wr-modal select:disabled {
@@ -3498,6 +3672,18 @@ kbd {
     max-height: none;
   }
 
+  .wr-project-settings-dialog {
+    height: calc(100vh - 24px);
+  }
+
+  .wr-project-settings-layout {
+    grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+  }
+
+  .wr-project-settings-panel {
+    padding: 22px;
+  }
+
   .wr-api-client-content {
     display: block;
     overflow: auto;
@@ -3579,6 +3765,52 @@ kbd {
 }
 
 @media (max-width: 600px) {
+  .wr-project-settings-content {
+    overflow: auto;
+  }
+
+  .wr-project-settings-layout {
+    display: flex;
+    flex: none;
+    min-height: auto;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .wr-project-settings-nav {
+    display: flex;
+    overflow: auto;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--wr-border);
+  }
+
+  .wr-project-settings-nav-group {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+
+  .wr-project-settings-nav-group + .wr-project-settings-nav-group {
+    margin-top: 0;
+    margin-left: 10px;
+  }
+
+  .wr-project-settings-nav-group > span {
+    display: none;
+  }
+
+  .wr-project-settings-nav button {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .wr-project-settings-panel {
+    min-height: 330px;
+    overflow: visible;
+    padding: 20px;
+  }
+
   .wr-data-grid-configuration-fields.three-columns,
   .wr-data-grid-configuration-fields.four-columns,
   .wr-data-grid-configuration-fields.five-columns,

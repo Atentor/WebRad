@@ -65,6 +65,7 @@ import { NewProjectDialog } from './components/NewProjectDialog';
 import { ObjectInspector } from './components/ObjectInspector';
 import { PreviewPane } from './components/PreviewPane';
 import { ProjectExplorer } from './components/ProjectExplorer';
+import { ProjectSettingsDialog } from './components/ProjectSettingsDialog';
 import { ProjectTools } from './components/ProjectTools';
 import { StatusBar } from './components/StatusBar';
 import { StylesWorkspace } from './components/StylesWorkspace';
@@ -192,6 +193,7 @@ export function App(): ReactElement {
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [addDocumentDialogKind, setAddDocumentDialogKind] = useState<AddDocumentKind | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [projectSettingsDialogOpen, setProjectSettingsDialogOpen] = useState(false);
   const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
   const [dataGridConfiguratorComponentId, setDataGridConfiguratorComponentId] = useState<
     string | null
@@ -291,6 +293,7 @@ export function App(): ReactElement {
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
       setAddDocumentDialogKind(null);
+      setProjectSettingsDialogOpen(false);
       addOutput('PROJECT', `Opened ${session.project.name}.`);
     },
     [addOutput, designerController, selectionManager],
@@ -990,6 +993,7 @@ export function App(): ReactElement {
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
       setAddDocumentDialogKind(null);
+      setProjectSettingsDialogOpen(false);
     } catch (error) {
       reportError(error, 'PROJECT');
     }
@@ -1166,7 +1170,9 @@ export function App(): ReactElement {
   const executeCommand = useCallback(
     (command: IdeCommand): void => {
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
-      if (newProjectDialogOpen || addDocumentDialogKind !== null) return;
+      if (newProjectDialogOpen || addDocumentDialogKind !== null || projectSettingsDialogOpen) {
+        return;
+      }
       if (
         command.startsWith('edit.') &&
         (activeView !== 'design' || isTextEditingElement(document.activeElement))
@@ -1262,6 +1268,7 @@ export function App(): ReactElement {
       openNewProjectDialog,
       openProject,
       pasteSelection,
+      projectSettingsDialogOpen,
       redo,
       runProject,
       saveProject,
@@ -1603,6 +1610,7 @@ export function App(): ReactElement {
     newProjectDialogOpen ||
     addDocumentDialogKind !== null ||
     iconPickerOpen ||
+    projectSettingsDialogOpen ||
     apiClientTesterComponent !== null ||
     dataGridConfiguratorComponent !== null;
 
@@ -1686,6 +1694,7 @@ export function App(): ReactElement {
                   project={project}
                   stylesActive={stylesActive}
                   onOpenStyles={openStyles}
+                  onOpenProjectSettings={() => setProjectSettingsDialogOpen(true)}
                 />
               </ErrorBoundary>
             ) : null
@@ -1807,6 +1816,12 @@ export function App(): ReactElement {
           ]}
           onCancel={() => setAddDocumentDialogKind(null)}
           onCreate={submitAddDocument}
+        />
+      )}
+      {projectSettingsDialogOpen && project !== null && (
+        <ProjectSettingsDialog
+          projectName={project.name}
+          onClose={() => setProjectSettingsDialogOpen(false)}
         />
       )}
       {apiClientTesterComponent !== null && (

@@ -872,6 +872,32 @@ describe('App MVP integration', () => {
     );
   });
 
+  it('opens the project settings planning modal from the Project panel', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await user.click(screen.getByTitle('Open Project Settings'));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Configurações de MvpProject' });
+    expect(within(dialog).getByRole('tab', { name: 'Variáveis de ambiente' })).toBeDefined();
+    expect(within(dialog).getByRole('tab', { name: 'Autenticação e JWT' })).toBeDefined();
+    await user.click(within(dialog).getByRole('tab', { name: 'CORS e origens' }));
+    expect(
+      within(dialog).getByRole('heading', { name: 'CORS e origens confiáveis' }),
+    ).toBeDefined();
+    await user.click(within(dialog).getByRole('button', { name: 'Fechar' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Configurações de MvpProject' })).toBeNull();
+    });
+  });
+
   it('creates a reusable definition and inserts its page-owned instance', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', {

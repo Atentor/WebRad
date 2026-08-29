@@ -7,9 +7,15 @@ interface ProjectToolsProps {
   project: WebRadProject | null;
   stylesActive: boolean;
   onOpenStyles: () => void;
+  onOpenProjectSettings: () => void;
 }
 
-export function ProjectTools({ project, stylesActive, onOpenStyles }: ProjectToolsProps) {
+export function ProjectTools({
+  project,
+  stylesActive,
+  onOpenStyles,
+  onOpenProjectSettings,
+}: ProjectToolsProps) {
   return (
     <Panel title="Project">
       {!project ? (
@@ -37,8 +43,20 @@ export function ProjectTools({ project, stylesActive, onOpenStyles }: ProjectToo
             <Icon name="palette" className="wr-tree-action-icon" />
             <span>Styles</span>
           </div>
-          <div className="wr-tree-row" role="treeitem">
-            <Icon name="settings" className="wr-tree-glyph" />
+          <div
+            className="wr-tree-row wr-project-tool-row"
+            role="treeitem"
+            title="Open Project Settings"
+            tabIndex={0}
+            onClick={onOpenProjectSettings}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpenProjectSettings();
+              }
+            }}
+          >
+            <Icon name="settings" className="wr-tree-action-icon" />
             <span>Project Settings</span>
           </div>
         </div>
