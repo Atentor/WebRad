@@ -11,6 +11,7 @@ import {
   DataGridConfigurationSchema,
   safeParseProject,
   type ProjectApplicationIcon,
+  type ProjectSocialImage,
   type WebRadProject,
 } from '@webrad/project-model';
 import type { BuildFailure } from 'esbuild';
@@ -268,8 +269,21 @@ function applicationIconOutputPath(icon: ProjectApplicationIcon): string {
 }
 
 function decodeApplicationIcon(icon: ProjectApplicationIcon): Uint8Array {
-  const prefix = `data:${icon.mediaType};base64,`;
-  return Uint8Array.from(Buffer.from(icon.dataUrl.slice(prefix.length), 'base64'));
+  return decodeDataUrl(icon.mediaType, icon.dataUrl);
+}
+
+function socialImageOutputPath(image: ProjectSocialImage): string {
+  const extension = image.mediaType === 'image/png' ? 'png' : 'jpg';
+  return `assets/images/social-share.${extension}`;
+}
+
+function decodeSocialImage(image: ProjectSocialImage): Uint8Array {
+  return decodeDataUrl(image.mediaType, image.dataUrl);
+}
+
+function decodeDataUrl(mediaType: string, dataUrl: string): Uint8Array {
+  const prefix = `data:${mediaType};base64,`;
+  return Uint8Array.from(Buffer.from(dataUrl.slice(prefix.length), 'base64'));
 }
 
 function buildFailureDiagnostics(error: BuildFailure): readonly CompileDiagnostic[] {
@@ -381,15 +395,23 @@ export async function compileProject(
       project.settings.applicationIcon === null
         ? null
         : applicationIconOutputPath(project.settings.applicationIcon);
-    const binaryFiles =
-      project.settings.applicationIcon === null || iconOutputPath === null
-        ? {}
-        : { [iconOutputPath]: decodeApplicationIcon(project.settings.applicationIcon) };
+    const socialImageOutputPathValue =
+      project.settings.seo.socialImage === null
+        ? null
+        : socialImageOutputPath(project.settings.seo.socialImage);
+    const binaryFiles: Record<string, Uint8Array> = {};
+    if (project.settings.applicationIcon !== null && iconOutputPath !== null) {
+      binaryFiles[iconOutputPath] = decodeApplicationIcon(project.settings.applicationIcon);
+    }
+    if (project.settings.seo.socialImage !== null && socialImageOutputPathValue !== null) {
+      binaryFiles[socialImageOutputPathValue] = decodeSocialImage(project.settings.seo.socialImage);
+    }
     const files = {
       ...bundle.files,
       'index.html': createIndexHtml(
         project.settings,
         iconOutputPath === null ? null : `./${iconOutputPath}`,
+        socialImageOutputPathValue === null ? null : `./${socialImageOutputPathValue}`,
       ),
     };
     const diagnostics = [...preBundleDiagnostics, ...bundle.diagnostics];

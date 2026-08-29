@@ -104,7 +104,7 @@ describe('project factories', () => {
           allowIndexing: true,
           socialTitle: '',
           socialDescription: '',
-          socialImageUrl: '',
+          socialImage: null,
         },
         environment: 'development',
         environmentVariables: [],
@@ -218,7 +218,12 @@ describe('project factories', () => {
         allowIndexing: false,
         socialTitle: 'Customer Portal',
         socialDescription: 'Self-service for customers.',
-        socialImageUrl: 'https://portal.example.test/share.png',
+        socialImage: {
+          fileName: 'portal-share.png',
+          mediaType: 'image/png',
+          dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9NwAAAABJRU5ErkJggg==',
+        },
       },
       environment: 'production',
       environmentVariables: [
@@ -241,7 +246,7 @@ describe('project factories', () => {
       seo: expect.objectContaining({
         canonicalUrl: 'https://portal.example.test',
         allowIndexing: false,
-        socialImageUrl: 'https://portal.example.test/share.png',
+        socialImage: expect.objectContaining({ fileName: 'portal-share.png' }),
       }),
       environment: 'production',
       environmentVariables: [expect.objectContaining({ name: 'API_BASE_URL' })],
@@ -272,11 +277,20 @@ describe('project factories', () => {
         allowIndexing: true,
         socialTitle: '',
         socialDescription: '',
-        socialImageUrl: '',
+        socialImage: null,
       },
       environment: 'development',
       environmentVariables: [],
     });
+
+    const urlBasedSeoProject = JSON.parse(serializeProject(updated)) as {
+      readonly settings: { readonly seo: Record<string, unknown> };
+    };
+    delete urlBasedSeoProject.settings.seo.socialImage;
+    urlBasedSeoProject.settings.seo.socialImageUrl = 'https://cdn.example.test/legacy-share.png';
+    expect(
+      deserializeProject(JSON.stringify(urlBasedSeoProject)).settings.seo.socialImage,
+    ).toBeNull();
 
     const stagingProject = JSON.parse(serializeProject(updated)) as {
       readonly settings: Record<string, unknown>;

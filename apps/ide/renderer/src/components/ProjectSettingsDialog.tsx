@@ -3,6 +3,8 @@ import type {
   ProjectApplicationIconMediaType,
   ProjectEnvironment,
   ProjectEnvironmentVariable,
+  ProjectSocialImage,
+  ProjectSocialImageMediaType,
   ProjectSettings,
 } from '@webrad/project-model';
 import type { WebRadIconName } from '@webrad/runtime/icons';
@@ -203,6 +205,7 @@ const ENVIRONMENT_OPTIONS = [
 
 const ENVIRONMENT_VARIABLE_NAME = /^[A-Z][A-Z0-9_]*$/;
 const MAX_APPLICATION_ICON_BYTES = 1_000_000;
+const MAX_SOCIAL_IMAGE_BYTES = 5_000_000;
 
 function isAbsoluteHttpUrl(value: string): boolean {
   if (value.length === 0) return true;
@@ -221,7 +224,16 @@ function applicationIconMediaType(file: File): ProjectApplicationIconMediaType |
   return null;
 }
 
-function readIconDataUrl(file: File): Promise<string> {
+function socialImageMediaType(file: File): ProjectSocialImageMediaType | null {
+  const fileName = file.name.toLowerCase();
+  if (file.type === 'image/png' || fileName.endsWith('.png')) return 'image/png';
+  if (file.type === 'image/jpeg' || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  return null;
+}
+
+function readImageDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error ?? new Error('The icon could not be read.'));
@@ -254,7 +266,9 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
     left.seo.allowIndexing !== right.seo.allowIndexing ||
     left.seo.socialTitle !== right.seo.socialTitle ||
     left.seo.socialDescription !== right.seo.socialDescription ||
-    left.seo.socialImageUrl !== right.seo.socialImageUrl ||
+    left.seo.socialImage?.fileName !== right.seo.socialImage?.fileName ||
+    left.seo.socialImage?.mediaType !== right.seo.socialImage?.mediaType ||
+    left.seo.socialImage?.dataUrl !== right.seo.socialImage?.dataUrl ||
     left.environment !== right.environment ||
     left.gridSize !== right.gridSize ||
     left.snapToGrid !== right.snapToGrid ||
@@ -282,6 +296,7 @@ export function ProjectSettingsDialog({
   const descriptionId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
   const iconInputRef = useRef<HTMLInputElement | null>(null);
+  const socialImageInputRef = useRef<HTMLInputElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
@@ -289,6 +304,7 @@ export function ProjectSettingsDialog({
   const [draft, setDraft] = useState<ProjectSettings>(settings);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
+  const [socialImageError, setSocialImageError] = useState<string | null>(null);
   const activeSection =
     SETTINGS_SECTIONS.find((section) => section.id === activeSectionId) ?? SETTINGS_SECTIONS[0];
   const isGeneralSection = activeSection.id === 'general';
@@ -362,7 +378,7 @@ export function ProjectSettingsDialog({
       return;
     }
     try {
-      const dataUrl = await readIconDataUrl(file);
+      const dataUrl = await readImageDataUrl(file);
       const applicationIcon: ProjectApplicationIcon = {
         fileName: file.name,
         mediaType,
@@ -372,6 +388,31 @@ export function ProjectSettingsDialog({
       setIconError(null);
     } catch (error) {
       setIconError(error instanceof Error ? error.message : 'The icon could not be read.');
+    }
+  };
+
+  const selectSocialImage = async (file: File | undefined): Promise<void> => {
+    if (file === undefined) return;
+    const mediaType = socialImageMediaType(file);
+    if (mediaType === null) {
+      setSocialImageError('Choose a PNG or JPEG image.');
+      return;
+    }
+    if (file.size === 0 || file.size > MAX_SOCIAL_IMAGE_BYTES) {
+      setSocialImageError('Choose an image between 1 byte and 5 MB.');
+      return;
+    }
+    try {
+      const dataUrl = await readImageDataUrl(file);
+      const socialImage: ProjectSocialImage = {
+        fileName: file.name,
+        mediaType,
+        dataUrl,
+      };
+      updateDraft({ seo: { ...draft.seo, socialImage } });
+      setSocialImageError(null);
+    } catch (error) {
+      setSocialImageError(error instanceof Error ? error.message : 'The image could not be read.');
     }
   };
 
@@ -387,14 +428,9 @@ export function ProjectSettingsDialog({
       keywords: draft.seo.keywords.trim(),
       socialTitle: draft.seo.socialTitle.trim(),
       socialDescription: draft.seo.socialDescription.trim(),
-      socialImageUrl: draft.seo.socialImageUrl.trim(),
     };
     if (!isAbsoluteHttpUrl(seo.canonicalUrl)) {
       setSaveError('Enter an absolute HTTP(S) canonical URL, or leave it empty.');
-      return;
-    }
-    if (!isAbsoluteHttpUrl(seo.socialImageUrl)) {
-      setSaveError('Enter an absolute HTTP(S) social image URL, or leave it empty.');
       return;
     }
     const environmentVariables = draft.environmentVariables.map((variable) => ({
@@ -911,24 +947,74 @@ export function ProjectSettingsDialog({
                         />
                         <small>Optional description displayed in link previews.</small>
                       </label>
-                      <label className="wr-project-settings-field full-width">
-                        <span>Share image URL</span>
-                        <input
-                          type="url"
-                          value={draft.seo.socialImageUrl}
-                          maxLength={2048}
-                          placeholder="https://www.example.com/share-card.png"
-                          spellCheck={false}
-                          onChange={(event) =>
-                            updateDraft({
-                              seo: { ...draft.seo, socialImageUrl: event.currentTarget.value },
-                            })
-                          }
-                        />
-                        <small>Optional public image URL for Open Graph and Twitter cards.</small>
-                      </label>
+                    </div>
+                    <div className="wr-project-settings-social-image-card">
+                      <div className="wr-project-settings-social-image-preview">
+                        {draft.seo.socialImage === null ? (
+                          <Icon name="image" />
+                        ) : (
+                          <img
+                            src={draft.seo.socialImage.dataUrl}
+                            alt="Social share image preview"
+                          />
+                        )}
+                      </div>
+                      <div className="wr-project-settings-icon-details">
+                        <h4>Share image</h4>
+                        <p>
+                          {draft.seo.socialImage === null
+                            ? 'No image selected. Choose a local PNG or JPEG image.'
+                            : `${draft.seo.socialImage.fileName} · ${draft.seo.socialImage.mediaType}`}
+                        </p>
+                        <div className="wr-project-settings-icon-upload">
+                          <button
+                            type="button"
+                            onClick={() => socialImageInputRef.current?.click()}
+                          >
+                            {draft.seo.socialImage === null
+                              ? 'Choose PNG or JPEG'
+                              : 'Replace image'}
+                          </button>
+                          <span>Recommended: 1200 × 630 px · PNG or JPEG · 5 MB max</span>
+                          <input
+                            ref={socialImageInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                            className="wr-project-settings-icon-file-input"
+                            data-testid="social-image-input"
+                            tabIndex={-1}
+                            aria-hidden="true"
+                            onChange={(event) => {
+                              const file = event.currentTarget.files?.[0];
+                              event.currentTarget.value = '';
+                              void selectSocialImage(file);
+                            }}
+                          />
+                        </div>
+                        {draft.seo.socialImage !== null && (
+                          <button
+                            type="button"
+                            className="wr-project-settings-remove-icon"
+                            onClick={() => {
+                              updateDraft({ seo: { ...draft.seo, socialImage: null } });
+                              setSocialImageError(null);
+                            }}
+                          >
+                            Remove image
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="wr-project-settings-security-note" role="note">
+                      The image is saved with the project, embedded in Preview, and emitted to
+                      <code>assets/images/</code> in the generated application.
                     </div>
                   </fieldset>
+                  {socialImageError !== null && (
+                    <div className="wr-project-settings-error" role="alert">
+                      {socialImageError}
+                    </div>
+                  )}
                   {saveError !== null && (
                     <div
                       className="wr-project-settings-error"

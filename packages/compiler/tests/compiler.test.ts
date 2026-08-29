@@ -608,7 +608,12 @@ export class PageDetails extends PageDetailsGenerated {
         allowIndexing: false,
         socialTitle: 'Portal & <Share>',
         socialDescription: 'Manage <accounts> & support.',
-        socialImageUrl: 'https://cdn.example.test/portal-share.png',
+        socialImage: {
+          fileName: 'portal-share.png',
+          mediaType: 'image/png',
+          dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9NwAAAABJRU5ErkJggg==',
+        },
       },
       environment: 'production',
       environmentVariables: [
@@ -677,7 +682,7 @@ export class PageMain extends PageMainGenerated {
       '<meta property="og:title" content="Portal &amp; &lt;Share&gt;" />',
     );
     expect(result.files['index.html']).toContain(
-      '<meta property="og:image" content="https://cdn.example.test/portal-share.png" />',
+      '<meta property="og:image" content="./assets/images/social-share.png" />',
     );
     expect(result.files['index.html']).toContain(
       '<meta name="twitter:card" content="summary_large_image" />',
@@ -691,6 +696,7 @@ export class PageMain extends PageMainGenerated {
     expect(result.previewHtml).toContain('<script>');
     expect(result.previewHtml).toContain('<style>');
     expect(result.previewHtml).toContain('data:image/svg+xml;base64,');
+    expect(result.previewHtml).toContain('data:image/png;base64,');
     expect(result.previewHtml).toContain(
       '<meta property="og:title" content="Portal &amp; &lt;Share&gt;" />',
     );
@@ -706,6 +712,9 @@ export class PageMain extends PageMainGenerated {
     await expect(
       fs.readFile(path.join(outputDirectory, 'assets', 'icons', 'application.svg'), 'utf8'),
     ).resolves.toContain('<svg');
+    await expect(
+      fs.stat(path.join(outputDirectory, 'assets', 'images', 'social-share.png')),
+    ).resolves.toMatchObject({ isFile: expect.any(Function) });
     await expect(fs.stat(path.join(outputDirectory, 'pages', 'PageMain.ts'))).rejects.toMatchObject(
       {
         code: 'ENOENT',

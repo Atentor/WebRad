@@ -179,10 +179,11 @@ describe('ProjectSettingsDialog', () => {
       screen.getByRole('textbox', { name: /^Share description/ }),
       'Manage your account.',
     );
-    await user.type(
-      screen.getByRole('textbox', { name: /^Share image URL/ }),
-      'https://cdn.example.test/share.png',
-    );
+    const image = new File(['share image'], 'portal-share.png', { type: 'image/png' });
+    fireEvent.change(screen.getByTestId('social-image-input'), { target: { files: [image] } });
+    await waitFor(() => {
+      expect(screen.getByRole('img', { name: 'Social share image preview' })).toBeDefined();
+    });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(onSave).toHaveBeenCalledWith(
@@ -193,7 +194,11 @@ describe('ProjectSettingsDialog', () => {
           allowIndexing: false,
           socialTitle: 'Customer portal',
           socialDescription: 'Manage your account.',
-          socialImageUrl: 'https://cdn.example.test/share.png',
+          socialImage: expect.objectContaining({
+            fileName: 'portal-share.png',
+            mediaType: 'image/png',
+            dataUrl: expect.stringMatching(/^data:image\/png;base64,/),
+          }),
         },
       }),
     );

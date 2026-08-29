@@ -33,6 +33,7 @@ import {
   REUSABLE_ELEMENT_VERTICAL_ANCHORS,
   PROJECT_ENVIRONMENTS,
   PROJECT_APPLICATION_ICON_MEDIA_TYPES,
+  PROJECT_SOCIAL_IMAGE_MEDIA_TYPES,
   type Bounds,
   type ComponentLayout,
   type ComponentNode,
@@ -46,6 +47,7 @@ import {
   type ProjectManifest,
   type ProjectEnvironmentVariable,
   type ProjectApplicationIcon,
+  type ProjectSocialImage,
   type ProjectSeoSettings,
   type ProjectSettings,
   type ReusableElementModel,
@@ -111,7 +113,7 @@ function materializeProjectDefaults(input: unknown): unknown {
     ...(Object.hasOwn(candidate, 'reusableElements') ? {} : { reusableElements: [] }),
     ...(settings !== null && typeof settings === 'object' && !Array.isArray(settings)
       ? {
-          settings: materializeEnvironmentSettings({
+          settings: materializeProjectSettings({
             ...DEFAULT_PROJECT_SETTINGS,
             applicationName,
             ...settings,
@@ -126,8 +128,10 @@ function materializeProjectDefaults(input: unknown): unknown {
  * format version 2. Keep those files readable after reducing the public
  * contract to development and production. If staging was active, carry its
  * value into production so the previously selected runtime value is kept.
+ * This also normalizes additive nested SEO settings and removes the brief
+ * legacy socialImageUrl field, which cannot represent a portable local asset.
  */
-function materializeEnvironmentSettings(settings: Readonly<Record<string, unknown>>): unknown {
+function materializeProjectSettings(settings: Readonly<Record<string, unknown>>): unknown {
   const stagingWasActive = settings.environment === 'staging';
   const environmentVariables = settings.environmentVariables;
   const normalizedVariables = Array.isArray(environmentVariables)
@@ -150,10 +154,25 @@ function materializeEnvironmentSettings(settings: Readonly<Record<string, unknow
         };
       })
     : environmentVariables;
+  const seo = settings.seo;
+  const normalizedSeo =
+    seo !== null && typeof seo === 'object' && !Array.isArray(seo)
+      ? (() => {
+          const supportedSeo = Object.fromEntries(
+            Object.entries(seo as Readonly<Record<string, unknown>>).filter(
+              ([key]) => key !== 'socialImageUrl',
+            ),
+          );
+          return { ...DEFAULT_PROJECT_SETTINGS.seo, ...supportedSeo };
+        })()
+      : seo;
   return {
     ...settings,
     ...(settings.environment === 'staging' ? { environment: 'production' } : {}),
     ...(Array.isArray(environmentVariables) ? { environmentVariables: normalizedVariables } : {}),
+    ...(seo !== null && typeof seo === 'object' && !Array.isArray(seo)
+      ? { seo: normalizedSeo }
+      : {}),
   };
 }
 
@@ -525,6 +544,46 @@ export const ProjectApplicationIconSchema: z.ZodType<ProjectApplicationIcon> = z
     }
   });
 
+const projectSocialImageFileNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(180)
+  .refine(
+    (value) =>
+      !value.includes('/') &&
+      !value.includes('\\') &&
+      ![...value].some((character) => character.charCodeAt(0) < 32) &&
+      value !== '.' &&
+      value !== '..',
+    'Expected a portable social image file name.',
+  );
+
+const projectSocialImageDataUrlSchema = z
+  .string()
+  .max(6_700_000)
+  .regex(
+    /^data:image\/(?:png|jpeg);base64,(?=.+$)(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+    'Expected a base64 PNG or JPEG data URL.',
+  );
+
+export const ProjectSocialImageSchema: z.ZodType<ProjectSocialImage> = z
+  .object({
+    fileName: projectSocialImageFileNameSchema,
+    mediaType: z.enum(PROJECT_SOCIAL_IMAGE_MEDIA_TYPES),
+    dataUrl: projectSocialImageDataUrlSchema,
+  })
+  .strict()
+  .superRefine((image, context) => {
+    if (!image.dataUrl.startsWith(`data:${image.mediaType};base64,`)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Social image data URL does not match its media type.',
+        path: ['dataUrl'],
+      });
+    }
+  });
+
 const optionalHttpUrlSchema = z
   .string()
   .trim()
@@ -546,7 +605,7 @@ export const ProjectSeoSettingsSchema: z.ZodType<ProjectSeoSettings> = z
     allowIndexing: z.boolean(),
     socialTitle: z.string().trim().max(120),
     socialDescription: z.string().trim().max(500),
-    socialImageUrl: optionalHttpUrlSchema,
+    socialImage: ProjectSocialImageSchema.nullable(),
   })
   .strict();
 

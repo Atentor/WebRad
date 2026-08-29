@@ -32,6 +32,7 @@ function seoTags(
   applicationName: string,
   applicationDescription: string,
   seo: ProjectSeoSettings,
+  socialImageHref: string | null,
 ): string {
   const socialTitle = seo.socialTitle || applicationName;
   const socialDescription = seo.socialDescription || applicationDescription;
@@ -51,19 +52,19 @@ function seoTags(
     seo.canonicalUrl.length === 0
       ? ''
       : `    <meta property="og:url" content="${escapeHtml(seo.canonicalUrl)}" />`,
-    seo.socialImageUrl.length === 0
+    socialImageHref === null
       ? ''
-      : `    <meta property="og:image" content="${escapeHtml(seo.socialImageUrl)}" />`,
+      : `    <meta property="og:image" content="${escapeHtml(socialImageHref)}" />`,
     `    <meta name="twitter:card" content="${
-      seo.socialImageUrl.length === 0 ? 'summary' : 'summary_large_image'
+      socialImageHref === null ? 'summary' : 'summary_large_image'
     }" />`,
     `    <meta name="twitter:title" content="${escapeHtml(socialTitle)}" />`,
     socialDescription.length === 0
       ? ''
       : `    <meta name="twitter:description" content="${escapeHtml(socialDescription)}" />`,
-    seo.socialImageUrl.length === 0
+    socialImageHref === null
       ? ''
-      : `    <meta name="twitter:image" content="${escapeHtml(seo.socialImageUrl)}" />`,
+      : `    <meta name="twitter:image" content="${escapeHtml(socialImageHref)}" />`,
   ].filter((tag) => tag.length > 0);
   return tags.length === 0 ? '' : `${tags.join('\n')}\n`;
 }
@@ -71,6 +72,7 @@ function seoTags(
 export function createIndexHtml(
   metadata: HtmlDocumentMetadata,
   applicationIconHref: string | null,
+  socialImageHref: string | null,
 ): string {
   return `<!doctype html>
 <html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}">
@@ -79,7 +81,7 @@ export function createIndexHtml(
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(metadata.applicationName)}</title>
 ${applicationIconTag(metadata.applicationIcon, applicationIconHref)}
-${seoTags(metadata.applicationName, metadata.applicationDescription, metadata.seo)}
+${seoTags(metadata.applicationName, metadata.applicationDescription, metadata.seo, socialImageHref)}
     <link rel="stylesheet" href="./assets/app.css" />
   </head>
   <body>
@@ -109,7 +111,12 @@ export function createPreviewHtml(
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(metadata.applicationName)}</title>
 ${applicationIconTag(metadata.applicationIcon, metadata.applicationIcon?.dataUrl ?? null)}
-${seoTags(metadata.applicationName, metadata.applicationDescription, metadata.seo)}
+${seoTags(
+  metadata.applicationName,
+  metadata.applicationDescription,
+  metadata.seo,
+  metadata.seo.socialImage?.dataUrl ?? null,
+)}
     <style>${styleSafe(css)}</style>
   </head>
   <body>

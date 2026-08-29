@@ -320,12 +320,24 @@ export type ProjectEnvironment = (typeof PROJECT_ENVIRONMENTS)[number];
 export const PROJECT_APPLICATION_ICON_MEDIA_TYPES = ['image/svg+xml', 'image/png'] as const;
 export type ProjectApplicationIconMediaType = (typeof PROJECT_APPLICATION_ICON_MEDIA_TYPES)[number];
 
+export const PROJECT_SOCIAL_IMAGE_MEDIA_TYPES = ['image/png', 'image/jpeg'] as const;
+export type ProjectSocialImageMediaType = (typeof PROJECT_SOCIAL_IMAGE_MEDIA_TYPES)[number];
+
 /** A portable browser icon stored with the project and emitted by the compiler. */
 export interface ProjectApplicationIcon {
   /** Original file name, used only for identification in Project Settings. */
   readonly fileName: string;
   readonly mediaType: ProjectApplicationIconMediaType;
   /** Base64 data URL so the project remains self-contained and portable. */
+  readonly dataUrl: string;
+}
+
+/** A portable image emitted for Open Graph and Twitter sharing cards. */
+export interface ProjectSocialImage {
+  /** Original file name, kept only for identification in Project Settings. */
+  readonly fileName: string;
+  readonly mediaType: ProjectSocialImageMediaType;
+  /** Base64 data URL so the source image travels with the project. */
   readonly dataUrl: string;
 }
 
@@ -345,8 +357,8 @@ export interface ProjectSeoSettings {
   readonly socialTitle: string;
   /** Optional Open Graph and Twitter card description; applicationDescription is the fallback. */
   readonly socialDescription: string;
-  /** Optional public HTTP(S) image URL used by Open Graph and Twitter cards. */
-  readonly socialImageUrl: string;
+  /** Optional local image emitted for Open Graph and Twitter cards. */
+  readonly socialImage: ProjectSocialImage | null;
 }
 
 /** A browser-visible value for every environment supported by a project. */
@@ -432,7 +444,7 @@ export const DEFAULT_PROJECT_SEO_SETTINGS: Readonly<ProjectSeoSettings> = Object
   allowIndexing: true,
   socialTitle: '',
   socialDescription: '',
-  socialImageUrl: '',
+  socialImage: null,
 });
 
 export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze({

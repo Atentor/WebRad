@@ -118,7 +118,7 @@ const KEY_ORDER = new Map<string, number>(
     'allowIndexing',
     'socialTitle',
     'socialDescription',
-    'socialImageUrl',
+    'socialImage',
     'environment',
     'environmentVariables',
     'values',
