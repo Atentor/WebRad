@@ -249,6 +249,8 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
       componentIds: ReadonlyMap<string, string>,
     );
     readonly instanceId: string;
+    /** User-facing name of the page that contains this reusable placement. */
+    readonly pageName: string;
     componentId(templateComponentId: string): string;
   }
 

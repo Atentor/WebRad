@@ -19,6 +19,7 @@ import {
   WebNonvisualComponent,
   WebPanel,
   WebPageRouter,
+  WebReusableElementInstance,
   WebTextArea,
   expandReusableElements,
   mountPage,
@@ -923,6 +924,31 @@ describe('browser runtime', () => {
     expect(floatingInstance.style.top).toBe('');
     expect(floatingInstance.style.zIndex).toBe('420');
     expect(floatingInstance.style.getPropertyPriority('position')).toBe('important');
+
+    const inlineMountedInstance = mounted.reusableInstances.find(
+      (instance) => instance.instanceId === 'inline-card-instance',
+    );
+    const floatingMountedInstance = mounted.reusableInstances.find(
+      (instance) => instance.instanceId === 'floating-card-instance',
+    );
+    if (inlineMountedInstance === undefined || floatingMountedInstance === undefined) {
+      throw new Error('Expected both mounted reusable instances.');
+    }
+    const inlineScope = new WebReusableElementInstance(
+      inlineMountedInstance.element,
+      inlineMountedInstance.instanceId,
+      mounted.components,
+      inlineMountedInstance.componentIds,
+    );
+    const floatingScope = new WebReusableElementInstance(
+      floatingMountedInstance.element,
+      floatingMountedInstance.instanceId,
+      mounted.components,
+      floatingMountedInstance.componentIds,
+    );
+    expect(inlineScope.name).toBe('ReusableCardRoot');
+    expect(inlineScope.pageName).toBe(reusablePage.name);
+    expect(floatingScope.pageName).toBe(reusablePage.name);
   });
 
   it('allocates a unique physical ID when a scoped reusable ID collides with a page ID', () => {

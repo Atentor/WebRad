@@ -98,6 +98,15 @@ export class WebReusableElementInstance extends WebComponentScope {
     this.#componentIds = componentIds;
   }
 
+  /**
+   * User-facing name of the page that contains this physical placement.
+   * Unlike `name`, this remains the host page name when a reusable definition
+   * is placed more than once or inside another reusable definition.
+   */
+  public get pageName(): string {
+    return this.element.dataset.webradPageName ?? '';
+  }
+
   /** Resolves a stable definition-component ID for this physical placement. */
   public componentId(templateComponentId: string): string {
     const componentId = this.#componentIds.get(templateComponentId);

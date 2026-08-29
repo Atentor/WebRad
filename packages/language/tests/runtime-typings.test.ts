@@ -179,6 +179,7 @@ describe('Monaco runtime typings', () => {
   WebListBox,
   WebPanel,
   WebReusableElement,
+  WebReusableElementInstance,
   WebTextArea,
 } from '@webrad/runtime';
 
@@ -196,6 +197,7 @@ class EditorPage extends WebPage {
     list: WebListBox,
     grid: WebDataGrid,
     api: WebApiClient,
+    reusableInstance: WebReusableElementInstance,
   ): void {
     panel./*@panel*/caption;
     reusable./*@reusable*/placement;
@@ -209,6 +211,7 @@ class EditorPage extends WebPage {
     list./*@list*/selectedIndex;
     grid./*@grid*/configuration;
     api./*@api*/request;
+    reusableInstance./*@reusableInstance*/pageName;
     this./*@page*/show;
   }
 }
@@ -244,6 +247,9 @@ class EditorPage extends WebPage {
         'floatingVerticalAnchor',
         'floatingZIndex',
       ]),
+    );
+    expect(completions('reusableInstance')).toEqual(
+      expect.arrayContaining(['componentId', 'instanceId', 'pageName']),
     );
     expect(completions('label')).toEqual(
       expect.arrayContaining([...commonVisualProperties, 'autoSize', 'caption', 'text']),
@@ -409,6 +415,7 @@ class EditorPage extends WebPage {
   WebListBox,
   WebPanel,
   WebReusableElement,
+  WebReusableElementInstance,
   WebTextArea,
   resolveComponentStyleClassName,
   resolveComponentStyleClassNames,
@@ -474,6 +481,12 @@ class EditorPage extends WebPage {
     void service;
     void identity;
     void api.get<{ readonly id: number }>('/items', { query: { page: 1 } });
+  }
+}
+
+class EditorReusable extends WebReusableElementInstance {
+  hostPageName(): string {
+    return this.pageName;
   }
 }
 
@@ -577,6 +590,7 @@ void tokens;
   WebPage,
   WebImage,
   WebListBox,
+  WebReusableElementInstance,
 } from '@webrad/runtime';
 declare const button: WebButton;
 declare const edit: WebEdit;
@@ -584,6 +598,7 @@ declare const page: WebPage;
 declare const image: WebImage;
 declare const list: WebListBox;
 declare const api: WebApiClient;
+declare const reusableInstance: WebReusableElementInstance;
 button.caption = 42;
 edit.inputType = 'date';
 page.layoutMode = 'table';
@@ -591,6 +606,7 @@ image.objectFit = 'stretch';
 list.multiple = 'yes';
 api.baseUrl = 42;
 api.id = 'replacement';
+reusableInstance.pageName = 'Replacement';
 void api.get<number>(42);
 `);
     expect(

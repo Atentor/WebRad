@@ -53,9 +53,9 @@ const RESERVED_WORDS = new Set([
   'constructor',
 ]);
 
-// Generated component fields live on a WebPage subclass. These names are part
-// of the browser runtime contract (including Object members) and cannot safely
-// be replaced by a component instance with an unrelated type.
+// Generated component fields live on page and reusable authored scopes. These
+// names are part of the browser runtime contract (including Object members)
+// and cannot safely be replaced by a component instance with an unrelated type.
 const GENERATED_PAGE_BASE_MEMBER_NAMES = new Set([
   '__defineGetter__',
   '__defineSetter__',
@@ -81,6 +81,7 @@ const GENERATED_PAGE_BASE_MEMBER_NAMES = new Set([
   'isPrototypeOf',
   'layoutMode',
   'name',
+  'pageName',
   'propertyIsEnumerable',
   'requireComponentElement',
   'show',

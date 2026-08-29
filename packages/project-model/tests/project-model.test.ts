@@ -666,6 +666,7 @@ describe('name validation', () => {
       'color',
       'height',
       'layoutMode',
+      'pageName',
       'tabIndex',
       'width',
       'x',

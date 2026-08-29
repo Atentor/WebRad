@@ -397,6 +397,7 @@ export class CustomerCard extends CustomerCardGenerated {
   public CustomerCardButtonClick(sender: WebButton): void {
     this.#clicks += 1;
     sender.element.dataset.reusableClicks = String(this.#clicks);
+    sender.element.dataset.hostPageName = this.pageName;
   }
 }
 `,
@@ -432,6 +433,8 @@ export class CustomerCard extends CustomerCardGenerated {
     secondButton.click();
     expect(firstButton.dataset.reusableClicks).toBe('2');
     expect(secondButton.dataset.reusableClicks).toBe('1');
+    expect(firstButton.dataset.hostPageName).toBe('PageMain');
+    expect(secondButton.dataset.hostPageName).toBe('PageMain');
     dom.window.close();
   });
 

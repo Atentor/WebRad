@@ -561,6 +561,12 @@ export function mountPage(
     if (node === undefined)
       throw new Error(`Runtime page references unknown component "${nodeId}".`);
     const component = registry.create(host.ownerDocument, node);
+    if (node.reusableRoot === true) {
+      // A floating reusable lives in a sibling overlay layer rather than below
+      // the page root, so the host page cannot reliably be discovered by
+      // walking DOM ancestors. Keep the page name on every instance root.
+      component.element.dataset.webradPageName = expandedModel.name;
+    }
     components.set(node.id, component);
     for (const childId of node.children) {
       const child = nodes.get(childId);

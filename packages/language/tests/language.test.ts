@@ -291,6 +291,7 @@ describe('page language generation', () => {
     expect(typings).toContain(
       'export declare abstract class CustomerCardGenerated extends WebReusableElementInstance',
     );
+    expect(generateRuntimeTypings()).toContain('readonly pageName: string;');
     expect(userSource).toContain('export class CustomerCard extends CustomerCardGenerated');
   });
 
