@@ -898,8 +898,19 @@ describe('App MVP integration', () => {
     expect(
       within(openDocuments).getByRole('tab', { name: /CustomerCard/, selected: true }),
     ).toBeDefined();
-    expect(screen.queryByRole('tab', { name: 'Code' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Code' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Preview' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Design' })).toBeDefined();
+
+    await user.dblClick(screen.getByRole('button', { name: 'Button' }));
+    await screen.findByTitle('Button1: WebButton');
+    await user.click(screen.getByRole('tab', { name: 'Events' }));
+    await user.dblClick(screen.getByLabelText('OnClick'));
+    const reusableEditor = (await screen.findByLabelText(
+      'Mock Monaco editor',
+    )) as HTMLTextAreaElement;
+    expect(reusableEditor.value).toContain('async Button1Click(sender: WebButton): Promise<void>');
+    await user.click(screen.getByRole('tab', { name: 'Design' }));
 
     await user.click(screen.getByRole('treeitem', { name: /PageMain/ }));
     await screen.findByRole('tab', { name: 'Code' });
@@ -907,6 +918,8 @@ describe('App MVP integration', () => {
       screen.getByTitle('Insert CustomerCard; drag it onto the page or click to insert'),
     );
     await screen.findByTitle('Reusable1: WebReusableElement');
+    selectDesignerComponent('Reusable1: WebReusableElement');
+    await user.click(screen.getByRole('tab', { name: 'Properties' }));
     await user.selectOptions(screen.getByLabelText('Responsive width'), 'stretch');
     await user.selectOptions(screen.getByLabelText('Responsive height'), 'fit-content');
 
@@ -923,6 +936,13 @@ describe('App MVP integration', () => {
       saved.pages[0]?.components.find((component) => component.type === 'WebReusableElement')
         ?.layout.item,
     ).toMatchObject({ width: 'stretch', height: 'fit-content' });
+    expect(
+      saved.reusableElements[0]?.components.find((component) => component.name === 'Button1')
+        ?.events,
+    ).toMatchObject({ OnClick: 'Button1Click' });
+    expect(harness.persisted().userSources['reusables/CustomerCard.ts']).toContain(
+      'async Button1Click(sender: WebButton): Promise<void>',
+    );
   });
 
   it('preserves the latest Monaco buffer after focus leaves the editor and Design-Code remounts it', async () => {

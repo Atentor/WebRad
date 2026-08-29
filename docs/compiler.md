@@ -6,7 +6,7 @@ The compiler is an independent Node API and has no React or Electron dependency.
 load/receive project
   -> validate model and references
   -> compile the reusable style catalog to static Tailwind CSS
-  -> generate replaceable page sources and browser entry
+  -> generate replaceable page/reusable sources and browser entry
   -> type-check user plus generated TypeScript
   -> bundle with esbuild
   -> emit dist/index.html and dist/assets/app.{js,css}
@@ -20,6 +20,6 @@ Tailwind compilation uses the official PostCSS plugin with source discovery disa
 
 Runtime TypeScript sources are embedded into the compiler's virtual graph from a generated, checked-in snapshot. `npm run runtime:sources:check` prevents that snapshot from drifting. Packaged desktop builds carry the TypeScript standard libraries, the host-specific esbuild binary, and the platform-specific Tailwind native dependency closure as explicit resources, so F9 and live style preview use the same compiler APIs inside and outside Electron.
 
-The registry's `visual` flag also controls generation. Visual nodes are serialized into the browser page DOM model; nonvisual nodes are omitted from that tree and are constructed as typed fields in the generated page class from their saved property object. This keeps services such as `WebApiClient` available to user TypeScript without emitting placeholder elements into the final page.
+The registry's `visual` flag also controls generation. Visual nodes are serialized into the browser page DOM model; nonvisual nodes are omitted from that tree and are constructed as typed fields in generated page and reusable classes from their saved property object. A reusable definition gets a generated `WebReusableElementInstance` class and a user source under `reusables/`; the bootstrap constructs one such class for every mounted placement, passes its template-to-physical ID map, and keeps fields, handlers, nonvisual services, and mutable state isolated from other placements. This keeps services such as `WebApiClient` available to user TypeScript without emitting placeholder elements into the final page.
 
 For `WebApiClient`, the compiler validates the versioned `apiClientConfig` and passes it unchanged to the browser runtime. When a saved response contract is present, generation emits a `WebApiClient<TOutputs>` field whose named `execute` operations and latest result data use the inferred scalar/object/list types. The runtime keeps operation state and result data transiently in memory; only the request and response contract is part of the saved project. API calls are ordinary browser `fetch` requests in both generated applications and the IDE tester, so endpoint CORS and authentication policies remain the API owner's responsibility.

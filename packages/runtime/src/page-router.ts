@@ -1,9 +1,14 @@
 import { Navigate, type NavigateOptions } from './globals.js';
-import type { WebPage } from './page.js';
+import type { WebPage, WebReusableElementInstance } from './page.js';
 import { mountPage, type MountedRuntimePage, type RuntimePageModel } from './render.js';
 
 /** A factory for the authored page class that wraps a mounted page element. */
 export type RuntimePageFactory = (element: HTMLElement) => WebPage;
+
+/** Creates authored reusable scopes after all physical instances have mounted. */
+export type RuntimeReusableElementFactory = (
+  mounted: MountedRuntimePage,
+) => readonly WebReusableElementInstance[];
 
 /** One browser-safe route in a compiled WebRAD application. */
 export interface RuntimePageRoute {
@@ -15,11 +20,14 @@ export interface RuntimePageRoute {
   readonly model: RuntimePageModel;
   /** Instantiates the user-authored wrapper after its visual DOM is mounted. */
   readonly createPage: RuntimePageFactory;
+  /** Instantiates authored scopes for every reusable placement on this route. */
+  readonly createReusableElements?: RuntimeReusableElementFactory;
 }
 
 interface ActiveRuntimePage {
   readonly mounted: MountedRuntimePage;
   readonly page: WebPage;
+  readonly reusableElements: readonly WebReusableElementInstance[];
   readonly route: RuntimePageRoute;
 }
 
@@ -157,15 +165,18 @@ export class WebPageRouter {
     this.#disposeActivePage();
     const mounted = mountPage(route.model, this.#host);
     let page: WebPage;
+    let reusableElements: readonly WebReusableElementInstance[] = [];
     try {
       page = route.createPage(mounted.element);
+      reusableElements = route.createReusableElements?.(mounted) ?? [];
     } catch (error) {
       mounted.page.close({ remove: true });
+      for (const reusableElement of reusableElements) reusableElement.dispose();
       mounted.page.dispose();
       throw error;
     }
 
-    this.#active = { mounted, page, route };
+    this.#active = { mounted, page, reusableElements, route };
     try {
       page.show();
     } catch (error) {
@@ -211,6 +222,7 @@ export class WebPageRouter {
     try {
       active.page.close({ remove: true });
     } finally {
+      for (const reusableElement of active.reusableElements) reusableElement.dispose();
       active.page.dispose();
       active.mounted.page.dispose();
       // A user OnHide handler can throw before close() removes the root.

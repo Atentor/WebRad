@@ -30,9 +30,11 @@ import {
 } from '@webrad/project-model';
 import {
   createUserPageSource,
+  createUserReusableElementSource,
   ensureEventHandler,
   eventHandlerName,
   generatePageTypings,
+  generateReusableElementTypings,
   generateRuntimeTypings,
 } from '@webrad/language';
 import {
@@ -84,8 +86,12 @@ const STYLES_DOCUMENT_ID = 'webrad:project-styles';
 
 type ActiveWorkspace = 'page' | 'styles';
 
-function sourceKey(page: PageModel): string {
-  return `pages/${page.name}.ts`;
+function sourceKey(page: PageModel, kind: 'page' | 'reusable'): string {
+  return kind === 'reusable' ? `reusables/${page.name}.ts` : `pages/${page.name}.ts`;
+}
+
+function createUserSource(page: PageModel, kind: 'page' | 'reusable'): string {
+  return kind === 'reusable' ? createUserReusableElementSource(page) : createUserPageSource(page);
 }
 
 function sourceUri(rootPath: string | null, projectId: string, relativePath: string): string {
@@ -388,9 +394,6 @@ export function App(): ReactElement {
       if (!activePage) return;
       try {
         const definition = requireComponentDefinition(type);
-        if (activeDocumentKind === 'reusable' && !definition.visual) {
-          throw new Error('Reusable components can contain visual components only.');
-        }
         const parentId = definition.visual ? requestedParentId : activePage.rootComponentId;
         const parent = getComponent(activePage, parentId);
         const snapped = project?.settings.snapToGrid
@@ -419,15 +422,7 @@ export function App(): ReactElement {
         reportError(error, 'DESIGNER');
       }
     },
-    [
-      activeDocumentKind,
-      activePage,
-      addOutput,
-      commitDesignerCommand,
-      project,
-      reportError,
-      selectionManager,
-    ],
+    [activePage, addOutput, commitDesignerCommand, project, reportError, selectionManager],
   );
 
   const addReusableElementAt = useCallback(
@@ -753,15 +748,6 @@ export function App(): ReactElement {
   const bindEvent = useCallback(
     (eventName: string, handlerName: string | null): void => {
       if (!activePage || !selection.primaryId) return;
-      if (activeDocumentKind !== 'page') {
-        reportError(
-          new Error(
-            'Reusable component events are not available yet; bind the event on its host page.',
-          ),
-          'DESIGNER',
-        );
-        return;
-      }
       try {
         updateActivePage(
           designerController.bindEvent(activePage, selection.primaryId, eventName, handlerName),
@@ -770,34 +756,20 @@ export function App(): ReactElement {
         reportError(error, 'LANGUAGE');
       }
     },
-    [
-      activeDocumentKind,
-      activePage,
-      designerController,
-      reportError,
-      selection.primaryId,
-      updateActivePage,
-    ],
+    [activePage, designerController, reportError, selection.primaryId, updateActivePage],
   );
 
   const createOrOpenEvent = useCallback(
     (componentId: string, eventName: string): void => {
       if (!activePage) return;
-      if (activeDocumentKind !== 'page') {
-        reportError(
-          new Error(
-            'Reusable component events are not available yet; bind the event on its host page.',
-          ),
-          'DESIGNER',
-        );
-        return;
-      }
+      if (activeDocumentKind === null) return;
       try {
         const component = getComponent(activePage, componentId);
         const handlerName =
           component.events[eventName] ?? eventHandlerName(component.name, eventName);
-        const key = sourceKey(activePage);
-        const currentSource = projectState.userSources[key] ?? createUserPageSource(activePage);
+        const key = sourceKey(activePage, activeDocumentKind);
+        const currentSource =
+          projectState.userSources[key] ?? createUserSource(activePage, activeDocumentKind);
         const edit = ensureEventHandler(currentSource, {
           className: activePage.name,
           componentName: component.name,
@@ -827,11 +799,7 @@ export function App(): ReactElement {
         setActiveWorkspace('page');
         setActiveView('code');
         setNavigateTo({
-          resource: sourceUri(
-            projectState.rootPath,
-            project?.id ?? 'project',
-            sourceKey(activePage),
-          ),
+          resource: sourceUri(projectState.rootPath, project?.id ?? 'project', key),
           line: edit.cursor.line,
           column: edit.cursor.column,
           requestId: (navigationRequestRef.current += 1),
@@ -1246,12 +1214,10 @@ export function App(): ReactElement {
           if (activeWorkspace === 'page') setActiveView('design');
           break;
         case 'view.code':
-          if (activeWorkspace === 'page' && activeDocumentKind !== 'reusable')
-            setActiveView('code');
+          if (activeWorkspace === 'page') setActiveView('code');
           break;
         case 'view.preview':
-          if (activeWorkspace === 'page' && activeDocumentKind !== 'reusable')
-            setActiveView('preview');
+          if (activeWorkspace === 'page') setActiveView('preview');
           break;
         case 'view.projectExplorer':
           setVisiblePanels((current) => ({ ...current, explorer: !current.explorer }));
@@ -1286,7 +1252,6 @@ export function App(): ReactElement {
     [
       addPageToProject,
       addReusableElementToProject,
-      activeDocumentKind,
       activeWorkspace,
       activeView,
       addDocumentDialogKind,
@@ -1310,10 +1275,6 @@ export function App(): ReactElement {
     const keyHandler = (event: KeyboardEvent): void => {
       if (event.key === 'F12') {
         if (activeWorkspace === 'styles') return;
-        if (activeDocumentKind === 'reusable') {
-          setActiveView('design');
-          return;
-        }
         const target = event.target;
         if (
           activeView === 'code' &&
@@ -1331,7 +1292,7 @@ export function App(): ReactElement {
     };
     window.addEventListener('keydown', keyHandler);
     return () => window.removeEventListener('keydown', keyHandler);
-  }, [activeDocumentKind, activeView, activeWorkspace, runProject]);
+  }, [activeView, activeWorkspace, runProject]);
 
   const documents: readonly DocumentTab[] = useMemo(() => {
     const pageDocuments: readonly DocumentTab[] = openPageIds.flatMap<DocumentTab>((id) => {
@@ -1402,6 +1363,17 @@ export function App(): ReactElement {
           [
             sourceUri(projectState.rootPath, project.id, `pages/${page.name}.generated.d.ts`),
             generatePageTypings(page),
+          ] as const,
+      ),
+      ...project.reusableElements.map(
+        (reusableElement) =>
+          [
+            sourceUri(
+              projectState.rootPath,
+              project.id,
+              `reusables/${reusableElement.name}.generated.d.ts`,
+            ),
+            generateReusableElementTypings(reusableElement),
           ] as const,
       ),
     ]);
@@ -1502,10 +1474,14 @@ export function App(): ReactElement {
               window.webrad.platform === 'win32',
             ));
       if (relativePath === undefined) return;
-      const page = project.pages.find((candidate) => sourceKey(candidate) === relativePath);
-      if (page === undefined) return;
+      const document =
+        project.pages.find((candidate) => sourceKey(candidate, 'page') === relativePath) ??
+        project.reusableElements.find(
+          (candidate) => sourceKey(candidate, 'reusable') === relativePath,
+        );
+      if (document === undefined) return;
       const resource = sourceUri(projectState.rootPath, project.id, relativePath);
-      openPage(page.id);
+      openPage(document.id);
       setActiveView('code');
       setNavigateTo({
         resource,
@@ -1526,6 +1502,11 @@ export function App(): ReactElement {
     ],
   );
 
+  const activeSourceKey =
+    activePage === null || activeDocumentKind === null
+      ? null
+      : sourceKey(activePage, activeDocumentKind);
+
   const editorContent = stylesActive ? (
     <ErrorBoundary area="Styles">
       <StylesWorkspace
@@ -1536,7 +1517,7 @@ export function App(): ReactElement {
         onDeleteStyle={deleteStyle}
       />
     </ErrorBoundary>
-  ) : !activePage ? null : activeView === 'design' || activeDocumentKind === 'reusable' ? (
+  ) : !activePage ? null : activeView === 'design' ? (
     <ErrorBoundary area="Designer">
       <DesignerSurface
         page={activePage}
@@ -1575,10 +1556,19 @@ export function App(): ReactElement {
   ) : activeView === 'code' ? (
     <ErrorBoundary area="Monaco">
       <CodeEditor
-        path={sourceUri(projectState.rootPath, project?.id ?? 'project', sourceKey(activePage))}
-        value={projectState.userSources[sourceKey(activePage)] ?? createUserPageSource(activePage)}
+        path={sourceUri(projectState.rootPath, project?.id ?? 'project', activeSourceKey ?? '')}
+        value={
+          activeSourceKey === null || activeDocumentKind === null
+            ? ''
+            : (projectState.userSources[activeSourceKey] ??
+              createUserSource(activePage, activeDocumentKind))
+        }
         theme={theme}
-        breadcrumb={[project?.name ?? 'Project', 'Pages', `${activePage.name}.ts`]}
+        breadcrumb={[
+          project?.name ?? 'Project',
+          activeDocumentKind === 'reusable' ? 'Reusable Components' : 'Pages',
+          `${activePage.name}.ts`,
+        ]}
         extraLibraries={extraLibraries}
         pageComponents={editorPageComponents}
         projectSources={projectSources}
@@ -1673,7 +1663,7 @@ export function App(): ReactElement {
                     );
                   }}
                   reusableElements={project?.reusableElements}
-                  allowNonvisual={activeDocumentKind !== 'reusable'}
+                  allowNonvisual
                   onInsertReusableElement={(reusableElementId) => {
                     if (!activePage) return;
                     addReusableElementAt(
@@ -1720,14 +1710,6 @@ export function App(): ReactElement {
                   if (activePageId !== id) return remaining;
                   const nextId = remaining.at(-1) ?? null;
                   setActivePageId(nextId);
-                  if (
-                    nextId !== null &&
-                    project?.reusableElements.some(
-                      (reusableElement) => reusableElement.id === nextId,
-                    )
-                  ) {
-                    setActiveView('design');
-                  }
                   return remaining;
                 });
               }}
@@ -1763,7 +1745,7 @@ export function App(): ReactElement {
                     const targetId = selection.primaryId ?? activePage?.rootComponentId;
                     if (targetId) createOrOpenEvent(targetId, eventName);
                   }}
-                  eventsEnabled={activeDocumentKind === 'page'}
+                  eventsEnabled
                 />
               </ErrorBoundary>
             ) : null

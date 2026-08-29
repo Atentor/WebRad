@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 
-import { MVP_COMPONENT_TYPES, type MvpComponentType } from '@webrad/component-registry';
 import {
+  defaultComponentRegistry,
+  MVP_COMPONENT_TYPES,
+  type MvpComponentType,
+} from '@webrad/component-registry';
+import {
+  addComponent,
+  bindComponentEvent,
   createDefaultComponentLayout,
+  createReusableElement,
   parsePage,
   type ComponentNode,
   type PageModel,
@@ -11,10 +18,13 @@ import {
 
 import {
   createUserPageSource,
+  createUserReusableElementSource,
   ensureEventHandler,
   generatePageArtifacts,
   generatePageSource,
   generatePageTypings,
+  generateReusableElementSource,
+  generateReusableElementTypings,
   generateRuntimeTypings,
 } from '../src/index.js';
 
@@ -236,6 +246,52 @@ describe('page language generation', () => {
     expect(artifacts.generatedFileName).toBe('pages/PageMain.generated.ts');
     expect(artifacts.userFileName).toBe('pages/PageMain.ts');
     expect(generateRuntimeTypings()).toContain("declare module '@webrad/runtime'");
+  });
+
+  it('generates a reusable class with scoped component access and event bindings', () => {
+    const idFactory = (() => {
+      let sequence = 0;
+      return () => `reusable-${String((sequence += 1))}`;
+    })();
+    let reusableElement = createReusableElement('CustomerCard', { idFactory });
+    const button = defaultComponentRegistry.createComponent('WebButton', {
+      id: 'customer-card-button',
+      name: 'CustomerCardButton',
+      parentId: reusableElement.rootComponentId,
+      x: 16,
+      y: 16,
+    });
+    reusableElement = bindComponentEvent(
+      addComponent(reusableElement, button, reusableElement.rootComponentId),
+      button.id,
+      'OnClick',
+      'CustomerCardButtonClick',
+    );
+
+    const source = generateReusableElementSource(reusableElement);
+    const typings = generateReusableElementTypings(reusableElement);
+    const userSource = createUserReusableElementSource(reusableElement);
+
+    expect(source).toContain(
+      'import { WebButton, WebComponent, WebPanel, WebReusableElementInstance } from "@webrad/runtime";',
+    );
+    expect(source).toContain(
+      'export abstract class CustomerCardGenerated extends WebReusableElementInstance',
+    );
+    expect(source).toContain(
+      'element: HTMLElement, instanceId: string, componentElements: ReadonlyMap<string, WebComponent>, componentIds: ReadonlyMap<string, string>',
+    );
+    expect(source).toContain('super(element, instanceId, componentElements, componentIds);');
+    expect(source).toContain(
+      'this.CustomerCardButton = new WebButton(this.requireComponentElement(this.componentId("customer-card-button")))',
+    );
+    expect(source).toContain(
+      'this.bindGeneratedEvent(this.CustomerCardButton, "OnClick", "CustomerCardButtonClick")',
+    );
+    expect(typings).toContain(
+      'export declare abstract class CustomerCardGenerated extends WebReusableElementInstance',
+    );
+    expect(userSource).toContain('export class CustomerCard extends CustomerCardGenerated');
   });
 
   it('provides typed this.Name completions for every generated MVP component', () => {

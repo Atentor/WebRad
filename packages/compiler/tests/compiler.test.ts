@@ -275,11 +275,36 @@ function reusableElementExecutableProject(): WebRadProject {
   let sequence = 0;
   const idFactory = (): string => `reusable-${String((sequence += 1))}`;
   const project = createProject('ReusableCompile', { idFactory });
-  const reusableDefinition = createReusableElement('CustomerCard', {
+  let reusableDefinition = createReusableElement('CustomerCard', {
     idFactory,
     width: 240,
     height: 96,
   });
+  const reusableButton = defaultComponentRegistry.createComponent('WebButton', {
+    id: 'customer-card-button',
+    name: 'CustomerCardButton',
+    parentId: reusableDefinition.rootComponentId,
+    x: 16,
+    y: 16,
+    props: { caption: 'Select' },
+  });
+  reusableDefinition = bindComponentEvent(
+    addComponent(reusableDefinition, reusableButton, reusableDefinition.rootComponentId),
+    reusableButton.id,
+    'OnClick',
+    'CustomerCardButtonClick',
+  );
+  const reusableApiClient = defaultComponentRegistry.createComponent('WebApiClient', {
+    id: 'customer-card-api-client',
+    name: 'CustomerCardApiClient',
+    parentId: reusableDefinition.rootComponentId,
+    props: { baseUrl: 'https://api.example.test/customer-card' },
+  });
+  reusableDefinition = addComponent(
+    reusableDefinition,
+    reusableApiClient,
+    reusableDefinition.rootComponentId,
+  );
   const withReusableDefinition = addReusableElement(project, reusableDefinition);
   const page = withReusableDefinition.pages[0];
   if (page === undefined) throw new Error('Expected the initial page.');
@@ -298,8 +323,20 @@ function reusableElementExecutableProject(): WebRadProject {
       floatingZIndex: 220,
     },
   });
-  const pageWithReusableInstance = addComponent(page, reusableInstance, page.rootComponentId);
-  return updatePage(withReusableDefinition, page.id, pageWithReusableInstance);
+  const secondReusableInstance = defaultComponentRegistry.createComponent('WebReusableElement', {
+    id: 'customer-card-second-instance',
+    name: 'CustomerCardSecondInstance',
+    parentId: page.rootComponentId,
+    x: 24,
+    y: 156,
+    props: { reusableElementId: reusableDefinition.id, placement: 'in-flow' },
+  });
+  const pageWithReusableInstances = addComponent(
+    addComponent(page, reusableInstance, page.rootComponentId),
+    secondReusableInstance,
+    page.rootComponentId,
+  );
+  return updatePage(withReusableDefinition, page.id, pageWithReusableInstances);
 }
 
 function internallyNavigableProject(): WebRadProject {
@@ -344,6 +381,57 @@ describe('compileProject', () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.files['assets/app.js']).toContain('reusableElements');
     expect(result.files['assets/app.js']).toContain(reusableDefinition.id);
+    expect(result.files['assets/app.js']).toContain('CustomerCardApiClient');
+  });
+
+  it('binds reusable component events inside an isolated authored instance per placement', async () => {
+    const project = reusableElementExecutableProject();
+    const userSources = {
+      'reusables/CustomerCard.ts': `import type { WebButton } from '@webrad/runtime';
+import { CustomerCardGenerated } from './CustomerCard.generated';
+
+export class CustomerCard extends CustomerCardGenerated {
+  #clicks = 0;
+
+  public CustomerCardButtonClick(sender: WebButton): void {
+    this.#clicks += 1;
+    sender.element.dataset.reusableClicks = String(this.#clicks);
+  }
+}
+`,
+    };
+    const result = await compileProjectToMemory(project, { userSources });
+
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    const application = result.files['assets/app.js'] ?? '';
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      runScripts: 'outside-only',
+      url: 'https://preview.webrad.test/',
+    });
+    Object.defineProperties(dom.window, {
+      fetch: { value: globalThis.fetch },
+      Headers: { value: globalThis.Headers },
+    });
+    dom.window.eval(application);
+
+    const firstButton = dom.window.document.querySelector<HTMLButtonElement>(
+      '[data-webrad-id="customer-card-instance:customer-card-button"]',
+    );
+    const secondButton = dom.window.document.querySelector<HTMLButtonElement>(
+      '[data-webrad-id="customer-card-second-instance:customer-card-button"]',
+    );
+    expect(firstButton).toBeInstanceOf(dom.window.HTMLButtonElement);
+    expect(secondButton).toBeInstanceOf(dom.window.HTMLButtonElement);
+    if (firstButton === null || secondButton === null) {
+      throw new Error('Compiled reusable buttons did not render.');
+    }
+
+    firstButton.click();
+    firstButton.click();
+    secondButton.click();
+    expect(firstButton.dataset.reusableClicks).toBe('2');
+    expect(secondButton.dataset.reusableClicks).toBe('1');
+    dom.window.close();
   });
 
   it('compiles in-app page navigation for button handlers and hash links', async () => {

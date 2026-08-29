@@ -160,7 +160,7 @@ export function createPage(
 export type CreateReusableElementOptions = CreateDefaultRootOptions;
 
 /**
- * Creates a page-shaped reusable visual definition. Its WebPanel root makes
+ * Creates a page-shaped reusable definition. Its WebPanel root makes
  * it safe to mount inside another page without inheriting page lifecycle or
  * viewport ownership semantics.
  */

@@ -36,15 +36,13 @@ function validateRegistry(
     ...project.pages.map((document, index) => ({
       document,
       path: ['pages', index] as const,
-      reusable: false,
     })),
     ...project.reusableElements.map((document, index) => ({
       document,
       path: ['reusableElements', index] as const,
-      reusable: true,
     })),
   ];
-  for (const { document, path, reusable } of documents) {
+  for (const { document, path } of documents) {
     for (const [componentIndex, component] of document.components.entries()) {
       const definition = registry.get(component.type);
       if (definition === undefined) {
@@ -55,14 +53,6 @@ function validateRegistry(
           path: [...path, 'components', componentIndex, 'type'],
         });
         continue;
-      }
-      if (reusable && !definition.visual) {
-        diagnostics.push({
-          category: 'error',
-          source: 'registry',
-          message: 'Reusable components can contain visual components only.',
-          path: [...path, 'components', componentIndex, 'type'],
-        });
       }
       if (!definition.canHaveChildren && component.children.length > 0) {
         diagnostics.push({

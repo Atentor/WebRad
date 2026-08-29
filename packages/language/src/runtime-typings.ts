@@ -228,18 +228,35 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
 
   export type WebPageLayoutMode = RuntimeContainerLayoutMode;
 
-  /** Base class for generated and user-authored pages. */
-  export class WebPage extends WebPanel {
-    layoutMode: WebPageLayoutMode;
-    show(): void;
-    close(options?: ClosePageOptions): void;
+  /** Shared event-binding and component lookup surface for authored scopes. */
+  export class WebComponentScope extends WebPanel {
+    constructor(element: HTMLElement, components?: ReadonlyMap<string, WebComponent>);
     requireComponentElement(componentId: string): HTMLElement;
     protected bindGeneratedEvent(
-      component: WebComponent,
+      component: WebComponent | WebNonvisualComponent,
       eventName: string,
       handlerName: string,
     ): void;
     dispose(): void;
+  }
+
+  /** One isolated authored-code scope for a mounted reusable placement. */
+  export class WebReusableElementInstance extends WebComponentScope {
+    constructor(
+      element: HTMLElement,
+      instanceId: string,
+      components: ReadonlyMap<string, WebComponent>,
+      componentIds: ReadonlyMap<string, string>,
+    );
+    readonly instanceId: string;
+    componentId(templateComponentId: string): string;
+  }
+
+  /** Base class for generated and user-authored pages. */
+  export class WebPage extends WebComponentScope {
+    layoutMode: WebPageLayoutMode;
+    show(): void;
+    close(options?: ClosePageOptions): void;
   }
 
   export class WebLabel extends WebComponent<HTMLElement> {
@@ -487,6 +504,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly id: string;
     readonly templateId?: string;
     readonly reusableRoot?: boolean;
+    readonly reusableDefinitionId?: string;
+    readonly reusableInstanceId?: string;
     readonly type: string;
     readonly name: string;
     readonly parentId: string | null;
@@ -539,6 +558,14 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly element: HTMLElement;
     readonly page: WebPage;
     readonly components: ReadonlyMap<string, WebComponent>;
+    readonly reusableInstances: readonly MountedReusableElementInstance[];
+  }
+
+  export interface MountedReusableElementInstance {
+    readonly instanceId: string;
+    readonly reusableElementId: string;
+    readonly element: HTMLElement;
+    readonly componentIds: ReadonlyMap<string, string>;
   }
 
   export interface MountPageOptions {
@@ -555,12 +582,18 @@ ${WEB_BUTTON_ICON_TYPINGS};
   /** Creates the authored wrapper for a page after its visual DOM is mounted. */
   export type RuntimePageFactory = (element: HTMLElement) => WebPage;
 
+  /** Creates authored classes for reusable placements after a page is mounted. */
+  export type RuntimeReusableElementFactory = (
+    mounted: MountedRuntimePage,
+  ) => readonly WebReusableElementInstance[];
+
   /** One route that can be mounted by the browser-side page router. */
   export interface RuntimePageRoute {
     readonly id: string;
     readonly name: string;
     readonly model: RuntimePageModel;
     readonly createPage: RuntimePageFactory;
+    readonly createReusableElements?: RuntimeReusableElementFactory;
   }
 
   /** Mounts one authored project page at a time and resolves IDs or page names. */

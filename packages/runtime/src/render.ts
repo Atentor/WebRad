@@ -44,6 +44,10 @@ export interface RuntimeComponentNode {
   readonly templateId?: string;
   /** True only for the definition root mounted inside a reusable instance. */
   readonly reusableRoot?: boolean;
+  /** Stable reusable-definition ID that owns this expanded definition node. */
+  readonly reusableDefinitionId?: string;
+  /** Physical wrapper ID that owns this expanded definition node. */
+  readonly reusableInstanceId?: string;
   readonly type: string;
   readonly name: string;
   readonly parentId: string | null;
@@ -396,6 +400,20 @@ export interface MountedRuntimePage {
   readonly element: HTMLElement;
   readonly page: WebPage;
   readonly components: ReadonlyMap<string, WebComponent>;
+  /** Every physical reusable placement mounted for this page, including nested definitions. */
+  readonly reusableInstances: readonly MountedReusableElementInstance[];
+}
+
+/** DOM and identity inputs used to construct one authored reusable class. */
+export interface MountedReusableElementInstance {
+  /** Physical ID of the `WebReusableElement` wrapper for this placement. */
+  readonly instanceId: string;
+  /** Stable Project Model ID of the reusable definition. */
+  readonly reusableElementId: string;
+  /** The expanded definition root that forms this class instance's scope. */
+  readonly element: HTMLElement;
+  /** Maps stable definition component IDs to this placement's physical IDs. */
+  readonly componentIds: ReadonlyMap<string, string>;
 }
 
 export interface MountPageOptions {
@@ -487,6 +505,8 @@ export function expandReusableElements(model: RuntimePageModel): RuntimePageMode
           ? { x: 0, y: 0, width: instance.bounds.width, height: instance.bounds.height }
           : source.bounds,
         children: [],
+        reusableDefinitionId: reusableElement.id,
+        reusableInstanceId: instance.id,
         ...(isRoot ? { reusableRoot: true } : {}),
       };
       expanded.set(id, node);
@@ -589,5 +609,34 @@ export function mountPage(
     floatingLayer.childElementCount > 0 ? [rootElement, floatingLayer] : [rootElement];
   if (options.replaceHostContents ?? true) host.replaceChildren(...hostChildren);
   else host.append(...hostChildren);
-  return { element: rootElement, page: rootComponent, components };
+  const componentIdsByReusableInstance = new Map<string, Map<string, string>>();
+  for (const node of expandedModel.components) {
+    if (node.reusableInstanceId === undefined || node.templateId === undefined) continue;
+    let componentIds = componentIdsByReusableInstance.get(node.reusableInstanceId);
+    if (componentIds === undefined) {
+      componentIds = new Map();
+      componentIdsByReusableInstance.set(node.reusableInstanceId, componentIds);
+    }
+    componentIds.set(node.templateId, node.id);
+  }
+  const reusableInstances = expandedModel.components.flatMap((node) => {
+    if (
+      node.reusableRoot !== true ||
+      node.reusableDefinitionId === undefined ||
+      node.reusableInstanceId === undefined
+    ) {
+      return [];
+    }
+    const root = components.get(node.id);
+    if (root === undefined) return [];
+    return [
+      {
+        instanceId: node.reusableInstanceId,
+        reusableElementId: node.reusableDefinitionId,
+        element: root.element,
+        componentIds: componentIdsByReusableInstance.get(node.reusableInstanceId) ?? new Map(),
+      },
+    ];
+  });
+  return { element: rootElement, page: rootComponent, components, reusableInstances };
 }

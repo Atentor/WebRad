@@ -57,7 +57,7 @@ export interface ObjectInspectorProps {
     definition: ComponentEventDefinition,
   ) => void;
   onEventDoubleClick: (eventName: string, definition: ComponentEventDefinition) => void;
-  /** Reusable definitions are visual-only until reusable event code is supported. */
+  /** Allows hosts that intentionally have no authored-code surface to hide events. */
   eventsEnabled?: boolean;
   /** Runs a Registry-declared design-time workflow for the selected component. */
   onDesignerAction?: (

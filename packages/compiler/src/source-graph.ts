@@ -3,7 +3,12 @@ import path from 'node:path';
 import type { ComponentRegistry } from '@webrad/component-registry';
 import type { PageModel, WebRadProject } from '@webrad/project-model';
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
-import { createUserPageSource, generatePageSource } from '@webrad/language';
+import {
+  createUserPageSource,
+  createUserReusableElementSource,
+  generatePageSource,
+  generateReusableElementSource,
+} from '@webrad/language';
 
 import runtimeSources from './runtime-sources.json';
 import type { CompileDiagnostic } from './types.js';
@@ -47,6 +52,14 @@ function pageSourcePath(page: PageModel): string {
 
 function generatedSourcePath(page: PageModel): string {
   return `pages/${page.name}.generated.ts`;
+}
+
+function reusableSourcePath(reusableElement: PageModel): string {
+  return `reusables/${reusableElement.name}.ts`;
+}
+
+function reusableGeneratedSourcePath(reusableElement: PageModel): string {
+  return `reusables/${reusableElement.name}.generated.ts`;
 }
 
 function createGlobalTypings(): string {
@@ -114,6 +127,18 @@ function createEntrySource(project: WebRadProject, registry: ComponentRegistry):
   const pageImports = project.pages
     .map((page) => `import { ${page.name} } from './pages/${page.name}';`)
     .join('\n');
+  const reusableImports = project.reusableElements
+    .map(
+      (reusableElement) =>
+        `import { ${reusableElement.name} } from './reusables/${reusableElement.name}';`,
+    )
+    .join('\n');
+  const reusableFactories = project.reusableElements
+    .map(
+      (reusableElement) =>
+        `  [${JSON.stringify(reusableElement.id)}, (element: HTMLElement, instanceId: string, components: ReadonlyMap<string, WebComponent>, componentIds: ReadonlyMap<string, string>) => new ${reusableElement.name}(element, instanceId, components, componentIds)],`,
+    )
+    .join('\n');
   const routes = project.pages
     .map((page) => {
       const model = JSON.stringify(
@@ -124,6 +149,7 @@ function createEntrySource(project: WebRadProject, registry: ComponentRegistry):
     name: ${JSON.stringify(page.name)},
     model: ${model} as unknown as RuntimePageModel,
     createPage: (element: HTMLElement) => new ${page.name}(element),
+    createReusableElements,
   }`;
     })
     .join(',\n');
@@ -133,9 +159,39 @@ function createEntrySource(project: WebRadProject, registry: ComponentRegistry):
   Navigate as RuntimeNavigate,
   WebPageRouter,
 } from '@webrad/runtime';
-import type { NavigateOptions, RuntimePageModel, RuntimePageRoute } from '@webrad/runtime';
+import type {
+  MountedRuntimePage,
+  NavigateOptions,
+  RuntimePageModel,
+  RuntimePageRoute,
+  WebComponent,
+  WebReusableElementInstance,
+} from '@webrad/runtime';
 ${pageImports}
+${reusableImports}
 import './app.css';
+
+type ReusableElementFactory = (
+  element: HTMLElement,
+  instanceId: string,
+  components: ReadonlyMap<string, WebComponent>,
+  componentIds: ReadonlyMap<string, string>,
+) => WebReusableElementInstance;
+
+const reusableElementFactories: ReadonlyMap<string, ReusableElementFactory> = new Map([
+${reusableFactories}
+]);
+
+function createReusableElements(
+  mounted: MountedRuntimePage,
+): readonly WebReusableElementInstance[] {
+  return mounted.reusableInstances.flatMap((instance) => {
+    const factory = reusableElementFactories.get(instance.reusableElementId);
+    return factory === undefined
+      ? []
+      : [factory(instance.element, instance.instanceId, mounted.components, instance.componentIds)];
+  });
+}
 
 const routes: readonly RuntimePageRoute[] = [
 ${routes}
@@ -192,6 +248,17 @@ export function createVirtualSourceGraph(
     sources.set(
       virtualAbsolutePath(generatedSourcePath(page)),
       generatePageSource(page, { registry }),
+    );
+  }
+
+  for (const reusableElement of project.reusableElements) {
+    const userPath = virtualAbsolutePath(reusableSourcePath(reusableElement));
+    if (!sources.has(userPath)) {
+      sources.set(userPath, createUserReusableElementSource(reusableElement));
+    }
+    sources.set(
+      virtualAbsolutePath(reusableGeneratedSourcePath(reusableElement)),
+      generateReusableElementSource(reusableElement, { registry }),
     );
   }
 

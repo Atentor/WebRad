@@ -201,9 +201,18 @@ describe('project files', () => {
     expect(manifest.reusableElements[0]?.components.map((component) => component.id)).toEqual(
       reusableDefinition.components.map((component) => component.id),
     );
+    expect(saved.userSources['reusables/CustomerCard.ts']).toContain(
+      'export class CustomerCard extends CustomerCardGenerated',
+    );
+    await expect(
+      fs.readFile(path.join(saved.rootPath, 'reusables', 'CustomerCard.generated.ts'), 'utf8'),
+    ).resolves.toContain('extends WebReusableElementInstance');
 
     const loaded = await loadProjectFiles(saved.projectFilePath);
     expect(loaded.project.reusableElements).toEqual(project.reusableElements);
+    expect(loaded.userSources['reusables/CustomerCard.ts']).toContain(
+      'export class CustomerCard extends CustomerCardGenerated',
+    );
     expect(
       loaded.project.pages[0]?.components.find((component) => component.id === reusableInstance.id)
         ?.props.reusableElementId,

@@ -74,10 +74,7 @@ export function EditorWorkspace({
         ) : (
           <>
             <div className="wr-view-tabs" role="tablist" aria-label="Document view">
-              {(activeDocument?.kind === 'reusable'
-                ? (['design'] as const)
-                : (['design', 'code', 'preview'] as const)
-              ).map((view) => (
+              {(['design', 'code', 'preview'] as const).map((view) => (
                 <button
                   key={view}
                   type="button"

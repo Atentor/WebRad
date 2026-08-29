@@ -893,6 +893,16 @@ describe('browser runtime', () => {
     expect(mounted.components.has('floating-card-instance:reusable-card-root')).toBe(true);
     expect(mounted.components.has('inline-card-instance:reusable-card-label')).toBe(true);
     expect(mounted.components.has('floating-card-instance:reusable-card-label')).toBe(true);
+    expect(mounted.reusableInstances).toHaveLength(2);
+    expect(
+      mounted.reusableInstances.find((instance) => instance.instanceId === 'inline-card-instance')
+        ?.componentIds,
+    ).toEqual(
+      new Map([
+        ['reusable-card-root', 'inline-card-instance:reusable-card-root'],
+        ['reusable-card-label', 'inline-card-instance:reusable-card-label'],
+      ]),
+    );
     expect(inlineDefinitionRoot).not.toBe(floatingDefinitionRoot);
     expect(inlineDefinitionLabel).not.toBe(floatingDefinitionLabel);
     expect(inlineDefinitionRoot.dataset.webradTemplateId).toBe('reusable-card-root');
@@ -991,6 +1001,7 @@ describe('browser runtime', () => {
     expect(mounted.page.requireComponentElement(clonedRoot?.id ?? '').dataset.webradType).toBe(
       'WebPanel',
     );
+    expect(mounted.reusableInstances[0]?.componentIds.get('template-root')).toBe(clonedRoot?.id);
   });
 
   it('rejects a runtime reusable instance with no supplied definition', () => {

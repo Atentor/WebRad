@@ -2,6 +2,7 @@ import {
   addPage as addPageToProject,
   createPage,
   createProject,
+  createReusableElement,
   setComponentStyle,
 } from '@webrad/project-model';
 import { describe, expect, it, vi } from 'vitest';
@@ -85,6 +86,41 @@ describe('ProjectController', () => {
     expect(controller.getSnapshot().dirty).toBe(true);
     await controller.save();
     expect(controller.getSnapshot().dirty).toBe(false);
+  });
+
+  it('owns reusable authored sources while adding, renaming, and removing definitions', () => {
+    const project = createProject('Project1');
+    const session = {
+      rootPath: 'C:/projects/Project1',
+      projectFilePath: 'C:/projects/Project1/Project1.wrproj',
+      project,
+      userSources: {},
+    };
+    const controller = new ProjectController(fakeBridge(session));
+    controller.load(session);
+    const reusableElement = createReusableElement('CustomerCard');
+
+    controller.addReusableElement(reusableElement);
+    const originalPath = 'reusables/CustomerCard.ts';
+    expect(controller.getSnapshot().userSources[originalPath]).toContain(
+      'export class CustomerCard extends CustomerCardGenerated',
+    );
+    controller.setUserSource(
+      originalPath,
+      `${controller.getSnapshot().userSources[originalPath]}\n// authored reusable code\n`,
+    );
+    controller.renameReusableElement(reusableElement.id, 'CustomerSummary');
+
+    const renamedPath = 'reusables/CustomerSummary.ts';
+    expect(controller.getSnapshot().userSources[originalPath]).toBeUndefined();
+    expect(controller.getSnapshot().userSources[renamedPath]).toContain(
+      'export class CustomerSummary extends CustomerSummaryGenerated',
+    );
+    expect(controller.getSnapshot().userSources[renamedPath]).toContain(
+      '// authored reusable code',
+    );
+    controller.removeReusableElement(reusableElement.id);
+    expect(controller.getSnapshot().userSources[renamedPath]).toBeUndefined();
   });
 
   it('projects style CRUD into the aggregate and clears assigned references on delete', () => {

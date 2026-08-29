@@ -307,7 +307,7 @@ export interface PageModel {
 }
 
 /**
- * A reusable visual composition. It intentionally has the same document shape
+ * A reusable composition. It intentionally has the same document shape
  * as a page so the Designer can edit it with the same responsive-layout and
  * history commands. It is kept in a separate project collection and is never
  * a navigable application route.
@@ -356,7 +356,10 @@ export interface ProjectManifest {
   readonly name: string;
   readonly entryPage: string;
   readonly pages: readonly PageDescriptor[];
-  /** Small reusable documents are stored with the manifest; they have no route or user code file. */
+  /**
+   * Small reusable documents are stored with the manifest. Their generated and
+   * authored classes use deterministic paths under `reusables/`.
+   */
   readonly reusableElements: readonly ReusableElementModel[];
   /** Styles remain inline because they are small project-level metadata. */
   readonly styles: readonly ComponentStyleModel[];
