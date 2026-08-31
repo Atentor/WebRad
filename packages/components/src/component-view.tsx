@@ -39,6 +39,7 @@ function sharedAttributes(
   className: string;
   style: CSSProperties;
   hidden: boolean;
+  'aria-hidden': boolean;
   'aria-disabled': boolean;
   'data-component-id': string;
   'data-component-type': string;
@@ -46,13 +47,16 @@ function sharedAttributes(
   tabIndex?: number;
 } {
   const visual = projectComponentVisual(node, 'fill');
+  const style =
+    styleClassName === undefined
+      ? visual.style
+      : { width: visual.style.width, height: visual.style.height };
   return {
     className: [...visual.classNames, ...tokenizeTailwindClasses(styleClassName ?? '')].join(' '),
     style:
-      styleClassName === undefined
-        ? visual.style
-        : { width: visual.style.width, height: visual.style.height },
-    hidden: !visual.visible,
+      !visual.visible && !visual.collapseWhenHidden ? { ...style, visibility: 'hidden' } : style,
+    hidden: !visual.visible && visual.collapseWhenHidden,
+    'aria-hidden': !visual.visible,
     'aria-disabled': !visual.enabled,
     'data-component-id': node.id,
     'data-component-type': node.type,

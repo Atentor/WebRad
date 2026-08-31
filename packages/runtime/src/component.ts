@@ -112,12 +112,38 @@ export class WebComponent<TElement extends HTMLElement = HTMLElement> {
   }
 
   public get visible(): boolean {
-    return !this.element.hidden;
+    const stored = this.element.dataset.webradVisible;
+    return stored === undefined ? !this.element.hidden : stored !== 'false';
   }
 
   public set visible(value: boolean) {
-    this.element.hidden = !value;
-    if (!value) {
+    this.element.dataset.webradVisible = String(value);
+    this.#applyVisibility();
+  }
+
+  /** Whether an invisible component is removed from its parent layout. */
+  public get collapseWhenHidden(): boolean {
+    return this.element.dataset.webradCollapseWhenHidden !== 'false';
+  }
+
+  public set collapseWhenHidden(value: boolean) {
+    this.element.dataset.webradCollapseWhenHidden = String(value);
+    this.#applyVisibility();
+  }
+
+  #applyVisibility(): void {
+    const visible = this.visible;
+    const collapse = this.collapseWhenHidden;
+    this.element.hidden = !visible && collapse;
+    this.element.setAttribute('aria-hidden', String(!visible));
+
+    if (!visible && !collapse) {
+      this.element.style.setProperty('visibility', 'hidden', 'important');
+    } else {
+      this.element.style.removeProperty('visibility');
+    }
+
+    if (!visible && collapse) {
       // Layout uses inline !important for structural display so a reusable
       // style cannot turn a row or column into a different display mode. Keep
       // the visibility API authoritative over that structural projection.

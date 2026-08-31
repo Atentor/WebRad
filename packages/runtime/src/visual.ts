@@ -1006,6 +1006,7 @@ export interface ComponentVisualProjection {
   readonly classNames: readonly string[];
   readonly style: ComponentVisualStyle;
   readonly visible: boolean;
+  readonly collapseWhenHidden: boolean;
   readonly enabled: boolean;
   readonly title?: string;
   readonly tabIndex?: number;
@@ -1081,6 +1082,7 @@ export function projectComponentVisual(
     ],
     style,
     visible: readBooleanProperty(source, 'visible', true),
+    collapseWhenHidden: readBooleanProperty(source, 'collapseWhenHidden', true),
     enabled: readBooleanProperty(source, 'enabled', true),
     ...(title.length > 0 ? { title } : {}),
     ...(tabIndex === undefined ? {} : { tabIndex }),

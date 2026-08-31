@@ -105,6 +105,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly id: string;
     readonly name: string;
     visible: boolean;
+    collapseWhenHidden: boolean;
     enabled: boolean;
     x: number;
     y: number;
@@ -703,6 +704,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly classNames: readonly string[];
     readonly style: ComponentVisualStyle;
     readonly visible: boolean;
+    readonly collapseWhenHidden: boolean;
     readonly enabled: boolean;
     readonly title?: string;
     readonly tabIndex?: number;

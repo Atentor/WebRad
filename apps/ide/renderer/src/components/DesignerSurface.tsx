@@ -18,7 +18,7 @@ import type {
 } from '@webrad/project-model';
 import type { ComponentStyleModel } from '@webrad/project-model';
 import { projectRuntimeLayout, type RuntimeContainerLayout } from '@webrad/runtime';
-import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
+import { projectComponentVisual, resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   memo,
   useCallback,
@@ -309,6 +309,17 @@ function projectItemStyle(
   );
 }
 
+function projectDesignerItemStyle(
+  node: ComponentNode,
+  parentContainer: RuntimeContainerLayout | undefined,
+  interaction: Interaction | null,
+  designViewport: DesignViewport,
+): CSSProperties {
+  const style = projectItemStyle(node, parentContainer, interaction, designViewport);
+  const visual = projectComponentVisual(node, 'fill');
+  return !visual.visible && visual.collapseWhenHidden ? { ...style, display: 'none' } : style;
+}
+
 /** Projects persisted floating offsets to the simulated design viewport. */
 function floatingVisualBounds(
   node: ComponentNode,
@@ -511,7 +522,7 @@ function ReusableDefinitionNode({
       className={`wr-runtime-node wr-runtime-item-${parentContainer.mode}${
         isContainer ? ' wr-runtime-container' : ''
       }`}
-      style={projectItemStyle(node, parentContainer, interaction, designViewport)}
+      style={projectDesignerItemStyle(node, parentContainer, interaction, designViewport)}
     >
       <ComponentView
         node={node}
@@ -583,7 +594,7 @@ const RuntimeNode = memo(function RuntimeNode({
         isContainer ? ' wr-runtime-container' : ''
       }`}
       data-designer-node-id={node.id}
-      style={projectItemStyle(node, parentContainer, interaction, designViewport)}
+      style={projectDesignerItemStyle(node, parentContainer, interaction, designViewport)}
     >
       <ComponentView
         node={node}

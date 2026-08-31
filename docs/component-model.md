@@ -10,6 +10,8 @@ Reusable visual styles live at project level as `ComponentStyleModel` records. A
 
 When a component has a selected style, that style owns its initial paint properties (background, foreground, border, and image fit). Structural layout remains model-owned: `layout.container` describes child flow or anchoring, `layout.item` describes sizing, constraints, and anchors, and `bounds` supplies the fixed-mode fallback. The runtime applies structural declarations with inline `!important` precedence, so reusable visual style utilities cannot move, resize, or change the display mode of an instance. Runtime code can still change typed paint properties dynamically.
 
+Every visual component also has `visible` and `collapseWhenHidden` behavior properties. `collapseWhenHidden` defaults to `true`: when `visible` is false, the component is removed from layout and does not reserve space. Set it to `false` to hide the component while retaining its layout area. The Designer and generated browser runtime use the same projection.
+
 The Registry exposes structural controls with the `layout-container` and `layout-item` property sources. `WebPage` and `WebPanel` expose container controls; visual components expose item controls. These controls edit persisted layout fields and are intentionally separate from typed runtime property accessors, which continue to describe executable component APIs.
 
 The live Designer preserves geometry and selection wrappers around nested nodes. Its state preview merges the base properties with the selected state before generating unprefixed preview candidates, while the generated application uses real pseudo-state variants. The preview stylesheet includes both forms; production output keeps only real variants.

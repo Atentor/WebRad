@@ -663,6 +663,7 @@ describe('name validation', () => {
       'backgroundColor',
       'borderColor',
       'caption',
+      'collapseWhenHidden',
       'color',
       'height',
       'layoutMode',

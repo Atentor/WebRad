@@ -348,7 +348,14 @@ describe('sequential names and node defaults', () => {
       parentId: 'root-id',
       layout: defaultLayout(),
       bounds: { x: 420, y: 300, width: 100, height: 32 },
-      props: { caption: 'Gravar', icon: 'add', visible: true, enabled: true, tabIndex: 0 },
+      props: {
+        caption: 'Gravar',
+        icon: 'add',
+        visible: true,
+        collapseWhenHidden: true,
+        enabled: true,
+        tabIndex: 0,
+      },
       events: {
         OnClick: null,
         OnFocus: null,

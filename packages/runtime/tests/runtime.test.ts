@@ -555,11 +555,25 @@ describe('browser runtime', () => {
       color: 'white',
       borderColor: 'blue',
       visible: false,
+      collapseWhenHidden: true,
       enabled: false,
     });
     expect(buttonElement.style.left).toBe('12px');
     expect(buttonElement.style.top).toBe('24px');
+    expect(buttonElement.hidden).toBe(true);
+    expect(buttonElement.style.display).toBe('none');
     expect(buttonElement.disabled).toBe(true);
+
+    button.collapseWhenHidden = false;
+    expect(button.visible).toBe(false);
+    expect(button.collapseWhenHidden).toBe(false);
+    expect(buttonElement.hidden).toBe(false);
+    expect(buttonElement.style.display).toBe('');
+    expect(buttonElement.style.visibility).toBe('hidden');
+    expect(buttonElement.getAttribute('aria-hidden')).toBe('true');
+    button.visible = true;
+    expect(buttonElement.style.visibility).toBe('');
+    expect(buttonElement.getAttribute('aria-hidden')).toBe('false');
     expect(() => {
       button.width = Number.POSITIVE_INFINITY;
     }).toThrow(RangeError);
@@ -687,6 +701,7 @@ describe('browser runtime', () => {
         borderColor: '#445566',
         color: '#ffffff',
         enabled: false,
+        collapseWhenHidden: false,
         tabIndex: 3,
         title: 'Run',
         visible: false,
@@ -701,6 +716,7 @@ describe('browser runtime', () => {
         'wr-button-icon-left',
       ],
       enabled: false,
+      collapseWhenHidden: false,
       visible: false,
       tabIndex: 3,
       title: 'Run',

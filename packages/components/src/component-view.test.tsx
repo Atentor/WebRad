@@ -35,6 +35,32 @@ describe('ComponentView', () => {
     expect(markup).toContain('data-webrad-text-content=""');
   });
 
+  it('collapses invisible components by default and can retain their layout area', () => {
+    const invisible = {
+      ...button,
+      props: { ...button.props, visible: false },
+    };
+    const view = render(<ComponentView node={invisible} />);
+    const renderedButton = view.container.querySelector('button');
+    if (renderedButton === null) throw new Error('Expected rendered button.');
+
+    expect(renderedButton.hidden).toBe(true);
+    expect(renderedButton.getAttribute('aria-hidden')).toBe('true');
+
+    view.rerender(
+      <ComponentView
+        node={{
+          ...invisible,
+          props: { ...invisible.props, collapseWhenHidden: false },
+        }}
+      />,
+    );
+
+    expect(renderedButton.hidden).toBe(false);
+    expect(renderedButton.style.visibility).toBe('hidden');
+    expect(renderedButton.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('renders the Data Grid design-time table with configured headers and footer', () => {
     const markup = renderToStaticMarkup(
       <ComponentView

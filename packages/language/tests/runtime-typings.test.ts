@@ -225,6 +225,7 @@ class EditorPage extends WebPage {
     const commonVisualProperties = [
       'backgroundColor',
       'borderColor',
+      'collapseWhenHidden',
       'color',
       'enabled',
       'height',
@@ -462,6 +463,7 @@ class EditorPage extends WebPage {
     edit.placeholder = 'name@example.test';
     textArea.rows = 5;
     button.caption = 'Save';
+    button.collapseWhenHidden = false;
     button.onClick = async (sender, event) => {
       sender.enabled = false;
       event.preventDefault();
@@ -600,6 +602,7 @@ declare const list: WebListBox;
 declare const api: WebApiClient;
 declare const reusableInstance: WebReusableElementInstance;
 button.caption = 42;
+button.collapseWhenHidden = 'no';
 edit.inputType = 'date';
 page.layoutMode = 'table';
 image.objectFit = 'stretch';

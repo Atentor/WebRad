@@ -199,6 +199,7 @@ function applyCommon(component: WebComponent, node: RuntimeComponentNode): void 
     component.x = node.bounds.x;
     component.y = node.bounds.y;
   }
+  component.collapseWhenHidden = visual.collapseWhenHidden;
   component.visible = visual.visible;
   component.enabled = visual.enabled;
   if (visual.tabIndex !== undefined) component.tabIndex = visual.tabIndex;

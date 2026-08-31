@@ -67,6 +67,7 @@ const GENERATED_PAGE_BASE_MEMBER_NAMES = new Set([
   'bindGeneratedEvent',
   'borderColor',
   'caption',
+  'collapseWhenHidden',
   'close',
   'color',
   'dispose',

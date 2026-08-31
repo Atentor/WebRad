@@ -243,6 +243,47 @@ describe('DesignerSurface responsive projection', () => {
     expect(surface?.style.width).toBe('390px');
   });
 
+  it('removes an invisible component from the Designer layout when configured to collapse', () => {
+    const page = responsivePage();
+    const hiddenPage: PageModel = {
+      ...page,
+      components: page.components.map((component) =>
+        component.id === 'second'
+          ? { ...component, props: { ...component.props, visible: false } }
+          : component,
+      ),
+    };
+    const collapsed = renderSurface(hiddenPage);
+    const collapsedNode = collapsed.container.querySelector<HTMLElement>(
+      '[data-designer-node-id="second"]',
+    );
+    if (collapsedNode === null) throw new Error('Expected collapsed Designer node.');
+    expect(collapsedNode.style.display).toBe('none');
+    collapsed.unmount();
+
+    const retainedPage: PageModel = {
+      ...hiddenPage,
+      components: hiddenPage.components.map((component) =>
+        component.id === 'second'
+          ? { ...component, props: { ...component.props, collapseWhenHidden: false } }
+          : component,
+      ),
+    };
+    const retained = renderSurface(retainedPage);
+    const retainedNode = retained.container.querySelector<HTMLElement>(
+      '[data-designer-node-id="second"]',
+    );
+    const retainedButton = retained.container.querySelector<HTMLButtonElement>(
+      '[data-component-id="second"]',
+    );
+    if (retainedNode === null || retainedButton === null) {
+      throw new Error('Expected retained Designer node.');
+    }
+    expect(retainedNode.style.display).not.toBe('none');
+    expect(retainedButton.hidden).toBe(false);
+    expect(retainedButton.style.visibility).toBe('hidden');
+  });
+
   it('offers row siblings to the host as a reorder operation instead of an x/y move', () => {
     const onReorderComponents = vi.fn();
     Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
