@@ -18,6 +18,7 @@ import type {
 import {
   createProjectFiles,
   loadProjectFiles,
+  resolveNewProjectRoot,
   resolveInsideProjectSecure,
   saveProjectFiles,
 } from './project-files';
@@ -118,8 +119,11 @@ async function createProjectHandler(
   requireTrustedSender(event);
   const request = createProjectSchema.parse(input);
   // Directory capabilities always come from a native picker, never an arbitrary renderer path.
-  const rootPath = await chooseDirectory('Choose or create the folder for the new WebRAD project');
-  if (!rootPath) return null;
+  const parentPath = await chooseDirectory(
+    'Choose the folder that will contain the new WebRAD project',
+  );
+  if (!parentPath) return null;
+  const rootPath = resolveNewProjectRoot(parentPath, request.name);
   await ensureNewDestination(rootPath);
   const session = await createProjectFiles(rootPath, request.name);
   grantRoot(event, session.rootPath);

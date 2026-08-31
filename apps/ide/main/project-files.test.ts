@@ -24,6 +24,7 @@ import {
   loadProjectFiles,
   resolveInsideProject,
   resolveInsideProjectSecure,
+  resolveNewProjectRoot,
   saveProjectFiles,
 } from './project-files';
 
@@ -45,6 +46,28 @@ afterEach(async () => {
 });
 
 describe('project files', () => {
+  it('creates a project in a named child of a non-empty selected parent folder', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-project-parent-'));
+    temporaryRoots.push(parent);
+    await fs.writeFile(path.join(parent, 'existing-download.txt'), 'keep', 'utf8');
+
+    const rootPath = resolveNewProjectRoot(parent, 'CustomerPortal');
+    const session = await createProjectFiles(rootPath, 'CustomerPortal');
+
+    expect(session.rootPath).toBe(path.join(parent, 'CustomerPortal'));
+    await expect(fs.stat(path.join(parent, 'existing-download.txt'))).resolves.toBeDefined();
+    await expect(fs.stat(session.projectFilePath)).resolves.toBeDefined();
+  });
+
+  it('does not permit a project name to escape the selected parent folder', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-project-parent-'));
+    temporaryRoots.push(parent);
+
+    expect(() => resolveNewProjectRoot(parent, '../outside')).toThrow(
+      'not portable in a file name',
+    );
+  });
+
   it('creates and loads the versioned aggregate without losing user code', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-project-'));
     temporaryRoots.push(parent);

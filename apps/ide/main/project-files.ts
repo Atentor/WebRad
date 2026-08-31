@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
+  assertValidProjectName,
   assembleProject,
   createProject,
   deserializePage,
@@ -32,6 +33,21 @@ function normalizeRoot(rootPath: string): string {
   const resolved = path.resolve(rootPath);
   if (!path.isAbsolute(resolved)) throw new Error('The project root must be an absolute path.');
   return resolved;
+}
+
+/**
+ * Resolves the root for a newly created project below a user-selected parent
+ * directory. Validating the name first prevents it from changing the selected
+ * directory through path separators or relative path segments.
+ */
+export function resolveNewProjectRoot(parentPath: string, projectName: string): string {
+  assertValidProjectName(projectName);
+  const parent = normalizeRoot(parentPath);
+  const root = path.resolve(parent, projectName);
+  if (path.dirname(root) !== parent) {
+    throw new Error('The project name must resolve to a direct child of the selected folder.');
+  }
+  return root;
 }
 
 export function resolveInsideProject(rootPath: string, relativePath: string): string {

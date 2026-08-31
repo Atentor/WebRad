@@ -59,7 +59,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: Reusable component instances honor `Responsive width` and `Responsive height` in fixed containers as well: `stretch` uses the instance's design-time leading offset and its trailing inset, while `fit-content` leaves that axis to browser content sizing. The same shared runtime projection drives Designer and generated applications.
 - DONE: Reusable component code exposes readonly `this.pageName` for the containing page while preserving `this.name` as the reusable definition-root name, including nested and floating placements.
 - DONE: Generated browser apps register every Project Model page in a browser-only `WebPageRouter`. `Navigate('PageName')` or a stable page ID swaps pages internally without reloading, while `#/PageName` provides direct-link and browser history support; non-page destinations retain normal browser navigation.
-- DONE: New Project now uses the folder selected in the native picker as the project root, avoiding an extra nested folder named after the project.
+- DONE: New Project treats the folder selected in the native picker as the parent location and creates a project-name subfolder there, so common non-empty locations such as Downloads work safely.
 
 ## Validation evidence
 
