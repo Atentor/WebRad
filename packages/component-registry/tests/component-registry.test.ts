@@ -242,6 +242,7 @@ describe('MVP component metadata', () => {
       'OnError',
       'OnComplete',
     ]);
+    expect(apiClient.events.every((eventDefinition) => eventDefinition.eventDetailType)).toBe(true);
   });
 
   it('opens the dedicated Data Grid configurator through registry metadata', () => {
@@ -265,6 +266,13 @@ describe('MVP component metadata', () => {
       type: 'data-grid-config',
       source: 'props',
       designerAction: 'data-grid-configurator',
+    });
+    expect(dataGrid.events).toContainEqual({
+      name: 'OnCellClick',
+      label: 'OnCellClick',
+      category: 'Data',
+      eventDetailType: 'WebDataGridCellEventDetail',
+      eventDetailProperties: ['column', 'rowIndex', 'columnIndex', 'value', 'getValue'],
     });
   });
 });
@@ -461,5 +469,25 @@ describe('sequential names and node defaults', () => {
     expect(() =>
       componentRegistry.createComponent('WebButton', { id: 'button-id', width: 0 }),
     ).toThrow('dimensions');
+  });
+
+  it('rejects invalid generated-event detail metadata', () => {
+    const missingType: ComponentDefinition = {
+      ...definition('MissingEventDetailType'),
+      events: [{ name: 'OnClick', eventDetailProperties: ['column'] }],
+    };
+    expect(() => new ComponentRegistry([missingType])).toThrow('require an event detail type');
+
+    const invalidProperty: ComponentDefinition = {
+      ...definition('InvalidEventDetailProperty'),
+      events: [
+        {
+          name: 'OnClick',
+          eventDetailType: 'WebDataGridCellEventDetail',
+          eventDetailProperties: ['not-valid'],
+        },
+      ],
+    };
+    expect(() => new ComponentRegistry([invalidProperty])).toThrow('TypeScript-safe identifier');
   });
 });

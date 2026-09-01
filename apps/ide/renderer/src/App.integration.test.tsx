@@ -558,12 +558,25 @@ describe('App MVP integration', () => {
       expect(document.activeElement).toBe(configure);
     });
 
+    await user.click(screen.getByRole('tab', { name: 'Events' }));
+    await user.dblClick(screen.getByLabelText('OnCellClick'));
+    const gridEventEditor = (await screen.findByLabelText(
+      'Mock Monaco editor',
+    )) as HTMLTextAreaElement;
+    expect(gridEventEditor.value).toContain(
+      'async DataGrid1CellClick(sender: WebDataGrid, event: CustomEvent<WebDataGridCellEventDetail>): Promise<void>',
+    );
+    expect(gridEventEditor.value).toContain(
+      'const { column, rowIndex, columnIndex, value, getValue } = event.detail;',
+    );
+
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await screen.findByText('Saved MvpProject.');
     const dataGrid = harness
       .persisted()
       .project.pages[0]?.components.find((component) => component.type === 'WebDataGrid');
     if (dataGrid === undefined) throw new Error('Expected the persisted Data Grid.');
+    expect(dataGrid.events.OnCellClick).toBe('DataGrid1CellClick');
     expect(parseDataGridConfiguration(dataGrid.props.dataGridConfig)).toMatchObject({
       schemaVersion: 2,
       rowHeightMode: 'fixed',

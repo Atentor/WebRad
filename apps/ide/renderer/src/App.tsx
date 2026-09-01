@@ -771,6 +771,9 @@ export function App(): ReactElement {
       if (activeDocumentKind === null) return;
       try {
         const component = getComponent(activePage, componentId);
+        const eventDefinition = componentRegistry
+          .get(component.type)
+          ?.events.find((candidate) => candidate.name === eventName);
         const handlerName =
           component.events[eventName] ?? eventHandlerName(component.name, eventName);
         const key = sourceKey(activePage, activeDocumentKind);
@@ -781,12 +784,8 @@ export function App(): ReactElement {
           componentName: component.name,
           componentType: component.type,
           eventName,
-          eventDetailType:
-            component.type === 'WebApiClient'
-              ? 'WebApiOperationEventDetail'
-              : component.type === 'WebDataGrid'
-                ? 'WebDataGridCellEventDetail'
-                : undefined,
+          eventDetailType: eventDefinition?.eventDetailType,
+          eventDetailProperties: eventDefinition?.eventDetailProperties,
           handlerName,
           fileName: key,
         });

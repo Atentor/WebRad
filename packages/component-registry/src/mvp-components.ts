@@ -309,8 +309,12 @@ function captionProperty(defaultValue: string): ComponentPropertyDefinition {
   };
 }
 
-function event(name: string, category = 'Behavior'): ComponentEventDefinition {
-  return { name, label: name, category };
+function event(
+  name: string,
+  category = 'Behavior',
+  codeGeneration: Pick<ComponentEventDefinition, 'eventDetailType' | 'eventDetailProperties'> = {},
+): ComponentEventDefinition {
+  return { name, label: name, category, ...codeGeneration };
 }
 
 const pageBounds = { width: 800, height: 600 } as const;
@@ -926,10 +930,10 @@ const webApiClient: ComponentDefinition = {
     },
   ],
   events: [
-    event('OnRequest', 'Request'),
-    event('OnSuccess', 'Request'),
-    event('OnError', 'Request'),
-    event('OnComplete', 'Request'),
+    event('OnRequest', 'Request', { eventDetailType: 'WebApiOperationEventDetail' }),
+    event('OnSuccess', 'Request', { eventDetailType: 'WebApiOperationEventDetail' }),
+    event('OnError', 'Request', { eventDetailType: 'WebApiOperationEventDetail' }),
+    event('OnComplete', 'Request', { eventDetailType: 'WebApiOperationEventDetail' }),
   ],
 };
 
@@ -964,7 +968,12 @@ const webDataGrid: ComponentDefinition = {
       designerAction: 'data-grid-configurator',
     },
   ],
-  events: [event('OnCellClick', 'Data')],
+  events: [
+    event('OnCellClick', 'Data', {
+      eventDetailType: 'WebDataGridCellEventDetail',
+      eventDetailProperties: ['column', 'rowIndex', 'columnIndex', 'value', 'getValue'],
+    }),
+  ],
 };
 
 export const MVP_COMPONENT_TYPES = [

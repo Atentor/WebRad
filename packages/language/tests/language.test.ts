@@ -434,6 +434,36 @@ export class PageMain {}
     );
   });
 
+  it('scaffolds Data Grid cell detail constants in a new cell-click handler', () => {
+    const edit = ensureEventHandler('export class PageMain {}\n', {
+      className: 'PageMain',
+      componentName: 'DataGrid1',
+      componentType: 'WebDataGrid',
+      eventName: 'OnCellClick',
+      eventDetailType: 'WebDataGridCellEventDetail',
+      eventDetailProperties: ['column', 'rowIndex', 'columnIndex', 'value', 'getValue'],
+    });
+
+    expect(edit.sourceText).toContain(
+      'async DataGrid1CellClick(sender: WebDataGrid, event: CustomEvent<WebDataGridCellEventDetail>): Promise<void>',
+    );
+    expect(edit.sourceText).toContain(
+      'const { column, rowIndex, columnIndex, value, getValue } = event.detail;',
+    );
+  });
+
+  it('rejects detail constants without an event detail type', () => {
+    expect(() =>
+      ensureEventHandler('export class PageMain {}\n', {
+        className: 'PageMain',
+        componentName: 'DataGrid1',
+        componentType: 'WebDataGrid',
+        eventName: 'OnCellClick',
+        eventDetailProperties: ['column'],
+      }),
+    ).toThrow('require an event detail type');
+  });
+
   it('does not duplicate an existing property-style handler', () => {
     const source = `export class PageMain {
   BTNMostrarClick = async (sender: WebButton): Promise<void> => {};

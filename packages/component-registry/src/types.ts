@@ -38,6 +38,10 @@ export interface ComponentEventDefinition {
   readonly label?: string;
   readonly category?: string;
   readonly description?: string;
+  /** Runtime detail type supplied through the generated CustomEvent parameter. */
+  readonly eventDetailType?: string;
+  /** Detail fields introduced as local constants in a newly generated handler. */
+  readonly eventDetailProperties?: readonly string[];
 }
 
 export interface PaletteMetadata {

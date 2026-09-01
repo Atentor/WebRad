@@ -77,7 +77,11 @@ function copyDefinition(definition: ComponentDefinition): ComponentDefinition {
         property.defaultValue === undefined ? undefined : structuredClone(property.defaultValue),
       options: property.options === undefined ? undefined : [...property.options],
     })),
-    events: definition.events.map((event) => ({ ...event })),
+    events: definition.events.map((event) => ({
+      ...event,
+      eventDetailProperties:
+        event.eventDetailProperties === undefined ? undefined : [...event.eventDetailProperties],
+    })),
   };
 }
 
@@ -138,6 +142,30 @@ export function validateComponentDefinition(definition: ComponentDefinition): vo
 
   assertUniqueNames(definition.properties, 'Property');
   assertUniqueNames(definition.events, 'Event');
+  for (const event of definition.events) {
+    if (event.eventDetailType !== undefined && !isSafeIdentifier(event.eventDetailType)) {
+      throw new InvalidComponentDefinitionError(
+        `Event detail type "${event.eventDetailType}" for "${event.name}" must be a TypeScript-safe identifier.`,
+      );
+    }
+    const detailProperties = event.eventDetailProperties ?? [];
+    if (detailProperties.length > 0 && event.eventDetailType === undefined) {
+      throw new InvalidComponentDefinitionError(
+        `Event "${event.name}" detail properties require an event detail type.`,
+      );
+    }
+    assertUniqueNames(
+      detailProperties.map((name) => ({ name })),
+      `Event "${event.name}" detail property`,
+    );
+    for (const property of detailProperties) {
+      if (!isSafeIdentifier(property)) {
+        throw new InvalidComponentDefinitionError(
+          `Event detail property "${property}" for "${event.name}" must be a TypeScript-safe identifier.`,
+        );
+      }
+    }
+  }
   for (const property of definition.properties) {
     if (!isSafeIdentifier(property.name)) {
       throw new InvalidComponentDefinitionError(

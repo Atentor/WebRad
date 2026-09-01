@@ -10,6 +10,8 @@ export interface EventHandlerRequest {
   readonly senderName?: string;
   /** Optional runtime detail type for the generated CustomEvent parameter. */
   readonly eventDetailType?: string;
+  /** Optional event detail fields to destructure in the generated handler body. */
+  readonly eventDetailProperties?: readonly string[];
   readonly async?: boolean;
 }
 
@@ -155,8 +157,38 @@ function createMethod(
   senderName: string,
   componentTypeName: string,
   eventDetailTypeName: string | undefined,
+  eventDetailProperties: readonly string[] | undefined,
   asynchronous: boolean,
 ): ts.MethodDeclaration {
+  const eventDetailDestructuring =
+    eventDetailProperties === undefined || eventDetailProperties.length === 0
+      ? undefined
+      : ts.factory.createVariableStatement(
+          undefined,
+          ts.factory.createVariableDeclarationList(
+            [
+              ts.factory.createVariableDeclaration(
+                ts.factory.createObjectBindingPattern(
+                  eventDetailProperties.map((property) =>
+                    ts.factory.createBindingElement(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier(property),
+                      undefined,
+                    ),
+                  ),
+                ),
+                undefined,
+                undefined,
+                ts.factory.createPropertyAccessExpression(
+                  ts.factory.createIdentifier('event'),
+                  ts.factory.createIdentifier('detail'),
+                ),
+              ),
+            ],
+            ts.NodeFlags.Const,
+          ),
+        );
   return ts.factory.createMethodDeclaration(
     asynchronous ? [ts.factory.createModifier(ts.SyntaxKind.AsyncKeyword)] : undefined,
     undefined,
@@ -192,7 +224,10 @@ function createMethod(
           ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword),
         ])
       : ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword),
-    ts.factory.createBlock([], true),
+    ts.factory.createBlock(
+      eventDetailDestructuring === undefined ? [] : [eventDetailDestructuring],
+      true,
+    ),
   );
 }
 
@@ -268,6 +303,21 @@ export function ensureEventHandler(
   if (request.eventDetailType !== undefined) {
     assertIdentifier(request.eventDetailType, 'Event detail type');
   }
+  if (request.eventDetailProperties !== undefined) {
+    if (request.eventDetailType === undefined) {
+      throw new LanguageEditError('Event detail properties require an event detail type.');
+    }
+    const detailProperties = new Set<string>();
+    for (const property of request.eventDetailProperties) {
+      assertIdentifier(property, 'Event detail property');
+      if (detailProperties.has(property)) {
+        throw new LanguageEditError(
+          `Event detail property "${property}" is declared more than once.`,
+        );
+      }
+      detailProperties.add(property);
+    }
+  }
 
   const fileName = request.fileName ?? `${request.className}.ts`;
   const sourceFile = ts.createSourceFile(
@@ -305,6 +355,7 @@ export function ensureEventHandler(
     senderName,
     localTypeName,
     localEventDetailTypeName,
+    request.eventDetailProperties,
     request.async ?? true,
   );
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
