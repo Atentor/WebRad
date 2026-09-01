@@ -48,15 +48,17 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-image-logo', type: 'WebImage', name: 'IMGLogo' },
   { id: 'stable-list-box-results', type: 'WebListBox', name: 'LSTResultados' },
   { id: 'data-grid', type: 'WebDataGrid', name: 'DataGrid1' },
+  { id: 'popup-dialog', type: 'WebPopup', name: 'Popup1' },
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
 ] as const satisfies readonly MvpComponentFixture[];
 
 function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
   const isPanel = fixture.type === 'WebPanel';
   const isApiClient = fixture.type === 'WebApiClient';
+  const isPopup = fixture.type === 'WebPopup';
   return {
     ...fixture,
-    parentId: isPanel || isApiClient ? 'page-root' : 'stable-panel-main',
+    parentId: isPanel || isApiClient || isPopup ? 'page-root' : 'stable-panel-main',
     layout: createDefaultComponentLayout(),
     bounds: { x: 16, y: 16, width: 120, height: 32 },
     props:
@@ -87,17 +89,26 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
             }
           : fixture.type === 'WebButton'
             ? { caption: 'Mostrar', visible: true, enabled: true }
-            : fixture.type === 'WebReusableElement'
+            : fixture.type === 'WebPopup'
               ? {
-                  reusableElementId: 'shared-card',
-                  placement: 'in-flow',
-                  floatingHorizontalAnchor: 'left',
-                  floatingVerticalAnchor: 'top',
-                  floatingZIndex: 100,
-                  visible: true,
+                  caption: 'Confirmar',
+                  message: 'Deseja continuar?',
+                  modal: true,
+                  visible: false,
+                  collapseWhenHidden: true,
                   enabled: true,
                 }
-              : {},
+              : fixture.type === 'WebReusableElement'
+                ? {
+                    reusableElementId: 'shared-card',
+                    placement: 'in-flow',
+                    floatingHorizontalAnchor: 'left',
+                    floatingVerticalAnchor: 'top',
+                    floatingZIndex: 100,
+                    visible: true,
+                    enabled: true,
+                  }
+                : {},
     events:
       fixture.type === 'WebButton'
         ? { OnClick: 'BTNMostrarClick' }
@@ -106,7 +117,10 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
           : {},
     children: isPanel
       ? MVP_COMPONENT_FIXTURES.filter(
-          (candidate) => candidate.type !== 'WebPanel' && candidate.type !== 'WebApiClient',
+          (candidate) =>
+            candidate.type !== 'WebPanel' &&
+            candidate.type !== 'WebApiClient' &&
+            candidate.type !== 'WebPopup',
         ).map((candidate) => candidate.id)
       : [],
   };
@@ -136,7 +150,7 @@ function testPage(): PageModel {
           OnHide: null,
           OnResize: null,
         },
-        children: ['stable-panel-main', 'api-client'],
+        children: ['stable-panel-main', 'popup-dialog', 'api-client'],
       },
       ...MVP_COMPONENT_FIXTURES.map(fixtureComponent),
     ],
@@ -211,6 +225,9 @@ describe('page language generation', () => {
     expect(source).toContain(
       'this.DataGrid1 = new WebDataGrid(this.requireComponentElement("data-grid"))',
     );
+    expect(source).toContain(
+      'this.Popup1 = new WebPopup(this.requireComponentElement("popup-dialog"))',
+    );
     expect(source).toContain('this.DataGrid1.dataGridConfig = {');
     expect(source).toContain('"apiClientId":"api-client"');
     expect(source).toContain('"operationId":"operation-1"');
@@ -232,12 +249,20 @@ describe('page language generation', () => {
     const panel = page.components.find((component) => component.id === 'stable-panel-main');
     expect(panel?.children).toEqual(
       MVP_COMPONENT_FIXTURES.filter(
-        (component) => component.type !== 'WebPanel' && component.type !== 'WebApiClient',
+        (component) =>
+          component.type !== 'WebPanel' &&
+          component.type !== 'WebApiClient' &&
+          component.type !== 'WebPopup',
       ).map((component) => component.id),
     );
     expect(
       page.components
-        .filter((component) => component.type !== 'WebPage' && component.type !== 'WebApiClient')
+        .filter(
+          (component) =>
+            component.type !== 'WebPage' &&
+            component.type !== 'WebApiClient' &&
+            component.type !== 'WebPopup',
+        )
         .slice(1)
         .every((component) => component.parentId === panel?.id),
     ).toBe(true);

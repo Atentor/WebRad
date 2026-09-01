@@ -1073,6 +1073,30 @@ export class PageMain extends PageMainGenerated {
     ).toBe(true);
   });
 
+  it('accepts a styled Popup in the runtime document model', async () => {
+    const project = executableProject();
+    const page = project.pages[0];
+    if (page === undefined) throw new Error('Expected an initial page.');
+    const popup = defaultComponentRegistry.createComponent('WebPopup', {
+      id: 'popup-dialog',
+      name: 'Popup1',
+      parentId: page.rootComponentId,
+    });
+    const withPopup = updatePage(project, page.id, addComponent(page, popup, page.rootComponentId));
+    const popupStyle = createComponentStyle('Confirm Surface', 'WebPopup', {
+      idFactory: () => 'popup-style',
+      states: { base: { backgroundColor: '#0f172a', textColor: '#f8fafc' } },
+    });
+    const withStyle = addComponentStyle(withPopup, popupStyle);
+    const assigned = setComponentStyle(withStyle, page.id, popup.id, popupStyle.id);
+
+    const result = await compileProjectToMemory(assigned, { userSources: {} });
+
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    expect(result.files['assets/app.js']).toContain('"type": "WebPopup"');
+    expect(result.files['assets/app.js']).toContain('bg-[#0f172a]');
+  });
+
   it('rejects styles that target unknown or nonvisual registry entries', async () => {
     const project = executableProject();
     const unknown = createComponentStyle('Unknown Style', 'MissingControl', {

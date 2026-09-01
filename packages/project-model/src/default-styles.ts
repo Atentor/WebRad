@@ -75,6 +75,25 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Popup',
+    componentType: 'WebPopup',
+    states: {
+      base: {
+        backgroundGradient: subtleSurface,
+        borderWidth: px(1),
+        borderStyle: 'solid',
+        borderGradient: subtleBorder,
+        borderRadius: px(16),
+        textColor: '#0f172a',
+        fontFamily: 'sans',
+        boxShadow: 'md',
+        transitionProperty: 'all',
+        transitionDuration: 200,
+        transitionTimingFunction: 'easeOut',
+      },
+    },
+  },
+  {
     name: 'Default Label',
     componentType: 'WebLabel',
     states: {

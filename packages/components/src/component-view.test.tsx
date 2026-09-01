@@ -275,6 +275,37 @@ describe('ComponentView', () => {
     expect(markup.indexOf('</button>')).toBeLessThan(markup.indexOf('</section>'));
   });
 
+  it('renders Popup as an accessible static style-preview surface', () => {
+    const popup = {
+      ...button,
+      id: 'popup-id',
+      type: 'WebPopup',
+      name: 'Popup1',
+      props: {
+        caption: 'Delete customer?',
+        message: 'This action cannot be undone.',
+        modal: true,
+        visible: true,
+        enabled: true,
+      },
+    };
+    const view = render(
+      <ComponentView node={popup} styleClassName="bg-white text-slate-900 shadow-xl" />,
+    );
+    const dialog = view.getByRole('dialog', { name: 'Delete customer?' });
+
+    expect(dialog.getAttribute('aria-modal')).toBeNull();
+    expect(dialog.getAttribute('aria-describedby')).toBe('webrad-popup-message-popup-id');
+    expect(dialog.classList.contains('wr-component')).toBe(true);
+    expect(dialog.classList.contains('wr-webpopup')).toBe(true);
+    expect(dialog.classList.contains('bg-white')).toBe(true);
+    expect(dialog.classList.contains('shadow-xl')).toBe(true);
+    expect(
+      view.getByText('This action cannot be undone.').getAttribute('data-webrad-popup-message'),
+    ).toBe('');
+    view.unmount();
+  });
+
   it('keeps enabled controls visually enabled at design time while removing them from tab order', () => {
     const markup = renderToStaticMarkup(<ComponentView node={button} designTime />);
 
@@ -339,6 +370,7 @@ describe('ComponentView', () => {
 
   it('reports renderer coverage', () => {
     expect(hasComponentRenderer('WebButton')).toBe(true);
+    expect(hasComponentRenderer('WebPopup')).toBe(true);
     expect(hasComponentRenderer('Missing')).toBe(false);
   });
 

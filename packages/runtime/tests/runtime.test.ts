@@ -18,6 +18,7 @@ import {
   WebListBox,
   WebNonvisualComponent,
   WebPanel,
+  WebPopup,
   WebPageRouter,
   WebReusableElementInstance,
   WebTextArea,
@@ -385,6 +386,33 @@ describe('browser runtime', () => {
       props: { caption: 'Details', visible: true, enabled: true },
       children: [],
     });
+    const firstPageWithPopup: RuntimePageModel = {
+      ...firstPageModel,
+      components: [
+        ...firstPageModel.components.map((component) =>
+          component.id === firstPageModel.rootComponentId
+            ? { ...component, children: [...component.children, 'page-popup'] }
+            : component,
+        ),
+        {
+          id: 'page-popup',
+          type: 'WebPopup',
+          name: 'Popup1',
+          parentId: firstPageModel.rootComponentId,
+          layout: responsiveLayout(),
+          bounds: { x: 0, y: 0, width: 360, height: 200 },
+          props: {
+            caption: 'Leaving page',
+            message: '',
+            modal: true,
+            visible: false,
+            collapseWhenHidden: true,
+            enabled: true,
+          },
+          children: [],
+        },
+      ],
+    };
     const secondPageModel = navigationPageModel('page-details', 'PageDetails', {
       id: 'details-label',
       type: 'WebLabel',
@@ -398,10 +426,12 @@ describe('browser runtime', () => {
 
     class PageMain extends WebPage {
       public readonly goDetails: WebButton;
+      public readonly popup: WebPopup;
 
       public constructor(element: HTMLElement) {
         super(element);
         this.goDetails = new WebButton(this.requireComponentElement('go-details'));
+        this.popup = new WebPopup(this.requireComponentElement('page-popup'));
         this.bindGeneratedEvent(this, 'OnCreate', 'PageMainCreate');
         this.bindGeneratedEvent(this, 'OnShow', 'PageMainShow');
         this.bindGeneratedEvent(this, 'OnHide', 'PageMainHide');
@@ -446,9 +476,9 @@ describe('browser runtime', () => {
     const router = new WebPageRouter(
       [
         {
-          id: firstPageModel.id,
-          name: firstPageModel.name,
-          model: firstPageModel,
+          id: firstPageWithPopup.id,
+          name: firstPageWithPopup.name,
+          model: firstPageWithPopup,
           createPage: (element) => new PageMain(element),
         },
         {
@@ -463,9 +493,12 @@ describe('browser runtime', () => {
 
     const main = router.navigate('PageMain') as PageMain;
     expect(host.querySelector('[data-webrad-page-id="page-main"]')).not.toBeNull();
+    main.popup.show();
+    expect(main.popup.open).toBe(true);
     main.goDetails.click();
 
     expect(router.activeRoute?.id).toBe('page-details');
+    expect(main.popup.open).toBe(false);
     expect(host.querySelector('[data-webrad-page-id="page-main"]')).toBeNull();
     expect(host.querySelector('[data-webrad-page-id="page-details"]')).not.toBeNull();
     expect(lifecycle).toEqual([
@@ -1619,6 +1652,134 @@ describe('browser runtime', () => {
     runtimeButton.icon = 'door-in';
     expect(runtimeButton.icon).toBe('door-in');
     expect(icon?.querySelector('path')).not.toBeNull();
+  });
+
+  it('mounts a styled popup dialog and exposes its browser-safe lifecycle API', () => {
+    const popupModel: RuntimePageModel = {
+      ...pageModel,
+      components: [
+        ...pageModel.components.map((component) =>
+          component.id === 'page-root'
+            ? { ...component, children: [...component.children, 'popup-dialog'] }
+            : component,
+        ),
+        {
+          id: 'popup-dialog',
+          type: 'WebPopup',
+          name: 'Popup1',
+          parentId: 'page-root',
+          layout: responsiveLayout(),
+          bounds: { x: 120, y: 80, width: 360, height: 200 },
+          props: {
+            caption: 'Delete customer?',
+            message: 'This action cannot be undone.',
+            modal: true,
+            visible: false,
+            collapseWhenHidden: true,
+            enabled: true,
+          },
+          children: [],
+          styleClassName: 'bg-slate-900 text-white shadow-xl',
+        },
+      ],
+    };
+
+    const mounted = mountPage(popupModel);
+    const component = mounted.components.get('popup-dialog');
+    if (!(component instanceof WebPopup)) throw new Error('Expected mounted WebPopup.');
+
+    const { element: dialog } = component;
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(dialog.hidden).toBe(true);
+    expect(dialog.classList.contains('wr-webpopup')).toBe(true);
+    expect(dialog.classList.contains('bg-slate-900')).toBe(true);
+    expect(dialog.style.position).toBe('');
+    expect(dialog.style.left).toBe('');
+    expect(dialog.style.top).toBe('');
+    expect(dialog.querySelector('[data-webrad-popup-caption]')?.textContent).toBe(
+      'Delete customer?',
+    );
+    expect(dialog.querySelector('[data-webrad-popup-message]')?.textContent).toBe(
+      'This action cannot be undone.',
+    );
+    expect(WEBRAD_COMPONENT_CSS).toContain('.wr-webpopup::backdrop');
+
+    const lifecycle: string[] = [];
+    component.bindEvent('OnShow', () => {
+      lifecycle.push('show');
+    });
+    component.bindEvent('OnHide', () => {
+      lifecycle.push('hide');
+    });
+    component.bindEvent('OnClose', () => {
+      lifecycle.push('close');
+    });
+    component.bindEvent('OnCancel', () => {
+      lifecycle.push('cancel');
+    });
+
+    component.show();
+    expect(component.visible).toBe(true);
+    expect(component.open).toBe(true);
+    expect(dialog.hidden).toBe(false);
+    expect(lifecycle).toContain('show');
+
+    dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+    expect(lifecycle).toContain('cancel');
+
+    component.close('accepted');
+    expect(component.visible).toBe(false);
+    expect(component.open).toBe(false);
+    expect(component.returnValue).toBe('accepted');
+    expect(lifecycle).toContain('hide');
+    expect(lifecycle).toContain('close');
+  });
+
+  it('opens an initially visible modal popup after its detached host is connected', async () => {
+    const host = document.createElement('div');
+    const mounted = mountPage(
+      {
+        ...pageModel,
+        components: [
+          ...pageModel.components.map((component) =>
+            component.id === 'page-root'
+              ? { ...component, children: [...component.children, 'popup-dialog'] }
+              : component,
+          ),
+          {
+            id: 'popup-dialog',
+            type: 'WebPopup',
+            name: 'Popup1',
+            parentId: 'page-root',
+            layout: responsiveLayout(),
+            bounds: { x: 0, y: 0, width: 360, height: 200 },
+            props: {
+              caption: 'Welcome',
+              message: 'The detached host is now ready.',
+              modal: true,
+              visible: true,
+              collapseWhenHidden: true,
+              enabled: true,
+            },
+            children: [],
+          },
+        ],
+      },
+      host,
+    );
+    const component = mounted.components.get('popup-dialog');
+    if (!(component instanceof WebPopup)) throw new Error('Expected mounted WebPopup.');
+
+    await Promise.resolve();
+    expect(component.visible).toBe(true);
+    expect(component.open).toBe(false);
+
+    document.body.append(host);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(component.open).toBe(true);
+    component.close();
+    host.remove();
   });
 });
 

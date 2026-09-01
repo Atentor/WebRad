@@ -50,6 +50,7 @@ function createPreviewProps(
   activeState: ComponentStyleStateName,
 ): Record<string, unknown> {
   const props: Record<string, unknown> = { enabled: activeState !== 'disabled' };
+  if (componentType === 'WebPopup') return { ...props, visible: true };
   if (componentType !== 'WebDataGrid') return props;
 
   const dataGridConfig = createDefaultDataGridConfiguration();

@@ -92,6 +92,41 @@ function pageWithApiClient(): PageModel {
   };
 }
 
+function pageWithPopup(): PageModel {
+  const page = responsivePage();
+  const root = page.components.find((component) => component.id === page.rootComponentId);
+  if (root === undefined) throw new Error('Expected page root.');
+  const popup: ComponentNode = {
+    id: 'popup',
+    type: 'WebPopup',
+    name: 'Popup1',
+    parentId: root.id,
+    layout: createDefaultComponentLayout(),
+    bounds: { x: 0, y: 0, width: 360, height: 200 },
+    props: {
+      caption: 'Popup',
+      message: '',
+      modal: true,
+      visible: false,
+      collapseWhenHidden: true,
+      enabled: true,
+    },
+    events: { OnShow: null, OnHide: null, OnClose: null, OnCancel: null },
+    children: [],
+  };
+  return {
+    ...page,
+    components: [
+      ...page.components.map((component) =>
+        component.id === root.id
+          ? { ...component, children: [...component.children, popup.id] }
+          : component,
+      ),
+      popup,
+    ],
+  };
+}
+
 function pageWithFloatingReusableElement(): {
   readonly page: PageModel;
   readonly reusableElement: ReusableElementModel;
@@ -329,6 +364,15 @@ describe('DesignerSurface responsive projection', () => {
     expect(onComponentActivate).toHaveBeenLastCalledWith('api-client');
     expect(onComponentActivate).toHaveBeenCalledTimes(2);
     expect(onDefaultEvent).not.toHaveBeenCalled();
+  });
+
+  it('shows a runtime visual Popup in the nonvisual tray instead of canvas geometry', () => {
+    const { container } = renderSurface(pageWithPopup());
+
+    const popup = screen.getByRole('option', { name: 'Popup1, Popup' });
+    expect(popup.getAttribute('title')).toBe('Popup1: WebPopup. Double-click to activate.');
+    expect(container.querySelector('[data-component-id="popup"]')).toBeNull();
+    expect(container.querySelector('[data-component-type="WebPopup"]')).toBeNull();
   });
 
   it('renders, selects, and opens a floating reusable-component instance', () => {

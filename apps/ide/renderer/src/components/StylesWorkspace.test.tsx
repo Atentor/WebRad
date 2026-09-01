@@ -29,7 +29,39 @@ describe('StylesWorkspace', () => {
 
     expect(labels).toContain('Page');
     expect(labels).toContain('Button');
+    expect(labels).toContain('Popup');
     expect(labels).not.toContain('API Client');
+  });
+
+  it('renders the hidden-by-default Popup visibly in the style preview', () => {
+    const style = createComponentStyle('Popup Surface', 'WebPopup', {
+      idFactory: () => 'popup-style',
+      states: {
+        base: {
+          backgroundColor: '#f8fafc',
+          borderColor: '#6366f1',
+          borderWidth: { value: 2, unit: 'px' },
+          borderStyle: 'solid',
+        },
+      },
+    });
+    render(
+      <StylesWorkspace
+        styles={[style]}
+        onCreateStyle={vi.fn(() => null)}
+        onUpdateStyle={vi.fn()}
+        onDeleteStyle={vi.fn()}
+      />,
+    );
+
+    const preview = document.querySelector<HTMLElement>(
+      '[data-style-preview] [data-component-type="WebPopup"]',
+    );
+    if (preview === null) throw new Error('Expected the Popup preview root.');
+    expect(preview.hidden).toBe(false);
+    expect(preview.classList).toContain('bg-[#f8fafc]');
+    expect(preview.classList).toContain('border-[#6366f1]');
+    expect(preview.textContent).toContain('Popup');
   });
 
   it('forces the selected interaction state in the live preview', async () => {

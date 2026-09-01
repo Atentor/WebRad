@@ -366,6 +366,9 @@ describe('App MVP integration', () => {
     fireEvent.change(screen.getByLabelText('Base URL'), {
       target: { value: 'https://api.example.test/v1' },
     });
+    await user.dblClick(screen.getByRole('button', { name: 'Popup' }));
+    await screen.findByRole('option', { name: 'Popup1, Popup' });
+    expect(document.querySelector('[data-component-id][title="Popup1: WebPopup"]')).toBeNull();
 
     await user.click(screen.getByRole('tab', { name: 'Code' }));
     expect(screen.getByTestId('mock-monaco-page-components').textContent).toBe(
@@ -374,6 +377,7 @@ describe('App MVP integration', () => {
         { name: 'Edit1', type: 'WebEdit' },
         { name: 'BTNMostrar', type: 'WebButton' },
         { name: 'ApiClientes', type: 'WebApiClient' },
+        { name: 'Popup1', type: 'WebPopup' },
       ]),
     );
 
@@ -386,6 +390,7 @@ describe('App MVP integration', () => {
       'WebEdit',
       'WebButton',
       'WebApiClient',
+      'WebPopup',
     ]);
     expect(
       saved.project.pages[0]?.components.find((component) => component.name === 'BTNMostrar')?.props
@@ -419,6 +424,10 @@ describe('App MVP integration', () => {
       saved.project.pages[0]?.components.find((component) => component.type === 'WebButton')
         ?.styleId,
     ).toBe(defaultStyleIdByType.get('WebButton'));
+    expect(
+      saved.project.pages[0]?.components.find((component) => component.type === 'WebPopup')
+        ?.styleId,
+    ).toBe(defaultStyleIdByType.get('WebPopup'));
 
     await act(async () => {
       harness.invokeCommand('file.closeProject');
@@ -429,6 +438,7 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
     await screen.findByTitle('BTNMostrar: WebButton');
     await screen.findByRole('option', { name: 'ApiClientes, API Client' });
+    await screen.findByRole('option', { name: 'Popup1, Popup' });
     expect(harness.open).toHaveBeenCalledOnce();
 
     await user.click(screen.getByRole('button', { name: 'Build and run (F9)' }));
@@ -444,6 +454,7 @@ describe('App MVP integration', () => {
       'WebEdit',
       'WebButton',
       'WebApiClient',
+      'WebPopup',
     ]);
     expect(harness.save.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(harness.setDirty).toHaveBeenCalledWith(true);
@@ -793,7 +804,7 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await screen.findByText('Saved MvpProject.');
     const savedWithStyles = harness.persisted().project;
-    expect(savedWithStyles.styles).toHaveLength(14);
+    expect(savedWithStyles.styles).toHaveLength(15);
     const primaryStyle = savedWithStyles.styles.find((style) => style.name === 'Primary Button');
     const mutedStyle = savedWithStyles.styles.find((style) => style.name === 'Muted Label');
     const pageStyle = savedWithStyles.styles.find((style) => style.name === 'Page Surface');
@@ -829,16 +840,16 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await waitFor(() => {
       const styles = harness.persisted().project.styles;
-      expect(styles).toHaveLength(13);
-      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(11);
+      expect(styles).toHaveLength(14);
+      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(12);
       expect(styles.some((style) => style.name === 'Primary Button')).toBe(false);
       expect(styles.some((style) => style.name === 'Muted Label')).toBe(true);
       expect(styles.some((style) => style.name === 'Page Surface')).toBe(true);
     });
 
     const savedAfterDelete = harness.persisted().project;
-    expect(savedAfterDelete.styles).toHaveLength(13);
-    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(11);
+    expect(savedAfterDelete.styles).toHaveLength(14);
+    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(12);
     expect(
       savedAfterDelete.pages[0]?.components
         .filter((component) => component.type === 'WebButton')
@@ -968,9 +979,28 @@ describe('App MVP integration', () => {
 
     await user.click(screen.getByRole('treeitem', { name: /PageMain/ }));
     await screen.findByRole('tab', { name: 'Code' });
-    await user.click(
-      screen.getByTitle('Insert CustomerCard; drag it onto the page or click to insert'),
-    );
+    const reusableTreeItem = within(projectTree).getByRole('treeitem', { name: 'CustomerCard' });
+    const dragData = new Map<string, string>();
+    const dragStartEvent = new MouseEvent('dragstart', { bubbles: true, cancelable: true });
+    Object.defineProperty(dragStartEvent, 'dataTransfer', {
+      value: {
+        effectAllowed: '',
+        setData: (type: string, value: string) => dragData.set(type, value),
+      },
+    });
+    fireEvent(reusableTreeItem, dragStartEvent);
+    const overlay = document.querySelector<HTMLElement>('.wr-design-overlay');
+    if (overlay === null) throw new Error('Expected Designer overlay.');
+    const dropEvent = new MouseEvent('drop', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 100,
+      clientY: 20,
+    });
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+      value: { getData: (type: string) => dragData.get(type) ?? '' },
+    });
+    fireEvent(overlay, dropEvent);
     await screen.findByTitle('Reusable1: WebReusableElement');
     selectDesignerComponent('Reusable1: WebReusableElement');
     await user.click(screen.getByRole('tab', { name: 'Properties' }));

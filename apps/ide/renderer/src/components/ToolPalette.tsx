@@ -1,9 +1,9 @@
 import {
   defaultComponentRegistry,
+  resolveComponentDesignerPresentation,
   type ComponentDefinition,
   type ComponentRegistry,
 } from '@webrad/component-registry';
-import type { ReusableElementModel } from '@webrad/project-model';
 import { useMemo, useState, type DragEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
@@ -15,8 +15,6 @@ export interface ToolPaletteProps {
   selectedType?: string | null;
   onSelect: (componentType: string) => void;
   onInsert: (componentType: string) => void;
-  reusableElements?: readonly ReusableElementModel[];
-  onInsertReusableElement?: (reusableElementId: string) => void;
   allowNonvisual?: boolean;
   registry?: ComponentRegistry;
 }
@@ -51,7 +49,7 @@ function groupByCategory(
     if (
       definition.type === 'WebPage' ||
       definition.type === 'WebReusableElement' ||
-      (!allowNonvisual && !definition.visual) ||
+      (!allowNonvisual && resolveComponentDesignerPresentation(definition) === 'tray') ||
       !matchesSearch(definition, query)
     ) {
       continue;
@@ -62,15 +60,6 @@ function groupByCategory(
   }
 
   return [...categories].map(([name, components]) => ({ name, components }));
-}
-
-function beginReusableElementDrag(
-  event: DragEvent<HTMLButtonElement>,
-  reusableElement: ReusableElementModel,
-): void {
-  event.dataTransfer.effectAllowed = 'copy';
-  event.dataTransfer.setData(WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE, reusableElement.id);
-  event.dataTransfer.setData('text/plain', reusableElement.name);
 }
 
 function beginComponentDrag(
@@ -86,8 +75,6 @@ export function ToolPalette({
   selectedType = null,
   onSelect,
   onInsert,
-  reusableElements = [],
-  onInsertReusableElement,
   allowNonvisual = true,
   registry = defaultComponentRegistry,
 }: ToolPaletteProps): ReactElement {
@@ -100,14 +87,6 @@ export function ToolPalette({
     () => groupByCategory(registry.list(), normalizedSearch, allowNonvisual),
     [allowNonvisual, normalizedSearch, registry],
   );
-  const reusableMatches = reusableElements.filter((reusableElement) =>
-    [reusableElement.name, reusableElement.caption, 'Reusable component'].some((value) =>
-      value.toLocaleLowerCase().includes(normalizedSearch),
-    ),
-  );
-  const reusableExpanded =
-    normalizedSearch.length > 0 || !collapsedCategories.has('reusable-elements');
-
   const toggleCategory = (category: string): void => {
     setCollapsedCategories((current) => {
       const next = new Set(current);
@@ -145,7 +124,7 @@ export function ToolPalette({
       </div>
 
       <div className="wr-palette-categories" aria-label="Components">
-        {categories.length === 0 && reusableMatches.length === 0 ? (
+        {categories.length === 0 ? (
           <div className="wr-palette-empty">No components match &ldquo;{search.trim()}&rdquo;.</div>
         ) : (
           categories.map((category) => {
@@ -205,46 +184,6 @@ export function ToolPalette({
               </section>
             );
           })
-        )}
-        {reusableMatches.length > 0 && (
-          <section className="wr-palette-category" key="reusable-elements">
-            <button
-              type="button"
-              className="wr-palette-category-header"
-              aria-expanded={reusableExpanded}
-              onClick={() => toggleCategory('reusable-elements')}
-            >
-              <span className="wr-palette-chevron" aria-hidden="true">
-                <Icon name={reusableExpanded ? 'chevron-down' : 'chevron-right'} />
-              </span>
-              <span>Reusable Components</span>
-              <small>{reusableMatches.length}</small>
-            </button>
-            {reusableExpanded && (
-              <div className="wr-palette-items">
-                {reusableMatches.map((reusableElement) => (
-                  <button
-                    type="button"
-                    className="wr-palette-item"
-                    key={reusableElement.id}
-                    draggable
-                    title={`Insert ${reusableElement.name}; drag it onto the page or click to insert`}
-                    onClick={() => onInsertReusableElement?.(reusableElement.id)}
-                    onDragStart={(event) => beginReusableElementDrag(event, reusableElement)}
-                  >
-                    <span
-                      className="wr-palette-item-icon"
-                      data-icon="component-panel"
-                      aria-hidden="true"
-                    >
-                      R
-                    </span>
-                    <span className="wr-palette-item-caption">{reusableElement.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
         )}
       </div>
     </Panel>

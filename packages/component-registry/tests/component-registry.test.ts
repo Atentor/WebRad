@@ -9,6 +9,7 @@ import {
   componentRegistry,
   createMvpComponentRegistry,
   getNextComponentName,
+  resolveComponentDesignerPresentation,
   type ComponentDefinition,
 } from '../src/index.js';
 
@@ -71,9 +72,9 @@ function defaultLayout() {
 }
 
 describe('MVP component metadata', () => {
-  it('registers the reusable visual wrapper, controls, and WebApiClient in a stable order', () => {
+  it('registers the reusable visual wrapper, controls, Popup, and WebApiClient in a stable order', () => {
     expect(componentRegistry.list().map((item) => item.type)).toEqual(MVP_COMPONENT_TYPES);
-    expect(componentRegistry.size).toBe(13);
+    expect(componentRegistry.size).toBe(14);
     expect(
       componentRegistry
         .list()
@@ -146,7 +147,9 @@ describe('MVP component metadata', () => {
           .map((property) => property.name),
       ).toEqual(containerPropertyNames);
     }
-    for (const definition of componentRegistry.list().filter((definition) => definition.visual)) {
+    for (const definition of componentRegistry
+      .list()
+      .filter((definition) => resolveComponentDesignerPresentation(definition) === 'canvas')) {
       expect(
         definition.properties
           .filter((property) => property.source === 'layout-item')
@@ -194,7 +197,63 @@ describe('MVP component metadata', () => {
       'WebPanel',
       'WebReusableElement',
     ]);
-    expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual(['WebApiClient']);
+    expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual([
+      'WebPopup',
+      'WebApiClient',
+    ]);
+  });
+
+  it('describes WebPopup as a browser-rendered dialog authored from the nonvisual tray', () => {
+    const popup = componentRegistry.require('WebPopup');
+
+    expect(popup.visual).toBe(true);
+    expect(popup.designerPresentation).toBe('tray');
+    expect(resolveComponentDesignerPresentation(popup)).toBe('tray');
+    expect(popup.canHaveChildren).toBe(false);
+    expect(popup.defaultEvent).toBe('OnShow');
+    expect(popup.defaultBounds).toEqual({ width: 360, height: 200 });
+    expect(popup.defaults).toEqual({
+      caption: 'Popup',
+      message: '',
+      modal: true,
+      visible: false,
+      collapseWhenHidden: true,
+      enabled: true,
+    });
+    expect(popup.properties.map((property) => property.name)).toEqual([
+      'name',
+      'width',
+      'height',
+      'visible',
+      'collapseWhenHidden',
+      'enabled',
+      'caption',
+      'message',
+      'modal',
+    ]);
+    expect(popup.properties.filter((property) => property.source === 'bounds')).toEqual([
+      expect.objectContaining({ name: 'width', category: 'Size', defaultValue: 360 }),
+      expect.objectContaining({ name: 'height', category: 'Size', defaultValue: 200 }),
+    ]);
+    expect(popup.properties.some((property) => property.name === 'x')).toBe(false);
+    expect(popup.properties.some((property) => property.name === 'y')).toBe(false);
+    expect(popup.properties.some((property) => property.source === 'layout-item')).toBe(false);
+    expect(popup.properties.find((property) => property.name === 'message')).toMatchObject({
+      type: 'string',
+      source: 'props',
+      defaultValue: '',
+    });
+    expect(popup.properties.find((property) => property.name === 'modal')).toMatchObject({
+      type: 'boolean',
+      source: 'props',
+      defaultValue: true,
+    });
+    expect(popup.events.map((eventDefinition) => eventDefinition.name)).toEqual([
+      'OnShow',
+      'OnHide',
+      'OnClose',
+      'OnCancel',
+    ]);
   });
 
   it('describes WebApiClient as a functional nonvisual service with request lifecycle events', () => {
@@ -307,6 +366,24 @@ describe('ComponentRegistry behavior', () => {
     expect(() => registry.register({ ...definition(), type: 'bad-type' })).toThrow(
       InvalidComponentDefinitionError,
     );
+    expect(() =>
+      registry.register({ ...definition(), designerPresentation: 'sidebar' as never }),
+    ).toThrow(InvalidComponentDefinitionError);
+  });
+
+  it('resolves the default Designer presentation from runtime visual ownership', () => {
+    expect(resolveComponentDesignerPresentation(componentRegistry.require('WebButton'))).toBe(
+      'canvas',
+    );
+    expect(resolveComponentDesignerPresentation(componentRegistry.require('WebApiClient'))).toBe(
+      'tray',
+    );
+    expect(resolveComponentDesignerPresentation(componentRegistry.require('WebPopup'))).toBe(
+      'tray',
+    );
+    expect(
+      resolveComponentDesignerPresentation({ visual: false, designerPresentation: 'canvas' }),
+    ).toBe('canvas');
   });
 
   it('copies and freezes registered metadata so callers cannot mutate it indirectly', () => {
@@ -327,7 +404,7 @@ describe('ComponentRegistry behavior', () => {
   it('supports the conceptual static global registry API', () => {
     expect(ComponentRegistry.has('WebButton')).toBe(true);
     expect(ComponentRegistry.get('WebButton')).toBe(componentRegistry.get('WebButton'));
-    expect(ComponentRegistry.list()).toHaveLength(13);
+    expect(ComponentRegistry.list()).toHaveLength(14);
   });
 });
 
@@ -417,6 +494,39 @@ describe('sequential names and node defaults', () => {
         OnSuccess: null,
         OnError: null,
         OnComplete: null,
+      },
+      children: [],
+    });
+  });
+
+  it('materializes a tray-authored Popup with browser visual defaults', () => {
+    const node = componentRegistry.createComponent('WebPopup', {
+      id: 'popup-id',
+      existingNames: ['Popup1'],
+      parentId: 'root-id',
+      props: { message: 'Saved successfully.' },
+    });
+
+    expect(node).toEqual({
+      id: 'popup-id',
+      type: 'WebPopup',
+      name: 'Popup2',
+      parentId: 'root-id',
+      layout: defaultLayout(),
+      bounds: { x: 0, y: 0, width: 360, height: 200 },
+      props: {
+        caption: 'Popup',
+        message: 'Saved successfully.',
+        modal: true,
+        visible: false,
+        collapseWhenHidden: true,
+        enabled: true,
+      },
+      events: {
+        OnShow: null,
+        OnHide: null,
+        OnClose: null,
+        OnCancel: null,
       },
       children: [],
     });

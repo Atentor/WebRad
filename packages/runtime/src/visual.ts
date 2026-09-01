@@ -1100,6 +1100,12 @@ export const WEBRAD_COMPONENT_CSS = `
 .wr-reusable-definition-root > .wr-component { position: relative !important; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }
 .wr-webpanel { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
+.wr-webpopup { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); border-radius: 8px; background: var(--wr-control-surface, #262b35); color: inherit; overflow: hidden; padding: 0; }
+.wr-webpopup::backdrop { background: rgb(15 23 42 / .48); }
+.wr-popup-content { display: grid; gap: 10px; min-width: 0; min-height: 0; padding: 18px; }
+.wr-popup-caption, .wr-popup-message { margin: 0; }
+.wr-popup-caption { font-size: 1.1em; font-weight: 600; }
+.wr-popup-message { white-space: pre-wrap; }
 .wr-webedit, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { --webrad-border-gradient-surface: var(--wr-input-bg, #11151c); border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
 .wr-webedit:focus, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
 .wr-webbutton { --webrad-border-gradient-surface: var(--wr-button-bg, #343b49); display: inline-flex; align-items: center; justify-content: center; gap: .45em; border: 1px solid var(--wr-control-border, #677184); border-radius: 4px; background: var(--wr-button-bg, #343b49); color: inherit; padding: 4px 12px; }

@@ -13,6 +13,7 @@ import {
 import {
   componentRegistry,
   requireComponentDefinition,
+  resolveComponentDesignerPresentation,
   type ComponentDesignerAction,
   type ComponentPropertyDefinition,
 } from '@webrad/component-registry';
@@ -400,15 +401,16 @@ export function App(): ReactElement {
       if (!activePage) return;
       try {
         const definition = requireComponentDefinition(type);
-        const parentId = definition.visual ? requestedParentId : activePage.rootComponentId;
+        const appearsOnCanvas = resolveComponentDesignerPresentation(definition) === 'canvas';
+        const parentId = appearsOnCanvas ? requestedParentId : activePage.rootComponentId;
         const parent = getComponent(activePage, parentId);
         const snapped = project?.settings.snapToGrid
           ? snapPoint(point, project.settings.gridSize)
           : point;
-        const x = definition.visual
+        const x = appearsOnCanvas
           ? Math.max(0, Math.min(snapped.x, parent.bounds.width - definition.defaultBounds.width))
           : 0;
-        const y = definition.visual
+        const y = appearsOnCanvas
           ? Math.max(0, Math.min(snapped.y, parent.bounds.height - definition.defaultBounds.height))
           : 0;
         const createdNode = componentRegistry.createComponent(type, {
@@ -623,7 +625,11 @@ export function App(): ReactElement {
       const ids = selection.ids.filter((id) => {
         if (id === activePage.rootComponentId) return false;
         const component = activePage.components.find((candidate) => candidate.id === id);
-        return component !== undefined && componentRegistry.get(component.type)?.visual === true;
+        const definition =
+          component === undefined ? undefined : componentRegistry.get(component.type);
+        return (
+          definition !== undefined && resolveComponentDesignerPresentation(definition) === 'canvas'
+        );
       });
       if (ids.length === 0) return;
       try {
@@ -1532,6 +1538,11 @@ export function App(): ReactElement {
     activePage === null || activeDocumentKind === null
       ? null
       : sourceKey(activePage, activeDocumentKind);
+  const primaryComponentDefinition =
+    primaryComponent === null ? undefined : componentRegistry.get(primaryComponent.type);
+  const primaryComponentAppearsOnCanvas =
+    primaryComponentDefinition !== undefined &&
+    resolveComponentDesignerPresentation(primaryComponentDefinition) === 'canvas';
 
   const editorContent = stylesActive ? (
     <ErrorBoundary area="Styles">
@@ -1612,10 +1623,7 @@ export function App(): ReactElement {
       : ({
           kind: 'designer',
           name: primaryComponent?.name ?? activePage.name,
-          bounds:
-            primaryComponent && componentRegistry.get(primaryComponent.type)?.visual === true
-              ? primaryComponent.bounds
-              : undefined,
+          bounds: primaryComponentAppearsOnCanvas ? primaryComponent?.bounds : undefined,
           zoom,
         } as const);
   const modalOpen =
@@ -1682,19 +1690,7 @@ export function App(): ReactElement {
                       activePage.rootComponentId,
                     );
                   }}
-                  reusableElements={project?.reusableElements}
                   allowNonvisual
-                  onInsertReusableElement={(reusableElementId) => {
-                    if (!activePage) return;
-                    addReusableElementAt(
-                      reusableElementId,
-                      {
-                        x: Math.round(activePage.width / 2 - 180),
-                        y: Math.round(activePage.height / 2 - 120),
-                      },
-                      activePage.rootComponentId,
-                    );
-                  }}
                 />
               </ErrorBoundary>
             ) : null

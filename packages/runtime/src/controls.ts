@@ -452,6 +452,265 @@ export class WebPanel extends WebComponent<HTMLElement> {
   }
 }
 
+function popupElement(element: HTMLElement): HTMLDialogElement {
+  if (element.tagName !== 'DIALOG') {
+    throw new TypeError('WebPopup requires a dialog element.');
+  }
+  return element as HTMLDialogElement;
+}
+
+function popupContentElement(element: HTMLDialogElement): HTMLElement {
+  const existing = element.querySelector<HTMLElement>('[data-webrad-popup-content]');
+  if (existing !== null) return existing;
+
+  const content = element.ownerDocument.createElement('div');
+  content.classList.add('wr-popup-content');
+  content.dataset.webradPopupContent = '';
+
+  const caption = element.ownerDocument.createElement('h2');
+  caption.classList.add('wr-popup-caption');
+  caption.dataset.webradPopupCaption = '';
+
+  const message = element.ownerDocument.createElement('p');
+  message.classList.add('wr-popup-message');
+  message.dataset.webradPopupMessage = '';
+
+  content.append(caption, message);
+  element.append(content);
+  return content;
+}
+
+function popupTextElement(
+  element: HTMLDialogElement,
+  dataAttribute: 'webradPopupCaption' | 'webradPopupMessage',
+): HTMLElement {
+  popupContentElement(element);
+  const selector =
+    dataAttribute === 'webradPopupCaption'
+      ? '[data-webrad-popup-caption]'
+      : '[data-webrad-popup-message]';
+  const text = element.querySelector<HTMLElement>(selector);
+  if (text === null) throw new Error('WebPopup content could not be created.');
+  return text;
+}
+
+type DialogMethod = (returnValue?: string) => void;
+
+function dialogMethod(
+  element: HTMLDialogElement,
+  name: 'show' | 'showModal' | 'close',
+): DialogMethod | undefined {
+  const candidate = Reflect.get(element, name);
+  return typeof candidate === 'function' ? (candidate as DialogMethod) : undefined;
+}
+
+/**
+ * A browser-native dialog with the same DOM-backed API as other visual
+ * components. The native dialog enters the top layer when modal, preventing
+ * parent clipping or stacking contexts from trapping it below the page.
+ */
+export class WebPopup extends WebComponent<HTMLDialogElement> {
+  #showQueued = false;
+  #connectionObserver: MutationObserver | null = null;
+  readonly #onNativeClose = (): void => {
+    this.#stopWaitingForConnection();
+    const wasVisible = super.visible;
+    super.visible = false;
+    if (wasVisible) this.emit('OnHide');
+  };
+
+  public constructor(element: HTMLElement) {
+    super(popupElement(element));
+    this.element.addEventListener('close', this.#onNativeClose);
+  }
+
+  public get caption(): string {
+    return this.element.dataset.webradCaption ?? this.element.getAttribute('aria-label') ?? '';
+  }
+
+  public set caption(value: string) {
+    this.element.dataset.webradCaption = value;
+    this.element.setAttribute('aria-label', value);
+    popupTextElement(this.element, 'webradPopupCaption').textContent = value;
+  }
+
+  public get message(): string {
+    return this.element.dataset.webradMessage ?? '';
+  }
+
+  public set message(value: string) {
+    this.element.dataset.webradMessage = value;
+    popupTextElement(this.element, 'webradPopupMessage').textContent = value;
+  }
+
+  /** Whether show() opens the dialog in the browser's modal top layer. */
+  public get modal(): boolean {
+    return this.element.dataset.webradPopupModal !== 'false';
+  }
+
+  public set modal(value: boolean) {
+    this.element.dataset.webradPopupModal = String(value);
+  }
+
+  /** True while the underlying browser dialog is open. */
+  public get open(): boolean {
+    return this.element.open;
+  }
+
+  public get returnValue(): string {
+    return this.element.returnValue ?? '';
+  }
+
+  public set returnValue(value: string) {
+    this.element.returnValue = value;
+  }
+
+  public override get visible(): boolean {
+    return super.visible;
+  }
+
+  public override set visible(value: boolean) {
+    if (value) this.show();
+    else this.hide();
+  }
+
+  public override show(): void {
+    if (this.element.open) {
+      this.#stopWaitingForConnection();
+      super.visible = true;
+      return;
+    }
+
+    // Apply the shared visibility contract before opening. The base setter
+    // intentionally owns hidden/ARIA/display, while the dialog owns top-layer
+    // placement.
+    super.visible = true;
+    if (this.modal && !this.element.isConnected) {
+      // mountPage applies model properties before appending the branch to its
+      // host. showModal() rejects a detached dialog, so defer the first modal
+      // opening until its host is connected. Most mounts finish synchronously,
+      // but a caller may deliberately mount into a detached host and attach it
+      // later.
+      this.#queueShowAfterMount();
+      return;
+    }
+    this.#stopWaitingForConnection();
+    const method = this.modal
+      ? dialogMethod(this.element, 'showModal')
+      : dialogMethod(this.element, 'show');
+    if (method === undefined) {
+      // JSDOM and older engines implement HTMLDialogElement without its modal
+      // methods. Keeping an attribute fallback makes the browser-safe runtime
+      // testable without changing real-browser behavior.
+      this.element.open = true;
+    } else {
+      try {
+        method.call(this.element);
+      } catch {
+        // A detached dialog cannot enter the modal top layer. It can still
+        // retain correct component state until its host is connected.
+        if (this.modal && !this.element.isConnected) {
+          this.#queueShowAfterMount();
+          return;
+        }
+        this.element.open = true;
+      }
+    }
+    this.emit('OnShow');
+  }
+
+  public override hide(): void {
+    this.close();
+  }
+
+  public close(returnValue?: string): void {
+    this.#stopWaitingForConnection();
+    if (returnValue !== undefined) this.element.returnValue = returnValue;
+
+    if (!this.element.open) {
+      super.visible = false;
+      return;
+    }
+
+    const close = dialogMethod(this.element, 'close');
+    if (close === undefined) {
+      this.element.open = false;
+      this.element.dispatchEvent(new Event('close'));
+      return;
+    }
+
+    close.call(this.element, returnValue);
+  }
+
+  public override dispose(): void {
+    this.#stopWaitingForConnection();
+    this.element.removeEventListener('close', this.#onNativeClose);
+    super.dispose();
+    if (!this.element.open) return;
+
+    // Closing during teardown releases an open dialog from the browser's top
+    // layer. Event listeners were removed first, so disposal cannot call
+    // authored handlers after their page has begun to unmount.
+    const close = dialogMethod(this.element, 'close');
+    if (close === undefined) {
+      this.element.open = false;
+      return;
+    }
+    try {
+      close.call(this.element);
+    } catch {
+      this.element.open = false;
+    }
+  }
+
+  #queueShowAfterMount(): void {
+    if (this.#showQueued) return;
+    this.#showQueued = true;
+    queueMicrotask(() => {
+      if (!this.#showQueued) return;
+      this.#showQueued = false;
+      this.#showWhenConnected();
+    });
+  }
+
+  #showWhenConnected(): void {
+    if (!this.visible || this.open) {
+      this.#stopWaitingForConnection();
+      return;
+    }
+    if (this.element.isConnected) {
+      this.#stopWaitingForConnection();
+      this.show();
+      return;
+    }
+    this.#observeConnection();
+  }
+
+  #observeConnection(): void {
+    if (this.#connectionObserver !== null) return;
+    const MutationObserverConstructor = this.element.ownerDocument.defaultView?.MutationObserver;
+    if (MutationObserverConstructor === undefined) return;
+
+    const connectionObserver = new MutationObserverConstructor(() => {
+      if (this.#connectionObserver !== connectionObserver) return;
+      this.#showWhenConnected();
+    });
+    this.#connectionObserver = connectionObserver;
+    connectionObserver.observe(this.element.ownerDocument, { childList: true, subtree: true });
+
+    // The document can change between the connection check above and observer
+    // registration, so resolve that narrow race without waiting for another
+    // DOM mutation.
+    this.#showWhenConnected();
+  }
+
+  #stopWaitingForConnection(): void {
+    this.#showQueued = false;
+    this.#connectionObserver?.disconnect();
+    this.#connectionObserver = null;
+  }
+}
+
 /**
  * Wrapper for one placement of a project reusable definition. The definition
  * is expanded by mountPage(), while this component owns the instance element

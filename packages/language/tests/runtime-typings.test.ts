@@ -178,6 +178,7 @@ describe('Monaco runtime typings', () => {
   WebLabel,
   WebListBox,
   WebPanel,
+  WebPopup,
   WebReusableElement,
   WebReusableElementInstance,
   WebTextArea,
@@ -196,6 +197,7 @@ class EditorPage extends WebPage {
     image: WebImage,
     list: WebListBox,
     grid: WebDataGrid,
+    popup: WebPopup,
     api: WebApiClient,
     reusableInstance: WebReusableElementInstance,
   ): void {
@@ -210,6 +212,7 @@ class EditorPage extends WebPage {
     image./*@image*/objectFit;
     list./*@list*/selectedIndex;
     grid./*@grid*/configuration;
+    popup./*@popup*/message;
     api./*@api*/request;
     reusableInstance./*@reusableInstance*/pageName;
     this./*@page*/show;
@@ -322,6 +325,17 @@ class EditorPage extends WebPage {
     expect(completions('grid')).toEqual(
       expect.arrayContaining([...commonVisualProperties, 'bindApiClient', 'configuration']),
     );
+    expect(completions('popup')).toEqual(
+      expect.arrayContaining([
+        ...commonVisualProperties,
+        'caption',
+        'close',
+        'message',
+        'modal',
+        'open',
+        'returnValue',
+      ]),
+    );
     expect(completions('api')).toEqual(
       expect.arrayContaining([
         'baseUrl',
@@ -359,6 +373,7 @@ class EditorPage extends WebPage {
       WebLabel: 'label',
       WebListBox: 'list',
       WebPanel: 'panel',
+      WebPopup: 'popup',
       WebReusableElement: 'reusable',
       WebTextArea: 'textArea',
     };
@@ -415,6 +430,7 @@ class EditorPage extends WebPage {
   WebLabel,
   WebListBox,
   WebPanel,
+  WebPopup,
   WebReusableElement,
   WebReusableElementInstance,
   WebTextArea,
@@ -441,6 +457,7 @@ class EditorPage extends WebPage {
     combo: WebComboBox,
     image: WebImage,
     list: WebListBox,
+    popup: WebPopup,
     api: WebApiClient,
   ): void {
     this.caption = 'Editor';
@@ -476,6 +493,13 @@ class EditorPage extends WebPage {
     list.items = ['One', 'Two'];
     list.selectedIndex = 1;
     list.multiple = true;
+    popup.caption = 'Confirmar';
+    popup.message = 'Deseja continuar?';
+    popup.modal = true;
+    popup.show();
+    popup.close('accepted');
+    const popupOpen: boolean = popup.open;
+    void popupOpen;
     this.bindGeneratedEvent(button, 'OnClick', 'SaveClick');
     api.baseUrl = 'https://api.example.test';
     const service: WebNonvisualComponent = api;
@@ -592,6 +616,7 @@ void tokens;
   WebPage,
   WebImage,
   WebListBox,
+  WebPopup,
   WebReusableElementInstance,
 } from '@webrad/runtime';
 declare const button: WebButton;
@@ -599,6 +624,7 @@ declare const edit: WebEdit;
 declare const page: WebPage;
 declare const image: WebImage;
 declare const list: WebListBox;
+declare const popup: WebPopup;
 declare const api: WebApiClient;
 declare const reusableInstance: WebReusableElementInstance;
 button.caption = 42;
@@ -607,6 +633,9 @@ edit.inputType = 'date';
 page.layoutMode = 'table';
 image.objectFit = 'stretch';
 list.multiple = 'yes';
+popup.modal = 'yes';
+popup.returnValue = 42;
+popup.open = false;
 api.baseUrl = 42;
 api.id = 'replacement';
 reusableInstance.pageName = 'Replacement';

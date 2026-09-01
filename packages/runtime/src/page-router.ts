@@ -31,6 +31,10 @@ interface ActiveRuntimePage {
   readonly route: RuntimePageRoute;
 }
 
+function disposeMountedComponents(mounted: MountedRuntimePage): void {
+  for (const component of mounted.components.values()) component.dispose();
+}
+
 function requireRouteField(value: string, field: 'id' | 'name'): void {
   if (value.trim().length === 0) throw new Error(`Runtime page route ${field} must not be empty.`);
 }
@@ -172,7 +176,7 @@ export class WebPageRouter {
     } catch (error) {
       mounted.page.close({ remove: true });
       for (const reusableElement of reusableElements) reusableElement.dispose();
-      mounted.page.dispose();
+      disposeMountedComponents(mounted);
       throw error;
     }
 
@@ -224,7 +228,7 @@ export class WebPageRouter {
     } finally {
       for (const reusableElement of active.reusableElements) reusableElement.dispose();
       active.page.dispose();
-      active.mounted.page.dispose();
+      disposeMountedComponents(active.mounted);
       // A user OnHide handler can throw before close() removes the root.
       active.page.element.remove();
     }

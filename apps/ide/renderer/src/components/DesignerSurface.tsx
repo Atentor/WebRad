@@ -1,5 +1,8 @@
 import { ComponentView, SharedComponentStyles } from '@webrad/components';
-import { componentRegistry } from '@webrad/component-registry';
+import {
+  componentRegistry,
+  resolveComponentDesignerPresentation,
+} from '@webrad/component-registry';
 import {
   RESIZE_HANDLES,
   constrainMovementDelta,
@@ -185,6 +188,16 @@ function isFloatingReusableElement(node: ComponentNode): boolean {
   return node.type === 'WebReusableElement' && node.props.placement === 'floating';
 }
 
+function appearsOnDesignerCanvas(type: string): boolean {
+  const definition = componentRegistry.get(type);
+  return definition !== undefined && resolveComponentDesignerPresentation(definition) === 'canvas';
+}
+
+function appearsInDesignerTray(type: string): boolean {
+  const definition = componentRegistry.get(type);
+  return definition !== undefined && resolveComponentDesignerPresentation(definition) === 'tray';
+}
+
 function floatingHorizontalAnchor(node: ComponentNode): 'left' | 'center' | 'right' {
   const value = node.props.floatingHorizontalAnchor;
   return value === 'center' || value === 'right' ? value : 'left';
@@ -246,7 +259,7 @@ function buildLayout(
     if (!parent) return;
     for (const childId of parent.children) {
       const child = byId.get(childId);
-      if (!child || componentRegistry.get(child.type)?.visual !== true) continue;
+      if (!child || !appearsOnDesignerCanvas(child.type)) continue;
       const fallback = {
         ...child.bounds,
         x: origin.x + child.bounds.x,
@@ -435,8 +448,7 @@ function reusableVisualChildren(
   return node.children
     .map((childId) => byId.get(childId))
     .filter(
-      (child): child is ComponentNode =>
-        child !== undefined && componentRegistry.get(child.type)?.visual === true,
+      (child): child is ComponentNode => child !== undefined && appearsOnDesignerCanvas(child.type),
     );
 }
 
@@ -806,17 +818,14 @@ export function DesignerSurface({
   const nonvisualComponents = useMemo(
     () =>
       page.components.filter(
-        (node) =>
-          node.id !== page.rootComponentId && componentRegistry.get(node.type)?.visual === false,
+        (node) => node.id !== page.rootComponentId && appearsInDesignerTray(node.type),
       ),
     [page],
   );
   const selectedVisualIds = useMemo(
     () =>
       selectedIds.filter(
-        (id) =>
-          id !== page.rootComponentId &&
-          componentRegistry.get(byId.get(id)?.type ?? '')?.visual === true,
+        (id) => id !== page.rootComponentId && appearsOnDesignerCanvas(byId.get(id)?.type ?? ''),
       ),
     [byId, page.rootComponentId, selectedIds],
   );
@@ -914,7 +923,7 @@ export function DesignerSurface({
   };
 
   const insertAt = (type: string, point: Point): void => {
-    if (componentRegistry.get(type)?.visual === false) {
+    if (appearsInDesignerTray(type)) {
       onAddComponent(type, { x: 0, y: 0 }, page.rootComponentId);
       return;
     }
@@ -1217,7 +1226,7 @@ export function DesignerSurface({
   const handleNonvisualDrop = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault();
     const type = event.dataTransfer.getData('application/x-webrad-component');
-    if (componentRegistry.get(type)?.visual === false) {
+    if (appearsInDesignerTray(type)) {
       onAddComponent(type, { x: 0, y: 0 }, page.rootComponentId);
     }
   };
@@ -1303,7 +1312,7 @@ export function DesignerSurface({
                 >
                   {root.children.map((childId) => {
                     const child = byId.get(childId);
-                    return child && componentRegistry.get(child.type)?.visual === true ? (
+                    return child && appearsOnDesignerCanvas(child.type) ? (
                       <RuntimeNode
                         key={child.id}
                         node={child}

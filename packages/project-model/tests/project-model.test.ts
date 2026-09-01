@@ -115,11 +115,12 @@ describe('project factories', () => {
       },
     });
     expect(project.pages).toHaveLength(1);
-    expect(project.styles).toHaveLength(11);
+    expect(project.styles).toHaveLength(12);
     expect(project.styles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ componentType: 'WebPage', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebPanel', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebPopup', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebLabel', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebEdit', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebTextArea', preset: 'default' }),
@@ -173,6 +174,11 @@ describe('project factories', () => {
       dataGridCheckboxTextColor: '#334155',
       dataGridCheckboxFontWeight: 'medium',
       dataGridCheckboxGap: { value: 6, unit: 'px' },
+    });
+    expect(findDefaultComponentStyle(project.styles, 'WebPopup')?.states.base).toMatchObject({
+      borderRadius: { value: 16, unit: 'px' },
+      boxShadow: 'md',
+      textColor: '#0f172a',
     });
     const defaultCheckBox = findDefaultComponentStyle(project.styles, 'WebCheckBox');
     expect(defaultCheckBox).toBeDefined();

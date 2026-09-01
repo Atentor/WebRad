@@ -81,7 +81,7 @@ describe('project files', () => {
       styles: { id: string; componentType: string; preset?: string }[];
     };
     expect(manifest.formatVersion).toBe(CURRENT_PROJECT_FORMAT_VERSION);
-    expect(manifest.styles).toHaveLength(11);
+    expect(manifest.styles).toHaveLength(12);
     const defaultPageStyle = manifest.styles.find(
       (style) => style.componentType === 'WebPage' && style.preset === 'default',
     );

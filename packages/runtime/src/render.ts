@@ -8,6 +8,7 @@ import {
   WebLabel,
   WebListBox,
   WebPanel,
+  WebPopup,
   WebReusableElement,
   WebTextArea,
   type WebImageObjectFit,
@@ -87,6 +88,8 @@ export interface RuntimeComponentAdapter<T extends WebComponent = WebComponent> 
   readonly createElement: (document: Document, node: RuntimeComponentNode) => HTMLElement;
   readonly createComponent: (element: HTMLElement) => T;
   readonly applyProperties?: (component: T, node: RuntimeComponentNode) => void;
+  /** False for browser-owned overlays that must not receive page layout CSS. */
+  readonly participatesInLayout?: boolean;
 }
 
 function inputElement(element: HTMLElement): HTMLInputElement {
@@ -139,6 +142,7 @@ export class RuntimeComponentRegistry {
     this.#adapters.set(type, {
       createElement: adapter.createElement,
       createComponent: adapter.createComponent,
+      ...(adapter.participatesInLayout === false ? { participatesInLayout: false } : {}),
       applyProperties:
         applyProperties === undefined
           ? undefined
@@ -168,7 +172,11 @@ export class RuntimeComponentRegistry {
   }
 }
 
-function applyCommon(component: WebComponent, node: RuntimeComponentNode): void {
+function applyCommon(
+  component: WebComponent,
+  node: RuntimeComponentNode,
+  options: { readonly participatesInLayout?: boolean } = {},
+): void {
   const { element } = component;
   const visual = projectComponentVisual(node);
   element.dataset.webradId = node.id;
@@ -191,7 +199,7 @@ function applyCommon(component: WebComponent, node: RuntimeComponentNode): void 
     element.style.borderStyle = visual.style.borderStyle ?? '';
     element.style.borderWidth = visual.style.borderWidth ?? '';
   }
-  if (node.parentId !== null) {
+  if (node.parentId !== null && options.participatesInLayout !== false) {
     // Preserve the historic registry.create() behavior for callers that create
     // a standalone node. mountPage() replaces this legacy fallback with the
     // responsive projection below.
@@ -228,6 +236,17 @@ runtimeComponentRegistry
     applyProperties: (component, node) => {
       applyCommon(component, node);
       component.caption = readStringProperty(node, 'caption');
+    },
+  })
+  .register<WebPopup>('WebPopup', {
+    createElement: elementFactory('dialog'),
+    createComponent: (element) => new WebPopup(element),
+    participatesInLayout: false,
+    applyProperties: (component, node) => {
+      applyCommon(component, node, { participatesInLayout: false });
+      component.caption = readStringProperty(node, 'caption', node.name);
+      component.message = readStringProperty(node, 'message');
+      component.modal = readBooleanProperty(node, 'modal', true);
     },
   })
   .register<WebReusableElement>('WebReusableElement', {
@@ -599,10 +618,12 @@ export function mountPage(
     if (node === undefined || component === undefined) {
       throw new Error(`Runtime page layout references unknown component "${nodeId}".`);
     }
-    applyRuntimeLayout(component.element, node, parentContainer, {
-      isPageRoot,
-      isReusableRoot: node.reusableRoot,
-    });
+    if (registry.require(node.type).participatesInLayout !== false) {
+      applyRuntimeLayout(component.element, node, parentContainer, {
+        isPageRoot,
+        isReusableRoot: node.reusableRoot,
+      });
+    }
     const container = resolveRuntimeContainerLayout(node.layout);
     for (const childId of node.children) applyBranchLayout(childId, container);
   };

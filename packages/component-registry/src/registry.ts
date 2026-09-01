@@ -130,6 +130,15 @@ export function validateComponentDefinition(definition: ComponentDefinition): vo
     );
   }
   if (
+    definition.designerPresentation !== undefined &&
+    definition.designerPresentation !== 'canvas' &&
+    definition.designerPresentation !== 'tray'
+  ) {
+    throw new InvalidComponentDefinitionError(
+      `Designer presentation "${String(definition.designerPresentation)}" is not supported.`,
+    );
+  }
+  if (
     !Number.isFinite(definition.defaultBounds.width) ||
     definition.defaultBounds.width <= 0 ||
     !Number.isFinite(definition.defaultBounds.height) ||

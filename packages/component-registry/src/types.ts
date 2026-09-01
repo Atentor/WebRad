@@ -54,6 +54,9 @@ export interface DefaultComponentBounds {
   readonly height: number;
 }
 
+/** Where the component is represented while editing a page. */
+export type ComponentDesignerPresentation = 'canvas' | 'tray';
+
 /** Structural counterpart of the project-model layout contract. */
 export interface RegisteredContainerLayout {
   readonly mode: 'fixed' | 'align-to-parent' | 'row' | 'column';
@@ -97,7 +100,13 @@ export interface ComponentDefinition {
   readonly palette: PaletteMetadata;
   /** Symbolic identifier resolved by the IDE's own icon theme. */
   readonly icon: string;
+  /** Whether the component owns a browser DOM projection at runtime. */
   readonly visual: boolean;
+  /**
+   * Optional Designer-only presentation. When omitted, DOM-owning components
+   * appear on the canvas and DOM-less services appear in the nonvisual tray.
+   */
+  readonly designerPresentation?: ComponentDesignerPresentation;
   readonly canHaveChildren: boolean;
   readonly defaultEvent: string | null;
   /** Optional action activated by a double-click in the Designer. */
@@ -107,6 +116,17 @@ export interface ComponentDefinition {
   readonly defaults: Readonly<Record<string, unknown>>;
   readonly properties: readonly ComponentPropertyDefinition[];
   readonly events: readonly ComponentEventDefinition[];
+}
+
+/**
+ * Resolves the Designer surface without conflating it with browser rendering.
+ * A DOM-owning component may intentionally be authored from the tray, such as
+ * a popup that is opened programmatically at runtime.
+ */
+export function resolveComponentDesignerPresentation(
+  definition: Pick<ComponentDefinition, 'visual' | 'designerPresentation'>,
+): ComponentDesignerPresentation {
+  return definition.designerPresentation ?? (definition.visual ? 'canvas' : 'tray');
 }
 
 /** Structural ComponentNode result that is assignable to the project-model node type. */

@@ -128,6 +128,19 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     caption: string;
   }
 
+  /** Browser-native popup dialog that can be shown or closed from page code. */
+  export class WebPopup extends WebComponent<HTMLDialogElement> {
+    constructor(element: HTMLElement);
+    caption: string;
+    message: string;
+    modal: boolean;
+    readonly open: boolean;
+    returnValue: string;
+    show(): void;
+    hide(): void;
+    close(returnValue?: string): void;
+  }
+
   /** One instance of a shared reusable component definition. */
   export class WebReusableElement extends WebPanel {
     reusableElementId: string;
@@ -544,6 +557,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly createElement: (document: Document, node: RuntimeComponentNode) => HTMLElement;
     readonly createComponent: (element: HTMLElement) => T;
     readonly applyProperties?: (component: T, node: RuntimeComponentNode) => void;
+    readonly participatesInLayout?: boolean;
   }
 
   export class RuntimeComponentRegistry {

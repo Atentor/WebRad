@@ -84,6 +84,61 @@ function geometryProperties(
   ];
 }
 
+/**
+ * Properties for a browser visual that is authored from the Designer tray.
+ * Its dimensions still control its runtime surface, but it has no page
+ * position or responsive-layout participation to configure.
+ */
+function trayVisualProperties(
+  bounds: DefaultComponentBounds,
+): readonly ComponentPropertyDefinition[] {
+  return [
+    { name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' },
+    {
+      name: 'width',
+      label: 'Width',
+      type: 'number',
+      category: 'Size',
+      source: 'bounds',
+      defaultValue: bounds.width,
+    },
+    {
+      name: 'height',
+      label: 'Height',
+      type: 'number',
+      category: 'Size',
+      source: 'bounds',
+      defaultValue: bounds.height,
+    },
+    {
+      name: 'visible',
+      label: 'Visible',
+      type: 'boolean',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: true,
+    },
+    {
+      name: 'collapseWhenHidden',
+      label: 'Collapse when hidden',
+      description:
+        'Preserves the shared visibility contract; popup dialogs never participate in page layout.',
+      type: 'boolean',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: true,
+    },
+    {
+      name: 'enabled',
+      label: 'Enabled',
+      type: 'boolean',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: true,
+    },
+  ];
+}
+
 function containerLayoutProperties(): readonly ComponentPropertyDefinition[] {
   return [
     {
@@ -328,6 +383,7 @@ const comboBoxBounds = { width: 160, height: 32 } as const;
 const imageBounds = { width: 160, height: 120 } as const;
 const listBoxBounds = { width: 180, height: 120 } as const;
 const apiClientBounds = { width: 112, height: 52 } as const;
+const popupBounds = { width: 360, height: 200 } as const;
 const dataGridBounds = { width: 640, height: 320 } as const;
 const reusableElementBounds = { width: 360, height: 240 } as const;
 
@@ -890,6 +946,54 @@ const webListBox: ComponentDefinition = {
   events: [event('OnChange'), event('OnDblClick'), event('OnFocus'), event('OnBlur')],
 };
 
+/**
+ * A browser-rendered dialog that is deliberately authored from the nonvisual
+ * tray. It can therefore receive ordinary reusable styles without occupying
+ * design-time page geometry.
+ */
+const webPopup: ComponentDefinition = {
+  type: 'WebPopup',
+  displayName: 'Popup',
+  namePrefix: 'Popup',
+  palette: { category: nonvisualCategory, caption: 'Popup' },
+  icon: 'component-popup',
+  visual: true,
+  designerPresentation: 'tray',
+  canHaveChildren: false,
+  defaultEvent: 'OnShow',
+  defaultBounds: popupBounds,
+  defaults: {
+    caption: 'Popup',
+    message: '',
+    modal: true,
+    visible: false,
+    collapseWhenHidden: true,
+    enabled: true,
+  },
+  properties: [
+    ...trayVisualProperties(popupBounds),
+    captionProperty('Popup'),
+    {
+      name: 'message',
+      label: 'Message',
+      type: 'string',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: '',
+    },
+    {
+      name: 'modal',
+      label: 'Modal',
+      description: 'When opened, prevents interaction with the page while the popup is visible.',
+      type: 'boolean',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: true,
+    },
+  ],
+  events: [event('OnShow'), event('OnHide'), event('OnClose'), event('OnCancel')],
+};
+
 const webApiClient: ComponentDefinition = {
   type: 'WebApiClient',
   displayName: 'API Client',
@@ -989,6 +1093,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebImage',
   'WebListBox',
   'WebDataGrid',
+  'WebPopup',
   'WebApiClient',
 ] as const;
 
@@ -1007,6 +1112,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webImage,
   webListBox,
   webDataGrid,
+  webPopup,
   webApiClient,
 ];
 
