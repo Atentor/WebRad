@@ -460,23 +460,43 @@ function popupElement(element: HTMLElement): HTMLDialogElement {
 }
 
 function popupContentElement(element: HTMLDialogElement): HTMLElement {
-  const existing = element.querySelector<HTMLElement>('[data-webrad-popup-content]');
-  if (existing !== null) return existing;
-
-  const content = element.ownerDocument.createElement('div');
+  let content = element.querySelector<HTMLElement>('[data-webrad-popup-content]');
+  if (content === null) {
+    content = element.ownerDocument.createElement('div');
+    element.append(content);
+  }
   content.classList.add('wr-popup-content');
   content.dataset.webradPopupContent = '';
 
-  const caption = element.ownerDocument.createElement('h2');
-  caption.classList.add('wr-popup-caption');
-  caption.dataset.webradPopupCaption = '';
+  let header = content.querySelector<HTMLElement>('[data-webrad-popup-header]');
+  if (header === null) {
+    header = element.ownerDocument.createElement('header');
+    header.classList.add('wr-popup-header');
+    header.dataset.webradPopupHeader = '';
+  }
 
-  const message = element.ownerDocument.createElement('p');
-  message.classList.add('wr-popup-message');
-  message.dataset.webradPopupMessage = '';
+  let caption = content.querySelector<HTMLElement>('[data-webrad-popup-caption]');
+  if (caption === null) {
+    caption = element.ownerDocument.createElement('h2');
+    caption.classList.add('wr-popup-caption');
+    caption.dataset.webradPopupCaption = '';
+  }
 
-  content.append(caption, message);
-  element.append(content);
+  let message = content.querySelector<HTMLElement>('[data-webrad-popup-message]');
+  if (message === null) {
+    message = element.ownerDocument.createElement('p');
+    message.classList.add('wr-popup-message');
+    message.dataset.webradPopupMessage = '';
+  }
+  header.append(caption, message);
+
+  let children = content.querySelector<HTMLElement>('[data-webrad-popup-children]');
+  if (children === null) {
+    children = element.ownerDocument.createElement('div');
+    children.classList.add('wr-popup-children');
+    children.dataset.webradPopupChildren = '';
+  }
+  content.append(header, children);
   return content;
 }
 
@@ -484,12 +504,12 @@ function popupTextElement(
   element: HTMLDialogElement,
   dataAttribute: 'webradPopupCaption' | 'webradPopupMessage',
 ): HTMLElement {
-  popupContentElement(element);
+  const content = popupContentElement(element);
   const selector =
     dataAttribute === 'webradPopupCaption'
       ? '[data-webrad-popup-caption]'
       : '[data-webrad-popup-message]';
-  const text = element.querySelector<HTMLElement>(selector);
+  const text = content.querySelector<HTMLElement>(selector);
   if (text === null) throw new Error('WebPopup content could not be created.');
   return text;
 }
@@ -521,6 +541,7 @@ export class WebPopup extends WebComponent<HTMLDialogElement> {
 
   public constructor(element: HTMLElement) {
     super(popupElement(element));
+    popupContentElement(this.element);
     this.element.addEventListener('close', this.#onNativeClose);
   }
 

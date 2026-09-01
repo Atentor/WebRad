@@ -532,6 +532,20 @@ function setImportantStyles(element: HTMLElement, styles: Readonly<Record<string
 }
 
 /**
+ * Applies only the container half of a node's structural layout. Composite
+ * controls use this for an internal child surface while retaining ownership
+ * of their outer browser element and positioning behavior.
+ */
+export function applyRuntimeContainerLayout(
+  element: HTMLElement,
+  node: RuntimeLayoutNode,
+): RuntimeLayoutProjection {
+  const projection = projectRuntimeLayout(node);
+  setImportantStyles(element, projection.container);
+  return projection;
+}
+
+/**
  * Applies structural layout declarations with inline `!important` precedence.
  * Reusable visual styles are intentionally unable to move or resize an
  * instance; the Project Model's instance layout remains authoritative.

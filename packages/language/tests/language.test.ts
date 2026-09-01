@@ -273,6 +273,34 @@ describe('page language generation', () => {
     expect(generateRuntimeTypings()).toContain("declare module '@webrad/runtime'");
   });
 
+  it('generates typed programming access for visual children inside a Popup', () => {
+    const popupPage = testPage();
+    const popup = popupPage.components.find((component) => component.id === 'popup-dialog');
+    if (popup === undefined) throw new Error('Expected a Popup fixture.');
+    const popupButton = defaultComponentRegistry.createComponent('WebButton', {
+      id: 'popup-confirm-button',
+      name: 'BTNConfirmar',
+      parentId: popup.id,
+      x: 24,
+      y: 96,
+      props: { caption: 'Confirmar' },
+    });
+    const pageWithPopupChild = addComponent(popupPage, popupButton, popup.id);
+
+    const source = generatePageSource(pageWithPopupChild);
+    const typings = generatePageTypings(pageWithPopupChild);
+    const persistedPopup = pageWithPopupChild.components.find(
+      (component) => component.id === popup.id,
+    );
+
+    expect(persistedPopup?.children).toEqual([popupButton.id]);
+    expect(source).toContain('public readonly BTNConfirmar: WebButton;');
+    expect(typings).toContain('public readonly BTNConfirmar: WebButton;');
+    expect(source).toContain(
+      'this.BTNConfirmar = new WebButton(this.requireComponentElement("popup-confirm-button"))',
+    );
+  });
+
   it('generates a reusable class with scoped component access and event bindings', () => {
     const idFactory = (() => {
       let sequence = 0;

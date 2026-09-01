@@ -368,7 +368,11 @@ describe('App MVP integration', () => {
     });
     await user.dblClick(screen.getByRole('button', { name: 'Popup' }));
     await screen.findByRole('option', { name: 'Popup1, Popup' });
-    expect(document.querySelector('[data-component-id][title="Popup1: WebPopup"]')).toBeNull();
+    await waitFor(() => {
+      expect(
+        document.querySelector('[data-component-id][data-component-type="WebPopup"]'),
+      ).not.toBeNull();
+    });
 
     await user.click(screen.getByRole('tab', { name: 'Code' }));
     expect(screen.getByTestId('mock-monaco-page-components').textContent).toBe(
@@ -460,6 +464,42 @@ describe('App MVP integration', () => {
     expect(harness.setDirty).toHaveBeenCalledWith(true);
     expect(harness.setDirty).toHaveBeenLastCalledWith(false);
   }, 15_000);
+
+  it('adds palette controls inside the selected floating Popup container', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: harness.bridge,
+    });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await user.dblClick(screen.getByRole('button', { name: 'Popup' }));
+    await screen.findByRole('option', { name: 'Popup1, Popup' });
+    await waitFor(() => {
+      expect(
+        document.querySelector('[data-component-id][data-component-type="WebPopup"]'),
+      ).not.toBeNull();
+    });
+
+    await user.dblClick(screen.getByRole('button', { name: 'Button' }));
+    await waitFor(() => {
+      expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Button1');
+    });
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await screen.findByText('Saved MvpProject.');
+
+    const page = harness.persisted().project.pages[0];
+    const popup = page?.components.find((component) => component.type === 'WebPopup');
+    const button = page?.components.find((component) => component.type === 'WebButton');
+    if (popup === undefined || button === undefined) {
+      throw new Error('Expected the saved Popup and its child Button.');
+    }
+    expect(button.parentId).toBe(popup.id);
+    expect(popup.children).toContain(button.id);
+  });
 
   it('opens the API Client tester from the nonvisual tray and persists its response contract', async () => {
     const harness = createBridgeHarness(initialSession());

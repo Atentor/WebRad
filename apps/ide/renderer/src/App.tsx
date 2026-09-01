@@ -402,7 +402,12 @@ export function App(): ReactElement {
       try {
         const definition = requireComponentDefinition(type);
         const appearsOnCanvas = resolveComponentDesignerPresentation(definition) === 'canvas';
-        const parentId = appearsOnCanvas ? requestedParentId : activePage.rootComponentId;
+        const requestedParent = getComponent(activePage, requestedParentId);
+        const requestedParentDefinition = componentRegistry.get(requestedParent.type);
+        const parentId =
+          appearsOnCanvas && requestedParentDefinition?.canHaveChildren === true
+            ? requestedParent.id
+            : activePage.rootComponentId;
         const parent = getComponent(activePage, parentId);
         const snapped = project?.settings.snapToGrid
           ? snapPoint(point, project.settings.gridSize)
@@ -1681,13 +1686,25 @@ export function App(): ReactElement {
                   onInsert={(type) => {
                     if (!activePage) return;
                     const definition = requireComponentDefinition(type);
+                    const selectedContainer =
+                      primaryComponent !== null &&
+                      componentRegistry.get(primaryComponent.type)?.canHaveChildren === true
+                        ? primaryComponent
+                        : activePage.components.find(
+                            (component) => component.id === activePage.rootComponentId,
+                          );
+                    if (selectedContainer === undefined) return;
                     addComponentAt(
                       type,
                       {
-                        x: Math.round((activePage.width - definition.defaultBounds.width) / 2),
-                        y: Math.round((activePage.height - definition.defaultBounds.height) / 2),
+                        x: Math.round(
+                          (selectedContainer.bounds.width - definition.defaultBounds.width) / 2,
+                        ),
+                        y: Math.round(
+                          (selectedContainer.bounds.height - definition.defaultBounds.height) / 2,
+                        ),
                       },
-                      activePage.rootComponentId,
+                      selectedContainer.id,
                     );
                   }}
                   allowNonvisual

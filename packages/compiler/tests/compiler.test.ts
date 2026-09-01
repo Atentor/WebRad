@@ -1073,7 +1073,7 @@ export class PageMain extends PageMainGenerated {
     ).toBe(true);
   });
 
-  it('accepts a styled Popup in the runtime document model', async () => {
+  it('accepts a styled Popup container and serializes its visual children into the runtime document model', async () => {
     const project = executableProject();
     const page = project.pages[0];
     if (page === undefined) throw new Error('Expected an initial page.');
@@ -1083,15 +1083,43 @@ export class PageMain extends PageMainGenerated {
       parentId: page.rootComponentId,
     });
     const withPopup = updatePage(project, page.id, addComponent(page, popup, page.rootComponentId));
+    const popupPage = withPopup.pages.find((candidate) => candidate.id === page.id);
+    if (popupPage === undefined) throw new Error('Expected the Popup page.');
+    const popupButton = defaultComponentRegistry.createComponent('WebButton', {
+      id: 'popup-confirm-button',
+      name: 'BTNConfirmar',
+      parentId: popup.id,
+      x: 24,
+      y: 96,
+      props: { caption: 'Confirmar' },
+    });
+    const withPopupChild = updatePage(
+      withPopup,
+      popupPage.id,
+      addComponent(popupPage, popupButton, popup.id),
+    );
     const popupStyle = createComponentStyle('Confirm Surface', 'WebPopup', {
       idFactory: () => 'popup-style',
       states: { base: { backgroundColor: '#0f172a', textColor: '#f8fafc' } },
     });
-    const withStyle = addComponentStyle(withPopup, popupStyle);
+    const withStyle = addComponentStyle(withPopupChild, popupStyle);
     const assigned = setComponentStyle(withStyle, page.id, popup.id, popupStyle.id);
+
+    const graph = createVirtualSourceGraph(
+      assigned,
+      {},
+      defaultComponentRegistry,
+      GENERATED_APP_CSS,
+    );
+    const entrySource = graph.sources.get(graph.entryPath);
+    if (entrySource === undefined) throw new Error('Expected the compiler entry source.');
 
     const result = await compileProjectToMemory(assigned, { userSources: {} });
 
+    expect(graph.diagnostics).toEqual([]);
+    expect(entrySource).toContain('"id":"popup-dialog"');
+    expect(entrySource).toContain('"children":["popup-confirm-button"]');
+    expect(entrySource).toContain('"parentId":"popup-dialog"');
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['assets/app.js']).toContain('"type": "WebPopup"');
     expect(result.files['assets/app.js']).toContain('bg-[#0f172a]');

@@ -1114,6 +1114,52 @@ describe('reusable elements', () => {
 });
 
 describe('serialization', () => {
+  it('round-trips a Popup child relationship and its responsive container layout', () => {
+    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const page = project.pages[0];
+    expect(page).toBeDefined();
+    if (page === undefined) return;
+
+    const popup = {
+      ...component('popup-id', 'WebPopup', 'Popup1', page.rootComponentId),
+      layout: {
+        ...createDefaultComponentLayout(),
+        container: {
+          ...createDefaultComponentLayout().container,
+          mode: 'column' as const,
+          gap: 12,
+          paddingTop: 16,
+          paddingRight: 16,
+          paddingBottom: 16,
+          paddingLeft: 16,
+        },
+      },
+    };
+    const withPopup = addComponent(page, popup, page.rootComponentId);
+    const withPopupChild = addComponent(
+      withPopup,
+      component('popup-button-id', 'WebButton', 'PopupButton1', popup.id),
+      popup.id,
+    );
+    const projectWithPopup = updatePage(project, page.id, withPopupChild);
+
+    const restored = deserializeProject(serializeProject(projectWithPopup));
+    const restoredPage = restored.pages[0];
+    const restoredPopup = restoredPage?.components.find((node) => node.id === popup.id);
+    const restoredChild = restoredPage?.components.find((node) => node.id === 'popup-button-id');
+
+    expect(restoredPopup?.children).toEqual(['popup-button-id']);
+    expect(restoredPopup?.layout.container).toMatchObject({
+      mode: 'column',
+      gap: 12,
+      paddingTop: 16,
+      paddingRight: 16,
+      paddingBottom: 16,
+      paddingLeft: 16,
+    });
+    expect(restoredChild?.parentId).toBe(popup.id);
+  });
+
   it('round-trips structured gradients in their stable field order', () => {
     const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const project = addComponentStyle(

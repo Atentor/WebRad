@@ -101,13 +101,13 @@ describe('MVP component metadata', () => {
     }
   });
 
-  it('marks only page and panel as MVP containers', () => {
+  it('marks page, panel, and Popup as MVP containers', () => {
     expect(
       componentRegistry
         .list()
         .filter((item) => item.canHaveChildren)
         .map((item) => item.type),
-    ).toEqual(['WebPage', 'WebPanel']);
+    ).toEqual(['WebPage', 'WebPanel', 'WebPopup']);
   });
 
   it('exposes structural responsive-layout metadata only where it applies', () => {
@@ -139,7 +139,7 @@ describe('MVP component metadata', () => {
       'itemBottom',
     ];
 
-    for (const type of ['WebPage', 'WebPanel']) {
+    for (const type of ['WebPage', 'WebPanel', 'WebPopup']) {
       const definition = componentRegistry.require(type);
       expect(
         definition.properties
@@ -203,13 +203,13 @@ describe('MVP component metadata', () => {
     ]);
   });
 
-  it('describes WebPopup as a browser-rendered dialog authored from the nonvisual tray', () => {
+  it('describes WebPopup as a browser-rendered floating container authored from the nonvisual tray', () => {
     const popup = componentRegistry.require('WebPopup');
 
     expect(popup.visual).toBe(true);
     expect(popup.designerPresentation).toBe('tray');
     expect(resolveComponentDesignerPresentation(popup)).toBe('tray');
-    expect(popup.canHaveChildren).toBe(false);
+    expect(popup.canHaveChildren).toBe(true);
     expect(popup.defaultEvent).toBe('OnShow');
     expect(popup.defaultBounds).toEqual({ width: 360, height: 200 });
     expect(popup.defaults).toEqual({
@@ -227,6 +227,15 @@ describe('MVP component metadata', () => {
       'visible',
       'collapseWhenHidden',
       'enabled',
+      'containerMode',
+      'containerPaddingTop',
+      'containerPaddingRight',
+      'containerPaddingBottom',
+      'containerPaddingLeft',
+      'containerGap',
+      'containerWrap',
+      'containerJustifyContent',
+      'containerAlignItems',
       'caption',
       'message',
       'modal',
@@ -237,6 +246,21 @@ describe('MVP component metadata', () => {
     ]);
     expect(popup.properties.some((property) => property.name === 'x')).toBe(false);
     expect(popup.properties.some((property) => property.name === 'y')).toBe(false);
+    expect(
+      popup.properties
+        .filter((property) => property.source === 'layout-container')
+        .map((property) => property.name),
+    ).toEqual([
+      'containerMode',
+      'containerPaddingTop',
+      'containerPaddingRight',
+      'containerPaddingBottom',
+      'containerPaddingLeft',
+      'containerGap',
+      'containerWrap',
+      'containerJustifyContent',
+      'containerAlignItems',
+    ]);
     expect(popup.properties.some((property) => property.source === 'layout-item')).toBe(false);
     expect(popup.properties.find((property) => property.name === 'message')).toMatchObject({
       type: 'string',

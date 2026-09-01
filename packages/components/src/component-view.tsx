@@ -24,8 +24,13 @@ export interface ComponentViewProps {
   designTime?: boolean;
   /** Tailwind classes resolved from the node's selected project style. */
   styleClassName?: string;
-  /** Visual descendants for container components such as WebPage and WebPanel. */
+  /** Visual descendants for containers such as WebPage, WebPanel, and WebPopup. */
   children?: ReactNode;
+  /**
+   * Lets a design-only host inspect an otherwise hidden visual component
+   * without mutating the versioned project model.
+   */
+  forceVisible?: boolean;
   onEvent?: (eventName: ComponentEventName, node: ComponentNode) => void;
 }
 
@@ -35,6 +40,7 @@ function sharedAttributes(
   node: ComponentNode,
   designTime = false,
   styleClassName?: string,
+  forceVisible = false,
 ): {
   className: string;
   style: CSSProperties;
@@ -47,16 +53,16 @@ function sharedAttributes(
   tabIndex?: number;
 } {
   const visual = projectComponentVisual(node, 'fill');
+  const visible = forceVisible || visual.visible;
   const style =
     styleClassName === undefined
       ? visual.style
       : { width: visual.style.width, height: visual.style.height };
   return {
     className: [...visual.classNames, ...tokenizeTailwindClasses(styleClassName ?? '')].join(' '),
-    style:
-      !visual.visible && !visual.collapseWhenHidden ? { ...style, visibility: 'hidden' } : style,
-    hidden: !visual.visible && visual.collapseWhenHidden,
-    'aria-hidden': !visual.visible,
+    style: !visible && !visual.collapseWhenHidden ? { ...style, visibility: 'hidden' } : style,
+    hidden: !visible && visual.collapseWhenHidden,
+    'aria-hidden': !visible,
     'aria-disabled': !visual.enabled,
     'data-component-id': node.id,
     'data-component-type': node.type,
@@ -193,25 +199,32 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
   // runtime component. The Styles workspace needs a stable, accessible
   // surface instead of an active browser dialog, so styles can be previewed
   // without entering the modal top layer.
-  WebPopup: ({ node, designTime, styleClassName }) => {
+  WebPopup: ({ node, designTime, styleClassName, children, forceVisible }) => {
     const caption = readStringProperty(node, 'caption', 'Popup');
     const message = readStringProperty(node, 'message');
     const captionId = `webrad-popup-caption-${node.id}`;
     const messageId = `webrad-popup-message-${node.id}`;
     return (
       <section
-        {...sharedAttributes(node, designTime, styleClassName)}
+        {...sharedAttributes(node, designTime, styleClassName, forceVisible)}
         aria-describedby={message.length > 0 ? messageId : undefined}
         aria-labelledby={captionId}
         role="dialog"
       >
         <div className="wr-popup-content" data-webrad-popup-content="">
-          <h2 className="wr-popup-caption" data-webrad-popup-caption="" id={captionId}>
-            {caption}
-          </h2>
-          <p className="wr-popup-message" data-webrad-popup-message="" id={messageId}>
-            {message}
-          </p>
+          <header className="wr-popup-header">
+            <h2 className="wr-popup-caption" data-webrad-popup-caption="" id={captionId}>
+              {caption}
+            </h2>
+            {message.length > 0 && (
+              <p className="wr-popup-message" data-webrad-popup-message="" id={messageId}>
+                {message}
+              </p>
+            )}
+          </header>
+          <div className="wr-popup-children" data-webrad-popup-children="">
+            {children}
+          </div>
         </div>
       </section>
     );

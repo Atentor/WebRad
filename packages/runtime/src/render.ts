@@ -19,6 +19,7 @@ import { WebPage } from './page.js';
 import { WebDataGrid, normalizeWebDataGridConfiguration } from './data-grid.js';
 import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
+  applyRuntimeContainerLayout,
   applyRuntimeLayout,
   resolveRuntimeContainerLayout,
   type RuntimeComponentLayout,
@@ -88,6 +89,11 @@ export interface RuntimeComponentAdapter<T extends WebComponent = WebComponent> 
   readonly createElement: (document: Document, node: RuntimeComponentNode) => HTMLElement;
   readonly createComponent: (element: HTMLElement) => T;
   readonly applyProperties?: (component: T, node: RuntimeComponentNode) => void;
+  /**
+   * Optional structural host for child components. This keeps composite
+   * browser controls free to own a shell around their child layout surface.
+   */
+  readonly getChildrenHost?: (component: T, node: RuntimeComponentNode) => HTMLElement;
   /** False for browser-owned overlays that must not receive page layout CSS. */
   readonly participatesInLayout?: boolean;
 }
@@ -139,10 +145,16 @@ export class RuntimeComponentRegistry {
     if (this.#adapters.has(type))
       throw new Error(`Runtime component "${type}" is already registered.`);
     const applyProperties = adapter.applyProperties;
+    const getChildrenHost = adapter.getChildrenHost;
     this.#adapters.set(type, {
       createElement: adapter.createElement,
       createComponent: adapter.createComponent,
       ...(adapter.participatesInLayout === false ? { participatesInLayout: false } : {}),
+      ...(getChildrenHost === undefined
+        ? {}
+        : {
+            getChildrenHost: (component, node) => getChildrenHost(component as T, node),
+          }),
       applyProperties:
         applyProperties === undefined
           ? undefined
@@ -218,6 +230,12 @@ function elementFactory(tagName: string): RuntimeComponentAdapter['createElement
   return (document) => document.createElement(tagName);
 }
 
+function popupChildrenHost(component: WebPopup): HTMLElement {
+  const host = component.element.querySelector<HTMLElement>('[data-webrad-popup-children]');
+  if (host === null) throw new Error('WebPopup did not create its child layout host.');
+  return host;
+}
+
 export const runtimeComponentRegistry = new RuntimeComponentRegistry();
 
 runtimeComponentRegistry
@@ -241,6 +259,7 @@ runtimeComponentRegistry
   .register<WebPopup>('WebPopup', {
     createElement: elementFactory('dialog'),
     createComponent: (element) => new WebPopup(element),
+    getChildrenHost: (component) => popupChildrenHost(component),
     participatesInLayout: false,
     applyProperties: (component, node) => {
       applyCommon(component, node, { participatesInLayout: false });
@@ -588,13 +607,14 @@ export function mountPage(
       component.element.dataset.webradPageName = expandedModel.name;
     }
     components.set(node.id, component);
+    const childrenHost = registry.require(node.type).getChildrenHost?.(component, node);
     for (const childId of node.children) {
       const child = nodes.get(childId);
       const childElement = createBranch(childId);
       if (child !== undefined && isFloatingReusableElement(child)) {
         floatingLayer.append(childElement);
       } else {
-        component.element.append(childElement);
+        (childrenHost ?? component.element).append(childElement);
       }
     }
     return component.element;
@@ -618,12 +638,15 @@ export function mountPage(
     if (node === undefined || component === undefined) {
       throw new Error(`Runtime page layout references unknown component "${nodeId}".`);
     }
-    if (registry.require(node.type).participatesInLayout !== false) {
+    const adapter = registry.require(node.type);
+    if (adapter.participatesInLayout !== false) {
       applyRuntimeLayout(component.element, node, parentContainer, {
         isPageRoot,
         isReusableRoot: node.reusableRoot,
       });
     }
+    const childrenHost = adapter.getChildrenHost?.(component, node);
+    if (childrenHost !== undefined) applyRuntimeContainerLayout(childrenHost, node);
     const container = resolveRuntimeContainerLayout(node.layout);
     for (const childId of node.children) applyBranchLayout(childId, container);
   };

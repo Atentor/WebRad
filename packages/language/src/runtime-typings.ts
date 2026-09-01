@@ -233,6 +233,10 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     node: RuntimeLayoutNode,
     parentContainer?: RuntimeContainerLayout,
   ): RuntimeLayoutProjection;
+  export function applyRuntimeContainerLayout(
+    element: HTMLElement,
+    node: RuntimeLayoutNode,
+  ): RuntimeLayoutProjection;
   export function applyRuntimeLayout(
     element: HTMLElement,
     node: RuntimeLayoutNode,
@@ -557,6 +561,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly createElement: (document: Document, node: RuntimeComponentNode) => HTMLElement;
     readonly createComponent: (element: HTMLElement) => T;
     readonly applyProperties?: (component: T, node: RuntimeComponentNode) => void;
+    readonly getChildrenHost?: (component: T, node: RuntimeComponentNode) => HTMLElement;
     readonly participatesInLayout?: boolean;
   }
 

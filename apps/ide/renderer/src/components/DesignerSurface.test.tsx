@@ -127,6 +127,45 @@ function pageWithPopup(): PageModel {
   };
 }
 
+function pageWithPopupChild(): PageModel {
+  const page = pageWithPopup();
+  const popup = page.components.find((component) => component.id === 'popup');
+  if (popup === undefined) throw new Error('Expected Popup.');
+  const child: ComponentNode = {
+    id: 'popup-button',
+    type: 'WebButton',
+    name: 'PopupButton',
+    parentId: popup.id,
+    layout: createDefaultComponentLayout(),
+    bounds: { x: 16, y: 12, width: 140, height: 36 },
+    props: { caption: 'Save', visible: true, enabled: true },
+    events: { OnClick: null },
+    children: [],
+  };
+  return {
+    ...page,
+    components: [
+      ...page.components.map((component) =>
+        component.id === popup.id
+          ? {
+              ...component,
+              children: [child.id],
+              layout: {
+                ...component.layout,
+                container: {
+                  ...component.layout.container,
+                  mode: 'row' as const,
+                  gap: 10,
+                },
+              },
+            }
+          : component,
+      ),
+      child,
+    ],
+  };
+}
+
 function pageWithFloatingReusableElement(): {
   readonly page: PageModel;
   readonly reusableElement: ReusableElementModel;
@@ -197,6 +236,12 @@ function pageWithFloatingReusableElement(): {
 
 interface RenderSurfaceOptions {
   readonly selectedIds?: readonly string[];
+  readonly selectedPaletteType?: string | null;
+  readonly onAddComponent?: (
+    type: string,
+    point: { x: number; y: number },
+    parentId: string,
+  ) => void;
   readonly onAddReusableElement?: (
     reusableElementId: string,
     point: { x: number; y: number },
@@ -217,6 +262,7 @@ interface RenderSurfaceOptions {
 
 function renderSurface(page: PageModel = responsivePage(), options: RenderSurfaceOptions = {}) {
   const onSelect = options.onSelect ?? vi.fn();
+  const onAddComponent = options.onAddComponent ?? vi.fn();
   const onAddReusableElement = options.onAddReusableElement ?? vi.fn();
   const onReorderComponents = options.onReorderComponents ?? vi.fn();
   const onComponentActivate = options.onComponentActivate ?? vi.fn();
@@ -229,10 +275,10 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
       reusableElements={options.reusableElements}
       settings={DEFAULT_PROJECT_SETTINGS}
       selectedIds={options.selectedIds ?? []}
-      selectedPaletteType={null}
+      selectedPaletteType={options.selectedPaletteType ?? null}
       zoom={100}
       onSelect={onSelect}
-      onAddComponent={vi.fn()}
+      onAddComponent={onAddComponent}
       onAddReusableElement={onAddReusableElement}
       onMoveComponents={vi.fn()}
       onReorderComponents={onReorderComponents}
@@ -253,6 +299,7 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
   return {
     ...view,
     onSelect,
+    onAddComponent,
     onAddReusableElement,
     onReorderComponents,
     onComponentActivate,
@@ -373,6 +420,84 @@ describe('DesignerSurface responsive projection', () => {
     expect(popup.getAttribute('title')).toBe('Popup1: WebPopup. Double-click to activate.');
     expect(container.querySelector('[data-component-id="popup"]')).toBeNull();
     expect(container.querySelector('[data-component-type="WebPopup"]')).toBeNull();
+  });
+
+  it('opens a selected Popup as a centered floating responsive container editor', () => {
+    const { container } = renderSurface(pageWithPopupChild(), { selectedIds: ['popup'] });
+
+    const editor = container.querySelector<HTMLElement>('[data-designer-node-id="popup"]');
+    const popup = container.querySelector<HTMLElement>('[data-component-id="popup"]');
+    const popupChildren = container.querySelector<HTMLElement>('[data-webrad-popup-children]');
+    const responsiveChildren = popupChildren?.querySelector<HTMLElement>(
+      '.wr-runtime-children-row',
+    );
+    const child = container.querySelector<HTMLElement>('[data-designer-node-id="popup-button"]');
+    if (
+      editor === null ||
+      popup === null ||
+      popupChildren === null ||
+      responsiveChildren == null ||
+      child === null
+    ) {
+      throw new Error('Expected the floating Popup editor and its child.');
+    }
+
+    expect(editor.parentElement?.className).toContain('wr-designer-floating-layer');
+    expect(editor.style.left).toBe('460px');
+    expect(editor.style.top).toBe('200px');
+    expect(popup.hidden).toBe(false);
+    expect(responsiveChildren.style.display).toBe('flex');
+    expect(responsiveChildren.style.gap).toBe('10px');
+    expect(child.parentElement).toBe(responsiveChildren);
+  });
+
+  it('uses the floating Popup editor as the drop target and preserves its page-independent bounds', () => {
+    Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const onAddComponent = vi.fn();
+    const onResizeComponent = vi.fn();
+    const { container } = renderSurface(pageWithPopup(), {
+      selectedIds: ['popup'],
+      onAddComponent,
+      onResizeComponent,
+    });
+    const overlay = container.querySelector<HTMLElement>('.wr-design-overlay');
+    const popupHit = container.querySelector<HTMLElement>(
+      '.wr-design-hit[data-component-id="popup"]',
+    );
+    const eastHandle = popupHit?.querySelector<HTMLElement>('.handle-e');
+    if (overlay === null || popupHit === null || eastHandle == null) {
+      throw new Error('Expected Popup editor design targets.');
+    }
+
+    const dropEvent = new MouseEvent('drop', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 500,
+      clientY: 300,
+    });
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+      value: {
+        getData: (type: string) => (type === 'application/x-webrad-component' ? 'WebButton' : ''),
+      },
+    });
+    fireEvent(overlay, dropEvent);
+    expect(onAddComponent).toHaveBeenCalledWith('WebButton', { x: 40, y: 100 }, 'popup');
+
+    fireEvent.pointerDown(eastHandle, {
+      button: 0,
+      pointerId: 8,
+      clientX: 820,
+      clientY: 360,
+    });
+    fireEvent.pointerMove(overlay, { pointerId: 8, clientX: 860, clientY: 360 });
+    fireEvent.pointerUp(overlay, { pointerId: 8, clientX: 860, clientY: 360 });
+    expect(onResizeComponent).toHaveBeenCalledWith(
+      'popup',
+      expect.objectContaining({ x: 0, y: 0, width: 404, height: 200 }),
+    );
   });
 
   it('renders, selects, and opens a floating reusable-component instance', () => {

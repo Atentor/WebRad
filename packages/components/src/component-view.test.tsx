@@ -306,6 +306,36 @@ describe('ComponentView', () => {
     view.unmount();
   });
 
+  it('renders Popup descendants in its dedicated floating-container body', () => {
+    const popup = {
+      ...button,
+      id: 'popup-container-id',
+      type: 'WebPopup',
+      name: 'Popup1',
+      children: [button.id],
+      props: {
+        caption: 'Actions',
+        message: '',
+        modal: true,
+        visible: false,
+        collapseWhenHidden: true,
+        enabled: true,
+      },
+    };
+    const view = render(
+      <ComponentView node={popup} designTime forceVisible>
+        <ComponentView node={button} designTime />
+      </ComponentView>,
+    );
+
+    const dialog = view.getByRole('dialog', { name: 'Actions' });
+    const children = dialog.querySelector<HTMLElement>('[data-webrad-popup-children]');
+    expect(dialog.hidden).toBe(false);
+    expect(children?.querySelector('[data-component-id="button-id"]')).not.toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-message]')).toBeNull();
+    view.unmount();
+  });
+
   it('keeps enabled controls visually enabled at design time while removing them from tab order', () => {
     const markup = renderToStaticMarkup(<ComponentView node={button} designTime />);
 

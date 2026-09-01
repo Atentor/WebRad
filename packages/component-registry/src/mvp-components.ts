@@ -947,9 +947,9 @@ const webListBox: ComponentDefinition = {
 };
 
 /**
- * A browser-rendered dialog that is deliberately authored from the nonvisual
- * tray. It can therefore receive ordinary reusable styles without occupying
- * design-time page geometry.
+ * A browser-rendered floating container that is deliberately authored from
+ * the nonvisual tray. Its own editor surface is opened on demand, while its
+ * children retain the same responsive layout contract as other containers.
  */
 const webPopup: ComponentDefinition = {
   type: 'WebPopup',
@@ -959,7 +959,7 @@ const webPopup: ComponentDefinition = {
   icon: 'component-popup',
   visual: true,
   designerPresentation: 'tray',
-  canHaveChildren: false,
+  canHaveChildren: true,
   defaultEvent: 'OnShow',
   defaultBounds: popupBounds,
   defaults: {
@@ -972,6 +972,7 @@ const webPopup: ComponentDefinition = {
   },
   properties: [
     ...trayVisualProperties(popupBounds),
+    ...containerLayoutProperties(),
     captionProperty('Popup'),
     {
       name: 'message',

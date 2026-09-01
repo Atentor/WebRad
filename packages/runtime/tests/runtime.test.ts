@@ -1668,7 +1668,14 @@ describe('browser runtime', () => {
           type: 'WebPopup',
           name: 'Popup1',
           parentId: 'page-root',
-          layout: responsiveLayout(),
+          layout: responsiveLayout({
+            mode: 'column',
+            paddingTop: 12,
+            paddingRight: 16,
+            paddingBottom: 12,
+            paddingLeft: 16,
+            gap: 8,
+          }),
           bounds: { x: 120, y: 80, width: 360, height: 200 },
           props: {
             caption: 'Delete customer?',
@@ -1678,8 +1685,18 @@ describe('browser runtime', () => {
             collapseWhenHidden: true,
             enabled: true,
           },
-          children: [],
+          children: ['popup-confirm'],
           styleClassName: 'bg-slate-900 text-white shadow-xl',
+        },
+        {
+          id: 'popup-confirm',
+          type: 'WebButton',
+          name: 'BTNConfirm',
+          parentId: 'popup-dialog',
+          layout: responsiveLayout({}, { width: 'stretch', height: 'fixed' }),
+          bounds: { x: 0, y: 0, width: 120, height: 32 },
+          props: { caption: 'Confirm', visible: true, enabled: true },
+          children: [],
         },
       ],
     };
@@ -1702,7 +1719,19 @@ describe('browser runtime', () => {
     expect(dialog.querySelector('[data-webrad-popup-message]')?.textContent).toBe(
       'This action cannot be undone.',
     );
+    const childrenHost = dialog.querySelector<HTMLElement>('[data-webrad-popup-children]');
+    const confirm = mounted.components.get('popup-confirm');
+    if (!(confirm instanceof WebButton)) throw new Error('Expected mounted popup child button.');
+    expect(childrenHost).not.toBeNull();
+    expect(confirm.element.parentElement).toBe(childrenHost);
+    expect(childrenHost?.style.display).toBe('flex');
+    expect(childrenHost?.style.flexDirection).toBe('column');
+    expect(childrenHost?.style.paddingTop).toBe('12px');
+    expect(childrenHost?.style.gap).toBe('8px');
+    expect(confirm.element.style.alignSelf).toBe('stretch');
+    expect(confirm.element.style.width).toBe('auto');
     expect(WEBRAD_COMPONENT_CSS).toContain('.wr-webpopup::backdrop');
+    expect(WEBRAD_COMPONENT_CSS).toContain('.wr-popup-children');
 
     const lifecycle: string[] = [];
     component.bindEvent('OnShow', () => {

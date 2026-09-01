@@ -98,6 +98,11 @@ interface LayoutNode {
 
 type DesignViewport = Pick<Bounds, 'width' | 'height'>;
 
+interface FloatingContainerEditor {
+  readonly rootId: string;
+  readonly bounds: Bounds;
+}
+
 interface ReorderTarget {
   parentId: string;
   beforeComponentId: string | null;
@@ -198,6 +203,48 @@ function appearsInDesignerTray(type: string): boolean {
   return definition !== undefined && resolveComponentDesignerPresentation(definition) === 'tray';
 }
 
+/**
+ * A visual container can be authored from the tray when it represents a
+ * floating runtime surface. The registry, rather than a component-type
+ * conditional, defines that behavior for the Designer.
+ */
+function isDesignerFloatingContainer(node: ComponentNode): boolean {
+  const definition = componentRegistry.get(node.type);
+  return (
+    definition !== undefined &&
+    definition.visual &&
+    definition.canHaveChildren &&
+    resolveComponentDesignerPresentation(definition) === 'tray'
+  );
+}
+
+function floatingContainerEditorRootId(
+  selectedIds: readonly string[],
+  byId: ReadonlyMap<string, ComponentNode>,
+): string | undefined {
+  for (const selectedId of [...selectedIds].reverse()) {
+    const seen = new Set<string>();
+    let current = byId.get(selectedId);
+    while (current !== undefined && !seen.has(current.id)) {
+      if (isDesignerFloatingContainer(current)) return current.id;
+      seen.add(current.id);
+      current = current.parentId === null ? undefined : byId.get(current.parentId);
+    }
+  }
+  return undefined;
+}
+
+function centeredFloatingContainerBounds(
+  node: ComponentNode,
+  designViewport: DesignViewport,
+): Bounds {
+  return {
+    ...node.bounds,
+    x: Math.round((designViewport.width - node.bounds.width) / 2),
+    y: Math.round((designViewport.height - node.bounds.height) / 2),
+  };
+}
+
 function floatingHorizontalAnchor(node: ComponentNode): 'left' | 'center' | 'right' {
   const value = node.props.floatingHorizontalAnchor;
   return value === 'center' || value === 'right' ? value : 'left';
@@ -251,6 +298,7 @@ function buildLayout(
   page: PageModel,
   byId: ReadonlyMap<string, ComponentNode>,
   measuredBounds: ReadonlyMap<string, Bounds>,
+  floatingContainerEditor?: FloatingContainerEditor,
 ): readonly LayoutNode[] {
   const output: LayoutNode[] = [];
   let order = 0;
@@ -259,13 +307,19 @@ function buildLayout(
     if (!parent) return;
     for (const childId of parent.children) {
       const child = byId.get(childId);
-      if (!child || !appearsOnDesignerCanvas(child.type)) continue;
-      const fallback = {
+      const editorBounds =
+        floatingContainerEditor !== undefined && child?.id === floatingContainerEditor.rootId
+          ? floatingContainerEditor.bounds
+          : undefined;
+      if (!child || (!appearsOnDesignerCanvas(child.type) && editorBounds === undefined)) continue;
+      const fallback = editorBounds ?? {
         ...child.bounds,
         x: origin.x + child.bounds.x,
         y: origin.y + child.bounds.y,
       };
-      const absoluteBounds = measuredBounds.get(child.id) ?? fallback;
+      // A floating editor deliberately uses its projected centered bounds.
+      // Its children still use measured browser geometry just like canvas nodes.
+      const absoluteBounds = editorBounds ?? measuredBounds.get(child.id) ?? fallback;
       output.push({ node: child, absoluteBounds, order, depth });
       order += 1;
       visitChildren(child.id, { x: absoluteBounds.x, y: absoluteBounds.y }, depth + 1);
@@ -327,10 +381,28 @@ function projectDesignerItemStyle(
   parentContainer: RuntimeContainerLayout | undefined,
   interaction: Interaction | null,
   designViewport: DesignViewport,
+  floatingEditorBounds?: Bounds,
+  forceVisible = false,
 ): CSSProperties {
+  if (floatingEditorBounds !== undefined) {
+    const bounds =
+      interaction?.kind === 'resize' && interaction.id === node.id
+        ? interaction.currentBounds
+        : floatingEditorBounds;
+    return {
+      position: 'absolute',
+      left: `${String(bounds.x)}px`,
+      top: `${String(bounds.y)}px`,
+      width: `${String(bounds.width)}px`,
+      height: `${String(bounds.height)}px`,
+      boxSizing: 'border-box',
+    };
+  }
   const style = projectItemStyle(node, parentContainer, interaction, designViewport);
   const visual = projectComponentVisual(node, 'fill');
-  return !visual.visible && visual.collapseWhenHidden ? { ...style, display: 'none' } : style;
+  return !forceVisible && !visual.visible && visual.collapseWhenHidden
+    ? { ...style, display: 'none' }
+    : style;
 }
 
 /** Projects persisted floating offsets to the simulated design viewport. */
@@ -397,7 +469,7 @@ function parentModeOf(
   node: ComponentNode,
   byId: ReadonlyMap<string, ComponentNode>,
 ): ContainerLayoutMode {
-  if (isFloatingReusableElement(node)) return 'fixed';
+  if (isFloatingReusableElement(node) || isDesignerFloatingContainer(node)) return 'fixed';
   return node.parentId === null
     ? 'fixed'
     : (byId.get(node.parentId)?.layout.container.mode ?? 'fixed');
@@ -417,6 +489,8 @@ interface RuntimeNodeProps {
   interaction: Interaction | null;
   designViewport: DesignViewport;
   floatingHost: HTMLElement | null;
+  /** Centered bounds for a tray-authored visual container being edited. */
+  floatingEditorBounds?: Bounds;
 }
 
 interface ReusableDefinitionNodeProps {
@@ -435,8 +509,9 @@ function renderDesignerNode(
   node: ComponentNode,
   floatingHost: HTMLElement | null,
   element: ReactElement,
+  useFloatingHost = false,
 ): ReactElement {
-  return isFloatingReusableElement(node) && floatingHost !== null
+  return (isFloatingReusableElement(node) || useFloatingHost) && floatingHost !== null
     ? createPortal(element, floatingHost)
     : element;
 }
@@ -592,6 +667,7 @@ const RuntimeNode = memo(function RuntimeNode({
   interaction,
   designViewport,
   floatingHost,
+  floatingEditorBounds,
 }: RuntimeNodeProps): ReactElement {
   const children = reusableVisualChildren(node, byId);
   const referencedReusableElementId = reusableElementId(node);
@@ -600,17 +676,26 @@ const RuntimeNode = memo(function RuntimeNode({
       ? reusableElementsById.get(referencedReusableElementId)
       : undefined;
   const isContainer = children.length > 0 || reusableElement !== undefined;
+  const isFloatingContainerEditor = floatingEditorBounds !== undefined;
   const element = (
     <div
       className={`wr-runtime-node wr-runtime-item-${parentContainer.mode}${
         isContainer ? ' wr-runtime-container' : ''
-      }`}
+      }${isFloatingContainerEditor ? ' wr-popup-designer-editor' : ''}`}
       data-designer-node-id={node.id}
-      style={projectDesignerItemStyle(node, parentContainer, interaction, designViewport)}
+      style={projectDesignerItemStyle(
+        node,
+        parentContainer,
+        interaction,
+        designViewport,
+        floatingEditorBounds,
+        isFloatingContainerEditor,
+      )}
     >
       <ComponentView
         node={node}
         designTime
+        forceVisible={isFloatingContainerEditor}
         styleClassName={
           node.styleId === undefined ? undefined : (styleClassNames.get(node.styleId) ?? '')
         }
@@ -651,7 +736,7 @@ const RuntimeNode = memo(function RuntimeNode({
       </ComponentView>
     </div>
   );
-  return renderDesignerNode(node, floatingHost, element);
+  return renderDesignerNode(node, floatingHost, element, isFloatingContainerEditor);
 });
 
 function reorderTargetForPoint(
@@ -807,9 +892,31 @@ export function DesignerSurface({
     () => new Map(styles.map((style) => [style.id, resolveComponentStyleClassName(style)])),
     [styles],
   );
+  const floatingContainerEditorNodeId = useMemo(
+    () => floatingContainerEditorRootId(selectedIds, byId),
+    [byId, selectedIds],
+  );
+  const floatingContainerEditorNode =
+    floatingContainerEditorNodeId === undefined
+      ? undefined
+      : byId.get(floatingContainerEditorNodeId);
+  const floatingContainerEditor = useMemo<FloatingContainerEditor | undefined>(() => {
+    if (floatingContainerEditorNode === undefined) return undefined;
+    const centeredBounds = centeredFloatingContainerBounds(floatingContainerEditorNode, {
+      width: viewportWidth,
+      height: viewportHeight,
+    });
+    return {
+      rootId: floatingContainerEditorNode.id,
+      bounds:
+        interaction?.kind === 'resize' && interaction.id === floatingContainerEditorNode.id
+          ? interaction.currentBounds
+          : centeredBounds,
+    };
+  }, [floatingContainerEditorNode, interaction, viewportHeight, viewportWidth]);
   const layout = useMemo(
-    () => buildLayout(page, byId, measuredBounds),
-    [byId, measuredBounds, page],
+    () => buildLayout(page, byId, measuredBounds, floatingContainerEditor),
+    [byId, floatingContainerEditor, measuredBounds, page],
   );
   const layoutById = useMemo(() => new Map(layout.map((item) => [item.node.id, item])), [layout]);
   const root = byId.get(page.rootComponentId);
@@ -825,14 +932,21 @@ export function DesignerSurface({
   const selectedVisualIds = useMemo(
     () =>
       selectedIds.filter(
-        (id) => id !== page.rootComponentId && appearsOnDesignerCanvas(byId.get(id)?.type ?? ''),
+        (id) =>
+          id !== page.rootComponentId &&
+          (appearsOnDesignerCanvas(byId.get(id)?.type ?? '') ||
+            id === floatingContainerEditorNodeId),
       ),
-    [byId, page.rootComponentId, selectedIds],
+    [byId, floatingContainerEditorNodeId, page.rootComponentId, selectedIds],
   );
   const positionMovableSelectedIds = useMemo(() => {
     const allFixed = selectedVisualIds.every((id) => {
       const node = byId.get(id);
-      return node !== undefined && parentModeOf(node, byId) === 'fixed';
+      return (
+        node !== undefined &&
+        !isDesignerFloatingContainer(node) &&
+        parentModeOf(node, byId) === 'fixed'
+      );
     });
     const first = selectedVisualIds[0] === undefined ? undefined : byId.get(selectedVisualIds[0]);
     const signature = first === undefined ? undefined : movementSignature(first);
@@ -968,6 +1082,9 @@ export function DesignerSurface({
     }
     const ids = selectedIds.includes(node.id) ? selectedIds : [node.id];
     onSelect(ids, node.id);
+    // Tray-authored visual containers are intentionally centered by their
+    // editor/runtime host, so their page coordinates are never mutated.
+    if (isDesignerFloatingContainer(node)) return;
     const parentMode = parentModeOf(node, byId);
     // Anchored components have no safe x/y mutation. Selection and resize are
     // retained; an anchor-aware command can be supplied later by the host.
@@ -1028,6 +1145,11 @@ export function DesignerSurface({
     const parent = node.parentId ? byId.get(node.parentId) : undefined;
     const measuredParent =
       parent === undefined ? undefined : layoutById.get(parent.id)?.absoluteBounds;
+    const isFloatingContainerEditor =
+      isDesignerFloatingContainer(node) && node.id === floatingContainerEditor?.rootId;
+    const editorBounds = isFloatingContainerEditor
+      ? (layoutById.get(node.id)?.absoluteBounds ?? floatingContainerEditor?.bounds ?? node.bounds)
+      : node.bounds;
     event.currentTarget.setPointerCapture(event.pointerId);
     setInteraction({
       kind: 'resize',
@@ -1035,17 +1157,19 @@ export function DesignerSurface({
       start: eventPoint(event),
       id: node.id,
       handle,
-      originalBounds: node.bounds,
-      currentBounds: node.bounds,
+      originalBounds: editorBounds,
+      currentBounds: editorBounds,
       containerBounds: {
         x: 0,
         y: 0,
-        width: isFloatingReusableElement(node)
-          ? viewportWidth
-          : (measuredParent?.width ?? parent?.bounds.width ?? viewportWidth),
-        height: isFloatingReusableElement(node)
-          ? viewportHeight
-          : (measuredParent?.height ?? parent?.bounds.height ?? viewportHeight),
+        width:
+          isFloatingReusableElement(node) || isFloatingContainerEditor
+            ? viewportWidth
+            : (measuredParent?.width ?? parent?.bounds.width ?? viewportWidth),
+        height:
+          isFloatingReusableElement(node) || isFloatingContainerEditor
+            ? viewportHeight
+            : (measuredParent?.height ?? parent?.bounds.height ?? viewportHeight),
       },
     });
   };
@@ -1152,7 +1276,12 @@ export function DesignerSurface({
         }
       }
     } else if (interaction.kind === 'resize') {
-      onResizeComponent(interaction.id, interaction.currentBounds);
+      const node = byId.get(interaction.id);
+      const nextBounds =
+        node !== undefined && isDesignerFloatingContainer(node)
+          ? { ...interaction.currentBounds, x: 0, y: 0 }
+          : interaction.currentBounds;
+      onResizeComponent(interaction.id, nextBounds);
     } else {
       const bounds = normalizeBounds({
         x: interaction.start.x,
@@ -1330,6 +1459,27 @@ export function DesignerSurface({
               </ComponentView>
             )}
             <div className="wr-designer-floating-layer" ref={setFloatingHost} />
+            {root !== undefined &&
+              floatingContainerEditorNode !== undefined &&
+              floatingContainerEditor !== undefined && (
+                <RuntimeNode
+                  key={floatingContainerEditorNode.id}
+                  node={floatingContainerEditorNode}
+                  byId={byId}
+                  reusableElementsById={reusableElementsById}
+                  styleClassNames={styleClassNames}
+                  parentContainer={
+                    floatingContainerEditorNode.parentId === null
+                      ? root.layout.container
+                      : (byId.get(floatingContainerEditorNode.parentId)?.layout.container ??
+                        root.layout.container)
+                  }
+                  interaction={interaction}
+                  designViewport={{ width: viewportWidth, height: viewportHeight }}
+                  floatingHost={floatingHost}
+                  floatingEditorBounds={floatingContainerEditor.bounds}
+                />
+              )}
             <div
               className="wr-design-overlay"
               onPointerDown={startMarquee}
