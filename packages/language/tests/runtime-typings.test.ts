@@ -212,7 +212,7 @@ class EditorPage extends WebPage {
     image./*@image*/objectFit;
     list./*@list*/selectedIndex;
     grid./*@grid*/configuration;
-    popup./*@popup*/message;
+    popup./*@popup*/modal;
     api./*@api*/request;
     reusableInstance./*@reusableInstance*/pageName;
     this./*@page*/show;
@@ -326,16 +326,10 @@ class EditorPage extends WebPage {
       expect.arrayContaining([...commonVisualProperties, 'bindApiClient', 'configuration']),
     );
     expect(completions('popup')).toEqual(
-      expect.arrayContaining([
-        ...commonVisualProperties,
-        'caption',
-        'close',
-        'message',
-        'modal',
-        'open',
-        'returnValue',
-      ]),
+      expect.arrayContaining([...commonVisualProperties, 'close', 'modal', 'open', 'returnValue']),
     );
+    expect(completions('popup')).not.toContain('caption');
+    expect(completions('popup')).not.toContain('message');
     expect(completions('api')).toEqual(
       expect.arrayContaining([
         'baseUrl',
@@ -493,8 +487,6 @@ class EditorPage extends WebPage {
     list.items = ['One', 'Two'];
     list.selectedIndex = 1;
     list.multiple = true;
-    popup.caption = 'Confirmar';
-    popup.message = 'Deseja continuar?';
     popup.modal = true;
     popup.show();
     popup.close('accepted');
@@ -633,6 +625,8 @@ edit.inputType = 'date';
 page.layoutMode = 'table';
 image.objectFit = 'stretch';
 list.multiple = 'yes';
+popup.caption = 'Legacy caption';
+popup.message = 'Legacy message';
 popup.modal = 'yes';
 popup.returnValue = 42;
 popup.open = false;
@@ -643,6 +637,6 @@ void api.get<number>(42);
 `);
     expect(
       invalid.service.getSemanticDiagnostics(invalid.fileName).map(({ code }) => code),
-    ).toEqual(expect.arrayContaining([2322, 2345, 2540]));
+    ).toEqual(expect.arrayContaining([2322, 2339, 2345, 2540]));
   });
 });

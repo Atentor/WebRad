@@ -275,15 +275,13 @@ describe('ComponentView', () => {
     expect(markup.indexOf('</button>')).toBeLessThan(markup.indexOf('</section>'));
   });
 
-  it('renders Popup as an accessible static style-preview surface', () => {
+  it('renders Popup as an accessible, styleable static container surface', () => {
     const popup = {
       ...button,
       id: 'popup-id',
       type: 'WebPopup',
       name: 'Popup1',
       props: {
-        caption: 'Delete customer?',
-        message: 'This action cannot be undone.',
         modal: true,
         visible: true,
         enabled: true,
@@ -292,17 +290,17 @@ describe('ComponentView', () => {
     const view = render(
       <ComponentView node={popup} styleClassName="bg-white text-slate-900 shadow-xl" />,
     );
-    const dialog = view.getByRole('dialog', { name: 'Delete customer?' });
+    const dialog = view.getByRole('dialog', { name: 'Popup1' });
 
     expect(dialog.getAttribute('aria-modal')).toBeNull();
-    expect(dialog.getAttribute('aria-describedby')).toBe('webrad-popup-message-popup-id');
     expect(dialog.classList.contains('wr-component')).toBe(true);
     expect(dialog.classList.contains('wr-webpopup')).toBe(true);
     expect(dialog.classList.contains('bg-white')).toBe(true);
     expect(dialog.classList.contains('shadow-xl')).toBe(true);
-    expect(
-      view.getByText('This action cannot be undone.').getAttribute('data-webrad-popup-message'),
-    ).toBe('');
+    expect(dialog.querySelector('[data-webrad-popup-children]')).not.toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-content]')).toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-caption]')).toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-message]')).toBeNull();
     view.unmount();
   });
 
@@ -314,8 +312,6 @@ describe('ComponentView', () => {
       name: 'Popup1',
       children: [button.id],
       props: {
-        caption: 'Actions',
-        message: '',
         modal: true,
         visible: false,
         collapseWhenHidden: true,
@@ -328,11 +324,11 @@ describe('ComponentView', () => {
       </ComponentView>,
     );
 
-    const dialog = view.getByRole('dialog', { name: 'Actions' });
+    const dialog = view.getByRole('dialog', { name: 'Popup1' });
     const children = dialog.querySelector<HTMLElement>('[data-webrad-popup-children]');
     expect(dialog.hidden).toBe(false);
     expect(children?.querySelector('[data-component-id="button-id"]')).not.toBeNull();
-    expect(dialog.querySelector('[data-webrad-popup-message]')).toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-content]')).toBeNull();
     view.unmount();
   });
 

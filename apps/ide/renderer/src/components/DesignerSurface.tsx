@@ -391,6 +391,10 @@ function projectDesignerItemStyle(
         : floatingEditorBounds;
     return {
       position: 'absolute',
+      // Selection feedback measures this structural wrapper. Making it a flex
+      // host prevents inline controls from being baseline-aligned inside a
+      // different visual rectangle.
+      display: 'flex',
       left: `${String(bounds.x)}px`,
       top: `${String(bounds.y)}px`,
       width: `${String(bounds.width)}px`,
@@ -402,7 +406,7 @@ function projectDesignerItemStyle(
   const visual = projectComponentVisual(node, 'fill');
   return !forceVisible && !visual.visible && visual.collapseWhenHidden
     ? { ...style, display: 'none' }
-    : style;
+    : { ...style, display: 'flex' };
 }
 
 /** Projects persisted floating offsets to the simulated design viewport. */
@@ -984,8 +988,34 @@ export function DesignerSurface({
   }, [scale]);
 
   useLayoutEffect(() => {
+    // A tray-authored visual container is mounted into the floating portal
+    // only while it (or a descendant) is selected. Its DOM geometry can
+    // therefore change without a project-model change; refresh it before the
+    // overlay paints instead of reusing the previous opening's measurements.
     measureLayout();
-  }, [floatingHost, interaction, measureLayout, page, viewportHeight, viewportWidth]);
+  }, [
+    floatingContainerEditorNodeId,
+    floatingHost,
+    interaction,
+    measureLayout,
+    page,
+    viewportHeight,
+    viewportWidth,
+  ]);
+
+  useLayoutEffect(() => {
+    const surface = surfaceRef.current;
+    if (!surface) return undefined;
+    // Scroll offsets change child client rectangles without changing their
+    // size, so ResizeObserver alone cannot keep selection hit targets aligned
+    // inside scrolling containers such as Popup.
+    surface.addEventListener('scroll', measureLayout, true);
+    surface.addEventListener('transitionend', measureLayout, true);
+    return () => {
+      surface.removeEventListener('scroll', measureLayout, true);
+      surface.removeEventListener('transitionend', measureLayout, true);
+    };
+  }, [measureLayout]);
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
@@ -1008,7 +1038,14 @@ export function DesignerSurface({
       observer.disconnect();
       if (frame !== undefined) window.cancelAnimationFrame(frame);
     };
-  }, [floatingHost, measureLayout, page.components, viewportHeight, viewportWidth]);
+  }, [
+    floatingContainerEditorNodeId,
+    floatingHost,
+    measureLayout,
+    page.components,
+    viewportHeight,
+    viewportWidth,
+  ]);
 
   const eventPoint = (event: { clientX: number; clientY: number }): Point => {
     const rectangle = surfaceRef.current?.getBoundingClientRect();

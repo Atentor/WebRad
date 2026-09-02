@@ -263,8 +263,7 @@ runtimeComponentRegistry
     participatesInLayout: false,
     applyProperties: (component, node) => {
       applyCommon(component, node, { participatesInLayout: false });
-      component.caption = readStringProperty(node, 'caption', node.name);
-      component.message = readStringProperty(node, 'message');
+      component.element.setAttribute('aria-label', node.name);
       component.modal = readBooleanProperty(node, 'modal', true);
     },
   })

@@ -260,6 +260,18 @@ function materializeComponentProperties(input: unknown): unknown {
     return input;
   }
 
+  if (input.type === 'WebPopup') {
+    // Popup used to be a message dialog. It is now a pure visual child
+    // container, so normalize persisted v2 documents to its current public
+    // contract instead of keeping obsolete presentation properties alive.
+    const props = Object.fromEntries(
+      Object.entries(input.props).filter(
+        ([propertyName]) => propertyName !== 'caption' && propertyName !== 'message',
+      ),
+    );
+    return { ...input, props };
+  }
+
   if (input.type === 'WebReusableElement') {
     return {
       ...input,

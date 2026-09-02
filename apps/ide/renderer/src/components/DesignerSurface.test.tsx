@@ -9,7 +9,7 @@ import {
   type PageModel,
   type ReusableElementModel,
 } from '@webrad/project-model';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DesignerSurface } from './DesignerSurface';
 import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
@@ -104,8 +104,6 @@ function pageWithPopup(): PageModel {
     layout: createDefaultComponentLayout(),
     bounds: { x: 0, y: 0, width: 360, height: 200 },
     props: {
-      caption: 'Popup',
-      message: '',
       modal: true,
       visible: false,
       collapseWhenHidden: true,
@@ -269,12 +267,12 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
   const onOpenReusableElement = options.onOpenReusableElement ?? vi.fn();
   const onDefaultEvent = options.onDefaultEvent ?? vi.fn();
   const onResizeComponent = options.onResizeComponent ?? vi.fn();
-  const view = render(
+  const renderDesignerSurface = (selectedIds: readonly string[]) => (
     <DesignerSurface
       page={page}
       reusableElements={options.reusableElements}
       settings={DEFAULT_PROJECT_SETTINGS}
-      selectedIds={options.selectedIds ?? []}
+      selectedIds={selectedIds}
       selectedPaletteType={options.selectedPaletteType ?? null}
       zoom={100}
       onSelect={onSelect}
@@ -294,10 +292,13 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
       onComponentActivate={onComponentActivate}
       onOpenReusableElement={onOpenReusableElement}
       onDefaultEvent={onDefaultEvent}
-    />,
+    />
   );
+  const view = render(renderDesignerSurface(options.selectedIds ?? []));
   return {
     ...view,
+    rerenderWithSelectedIds: (selectedIds: readonly string[]) =>
+      view.rerender(renderDesignerSurface(selectedIds)),
     onSelect,
     onAddComponent,
     onAddReusableElement,
@@ -449,6 +450,116 @@ describe('DesignerSurface responsive projection', () => {
     expect(responsiveChildren.style.display).toBe('flex');
     expect(responsiveChildren.style.gap).toBe('10px');
     expect(child.parentElement).toBe(responsiveChildren);
+    expect(child.style.display).toBe('flex');
+  });
+
+  it('keeps Popup child selection feedback aligned while its inner body scrolls', async () => {
+    let childLeft = 500;
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement): DOMRect {
+        if (this.classList.contains('wr-page-surface')) return rectangle(0, 0, 1280, 600);
+        if (this.dataset.designerNodeId === 'popup') return rectangle(460, 200, 360, 200);
+        if (this.dataset.designerNodeId === 'popup-button') {
+          return rectangle(childLeft, 260, 140, 36);
+        }
+        return rectangle(0, 0, 0, 0);
+      });
+
+    try {
+      const { container } = renderSurface(pageWithPopupChild(), { selectedIds: ['popup-button'] });
+      const popupBody = container.querySelector<HTMLElement>('[data-webrad-popup-children]');
+      if (popupBody === null) throw new Error('Expected the Popup child host.');
+
+      await waitFor(() => {
+        expect(
+          container.querySelector<HTMLElement>('.wr-design-hit[data-component-id="popup-button"]')
+            ?.style.left,
+        ).toBe('500px');
+      });
+
+      childLeft = 468;
+      fireEvent.scroll(popupBody);
+
+      await waitFor(() => {
+        expect(
+          container.querySelector<HTMLElement>('.wr-design-hit[data-component-id="popup-button"]')
+            ?.style.left,
+        ).toBe('468px');
+      });
+    } finally {
+      getBoundingClientRect.mockRestore();
+    }
+  });
+
+  it('remeasures Popup child feedback after the floating editor closes and reopens', async () => {
+    let childLeft = 500;
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement): DOMRect {
+        if (this.classList.contains('wr-page-surface')) return rectangle(0, 0, 1280, 600);
+        if (this.dataset.designerNodeId === 'popup') return rectangle(460, 200, 360, 200);
+        if (this.dataset.designerNodeId === 'popup-button') {
+          return rectangle(childLeft, 260, 140, 36);
+        }
+        return rectangle(0, 0, 0, 0);
+      });
+
+    try {
+      const { container, rerenderWithSelectedIds } = renderSurface(pageWithPopupChild(), {
+        selectedIds: ['popup-button'],
+      });
+
+      await waitFor(() => {
+        expect(
+          container.querySelector<HTMLElement>('.wr-design-hit[data-component-id="popup-button"]')
+            ?.style.left,
+        ).toBe('500px');
+      });
+
+      rerenderWithSelectedIds([]);
+      await waitFor(() => {
+        expect(
+          container.querySelector('.wr-design-hit[data-component-id="popup-button"]'),
+        ).toBeNull();
+      });
+
+      childLeft = 468;
+      rerenderWithSelectedIds(['popup-button']);
+
+      await waitFor(() => {
+        expect(
+          container.querySelector<HTMLElement>('.wr-design-hit[data-component-id="popup-button"]')
+            ?.style.left,
+        ).toBe('468px');
+      });
+    } finally {
+      getBoundingClientRect.mockRestore();
+    }
   });
 
   it('uses the floating Popup editor as the drop target and preserves its page-independent bounds', () => {

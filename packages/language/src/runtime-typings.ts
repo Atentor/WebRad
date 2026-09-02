@@ -128,11 +128,9 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     caption: string;
   }
 
-  /** Browser-native popup dialog that can be shown or closed from page code. */
+  /** Browser-native floating child container that can be shown or closed from page code. */
   export class WebPopup extends WebComponent<HTMLDialogElement> {
     constructor(element: HTMLElement);
-    caption: string;
-    message: string;
     modal: boolean;
     readonly open: boolean;
     returnValue: string;

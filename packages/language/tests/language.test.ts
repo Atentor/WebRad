@@ -91,8 +91,6 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
             ? { caption: 'Mostrar', visible: true, enabled: true }
             : fixture.type === 'WebPopup'
               ? {
-                  caption: 'Confirmar',
-                  message: 'Deseja continuar?',
                   modal: true,
                   visible: false,
                   collapseWhenHidden: true,

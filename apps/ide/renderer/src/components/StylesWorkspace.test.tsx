@@ -61,7 +61,8 @@ describe('StylesWorkspace', () => {
     expect(preview.hidden).toBe(false);
     expect(preview.classList).toContain('bg-[#f8fafc]');
     expect(preview.classList).toContain('border-[#6366f1]');
-    expect(preview.textContent).toContain('Popup');
+    expect(preview.getAttribute('aria-label')).toBe('StylePreview');
+    expect(preview.querySelector('[data-webrad-popup-children]')).not.toBeNull();
   });
 
   it('forces the selected interaction state in the live preview', async () => {

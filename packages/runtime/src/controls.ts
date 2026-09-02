@@ -459,59 +459,25 @@ function popupElement(element: HTMLElement): HTMLDialogElement {
   return element as HTMLDialogElement;
 }
 
-function popupContentElement(element: HTMLDialogElement): HTMLElement {
-  let content = element.querySelector<HTMLElement>('[data-webrad-popup-content]');
-  if (content === null) {
-    content = element.ownerDocument.createElement('div');
-    element.append(content);
-  }
-  content.classList.add('wr-popup-content');
-  content.dataset.webradPopupContent = '';
-
-  let header = content.querySelector<HTMLElement>('[data-webrad-popup-header]');
-  if (header === null) {
-    header = element.ownerDocument.createElement('header');
-    header.classList.add('wr-popup-header');
-    header.dataset.webradPopupHeader = '';
-  }
-
-  let caption = content.querySelector<HTMLElement>('[data-webrad-popup-caption]');
-  if (caption === null) {
-    caption = element.ownerDocument.createElement('h2');
-    caption.classList.add('wr-popup-caption');
-    caption.dataset.webradPopupCaption = '';
-  }
-
-  let message = content.querySelector<HTMLElement>('[data-webrad-popup-message]');
-  if (message === null) {
-    message = element.ownerDocument.createElement('p');
-    message.classList.add('wr-popup-message');
-    message.dataset.webradPopupMessage = '';
-  }
-  header.append(caption, message);
-
-  let children = content.querySelector<HTMLElement>('[data-webrad-popup-children]');
+function popupChildrenElement(element: HTMLDialogElement): HTMLElement {
+  let children = element.querySelector<HTMLElement>('[data-webrad-popup-children]');
   if (children === null) {
     children = element.ownerDocument.createElement('div');
     children.classList.add('wr-popup-children');
     children.dataset.webradPopupChildren = '';
   }
-  content.append(header, children);
-  return content;
-}
+  element.append(children);
 
-function popupTextElement(
-  element: HTMLDialogElement,
-  dataAttribute: 'webradPopupCaption' | 'webradPopupMessage',
-): HTMLElement {
-  const content = popupContentElement(element);
-  const selector =
-    dataAttribute === 'webradPopupCaption'
-      ? '[data-webrad-popup-caption]'
-      : '[data-webrad-popup-message]';
-  const text = content.querySelector<HTMLElement>(selector);
-  if (text === null) throw new Error('WebPopup content could not be created.');
-  return text;
+  // An earlier Popup contract created a message-dialog shell around this host.
+  // Move the one durable child host to the dialog root, then remove that old
+  // shell so a programmatically reused dialog cannot retain obsolete caption
+  // or message markup.
+  for (const obsolete of element.querySelectorAll<HTMLElement>(
+    '[data-webrad-popup-content], [data-webrad-popup-header], [data-webrad-popup-caption], [data-webrad-popup-message]',
+  )) {
+    obsolete.remove();
+  }
+  return children;
 }
 
 type DialogMethod = (returnValue?: string) => void;
@@ -541,27 +507,8 @@ export class WebPopup extends WebComponent<HTMLDialogElement> {
 
   public constructor(element: HTMLElement) {
     super(popupElement(element));
-    popupContentElement(this.element);
+    popupChildrenElement(this.element);
     this.element.addEventListener('close', this.#onNativeClose);
-  }
-
-  public get caption(): string {
-    return this.element.dataset.webradCaption ?? this.element.getAttribute('aria-label') ?? '';
-  }
-
-  public set caption(value: string) {
-    this.element.dataset.webradCaption = value;
-    this.element.setAttribute('aria-label', value);
-    popupTextElement(this.element, 'webradPopupCaption').textContent = value;
-  }
-
-  public get message(): string {
-    return this.element.dataset.webradMessage ?? '';
-  }
-
-  public set message(value: string) {
-    this.element.dataset.webradMessage = value;
-    popupTextElement(this.element, 'webradPopupMessage').textContent = value;
   }
 
   /** Whether show() opens the dialog in the browser's modal top layer. */

@@ -38,6 +38,7 @@ import {
   safeParseComponentStyle,
   safeParsePage,
   safeParseProject,
+  serializePage,
   setComponentStyle,
   serializeProject,
   serializeProjectManifest,
@@ -202,6 +203,38 @@ describe('project factories', () => {
     expect(updated.pages[1]?.components[0]?.styleId).toBe(
       findDefaultComponentStyle(updated.styles, 'WebPage')?.id,
     );
+  });
+
+  it('normalizes retired Popup caption and message properties from version 2 documents', () => {
+    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const root = page.components[0];
+    if (root === undefined) throw new Error('Expected a page root.');
+    const legacyPopup = component('popup-id', 'WebPopup', 'Popup1', root.id, {
+      caption: 'Legacy title',
+      message: 'Legacy message',
+      modal: true,
+      visible: false,
+      collapseWhenHidden: true,
+      enabled: true,
+    });
+    const legacyDocument = {
+      ...page,
+      components: [{ ...root, children: [legacyPopup.id] }, legacyPopup],
+    };
+
+    const restored = deserializePage(JSON.stringify(legacyDocument));
+    const popup = restored.components.find((node) => node.id === legacyPopup.id);
+    expect(popup?.props).toEqual({
+      modal: true,
+      visible: false,
+      collapseWhenHidden: true,
+      enabled: true,
+    });
+
+    const persisted = deserializePage(serializePage(restored));
+    const persistedPopup = persisted.components.find((node) => node.id === legacyPopup.id);
+    expect(persistedPopup?.props).not.toHaveProperty('caption');
+    expect(persistedPopup?.props).not.toHaveProperty('message');
   });
 
   it('persists general settings and materializes defaults for existing v2 projects', () => {

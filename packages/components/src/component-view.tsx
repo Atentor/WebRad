@@ -198,37 +198,20 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
   // A popup is authored from the nonvisual tray, but it is still a visual
   // runtime component. The Styles workspace needs a stable, accessible
   // surface instead of an active browser dialog, so styles can be previewed
-  // without entering the modal top layer.
-  WebPopup: ({ node, designTime, styleClassName, children, forceVisible }) => {
-    const caption = readStringProperty(node, 'caption', 'Popup');
-    const message = readStringProperty(node, 'message');
-    const captionId = `webrad-popup-caption-${node.id}`;
-    const messageId = `webrad-popup-message-${node.id}`;
-    return (
-      <section
-        {...sharedAttributes(node, designTime, styleClassName, forceVisible)}
-        aria-describedby={message.length > 0 ? messageId : undefined}
-        aria-labelledby={captionId}
-        role="dialog"
-      >
-        <div className="wr-popup-content" data-webrad-popup-content="">
-          <header className="wr-popup-header">
-            <h2 className="wr-popup-caption" data-webrad-popup-caption="" id={captionId}>
-              {caption}
-            </h2>
-            {message.length > 0 && (
-              <p className="wr-popup-message" data-webrad-popup-message="" id={messageId}>
-                {message}
-              </p>
-            )}
-          </header>
-          <div className="wr-popup-children" data-webrad-popup-children="">
-            {children}
-          </div>
-        </div>
-      </section>
-    );
-  },
+  // without entering the modal top layer. Its one inner host owns child layout
+  // while the Popup root receives the same style-class pipeline as every other
+  // visual component.
+  WebPopup: ({ node, designTime, styleClassName, children, forceVisible }) => (
+    <section
+      {...sharedAttributes(node, designTime, styleClassName, forceVisible)}
+      aria-label={node.name}
+      role="dialog"
+    >
+      <div className="wr-popup-children" data-webrad-popup-children="">
+        {children}
+      </div>
+    </section>
+  ),
   WebReusableElement: ({ node, designTime, styleClassName, children }) => (
     <section
       {...sharedAttributes(node, designTime, styleClassName)}

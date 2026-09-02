@@ -963,8 +963,6 @@ const webPopup: ComponentDefinition = {
   defaultEvent: 'OnShow',
   defaultBounds: popupBounds,
   defaults: {
-    caption: 'Popup',
-    message: '',
     modal: true,
     visible: false,
     collapseWhenHidden: true,
@@ -973,15 +971,6 @@ const webPopup: ComponentDefinition = {
   properties: [
     ...trayVisualProperties(popupBounds),
     ...containerLayoutProperties(),
-    captionProperty('Popup'),
-    {
-      name: 'message',
-      label: 'Message',
-      type: 'string',
-      category: 'Appearance',
-      source: 'props',
-      defaultValue: '',
-    },
     {
       name: 'modal',
       label: 'Modal',

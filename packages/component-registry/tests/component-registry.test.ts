@@ -213,8 +213,6 @@ describe('MVP component metadata', () => {
     expect(popup.defaultEvent).toBe('OnShow');
     expect(popup.defaultBounds).toEqual({ width: 360, height: 200 });
     expect(popup.defaults).toEqual({
-      caption: 'Popup',
-      message: '',
       modal: true,
       visible: false,
       collapseWhenHidden: true,
@@ -236,8 +234,6 @@ describe('MVP component metadata', () => {
       'containerWrap',
       'containerJustifyContent',
       'containerAlignItems',
-      'caption',
-      'message',
       'modal',
     ]);
     expect(popup.properties.filter((property) => property.source === 'bounds')).toEqual([
@@ -262,11 +258,8 @@ describe('MVP component metadata', () => {
       'containerAlignItems',
     ]);
     expect(popup.properties.some((property) => property.source === 'layout-item')).toBe(false);
-    expect(popup.properties.find((property) => property.name === 'message')).toMatchObject({
-      type: 'string',
-      source: 'props',
-      defaultValue: '',
-    });
+    expect(popup.properties.some((property) => property.name === 'caption')).toBe(false);
+    expect(popup.properties.some((property) => property.name === 'message')).toBe(false);
     expect(popup.properties.find((property) => property.name === 'modal')).toMatchObject({
       type: 'boolean',
       source: 'props',
@@ -523,12 +516,11 @@ describe('sequential names and node defaults', () => {
     });
   });
 
-  it('materializes a tray-authored Popup with browser visual defaults', () => {
+  it('materializes a tray-authored Popup with pure floating-container defaults', () => {
     const node = componentRegistry.createComponent('WebPopup', {
       id: 'popup-id',
       existingNames: ['Popup1'],
       parentId: 'root-id',
-      props: { message: 'Saved successfully.' },
     });
 
     expect(node).toEqual({
@@ -539,8 +531,6 @@ describe('sequential names and node defaults', () => {
       layout: defaultLayout(),
       bounds: { x: 0, y: 0, width: 360, height: 200 },
       props: {
-        caption: 'Popup',
-        message: 'Saved successfully.',
         modal: true,
         visible: false,
         collapseWhenHidden: true,

@@ -402,8 +402,6 @@ describe('browser runtime', () => {
           layout: responsiveLayout(),
           bounds: { x: 0, y: 0, width: 360, height: 200 },
           props: {
-            caption: 'Leaving page',
-            message: '',
             modal: true,
             visible: false,
             collapseWhenHidden: true,
@@ -1678,8 +1676,6 @@ describe('browser runtime', () => {
           }),
           bounds: { x: 120, y: 80, width: 360, height: 200 },
           props: {
-            caption: 'Delete customer?',
-            message: 'This action cannot be undone.',
             modal: true,
             visible: false,
             collapseWhenHidden: true,
@@ -1713,12 +1709,7 @@ describe('browser runtime', () => {
     expect(dialog.style.position).toBe('');
     expect(dialog.style.left).toBe('');
     expect(dialog.style.top).toBe('');
-    expect(dialog.querySelector('[data-webrad-popup-caption]')?.textContent).toBe(
-      'Delete customer?',
-    );
-    expect(dialog.querySelector('[data-webrad-popup-message]')?.textContent).toBe(
-      'This action cannot be undone.',
-    );
+    expect(dialog.getAttribute('aria-label')).toBe('Popup1');
     const childrenHost = dialog.querySelector<HTMLElement>('[data-webrad-popup-children]');
     const confirm = mounted.components.get('popup-confirm');
     if (!(confirm instanceof WebButton)) throw new Error('Expected mounted popup child button.');
@@ -1732,6 +1723,8 @@ describe('browser runtime', () => {
     expect(confirm.element.style.width).toBe('auto');
     expect(WEBRAD_COMPONENT_CSS).toContain('.wr-webpopup::backdrop');
     expect(WEBRAD_COMPONENT_CSS).toContain('.wr-popup-children');
+    expect(WEBRAD_COMPONENT_CSS).not.toContain('.wr-popup-content');
+    expect(WEBRAD_COMPONENT_CSS).not.toContain('.wr-popup-header');
 
     const lifecycle: string[] = [];
     component.bindEvent('OnShow', () => {
@@ -1764,6 +1757,35 @@ describe('browser runtime', () => {
     expect(lifecycle).toContain('close');
   });
 
+  it('removes the retired Popup message shell while preserving its child host', () => {
+    const dialog = document.createElement('dialog');
+    const legacyContent = document.createElement('div');
+    legacyContent.dataset.webradPopupContent = '';
+    const legacyHeader = document.createElement('header');
+    legacyHeader.dataset.webradPopupHeader = '';
+    const legacyCaption = document.createElement('h2');
+    legacyCaption.dataset.webradPopupCaption = '';
+    const legacyMessage = document.createElement('p');
+    legacyMessage.dataset.webradPopupMessage = '';
+    const childrenHost = document.createElement('div');
+    childrenHost.dataset.webradPopupChildren = '';
+    const child = document.createElement('button');
+    childrenHost.append(child);
+    legacyHeader.append(legacyCaption, legacyMessage);
+    legacyContent.append(legacyHeader, childrenHost);
+    dialog.append(legacyContent);
+
+    const popup = new WebPopup(dialog);
+
+    expect(childrenHost.parentElement).toBe(dialog);
+    expect(childrenHost.firstElementChild).toBe(child);
+    expect(dialog.querySelector('[data-webrad-popup-content]')).toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-header]')).toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-caption]')).toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-message]')).toBeNull();
+    popup.dispose();
+  });
+
   it('opens an initially visible modal popup after its detached host is connected', async () => {
     const host = document.createElement('div');
     const mounted = mountPage(
@@ -1783,8 +1805,6 @@ describe('browser runtime', () => {
             layout: responsiveLayout(),
             bounds: { x: 0, y: 0, width: 360, height: 200 },
             props: {
-              caption: 'Welcome',
-              message: 'The detached host is now ready.',
               modal: true,
               visible: true,
               collapseWhenHidden: true,
