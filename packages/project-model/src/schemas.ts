@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
+import { defaultComponentStyleId, DEFAULT_COMPONENT_STYLE_DEFINITIONS } from './default-styles.js';
 import { ProjectValidationError } from './errors.js';
 import {
   COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME,
@@ -39,6 +40,7 @@ import {
   type ComponentNode,
   type ComponentStyleModel,
   type ComponentStyleProperties,
+  type ComponentStyleStateName,
   type ComponentStyleStates,
   type ContainerLayout,
   type LayoutItem,
@@ -97,6 +99,113 @@ const relativeProjectPathSchema = z
     'Expected a normalized relative project path.',
   );
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isDefaultStyleForComponent(value: unknown, componentType: string): boolean {
+  return isRecord(value) && value.componentType === componentType && value.preset === 'default';
+}
+
+function uniqueDefaultStyleId(
+  projectId: string,
+  componentType: string,
+  occupied: ReadonlySet<string>,
+): string {
+  const baseId = defaultComponentStyleId(projectId, componentType);
+  if (!occupied.has(baseId)) return baseId;
+
+  let suffix = 2;
+  while (occupied.has(`${baseId}-${String(suffix)}`)) suffix += 1;
+  return `${baseId}-${String(suffix)}`;
+}
+
+function uniqueDefaultStyleName(baseName: string, occupied: ReadonlySet<string>): string {
+  if (!occupied.has(portableFileNameKey(baseName))) return baseName;
+
+  let suffix = 2;
+  let candidate = `${baseName} ${String(suffix)}`;
+  while (occupied.has(portableFileNameKey(candidate))) {
+    suffix += 1;
+    candidate = `${baseName} ${String(suffix)}`;
+  }
+  return candidate;
+}
+
+function materializeDefaultStyleStates(
+  states: Partial<Readonly<Record<ComponentStyleStateName, ComponentStyleProperties>>>,
+): Record<ComponentStyleStateName, ComponentStyleProperties> {
+  return {
+    base: { ...states.base },
+    hover: { ...states.hover },
+    focus: { ...states.focus },
+    active: { ...states.active },
+    disabled: { ...states.disabled },
+  };
+}
+
+interface PopupStyleMaterialization {
+  readonly styles: readonly unknown[];
+}
+
+/**
+ * Popup became a standard Aurora visual after valid v2 projects already
+ * existed. Add its protected style deterministically without disturbing a
+ * project's other saved styles.
+ */
+function materializePopupDefaultStyle(
+  projectId: string,
+  styles: readonly unknown[],
+): PopupStyleMaterialization {
+  const existingDefault = styles.find((style) => isDefaultStyleForComponent(style, 'WebPopup'));
+  if (existingDefault !== undefined) {
+    return { styles };
+  }
+
+  const definition = DEFAULT_COMPONENT_STYLE_DEFINITIONS.find(
+    (style) => style.componentType === 'WebPopup',
+  );
+  if (definition === undefined) return { styles };
+
+  const occupiedIds = new Set(
+    styles.flatMap((style) => (isRecord(style) && typeof style.id === 'string' ? [style.id] : [])),
+  );
+  const occupiedNames = new Set(
+    styles.flatMap((style) =>
+      isRecord(style) && typeof style.name === 'string' ? [portableFileNameKey(style.name)] : [],
+    ),
+  );
+  const styleId = uniqueDefaultStyleId(projectId, definition.componentType, occupiedIds);
+  const styleName = uniqueDefaultStyleName(definition.name, occupiedNames);
+  const defaultPopupStyle = {
+    id: styleId,
+    name: styleName,
+    componentType: definition.componentType,
+    preset: 'default' as const,
+    states: materializeDefaultStyleStates(definition.states),
+  };
+  const panelDefaultIndex = styles.findIndex((style) =>
+    isDefaultStyleForComponent(style, 'WebPanel'),
+  );
+  const pageDefaultIndex = styles.findIndex((style) =>
+    isDefaultStyleForComponent(style, 'WebPage'),
+  );
+  const insertionIndex =
+    panelDefaultIndex >= 0
+      ? panelDefaultIndex + 1
+      : pageDefaultIndex >= 0
+        ? pageDefaultIndex + 1
+        : 0;
+
+  return {
+    styles: [
+      ...styles.slice(0, insertionIndex),
+      defaultPopupStyle,
+      ...styles.slice(insertionIndex),
+    ],
+  };
+}
+
 /**
  * Some additive v2 fields were introduced after projects using the same
  * format version already existed. Materialize their deterministic defaults
@@ -106,11 +215,18 @@ function materializeProjectDefaults(input: unknown): unknown {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) return input;
   const candidate = input as Readonly<Record<string, unknown>>;
   const settings = candidate.settings;
+  const popupStyle =
+    typeof candidate.id === 'string' && Array.isArray(candidate.styles)
+      ? materializePopupDefaultStyle(candidate.id, candidate.styles)
+      : undefined;
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;
   return {
     ...candidate,
     ...(Object.hasOwn(candidate, 'reusableElements') ? {} : { reusableElements: [] }),
+    ...(popupStyle === undefined || popupStyle.styles === candidate.styles
+      ? {}
+      : { styles: popupStyle.styles }),
     ...(settings !== null && typeof settings === 'object' && !Array.isArray(settings)
       ? {
           settings: materializeProjectSettings({

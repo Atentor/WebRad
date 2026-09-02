@@ -14,6 +14,7 @@ import {
   addComponentStyle,
   addPage,
   addReusableElement,
+  applyDefaultComponentStyle,
   assembleProject,
   bindComponentEvent,
   createDefaultComponentLayout,
@@ -50,6 +51,7 @@ import {
   updateProjectSettings,
   validateComponentName,
   type ComponentNode,
+  type ComponentStyleModel,
   type IdFactory,
 } from '../src/index.js';
 
@@ -235,6 +237,76 @@ describe('project factories', () => {
     const persistedPopup = persisted.components.find((node) => node.id === legacyPopup.id);
     expect(persistedPopup?.props).not.toHaveProperty('caption');
     expect(persistedPopup?.props).not.toHaveProperty('message');
+  });
+
+  it('restores the protected Default Popup style for older v2 libraries without restyling nodes', () => {
+    const project = createProject('CustomerApp', {
+      idFactory: idSequence('project-id', 'page-id', 'root-id'),
+    });
+    const legacy = JSON.parse(serializeProject(project)) as {
+      styles: ComponentStyleModel[];
+      pages: {
+        rootComponentId: string;
+        components: ComponentNode[];
+      }[];
+    };
+    const page = legacy.pages[0];
+    if (page === undefined) throw new Error('Expected a legacy page.');
+    const popup = component('popup-id', 'WebPopup', 'Popup1', page.rootComponentId, {
+      modal: true,
+      visible: false,
+      collapseWhenHidden: true,
+      enabled: true,
+    });
+    const userPopupStyle = createComponentStyle('Default Popup', 'WebPopup', {
+      idFactory: () => 'project-id:default-style:WebPopup',
+      states: { base: { backgroundColor: '#334155' } },
+    });
+    legacy.styles = legacy.styles.filter(
+      (style) => !(style.componentType === 'WebPopup' && style.preset === 'default'),
+    );
+    legacy.styles.push(userPopupStyle);
+    page.components = [
+      ...page.components.map((node) =>
+        node.id === page.rootComponentId
+          ? { ...node, children: [...node.children, popup.id] }
+          : node,
+      ),
+      popup,
+    ];
+
+    const restored = deserializeProject(JSON.stringify(legacy));
+    const defaultPopupStyle = findDefaultComponentStyle(restored.styles, 'WebPopup');
+    const panelIndex = restored.styles.findIndex(
+      (style) => style.componentType === 'WebPanel' && style.preset === 'default',
+    );
+    const popupIndex = restored.styles.findIndex((style) => style.id === defaultPopupStyle?.id);
+
+    expect(defaultPopupStyle).toMatchObject({
+      id: 'project-id:default-style:WebPopup-2',
+      name: 'Default Popup 2',
+      componentType: 'WebPopup',
+      preset: 'default',
+      states: {
+        base: {
+          borderRadius: { value: 16, unit: 'px' },
+          boxShadow: 'md',
+          textColor: '#0f172a',
+        },
+      },
+    });
+    expect(popupIndex).toBe(panelIndex + 1);
+    expect(restored.styles.find((style) => style.id === userPopupStyle.id)).toEqual(userPopupStyle);
+    expect(
+      restored.pages[0]?.components.find((node) => node.id === popup.id)?.styleId,
+    ).toBeUndefined();
+    expect(
+      applyDefaultComponentStyle(
+        component('new-popup-id', 'WebPopup', 'Popup2', page.rootComponentId),
+        restored.styles,
+      ).styleId,
+    ).toBe(defaultPopupStyle?.id);
+    expect(deserializeProject(serializeProject(restored))).toEqual(restored);
   });
 
   it('persists general settings and materializes defaults for existing v2 projects', () => {

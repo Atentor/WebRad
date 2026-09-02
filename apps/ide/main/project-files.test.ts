@@ -101,6 +101,80 @@ describe('project files', () => {
     expect(loaded.userSources[userPath]).toBe('// preserved user code\n');
   });
 
+  it('restores Default Popup when loading a project created before its Aurora style existed', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-legacy-popup-style-'));
+    temporaryRoots.push(parent);
+    const session = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
+    const manifest = JSON.parse(await fs.readFile(session.projectFilePath, 'utf8')) as {
+      pages: { pageFile: string }[];
+      styles: { componentType: string; preset?: string }[];
+    };
+    manifest.styles = manifest.styles.filter(
+      (style) => !(style.componentType === 'WebPopup' && style.preset === 'default'),
+    );
+    const pageFile = manifest.pages[0]?.pageFile;
+    if (pageFile === undefined) throw new Error('Expected a persisted page document.');
+    const pagePath = path.join(session.rootPath, ...pageFile.split('/'));
+    const page = JSON.parse(await fs.readFile(pagePath, 'utf8')) as {
+      rootComponentId: string;
+      components: ({
+        id: string;
+        children: string[];
+      } & Record<string, unknown>)[];
+    };
+    const root = page.components.find((component) => component.id === page.rootComponentId);
+    if (root === undefined) throw new Error('Expected a persisted page root.');
+    root.children.push('legacy-popup-id');
+    page.components.push({
+      id: 'legacy-popup-id',
+      type: 'WebPopup',
+      name: 'Popup1',
+      parentId: page.rootComponentId,
+      layout: createDefaultComponentLayout(),
+      bounds: { x: 120, y: 80, width: 360, height: 220 },
+      props: { modal: true, visible: false, collapseWhenHidden: true, enabled: true },
+      events: { OnShow: null, OnHide: null, OnClose: null },
+      children: [],
+    });
+    await fs.writeFile(session.projectFilePath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+    await fs.writeFile(pagePath, `${JSON.stringify(page, null, 2)}\n`, 'utf8');
+
+    const loaded = await loadProjectFiles(session.projectFilePath);
+    const defaultPopupStyle = loaded.project.styles.find(
+      (style) => style.componentType === 'WebPopup' && style.preset === 'default',
+    );
+    const panelIndex = loaded.project.styles.findIndex(
+      (style) => style.componentType === 'WebPanel' && style.preset === 'default',
+    );
+    const popupIndex = loaded.project.styles.findIndex(
+      (style) => style.id === defaultPopupStyle?.id,
+    );
+
+    expect(defaultPopupStyle).toMatchObject({
+      name: 'Default Popup',
+      id: `${loaded.project.id}:default-style:WebPopup`,
+    });
+    expect(popupIndex).toBe(panelIndex + 1);
+    expect(
+      loaded.project.pages[0]?.components.find((component) => component.id === 'legacy-popup-id')
+        ?.styleId,
+    ).toBeUndefined();
+
+    await saveProjectFiles({
+      rootPath: loaded.rootPath,
+      project: loaded.project,
+      userSources: loaded.userSources,
+    });
+    const persistedManifest = JSON.parse(await fs.readFile(session.projectFilePath, 'utf8')) as {
+      styles: { componentType: string; preset?: string }[];
+    };
+    expect(
+      persistedManifest.styles.filter(
+        (style) => style.componentType === 'WebPopup' && style.preset === 'default',
+      ),
+    ).toHaveLength(1);
+  });
+
   it('persists reusable styles inline and component references in page documents', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-styles-'));
     temporaryRoots.push(parent);
