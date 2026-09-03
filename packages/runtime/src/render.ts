@@ -21,7 +21,9 @@ import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
   applyRuntimeContainerLayout,
   applyRuntimeLayout,
+  bindRuntimeFitContent,
   resolveRuntimeContainerLayout,
+  type RuntimeFitContentBinding,
   type RuntimeComponentLayout,
   type RuntimeContainerLayout,
 } from './layout.js';
@@ -440,6 +442,8 @@ export interface MountedRuntimePage {
   readonly components: ReadonlyMap<string, WebComponent>;
   /** Every physical reusable placement mounted for this page, including nested definitions. */
   readonly reusableInstances: readonly MountedReusableElementInstance[];
+  /** Releases browser observers installed for dynamic fit-content containers. */
+  dispose(): void;
 }
 
 /** DOM and identity inputs used to construct one authored reusable class. */
@@ -481,6 +485,43 @@ function isFloatingReusableElement(node: RuntimeComponentNode): boolean {
 
 function isReusableElement(node: RuntimeComponentNode): boolean {
   return node.type === 'WebReusableElement';
+}
+
+function fitContentMeasurementHost(
+  node: RuntimeComponentNode,
+  component: WebComponent,
+  nodes: ReadonlyMap<string, RuntimeComponentNode>,
+  components: ReadonlyMap<string, WebComponent>,
+  registry: RuntimeComponentRegistry,
+): HTMLElement {
+  if (!isReusableElement(node)) {
+    return registry.require(node.type).getChildrenHost?.(component, node) ?? component.element;
+  }
+
+  // The reusable wrapper is followed by an expanded definition root whose
+  // width/height intentionally fill the placement. Measuring that percentage
+  // root alone would create a zero-size cycle when the wrapper is fit-content,
+  // so measure the definition's own child surface while writing the result to
+  // the instance wrapper.
+  const definitionRootId = node.children.find((childId) => nodes.get(childId)?.reusableRoot);
+  const definitionRoot = definitionRootId === undefined ? undefined : nodes.get(definitionRootId);
+  const definitionComponent =
+    definitionRootId === undefined ? undefined : components.get(definitionRootId);
+  if (definitionRoot === undefined || definitionComponent === undefined) return component.element;
+  return (
+    registry.require(definitionRoot.type).getChildrenHost?.(definitionComponent, definitionRoot) ??
+    definitionComponent.element
+  );
+}
+
+function isRuntimeLayoutChild(
+  child: HTMLElement,
+  nodes: ReadonlyMap<string, RuntimeComponentNode>,
+  registry: RuntimeComponentRegistry,
+): boolean {
+  const childId = child.dataset.webradId;
+  const node = childId === undefined ? undefined : nodes.get(childId);
+  return node === undefined || registry.require(node.type).participatesInLayout !== false;
 }
 
 /**
@@ -638,10 +679,21 @@ export function mountPage(
       throw new Error(`Runtime page layout references unknown component "${nodeId}".`);
     }
     const adapter = registry.require(node.type);
+    const reusablePlacement = node.parentId === null ? undefined : nodes.get(node.parentId);
+    const reusableRootFitContent =
+      node.reusableRoot === true &&
+      reusablePlacement !== undefined &&
+      !isFloatingReusableElement(reusablePlacement)
+        ? {
+            width: reusablePlacement.layout.item.width === 'fit-content',
+            height: reusablePlacement.layout.item.height === 'fit-content',
+          }
+        : undefined;
     if (adapter.participatesInLayout !== false) {
       applyRuntimeLayout(component.element, node, parentContainer, {
         isPageRoot,
         isReusableRoot: node.reusableRoot,
+        reusableRootFitContent,
       });
     }
     const childrenHost = adapter.getChildrenHost?.(component, node);
@@ -650,15 +702,50 @@ export function mountPage(
     for (const childId of node.children) applyBranchLayout(childId, container);
   };
   applyBranchLayout(expandedModel.rootComponentId, undefined, true);
+
   rootElement.dataset.webradLayout = resolveRuntimeContainerLayout(
     nodes.get(expandedModel.rootComponentId)?.layout,
   ).mode;
-
   rootElement.dataset.webradPageId = expandedModel.id;
   const hostChildren =
     floatingLayer.childElementCount > 0 ? [rootElement, floatingLayer] : [rootElement];
   if (options.replaceHostContents ?? true) host.replaceChildren(...hostChildren);
   else host.append(...hostChildren);
+
+  // Layout projection alone is sufficient for flow children. Anchored and
+  // fixed children, however, are out of CSS normal flow and therefore do not
+  // contribute to an ancestor's intrinsic dimensions. Bind observers only
+  // after every branch has its final structural styles.
+  const fitContentBindings: RuntimeFitContentBinding[] = [];
+  const bindBranchFitContent = (nodeId: string): void => {
+    const node = nodes.get(nodeId);
+    const component = components.get(nodeId);
+    if (node === undefined || component === undefined) {
+      throw new Error(`Runtime fit-content layout references unknown component "${nodeId}".`);
+    }
+    const adapter = registry.require(node.type);
+    const item = node.layout.item;
+    // Bind structural containers only. Leaf controls retain the browser's own
+    // intrinsic sizing (for example native inputs), while a container needs
+    // observation for its fixed or anchored visual child branches. Floating
+    // reusable instances keep their persisted viewport geometry and center
+    // offsets; a content-derived override would invalidate those anchors.
+    if (
+      adapter.participatesInLayout !== false &&
+      !isFloatingReusableElement(node) &&
+      node.children.length > 0 &&
+      (item.width === 'fit-content' || item.height === 'fit-content')
+    ) {
+      const childrenHost = fitContentMeasurementHost(node, component, nodes, components, registry);
+      fitContentBindings.push(
+        bindRuntimeFitContent(component.element, childrenHost, node.layout, {
+          isLayoutChild: (child) => isRuntimeLayoutChild(child, nodes, registry),
+        }),
+      );
+    }
+    for (const childId of node.children) bindBranchFitContent(childId);
+  };
+  bindBranchFitContent(expandedModel.rootComponentId);
   const componentIdsByReusableInstance = new Map<string, Map<string, string>>();
   for (const node of expandedModel.components) {
     if (node.reusableInstanceId === undefined || node.templateId === undefined) continue;
@@ -688,5 +775,13 @@ export function mountPage(
       },
     ];
   });
-  return { element: rootElement, page: rootComponent, components, reusableInstances };
+  return {
+    element: rootElement,
+    page: rootComponent,
+    components,
+    reusableInstances,
+    dispose: () => {
+      for (const binding of fitContentBindings) binding.dispose();
+    },
+  };
 }

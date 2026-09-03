@@ -20,7 +20,12 @@ import type {
   ReusableElementModel,
 } from '@webrad/project-model';
 import type { ComponentStyleModel } from '@webrad/project-model';
-import { projectRuntimeLayout, type RuntimeContainerLayout } from '@webrad/runtime';
+import {
+  measureRuntimeFitContentSize,
+  projectRuntimeLayout,
+  type RuntimeContainerLayout,
+  type RuntimeFitContentSize,
+} from '@webrad/runtime';
 import { projectComponentVisual, resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   memo,
@@ -189,6 +194,24 @@ function sameBoundsMap(
   return true;
 }
 
+function sameFitContentSize(
+  left: RuntimeFitContentSize | undefined,
+  right: RuntimeFitContentSize | undefined,
+): boolean {
+  return left?.width === right?.width && left?.height === right?.height;
+}
+
+function sameFitContentSizeMap(
+  left: ReadonlyMap<string, RuntimeFitContentSize>,
+  right: ReadonlyMap<string, RuntimeFitContentSize>,
+): boolean {
+  if (left.size !== right.size) return false;
+  for (const [id, size] of left) {
+    if (!sameFitContentSize(size, right.get(id))) return false;
+  }
+  return true;
+}
+
 function isFloatingReusableElement(node: ComponentNode): boolean {
   return node.type === 'WebReusableElement' && node.props.placement === 'floating';
 }
@@ -348,13 +371,36 @@ function projectItemStyle(
   parentContainer: RuntimeContainerLayout | undefined,
   interaction: Interaction | null,
   designViewport: DesignViewport,
+  fitContentSize?: RuntimeFitContentSize,
 ): CSSProperties {
   const bounds = localBoundsWithPreview(node, interaction);
   const item = projectRuntimeLayout({ ...node, bounds }, parentContainer).item;
+  const supportsDynamicFitMeasurement = !isFloatingReusableElement(node);
+  const measuredFitContent =
+    interaction?.kind === 'resize' && interaction.id === node.id ? undefined : fitContentSize;
+  const useMeasuredWidth =
+    supportsDynamicFitMeasurement &&
+    node.layout.item.width === 'fit-content' &&
+    measuredFitContent?.width !== undefined;
+  const useMeasuredHeight =
+    supportsDynamicFitMeasurement &&
+    node.layout.item.height === 'fit-content' &&
+    measuredFitContent?.height !== undefined;
+  const fitContentStyles = {
+    ...(useMeasuredWidth
+      ? { width: `${String(measuredFitContent.width)}px` }
+      : {}),
+    ...(useMeasuredHeight
+      ? { height: `${String(measuredFitContent.height)}px` }
+      : {}),
+  };
   if (!isFloatingReusableElement(node)) {
-    return reactStyle(item, {
-      boxSizing: 'border-box',
-    });
+    return reactStyle(
+      { ...item, ...fitContentStyles },
+      {
+        boxSizing: 'border-box',
+      },
+    );
   }
 
   const visualBounds = floatingVisualBounds(node, bounds, designViewport);
@@ -369,6 +415,7 @@ function projectItemStyle(
       position: 'absolute',
       left: `${String(visualBounds.x)}px`,
       top: `${String(visualBounds.y)}px`,
+      ...fitContentStyles,
     },
     {
       boxSizing: 'border-box',
@@ -383,6 +430,7 @@ function projectDesignerItemStyle(
   designViewport: DesignViewport,
   floatingEditorBounds?: Bounds,
   forceVisible = false,
+  fitContentSize?: RuntimeFitContentSize,
 ): CSSProperties {
   if (floatingEditorBounds !== undefined) {
     const bounds =
@@ -402,7 +450,13 @@ function projectDesignerItemStyle(
       boxSizing: 'border-box',
     };
   }
-  const style = projectItemStyle(node, parentContainer, interaction, designViewport);
+  const style = projectItemStyle(
+    node,
+    parentContainer,
+    interaction,
+    designViewport,
+    fitContentSize,
+  );
   const visual = projectComponentVisual(node, 'fill');
   return !forceVisible && !visual.visible && visual.collapseWhenHidden
     ? { ...style, display: 'none' }
@@ -456,13 +510,60 @@ function designHitZIndex(node: ComponentNode, order: number): number {
 }
 
 function projectChildrenStyle(node: ComponentNode): CSSProperties {
+  const item = node.layout.item;
   return reactStyle(projectRuntimeLayout(node).container, {
     boxSizing: 'border-box',
-    width: '100%',
-    height: '100%',
+    // A fit-content container must let this host establish its own intrinsic
+    // extent. Forcing 100% here gives a small parent an artificial available
+    // size, which in turn flex-shrinks its children before the outer surface
+    // can grow around them.
+    width: item.width === 'fit-content' ? 'max-content' : '100%',
+    height: item.height === 'fit-content' ? 'max-content' : '100%',
     minWidth: 0,
     minHeight: 0,
   });
+}
+
+function directElementChildren(element: HTMLElement): readonly HTMLElement[] {
+  return Array.from(element.children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement,
+  );
+}
+
+function directChildrenLayoutHost(component: HTMLElement, type: string): HTMLElement | undefined {
+  const directHost = directElementChildren(component).find((child) =>
+    child.classList.contains('wr-runtime-children'),
+  );
+  if (directHost !== undefined) return directHost;
+  if (type !== 'WebPopup') return undefined;
+  const popupChildrenHost = directElementChildren(component).find(
+    (child) => child.dataset.webradPopupChildren === '',
+  );
+  return popupChildrenHost === undefined
+    ? undefined
+    : directElementChildren(popupChildrenHost).find((child) =>
+        child.classList.contains('wr-runtime-children'),
+      );
+}
+
+function fitContentHost(component: HTMLElement, node: ComponentNode): HTMLElement {
+  if (node.type !== 'WebReusableElement') {
+    return directChildrenLayoutHost(component, node.type) ?? component;
+  }
+
+  const reusableDefinition = directElementChildren(component).find((child) =>
+    child.classList.contains('wr-reusable-definition-root'),
+  );
+  const reusableRoot =
+    reusableDefinition === undefined
+      ? undefined
+      : directElementChildren(reusableDefinition).find(
+          (child) => child.dataset.componentId !== undefined,
+        );
+  return reusableRoot === undefined
+    ? component
+    : (directChildrenLayoutHost(reusableRoot, reusableRoot.dataset.componentType ?? '') ??
+        reusableRoot);
 }
 
 function isFlowMode(mode: ContainerLayoutMode): boolean {
@@ -489,6 +590,7 @@ interface RuntimeNodeProps {
   byId: ReadonlyMap<string, ComponentNode>;
   reusableElementsById: ReadonlyMap<string, ReusableElementModel>;
   styleClassNames: ReadonlyMap<string, string>;
+  fitContentSizes: ReadonlyMap<string, RuntimeFitContentSize>;
   parentContainer: RuntimeContainerLayout;
   interaction: Interaction | null;
   designViewport: DesignViewport;
@@ -556,7 +658,14 @@ function ReusableDefinitionContent({
   if (root === undefined) return null;
   const children = reusableVisualChildren(root, byId);
   return (
-    <div className="wr-reusable-definition-root" data-reusable-element-id={reusableElement.id}>
+    <div
+      className={`wr-reusable-definition-root${
+        instance.layout.item.width === 'fit-content' ? ' wr-reusable-definition-fit-width' : ''
+      }${
+        instance.layout.item.height === 'fit-content' ? ' wr-reusable-definition-fit-height' : ''
+      }`}
+      data-reusable-element-id={reusableElement.id}
+    >
       <ComponentView
         node={root}
         designTime
@@ -667,6 +776,7 @@ const RuntimeNode = memo(function RuntimeNode({
   byId,
   reusableElementsById,
   styleClassNames,
+  fitContentSizes,
   parentContainer,
   interaction,
   designViewport,
@@ -694,6 +804,7 @@ const RuntimeNode = memo(function RuntimeNode({
         designViewport,
         floatingEditorBounds,
         isFloatingContainerEditor,
+        fitContentSizes.get(node.id),
       )}
     >
       <ComponentView
@@ -728,6 +839,7 @@ const RuntimeNode = memo(function RuntimeNode({
                   byId={byId}
                   reusableElementsById={reusableElementsById}
                   styleClassNames={styleClassNames}
+                  fitContentSizes={fitContentSizes}
                   parentContainer={node.layout.container}
                   interaction={interaction}
                   designViewport={designViewport}
@@ -883,11 +995,22 @@ export function DesignerSurface({
   const [measuredBounds, setMeasuredBounds] = useState<ReadonlyMap<string, Bounds>>(
     () => new Map(),
   );
+  const [fitContentSizes, setFitContentSizes] = useState<
+    ReadonlyMap<string, RuntimeFitContentSize>
+  >(() => new Map());
   const scale = zoom / 100;
   const viewport = VIEWPORTS[viewportName];
-  const viewportWidth = viewport.width;
-  const viewportHeight = page.height;
   const byId = useMemo(() => new Map(page.components.map((node) => [node.id, node])), [page]);
+  const root = byId.get(page.rootComponentId);
+  const rootFitContentSize = root === undefined ? undefined : fitContentSizes.get(root.id);
+  const viewportWidth =
+    root?.layout.item.width === 'fit-content' && rootFitContentSize?.width !== undefined
+      ? rootFitContentSize.width
+      : viewport.width;
+  const viewportHeight =
+    root?.layout.item.height === 'fit-content' && rootFitContentSize?.height !== undefined
+      ? rootFitContentSize.height
+      : page.height;
   const reusableElementsById = useMemo(
     () => new Map(reusableElements.map((reusableElement) => [reusableElement.id, reusableElement])),
     [reusableElements],
@@ -906,9 +1029,22 @@ export function DesignerSurface({
       : byId.get(floatingContainerEditorNodeId);
   const floatingContainerEditor = useMemo<FloatingContainerEditor | undefined>(() => {
     if (floatingContainerEditorNode === undefined) return undefined;
+    const currentRoot = page.components.find((node) => node.id === page.rootComponentId);
+    const currentRootFitContentSize =
+      currentRoot === undefined ? undefined : fitContentSizes.get(currentRoot.id);
+    const currentViewportWidth =
+      currentRoot?.layout.item.width === 'fit-content' &&
+      currentRootFitContentSize?.width !== undefined
+        ? currentRootFitContentSize.width
+        : viewport.width;
+    const currentViewportHeight =
+      currentRoot?.layout.item.height === 'fit-content' &&
+      currentRootFitContentSize?.height !== undefined
+        ? currentRootFitContentSize.height
+        : page.height;
     const centeredBounds = centeredFloatingContainerBounds(floatingContainerEditorNode, {
-      width: viewportWidth,
-      height: viewportHeight,
+      width: currentViewportWidth,
+      height: currentViewportHeight,
     });
     return {
       rootId: floatingContainerEditorNode.id,
@@ -917,13 +1053,12 @@ export function DesignerSurface({
           ? interaction.currentBounds
           : centeredBounds,
     };
-  }, [floatingContainerEditorNode, interaction, viewportHeight, viewportWidth]);
+  }, [fitContentSizes, floatingContainerEditorNode, interaction, page, viewport.width]);
   const layout = useMemo(
     () => buildLayout(page, byId, measuredBounds, floatingContainerEditor),
     [byId, floatingContainerEditor, measuredBounds, page],
   );
   const layoutById = useMemo(() => new Map(layout.map((item) => [item.node.id, item])), [layout]);
-  const root = byId.get(page.rootComponentId);
   const rootStyleClassName =
     root?.styleId === undefined ? undefined : (styleClassNames.get(root.styleId) ?? '');
   const nonvisualComponents = useMemo(
@@ -987,16 +1122,75 @@ export function DesignerSurface({
     setMeasuredBounds((current) => (sameBoundsMap(current, next) ? current : next));
   }, [scale]);
 
+  const measureFitContentSizes = useCallback((): void => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const next = new Map<string, RuntimeFitContentSize>();
+    const nodesByDesignerId = new Map<string, HTMLElement>();
+    for (const element of surface.querySelectorAll<HTMLElement>('[data-designer-node-id]')) {
+      const nodeId = element.dataset.designerNodeId;
+      if (nodeId !== undefined) nodesByDesignerId.set(nodeId, element);
+    }
+    const rootElement = Array.from(
+      surface.querySelectorAll<HTMLElement>('[data-component-id]'),
+    ).find((element) => element.dataset.componentId === page.rootComponentId);
+
+    for (const node of page.components) {
+      if (
+        isFloatingReusableElement(node) ||
+        (node.id !== page.rootComponentId &&
+          node.type !== 'WebReusableElement' &&
+          node.children.length === 0) ||
+        (node.layout.item.width !== 'fit-content' && node.layout.item.height !== 'fit-content')
+      ) {
+        continue;
+      }
+      const target =
+        node.id === page.rootComponentId ? rootElement : nodesByDesignerId.get(node.id);
+      if (target === undefined) continue;
+      const component =
+        node.id === page.rootComponentId
+          ? target
+          : Array.from(target.children).find(
+              (child): child is HTMLElement =>
+                child instanceof HTMLElement && child.dataset.componentId === node.id,
+            );
+      if (component === undefined) continue;
+
+      // The wrapper receives the computed item size, while the ComponentView
+      // owns visual padding and borders. Measure its actual border box so the
+      // fitted wrapper has room for both sides of that visual surface.
+      const size = measureRuntimeFitContentSize(
+        component,
+        fitContentHost(component, node),
+        node.layout,
+        {
+          scale,
+          isLayoutChild: (child) => {
+            const childNodeId = child.dataset.designerNodeId;
+            const childNode = childNodeId === undefined ? undefined : byId.get(childNodeId);
+            return childNode === undefined || !isDesignerFloatingContainer(childNode);
+          },
+        },
+      );
+      if (size.width !== undefined || size.height !== undefined) next.set(node.id, size);
+    }
+    setFitContentSizes((current) => (sameFitContentSizeMap(current, next) ? current : next));
+  }, [byId, page.components, page.rootComponentId, scale]);
+
   useLayoutEffect(() => {
     // A tray-authored visual container is mounted into the floating portal
     // only while it (or a descendant) is selected. Its DOM geometry can
     // therefore change without a project-model change; refresh it before the
     // overlay paints instead of reusing the previous opening's measurements.
+    measureFitContentSizes();
     measureLayout();
   }, [
+    fitContentSizes,
     floatingContainerEditorNodeId,
     floatingHost,
     interaction,
+    measureFitContentSizes,
     measureLayout,
     page,
     viewportHeight,
@@ -1009,13 +1203,17 @@ export function DesignerSurface({
     // Scroll offsets change child client rectangles without changing their
     // size, so ResizeObserver alone cannot keep selection hit targets aligned
     // inside scrolling containers such as Popup.
-    surface.addEventListener('scroll', measureLayout, true);
-    surface.addEventListener('transitionend', measureLayout, true);
-    return () => {
-      surface.removeEventListener('scroll', measureLayout, true);
-      surface.removeEventListener('transitionend', measureLayout, true);
+    const refreshMeasurements = (): void => {
+      measureFitContentSizes();
+      measureLayout();
     };
-  }, [measureLayout]);
+    surface.addEventListener('scroll', refreshMeasurements, true);
+    surface.addEventListener('transitionend', refreshMeasurements, true);
+    return () => {
+      surface.removeEventListener('scroll', refreshMeasurements, true);
+      surface.removeEventListener('transitionend', refreshMeasurements, true);
+    };
+  }, [measureFitContentSizes, measureLayout]);
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
@@ -1025,6 +1223,7 @@ export function DesignerSurface({
       if (frame !== undefined) return;
       frame = window.requestAnimationFrame(() => {
         frame = undefined;
+        measureFitContentSizes();
         measureLayout();
       });
     };
@@ -1041,6 +1240,7 @@ export function DesignerSurface({
   }, [
     floatingContainerEditorNodeId,
     floatingHost,
+    measureFitContentSizes,
     measureLayout,
     page.components,
     viewportHeight,
@@ -1485,6 +1685,7 @@ export function DesignerSurface({
                         byId={byId}
                         reusableElementsById={reusableElementsById}
                         styleClassNames={styleClassNames}
+                        fitContentSizes={fitContentSizes}
                         parentContainer={root.layout.container}
                         interaction={interaction}
                         designViewport={{ width: viewportWidth, height: viewportHeight }}
@@ -1505,6 +1706,7 @@ export function DesignerSurface({
                   byId={byId}
                   reusableElementsById={reusableElementsById}
                   styleClassNames={styleClassNames}
+                  fitContentSizes={fitContentSizes}
                   parentContainer={
                     floatingContainerEditorNode.parentId === null
                       ? root.layout.container

@@ -224,6 +224,8 @@ function layoutItemProperties(): readonly ComponentPropertyDefinition[] {
     {
       name: 'itemWidth',
       label: 'Responsive width',
+      description:
+        'Fit content grows the item to its widest rendered child and preserves child intrinsic widths; minimum and maximum width remain limits.',
       type: 'enum',
       category: 'Responsive layout',
       source: 'layout-item',
@@ -233,6 +235,8 @@ function layoutItemProperties(): readonly ComponentPropertyDefinition[] {
     {
       name: 'itemHeight',
       label: 'Responsive height',
+      description:
+        'Fit content grows the item to its lowest rendered child and preserves child intrinsic heights; minimum and maximum height remain limits.',
       type: 'enum',
       category: 'Responsive layout',
       source: 'layout-item',
@@ -284,6 +288,8 @@ function layoutItemProperties(): readonly ComponentPropertyDefinition[] {
     {
       name: 'itemShrink',
       label: 'Shrink',
+      description:
+        'Allows fixed and stretch flow items to yield space. Fit-content keeps its intrinsic size so its children are not compressed.',
       type: 'boolean',
       category: 'Responsive layout',
       source: 'layout-item',

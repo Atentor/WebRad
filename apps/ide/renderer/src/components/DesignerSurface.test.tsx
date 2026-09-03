@@ -235,6 +235,7 @@ function pageWithFloatingReusableElement(): {
 interface RenderSurfaceOptions {
   readonly selectedIds?: readonly string[];
   readonly selectedPaletteType?: string | null;
+  readonly zoom?: number;
   readonly onAddComponent?: (
     type: string,
     point: { x: number; y: number },
@@ -274,7 +275,7 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
       settings={DEFAULT_PROJECT_SETTINGS}
       selectedIds={selectedIds}
       selectedPaletteType={options.selectedPaletteType ?? null}
-      zoom={100}
+      zoom={options.zoom ?? 100}
       onSelect={onSelect}
       onAddComponent={onAddComponent}
       onAddReusableElement={onAddReusableElement}
@@ -324,6 +325,169 @@ describe('DesignerSurface responsive projection', () => {
 
     fireEvent.change(screen.getByLabelText('Viewport'), { target: { value: 'mobile' } });
     expect(surface?.style.width).toBe('390px');
+  });
+
+  it('grows a fit-content page frame around its rendered children instead of shrinking them', async () => {
+    const page = responsivePage();
+    const contentSizedPage: PageModel = {
+      ...page,
+      height: 50,
+      components: page.components.map((component) =>
+        component.id === page.rootComponentId
+          ? {
+              ...component,
+              bounds: { ...component.bounds, height: 50 },
+              layout: {
+                ...component.layout,
+                container: { ...component.layout.container, mode: 'column', gap: 8 },
+                item: { ...component.layout.item, height: 'fit-content' },
+              },
+            }
+          : component,
+      ),
+    };
+    const zoomScale = 0.5;
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement): DOMRect {
+        if (this.classList.contains('wr-page-surface')) {
+          return rectangle(
+            0,
+            0,
+            1280 * zoomScale,
+            (Number.parseFloat(this.style.height) || 50) * zoomScale,
+          );
+        }
+        if (this.dataset.componentId === contentSizedPage.rootComponentId) {
+          return rectangle(
+            0,
+            0,
+            1280 * zoomScale,
+            (Number.parseFloat(this.parentElement?.style.height ?? '') || 50) * zoomScale,
+          );
+        }
+        if (this.dataset.designerNodeId === 'first') return rectangle(10, 10, 60, 18);
+        if (this.dataset.designerNodeId === 'second') return rectangle(10, 42, 60, 18);
+        return rectangle(0, 0, 0, 0);
+      });
+
+    try {
+      const { container } = renderSurface(contentSizedPage, { zoom: 50 });
+      await waitFor(() => {
+        expect(
+          Number.parseFloat(
+            container.querySelector<HTMLElement>('.wr-page-surface')?.style.height ?? '0',
+          ),
+        ).toBeGreaterThanOrEqual(120);
+      });
+      expect(
+        container.querySelector<HTMLElement>('.wr-runtime-children-column')?.style.height,
+      ).toBe('max-content');
+      expect(
+        container.querySelector<HTMLElement>('.wr-design-hit[data-component-id="second"]')?.style
+          .top,
+      ).toBe('84px');
+    } finally {
+      getBoundingClientRect.mockRestore();
+    }
+  });
+
+  it('shrinks an empty fit-content page frame to its configured minimum', async () => {
+    const page = responsivePage();
+    const emptyContentPage: PageModel = {
+      ...page,
+      height: 50,
+      components: page.components
+        .filter((component) => component.id === page.rootComponentId)
+        .map((component) => ({
+          ...component,
+          children: [],
+          bounds: { ...component.bounds, height: 50 },
+          layout: {
+            ...component.layout,
+            item: { ...component.layout.item, height: 'fit-content', minHeight: 24 },
+          },
+        })),
+    };
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement): DOMRect {
+        if (this.classList.contains('wr-page-surface')) {
+          return rectangle(0, 0, 1280, Number.parseFloat(this.style.height) || 50);
+        }
+        if (this.dataset.componentId === emptyContentPage.rootComponentId) {
+          return rectangle(
+            0,
+            0,
+            1280,
+            Number.parseFloat(this.parentElement?.style.height ?? '') || 50,
+          );
+        }
+        return rectangle(0, 0, 0, 0);
+      });
+
+    try {
+      const { container } = renderSurface(emptyContentPage);
+      await waitFor(() => {
+        expect(container.querySelector<HTMLElement>('.wr-page-surface')?.style.height).toBe('24px');
+      });
+    } finally {
+      getBoundingClientRect.mockRestore();
+    }
+  });
+
+  it('leaves a fit-content leaf control on its browser intrinsic size', () => {
+    const page = responsivePage();
+    const intrinsicLeafPage: PageModel = {
+      ...page,
+      components: page.components.map((component) =>
+        component.id !== 'first'
+          ? component
+          : {
+              ...component,
+              type: 'WebEdit',
+              name: 'IntrinsicEdit',
+              layout: {
+                ...component.layout,
+                item: {
+                  ...component.layout.item,
+                  width: 'fit-content',
+                  height: 'fit-content',
+                },
+              },
+              props: { value: 'Do not squeeze', visible: true, enabled: true },
+            },
+      ),
+    };
+
+    const { container } = renderSurface(intrinsicLeafPage);
+    const item = container.querySelector<HTMLElement>('[data-designer-node-id="first"]');
+    expect(item?.style.width).toBe('max-content');
+    expect(item?.style.height).toBe('max-content');
   });
 
   it('removes an invisible component from the Designer layout when configured to collapse', () => {
@@ -662,6 +826,43 @@ describe('DesignerSurface responsive projection', () => {
 
     fireEvent.doubleClick(hitTarget);
     expect(onOpenReusableElement).toHaveBeenCalledWith(fixture.reusableElement.id);
+  });
+
+  it('keeps an in-flow fit-content reusable definition intrinsically sized before measuring it', () => {
+    const fixture = pageWithFloatingReusableElement();
+    const page: PageModel = {
+      ...fixture.page,
+      components: fixture.page.components.map((component) =>
+        component.id !== fixture.instance.id
+          ? component
+          : {
+              ...component,
+              layout: {
+                ...component.layout,
+                item: {
+                  ...component.layout.item,
+                  width: 'fit-content',
+                  height: 'fit-content',
+                },
+              },
+              props: { ...component.props, placement: 'in-flow' },
+            },
+      ),
+    };
+    const { container } = renderSurface(page, { reusableElements: [fixture.reusableElement] });
+    const instance = container.querySelector<HTMLElement>(
+      '[data-designer-node-id="customer-card-instance"]',
+    );
+    const definition = container.querySelector<HTMLElement>(
+      `[data-reusable-element-id="${fixture.reusableElement.id}"]`,
+    );
+    if (instance === null || definition === null) {
+      throw new Error('Expected an in-flow reusable component instance.');
+    }
+
+    expect(instance.style.flexShrink).toBe('0');
+    expect(definition.classList).toContain('wr-reusable-definition-fit-width');
+    expect(definition.classList).toContain('wr-reusable-definition-fit-height');
   });
 
   it('inserts a reusable component from the dedicated drag data type', () => {

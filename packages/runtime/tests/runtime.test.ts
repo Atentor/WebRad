@@ -22,7 +22,9 @@ import {
   WebPageRouter,
   WebReusableElementInstance,
   WebTextArea,
+  bindRuntimeFitContent,
   expandReusableElements,
+  measureRuntimeFitContentSize,
   mountPage,
   normalizeWebDataGridConfiguration,
   projectComponentVisual,
@@ -810,7 +812,7 @@ describe('browser runtime', () => {
       left: '24px',
       right: '20px',
       top: '36px',
-      height: 'fit-content',
+      height: 'max-content',
     });
     expect(fixedReusableProjection.item.width).toBeUndefined();
     expect(fixedReusableProjection.item.bottom).toBeUndefined();
@@ -826,11 +828,204 @@ describe('browser runtime', () => {
     expect(flowProjection.item).toMatchObject({
       position: 'relative',
       width: 'auto',
-      height: 'fit-content',
+      height: 'max-content',
       'flex-basis': '0px',
       'flex-grow': '2',
       'flex-shrink': '1',
     });
+
+    const intrinsicFlowing = {
+      type: 'WebPanel',
+      bounds: { x: 0, y: 0, width: 180, height: 80 },
+      layout: responsiveLayout({}, { width: 'fit-content', height: 'fixed', shrink: true }),
+    };
+    expect(projectRuntimeLayout(intrinsicFlowing, rowParent.container).item).toMatchObject({
+      width: 'max-content',
+      'flex-basis': 'max-content',
+      'flex-shrink': '0',
+    });
+  });
+
+  it('measures fit-content containers around rendered children without mutating the model', async () => {
+    const target = document.createElement('div');
+    const child = document.createElement('div');
+    target.append(child);
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    let childWidth = 164;
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(rectangle(40, 30, 20, 20));
+    vi.spyOn(child, 'getBoundingClientRect').mockImplementation(() =>
+      rectangle(52, 46, childWidth, 52),
+    );
+
+    const layout = responsiveLayout(
+      {},
+      {
+        width: 'fit-content',
+        height: 'fit-content',
+        minWidth: 180,
+        maxWidth: 184,
+        maxHeight: 64,
+      },
+    );
+    expect(measureRuntimeFitContentSize(target, target, layout)).toEqual({
+      width: 180,
+      height: 64,
+    });
+
+    const binding = bindRuntimeFitContent(target, target, layout);
+    expect(target.style.width).toBe('180px');
+    expect(target.style.height).toBe('64px');
+    expect(target.style.getPropertyPriority('width')).toBe('important');
+    binding.dispose();
+    binding.dispose();
+
+    const dynamicBinding = bindRuntimeFitContent(
+      target,
+      target,
+      responsiveLayout({}, { width: 'fit-content' }),
+    );
+    const initialWidth = Number.parseFloat(target.style.width);
+    childWidth = 260;
+    child.textContent = 'Updated rendered content';
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(Number.parseFloat(target.style.width)).toBeGreaterThan(initialWidth);
+    dynamicBinding.dispose();
+  });
+
+  it('uses the rendered content envelope across zoom, anchors, and empty container chrome', () => {
+    const target = document.createElement('div');
+    const child = document.createElement('div');
+    const overlay = document.createElement('div');
+    target.style.padding = '3px 7px';
+    target.append(child, overlay);
+    document.body.append(target);
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const targetRect = vi
+      .spyOn(target, 'getBoundingClientRect')
+      .mockReturnValue(rectangle(10, 10, 0, 0));
+    const childRect = vi
+      .spyOn(child, 'getBoundingClientRect')
+      // This is an end-anchored child in a subtree rendered at 50% zoom.
+      // Its right/bottom edges meet the target start, so only an envelope
+      // calculation (rather than a max edge alone) can recover its size.
+      .mockReturnValue(rectangle(-40, -20, 50, 30));
+    const overlayRect = vi
+      .spyOn(overlay, 'getBoundingClientRect')
+      .mockReturnValue(rectangle(10, 10, 500, 400));
+    const layout = responsiveLayout({}, { width: 'fit-content', height: 'fit-content' });
+
+    try {
+      expect(target.ownerDocument.defaultView?.getComputedStyle(target).paddingLeft).toBe('7px');
+      expect(target.ownerDocument.defaultView?.getComputedStyle(target).paddingRight).toBe('7px');
+      expect(
+        measureRuntimeFitContentSize(target, target, layout, {
+          scale: 0.5,
+          isLayoutChild: (candidate) => candidate !== overlay,
+        }),
+      ).toEqual({ width: 114, height: 66 });
+
+      target.replaceChildren();
+      expect(measureRuntimeFitContentSize(target, target, layout, { scale: 0.5 })).toEqual({
+        width: 14,
+        height: 6,
+      });
+    } finally {
+      target.remove();
+      targetRect.mockRestore();
+      childRect.mockRestore();
+      overlayRect.mockRestore();
+    }
+  });
+
+  it('lets a page root opt into content-driven height instead of pinning the viewport', () => {
+    const contentSizedPage: RuntimePageModel = {
+      id: 'content-sized-page',
+      name: 'ContentSizedPage',
+      caption: 'Content-sized page',
+      width: 800,
+      height: 50,
+      rootComponentId: 'content-sized-root',
+      components: [
+        {
+          id: 'content-sized-root',
+          type: 'WebPage',
+          name: 'ContentSizedPage',
+          parentId: null,
+          bounds: { x: 0, y: 0, width: 800, height: 50 },
+          layout: responsiveLayout({}, { height: 'fit-content', minHeight: 24 }),
+          props: { caption: 'Content-sized page', visible: true, enabled: true },
+          children: [],
+        },
+      ],
+    };
+
+    const mounted = mountPage(contentSizedPage);
+    expect(mounted.element.style.width).toBe('100vw');
+    expect(mounted.element.style.height).toBe('max-content');
+    expect(mounted.element.style.minHeight).toBe('24px');
+    mounted.dispose();
+  });
+
+  it('keeps leaf controls on browser intrinsic sizing instead of measuring them as empty containers', () => {
+    const page: RuntimePageModel = {
+      id: 'intrinsic-leaf-page',
+      name: 'IntrinsicLeafPage',
+      caption: 'Intrinsic leaf page',
+      width: 640,
+      height: 480,
+      rootComponentId: 'intrinsic-leaf-root',
+      components: [
+        {
+          id: 'intrinsic-leaf-root',
+          type: 'WebPage',
+          name: 'IntrinsicLeafPage',
+          parentId: null,
+          bounds: { x: 0, y: 0, width: 640, height: 480 },
+          layout: responsiveLayout(),
+          props: { caption: 'Intrinsic leaf page', visible: true, enabled: true },
+          children: ['intrinsic-edit'],
+        },
+        {
+          id: 'intrinsic-edit',
+          type: 'WebEdit',
+          name: 'IntrinsicEdit',
+          parentId: 'intrinsic-leaf-root',
+          bounds: { x: 16, y: 16, width: 180, height: 32 },
+          layout: responsiveLayout({}, { width: 'fit-content', height: 'fit-content' }),
+          props: { value: 'Do not squeeze', visible: true, enabled: true },
+          children: [],
+        },
+      ],
+    };
+
+    const mounted = mountPage(page, document.createElement('div'));
+    const edit = mounted.page.requireComponentElement('intrinsic-edit');
+    expect(edit.style.width).toBe('max-content');
+    expect(edit.style.height).toBe('max-content');
+    mounted.dispose();
   });
 
   it('expands reusable placements with isolated IDs and anchors floating instances to the viewport', () => {
@@ -858,7 +1053,7 @@ describe('browser runtime', () => {
           name: 'InlineCard',
           parentId: 'reusable-page-root',
           bounds: { x: 32, y: 48, width: 240, height: 96 },
-          layout: responsiveLayout(),
+          layout: responsiveLayout({}, { width: 'fit-content', height: 'fit-content' }),
           props: {
             reusableElementId: 'reusable-card',
             placement: 'inline',
@@ -921,6 +1116,30 @@ describe('browser runtime', () => {
     };
 
     const host = document.createElement('div');
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement): DOMRect {
+        if (this.dataset.webradId === 'inline-card-instance') return rectangle(0, 0, 0, 0);
+        if (
+          this.dataset.webradId === 'inline-card-instance:reusable-card-label' ||
+          this.dataset.webradTemplateId === 'reusable-card-label'
+        ) {
+          return rectangle(12, 16, 160, 24);
+        }
+        return rectangle(0, 0, 0, 0);
+      });
     const mounted = mountPage(reusablePage, host);
     const inlineDefinitionRoot = mounted.page.requireComponentElement(
       'inline-card-instance:reusable-card-root',
@@ -964,6 +1183,10 @@ describe('browser runtime', () => {
     expect(floatingInstance.parentElement?.dataset.webradFloatingOwner).toBe(reusablePage.id);
 
     expect(inlineInstance.style.position).toBe('absolute');
+    expect(inlineInstance.style.width).toBe('172px');
+    expect(inlineInstance.style.height).toBe('40px');
+    expect(inlineDefinitionRoot.style.minWidth).toBe('max-content');
+    expect(inlineDefinitionRoot.style.minHeight).toBe('max-content');
     expect(floatingInstance.style.position).toBe('fixed');
     expect(floatingInstance.style.right).toBe('24px');
     expect(floatingInstance.style.bottom).toBe('36px');
@@ -996,6 +1219,8 @@ describe('browser runtime', () => {
     expect(inlineScope.name).toBe('ReusableCardRoot');
     expect(inlineScope.pageName).toBe(reusablePage.name);
     expect(floatingScope.pageName).toBe(reusablePage.name);
+    getBoundingClientRect.mockRestore();
+    mounted.dispose();
   });
 
   it('allocates a unique physical ID when a scoped reusable ID collides with a page ID', () => {

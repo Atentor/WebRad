@@ -75,6 +75,36 @@ export interface ApplyRuntimeLayoutOptions {
   readonly isPageRoot?: boolean;
   /** A reusable definition root fills its placement instance. */
   readonly isReusableRoot?: boolean;
+  /** Fit axes of the placement that owns a reusable definition root. */
+  readonly reusableRootFitContent?: {
+    readonly width: boolean;
+    readonly height: boolean;
+  };
+}
+
+/** The measured dimensions needed for one or both fit-content axes. */
+export interface RuntimeFitContentSize {
+  readonly width?: number;
+  readonly height?: number;
+}
+
+/**
+ * Describes the coordinate space used by DOM measurements. The browser runtime
+ * uses CSS pixels; design tools can provide their visual zoom factor when the
+ * measured subtree is transformed.
+ */
+export interface RuntimeFitContentMeasurementOptions {
+  readonly scale?: number;
+  /** Filters direct DOM children that participate in the parent's layout. */
+  readonly isLayoutChild?: (child: HTMLElement) => boolean;
+}
+
+/** Releases browser observers used to keep a fit-content container in sync. */
+export interface RuntimeFitContentBinding {
+  /** Recomputes the container immediately after application code changes its content. */
+  refresh(): void;
+  /** Stops all observers associated with this layout projection. */
+  dispose(): void;
 }
 
 const DEFAULT_CONTAINER_LAYOUT: RuntimeContainerLayout = Object.freeze({
@@ -134,6 +164,12 @@ const LAYOUT_PROPERTIES = [
   'width',
   'z-index',
 ] as const;
+
+// CSS `fit-content` is allowed to resolve against the available space, which
+// can compress a nested control before its container gets a chance to grow.
+// `max-content` keeps the intrinsic, Bubble-like "grow around the children"
+// behavior; explicit min/max constraints still apply below.
+const INTRINSIC_CONTENT_SIZE = 'max-content';
 
 function finite(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -252,6 +288,20 @@ function minMaxStyles(item: RuntimeLayoutItem): Readonly<Record<string, string>>
   };
 }
 
+function axisMinMaxStyles(
+  axis: 'horizontal' | 'vertical',
+  minimum: number,
+  maximum: number | null,
+): Readonly<Record<string, string>> {
+  const minProperty = axis === 'horizontal' ? 'min-width' : 'min-height';
+  const maxProperty = axis === 'horizontal' ? 'max-width' : 'max-height';
+  const max = optionalPixels(maximum);
+  return {
+    [minProperty]: pixels(minimum),
+    ...(max === undefined ? {} : { [maxProperty]: max }),
+  };
+}
+
 /**
  * Projects one axis inside a fixed container. Fixed is kept as the legacy
  * geometry fallback, while stretch and fit-content remain meaningful for a
@@ -277,7 +327,7 @@ function fixedAxisStyles(
     case 'fit-content':
       return {
         [start]: coordinatePixels(leadingOffset),
-        [dimension]: 'fit-content',
+        [dimension]: INTRINSIC_CONTENT_SIZE,
       };
     case 'fixed':
       return {
@@ -382,7 +432,7 @@ function alignAxis(
   }
 
   const dimensionStyle =
-    size === 'fixed' ? { [dimension]: pixels(fixedSize) } : { [dimension]: 'fit-content' };
+    size === 'fixed' ? { [dimension]: pixels(fixedSize) } : { [dimension]: INTRINSIC_CONTENT_SIZE };
   switch (anchor) {
     case 'end':
       return {
@@ -466,18 +516,21 @@ function flowItemStyles(
       ? { [mainDimension]: pixels(mainBounds), 'flex-basis': pixels(mainBounds) }
       : mainSize === 'stretch'
         ? { [mainDimension]: 'auto', 'flex-basis': '0px' }
-        : { [mainDimension]: 'fit-content', 'flex-basis': 'fit-content' };
+        : { [mainDimension]: INTRINSIC_CONTENT_SIZE, 'flex-basis': INTRINSIC_CONTENT_SIZE };
   const crossStyles: Readonly<Record<string, string>> =
     crossSize === 'fixed'
       ? { [crossDimension]: pixels(crossBounds) }
       : crossSize === 'stretch'
         ? { [crossDimension]: 'auto', 'align-self': 'stretch' }
-        : { [crossDimension]: 'fit-content' };
+        : { [crossDimension]: INTRINSIC_CONTENT_SIZE };
 
   return {
     position: 'relative',
     'flex-grow': String(mainGrow),
-    'flex-shrink': item.shrink ? '1' : '0',
+    // A fit-content item owns its intrinsic size. It must not yield that
+    // space to its parent, otherwise inner controls are squeezed instead of
+    // the container expanding around them.
+    'flex-shrink': mainSize === 'fit-content' || !item.shrink ? '0' : '1',
     ...mainStyles,
     ...crossStyles,
     ...minMaxStyles(item),
@@ -514,6 +567,258 @@ export function projectRuntimeLayout(
   return {
     container: projectContainer(node, container),
     item: projectItem(node, parentContainer),
+  };
+}
+
+function parsedCssPixels(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function renderedBorderPixels(style: string, width: string): number {
+  return style.length === 0 || style === 'none' || style === 'hidden' ? 0 : parsedCssPixels(width);
+}
+
+interface AxisBoxInsets {
+  readonly leading: number;
+  readonly trailing: number;
+}
+
+function boxInsets(element: HTMLElement, axis: 'horizontal' | 'vertical'): AxisBoxInsets {
+  const view = element.ownerDocument.defaultView;
+  if (view === null) return { leading: 0, trailing: 0 };
+  const computed = view.getComputedStyle(element);
+  return axis === 'horizontal'
+    ? {
+        leading:
+          parsedCssPixels(computed.paddingLeft) +
+          renderedBorderPixels(computed.borderLeftStyle, computed.borderLeftWidth),
+        trailing:
+          parsedCssPixels(computed.paddingRight) +
+          renderedBorderPixels(computed.borderRightStyle, computed.borderRightWidth),
+      }
+    : {
+        leading:
+          parsedCssPixels(computed.paddingTop) +
+          renderedBorderPixels(computed.borderTopStyle, computed.borderTopWidth),
+        trailing:
+          parsedCssPixels(computed.paddingBottom) +
+          renderedBorderPixels(computed.borderBottomStyle, computed.borderBottomWidth),
+      };
+}
+
+function boxInsetsToTarget(
+  target: HTMLElement,
+  contentHost: HTMLElement,
+  axis: 'horizontal' | 'vertical',
+): AxisBoxInsets {
+  let current: HTMLElement | null = contentHost;
+  let leading = 0;
+  let trailing = 0;
+  while (current !== null) {
+    const inset = boxInsets(current, axis);
+    leading += inset.leading;
+    trailing += inset.trailing;
+    if (current === target) return { leading, trailing };
+    current = current.parentElement;
+  }
+  // A custom component host can be rendered outside the target subtree. Its
+  // own box inset is still meaningful, but do not invent a relation to a
+  // target that cannot be proven from the DOM.
+  return boxInsets(contentHost, axis);
+}
+
+function directElementChildren(element: HTMLElement): readonly HTMLElement[] {
+  return Array.from(element.children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement,
+  );
+}
+
+function measurementScale(options: RuntimeFitContentMeasurementOptions | undefined): number {
+  const scale = finite(options?.scale, 1);
+  return scale > 0 ? scale : 1;
+}
+
+function contentExtent(
+  target: HTMLElement,
+  contentHost: HTMLElement,
+  axis: 'horizontal' | 'vertical',
+  scale: number,
+  isLayoutChild: ((child: HTMLElement) => boolean) | undefined,
+): number | undefined {
+  const targetRect = target.getBoundingClientRect();
+  const targetStart = axis === 'horizontal' ? targetRect.left : targetRect.top;
+  if (!Number.isFinite(targetStart)) return undefined;
+
+  let nearestEdge = Number.POSITIVE_INFINITY;
+  let farthestEdge = Number.NEGATIVE_INFINITY;
+  for (const child of directElementChildren(contentHost)) {
+    if (isLayoutChild !== undefined && !isLayoutChild(child)) continue;
+    const rect = child.getBoundingClientRect();
+    const length = axis === 'horizontal' ? rect.width : rect.height;
+    const otherLength = axis === 'horizontal' ? rect.height : rect.width;
+    // `display: none` descendants produce an all-zero rectangle and must not
+    // reserve space. A zero-width divider can still contribute its x offset,
+    // so retain elements that have a size on either axis.
+    if (length === 0 && otherLength === 0) continue;
+    const start = axis === 'horizontal' ? rect.left : rect.top;
+    const edge = axis === 'horizontal' ? rect.right : rect.bottom;
+    if (Number.isFinite(start)) nearestEdge = Math.min(nearestEdge, start);
+    if (Number.isFinite(edge)) farthestEdge = Math.max(farthestEdge, edge);
+  }
+  // An empty (or fully hidden) container has no child extent of its own. Its
+  // own box chrome still needs space, so return the accumulated padding and
+  // borders rather than falling back to stale design-time bounds.
+  const insets = boxInsetsToTarget(target, contentHost, axis);
+  if (!Number.isFinite(farthestEdge)) return insets.leading + insets.trailing;
+  const envelopeStart = Math.min(targetStart, nearestEdge);
+  return (
+    Math.max(0, (farthestEdge - envelopeStart) / scale) +
+    (nearestEdge < targetStart ? insets.leading : 0) +
+    insets.trailing
+  );
+}
+
+function constrainFitContentSize(value: number, minimum: number, maximum: number | null): number {
+  const min = nonNegative(minimum, 0);
+  const max =
+    maximum === null ? Number.POSITIVE_INFINITY : Math.max(min, nonNegative(maximum, min));
+  return Math.ceil(Math.min(max, Math.max(min, value)));
+}
+
+/**
+ * Measures the direct rendered children of a container for its fit-content
+ * axes. This is deliberately DOM-only: the Project Model remains unchanged,
+ * while dynamic text, visibility and nested content can still grow the
+ * browser projection after it has mounted.
+ */
+export function measureRuntimeFitContentSize(
+  target: HTMLElement,
+  contentHost: HTMLElement,
+  layout: RuntimeComponentLayout | undefined,
+  options?: RuntimeFitContentMeasurementOptions,
+): RuntimeFitContentSize {
+  const item = normalizeItem(layout);
+  const scale = measurementScale(options);
+  const width =
+    item.width === 'fit-content'
+      ? contentExtent(target, contentHost, 'horizontal', scale, options?.isLayoutChild)
+      : undefined;
+  const height =
+    item.height === 'fit-content'
+      ? contentExtent(target, contentHost, 'vertical', scale, options?.isLayoutChild)
+      : undefined;
+  return {
+    ...(width === undefined
+      ? {}
+      : { width: constrainFitContentSize(width, item.minWidth, item.maxWidth) }),
+    ...(height === undefined
+      ? {}
+      : { height: constrainFitContentSize(height, item.minHeight, item.maxHeight) }),
+  };
+}
+
+function setFitContentDimension(
+  element: HTMLElement,
+  dimension: 'width' | 'height',
+  value: number | undefined,
+): void {
+  if (value === undefined) return;
+  const next = `${String(value)}px`;
+  if (
+    element.style.getPropertyValue(dimension) === next &&
+    element.style.getPropertyPriority(dimension) === 'important'
+  ) {
+    return;
+  }
+  element.style.setProperty(dimension, next, 'important');
+}
+
+/**
+ * Keeps a mounted fit-content container sized to its direct rendered children.
+ * Absolute and anchored children do not participate in native CSS intrinsic
+ * sizing, so this observer closes that gap without persisting derived pixels
+ * back into the Project Model.
+ */
+export function bindRuntimeFitContent(
+  target: HTMLElement,
+  contentHost: HTMLElement,
+  layout: RuntimeComponentLayout | undefined,
+  options?: RuntimeFitContentMeasurementOptions,
+): RuntimeFitContentBinding {
+  const item = normalizeItem(layout);
+  if (item.width !== 'fit-content' && item.height !== 'fit-content') {
+    return { refresh: () => undefined, dispose: () => undefined };
+  }
+
+  let disposed = false;
+  let scheduled = false;
+  const refresh = (): void => {
+    if (disposed) return;
+    const size = measureRuntimeFitContentSize(target, contentHost, layout, options);
+    setFitContentDimension(target, 'width', size.width);
+    setFitContentDimension(target, 'height', size.height);
+  };
+  const scheduleRefresh = (): void => {
+    if (disposed || scheduled) return;
+    scheduled = true;
+    queueMicrotask(() => {
+      scheduled = false;
+      refresh();
+    });
+  };
+
+  const view = target.ownerDocument.defaultView;
+  const ResizeObserverConstructor = view?.ResizeObserver;
+  const resizeObserver =
+    ResizeObserverConstructor === undefined
+      ? undefined
+      : new ResizeObserverConstructor(scheduleRefresh);
+  let observedElements = new Set<HTMLElement>();
+  const observeChildren = (): void => {
+    if (resizeObserver === undefined) return;
+    const next = new Set<HTMLElement>([
+      target,
+      contentHost,
+      ...directElementChildren(contentHost).filter(
+        (child) => options?.isLayoutChild?.(child) ?? true,
+      ),
+    ]);
+    for (const element of observedElements) {
+      if (!next.has(element)) resizeObserver.unobserve(element);
+    }
+    for (const element of next) {
+      if (!observedElements.has(element)) resizeObserver.observe(element);
+    }
+    observedElements = next;
+  };
+  observeChildren();
+
+  const MutationObserverConstructor = view?.MutationObserver;
+  const mutationObserver =
+    MutationObserverConstructor === undefined
+      ? undefined
+      : new MutationObserverConstructor(() => {
+          observeChildren();
+          scheduleRefresh();
+        });
+  mutationObserver?.observe(contentHost, {
+    attributes: true,
+    attributeFilter: ['class', 'hidden', 'style'],
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
+  refresh();
+
+  return {
+    refresh,
+    dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+    },
   };
 }
 
@@ -557,20 +862,33 @@ export function applyRuntimeLayout(
   options: ApplyRuntimeLayoutOptions = {},
 ): RuntimeLayoutProjection {
   const projection = projectRuntimeLayout(node, parentContainer);
+  const item = normalizeItem(node.layout);
   const rootStyles = options.isPageRoot
     ? {
         position: 'relative',
-        width: '100vw',
-        height: '100dvh',
-        'min-height': '100dvh',
+        ...(item.width === 'fit-content'
+          ? {
+              width: INTRINSIC_CONTENT_SIZE,
+              ...axisMinMaxStyles('horizontal', item.minWidth, item.maxWidth),
+            }
+          : { width: '100vw' }),
+        ...(item.height === 'fit-content'
+          ? {
+              height: INTRINSIC_CONTENT_SIZE,
+              ...axisMinMaxStyles('vertical', item.minHeight, item.maxHeight),
+            }
+          : {
+              height: '100dvh',
+              'min-height': '100dvh',
+            }),
       }
     : options.isReusableRoot
       ? {
           position: 'relative',
           width: '100%',
           height: '100%',
-          'min-width': '0px',
-          'min-height': '0px',
+          'min-width': options.reusableRootFitContent?.width ? INTRINSIC_CONTENT_SIZE : '0px',
+          'min-height': options.reusableRootFitContent?.height ? INTRINSIC_CONTENT_SIZE : '0px',
         }
       : projection.item;
   setImportantStyles(element, { ...projection.container, ...rootStyles });

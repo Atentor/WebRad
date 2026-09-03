@@ -222,6 +222,25 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   export interface ApplyRuntimeLayoutOptions {
     readonly isPageRoot?: boolean;
     readonly isReusableRoot?: boolean;
+    readonly reusableRootFitContent?: {
+      readonly width: boolean;
+      readonly height: boolean;
+    };
+  }
+
+  export interface RuntimeFitContentSize {
+    readonly width?: number;
+    readonly height?: number;
+  }
+
+  export interface RuntimeFitContentMeasurementOptions {
+    readonly scale?: number;
+    readonly isLayoutChild?: (child: HTMLElement) => boolean;
+  }
+
+  export interface RuntimeFitContentBinding {
+    refresh(): void;
+    dispose(): void;
   }
 
   export function resolveRuntimeContainerLayout(
@@ -231,6 +250,18 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     node: RuntimeLayoutNode,
     parentContainer?: RuntimeContainerLayout,
   ): RuntimeLayoutProjection;
+  export function measureRuntimeFitContentSize(
+    target: HTMLElement,
+    contentHost: HTMLElement,
+    layout: RuntimeComponentLayout | undefined,
+    options?: RuntimeFitContentMeasurementOptions,
+  ): RuntimeFitContentSize;
+  export function bindRuntimeFitContent(
+    target: HTMLElement,
+    contentHost: HTMLElement,
+    layout: RuntimeComponentLayout | undefined,
+    options?: RuntimeFitContentMeasurementOptions,
+  ): RuntimeFitContentBinding;
   export function applyRuntimeContainerLayout(
     element: HTMLElement,
     node: RuntimeLayoutNode,
@@ -579,6 +610,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly page: WebPage;
     readonly components: ReadonlyMap<string, WebComponent>;
     readonly reusableInstances: readonly MountedReusableElementInstance[];
+    dispose(): void;
   }
 
   export interface MountedReusableElementInstance {

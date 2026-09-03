@@ -32,6 +32,7 @@ interface ActiveRuntimePage {
 }
 
 function disposeMountedComponents(mounted: MountedRuntimePage): void {
+  mounted.dispose();
   for (const component of mounted.components.values()) component.dispose();
 }
 

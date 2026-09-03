@@ -2106,6 +2106,17 @@ kbd {
   height: 100%;
 }
 
+/* A reusable definition normally fills its placement. When that placement is
+   fit-content, retain an intrinsic floor so its inner flow controls are
+   measured before flex can compress them. */
+.wr-reusable-definition-root.wr-reusable-definition-fit-width > .wr-component {
+  min-width: max-content !important;
+}
+
+.wr-reusable-definition-root.wr-reusable-definition-fit-height > .wr-component {
+  min-height: max-content !important;
+}
+
 .wr-runtime-children {
   min-width: 0;
   min-height: 0;
