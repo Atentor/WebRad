@@ -8,7 +8,15 @@ import type {
   ProjectSettings,
 } from '@webrad/project-model';
 import type { WebRadIconName } from '@webrad/runtime/icons';
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactElement,
+} from 'react';
 import { Icon } from './Icon';
 
 interface ProjectSettingsDialogProps {
@@ -53,6 +61,7 @@ const SETTINGS_SECTIONS = [
       'Application name and description',
       'Language, time zone, and region',
       'Designer settings',
+      'Application scrollbar style',
     ],
   },
   {
@@ -207,6 +216,33 @@ const ENVIRONMENT_VARIABLE_NAME = /^[A-Z][A-Z0-9_]*$/;
 const MAX_APPLICATION_ICON_BYTES = 1_000_000;
 const MAX_SOCIAL_IMAGE_BYTES = 5_000_000;
 
+interface ScrollbarColorControlProps {
+  readonly label: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+}
+
+function ScrollbarColorControl({
+  label,
+  value,
+  onChange,
+}: ScrollbarColorControlProps): ReactElement {
+  return (
+    <label className="wr-project-settings-scrollbar-color">
+      <span>{label}</span>
+      <span className="wr-project-settings-scrollbar-color-value">
+        <input
+          type="color"
+          aria-label={label}
+          value={value}
+          onChange={(event) => onChange(event.currentTarget.value)}
+        />
+        <code>{value.toUpperCase()}</code>
+      </span>
+    </label>
+  );
+}
+
 function isAbsoluteHttpUrl(value: string): boolean {
   if (value.length === 0) return true;
   try {
@@ -215,6 +251,10 @@ function isAbsoluteHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isIntegerInRange(value: number, minimum: number, maximum: number): boolean {
+  return Number.isInteger(value) && value >= minimum && value <= maximum;
 }
 
 function applicationIconMediaType(file: File): ProjectApplicationIconMediaType | null {
@@ -273,6 +313,19 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
     left.gridSize !== right.gridSize ||
     left.snapToGrid !== right.snapToGrid ||
     left.showGrid !== right.showGrid ||
+    left.scrollbar.width !== right.scrollbar.width ||
+    left.scrollbar.height !== right.scrollbar.height ||
+    left.scrollbar.trackColor !== right.scrollbar.trackColor ||
+    left.scrollbar.trackBorderColor !== right.scrollbar.trackBorderColor ||
+    left.scrollbar.trackBorderWidth !== right.scrollbar.trackBorderWidth ||
+    left.scrollbar.trackBorderRadius !== right.scrollbar.trackBorderRadius ||
+    left.scrollbar.thumbColor !== right.scrollbar.thumbColor ||
+    left.scrollbar.thumbHoverColor !== right.scrollbar.thumbHoverColor ||
+    left.scrollbar.thumbActiveColor !== right.scrollbar.thumbActiveColor ||
+    left.scrollbar.thumbBorderColor !== right.scrollbar.thumbBorderColor ||
+    left.scrollbar.thumbBorderWidth !== right.scrollbar.thumbBorderWidth ||
+    left.scrollbar.thumbBorderRadius !== right.scrollbar.thumbBorderRadius ||
+    left.scrollbar.cornerColor !== right.scrollbar.cornerColor ||
     left.environmentVariables.length !== right.environmentVariables.length ||
     left.environmentVariables.some((variable, index) => {
       const other = right.environmentVariables[index];
@@ -314,6 +367,21 @@ export function ProjectSettingsDialog({
   const isEditableSection =
     isGeneralSection || isEnvironmentSection || isIconsSection || isSeoSection;
   const hasChanges = settingsChanged(settings, draft);
+  const scrollbarPreviewStyle = {
+    '--wr-project-scrollbar-track': draft.scrollbar.trackColor,
+    '--wr-project-scrollbar-track-border': draft.scrollbar.trackBorderColor,
+    '--wr-project-scrollbar-track-border-width': `${draft.scrollbar.trackBorderWidth}px`,
+    '--wr-project-scrollbar-track-radius': `${draft.scrollbar.trackBorderRadius}px`,
+    '--wr-project-scrollbar-thumb': draft.scrollbar.thumbColor,
+    '--wr-project-scrollbar-thumb-hover': draft.scrollbar.thumbHoverColor,
+    '--wr-project-scrollbar-thumb-active': draft.scrollbar.thumbActiveColor,
+    '--wr-project-scrollbar-thumb-border': draft.scrollbar.thumbBorderColor,
+    '--wr-project-scrollbar-thumb-border-width': `${draft.scrollbar.thumbBorderWidth}px`,
+    '--wr-project-scrollbar-thumb-radius': `${draft.scrollbar.thumbBorderRadius}px`,
+    '--wr-project-scrollbar-corner': draft.scrollbar.cornerColor,
+    '--wr-project-scrollbar-width': `${draft.scrollbar.width}px`,
+    '--wr-project-scrollbar-height': `${draft.scrollbar.height}px`,
+  } as CSSProperties;
 
   useEffect(() => {
     dialogRef.current?.querySelector<HTMLElement>('[role="tab"]')?.focus();
@@ -325,6 +393,14 @@ export function ProjectSettingsDialog({
 
   const updateDraft = (patch: Partial<ProjectSettings>): void => {
     setDraft((current) => ({ ...current, ...patch }));
+    setSaveError(null);
+  };
+
+  const updateScrollbar = (patch: Partial<ProjectSettings['scrollbar']>): void => {
+    setDraft((current) => ({
+      ...current,
+      scrollbar: { ...current.scrollbar, ...patch },
+    }));
     setSaveError(null);
   };
 
@@ -422,6 +498,18 @@ export function ProjectSettingsDialog({
       setSaveError('Enter an application name.');
       return;
     }
+    const scrollbar = draft.scrollbar;
+    if (
+      !isIntegerInRange(scrollbar.width, 6, 32) ||
+      !isIntegerInRange(scrollbar.height, 6, 32) ||
+      !isIntegerInRange(scrollbar.trackBorderWidth, 0, 8) ||
+      !isIntegerInRange(scrollbar.thumbBorderWidth, 0, 8) ||
+      !isIntegerInRange(scrollbar.trackBorderRadius, 0, 64) ||
+      !isIntegerInRange(scrollbar.thumbBorderRadius, 0, 64)
+    ) {
+      setSaveError('Enter whole-pixel scrollbar sizes within the limits shown.');
+      return;
+    }
     const seo = {
       ...draft.seo,
       canonicalUrl: draft.seo.canonicalUrl.trim(),
@@ -509,9 +597,9 @@ export function ProjectSettingsDialog({
         </header>
         <div className="wr-project-settings-content">
           <p id={descriptionId} className="wr-modal-description">
-            General settings, environment variables, application icons, and SEO metadata are saved
-            in the project and applied to the generated output. Other areas remain available for
-            planning.
+            General settings, scrollbar styles, environment variables, application icons, and SEO
+            metadata are saved in the project and applied to the generated output. Other areas
+            remain available for planning.
           </p>
           <div className="wr-project-settings-layout">
             <nav
@@ -663,6 +751,174 @@ export function ProjectSettingsDialog({
                         ))}
                       </select>
                     </label>
+                  </fieldset>
+                  <fieldset className="wr-project-settings-scrollbar-options">
+                    <legend>Application scrollbars</legend>
+                    <div className="wr-project-settings-scrollbar-heading">
+                      <p>
+                        New projects start with Aurora. Changes apply to every scrollable surface in
+                        Preview and generated applications.
+                      </p>
+                      <span>Aurora default</span>
+                    </div>
+                    <div className="wr-project-settings-scrollbar-layout">
+                      <div
+                        className="wr-project-settings-scrollbar-preview"
+                        style={scrollbarPreviewStyle}
+                        role="img"
+                        aria-label="Application scrollbar preview"
+                      >
+                        <div className="wr-project-settings-scrollbar-preview-content">
+                          <span />
+                          <span />
+                          <span />
+                          <span />
+                        </div>
+                        <div className="wr-project-settings-scrollbar-preview-vertical-track">
+                          <div className="wr-project-settings-scrollbar-preview-vertical-thumb" />
+                        </div>
+                        <div className="wr-project-settings-scrollbar-preview-horizontal-track">
+                          <div className="wr-project-settings-scrollbar-preview-horizontal-thumb" />
+                        </div>
+                        <div className="wr-project-settings-scrollbar-preview-corner" />
+                      </div>
+                      <div className="wr-project-settings-scrollbar-measurements">
+                        <label className="wr-project-settings-field">
+                          <span>Vertical width</span>
+                          <input
+                            type="number"
+                            min={6}
+                            max={32}
+                            step={1}
+                            value={draft.scrollbar.width}
+                            onChange={(event) =>
+                              updateScrollbar({ width: Number(event.currentTarget.value) })
+                            }
+                          />
+                          <small>Thickness in pixels for vertical scrollbars.</small>
+                        </label>
+                        <label className="wr-project-settings-field">
+                          <span>Horizontal height</span>
+                          <input
+                            type="number"
+                            min={6}
+                            max={32}
+                            step={1}
+                            value={draft.scrollbar.height}
+                            onChange={(event) =>
+                              updateScrollbar({ height: Number(event.currentTarget.value) })
+                            }
+                          />
+                          <small>Thickness in pixels for horizontal scrollbars.</small>
+                        </label>
+                        <label className="wr-project-settings-field">
+                          <span>Track border</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={8}
+                            step={1}
+                            value={draft.scrollbar.trackBorderWidth}
+                            onChange={(event) =>
+                              updateScrollbar({
+                                trackBorderWidth: Number(event.currentTarget.value),
+                              })
+                            }
+                          />
+                          <small>Border thickness in pixels.</small>
+                        </label>
+                        <label className="wr-project-settings-field">
+                          <span>Thumb border</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={8}
+                            step={1}
+                            value={draft.scrollbar.thumbBorderWidth}
+                            onChange={(event) =>
+                              updateScrollbar({
+                                thumbBorderWidth: Number(event.currentTarget.value),
+                              })
+                            }
+                          />
+                          <small>Border thickness in pixels.</small>
+                        </label>
+                        <label className="wr-project-settings-field">
+                          <span>Track radius</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={64}
+                            step={1}
+                            value={draft.scrollbar.trackBorderRadius}
+                            onChange={(event) =>
+                              updateScrollbar({
+                                trackBorderRadius: Number(event.currentTarget.value),
+                              })
+                            }
+                          />
+                          <small>Corner radius in pixels.</small>
+                        </label>
+                        <label className="wr-project-settings-field">
+                          <span>Thumb radius</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={64}
+                            step={1}
+                            value={draft.scrollbar.thumbBorderRadius}
+                            onChange={(event) =>
+                              updateScrollbar({
+                                thumbBorderRadius: Number(event.currentTarget.value),
+                              })
+                            }
+                          />
+                          <small>Corner radius in pixels.</small>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="wr-project-settings-scrollbar-colors">
+                      <ScrollbarColorControl
+                        label="Track color"
+                        value={draft.scrollbar.trackColor}
+                        onChange={(trackColor) => updateScrollbar({ trackColor })}
+                      />
+                      <ScrollbarColorControl
+                        label="Track border color"
+                        value={draft.scrollbar.trackBorderColor}
+                        onChange={(trackBorderColor) => updateScrollbar({ trackBorderColor })}
+                      />
+                      <ScrollbarColorControl
+                        label="Thumb color"
+                        value={draft.scrollbar.thumbColor}
+                        onChange={(thumbColor) => updateScrollbar({ thumbColor })}
+                      />
+                      <ScrollbarColorControl
+                        label="Thumb hover color"
+                        value={draft.scrollbar.thumbHoverColor}
+                        onChange={(thumbHoverColor) => updateScrollbar({ thumbHoverColor })}
+                      />
+                      <ScrollbarColorControl
+                        label="Thumb active color"
+                        value={draft.scrollbar.thumbActiveColor}
+                        onChange={(thumbActiveColor) => updateScrollbar({ thumbActiveColor })}
+                      />
+                      <ScrollbarColorControl
+                        label="Thumb border color"
+                        value={draft.scrollbar.thumbBorderColor}
+                        onChange={(thumbBorderColor) => updateScrollbar({ thumbBorderColor })}
+                      />
+                      <ScrollbarColorControl
+                        label="Corner color"
+                        value={draft.scrollbar.cornerColor}
+                        onChange={(cornerColor) => updateScrollbar({ cornerColor })}
+                      />
+                    </div>
+                    <p className="wr-project-settings-scrollbar-support-note">
+                      The generated CSS uses each browser's native scrollbar APIs. Hover and active
+                      colors are available in WebKit browsers; Firefox uses the configured track and
+                      base thumb colors.
+                    </p>
                   </fieldset>
                   {saveError !== null && (
                     <div

@@ -36,7 +36,7 @@ describe('ProjectSettingsDialog', () => {
     expect(screen.getByText('Allowed methods and headers')).toBeDefined();
     expect(
       screen.getByText(
-        /General settings, environment variables, application icons, and SEO metadata/i,
+        /General settings, scrollbar styles, environment variables, application icons, and SEO metadata/i,
       ),
     ).toBeDefined();
     expect(screen.getByRole('note').textContent).toContain('Data structures');
@@ -71,6 +71,76 @@ describe('ProjectSettingsDialog', () => {
         locale: 'en-US',
         showGrid: false,
         gridSize: 16,
+      }),
+    );
+  });
+
+  it('saves the complete Aurora scrollbar style from General settings', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    expect(screen.getByText('Aurora default')).toBeDefined();
+    fireEvent.change(screen.getByRole('spinbutton', { name: /^Vertical width/ }), {
+      target: { value: '14' },
+    });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /^Horizontal height/ }), {
+      target: { value: '15' },
+    });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /^Track border/ }), {
+      target: { value: '2' },
+    });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /^Thumb border/ }), {
+      target: { value: '3' },
+    });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /^Track radius/ }), {
+      target: { value: '11' },
+    });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /^Thumb radius/ }), {
+      target: { value: '12' },
+    });
+    fireEvent.change(screen.getByLabelText('Track color'), { target: { value: '#112233' } });
+    fireEvent.change(screen.getByLabelText('Track border color'), {
+      target: { value: '#223344' },
+    });
+    fireEvent.change(screen.getByLabelText('Thumb color'), { target: { value: '#334455' } });
+    fireEvent.change(screen.getByLabelText('Thumb hover color'), {
+      target: { value: '#445566' },
+    });
+    fireEvent.change(screen.getByLabelText('Thumb active color'), {
+      target: { value: '#556677' },
+    });
+    fireEvent.change(screen.getByLabelText('Thumb border color'), {
+      target: { value: '#667788' },
+    });
+    fireEvent.change(screen.getByLabelText('Corner color'), { target: { value: '#778899' } });
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scrollbar: {
+          width: 14,
+          height: 15,
+          trackColor: '#112233',
+          trackBorderColor: '#223344',
+          trackBorderWidth: 2,
+          trackBorderRadius: 11,
+          thumbColor: '#334455',
+          thumbHoverColor: '#445566',
+          thumbActiveColor: '#556677',
+          thumbBorderColor: '#667788',
+          thumbBorderWidth: 3,
+          thumbBorderRadius: 12,
+          cornerColor: '#778899',
+        },
       }),
     );
   });

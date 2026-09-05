@@ -20,6 +20,7 @@ import {
   COMPONENT_STYLE_PRESETS,
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
+  DEFAULT_PROJECT_SCROLLBAR_STYLE,
   DEFAULT_PROJECT_SETTINGS,
   COMPONENT_STYLE_PROPERTY_NAMES,
   COMPONENT_STYLE_STATE_NAMES,
@@ -52,6 +53,7 @@ import {
   type ProjectSocialImage,
   type ProjectSeoSettings,
   type ProjectSettings,
+  type ProjectScrollbarStyle,
   type ReusableElementModel,
   type StyleLengthValue,
   type StylePropertyValue,
@@ -282,12 +284,20 @@ function materializeProjectSettings(settings: Readonly<Record<string, unknown>>)
           return { ...DEFAULT_PROJECT_SETTINGS.seo, ...supportedSeo };
         })()
       : seo;
+  const scrollbar = settings.scrollbar;
+  const normalizedScrollbar =
+    scrollbar !== null && typeof scrollbar === 'object' && !Array.isArray(scrollbar)
+      ? { ...DEFAULT_PROJECT_SCROLLBAR_STYLE, ...scrollbar }
+      : scrollbar;
   return {
     ...settings,
     ...(settings.environment === 'staging' ? { environment: 'production' } : {}),
     ...(Array.isArray(environmentVariables) ? { environmentVariables: normalizedVariables } : {}),
     ...(seo !== null && typeof seo === 'object' && !Array.isArray(seo)
       ? { seo: normalizedSeo }
+      : {}),
+    ...(scrollbar !== null && typeof scrollbar === 'object' && !Array.isArray(scrollbar)
+      ? { scrollbar: normalizedScrollbar }
       : {}),
   };
 }
@@ -749,6 +759,24 @@ export const ProjectEnvironmentVariableSchema: z.ZodType<ProjectEnvironmentVaria
   })
   .strict();
 
+export const ProjectScrollbarStyleSchema: z.ZodType<ProjectScrollbarStyle> = z
+  .object({
+    width: z.number().int().min(6).max(32),
+    height: z.number().int().min(6).max(32),
+    trackColor: hexColorSchema,
+    trackBorderColor: hexColorSchema,
+    trackBorderWidth: z.number().int().min(0).max(8),
+    trackBorderRadius: z.number().int().min(0).max(64),
+    thumbColor: hexColorSchema,
+    thumbHoverColor: hexColorSchema,
+    thumbActiveColor: hexColorSchema,
+    thumbBorderColor: hexColorSchema,
+    thumbBorderWidth: z.number().int().min(0).max(8),
+    thumbBorderRadius: z.number().int().min(0).max(64),
+    cornerColor: hexColorSchema,
+  })
+  .strict();
+
 export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   .object({
     applicationName: z.string().trim().min(1).max(120),
@@ -765,6 +793,7 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
     seo: ProjectSeoSettingsSchema,
     environment: z.enum(PROJECT_ENVIRONMENTS),
     environmentVariables: z.array(ProjectEnvironmentVariableSchema).max(100),
+    scrollbar: ProjectScrollbarStyleSchema,
     gridSize: z.number().int().positive(),
     snapToGrid: z.boolean(),
     showGrid: z.boolean(),

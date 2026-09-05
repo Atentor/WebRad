@@ -2878,6 +2878,229 @@ kbd {
   border-radius: 5px;
 }
 
+.wr-project-settings-scrollbar-options {
+  display: grid;
+  max-width: 620px;
+  gap: 12px;
+  margin: 20px 0 0;
+  padding: 12px;
+  border: 1px solid var(--wr-border);
+  border-radius: 5px;
+}
+
+.wr-project-settings-scrollbar-options legend {
+  padding: 0 4px;
+  color: var(--wr-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wr-project-settings-scrollbar-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wr-project-settings-scrollbar-heading p,
+.wr-project-settings-scrollbar-support-note {
+  margin: 0;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.wr-project-settings-scrollbar-heading > span {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--wr-accent) 45%, var(--wr-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wr-accent) 12%, transparent);
+  color: var(--wr-accent);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+.wr-project-settings-scrollbar-layout {
+  display: grid;
+  grid-template-columns: minmax(188px, 0.86fr) minmax(0, 1.14fr);
+  gap: 12px;
+}
+
+.wr-project-settings-scrollbar-preview {
+  position: relative;
+  min-height: 156px;
+  overflow: hidden;
+  padding: 14px calc(18px + var(--wr-project-scrollbar-width))
+    calc(18px + var(--wr-project-scrollbar-height)) 14px;
+  border: 1px solid var(--wr-border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--wr-input-bg) 78%, var(--wr-surface));
+}
+
+.wr-project-settings-scrollbar-preview-content {
+  display: grid;
+  gap: 8px;
+}
+
+.wr-project-settings-scrollbar-preview-content > span {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wr-muted-text) 20%, transparent);
+}
+
+.wr-project-settings-scrollbar-preview-content > span:nth-child(2) {
+  width: 78%;
+}
+
+.wr-project-settings-scrollbar-preview-content > span:nth-child(3) {
+  width: 91%;
+}
+
+.wr-project-settings-scrollbar-preview-content > span:nth-child(4) {
+  width: 64%;
+}
+
+.wr-project-settings-scrollbar-preview-vertical-track,
+.wr-project-settings-scrollbar-preview-horizontal-track,
+.wr-project-settings-scrollbar-preview-corner {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--wr-project-scrollbar-track);
+}
+
+.wr-project-settings-scrollbar-preview-vertical-track {
+  top: 9px;
+  right: 9px;
+  bottom: calc(9px + var(--wr-project-scrollbar-height));
+  width: var(--wr-project-scrollbar-width);
+  border: var(--wr-project-scrollbar-track-border-width) solid
+    var(--wr-project-scrollbar-track-border);
+  border-radius: var(--wr-project-scrollbar-track-radius);
+}
+
+.wr-project-settings-scrollbar-preview-horizontal-track {
+  right: calc(9px + var(--wr-project-scrollbar-width));
+  bottom: 9px;
+  left: 9px;
+  height: var(--wr-project-scrollbar-height);
+  border: var(--wr-project-scrollbar-track-border-width) solid
+    var(--wr-project-scrollbar-track-border);
+  border-radius: var(--wr-project-scrollbar-track-radius);
+}
+
+.wr-project-settings-scrollbar-preview-corner {
+  right: 9px;
+  bottom: 9px;
+  width: var(--wr-project-scrollbar-width);
+  height: var(--wr-project-scrollbar-height);
+  border-radius: 2px;
+  background: var(--wr-project-scrollbar-corner);
+}
+
+.wr-project-settings-scrollbar-preview-vertical-thumb,
+.wr-project-settings-scrollbar-preview-horizontal-thumb {
+  position: absolute;
+  box-sizing: border-box;
+  border: var(--wr-project-scrollbar-thumb-border-width) solid
+    var(--wr-project-scrollbar-thumb-border);
+  border-radius: var(--wr-project-scrollbar-thumb-radius);
+  background: var(--wr-project-scrollbar-thumb);
+  transition: background-color 120ms ease-out;
+}
+
+.wr-project-settings-scrollbar-preview-vertical-thumb {
+  top: 18%;
+  right: 0;
+  left: 0;
+  height: 44%;
+}
+
+.wr-project-settings-scrollbar-preview-horizontal-thumb {
+  top: 0;
+  bottom: 0;
+  left: 17%;
+  width: 43%;
+}
+
+.wr-project-settings-scrollbar-preview-vertical-thumb:hover,
+.wr-project-settings-scrollbar-preview-horizontal-thumb:hover {
+  background: var(--wr-project-scrollbar-thumb-hover);
+}
+
+.wr-project-settings-scrollbar-preview-vertical-thumb:active,
+.wr-project-settings-scrollbar-preview-horizontal-thumb:active {
+  background: var(--wr-project-scrollbar-thumb-active);
+}
+
+.wr-project-settings-scrollbar-measurements {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 10px 12px;
+}
+
+.wr-project-settings-scrollbar-measurements .wr-project-settings-field small {
+  min-height: 26px;
+}
+
+.wr-project-settings-scrollbar-colors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.wr-project-settings-scrollbar-color {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--wr-text);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.wr-project-settings-scrollbar-color-value {
+  display: flex;
+  height: 31px;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 7px 3px 3px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+}
+
+.wr-project-settings-scrollbar-color-value:focus-within {
+  border-color: var(--wr-accent);
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+
+.wr-project-settings-scrollbar-color-value input[type='color'] {
+  width: 31px;
+  height: 23px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.wr-project-settings-scrollbar-color-value code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--wr-muted-text);
+  font-family: var(--wr-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .wr-project-settings-seo-options {
   display: grid;
   max-width: 620px;
@@ -4095,6 +4318,10 @@ kbd {
     padding: 22px;
   }
 
+  .wr-project-settings-scrollbar-layout {
+    grid-template-columns: 1fr;
+  }
+
   .wr-api-client-content {
     display: block;
     overflow: auto;
@@ -4223,8 +4450,15 @@ kbd {
   }
 
   .wr-project-settings-fields,
-  .wr-project-settings-toggles {
+  .wr-project-settings-toggles,
+  .wr-project-settings-scrollbar-measurements,
+  .wr-project-settings-scrollbar-colors {
     grid-template-columns: 1fr;
+  }
+
+  .wr-project-settings-scrollbar-heading {
+    align-items: start;
+    flex-direction: column;
   }
 
   .wr-project-settings-environment-heading {

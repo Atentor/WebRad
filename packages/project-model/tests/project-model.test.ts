@@ -6,6 +6,7 @@ import {
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
   COMPONENT_STYLE_PROPERTY_NAMES,
   DEFAULT_COMPONENT_LAYOUT,
+  DEFAULT_PROJECT_SCROLLBAR_STYLE,
   FutureFormatVersionError,
   ModelUpdateError,
   ProjectValidationError,
@@ -117,6 +118,7 @@ describe('project factories', () => {
         outputDirectory: 'dist',
       },
     });
+    expect(project.settings.scrollbar).toEqual(DEFAULT_PROJECT_SCROLLBAR_STYLE);
     expect(project.pages).toHaveLength(1);
     expect(project.styles).toHaveLength(12);
     expect(project.styles).toEqual(
@@ -346,6 +348,15 @@ describe('project factories', () => {
           },
         },
       ],
+      scrollbar: {
+        ...project.settings.scrollbar,
+        width: 14,
+        height: 12,
+        trackColor: '#eef2ff',
+        thumbColor: '#818cf8',
+        thumbHoverColor: '#6366f1',
+        thumbActiveColor: '#4f46e5',
+      },
     });
 
     expect(updated.settings).toMatchObject({
@@ -361,7 +372,18 @@ describe('project factories', () => {
       }),
       environment: 'production',
       environmentVariables: [expect.objectContaining({ name: 'API_BASE_URL' })],
+      scrollbar: {
+        width: 14,
+        height: 12,
+        trackColor: '#eef2ff',
+        thumbColor: '#818cf8',
+        thumbHoverColor: '#6366f1',
+        thumbActiveColor: '#4f46e5',
+      },
     });
+    expect(deserializeProject(serializeProject(updated)).settings.scrollbar).toEqual(
+      updated.settings.scrollbar,
+    );
 
     const legacy = JSON.parse(serializeProject(project)) as {
       readonly settings: Record<string, unknown>;
@@ -374,6 +396,7 @@ describe('project factories', () => {
     delete legacy.settings.seo;
     delete legacy.settings.environment;
     delete legacy.settings.environmentVariables;
+    delete legacy.settings.scrollbar;
     const restored = deserializeProject(JSON.stringify(legacy));
 
     expect(restored.settings).toMatchObject({
@@ -392,7 +415,39 @@ describe('project factories', () => {
       },
       environment: 'development',
       environmentVariables: [],
+      scrollbar: DEFAULT_PROJECT_SCROLLBAR_STYLE,
     });
+
+    const partialScrollbarProject = JSON.parse(serializeProject(project)) as {
+      readonly settings: Record<string, unknown>;
+    };
+    partialScrollbarProject.settings.scrollbar = { thumbColor: '#3b82f6', thumbBorderWidth: 3 };
+    expect(deserializeProject(JSON.stringify(partialScrollbarProject)).settings.scrollbar).toEqual({
+      ...DEFAULT_PROJECT_SCROLLBAR_STYLE,
+      thumbColor: '#3b82f6',
+      thumbBorderWidth: 3,
+    });
+
+    const invalidScrollbar = safeParseProject({
+      ...updated,
+      settings: {
+        ...updated.settings,
+        scrollbar: {
+          ...updated.settings.scrollbar,
+          width: 5,
+          thumbColor: 'blue',
+        },
+      },
+    });
+    expect(invalidScrollbar.success).toBe(false);
+    if (!invalidScrollbar.success) {
+      expect(invalidScrollbar.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ['settings', 'scrollbar', 'width'] }),
+          expect.objectContaining({ path: ['settings', 'scrollbar', 'thumbColor'] }),
+        ]),
+      );
+    }
 
     const urlBasedSeoProject = JSON.parse(serializeProject(updated)) as {
       readonly settings: { readonly seo: Record<string, unknown> };

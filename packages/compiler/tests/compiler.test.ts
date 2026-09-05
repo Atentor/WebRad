@@ -9,6 +9,7 @@ import {
   addReusableElement,
   bindComponentEvent,
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
+  DEFAULT_PROJECT_SCROLLBAR_STYLE,
   createDefaultApiClientConfiguration,
   createComponentStyle,
   createPage,
@@ -36,6 +37,7 @@ import { compileProject, compileProjectToMemory } from '../src/index.js';
 import { createVirtualSourceGraph } from '../src/source-graph.js';
 import {
   collectTailwindCandidates,
+  compileGeneratedAppStyles,
   compileTailwindStyles,
   GENERATED_APP_CSS,
 } from '../src/styles.js';
@@ -595,7 +597,8 @@ export class PageDetails extends PageDetailsGenerated {
 
   it('validates, typechecks and writes an ordinary browser application', async () => {
     const outputDirectory = await temporaryDirectory();
-    const project = updateProjectSettings(executableProject(), {
+    const sourceProject = executableProject();
+    const project = updateProjectSettings(sourceProject, {
       applicationName: 'Hello & <WebRAD>',
       applicationDescription: 'A customer <portal> & workspace.',
       locale: 'en-US',
@@ -628,6 +631,15 @@ export class PageDetails extends PageDetailsGenerated {
           },
         },
       ],
+      scrollbar: {
+        ...sourceProject.settings.scrollbar,
+        width: 16,
+        height: 14,
+        trackColor: '#0f172a',
+        thumbColor: '#34d399',
+        thumbHoverColor: '#10b981',
+        thumbActiveColor: '#059669',
+      },
     });
     const originalUserSource = `import { PageMainGenerated } from './PageMain.generated';
 
@@ -696,8 +708,15 @@ export class PageMain extends PageMainGenerated {
     expect(result.files['assets/app.js']).toContain('api-client');
     expect(result.files['assets/app.css']).toContain('.wr-webpage');
     expect(result.files['assets/app.css']).toContain('.wr-webbutton:hover:not(:disabled)');
+    expect(result.files['assets/app.css']).toContain('--wr-scrollbar-width: 16px');
+    expect(result.files['assets/app.css']).toContain('--wr-scrollbar-height: 14px');
+    expect(result.files['assets/app.css']).toContain('--wr-scrollbar-track-color: #0f172a');
+    expect(result.files['assets/app.css']).toContain('--wr-scrollbar-thumb-color: #34d399');
+    expect(result.files['assets/app.css']).toContain('*::-webkit-scrollbar-thumb:hover');
+    expect(result.files['assets/app.css']).toContain('@supports (-moz-appearance: none)');
     expect(result.previewHtml).toContain('<script>');
     expect(result.previewHtml).toContain('<style>');
+    expect(result.previewHtml).toContain('--wr-scrollbar-width: 16px');
     expect(result.previewHtml).toContain('data:image/svg+xml;base64,');
     expect(result.previewHtml).toContain('data:image/png;base64,');
     expect(result.previewHtml).toContain(
@@ -761,9 +780,14 @@ export class PageMain extends PageMainGenerated {
     dom.window.close();
   });
 
-  it('embeds the same browser-safe component stylesheet used by the designer projection', () => {
+  it('embeds the same browser-safe component stylesheet used by the designer projection', async () => {
     expect(GENERATED_APP_CSS).toContain(WEBRAD_COMPONENT_CSS);
     expect(GENERATED_APP_CSS).toContain('--wr-control-surface: #f5f7fa');
+    const css = await compileGeneratedAppStyles([]);
+    expect(css).toContain(
+      `--wr-scrollbar-thumb-color: ${DEFAULT_PROJECT_SCROLLBAR_STYLE.thumbColor}`,
+    );
+    expect(css).toContain('--wr-scrollbar-width: 10px');
   });
 
   it('compiles structured states, animations and safe arbitrary values', async () => {

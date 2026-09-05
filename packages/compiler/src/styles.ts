@@ -1,4 +1,8 @@
-import type { ComponentStyleModel } from '@webrad/project-model';
+import {
+  DEFAULT_PROJECT_SCROLLBAR_STYLE,
+  type ComponentStyleModel,
+  type ProjectScrollbarStyle,
+} from '@webrad/project-model';
 import {
   resolveComponentStyleClassNames,
   resolveComponentStylePreviewClassName,
@@ -49,6 +53,74 @@ body {
 
 ${WEBRAD_COMPONENT_CSS}
 `;
+
+/**
+ * Emits the project-owned scrollbar treatment used by Preview and generated
+ * browser applications. WebKit gives us the full track/thumb model. Firefox
+ * only exposes the standard color and platform thickness controls, so its
+ * fallback is isolated to avoid suppressing the WebKit pseudo-elements in
+ * browsers that support both APIs.
+ */
+function projectScrollbarCss(scrollbar: Readonly<ProjectScrollbarStyle>): string {
+  const firefoxWidth = Math.max(scrollbar.width, scrollbar.height) <= 12 ? 'thin' : 'auto';
+
+  return `:root {
+  --wr-scrollbar-width: ${String(scrollbar.width)}px;
+  --wr-scrollbar-height: ${String(scrollbar.height)}px;
+  --wr-scrollbar-track-color: ${scrollbar.trackColor};
+  --wr-scrollbar-track-border-color: ${scrollbar.trackBorderColor};
+  --wr-scrollbar-track-border-width: ${String(scrollbar.trackBorderWidth)}px;
+  --wr-scrollbar-track-radius: ${String(scrollbar.trackBorderRadius)}px;
+  --wr-scrollbar-thumb-color: ${scrollbar.thumbColor};
+  --wr-scrollbar-thumb-hover-color: ${scrollbar.thumbHoverColor};
+  --wr-scrollbar-thumb-active-color: ${scrollbar.thumbActiveColor};
+  --wr-scrollbar-thumb-border-color: ${scrollbar.thumbBorderColor};
+  --wr-scrollbar-thumb-border-width: ${String(scrollbar.thumbBorderWidth)}px;
+  --wr-scrollbar-thumb-radius: ${String(scrollbar.thumbBorderRadius)}px;
+  --wr-scrollbar-corner-color: ${scrollbar.cornerColor};
+}
+
+@media (forced-colors: none) {
+  *::-webkit-scrollbar {
+    width: var(--wr-scrollbar-width);
+    height: var(--wr-scrollbar-height);
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--wr-scrollbar-track-color);
+    border: var(--wr-scrollbar-track-border-width) solid var(--wr-scrollbar-track-border-color);
+    border-radius: var(--wr-scrollbar-track-radius);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--wr-scrollbar-thumb-color);
+    border: var(--wr-scrollbar-thumb-border-width) solid var(--wr-scrollbar-thumb-border-color);
+    border-radius: var(--wr-scrollbar-thumb-radius);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--wr-scrollbar-thumb-hover-color);
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: var(--wr-scrollbar-thumb-active-color);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: var(--wr-scrollbar-corner-color);
+  }
+
+  @supports (-moz-appearance: none) {
+    html,
+    body,
+    * {
+      scrollbar-color: var(--wr-scrollbar-thumb-color) var(--wr-scrollbar-track-color);
+      scrollbar-width: ${firefoxWidth};
+    }
+  }
+}`;
+}
 
 const TAILWIND_LAYER_ORDER = '@layer theme, base, components, utilities;';
 
@@ -133,6 +205,9 @@ export function compileTailwindStyles(styles: readonly ComponentStyleModel[]): P
 }
 
 /** Compiles the complete generated application stylesheet with correct layer precedence. */
-export function compileGeneratedAppStyles(styles: readonly ComponentStyleModel[]): Promise<string> {
-  return processTailwind(styles, GENERATED_APP_CSS);
+export function compileGeneratedAppStyles(
+  styles: readonly ComponentStyleModel[],
+  scrollbar: Readonly<ProjectScrollbarStyle> = DEFAULT_PROJECT_SCROLLBAR_STYLE,
+): Promise<string> {
+  return processTailwind(styles, `${GENERATED_APP_CSS}\n${projectScrollbarCss(scrollbar)}`);
 }

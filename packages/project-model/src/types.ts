@@ -368,6 +368,29 @@ export interface ProjectEnvironmentVariable {
   readonly values: Readonly<Record<ProjectEnvironment, string>>;
 }
 
+/**
+ * Global browser scrollbar styling emitted with a generated application.
+ * WebKit browsers support the complete projection; Firefox applies the
+ * thumb/track color and selects its closest supported thickness.
+ */
+export interface ProjectScrollbarStyle {
+  /** Vertical scrollbar thickness in CSS pixels. */
+  readonly width: number;
+  /** Horizontal scrollbar thickness in CSS pixels. */
+  readonly height: number;
+  readonly trackColor: string;
+  readonly trackBorderColor: string;
+  readonly trackBorderWidth: number;
+  readonly trackBorderRadius: number;
+  readonly thumbColor: string;
+  readonly thumbHoverColor: string;
+  readonly thumbActiveColor: string;
+  readonly thumbBorderColor: string;
+  readonly thumbBorderWidth: number;
+  readonly thumbBorderRadius: number;
+  readonly cornerColor: string;
+}
+
 export interface ProjectSettings {
   /** Human-facing application title. It may differ from the project file name. */
   readonly applicationName: string;
@@ -385,6 +408,8 @@ export interface ProjectSettings {
   readonly environment: ProjectEnvironment;
   /** Browser-visible variables, each with one value per environment. */
   readonly environmentVariables: readonly ProjectEnvironmentVariable[];
+  /** The global scrollbar appearance used by Preview and generated browser output. */
+  readonly scrollbar: ProjectScrollbarStyle;
   readonly gridSize: number;
   readonly snapToGrid: boolean;
   readonly showGrid: boolean;
@@ -447,6 +472,23 @@ export const DEFAULT_PROJECT_SEO_SETTINGS: Readonly<ProjectSeoSettings> = Object
   socialImage: null,
 });
 
+/** Aurora palette used for global scrollbars in every newly created project. */
+export const DEFAULT_PROJECT_SCROLLBAR_STYLE: Readonly<ProjectScrollbarStyle> = Object.freeze({
+  width: 10,
+  height: 10,
+  trackColor: '#f8fafc',
+  trackBorderColor: '#e2e8f0',
+  trackBorderWidth: 1,
+  trackBorderRadius: 8,
+  thumbColor: '#93c5fd',
+  thumbHoverColor: '#60a5fa',
+  thumbActiveColor: '#2563eb',
+  thumbBorderColor: '#eff6ff',
+  thumbBorderWidth: 2,
+  thumbBorderRadius: 8,
+  cornerColor: '#f8fafc',
+});
+
 export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze({
   applicationName: 'WebRAD Application',
   applicationDescription: '',
@@ -456,6 +498,7 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   seo: DEFAULT_PROJECT_SEO_SETTINGS,
   environment: 'development',
   environmentVariables: [],
+  scrollbar: DEFAULT_PROJECT_SCROLLBAR_STYLE,
   gridSize: 8,
   snapToGrid: true,
   showGrid: true,
