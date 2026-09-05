@@ -865,6 +865,156 @@ describe('DesignerSurface responsive projection', () => {
     expect(definition.classList).toContain('wr-reusable-definition-fit-height');
   });
 
+  it('lets an in-flow reusable fit-content placement maximum override its intrinsic floor', () => {
+    const fixture = pageWithFloatingReusableElement();
+    const page: PageModel = {
+      ...fixture.page,
+      components: fixture.page.components.map((component) =>
+        component.id !== fixture.instance.id
+          ? component
+          : {
+              ...component,
+              layout: {
+                ...component.layout,
+                item: {
+                  ...component.layout.item,
+                  width: 'fit-content',
+                  height: 'fit-content',
+                  maxWidth: 120,
+                  maxHeight: 48,
+                },
+              },
+              props: { ...component.props, placement: 'in-flow' },
+            },
+      ),
+    };
+    const { container } = renderSurface(page, { reusableElements: [fixture.reusableElement] });
+    const definition = container.querySelector<HTMLElement>(
+      `[data-reusable-element-id="${fixture.reusableElement.id}"]`,
+    );
+    if (definition === null) throw new Error('Expected an in-flow reusable definition.');
+
+    expect(definition.classList).not.toContain('wr-reusable-definition-fit-width');
+    expect(definition.classList).not.toContain('wr-reusable-definition-fit-height');
+    expect(definition.classList).toContain('wr-reusable-definition-constrained-fit-width');
+    expect(definition.classList).toContain('wr-reusable-definition-constrained-fit-height');
+  });
+
+  it('measures a nested reusable fit-content placement in its own definition instance', async () => {
+    const fixture = pageWithFloatingReusableElement();
+    let reusableIdSequence = 0;
+    const nestedElement = createReusableElement('NestedCard', {
+      idFactory: () => `nested-card-${String((reusableIdSequence += 1))}`,
+    });
+    const nestedRoot = nestedElement.components.find(
+      (component) => component.id === nestedElement.rootComponentId,
+    );
+    const outerRoot = fixture.reusableElement.components.find(
+      (component) => component.id === fixture.reusableElement.rootComponentId,
+    );
+    if (nestedRoot === undefined || outerRoot === undefined) {
+      throw new Error('Expected reusable definition roots.');
+    }
+    const nestedChild: ComponentNode = {
+      id: 'nested-card-child',
+      type: 'WebPanel',
+      name: 'NestedCardChild',
+      parentId: nestedRoot.id,
+      layout: createDefaultComponentLayout(),
+      bounds: { x: -50, y: -10, width: 160, height: 40 },
+      props: { visible: true, enabled: true },
+      events: {},
+      children: [],
+    };
+    const nestedDefinition: ReusableElementModel = {
+      ...nestedElement,
+      components: [{ ...nestedRoot, children: [nestedChild.id] }, nestedChild],
+    };
+    const nestedPlacementLayout = createDefaultComponentLayout();
+    const nestedPlacement: ComponentNode = {
+      id: 'nested-card-placement',
+      type: 'WebReusableElement',
+      name: 'NestedCardPlacement',
+      parentId: outerRoot.id,
+      layout: {
+        ...nestedPlacementLayout,
+        item: {
+          ...nestedPlacementLayout.item,
+          width: 'fit-content',
+          height: 'fit-content',
+        },
+      },
+      bounds: { x: 24, y: 36, width: 200, height: 100 },
+      props: {
+        reusableElementId: nestedDefinition.id,
+        placement: 'in-flow',
+        visible: true,
+        enabled: true,
+      },
+      events: {},
+      children: [],
+    };
+    const outerDefinition: ReusableElementModel = {
+      ...fixture.reusableElement,
+      components: [
+        ...fixture.reusableElement.components.map((component) =>
+          component.id === outerRoot.id
+            ? { ...component, children: [...component.children, nestedPlacement.id] }
+            : component,
+        ),
+        nestedPlacement,
+      ],
+    };
+    const page: PageModel = {
+      ...fixture.page,
+      components: fixture.page.components.map((component) =>
+        component.id === fixture.instance.id
+          ? { ...component, props: { ...component.props, placement: 'in-flow' } }
+          : component,
+      ),
+    };
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement): DOMRect {
+        if (this.dataset.componentId === nestedPlacement.id) return rectangle(0, 0, 0, 0);
+        if (this.dataset.designerDefinitionNodeId === nestedChild.id) {
+          return rectangle(-50, -10, 160, 40);
+        }
+        return rectangle(0, 0, 0, 0);
+      });
+
+    try {
+      const { container } = renderSurface(page, {
+        reusableElements: [outerDefinition, nestedDefinition],
+      });
+      const nestedWrapper = container.querySelector<HTMLElement>(
+        `[data-designer-definition-node-id="${nestedPlacement.id}"]`,
+      );
+      if (nestedWrapper === null) throw new Error('Expected nested reusable placement.');
+
+      await waitFor(() => {
+        expect(nestedWrapper.style.width).toMatch(/^\d+px$/u);
+        expect(nestedWrapper.style.height).toMatch(/^\d+px$/u);
+        expect(Number.parseFloat(nestedWrapper.style.width)).toBeGreaterThanOrEqual(160);
+        expect(Number.parseFloat(nestedWrapper.style.height)).toBeGreaterThanOrEqual(40);
+      });
+    } finally {
+      getBoundingClientRect.mockRestore();
+    }
+  });
+
   it('inserts a reusable component from the dedicated drag data type', () => {
     const fixture = pageWithFloatingReusableElement();
     const onAddReusableElement = vi.fn();

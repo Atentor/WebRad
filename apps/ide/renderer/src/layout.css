@@ -2117,6 +2117,18 @@ kbd {
   min-height: max-content !important;
 }
 
+/* A placement maximum is a real authoring bound. Its definition root fills
+   the measured wrapper instead of retaining the temporary intrinsic floor. */
+.wr-reusable-definition-root.wr-reusable-definition-constrained-fit-width > .wr-component {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.wr-reusable-definition-root.wr-reusable-definition-constrained-fit-height > .wr-component {
+  min-height: 0 !important;
+  max-height: 100% !important;
+}
+
 .wr-runtime-children {
   min-width: 0;
   min-height: 0;

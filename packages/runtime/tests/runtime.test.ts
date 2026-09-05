@@ -1028,6 +1028,86 @@ describe('browser runtime', () => {
     mounted.dispose();
   });
 
+  it('excludes an opened Popup from a fit-content page envelope', async () => {
+    const page: RuntimePageModel = {
+      id: 'fit-page-with-popup',
+      name: 'FitPageWithPopup',
+      caption: 'Fit page with popup',
+      width: 640,
+      height: 480,
+      rootComponentId: 'fit-page-with-popup-root',
+      components: [
+        {
+          id: 'fit-page-with-popup-root',
+          type: 'WebPage',
+          name: 'FitPageWithPopup',
+          parentId: null,
+          bounds: { x: 0, y: 0, width: 640, height: 480 },
+          layout: responsiveLayout({}, { width: 'fit-content', height: 'fit-content' }),
+          props: { caption: 'Fit page with popup', visible: true, enabled: true },
+          children: ['fit-page-button', 'fit-page-popup'],
+        },
+        {
+          id: 'fit-page-button',
+          type: 'WebButton',
+          name: 'FitPageButton',
+          parentId: 'fit-page-with-popup-root',
+          bounds: { x: 0, y: 0, width: 100, height: 24 },
+          layout: responsiveLayout(),
+          props: { caption: 'Keep me', visible: true, enabled: true },
+          children: [],
+        },
+        {
+          id: 'fit-page-popup',
+          type: 'WebPopup',
+          name: 'FitPagePopup',
+          parentId: 'fit-page-with-popup-root',
+          bounds: { x: 0, y: 0, width: 600, height: 500 },
+          layout: responsiveLayout(),
+          props: { modal: true, visible: true, enabled: true },
+          children: [],
+        },
+      ],
+    };
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement): DOMRect {
+        if (this.dataset.webradId === 'fit-page-button') return rectangle(0, 0, 100, 24);
+        if (this.dataset.webradId === 'fit-page-popup') return rectangle(0, 0, 600, 500);
+        return rectangle(0, 0, 0, 0);
+      });
+    const host = document.createElement('div');
+    document.body.append(host);
+
+    try {
+      const mounted = mountPage(page, host);
+      const popup = mounted.page.requireComponentElement('fit-page-popup') as HTMLDialogElement;
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(popup.open).toBe(true);
+      expect(mounted.element.style.width).toBe('100px');
+      expect(mounted.element.style.height).toBe('24px');
+      mounted.dispose();
+    } finally {
+      host.remove();
+      getBoundingClientRect.mockRestore();
+    }
+  });
+
   it('expands reusable placements with isolated IDs and anchors floating instances to the viewport', () => {
     const reusablePage: RuntimePageModel = {
       id: 'reusable-runtime-page',
@@ -1221,6 +1301,120 @@ describe('browser runtime', () => {
     expect(floatingScope.pageName).toBe(reusablePage.name);
     getBoundingClientRect.mockRestore();
     mounted.dispose();
+  });
+
+  it('keeps a constrained reusable fit-content definition inside its placement maximums', () => {
+    const reusablePage: RuntimePageModel = {
+      id: 'constrained-reusable-page',
+      name: 'ConstrainedReusablePage',
+      caption: 'Constrained reusable page',
+      width: 800,
+      height: 600,
+      rootComponentId: 'constrained-reusable-page-root',
+      components: [
+        {
+          id: 'constrained-reusable-page-root',
+          type: 'WebPage',
+          name: 'ConstrainedReusablePage',
+          parentId: null,
+          bounds: { x: 0, y: 0, width: 800, height: 600 },
+          layout: responsiveLayout(),
+          props: { caption: 'Constrained reusable page', visible: true, enabled: true },
+          children: ['constrained-card-instance'],
+        },
+        {
+          id: 'constrained-card-instance',
+          type: 'WebReusableElement',
+          name: 'ConstrainedCard',
+          parentId: 'constrained-reusable-page-root',
+          bounds: { x: 24, y: 36, width: 240, height: 96 },
+          layout: responsiveLayout(
+            {},
+            { width: 'fit-content', height: 'fit-content', maxWidth: 120, maxHeight: 48 },
+          ),
+          props: {
+            reusableElementId: 'constrained-card',
+            placement: 'in-flow',
+            visible: true,
+            enabled: true,
+          },
+          children: [],
+        },
+      ],
+      reusableElements: [
+        {
+          id: 'constrained-card',
+          name: 'ConstrainedCard',
+          caption: 'Constrained card',
+          width: 240,
+          height: 96,
+          rootComponentId: 'constrained-card-root',
+          components: [
+            {
+              id: 'constrained-card-root',
+              type: 'WebPanel',
+              name: 'ConstrainedCardRoot',
+              parentId: null,
+              bounds: { x: 0, y: 0, width: 240, height: 96 },
+              layout: responsiveLayout(),
+              props: { visible: true, enabled: true },
+              children: ['constrained-card-child'],
+            },
+            {
+              id: 'constrained-card-child',
+              type: 'WebPanel',
+              name: 'ConstrainedCardChild',
+              parentId: 'constrained-card-root',
+              bounds: { x: -80, y: -30, width: 300, height: 100 },
+              layout: responsiveLayout(),
+              props: { visible: true, enabled: true },
+              children: [],
+            },
+          ],
+        },
+      ],
+    };
+    const rectangle = (left: number, top: number, width: number, height: number): DOMRect =>
+      ({
+        x: left,
+        y: top,
+        width,
+        height,
+        top,
+        right: left + width,
+        bottom: top + height,
+        left,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement): DOMRect {
+        if (this.dataset.webradId === 'constrained-card-instance') return rectangle(0, 0, 0, 0);
+        if (this.dataset.webradId === 'constrained-card-instance:constrained-card-child') {
+          return rectangle(-80, -30, 300, 100);
+        }
+        return rectangle(0, 0, 0, 0);
+      });
+
+    try {
+      const mounted = mountPage(reusablePage, document.createElement('div'));
+      const instance = mounted.page.requireComponentElement('constrained-card-instance');
+      const definitionRoot = mounted.page.requireComponentElement(
+        'constrained-card-instance:constrained-card-root',
+      );
+
+      expect(instance.style.width).toBe('120px');
+      expect(instance.style.height).toBe('48px');
+      expect(instance.style.maxWidth).toBe('120px');
+      expect(instance.style.maxHeight).toBe('48px');
+      expect(definitionRoot.style.minWidth).toBe('0px');
+      expect(definitionRoot.style.minHeight).toBe('0px');
+      expect(definitionRoot.style.maxWidth).toBe('100%');
+      expect(definitionRoot.style.maxHeight).toBe('100%');
+      mounted.dispose();
+    } finally {
+      getBoundingClientRect.mockRestore();
+    }
   });
 
   it('allocates a unique physical ID when a scoped reusable ID collides with a page ID', () => {

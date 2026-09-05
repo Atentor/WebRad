@@ -687,6 +687,8 @@ export function mountPage(
         ? {
             width: reusablePlacement.layout.item.width === 'fit-content',
             height: reusablePlacement.layout.item.height === 'fit-content',
+            hasMaxWidth: reusablePlacement.layout.item.maxWidth !== null,
+            hasMaxHeight: reusablePlacement.layout.item.maxHeight !== null,
           }
         : undefined;
     if (adapter.participatesInLayout !== false) {

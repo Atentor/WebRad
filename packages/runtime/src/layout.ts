@@ -79,6 +79,10 @@ export interface ApplyRuntimeLayoutOptions {
   readonly reusableRootFitContent?: {
     readonly width: boolean;
     readonly height: boolean;
+    /** An explicit placement maximum takes precedence over an intrinsic floor. */
+    readonly hasMaxWidth: boolean;
+    /** An explicit placement maximum takes precedence over an intrinsic floor. */
+    readonly hasMaxHeight: boolean;
   };
 }
 
@@ -887,8 +891,21 @@ export function applyRuntimeLayout(
           position: 'relative',
           width: '100%',
           height: '100%',
-          'min-width': options.reusableRootFitContent?.width ? INTRINSIC_CONTENT_SIZE : '0px',
-          'min-height': options.reusableRootFitContent?.height ? INTRINSIC_CONTENT_SIZE : '0px',
+          // An unconstrained fit placement needs an intrinsic floor until the
+          // outer instance can measure its out-of-flow descendants. A
+          // placement maximum is an explicit authoring bound, however, so it
+          // must win over that floor rather than allowing the definition root
+          // to overflow its measured wrapper.
+          'min-width':
+            options.reusableRootFitContent?.width && !options.reusableRootFitContent.hasMaxWidth
+              ? INTRINSIC_CONTENT_SIZE
+              : '0px',
+          'min-height':
+            options.reusableRootFitContent?.height && !options.reusableRootFitContent.hasMaxHeight
+              ? INTRINSIC_CONTENT_SIZE
+              : '0px',
+          ...(options.reusableRootFitContent?.hasMaxWidth ? { 'max-width': '100%' } : {}),
+          ...(options.reusableRootFitContent?.hasMaxHeight ? { 'max-height': '100%' } : {}),
         }
       : projection.item;
   setImportantStyles(element, { ...projection.container, ...rootStyles });

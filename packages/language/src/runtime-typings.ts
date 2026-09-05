@@ -225,6 +225,8 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly reusableRootFitContent?: {
       readonly width: boolean;
       readonly height: boolean;
+      readonly hasMaxWidth: boolean;
+      readonly hasMaxHeight: boolean;
     };
   }
 
