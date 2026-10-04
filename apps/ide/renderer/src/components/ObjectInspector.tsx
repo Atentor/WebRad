@@ -20,6 +20,7 @@ import {
 } from '@webrad/runtime/icons';
 import { useEffect, useId, useMemo, useState, type ReactElement } from 'react';
 import { Icon } from './Icon';
+import { ComponentIcon } from './ComponentIcon';
 import { IconPickerDialog } from './IconPickerDialog';
 import { Panel } from './Panel';
 import { responsiveLayoutPropertyReference } from '../layout-property';
@@ -601,7 +602,10 @@ function PropertyRow({
   const multiple = value === MULTIPLE_VALUES;
 
   return (
-    <div className="wr-inspector-row" title={property.description}>
+    <div
+      className={`wr-inspector-row${property.type === 'number' && (property.source === 'bounds' || property.source === 'layout-item' || property.source === 'layout-container') ? ' wr-inspector-row-compact' : ''}`}
+      title={property.description}
+    >
       <label className="wr-inspector-name" htmlFor={editorId}>
         {property.label ?? property.name}
       </label>
@@ -753,22 +757,28 @@ export function ObjectInspector({
       ) : (
         <div className="wr-inspector-layout">
           <div className="wr-inspector-selection" title={primaryComponent.id}>
-            {inspectedSelection.length === 1 ? (
-              <>
-                <strong>{primaryComponent.name}</strong>
-                <span>{primaryDefinition?.displayName ?? primaryComponent.type}</span>
-              </>
-            ) : (
-              <>
-                <strong>{inspectedSelection.length} components</strong>
-                <span>Multiple selection</span>
-              </>
-            )}
+            <span className="wr-inspector-selection-icon" data-icon={primaryDefinition?.icon}>
+              <ComponentIcon icon={primaryDefinition?.icon ?? 'component'} />
+            </span>
+            <div className="wr-inspector-selection-info">
+              {inspectedSelection.length === 1 ? (
+                <>
+                  <strong>{primaryComponent.name}</strong>
+                  <span>{primaryDefinition?.displayName ?? primaryComponent.type}</span>
+                </>
+              ) : (
+                <>
+                  <strong>{inspectedSelection.length} components</strong>
+                  <span>Multiple selection</span>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="wr-inspector-tabs" role="tablist" aria-label="Inspector view">
             <button
               id={propertiesTabId}
+              aria-label="Properties"
               type="button"
               role="tab"
               aria-selected={activeInspectorTab === 'properties'}
@@ -776,11 +786,12 @@ export function ObjectInspector({
               className={activeInspectorTab === 'properties' ? 'active' : ''}
               onClick={() => setActiveTab('properties')}
             >
-              Properties
+              Visual
             </button>
             {eventsEnabled && (
               <button
                 id={eventsTabId}
+                aria-label="Events"
                 type="button"
                 role="tab"
                 aria-selected={activeInspectorTab === 'events'}
@@ -788,7 +799,7 @@ export function ObjectInspector({
                 className={activeInspectorTab === 'events' ? 'active' : ''}
                 onClick={() => setActiveTab('events')}
               >
-                Events
+                Interaction
               </button>
             )}
           </div>
@@ -801,60 +812,68 @@ export function ObjectInspector({
               aria-labelledby={propertiesTabId}
             >
               {styleComponentType !== undefined && onStyleChange !== undefined && (
-                <section className="wr-inspector-category">
-                  <h3>Style</h3>
-                  <div
-                    className="wr-inspector-row"
-                    title={`Reusable styles compatible with ${primaryDefinition?.displayName ?? styleComponentType}`}
-                  >
-                    <label className="wr-inspector-name" htmlFor={`${propertiesPanelId}-style`}>
-                      Style
-                    </label>
-                    <div className="wr-inspector-value">
-                      <select
-                        id={`${propertiesPanelId}-style`}
-                        className="wr-inspector-select"
-                        value={selectedStyleIsMultiple ? MULTIPLE_OPTION_VALUE : selectedStyleId}
-                        onChange={(event) =>
-                          onStyleChange(event.target.value.length === 0 ? null : event.target.value)
-                        }
-                      >
-                        {selectedStyleIsMultiple && (
-                          <option value={MULTIPLE_OPTION_VALUE} disabled>
-                            {MULTIPLE_VALUES_LABEL}
-                          </option>
-                        )}
-                        <option value="">None</option>
-                        {compatibleStyles.map((style) => (
-                          <option value={style.id} key={style.id}>
-                            {style.name}
-                          </option>
-                        ))}
-                      </select>
+                <details className="wr-inspector-category" open>
+                  <summary className="wr-inspector-category-title">Style</summary>
+                  <div className="wr-inspector-category-fields">
+                    <div
+                      className="wr-inspector-row"
+                      title={`Reusable styles compatible with ${primaryDefinition?.displayName ?? styleComponentType}`}
+                    >
+                      <label className="wr-inspector-name" htmlFor={`${propertiesPanelId}-style`}>
+                        Style
+                      </label>
+                      <div className="wr-inspector-value">
+                        <select
+                          id={`${propertiesPanelId}-style`}
+                          className="wr-inspector-select"
+                          value={selectedStyleIsMultiple ? MULTIPLE_OPTION_VALUE : selectedStyleId}
+                          onChange={(event) =>
+                            onStyleChange(
+                              event.target.value.length === 0 ? null : event.target.value,
+                            )
+                          }
+                        >
+                          {selectedStyleIsMultiple && (
+                            <option value={MULTIPLE_OPTION_VALUE} disabled>
+                              {MULTIPLE_VALUES_LABEL}
+                            </option>
+                          )}
+                          <option value="">None</option>
+                          {compatibleStyles.map((style) => (
+                            <option value={style.id} key={style.id}>
+                              {style.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </section>
+                </details>
               )}
               {propertyCategories.length === 0 && styleComponentType === undefined ? (
                 <div className="wr-inspector-empty compact">No shared property metadata.</div>
               ) : (
                 propertyCategories.map((category) => (
-                  <section className="wr-inspector-category" key={category.name}>
-                    <h3>{category.name}</h3>
-                    {category.items.map((property) => (
-                      <PropertyRow
-                        key={`${property.source ?? 'props'}:${property.name}`}
-                        property={property}
-                        selection={inspectedSelection}
-                        page={page}
-                        availableComponents={componentChoices}
-                        availableReusableElements={availableReusableElements}
-                        onChange={onPropertyChange}
-                        onDesignerAction={onDesignerAction}
-                        onIconPickerOpenChange={onIconPickerOpenChange}
-                      />
-                    ))}
-                  </section>
+                  <details className="wr-inspector-category" key={category.name} open>
+                    <summary className="wr-inspector-category-title">
+                      {category.name === 'Layout' ? 'Size & position' : category.name}
+                    </summary>
+                    <div className="wr-inspector-category-fields">
+                      {category.items.map((property) => (
+                        <PropertyRow
+                          key={`${property.source ?? 'props'}:${property.name}`}
+                          property={property}
+                          selection={inspectedSelection}
+                          page={page}
+                          availableComponents={componentChoices}
+                          availableReusableElements={availableReusableElements}
+                          onChange={onPropertyChange}
+                          onDesignerAction={onDesignerAction}
+                          onIconPickerOpenChange={onIconPickerOpenChange}
+                        />
+                      ))}
+                    </div>
+                  </details>
                 ))
               )}
             </div>
@@ -869,18 +888,20 @@ export function ObjectInspector({
                 <div className="wr-inspector-empty compact">No shared event metadata.</div>
               ) : (
                 eventCategories.map((category) => (
-                  <section className="wr-inspector-category" key={category.name}>
-                    <h3>{category.name}</h3>
-                    {category.items.map((eventDefinition) => (
-                      <EventRow
-                        key={eventDefinition.name}
-                        eventDefinition={eventDefinition}
-                        selection={inspectedSelection}
-                        onChange={onEventChange}
-                        onDoubleClick={onEventDoubleClick}
-                      />
-                    ))}
-                  </section>
+                  <details className="wr-inspector-category" key={category.name} open>
+                    <summary className="wr-inspector-category-title">{category.name}</summary>
+                    <div className="wr-inspector-category-fields">
+                      {category.items.map((eventDefinition) => (
+                        <EventRow
+                          key={eventDefinition.name}
+                          eventDefinition={eventDefinition}
+                          selection={inspectedSelection}
+                          onChange={onEventChange}
+                          onDoubleClick={onEventDoubleClick}
+                        />
+                      ))}
+                    </div>
+                  </details>
                 ))
               )}
             </div>

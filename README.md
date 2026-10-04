@@ -22,6 +22,20 @@ npm.cmd install
 npm.cmd start
 ```
 
+Ao iniciar, o WebRAD reabre automaticamente o último projeto criado, aberto ou salvo, se os arquivos ainda estiverem disponíveis e válidos. Se não for possível reabri-lo, a tela inicial permite abrir ou criar outro projeto. A reabertura carrega a versão salva em disco.
+
+## Designer
+
+O workspace segue a organização visual do designer do Bubble: barra superior compacta, navegação por ícones à esquerda, árvore de elementos e paleta no painel Builder, canvas central e Inspector à direita. A barra superior reúne os documentos abertos, o elemento selecionado, o zoom e as ações de salvar, desfazer, refazer e executar Preview.
+
+- Use **Design**, **Code** e **Preview** na barra lateral para alternar a visualização do documento; **F12** abre o código e **F9** compila e executa a aplicação.
+- No **Builder**, selecione um elemento pela árvore ou pelo canvas. Ambos atualizam a mesma seleção e o Inspector. Pesquise os elementos ou os componentes da paleta e arraste um componente para inseri-lo.
+- Abra **Responsive** para visualizar a página nas larguras Desktop, Tablet e Mobile. O zoom na barra superior altera a escala de visualização.
+- No Inspector, **Visual** reúne as propriedades em seções recolhíveis e **Interaction** permite configurar os eventos existentes do componente.
+- Use **Project Explorer** para gerenciar páginas e componentes reutilizáveis, **Styles** para editar estilos e **Project Settings** para configurar o projeto. O botão **Output** abre o painel de Problems, Output e Build, inicialmente recolhido; a compilação e os diagnósticos também o abrem.
+
+Os componentes não visuais continuam disponíveis na bandeja abaixo do canvas. A organização do workspace preserva o modelo versionado do projeto, os IDs dos componentes e o histórico de comandos.
+
 ## Validação
 
 ```sh
@@ -40,6 +54,12 @@ No PowerShell que bloqueia `npm.ps1`, substitua `npm` por `npm.cmd` nesses coman
 ## Empacotamento e distribuição
 
 O comando `npm run smoke:development` inicia o Forge e o Vite reais, confirma que o shell React foi montado e percorre o fluxo completo da IDE sem reutilizar bundles obsoletos dos pacotes internos. O comando `npm run package` cria uma aplicação não instalada para a plataforma atual. O comando `npm run smoke:packaged` inicia exatamente esse artefato, abre pela IDE uma cópia temporária do projeto Hello, executa F9 pelo fluxo de compilação com IPC tipado, interage com o Preview isolado e verifica o resultado do evento gerado antes de encerrar. O comando `npm run make` aciona os geradores do Electron Forge para produzir os artefatos distribuíveis compatíveis com a plataforma atual.
+
+Os dois smokes também verificam a reabertura automática do último projeto com preferências temporárias isoladas, a seleção compartilhada entre árvore, canvas e Inspector, as larguras de visualização responsiva, o zoom e o painel Output. Para salvar uma captura real do Designer ao final do smoke, forneça um caminho absoluto:
+
+```powershell
+npm.cmd run smoke:development -- --webrad-smoke-screenshot=C:\GitHub\WebRad\.tmp\designer.png
+```
 
 Para gerar o instalador destinado a outro computador Windows x64, execute no PowerShell:
 

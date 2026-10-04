@@ -1,3 +1,7 @@
+import { type DesignerViewportName } from '@webrad/designer';
+import { ActivityBar } from './components/ActivityBar';
+import { DesignerSidebar, type DesignerSidebarMode } from './components/DesignerSidebar';
+import { ElementTree } from './components/ElementTree';
 import {
   AddComponentCommand,
   BringToFrontCommand,
@@ -70,7 +74,7 @@ import { ObjectInspector } from './components/ObjectInspector';
 import { PreviewPane } from './components/PreviewPane';
 import { ProjectExplorer } from './components/ProjectExplorer';
 import { ProjectSettingsDialog } from './components/ProjectSettingsDialog';
-import { ProjectTools } from './components/ProjectTools';
+
 import { StatusBar } from './components/StatusBar';
 import { StylesWorkspace } from './components/StylesWorkspace';
 import { ToolPalette } from './components/ToolPalette';
@@ -186,6 +190,8 @@ export function App(): ReactElement {
   const [activeView, setActiveView] = useState<ViewMode>('design');
   const [selectedPaletteType, setSelectedPaletteType] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [viewportName, setViewportName] = useState<DesignerViewportName>('desktop');
+  const [sidebarMode, setSidebarMode] = useState<DesignerSidebarMode>('builder');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [output, setOutput] = useState<readonly OutputEntry[]>([]);
   const [buildDiagnostics, setBuildDiagnostics] = useState<readonly BuildDiagnostic[]>([]);
@@ -217,7 +223,7 @@ export function App(): ReactElement {
     explorer: true,
     palette: true,
     inspector: true,
-    output: true,
+    output: false,
   });
   const project = projectState.project;
   const projectStyles = project?.styles;
@@ -280,6 +286,9 @@ export function App(): ReactElement {
 
   const activateProjectSession = useCallback(
     (session: ProjectSession): void => {
+      setSidebarMode('builder');
+      setViewportName('desktop');
+      setSelectedPaletteType(null);
       releaseMonacoWorkspace();
       const initialPageId = session.project.entryPage || session.project.pages[0]?.id || null;
       setOpenPageIds(initialPageId ? [initialPageId] : []);
@@ -302,6 +311,23 @@ export function App(): ReactElement {
     },
     [addOutput, designerController, selectionManager],
   );
+
+  useEffect(() => {
+    let active = true;
+    void projectController
+      .restoreLastProject()
+      .then((session) => {
+        if (active && session) activateProjectSession(session);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          addOutput('PROJECT', `Could not reopen the last project: ${asError(error).message}`);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [activateProjectSession, addOutput, projectController]);
 
   useEffect(() => selectionManager.subscribe(setSelection), [selectionManager]);
 
@@ -1194,12 +1220,23 @@ export function App(): ReactElement {
   }, [addOutput, projectController, projectState.project, projectState.rootPath, reportError]);
 
   const executeCommand = useCallback(
-    (command: IdeCommand): void => {
+    (command: IdeCommand, target?: 'designer'): void => {
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
       if (newProjectDialogOpen || addDocumentDialogKind !== null || projectSettingsDialogOpen) {
         return;
       }
       if (
+        target !== 'designer' &&
+        command.startsWith('edit.') &&
+        activeView === 'code' &&
+        (!isTextEditingElement(document.activeElement) ||
+          document.activeElement?.closest('.monaco-editor') !== null)
+      ) {
+        window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail: command }));
+        return;
+      }
+      if (
+        target !== 'designer' &&
         command.startsWith('edit.') &&
         (activeView !== 'design' || isTextEditingElement(document.activeElement))
       ) {
@@ -1586,6 +1623,9 @@ export function App(): ReactElement {
         onZoomChange={setZoom}
         onComponentActivate={activateComponent}
         onOpenReusableElement={openPage}
+        viewportName={viewportName}
+        onViewportChange={setViewportName}
+        showToolbar={false}
       />
     </ErrorBoundary>
   ) : activeView === 'code' ? (
@@ -1610,7 +1650,13 @@ export function App(): ReactElement {
         buildProblems={buildProblems}
         navigateTo={navigateTo}
         onSourceChange={updateEditorSource}
-        onMarkersChange={setMonacoMarkers}
+        onMarkersChange={(markers) => {
+          setMonacoMarkers(markers);
+          if (markers.some((marker) => marker.severity >= 4)) {
+            setVisiblePanels((current) => ({ ...current, output: true }));
+            setBottomPanelTab('problems');
+          }
+        }}
         onCursorChange={setCursor}
         onSave={() => void saveProject()}
       />
@@ -1652,35 +1698,118 @@ export function App(): ReactElement {
               onCommand={executeCommand}
               canSave={project !== null && !projectState.saving}
               canRun={project !== null && projectState.rootPath !== null && !building}
+              documents={documents}
+              activeDocumentId={stylesActive ? STYLES_DOCUMENT_ID : activePageId}
+              onSelectDocument={(id) => {
+                if (id === STYLES_DOCUMENT_ID) openStyles();
+                else openPage(id);
+              }}
+              onCloseDocument={(id) => {
+                if (id === STYLES_DOCUMENT_ID) {
+                  setStylesOpen(false);
+                  if (activeWorkspace === 'styles') setActiveWorkspace('page');
+                  return;
+                }
+                setOpenPageIds((current) => {
+                  const remaining = current.filter((candidate) => candidate !== id);
+                  if (activePageId !== id) return remaining;
+                  const nextId = remaining.at(-1) ?? null;
+                  setActivePageId(nextId);
+                  return remaining;
+                });
+              }}
+              canUndo={
+                activePage !== null &&
+                (activeView === 'code' || designerController.canUndo(activePage))
+              }
+              canRedo={
+                activePage !== null &&
+                (activeView === 'code' || designerController.canRedo(activePage))
+              }
+              projectName={project?.name}
+              dirty={projectState.dirty}
+              saving={projectState.saving}
+              building={building}
+              selectedName={primaryComponent?.name}
+              selectedIcon={primaryComponentDefinition?.icon}
+              onClearSelection={() => selectionManager.clear()}
+              zoom={zoom}
+              zoomEnabled={activePage !== null && activeView === 'design'}
+              onZoomChange={setZoom}
+              issueCount={problemCounts.total}
+              onShowProblems={() => {
+                setVisiblePanels((current) => ({ ...current, output: true }));
+                setBottomPanelTab('problems');
+              }}
+              canArrange={
+                activeView === 'design' &&
+                selectedComponents.some(
+                  (node) =>
+                    node.id !== activePage?.rootComponentId &&
+                    componentRegistry.get(node.type)?.visual === true,
+                )
+              }
+              onBringToFront={() => changeZOrder('front')}
+              onSendToBack={() => changeZOrder('back')}
             />
           }
           explorer={
-            visiblePanels.explorer ? (
-              <ErrorBoundary area="Project Explorer">
-                <ProjectExplorer
-                  project={project}
-                  activePageId={
-                    stylesActive || activeDocumentKind === 'reusable' ? null : activePageId
-                  }
-                  onOpenPage={openPage}
-                  onAddPage={addPageToProject}
-                  onDeletePage={deletePage}
-                  onRenamePage={renamePage}
-                  activeReusableElementId={
-                    stylesActive || activeDocumentKind !== 'reusable' ? null : activePageId
-                  }
-                  onOpenReusableElement={openPage}
-                  onAddReusableElement={addReusableElementToProject}
-                  onDeleteReusableElement={deleteReusableElement}
-                  onRenameReusableElement={renameReusableElement}
-                />
-              </ErrorBoundary>
-            ) : null
+            <DesignerSidebar
+              mode={sidebarMode}
+              onModeChange={setSidebarMode}
+              page={activePage}
+              viewport={viewportName}
+              onViewportChange={(viewport) => {
+                setViewportName(viewport);
+                if (!stylesActive) setActiveView('design');
+              }}
+              onInspectPage={() => {
+                if (activePage)
+                  selectionManager.set([activePage.rootComponentId], activePage.rootComponentId);
+              }}
+              tree={
+                visiblePanels.explorer ? (
+                  <ElementTree
+                    page={activePage}
+                    selectedIds={selection.ids}
+                    onSelect={(ids, primaryId) => {
+                      setSelectedPaletteType(null);
+                      selectionManager.set(ids, primaryId);
+                    }}
+                    onEditCommand={(command) => executeCommand(command, 'designer')}
+                  />
+                ) : null
+              }
+              explorer={
+                visiblePanels.explorer ? (
+                  <ErrorBoundary area="Project Explorer">
+                    <ProjectExplorer
+                      project={project}
+                      activePageId={
+                        stylesActive || activeDocumentKind === 'reusable' ? null : activePageId
+                      }
+                      onOpenPage={openPage}
+                      onAddPage={addPageToProject}
+                      onDeletePage={deletePage}
+                      onRenamePage={renamePage}
+                      activeReusableElementId={
+                        stylesActive || activeDocumentKind !== 'reusable' ? null : activePageId
+                      }
+                      onOpenReusableElement={openPage}
+                      onAddReusableElement={addReusableElementToProject}
+                      onDeleteReusableElement={deleteReusableElement}
+                      onRenameReusableElement={renameReusableElement}
+                    />
+                  </ErrorBoundary>
+                ) : null
+              }
+            />
           }
           palette={
             visiblePanels.palette ? (
               <ErrorBoundary area="Tool Palette">
                 <ToolPalette
+                  compact
                   selectedType={selectedPaletteType}
                   onSelect={setSelectedPaletteType}
                   onInsert={(type) => {
@@ -1712,42 +1841,34 @@ export function App(): ReactElement {
               </ErrorBoundary>
             ) : null
           }
-          projectTools={
-            visiblePanels.inspector ? (
-              <ErrorBoundary area="Project Tools">
-                <ProjectTools
-                  project={project}
-                  stylesActive={stylesActive}
-                  onOpenStyles={openStyles}
-                  onOpenProjectSettings={() => setProjectSettingsDialogOpen(true)}
-                />
-              </ErrorBoundary>
-            ) : null
+          activity={
+            <ActivityBar
+              activeView={activeView}
+              stylesActive={stylesActive}
+              projectActive={sidebarMode === 'project'}
+              hasProject={project !== null}
+              hasDocument={activePageId !== null}
+              outputVisible={visiblePanels.output}
+              onSelectView={(view) => {
+                setActiveWorkspace('page');
+                setActiveView(view);
+                if (view === 'design') setSidebarMode('builder');
+              }}
+              onShowProject={() => {
+                setVisiblePanels((current) => ({ ...current, explorer: true }));
+                setSidebarMode('project');
+              }}
+              onOpenStyles={openStyles}
+              onOpenSettings={() => setProjectSettingsDialogOpen(true)}
+              onToggleOutput={() =>
+                setVisiblePanels((current) => ({ ...current, output: !current.output }))
+              }
+            />
           }
           editor={
             <EditorWorkspace
               documents={documents}
               activeDocumentId={stylesActive ? STYLES_DOCUMENT_ID : activePageId}
-              activeView={activeView}
-              onSelectDocument={(id) => {
-                if (id === STYLES_DOCUMENT_ID) openStyles();
-                else openPage(id);
-              }}
-              onCloseDocument={(id) => {
-                if (id === STYLES_DOCUMENT_ID) {
-                  setStylesOpen(false);
-                  if (activeWorkspace === 'styles') setActiveWorkspace('page');
-                  return;
-                }
-                setOpenPageIds((current) => {
-                  const remaining = current.filter((candidate) => candidate !== id);
-                  if (activePageId !== id) return remaining;
-                  const nextId = remaining.at(-1) ?? null;
-                  setActivePageId(nextId);
-                  return remaining;
-                });
-              }}
-              onSelectView={setActiveView}
             >
               {editorContent}
             </EditorWorkspace>

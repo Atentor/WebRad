@@ -1,3 +1,7 @@
+import {
+  DESIGNER_VIEWPORTS as VIEWPORTS,
+  type DesignerViewportName as ViewportName,
+} from '@webrad/designer';
 import { ComponentView, SharedComponentStyles } from '@webrad/components';
 import {
   componentRegistry,
@@ -45,6 +49,10 @@ import { createPortal } from 'react-dom';
 import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 
 interface DesignerSurfaceProps {
+  viewportName?: ViewportName;
+  onViewportChange?: (viewport: ViewportName) => void;
+  showToolbar?: boolean;
+
   page: PageModel;
   reusableElements?: readonly ReusableElementModel[];
   settings: ProjectSettings;
@@ -86,13 +94,6 @@ interface DesignerSurfaceProps {
   onDefaultEvent?: (componentId: string) => void;
 }
 
-const VIEWPORTS = {
-  desktop: { label: 'Desktop', width: 1280 },
-  tablet: { label: 'Tablet', width: 768 },
-  mobile: { label: 'Mobile', width: 390 },
-} as const;
-
-type ViewportName = keyof typeof VIEWPORTS;
 type ContainerLayoutMode = ComponentNode['layout']['container']['mode'];
 
 interface LayoutNode {
@@ -1108,6 +1109,10 @@ function hasReorderChanged(
 }
 
 export function DesignerSurface({
+  viewportName: controlledViewportName,
+  onViewportChange,
+  showToolbar = true,
+
   page,
   reusableElements = [],
   settings,
@@ -1137,7 +1142,12 @@ export function DesignerSurface({
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<Interaction | null>(null);
   const [floatingHost, setFloatingHost] = useState<HTMLElement | null>(null);
-  const [viewportName, setViewportName] = useState<ViewportName>('desktop');
+  const [localViewportName, setLocalViewportName] = useState<ViewportName>('desktop');
+  const viewportName = controlledViewportName ?? localViewportName;
+  const setViewportName = (value: ViewportName): void => {
+    setLocalViewportName(value);
+    onViewportChange?.(value);
+  };
   const [measuredBounds, setMeasuredBounds] = useState<ReadonlyMap<string, Bounds>>(
     () => new Map(),
   );
@@ -1752,39 +1762,41 @@ export function DesignerSurface({
       : undefined;
 
   return (
-    <div className="wr-designer-workspace">
-      <div className="wr-designer-toolbar">
-        <button type="button" disabled={selectedVisualIds.length === 0} onClick={onBringToFront}>
-          Bring to Front
-        </button>
-        <button type="button" disabled={selectedVisualIds.length === 0} onClick={onSendToBack}>
-          Send to Back
-        </button>
-        <span />
-        <label>
-          Viewport
-          <select
-            value={viewportName}
-            onChange={(event) => setViewportName(event.target.value as ViewportName)}
-          >
-            {Object.entries(VIEWPORTS).map(([name, option]) => (
-              <option value={name} key={name}>
-                {option.label} ({option.width}px)
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Zoom
-          <select value={zoom} onChange={(event) => onZoomChange(Number(event.target.value))}>
-            {[50, 75, 100, 125, 150].map((value) => (
-              <option value={value} key={value}>
-                {value}%
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+    <div className={`wr-designer-workspace${showToolbar ? '' : ' wr-designer-workspace-compact'}`}>
+      {showToolbar && (
+        <div className="wr-designer-toolbar">
+          <button type="button" disabled={selectedVisualIds.length === 0} onClick={onBringToFront}>
+            Bring to Front
+          </button>
+          <button type="button" disabled={selectedVisualIds.length === 0} onClick={onSendToBack}>
+            Send to Back
+          </button>
+          <span />
+          <label>
+            Viewport
+            <select
+              value={viewportName}
+              onChange={(event) => setViewportName(event.target.value as ViewportName)}
+            >
+              {Object.entries(VIEWPORTS).map(([name, option]) => (
+                <option value={name} key={name}>
+                  {option.label} ({option.width}px)
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Zoom
+            <select value={zoom} onChange={(event) => onZoomChange(Number(event.target.value))}>
+              {[50, 75, 100, 125, 150].map((value) => (
+                <option value={value} key={value}>
+                  {value}%
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
       <div className="wr-designer-scroll">
         <div
           className="wr-page-zoom-frame"

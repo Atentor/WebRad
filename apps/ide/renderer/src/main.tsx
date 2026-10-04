@@ -9,6 +9,7 @@ import { applicationIconUrl } from './application-assets';
 import './theme.css';
 import './layout.css';
 import './panels.css';
+import './designer-chrome.css';
 
 const iconLink = document.createElement('link');
 iconLink.rel = 'icon';

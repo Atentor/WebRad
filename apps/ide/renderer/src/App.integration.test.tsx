@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { createUserPageSource } from '@webrad/language';
+import { StrictMode } from 'react';
 import {
   createProject,
   parseApiClientConfiguration,
@@ -131,6 +132,7 @@ interface BridgeHarness {
   readonly bridge: WebRadBridge;
   readonly create: ReturnType<typeof vi.fn>;
   readonly open: ReturnType<typeof vi.fn>;
+  readonly restore: ReturnType<typeof vi.fn>;
   readonly save: ReturnType<typeof vi.fn>;
   readonly build: ReturnType<typeof vi.fn>;
   readonly compileStyles: ReturnType<typeof vi.fn>;
@@ -149,6 +151,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     return cloneSession(persisted);
   });
   const open = vi.fn(async (): Promise<ProjectSession | null> => cloneSession(persisted));
+  const restore = vi.fn(async (): Promise<ProjectSession | null> => null);
   const save = vi.fn(async (request: SaveProjectRequest): Promise<ProjectSession> => {
     persisted = {
       rootPath: request.rootPath,
@@ -187,6 +190,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     project: {
       create,
       open,
+      restore,
       save,
       saveAs: async (
         request: Omit<SaveProjectRequest, 'rootPath'>,
@@ -220,6 +224,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     bridge,
     create,
     open,
+    restore,
     save,
     build,
     compileStyles,
@@ -253,6 +258,11 @@ function selectDesignerComponent(title: string): HTMLElement {
   return hitTarget;
 }
 
+async function ensureOutputVisible(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  const toggle = screen.getByRole('button', { name: 'Toggle output' });
+  if (toggle.getAttribute('aria-pressed') !== 'true') await user.click(toggle);
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -261,6 +271,65 @@ afterEach(() => {
 });
 
 describe('App MVP integration', () => {
+  it('reopens the last project on startup once in StrictMode with its saved source', async () => {
+    const session = initialSession();
+    session.userSources['pages/PageMain.ts'] += '\n// Restored authored source';
+    const harness = createBridgeHarness(session);
+    harness.restore.mockResolvedValue(cloneSession(session));
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+    await waitFor(() => expect(document.querySelector('.wr-page-surface')).not.toBeNull());
+    expect(document.querySelector('.wr-welcome-mark')).toBeNull();
+    expect(harness.restore).toHaveBeenCalledTimes(1);
+    expect(harness.open).not.toHaveBeenCalled();
+    expect(harness.create).not.toHaveBeenCalled();
+    expect(harness.save).not.toHaveBeenCalled();
+    expect(harness.setDirty).toHaveBeenLastCalledWith(false);
+
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+    expect(await screen.findByRole('tree', { name: 'MvpProject project' })).toBeDefined();
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+    expect(await screen.findByRole('textbox', { name: 'Mock Monaco editor' })).toHaveProperty(
+      'value',
+      session.userSources['pages/PageMain.ts'],
+    );
+  });
+
+  it('keeps the welcome screen and manual opening available without a restorable project', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await waitFor(() => expect(harness.restore).toHaveBeenCalledTimes(1));
+    expect(document.querySelector('.wr-welcome-mark')).not.toBeNull();
+    expect(document.querySelector('.wr-page-surface')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await waitFor(() => expect(document.querySelector('.wr-page-surface')).not.toBeNull());
+    expect(harness.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs a restore failure without blocking manual project creation', async () => {
+    const harness = createBridgeHarness(initialSession());
+    harness.restore.mockRejectedValue(new Error('Project is unavailable'));
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Toggle output' }));
+    expect(
+      await screen.findByText('Could not reopen the last project: Project is unavailable'),
+    ).toBeDefined();
+    await user.click(screen.getByRole('button', { name: 'New project (Ctrl+N)' }));
+    expect(await screen.findByRole('dialog', { name: 'Create a new project' })).toBeDefined();
+  });
+
   it('creates, designs, generates code, persists, reopens, and runs the browser preview', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', {
@@ -283,12 +352,15 @@ describe('App MVP integration', () => {
     await user.clear(projectName);
     await user.type(projectName, 'MvpProject');
     await user.click(screen.getByRole('button', { name: 'Create project' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     expect(screen.getByText('Pages')).toBeDefined();
     expect(screen.getAllByText('PageMain').length).toBeGreaterThan(0);
     expect(screen.getByTitle('Entry page')).toBeDefined();
     expect(screen.queryByText('Forms')).toBeNull();
-    expect(imageSource('.wr-project-icon')).toBe(applicationIconUrl);
+    expect(
+      within(screen.getByRole('toolbar', { name: 'Main toolbar' })).queryByRole('img'),
+    ).toBeNull();
     expect(harness.create).toHaveBeenCalledWith({ name: 'MvpProject' });
 
     await user.dblClick(screen.getByRole('button', { name: 'Label' }));
@@ -386,6 +458,7 @@ describe('App MVP integration', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const saved = harness.persisted();
     expect(componentTypes(saved.project)).toEqual([
@@ -475,6 +548,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.dblClick(screen.getByRole('button', { name: 'Popup' }));
     await screen.findByRole('option', { name: 'Popup1, Popup' });
@@ -489,6 +563,7 @@ describe('App MVP integration', () => {
       expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Button1');
     });
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
 
     const page = harness.persisted().project.pages[0];
@@ -524,6 +599,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
 
     await user.dblClick(screen.getByRole('button', { name: 'API Client' }));
@@ -551,6 +627,7 @@ describe('App MVP integration', () => {
     });
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const persistedApiClient = harness
       .persisted()
@@ -586,6 +663,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
 
     await user.dblClick(screen.getByRole('button', { name: 'Data Grid' }));
@@ -622,6 +700,7 @@ describe('App MVP integration', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const dataGrid = harness
       .persisted()
@@ -669,6 +748,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('button', { name: 'Collapse Pages' }));
     expect(screen.queryByRole('treeitem', { name: /PageMain/ })).toBeNull();
@@ -681,12 +761,12 @@ describe('App MVP integration', () => {
     await user.dblClick(screen.getByTitle('Select Label; drag or double-click to insert'));
     await screen.findByTitle('Label1: WebLabel');
 
-    const stylesItem = screen.getByRole('treeitem', { name: 'Styles' });
+    const stylesItem = screen.getByRole('button', { name: 'Styles' });
     await user.click(stylesItem);
-    expect(stylesItem.getAttribute('aria-selected')).toBe('true');
+    expect(stylesItem.getAttribute('aria-pressed')).toBe('true');
     expect(await screen.findByRole('region', { name: 'Styles editor' })).toBeDefined();
     expect(screen.getByRole('heading', { name: 'Style library' })).toBeDefined();
-    expect(screen.getByRole('tree', { name: 'MvpProject project tools' })).toBeDefined();
+    expect(screen.getByRole('navigation', { name: 'Workspace navigation' })).toBeDefined();
     expect(screen.queryByRole('note')).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Design' })).toBeNull();
 
@@ -785,6 +865,7 @@ describe('App MVP integration', () => {
       'background-color',
     );
 
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await user.click(screen.getByRole('treeitem', { name: /PageMain/ }));
     await screen.findByRole('tab', { name: 'Design' });
     const pageStyleSelect = (await screen.findByLabelText('Style')) as HTMLSelectElement;
@@ -842,6 +923,7 @@ describe('App MVP integration', () => {
     await user.selectOptions(labelStyleSelect, screen.getByRole('option', { name: 'Muted Label' }));
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const savedWithStyles = harness.persisted().project;
     expect(savedWithStyles.styles).toHaveLength(15);
@@ -911,6 +993,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await act(async () => {
       harness.invokeCommand('project.addPage');
@@ -926,6 +1009,7 @@ describe('App MVP integration', () => {
 
     expect((await screen.findAllByText('Page2')).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     expect(harness.persisted().project.pages.map((page) => page.name)).toEqual([
       'PageMain',
@@ -946,6 +1030,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByTitle('Open Project Settings'));
 
@@ -987,6 +1072,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await act(async () => {
       harness.invokeCommand('project.addReusableElement');
@@ -1017,9 +1103,12 @@ describe('App MVP integration', () => {
     expect(reusableEditor.value).toContain('async Button1Click(sender: WebButton): Promise<void>');
     await user.click(screen.getByRole('tab', { name: 'Design' }));
 
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await user.click(screen.getByRole('treeitem', { name: /PageMain/ }));
     await screen.findByRole('tab', { name: 'Code' });
-    const reusableTreeItem = within(projectTree).getByRole('treeitem', { name: 'CustomerCard' });
+    const reusableTreeItem = within(
+      screen.getByRole('tree', { name: 'MvpProject project' }),
+    ).getByRole('treeitem', { name: 'CustomerCard' });
     const dragData = new Map<string, string>();
     const dragStartEvent = new MouseEvent('dragstart', { bubbles: true, cancelable: true });
     Object.defineProperty(dragStartEvent, 'dataTransfer', {
@@ -1048,6 +1137,7 @@ describe('App MVP integration', () => {
     await user.selectOptions(screen.getByLabelText('Responsive height'), 'fit-content');
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const saved = harness.persisted().project;
     const reusable = saved.reusableElements[0];
@@ -1079,6 +1169,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('tab', { name: 'Code' }));
 
@@ -1108,6 +1199,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('tab', { name: 'Code' }));
 
@@ -1115,6 +1207,7 @@ describe('App MVP integration', () => {
     const editedSource = `${editor.value}\n// save this exact Monaco buffer\n`;
     fireEvent.change(editor, { target: { value: editedSource } });
     await user.click(screen.getByRole('button', { name: 'Save code' }));
+    await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
 
     const saveRequest = harness.save.mock.calls.at(-1)?.[0] as SaveProjectRequest | undefined;
@@ -1185,6 +1278,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('tab', { name: 'Code' }));
     await user.click(await screen.findByRole('button', { name: 'Emit editor problem' }));
@@ -1231,6 +1325,7 @@ describe('App MVP integration', () => {
 
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('button', { name: 'Build and run (F9)' }));
 
@@ -1241,5 +1336,97 @@ describe('App MVP integration', () => {
     const editor = await screen.findByTestId('mock-monaco');
     await waitFor(() => expect(editor.getAttribute('data-navigation-line')).toBe('3'));
     expect(screen.getByRole('tab', { name: 'Code' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('synchronizes builder selection and toolbar controls while preserving component IDs and bounds', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    const tree = await screen.findByRole('tree', { name: 'Page elements' });
+    expect(screen.getByRole('tab', { name: 'Builder' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByRole('tree', { name: 'MvpProject project' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Toggle output' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+
+    await user.dblClick(screen.getByRole('button', { name: 'Button' }));
+    const button = await within(tree).findByRole('treeitem', { name: 'Button1', selected: true });
+    const componentId = button.getAttribute('data-component-id');
+    expect(componentId).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'SaveOrder' } });
+    const renamed = await within(tree).findByRole('treeitem', {
+      name: 'SaveOrder',
+      selected: true,
+    });
+    expect(renamed.getAttribute('data-component-id')).toBe(componentId);
+    expect(document.querySelector('.wr-toolbar-selection')?.textContent).toContain('SaveOrder');
+
+    await user.click(within(tree).getByRole('treeitem', { name: 'PageMain' }));
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('PageMain');
+    await user.click(renamed);
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('SaveOrder');
+    const width = Number((screen.getByLabelText('Width') as HTMLInputElement).value);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Zoom' }), '75');
+    expect(document.querySelector<HTMLElement>('.wr-page-surface')?.style.transform).toBe(
+      'scale(0.75)',
+    );
+    await user.click(screen.getByRole('tab', { name: 'Responsive' }));
+    await user.click(screen.getByRole('button', { name: 'Mobile' }));
+    expect(document.querySelector('.wr-page-surface')?.getAttribute('data-viewport')).toBe(
+      'mobile',
+    );
+    await user.click(screen.getByRole('tab', { name: 'Builder' }));
+    expect(screen.getByRole('treeitem', { name: 'SaveOrder', selected: true })).toBeDefined();
+
+    await user.dblClick(screen.getByRole('button', { name: 'Label' }));
+    const labelId = (await screen.findByRole('treeitem', { name: 'Label1' })).getAttribute(
+      'data-component-id',
+    );
+    expect(labelId).toBeTruthy();
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+    await screen.findByLabelText('Mock Monaco editor');
+    await user.click(screen.getByRole('treeitem', { name: 'SaveOrder' }));
+    await user.keyboard('{Delete}');
+    expect(screen.queryByRole('treeitem', { name: 'SaveOrder' })).toBeNull();
+    await user.click(screen.getByRole('treeitem', { name: 'PageMain' }));
+    await user.keyboard('{Control>}z{/Control}');
+    expect(
+      (await screen.findByRole('treeitem', { name: 'SaveOrder' })).getAttribute(
+        'data-component-id',
+      ),
+    ).toBe(componentId);
+    expect(screen.getByRole('tab', { name: 'Code' }).getAttribute('aria-selected')).toBe('true');
+
+    await user.click(screen.getByRole('tab', { name: 'Design' }));
+    await user.click(screen.getByRole('treeitem', { name: 'SaveOrder' }));
+    await user.click(screen.getByLabelText('Arrange selection'));
+    await user.click(screen.getByRole('button', { name: 'Bring to Front' }));
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledOnce());
+    const frontPage = harness.persisted().project.pages[0];
+    expect(
+      frontPage?.components.find((component) => component.id === frontPage.rootComponentId)
+        ?.children,
+    ).toEqual([labelId, componentId]);
+    await user.click(screen.getByLabelText('Arrange selection'));
+    await user.click(screen.getByRole('button', { name: 'Send to Back' }));
+
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(2));
+    const backPage = harness.persisted().project.pages[0];
+    expect(
+      backPage?.components.find((component) => component.id === backPage.rootComponentId)?.children,
+    ).toEqual([componentId, labelId]);
+    const persisted = harness
+      .persisted()
+      .project.pages[0]?.components.find((component) => component.id === componentId);
+    expect(persisted?.name).toBe('SaveOrder');
+    expect(persisted?.bounds.width).toBe(width);
+    expect(screen.getByRole('button', { name: 'Toggle output' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
   });
 });

@@ -420,8 +420,8 @@ button.wr-problem:focus-visible {
   gap: 3px;
   min-width: 0;
   padding: 0 10px;
-  border-top: 1px solid color-mix(in srgb, var(--wr-accent) 60%, var(--wr-border));
-  background: color-mix(in srgb, var(--wr-panel-bg) 88%, var(--wr-accent));
+  border-top: 1px solid var(--wr-status-border);
+  background: var(--wr-status-bg);
   color: var(--wr-muted-text);
   font-size: 12px;
   font-weight: 500;
@@ -2004,7 +2004,7 @@ kbd {
   background:
     linear-gradient(45deg, rgba(255, 255, 255, 0.018) 25%, transparent 25%) 0 0 / 20px 20px,
     linear-gradient(-45deg, rgba(255, 255, 255, 0.018) 25%, transparent 25%) 0 10px / 20px 20px,
-    #15181e;
+    var(--wr-bg);
 }
 
 .wr-designer-toolbar {
@@ -2395,7 +2395,7 @@ kbd {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: color-mix(in srgb, #05070b 68%, transparent);
+  background: color-mix(in srgb, #000000 68%, transparent);
   backdrop-filter: blur(2px);
 }
 

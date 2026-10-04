@@ -121,7 +121,7 @@ describe('Monaco setup', () => {
         base: 'vs-dark',
         inherit: true,
         colors: expect.objectContaining({
-          'editor.background': '#171A21',
+          'editor.background': '#1E1E1E',
           'editorError.foreground': '#FF6B78',
         }),
       }),

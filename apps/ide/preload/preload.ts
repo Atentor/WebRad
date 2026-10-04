@@ -18,6 +18,7 @@ const bridge: WebRadBridge = {
     create: (request: CreateProjectRequest) =>
       ipcRenderer.invoke('webrad:project:create', request) as Promise<ProjectSession | null>,
     open: () => ipcRenderer.invoke('webrad:project:open') as Promise<ProjectSession | null>,
+    restore: () => ipcRenderer.invoke('webrad:project:restore') as Promise<ProjectSession | null>,
     save: (request: SaveProjectRequest) =>
       ipcRenderer.invoke('webrad:project:save', request) as Promise<ProjectSession>,
     saveAs: (request: Omit<SaveProjectRequest, 'rootPath'>) =>

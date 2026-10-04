@@ -1,3 +1,4 @@
+import { ComponentIcon } from './ComponentIcon';
 import {
   defaultComponentRegistry,
   resolveComponentDesignerPresentation,
@@ -7,27 +8,23 @@ import {
 import { useMemo, useState, type DragEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
-
 export const WEBRAD_COMPONENT_DRAG_TYPE = 'application/x-webrad-component';
 export const WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE = 'application/x-webrad-reusable-element';
-
 export interface ToolPaletteProps {
   selectedType?: string | null;
   onSelect: (componentType: string) => void;
   onInsert: (componentType: string) => void;
   allowNonvisual?: boolean;
   registry?: ComponentRegistry;
+  compact?: boolean;
 }
-
 interface PaletteCategory {
   readonly name: string;
   readonly components: readonly ComponentDefinition[];
 }
-
 function normalizeSearchValue(value: string): string {
   return value.trim().toLocaleLowerCase();
 }
-
 function matchesSearch(definition: ComponentDefinition, query: string): boolean {
   if (query.length === 0) return true;
   return [
@@ -37,14 +34,12 @@ function matchesSearch(definition: ComponentDefinition, query: string): boolean 
     definition.type,
   ].some((value) => value.toLocaleLowerCase().includes(query));
 }
-
 function groupByCategory(
   definitions: readonly ComponentDefinition[],
   query: string,
   allowNonvisual: boolean,
 ): readonly PaletteCategory[] {
   const categories = new Map<string, ComponentDefinition[]>();
-
   for (const definition of definitions) {
     if (
       definition.type === 'WebPage' ||
@@ -58,10 +53,8 @@ function groupByCategory(
     category.push(definition);
     categories.set(definition.palette.category, category);
   }
-
   return [...categories].map(([name, components]) => ({ name, components }));
 }
-
 function beginComponentDrag(
   event: DragEvent<HTMLButtonElement>,
   definition: ComponentDefinition,
@@ -70,13 +63,13 @@ function beginComponentDrag(
   event.dataTransfer.setData(WEBRAD_COMPONENT_DRAG_TYPE, definition.type);
   event.dataTransfer.setData('text/plain', definition.type);
 }
-
 export function ToolPalette({
   selectedType = null,
   onSelect,
   onInsert,
   allowNonvisual = true,
   registry = defaultComponentRegistry,
+  compact = false,
 }: ToolPaletteProps): ReactElement {
   const [search, setSearch] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<ReadonlySet<string>>(
@@ -95,9 +88,8 @@ export function ToolPalette({
       return next;
     });
   };
-
-  return (
-    <Panel title="Tool Palette" className="wr-tool-palette">
+  const contents = (
+    <>
       <div className="wr-palette-search">
         <span className="wr-palette-search-icon" aria-hidden="true">
           <Icon name="search" />
@@ -106,7 +98,7 @@ export function ToolPalette({
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search components..."
+          placeholder={compact ? 'Search assets' : 'Search components...'}
           aria-label="Search components"
           spellCheck={false}
         />
@@ -171,7 +163,7 @@ export function ToolPalette({
                             data-icon={definition.icon}
                             aria-hidden="true"
                           >
-                            {definition.palette.caption.slice(0, 1).toLocaleUpperCase()}
+                            <ComponentIcon icon={definition.icon} />
                           </span>
                           <span className="wr-palette-item-caption">
                             {definition.palette.caption}
@@ -186,6 +178,15 @@ export function ToolPalette({
           })
         )}
       </div>
+    </>
+  );
+  return compact ? (
+    <section className="wr-tool-palette wr-tool-palette-compact" aria-label="Tool Palette">
+      {contents}
+    </section>
+  ) : (
+    <Panel title="Tool Palette" className="wr-tool-palette">
+      {contents}
     </Panel>
   );
 }

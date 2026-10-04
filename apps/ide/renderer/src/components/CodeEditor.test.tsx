@@ -209,6 +209,7 @@ const mocks = vi.hoisted(() => {
         return disposable(() => modelListeners.delete(listener));
       }),
       revealRangeInCenter: vi.fn(),
+      trigger: vi.fn(),
       setSelection: vi.fn(),
     };
     return editor;
@@ -627,5 +628,59 @@ describe('CodeEditor professional Monaco workspace', () => {
     expect(models.every((model) => model.dispose.mock.calls.length === 1)).toBe(true);
     expect(mocks.models.size).toBe(0);
     expect(mocks.synchronizeMonacoExtraLibraries).toHaveBeenLastCalledWith({});
+  });
+
+  it('routes toolbar edit commands to the mounted editor and removes its listener on unmount', () => {
+    const addListener = vi.spyOn(window, 'addEventListener');
+    const removeListener = vi.spyOn(window, 'removeEventListener');
+    const { unmount } = render(
+      <>
+        <CodeEditor {...codeEditorProps()} />
+        <button type="button">Toolbar control</button>
+      </>,
+    );
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    editor.focus.mockClear();
+    screen.getByRole('button', { name: 'Toolbar control' }).focus();
+
+    const commands = [
+      ['edit.undo', 'undo'],
+      ['edit.redo', 'redo'],
+      ['edit.copy', 'editor.action.clipboardCopyAction'],
+      ['edit.cut', 'editor.action.clipboardCutAction'],
+      ['edit.paste', 'editor.action.clipboardPasteAction'],
+      ['edit.delete', 'deleteRight'],
+    ] as const;
+    for (const [command, action] of commands) {
+      window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail: command }));
+      expect(editor.trigger).toHaveBeenLastCalledWith('webrad', action, null);
+      expect(editor.focus.mock.invocationCallOrder.at(-1)).toBeLessThan(
+        editor.trigger.mock.invocationCallOrder.at(-1) ?? 0,
+      );
+    }
+    expect(editor.focus).toHaveBeenCalledTimes(commands.length);
+    expect(editor.trigger).toHaveBeenCalledTimes(commands.length);
+
+    for (const detail of [
+      'file.save',
+      '__proto__',
+      'unknown',
+      42,
+      null,
+      { command: 'edit.undo' },
+    ]) {
+      window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail }));
+    }
+    window.dispatchEvent(new Event('webrad:editor-command'));
+    expect(editor.trigger).toHaveBeenCalledTimes(commands.length);
+    const listener = addListener.mock.calls.find(([type]) => type === 'webrad:editor-command')?.[1];
+    expect(listener).toBeTypeOf('function');
+    unmount();
+    expect(removeListener).toHaveBeenCalledWith('webrad:editor-command', listener);
+    window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail: 'edit.undo' }));
+    expect(editor.trigger).toHaveBeenCalledTimes(commands.length);
+    addListener.mockRestore();
+    removeListener.mockRestore();
   });
 });

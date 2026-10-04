@@ -21,6 +21,9 @@ const fixtureDirectory = path.resolve('examples', 'hello-webrad');
 const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-packaged-smoke-'));
 const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
 const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');
+const screenshotArgument = process.argv.find((value) =>
+  value.startsWith('--webrad-smoke-screenshot='),
+);
 
 const outputEntries = await fs.readdir(path.resolve('out'));
 if (!outputEntries.includes(platformDirectory)) {
@@ -39,7 +42,12 @@ await fs.cp(fixtureDirectory, projectDirectory, { recursive: true });
 try {
   const child = spawn(
     executablePath,
-    ['--webrad-smoke', '--webrad-smoke-auto-exit', `--webrad-smoke-project=${projectPath}`],
+    [
+      '--webrad-smoke',
+      '--webrad-smoke-auto-exit',
+      `--webrad-smoke-project=${projectPath}`,
+      ...(screenshotArgument === undefined ? [] : [screenshotArgument]),
+    ],
     { stdio: 'inherit' },
   );
 
@@ -64,6 +72,11 @@ try {
     'renderer shell passed',
     'renderer application icon passed',
     'renderer project open passed',
+    'renderer last project restore passed',
+    'renderer bottom dock passed',
+    'renderer element tree selection passed:',
+    'renderer responsive viewport passed:',
+    'renderer toolbar zoom passed:',
     'renderer Monaco passed',
     'renderer Monaco TypeScript highlight passed:',
     'renderer Monaco autocomplete passed:',

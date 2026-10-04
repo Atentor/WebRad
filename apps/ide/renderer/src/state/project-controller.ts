@@ -78,6 +78,8 @@ export class ProjectController {
   #snapshot: ProjectControllerSnapshot = EMPTY_SNAPSHOT;
   #saveTask: SaveTask | null = null;
   #contextRevision = 0;
+  #projectOperationRevision = 0;
+  #restoreTask: Promise<ProjectSession | null> | null = null;
   #editRevision = 0;
 
   public constructor(bridge: WebRadBridge) {
@@ -91,39 +93,44 @@ export class ProjectController {
     return () => this.#listeners.delete(listener);
   };
 
+  public restoreLastProject(): Promise<ProjectSession | null> {
+    this.#restoreTask ??= this.#restoreAtStartup(this.#projectOperationRevision);
+    return this.#restoreTask;
+  }
+
   public async create(name: string): Promise<ProjectSession | null> {
-    const contextRevision = this.#contextRevision;
+    const operationRevision = ++this.#projectOperationRevision;
     this.#publish({ saving: true, error: null });
     try {
       const session = await this.#bridge.project.create({ name });
-      if (contextRevision !== this.#contextRevision) {
-        if (session) void this.#bridge.project.release(session.rootPath);
+      if (operationRevision !== this.#projectOperationRevision) {
+        this.#releaseInactiveSession(session);
         return null;
       }
       if (session) this.load(session);
       else this.#publish({ saving: false });
       return session;
     } catch (error) {
-      if (contextRevision !== this.#contextRevision) return null;
+      if (operationRevision !== this.#projectOperationRevision) return null;
       this.#publish({ saving: false, error: errorMessage(error) });
       throw error;
     }
   }
 
   public async open(): Promise<ProjectSession | null> {
-    const contextRevision = this.#contextRevision;
+    const operationRevision = ++this.#projectOperationRevision;
     this.#publish({ saving: true, error: null });
     try {
       const session = await this.#bridge.project.open();
-      if (contextRevision !== this.#contextRevision) {
-        if (session) void this.#bridge.project.release(session.rootPath);
+      if (operationRevision !== this.#projectOperationRevision) {
+        this.#releaseInactiveSession(session);
         return null;
       }
       if (session) this.load(session);
       else this.#publish({ saving: false });
       return session;
     } catch (error) {
-      if (contextRevision !== this.#contextRevision) return null;
+      if (operationRevision !== this.#projectOperationRevision) return null;
       this.#publish({ saving: false, error: errorMessage(error) });
       throw error;
     }
@@ -141,10 +148,11 @@ export class ProjectController {
     }
     const normalizedSession = { ...session, project, userSources };
     const previousRoot = this.#snapshot.rootPath;
-    if (previousRoot && previousRoot !== session.rootPath) {
+    if (previousRoot && !this.#sameProjectRoot(previousRoot, session.rootPath)) {
       void this.#bridge.project.release(previousRoot);
     }
     this.#contextRevision += 1;
+    this.#projectOperationRevision += 1;
     this.#editRevision += 1;
     this.#snapshot = {
       session: normalizedSession,
@@ -165,6 +173,7 @@ export class ProjectController {
     const rootPath = this.#snapshot.rootPath;
     if (rootPath) void this.#bridge.project.release(rootPath);
     this.#contextRevision += 1;
+    this.#projectOperationRevision += 1;
     this.#editRevision += 1;
     this.#snapshot = { ...EMPTY_SNAPSHOT, revision: this.#editRevision };
     this.#bridge.lifecycle.setDirty(false);
@@ -395,6 +404,36 @@ export class ProjectController {
     const userSources = { ...this.#snapshot.userSources, [newKey]: renamedSource };
     delete userSources[oldKey];
     this.#commitEdit(nextProject, userSources);
+  }
+
+  async #restoreAtStartup(operationRevision: number): Promise<ProjectSession | null> {
+    if (operationRevision !== 0) return null;
+    try {
+      const session = await this.#bridge.project.restore();
+      if (operationRevision !== this.#projectOperationRevision) {
+        this.#releaseInactiveSession(session);
+        return null;
+      }
+      if (session) this.load(session);
+      return session;
+    } catch (error) {
+      if (operationRevision !== this.#projectOperationRevision) return null;
+      throw error;
+    }
+  }
+
+  #sameProjectRoot(left: string, right: string | null): boolean {
+    if (right === null) return false;
+    if (this.#bridge.platform === 'win32') {
+      return left.replaceAll('\\', '/').toLowerCase() === right.replaceAll('\\', '/').toLowerCase();
+    }
+    return left === right;
+  }
+
+  #releaseInactiveSession(session: ProjectSession | null): void {
+    if (session && !this.#sameProjectRoot(session.rootPath, this.#snapshot.rootPath)) {
+      void this.#bridge.project.release(session.rootPath);
+    }
   }
 
   #requireProject(): WebRadProject {

@@ -93,6 +93,8 @@ export interface WebRadBridge {
   project: {
     create(request: CreateProjectRequest): Promise<ProjectSession | null>;
     open(): Promise<ProjectSession | null>;
+    /** Reopens the last project recorded by the main process, without a file picker. */
+    restore(): Promise<ProjectSession | null>;
     save(request: SaveProjectRequest): Promise<ProjectSession>;
     saveAs(request: Omit<SaveProjectRequest, 'rootPath'>): Promise<ProjectSession | null>;
     release(rootPath: string): Promise<void>;

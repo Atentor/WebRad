@@ -75,6 +75,7 @@ export const WEBRAD_ICON_NAMES = [
   'file',
   'file-plus',
   'file-text',
+  'text',
   'image',
   'camera',
   'database',
@@ -457,6 +458,7 @@ const WEBRAD_ICON_SHAPES: Readonly<Record<WebRadIconName, readonly WebRadIconSha
     { kind: 'path', d: 'M6 3h9l4 4v14H6z' },
     { kind: 'path', d: 'M15 3v5h4M12 12v5m-2.5-2.5h5' },
   ],
+  text: [{ kind: 'path', d: 'M5 6V4h14v2M12 4v16M8 20h8' }],
   'file-text': [
     { kind: 'path', d: 'M6 3h9l4 4v14H6z' },
     { kind: 'path', d: 'M15 3v5h4M9 12h6M9 16h6' },

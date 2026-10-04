@@ -23,8 +23,11 @@ import {
   saveProjectFiles,
 } from './project-files';
 import { publishPreviewHtml, revokePreview } from './preview-protocol';
+import { LastProjectStore } from './last-project';
 
 const allowedRoots = new Map<number, Set<string>>();
+const activeProjectRoots = new Map<number, string>();
+const projectSelectionRevisions = new Map<number, number>();
 const trustedRendererUrls = new Map<number, string>();
 const dirtyWindows = new Set<number>();
 const pendingClose = new Set<number>();
@@ -86,6 +89,7 @@ function grantRoot(event: IpcMainInvokeEvent, rootPath: string): void {
   const roots = allowedRoots.get(window.webContents.id) ?? new Set<string>();
   roots.add(normalizedRoot(rootPath));
   allowedRoots.set(window.webContents.id, roots);
+  activeProjectRoots.set(window.webContents.id, normalizedRoot(rootPath));
 }
 
 function requireGrantedRoot(event: IpcMainInvokeEvent, rootPath: string): void {
@@ -126,7 +130,7 @@ async function createProjectHandler(
   const rootPath = resolveNewProjectRoot(parentPath, request.name);
   await ensureNewDestination(rootPath);
   const session = await createProjectFiles(rootPath, request.name);
-  grantRoot(event, session.rootPath);
+
   return session;
 }
 
@@ -139,7 +143,7 @@ async function openProjectHandler(
     // Only the main process can supply this path, and only the packaged smoke does so.
     // It is never accepted from renderer IPC input.
     const session = await loadProjectFiles(automatedProjectPath);
-    grantRoot(event, session.rootPath);
+
     return session;
   }
   const result = await dialog.showOpenDialog(window, {
@@ -152,7 +156,7 @@ async function openProjectHandler(
   });
   if (result.canceled || !result.filePaths[0]) return null;
   const session = await loadProjectFiles(result.filePaths[0]);
-  grantRoot(event, session.rootPath);
+
   return session;
 }
 
@@ -181,7 +185,7 @@ async function saveProjectAsHandler(
   const rootPath = path.join(parentDirectory, project.name);
   await ensureNewDestination(rootPath);
   const session = await saveProjectFiles({ rootPath, project, userSources: request.userSources });
-  grantRoot(event, session.rootPath);
+
   return session;
 }
 
@@ -189,6 +193,9 @@ async function releaseProjectHandler(event: IpcMainInvokeEvent, input: unknown):
   const window = requireTrustedSender(event);
   const rootPath = releaseRootSchema.parse(input);
   allowedRoots.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
+  if (activeProjectRoots.get(window.webContents.id) === normalizedRoot(rootPath)) {
+    activeProjectRoots.delete(window.webContents.id);
+  }
   revokePreview(window.webContents.id);
 }
 
@@ -280,6 +287,8 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
     const id = windowId;
     revokePreview(id);
     allowedRoots.delete(id);
+    activeProjectRoots.delete(id);
+    projectSelectionRevisions.delete(id);
     trustedRendererUrls.delete(id);
     dirtyWindows.delete(id);
     pendingClose.delete(id);
@@ -289,17 +298,61 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
 
 export interface RegisterIpcHandlersOptions {
   readonly automatedOpenProjectPath?: string;
+  readonly userDataPath?: string;
 }
 
 export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): void {
   if (registered) return;
   registered = true;
-  ipcMain.handle('webrad:project:create', createProjectHandler);
-  ipcMain.handle('webrad:project:open', (event) =>
-    openProjectHandler(event, options.automatedOpenProjectPath),
+  const lastProject =
+    options.userDataPath === undefined ? undefined : new LastProjectStore(options.userDataPath);
+  const rememberSession = async (
+    event: IpcMainInvokeEvent,
+    session: ProjectSession | null,
+  ): Promise<void> => {
+    if (
+      session !== null &&
+      activeProjectRoots.get(event.sender.id) === normalizedRoot(session.rootPath)
+    ) {
+      await lastProject?.remember(session.projectFilePath);
+    }
+  };
+  const selectProject = async (
+    event: IpcMainInvokeEvent,
+    loadSession: () => Promise<ProjectSession | null>,
+    remember = true,
+  ): Promise<ProjectSession | null> => {
+    const window = requireTrustedSender(event);
+    const id = window.webContents.id;
+    const revision = (projectSelectionRevisions.get(id) ?? 0) + 1;
+    projectSelectionRevisions.set(id, revision);
+    const session = await loadSession();
+    // A manual selection supersedes restoration or any earlier pending selection.
+    if (session === null || projectSelectionRevisions.get(id) !== revision) return null;
+    grantRoot(event, session.rootPath);
+    if (remember) await rememberSession(event, session);
+    return projectSelectionRevisions.get(id) === revision ? session : null;
+  };
+  ipcMain.handle('webrad:project:restore', async (event, ...input: unknown[]) => {
+    requireTrustedSender(event);
+    if (input.length > 0)
+      throw new Error('Restoring the last project does not accept renderer input.');
+    return selectProject(event, async () => (await lastProject?.restore()) ?? null, false);
+  });
+  ipcMain.handle('webrad:project:create', (event, input) =>
+    selectProject(event, () => createProjectHandler(event, input)),
   );
-  ipcMain.handle('webrad:project:save', saveProjectHandler);
-  ipcMain.handle('webrad:project:save-as', saveProjectAsHandler);
+  ipcMain.handle('webrad:project:open', (event) =>
+    selectProject(event, () => openProjectHandler(event, options.automatedOpenProjectPath)),
+  );
+  ipcMain.handle('webrad:project:save', async (event, input) => {
+    const session = await saveProjectHandler(event, input);
+    await rememberSession(event, session);
+    return session;
+  });
+  ipcMain.handle('webrad:project:save-as', (event, input) =>
+    selectProject(event, () => saveProjectAsHandler(event, input)),
+  );
   ipcMain.handle('webrad:project:release', releaseProjectHandler);
   ipcMain.handle('webrad:files:read', readFileHandler);
   ipcMain.handle('webrad:files:write', writeFileHandler);

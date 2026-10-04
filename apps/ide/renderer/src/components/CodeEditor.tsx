@@ -3,6 +3,7 @@ import * as monacoApi from 'monaco-editor/editor';
 import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 import tsWorker from 'monaco-editor/languages/features/typescript/ts.worker.js?worker';
 import { useCallback, useEffect, useRef, type ReactElement } from 'react';
+import type { IdeCommand } from '../../../shared/contracts';
 import type { EditorProblem } from '../editor-problems';
 import {
   pageComponentCompletionSymbols,
@@ -53,6 +54,19 @@ interface CodeEditorProps {
   readonly onMarkersChange: (markers: readonly monacoApi.editor.IMarker[]) => void;
   readonly onCursorChange: (status: EditorCursorStatus) => void;
   readonly onSave: () => void;
+}
+
+const EDITOR_COMMAND_ACTIONS = {
+  'edit.undo': 'undo',
+  'edit.redo': 'redo',
+  'edit.copy': 'editor.action.clipboardCopyAction',
+  'edit.cut': 'editor.action.clipboardCutAction',
+  'edit.paste': 'editor.action.clipboardPasteAction',
+  'edit.delete': 'deleteRight',
+} as const satisfies Partial<Record<IdeCommand, string>>;
+
+function isEditorEditCommand(command: unknown): command is keyof typeof EDITOR_COMMAND_ACTIONS {
+  return typeof command === 'string' && Object.hasOwn(EDITOR_COMMAND_ACTIONS, command);
 }
 
 const BUILD_MARKER_OWNER = 'webrad-build';
@@ -497,6 +511,20 @@ export function CodeEditor({
     if (editor === null || !applyNavigation(editor, navigateTo)) return;
     publishCursor(editor);
   }, [applyNavigation, navigateTo, path, publishCursor]);
+
+  useEffect(() => {
+    const applyEditorCommand = (event: Event): void => {
+      if (!(event instanceof CustomEvent)) return;
+      const command: unknown = event.detail;
+      if (!isEditorEditCommand(command)) return;
+      const editor = editorRef.current;
+      if (editor === null) return;
+      editor.focus();
+      editor.trigger('webrad', EDITOR_COMMAND_ACTIONS[command], null);
+    };
+    window.addEventListener('webrad:editor-command', applyEditorCommand);
+    return () => window.removeEventListener('webrad:editor-command', applyEditorCommand);
+  }, []);
 
   useEffect(() => {
     const openFind = (): void => {

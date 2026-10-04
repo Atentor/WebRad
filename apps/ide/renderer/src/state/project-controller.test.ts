@@ -23,9 +23,20 @@ function deferred<T>(): {
   return { promise, resolve, reject };
 }
 
+function projectSession(name: string): ProjectSession {
+  const rootPath = 'C:/projects/' + name;
+  return {
+    rootPath,
+    projectFilePath: rootPath + '/' + name + '.wrproj',
+    project: createProject(name),
+    userSources: {},
+  };
+}
+
 function fakeBridge(session: ProjectSession): WebRadBridge {
   return {
     project: {
+      restore: vi.fn(async () => null),
       create: vi.fn(async () => session),
       open: vi.fn(async () => session),
       save: vi.fn(async (request) => ({ ...session, ...request })),
@@ -42,6 +53,230 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
 }
 
 describe('ProjectController', () => {
+  it('restores once, shares the startup promise, and loads a clean authored project', async () => {
+    const session = {
+      ...projectSession('Previous'),
+      userSources: { 'pages/PageMain.ts': '// preserved authored source' },
+    };
+    const bridge = fakeBridge(session);
+    const restored = deferred<ProjectSession | null>();
+    bridge.project.restore = vi.fn(() => restored.promise);
+    const controller = new ProjectController(bridge);
+
+    const result = controller.restoreLastProject();
+    expect(controller.restoreLastProject()).toBe(result);
+    expect(bridge.project.restore).toHaveBeenCalledOnce();
+    restored.resolve(session);
+
+    await expect(result).resolves.toBe(session);
+    expect(controller.restoreLastProject()).toBe(result);
+    expect(controller.getSnapshot()).toMatchObject({
+      project: session.project,
+      rootPath: session.rootPath,
+      projectFilePath: session.projectFilePath,
+      userSources: session.userSources,
+      dirty: false,
+      saving: false,
+      error: null,
+    });
+    expect(controller.getSnapshot().project?.pages[0]?.id).toBe(session.project.pages[0]?.id);
+    expect(bridge.lifecycle.setDirty).toHaveBeenCalledExactlyOnceWith(false);
+    expect(bridge.project.release).not.toHaveBeenCalled();
+  });
+
+  it('keeps the empty startup state when there is no project to restore', async () => {
+    const bridge = fakeBridge(projectSession('Previous'));
+    const controller = new ProjectController(bridge);
+    const initial = controller.getSnapshot();
+
+    await expect(controller.restoreLastProject()).resolves.toBeNull();
+    await expect(controller.restoreLastProject()).resolves.toBeNull();
+    expect(bridge.project.restore).toHaveBeenCalledOnce();
+    expect(controller.getSnapshot()).toBe(initial);
+  });
+
+  it('rejects startup errors without presenting a project error or retrying automatically', async () => {
+    const bridge = fakeBridge(projectSession('Previous'));
+    bridge.project.restore = vi.fn(async () => {
+      throw new Error('Last project could not be read');
+    });
+    const controller = new ProjectController(bridge);
+    const initial = controller.getSnapshot();
+    const result = controller.restoreLastProject();
+
+    await expect(result).rejects.toThrow('Last project could not be read');
+    expect(controller.restoreLastProject()).toBe(result);
+    expect(controller.getSnapshot()).toBe(initial);
+    expect(bridge.project.restore).toHaveBeenCalledOnce();
+  });
+
+  it.each(['create', 'open'] as const)(
+    'discards restoration as soon as manual %s starts, before its response arrives',
+    async (operation) => {
+      const previous = projectSession('Previous');
+      const selected = projectSession('Selected');
+      const bridge = fakeBridge(selected);
+      const restored = deferred<ProjectSession | null>();
+      const manual = deferred<ProjectSession | null>();
+      bridge.project.restore = vi.fn(() => restored.promise);
+      bridge.project.create = vi.fn(() => manual.promise);
+      bridge.project.open = vi.fn(() => manual.promise);
+      const controller = new ProjectController(bridge);
+      const restoration = controller.restoreLastProject();
+
+      const selection = operation === 'create' ? controller.create('Selected') : controller.open();
+      restored.resolve(previous);
+      await expect(restoration).resolves.toBeNull();
+      expect(controller.getSnapshot()).toMatchObject({ project: null, saving: true, error: null });
+      expect(bridge.project.release).toHaveBeenCalledExactlyOnceWith(previous.rootPath);
+      manual.resolve(selected);
+
+      await expect(selection).resolves.toBe(selected);
+      expect(controller.getSnapshot()).toMatchObject({ rootPath: selected.rootPath, dirty: false });
+    },
+  );
+
+  it('preserves a manually loaded project and releases the discarded restored root', async () => {
+    const previous = projectSession('Previous');
+    const selected = projectSession('Selected');
+    const bridge = fakeBridge(selected);
+    const restored = deferred<ProjectSession | null>();
+    bridge.project.restore = vi.fn(() => restored.promise);
+    const controller = new ProjectController(bridge);
+    const restoration = controller.restoreLastProject();
+    controller.load(selected);
+    controller.setUserSource('pages/PageMain.ts', '// selected project edit');
+    const active = controller.getSnapshot();
+
+    restored.resolve(previous);
+    await expect(restoration).resolves.toBeNull();
+    expect(controller.getSnapshot()).toBe(active);
+    expect(bridge.project.release).toHaveBeenCalledExactlyOnceWith(previous.rootPath);
+  });
+
+  it('does not release an active root when restoration of the same project becomes stale', async () => {
+    const session = projectSession('Previous');
+    const bridge = fakeBridge(session);
+    const restored = deferred<ProjectSession | null>();
+    bridge.project.restore = vi.fn(() => restored.promise);
+    const controller = new ProjectController(bridge);
+    const restoration = controller.restoreLastProject();
+    controller.load(session);
+    controller.setUserSource('pages/PageMain.ts', '// manual edit to the same project');
+    const active = controller.getSnapshot();
+
+    restored.resolve(session);
+    await expect(restoration).resolves.toBeNull();
+    expect(controller.getSnapshot()).toBe(active);
+    expect(bridge.project.release).not.toHaveBeenCalled();
+  });
+
+  it('preserves the active Windows root across path casing and separator variants', async () => {
+    const previous = {
+      ...projectSession('Portal'),
+      rootPath: 'C:/Projects/Portal',
+      projectFilePath: 'C:/Projects/Portal/Portal.wrproj',
+    };
+    const selected = {
+      ...previous,
+      rootPath: 'c:\\projects\\portal',
+      projectFilePath: 'c:\\projects\\portal\\Portal.wrproj',
+    };
+    const bridge = fakeBridge(selected);
+    const restored = deferred<ProjectSession | null>();
+    bridge.project.restore = vi.fn(() => restored.promise);
+    const controller = new ProjectController(bridge);
+    const restoration = controller.restoreLastProject();
+    controller.load(previous);
+    controller.load(selected);
+    controller.setUserSource('pages/PageMain.ts', '// manual Windows project edit');
+    const active = controller.getSnapshot();
+
+    restored.resolve(previous);
+    await expect(restoration).resolves.toBeNull();
+    expect(controller.getSnapshot()).toBe(active);
+    expect(bridge.project.release).not.toHaveBeenCalled();
+  });
+
+  it('releases a discarded Linux root with different path casing', async () => {
+    const previous = { ...projectSession('Portal'), rootPath: '/projects/Portal' };
+    const selected = { ...previous, rootPath: '/projects/portal' };
+    const bridge = fakeBridge(selected);
+    bridge.platform = 'linux';
+    const restored = deferred<ProjectSession | null>();
+    bridge.project.restore = vi.fn(() => restored.promise);
+    const controller = new ProjectController(bridge);
+    const restoration = controller.restoreLastProject();
+    controller.load(selected);
+    const active = controller.getSnapshot();
+
+    restored.resolve(previous);
+    await expect(restoration).resolves.toBeNull();
+    expect(controller.getSnapshot()).toBe(active);
+    expect(bridge.project.release).toHaveBeenCalledExactlyOnceWith(previous.rootPath);
+  });
+
+  it('leaves the project closed when restoration finishes after Close', async () => {
+    const session = projectSession('Previous');
+    const bridge = fakeBridge(session);
+    const restored = deferred<ProjectSession | null>();
+    bridge.project.restore = vi.fn(() => restored.promise);
+    const controller = new ProjectController(bridge);
+    const restoration = controller.restoreLastProject();
+    controller.close();
+    const closed = controller.getSnapshot();
+
+    restored.resolve(session);
+    await expect(restoration).resolves.toBeNull();
+    expect(controller.getSnapshot()).toBe(closed);
+    expect(bridge.project.release).toHaveBeenCalledExactlyOnceWith(session.rootPath);
+  });
+
+  it('ignores a restoration error after the user has changed project context', async () => {
+    const selected = projectSession('Selected');
+    const bridge = fakeBridge(selected);
+    const restored = deferred<ProjectSession | null>();
+    bridge.project.restore = vi.fn(() => restored.promise);
+    const controller = new ProjectController(bridge);
+    const restoration = controller.restoreLastProject();
+    controller.load(selected);
+    const active = controller.getSnapshot();
+
+    restored.reject(new Error('Stale restoration failed'));
+    await expect(restoration).resolves.toBeNull();
+    expect(controller.getSnapshot()).toBe(active);
+  });
+
+  it('skips startup restoration after an earlier manual operation was canceled', async () => {
+    const bridge = fakeBridge(projectSession('Previous'));
+    bridge.project.open = vi.fn(async () => null);
+    const controller = new ProjectController(bridge);
+
+    await controller.open();
+    const empty = controller.getSnapshot();
+    await expect(controller.restoreLastProject()).resolves.toBeNull();
+    expect(bridge.project.restore).not.toHaveBeenCalled();
+    expect(controller.getSnapshot()).toBe(empty);
+  });
+
+  it('keeps a save response valid when a manual picker is canceled', async () => {
+    const session = projectSession('Current');
+    const bridge = fakeBridge(session);
+    const saved = deferred<ProjectSession>();
+    bridge.project.save = vi.fn(() => saved.promise);
+    bridge.project.open = vi.fn(async () => null);
+    const controller = new ProjectController(bridge);
+    controller.load(session);
+    controller.setUserSource('pages/PageMain.ts', '// authored edit');
+    const saving = controller.save();
+
+    await controller.open();
+    saved.resolve({ ...session, userSources: { 'pages/PageMain.ts': '// authored edit' } });
+
+    await expect(saving).resolves.toMatchObject({ rootPath: session.rootPath });
+    expect(controller.getSnapshot()).toMatchObject({ dirty: false, saving: false, error: null });
+  });
+
   it('publishes a monotonic content revision and ignores identical source updates', () => {
     const project = createProject('Project1');
     const session = {

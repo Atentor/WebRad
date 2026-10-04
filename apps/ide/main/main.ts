@@ -22,6 +22,12 @@ const smokeProjectArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-project='),
 );
 const smokeProjectPath = smokeProjectArgument?.slice('--webrad-smoke-project='.length);
+const smokeScreenshotArgument = process.argv.find((value) =>
+  value.startsWith('--webrad-smoke-screenshot='),
+);
+const smokeScreenshotPath = smokeMode
+  ? smokeScreenshotArgument?.slice('--webrad-smoke-screenshot='.length)
+  : undefined;
 
 function applicationWindowIconPath(): string {
   const fileName = process.platform === 'win32' ? 'Icon.ico' : 'Icon.png';
@@ -359,12 +365,250 @@ async function waitForPreviewFrameResult(
   );
 }
 
+async function clickRendererControl(
+  window: BrowserWindow,
+  selector: string,
+  description: string,
+): Promise<void> {
+  await waitForRendererResult(
+    window,
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(selector)});
+      if (!(control instanceof HTMLElement)) return false;
+      if (control instanceof HTMLButtonElement && control.disabled) return false;
+      control.click();
+      return true;
+    })()`,
+    description,
+    (value) => value === true,
+  );
+}
+
+async function runDesignerThemeSmoke(window: BrowserWindow): Promise<void> {
+  for (const [theme, toolbarColor, sidebarColor, canvasColor] of [
+    ['light', 'rgb(249, 250, 252)', 'rgb(249, 250, 252)', 'rgb(238, 241, 245)'],
+    ['dark', 'rgb(51, 51, 51)', 'rgb(37, 37, 38)', 'rgb(30, 30, 30)'],
+  ] as const) {
+    window.webContents.send('webrad:menu-command', 'view.toggleTheme');
+    const evidence = await waitForRendererResult(
+      window,
+      "(() => { const color = (selector) => { const node = document.querySelector(selector); return node instanceof HTMLElement ? getComputedStyle(node).backgroundColor : ''; }; return { theme: document.documentElement.dataset.theme, toolbar: color('.wr-toolbar'), sidebar: color('.wr-left-rail'), canvas: color('.wr-designer-workspace') }; })()",
+      'the ' + theme + ' workspace theme and computed colors',
+      (value) =>
+        typeof value === 'object' &&
+        value !== null &&
+        Reflect.get(value, 'theme') === theme &&
+        Reflect.get(value, 'toolbar') === toolbarColor &&
+        Reflect.get(value, 'sidebar') === sidebarColor &&
+        Reflect.get(value, 'canvas') === canvasColor,
+    );
+    smokeLog('renderer ' + theme + ' theme passed: ' + JSON.stringify(evidence));
+  }
+}
+
+async function runDesignerArrangeSmoke(window: BrowserWindow): Promise<void> {
+  await clickRendererControl(
+    window,
+    '[role="treeitem"][data-component-id="hello-webrad-component-button-show-v1"]',
+    'BTNMostrar before Arrange',
+  );
+  await waitForRendererResult(
+    window,
+    `document.querySelector('.wr-inspector-selection strong')?.textContent?.trim() === 'BTNMostrar'`,
+    'BTNMostrar selected for Arrange',
+    (value) => value === true,
+  );
+  await clickRendererControl(
+    window,
+    'summary[aria-label="Arrange selection"]',
+    'the Arrange selection menu',
+  );
+  const evidence = await waitForRendererResult(
+    window,
+    `(() => {
+      const details = document.querySelector('.wr-toolbar-arrange');
+      const actions = [...(details?.querySelectorAll('button') ?? [])];
+      return {
+        open: details instanceof HTMLDetailsElement && details.open,
+        actions: actions.map((action) => action.textContent?.trim()),
+        enabled: actions.length === 2 && actions.every((action) => !action.disabled && action.getBoundingClientRect().height > 0),
+      };
+    })()`,
+    'the visible enabled selection-order actions',
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      Reflect.get(value, 'open') === true &&
+      Reflect.get(value, 'enabled') === true &&
+      JSON.stringify(Reflect.get(value, 'actions')) ===
+        JSON.stringify(['Bring to Front', 'Send to Back']),
+  );
+  await clickRendererControl(
+    window,
+    'summary[aria-label="Arrange selection"]',
+    'the closed Arrange selection menu',
+  );
+  smokeLog(`renderer Arrange selection passed: ${JSON.stringify(evidence)}`);
+}
+
+async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
+  await clickRendererControl(window, 'button[aria-label="Design"]', 'the Design activity');
+  await clickRendererControl(
+    window,
+    '[role="treeitem"][data-component-id="hello-webrad-component-label-name-v1"]',
+    'LBLNome in the element tree',
+  );
+  const selectionEvidence = await waitForRendererResult(
+    window,
+    `(() => {
+      const treeItem = document.querySelector('[role="treeitem"][data-component-id="hello-webrad-component-label-name-v1"]');
+      const inspector = document.querySelector('.wr-object-inspector');
+      const name = inspector?.querySelector('.wr-inspector-selection strong')?.textContent?.trim();
+      const nameEditor = [...(inspector?.querySelectorAll('input') ?? [])].some((input) => input.value === 'LBLNome');
+      const selectedHit = document.querySelector('.wr-design-hit.selected[data-component-id="hello-webrad-component-label-name-v1"]');
+      return {
+        treeSelected: treeItem?.getAttribute('aria-selected') === 'true',
+        inspectorName: name,
+        nameEditor,
+        canvasSelected: selectedHit !== null,
+      };
+    })()`,
+    'shared element-tree, canvas, and Inspector selection',
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      Reflect.get(value, 'treeSelected') === true &&
+      Reflect.get(value, 'inspectorName') === 'LBLNome' &&
+      Reflect.get(value, 'nameEditor') === true &&
+      Reflect.get(value, 'canvasSelected') === true,
+  );
+  smokeLog(`renderer element tree selection passed: ${JSON.stringify(selectionEvidence)}`);
+  await clickRendererControl(
+    window,
+    'button[role="tab"][aria-label="Responsive"], button[role="tab"][data-sidebar-view="responsive"]',
+    'the Responsive sidebar',
+  );
+  const viewportEvidence: string[] = [];
+  for (const [label, viewport, width] of [
+    ['Desktop', 'desktop', 1280],
+    ['Tablet', 'tablet', 768],
+    ['Mobile', 'mobile', 390],
+  ] as const) {
+    await clickRendererControl(
+      window,
+      `button[aria-label="${label}"]`,
+      `the ${label} responsive viewport`,
+    );
+    await waitForRendererResult(
+      window,
+      `(() => {
+        const surface = document.querySelector('.wr-page-surface');
+        return surface instanceof HTMLElement && surface.dataset.viewport === ${JSON.stringify(viewport)} && Number.parseFloat(surface.style.width) === ${String(width)};
+      })()`,
+      `the ${String(width)}px ${label} Designer projection`,
+      (value) => value === true,
+    );
+    viewportEvidence.push(`${label}:${String(width)}`);
+  }
+  await clickRendererControl(
+    window,
+    'button[aria-label="Desktop"]',
+    'the restored Desktop viewport',
+  );
+  smokeLog(`renderer responsive viewport passed: ${viewportEvidence.join(', ')}`);
+  for (const zoom of [75, 100]) {
+    await waitForRendererResult(
+      window,
+      `(() => {
+        const select = document.querySelector('.wr-toolbar select[aria-label="Zoom"]');
+        if (!(select instanceof HTMLSelectElement)) return false;
+        select.value = ${JSON.stringify(String(zoom))};
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`,
+      `the toolbar zoom control at ${String(zoom)}%`,
+      (value) => value === true,
+    );
+    await waitForRendererResult(
+      window,
+      `document.querySelector('.wr-page-surface')?.style.transform === ${JSON.stringify(`scale(${String(zoom / 100)})`)}`,
+      `the ${String(zoom)}% Designer scale`,
+      (value) => value === true,
+    );
+  }
+  await clickRendererControl(window, 'button[aria-label="Design"]', 'the restored Builder sidebar');
+  smokeLog('renderer toolbar zoom passed: 75%, 100%');
+  await runDesignerArrangeSmoke(window);
+  await runDesignerThemeSmoke(window);
+}
+
+async function captureDesignerSmokeScreenshot(window: BrowserWindow): Promise<void> {
+  if (smokeScreenshotPath === undefined) return;
+  if (!path.isAbsolute(smokeScreenshotPath)) {
+    throw new Error('Smoke screenshot destination must be an absolute path.');
+  }
+  await clickRendererControl(window, 'button[aria-label="Design"]', 'Design before screenshot');
+  await waitForRendererString(
+    window,
+    `document.querySelector('.wr-designer-workspace') === null ? '' : 'ready'`,
+    'the Designer screenshot surface',
+  );
+  const outputOpen = await window.webContents.executeJavaScript(
+    `(document.querySelector('.wr-bottom-slot')?.getBoundingClientRect().height ?? 0) > 0`,
+    true,
+  );
+  if (outputOpen === true) {
+    await clickRendererControl(
+      window,
+      'button[aria-label="Toggle output"]',
+      'collapse Output before screenshot',
+    );
+  }
+  await clickRendererControl(
+    window,
+    '[role="treeitem"][data-component-id="hello-webrad-component-button-show-v1"]',
+    'BTNMostrar before screenshot',
+  );
+  await window.webContents.executeJavaScript(
+    `(() => {
+      const select = document.querySelector('.wr-toolbar select[aria-label="Zoom"]');
+      if (!(select instanceof HTMLSelectElement)) return;
+      select.value = '75';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`,
+    true,
+  );
+  await waitForRendererResult(
+    window,
+    `(() => {
+      const inspector = document.querySelector('.wr-inspector-selection strong')?.textContent?.trim();
+      const surface = document.querySelector('.wr-page-surface');
+      const output = document.querySelector('.wr-bottom-slot');
+      return inspector === 'BTNMostrar' && surface?.style.transform === 'scale(0.75)' && (output === null || output.getBoundingClientRect().height === 0);
+    })()`,
+    'the selected component and fitted Designer screenshot',
+    (value) => value === true,
+  );
+  await window.webContents.executeJavaScript(
+    `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+    true,
+  );
+  await fs.mkdir(path.dirname(smokeScreenshotPath), { recursive: true });
+  const screenshot = await window.webContents.capturePage();
+  if (screenshot.isEmpty()) throw new Error('Designer screenshot was empty.');
+  await fs.writeFile(smokeScreenshotPath, screenshot.toPNG());
+  const size = screenshot.getSize();
+  smokeLog(
+    `renderer Designer screenshot saved: ${smokeScreenshotPath} (${String(size.width)}x${String(size.height)})`,
+  );
+}
+
 async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const shellResult = (await window.webContents.executeJavaScript(
     `(() => ({
-      shell: Boolean(document.querySelector('.wr-ide-shell')),
+      shell: Boolean(document.querySelector('.wr-ide-shell')) && Boolean(document.querySelector('.wr-activity-bar')),
       toolbar: Boolean(document.querySelector('.wr-toolbar')),
-      toolbarBrandIcon: Boolean(document.querySelector('img.wr-brand-mark')),
+      toolbarBrandIcon: Boolean(document.querySelector('img.wr-toolbar-mark')),
       toolbarThemeToggle: Boolean(document.querySelector('.wr-theme-toggle')),
       welcomeIcon: document.querySelector('img.wr-welcome-mark')?.src ?? '',
       favicon: document.querySelector('link[rel~="icon"]')?.href ?? '',
@@ -427,19 +671,59 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     true,
   )) as unknown;
   if (opened !== true) throw new Error('Renderer smoke could not invoke Open Project.');
+  await waitForRendererResult(
+    window,
+    "document.querySelector('.wr-designer-workspace') !== null",
+    'the loaded project Designer before switching sidebar',
+    (value) => value === true,
+  );
+  const preference = JSON.parse(
+    await fs.readFile(
+      path.join(path.dirname(smokeProjectPath), '.webrad-smoke-preferences', 'last-project.json'),
+      'utf8',
+    ),
+  ) as unknown;
+  if (
+    typeof preference !== 'object' ||
+    preference === null ||
+    Reflect.get(preference, 'formatVersion') !== 1 ||
+    Reflect.get(preference, 'projectFilePath') !== path.resolve(smokeProjectPath)
+  ) {
+    throw new Error('Renderer smoke did not persist the last opened project.');
+  }
+  await new Promise<void>((resolve) => {
+    window.webContents.once('did-finish-load', () => resolve());
+    window.webContents.reload();
+  });
+  await waitForRendererResult(
+    window,
+    "document.querySelector('.wr-page-surface') !== null && document.querySelector('.wr-welcome-mark') === null",
+    'the last saved project restored automatically after renderer startup',
+    (value) => value === true,
+  );
+  smokeLog('renderer last project restore passed');
+  await clickRendererControl(
+    window,
+    'button[aria-label="Project Explorer"]',
+    'the Project Explorer activity',
+  );
   await waitForRendererString(
     window,
     `document.querySelector('[role="tree"][aria-label="HelloWebRad project"]')?.getAttribute('aria-label') ?? ''`,
     'the HelloWebRad project in Project Explorer',
   );
-  const projectIcon = await waitForRendererString(
-    window,
-    `document.querySelector('img.wr-project-icon')?.src ?? ''`,
-    'the project application icon',
-  );
-  if (projectIcon !== welcomeIcon)
-    throw new Error('Project icon does not match the application icon.');
 
+  await clickRendererControl(
+    window,
+    'button[aria-label="Toggle output"]',
+    'the expanded Output dock',
+  );
+  await waitForRendererResult(
+    window,
+    "(document.querySelector('.wr-bottom-slot')?.getBoundingClientRect().height ?? 0) > 0",
+    'the visible Output dock',
+    (value) => value === true,
+  );
   const bottomDock = (await window.webContents.executeJavaScript(
     `(() => {
       const editor = document.querySelector('.wr-editor-slot');
@@ -471,6 +755,17 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     throw new Error(`Renderer bottom dock smoke failed: ${JSON.stringify(bottomDock)}`);
   }
   smokeLog('renderer bottom dock passed');
+  await clickRendererControl(
+    window,
+    'button[aria-label="Toggle output"]',
+    'the collapsed Output dock',
+  );
+  await waitForRendererResult(
+    window,
+    "(document.querySelector('.wr-bottom-slot')?.getBoundingClientRect().height ?? 0) === 0",
+    'the collapsed Output dock',
+    (value) => value === true,
+  );
 
   const stylesOpened = (await window.webContents.executeJavaScript(
     `(() => {
@@ -497,6 +792,11 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     window,
     `Array.from(document.querySelectorAll('.wr-style-list strong')).some((item) => item.textContent?.trim() === 'PrimaryButton') ? 'ready' : ''`,
     'the persisted PrimaryButton style',
+  );
+  await clickRendererControl(
+    window,
+    'button[aria-label="Project Explorer"]',
+    'Project Explorer after Styles',
   );
   const pageReopened = (await window.webContents.executeJavaScript(
     `(() => {
@@ -535,6 +835,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   }
   smokeLog('renderer Styles workspace passed');
   smokeLog('renderer project open passed');
+  await runDesignerWorkspaceSmoke(window);
 
   const codeDispatched = (await window.webContents.executeJavaScript(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F12', bubbles: true, cancelable: true }))`,
@@ -550,6 +851,13 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   );
   smokeLog('renderer Monaco passed');
   await runMonacoLanguageSmoke(window);
+  await waitForRendererResult(
+    window,
+    "(() => { const node = document.querySelector('.monaco-editor .monaco-editor-background'); return node instanceof HTMLElement && getComputedStyle(node).backgroundColor === 'rgb(30, 30, 30)'; })()",
+    'the graphite Monaco editor background',
+    (value) => value === true,
+  );
+  smokeLog('renderer Monaco graphite passed');
 
   const dispatched = (await window.webContents.executeJavaScript(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F9', bubbles: true, cancelable: true }))`,
@@ -608,6 +916,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     throw new Error(`Renderer F9 Preview interaction failed: ${JSON.stringify(interaction)}`);
   }
   smokeLog('renderer F9 preview passed: Olá Ada; Tailwind style applied');
+  await captureDesignerSmokeScreenshot(window);
 }
 
 // Vite can wrap this CommonJS boolean in a default-export object.
@@ -637,11 +946,11 @@ Object.assign(
 function createWindow(): BrowserWindow {
   smokeLog('creating BrowserWindow');
   const window = new BrowserWindow({
-    width: 1440,
-    height: 920,
+    width: smokeMode ? 1600 : 1440,
+    height: smokeMode ? 950 : 920,
     minWidth: 1000,
     minHeight: 680,
-    backgroundColor: '#171a21',
+    backgroundColor: '#1e1e1e',
     icon: applicationWindowIconPath(),
     show: false,
     webPreferences: {
@@ -654,6 +963,7 @@ function createWindow(): BrowserWindow {
       sandbox: true,
     },
   });
+  let rendererSmokeStarted = false;
 
   const rendererEntry = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
   const rendererUrl = new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL ?? pathToFileURL(rendererEntry).href)
@@ -677,7 +987,8 @@ function createWindow(): BrowserWindow {
   window.webContents.on('will-redirect', preventUntrustedNavigation);
   window.webContents.on('did-finish-load', () => {
     smokeLog(`renderer loaded: ${rendererUrl}`);
-    if (!smokeAutoExit) return;
+    if (!smokeAutoExit || rendererSmokeStarted) return;
+    rendererSmokeStarted = true;
     void runRendererWorkflowSmoke(window)
       .then(() => {
         app.quit();
@@ -709,8 +1020,14 @@ app
     await runPreviewProtocolSmoke(previewHtml);
     registerIpcHandlers(
       smokeMode && smokeProjectPath !== undefined
-        ? { automatedOpenProjectPath: smokeProjectPath }
-        : {},
+        ? {
+            automatedOpenProjectPath: smokeProjectPath,
+            // Smoke fixtures use isolated preferences and never read or overwrite real user state.
+            userDataPath: path.join(path.dirname(smokeProjectPath), '.webrad-smoke-preferences'),
+          }
+        : !smokeMode
+          ? { userDataPath: app.getPath('userData') }
+          : {},
     );
     mainWindow = createWindow();
     mainWindowLifecycleStarted = true;
