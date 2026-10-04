@@ -35,6 +35,7 @@ const sourceFiles = [
   'layout.ts',
   'render.ts',
   'restgo.ts',
+  'restgo-page-events.ts',
   'visual.ts',
 ];
 

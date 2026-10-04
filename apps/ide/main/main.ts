@@ -10,7 +10,11 @@ import { installApplicationMenu } from './menu';
 import { publishPreviewHtml, registerPreviewProtocol, revokePreview } from './preview-protocol';
 import { loadProjectFiles } from './project-files';
 import { installDirtyGuard, registerIpcHandlers } from './project-ipc';
-import { runRestGoBrowserSmoke, runRestGoSettingsSmoke } from './restgo-smoke';
+import {
+  runRestGoBrowserSmoke,
+  runRestGoPageEventsSmoke,
+  runRestGoSettingsSmoke,
+} from './restgo-smoke';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -922,6 +926,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   smokeLog('renderer F9 preview passed: Olá Ada; Tailwind style applied');
   await runRestGoBrowserSmoke(smokeLog);
   await captureDesignerSmokeScreenshot(window);
+  await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
 }
 
 // Vite can wrap this CommonJS boolean in a default-export object.

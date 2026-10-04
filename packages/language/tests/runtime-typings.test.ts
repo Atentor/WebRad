@@ -151,6 +151,27 @@ function completionNames(
 }
 
 describe('Monaco runtime typings', () => {
+  it('offers typed current-user fields in page authentication event handlers', () => {
+    const marked =
+      extractMarkers(`import type { WebPageLoginEventDetail, WebPageLogoutEventDetail } from '@webrad/runtime';
+declare const login: CustomEvent<WebPageLoginEventDetail>;
+declare const logout: CustomEvent<WebPageLogoutEventDetail>;
+login.detail.user./*@loginUser*/;
+logout.detail.user./*@logoutUser*/;
+`);
+    const { service, fileName } = createLanguageService(marked.text);
+    for (const marker of ['loginUser', 'logoutUser'])
+      expect(completionNames(service, fileName, marked.positions.get(marker) ?? 0)).toEqual(
+        expect.arrayContaining([
+          'id',
+          'email',
+          'fullName',
+          'avatarUrl',
+          'active',
+          'emailConfirmed',
+        ]),
+      );
+  });
   it('derives every button icon literal from the shared local catalogue', () => {
     const typings = generateRuntimeTypings();
     for (const icon of WEBRAD_ICON_NAMES) {
@@ -185,6 +206,15 @@ const subscription = RestGO.auth.onAuthStateChange((event, session) => {
 subscription.unsubscribe();
 void RestGO.auth.signInWithPassword({ email: 'cliente@example.test', password: 'segredo' });
 void independentClient.auth.getSession();
+void RestGO.login('cliente@example.test', 'segredo', true);
+void RestGO.logout();
+void RestGO.getUser();
+void RestGO.getSession();
+void RestGO.refreshSession();
+RestGO.onAuthStateChange((event, session) => {
+  const current: RestGoSession | null = session;
+  void current; void event;
+}).unsubscribe();
 void independentClient.auth.refreshSession();
 independentClient.dispose();
 void sharedClient.storage;
@@ -193,7 +223,18 @@ void sharedClient.storage;
     expect(service.getProgram()?.getSyntacticDiagnostics()).toEqual([]);
     expect(service.getSemanticDiagnostics(fileName)).toEqual([]);
     expect(completionNames(service, fileName, marked.positions.get('client') ?? 0)).toEqual(
-      expect.arrayContaining(['auth', 'storage', 'api', 'from']),
+      expect.arrayContaining([
+        'auth',
+        'storage',
+        'api',
+        'from',
+        'login',
+        'logout',
+        'getSession',
+        'getUser',
+        'refreshSession',
+        'onAuthStateChange',
+      ]),
     );
     expect(completionNames(service, fileName, marked.positions.get('auth') ?? 0)).toEqual(
       expect.arrayContaining([
@@ -211,6 +252,8 @@ void sharedClient.storage;
     const invalid = createLanguageService(`import { createClient } from '@webrad/restgo-sdk';
 createClient('https://restgo.example.test', { sessionStorage: 'browser' });
 void RestGO.auth.signInWithPassword({ email: 'cliente@example.test', password: 42 });
+void RestGO.login('cliente@example.test', 42);
+void RestGO.login('cliente@example.test', 'segredo', 'sim');
 `);
     expect(
       invalid.service.getSemanticDiagnostics(invalid.fileName).map(({ code }) => code),

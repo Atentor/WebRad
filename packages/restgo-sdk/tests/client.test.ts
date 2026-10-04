@@ -58,6 +58,37 @@ afterEach(() => {
 });
 
 describe('RestGo authentication', () => {
+  it('uses direct positional helpers and shares the session with the auth service', async () => {
+    const fetch = fetchMock().mockImplementation(async (url, options) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/auth/token') {
+        expect(JSON.parse(String(options?.body))).toEqual({
+          email: user.email,
+          password: 'secret',
+          remember: false,
+        });
+        expect(new Headers(options?.headers).has('Authorization')).toBe(false);
+        return json(session);
+      }
+      expect(new Headers(options?.headers).get('Authorization')).toBe(`Bearer ${session.token}`);
+      return path === '/auth/logout' ? json({ success: true }) : json({ success: true, user });
+    });
+    const client = createClient(baseUrl, { fetch, persistSession: false });
+    await client.auth.ready;
+    const events: string[] = [];
+    const subscription = client.onAuthStateChange((event) => events.push(event));
+    expect((await client.login(user.email, 'secret')).data).toEqual(session);
+    expect((await client.auth.getUser()).data).toEqual(user);
+    expect((await client.getUser()).data).toEqual(user);
+    expect((await client.getSession()).data).toEqual(session);
+    expect((await client.logout()).error).toBeNull();
+    expect((await client.getSession()).data).toBeNull();
+    expect(events).toContain('SIGNED_IN');
+    expect(events).toContain('SIGNED_OUT');
+    subscription.unsubscribe();
+    client.dispose();
+  });
+
   it('signs in using the documented public route and validates the current user on the server', async () => {
     const fetch = fetchMock()
       .mockResolvedValueOnce(json(session))

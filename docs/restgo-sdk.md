@@ -18,11 +18,7 @@ O compilador configura `RestGO` antes de construir as páginas. Esse cliente é 
 Em um método de evento da página:
 
 ```ts
-const { data: session, error } = await RestGO.auth.signInWithPassword({
-  email: this.Email.text,
-  password: this.Senha.text,
-  remember: true,
-});
+const { data: session, error } = await RestGO.login(this.Email.text.trim(), this.Senha.text, true);
 
 if (error) {
   Message(error.message);
@@ -33,19 +29,40 @@ Message(`Olá, ${session.user.fullName}`);
 Navigate('PageHome');
 ```
 
-Os componentes `Email` e `Senha` desse exemplo devem existir na página. `remember` é enviado ao RestGO, que determina a validade do JWT conforme sua configuração.
+Os componentes `Email` e `Senha` desse exemplo devem existir na página; `PageHome` é a página de destino após o login. O terceiro parâmetro é `remember`, opcional e `false` por padrão. Ele é enviado ao RestGO, que determina a validade do JWT e do refresh token conforme sua configuração. A persistência no navegador continua sendo definida em Project Settings.
+
+Para apenas entrar e navegar, o evento pode ser escrito assim:
+
+```ts
+const { error } = await RestGO.login(this.Email.text.trim(), this.Senha.text);
+if (error) Message(error.message);
+else Navigate('PageHome');
+```
+
+Os atalhos abaixo utilizam a mesma sessão, persistência e renovação automática do cliente `RestGO` e também estão disponíveis em clientes criados com `createClient()`:
+
+| Atalho                                     | Resultado em `data`                           |
+| ------------------------------------------ | --------------------------------------------- |
+| `RestGO.login(email, password, remember?)` | Sessão autenticada, incluindo `user` e tokens |
+| `RestGO.logout()`                          | Resultado da revogação da sessão              |
+| `RestGO.getSession()`                      | Sessão validada no servidor ou `null`         |
+| `RestGO.getUser()`                         | Usuário validado no servidor ou `null`        |
+| `RestGO.refreshSession()`                  | Sessão e credenciais rotacionadas             |
+| `RestGO.onAuthStateChange(callback)`       | Retorna `{ unsubscribe }` diretamente         |
+
+As operações assíncronas continuam retornando `{ data, error }`, com os tipos do SDK no autocompletar. Um erro de rede é um erro de consulta, e não prova de que o usuário saiu. Os métodos em `RestGO.auth` também permanecem disponíveis. Login não escolhe uma página de destino: o código do evento usa `Navigate()` para isso.
 
 ```ts
 const initial = await RestGO.auth.ready;
-const { data: session, error } = await RestGO.auth.getSession();
-const { data: user } = await RestGO.auth.getUser();
+const { data: session, error } = await RestGO.getSession();
+const { data: user } = await RestGO.getUser();
 
-const subscription = RestGO.auth.onAuthStateChange((event, currentSession) => {
+const subscription = RestGO.onAuthStateChange((event, currentSession) => {
   // Atualize a interface conforme a sessão validada e o evento recebido.
 });
 
 subscription.unsubscribe();
-await RestGO.auth.signOut();
+await RestGO.logout();
 ```
 
 `auth.ready` conclui a validação inicial das credenciais persistidas, renovando primeiro um JWT expirado quando existe refresh token. `getSession()` consulta `GET /auth/session` e retorna a identidade atual do servidor, ou `null` quando não há sessão. `expiresAt` agenda a renovação, mas não comprova que a sessão continua válida. Logout, alterações administrativas, redefinição de senha e reinício do RestGO podem revogar uma sessão antes desse horário.
@@ -54,14 +71,108 @@ O SDK normaliza os erros em `{ data, error }`. `error` contém `message`, `code`
 
 A persistência guarda a credencial e seus metadados, vinculados à instância. A identidade restaurada vem da validação do servidor. O armazenamento em memória funciona quando a persistência está desativada ou o navegador bloqueia o acesso ao armazenamento.
 
+## Eventos de autenticação em Interaction
+
+Selecione a página no **Builder**, abra **Interaction** e, no grupo **RestGO**, dê dois cliques em **OnLogin**, **OnLogout** ou **OnUnauthenticated**. O WebRAD cria o método TypeScript e salva a associação no Project Model. Os eventos com dados do usuário também recebem o import do tipo de detalhe. A conexão precisa estar ativada em Project Settings para receber notificações.
+
+`OnLogin` recebe `event.detail.user` quando o login é concluído ou quando uma página é exibida com uma sessão autenticada já existente. `event.detail.restored` é `true` neste segundo caso. A validação e a renovação de token da mesma sessão não repetem o evento. `OnLogout` recebe o último usuário autenticado quando o SDK confirma logout ou revogação. Uma falha de rede não dispara logout. Páginas escondidas, fechadas ou descartadas param de observar a sessão; elementos reutilizáveis com esses eventos associados observam enquanto estão montados.
+
+Os dois eventos fornecem apenas a identidade, sem tokens:
+
+| Campo                 | Tipo             | Valor                    |
+| --------------------- | ---------------- | ------------------------ |
+| `user.id`             | `string`         | ID do usuário            |
+| `user.fullName`       | `string`         | Nome completo            |
+| `user.email`          | `string`         | E-mail                   |
+| `user.avatarUrl`      | `string \| null` | URL do avatar, se houver |
+| `user.active`         | `boolean`        | Conta ativa              |
+| `user.emailConfirmed` | `boolean`        | E-mail confirmado        |
+
+### Detectar ausência de usuário automaticamente
+
+`OnUnauthenticated` dispara quando uma página é exibida sem sessão autenticada confirmada ou quando o SDK confirma que a sessão terminou, incluindo logout e revogação. Ele funciona mesmo quando a página nunca recebeu `OnLogin`. O evento recebe somente `sender`, sem exigir um usuário anterior.
+
+Nas páginas que exigem login, crie o evento por **Interaction > RestGO > OnUnauthenticated** e coloque no corpo do método:
+
+```ts
+Navigate('PageLogin');
+```
+
+Substitua `PageLogin` pelo nome da página de login do projeto. Ela permite a entrada sem sessão; associe o redirecionamento às páginas que precisam de autenticação.
+
+O runtime consulta a sessão ao exibir a página, a cada 30 segundos enquanto a aba está visível e ao retornar o foco ou a visibilidade da aba. Há um único timer por cliente compartilhado, e consultas concorrentes compartilham a validação do SDK. Logout confirmado dispara imediatamente; revogações no servidor são detectadas na próxima verificação ou operação autenticada. A renovação continua sendo tentada antes de concluir que uma credencial rejeitada encerrou a sessão.
+
+O evento é emitido uma vez por período sem autenticação naquela página. Verificações repetidas não repetem o evento; um novo login permite uma nova notificação se a sessão terminar novamente. Esconder e exibir a página inicia uma nova observação. A página libera a assinatura ao esconder, fechar ou ser descartada; o monitor compartilhado termina quando o último observador sai. Integração desativada e erros de rede/429/5xx não são confirmação de ausência de sessão e não disparam o evento. Uma validação inicial que falha por rede também não gera um falso redirecionamento.
+
+### Guardar os dados do usuário em variáveis
+
+Para usar os valores somente dentro do evento, crie variáveis locais:
+
+```ts
+const { user } = event.detail;
+const usuarioId = user.id;
+const usuarioNome = user.fullName;
+const usuarioEmail = user.email;
+Message(`Olá, ${usuarioNome}`);
+```
+
+Para acessá-los em outros métodos da mesma página, declare campos dentro da classe, fora dos métodos, e preencha-os no evento. Exemplo completo para uma página chamada `PageMain`:
+
+```ts
+import type { WebPage, WebPageLoginEventDetail, WebPageLogoutEventDetail } from '@webrad/runtime';
+import { PageMainGenerated } from './PageMain.generated';
+
+export class PageMain extends PageMainGenerated {
+  private usuarioId = '';
+  private usuarioNome = '';
+  private usuarioEmail = '';
+
+  public async PageMainLogin(
+    sender: WebPage,
+    event: CustomEvent<WebPageLoginEventDetail>,
+  ): Promise<void> {
+    const { user } = event.detail;
+    this.usuarioId = user.id;
+    this.usuarioNome = user.fullName;
+    this.usuarioEmail = user.email;
+  }
+
+  public async PageMainLogout(
+    sender: WebPage,
+    event: CustomEvent<WebPageLogoutEventDetail>,
+  ): Promise<void> {
+    this.usuarioId = '';
+    this.usuarioNome = '';
+    this.usuarioEmail = '';
+  }
+}
+```
+
+Edite os métodos criados por Interaction no arquivo da página; mantenha os outros métodos existentes. Os nomes dos métodos precisam coincidir com as associações em Interaction. Campos da classe duram enquanto aquela instância da página existe e são recriados ao navegar. O SDK compartilha a sessão entre páginas e preenche o `OnLogin` da próxima página com o usuário atual.
+
+Para consultar o usuário em qualquer outro evento ou atualizar os valores a partir do servidor:
+
+```ts
+const { data: user, error } = await RestGO.getUser();
+if (error) {
+  Message(error.message);
+  return;
+}
+if (!user) return; // Não existe sessão autenticada.
+
+this.usuarioId = user.id;
+this.usuarioNome = user.fullName;
+this.usuarioEmail = user.email;
+```
+
 ## Renovação da sessão
 
 Login e refresh retornam `token`, `expiresAt`, `refreshToken`, `refreshExpiresAt` e `user`. O SDK salva as quatro propriedades da credencial em um único registro e renova automaticamente antes da expiração do JWT. Também renova antes de uma chamada protegida com JWT expirado ou após uma rejeição autoritativa com 401. A chamada rejeitada pode ser repetida uma vez com o novo JWT, preservando JSON, multipart e download binário. Falhas de rede ou 5xx não provocam repetição de operações de escrita.
 
 ```ts
-const { data: renewedSession, error } = await RestGO.auth.refreshSession();
+const { data: renewedSession, error } = await RestGO.refreshSession();
 
-const subscription = RestGO.auth.onAuthStateChange((event, session) => {
+const subscription = RestGO.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED' && session) {
     // A identidade atual também vem do servidor durante a renovação.
   }

@@ -27,6 +27,40 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('offers typed RestGO page events in Interaction from the central registry', async () => {
+    const user = userEvent.setup();
+    const onEventDoubleClick = vi.fn();
+    render(
+      <ObjectInspector
+        selection={[]}
+        page={createPage('PageMain')}
+        definition={defaultComponentRegistry.get('WebPage')}
+        onPropertyChange={vi.fn()}
+        onEventChange={vi.fn()}
+        onEventDoubleClick={onEventDoubleClick}
+      />,
+    );
+    await user.click(screen.getByRole('tab', { name: 'Events' }));
+    expect(screen.getByText('RestGO')).toBeTruthy();
+    for (const name of ['OnLogin', 'OnLogout']) {
+      await user.dblClick(screen.getByLabelText(name));
+      expect(onEventDoubleClick).toHaveBeenCalledWith(
+        name,
+        expect.objectContaining({
+          name,
+          category: 'RestGO',
+          eventDetailProperties: ['user'],
+          eventDetailType:
+            name === 'OnLogin' ? 'WebPageLoginEventDetail' : 'WebPageLogoutEventDetail',
+        }),
+      );
+    }
+    await user.dblClick(screen.getByLabelText('OnUnauthenticated'));
+    expect(onEventDoubleClick).toHaveBeenCalledWith(
+      'OnUnauthenticated',
+      expect.objectContaining({ name: 'OnUnauthenticated', category: 'RestGO' }),
+    );
+  });
   it('keeps property, style, and event editors usable after collapsing sections and changing tabs', async () => {
     const user = userEvent.setup();
     const onPropertyChange = vi.fn();

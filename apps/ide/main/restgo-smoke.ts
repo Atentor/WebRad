@@ -3,7 +3,11 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 
 import { compileProjectToMemory } from '@webrad/compiler';
-import { createProject, DEFAULT_REST_GO_PROJECT_SETTINGS } from '@webrad/project-model';
+import {
+  bindComponentEvent,
+  createProject,
+  DEFAULT_REST_GO_PROJECT_SETTINGS,
+} from '@webrad/project-model';
 import { BrowserWindow } from 'electron';
 
 import { publishPreviewHtml, revokePreview } from './preview-protocol';
@@ -159,6 +163,74 @@ export async function runRestGoSettingsSmoke(
   );
 }
 
+/** Verifies page Interaction authoring and persistence through the actual IDE renderer. */
+export async function runRestGoPageEventsSmoke(
+  window: BrowserWindow,
+  { projectPath, log }: RestGoSettingsSmokeOptions,
+): Promise<void> {
+  await click(window, 'button[aria-label="Design"]');
+  await click(window, '[role="treeitem"][data-component-id="hello-webrad-component-form-main-v1"]');
+  await click(window, 'button[role="tab"][aria-label="Events"]');
+  await rendererReady(
+    window,
+    `Array.from(document.querySelectorAll('.wr-inspector-event-row label'))
+    .some((label) => label.textContent === 'OnUnauthenticated')`,
+  );
+  const screenshotPath = path.resolve('node_modules', '.cache', 'webrad-restgo-page-events.png');
+  await window.webContents.executeJavaScript(
+    'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+    true,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
+  await fs.writeFile(screenshotPath, (await window.webContents.capturePage()).toPNG());
+  for (const name of ['OnLogin', 'OnLogout', 'OnUnauthenticated']) {
+    if (name !== 'OnLogin') {
+      await click(window, 'button[aria-label="Design"]');
+      await click(window, 'button[role="tab"][aria-label="Events"]');
+    }
+    await rendererReady(
+      window,
+      `(() => {
+      const row = Array.from(document.querySelectorAll('.wr-inspector-event-row'))
+        .find((row) => row.querySelector('label')?.textContent === ${JSON.stringify(name)});
+      if (!row) return false;
+      row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      return true;
+    })()`,
+    );
+    await rendererReady(window, `document.querySelector('.monaco-editor') !== null`);
+  }
+  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  const pagePath = path.join(path.dirname(projectPath), 'pages', 'PageMain.wrpage');
+  const sourcePath = path.join(path.dirname(projectPath), 'pages', 'PageMain.ts');
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const model = JSON.parse(await fs.readFile(pagePath, 'utf8')) as {
+      rootComponentId: string;
+      components: Array<{ id: string; events: Record<string, string> }>;
+    };
+    const root = model.components.find((component) => component.id === model.rootComponentId);
+    const source = await fs.readFile(sourcePath, 'utf8');
+    if (
+      root?.events.OnLogin === 'PageMainLogin' &&
+      root.events.OnLogout === 'PageMainLogout' &&
+      root.events.OnUnauthenticated === 'PageMainUnauthenticated' &&
+      source.includes('CustomEvent<WebPageLoginEventDetail>') &&
+      source.includes('CustomEvent<WebPageLogoutEventDetail>') &&
+      source.includes('async PageMainUnauthenticated(sender: WebPage): Promise<void>') &&
+      source.includes('const { user } = event.detail;')
+    ) {
+      log(
+        `renderer RestGO page Interaction passed: typed handlers and saved bindings; screenshot ${screenshotPath}`,
+      );
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('RestGO page Interaction handlers or event bindings were not saved.');
+}
+
 /** Checks generated browser output against a local fixture of the documented HTTP contracts. */
 export async function runRestGoBrowserSmoke(log: (message: string) => void): Promise<void> {
   const calls: string[] = [];
@@ -301,7 +373,7 @@ export async function runRestGoBrowserSmoke(log: (message: string) => void): Pro
   let window: BrowserWindow | null = null;
   let otherWindow: BrowserWindow | null = null;
   try {
-    const project = createProject('RestGoSmoke', {
+    const original = createProject('RestGoSmoke', {
       settings: {
         restGo: {
           ...DEFAULT_REST_GO_PROJECT_SETTINGS,
@@ -312,18 +384,46 @@ export async function runRestGoBrowserSmoke(log: (message: string) => void): Pro
         },
       },
     });
+    const page = original.pages[0];
+    if (!page) throw new Error('RestGO smoke requires an entry page.');
+    const boundPage = bindComponentEvent(
+      bindComponentEvent(
+        bindComponentEvent(page, page.rootComponentId, 'OnLogin', 'PageMainLogin'),
+        page.rootComponentId,
+        'OnUnauthenticated',
+        'PageMainUnauthenticated',
+      ),
+      page.rootComponentId,
+      'OnLogout',
+      'PageMainLogout',
+    );
+    const project = { ...original, pages: [boundPage] };
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/PageMain.ts': `import { RestGO, getRestGoClient } from '@webrad/runtime';
+        'pages/PageMain.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail } from '@webrad/runtime';
 import { createClient } from '@webrad/restgo-sdk';
 import { PageMainGenerated } from './PageMain.generated';
 export class PageMain extends PageMainGenerated {
+  private usuarioId = '';
+  public PageMainUnauthenticated(_sender: WebPage): void {
+    this.element.dataset.unauthenticatedCount = String(Number(this.element.dataset.unauthenticatedCount ?? 0) + 1);
+  }
+  public PageMainLogin(_sender: WebPage, event: CustomEvent<WebPageLoginEventDetail>): void {
+    this.usuarioId = event.detail.user.id;
+    this.element.dataset.loginUser = this.usuarioId;
+    this.element.dataset.loginCount = String(Number(this.element.dataset.loginCount ?? 0) + 1);
+  }
+  public PageMainLogout(_sender: WebPage, event: CustomEvent<WebPageLogoutEventDetail>): void {
+    this.element.dataset.logoutUser = event.detail.user.id;
+    this.usuarioId = '';
+    this.element.dataset.currentUser = this.usuarioId;
+  }
   public constructor(element: HTMLElement) {
     super(element);
     const standalone = createClient(${JSON.stringify(baseUrl)}, { persistSession: false });
     (globalThis as unknown as { createRestGoSmokeClient: typeof createClient }).createRestGoSmokeClient = createClient;
     this.element.dataset.restgoIdentity = String(
-      RestGO.auth === getRestGoClient().auth && typeof standalone.auth.signInWithPassword === 'function'
+      RestGO.auth === getRestGoClient().auth && typeof standalone.login === 'function'
     );
   }
 }`,
@@ -341,17 +441,25 @@ export class PageMain extends PageMainGenerated {
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     const previewUrl = publishPreviewHtml(ownerId, result.previewHtml);
     await window.loadURL(previewUrl);
+    await rendererReady(
+      window,
+      `document.querySelector('[data-unauthenticated-count="1"]') !== null`,
+    );
     const evidence: unknown = await window.webContents.executeJavaScript(
       `(async () => {
         const check = (result) => { if (result.error) throw new Error(result.error.message); return result.data; };
         if (document.querySelector('[data-restgo-identity="true"]') === null) throw new Error('Native client identity failed');
-        const session = check(await RestGO.auth.signInWithPassword({ email: 'cliente@example.test', password: 'senha-de-teste' }));
+        const session = check(await RestGO.login('cliente@example.test', 'senha-de-teste', true));
         if (session.user.email !== 'cliente@example.test') throw new Error('Sign in user mismatch');
         if (!session.refreshToken || !session.refreshExpiresAt) throw new Error('Missing refresh pair');
+        const page = document.querySelector('[data-restgo-identity="true"]');
+        if (page.dataset.loginUser !== session.user.id) throw new Error('OnLogin did not save the current user');
         const events = [];
-        const subscription = RestGO.auth.onAuthStateChange((event) => events.push(event));
-        const validated = check(await RestGO.auth.getSession());
+        const subscription = RestGO.onAuthStateChange((event) => events.push(event));
+        const validated = check(await RestGO.getSession());
         if (validated.user.id !== session.user.id) throw new Error('Server validation mismatch');
+        const currentUser = check(await RestGO.getUser());
+        if (currentUser.id !== session.user.id) throw new Error('Direct getUser mismatch');
         const file = check(await RestGO.storage.upload(new Blob(['Olá RestGO'], { type: 'text/plain' }), { name: 'documento.txt', isPublic: true }));
         const url = check(RestGO.storage.getPublicUrl(file.id)).publicUrl;
         if (!url.startsWith(${JSON.stringify(baseUrl)})) throw new Error('Public URL base mismatch');
@@ -359,7 +467,7 @@ export class PageMain extends PageMainGenerated {
         if (await downloaded.text() !== 'Olá RestGO') throw new Error('Download content mismatch');
         const rows = check(await RestGO.api.from('demo').endpoint('list').get());
         if (rows[0].id !== 42) throw new Error('Versioned endpoint mismatch');
-        const renewed = check(await RestGO.auth.refreshSession());
+        const renewed = check(await RestGO.refreshSession());
         if (renewed.refreshToken === session.refreshToken || !events.includes('TOKEN_REFRESHED')) throw new Error('Rotation event mismatch');
         const consumed = await fetch(${JSON.stringify(`${baseUrl}/auth/refresh`)}, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: session.refreshToken }),
@@ -367,9 +475,12 @@ export class PageMain extends PageMainGenerated {
         if (consumed.status !== 401) throw new Error('Refresh token was reusable');
         subscription.unsubscribe();
         check(await RestGO.storage.remove(file.id));
-        check(await RestGO.auth.signOut());
-        if (check(await RestGO.auth.getSession()) !== null) throw new Error('Sign out retained a session');
-        return { nativeIdentity: true, auth: true, refresh: true, multipart: true, download: true, dynamicApi: true, signedOut: true };
+        check(await RestGO.logout());
+        if (check(await RestGO.getSession()) !== null) throw new Error('Sign out retained a session');
+        if (page.dataset.loginCount !== '1') throw new Error('Validation or refresh repeated OnLogin');
+        if (page.dataset.logoutUser !== session.user.id || page.dataset.currentUser !== '') throw new Error('OnLogout did not clear page variables');
+        if (page.dataset.unauthenticatedCount !== '2') throw new Error('OnUnauthenticated missed anonymous entry or sign out');
+        return { nativeIdentity: true, auth: true, pageEvents: true, refresh: true, multipart: true, download: true, dynamicApi: true, signedOut: true };
       })()`,
       true,
     );

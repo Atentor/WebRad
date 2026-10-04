@@ -321,6 +321,16 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     componentId(templateComponentId: string): string;
   }
 
+  /** Current user delivered when a shown page receives an authenticated session. */
+  export interface WebPageLoginEventDetail {
+    readonly user: import('@webrad/restgo-sdk').RestGoUser;
+    readonly restored: boolean;
+  }
+
+  export interface WebPageLogoutEventDetail {
+    readonly user: import('@webrad/restgo-sdk').RestGoUser;
+  }
+
   /** Base class for generated and user-authored pages. */
   export class WebPage extends WebComponentScope {
     layoutMode: WebPageLayoutMode;

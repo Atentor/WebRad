@@ -42,6 +42,10 @@ Em **Project Settings > Authentication and JWT** ou **APIs and integrations**, a
 
 O SDK TypeScript `@webrad/restgo-sdk` oferece autenticação de usuários, validação de sessão, recuperação de senha, confirmação de e-mail, avatar, Storage e chamadas aos endpoints dinâmicos publicados. O cliente nativo `RestGO` fica disponível nos eventos TypeScript, com tipos e autocompletar no editor. A aplicação gerada executa esse mesmo SDK diretamente no navegador.
 
+Use atalhos com parâmetros diretos, como `await RestGO.login(email, senha)`, `await RestGO.getUser()` e `await RestGO.logout()`. As operações retornam `{ data, error }` e compartilham a sessão em todas as páginas.
+
+Na página, **Interaction > RestGO** oferece **OnLogin**, **OnLogout** e **OnUnauthenticated**. Dê dois cliques para criar o método. Nos dois primeiros, obtenha a identidade por `event.detail.user`; por exemplo, `this.usuarioId = user.id` guarda o ID em um campo declarado na classe. `OnLogin` também entrega uma sessão restaurada à página exibida. `OnUnauthenticated` detecta entrada sem sessão e encerramento da sessão, permitindo usar `Navigate('PageLogin')` no evento. O runtime verifica a sessão a cada 30 segundos na aba visível e ao retornar à aba; falhas de rede não disparam desconexão. Consulte os [exemplos de eventos e variáveis](docs/restgo-sdk.md#eventos-de-autenticação-em-interaction).
+
 Consulte o [guia do SDK RestGO](docs/restgo-sdk.md) para exemplos e detalhes dos contratos. O SDK renova o JWT automaticamente por `POST /auth/refresh`, persiste o par de credenciais rotacionado e coordena renovações simultâneas. Novo login é necessário quando o refresh token expira ou é revogado. As sessões continuam sendo validadas pelo servidor e o cadastro exige uma credencial autorizada.
 
 ## Validação

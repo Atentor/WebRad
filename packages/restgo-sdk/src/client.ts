@@ -2,7 +2,14 @@ import { RestGoApiClient, type RestGoEndpoint, type RestGoEndpointOptions } from
 import { RestGoAuthClient } from './auth';
 import { RestGoStorageClient } from './storage';
 import { RestGoTransport } from './transport';
-import type { RestGoClientOptions } from './types';
+import type { RestGoResult } from './errors';
+import type {
+  RestGoAuthEvent,
+  RestGoClientOptions,
+  RestGoSession,
+  RestGoSuccess,
+  RestGoUser,
+} from './types';
 
 export class RestGoClient {
   readonly auth: RestGoAuthClient;
@@ -20,6 +27,33 @@ export class RestGoClient {
 
   from<T = unknown>(endpoint: string, options: RestGoEndpointOptions = {}): RestGoEndpoint<T> {
     return this.api.endpoint<T>(endpoint, options);
+  }
+
+  /** Sign in with positional parameters using the client's shared session. */
+  login(email: string, password: string, remember = false): Promise<RestGoResult<RestGoSession>> {
+    return this.auth.signInWithPassword({ email, password, remember });
+  }
+
+  logout(): Promise<RestGoResult<RestGoSuccess>> {
+    return this.auth.signOut();
+  }
+
+  getSession(): Promise<RestGoResult<RestGoSession | null>> {
+    return this.auth.getSession();
+  }
+
+  getUser(): Promise<RestGoResult<RestGoUser | null>> {
+    return this.auth.getUser();
+  }
+
+  refreshSession(): Promise<RestGoResult<RestGoSession>> {
+    return this.auth.refreshSession();
+  }
+
+  onAuthStateChange(callback: (event: RestGoAuthEvent, session: RestGoSession | null) => void): {
+    unsubscribe: () => void;
+  } {
+    return this.auth.onAuthStateChange(callback);
   }
 
   /** Release browser listeners and automatic renewal without logging the user out. */

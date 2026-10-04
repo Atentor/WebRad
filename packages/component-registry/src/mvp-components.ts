@@ -423,7 +423,21 @@ const webPage: ComponentDefinition = {
       defaultValue: '#ffffff',
     },
   ],
-  events: [event('OnCreate'), event('OnShow'), event('OnHide'), event('OnResize')],
+  events: [
+    event('OnCreate'),
+    event('OnShow'),
+    event('OnHide'),
+    event('OnResize'),
+    event('OnLogin', 'RestGO', {
+      eventDetailType: 'WebPageLoginEventDetail',
+      eventDetailProperties: ['user'],
+    }),
+    event('OnLogout', 'RestGO', {
+      eventDetailType: 'WebPageLogoutEventDetail',
+      eventDetailProperties: ['user'],
+    }),
+    event('OnUnauthenticated', 'RestGO'),
+  ],
 };
 
 const webPanel: ComponentDefinition = {

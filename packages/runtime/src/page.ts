@@ -1,6 +1,9 @@
 import type { WebComponent, WebNonvisualComponent } from './component.js';
 import { WebPanel } from './controls.js';
 import type { RuntimeContainerLayoutMode } from './layout.js';
+import { bindPageRestGoEvents } from './restgo-page-events.js';
+
+export type { WebPageLoginEventDetail, WebPageLogoutEventDetail } from './restgo-page-events.js';
 
 export interface ClosePageOptions {
   readonly remove?: boolean;
@@ -72,6 +75,12 @@ export class WebComponentScope extends WebPanel {
       Reflect.apply(handler, this, [sender, event]);
     });
     this.#generatedBindings.push(dispose);
+    if (component === this) this.onRootGeneratedEventBound(eventName);
+  }
+
+  /** Allows mounted authored scopes to observe registered root events. */
+  protected onRootGeneratedEventBound(eventName: string): void {
+    void eventName;
   }
 
   public override dispose(): void {
@@ -87,6 +96,7 @@ export class WebComponentScope extends WebPanel {
  */
 export class WebReusableElementInstance extends WebComponentScope {
   readonly #componentIds: ReadonlyMap<string, string>;
+  #restGoEvents: (() => void) | undefined;
 
   public constructor(
     element: HTMLElement,
@@ -117,10 +127,27 @@ export class WebReusableElementInstance extends WebComponentScope {
     }
     return componentId;
   }
+
+  protected override onRootGeneratedEventBound(eventName: string): void {
+    if (eventName === 'OnLogin' || eventName === 'OnLogout' || eventName === 'OnUnauthenticated')
+      this.#restGoEvents ??= bindPageRestGoEvents(this);
+  }
+
+  public override dispose(): void {
+    this.#restGoEvents?.();
+    this.#restGoEvents = undefined;
+    super.dispose();
+  }
 }
 
 export class WebPage extends WebComponentScope {
   #created = false;
+  #restGoEvents: (() => void) | undefined;
+
+  #stopRestGoEvents(): void {
+    this.#restGoEvents?.();
+    this.#restGoEvents = undefined;
+  }
 
   public get layoutMode(): WebPageLayoutMode {
     const layout = this.element.dataset.webradLayout;
@@ -144,6 +171,7 @@ export class WebPage extends WebComponentScope {
 
   public override show(): void {
     super.show();
+    this.#restGoEvents ??= bindPageRestGoEvents(this);
     for (const layer of floatingLayersForPage(this.element)) layer.hidden = false;
     if (!this.#created) {
       this.#created = true;
@@ -153,6 +181,7 @@ export class WebPage extends WebComponentScope {
   }
 
   public close(options: ClosePageOptions = {}): void {
+    this.#stopRestGoEvents();
     this.emit('OnHide');
     if (options.remove === true) {
       const floatingLayers = floatingLayersForPage(this.element);
@@ -164,6 +193,7 @@ export class WebPage extends WebComponentScope {
   }
 
   public override hide(): void {
+    this.#stopRestGoEvents();
     super.hide();
     for (const layer of floatingLayersForPage(this.element)) layer.hidden = true;
   }
@@ -180,6 +210,7 @@ export class WebPage extends WebComponentScope {
   }
 
   public override dispose(): void {
+    this.#stopRestGoEvents();
     for (const layer of floatingLayersForPage(this.element)) layer.remove();
     super.dispose();
   }

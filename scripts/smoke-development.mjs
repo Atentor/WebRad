@@ -64,6 +64,7 @@ try {
     'renderer project open passed',
     'renderer RestGO settings passed:',
     'renderer RestGO browser passed:',
+    'renderer RestGO page Interaction passed:',
     'renderer last project restore passed',
     'renderer bottom dock passed',
     'renderer element tree selection passed:',

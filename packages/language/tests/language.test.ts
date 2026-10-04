@@ -485,6 +485,50 @@ export class PageMain {}
     );
   });
 
+  it('creates the registered unauthenticated page handler without requiring user data', () => {
+    const event = defaultComponentRegistry
+      .get('WebPage')
+      ?.events.find((event) => event.name === 'OnUnauthenticated');
+    expect(event?.category).toBe('RestGO');
+    const edit = ensureEventHandler('export class PageMain {}\n', {
+      className: 'PageMain',
+      componentName: 'PageMain',
+      componentType: 'WebPage',
+      eventName: 'OnUnauthenticated',
+      eventDetailType: event?.eventDetailType,
+    });
+    expect(edit.sourceText).toContain(
+      'async PageMainUnauthenticated(sender: WebPage): Promise<void>',
+    );
+    expect(edit.sourceText).not.toContain('event.detail');
+  });
+
+  it.each(['OnLogin', 'OnLogout'])(
+    'authors a typed %s page handler using registry metadata',
+    (eventName) => {
+      const metadata = defaultComponentRegistry
+        .get('WebPage')
+        ?.events.find((event) => event.name === eventName);
+      if (!metadata) throw new Error('Missing registered page auth event.');
+      const options = {
+        className: 'PageMain',
+        componentName: 'PageMain',
+        componentType: 'WebPage',
+        eventName,
+        eventDetailType: metadata.eventDetailType,
+        eventDetailProperties: metadata.eventDetailProperties,
+      };
+      const edit = ensureEventHandler(
+        'export class PageMain { private usuarioId = ""; }\n',
+        options,
+      );
+      expect(edit.sourceText).toContain(`event: CustomEvent<${metadata.eventDetailType}>`);
+      expect(edit.sourceText).toContain('const { user } = event.detail;');
+      expect(edit.sourceText).toContain('private usuarioId = "";');
+      expect(ensureEventHandler(edit.sourceText, options).changed).toBe(false);
+    },
+  );
+
   it('scaffolds Data Grid cell detail constants in a new cell-click handler', () => {
     const edit = ensureEventHandler('export class PageMain {}\n', {
       className: 'PageMain',

@@ -12,10 +12,7 @@ const restGo = createClient('https://api.exemplo.com', {
   sessionStorage: 'local',
 });
 
-const login = await restGo.auth.signInWithPassword({
-  email: 'ana@exemplo.com',
-  password: 'senha-do-usuario',
-});
+const login = await restGo.login('ana@exemplo.com', 'senha-do-usuario');
 if (login.error) throw login.error;
 
 const clientes = await restGo.from<{ id: number; nome: string }[]>('listar').get({
@@ -29,6 +26,7 @@ Cada operação retorna `{ data, error }`, discriminado por `error`. Falhas HTTP
 
 ## Autenticação
 
+- Atalhos diretos: `login(email, password, remember = false)`, `logout()`, `getSession()`, `getUser()`, `refreshSession()` e `onAuthStateChange(callback)`. Eles usam a mesma instância de `auth`, com persistência, renovação e eventos compartilhados. As operações assíncronas retornam `{ data, error }`; a assinatura de eventos retorna `{ unsubscribe }`. Na aplicação WebRAD, use `RestGO.login(email, senha)` diretamente nos eventos.
 - `auth.signInWithPassword({ email, password, remember? })` chama `POST /auth/token`.
 - `auth.ready` valida as credenciais persistidas ao criar o cliente, renovando um JWT expirado quando existe refresh token. `auth.getSession()` e `auth.getUser()` consultam `GET /auth/session`. O servidor determina a validade da sessão.
 - `auth.refreshSession()` renova por `POST /auth/refresh`, enviando somente `{ refreshToken }` no JSON, sem header de autorização. A resposta substitui `token`, `expiresAt`, `refreshToken`, `refreshExpiresAt` e a identidade do usuário.
