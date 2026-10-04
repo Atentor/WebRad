@@ -1,0 +1,148 @@
+import type { RestGoProjectSettings } from '@webrad/project-model';
+import type { ReactElement } from 'react';
+
+interface RestGoSettingsSectionProps {
+  readonly settings: RestGoProjectSettings;
+  readonly section: 'authentication' | 'integrations';
+  readonly error: string | null;
+  readonly errorId: string;
+  readonly onChange: (patch: Partial<RestGoProjectSettings>) => void;
+}
+
+export function RestGoSettingsSection({
+  settings,
+  section,
+  error,
+  errorId,
+  onChange,
+}: RestGoSettingsSectionProps): ReactElement {
+  return (
+    <>
+      <p>
+        {section === 'authentication'
+          ? 'Use the native RestGO SDK for user authentication and account recovery.'
+          : 'Connect authentication, Storage, and published dynamic APIs to your RestGO instance.'}
+      </p>
+      <fieldset className="wr-project-settings-seo-options">
+        <legend>RestGO connection</legend>
+        <div className="wr-project-settings-toggles">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.enabled}
+              onChange={(event) => onChange({ enabled: event.currentTarget.checked })}
+            />
+            <span>Enable native RestGO integration</span>
+          </label>
+        </div>
+        <div className="wr-project-settings-fields">
+          <label className="wr-project-settings-field full-width">
+            <span>RestGO instance URL</span>
+            <input
+              type="url"
+              value={settings.baseUrl}
+              maxLength={2048}
+              placeholder="https://api.example.com"
+              spellCheck={false}
+              onChange={(event) => onChange({ baseUrl: event.currentTarget.value })}
+            />
+            <small>HTTP or HTTPS. A reverse-proxy base path is supported.</small>
+          </label>
+          <label className="wr-project-settings-field">
+            <span>Dynamic API version</span>
+            <input
+              type="number"
+              value={Number.isNaN(settings.apiVersion) ? '' : settings.apiVersion}
+              min={1}
+              max={Number.MAX_SAFE_INTEGER}
+              step={1}
+              onChange={(event) => onChange({ apiVersion: event.currentTarget.valueAsNumber })}
+            />
+            <small>Version of the endpoints published in RestGO.</small>
+          </label>
+          <label className="wr-project-settings-field">
+            <span>Default database slug</span>
+            <input
+              type="text"
+              value={settings.defaultDatabase}
+              maxLength={128}
+              placeholder="clientes"
+              spellCheck={false}
+              onChange={(event) => onChange({ defaultDatabase: event.currentTarget.value })}
+            />
+            <small>Optional. Calls may select another database explicitly.</small>
+          </label>
+        </div>
+        <p>
+          The same connection is used in Authentication and APIs. Dynamic endpoints use
+          <code>
+            {' '}
+            /v{'{version}'}/{'{database}'}/{'{endpoint}'}
+          </code>
+          ; the server defines their methods and permissions.
+        </p>
+      </fieldset>
+      <fieldset className="wr-project-settings-seo-options">
+        <legend>User session</legend>
+        <div className="wr-project-settings-toggles">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.persistSession}
+              onChange={(event) => onChange({ persistSession: event.currentTarget.checked })}
+            />
+            <span>Persist the user session</span>
+          </label>
+        </div>
+        <div className="wr-project-settings-fields">
+          <label className="wr-project-settings-field">
+            <span>Session storage</span>
+            <select
+              value={settings.sessionStorage}
+              onChange={(event) => {
+                const sessionStorage = event.currentTarget.value;
+                if (
+                  sessionStorage === 'local' ||
+                  sessionStorage === 'session' ||
+                  sessionStorage === 'memory'
+                ) {
+                  onChange({ sessionStorage });
+                }
+              }}
+            >
+              <option value="local">Local storage (across browser sessions)</option>
+              <option value="session">Session storage (current browser tab)</option>
+              <option value="memory">Memory (until the page closes)</option>
+            </select>
+            <small>When persistence is off, the session remains in memory.</small>
+          </label>
+          <label className="wr-project-settings-field">
+            <span>Session storage key</span>
+            <input
+              type="text"
+              value={settings.storageKey}
+              maxLength={200}
+              spellCheck={false}
+              onChange={(event) => onChange({ storageKey: event.currentTarget.value })}
+            />
+            <small>Use a distinct key for applications sharing the same origin.</small>
+          </label>
+        </div>
+        <p>
+          RestGO validates the JWT and controls expiration and revocation. RestGO has no refresh
+          token endpoint; an expired session requires signing in again.
+        </p>
+      </fieldset>
+      <div className="wr-project-settings-security-note" role="note">
+        These public settings are saved with the project and included in Preview and Build.
+        Administrative tokens and passwords must stay on your server. Configure allowed browser
+        origins on the RestGO server.
+      </div>
+      {error !== null && (
+        <div className="wr-project-settings-error" id={errorId} role="alert">
+          {error}
+        </div>
+      )}
+    </>
+  );
+}

@@ -3,7 +3,7 @@ import path from 'node:path';
 import ts from 'typescript';
 
 import { fromTypeScriptDiagnostic } from './diagnostics.js';
-import { RUNTIME_ENTRY_PATH } from './source-graph.js';
+import { RESTGO_ENTRY_PATH, RUNTIME_ENTRY_PATH } from './source-graph.js';
 import type { CompileDiagnostic } from './types.js';
 
 function canonicalPath(fileName: string): string {
@@ -33,7 +33,10 @@ export function typecheckSources(
     noImplicitOverride: true,
     noUncheckedIndexedAccess: true,
     ignoreDeprecations: '6.0',
-    paths: { '@webrad/runtime': [RUNTIME_ENTRY_PATH] },
+    paths: {
+      '@webrad/runtime': [RUNTIME_ENTRY_PATH],
+      '@webrad/restgo-sdk': [RESTGO_ENTRY_PATH],
+    },
     skipLibCheck: true,
     strict: true,
     target: ts.ScriptTarget.ES2022,

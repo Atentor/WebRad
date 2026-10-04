@@ -165,6 +165,72 @@ describe('Monaco runtime typings', () => {
     expect(runtimeExports).not.toContain('WebForm');
   });
 
+  it('offers the native RestGO global and SDK imports with actual SDK method signatures', () => {
+    const marked =
+      extractMarkers(`import { createClient, type RestGoSession } from '@webrad/restgo-sdk';
+import { RestGO as sharedClient } from '@webrad/runtime';
+const independentClient = createClient('https://restgo.example.test', { sessionStorage: 'memory' });
+RestGO./*@client*/auth;
+RestGO.auth./*@auth*/signInWithPassword;
+RestGO.from('pessoas')./*@endpoint*/get;
+const subscription = RestGO.auth.onAuthStateChange((event, session) => {
+  const current: RestGoSession | null = session;
+  void event;
+  void current;
+});
+subscription.unsubscribe();
+void RestGO.auth.signInWithPassword({ email: 'cliente@example.test', password: 'segredo' });
+void independentClient.auth.getSession();
+void sharedClient.storage;
+`);
+    const { fileName, service } = createLanguageService(marked.text);
+    expect(service.getProgram()?.getSyntacticDiagnostics()).toEqual([]);
+    expect(service.getSemanticDiagnostics(fileName)).toEqual([]);
+    expect(completionNames(service, fileName, marked.positions.get('client') ?? 0)).toEqual(
+      expect.arrayContaining(['auth', 'storage', 'api', 'from']),
+    );
+    expect(completionNames(service, fileName, marked.positions.get('auth') ?? 0)).toEqual(
+      expect.arrayContaining(['signInWithPassword', 'signUp', 'getSession', 'signOut']),
+    );
+    expect(completionNames(service, fileName, marked.positions.get('endpoint') ?? 0)).toEqual(
+      expect.arrayContaining(['get', 'post', 'put', 'patch', 'delete']),
+    );
+
+    const invalid = createLanguageService(`import { createClient } from '@webrad/restgo-sdk';
+createClient('https://restgo.example.test', { sessionStorage: 'browser' });
+void RestGO.auth.signInWithPassword({ email: 'cliente@example.test', password: 42 });
+`);
+    expect(
+      invalid.service.getSemanticDiagnostics(invalid.fileName).map(({ code }) => code),
+    ).toEqual(expect.arrayContaining([2322]));
+    const unsupportedPrivateImport =
+      createLanguageService(`import { RestGoTransport } from '@webrad/restgo-sdk/transport';
+void RestGoTransport;
+`);
+    expect(
+      unsupportedPrivateImport.service
+        .getSemanticDiagnostics(unsupportedPrivateImport.fileName)
+        .map(({ code }) => code),
+    ).toContain(2307);
+    const unsupportedPrivateExport =
+      createLanguageService(`import { RestGoTransport } from '@webrad/restgo-sdk';
+void RestGoTransport;
+`);
+    expect(
+      unsupportedPrivateExport.service
+        .getSemanticDiagnostics(unsupportedPrivateExport.fileName)
+        .map(({ code }) => code),
+    ).toContain(2459);
+    const invalidStorage = createLanguageService(`import { createClient } from '@webrad/restgo-sdk';
+createClient('https://restgo.example.test', { sessionStorage: 'browser' });
+`);
+    expect(
+      invalidStorage.service
+        .getSemanticDiagnostics(invalidStorage.fileName)
+        .map(({ code }) => code),
+    ).toContain(2322);
+  });
+
   it('offers component, page, API client, and collection completions', () => {
     const marked = extractMarkers(`import {
   WebApiClient,

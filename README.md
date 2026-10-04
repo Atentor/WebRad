@@ -36,6 +36,14 @@ O workspace segue a organização visual do designer do Bubble: barra superior c
 
 Os componentes não visuais continuam disponíveis na bandeja abaixo do canvas. A organização do workspace preserva o modelo versionado do projeto, os IDs dos componentes e o histórico de comandos.
 
+## Integração nativa com RestGO
+
+Em **Project Settings > Authentication and JWT** ou **APIs and integrations**, ative o RestGO e configure a URL da instância, a versão da API, o banco padrão e a persistência da sessão. A configuração é salva no arquivo do projeto e aplicada ao Preview e à aplicação web gerada.
+
+O SDK TypeScript `@webrad/restgo-sdk` oferece autenticação de usuários, validação de sessão, recuperação de senha, confirmação de e-mail, avatar, Storage e chamadas aos endpoints dinâmicos publicados. O cliente nativo `RestGO` fica disponível nos eventos TypeScript, com tipos e autocompletar no editor. A aplicação gerada executa esse mesmo SDK diretamente no navegador.
+
+Consulte o [guia do SDK RestGO](docs/restgo-sdk.md) para exemplos e detalhes dos contratos. O SDK acompanha as rotas reais do RestGO: as sessões são validadas pelo servidor, o cadastro exige uma credencial autorizada e a expiração exige novo login. O RestGO atual não possui endpoint de refresh token.
+
 ## Validação
 
 ```sh

@@ -104,3 +104,13 @@ The editor's JetBrains Mono Light face is self-hosted from the pinned `@fontsour
 ## Cross-platform decisions
 
 Filesystem paths remain native inside Electron and are converted to URI/path forms at boundaries. Build logic is a Node API rather than shell scripts so Windows and Linux share behavior. Runtime and compiler output contain no Electron imports.
+
+## RestGO integration
+
+`packages/restgo-sdk` owns the browser-safe TypeScript client for the documented RestGO user authentication, Storage, and versioned dynamic API contracts. It depends on browser APIs rather than Electron, Node, React, or the Designer. It can also be imported independently through its public package export.
+
+The versioned Project Model owns `settings.restGo`, including the enable flag, instance base URL, API version, default database, and session persistence policy. The settings dialog edits one transactional draft and the normal project save persists that configuration to disk. User JWTs and transient request results are runtime state rather than project settings. Administrative credentials are not part of the native project configuration.
+
+The browser runtime owns the shared `RestGO` client. The compiler configures it from the validated model before constructing pages and starting the router, so page navigation shares one authentication state. Both the runtime import and the generated global resolve to the same client. Access while the integration is disabled fails with a clear configuration error.
+
+The compiler embeds SDK sources alongside runtime sources and bundles them into ordinary web applications. Monaco consumes declarations generated from the SDK TypeScript with the TypeScript compiler; authoring, standalone imports, Preview, and packaged compilation share the same public contract. The runtime source synchronization check also detects drift in SDK sources and declarations.

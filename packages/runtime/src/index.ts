@@ -7,4 +7,5 @@ export * from './page-router.js';
 export * from './globals.js';
 export * from './layout.js';
 export * from './render.js';
+export * from './restgo.js';
 export * from './visual.js';

@@ -37,6 +37,26 @@ The compiler emits this style into generated `assets/app.css`, and Preview uses 
 
 `settings.seo` stores optional search and social-sharing metadata: `canonicalUrl`, comma-separated `keywords`, `allowIndexing`, optional `socialTitle` and `socialDescription`, plus an optional portable `socialImage`. A social image contains its original `fileName`, PNG/JPEG `mediaType`, and base64 `dataUrl`; Project Settings accepts local PNG or JPEG images up to 5 MB and recommends 1200 Ã— 630 px. Preview embeds it directly, while a generated build emits it as `assets/images/social-share.png` or `assets/images/social-share.jpg`. Generated and Preview HTML emit the canonical URL, keywords, a `noindex, nofollow` directive when indexing is disabled, and Open Graph/Twitter card tags. Social title and description fall back to the application name and description; a social image selects the `summary_large_image` Twitter card. Existing valid v2 projects receive empty metadata with indexing enabled during parsing; the brief URL-based social-image field is discarded because it is not portable.
 
+## RestGO project settings
+
+`settings.restGo` stores the public native RestGO connection and session policy:
+
+```json
+{
+  "enabled": false,
+  "baseUrl": "",
+  "apiVersion": 1,
+  "defaultDatabase": "",
+  "persistSession": true,
+  "sessionStorage": "local",
+  "storageKey": "webrad-restgo-session"
+}
+```
+
+These are deterministic defaults for new projects and older valid version-2 aggregates/manifests that omit the additive setting. Partial legacy settings materialize missing fields; unknown fields and invalid values are rejected. `formatVersion` remains 2. Enabled integration requires an absolute HTTP(S) instance URL without credentials, query, fragment, or backslashes. A reverse-proxy path is allowed. `apiVersion` is a positive safe integer, `defaultDatabase` is optional and restricted to a portable slug, and `sessionStorage` is `local`, `session`, or `memory`.
+
+The manifest never includes user JWTs, administrative credentials, or SDK response data. The runtime persists only session credentials and expiry metadata in the selected browser storage, bound to the normalized RestGO instance URL. Restoration validates the credential against the server before exposing a user identity. Persisted credentials for another instance are never sent to the current server.
+
 ## Reusable visual components
 
 `reusableElements: ReusableElementModel[]` is stored inline in the manifest. A reusable element deliberately uses the same document shape as a page (`formatVersion`, immutable `id`, `name`, `caption`, dimensions, component nodes, and `rootComponentId`) so it can use the normal Designer, history, bounds, responsive-layout contract, events, and typed code-behind. It is nevertheless a definition, not a page: its root must be `WebPanel`, it has no route, page descriptor, or `.wrpage`. Its deterministic sources are `reusables/<Name>.generated.ts` and `reusables/<Name>.ts`; its document ID and portable name must be unique across both pages and reusable definitions.

@@ -5,10 +5,13 @@ import type { build as esbuildBuild, Loader, OnLoadResult, Plugin } from 'esbuil
 
 import { fromEsbuildMessage } from './diagnostics.js';
 import runtimeSourcesJson from './runtime-sources.json';
+import restGoSourcesJson from './restgo-sources.json';
 import type { CompileDiagnostic } from './types.js';
 
 const RUNTIME_NAMESPACE = 'webrad-runtime';
+const RESTGO_NAMESPACE = 'webrad-restgo';
 const runtimeSources: Readonly<Record<string, string>> = runtimeSourcesJson;
+const restGoSources: Readonly<Record<string, string>> = restGoSourcesJson;
 type EsbuildApi = { build: typeof esbuildBuild };
 
 export interface BundleOptions {
@@ -71,6 +74,10 @@ function virtualPlugin(options: BundleOptions): Plugin {
         namespace: RUNTIME_NAMESPACE,
         path: 'index.ts',
       }));
+      buildContext.onResolve({ filter: /^@webrad\/restgo-sdk$/ }, () => ({
+        namespace: RESTGO_NAMESPACE,
+        path: 'index.ts',
+      }));
       buildContext.onResolve({ filter: /.*/, namespace: RUNTIME_NAMESPACE }, (args) => {
         if (!args.path.startsWith('.')) return undefined;
         const candidate = runtimeCandidatePaths(args.importer, args.path).find(
@@ -79,6 +86,15 @@ function virtualPlugin(options: BundleOptions): Plugin {
         return candidate === undefined
           ? undefined
           : { path: candidate, namespace: RUNTIME_NAMESPACE };
+      });
+      buildContext.onResolve({ filter: /.*/, namespace: RESTGO_NAMESPACE }, (args) => {
+        if (!args.path.startsWith('.')) return undefined;
+        const candidate = runtimeCandidatePaths(args.importer, args.path).find(
+          (fileName) => restGoSources[fileName] !== undefined,
+        );
+        return candidate === undefined
+          ? undefined
+          : { path: candidate, namespace: RESTGO_NAMESPACE };
       });
       buildContext.onResolve({ filter: /.*/ }, (args) => {
         if (args.kind === 'entry-point') return { path: options.entryPath, namespace: 'webrad' };
@@ -98,6 +114,13 @@ function virtualPlugin(options: BundleOptions): Plugin {
         const contents = runtimeSources[args.path];
         if (contents === undefined) {
           return { errors: [{ text: `Unknown embedded runtime source: ${args.path}` }] };
+        }
+        return { contents, loader: loaderFor(args.path), resolveDir: '/' };
+      });
+      buildContext.onLoad({ filter: /.*/, namespace: RESTGO_NAMESPACE }, (args): OnLoadResult => {
+        const contents = restGoSources[args.path];
+        if (contents === undefined) {
+          return { errors: [{ text: `Unknown embedded RestGO source: ${args.path}` }] };
         }
         return { contents, loader: loaderFor(args.path), resolveDir: '/' };
       });

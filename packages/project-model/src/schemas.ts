@@ -53,6 +53,7 @@ import {
   type ProjectSocialImage,
   type ProjectSeoSettings,
   type ProjectSettings,
+  type RestGoProjectSettings,
   type ProjectScrollbarStyle,
   type ReusableElementModel,
   type StyleLengthValue,
@@ -289,6 +290,10 @@ function materializeProjectSettings(settings: Readonly<Record<string, unknown>>)
     scrollbar !== null && typeof scrollbar === 'object' && !Array.isArray(scrollbar)
       ? { ...DEFAULT_PROJECT_SCROLLBAR_STYLE, ...scrollbar }
       : scrollbar;
+  const restGo = settings.restGo;
+  const normalizedRestGo = isRecord(restGo)
+    ? { ...DEFAULT_PROJECT_SETTINGS.restGo, ...restGo }
+    : restGo;
   return {
     ...settings,
     ...(settings.environment === 'staging' ? { environment: 'production' } : {}),
@@ -299,6 +304,7 @@ function materializeProjectSettings(settings: Readonly<Record<string, unknown>>)
     ...(scrollbar !== null && typeof scrollbar === 'object' && !Array.isArray(scrollbar)
       ? { scrollbar: normalizedScrollbar }
       : {}),
+    ...(isRecord(restGo) ? { restGo: normalizedRestGo } : {}),
   };
 }
 
@@ -777,6 +783,59 @@ export const ProjectScrollbarStyleSchema: z.ZodType<ProjectScrollbarStyle> = z
   })
   .strict();
 
+const restGoBaseUrlSchema = z
+  .string()
+  .trim()
+  .max(2_048)
+  .refine((value) => {
+    if (value.length === 0) return true;
+    if (!/^https?:\/\//i.test(value) || /[\s\\?#]/.test(value)) return false;
+    try {
+      const url = new URL(value);
+      return (
+        (url.protocol === 'http:' || url.protocol === 'https:') &&
+        url.hostname.length > 0 &&
+        url.username.length === 0 &&
+        url.password.length === 0
+      );
+    } catch {
+      return false;
+    }
+  }, 'Enter an absolute HTTP(S) RestGO URL without credentials, a query, or a fragment.');
+
+export const RestGoProjectSettingsSchema: z.ZodType<RestGoProjectSettings> = z
+  .object({
+    enabled: z.boolean(),
+    baseUrl: restGoBaseUrlSchema,
+    apiVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+    defaultDatabase: z
+      .string()
+      .trim()
+      .max(128)
+      .regex(/^[A-Za-z0-9_-]*$/, 'Use a database slug containing letters, numbers, _ or -.'),
+    persistSession: z.boolean(),
+    sessionStorage: z.enum(['local', 'session', 'memory']),
+    storageKey: z
+      .string()
+      .trim()
+      .min(1, 'Enter a RestGO session storage key.')
+      .max(200)
+      .refine(
+        (value) => ![...value].some((character) => character.charCodeAt(0) < 32),
+        'The session storage key cannot contain control characters.',
+      ),
+  })
+  .strict()
+  .superRefine((settings, context) => {
+    if (settings.enabled && settings.baseUrl.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Enter the RestGO instance URL before enabling the integration.',
+        path: ['baseUrl'],
+      });
+    }
+  });
+
 export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   .object({
     applicationName: z.string().trim().min(1).max(120),
@@ -793,6 +852,7 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
     seo: ProjectSeoSettingsSchema,
     environment: z.enum(PROJECT_ENVIRONMENTS),
     environmentVariables: z.array(ProjectEnvironmentVariableSchema).max(100),
+    restGo: RestGoProjectSettingsSchema,
     scrollbar: ProjectScrollbarStyleSchema,
     gridSize: z.number().int().positive(),
     snapToGrid: z.boolean(),

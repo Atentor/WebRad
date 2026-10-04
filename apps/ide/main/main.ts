@@ -10,6 +10,7 @@ import { installApplicationMenu } from './menu';
 import { publishPreviewHtml, registerPreviewProtocol, revokePreview } from './preview-protocol';
 import { loadProjectFiles } from './project-files';
 import { installDirtyGuard, registerIpcHandlers } from './project-ipc';
+import { runRestGoBrowserSmoke, runRestGoSettingsSmoke } from './restgo-smoke';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -17,6 +18,7 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 let mainWindow: BrowserWindow | null = null;
 let mainWindowLifecycleStarted = false;
 const smokeMode = process.argv.includes('--webrad-smoke');
+if (smokeMode) app.disableHardwareAcceleration();
 const smokeAutoExit = process.argv.includes('--webrad-smoke-auto-exit');
 const smokeProjectArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-project='),
@@ -837,6 +839,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   smokeLog('renderer project open passed');
   await runDesignerWorkspaceSmoke(window);
 
+  await runRestGoSettingsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+
   const codeDispatched = (await window.webContents.executeJavaScript(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F12', bubbles: true, cancelable: true }))`,
     true,
@@ -916,6 +920,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     throw new Error(`Renderer F9 Preview interaction failed: ${JSON.stringify(interaction)}`);
   }
   smokeLog('renderer F9 preview passed: Olá Ada; Tailwind style applied');
+  await runRestGoBrowserSmoke(smokeLog);
   await captureDesignerSmokeScreenshot(window);
 }
 

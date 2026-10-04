@@ -12,10 +12,12 @@ import {
 } from '@webrad/language';
 
 import runtimeSources from './runtime-sources.json';
+import restGoSources from './restgo-sources.json';
 import type { CompileDiagnostic } from './types.js';
 
 export const VIRTUAL_ROOT = path.resolve(process.cwd(), '.webrad-compiler-virtual');
 export const RUNTIME_ENTRY_PATH = virtualAbsolutePath('__runtime/index.ts');
+export const RESTGO_ENTRY_PATH = virtualAbsolutePath('__restgo/index.ts');
 
 export interface VirtualSourceGraph {
   readonly sources: ReadonlyMap<string, string>;
@@ -47,6 +49,23 @@ export function virtualAbsolutePath(portablePath: string): string {
   return path.resolve(VIRTUAL_ROOT, ...portablePath.split('/'));
 }
 
+function isReservedSourcePath(sourcePath: string): boolean {
+  const normalized = sourcePath.toLocaleLowerCase();
+  return (
+    normalized === '__runtime' ||
+    normalized.startsWith('__runtime/') ||
+    normalized === '__restgo' ||
+    normalized.startsWith('__restgo/') ||
+    [
+      'entry.ts',
+      'app.css',
+      'webrad-globals.d.ts',
+      'webrad-environment.d.ts',
+      'styles.d.ts',
+    ].includes(normalized)
+  );
+}
+
 function pageSourcePath(page: PageModel): string {
   return `pages/${page.name}.ts`;
 }
@@ -67,12 +86,15 @@ function createGlobalTypings(): string {
   return `import type {
   Confirm as RuntimeConfirm,
   Message as RuntimeMessage,
+  Navigate as RuntimeNavigate,
+  RestGO as RuntimeRestGO,
 } from '@webrad/runtime';
 
 declare global {
   const Message: typeof RuntimeMessage;
   const Confirm: typeof RuntimeConfirm;
   const Navigate: typeof RuntimeNavigate;
+  const RestGO: typeof RuntimeRestGO;
 }
 
 export {};
@@ -162,8 +184,10 @@ function createEntrySource(project: WebRadProject, registry: ComponentRegistry):
   );
   return `import {
   Confirm,
+  configureRestGo,
   Message,
   Navigate as RuntimeNavigate,
+  RestGO,
   WebPageRouter,
 } from '@webrad/runtime';
 import type {
@@ -204,12 +228,13 @@ const routes: readonly RuntimePageRoute[] = [
 ${routes}
 ];
 const Env = Object.freeze(${JSON.stringify(environmentValues)});
+configureRestGo(${JSON.stringify(project.settings.restGo)});
 const router = new WebPageRouter(routes, document.body);
 const Navigate = (destination: string | URL, options: NavigateOptions = {}): void => {
   router.navigateBrowser(destination, options);
 };
 
-Object.assign(globalThis, { Confirm, Message, Navigate, Env });
+Object.assign(globalThis, { Confirm, Message, Navigate, Env, RestGO });
 router.start(${JSON.stringify(entryPage.id)});
 `;
 }
@@ -226,6 +251,9 @@ export function createVirtualSourceGraph(
   for (const [fileName, contents] of Object.entries(runtimeSources)) {
     sources.set(virtualAbsolutePath(`__runtime/${fileName}`), contents);
   }
+  for (const [fileName, contents] of Object.entries(restGoSources)) {
+    sources.set(virtualAbsolutePath(`__restgo/${fileName}`), contents);
+  }
 
   for (const [sourcePath, contents] of Object.entries(userSources)) {
     const normalized = normalizeUserSourcePath(sourcePath);
@@ -234,6 +262,15 @@ export function createVirtualSourceGraph(
         category: 'error',
         source: 'compiler',
         message: `User source path "${sourcePath}" is not a safe relative path.`,
+        file: sourcePath,
+      });
+      continue;
+    }
+    if (isReservedSourcePath(normalized)) {
+      diagnostics.push({
+        category: 'error',
+        source: 'compiler',
+        message: `User source path "${sourcePath}" is reserved for generated application or embedded library files.`,
         file: sourcePath,
       });
       continue;

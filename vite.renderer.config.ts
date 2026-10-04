@@ -11,6 +11,7 @@ const workspacePackages = [
   '@webrad/designer',
   '@webrad/language',
   '@webrad/project-model',
+  '@webrad/restgo-sdk',
   '@webrad/runtime',
 ] as const;
 

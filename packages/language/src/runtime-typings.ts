@@ -1,8 +1,26 @@
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 
+import restGoTypings from './restgo-typings.generated.json';
+
 const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'`).join('\n');
 
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
+  export interface RestGoRuntimeConfiguration {
+    readonly enabled: boolean;
+    readonly baseUrl: string;
+    readonly apiVersion: number;
+    readonly defaultDatabase: string;
+    readonly persistSession: boolean;
+    readonly sessionStorage: 'local' | 'session' | 'memory';
+    readonly storageKey: string;
+  }
+  export class RestGoNotConfiguredError extends Error {
+    constructor();
+  }
+  export function configureRestGo(configuration: RestGoRuntimeConfiguration): import('@webrad/restgo-sdk').RestGoClient | null;
+  export function getRestGoClient(): import('@webrad/restgo-sdk').RestGoClient;
+  export const RestGO: import('@webrad/restgo-sdk').RestGoClient;
+
   /** Handler used by every WebRAD component event. */
   export type WebComponentEventHandler<TSender = WebComponent> = (
     sender: TSender,
@@ -797,11 +815,15 @@ declare const Message: typeof import('@webrad/runtime').Message;
 declare const Confirm: typeof import('@webrad/runtime').Confirm;
 /** Globally available WebRAD navigation helper. */
 declare const Navigate: typeof import('@webrad/runtime').Navigate;
+/** The RestGO client configured in Project Settings, shared by all pages. */
+declare const RestGO: import('@webrad/restgo-sdk').RestGoClient;
 `;
+
+const COMPLETE_RUNTIME_TYPINGS = `${RUNTIME_TYPINGS}\n${restGoTypings}`;
 
 /** Ambient declarations suitable for Monaco's `addExtraLib`. */
 export function generateRuntimeTypings(): string {
-  return RUNTIME_TYPINGS;
+  return COMPLETE_RUNTIME_TYPINGS;
 }
 
-export const runtimeTypings = RUNTIME_TYPINGS;
+export const runtimeTypings = COMPLETE_RUNTIME_TYPINGS;

@@ -391,6 +391,21 @@ export interface ProjectScrollbarStyle {
   readonly cornerColor: string;
 }
 
+/** Public browser configuration for the native RestGO client. Never contains credentials. */
+export interface RestGoProjectSettings {
+  readonly enabled: boolean;
+  /** Instance URL, including an optional reverse-proxy base path. */
+  readonly baseUrl: string;
+  readonly apiVersion: number;
+  /** Optional database slug used when invoking a published dynamic endpoint. */
+  readonly defaultDatabase: string;
+  /** Whether the SDK may keep the user's session between client instances. */
+  readonly persistSession: boolean;
+  readonly sessionStorage: 'local' | 'session' | 'memory';
+  /** Browser storage namespace. JWT validity and expiration are controlled by RestGO. */
+  readonly storageKey: string;
+}
+
 export interface ProjectSettings {
   /** Human-facing application title. It may differ from the project file name. */
   readonly applicationName: string;
@@ -408,6 +423,8 @@ export interface ProjectSettings {
   readonly environment: ProjectEnvironment;
   /** Browser-visible variables, each with one value per environment. */
   readonly environmentVariables: readonly ProjectEnvironmentVariable[];
+  /** Native integration used by Preview and generated browser applications. */
+  readonly restGo: RestGoProjectSettings;
   /** The global scrollbar appearance used by Preview and generated browser output. */
   readonly scrollbar: ProjectScrollbarStyle;
   readonly gridSize: number;
@@ -489,6 +506,16 @@ export const DEFAULT_PROJECT_SCROLLBAR_STYLE: Readonly<ProjectScrollbarStyle> = 
   cornerColor: '#f8fafc',
 });
 
+export const DEFAULT_REST_GO_PROJECT_SETTINGS: Readonly<RestGoProjectSettings> = Object.freeze({
+  enabled: false,
+  baseUrl: '',
+  apiVersion: 1,
+  defaultDatabase: '',
+  persistSession: true,
+  sessionStorage: 'local',
+  storageKey: 'webrad-restgo-session',
+});
+
 export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze({
   applicationName: 'WebRAD Application',
   applicationDescription: '',
@@ -498,6 +525,7 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   seo: DEFAULT_PROJECT_SEO_SETTINGS,
   environment: 'development',
   environmentVariables: [],
+  restGo: DEFAULT_REST_GO_PROJECT_SETTINGS,
   scrollbar: DEFAULT_PROJECT_SCROLLBAR_STYLE,
   gridSize: 8,
   snapToGrid: true,
