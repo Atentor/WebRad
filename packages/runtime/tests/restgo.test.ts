@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   configureRestGo,
@@ -41,8 +41,10 @@ describe('native RestGO project client', () => {
 
   it('reconfigures the stable facade without retaining the previous services', () => {
     const firstClient = configureRestGo(configuration);
+    const dispose = vi.spyOn(firstClient!, 'dispose');
     const nextClient = configureRestGo({ ...configuration, baseUrl: 'https://next.example.test' });
     expect(nextClient).not.toBe(firstClient);
+    expect(dispose).toHaveBeenCalledOnce();
     expect(RestGO.auth).toBe(nextClient?.auth);
     expect(RestGO.storage).not.toBe(firstClient?.storage);
   });

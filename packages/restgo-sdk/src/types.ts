@@ -2,6 +2,8 @@ export type RestGoSessionStorage = 'local' | 'session' | 'memory';
 
 export interface RestGoClientOptions {
   persistSession?: boolean;
+  /** Renew before JWT expiry and retry a rejected session request once. Defaults to true. */
+  autoRefreshToken?: boolean;
   sessionStorage?: RestGoSessionStorage;
   storageKey?: string;
   apiVersion?: number;
@@ -28,13 +30,21 @@ export interface RestGoManagedUser extends Omit<RestGoUser, 'avatarUrl'> {
 
 export interface RestGoSession {
   token: string;
-  /** Display metadata only. GET /auth/session remains the authority. */
+  /** Used to schedule renewal; the server remains the authority on session validity. */
   expiresAt: string;
+  /** Both refresh fields are absent for legacy JWT-only sessions. */
+  refreshToken?: string;
+  refreshExpiresAt?: string;
   user: RestGoUser;
 }
 
 export type RestGoAuthEvent =
-  'INITIAL_SESSION' | 'SIGNED_IN' | 'SIGNED_OUT' | 'SESSION_VALIDATED' | 'USER_UPDATED';
+  | 'INITIAL_SESSION'
+  | 'SIGNED_IN'
+  | 'SIGNED_OUT'
+  | 'SESSION_VALIDATED'
+  | 'TOKEN_REFRESHED'
+  | 'USER_UPDATED';
 
 export interface RestGoSignInInput {
   email: string;

@@ -24,7 +24,12 @@ export class RestGoTransport {
   readonly apiToken: string | undefined;
   private readonly fetcher: typeof fetch;
   session: () => RestGoSession | null = () => null;
-  unauthorized: (token: string, authoritative: boolean) => Promise<void> = async () => {};
+  sessionVersion: () => number = () => 0;
+  prepareSession: () => Promise<RestGoResult<null>> = async () => success(null);
+  unauthorized: (
+    token: string,
+    authoritative: boolean,
+  ) => Promise<RestGoResult<RestGoSession | null>> = async () => success(null);
 
   constructor(baseUrl: string, options: RestGoClientOptions) {
     if (/[\\?#]/.test(baseUrl)) {
@@ -64,8 +69,19 @@ export class RestGoTransport {
 
   async request<T>(path: string, options: TransportRequest = {}): Promise<RestGoResult<T>> {
     let usedSessionToken: string | undefined;
+    let usedSessionVersion: number | undefined;
     try {
+      if (options.signal?.aborted) return failure('RestGo request was aborted.', 'ABORTED');
       const mode = options.auth ?? 'auto';
+      const headers = new Headers(options.headers);
+      if (headers.has('Authorization')) {
+        return failure('Use the auth option to choose credentials.', 'INVALID_ARGUMENT');
+      }
+      if (!options.token && (mode === 'session' || (mode === 'auto' && this.session()))) {
+        const prepared = await this.prepareSession();
+        if (prepared.error) return prepared;
+        if (options.signal?.aborted) return failure('RestGo request was aborted.', 'ABORTED');
+      }
       const session = this.session();
       let credential: string | undefined;
       if (options.token) {
@@ -80,11 +96,8 @@ export class RestGoTransport {
           return failure('An active API token is required.', 'API_TOKEN_REQUIRED', 401);
         credential = this.apiToken;
       }
-      const headers = new Headers(options.headers);
-      if (headers.has('Authorization')) {
-        return failure('Use the auth option to choose credentials.', 'INVALID_ARGUMENT');
-      }
       if (credential) headers.set('Authorization', credential);
+      if (usedSessionToken) usedSessionVersion = this.sessionVersion();
       let body: BodyInit | undefined;
       if (options.body instanceof FormData || options.body instanceof Blob) {
         body = options.body;
@@ -110,13 +123,50 @@ export class RestGoTransport {
           details = undefined;
         }
         if (response.status === 401 && usedSessionToken && !options.skipUnauthorized) {
-          await this.unauthorized(usedSessionToken, options.sessionAuthority ?? false);
+          if (options.signal?.aborted) return failure('RestGo request was aborted.', 'ABORTED');
+          if (usedSessionVersion !== this.sessionVersion())
+            return failure(
+              'The session changed while the request was in flight.',
+              'AUTH_OPERATION_CANCELLED',
+            );
+          const renewed = await this.unauthorized(
+            usedSessionToken,
+            options.sessionAuthority ?? false,
+          );
+          if (usedSessionVersion !== this.sessionVersion())
+            return failure(
+              'The session changed while the request was in flight.',
+              'AUTH_OPERATION_CANCELLED',
+            );
+          if (renewed.error) return renewed;
+          if (renewed.data && renewed.data.token !== usedSessionToken) {
+            return this.request<T>(path, {
+              ...options,
+              token: renewed.data.token,
+              skipUnauthorized: true,
+            });
+          }
         }
         const message =
           isRecord(details) && typeof details.error === 'string'
             ? details.error
             : `RestGo request failed (${response.status}).`;
-        return failure(message, 'HTTP_ERROR', response.status, details);
+        const retryAfter = response.headers.get('Retry-After');
+        const seconds = retryAfter === null ? NaN : Number(retryAfter);
+        const retryAfterMs =
+          retryAfter === null
+            ? undefined
+            : Math.max(
+                0,
+                Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retryAfter) - Date.now(),
+              );
+        return failure(
+          message,
+          'HTTP_ERROR',
+          response.status,
+          details,
+          retryAfterMs !== undefined && Number.isFinite(retryAfterMs) ? retryAfterMs : undefined,
+        );
       }
       if (options.responseType === 'blob') return success((await response.blob()) as T);
       if (response.status === 204 || options.method === 'HEAD') return success(null as T);

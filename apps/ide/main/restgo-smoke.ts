@@ -163,6 +163,11 @@ export async function runRestGoSettingsSmoke(
 export async function runRestGoBrowserSmoke(log: (message: string) => void): Promise<void> {
   const calls: string[] = [];
   let revoked = false;
+  let rotation = 0;
+  let accessExpired = false;
+  let forcedExpiry = false;
+  const token = (): string => `smoke-user-jwt-${String(rotation)}`;
+  const refreshToken = (): string => `rgr_${String(rotation).padStart(43, '0')}`;
   const user = {
     id: '00000000-0000-4000-8000-000000000001',
     email: 'cliente@example.test',
@@ -172,6 +177,13 @@ export async function runRestGoBrowserSmoke(log: (message: string) => void): Pro
     emailConfirmed: true,
   };
   const fileId = '00000000-0000-4000-8000-000000000002';
+  const session = () => ({
+    token: token(),
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    refreshToken: refreshToken(),
+    refreshExpiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(),
+    user,
+  });
   const file = {
     id: fileId,
     ownerId: user.id,
@@ -206,16 +218,40 @@ export async function runRestGoBrowserSmoke(log: (message: string) => void): Pro
         response.writeHead(401).end(JSON.stringify({ error: 'Invalid credentials' }));
         return;
       }
-      response.end(
-        JSON.stringify({
-          token: 'smoke-user-jwt',
-          expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-          user,
-        }),
-      );
+      revoked = false;
+      response.end(JSON.stringify(session()));
       return;
     }
-    if (request.headers.authorization !== 'Bearer smoke-user-jwt' || revoked) {
+    if (route === '/auth/refresh' && request.method === 'POST') {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array));
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
+      if (
+        request.headers.authorization !== undefined ||
+        body.refreshToken !== refreshToken() ||
+        revoked ||
+        Object.keys(body).length !== 1
+      ) {
+        response.writeHead(401).end(JSON.stringify({ error: 'Invalid or consumed refresh token' }));
+        return;
+      }
+      // Leave both browser processes enough time to contend for the same real Web Lock.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (body.refreshToken !== refreshToken()) {
+        response.writeHead(401).end(JSON.stringify({ error: 'Consumed refresh token' }));
+        return;
+      }
+      rotation++;
+      accessExpired = false;
+      user.fullName = `Cliente ${String(rotation)}`;
+      response.end(JSON.stringify(session()));
+      return;
+    }
+    if (route === '/v2/demo/list' && !forcedExpiry) {
+      forcedExpiry = true;
+      accessExpired = true;
+    }
+    if (request.headers.authorization !== `Bearer ${token()}` || revoked || accessExpired) {
       response.writeHead(401).end(JSON.stringify({ error: 'Invalid session' }));
       return;
     }
@@ -263,6 +299,7 @@ export async function runRestGoBrowserSmoke(log: (message: string) => void): Pro
   const baseUrl = `http://127.0.0.1:${String(address.port)}`;
   const ownerId = -2;
   let window: BrowserWindow | null = null;
+  let otherWindow: BrowserWindow | null = null;
   try {
     const project = createProject('RestGoSmoke', {
       settings: {
@@ -284,6 +321,7 @@ export class PageMain extends PageMainGenerated {
   public constructor(element: HTMLElement) {
     super(element);
     const standalone = createClient(${JSON.stringify(baseUrl)}, { persistSession: false });
+    (globalThis as unknown as { createRestGoSmokeClient: typeof createClient }).createRestGoSmokeClient = createClient;
     this.element.dataset.restgoIdentity = String(
       RestGO.auth === getRestGoClient().auth && typeof standalone.auth.signInWithPassword === 'function'
     );
@@ -301,13 +339,17 @@ export class PageMain extends PageMainGenerated {
       webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
     });
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    await window.loadURL(publishPreviewHtml(ownerId, result.previewHtml));
+    const previewUrl = publishPreviewHtml(ownerId, result.previewHtml);
+    await window.loadURL(previewUrl);
     const evidence: unknown = await window.webContents.executeJavaScript(
       `(async () => {
         const check = (result) => { if (result.error) throw new Error(result.error.message); return result.data; };
         if (document.querySelector('[data-restgo-identity="true"]') === null) throw new Error('Native client identity failed');
         const session = check(await RestGO.auth.signInWithPassword({ email: 'cliente@example.test', password: 'senha-de-teste' }));
         if (session.user.email !== 'cliente@example.test') throw new Error('Sign in user mismatch');
+        if (!session.refreshToken || !session.refreshExpiresAt) throw new Error('Missing refresh pair');
+        const events = [];
+        const subscription = RestGO.auth.onAuthStateChange((event) => events.push(event));
         const validated = check(await RestGO.auth.getSession());
         if (validated.user.id !== session.user.id) throw new Error('Server validation mismatch');
         const file = check(await RestGO.storage.upload(new Blob(['Olá RestGO'], { type: 'text/plain' }), { name: 'documento.txt', isPublic: true }));
@@ -317,10 +359,17 @@ export class PageMain extends PageMainGenerated {
         if (await downloaded.text() !== 'Olá RestGO') throw new Error('Download content mismatch');
         const rows = check(await RestGO.api.from('demo').endpoint('list').get());
         if (rows[0].id !== 42) throw new Error('Versioned endpoint mismatch');
+        const renewed = check(await RestGO.auth.refreshSession());
+        if (renewed.refreshToken === session.refreshToken || !events.includes('TOKEN_REFRESHED')) throw new Error('Rotation event mismatch');
+        const consumed = await fetch(${JSON.stringify(`${baseUrl}/auth/refresh`)}, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: session.refreshToken }),
+        });
+        if (consumed.status !== 401) throw new Error('Refresh token was reusable');
+        subscription.unsubscribe();
         check(await RestGO.storage.remove(file.id));
         check(await RestGO.auth.signOut());
         if (check(await RestGO.auth.getSession()) !== null) throw new Error('Sign out retained a session');
-        return { nativeIdentity: true, auth: true, multipart: true, download: true, dynamicApi: true, signedOut: true };
+        return { nativeIdentity: true, auth: true, refresh: true, multipart: true, download: true, dynamicApi: true, signedOut: true };
       })()`,
       true,
     );
@@ -334,6 +383,7 @@ export class PageMain extends PageMainGenerated {
     for (const call of [
       'POST /auth/token',
       'GET /auth/session',
+      'POST /auth/refresh',
       'POST /storage/files',
       `GET /storage/files/${fileId}/download`,
       'GET /v2/demo/list',
@@ -342,11 +392,68 @@ export class PageMain extends PageMainGenerated {
     ]) {
       if (!calls.includes(call)) throw new Error(`RestGO browser smoke omitted ${call}.`);
     }
+    if (calls.filter((call) => call === 'GET /v2/demo/list').length !== 2 || rotation !== 2)
+      throw new Error('RestGO browser smoke did not retry the expired request exactly once.');
+
+    otherWindow = new BrowserWindow({
+      show: false,
+      webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+    });
+    await otherWindow.loadURL(previewUrl);
+    const setup = `(async () => {
+      if (!navigator.locks) throw new Error('Preview has no Web Locks');
+      window.sharedRefreshClient = window.createRestGoSmokeClient(${JSON.stringify(baseUrl)}, { storageKey: 'webrad-smoke-refresh' });
+      await window.sharedRefreshClient.auth.ready;
+    })()`;
+    await window.webContents.executeJavaScript(
+      `localStorage.removeItem('webrad-smoke-refresh')`,
+      true,
+    );
+    await window.webContents.executeJavaScript(setup, true);
+    await window.webContents.executeJavaScript(
+      `(async () => {
+      const result = await window.sharedRefreshClient.auth.signInWithPassword({ email: 'cliente@example.test', password: 'senha-de-teste' });
+      if (result.error) throw result.error;
+    })()`,
+      true,
+    );
+    await otherWindow.webContents.executeJavaScript(setup, true);
+    const before = rotation;
+    const renew = `(async () => {
+      const result = await window.sharedRefreshClient.auth.refreshSession();
+      if (result.error) throw result.error;
+      return result.data.refreshToken;
+    })()`;
+    const pairs = await Promise.all([
+      window.webContents.executeJavaScript(renew, true),
+      otherWindow.webContents.executeJavaScript(renew, true),
+    ]);
+    if (rotation !== before + 1 || pairs[0] !== pairs[1])
+      throw new Error('Concurrent browser windows consumed the refresh token twice.');
+    await window.webContents.executeJavaScript(
+      `(async () => {
+      const result = await window.sharedRefreshClient.auth.signOut();
+      if (result.error) throw result.error;
+      window.sharedRefreshClient.dispose();
+    })()`,
+      true,
+    );
+    const remoteSession: unknown = await otherWindow.webContents.executeJavaScript(
+      `(async () => {
+      const result = await window.sharedRefreshClient.auth.getSession();
+      window.sharedRefreshClient.dispose();
+      return result.data;
+    })()`,
+      true,
+    );
+    if (remoteSession !== null)
+      throw new Error('Logout was not propagated to the other browser window.');
     log(
-      `renderer RestGO browser passed: real fetch against local HTTP contract fixture; ${JSON.stringify(evidence)}`,
+      `renderer RestGO browser passed: real fetch, automatic/manual rotation, single retry, Web Locks across two browser windows, shared logout; ${JSON.stringify(evidence)}`,
     );
   } finally {
     if (window !== null && !window.isDestroyed()) window.destroy();
+    if (otherWindow !== null && !otherWindow.isDestroyed()) otherWindow.destroy();
     revokePreview(ownerId);
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) =>

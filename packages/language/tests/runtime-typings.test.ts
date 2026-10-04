@@ -167,7 +167,7 @@ describe('Monaco runtime typings', () => {
 
   it('offers the native RestGO global and SDK imports with actual SDK method signatures', () => {
     const marked =
-      extractMarkers(`import { createClient, type RestGoSession } from '@webrad/restgo-sdk';
+      extractMarkers(`import { createClient, type RestGoSession, type RestGoAuthEvent } from '@webrad/restgo-sdk';
 import { RestGO as sharedClient } from '@webrad/runtime';
 const independentClient = createClient('https://restgo.example.test', { sessionStorage: 'memory' });
 RestGO./*@client*/auth;
@@ -175,12 +175,18 @@ RestGO.auth./*@auth*/signInWithPassword;
 RestGO.from('pessoas')./*@endpoint*/get;
 const subscription = RestGO.auth.onAuthStateChange((event, session) => {
   const current: RestGoSession | null = session;
+  const renewed: RestGoAuthEvent = 'TOKEN_REFRESHED';
+  const refresh: string | undefined = current?.refreshToken;
+  const expiry: string | undefined = current?.refreshExpiresAt;
+  void renewed; void refresh; void expiry;
   void event;
   void current;
 });
 subscription.unsubscribe();
 void RestGO.auth.signInWithPassword({ email: 'cliente@example.test', password: 'segredo' });
 void independentClient.auth.getSession();
+void independentClient.auth.refreshSession();
+independentClient.dispose();
 void sharedClient.storage;
 `);
     const { fileName, service } = createLanguageService(marked.text);
@@ -190,7 +196,13 @@ void sharedClient.storage;
       expect.arrayContaining(['auth', 'storage', 'api', 'from']),
     );
     expect(completionNames(service, fileName, marked.positions.get('auth') ?? 0)).toEqual(
-      expect.arrayContaining(['signInWithPassword', 'signUp', 'getSession', 'signOut']),
+      expect.arrayContaining([
+        'signInWithPassword',
+        'signUp',
+        'getSession',
+        'signOut',
+        'refreshSession',
+      ]),
     );
     expect(completionNames(service, fileName, marked.positions.get('endpoint') ?? 0)).toEqual(
       expect.arrayContaining(['get', 'post', 'put', 'patch', 'delete']),

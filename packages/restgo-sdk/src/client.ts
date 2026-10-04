@@ -21,6 +21,11 @@ export class RestGoClient {
   from<T = unknown>(endpoint: string, options: RestGoEndpointOptions = {}): RestGoEndpoint<T> {
     return this.api.endpoint<T>(endpoint, options);
   }
+
+  /** Release browser listeners and automatic renewal without logging the user out. */
+  dispose(): void {
+    this.auth.dispose();
+  }
 }
 
 export function createClient(baseUrl: string, options: RestGoClientOptions = {}): RestGoClient {

@@ -259,6 +259,7 @@ describe('RestGo authentication', () => {
     await client.auth.ready;
     await client.auth.signInWithPassword({ email: user.email, password: 'secret' });
     const storageRequest = client.storage.usage();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     const login = client.auth.signInWithPassword({ email: user.email, password: 'new-password' });
     rejectedStorage.resolve(json({ error: 'authentication required' }, 401));
     await storageRequest;

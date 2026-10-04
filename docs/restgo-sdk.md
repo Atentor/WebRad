@@ -48,23 +48,45 @@ subscription.unsubscribe();
 await RestGO.auth.signOut();
 ```
 
-`auth.ready` conclui a validação inicial das credenciais persistidas. `getSession()` consulta `GET /auth/session` e retorna a identidade atual do servidor, ou `null` quando não há sessão. `expiresAt` serve como metadado para a interface; não comprova que a sessão continua válida. Logout, alterações administrativas e reinício do RestGO podem revogar uma sessão antes desse horário.
+`auth.ready` conclui a validação inicial das credenciais persistidas, renovando primeiro um JWT expirado quando existe refresh token. `getSession()` consulta `GET /auth/session` e retorna a identidade atual do servidor, ou `null` quando não há sessão. `expiresAt` agenda a renovação, mas não comprova que a sessão continua válida. Logout, alterações administrativas, redefinição de senha e reinício do RestGO podem revogar uma sessão antes desse horário.
 
-O SDK normaliza os erros em `{ data, error }`. `error` contém `message`, `code`, `status` e detalhes quando disponíveis. Falhas de rede e respostas 5xx preservam a credencial para uma nova tentativa. Um 401 que invalida o JWT remove a sessão; falhas em login, chamadas públicas e chamadas com token de API não removem uma sessão válida. Em um endpoint dinâmico, um 401 usando JWT leva à revalidação da sessão, pois o endpoint pode exigir outra modalidade de credencial.
+O SDK normaliza os erros em `{ data, error }`. `error` contém `message`, `code`, `status`, detalhes e `retryAfterMs` quando disponíveis. Falhas de rede, 429 e respostas 5xx preservam a credencial para uma nova tentativa. Um 401 que invalida o JWT tenta renovar a sessão; um 401 no refresh remove a sessão. Falhas em login, chamadas públicas e chamadas com token de API não removem uma sessão válida. Em um endpoint dinâmico, um 401 usando JWT leva à revalidação da sessão, pois o endpoint pode exigir outra modalidade de credencial.
 
 A persistência guarda a credencial e seus metadados, vinculados à instância. A identidade restaurada vem da validação do servidor. O armazenamento em memória funciona quando a persistência está desativada ou o navegador bloqueia o acesso ao armazenamento.
 
+## Renovação da sessão
+
+Login e refresh retornam `token`, `expiresAt`, `refreshToken`, `refreshExpiresAt` e `user`. O SDK salva as quatro propriedades da credencial em um único registro e renova automaticamente antes da expiração do JWT. Também renova antes de uma chamada protegida com JWT expirado ou após uma rejeição autoritativa com 401. A chamada rejeitada pode ser repetida uma vez com o novo JWT, preservando JSON, multipart e download binário. Falhas de rede ou 5xx não provocam repetição de operações de escrita.
+
+```ts
+const { data: renewedSession, error } = await RestGO.auth.refreshSession();
+
+const subscription = RestGO.auth.onAuthStateChange((event, session) => {
+  if (event === 'TOKEN_REFRESHED' && session) {
+    // A identidade atual também vem do servidor durante a renovação.
+  }
+});
+```
+
+`POST /auth/refresh` recebe somente `{ refreshToken }` no corpo JSON, sem senha, JWT ou token administrativo. Cada renovação consome o refresh token anterior e fornece um novo. As chamadas concorrentes no mesmo cliente compartilham a renovação. Clientes e abas que usam armazenamento local com a mesma URL/chave são coordenados por Web Locks e releem a credencial depois de obter o lock.
+
+Armazenamento local compartilhado exige Web Locks em um contexto seguro, como HTTPS ou localhost. Sem essa API, a renovação retorna `REFRESH_LOCK_UNAVAILABLE` e preserva a sessão; escolha armazenamento da aba ou memória nesse ambiente. Se copiar um refresh token para outros processos ou contextos com armazenamento separado, coordene o uso externamente: o servidor não permite reutilização.
+
+Falhas de rede, 429 e 5xx usam intervalos de tentativa crescentes, de 1 até 60 segundos, respeitando um `Retry-After` maior. Um refresh expirado, consumido ou revogado retorna 401 e exige novo login. Se o servidor concluir a rotação e a resposta se perder, o token antigo já terá sido consumido. Sessões anteriores sem refresh continuam sendo validadas como antes; um novo login obtém o par completo. O RestGO mantém sessões e digests em memória, portanto um reinício do backend também exige novo login.
+
+`remember` continua sendo determinado pelo servidor, incluindo a validade do refresh token. Logout aguarda uma rotação em andamento e revoga a sessão atual. Em clientes independentes, `autoRefreshToken: false` permite controlar a renovação manualmente. `client.dispose()` encerra timers e listeners sem fazer logout; o runtime chama esse método ao substituir a conexão.
+
 ## Cadastro, recuperação, confirmação e avatar
 
-| Método                                                 | Contrato RestGO                                                                                |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `auth.signUp({ email, password, fullName?, active? })` | `POST /auth/users`; exige um token de API ativo configurado explicitamente e não inicia sessão |
-| `auth.setSession({ token, expiresAt })`                | Valida a credencial em `GET /auth/session` antes de adotar a sessão                            |
-| `auth.resetPasswordForEmail(email, { url? })`          | `POST /auth/password-reset/request`                                                            |
-| `auth.confirmPasswordReset({ token, password })`       | `POST /auth/password-reset/confirm`                                                            |
-| `auth.confirmEmail(token)`                             | `POST /auth/email-confirmation/confirm`                                                        |
-| `auth.uploadAvatar(blob, { name?, signal? })`          | `PUT /auth/avatar`, multipart com `file`                                                       |
-| `auth.deleteAvatar()`                                  | `DELETE /auth/avatar`                                                                          |
+| Método                                                                    | Contrato RestGO                                                                                 |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `auth.signUp({ email, password, fullName?, active? })`                    | `POST /auth/users`; exige um token de API ativo configurado explicitamente e não inicia sessão  |
+| `auth.setSession({ token, expiresAt, refreshToken?, refreshExpiresAt? })` | Valida em `GET /auth/session`; pode renovar um JWT expirado quando o par de refresh é informado |
+| `auth.resetPasswordForEmail(email, { url? })`                             | `POST /auth/password-reset/request`                                                             |
+| `auth.confirmPasswordReset({ token, password })`                          | `POST /auth/password-reset/confirm`                                                             |
+| `auth.confirmEmail(token)`                                                | `POST /auth/email-confirmation/confirm`                                                         |
+| `auth.uploadAvatar(blob, { name?, signal? })`                             | `PUT /auth/avatar`, multipart com `file`                                                        |
+| `auth.deleteAvatar()`                                                     | `DELETE /auth/avatar`                                                                           |
 
 O RestGO exige autorização para cadastrar usuários. O cliente nativo do projeto não armazena token administrativo nem token de API. Um serviço no servidor pode usar o SDK com `apiToken` para implementar um cadastro autorizado. Esse token concede os acessos configurados no RestGO e deve permanecer no servidor. A gestão administrativa de contas e o reenvio administrativo de confirmação continuam nas rotas administrativas do RestGO.
 
@@ -154,4 +176,4 @@ await restgo.auth.signInWithPassword({ email, password });
 
 O pacote é um workspace fonte TypeScript deste repositório, sem publicação automática no npm. O compilador do WebRAD resolve seu import diretamente e inclui o código na aplicação. As opções permitem injetar `fetch` para testes ou outros ambientes compatíveis.
 
-As chamadas são feitas diretamente pelo navegador. Configure no RestGO as origens, métodos e headers permitidos, incluindo `Authorization` e os headers de paginação utilizados. O SDK segue os recursos existentes: renovação automática por refresh token, OAuth, MFA, Realtime e consulta arbitrária a tabelas exigiriam novos contratos no backend.
+As chamadas são feitas diretamente pelo navegador. Configure no RestGO as origens, métodos e headers permitidos, incluindo `Authorization` e os headers de paginação utilizados. Exponha o header `Retry-After` no CORS quando utilizá-lo. OAuth, MFA, Realtime e consulta arbitrária a tabelas exigiriam novos contratos no backend.

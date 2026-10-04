@@ -129,8 +129,8 @@ export function RestGoSettingsSection({
           </label>
         </div>
         <p>
-          RestGO validates the JWT and controls expiration and revocation. RestGO has no refresh
-          token endpoint; an expired session requires signing in again.
+          RestGO validates the session and rotates refresh tokens. The SDK renews the JWT
+          automatically; an expired or revoked refresh token requires signing in again.
         </p>
       </fieldset>
       <div className="wr-project-settings-security-note" role="note">

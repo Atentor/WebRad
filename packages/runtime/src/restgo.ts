@@ -24,6 +24,7 @@ let projectClient: RestGoClient | null = null;
 
 /** Creates the one shared client before authored page lifecycle handlers run. */
 export function configureRestGo(configuration: RestGoRuntimeConfiguration): RestGoClient | null {
+  projectClient?.dispose();
   projectClient = configuration.enabled
     ? createClient(configuration.baseUrl, {
         apiVersion: configuration.apiVersion,

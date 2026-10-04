@@ -30,17 +30,23 @@ Cada operação retorna `{ data, error }`, discriminado por `error`. Falhas HTTP
 ## Autenticação
 
 - `auth.signInWithPassword({ email, password, remember? })` chama `POST /auth/token`.
-- `auth.ready` valida as credenciais persistidas ao criar o cliente. `auth.getSession()` e `auth.getUser()` consultam `GET /auth/session`. A data `expiresAt` é metadado; a sessão em memória do servidor determina sua validade.
-- `auth.setSession({ token, expiresAt })` valida a sessão no servidor antes de substituir a atual.
+- `auth.ready` valida as credenciais persistidas ao criar o cliente, renovando um JWT expirado quando existe refresh token. `auth.getSession()` e `auth.getUser()` consultam `GET /auth/session`. O servidor determina a validade da sessão.
+- `auth.refreshSession()` renova por `POST /auth/refresh`, enviando somente `{ refreshToken }` no JSON, sem header de autorização. A resposta substitui `token`, `expiresAt`, `refreshToken`, `refreshExpiresAt` e a identidade do usuário.
+- A renovação automática é habilitada por padrão: antes da expiração, antes de chamadas com JWT expirado e após uma rejeição autoritativa da sessão. Uma chamada protegida rejeitada com 401 pode ser repetida uma vez com o novo JWT. `autoRefreshToken: false` desativa esse comportamento, mantendo a renovação manual disponível.
+- `auth.setSession({ token, expiresAt, refreshToken?, refreshExpiresAt? })` valida a sessão no servidor antes de substituir a atual. As duas propriedades de refresh devem ser fornecidas juntas; um JWT expirado pode ser renovado durante a importação.
 - `auth.signOut()` revoga o JWT atual por `POST /auth/logout`. Falhas temporárias mantêm a sessão para permitir uma nova tentativa.
 - `auth.signUp({ email, password, fullName?, active? })` cria um usuário comum por `POST /auth/users`. Requer `apiToken` configurado explicitamente no cliente e retorna o usuário criado, sem login automático.
 - `auth.resetPasswordForEmail(email, { url? })`, `auth.confirmPasswordReset({ token, password })` e `auth.confirmEmail(token)` usam os endpoints públicos correspondentes.
 - `auth.uploadAvatar(blob, { name?, signal? })` e `auth.deleteAvatar()` usam `/auth/avatar`. A normalização da imagem acontece no RestGo.
-- `auth.onAuthStateChange((event, session) => {})` retorna `{ unsubscribe }`. Os eventos são `INITIAL_SESSION`, `SIGNED_IN`, `SIGNED_OUT`, `SESSION_VALIDATED` e `USER_UPDATED`.
+- `auth.onAuthStateChange((event, session) => {})` retorna `{ unsubscribe }`. Os eventos são `INITIAL_SESSION`, `SIGNED_IN`, `SIGNED_OUT`, `SESSION_VALIDATED`, `TOKEN_REFRESHED` e `USER_UPDATED`.
 
 As opções `persistSession`, `sessionStorage: 'local' | 'session' | 'memory'` e `storageKey` controlam a persistência opcional dos tokens. Cada registro fica vinculado à URL normalizada do servidor. Dados antigos sem essa identificação e credenciais de outro servidor nunca são enviados. Indisponibilidade do armazenamento permite continuar em memória. Erros de login público, tokens de API inválidos e falhas de rede não encerram uma sessão válida.
 
-O RestGo atual não oferece refresh token, OAuth ou edição de perfil pelo próprio usuário. A gestão de usuários, tokens e reenvio de confirmação exige as APIs administrativas do servidor. O SDK de navegador não solicita nem configura a credencial master.
+Refresh tokens são de uso único. O SDK reúne chamadas simultâneas e usa Web Locks para coordenar clientes e abas com a mesma instância e chave de armazenamento local. Essa modalidade exige um contexto seguro com Web Locks, como HTTPS ou localhost; caso indisponível, retorna `REFRESH_LOCK_UNAVAILABLE` sem consumir o token. Use armazenamento da aba ou memória nesses ambientes. Copiar manualmente o mesmo refresh token para contextos sem armazenamento compartilhado exige coordenação externa.
+
+401 no refresh encerra a sessão. Falhas de rede, 429 e 5xx preservam as credenciais, com tentativas automáticas em intervalos crescentes e respeito a `Retry-After` (`error.retryAfterMs`). Uma resposta perdida após a rotação pode exigir novo login na próxima tentativa. Sessões antigas sem refresh continuam funcionando até serem rejeitadas pelo servidor; faça novo login para obter o par completo. `client.dispose()` interrompe timers e listeners sem revogar a sessão.
+
+OAuth e edição de perfil pelo próprio usuário não fazem parte desses contratos. A gestão de usuários, tokens e reenvio de confirmação exige as APIs administrativas do servidor. O SDK de navegador não solicita nem configura a credencial master.
 
 ## Storage
 

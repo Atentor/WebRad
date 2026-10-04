@@ -42,7 +42,7 @@ Em **Project Settings > Authentication and JWT** ou **APIs and integrations**, a
 
 O SDK TypeScript `@webrad/restgo-sdk` oferece autenticação de usuários, validação de sessão, recuperação de senha, confirmação de e-mail, avatar, Storage e chamadas aos endpoints dinâmicos publicados. O cliente nativo `RestGO` fica disponível nos eventos TypeScript, com tipos e autocompletar no editor. A aplicação gerada executa esse mesmo SDK diretamente no navegador.
 
-Consulte o [guia do SDK RestGO](docs/restgo-sdk.md) para exemplos e detalhes dos contratos. O SDK acompanha as rotas reais do RestGO: as sessões são validadas pelo servidor, o cadastro exige uma credencial autorizada e a expiração exige novo login. O RestGO atual não possui endpoint de refresh token.
+Consulte o [guia do SDK RestGO](docs/restgo-sdk.md) para exemplos e detalhes dos contratos. O SDK renova o JWT automaticamente por `POST /auth/refresh`, persiste o par de credenciais rotacionado e coordena renovações simultâneas. Novo login é necessário quando o refresh token expira ou é revogado. As sessões continuam sendo validadas pelo servidor e o cadastro exige uma credencial autorizada.
 
 ## Validação
 

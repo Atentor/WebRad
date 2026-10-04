@@ -6,19 +6,28 @@ export type RestGoErrorCode =
   | 'INVALID_ARGUMENT'
   | 'AUTH_REQUIRED'
   | 'API_TOKEN_REQUIRED'
+  | 'REFRESH_LOCK_UNAVAILABLE'
   | 'AUTH_OPERATION_CANCELLED';
 
 export class RestGoError extends Error {
   readonly status: number;
   readonly code: RestGoErrorCode;
   readonly details: unknown;
+  readonly retryAfterMs: number | undefined;
 
-  constructor(message: string, code: RestGoErrorCode, status = 0, details?: unknown) {
+  constructor(
+    message: string,
+    code: RestGoErrorCode,
+    status = 0,
+    details?: unknown,
+    retryAfterMs?: number,
+  ) {
     super(message);
     this.name = 'RestGoError';
     this.code = code;
     this.status = status;
     this.details = details;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -33,8 +42,9 @@ export function failure(
   code: RestGoErrorCode,
   status = 0,
   details?: unknown,
+  retryAfterMs?: number,
 ): { data: null; error: RestGoError } {
-  return { data: null, error: new RestGoError(message, code, status, details) };
+  return { data: null, error: new RestGoError(message, code, status, details, retryAfterMs) };
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

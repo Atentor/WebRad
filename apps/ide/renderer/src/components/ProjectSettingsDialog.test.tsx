@@ -32,7 +32,7 @@ describe('ProjectSettingsDialog', () => {
     expect(screen.getByRole('button', { name: 'Save changes' }).hasAttribute('disabled')).toBe(
       true,
     );
-    expect(screen.getByText(/no refresh token endpoint/i)).toBeDefined();
+    expect(screen.getByText(/SDK renews the JWT automatically/i)).toBeDefined();
     await user.click(screen.getByRole('checkbox', { name: 'Enable native RestGO integration' }));
     await user.type(
       screen.getByRole('textbox', { name: /^RestGO instance URL/ }),
