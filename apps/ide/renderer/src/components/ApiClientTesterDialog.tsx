@@ -1,3 +1,4 @@
+import { apiOperationPath } from '@webrad/runtime';
 import {
   API_CLIENT_BODY_KINDS,
   API_CLIENT_CREDENTIALS,
@@ -129,7 +130,7 @@ function createTestRequest(
   operation: ApiClientOperation,
 ): { readonly url: string; readonly init: RequestInit } {
   const url = appendEnabledParameters(
-    joinUrl(baseUrl.trim(), operation.path.trim()),
+    joinUrl(baseUrl.trim(), apiOperationPath(operation.path.trim(), operation.apiVersion)),
     operation.query,
   );
   if (url.length === 0)
@@ -659,7 +660,7 @@ export function ApiClientTesterDialog({
                     ref={baseUrlRef}
                     aria-label="Base URL"
                     value={baseUrl}
-                    placeholder="https://api.example.com/v1"
+                    placeholder="https://api.example.com"
                     spellCheck={false}
                     onChange={(event) => setBaseUrl(event.currentTarget.value)}
                   />
@@ -738,7 +739,7 @@ export function ApiClientTesterDialog({
                     </select>
                   </label>
                 </div>
-                <div className="wr-api-fields two-columns">
+                <div className="wr-api-fields three-columns">
                   <label>
                     <span>Path</span>
                     <input
@@ -751,6 +752,28 @@ export function ApiClientTesterDialog({
                         updateOperation(operation.id, (current) => ({ ...current, path }));
                       }}
                     />
+                  </label>
+                  <label>
+                    <span>Dynamic API version</span>
+                    <input
+                      aria-label="Dynamic API version"
+                      type="number"
+                      min={1}
+                      max={Number.MAX_SAFE_INTEGER}
+                      step={1}
+                      placeholder="Use path as entered"
+                      value={operation.apiVersion ?? ''}
+                      onChange={(event) => {
+                        const apiVersion =
+                          event.currentTarget.value === ''
+                            ? null
+                            : event.currentTarget.valueAsNumber;
+                        updateOperation(operation.id, (current) => ({ ...current, apiVersion }));
+                      }}
+                    />
+                    <small>
+                      Per request. Adds /v&#123;version&#125; before the database/endpoint path.
+                    </small>
                   </label>
                   <label>
                     <span>Operation timeout (ms)</span>

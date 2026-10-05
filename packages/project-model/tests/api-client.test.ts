@@ -1,5 +1,33 @@
 import { describe, expect, it } from 'vitest';
 
+it('persists per-request API versions and rejects invalid versions', () => {
+  const original = validConfiguration();
+  const operation = original.operations[0];
+  if (operation === undefined) throw new Error('Expected a request.');
+  const configuration = {
+    ...original,
+    operations: [
+      { ...operation, apiVersion: 2 },
+      { ...operation, id: 'other-request', name: 'OtherRequest', apiVersion: 3 },
+    ],
+  };
+  const page = deserializePage(serializePage(pageWithApiClientConfiguration(configuration)));
+  const client = page.components.find((component) => component.type === 'WebApiClient');
+  expect(
+    normalizeApiClientConfiguration(client?.props.apiClientConfig).operations.map(
+      (request) => request.apiVersion,
+    ),
+  ).toEqual([2, 3]);
+  for (const apiVersion of [0, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    expect(
+      ApiClientConfigurationSchema.safeParse({
+        ...configuration,
+        operations: [{ ...operation, apiVersion }],
+      }).success,
+    ).toBe(false);
+  }
+});
+
 import {
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,

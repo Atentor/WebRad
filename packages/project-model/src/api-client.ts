@@ -79,6 +79,8 @@ export interface ApiClientOperation {
   /** Relative path, or an absolute URL that overrides the client's base URL. */
   readonly path: string;
   readonly headers: readonly ApiClientParameter[];
+  /** RestGO version for this request; omitted/null preserves the literal path. */
+  readonly apiVersion?: number | null;
   readonly query: readonly ApiClientParameter[];
   readonly body: ApiClientRequestBody;
   readonly credentials: ApiClientCredentials;
@@ -226,6 +228,7 @@ export const ApiClientOperationSchema: z.ZodType<ApiClientOperation> = z
     name: operationNameSchema,
     method: operationMethodSchema,
     path: operationPathSchema,
+    apiVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).nullable().optional(),
     headers: z.array(ApiClientParameterSchema).max(200),
     query: z.array(ApiClientParameterSchema).max(200),
     body: ApiClientRequestBodySchema,

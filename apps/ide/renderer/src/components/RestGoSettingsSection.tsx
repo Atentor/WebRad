@@ -62,18 +62,6 @@ export function RestGoSettingsSection({
             </small>
           </label>
           <label className="wr-project-settings-field">
-            <span>Dynamic API version</span>
-            <input
-              type="number"
-              value={Number.isNaN(settings.apiVersion) ? '' : settings.apiVersion}
-              min={1}
-              max={Number.MAX_SAFE_INTEGER}
-              step={1}
-              onChange={(event) => onChange({ apiVersion: event.currentTarget.valueAsNumber })}
-            />
-            <small>Version of the endpoints published in RestGO.</small>
-          </label>
-          <label className="wr-project-settings-field">
             <span>Default database slug</span>
             <input
               type="text"
@@ -91,7 +79,8 @@ export function RestGoSettingsSection({
           <code>
             /v{'{version}'}/{'{database}'}/{'{endpoint}'}
           </code>
-          ; the server defines their methods and permissions.
+          ; choose the version separately for each request in API Client. The server defines their
+          methods and permissions.
         </p>
       </fieldset>
       <fieldset className="wr-project-settings-seo-options">

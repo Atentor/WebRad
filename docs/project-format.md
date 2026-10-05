@@ -39,6 +39,8 @@ The compiler emits this style into generated `assets/app.css`, and Preview uses 
 
 ## RestGO project settings
 
+The Project Settings dialog configures the instance and session, while **Dynamic API version** is selected per operation in API Client. Each saved operation may contain `apiVersion`, a positive safe integer or `null`. A selected version prefixes the relative database/endpoint path with `/v{version}` (replacing an existing leading version segment); omitted/null leaves the saved path unchanged. The browser tester and generated applications use the same path builder. Use an instance base URL without a version suffix. The historical `settings.restGo.apiVersion` remains readable and preserved for compatibility with authored SDK calls, but is no longer edited in Project Settings and does not control API Client operations. The additive operation field keeps format version 2 and API Client schema version 1 compatible.
+
 `settings.restGo` stores the public native RestGO connection and session policy:
 
 ```json

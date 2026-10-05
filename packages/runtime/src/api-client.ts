@@ -2,6 +2,20 @@ import { WebNonvisualComponent, type WebNonvisualComponentOptions } from './comp
 
 export type QueryValue = string | number | boolean | null | undefined;
 
+/** Shared by the browser tester and generated runtime for versioned requests. */
+export function apiOperationPath(path: string, version?: number | null): string {
+  if (version == null) return path;
+  if (!Number.isSafeInteger(version) || version < 1) {
+    throw new RangeError('API version must be a positive safe integer.');
+  }
+  const relative = path.trim();
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(relative) || relative.startsWith('//')) {
+    throw new TypeError('Use a relative path when selecting an API version.');
+  }
+  const endpoint = relative.replace(/^\/?v\d+(?=\/|\?|#|$)/u, '').replace(/^\//u, '');
+  return `/v${String(version)}/${endpoint}`;
+}
+
 export const WEB_API_RESPONSE_TYPES = ['auto', 'json', 'text', 'blob', 'arrayBuffer'] as const;
 export type WebApiResponseType = (typeof WEB_API_RESPONSE_TYPES)[number];
 
@@ -43,6 +57,7 @@ export interface WebApiOperation {
   readonly name: string;
   readonly method: string;
   readonly path: string;
+  readonly apiVersion?: number | null;
   readonly headers: readonly WebApiParameter[];
   readonly query: readonly WebApiParameter[];
   readonly body: WebApiRequestBody;
@@ -293,6 +308,13 @@ function normalizeOperation(value: unknown, index: number): WebApiOperation | nu
   if (!isRecord(value) || typeof value.name !== 'string' || typeof value.method !== 'string')
     return null;
   const credentials = value.credentials;
+  const apiVersion = value.apiVersion;
+  if (
+    apiVersion != null &&
+    (typeof apiVersion !== 'number' || !Number.isSafeInteger(apiVersion) || apiVersion < 1)
+  ) {
+    throw new RangeError('API version must be a positive safe integer.');
+  }
   return {
     id:
       typeof value.id === 'string' && value.id.length > 0
@@ -301,6 +323,7 @@ function normalizeOperation(value: unknown, index: number): WebApiOperation | nu
     name: value.name,
     method: value.method,
     path: typeof value.path === 'string' ? value.path : '',
+    apiVersion,
     headers: normalizeParameters(value.headers),
     query: normalizeParameters(value.query),
     body: normalizeBody(value.body),
@@ -623,8 +646,11 @@ export class WebApiClient<
     const body =
       options.body === undefined ? configuredBody(operation.body, headers) : options.body;
     const timeoutMs = options.timeoutMs ?? operation.timeoutMs ?? this.#configuration.timeoutMs;
-    const path = appendParameters(operation.path, operation.query);
     try {
+      const path = appendParameters(
+        apiOperationPath(operation.path, operation.apiVersion),
+        operation.query,
+      );
       const result = await this.request<T>(path, {
         ...options,
         method: options.method ?? operation.method,

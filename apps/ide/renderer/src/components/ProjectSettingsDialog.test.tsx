@@ -51,16 +51,14 @@ describe('ProjectSettingsDialog', () => {
     expect(
       (screen.getByRole('textbox', { name: /^RestGO instance URL/ }) as HTMLInputElement).value,
     ).toBe('https://api.example.test/restgo');
-    fireEvent.change(screen.getByRole('spinbutton', { name: /^Dynamic API version/ }), {
-      target: { value: '2' },
-    });
+    expect(screen.queryByRole('spinbutton', { name: /^Dynamic API version/ })).toBeNull();
     await user.type(screen.getByRole('textbox', { name: /^Default database slug/ }), 'clientes');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saved.restGo).toEqual({
       apiToken: 'rgo.portal-token',
       enabled: true,
       baseUrl: 'https://api.example.test/restgo',
-      apiVersion: 2,
+      apiVersion: 1,
       defaultDatabase: 'clientes',
       persistSession: true,
       sessionStorage: 'session',
@@ -122,7 +120,7 @@ describe('ProjectSettingsDialog', () => {
     expect(settings.restGo.apiToken).toBe('');
   });
 
-  it('rejects missing URLs, embedded credentials and invalid API versions before saving', async () => {
+  it('rejects missing URLs, embedded credentials and invalid database slugs before saving', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
     render(
@@ -143,8 +141,8 @@ describe('ProjectSettingsDialog', () => {
     expect(screen.getByRole('alert').textContent).toContain('without credentials');
     await user.clear(instanceUrl);
     await user.type(instanceUrl, 'https://api.example.test');
-    fireEvent.change(screen.getByRole('spinbutton', { name: /^Dynamic API version/ }), {
-      target: { value: '0' },
+    fireEvent.change(screen.getByRole('textbox', { name: /^Default database slug/ }), {
+      target: { value: 'invalid/slug' },
     });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(screen.getByRole('alert')).toBeDefined();

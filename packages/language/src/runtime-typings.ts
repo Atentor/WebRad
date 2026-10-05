@@ -482,6 +482,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly name: string;
     readonly method: string;
     readonly path: string;
+    readonly apiVersion?: number | null;
     readonly headers: readonly WebApiParameter[];
     readonly query: readonly WebApiParameter[];
     readonly body: WebApiRequestBody;
@@ -489,6 +490,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly timeoutMs: number | null;
     readonly responseSchema: WebApiResponseSchema | null;
   }
+
+  export function apiOperationPath(path: string, version?: number | null): string;
 
   export interface WebApiClientConfiguration {
     readonly schemaVersion: number;

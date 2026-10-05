@@ -1,5 +1,7 @@
 # WebRAD delivery plan
 
+- DONE: Move Dynamic API version from Project Settings into each API Client operation, sharing request path construction between the tester and generated runtime. Preserve legacy paths and SDK defaults. Strict typecheck, lint, all 550 tests, source/format checks, Windows packaging, and development Electron smoke pass; tests verify persistence and independent request versions.
+
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 | Milestone                               | Status | Scope                                                                                                                                                                                | Exit criteria                                                                                                                          |

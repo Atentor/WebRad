@@ -105,7 +105,7 @@ async function saveProject(window: BrowserWindow, projectPath: string): Promise<
         restGo !== null &&
         Reflect.get(restGo, 'enabled') === true &&
         Reflect.get(restGo, 'baseUrl') === 'https://restgo.example.test/backend' &&
-        Reflect.get(restGo, 'apiVersion') === 2 &&
+        Reflect.get(restGo, 'apiVersion') === 1 &&
         Reflect.get(restGo, 'defaultDatabase') === 'clientes' &&
         Reflect.get(restGo, 'sessionStorage') === 'memory' &&
         Reflect.get(restGo, 'apiToken') === 'rgo.settings-smoke'
@@ -131,7 +131,10 @@ export async function runRestGoSettingsSmoke(
   );
   await setField(window, 'RestGO instance URL', 'https://restgo.example.test/backend');
   await setField(window, 'Authorization token', 'rgo.settings-smoke');
-  await setField(window, 'Dynamic API version', '2');
+  await rendererReady(
+    window,
+    `!Array.from(document.querySelectorAll('.wr-project-settings-dialog label')).some((label) => label.textContent?.includes('Dynamic API version'))`,
+  );
   await setField(window, 'Default database slug', 'clientes');
   await setField(window, 'Session storage', 'memory');
   await rendererReady(
@@ -163,7 +166,7 @@ export async function runRestGoSettingsSmoke(
   if (
     configuration?.enabled !== true ||
     configuration.baseUrl !== 'https://restgo.example.test/backend' ||
-    configuration.apiVersion !== 2 ||
+    configuration.apiVersion !== 1 ||
     configuration.defaultDatabase !== 'clientes' ||
     configuration.sessionStorage !== 'memory' ||
     configuration.apiToken !== 'rgo.settings-smoke'

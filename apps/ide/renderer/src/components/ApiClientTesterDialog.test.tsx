@@ -5,7 +5,7 @@ import {
   createDefaultComponentLayout,
   type ComponentNode,
 } from '@webrad/project-model';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,6 +40,39 @@ async function configureAndSend(): Promise<ReturnType<typeof userEvent.setup>> {
 }
 
 describe('ApiClientTesterDialog', () => {
+  it('tests and saves an independent API version for each request', async () => {
+    const fetcher = vi.fn().mockImplementation(
+      async () =>
+        new Response('{}', {
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+    vi.stubGlobal('fetch', fetcher);
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ApiClientTesterDialog component={apiClientComponent} onClose={vi.fn()} onSave={onSave} />,
+    );
+    await user.type(screen.getByLabelText('Base URL'), 'https://api.example.test/restgo');
+    await user.type(screen.getByLabelText('Path'), '/database/items');
+    await user.type(screen.getByLabelText('Dynamic API version'), '2');
+    await user.click(screen.getByRole('button', { name: 'Send test request' }));
+    await screen.findByRole('region', { name: 'Response definitions' });
+    expect(fetcher.mock.calls[0]?.[0]).toBe('https://api.example.test/restgo/v2/database/items');
+    await user.click(
+      within(screen.getByRole('complementary', { name: 'API operations' })).getByRole('button', {
+        name: 'Add',
+      }),
+    );
+    expect((screen.getByLabelText('Dynamic API version') as HTMLInputElement).value).toBe('');
+    await user.type(screen.getByLabelText('Dynamic API version'), '3');
+    await user.click(screen.getByRole('button', { name: 'Save API Client' }));
+    expect(
+      onSave.mock.calls[0]?.[1]?.operations.map(
+        (operation: { apiVersion?: number }) => operation.apiVersion,
+      ),
+    ).toEqual([2, 3]);
+  });
   it('infers and saves a successful JSON response contract', async () => {
     vi.stubGlobal(
       'fetch',
