@@ -551,6 +551,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
         .filter((className) => className.length > 0)
         .join(' ');
       header.setAttribute('role', 'row');
+      header.setAttribute('aria-rowindex', '1');
       for (const [columnIndex, column] of configuration.columns.entries()) {
         const cell = appendGridCell(
           document,
@@ -570,12 +571,17 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
     body.className = 'wr-data-grid-body';
     body.setAttribute('role', 'rowgroup');
     const rows = this.#rows();
-    scroll.setAttribute('aria-rowcount', String(rows.length + (configuration.showHeader ? 1 : 0)));
+    const headerRowCount = configuration.showHeader ? 1 : 0;
+    const bodyRowCount = Math.max(1, rows.length);
+    scroll.setAttribute(
+      'aria-rowcount',
+      String(headerRowCount + bodyRowCount + (configuration.showFooter ? 1 : 0)),
+    );
     for (const [rowIndex, rowValue] of rows.entries()) {
       const row = document.createElement('div');
       row.className = 'wr-data-grid-row wr-data-grid-body-row';
       row.setAttribute('role', 'row');
-      row.setAttribute('aria-rowindex', String(rowIndex + (configuration.showHeader ? 2 : 1)));
+      row.setAttribute('aria-rowindex', String(rowIndex + headerRowCount + 1));
       for (const [columnIndex, column] of configuration.columns.entries()) {
         row.append(
           dataCell(document, column, rowValue, rowIndex, columnIndex, (value) => {
@@ -597,9 +603,12 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       const row = document.createElement('div');
       row.className = 'wr-data-grid-row wr-data-grid-body-row';
       row.setAttribute('role', 'row');
+      row.setAttribute('aria-rowindex', String(headerRowCount + 1));
       const cell = document.createElement('div');
       cell.className = 'wr-data-grid-cell wr-data-grid-empty';
       cell.setAttribute('role', 'gridcell');
+      cell.setAttribute('aria-colindex', '1');
+      cell.setAttribute('aria-colspan', String(configuration.columnCount));
       cell.style.gridColumn = `1 / span ${String(configuration.columnCount)}`;
       cell.textContent = configuration.emptyMessage;
       row.append(cell);
@@ -617,6 +626,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
         .filter((className) => className.length > 0)
         .join(' ');
       footer.setAttribute('role', 'row');
+      footer.setAttribute('aria-rowindex', String(headerRowCount + bodyRowCount + 1));
       for (const [columnIndex, column] of configuration.columns.entries()) {
         const cell = appendGridCell(
           document,

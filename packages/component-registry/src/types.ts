@@ -93,6 +93,12 @@ export interface RegisteredComponentLayout {
   readonly item: RegisteredLayoutItem;
 }
 
+/** Design-time shortcuts for the component's visual style editor. */
+export interface ComponentStyleEditorMetadata {
+  /** Frequently used property names, independent of the selected interaction state. */
+  readonly essentialProperties: readonly string[];
+}
+
 export interface ComponentDefinition {
   readonly type: string;
   readonly displayName: string;
@@ -102,6 +108,8 @@ export interface ComponentDefinition {
   readonly icon: string;
   /** Whether the component owns a browser DOM projection at runtime. */
   readonly visual: boolean;
+  /** Visual style shortcuts; the complete property catalog remains available. */
+  readonly styleEditor?: ComponentStyleEditorMetadata;
   /**
    * Optional Designer-only presentation. When omitted, DOM-owning components
    * appear on the canvas and DOM-less services appear in the nonvisual tray.

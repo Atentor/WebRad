@@ -12,6 +12,7 @@ import type {
   ComponentEventDefinition,
   ComponentPropertyDefinition,
   DefaultComponentBounds,
+  ComponentStyleEditorMetadata,
 } from './types.js';
 
 const standardCategory = 'Standard';
@@ -393,6 +394,124 @@ const popupBounds = { width: 360, height: 200 } as const;
 const dataGridBounds = { width: 640, height: 320 } as const;
 const reusableElementBounds = { width: 360, height: 240 } as const;
 
+const typographyStyleProperties = [
+  'textColor',
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'lineHeight',
+  'textAlign',
+] as const;
+
+const containerStyleEditor: ComponentStyleEditorMetadata = {
+  essentialProperties: [
+    ...typographyStyleProperties,
+    'backgroundColor',
+    'borderWidth',
+    'borderStyle',
+    'borderColor',
+    'borderRadius',
+    'boxShadow',
+  ],
+};
+
+const inputStyleEditor: ComponentStyleEditorMetadata = {
+  essentialProperties: [
+    ...containerStyleEditor.essentialProperties,
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'ringWidth',
+    'ringColor',
+  ],
+};
+
+const labelStyleEditor: ComponentStyleEditorMetadata = {
+  essentialProperties: [
+    ...typographyStyleProperties,
+    'fontStyle',
+    'letterSpacing',
+    'textTransform',
+    'textDecoration',
+    'whiteSpace',
+    'textGradient',
+    'backgroundColor',
+    'opacity',
+  ],
+};
+
+const buttonStyleEditor: ComponentStyleEditorMetadata = {
+  essentialProperties: [
+    ...containerStyleEditor.essentialProperties,
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'buttonContentMode',
+    'buttonIconPosition',
+    'buttonIconSize',
+    'buttonIconColor',
+    'cursor',
+  ],
+};
+
+const checkBoxStyleEditor: ComponentStyleEditorMetadata = {
+  essentialProperties: [
+    ...typographyStyleProperties,
+    'backgroundColor',
+    'borderWidth',
+    'borderStyle',
+    'borderColor',
+    'borderRadius',
+    'cursor',
+    'ringWidth',
+    'ringColor',
+  ],
+};
+
+const imageStyleEditor: ComponentStyleEditorMetadata = {
+  essentialProperties: [
+    'objectFit',
+    'objectPosition',
+    'backgroundColor',
+    'borderWidth',
+    'borderStyle',
+    'borderColor',
+    'borderRadius',
+    'boxShadow',
+    'opacity',
+    'cursor',
+  ],
+};
+
+const dataGridStyleEditor: ComponentStyleEditorMetadata = {
+  essentialProperties: [
+    'textColor',
+    'fontFamily',
+    'fontSize',
+    'fontWeight',
+    'backgroundColor',
+    'borderWidth',
+    'borderColor',
+    'borderRadius',
+    'boxShadow',
+    'dataGridHorizontalLineVisibility',
+    'dataGridHorizontalLineColor',
+    'dataGridVerticalLineVisibility',
+    'dataGridHeaderBackgroundColor',
+    'dataGridHeaderTextColor',
+    'dataGridHeaderFontWeight',
+    'dataGridFooterBackgroundColor',
+    'dataGridFooterTextColor',
+    'dataGridButtonContentMode',
+    'dataGridButtonBackgroundColor',
+    'dataGridButtonTextColor',
+    'dataGridCheckboxAccentColor',
+    'dataGridCheckboxSize',
+  ],
+};
+
 const webPage: ComponentDefinition = {
   type: 'WebPage',
   displayName: 'Page',
@@ -400,6 +519,7 @@ const webPage: ComponentDefinition = {
   palette: { category: containersCategory, caption: 'Page' },
   icon: 'component-page',
   visual: true,
+  styleEditor: containerStyleEditor,
   canHaveChildren: true,
   defaultEvent: 'OnCreate',
   defaultBounds: pageBounds,
@@ -447,6 +567,7 @@ const webPanel: ComponentDefinition = {
   palette: { category: containersCategory, caption: 'Panel' },
   icon: 'component-panel',
   visual: true,
+  styleEditor: containerStyleEditor,
   canHaveChildren: true,
   defaultEvent: 'OnClick',
   defaultBounds: panelBounds,
@@ -499,6 +620,7 @@ const webReusableElement: ComponentDefinition = {
   palette: { category: containersCategory, caption: 'Reusable Component' },
   icon: 'component-panel',
   visual: true,
+  styleEditor: containerStyleEditor,
   canHaveChildren: false,
   defaultEvent: null,
   defaultBounds: reusableElementBounds,
@@ -570,6 +692,7 @@ const webLabel: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Label' },
   icon: 'component-label',
   visual: true,
+  styleEditor: labelStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnClick',
   defaultBounds: labelBounds,
@@ -616,6 +739,7 @@ const webEdit: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Edit' },
   icon: 'component-edit',
   visual: true,
+  styleEditor: inputStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnChange',
   defaultBounds: editBounds,
@@ -682,6 +806,7 @@ const webTextArea: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Text Area' },
   icon: 'component-text-area',
   visual: true,
+  styleEditor: inputStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnChange',
   defaultBounds: textAreaBounds,
@@ -748,6 +873,7 @@ const webButton: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Button' },
   icon: 'component-button',
   visual: true,
+  styleEditor: buttonStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnClick',
   defaultBounds: buttonBounds,
@@ -790,6 +916,7 @@ const webCheckBox: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Check Box' },
   icon: 'component-check-box',
   visual: true,
+  styleEditor: checkBoxStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnChange',
   defaultBounds: checkBoxBounds,
@@ -824,6 +951,7 @@ const webComboBox: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Combo Box' },
   icon: 'component-combo-box',
   visual: true,
+  styleEditor: inputStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnChange',
   defaultBounds: comboBoxBounds,
@@ -874,6 +1002,7 @@ const webImage: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Image' },
   icon: 'component-image',
   visual: true,
+  styleEditor: imageStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnClick',
   defaultBounds: imageBounds,
@@ -923,6 +1052,7 @@ const webListBox: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'List Box' },
   icon: 'component-list-box',
   visual: true,
+  styleEditor: inputStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnChange',
   defaultBounds: listBoxBounds,
@@ -978,6 +1108,7 @@ const webPopup: ComponentDefinition = {
   palette: { category: nonvisualCategory, caption: 'Popup' },
   icon: 'component-popup',
   visual: true,
+  styleEditor: containerStyleEditor,
   designerPresentation: 'tray',
   canHaveChildren: true,
   defaultEvent: 'OnShow',
@@ -1058,6 +1189,7 @@ const webDataGrid: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Data Grid' },
   icon: 'component-list-box',
   visual: true,
+  styleEditor: dataGridStyleEditor,
   canHaveChildren: false,
   defaultEvent: null,
   designerAction: 'data-grid-configurator',

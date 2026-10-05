@@ -2595,6 +2595,34 @@ describe('WebApiClient', () => {
 });
 
 describe('WebDataGrid', () => {
+  it('keeps accessible row counts and indexes consistent when header and footer options change', () => {
+    const host = document.createElement('div');
+    const grid = new WebDataGrid(host);
+    const configuration = normalizeWebDataGridConfiguration({
+      columns: [{ id: 'name' }, { id: 'status' }],
+    });
+
+    try {
+      for (const showHeader of [true, false, true]) {
+        for (const showFooter of [true, false, true]) {
+          grid.dataGridConfig = { ...configuration, showHeader, showFooter };
+          const rows = Array.from(host.querySelectorAll('[role="row"]'));
+          const rowCount = 1 + Number(showHeader) + Number(showFooter);
+          expect(host.querySelector('[role="grid"]')?.getAttribute('aria-rowcount')).toBe(
+            String(rowCount),
+          );
+          expect(rows).toHaveLength(rowCount);
+          expect(rows.map((row) => row.getAttribute('aria-rowindex'))).toEqual(
+            Array.from({ length: rowCount }, (_, index) => String(index + 1)),
+          );
+          expect(host.querySelector('.wr-data-grid-empty')?.getAttribute('aria-colspan')).toBe('2');
+        }
+      }
+    } finally {
+      grid.dispose();
+    }
+  });
+
   it('distributes dynamic tracks by weight while enforcing their maximum widths', () => {
     expect(
       resolveDataGridColumnTrackWidths(
@@ -2797,6 +2825,10 @@ describe('WebDataGrid', () => {
       'wr-data-grid-has-footer',
     );
     expect(host.querySelectorAll('.wr-data-grid-body-row')).toHaveLength(2);
+    expect(host.querySelector('[role="grid"]')?.getAttribute('aria-rowcount')).toBe('4');
+    expect(
+      Array.from(host.querySelectorAll('[role="row"]'), (row) => row.getAttribute('aria-rowindex')),
+    ).toEqual(['1', '2', '3', '4']);
     expect(host.querySelector('.wr-data-grid-body-row .wr-data-grid-cell')?.textContent).toBe(
       'Ada',
     );

@@ -448,6 +448,7 @@ export function StylesWorkspace({
                       },
                     })
                   }
+                  registry={registry}
                 />
 
                 <section

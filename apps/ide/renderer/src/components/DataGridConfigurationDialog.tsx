@@ -197,7 +197,10 @@ function NumericInput({
         if (parsed !== undefined && (max === undefined || parsed <= max)) onValueChange(parsed);
       }}
       onBlur={() => {
-        if (text.length === 0 && nullable) return;
+        if (text.length === 0) {
+          if (!nullable) setText(value === null ? '' : String(value));
+          return;
+        }
         const parsed = numberFromInput(text, min);
         if (parsed === undefined || (max !== undefined && parsed > max)) {
           setText(value === null ? '' : String(value));
@@ -330,9 +333,14 @@ export function DataGridConfigurationDialog({
         aria-describedby={descriptionId}
       >
         <header className="wr-modal-header">
-          <div>
-            <span className="wr-modal-eyebrow">Data Grid / {component.name}</span>
-            <h2 id={titleId}>Configure Data Grid</h2>
+          <div className="wr-data-grid-configuration-title">
+            <span className="wr-data-grid-configuration-title-icon">
+              <Icon name="table" />
+            </span>
+            <div>
+              <span className="wr-modal-eyebrow">Data Grid / {component.name}</span>
+              <h2 id={titleId}>Configure Data Grid</h2>
+            </div>
           </div>
           <button
             type="button"
@@ -355,6 +363,7 @@ export function DataGridConfigurationDialog({
               aria-labelledby={`${titleId}-source`}
             >
               <h3 id={`${titleId}-source`}>Data source</h3>
+              <p>Select the API endpoint and the response list to display.</p>
               <div className="wr-data-grid-configuration-fields three-columns">
                 <label>
                   <span>API Client</span>
@@ -550,120 +559,116 @@ export function DataGridConfigurationDialog({
                 </label>
               </div>
               <div className="wr-data-grid-configuration-toggles">
-                <label>
-                  <input
-                    aria-label="Show Data Grid header"
-                    checked={draft.showHeader}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateDraft((current) => ({
-                        ...current,
-                        showHeader: event.currentTarget.checked,
-                      }))
-                    }
-                  />
-                  <span>Show header</span>
-                </label>
-                <label>
-                  <input
-                    aria-label="Keep Data Grid header fixed"
-                    checked={draft.stickyHeader}
-                    disabled={!draft.showHeader}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateDraft((current) => ({
-                        ...current,
-                        stickyHeader: event.currentTarget.checked,
-                      }))
-                    }
-                  />
-                  <span>Keep header fixed</span>
-                </label>
-                <label>
-                  <input
-                    aria-label="Show Data Grid footer"
-                    checked={draft.showFooter}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateDraft((current) => ({
-                        ...current,
-                        showFooter: event.currentTarget.checked,
-                      }))
-                    }
-                  />
-                  <span>Show fixed footer row</span>
-                </label>
-                <label>
-                  <input
-                    aria-label="Keep Data Grid footer fixed"
-                    checked={draft.stickyFooter}
-                    disabled={!draft.showFooter}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateDraft((current) => ({
-                        ...current,
-                        stickyFooter: event.currentTarget.checked,
-                      }))
-                    }
-                  />
-                  <span>Keep footer fixed</span>
-                </label>
-                <label>
-                  <input
-                    aria-label="Wrap Data Grid text"
-                    checked={draft.wrapText}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateDraft((current) => ({
-                        ...current,
-                        wrapText: event.currentTarget.checked,
-                      }))
-                    }
-                  />
-                  <span>Wrap cell text</span>
-                </label>
-                <label>
-                  <input
-                    aria-label="Stripe Data Grid rows"
-                    checked={draft.stripedRows}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateDraft((current) => ({
-                        ...current,
-                        stripedRows: event.currentTarget.checked,
-                      }))
-                    }
-                  />
-                  <span>Stripe alternate rows</span>
-                </label>
-                <label>
-                  <input
-                    aria-label="Show Data Grid horizontal lines"
-                    checked={draft.showHorizontalLines}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateDraft((current) => ({
-                        ...current,
-                        showHorizontalLines: event.currentTarget.checked,
-                      }))
-                    }
-                  />
-                  <span>Show horizontal lines</span>
-                </label>
-                <label>
-                  <input
-                    aria-label="Show Data Grid vertical lines"
-                    checked={draft.showVerticalLines}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateDraft((current) => ({
-                        ...current,
-                        showVerticalLines: event.currentTarget.checked,
-                      }))
-                    }
-                  />
-                  <span>Show vertical lines</span>
-                </label>
+                <fieldset className="wr-data-grid-toggle-group">
+                  <legend>Header</legend>
+                  <label>
+                    <input
+                      aria-label="Show Data Grid header"
+                      checked={draft.showHeader}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const showHeader = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, showHeader }));
+                      }}
+                    />
+                    <span>Show header</span>
+                  </label>
+                  <label>
+                    <input
+                      aria-label="Keep Data Grid header fixed"
+                      checked={draft.stickyHeader}
+                      disabled={!draft.showHeader}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const stickyHeader = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, stickyHeader }));
+                      }}
+                    />
+                    <span>Keep header fixed</span>
+                  </label>
+                </fieldset>
+                <fieldset className="wr-data-grid-toggle-group">
+                  <legend>Footer</legend>
+                  <label>
+                    <input
+                      aria-label="Show Data Grid footer"
+                      checked={draft.showFooter}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const showFooter = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, showFooter }));
+                      }}
+                    />
+                    <span>Show footer row</span>
+                  </label>
+                  <label>
+                    <input
+                      aria-label="Keep Data Grid footer fixed"
+                      checked={draft.stickyFooter}
+                      disabled={!draft.showFooter}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const stickyFooter = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, stickyFooter }));
+                      }}
+                    />
+                    <span>Keep footer fixed</span>
+                  </label>
+                </fieldset>
+                <fieldset className="wr-data-grid-toggle-group">
+                  <legend>Content</legend>
+                  <label>
+                    <input
+                      aria-label="Wrap Data Grid text"
+                      checked={draft.wrapText}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const wrapText = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, wrapText }));
+                      }}
+                    />
+                    <span>Wrap cell text</span>
+                  </label>
+                  <label>
+                    <input
+                      aria-label="Stripe Data Grid rows"
+                      checked={draft.stripedRows}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const stripedRows = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, stripedRows }));
+                      }}
+                    />
+                    <span>Stripe alternate rows</span>
+                  </label>
+                </fieldset>
+                <fieldset className="wr-data-grid-toggle-group">
+                  <legend>Grid lines</legend>
+                  <label>
+                    <input
+                      aria-label="Show Data Grid horizontal lines"
+                      checked={draft.showHorizontalLines}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const showHorizontalLines = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, showHorizontalLines }));
+                      }}
+                    />
+                    <span>Show horizontal lines</span>
+                  </label>
+                  <label>
+                    <input
+                      aria-label="Show Data Grid vertical lines"
+                      checked={draft.showVerticalLines}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const showVerticalLines = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, showVerticalLines }));
+                      }}
+                    />
+                    <span>Show vertical lines</span>
+                  </label>
+                </fieldset>
               </div>
               <label className="wr-data-grid-configuration-empty-message">
                 <span>Empty-state message</span>
@@ -702,6 +707,7 @@ export function DataGridConfigurationDialog({
                     });
                   }}
                 >
+                  <Icon name="add" />
                   Add column
                 </button>
               </div>
@@ -713,7 +719,22 @@ export function DataGridConfigurationDialog({
                     aria-labelledby={`${titleId}-column-${column.id}`}
                   >
                     <header>
-                      <h4 id={`${titleId}-column-${column.id}`}>Column {String(index + 1)}</h4>
+                      <div className="wr-data-grid-column-heading">
+                        <span className="wr-data-grid-column-number" aria-hidden="true">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        <div>
+                          <h4 id={`${titleId}-column-${column.id}`}>
+                            {column.header || `Column ${String(index + 1)}`}
+                          </h4>
+                          <p>
+                            {CELL_KIND_LABELS[column.cellKind]} ·{' '}
+                            {column.widthMode === 'fixed'
+                              ? `${String(column.width)} px wide`
+                              : 'Dynamic width'}
+                          </p>
+                        </div>
+                      </div>
                       <div className="wr-data-grid-column-actions">
                         <button
                           type="button"
@@ -726,6 +747,7 @@ export function DataGridConfigurationDialog({
                             }));
                           }}
                         >
+                          <Icon name="chevron-up" />
                           Up
                         </button>
                         <button
@@ -739,6 +761,7 @@ export function DataGridConfigurationDialog({
                             }));
                           }}
                         >
+                          <Icon name="chevron-down" />
                           Down
                         </button>
                         <button
@@ -754,6 +777,7 @@ export function DataGridConfigurationDialog({
                             });
                           }}
                         >
+                          <Icon name="delete" />
                           Remove
                         </button>
                       </div>

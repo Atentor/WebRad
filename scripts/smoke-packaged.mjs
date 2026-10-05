@@ -78,6 +78,7 @@ try {
     'renderer CORS origin passed:',
     'renderer RestGO iframe CORS passed:',
     'renderer RestGO page Interaction passed:',
+    'renderer Data Grid configuration passed:',
     'renderer last project restore passed',
     'renderer bottom dock passed',
     'renderer element tree selection passed:',

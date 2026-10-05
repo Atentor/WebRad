@@ -6,3 +6,4 @@ export * from './model-utils.js';
 export * from './selection-manager.js';
 export * from './z-order.js';
 export * from './viewport.js';
+export * from './style-editor.js';

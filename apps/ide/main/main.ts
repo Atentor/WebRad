@@ -15,6 +15,8 @@ import {
   runRestGoPageEventsSmoke,
   runRestGoSettingsSmoke,
 } from './restgo-smoke';
+import { runDataGridConfigurationSmoke } from './data-grid-smoke';
+import { runStylesWorkspaceSmoke } from './styles-smoke';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -828,6 +830,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     `Array.from(document.querySelectorAll('.wr-style-list strong')).some((item) => item.textContent?.trim() === 'PrimaryButton') ? 'ready' : ''`,
     'the persisted PrimaryButton style',
   );
+  await runStylesWorkspaceSmoke(window, { log: smokeLog });
   await clickRendererControl(
     window,
     'button[aria-label="Project Explorer"]',
@@ -980,6 +983,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await runRestGoBrowserSmoke(smokeLog, window);
   await captureDesignerSmokeScreenshot(window);
   await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runDataGridConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
 }
 
 // Vite can wrap this CommonJS boolean in a default-export object.

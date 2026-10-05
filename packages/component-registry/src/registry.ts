@@ -69,6 +69,13 @@ function copyDefinition(definition: ComponentDefinition): ComponentDefinition {
   return {
     ...definition,
     palette: { ...definition.palette },
+    styleEditor:
+      definition.styleEditor === undefined
+        ? undefined
+        : {
+            ...definition.styleEditor,
+            essentialProperties: [...definition.styleEditor.essentialProperties],
+          },
     defaultBounds: { ...definition.defaultBounds },
     defaults: structuredClone(definition.defaults),
     properties: definition.properties.map((property) => ({
@@ -151,6 +158,19 @@ export function validateComponentDefinition(definition: ComponentDefinition): vo
 
   assertUniqueNames(definition.properties, 'Property');
   assertUniqueNames(definition.events, 'Event');
+  if (definition.styleEditor !== undefined) {
+    assertUniqueNames(
+      definition.styleEditor.essentialProperties.map((name) => ({ name })),
+      'Essential style property',
+    );
+    for (const name of definition.styleEditor.essentialProperties) {
+      if (!isSafeIdentifier(name)) {
+        throw new InvalidComponentDefinitionError(
+          `Essential style property "${name}" must be a TypeScript-safe identifier.`,
+        );
+      }
+    }
+  }
   for (const event of definition.events) {
     if (event.eventDetailType !== undefined && !isSafeIdentifier(event.eventDetailType)) {
       throw new InvalidComponentDefinitionError(

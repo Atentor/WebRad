@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { ComponentRegistry, defaultComponentRegistry } from '@webrad/component-registry';
 import { createComponentStyle } from '@webrad/project-model';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -309,5 +310,36 @@ describe('StylesWorkspace', () => {
 
     expect(screen.getByRole('alert').textContent).toContain('already exists');
     expect(onUpdateStyle).not.toHaveBeenCalled();
+  });
+
+  it('passes registered essentials into the editor and saves property changes in the selected style state', async () => {
+    const user = userEvent.setup();
+    const style = createComponentStyle('Custom Essentials', 'WebButton', {
+      idFactory: () => 'custom-essentials',
+    });
+    const registry = new ComponentRegistry([
+      {
+        ...defaultComponentRegistry.require('WebButton'),
+        styleEditor: { essentialProperties: ['rotate'] },
+      },
+    ]);
+    const onUpdateStyle = vi.fn();
+    render(
+      <StylesWorkspace
+        styles={[style]}
+        registry={registry}
+        onCreateStyle={vi.fn(() => null)}
+        onUpdateStyle={onUpdateStyle}
+        onDeleteStyle={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('Configure Rotate')).toBeDefined();
+    expect(screen.queryByRole('button', { name: /^Appearance,/ })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: 'Hover' }));
+    await user.click(screen.getByLabelText('Configure Rotate'));
+    expect(onUpdateStyle).toHaveBeenCalledWith({
+      ...style,
+      states: { ...style.states, hover: { rotate: 0 } },
+    });
   });
 });

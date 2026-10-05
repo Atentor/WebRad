@@ -1,3 +1,9 @@
+import { defaultComponentRegistry, type ComponentRegistry } from '@webrad/component-registry';
+import {
+  createStylePropertyGroups,
+  type StylePropertyGroup,
+  type StylePropertyView,
+} from '@webrad/designer';
 import {
   COMPONENT_STYLE_PROPERTY_EXCLUSIVE_PAIRS,
   COMPONENT_STYLE_PROPERTY_DEFINITIONS,
@@ -20,6 +26,7 @@ interface VisualStyleEditorProps {
   readonly properties: ComponentStyleProperties;
   readonly onChange: (properties: ComponentStyleProperties) => void;
   readonly definitions?: readonly ComponentStylePropertyDefinition[];
+  readonly registry?: ComponentRegistry;
 }
 
 interface PropertyControlProps {
@@ -34,11 +41,7 @@ interface PropertyRowProps extends PropertyControlProps {
   readonly onEnable: () => void;
 }
 
-interface PropertyCategory {
-  readonly name: string;
-  readonly definitions: readonly ComponentStylePropertyDefinition[];
-  readonly configuredCount: number;
-}
+type PropertyCategory = StylePropertyGroup;
 
 interface CollapsiblePropertyCategoryProps {
   readonly category: PropertyCategory;
@@ -89,51 +92,42 @@ function clamp(value: number, minimum: number | undefined, maximum: number | und
   );
 }
 
-function groupDefinitions(
-  definitions: readonly ComponentStylePropertyDefinition[],
-  properties: ComponentStyleProperties,
-): readonly PropertyCategory[] {
-  const groups = new Map<string, ComponentStylePropertyDefinition[]>();
-  for (const definition of definitions) {
-    const group = groups.get(definition.category) ?? [];
-    group.push(definition);
-    groups.set(definition.category, group);
-  }
-
-  return [...groups].map(([name, group]) => {
-    return {
-      name,
-      definitions: group,
-      configuredCount: group.filter((definition) => properties[definition.name] !== undefined)
-        .length,
-    };
-  });
-}
-
 function CollapsiblePropertyCategory({
   category,
   expanded,
   onToggle,
   children,
 }: CollapsiblePropertyCategoryProps): ReactElement {
+  const contentId = useId();
   return (
-    <section
-      className={`wr-style-property-category${category.name === 'Animation' ? ' wr-style-animation-category' : ''}`}
-    >
+    <section className="wr-style-property-category">
       <button
         type="button"
         className="wr-style-category-summary"
-        aria-label={`${category.name}, ${String(category.configuredCount)} configured, ${String(category.definitions.length)} properties`}
+        aria-label={
+          category.name +
+          ', ' +
+          String(category.configuredCount) +
+          ' configured, ' +
+          String(category.definitions.length) +
+          ' properties'
+        }
         aria-expanded={expanded}
+        aria-controls={contentId}
         onClick={onToggle}
       >
         <span>{category.name}</span>
-        <span>
-          {category.configuredCount > 0 && <strong>{category.configuredCount} set</strong>}
-          {category.definitions.length} properties
-        </span>
+        {category.configuredCount > 0 && (
+          <span>
+            <strong>{category.configuredCount} set</strong>
+          </span>
+        )}
       </button>
-      {expanded && <div className="wr-style-category-properties">{children}</div>}
+      {expanded && (
+        <div id={contentId} className="wr-style-category-properties">
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -276,24 +270,26 @@ function LengthControl({ definition, value, onChange }: PropertyControlProps): R
 
   return (
     <div className="wr-style-length-control">
-      <select
-        aria-label={`${definition.label} mode`}
-        value={custom ? 'custom' : String(value)}
-        onChange={(event) => {
-          if (event.target.value === 'custom') {
-            onChange({ value: customValue.value, unit: customValue.unit });
-            return;
-          }
-          onChange(event.target.value);
-        }}
-      >
-        <option value="custom">Custom size</option>
-        {editor.keywords?.map((option) => (
-          <option value={option.value} key={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      {((editor.keywords !== undefined && editor.keywords.length > 0) || !custom) && (
+        <select
+          aria-label={`${definition.label} mode`}
+          value={custom ? 'custom' : String(value)}
+          onChange={(event) => {
+            if (event.target.value === 'custom') {
+              onChange({ value: customValue.value, unit: customValue.unit });
+              return;
+            }
+            onChange(event.target.value);
+          }}
+        >
+          <option value="custom">Custom size</option>
+          {editor.keywords?.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
       {custom && (
         <div className="wr-style-value-with-unit">
           <input
@@ -396,29 +392,40 @@ function PropertyRow({
 }: PropertyRowProps): ReactElement {
   const controlId = useId();
   return (
-    <div className={`wr-style-property-row${configured ? ' configured' : ''}`}>
+    <div className={configured ? 'wr-style-property-row configured' : 'wr-style-property-row'}>
       <div className="wr-style-property-label">
         <input
           id={controlId}
           type="checkbox"
-          aria-label={`Configure ${definition.label}`}
+          aria-label={'Configure ' + definition.label}
           checked={configured}
           onChange={(event) => (event.target.checked ? onEnable() : onClear())}
         />
-        <label htmlFor={controlId}>
+        <label htmlFor={controlId} title={definition.description}>
           <strong>{definition.label}</strong>
-          {definition.description !== undefined && <small>{definition.description}</small>}
         </label>
       </div>
       {configured ? (
         <div className="wr-style-property-editor">
           <PropertyControl definition={definition} value={value} onChange={onChange} />
-          <button type="button" onClick={onClear} aria-label={`Clear ${definition.label}`}>
+          <button
+            type="button"
+            onClick={onClear}
+            aria-label={'Clear ' + definition.label}
+            title={'Use component default for ' + definition.label}
+          >
             Clear
           </button>
         </div>
       ) : (
-        <span className="wr-style-property-default">Component default</span>
+        <button
+          type="button"
+          className="wr-style-property-default"
+          onClick={onEnable}
+          aria-label={'Set ' + definition.label}
+        >
+          Default
+        </button>
       )}
     </div>
   );
@@ -431,38 +438,42 @@ export function VisualStyleEditor({
   properties,
   onChange,
   definitions = COMPONENT_STYLE_PROPERTY_DEFINITIONS,
+  registry = defaultComponentRegistry,
 }: VisualStyleEditorProps): ReactElement {
   const searchId = useId();
+  const hintId = useId();
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<StylePropertyView>('essential');
   const [openCategoryName, setOpenCategoryName] = useState<string | null | undefined>(undefined);
-  const normalizedSearch = search.trim().toLowerCase();
-  const applicableDefinitions = useMemo(
-    () =>
-      definitions.filter(
-        (definition) =>
-          (definition.componentTypes === undefined ||
-            definition.componentTypes.includes(componentType)) &&
-          (definition.stateNames === undefined || definition.stateNames.includes(stateName)) &&
-          (normalizedSearch.length === 0 ||
-            definition.label.toLowerCase().includes(normalizedSearch) ||
-            definition.category.toLowerCase().includes(normalizedSearch) ||
-            definition.description?.toLowerCase().includes(normalizedSearch) === true),
-      ),
-    [componentType, definitions, normalizedSearch, stateName],
-  );
+  const [collapsedCategories, setCollapsedCategories] = useState<readonly string[]>([]);
+  const autoExpand = search.trim().length > 0 || view === 'configured';
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+  const definition = registry.get(componentType);
+  const essentialProperties = definition?.styleEditor?.essentialProperties;
   const categories = useMemo(
-    () => groupDefinitions(applicableDefinitions, properties),
-    [applicableDefinitions, properties],
+    () =>
+      createStylePropertyGroups({
+        definitions,
+        componentType,
+        stateName,
+        properties,
+        essentialProperties,
+        view,
+        search,
+      }),
+    [definitions, componentType, stateName, properties, essentialProperties, view, search],
   );
   const configuredCount = Object.keys(properties).length;
+  const resultCount = categories.reduce(
+    (total, category) => total + category.definitions.length,
+    0,
+  );
 
   const changeProperty = (
     name: ComponentStylePropertyName,
     value: StylePropertyValue | undefined,
   ): void => {
-    const next: Partial<Record<ComponentStylePropertyName, StylePropertyValue>> = {
-      ...properties,
-    };
+    const next: Partial<Record<ComponentStylePropertyName, StylePropertyValue>> = { ...properties };
     if (value === undefined) delete next[name];
     else {
       next[name] = value;
@@ -471,25 +482,60 @@ export function VisualStyleEditor({
     }
     onChange(next);
   };
+  const changeView = (nextView: StylePropertyView): void => {
+    setView(nextView);
+    setOpenCategoryName(undefined);
+    setSearch('');
+    setCollapsedCategories([]);
+  };
+  const hint =
+    normalizedSearch.length > 0
+      ? String(resultCount) + ' matches across all properties'
+      : view === 'essential'
+        ? 'Common properties for ' + (definition?.displayName ?? componentType)
+        : view === 'configured'
+          ? 'Only properties set in this state'
+          : 'Complete property catalog';
 
   return (
     <section className="wr-style-visual-editor" aria-label="Visual style properties">
       <header className="wr-style-visual-editor-heading">
-        <div>
-          <span>Visual properties</span>
-          <h2>Customize this state</h2>
-        </div>
+        <h2>Style properties</h2>
         <span>{configuredCount} configured</span>
       </header>
       <div className="wr-style-property-toolbar">
-        <label htmlFor={searchId}>Search properties</label>
-        <div>
+        <div className="wr-style-property-views" role="group" aria-label="Property view">
+          <button
+            type="button"
+            aria-pressed={view === 'essential'}
+            onClick={() => changeView('essential')}
+          >
+            Essential
+          </button>
+          <button type="button" aria-pressed={view === 'all'} onClick={() => changeView('all')}>
+            All properties
+          </button>
+          <button
+            type="button"
+            aria-label="Configured"
+            aria-pressed={view === 'configured'}
+            onClick={() => changeView('configured')}
+          >
+            Configured <span>{configuredCount}</span>
+          </button>
+        </div>
+        <div className="wr-style-property-search">
           <input
             id={searchId}
+            aria-label="Search properties"
+            aria-describedby={hintId}
             type="search"
             value={search}
-            placeholder="Color, spacing, animation…"
-            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search all properties..."
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setCollapsedCategories([]);
+            }}
           />
           {search.length > 0 && (
             <button type="button" onClick={() => setSearch('')}>
@@ -497,32 +543,51 @@ export function VisualStyleEditor({
             </button>
           )}
         </div>
+        <p id={hintId} className="wr-style-property-hint" aria-live="polite">
+          {hint}
+        </p>
       </div>
-
       <div className="wr-style-property-categories">
         {categories.map((category) => (
           <CollapsiblePropertyCategory
             category={category}
-            key={`${stateName}-${category.name}-${normalizedSearch.length > 0 ? 'search' : 'all'}`}
-            expanded={openCategoryName !== undefined && openCategoryName === category.name}
-            onToggle={() =>
-              setOpenCategoryName((current) => {
-                if (current === undefined) return category.name;
-                return current === category.name ? null : category.name;
-              })
+            key={category.name}
+            expanded={
+              autoExpand
+                ? !collapsedCategories.includes(category.name)
+                : openCategoryName === undefined
+                  ? categories[0]?.name === category.name
+                  : openCategoryName === category.name
             }
+            onToggle={() => {
+              if (autoExpand) {
+                setCollapsedCategories((current) =>
+                  current.includes(category.name)
+                    ? current.filter((name) => name !== category.name)
+                    : [...current, category.name],
+                );
+              } else {
+                setOpenCategoryName((current) =>
+                  (current === undefined ? categories[0]?.name : current) === category.name
+                    ? null
+                    : category.name,
+                );
+              }
+            }}
           >
-            {category.definitions.map((definition) => {
-              const value = properties[definition.name];
+            {category.definitions.map((propertyDefinition) => {
+              const value = properties[propertyDefinition.name];
               return (
                 <PropertyRow
-                  key={definition.name}
-                  definition={definition}
+                  key={propertyDefinition.name}
+                  definition={propertyDefinition}
                   configured={value !== undefined}
-                  value={value ?? definition.defaultValue}
-                  onEnable={() => changeProperty(definition.name, definition.defaultValue)}
-                  onClear={() => changeProperty(definition.name, undefined)}
-                  onChange={(nextValue) => changeProperty(definition.name, nextValue)}
+                  value={value ?? propertyDefinition.defaultValue}
+                  onEnable={() =>
+                    changeProperty(propertyDefinition.name, propertyDefinition.defaultValue)
+                  }
+                  onClear={() => changeProperty(propertyDefinition.name, undefined)}
+                  onChange={(nextValue) => changeProperty(propertyDefinition.name, nextValue)}
                 />
               );
             })}
@@ -530,8 +595,16 @@ export function VisualStyleEditor({
         ))}
         {categories.length === 0 && (
           <div className="wr-style-property-no-results">
-            <strong>No matching properties</strong>
-            <span>Try another name or category.</span>
+            <strong>
+              {normalizedSearch.length === 0 && view === 'configured'
+                ? 'No configured properties'
+                : 'No matching properties'}
+            </strong>
+            <span>
+              {normalizedSearch.length === 0 && view === 'configured'
+                ? 'This state uses the component defaults.'
+                : 'Try another name or category.'}
+            </span>
           </div>
         )}
       </div>

@@ -721,6 +721,83 @@ describe('App MVP integration', () => {
     });
   });
 
+  it('blocks native project commands during Data Grid configuration and restores them after cancel', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await user.dblClick(screen.getByRole('button', { name: 'Data Grid' }));
+    const grid = await screen.findByTitle('DataGrid1: WebDataGrid');
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(1));
+    const originalGrid = harness
+      .persisted()
+      .project.pages[0]?.components.find((component) => component.type === 'WebDataGrid');
+    if (originalGrid === undefined) throw new Error('Expected the original saved Data Grid.');
+    const originalConfiguration = parseDataGridConfiguration(originalGrid.props.dataGridConfig);
+    harness.save.mockClear();
+
+    await user.click(screen.getByRole('button', { name: 'Configure Data Grid' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Configure Data Grid' });
+    const editor = within(dialog);
+    await user.type(editor.getByLabelText('Data Grid empty-state message'), ' draft only');
+    await user.click(editor.getByRole('checkbox', { name: 'Show Data Grid header' }));
+    editor.getByRole('button', { name: 'Cancel' }).focus();
+    expect(document.querySelector('.wr-ide-modal-host')?.hasAttribute('inert')).toBe(true);
+
+    for (const command of ['edit.undo', 'edit.delete', 'file.save', 'run.run'] as const) {
+      await act(async () => harness.invokeCommand(command));
+      expect(screen.getByRole('dialog', { name: 'Configure Data Grid' })).toBe(dialog);
+      expect(grid.isConnected).toBe(true);
+      expect(harness.save).not.toHaveBeenCalled();
+      expect(harness.build).not.toHaveBeenCalled();
+    }
+    expect(editor.getByLabelText('Data Grid empty-state message')).toHaveProperty(
+      'value',
+      originalConfiguration.emptyMessage + ' draft only',
+    );
+    expect(editor.getByRole('checkbox', { name: 'Show Data Grid header' })).toHaveProperty(
+      'checked',
+      !originalConfiguration.showHeader,
+    );
+    await act(async () => harness.invokeCommand('view.toggleTheme'));
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(screen.getByRole('dialog', { name: 'Configure Data Grid' })).toBe(dialog);
+    await user.click(editor.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Configure Data Grid' })).toBeNull();
+    expect(document.querySelector('.wr-ide-modal-host')?.hasAttribute('inert')).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Configure Data Grid' }));
+    const reopened = within(await screen.findByRole('dialog', { name: 'Configure Data Grid' }));
+    expect(reopened.getByLabelText('Data Grid empty-state message')).toHaveProperty(
+      'value',
+      originalConfiguration.emptyMessage,
+    );
+    expect(reopened.getByRole('checkbox', { name: 'Show Data Grid header' })).toHaveProperty(
+      'checked',
+      originalConfiguration.showHeader,
+    );
+    await user.click(reopened.getByRole('button', { name: 'Cancel' }));
+
+    await act(async () => harness.invokeCommand('edit.delete'));
+    expect(screen.queryByTitle('DataGrid1: WebDataGrid')).toBeNull();
+    await act(async () => harness.invokeCommand('edit.undo'));
+    await screen.findByTitle('DataGrid1: WebDataGrid');
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(1));
+    expect(
+      harness
+        .persisted()
+        .project.pages[0]?.components.find((component) => component.id === originalGrid.id)?.props
+        .dataGridConfig,
+    ).toEqual(originalConfiguration);
+    await act(async () => harness.invokeCommand('run.run'));
+    await waitFor(() => expect(harness.build).toHaveBeenCalledTimes(1));
+  }, 15_000);
+
   it('keeps theme switching in the Tools command without rendering a toolbar button', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', {
@@ -765,10 +842,15 @@ describe('App MVP integration', () => {
     await user.dblClick(screen.getByTitle('Select Label; drag or double-click to insert'));
     await screen.findByTitle('Label1: WebLabel');
 
+    expect(document.querySelector('.wr-inspector-slot')).not.toBeNull();
+    expect(screen.getByRole('separator', { name: 'Resize inspector' })).toBeDefined();
+
     const stylesItem = screen.getByRole('button', { name: 'Styles' });
     await user.click(stylesItem);
     expect(stylesItem.getAttribute('aria-pressed')).toBe('true');
     expect(await screen.findByRole('region', { name: 'Styles editor' })).toBeDefined();
+    expect(document.querySelector('.wr-inspector-slot')).toBeNull();
+    expect(screen.queryByRole('separator', { name: 'Resize inspector' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Style library' })).toBeDefined();
     expect(screen.getByRole('navigation', { name: 'Workspace navigation' })).toBeDefined();
     expect(screen.queryByRole('note')).toBeNull();
@@ -782,47 +864,53 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
     const openCategory = async (name: string): Promise<void> => {
-      const category = screen.getByRole('button', { name: new RegExp(`^${name}`) });
-      const expandedCategories = screen
-        .getAllByRole('button')
-        .filter((button) => button.getAttribute('aria-expanded') === 'true');
-      if (category.getAttribute('aria-expanded') !== 'true' || expandedCategories.length > 1) {
-        await user.click(category);
-      }
+      if (name === 'Motion')
+        await user.click(screen.getByRole('button', { name: 'All properties' }));
+      const category = screen.getByRole('button', { name: new RegExp('^' + name + ',') });
+      if (category.getAttribute('aria-expanded') !== 'true') await user.click(category);
     };
     const configure = async (label: string): Promise<void> => {
       await user.click(screen.getByLabelText(`Configure ${label}`));
     };
 
     expect(document.querySelector('textarea')).toBeNull();
-    await openCategory('Colors');
+    await openCategory('Appearance');
     await configure('Background color');
-    fireEvent.change(screen.getByLabelText('Background color'), {
-      target: { value: '#2563eb' },
-    });
+    fireEvent.change(
+      screen.getByLabelText('Background color', { selector: 'input[type="color"]' }),
+      {
+        target: { value: '#2563eb' },
+      },
+    );
+    await openCategory('Text');
     await configure('Text color');
-    fireEvent.change(screen.getByLabelText('Text color'), {
+    fireEvent.change(screen.getByLabelText('Text color', { selector: 'input[type="color"]' }), {
       target: { value: '#ffffff' },
     });
-    await openCategory('Border');
+    await openCategory('Appearance');
     await configure('Border radius');
     fireEvent.change(screen.getByLabelText('Border radius value'), {
       target: { value: '8' },
     });
-    await openCategory('Animation');
+    await openCategory('Motion');
     await configure('Transition property');
     await configure('Transition duration');
     await configure('Transition easing');
 
     await user.click(screen.getByRole('tab', { name: 'Hover' }));
-    await openCategory('Colors');
+    await openCategory('Appearance');
     await configure('Background color');
-    fireEvent.change(screen.getByLabelText('Background color'), {
-      target: { value: '#1d4ed8' },
-    });
-    await openCategory('Transform');
+    fireEvent.change(
+      screen.getByLabelText('Background color', { selector: 'input[type="color"]' }),
+      {
+        target: { value: '#1d4ed8' },
+      },
+    );
+    await openCategory('Motion');
     await configure('Scale');
-    fireEvent.change(screen.getByLabelText('Scale'), { target: { value: '105' } });
+    fireEvent.change(screen.getByLabelText('Scale', { selector: 'input[type="number"]' }), {
+      target: { value: '105' },
+    });
     const buttonPreview = document.querySelector<HTMLElement>(
       '[data-style-preview] [data-component-type="WebButton"]',
     );
@@ -840,12 +928,13 @@ describe('App MVP integration', () => {
     await user.clear(screen.getByLabelText('New style name'));
     await user.type(screen.getByLabelText('New style name'), 'Muted Label');
     await user.click(screen.getByRole('button', { name: 'Create' }));
-    await openCategory('Colors');
+    await openCategory('Appearance');
+    await openCategory('Text');
     await configure('Text color');
-    fireEvent.change(screen.getByLabelText('Text color'), {
+    fireEvent.change(screen.getByLabelText('Text color', { selector: 'input[type="color"]' }), {
       target: { value: '#64748b' },
     });
-    await openCategory('Typography');
+    await openCategory('Text');
     await configure('Font size');
     fireEvent.change(screen.getByLabelText('Font size value'), { target: { value: '14' } });
 
@@ -854,13 +943,17 @@ describe('App MVP integration', () => {
     await user.clear(screen.getByLabelText('New style name'));
     await user.type(screen.getByLabelText('New style name'), 'Page Surface');
     await user.click(screen.getByRole('button', { name: 'Create' }));
-    await openCategory('Colors');
+    await openCategory('Appearance');
     await configure('Background color');
-    fireEvent.change(screen.getByLabelText('Background color'), {
-      target: { value: '#f1f5f9' },
-    });
+    fireEvent.change(
+      screen.getByLabelText('Background color', { selector: 'input[type="color"]' }),
+      {
+        target: { value: '#f1f5f9' },
+      },
+    );
+    await openCategory('Text');
     await configure('Text color');
-    fireEvent.change(screen.getByLabelText('Text color'), {
+    fireEvent.change(screen.getByLabelText('Text color', { selector: 'input[type="color"]' }), {
       target: { value: '#0f172a' },
     });
 
@@ -872,6 +965,8 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await user.click(screen.getByRole('treeitem', { name: /PageMain/ }));
     await screen.findByRole('tab', { name: 'Design' });
+    expect(document.querySelector('.wr-inspector-slot')).not.toBeNull();
+    expect(screen.getByRole('separator', { name: 'Resize inspector' })).toBeDefined();
     const pageStyleSelect = (await screen.findByLabelText('Style')) as HTMLSelectElement;
     expect([...pageStyleSelect.options].map((option) => option.text)).toEqual([
       'None',

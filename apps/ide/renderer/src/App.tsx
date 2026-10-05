@@ -1224,6 +1224,7 @@ export function App(): ReactElement {
   const executeCommand = useCallback(
     (command: IdeCommand, target?: 'designer'): void => {
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
+      if (dataGridConfiguratorComponent !== null && command !== 'view.toggleTheme') return;
       if (
         aboutDialogOpen ||
         newProjectDialogOpen ||
@@ -1347,6 +1348,7 @@ export function App(): ReactElement {
       runProject,
       saveProject,
       undo,
+      dataGridConfiguratorComponent,
     ],
   );
 
@@ -1886,7 +1888,7 @@ export function App(): ReactElement {
             </EditorWorkspace>
           }
           inspector={
-            visiblePanels.inspector ? (
+            visiblePanels.inspector && !stylesActive ? (
               <ErrorBoundary area="Object Inspector">
                 <ObjectInspector
                   selection={selectedComponents}
