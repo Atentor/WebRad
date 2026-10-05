@@ -1,3 +1,4 @@
+import type { ExternalLinkTarget } from '../shared/external-links';
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   BuildRequest,
@@ -14,6 +15,10 @@ import type {
 } from '../shared/contracts';
 
 const bridge: WebRadBridge = {
+  links: {
+    open: (target: ExternalLinkTarget) =>
+      ipcRenderer.invoke('webrad:links:open', target) as Promise<void>,
+  },
   project: {
     create: (request: CreateProjectRequest) =>
       ipcRenderer.invoke('webrad:project:create', request) as Promise<ProjectSession | null>,

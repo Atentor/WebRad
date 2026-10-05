@@ -1,3 +1,4 @@
+import { AboutDialog } from './components/AboutDialog';
 import { type DesignerViewportName } from '@webrad/designer';
 import { ActivityBar } from './components/ActivityBar';
 import { DesignerSidebar, type DesignerSidebarMode } from './components/DesignerSidebar';
@@ -200,6 +201,7 @@ export function App(): ReactElement {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [compiledStylesCss, setCompiledStylesCss] = useState('');
   const [building, setBuilding] = useState(false);
+  const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [addDocumentDialogKind, setAddDocumentDialogKind] = useState<AddDocumentKind | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
@@ -1222,7 +1224,12 @@ export function App(): ReactElement {
   const executeCommand = useCallback(
     (command: IdeCommand, target?: 'designer'): void => {
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
-      if (newProjectDialogOpen || addDocumentDialogKind !== null || projectSettingsDialogOpen) {
+      if (
+        aboutDialogOpen ||
+        newProjectDialogOpen ||
+        addDocumentDialogKind !== null ||
+        projectSettingsDialogOpen
+      ) {
         return;
       }
       if (
@@ -1244,6 +1251,9 @@ export function App(): ReactElement {
         return;
       }
       switch (command) {
+        case 'help.about':
+          setAboutDialogOpen(true);
+          break;
         case 'file.newProject':
           void openNewProjectDialog();
           break;
@@ -1319,6 +1329,7 @@ export function App(): ReactElement {
       }
     },
     [
+      aboutDialogOpen,
       addPageToProject,
       addReusableElementToProject,
       activeWorkspace,
@@ -1678,6 +1689,7 @@ export function App(): ReactElement {
           zoom,
         } as const);
   const modalOpen =
+    aboutDialogOpen ||
     newProjectDialogOpen ||
     addDocumentDialogKind !== null ||
     iconPickerOpen ||
@@ -1930,6 +1942,7 @@ export function App(): ReactElement {
           }
         />
       </div>
+      {aboutDialogOpen && <AboutDialog onClose={() => setAboutDialogOpen(false)} />}
       {newProjectDialogOpen && (
         <NewProjectDialog
           busy={creatingProject}

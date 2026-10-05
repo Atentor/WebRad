@@ -637,6 +637,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     'commands',
     'files',
     'lifecycle',
+    'links',
     'platform',
     'project',
     'styles',
@@ -665,6 +666,33 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   );
   if (loadedIcon !== welcomeIcon) throw new Error('Renderer application icons do not match.');
   smokeLog('renderer application icon passed');
+
+  window.webContents.send('webrad:menu-command', 'help.about');
+  await waitForRendererResult(
+    window,
+    `(() => {
+const dialog = document.querySelector('[role="dialog"]');
+const icon = dialog?.querySelector('img');
+const bounds = dialog?.getBoundingClientRect();
+return dialog?.textContent?.includes('About WebRAD') === true &&
+dialog.textContent.includes('Powered by') && dialog.textContent.includes('Atentor') &&
+dialog.querySelector('a[href="https://atentor.com"]') !== null &&
+dialog.querySelector('a.wr-about-website[href="https://webrad.atentor.com"]') !== null &&
+dialog.textContent.includes('Version ') && bounds !== undefined && bounds.width > 0 && bounds.height > 0 &&
+icon instanceof HTMLImageElement && icon.complete && icon.naturalWidth > 0 &&
+document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(document.activeElement);
+})()`,
+    'the visible About WebRAD modal',
+    (value) => value === true,
+  );
+  await clickRendererControl(window, '[aria-label="Close About WebRAD"]', 'Close About WebRAD');
+  await waitForRendererResult(
+    window,
+    `document.querySelector('[role="dialog"]') === null && document.querySelector('.wr-ide-modal-host')?.inert === false`,
+    'the closed About WebRAD modal',
+    (value) => value === true,
+  );
+  smokeLog('renderer About WebRAD modal passed');
 
   if (smokeProjectPath === undefined) return;
   const opened = (await window.webContents.executeJavaScript(

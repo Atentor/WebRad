@@ -60,6 +60,7 @@ try {
     'application icon resource passed:',
     'renderer loaded:',
     'renderer shell passed',
+    'renderer About WebRAD modal passed',
     'renderer application icon passed',
     'renderer project open passed',
     'renderer RestGO settings passed:',

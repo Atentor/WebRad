@@ -2477,6 +2477,53 @@ kbd {
   line-height: 1.5;
 }
 
+.wr-about-dialog > .wr-modal-description {
+  padding: 20px;
+  text-align: center;
+}
+
+.wr-about-dialog > .wr-modal-actions {
+  margin: 0;
+  padding: 0 20px 20px;
+}
+
+.wr-about-attribution a {
+  color: var(--wr-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.wr-about-website {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 6px;
+  background: var(--wr-panel-alt);
+  color: var(--wr-accent);
+  text-decoration: none;
+}
+
+.wr-about-website strong {
+  color: var(--wr-text);
+}
+
+.wr-about-website:hover {
+  border-color: var(--wr-accent);
+  background: var(--wr-surface-hover);
+}
+
+.wr-about-dialog a:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 3px;
+}
+
+.wr-about-attribution a:hover {
+  text-decoration: underline;
+}
+
 .wr-modal-field {
   display: flex;
   flex-direction: column;

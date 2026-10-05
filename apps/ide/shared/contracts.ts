@@ -1,3 +1,4 @@
+import type { ExternalLinkTarget } from './external-links';
 import type { ComponentStyleModel, WebRadProject } from '@webrad/project-model';
 
 export const IDE_COMMANDS = [
@@ -26,6 +27,7 @@ export const IDE_COMMANDS = [
   'project.build',
   'run.run',
   'view.toggleTheme',
+  'help.about',
 ] as const;
 
 export type IdeCommand = (typeof IDE_COMMANDS)[number];
@@ -90,6 +92,7 @@ export interface CompileStylesResponse {
 }
 
 export interface WebRadBridge {
+  links: { open(target: ExternalLinkTarget): Promise<void> };
   project: {
     create(request: CreateProjectRequest): Promise<ProjectSession | null>;
     open(): Promise<ProjectSession | null>;

@@ -1,5 +1,7 @@
 # WebRAD architecture
 
+The About dialog identifies WebRAD as Powered by Atentor and highlights its website and documentation. Its `links.open(target)` preload API accepts only the typed `atentor` and `webrad` targets. The main process validates the trusted IDE main frame and exactly one allowed target before calling Electron `shell.openExternal` with the corresponding fixed HTTPS address (`https://atentor.com` or `https://webrad.atentor.com`). The renderer has no arbitrary URL-opening or Electron capability; browser-launch failures remain visible in the dialog.
+
 ## Direction
 
 WebRAD is a desktop IDE built with Electron, React, and web tooling, while projects produced by it are normal browser applications. The versioned Project Model owns all persistent state. The Designer, Object Inspector, Explorer, language services, generator, compiler, and Preview are projections or consumers of that model.

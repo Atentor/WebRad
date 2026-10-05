@@ -217,6 +217,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     styles: { compile: compileStyles },
     commands: { subscribe },
     lifecycle: { setDirty },
+    links: { open: vi.fn().mockResolvedValue(undefined) },
     platform: 'win32',
   } satisfies WebRadBridge;
 
@@ -1216,6 +1217,47 @@ describe('App MVP integration', () => {
     expect((screen.getByLabelText('Mock Monaco editor') as HTMLTextAreaElement).value).toBe(
       editedSource,
     );
+  });
+
+  it('opens About from the menu without a project and restores focus after closing', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    const trigger = screen.getByRole('button', { name: 'Open project (Ctrl+O)' });
+    trigger.focus();
+    await act(async () => harness.invokeCommand('help.about'));
+    const dialog = await screen.findByRole('dialog', { name: 'About WebRAD' });
+    expect(within(dialog).getByText(/Version /)).toBeTruthy();
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole('button', { name: 'Close About WebRAD' }),
+    );
+    expect(document.querySelector('.wr-ide-modal-host')?.hasAttribute('inert')).toBe(true);
+    await act(async () => harness.invokeCommand('file.openProject'));
+    expect(harness.open).not.toHaveBeenCalled();
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Close' }));
+    await user.tab();
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole('button', { name: 'Close About WebRAD' }),
+    );
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(document.querySelector('.wr-ide-modal-host')?.hasAttribute('inert')).toBe(false);
+    await user.click(trigger);
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+    await screen.findByRole('tree', { name: 'MvpProject project' });
+    await act(async () => harness.invokeCommand('help.about'));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'About WebRAD' })).getByRole('button', {
+        name: 'Close',
+      }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await act(async () => harness.invokeCommand('help.about'));
+    await user.click(screen.getByRole('button', { name: 'Close About WebRAD' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('opens New Project from the File menu command and supports validation and cancel', async () => {

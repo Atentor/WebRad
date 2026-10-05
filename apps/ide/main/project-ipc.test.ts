@@ -8,6 +8,7 @@ import type * as ProjectFiles from './project-files';
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, ...input: unknown[]) => unknown>(),
+  openExternal: vi.fn().mockResolvedValue(undefined),
   fromWebContents: vi.fn(),
   chooseDirectory: vi.fn(),
   createProjectFiles: vi.fn(),
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('electron', () => ({
+  shell: { openExternal: mocks.openExternal },
   BrowserWindow: { fromWebContents: mocks.fromWebContents },
   dialog: { showOpenDialog: mocks.chooseDirectory, showMessageBoxSync: vi.fn() },
   ipcMain: {
@@ -284,5 +286,51 @@ describe('project selection ordering', () => {
     await expect(firstOpening).resolves.toBeNull();
 
     expect(mocks.remember.mock.calls).toEqual([[latest.projectFilePath]]);
+  });
+});
+
+describe('external link IPC', () => {
+  it('opens only the approved websites in the default browser', async () => {
+    await register();
+    await invoke('webrad:links:open', event, 'atentor');
+    await invoke('webrad:links:open', event, 'webrad');
+    expect(mocks.openExternal.mock.calls).toEqual([
+      ['https://atentor.com'],
+      ['https://webrad.atentor.com'],
+    ]);
+  });
+  it('rejects arbitrary URLs, invalid targets, extra arguments, and untrusted senders', async () => {
+    await register();
+    for (const target of ['https://other.example', 'file:///secret', null, {}, 'unknown']) {
+      await expect(invoke('webrad:links:open', event, target)).rejects.toThrow();
+    }
+    await expect(invoke('webrad:links:open')).rejects.toThrow('exactly one target');
+    await expect(invoke('webrad:links:open', event, 'atentor', 'extra')).rejects.toThrow(
+      'exactly one target',
+    );
+    await expect(
+      invoke(
+        'webrad:links:open',
+        { sender: webContents, senderFrame: { url: rendererUrl } },
+        'atentor',
+      ),
+    ).rejects.toThrow('IDE main frame');
+    const originalUrl = mainFrame.url;
+    mainFrame.url = 'https://untrusted.example/';
+    try {
+      await expect(invoke('webrad:links:open', event, 'webrad')).rejects.toThrow(
+        'trusted WebRAD renderer URL',
+      );
+    } finally {
+      mainFrame.url = originalUrl;
+    }
+    expect(mocks.openExternal).not.toHaveBeenCalled();
+  });
+  it('propagates browser launch failures', async () => {
+    await register();
+    mocks.openExternal.mockRejectedValueOnce(new Error('Browser unavailable'));
+    await expect(invoke('webrad:links:open', event, 'atentor')).rejects.toThrow(
+      'Browser unavailable',
+    );
   });
 });

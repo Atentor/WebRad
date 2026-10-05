@@ -48,6 +48,7 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
     styles: { compile: vi.fn(async () => ({ css: '' })) },
     commands: { subscribe: vi.fn(() => () => undefined) },
     lifecycle: { setDirty: vi.fn() },
+    links: { open: vi.fn().mockResolvedValue(undefined) },
     platform: 'win32',
   };
 }

@@ -1,6 +1,7 @@
+import { EXTERNAL_LINKS } from '../shared/external-links';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent, shell } from 'electron';
 import { compileProject, compileTailwindStyles } from '@webrad/compiler';
 import { parseComponentStyle, parseProject } from '@webrad/project-model';
 import { z } from 'zod';
@@ -333,6 +334,13 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
     if (remember) await rememberSession(event, session);
     return projectSelectionRevisions.get(id) === revision ? session : null;
   };
+  ipcMain.handle('webrad:links:open', async (event, ...input: unknown[]) => {
+    requireTrustedSender(event);
+    if (input.length !== 1) throw new Error('External links require exactly one target.');
+    const target = z.enum(['atentor', 'webrad']).parse(input[0]);
+    await shell.openExternal(EXTERNAL_LINKS[target]);
+  });
+
   ipcMain.handle('webrad:project:restore', async (event, ...input: unknown[]) => {
     requireTrustedSender(event);
     if (input.length > 0)
