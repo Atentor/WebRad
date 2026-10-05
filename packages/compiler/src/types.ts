@@ -30,7 +30,7 @@ export interface CompileProjectResult {
   readonly diagnostics: readonly CompileDiagnostic[];
   /** Browser files keyed by their POSIX path relative to outputDirectory. */
   readonly files: Readonly<Record<string, string>>;
-  /** The same real app bundle as `files`, inlined for a sandboxed iframe srcDoc. */
+  /** The same real app bundle as `files`, inlined for the isolated HTTP Preview. */
   readonly previewHtml?: string;
 }
 

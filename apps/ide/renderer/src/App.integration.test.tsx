@@ -169,7 +169,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     return {
       success: true,
       outputDirectory: 'C:\\Projects\\MvpProject\\dist',
-      previewUrl: 'webrad-preview://session/integration/index.html',
+      previewUrl: 'http://127.0.0.1:49152/integration/index.html',
       diagnostics: [],
     };
   });
@@ -521,8 +521,11 @@ describe('App MVP integration', () => {
 
     await user.click(screen.getByRole('button', { name: 'Build and run (F9)' }));
     const preview = await screen.findByTitle('WebRAD application preview');
-    expect(preview.getAttribute('src')).toBe('webrad-preview://session/integration/index.html');
-    expect(preview.getAttribute('sandbox')).toBe('allow-forms allow-modals allow-scripts');
+    expect(preview.getAttribute('src')).toBe('http://127.0.0.1:49152/integration/index.html');
+    expect(preview.getAttribute('sandbox')).toBe(
+      'allow-forms allow-modals allow-scripts allow-same-origin',
+    );
+    expect(preview.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(harness.build).toHaveBeenCalledOnce();
     const buildRequest = harness.build.mock.calls[0]?.[0] as BuildRequest | undefined;
     expect(buildRequest?.userSources['pages/PageMain.ts']).toContain('// integration edit');

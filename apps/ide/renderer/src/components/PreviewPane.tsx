@@ -34,7 +34,8 @@ export function PreviewPane({ url, running, diagnostics }: PreviewPaneProps): Re
     <div className="wr-preview-pane">
       <iframe
         title="WebRAD application preview"
-        sandbox="allow-forms allow-modals allow-scripts"
+        sandbox="allow-forms allow-modals allow-scripts allow-same-origin"
+        referrerPolicy="no-referrer"
         src={url}
       />
     </div>

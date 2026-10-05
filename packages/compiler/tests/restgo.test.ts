@@ -95,7 +95,9 @@ export class ${page.name} extends ${page.name}Generated {
 
   private async checkAuthentication(): Promise<void> {
     const login = await RestGO.login('cliente@example.test', 'senha-de-teste');
-    if (login.error) throw login.error;
+    if (!login.sucess) throw login.error;
+    this.element.dataset.loginSucceeded = String(login.sucess);
+    this.element.dataset.loginFullName = login.data.user.fullName;
     const current = await SharedRestGO.getUser();
     this.element.dataset.restgoUser = current.data?.id ?? '';
     const result = await RestGO.from<readonly { id: string }[]>('pessoas').get();
@@ -174,6 +176,8 @@ export class ${page.name} extends ${page.name}Generated {
         expect(root?.getAttribute('data-logout-user')).toBe(user.id);
         expect(root?.getAttribute('data-current-user')).toBe('');
         expect(root?.getAttribute('data-unauthenticated')).toBe('true');
+        expect(root?.getAttribute('data-login-succeeded')).toBe('true');
+        expect(root?.getAttribute('data-login-full-name')).toBe(user.fullName);
       });
     } finally {
       dom.window.close();

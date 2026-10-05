@@ -23,7 +23,7 @@ import {
   resolveInsideProjectSecure,
   saveProjectFiles,
 } from './project-files';
-import { publishPreviewHtml, revokePreview } from './preview-protocol';
+import { publishPreviewHtml, revokePreview } from './preview-server';
 import { LastProjectStore } from './last-project';
 
 const allowedRoots = new Map<number, Set<string>>();
@@ -240,7 +240,7 @@ async function buildHandler(
   });
   const previewUrl =
     result.success && result.previewHtml
-      ? publishPreviewHtml(event.sender.id, result.previewHtml)
+      ? await publishPreviewHtml(event.sender.id, result.previewHtml)
       : undefined;
   return {
     success: result.success,

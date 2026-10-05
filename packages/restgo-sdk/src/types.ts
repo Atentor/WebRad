@@ -1,3 +1,5 @@
+import type { RestGoError } from './errors';
+
 export type RestGoSessionStorage = 'local' | 'session' | 'memory';
 
 export interface RestGoClientOptions {
@@ -37,6 +39,11 @@ export interface RestGoSession {
   refreshExpiresAt?: string;
   user: RestGoUser;
 }
+
+/** Result of login; the boolean also narrows data and error in authored code. */
+export type RestGoLoginResult =
+  | { sucess: true; data: RestGoSession; error: null }
+  | { sucess: false; data: null; error: RestGoError };
 
 export type RestGoAuthEvent =
   | 'INITIAL_SESSION'

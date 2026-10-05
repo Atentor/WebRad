@@ -44,9 +44,11 @@ O **Authorization token** é opcional para APIs dinâmicas que precisam de um to
 
 A configuração é salva no arquivo do projeto e aplicada ao Preview e à aplicação web gerada. O token informado fica acessível no navegador: use um token de API da aplicação com as permissões apropriadas, mantendo credenciais administrativas no servidor. Refresh e operações explicitamente públicas continuam sem `Authorization`.
 
+O Preview e a IDE empacotada usam servidores HTTP locais em `127.0.0.1`, com portas separadas, para enviar uma origem HTTP válida nas chamadas à API. Isso evita o `NETWORK_ERROR` causado pelo CORS quando a origem era `null` ou `webrad-preview:`. As requisições continuam sendo feitas pelo navegador; a API precisa permitir a origem, o método e os headers utilizados. Sirva a aplicação gerada por HTTP/HTTPS também.
+
 O SDK TypeScript `@webrad/restgo-sdk` oferece autenticação de usuários, validação de sessão, recuperação de senha, confirmação de e-mail, avatar, Storage e chamadas aos endpoints dinâmicos publicados. O cliente nativo `RestGO` fica disponível nos eventos TypeScript, com tipos e autocompletar no editor. A aplicação gerada executa esse mesmo SDK diretamente no navegador.
 
-Use atalhos com parâmetros diretos, como `await RestGO.login(email, senha)`, `await RestGO.getUser()` e `await RestGO.logout()`. As operações retornam `{ data, error }` e compartilham a sessão em todas as páginas.
+Use atalhos com parâmetros diretos, como `await RestGO.login(email, senha)`, `await RestGO.getUser()` e `await RestGO.logout()`. As operações retornam `{ data, error }` e compartilham a sessão em todas as páginas. O `login()` também retorna `sucess: true | false`: use `if (log.sucess)` para acessar `log.data.user` ou, no ramo de falha, `log.error.message`.
 
 Na página, **Interaction > RestGO** oferece **OnLogin**, **OnLogout** e **OnUnauthenticated**. Dê dois cliques para criar o método. Nos dois primeiros, obtenha a identidade por `event.detail.user`; por exemplo, `this.usuarioId = user.id` guarda o ID em um campo declarado na classe. `OnLogin` também entrega uma sessão restaurada à página exibida. `OnUnauthenticated` detecta entrada sem sessão e encerramento da sessão, permitindo usar `Navigate('PageLogin')` no evento. O runtime verifica a sessão a cada 30 segundos na aba visível e ao retornar à aba; falhas de rede não disparam desconexão. Consulte os [exemplos de eventos e variáveis](docs/restgo-sdk.md#eventos-de-autenticação-em-interaction).
 

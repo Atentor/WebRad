@@ -1,13 +1,13 @@
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
 import { resolveCompilerEnvironment } from './compiler-environment';
 import { presentMainWindow } from './main-window-presentation';
 import { installApplicationMenu } from './menu';
-import { publishPreviewHtml, registerPreviewProtocol, revokePreview } from './preview-protocol';
+import { closePreviewServer, publishPreviewHtml, revokePreview } from './preview-server';
+import { closeRendererServer, publishRenderer } from './renderer-server';
 import { loadProjectFiles } from './project-files';
 import { installDirtyGuard, registerIpcHandlers } from './project-ipc';
 import {
@@ -20,6 +20,7 @@ declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow | null = null;
+let pendingMainWindow: Promise<BrowserWindow> | null = null;
 let mainWindowLifecycleStarted = false;
 const smokeMode = process.argv.includes('--webrad-smoke');
 if (smokeMode) app.disableHardwareAcceleration();
@@ -94,10 +95,10 @@ async function runCompilerSmoke(): Promise<string | undefined> {
   }
 }
 
-async function runPreviewProtocolSmoke(previewHtml: string | undefined): Promise<void> {
+async function runPreviewServerSmoke(previewHtml: string | undefined): Promise<void> {
   if (previewHtml === undefined) return;
   const smokeOwnerId = -1;
-  const previewUrl = publishPreviewHtml(smokeOwnerId, previewHtml);
+  const previewUrl = await publishPreviewHtml(smokeOwnerId, previewHtml);
   let previewWindow: BrowserWindow | null = null;
   try {
     const previewResponse = await net.fetch(previewUrl);
@@ -109,10 +110,10 @@ async function runPreviewProtocolSmoke(previewHtml: string | undefined): Promise
       !contentSecurityPolicy.includes("script-src 'unsafe-inline'")
     ) {
       throw new Error(
-        `Preview protocol smoke failed: status=${String(previewResponse.status)} csp=${JSON.stringify(contentSecurityPolicy)}`,
+        `Preview HTTP server smoke failed: status=${String(previewResponse.status)} csp=${JSON.stringify(contentSecurityPolicy)}`,
       );
     }
-    smokeLog('preview protocol passed');
+    smokeLog('preview HTTP server passed');
 
     previewWindow = new BrowserWindow({
       icon: applicationWindowIconPath(),
@@ -952,7 +953,31 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     throw new Error(`Renderer F9 Preview interaction failed: ${JSON.stringify(interaction)}`);
   }
   smokeLog('renderer F9 preview passed: Olá Ada; Tailwind style applied');
-  await runRestGoBrowserSmoke(smokeLog);
+  const isolation = (await previewFrame.executeJavaScript(
+    `(() => {
+      let parentBlocked = false;
+      try { void parent.document; } catch { parentBlocked = true; }
+      return {
+        origin: location.origin,
+        parentBlocked,
+        noBridge: typeof globalThis.webrad === 'undefined',
+        noNode: typeof globalThis.require === 'undefined' && typeof globalThis.process === 'undefined',
+      };
+    })()`,
+    true,
+  )) as unknown;
+  if (
+    typeof isolation !== 'object' ||
+    isolation === null ||
+    Reflect.get(isolation, 'origin') !== new URL(previewUrl).origin ||
+    Reflect.get(isolation, 'parentBlocked') !== true ||
+    Reflect.get(isolation, 'noBridge') !== true ||
+    Reflect.get(isolation, 'noNode') !== true
+  ) {
+    throw new Error(`Renderer Preview isolation failed: ${JSON.stringify(isolation)}`);
+  }
+  smokeLog(`renderer Preview isolation passed: ${JSON.stringify(isolation)}`);
+  await runRestGoBrowserSmoke(smokeLog, window);
   await captureDesignerSmokeScreenshot(window);
   await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
 }
@@ -981,8 +1006,12 @@ Object.assign(
   }),
 );
 
-function createWindow(): BrowserWindow {
+async function createWindow(): Promise<BrowserWindow> {
   smokeLog('creating BrowserWindow');
+  const rendererDirectory = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
+  const rendererUrl = new URL(
+    MAIN_WINDOW_VITE_DEV_SERVER_URL ?? (await publishRenderer(rendererDirectory)),
+  ).href;
   const window = new BrowserWindow({
     width: smokeMode ? 1600 : 1440,
     height: smokeMode ? 950 : 920,
@@ -1003,10 +1032,6 @@ function createWindow(): BrowserWindow {
   });
   let rendererSmokeStarted = false;
 
-  const rendererEntry = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
-  const rendererUrl = new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL ?? pathToFileURL(rendererEntry).href)
-    .href;
-
   installApplicationMenu(window);
   installDirtyGuard(window, rendererUrl);
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -1023,6 +1048,15 @@ function createWindow(): BrowserWindow {
   };
   window.webContents.on('will-navigate', preventUntrustedNavigation);
   window.webContents.on('will-redirect', preventUntrustedNavigation);
+  window.webContents.on('will-frame-navigate', (event) => {
+    if (event.isMainFrame) return;
+    // A Preview with allow-same-origin must stay outside the privileged renderer origin.
+    try {
+      if (new URL(event.url).origin === new URL(rendererUrl).origin) event.preventDefault();
+    } catch {
+      event.preventDefault();
+    }
+  });
   window.webContents.on('did-finish-load', () => {
     smokeLog(`renderer loaded: ${rendererUrl}`);
     if (!smokeAutoExit || rendererSmokeStarted) return;
@@ -1046,6 +1080,21 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+function ensureMainWindow(): Promise<BrowserWindow> {
+  if (mainWindow !== null && !mainWindow.isDestroyed()) return Promise.resolve(mainWindow);
+  if (pendingMainWindow === null) {
+    pendingMainWindow = createWindow()
+      .then((window) => {
+        mainWindow = window;
+        return window;
+      })
+      .finally(() => {
+        pendingMainWindow = null;
+      });
+  }
+  return pendingMainWindow;
+}
+
 app
   .whenReady()
   .then(async () => {
@@ -1054,8 +1103,7 @@ app
     verifyApplicationIconResource();
     installPermissionPolicy();
     const previewHtml = await runCompilerSmoke();
-    registerPreviewProtocol();
-    await runPreviewProtocolSmoke(previewHtml);
+    await runPreviewServerSmoke(previewHtml);
     registerIpcHandlers(
       smokeMode && smokeProjectPath !== undefined
         ? {
@@ -1067,12 +1115,14 @@ app
           ? { userDataPath: app.getPath('userData') }
           : {},
     );
-    mainWindow = createWindow();
+    await ensureMainWindow();
     mainWindowLifecycleStarted = true;
 
     app.on('activate', () => {
       if (mainWindow === null) {
-        mainWindow = createWindow();
+        void ensureMainWindow().catch((error: unknown) => {
+          console.error('[IDE] Failed to create the application window.', error);
+        });
       }
     });
   })
@@ -1090,6 +1140,9 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('will-quit', () => {
   mainWindow = null;
+  void Promise.all([closePreviewServer(), closeRendererServer()]).catch((error: unknown) => {
+    console.error('[IDE] Failed to close the local application servers.', error);
+  });
 });

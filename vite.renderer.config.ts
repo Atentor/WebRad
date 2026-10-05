@@ -18,6 +18,13 @@ const workspacePackages = [
 export default defineConfig({
   root: path.join(repositoryRoot, 'apps/ide/renderer'),
   plugins: [react()],
+  server: {
+    headers: {
+      'Content-Security-Policy': "frame-ancestors 'none'",
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+    },
+  },
   // Workspace packages are source-first and change without an npm version bump.
   // Serving them directly prevents Vite from reusing a stale optimized bundle
   // after a public export is added or renamed.

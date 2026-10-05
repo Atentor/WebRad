@@ -6,6 +6,14 @@ import config from '../../../vite.renderer.config';
 const rendererConfig = config as UserConfig;
 
 describe('renderer Vite configuration', () => {
+  it('prevents generated previews from embedding the privileged development renderer', () => {
+    expect(rendererConfig.server?.headers).toMatchObject({
+      'Content-Security-Policy': "frame-ancestors 'none'",
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+    });
+  });
+
   it('serves source-first workspaces directly while optimizing TypeScript interop', () => {
     expect(rendererConfig.optimizeDeps?.exclude).toEqual(
       expect.arrayContaining([

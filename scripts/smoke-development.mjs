@@ -55,7 +55,7 @@ try {
   const log = await fs.readFile(logPath, 'utf8');
   const requiredEvidence = [
     'compiler passed:',
-    'preview protocol passed',
+    'preview HTTP server passed',
     'preview renderer passed',
     'application icon resource passed:',
     'renderer loaded:',
@@ -65,6 +65,8 @@ try {
     'renderer project open passed',
     'renderer RestGO settings passed:',
     'renderer RestGO browser passed:',
+    'renderer CORS origin passed:',
+    'renderer RestGO iframe CORS passed:',
     'renderer RestGO page Interaction passed:',
     'renderer last project restore passed',
     'renderer bottom dock passed',
@@ -75,6 +77,7 @@ try {
     'renderer Monaco TypeScript highlight passed:',
     'renderer Monaco autocomplete passed:',
     'renderer F9 preview passed: Olá Ada',
+    'renderer Preview isolation passed:',
   ];
   const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));
 

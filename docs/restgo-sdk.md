@@ -23,18 +23,20 @@ O token configurado é incluído no projeto, no Preview e no JavaScript gerado, 
 Em um método de evento da página:
 
 ```ts
-const { data: session, error } = await RestGO.login(this.Email.text.trim(), this.Senha.text, true);
+const log = await RestGO.login(this.Email.text.trim(), this.Senha.text, true);
 
-if (error) {
-  Message(error.message);
+if (!log.sucess) {
+  Message(log.error.message);
   return;
 }
 
-Message(`Olá, ${session.user.fullName}`);
+Message(`Olá, ${log.data.user.fullName}`);
 Navigate('PageHome');
 ```
 
 Os componentes `Email` e `Senha` desse exemplo devem existir na página; `PageHome` é a página de destino após o login. O terceiro parâmetro é `remember`, opcional e `false` por padrão. Ele é enviado ao RestGO, que determina a validade do JWT e do refresh token conforme sua configuração. A persistência no navegador continua sendo definida em Project Settings.
+
+`login()` retorna `{ sucess, data, error }`. O campo `sucess` é sempre booleano: `true` quando esse login autentica o usuário e retorna uma sessão válida, ou `false` em falhas de autenticação, rede, resposta inválida ou cancelamento. O tipo público `RestGoLoginResult` permite acessar `log.data.user` diretamente em `if (log.sucess)` e `log.error.message` no ramo de falha. A verificação existente por `error` também continua funcionando. Um login malsucedido retorna `sucess: false` mesmo quando existe uma sessão anterior ainda válida.
 
 Para apenas entrar e navegar, o evento pode ser escrito assim:
 
@@ -55,7 +57,7 @@ Os atalhos abaixo utilizam a mesma sessão, persistência e renovação automát
 | `RestGO.refreshSession()`                  | Sessão e credenciais rotacionadas             |
 | `RestGO.onAuthStateChange(callback)`       | Retorna `{ unsubscribe }` diretamente         |
 
-As operações assíncronas continuam retornando `{ data, error }`, com os tipos do SDK no autocompletar. Um erro de rede é um erro de consulta, e não prova de que o usuário saiu. Os métodos em `RestGO.auth` também permanecem disponíveis. Login não escolhe uma página de destino: o código do evento usa `Navigate()` para isso.
+As operações assíncronas retornam `{ data, error }`; o atalho `login()` também inclui `sucess`, com os tipos do SDK no autocompletar. Um erro de rede é um erro de consulta, e não prova de que o usuário saiu. Os métodos em `RestGO.auth` também permanecem disponíveis. Login não escolhe uma página de destino: o código do evento usa `Navigate()` para isso.
 
 ```ts
 const initial = await RestGO.auth.ready;
@@ -301,4 +303,4 @@ await restgo.auth.signInWithPassword({ email, password });
 
 O pacote é um workspace fonte TypeScript deste repositório, sem publicação automática no npm. O compilador do WebRAD resolve seu import diretamente e inclui o código na aplicação. As opções permitem injetar `fetch` para testes ou outros ambientes compatíveis.
 
-As chamadas são feitas diretamente pelo navegador. Configure no RestGO as origens, métodos e headers permitidos, incluindo `Authorization` e os headers de paginação utilizados. Exponha o header `Retry-After` no CORS quando utilizá-lo. OAuth, MFA, Realtime e consulta arbitrária a tabelas exigiriam novos contratos no backend.
+As chamadas são feitas diretamente pelo navegador, com `credentials: 'omit'` e autenticação por headers. O CORS do RestGO aceita origens HTTP/HTTPS válidas, responde ao preflight `OPTIONS` antes da autenticação e expõe `Retry-After`; origens `null`, `file://` ou com esquemas personalizados são rejeitadas. O Preview e a IDE empacotada usam origens HTTP locais separadas em `127.0.0.1` para permitir esses fluxos sem um proxy de requisições ou desativar a segurança do Electron. A porta é definida por execução da IDE. APIs com uma lista restrita de origens precisam permitir a origem local recebida; proxies na frente do RestGO também precisam preservar os headers de CORS. Publique a aplicação gerada em HTTP/HTTPS. OAuth, MFA, Realtime e consulta arbitrária a tabelas exigiriam novos contratos no backend.

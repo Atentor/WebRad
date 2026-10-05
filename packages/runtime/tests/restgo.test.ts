@@ -78,7 +78,10 @@ describe('native RestGO project client', () => {
       expect(
         (await RestGO.auth.signUp({ email: user.email, password: 'secret' })).error,
       ).toBeNull();
-      expect((await RestGO.login(user.email, 'secret')).error).toBeNull();
+      const login = await RestGO.login(user.email, 'secret');
+      expect(login).toMatchObject({ sucess: true, error: null, data: { user } });
+      if (!login.sucess) throw login.error;
+      expect(login.data.user.fullName).toBe(user.fullName);
       expect((await RestGO.from('list').get()).error).toBeNull();
       expect((await RestGO.logout()).error).toBeNull();
       expect((await RestGO.from('list').get()).error).toBeNull();

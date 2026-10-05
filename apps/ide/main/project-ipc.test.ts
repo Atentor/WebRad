@@ -38,7 +38,7 @@ vi.mock('./project-files', async (importOriginal) => ({
   saveProjectFiles: mocks.saveProjectFiles,
 }));
 
-vi.mock('./preview-protocol', () => ({ publishPreviewHtml: vi.fn(), revokePreview: vi.fn() }));
+vi.mock('./preview-server', () => ({ publishPreviewHtml: vi.fn(), revokePreview: vi.fn() }));
 
 vi.mock('./last-project', () => ({
   LastProjectStore: class {

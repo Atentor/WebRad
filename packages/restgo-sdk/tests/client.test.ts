@@ -77,7 +77,10 @@ describe('RestGo authentication', () => {
     await client.auth.ready;
     const events: string[] = [];
     const subscription = client.onAuthStateChange((event) => events.push(event));
-    expect((await client.login(user.email, 'secret')).data).toEqual(session);
+    const login = await client.login(user.email, 'secret');
+    expect(login).toEqual({ sucess: true, data: session, error: null });
+    if (!login.sucess) throw login.error;
+    expect(login.data.user.fullName).toBe(user.fullName);
     expect((await client.auth.getUser()).data).toEqual(user);
     expect((await client.getUser()).data).toEqual(user);
     expect((await client.getSession()).data).toEqual(session);
@@ -87,6 +90,62 @@ describe('RestGo authentication', () => {
     expect(events).toContain('SIGNED_OUT');
     subscription.unsubscribe();
     client.dispose();
+  });
+
+  it.each([
+    {
+      reason: 'rejected credentials',
+      respond: async () => json({ error: 'Invalid credentials' }, 401),
+      code: 'HTTP_ERROR',
+    },
+    {
+      reason: 'an invalid session response',
+      respond: async () => json({ success: true }),
+      code: 'INVALID_RESPONSE',
+    },
+    {
+      reason: 'a network failure',
+      respond: async (): Promise<Response> => {
+        throw new TypeError('offline');
+      },
+      code: 'NETWORK_ERROR',
+    },
+  ])(
+    'returns sucess false for $reason even when a previous session exists',
+    async ({ respond, code }) => {
+      const fetch = fetchMock()
+        .mockResolvedValueOnce(json(session))
+        .mockImplementationOnce(respond)
+        .mockResolvedValue(json({ success: true, user }));
+      const client = createClient(baseUrl, { fetch, persistSession: false });
+      try {
+        await client.auth.ready;
+        expect((await client.login(user.email, 'secret')).sucess).toBe(true);
+        const login = await client.login(user.email, 'wrong');
+        expect(login.sucess).toBe(false);
+        expect(login.data).toBeNull();
+        if (login.sucess) throw new Error('Failed login unexpectedly succeeded.');
+        expect(login.error).toBeInstanceOf(RestGoError);
+        expect(login.error.code).toBe(code);
+        expect((await client.auth.getSession()).data).toEqual(session);
+      } finally {
+        client.dispose();
+      }
+    },
+  );
+
+  it('returns sucess false when login is cancelled after client disposal', async () => {
+    const fetch = fetchMock();
+    const client = createClient(baseUrl, { fetch, persistSession: false });
+    await client.auth.ready;
+    client.dispose();
+    const login = await client.login(user.email, 'secret');
+    expect(login).toMatchObject({
+      sucess: false,
+      data: null,
+      error: { code: 'AUTH_OPERATION_CANCELLED' },
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('signs in using the documented public route and validates the current user on the server', async () => {

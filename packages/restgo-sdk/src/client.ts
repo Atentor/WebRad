@@ -6,6 +6,7 @@ import type { RestGoResult } from './errors';
 import type {
   RestGoAuthEvent,
   RestGoClientOptions,
+  RestGoLoginResult,
   RestGoSession,
   RestGoSuccess,
   RestGoUser,
@@ -29,9 +30,10 @@ export class RestGoClient {
     return this.api.endpoint<T>(endpoint, options);
   }
 
-  /** Sign in with positional parameters using the client's shared session. */
-  login(email: string, password: string, remember = false): Promise<RestGoResult<RestGoSession>> {
-    return this.auth.signInWithPassword({ email, password, remember });
+  /** Sign in with positional parameters and report whether this login succeeded. */
+  async login(email: string, password: string, remember = false): Promise<RestGoLoginResult> {
+    const result = await this.auth.signInWithPassword({ email, password, remember });
+    return result.error === null ? { ...result, sucess: true } : { ...result, sucess: false };
   }
 
   logout(): Promise<RestGoResult<RestGoSuccess>> {
