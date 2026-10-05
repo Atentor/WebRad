@@ -36,7 +36,7 @@ describe('native RestGO project client', () => {
   it('reports disabled integration before any service operation can run', () => {
     expect(configureRestGo({ ...configuration, enabled: false })).toBeNull();
     expect(() => getRestGoClient()).toThrow(RestGoNotConfiguredError);
-    expect(() => RestGO.auth).toThrow('Project Settings > APIs and integrations');
+    expect(() => RestGO.auth).toThrow('Project Settings > RestGo integration');
   });
 
   it('reconfigures the stable facade without retaining the previous services', () => {
@@ -47,5 +47,53 @@ describe('native RestGO project client', () => {
     expect(dispose).toHaveBeenCalledOnce();
     expect(RestGO.auth).toBe(nextClient?.auth);
     expect(RestGO.storage).not.toBe(firstClient?.storage);
+  });
+
+  it('uses the raw token for anonymous APIs, no token for public auth, and Bearer JWT for authenticated APIs', async () => {
+    const user = {
+      id: 'user-1',
+      email: 'ana@example.test',
+      fullName: 'Ana',
+      avatarUrl: null,
+      active: true,
+      emailConfirmed: true,
+    };
+    const fetch = vi.fn<typeof globalThis.fetch>(async (url) => {
+      const pathname = new URL(String(url)).pathname;
+      const body =
+        pathname === '/auth/users'
+          ? { ...user, createdAt: '', updatedAt: '' }
+          : pathname === '/auth/token'
+            ? { token: 'runtime-jwt', expiresAt: '2099-01-01T00:00:00Z', user }
+            : pathname === '/auth/logout'
+              ? { success: true }
+              : { success: true, data: [] };
+      return new Response(JSON.stringify(body));
+    });
+    vi.stubGlobal('fetch', fetch);
+    try {
+      configureRestGo({ ...configuration, apiToken: 'rgo.runtime-token' });
+      await RestGO.auth.ready;
+      expect((await RestGO.from('list').get()).error).toBeNull();
+      expect(
+        (await RestGO.auth.signUp({ email: user.email, password: 'secret' })).error,
+      ).toBeNull();
+      expect((await RestGO.login(user.email, 'secret')).error).toBeNull();
+      expect((await RestGO.from('list').get()).error).toBeNull();
+      expect((await RestGO.logout()).error).toBeNull();
+      expect((await RestGO.from('list').get()).error).toBeNull();
+      expect(
+        fetch.mock.calls.map(([, options]) => new Headers(options?.headers).get('Authorization')),
+      ).toEqual([
+        'rgo.runtime-token',
+        null,
+        null,
+        'Bearer runtime-jwt',
+        'Bearer runtime-jwt',
+        'rgo.runtime-token',
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

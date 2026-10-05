@@ -8,6 +8,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   export interface RestGoRuntimeConfiguration {
     readonly enabled: boolean;
     readonly baseUrl: string;
+    readonly apiToken?: string;
     readonly apiVersion: number;
     readonly defaultDatabase: string;
     readonly persistSession: boolean;

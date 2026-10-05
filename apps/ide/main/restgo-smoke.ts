@@ -59,7 +59,7 @@ async function setField(window: BrowserWindow, label: string, value: string): Pr
 
 async function openSettings(window: BrowserWindow): Promise<void> {
   await click(window, 'button[aria-label="Project Settings"]');
-  await click(window, '#project-settings-tab-authentication');
+  await click(window, '#project-settings-tab-restgo');
 }
 
 async function saveProject(window: BrowserWindow, projectPath: string): Promise<void> {
@@ -82,7 +82,8 @@ async function saveProject(window: BrowserWindow, projectPath: string): Promise<
         Reflect.get(restGo, 'baseUrl') === 'https://restgo.example.test/backend' &&
         Reflect.get(restGo, 'apiVersion') === 2 &&
         Reflect.get(restGo, 'defaultDatabase') === 'clientes' &&
-        Reflect.get(restGo, 'sessionStorage') === 'memory'
+        Reflect.get(restGo, 'sessionStorage') === 'memory' &&
+        Reflect.get(restGo, 'apiToken') === 'rgo.settings-smoke'
       )
         return;
     }
@@ -104,10 +105,17 @@ export async function runRestGoSettingsSmoke(
     true,
   );
   await setField(window, 'RestGO instance URL', 'https://restgo.example.test/backend');
+  await setField(window, 'Authorization token', 'rgo.settings-smoke');
   await setField(window, 'Dynamic API version', '2');
   await setField(window, 'Default database slug', 'clientes');
   await setField(window, 'Session storage', 'memory');
-  await click(window, '#project-settings-tab-integrations');
+  await rendererReady(
+    window,
+    `document.querySelectorAll('#project-settings-tab-restgo').length === 1 && document.querySelector('#project-settings-tab-authentication') === null && document.querySelector('#project-settings-tab-integrations') === null`,
+  );
+  await click(window, '#project-settings-tab-general');
+
+  await click(window, '#project-settings-tab-restgo');
   await rendererReady(
     window,
     `Array.from(document.querySelectorAll('.wr-project-settings-dialog input'))
@@ -132,19 +140,32 @@ export async function runRestGoSettingsSmoke(
     configuration.baseUrl !== 'https://restgo.example.test/backend' ||
     configuration.apiVersion !== 2 ||
     configuration.defaultDatabase !== 'clientes' ||
-    configuration.sessionStorage !== 'memory'
+    configuration.sessionStorage !== 'memory' ||
+    configuration.apiToken !== 'rgo.settings-smoke'
   )
     throw new Error(`RestGO settings save mismatch: ${JSON.stringify(configuration)}`);
 
   await openSettings(window);
   await rendererReady(
     window,
+    `Array.from(document.querySelectorAll('.wr-project-settings-dialog input')).some((input) => input.type === 'password' && input.value === 'rgo.settings-smoke')`,
+  );
+
+  await rendererReady(
+    window,
     `Array.from(document.querySelectorAll('.wr-project-settings-dialog input'))
       .some((input) => input.value === 'https://restgo.example.test/backend')`,
   );
   await setField(window, 'RestGO instance URL', 'https://discarded.example.test');
+  await setField(window, 'Authorization token', 'rgo.discarded-token');
+
   await click(window, 'button[aria-label="Close project settings"]');
   await openSettings(window);
+  await rendererReady(
+    window,
+    `Array.from(document.querySelectorAll('.wr-project-settings-dialog input')).some((input) => input.type === 'password' && input.value === 'rgo.settings-smoke')`,
+  );
+
   await rendererReady(
     window,
     `Array.from(document.querySelectorAll('.wr-project-settings-dialog input'))
@@ -282,11 +303,42 @@ export async function runRestGoBrowserSmoke(log: (message: string) => void): Pro
     const route = new URL(request.url ?? '/', 'http://localhost').pathname;
     calls.push(`${request.method ?? ''} ${route}`);
     response.setHeader('Content-Type', 'application/json');
+    if (route === '/auth/users' && request.method === 'POST') {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array));
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
+      if (
+        request.headers.authorization !== undefined ||
+        typeof body.email !== 'string' ||
+        body.password !== 'senha-de-teste' ||
+        'admin' in body
+      ) {
+        response
+          .writeHead(400)
+          .end(JSON.stringify({ error: 'Expected anonymous common-user registration' }));
+        return;
+      }
+      response.writeHead(201).end(
+        JSON.stringify({
+          ...user,
+          id: 'registered-user',
+          email: body.email,
+          fullName: body.fullName ?? body.email,
+          createdAt: '2026-10-04T00:00:00Z',
+          updatedAt: '2026-10-04T00:00:00Z',
+        }),
+      );
+      return;
+    }
     if (route === '/auth/token' && request.method === 'POST') {
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array));
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
-      if (body.email !== user.email || body.password !== 'senha-de-teste') {
+      if (
+        body.email !== user.email ||
+        body.password !== 'senha-de-teste' ||
+        request.headers.authorization !== undefined
+      ) {
         response.writeHead(401).end(JSON.stringify({ error: 'Invalid credentials' }));
         return;
       }
@@ -319,6 +371,15 @@ export async function runRestGoBrowserSmoke(log: (message: string) => void): Pro
       response.end(JSON.stringify(session()));
       return;
     }
+    if (route === '/v2/demo/anonymous' && request.method === 'GET') {
+      if (request.headers.authorization !== 'rgo.browser-smoke') {
+        response.writeHead(401).end(JSON.stringify({ error: 'Expected raw application token' }));
+        return;
+      }
+      response.end(JSON.stringify({ success: true, data: [{ anonymous: true }] }));
+      return;
+    }
+
     if (route === '/v2/demo/list' && !forcedExpiry) {
       forcedExpiry = true;
       accessExpired = true;
@@ -381,6 +442,7 @@ export async function runRestGoBrowserSmoke(log: (message: string) => void): Pro
           baseUrl,
           apiVersion: 2,
           persistSession: false,
+          apiToken: 'rgo.browser-smoke',
         },
       },
     });
@@ -445,22 +507,32 @@ export class PageMain extends PageMainGenerated {
       window,
       `document.querySelector('[data-unauthenticated-count="1"]') !== null`,
     );
+    const verifyAnonymousToken = `(async () => {
+      const result = await RestGO.api.from('demo').endpoint('anonymous').get();
+      if (result.error || result.data?.[0]?.anonymous !== true) throw new Error('Anonymous Authorization token failed');
+      return true;
+    })()`;
+    await window.webContents.executeJavaScript(verifyAnonymousToken, true);
+
     const evidence: unknown = await window.webContents.executeJavaScript(
       `(async () => {
         const check = (result) => { if (result.error) throw new Error(result.error.message); return result.data; };
         if (document.querySelector('[data-restgo-identity="true"]') === null) throw new Error('Native client identity failed');
+        const registered = check(await RestGO.auth.signUp({ email: 'cadastro@example.test', password: 'senha-de-teste', fullName: 'Conta comum' }));
+        if (registered.id !== 'registered-user' || check(await RestGO.getSession()) !== null) throw new Error('Public signup started a session');
         const session = check(await RestGO.login('cliente@example.test', 'senha-de-teste', true));
         if (session.user.email !== 'cliente@example.test') throw new Error('Sign in user mismatch');
         if (!session.refreshToken || !session.refreshExpiresAt) throw new Error('Missing refresh pair');
         const page = document.querySelector('[data-restgo-identity="true"]');
         if (page.dataset.loginUser !== session.user.id) throw new Error('OnLogin did not save the current user');
+        check(await RestGO.auth.signUp({ email: 'outra@example.test', password: 'senha-de-teste' }));
         const events = [];
         const subscription = RestGO.onAuthStateChange((event) => events.push(event));
         const validated = check(await RestGO.getSession());
         if (validated.user.id !== session.user.id) throw new Error('Server validation mismatch');
         const currentUser = check(await RestGO.getUser());
         if (currentUser.id !== session.user.id) throw new Error('Direct getUser mismatch');
-        const file = check(await RestGO.storage.upload(new Blob(['Olá RestGO'], { type: 'text/plain' }), { name: 'documento.txt', isPublic: true }));
+        const file = check(await RestGO.storage.upload(new Blob(['Ol\u00E1 RestGO'], { type: 'text/plain' }), { name: 'documento.txt', isPublic: true }));
         const url = check(RestGO.storage.getPublicUrl(file.id)).publicUrl;
         if (!url.startsWith(${JSON.stringify(baseUrl)})) throw new Error('Public URL base mismatch');
         const downloaded = check(await RestGO.storage.download(file.id));
@@ -491,7 +563,10 @@ export class PageMain extends PageMainGenerated {
     ) {
       throw new Error(`RestGO browser smoke failed: ${JSON.stringify(evidence)}`);
     }
+    await window.webContents.executeJavaScript(verifyAnonymousToken, true);
+
     for (const call of [
+      'POST /auth/users',
       'POST /auth/token',
       'GET /auth/session',
       'POST /auth/refresh',
@@ -513,7 +588,7 @@ export class PageMain extends PageMainGenerated {
     await otherWindow.loadURL(previewUrl);
     const setup = `(async () => {
       if (!navigator.locks) throw new Error('Preview has no Web Locks');
-      window.sharedRefreshClient = window.createRestGoSmokeClient(${JSON.stringify(baseUrl)}, { storageKey: 'webrad-smoke-refresh' });
+      window.sharedRefreshClient = window.createRestGoSmokeClient(${JSON.stringify(baseUrl)}, { storageKey: 'webrad-smoke-refresh', apiToken: 'rgo.browser-smoke' });
       await window.sharedRefreshClient.auth.ready;
     })()`;
     await window.webContents.executeJavaScript(

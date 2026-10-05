@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 
 interface RestGoSettingsSectionProps {
   readonly settings: RestGoProjectSettings;
-  readonly section: 'authentication' | 'integrations';
+
   readonly error: string | null;
   readonly errorId: string;
   readonly onChange: (patch: Partial<RestGoProjectSettings>) => void;
@@ -11,7 +11,6 @@ interface RestGoSettingsSectionProps {
 
 export function RestGoSettingsSection({
   settings,
-  section,
   error,
   errorId,
   onChange,
@@ -19,9 +18,8 @@ export function RestGoSettingsSection({
   return (
     <>
       <p>
-        {section === 'authentication'
-          ? 'Use the native RestGO SDK for user authentication and account recovery.'
-          : 'Connect authentication, Storage, and published dynamic APIs to your RestGO instance.'}
+        Configure the native RestGO connection, authentication, Storage, and published dynamic APIs
+        in one place.
       </p>
       <fieldset className="wr-project-settings-seo-options">
         <legend>RestGO connection</legend>
@@ -47,6 +45,21 @@ export function RestGoSettingsSection({
               onChange={(event) => onChange({ baseUrl: event.currentTarget.value })}
             />
             <small>HTTP or HTTPS. A reverse-proxy base path is supported.</small>
+          </label>
+          <label className="wr-project-settings-field full-width">
+            <span>Authorization token</span>
+            <input
+              type="password"
+              value={settings.apiToken}
+              maxLength={4096}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Raw token, without Bearer"
+              onChange={(event) => onChange({ apiToken: event.currentTarget.value })}
+            />
+            <small>
+              Optional, for dynamic APIs before login. Signup and login do not send this token.
+            </small>
           </label>
           <label className="wr-project-settings-field">
             <span>Dynamic API version</span>
@@ -74,9 +87,8 @@ export function RestGoSettingsSection({
           </label>
         </div>
         <p>
-          The same connection is used in Authentication and APIs. Dynamic endpoints use
+          Dynamic endpoints use{' '}
           <code>
-            {' '}
             /v{'{version}'}/{'{database}'}/{'{endpoint}'}
           </code>
           ; the server defines their methods and permissions.
@@ -134,9 +146,10 @@ export function RestGoSettingsSection({
         </p>
       </fieldset>
       <div className="wr-project-settings-security-note" role="note">
-        These public settings are saved with the project and included in Preview and Build.
-        Administrative tokens and passwords must stay on your server. Configure allowed browser
-        origins on the RestGO server.
+        These settings, including the Authorization token, are saved with the project and included
+        in Preview and Build. Use an application API token suitable for browser access; keep
+        administrative tokens and passwords on your server. Configure allowed browser origins on the
+        RestGO server.
       </div>
       {error !== null && (
         <div className="wr-project-settings-error" id={errorId} role="alert">

@@ -13,7 +13,7 @@ function projectSettings() {
 }
 
 describe('ProjectSettingsDialog', () => {
-  it('saves shared native RestGO settings from Authentication and APIs and reopens them', async () => {
+  it('saves the complete RestGO integration and Authorization token and reopens them', async () => {
     const user = userEvent.setup();
     let saved: ProjectSettings = projectSettings();
     const onSave = vi.fn((settings: ProjectSettings) => {
@@ -28,7 +28,7 @@ describe('ProjectSettingsDialog', () => {
       />,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Authentication and JWT' }));
+    await user.click(screen.getByRole('tab', { name: 'RestGo integration' }));
     expect(screen.getByRole('button', { name: 'Save changes' }).hasAttribute('disabled')).toBe(
       true,
     );
@@ -38,12 +38,16 @@ describe('ProjectSettingsDialog', () => {
       screen.getByRole('textbox', { name: /^RestGO instance URL/ }),
       'https://api.example.test/restgo',
     );
+    expect(screen.queryByRole('tab', { name: 'Authentication and JWT' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'APIs and integrations' })).toBeNull();
+    expect(screen.getAllByRole('tab', { name: 'RestGo integration' })).toHaveLength(1);
+    await user.type(screen.getByLabelText(/^Authorization token/), 'rgo.portal-token');
     await user.selectOptions(screen.getByRole('combobox', { name: /^Session storage/ }), 'session');
     const storageKey = screen.getByRole('textbox', { name: /^Session storage key/ });
     await user.clear(storageKey);
     await user.type(storageKey, 'portal-restgo-session');
 
-    await user.click(screen.getByRole('tab', { name: 'APIs and integrations' }));
+    await user.click(screen.getByRole('tab', { name: 'RestGo integration' }));
     expect(
       (screen.getByRole('textbox', { name: /^RestGO instance URL/ }) as HTMLInputElement).value,
     ).toBe('https://api.example.test/restgo');
@@ -53,6 +57,7 @@ describe('ProjectSettingsDialog', () => {
     await user.type(screen.getByRole('textbox', { name: /^Default database slug/ }), 'clientes');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saved.restGo).toEqual({
+      apiToken: 'rgo.portal-token',
       enabled: true,
       baseUrl: 'https://api.example.test/restgo',
       apiVersion: 2,
@@ -71,7 +76,10 @@ describe('ProjectSettingsDialog', () => {
         onSave={onSave}
       />,
     );
-    await user.click(screen.getByRole('tab', { name: 'Authentication and JWT' }));
+    await user.click(screen.getByRole('tab', { name: 'RestGo integration' }));
+    expect((screen.getByLabelText(/^Authorization token/) as HTMLInputElement).value).toBe(
+      'rgo.portal-token',
+    );
     expect(
       (screen.getByRole('textbox', { name: /^Default database slug/ }) as HTMLInputElement).value,
     ).toBe('clientes');
@@ -96,19 +104,22 @@ describe('ProjectSettingsDialog', () => {
         onSave={onSave}
       />,
     );
-    await user.click(screen.getByRole('tab', { name: 'APIs and integrations' }));
+    await user.click(screen.getByRole('tab', { name: 'RestGo integration' }));
     await user.click(screen.getByRole('checkbox', { name: 'Enable native RestGO integration' }));
     await user.type(
       screen.getByRole('textbox', { name: /^RestGO instance URL/ }),
       'https://api.example.test',
     );
     await user.click(screen.getByRole('checkbox', { name: 'Persist the user session' }));
+    await user.type(screen.getByLabelText(/^Authorization token/), 'rgo.discarded-token');
+
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalledOnce();
     expect(onSave).not.toHaveBeenCalled();
     expect(settings.restGo.enabled).toBe(false);
     expect(settings.restGo.baseUrl).toBe('');
     expect(settings.restGo.persistSession).toBe(true);
+    expect(settings.restGo.apiToken).toBe('');
   });
 
   it('rejects missing URLs, embedded credentials and invalid API versions before saving', async () => {
@@ -122,7 +133,7 @@ describe('ProjectSettingsDialog', () => {
         onSave={onSave}
       />,
     );
-    await user.click(screen.getByRole('tab', { name: 'Authentication and JWT' }));
+    await user.click(screen.getByRole('tab', { name: 'RestGo integration' }));
     await user.click(screen.getByRole('checkbox', { name: 'Enable native RestGO integration' }));
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(screen.getByRole('alert').textContent).toContain('Enter the RestGO instance URL');
@@ -155,7 +166,7 @@ describe('ProjectSettingsDialog', () => {
     expect(screen.getByRole('tab', { name: 'Environment variables' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Icons' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'SEO and sharing' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'Authentication and JWT' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'RestGo integration' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'CORS and origins' })).toBeDefined();
 
     await user.click(screen.getByRole('tab', { name: 'CORS and origins' }));
@@ -414,5 +425,47 @@ describe('ProjectSettingsDialog', () => {
 
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('rejects an Authorization token with Bearer before saving', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    await user.click(screen.getByRole('tab', { name: 'RestGo integration' }));
+    await user.type(screen.getByLabelText(/^Authorization token/), 'Bearer rgo.token');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(screen.getByRole('alert').textContent).toContain('without Bearer');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('enables saving when only the Authorization token changes', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const settings = projectSettings();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={settings}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    await user.click(screen.getByRole('tab', { name: 'RestGo integration' }));
+    await user.type(screen.getByLabelText(/^Authorization token/), 'rgo.updated-token');
+    expect(screen.getByRole('button', { name: 'Save changes' }).hasAttribute('disabled')).toBe(
+      false,
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onSave).toHaveBeenCalledWith({
+      ...settings,
+      restGo: { ...settings.restGo, apiToken: 'rgo.updated-token' },
+    });
   });
 });

@@ -4,6 +4,7 @@ import { createClient, type RestGoClient } from '@webrad/restgo-sdk';
 export interface RestGoRuntimeConfiguration {
   readonly enabled: boolean;
   readonly baseUrl: string;
+  readonly apiToken?: string;
   readonly apiVersion: number;
   readonly defaultDatabase: string;
   readonly persistSession: boolean;
@@ -14,7 +15,7 @@ export interface RestGoRuntimeConfiguration {
 export class RestGoNotConfiguredError extends Error {
   public constructor() {
     super(
-      'Enable and configure RestGO in Project Settings > APIs and integrations before using RestGO.',
+      'Enable and configure RestGO in Project Settings > RestGo integration before using RestGO.',
     );
     this.name = 'RestGoNotConfiguredError';
   }
@@ -27,6 +28,7 @@ export function configureRestGo(configuration: RestGoRuntimeConfiguration): Rest
   projectClient?.dispose();
   projectClient = configuration.enabled
     ? createClient(configuration.baseUrl, {
+        apiToken: configuration.apiToken,
         apiVersion: configuration.apiVersion,
         defaultDatabase: configuration.defaultDatabase,
         persistSession: configuration.persistSession,

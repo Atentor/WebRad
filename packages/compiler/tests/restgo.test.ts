@@ -53,6 +53,7 @@ describe('compiled native RestGO integration', () => {
       { ...original, pages: [boundPage] },
       {
         restGo: {
+          apiToken: 'rgo.compiled-token',
           enabled: true,
           baseUrl: 'https://restgo.example.test',
           apiVersion: 2,
@@ -136,7 +137,7 @@ export class ${page.name} extends ${page.name}Generated {
           password: 'senha-de-teste',
           remember: false,
         });
-        expect(new Headers(options?.headers).has('Authorization')).toBe(false);
+        expect(new Headers(options?.headers).get('Authorization')).toBeNull();
       } else expect(new Headers(options?.headers).get('Authorization')).toBe('Bearer compiled-jwt');
       const body =
         path === '/auth/token'

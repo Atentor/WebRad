@@ -45,6 +45,7 @@ The compiler emits this style into generated `assets/app.css`, and Preview uses 
 {
   "enabled": false,
   "baseUrl": "",
+  "apiToken": "",
   "apiVersion": 1,
   "defaultDatabase": "",
   "persistSession": true,
@@ -54,6 +55,8 @@ The compiler emits this style into generated `assets/app.css`, and Preview uses 
 ```
 
 These are deterministic defaults for new projects and older valid version-2 aggregates/manifests that omit the additive setting. Partial legacy settings materialize missing fields; unknown fields and invalid values are rejected. `formatVersion` remains 2. Enabled integration requires an absolute HTTP(S) instance URL without credentials, query, fragment, or backslashes. A reverse-proxy path is allowed. `apiVersion` is a positive safe integer, `defaultDatabase` is optional and restricted to a portable slug, and `sessionStorage` is `local`, `session`, or `memory`.
+
+`apiToken` is an optional application API token, stored as a string with an empty default. It is trimmed and limited to 4096 printable ASCII characters without spaces or a `Bearer` prefix. Older projects that omit it remain compatible with format version 2. The single **RestGo integration** settings section edits this value together with the connection and session policy. The compiler includes a configured value in browser output: it is not a server secret. Automatic dynamic API calls use the raw token when no user session exists, then use `Bearer <JWT>` during a session; logout restores the raw-token selection. Signup and login always omit `Authorization`, including when a token or session exists. Applications using only public signup/login can leave this value empty. This authentication behavior requires no project-format change; the server must allow public registration. Explicit credential modes and other endpoint contracts remain unchanged.
 
 The manifest never includes user JWTs, refresh tokens, administrative credentials, or SDK response data. The runtime stores one atomic browser record containing `baseUrl`, `token`, `expiresAt`, and the optional paired `refreshToken`/`refreshExpiresAt`, bound to the normalized RestGO instance URL. Restoration validates the credential or renews an expired JWT against the server before exposing a user identity. Legacy JWT-only records remain readable; records with incomplete refresh pairs are discarded. Persisted credentials for another instance are never sent to the current server. No project-format migration is required for refresh support: renewal is enabled automatically by the SDK.
 

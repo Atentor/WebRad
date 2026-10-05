@@ -807,6 +807,20 @@ export const RestGoProjectSettingsSchema: z.ZodType<RestGoProjectSettings> = z
   .object({
     enabled: z.boolean(),
     baseUrl: restGoBaseUrlSchema,
+    apiToken: z
+      .string()
+      .trim()
+      .max(4096)
+      .refine(
+        (value) =>
+          !/^Bearer(?:\s|$)/i.test(value) &&
+          [...value].every((character) => {
+            const code = character.charCodeAt(0);
+            return code >= 33 && code <= 126;
+          }),
+        'Enter the Authorization token without Bearer, spaces, or control characters.',
+      )
+      .default(''),
     apiVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
     defaultDatabase: z
       .string()

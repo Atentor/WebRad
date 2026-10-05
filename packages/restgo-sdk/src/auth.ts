@@ -392,9 +392,9 @@ export class RestGoAuthClient {
     } else this.schedule();
   }
 
-  /** RestGo requires an API token to create a common user. Does not log the user in. */
+  /** Public registration. The server must allow anonymous signup. Does not start a session. */
   signUp(input: RestGoSignUpInput): Promise<RestGoResult<RestGoManagedUser>> {
-    return this.transport.request('/auth/users', { method: 'POST', body: input, auth: 'apiToken' });
+    return this.transport.request('/auth/users', { method: 'POST', body: input, auth: 'none' });
   }
 
   async signOut(): Promise<RestGoResult<RestGoSuccess>> {

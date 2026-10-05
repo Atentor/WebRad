@@ -38,7 +38,11 @@ Os componentes não visuais continuam disponíveis na bandeja abaixo do canvas. 
 
 ## Integração nativa com RestGO
 
-Em **Project Settings > Authentication and JWT** ou **APIs and integrations**, ative o RestGO e configure a URL da instância, a versão da API, o banco padrão e a persistência da sessão. A configuração é salva no arquivo do projeto e aplicada ao Preview e à aplicação web gerada.
+Em **Project Settings > RestGo integration**, configure em uma única seção a URL da instância, a versão da API, o banco padrão e a persistência da sessão. **Cadastro e login não enviam `Authorization`**, mesmo quando existe uma sessão ou token configurado. Para esse fluxo, deixe **Authorization token** vazio. O cadastro depende de o RestGO permitir acesso público a `POST /auth/users`; o login usa `POST /auth/token`.
+
+O **Authorization token** é opcional para APIs dinâmicas que precisam de um token de aplicação antes do login. Essas chamadas automáticas enviam `Authorization: <token>`, sem `Bearer`, quando não existe sessão, e `Authorization: Bearer <JWT>` quando o usuário está autenticado. Após logout, voltam ao token configurado.
+
+A configuração é salva no arquivo do projeto e aplicada ao Preview e à aplicação web gerada. O token informado fica acessível no navegador: use um token de API da aplicação com as permissões apropriadas, mantendo credenciais administrativas no servidor. Refresh e operações explicitamente públicas continuam sem `Authorization`.
 
 O SDK TypeScript `@webrad/restgo-sdk` oferece autenticação de usuários, validação de sessão, recuperação de senha, confirmação de e-mail, avatar, Storage e chamadas aos endpoints dinâmicos publicados. O cliente nativo `RestGO` fica disponível nos eventos TypeScript, com tipos e autocompletar no editor. A aplicação gerada executa esse mesmo SDK diretamente no navegador.
 
@@ -46,7 +50,7 @@ Use atalhos com parâmetros diretos, como `await RestGO.login(email, senha)`, `a
 
 Na página, **Interaction > RestGO** oferece **OnLogin**, **OnLogout** e **OnUnauthenticated**. Dê dois cliques para criar o método. Nos dois primeiros, obtenha a identidade por `event.detail.user`; por exemplo, `this.usuarioId = user.id` guarda o ID em um campo declarado na classe. `OnLogin` também entrega uma sessão restaurada à página exibida. `OnUnauthenticated` detecta entrada sem sessão e encerramento da sessão, permitindo usar `Navigate('PageLogin')` no evento. O runtime verifica a sessão a cada 30 segundos na aba visível e ao retornar à aba; falhas de rede não disparam desconexão. Consulte os [exemplos de eventos e variáveis](docs/restgo-sdk.md#eventos-de-autenticação-em-interaction).
 
-Consulte o [guia do SDK RestGO](docs/restgo-sdk.md) para exemplos e detalhes dos contratos. O SDK renova o JWT automaticamente por `POST /auth/refresh`, persiste o par de credenciais rotacionado e coordena renovações simultâneas. Novo login é necessário quando o refresh token expira ou é revogado. As sessões continuam sendo validadas pelo servidor e o cadastro exige uma credencial autorizada.
+Consulte o [guia do SDK RestGO](docs/restgo-sdk.md) para exemplos e detalhes dos contratos. O SDK renova o JWT automaticamente por `POST /auth/refresh`, persiste o par de credenciais rotacionado e coordena renovações simultâneas. Novo login é necessário quando o refresh token expira ou é revogado. As sessões continuam sendo validadas pelo servidor; cadastrar uma conta não inicia uma sessão automaticamente.
 
 ## Validação
 

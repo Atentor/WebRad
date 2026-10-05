@@ -191,35 +191,44 @@ describe('RestGo authentication', () => {
     expect((await client.auth.getSession()).data?.token).toBe(session.token);
   });
 
-  it('requires an explicit API token for signup and does not start a session', async () => {
-    const fetch = fetchMock().mockResolvedValueOnce(
-      json({ ...user, createdAt: '', updatedAt: '' }, 201),
-    );
-    const anonymous = createClient(baseUrl, { fetch, persistSession: false });
-    await anonymous.auth.ready;
-    expect(
-      (await anonymous.auth.signUp({ email: user.email, password: 'secret' })).error?.code,
-    ).toBe('API_TOKEN_REQUIRED');
-    expect(fetch).not.toHaveBeenCalled();
-    const client = createClient(baseUrl, {
-      fetch,
-      apiToken: 'rgo.test.secret',
-      persistSession: false,
-    });
-    await client.auth.ready;
-    expect((await client.auth.signUp({ email: user.email, password: 'secret' })).data?.id).toBe(
-      user.id,
-    );
-    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get('Authorization')).toBe(
-      'rgo.test.secret',
-    );
-    expect((await client.auth.getSession()).data).toBeNull();
-  });
+  it.each([false, true])(
+    'registers without Authorization and without starting a session (configured API token: %s)',
+    async (configuredToken) => {
+      const created = {
+        ...user,
+        createdAt: '2026-10-04T00:00:00Z',
+        updatedAt: '2026-10-04T00:00:00Z',
+      };
+      const fetch = fetchMock().mockResolvedValueOnce(json(created, 201));
+      const client = createClient(baseUrl, {
+        fetch,
+        persistSession: false,
+        apiToken: configuredToken ? 'rgo.application-token' : undefined,
+      });
+      await client.auth.ready;
+      const events: string[] = [];
+      const subscription = client.onAuthStateChange((event) => events.push(event));
+      const input = { email: user.email, password: 'secret', fullName: 'Ana', active: true };
+      expect(await client.auth.signUp(input)).toEqual({ data: created, error: null });
+      expect(fetch).toHaveBeenCalledWith(
+        baseUrl + '/auth/users',
+        expect.objectContaining({ method: 'POST', credentials: 'omit' }),
+      );
+      const options = fetch.mock.calls[0]?.[1];
+      expect(new Headers(options?.headers).get('Authorization')).toBeNull();
+      expect(new Headers(options?.headers).get('Content-Type')).toBe('application/json');
+      expect(JSON.parse(String(options?.body))).toEqual(input);
+      expect((await client.getSession()).data).toBeNull();
+      expect(events).not.toContain('SIGNED_IN');
+      subscription.unsubscribe();
+      client.dispose();
+    },
+  );
 
-  it('does not clear a valid user session when an API token fails', async () => {
+  it('does not clear a valid user session when public registration is rejected', async () => {
     const fetch = fetchMock()
       .mockResolvedValueOnce(json(session))
-      .mockResolvedValueOnce(json({ error: 'invalid API token' }, 401))
+      .mockResolvedValueOnce(json({ error: 'registration requires server configuration' }, 401))
       .mockResolvedValueOnce(json({ success: true, user }));
     const client = createClient(baseUrl, { fetch, apiToken: 'invalid', persistSession: false });
     await client.auth.ready;
@@ -351,6 +360,57 @@ describe('RestGo authentication', () => {
     expect(
       fetch.mock.calls.every(([, options]) => !new Headers(options?.headers).has('Authorization')),
     ).toBe(true);
+  });
+
+  it('never sends Authorization during login and preserves the current JWT when another login fails', async () => {
+    const fetch = fetchMock()
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ error: 'wrong password' }, 401))
+      .mockResolvedValueOnce(json({ success: true, user }));
+    const client = createClient(baseUrl, {
+      fetch,
+      apiToken: 'rgo.application-token',
+      persistSession: false,
+    });
+    await client.auth.ready;
+    expect((await client.login(user.email, 'secret')).data).toEqual(session);
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get('Authorization')).toBeNull();
+    expect((await client.login(user.email, 'wrong')).error?.status).toBe(401);
+    expect(new Headers(fetch.mock.calls[1]?.[1]?.headers).get('Authorization')).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect((await client.getSession()).data?.token).toBe(session.token);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    client.dispose();
+  });
+
+  it('registers another account without forwarding the existing JWT or API token', async () => {
+    const created = {
+      ...user,
+      id: 'new-user',
+      email: 'new@example.test',
+      createdAt: '',
+      updatedAt: '',
+    };
+    const fetch = fetchMock()
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json(created, 201))
+      .mockResolvedValueOnce(json({ success: true, user }));
+    const client = createClient(baseUrl, {
+      fetch,
+      apiToken: 'rgo.application-token',
+      persistSession: false,
+    });
+    await client.auth.ready;
+    await client.login(user.email, 'secret');
+    expect((await client.auth.signUp({ email: created.email, password: 'secret' })).data?.id).toBe(
+      created.id,
+    );
+    expect(new Headers(fetch.mock.calls[1]?.[1]?.headers).get('Authorization')).toBeNull();
+    expect((await client.getSession()).data?.token).toBe(session.token);
+    expect(new Headers(fetch.mock.calls[2]?.[1]?.headers).get('Authorization')).toBe(
+      'Bearer ' + session.token,
+    );
+    client.dispose();
   });
 });
 

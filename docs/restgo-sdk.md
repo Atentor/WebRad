@@ -1,17 +1,22 @@
 # SDK nativo do RestGO
 
-O pacote `@webrad/restgo-sdk` implementa os contratos de `RestGo/web/docs.html` e dos handlers correspondentes de autenticação, Storage e APIs dinâmicas. Utiliza `fetch`, `FormData`, `Blob` e APIs padrão do navegador. O Preview e a aplicação compilada utilizam o mesmo cliente, sem dependências de Electron ou Node.js.
+O pacote `@webrad/restgo-sdk` utiliza `fetch`, `FormData`, `Blob` e APIs padrão do navegador para autenticação, Storage e APIs dinâmicas. O Preview e a aplicação compilada utilizam o mesmo cliente, sem dependências de Electron ou Node.js. O SDK está preparado para cadastro público; a instância RestGo precisa permitir `POST /auth/users` sem `Authorization` para esse fluxo funcionar.
 
 ## Configuração no WebRAD
 
-Abra **Project Settings > Authentication and JWT** ou **APIs and integrations**. As duas abas editam a mesma conexão:
+Abra **Project Settings > RestGo integration**. Uma única seção reúne conexão, autorização, autenticação, sessão, Storage e APIs dinâmicas:
 
 - Ative **Enable native RestGO integration** e informe a URL HTTP(S) da instância. Um caminho de reverse proxy, como `https://exemplo.com/backend`, é preservado.
+- Deixe **Authorization token** vazio para cadastro e login públicos. O campo é opcional para APIs dinâmicas que precisam de token de API; nesse caso, informe o valor sem `Bearer`. Ele é salvo em `settings.restGo.apiToken` e usado como `Authorization: <token>` em chamadas automáticas a essas APIs quando não existe sessão. Cadastro e login não o enviam.
 - Escolha a versão dos endpoints dinâmicos e, opcionalmente, o slug do banco padrão.
 - Configure persistência em armazenamento local, armazenamento da aba ou memória. A chave deve distinguir aplicações hospedadas na mesma origem.
 - Clique em **Save changes** e salve o projeto normalmente. A conexão é persistida em `settings.restGo` no arquivo `.wrproj`.
 
 O compilador configura `RestGO` antes de construir as páginas. Esse cliente é compartilhado entre os eventos e as navegações da aplicação. Acessá-lo com a integração desativada gera `RestGoNotConfiguredError`, com indicação de onde configurá-la.
+
+As chamadas a APIs dinâmicas com autorização automática usam o JWT da sessão como `Authorization: Bearer <JWT>` quando o usuário está autenticado. Sem sessão, incluindo após logout, usam o token configurado sem `Bearer`. Não há repetição com outro tipo de credencial após rejeição. Cadastro (`POST /auth/users`) e login (`POST /auth/token`) sempre omitem `Authorization`, inclusive quando existe token configurado ou sessão. Falhas nessas operações não encerram uma sessão válida. `POST /auth/refresh` e as operações públicas de recuperação/confirmação também não enviam esse header; operações protegidas preservam o contrato do endpoint.
+
+O token configurado é incluído no projeto, no Preview e no JavaScript gerado, ficando acessível no navegador. Utilize um token de API apropriado para a aplicação; mantenha `RESTGO_AUTHORIZATION` e outras credenciais administrativas no servidor.
 
 ## Login e sessão
 
@@ -191,7 +196,7 @@ Falhas de rede, 429 e 5xx usam intervalos de tentativa crescentes, de 1 até 60 
 
 | Método                                                                    | Contrato RestGO                                                                                 |
 | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `auth.signUp({ email, password, fullName?, active? })`                    | `POST /auth/users`; exige um token de API ativo configurado explicitamente e não inicia sessão  |
+| `auth.signUp({ email, password, fullName?, active? })`                    | `POST /auth/users` sem `Authorization`; requer cadastro público no servidor e não inicia sessão |
 | `auth.setSession({ token, expiresAt, refreshToken?, refreshExpiresAt? })` | Valida em `GET /auth/session`; pode renovar um JWT expirado quando o par de refresh é informado |
 | `auth.resetPasswordForEmail(email, { url? })`                             | `POST /auth/password-reset/request`                                                             |
 | `auth.confirmPasswordReset({ token, password })`                          | `POST /auth/password-reset/confirm`                                                             |
@@ -199,7 +204,16 @@ Falhas de rede, 429 e 5xx usam intervalos de tentativa crescentes, de 1 até 60 
 | `auth.uploadAvatar(blob, { name?, signal? })`                             | `PUT /auth/avatar`, multipart com `file`                                                        |
 | `auth.deleteAvatar()`                                                     | `DELETE /auth/avatar`                                                                           |
 
-O RestGO exige autorização para cadastrar usuários. O cliente nativo do projeto não armazena token administrativo nem token de API. Um serviço no servidor pode usar o SDK com `apiToken` para implementar um cadastro autorizado. Esse token concede os acessos configurados no RestGO e deve permanecer no servidor. A gestão administrativa de contas e o reenvio administrativo de confirmação continuam nas rotas administrativas do RestGO.
+`auth.signUp()` não exige token de aplicação e não envia o JWT atual. A instância RestGo deve aceitar cadastro público de usuários comuns em `POST /auth/users`. Até esse ajuste no servidor, o SDK envia a solicitação e retorna o erro HTTP recebido, como 401, sem bloquear localmente com `API_TOKEN_REQUIRED`. O cadastro retorna `{ data, error }` e não faz login automático. A gestão administrativa de contas e o reenvio administrativo de confirmação continuam nas rotas administrativas do RestGo.
+
+```ts
+const { data: usuario, error } = await RestGO.auth.signUp({
+  email: 'ana@exemplo.com',
+  password: 'senha-do-usuario',
+  fullName: 'Ana',
+});
+if (error) Message(error.message);
+```
 
 A recuperação permite `url` HTTP(S) opcional para o destino do link; sem ela, utiliza a URL configurada no RestGO. O envio de e-mail depende do SMTP do servidor. Os tokens de recuperação e confirmação têm uso único. O avatar aceita JPEG, PNG e WebP; o RestGO produz uma imagem pública JPEG de 512 × 512 pixels e retorna `avatarUrl`.
 

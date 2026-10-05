@@ -1036,7 +1036,7 @@ describe('App MVP integration', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Settings for MvpProject' });
     expect(within(dialog).getByRole('tab', { name: 'Environment variables' })).toBeDefined();
-    expect(within(dialog).getByRole('tab', { name: 'Authentication and JWT' })).toBeDefined();
+    expect(within(dialog).getByRole('tab', { name: 'RestGo integration' })).toBeDefined();
     await user.click(within(dialog).getByRole('tab', { name: 'CORS and origins' }));
     expect(within(dialog).getByRole('heading', { name: 'CORS and trusted origins' })).toBeDefined();
     await user.click(within(dialog).getByRole('tab', { name: 'General' }));

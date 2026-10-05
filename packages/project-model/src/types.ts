@@ -391,11 +391,13 @@ export interface ProjectScrollbarStyle {
   readonly cornerColor: string;
 }
 
-/** Public browser configuration for the native RestGO client. Never contains credentials. */
+/** Browser configuration saved with the project, including the optional application API token. */
 export interface RestGoProjectSettings {
   readonly enabled: boolean;
   /** Instance URL, including an optional reverse-proxy base path. */
   readonly baseUrl: string;
+  /** Raw application API token used without Bearer before user authentication. Included in browser output. */
+  readonly apiToken: string;
   readonly apiVersion: number;
   /** Optional database slug used when invoking a published dynamic endpoint. */
   readonly defaultDatabase: string;
@@ -509,6 +511,7 @@ export const DEFAULT_PROJECT_SCROLLBAR_STYLE: Readonly<ProjectScrollbarStyle> = 
 export const DEFAULT_REST_GO_PROJECT_SETTINGS: Readonly<RestGoProjectSettings> = Object.freeze({
   enabled: false,
   baseUrl: '',
+  apiToken: '',
   apiVersion: 1,
   defaultDatabase: '',
   persistSession: true,

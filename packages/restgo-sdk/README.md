@@ -1,6 +1,6 @@
 # SDK nativo RestGo
 
-Cliente TypeScript para aplicações de navegador. O contrato segue `web/docs.html` e os handlers atuais do projeto RestGo; o pacote não depende do designer, Electron ou Node.js.
+Cliente TypeScript para aplicações de navegador. O pacote não depende do designer, Electron ou Node.js. O cadastro público requer que o RestGo permita `POST /auth/users` sem `Authorization`; enquanto o servidor exigir credencial nessa rota, ele rejeitará o cadastro com 401.
 
 ```ts
 import { createClient } from '@webrad/restgo-sdk';
@@ -27,13 +27,13 @@ Cada operação retorna `{ data, error }`, discriminado por `error`. Falhas HTTP
 ## Autenticação
 
 - Atalhos diretos: `login(email, password, remember = false)`, `logout()`, `getSession()`, `getUser()`, `refreshSession()` e `onAuthStateChange(callback)`. Eles usam a mesma instância de `auth`, com persistência, renovação e eventos compartilhados. As operações assíncronas retornam `{ data, error }`; a assinatura de eventos retorna `{ unsubscribe }`. Na aplicação WebRAD, use `RestGO.login(email, senha)` diretamente nos eventos.
-- `auth.signInWithPassword({ email, password, remember? })` chama `POST /auth/token`.
+- `auth.signInWithPassword({ email, password, remember? })` chama `POST /auth/token` sem `Authorization`, mesmo com `apiToken` configurado ou uma sessão existente. Uma rejeição do login não revalida nem repete a sessão anterior.
 - `auth.ready` valida as credenciais persistidas ao criar o cliente, renovando um JWT expirado quando existe refresh token. `auth.getSession()` e `auth.getUser()` consultam `GET /auth/session`. O servidor determina a validade da sessão.
 - `auth.refreshSession()` renova por `POST /auth/refresh`, enviando somente `{ refreshToken }` no JSON, sem header de autorização. A resposta substitui `token`, `expiresAt`, `refreshToken`, `refreshExpiresAt` e a identidade do usuário.
 - A renovação automática é habilitada por padrão: antes da expiração, antes de chamadas com JWT expirado e após uma rejeição autoritativa da sessão. Uma chamada protegida rejeitada com 401 pode ser repetida uma vez com o novo JWT. `autoRefreshToken: false` desativa esse comportamento, mantendo a renovação manual disponível.
 - `auth.setSession({ token, expiresAt, refreshToken?, refreshExpiresAt? })` valida a sessão no servidor antes de substituir a atual. As duas propriedades de refresh devem ser fornecidas juntas; um JWT expirado pode ser renovado durante a importação.
 - `auth.signOut()` revoga o JWT atual por `POST /auth/logout`. Falhas temporárias mantêm a sessão para permitir uma nova tentativa.
-- `auth.signUp({ email, password, fullName?, active? })` cria um usuário comum por `POST /auth/users`. Requer `apiToken` configurado explicitamente no cliente e retorna o usuário criado, sem login automático.
+- `auth.signUp({ email, password, fullName?, active? })` envia cadastro por `POST /auth/users` sem `Authorization`, mesmo com token de API ou sessão existente. Não exige `apiToken` no cliente. O servidor precisa permitir cadastro público e controlar a criação de usuários comuns. Retorna o usuário criado, sem login automático.
 - `auth.resetPasswordForEmail(email, { url? })`, `auth.confirmPasswordReset({ token, password })` e `auth.confirmEmail(token)` usam os endpoints públicos correspondentes.
 - `auth.uploadAvatar(blob, { name?, signal? })` e `auth.deleteAvatar()` usam `/auth/avatar`. A normalização da imagem acontece no RestGo.
 - `auth.onAuthStateChange((event, session) => {})` retorna `{ unsubscribe }`. Os eventos são `INITIAL_SESSION`, `SIGNED_IN`, `SIGNED_OUT`, `SESSION_VALIDATED`, `TOKEN_REFRESHED` e `USER_UPDATED`.
@@ -83,5 +83,7 @@ const cursorPage = await restGo.from('listar').get({
 `get`, `post`, `put`, `patch`, `delete`, `head` e `options` usam `/v{version}/{database}/{endpoint}`. `post`, `put`, `patch` e `delete` recebem `(body?, options?)`; os outros recebem `(options?)`. `RestGoDynamicOptions` aceita query, paginação `exact`/`simple`/`cursor`, coluna e cursor, versão, headers e AbortSignal.
 
 Endpoints configurados com autenticação JWT exigem `auth: 'session'`; endpoints configurados para token de API exigem `auth: 'apiToken'` e uma opção `apiToken` explícita no cliente. O padrão `auto` escolhe a sessão atual quando disponível, depois o token de API configurado. Não há tentativa automática com outro tipo de credencial. Uma rejeição de JWT por um endpoint dinâmico é confirmada em `/auth/session` antes de encerrar a sessão, pois o endpoint pode exigir outro tipo de token.
+
+No WebRAD, configure esse token opcional em **Project Settings > RestGo integration > Authorization token**, sem `Bearer`, apenas quando uma API dinâmica precisar dele. Essas chamadas automáticas usam o token antes do login e depois do logout; durante a sessão usam `Bearer <JWT>`. Cadastro e login sempre omitem esse header. Para autenticação e cadastro públicos, deixe o campo vazio. Um token preenchido faz parte do projeto e do JavaScript gerado, portanto deve ser apropriado para exposição no navegador.
 
 Os nomes representam endpoints publicados pelo RestGo. Seleção direta de tabelas, SQL remoto e operações de buckets não integram esse contrato.

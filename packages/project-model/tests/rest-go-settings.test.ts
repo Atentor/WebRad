@@ -24,6 +24,7 @@ describe('native RestGO project settings', () => {
       persistSession: true,
       sessionStorage: 'session' as const,
       storageKey: 'portal-session',
+      apiToken: 'rgo.project-token',
     };
     const updated = updateProjectSettings(project, { restGo });
     expect(deserializeProject(serializeProject(updated)).settings.restGo).toEqual(restGo);
@@ -56,7 +57,7 @@ describe('native RestGO project settings', () => {
     );
   });
 
-  it('normalizes public settings without persisting credentials', () => {
+  it('normalizes the application token while rejecting administrative credentials', () => {
     expect(
       RestGoProjectSettingsSchema.parse({
         ...DEFAULT_REST_GO_PROJECT_SETTINGS,
@@ -64,13 +65,15 @@ describe('native RestGO project settings', () => {
         baseUrl: ' https://api.example.test/proxy/ ',
         defaultDatabase: ' clientes ',
         storageKey: ' portal-session ',
+        apiToken: ' rgo.project-token ',
       }),
     ).toMatchObject({
+      apiToken: 'rgo.project-token',
       baseUrl: 'https://api.example.test/proxy/',
       defaultDatabase: 'clientes',
       storageKey: 'portal-session',
     });
-    for (const credential of ['masterToken', 'apiToken', 'password']) {
+    for (const credential of ['masterToken', 'password']) {
       const project = createProject('Portal');
       expect(
         safeParseProject({
@@ -121,6 +124,35 @@ describe('native RestGO project settings', () => {
   ])('rejects invalid connection or session value %j', (patch) => {
     expect(
       RestGoProjectSettingsSchema.safeParse({ ...DEFAULT_REST_GO_PROJECT_SETTINGS, ...patch })
+        .success,
+    ).toBe(false);
+  });
+
+  it('defaults the missing Authorization token in existing RestGO project settings', () => {
+    const project = createProject('Legacy');
+    const aggregate = JSON.parse(serializeProject(project)) as {
+      settings: { restGo: Record<string, unknown> };
+    };
+    delete aggregate.settings.restGo.apiToken;
+    expect(deserializeProject(JSON.stringify(aggregate)).settings.restGo.apiToken).toBe('');
+    const manifest = JSON.parse(serializeProjectManifest(projectToManifest(project))) as {
+      settings: { restGo: Record<string, unknown> };
+    };
+    delete manifest.settings.restGo.apiToken;
+    expect(deserializeProjectManifest(JSON.stringify(manifest)).settings.restGo.apiToken).toBe('');
+  });
+
+  it.each([
+    'Bearer rgo.token',
+    'bearer rgo.token',
+    'Bearer',
+    'rgo.\r\nInjected:header',
+    'rgo. token',
+    'rgo.é',
+    'a'.repeat(4097),
+  ])('rejects invalid raw Authorization token %j', (apiToken) => {
+    expect(
+      RestGoProjectSettingsSchema.safeParse({ ...DEFAULT_REST_GO_PROJECT_SETTINGS, apiToken })
         .success,
     ).toBe(false);
   });

@@ -35,10 +35,9 @@ type ProjectSettingsSectionId =
   | 'seo'
   | 'build'
   | 'pwa'
-  | 'authentication'
+  | 'restgo'
   | 'cors'
   | 'headers'
-  | 'integrations'
   | 'observability';
 
 interface ProjectSettingsSection {
@@ -106,19 +105,6 @@ const SETTINGS_SECTIONS = [
     ],
   },
   {
-    id: 'authentication',
-    group: 'Security',
-    label: 'Authentication and JWT',
-    icon: 'key-round',
-    title: 'Authentication and JWT',
-    description: 'Native RestGO authentication and browser session preferences.',
-    items: [
-      'Authentication provider',
-      'Session expiration, renewal, and storage',
-      'JWT issuer, audience, and permissions',
-    ],
-  },
-  {
     id: 'cors',
     group: 'Security',
     label: 'CORS and origins',
@@ -163,16 +149,17 @@ const SETTINGS_SECTIONS = [
     ],
   },
   {
-    id: 'integrations',
+    id: 'restgo',
     group: 'Platform',
-    label: 'APIs and integrations',
+    label: 'RestGo integration',
     icon: 'link',
-    title: 'APIs and integrations',
-    description: 'Native RestGO connection for authentication, Storage, and dynamic APIs.',
+    title: 'RestGo integration',
+    description:
+      'RestGO connection, Authorization token, user authentication, Storage, and dynamic APIs.',
     items: [
-      'Endpoints and gateways',
-      'Webhooks and integration keys',
-      'Timeout and retry policies',
+      'Connection and Authorization token',
+      'User authentication and session storage',
+      'Storage and published dynamic endpoints',
     ],
   },
   {
@@ -314,6 +301,7 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
     left.environment !== right.environment ||
     left.restGo.enabled !== right.restGo.enabled ||
     left.restGo.baseUrl !== right.restGo.baseUrl ||
+    left.restGo.apiToken !== right.restGo.apiToken ||
     left.restGo.apiVersion !== right.restGo.apiVersion ||
     left.restGo.defaultDatabase !== right.restGo.defaultDatabase ||
     left.restGo.persistSession !== right.restGo.persistSession ||
@@ -373,8 +361,7 @@ export function ProjectSettingsDialog({
   const isEnvironmentSection = activeSection.id === 'environment';
   const isIconsSection = activeSection.id === 'icons';
   const isSeoSection = activeSection.id === 'seo';
-  const isRestGoSection =
-    activeSection.id === 'authentication' || activeSection.id === 'integrations';
+  const isRestGoSection = activeSection.id === 'restgo';
   const isEditableSection =
     isGeneralSection || isEnvironmentSection || isIconsSection || isSeoSection || isRestGoSection;
   const hasChanges = settingsChanged(settings, draft);
@@ -551,7 +538,7 @@ export function ProjectSettingsDialog({
     const restGoResult = RestGoProjectSettingsSchema.safeParse(draft.restGo);
     if (!restGoResult.success) {
       setSaveError(restGoResult.error.issues[0]?.message ?? 'Check the RestGO settings.');
-      if (!isRestGoSection) setActiveSectionId('integrations');
+      if (!isRestGoSection) setActiveSectionId('restgo');
       return;
     }
     onSave({
@@ -1302,9 +1289,6 @@ export function ProjectSettingsDialog({
               ) : isRestGoSection ? (
                 <RestGoSettingsSection
                   settings={draft.restGo}
-                  section={
-                    activeSection.id === 'authentication' ? 'authentication' : 'integrations'
-                  }
                   error={saveError}
                   errorId={`${descriptionId}-error`}
                   onChange={(patch) => updateDraft({ restGo: { ...draft.restGo, ...patch } })}
