@@ -167,11 +167,14 @@ describe('ProjectSettingsDialog', () => {
     expect(screen.getByRole('tab', { name: 'Icons' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'SEO and sharing' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'RestGo integration' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'CORS and origins' })).toBeDefined();
+    for (const name of ['CORS and origins', 'Headers and CSP', 'Logs and monitoring']) {
+      expect(screen.queryByRole('tab', { name })).toBeNull();
+    }
+    expect(screen.queryByText('Security')).toBeNull();
 
-    await user.click(screen.getByRole('tab', { name: 'CORS and origins' }));
-    expect(screen.getByRole('heading', { name: 'CORS and trusted origins' })).toBeDefined();
-    expect(screen.getByText('Allowed methods and headers')).toBeDefined();
+    await user.click(screen.getByRole('tab', { name: 'Build and publishing' }));
+    expect(screen.getByRole('heading', { name: 'Build and publishing' })).toBeDefined();
+    expect(screen.getByText('Output directory and build profile')).toBeDefined();
     expect(
       screen.getByText(
         /General settings, scrollbar styles, environment variables, application icons, and SEO metadata/i,

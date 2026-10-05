@@ -29,20 +29,11 @@ interface ProjectSettingsDialogProps {
 }
 
 type ProjectSettingsSectionId =
-  | 'general'
-  | 'environment'
-  | 'icons'
-  | 'seo'
-  | 'build'
-  | 'pwa'
-  | 'restgo'
-  | 'cors'
-  | 'headers'
-  | 'observability';
+  'general' | 'environment' | 'icons' | 'seo' | 'build' | 'pwa' | 'restgo';
 
 interface ProjectSettingsSection {
   readonly id: ProjectSettingsSectionId;
-  readonly group: 'Project' | 'Security' | 'Platform';
+  readonly group: 'Project' | 'Platform';
   readonly label: string;
   readonly icon: WebRadIconName;
   readonly title: string;
@@ -105,28 +96,6 @@ const SETTINGS_SECTIONS = [
     ],
   },
   {
-    id: 'cors',
-    group: 'Security',
-    label: 'CORS and origins',
-    icon: 'shield-check',
-    title: 'CORS and trusted origins',
-    description: 'Origins allowed for calls between the application and web services.',
-    items: [
-      'Origins by environment',
-      'Allowed methods and headers',
-      'Cross-origin cookies and credentials',
-    ],
-  },
-  {
-    id: 'headers',
-    group: 'Security',
-    label: 'Headers and CSP',
-    icon: 'shield',
-    title: 'Headers and Content Security Policy',
-    description: 'Directives that reduce attack surfaces in the browser.',
-    items: ['Content Security Policy', 'Security headers and HTTPS', 'Browser feature permissions'],
-  },
-  {
     id: 'build',
     group: 'Platform',
     label: 'Build and publishing',
@@ -162,22 +131,9 @@ const SETTINGS_SECTIONS = [
       'Storage and published dynamic endpoints',
     ],
   },
-  {
-    id: 'observability',
-    group: 'Platform',
-    label: 'Logs and monitoring',
-    icon: 'chart-line',
-    title: 'Logs and monitoring',
-    description: 'Observability for identifying errors and tracking application use.',
-    items: [
-      'Log level and destination',
-      'Error monitoring',
-      'Performance and availability metrics',
-    ],
-  },
 ] as const satisfies readonly ProjectSettingsSection[];
 
-const SETTINGS_GROUPS = ['Project', 'Security', 'Platform'] as const;
+const SETTINGS_GROUPS = ['Project', 'Platform'] as const;
 
 const LOCALE_OPTIONS = [
   ['pt-BR', 'Portuguese (Brazil)'],
