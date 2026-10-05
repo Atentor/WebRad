@@ -179,7 +179,7 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
     foldingStrategy: 'auto',
     fontFamily: "'JetBrains Mono', monospace",
     fontWeight: '300',
-    fontLigatures: true,
+    fontLigatures: false,
     fontSize: 13,
     formatOnPaste: true,
     formatOnType: true,
