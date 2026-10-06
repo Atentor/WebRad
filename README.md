@@ -36,9 +36,19 @@ O workspace segue a organização visual do designer do Bubble: barra superior c
 
 Os componentes não visuais continuam disponíveis na bandeja abaixo do canvas. A organização do workspace preserva o modelo versionado do projeto, os IDs dos componentes e o histórico de comandos.
 
+## API Client REST
+
+**Remove operation** permite excluir inclusive o último endpoint. A lista vazia pode ser salva e reaberta; use **Add** para criar outro endpoint. A URL base e as demais configurações do cliente são preservadas.
+
+Dê dois cliques no **API Client** da bandeja para configurar operações REST. O editor organiza **Query parameters**, **Headers**, **Body** e **Options** em abas. A lista inclui GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, CONNECT e TRACE, além de método personalizado. CONNECT, TRACE e TRACK são proibidos pelo navegador e não podem ser testados ou executados por `fetch`; GET e HEAD não enviam corpo.
+
+Configure headers padrão e por operação, parâmetros de query repetidos, timeout, credenciais e corpo JSON, texto, URL encoded ou multipart. **Dynamic API version** pertence a cada operação: `2` e o endpoint `/clientes/listar` geram `/v2/clientes/listar`; vazio preserva o endpoint informado. O teste mostra status, duração, headers e resposta; apenas o contrato dos campos é salvo. Arquivos selecionados no editor servem somente ao teste. Na aplicação, envie arquivos com um `FormData` em `execute('Operacao', { body: form })`.
+
+Em **Connection > RestGo authenticated user**, a URL base vem de **Project Settings > RestGo integration** e fica fixa. Edite o endpoint relativo, como `/v1/clientes/listar`, e os demais parâmetros. O Preview e a aplicação enviam automaticamente `Authorization: Bearer <JWT>` da sessão atual de `RestGO`, incluindo renovação pelo SDK. Sem usuário autenticado, a chamada falha; o token de API configurado não substitui a sessão. O editor oferece **Test authentication > Test JWT** para testar com um JWT temporário, mantido somente em memória.
+
 ## Integração nativa com RestGO
 
-Em **Project Settings > RestGo integration**, configure em uma única seção a URL da instância, a versão da API, o banco padrão e a persistência da sessão. **Cadastro e login não enviam `Authorization`**, mesmo quando existe uma sessão ou token configurado. Para esse fluxo, deixe **Authorization token** vazio. O cadastro depende de o RestGO permitir acesso público a `POST /auth/users`; o login usa `POST /auth/token`.
+Em **Project Settings > RestGo integration**, configure em uma única seção a URL da instância, o banco padrão e a persistência da sessão. A versão das requisições é configurada por operação no **API Client**. **Cadastro e login não enviam `Authorization`**, mesmo quando existe uma sessão ou token configurado. Para esse fluxo, deixe **Authorization token** vazio. O cadastro depende de o RestGO permitir acesso público a `POST /auth/users`; o login usa `POST /auth/token`.
 
 O **Authorization token** é opcional para APIs dinâmicas que precisam de um token de aplicação antes do login. Essas chamadas automáticas enviam `Authorization: <token>`, sem `Bearer`, quando não existe sessão, e `Authorization: Bearer <JWT>` quando o usuário está autenticado. Após logout, voltam ao token configurado.
 
@@ -85,9 +95,19 @@ Para gerar o instalador destinado a outro computador Windows x64, execute no Pow
 npm.cmd run make
 ```
 
+Para gerar um novo instalador com uma nova versão do aplicativo, execute:
+
+```powershell
+npm.cmd run release
+```
+
+Cada execução incrementa a versão de correção no `package.json` e no `package-lock.json` (por exemplo, `0.1.0` → `0.1.1` → `0.1.2`) e executa o empacotamento completo com o código atual salvo no repositório. O comando não cria commits ou tags Git. Em Linux, utilize `npm run release`.
+
+O novo Setup fica em `out/make/squirrel.windows/x64/WebRad-<versão> Setup.exe`. Execute esse instalador para atualizar o aplicativo instalado; gerar o arquivo não atualiza a instalação automaticamente. `npm run make` continua gerando artefatos com a versão atual, sem incrementá-la. Se o empacotamento falhar depois do incremento, corrija o erro e execute `npm run make` para tentar novamente com a mesma versão.
+
 O uso de `npm.cmd` evita o erro de segurança que informa que `npm.ps1` não pode ser carregado porque a execução de scripts está desabilitada. Não é necessário alterar a política de execução do Windows.
 
-O arquivo recomendado para entregar ao usuário é `out/make/squirrel.windows/x64/WebRad-<versão> Setup.exe` — atualmente, `WebRad-0.1.0 Setup.exe`. Esse é o instalador. O arquivo `.nupkg` presente na mesma pasta não deve ser aberto diretamente pelo usuário final.
+O arquivo recomendado para entregar ao usuário é `out/make/squirrel.windows/x64/WebRad-<versão> Setup.exe`. Esse é o instalador. O arquivo `.nupkg` presente na mesma pasta não deve ser aberto diretamente pelo usuário final.
 
 Para distribuir uma versão portátil, sem instalação, compacte e transfira o diretório completo `out/WebRad-win32-x64`. No outro computador, execute `WebRad.exe` dentro dessa pasta. Não transfira apenas o arquivo `WebRad.exe`, pois ele depende dos demais arquivos e diretórios de recursos que ficam ao lado dele.
 

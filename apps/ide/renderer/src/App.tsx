@@ -1229,7 +1229,8 @@ export function App(): ReactElement {
         aboutDialogOpen ||
         newProjectDialogOpen ||
         addDocumentDialogKind !== null ||
-        projectSettingsDialogOpen
+        projectSettingsDialogOpen ||
+        apiClientTesterComponentId !== null
       ) {
         return;
       }
@@ -1336,6 +1337,7 @@ export function App(): ReactElement {
       activeWorkspace,
       activeView,
       addDocumentDialogKind,
+      apiClientTesterComponentId,
       closeProject,
       copySelection,
       deleteSelection,
@@ -1990,6 +1992,7 @@ export function App(): ReactElement {
       {apiClientTesterComponent !== null && (
         <ApiClientTesterDialog
           component={apiClientTesterComponent}
+          restGoSettings={project?.settings.restGo}
           onClose={() => setApiClientTesterComponentId(null)}
           onSave={saveApiClientConfiguration}
         />

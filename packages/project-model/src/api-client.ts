@@ -9,7 +9,28 @@ import { getTypeScriptIdentifierError } from './naming.js';
  */
 export const API_CLIENT_CONFIGURATION_VERSION = 1 as const;
 
-export const API_CLIENT_BODY_KINDS = ['none', 'json', 'text', 'form-urlencoded'] as const;
+export const API_CLIENT_HTTP_METHODS = [
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+  'CONNECT',
+  'TRACE',
+] as const;
+
+export const API_CLIENT_CONNECTIONS = ['custom', 'restgo-session'] as const;
+export type ApiClientConnection = (typeof API_CLIENT_CONNECTIONS)[number];
+
+export const API_CLIENT_BODY_KINDS = [
+  'none',
+  'json',
+  'text',
+  'form-urlencoded',
+  'form-data',
+] as const;
 export type ApiClientBodyKind = (typeof API_CLIENT_BODY_KINDS)[number];
 
 export const API_CLIENT_CREDENTIALS = ['omit', 'same-origin', 'include'] as const;
@@ -43,7 +64,7 @@ export interface ApiClientParameter {
 
 export interface ApiClientRequestBody {
   readonly kind: ApiClientBodyKind;
-  /** Raw JSON, text, or form-urlencoded content according to `kind`. */
+  /** JSON, text, or URL-encoded text fields for either form body kind. */
   readonly content: string;
 }
 
@@ -76,7 +97,7 @@ export interface ApiClientOperation {
   readonly name: string;
   /** Any valid HTTP method token, including custom API methods. */
   readonly method: string;
-  /** Relative path, or an absolute URL that overrides the client's base URL. */
+  /** Custom connections allow absolute URLs; RestGo-bound paths stay below its base URL. */
   readonly path: string;
   readonly headers: readonly ApiClientParameter[];
   /** RestGO version for this request; omitted/null preserves the literal path. */
@@ -93,9 +114,51 @@ export interface ApiClientOperation {
 /** Complete persisted configuration for the nonvisual API Client component. */
 export interface ApiClientConfiguration {
   readonly schemaVersion: typeof API_CLIENT_CONFIGURATION_VERSION;
+  /** Omission preserves the legacy custom connection without rewriting persisted data. */
+  readonly connection?: ApiClientConnection;
   readonly defaultHeaders: readonly ApiClientParameter[];
   readonly timeoutMs: number;
   readonly operations: readonly ApiClientOperation[];
+}
+
+/** Rejects endpoint syntax that could escape the RestGo integration's fixed URL prefix. */
+export function getRestGoApiClientPathError(path: string): string | undefined {
+  if (path.includes('#')) return 'A RestGo endpoint cannot contain a URL fragment.';
+  if (
+    /[\s\\]/u.test(path) ||
+    [...path].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
+  ) {
+    return 'A RestGo endpoint cannot contain whitespace, backslashes, or control characters.';
+  }
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(path) || path.startsWith('//')) {
+    return 'A RestGo endpoint must be a relative path, not an absolute URL.';
+  }
+  const pathname = path.split('?', 1)[0] ?? '';
+  for (const segment of pathname.split('/')) {
+    let decoded = segment;
+    for (let round = 0; round <= segment.length; round += 1) {
+      if (
+        decoded === '.' ||
+        decoded === '..' ||
+        /[\\/]/u.test(decoded) ||
+        [...decoded].some(
+          (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+        )
+      ) {
+        return 'A RestGo endpoint cannot contain dot-path traversal, encoded separators, or control characters.';
+      }
+      let next: string;
+      try {
+        next = decodeURIComponent(decoded);
+      } catch {
+        if (round === 0) return 'A RestGo endpoint must use valid URL encoding.';
+        break;
+      }
+      if (decoded === next) break;
+      decoded = next;
+    }
+  }
+  return undefined;
 }
 
 const stableIdSchema = z.string().trim().min(1).max(200);
@@ -241,15 +304,42 @@ export const ApiClientOperationSchema: z.ZodType<ApiClientOperation> = z
 export const ApiClientConfigurationSchema: z.ZodType<ApiClientConfiguration> = z
   .object({
     schemaVersion: z.literal(API_CLIENT_CONFIGURATION_VERSION),
+    connection: z.enum(API_CLIENT_CONNECTIONS).optional(),
     defaultHeaders: z.array(ApiClientParameterSchema).max(200),
     timeoutMs: z.number().int().min(1).max(120_000),
-    operations: z.array(ApiClientOperationSchema).min(1).max(100),
+    operations: z.array(ApiClientOperationSchema).max(100),
   })
   .strict()
   .superRefine((configuration, context) => {
+    const boundToRestGo = configuration.connection === 'restgo-session';
+    const validateAuthorization = (
+      headers: readonly ApiClientParameter[],
+      path: readonly (string | number)[],
+    ): void => {
+      headers.forEach((header, index) => {
+        if (!header.enabled || header.name.toLowerCase() !== 'authorization') return;
+        context.addIssue({
+          code: 'custom',
+          message: 'RestGo session authentication manages the Authorization header automatically.',
+          path: [...path, index, 'name'],
+        });
+      });
+    };
+    if (boundToRestGo) validateAuthorization(configuration.defaultHeaders, ['defaultHeaders']);
     const operationIds = new Set<string>();
     const operationNames = new Set<string>();
     configuration.operations.forEach((operation, index) => {
+      if (boundToRestGo) {
+        validateAuthorization(operation.headers, ['operations', index, 'headers']);
+        const pathError = getRestGoApiClientPathError(operation.path);
+        if (pathError !== undefined) {
+          context.addIssue({
+            code: 'custom',
+            message: pathError,
+            path: ['operations', index, 'path'],
+          });
+        }
+      }
       if (operationIds.has(operation.id)) {
         context.addIssue({
           code: 'custom',

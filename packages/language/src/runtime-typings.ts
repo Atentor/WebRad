@@ -446,7 +446,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
 
   export const WEB_API_RESPONSE_TYPES: readonly ['auto', 'json', 'text', 'blob', 'arrayBuffer'];
   export type WebApiResponseType = 'auto' | 'json' | 'text' | 'blob' | 'arrayBuffer';
-  export type WebApiBodyKind = 'none' | 'json' | 'text' | 'form-urlencoded';
+  export type WebApiBodyKind = 'none' | 'json' | 'text' | 'form-urlencoded' | 'form-data';
+  export type WebApiConnection = 'custom' | 'restgo-session';
   export type WebApiCredentials = 'omit' | 'same-origin' | 'include';
   export type WebApiOperationStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -495,6 +496,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
 
   export interface WebApiClientConfiguration {
     readonly schemaVersion: number;
+    readonly connection?: WebApiConnection;
     readonly defaultHeaders: readonly WebApiParameter[];
     readonly timeoutMs: number;
     readonly operations: readonly WebApiOperation[];
@@ -550,6 +552,17 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly url: string;
   }
 
+  export interface RestGoApiSessionSource {
+    readonly baseUrl: string;
+    getSession(): Promise<import('@webrad/restgo-sdk').RestGoResult<Pick<import('@webrad/restgo-sdk').RestGoSession, 'token'> | null>>;
+  }
+
+  export function prepareRestGoApiRequest(
+    endpoint: string,
+    options?: RequestInit,
+    source?: RestGoApiSessionSource,
+  ): Promise<{ readonly url: string; readonly init: RequestInit }>;
+
   /** Fetch-based HTTP client with direct calls and typed configured operations. */
   export class WebApiClient<TOutputs extends object = Record<string, unknown>> extends WebNonvisualComponent {
     constructor(options?: WebApiClientOptions | string);
@@ -567,6 +580,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
     put<T>(path: string, body?: unknown, options?: WebApiRequestOptions): Promise<T>;
     patch<T>(path: string, body?: unknown, options?: WebApiRequestOptions): Promise<T>;
     delete<T>(path: string, options?: WebApiRequestOptions): Promise<T>;
+    head(path: string, options?: WebApiRequestOptions): Promise<void>;
+    options<T>(path: string, options?: WebApiRequestOptions): Promise<T>;
     execute<K extends keyof TOutputs & string>(
       operationName: K,
       options?: WebApiRequestOptions,

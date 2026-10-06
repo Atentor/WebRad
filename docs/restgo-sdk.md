@@ -285,6 +285,26 @@ Os modos de paginação são `exact`, `simple` e `cursor`. Cursor exige coluna �
 
 `auth: 'auto'` utiliza o JWT quando disponível e, na ausência dele, o token de API configurado explicitamente. Use `auth: 'session'`, `'apiToken'` ou `'none'` para escolher a modalidade. Um endpoint RestGO com autenticação JWT habilitada exige JWT; um endpoint com essa autenticação desabilitada exige token de API. Essa opção do servidor não significa acesso público anônimo.
 
+## API Client vinculado ao usuário autenticado
+
+No configurador do componente **API Client**, selecione **Connection > RestGo authenticated user**. A integração nativa deve estar habilitada. A URL base é a mesma de **RestGo integration**, incluindo um eventual prefixo de proxy, e não pode ser alterada nesse componente. O endpoint é relativo à base; por exemplo, `/v1/clientes/listar` com a base `https://api.exemplo.com/backend` chama `https://api.exemplo.com/backend/v1/clientes/listar`.
+
+```ts
+const login = await RestGO.login(email, senha);
+if (login.error) throw login.error;
+
+// LoadCustomers é uma operação configurada no componente.
+const clientes = await this.ApiClient1.execute('LoadCustomers', {
+  query: { ativo: true },
+});
+```
+
+Antes de cada chamada, o API Client consulta a sessão compartilhada pelo SDK e envia o JWT vigente em `Authorization: Bearer <JWT>`. A validação pode renovar a sessão pelo contrato normal de refresh. Logout ou ausência de sessão impedem a chamada; esse vínculo não utiliza o token bruto de API. Uma resposta 401 do endpoint é entregue como erro HTTP, sem repetir automaticamente uma operação que pode alterar dados.
+
+Headers personalizados não substituem o JWT. URLs absolutas, mudança de base, escape do prefixo e redirecionamentos são bloqueados. Os métodos, headers adicionais, query, corpo e timeout continuam configuráveis. GET e HEAD não aceitam corpo; CONNECT, TRACE e TRACK são proibidos pelo navegador. `head()`, `options()` e `request()` também estão disponíveis no componente.
+
+O editor da IDE tem um campo **Test authentication > Test JWT** para testes diretos. Esse JWT e arquivos escolhidos para multipart existem apenas em memória durante o diálogo, sem serem salvos no projeto ou incorporados ao código gerado. O Preview e a aplicação usam a sessão real de `RestGO`. Para upload na aplicação, passe um `FormData` como `body` da operação; o navegador define o boundary multipart.
+
 ## Uso independente
 
 ```ts

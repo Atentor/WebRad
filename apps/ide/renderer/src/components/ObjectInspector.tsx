@@ -125,16 +125,29 @@ function definitionsForSelection(
 
 function commonProperties(
   definitions: readonly ComponentDefinition[],
+  selection: readonly ComponentNode[],
 ): readonly ComponentPropertyDefinition[] {
   const first = definitions[0];
   if (first === undefined) return [];
-  return first.properties.filter((property) =>
-    definitions
-      .slice(1)
-      .every((definition) =>
-        definition.properties.some((candidate) => compatibleProperty(property, candidate)),
-      ),
-  );
+  return first.properties
+    .filter((property) =>
+      definitions
+        .slice(1)
+        .every((definition) =>
+          definition.properties.some((candidate) => compatibleProperty(property, candidate)),
+        ),
+    )
+    .map((property) => ({
+      ...property,
+      readOnly: definitions.some((definition, index) => {
+        const candidate = definition.properties.find((item) => compatibleProperty(property, item));
+        const component = selection[index];
+        return (
+          candidate?.readOnly === true ||
+          (component !== undefined && candidate?.readOnlyWhen?.(component.props) === true)
+        );
+      }),
+    }));
 }
 
 function commonEvents(
@@ -617,7 +630,9 @@ function PropertyRow({
           multiple={multiple}
           availableComponents={availableComponents}
           availableReusableElements={availableReusableElements}
-          onChange={(nextValue) => onChange(property.name, nextValue, property)}
+          onChange={(nextValue) => {
+            if (property.readOnly !== true) onChange(property.name, nextValue, property);
+          }}
           onDesignerAction={(action) => {
             const component = selection.at(-1);
             if (component !== undefined) onDesignerAction?.(action, component, property);
@@ -706,8 +721,11 @@ export function ObjectInspector({
     [definition, inspectedSelection, registry],
   );
   const propertyCategories = useMemo(
-    () => groupByCategory(definitions === null ? [] : commonProperties(definitions)),
-    [definitions],
+    () =>
+      groupByCategory(
+        definitions === null ? [] : commonProperties(definitions, inspectedSelection),
+      ),
+    [definitions, inspectedSelection],
   );
   const eventCategories = useMemo(
     () => groupByCategory(definitions === null ? [] : commonEvents(definitions)),

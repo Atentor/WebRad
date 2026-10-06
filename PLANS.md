@@ -1,5 +1,7 @@
 # WebRAD delivery plan
 
+- DONE: Add `npm run release` to increment the application patch version without Git commits/tags and rebuild the current source into a new installer. Document release and installed-app update behavior. Strict typecheck, lint, all 597 tests, icon/runtime-source/format checks, Windows Setup generation, and packaged Electron smoke pass; source, lockfile, packaged manifest, and executable versions match at 0.1.1.
+
 - DONE: Disable font ligatures in the code editor so all operators display their original characters. Typecheck, lint, all 7 editor tests, formatting, and Windows packaging pass.
 
 - DONE: Move Dynamic API version from Project Settings into each API Client operation, sharing request path construction between the tester and generated runtime. Preserve legacy paths and SDK defaults. Strict typecheck, lint, all 550 tests, source/format checks, Windows packaging, and development Electron smoke pass; tests verify persistence and independent request versions.
@@ -28,11 +30,16 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 ## Current work
 
+- DONE: Allow removal of the final API Client endpoint. Keep an empty, saveable configuration with an accessible empty editor, preserve client settings on reopening, and support adding a new endpoint afterward. Strict typecheck, lint, all 681 tests, source/icon/format checks, Windows packaging and installer generation pass. The packaged 0.1.3 Electron smoke deletes the sole endpoint, saves and verifies the empty collection on disk, reopens it, creates and executes a replacement endpoint, and preserves RestGo authentication; the empty-state screenshot was inspected.
+
+- The API Client Base URL example is `https://api.example.com`, without a version suffix; each operation continues to select its own Dynamic API version.
+
 - DONE: Polish the Data Grid configurator with clearer sections, grouped appearance options, readable inputs, and column summaries. Fix React checkbox-event lifetime crashes, restore cleared non-null numeric fields on blur, and block native project commands while the transactional editor is open. Correct runtime grid row counts/indices for headers, empty states, and footers. Strict typecheck, lint, all 563 tests across 56 files, formatting, source/icon checks, Windows x64 packaging, and the packaged Electron smoke pass. Regression coverage exercises repeated toggles, dependent options, mode/cell changes, stable column IDs, numeric clearing, native command isolation, and Save/Cancel. Actual Electron controls verify repeated configuration edits, icon selection, save/reopen/cancel, contained focus, and responsive dialog geometry; dark/light screenshots were inspected.
 
 - DONE: Add the boolean `sucess` to `RestGO.login()` and standalone client login results, preserving `data`/`error` and shared-session behavior. Exported `RestGoLoginResult` supports strict narrowing and editor completion; generated browser SDK sources and documentation are synchronized. Authenticated, rejected, invalid-response, network and cancelled results are covered, including a failed login with a previous valid session. Strict typecheck, lint, all 546 tests, source/format checks and Windows packaging pass.
 
 - DONE: Correct CORS failures from opaque/custom Preview origins and the packaged renderer's file origin by serving them on separate token-protected loopback HTTP servers. Preserve browser fetch, Electron web security, main-frame-only IPC, and the Preview sandbox. Strict typecheck, lint, tests, formatting/source checks, Windows packaging, and development/packaged Electron smokes pass. Real JSON/JWT preflights, login/session/refresh, multipart/download, browser storage, and parent/preload isolation are verified against HTTP(S)-only CORS that rejects null/custom origins. Generated browser applications retain their normal HTTP(S) hosting contract.
+- DONE: Restore the API Client REST editor and authenticated RestGo binding lost after the repository returned to a commit preceding the implementation. Recovered the original methods, tabs, multipart requests, fixed integration URL and automatic Bearer JWT while preserving per-operation API versions, later Preview/CORS fixes and current packaging work. Strict typecheck, lint, all 677 tests across 60 files, icon/runtime-source/format checks, Windows packaging and installer generation pass. The packaged 0.1.2 Electron smoke verifies light/dark and 1080/740 layouts, safe persistence, 10 real authenticated HTTP requests, JWT renewal, multipart, fixed URL and rejection after logout; screenshots were inspected. Source, lockfile, packaged manifest and executable versions match at 0.1.2.
 
 - DONE: Prepare the WebRAD SDK for public RestGO signup/login: omit Authorization even with configured credentials or a session, remove the signup API-token requirement, keep JWT on protected calls, and document the required server-side public-registration change. Strict typecheck, lint, 517 tests, source/icon checks, formatting, Windows build, and development/packaged Electron HTTP smokes pass. Public registration against RestGO still depends on allowing anonymous POST /auth/users in the server.
 
@@ -78,8 +85,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - DONE: The Data Grid configurator uses a compact, high-density layout that keeps sizing, appearance, and column controls readable while reducing modal scrolling.
 - DONE: Default Data Grid headers and footers use solid Aurora-compatible surfaces, with the same non-transparent fallbacks for existing projects that have not customized those properties.
 - DONE: Disabled modal controls use the standard `not-allowed` cursor; `wait` is reserved for actual request or editor loading feedback.
-- DONE: The API Client tester/configurator now uses the same high-density modal treatment as Data Grid configuration, reducing control, section, navigation, and footer spacing without hiding any request-contract settings.
-- DONE: API Client uses a finite two-panel workspace with an explicit, always visible right-editor scrollbar for dynamic request and response contracts; operations retain an independent list scroll and accessible destructive action.
+- DONE: API Client uses a minimal two-panel editor with an explicit method selector, request-setting tabs, and shared theme colors. Request/response content scrolls when needed; operations retain an independent list scroll and accessible destructive action.
 - DONE: Dynamic response-schema sections preserve their full intrinsic height, so overflow reaches the right editor's scrollbar instead of being clipped inside the response card.
 - DONE: The Data Grid configurator uses a narrower, cleaner responsive surface with aligned appearance toggles, lighter section hierarchy, compact column cards, and fixed actions around one content scroll area.
 - DONE: Reusable Components are page-shaped definitions stored inline in the project manifest. A named definition can be dragged or inserted into any page as a stable-ID `WebReusableElement` reference, including nested acyclic definitions; instances retain their own responsive layout or can be made viewport-fixed with anchors and layer. Reusable definitions have the same Design, Code, Preview, event, and nonvisual-component surfaces as a page. Their deterministic `reusables/Name.generated.ts` and `reusables/Name.ts` companions create an isolated authored class for every physical placement, with a template-to-physical ID map that keeps controls, handlers, and mutable state correct even under ID collisions.
@@ -126,6 +132,7 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 ## Decision log
 
+- Resolve Tailwind stylesheet imports from the compiler environment's development root or packaged `resources/app.asar`, independently of the launch working directory; exercise this with compiler regression coverage and the packaged smoke launched from its executable directory.
 - Use npm workspaces to minimize bootstrap requirements on Windows and Linux.
 - Keep packages source-first during development, with explicit package exports and project references where useful.
 - Exclude source-first `@webrad/*` workspaces from Vite dependency optimization while explicitly optimizing the CommonJS TypeScript distribution, so renamed exports cannot leave the development renderer on a stale bundle.

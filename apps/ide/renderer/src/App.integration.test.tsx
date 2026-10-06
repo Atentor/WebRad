@@ -610,8 +610,14 @@ describe('App MVP integration', () => {
     const apiClient = await screen.findByRole('option', { name: 'ApiClient1, API Client' });
     await user.dblClick(apiClient);
 
-    const dialog = await screen.findByRole('dialog', { name: 'Test API Client' });
+    const dialog = await screen.findByRole('dialog', { name: 'API Client' });
     expect(dialog).toBeDefined();
+    const savesBeforeDialogCommand = harness.save.mock.calls.length;
+    act(() => {
+      harness.invokeCommand('file.save');
+      harness.invokeCommand('edit.undo');
+    });
+    expect(harness.save.mock.calls.length).toBe(savesBeforeDialogCommand);
     const tester = within(dialog);
     const baseUrl = tester.getByLabelText('Base URL');
     await user.clear(baseUrl);
@@ -627,7 +633,7 @@ describe('App MVP integration', () => {
     await user.selectOptions(tester.getByLabelText('Type for id'), 'string');
     await user.click(tester.getByRole('button', { name: 'Save API Client' }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Test API Client' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'API Client' })).toBeNull();
     });
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));

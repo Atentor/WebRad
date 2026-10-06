@@ -528,6 +528,27 @@ export class PageDetails extends PageDetailsGenerated {
     linkedDom.window.close();
   });
 
+  it('compiles an API Client without configured endpoints', async () => {
+    const project = executableProject();
+    const configuration: ApiClientConfiguration = {
+      ...createDefaultApiClientConfiguration(),
+      operations: [],
+    };
+    const configuredProject = {
+      ...project,
+      pages: project.pages.map((page) => ({
+        ...page,
+        components: page.components.map((component) =>
+          component.id === 'api-client'
+            ? { ...component, props: { ...component.props, apiClientConfig: configuration } }
+            : component,
+        ),
+      })),
+    };
+    const result = await compileProjectToMemory(configuredProject, { userSources: {} });
+    expect(result.success, JSON.stringify(result.diagnostics)).toBe(true);
+  });
+
   it('accepts a registered, typed API Client response contract', async () => {
     const project = executableProject();
     const configuration = customersApiClientConfiguration();
@@ -551,6 +572,104 @@ export class PageDetails extends PageDetailsGenerated {
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['assets/app.js']).toContain('LoadCustomers');
     expect(result.files['assets/app.js']).toContain('customer-name');
+  });
+
+  it('requires enabled RestGo integration for a session-bound API Client', async () => {
+    const project = executableProject();
+    const configuration: ApiClientConfiguration = {
+      ...customersApiClientConfiguration(),
+      connection: 'restgo-session',
+    };
+    const boundProject: WebRadProject = {
+      ...project,
+      pages: project.pages.map((page) => ({
+        ...page,
+        components: page.components.map((component) =>
+          component.id === 'api-client'
+            ? { ...component, props: { ...component.props, apiClientConfig: configuration } }
+            : component,
+        ),
+      })),
+    };
+
+    const disabledResult = await compileProjectToMemory(boundProject, { userSources: {} });
+    expect(disabledResult.success).toBe(false);
+    expect(disabledResult.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'registry',
+          category: 'error',
+          message: expect.stringContaining('RestGo integration'),
+          path: ['pages', 0, 'components', 3, 'props', 'apiClientConfig', 'connection'],
+        }),
+      ]),
+    );
+
+    const invalidBaseResult = await compileProjectToMemory(
+      {
+        ...boundProject,
+        settings: {
+          ...boundProject.settings,
+          restGo: { ...boundProject.settings.restGo, enabled: true, baseUrl: '' },
+        },
+      },
+      { userSources: {} },
+    );
+    expect(invalidBaseResult.success).toBe(false);
+    expect(invalidBaseResult.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'model',
+          category: 'error',
+          path: ['settings', 'restGo', 'baseUrl'],
+        }),
+      ]),
+    );
+
+    const enabledProject = updateProjectSettings(boundProject, {
+      restGo: {
+        ...project.settings.restGo,
+        enabled: true,
+        baseUrl: 'https://restgo.example.test/proxy/restgo',
+      },
+    });
+    const enabledResult = await compileProjectToMemory(enabledProject, { userSources: {} });
+    expect(enabledResult.success, JSON.stringify(enabledResult.diagnostics, null, 2)).toBe(true);
+    expect(enabledResult.files['assets/app.js']).toContain('restgo-session');
+    expect(enabledResult.files['assets/app.js']).toContain(
+      'https://restgo.example.test/proxy/restgo',
+    );
+  });
+
+  it('checks a RestGo-bound service inside a reusable definition', async () => {
+    let project = createProject('RestGoReusable');
+    let reusable = createReusableElement('CustomerService');
+    reusable = addComponent(
+      reusable,
+      defaultComponentRegistry.createComponent('WebApiClient', {
+        id: 'reusable-api-client',
+        parentId: reusable.rootComponentId,
+        props: {
+          apiClientConfig: {
+            ...createDefaultApiClientConfiguration(),
+            connection: 'restgo-session',
+          },
+        },
+      }),
+      reusable.rootComponentId,
+    );
+    project = addReusableElement(project, reusable);
+
+    const result = await compileProjectToMemory(project, { userSources: {} });
+    expect(result.success).toBe(false);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'registry',
+          path: ['reusableElements', 0, 'components', 1, 'props', 'apiClientConfig', 'connection'],
+        }),
+      ]),
+    );
   });
 
   it('generates a Data Grid bound to a selected API operation and response list', async () => {

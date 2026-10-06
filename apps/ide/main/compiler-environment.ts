@@ -12,6 +12,7 @@ export interface CompilerEnvironment {
   readonly WEBRAD_ESBUILD_MODULE_PATH: string;
   readonly ESBUILD_BINARY_PATH: string;
   readonly WEBRAD_TYPESCRIPT_LIB_PATH: string;
+  readonly WEBRAD_TAILWIND_BASE_PATH: string;
 }
 
 export function resolveCompilerEnvironment(
@@ -26,6 +27,7 @@ export function resolveCompilerEnvironment(
     return {
       WEBRAD_ESBUILD_MODULE_PATH: pathApi.join(options.resourcesPath, 'esbuild', 'lib', 'main.js'),
       ESBUILD_BINARY_PATH: pathApi.join(options.resourcesPath, nativePackage, esbuildExecutable),
+      WEBRAD_TAILWIND_BASE_PATH: pathApi.join(options.resourcesPath, 'app.asar'),
       WEBRAD_TYPESCRIPT_LIB_PATH: pathApi.join(options.resourcesPath, 'typescript', 'lib'),
     };
   }
@@ -39,6 +41,7 @@ export function resolveCompilerEnvironment(
       nativePackage,
       esbuildExecutable,
     ),
+    WEBRAD_TAILWIND_BASE_PATH: options.developmentRoot,
     WEBRAD_TYPESCRIPT_LIB_PATH: pathApi.join(nodeModulesPath, 'typescript', 'lib'),
   };
 }

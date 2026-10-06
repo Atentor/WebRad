@@ -3600,15 +3600,15 @@ kbd {
 
 .wr-api-client-dialog {
   display: flex;
-  width: min(1160px, 100%);
-  height: min(760px, calc(100vh - 32px));
+  width: min(1040px, 100%);
+  height: min(680px, calc(100vh - 32px));
   max-height: none;
   flex-direction: column;
 }
 
 .wr-api-client-dialog .wr-modal-header {
   gap: 12px;
-  padding: 12px 14px;
+  padding: 16px 20px;
 }
 
 .wr-api-client-dialog .wr-modal-eyebrow {
@@ -3625,10 +3625,10 @@ kbd {
   min-height: 0;
   flex: 1 1 0;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
   overflow: hidden;
   overscroll-behavior: contain;
-  padding: 11px 14px 0;
+  padding: 14px 20px 0;
 }
 
 .wr-api-client-content > .wr-modal-description {
@@ -3643,9 +3643,9 @@ kbd {
   display: grid;
   flex: 1 1 0;
   min-height: 0;
-  grid-template-columns: minmax(164px, 200px) minmax(0, 1fr);
+  grid-template-columns: 176px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  gap: 8px;
+  gap: 18px;
   overflow: hidden;
 }
 
@@ -3654,9 +3654,9 @@ kbd {
   min-height: 0;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid var(--wr-border);
-  border-radius: 6px;
-  background: var(--wr-panel-alt);
+  border-right: 1px solid var(--wr-border);
+  padding-right: 12px;
+  background: transparent;
 }
 
 .wr-api-section-heading {
@@ -3755,11 +3755,13 @@ kbd {
 }
 
 .wr-api-operation-list strong {
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .wr-api-operation-list small {
-  color: var(--wr-muted-text);
+  color: var(--wr-accent);
+  font-family: var(--wr-font-mono);
   font-size: 10px;
 }
 
@@ -3778,28 +3780,131 @@ kbd {
   display: grid;
   align-content: start;
   min-height: 0;
-  gap: 9px;
+  gap: 14px;
   min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--wr-border);
-  border-radius: 6px;
-  background: var(--wr-panel-bg);
+  padding: 0 2px 16px 0;
+  background: transparent;
   overflow-x: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 
 .wr-api-operation-form {
   display: grid;
-  gap: 9px;
-  padding-top: 1px;
+  gap: 14px;
+  padding-top: 16px;
   border-top: 1px solid var(--wr-border);
+}
+
+.wr-api-no-operations {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 220px;
+  gap: 8px;
+  color: var(--wr-muted-text);
+  text-align: center;
+}
+
+.wr-api-no-operations h3,
+.wr-api-no-operations p {
+  margin: 0;
+}
+
+.wr-api-no-operations h3 {
+  color: var(--wr-text);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .wr-api-fields {
   display: grid;
-  gap: 7px;
+  gap: 12px;
+}
+
+.wr-api-editor-fields {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wr-api-connection-fields {
+  grid-template-columns: minmax(190px, 0.8fr) minmax(0, 1.8fr);
+}
+
+.wr-api-endpoint-fields {
+  grid-template-columns: 128px minmax(0, 1fr);
+}
+
+.wr-api-operation-name {
+  max-width: 320px;
+}
+
+.wr-api-lock-label {
+  float: right;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.wr-api-authentication {
+  display: grid;
+  gap: 8px;
+}
+
+.wr-api-authentication details {
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+
+.wr-api-authentication summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.wr-api-authentication details .wr-api-fields {
+  max-width: 480px;
+  margin-block: 10px 6px;
+}
+
+.wr-api-hint {
+  margin: 0;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.wr-api-request-tabs {
+  display: flex;
+  gap: 20px;
+  border-bottom: 1px solid var(--wr-border);
+}
+
+.wr-api-request-tabs button {
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.wr-api-request-tabs button[aria-selected='true'] {
+  border-bottom-color: var(--wr-accent);
+  color: var(--wr-text);
+}
+
+.wr-api-request-tab-panel {
+  display: grid;
+  min-height: 124px;
+  align-content: start;
+  gap: 16px;
+  padding-top: 2px;
 }
 
 .wr-api-fields.two-columns {
@@ -3815,12 +3920,10 @@ kbd {
 .wr-api-response-body {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 6px;
   color: var(--wr-muted-text);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.045em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .wr-api-fields input,
@@ -3831,12 +3934,12 @@ kbd {
 .wr-api-response-body textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--wr-control-border);
+  border: 1px solid var(--wr-border-strong);
   border-radius: 4px;
-  background: var(--wr-input-bg);
+  background: var(--wr-bg);
   color: var(--wr-text);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
@@ -3846,8 +3949,13 @@ kbd {
 .wr-api-fields select,
 .wr-api-body-editor select,
 .wr-api-parameter-row input:not([type='checkbox']) {
-  height: 28px;
-  padding: 0 7px;
+  height: 32px;
+  padding: 0 9px;
+}
+
+.wr-api-fields input[readonly] {
+  color: var(--wr-muted-text);
+  border-style: dashed;
 }
 
 .wr-api-fields input:focus-visible,
@@ -3875,8 +3983,8 @@ kbd {
 .wr-api-empty {
   margin: 0;
   color: var(--wr-muted-text);
-  font-size: 10.5px;
-  font-style: italic;
+  padding-block: 10px;
+  font-size: 11px;
 }
 
 .wr-api-parameter-rows {
@@ -3941,10 +4049,13 @@ kbd {
 .wr-api-test-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 12px;
 }
 
 .wr-api-test-actions button.primary {
+  min-height: 32px;
+  padding-inline: 12px;
   border-color: var(--wr-accent);
   background: var(--wr-selection);
   color: #ffffff;
@@ -4623,8 +4734,14 @@ kbd {
 
   .wr-api-fields.two-columns,
   .wr-api-fields.three-columns,
+  .wr-api-connection-fields,
   .wr-api-body-editor {
     grid-template-columns: 1fr;
+  }
+
+  .wr-api-request-tabs {
+    gap: 12px;
+    overflow-x: auto;
   }
 
   .wr-data-grid-configuration-dialog {

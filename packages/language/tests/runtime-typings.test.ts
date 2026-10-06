@@ -339,6 +339,64 @@ createClient('https://restgo.example.test', { sessionStorage: 'browser' });
     ).toContain(2322);
   });
 
+  it('accepts bound REST clients, multipart bodies, HEAD/OPTIONS and transient test-session sources', () => {
+    const valid = createLanguageService(`import {
+  WebApiClient,
+  prepareRestGoApiRequest,
+  getRestGoClient,
+  type WebApiBodyKind,
+  type WebApiConnection,
+  type WebApiClientConfiguration,
+  type RestGoApiSessionSource,
+} from '@webrad/runtime';
+const bodyKind: WebApiBodyKind = 'form-data';
+const connection: WebApiConnection = 'restgo-session';
+const configuration: WebApiClientConfiguration = {
+  schemaVersion: 1,
+  connection,
+  defaultHeaders: [],
+  timeoutMs: 30_000,
+  operations: [{
+    id: 'upload', name: 'Upload', method: 'POST', path: '/files',
+    headers: [], query: [], body: { kind: bodyKind, content: 'name=Ana' },
+    credentials: 'omit', timeoutMs: null, responseSchema: null,
+  }],
+};
+const api = new WebApiClient({ apiClientConfig: configuration });
+const headResult: Promise<void> = api.head('/files', { responseType: 'json' });
+const optionResult: Promise<{ allowed: string[] }> = api.options<{ allowed: string[] }>('/files');
+const source: RestGoApiSessionSource = {
+  baseUrl: 'https://restgo.example.test/prefix',
+  async getSession() { return { data: { token: 'transient-test-jwt' }, error: null }; },
+};
+const sharedSource: RestGoApiSessionSource = getRestGoClient();
+const prepared: Promise<{ readonly url: string; readonly init: RequestInit }> = prepareRestGoApiRequest(
+  '/files', { method: 'POST', body: new FormData() }, source,
+);
+void headResult; void optionResult; void sharedSource; void prepared;
+`);
+    expect(valid.service.getSemanticDiagnostics(valid.fileName)).toEqual([]);
+
+    const invalid = createLanguageService(`import {
+  WebApiClient,
+  type WebApiBodyKind,
+  type WebApiConnection,
+  type RestGoApiSessionSource,
+} from '@webrad/runtime';
+const unsupportedBody: WebApiBodyKind = 'multipart';
+const unsupportedConnection: WebApiConnection = 'raw-api-token';
+const source: RestGoApiSessionSource = {
+  baseUrl: 'https://restgo.example.test',
+  async getSession() { return { data: { token: 42 }, error: null }; },
+};
+new WebApiClient().head('/files').then((result) => { const text: string = result; });
+void source; void unsupportedBody; void unsupportedConnection;
+`);
+    expect(
+      invalid.service.getSemanticDiagnostics(invalid.fileName).map(({ code }) => code),
+    ).toEqual([2322, 2322, 2322, 2322]);
+  });
+
   it('offers component, page, API client, and collection completions', () => {
     const marked = extractMarkers(`import {
   WebApiClient,
@@ -509,8 +567,10 @@ class EditorPage extends WebPage {
         'baseUrl',
         'delete',
         'get',
+        'head',
         'id',
         'name',
+        'options',
         'patch',
         'post',
         'put',

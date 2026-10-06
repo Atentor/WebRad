@@ -1161,6 +1161,16 @@ const webApiClient: ComponentDefinition = {
       category: 'Connection',
       source: 'props',
       defaultValue: '',
+      description:
+        'Custom API URL. RestGo-bound clients use the fixed URL from Project Settings > RestGo integration.',
+      readOnlyWhen: (props) => {
+        const configuration = props.apiClientConfig;
+        return (
+          typeof configuration === 'object' &&
+          configuration !== null &&
+          Reflect.get(configuration, 'connection') === 'restgo-session'
+        );
+      },
     },
     {
       name: 'apiClientConfig',
@@ -1170,7 +1180,7 @@ const webApiClient: ComponentDefinition = {
       source: 'props',
       defaultValue: createDefaultApiClientConfiguration(),
       description:
-        'Configure named requests, test endpoints, and save typed response fields, objects, and lists.',
+        'Configure REST requests, optionally bind the authenticated RestGo user, and save typed response contracts.',
       designerAction: 'api-client-tester',
     },
   ],

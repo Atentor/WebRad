@@ -3,6 +3,7 @@
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import {
   createComponentStyle,
+  createDefaultApiClientConfiguration,
   createDefaultComponentLayout,
   createPage,
   type ComponentNode,
@@ -27,6 +28,107 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('updates registry-defined read-only behavior when an API Client binds to RestGo', async () => {
+    const user = userEvent.setup();
+    const onPropertyChange = vi.fn();
+    const customClient = defaultComponentRegistry.createComponent('WebApiClient', {
+      id: 'custom-api',
+      props: { baseUrl: 'https://api.example.test' },
+    });
+    const props = {
+      onPropertyChange,
+      onEventChange: vi.fn(),
+      onEventDoubleClick: vi.fn(),
+    };
+    const { rerender } = render(<ObjectInspector {...props} selection={[customClient]} />);
+    expect((screen.getByLabelText('Base URL') as HTMLInputElement).readOnly).toBe(false);
+    fireEvent.change(screen.getByLabelText('Base URL'), {
+      target: { value: 'https://custom.example.test' },
+    });
+    expect(onPropertyChange).toHaveBeenCalledWith(
+      'baseUrl',
+      'https://custom.example.test',
+      expect.objectContaining({ name: 'baseUrl' }),
+    );
+    onPropertyChange.mockClear();
+
+    const boundClient = {
+      ...customClient,
+      props: {
+        ...customClient.props,
+        apiClientConfig: { ...createDefaultApiClientConfiguration(), connection: 'restgo-session' },
+      },
+    };
+    rerender(<ObjectInspector {...props} selection={[boundClient]} />);
+    const fixedUrl = screen.getByLabelText('Base URL') as HTMLInputElement;
+    expect(fixedUrl.readOnly).toBe(true);
+    expect(fixedUrl.closest('.wr-inspector-row')?.getAttribute('title')).toContain(
+      'RestGo integration',
+    );
+    await user.type(fixedUrl, '/override');
+    fireEvent.change(fixedUrl, { target: { value: 'https://escaped.example.test' } });
+    expect(onPropertyChange).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'keeps mixed custom and RestGo-bound selections read-only (bound first: %s)',
+    (boundFirst) => {
+      const onPropertyChange = vi.fn();
+      const customClient = defaultComponentRegistry.createComponent('WebApiClient', {
+        id: 'custom-api',
+        props: { baseUrl: 'https://custom.example.test' },
+      });
+      const boundClient = defaultComponentRegistry.createComponent('WebApiClient', {
+        id: 'bound-api',
+        props: {
+          baseUrl: '',
+          apiClientConfig: {
+            ...createDefaultApiClientConfiguration(),
+            connection: 'restgo-session',
+          },
+        },
+      });
+      render(
+        <ObjectInspector
+          selection={boundFirst ? [boundClient, customClient] : [customClient, boundClient]}
+          onPropertyChange={onPropertyChange}
+          onEventChange={vi.fn()}
+          onEventDoubleClick={vi.fn()}
+        />,
+      );
+      const fixedUrl = screen.getByLabelText('Base URL') as HTMLInputElement;
+      expect(fixedUrl.readOnly).toBe(true);
+      fireEvent.change(fixedUrl, { target: { value: 'https://escaped.example.test' } });
+      expect(onPropertyChange).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves static read-only property metadata alongside dynamic predicates', () => {
+    const onPropertyChange = vi.fn();
+    const original = defaultComponentRegistry.require('WebButton');
+    const definition = {
+      ...original,
+      properties: original.properties.map((property) =>
+        property.name === 'caption'
+          ? { ...property, readOnly: true, readOnlyWhen: () => false }
+          : property,
+      ),
+    };
+    render(
+      <ObjectInspector
+        selection={[button]}
+        definition={definition}
+        onPropertyChange={onPropertyChange}
+        onEventChange={vi.fn()}
+        onEventDoubleClick={vi.fn()}
+      />,
+    );
+    const caption = screen.getByLabelText('Caption') as HTMLInputElement;
+    expect(caption.readOnly).toBe(true);
+    fireEvent.change(caption, { target: { value: 'Edited caption' } });
+    expect(onPropertyChange).not.toHaveBeenCalled();
+  });
+
   it('offers typed RestGO page events in Interaction from the central registry', async () => {
     const user = userEvent.setup();
     const onEventDoubleClick = vi.fn();

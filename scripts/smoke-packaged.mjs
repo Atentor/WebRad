@@ -48,7 +48,7 @@ try {
       `--webrad-smoke-project=${projectPath}`,
       ...(screenshotArgument === undefined ? [] : [screenshotArgument]),
     ],
-    { stdio: 'inherit' },
+    { cwd: packageDirectory, stdio: 'inherit' },
   );
 
   const timeout = setTimeout(() => {
@@ -79,6 +79,8 @@ try {
     'renderer RestGO iframe CORS passed:',
     'renderer RestGO page Interaction passed:',
     'renderer Data Grid configuration passed:',
+    'renderer API Client designer passed:',
+    'renderer API Client browser passed:',
     'renderer last project restore passed',
     'renderer bottom dock passed',
     'renderer element tree selection passed:',

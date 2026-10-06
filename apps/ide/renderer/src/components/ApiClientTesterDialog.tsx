@@ -1,19 +1,19 @@
 import { apiOperationPath } from '@webrad/runtime';
 import {
-  API_CLIENT_BODY_KINDS,
-  API_CLIENT_CREDENTIALS,
   API_CLIENT_FIELD_TYPES,
   normalizeApiClientConfiguration,
   parseApiClientConfiguration,
-  type ApiClientBodyKind,
   type ApiClientConfiguration,
-  type ApiClientCredentials,
   type ApiClientOperation,
   type ApiClientParameter,
   type ApiClientResponseSchema,
   type ApiClientSchemaNode,
   type ComponentNode,
+  type RestGoProjectSettings,
 } from '@webrad/project-model';
+import { createApiClientTestRequest } from '@webrad/designer';
+import { prepareRestGoApiRequest } from '@webrad/runtime';
+import { RestGoError } from '@webrad/restgo-sdk';
 import {
   collectApiClientSchemaNodeIds as collectInferredNodeIds,
   inferApiClientResponseSchema,
@@ -31,16 +31,8 @@ import {
   type ReactElement,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { ApiClientRequestEditor } from './ApiClientRequestEditor';
 
-const HTTP_METHOD_SUGGESTIONS = [
-  'GET',
-  'POST',
-  'PUT',
-  'PATCH',
-  'DELETE',
-  'HEAD',
-  'OPTIONS',
-] as const;
 const MAX_RESPONSE_PREVIEW_LENGTH = 250_000;
 
 interface ApiTestResult {
@@ -62,6 +54,7 @@ interface ParameterListProps {
 
 export interface ApiClientTesterDialogProps {
   readonly component: ComponentNode;
+  readonly restGoSettings?: RestGoProjectSettings;
   readonly onClose: () => void;
   /** Commits both properties as a single model-history transaction in the host. */
   readonly onSave: (baseUrl: string, configuration: ApiClientConfiguration) => void;
@@ -92,88 +85,6 @@ function createOperation(sequence: number): ApiClientOperation {
   };
 }
 
-function isAbsoluteUrl(value: string): boolean {
-  try {
-    return new URL(value).protocol.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-function joinUrl(baseUrl: string, path: string): string {
-  if (baseUrl.length === 0 || isAbsoluteUrl(path)) return path;
-  if (isAbsoluteUrl(baseUrl)) {
-    return new URL(
-      path.startsWith('/') ? path.slice(1) : path,
-      baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`,
-    ).href;
-  }
-  const left = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  const right = path.startsWith('/') ? path.slice(1) : path;
-  return `${left}/${right}`;
-}
-
-function appendEnabledParameters(url: string, parameters: readonly ApiClientParameter[]): string {
-  const active = parameters.filter((parameter) => parameter.enabled && parameter.name.trim());
-  if (active.length === 0) return url;
-  const hashIndex = url.indexOf('#');
-  const hash = hashIndex >= 0 ? url.slice(hashIndex) : '';
-  const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
-  const query = new URLSearchParams();
-  active.forEach((parameter) => query.append(parameter.name, parameter.value));
-  return `${withoutHash}${withoutHash.includes('?') ? '&' : '?'}${query.toString()}${hash}`;
-}
-
-function createTestRequest(
-  baseUrl: string,
-  configuration: ApiClientConfiguration,
-  operation: ApiClientOperation,
-): { readonly url: string; readonly init: RequestInit } {
-  const url = appendEnabledParameters(
-    joinUrl(baseUrl.trim(), apiOperationPath(operation.path.trim(), operation.apiVersion)),
-    operation.query,
-  );
-  if (url.length === 0)
-    throw new Error('Enter a base URL or an absolute operation path before testing.');
-  const headers = new Headers();
-  [...configuration.defaultHeaders, ...operation.headers].forEach((parameter) => {
-    if (parameter.enabled && parameter.name.trim().length > 0) {
-      headers.set(parameter.name, parameter.value);
-    }
-  });
-  let body: BodyInit | undefined;
-  switch (operation.body.kind) {
-    case 'none':
-      break;
-    case 'json':
-      if (operation.body.content.trim().length > 0) {
-        JSON.parse(operation.body.content);
-        body = operation.body.content;
-        if (!headers.has('content-type')) headers.set('content-type', 'application/json');
-      }
-      break;
-    case 'text':
-      body = operation.body.content;
-      if (!headers.has('content-type')) headers.set('content-type', 'text/plain;charset=UTF-8');
-      break;
-    case 'form-urlencoded':
-      body = operation.body.content;
-      if (!headers.has('content-type')) {
-        headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
-      }
-      break;
-  }
-  return {
-    url,
-    init: {
-      method: operation.method.trim(),
-      headers,
-      body,
-      credentials: operation.credentials,
-    },
-  };
-}
-
 function editableParameter(
   parameter: ApiClientParameter,
   patch: Partial<ApiClientParameter>,
@@ -186,7 +97,11 @@ function ParameterList({ label, parameters, onChange }: ParameterListProps): Rea
     <div className="wr-api-parameter-list">
       <div className="wr-api-section-heading">
         <span>{label}</span>
-        <button type="button" onClick={() => onChange([...parameters, createParameter()])}>
+        <button
+          type="button"
+          aria-label={`Add ${label.toLocaleLowerCase()}`}
+          onClick={() => onChange([...parameters, createParameter()])}
+        >
           Add
         </button>
       </div>
@@ -380,14 +295,15 @@ function testResultBody(text: string): {
 
 export function ApiClientTesterDialog({
   component,
+  restGoSettings,
   onClose,
   onSave,
 }: ApiClientTesterDialogProps): ReactElement {
   const titleId = useId();
   const descriptionId = useId();
-  const methodListId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
   const baseUrlRef = useRef<HTMLInputElement | null>(null);
+  const addOperationRef = useRef<HTMLButtonElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
@@ -410,6 +326,12 @@ export function ApiClientTesterDialog({
   const [sending, setSending] = useState(false);
   const [testResult, setTestResult] = useState<ApiTestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [testJwt, setTestJwt] = useState('');
+  const [uploads, setUploads] = useState<readonly File[]>([]);
+  const [uploadField, setUploadField] = useState('file');
+  const restGoBound = configuration.connection === 'restgo-session';
+  const effectiveBaseUrl = restGoBound ? (restGoSettings?.baseUrl ?? '') : baseUrl;
+  const restGoAvailable = restGoSettings?.enabled === true && restGoSettings.baseUrl.length > 0;
 
   const operation = useMemo(
     () =>
@@ -419,7 +341,7 @@ export function ApiClientTesterDialog({
   );
 
   useEffect(() => {
-    baseUrlRef.current?.focus();
+    (baseUrlRef.current ?? addOperationRef.current)?.focus();
     const returnFocus = returnFocusRef.current;
     return () => {
       requestAbortRef.current?.abort();
@@ -440,6 +362,11 @@ export function ApiClientTesterDialog({
   };
 
   const selectOperation = (id: string): void => {
+    if (id === selectedOperationId) return;
+    if (operation !== undefined && operation.id !== id && operation.responseSchema !== null) {
+      const schema = pruneApiClientResponseSchema(operation.responseSchema, selectedSchemaIds);
+      updateOperation(operation.id, (current) => ({ ...current, responseSchema: schema }));
+    }
     setSelectedOperationId(id);
     const schema = configuration.operations.find(
       (candidate) => candidate.id === id,
@@ -451,6 +378,7 @@ export function ApiClientTesterDialog({
     );
     setTestResult(null);
     setError(null);
+    setUploads([]);
   };
 
   const setSchema = (operationId: string, schema: ApiClientResponseSchema | null): void => {
@@ -459,13 +387,6 @@ export function ApiClientTesterDialog({
 
   const testOperation = async (): Promise<void> => {
     if (operation === undefined || sending) return;
-    let request: { readonly url: string; readonly init: RequestInit };
-    try {
-      request = createTestRequest(baseUrl, configuration, operation);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-      return;
-    }
     const controller = new AbortController();
     requestAbortRef.current = controller;
     const timeoutMs = operation.timeoutMs ?? configuration.timeoutMs;
@@ -475,6 +396,43 @@ export function ApiClientTesterDialog({
     setError(null);
     setTestResult(null);
     try {
+      const endpoint = apiOperationPath(operation.path, operation.apiVersion);
+      let request = createApiClientTestRequest(
+        effectiveBaseUrl,
+        configuration,
+        { ...operation, path: endpoint },
+        uploads,
+        uploadField,
+      );
+      if (restGoBound) {
+        if (!restGoAvailable)
+          throw new Error('Enable RestGo integration in Project Settings first.');
+        request = await prepareRestGoApiRequest(
+          endpoint,
+          { ...request.init, signal: controller.signal },
+          {
+            baseUrl: effectiveBaseUrl,
+            getSession: async () =>
+              testJwt.trim()
+                ? { data: { token: testJwt.trim().replace(/^Bearer\s+/iu, '') }, error: null }
+                : {
+                    data: null,
+                    error: new RestGoError(
+                      'Enter a temporary Test JWT, or test the authenticated application in Preview.',
+                      'AUTH_REQUIRED',
+                      401,
+                    ),
+                  },
+          },
+        );
+        const url = new URL(request.url);
+        for (const parameter of operation.query) {
+          if (parameter.enabled && parameter.name.trim())
+            url.searchParams.append(parameter.name, parameter.value);
+        }
+        request = { ...request, url: url.href };
+      }
+      controller.signal.throwIfAborted();
       const response = await globalThis.fetch(request.url, {
         ...request.init,
         signal: controller.signal,
@@ -508,9 +466,7 @@ export function ApiClientTesterDialog({
         : caught instanceof Error
           ? caught.message
           : String(caught);
-      setError(
-        `${reason} Browser API tests require the target API to permit this application's origin through CORS.`,
-      );
+      setError(reason);
     } finally {
       window.clearTimeout(timeout);
       if (requestAbortRef.current === controller) requestAbortRef.current = null;
@@ -534,7 +490,9 @@ export function ApiClientTesterDialog({
               },
         ),
       };
-      onSave(baseUrl.trim(), parseApiClientConfiguration(selectedConfiguration));
+      if (restGoBound && !restGoAvailable)
+        throw new Error('Enable RestGo integration in Project Settings first.');
+      onSave(restGoBound ? '' : baseUrl.trim(), parseApiClientConfiguration(selectedConfiguration));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     }
@@ -550,9 +508,13 @@ export function ApiClientTesterDialog({
     if (event.key !== 'Tab') return;
     const focusable = [
       ...(dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)',
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary',
       ) ?? []),
-    ];
+    ].filter(
+      (element) =>
+        !element.closest('fieldset:disabled') &&
+        !element.closest('details:not([open]) > :not(summary)'),
+    );
     const first = focusable[0];
     const last = focusable.at(-1);
     if (first === undefined || last === undefined) return;
@@ -565,14 +527,7 @@ export function ApiClientTesterDialog({
     }
   };
 
-  if (operation === undefined) {
-    return createPortal(<div />, document.body);
-  }
-
-  const destructiveMethod = !['GET', 'HEAD', 'OPTIONS'].includes(
-    operation.method.trim().toUpperCase(),
-  );
-  const responseSchema = operation.responseSchema;
+  const responseSchema = operation?.responseSchema ?? null;
 
   return createPortal(
     <div className="wr-modal-backdrop" role="presentation" onKeyDown={handleKeyDown}>
@@ -588,7 +543,7 @@ export function ApiClientTesterDialog({
         <header className="wr-modal-header">
           <div>
             <span className="wr-modal-eyebrow">API Client / {component.name}</span>
-            <h2 id={titleId}>Test API Client</h2>
+            <h2 id={titleId}>API Client</h2>
           </div>
           <button
             type="button"
@@ -602,17 +557,24 @@ export function ApiClientTesterDialog({
         </header>
         <div className="wr-api-client-content">
           <p className="wr-modal-description" id={descriptionId}>
-            Configure requests and save only the response contract. Browser tests execute real
-            requests and require CORS support from the API.
+            Configure REST requests and their response contracts.
           </p>
           <div className="wr-api-client-layout">
             <aside className="wr-api-operations" aria-label="API operations">
               <div className="wr-api-section-heading">
                 <span>Operations</span>
                 <button
+                  ref={addOperationRef}
                   type="button"
+                  aria-label="Add operation"
+                  disabled={sending}
                   onClick={() => {
-                    const next = createOperation(configuration.operations.length + 1);
+                    const names = new Set(
+                      configuration.operations.map((candidate) => candidate.name),
+                    );
+                    let sequence = configuration.operations.length + 1;
+                    while (names.has(`Request${String(sequence)}`)) sequence += 1;
+                    const next = createOperation(sequence);
                     setConfiguration((current) => ({
                       ...current,
                       operations: [...current.operations, next],
@@ -628,8 +590,10 @@ export function ApiClientTesterDialog({
                   <button
                     key={candidate.id}
                     type="button"
-                    aria-pressed={candidate.id === operation.id}
-                    className={candidate.id === operation.id ? 'selected' : ''}
+                    disabled={sending}
+                    aria-label={`${candidate.name || 'Untitled request'} ${candidate.method || 'GET'}`}
+                    aria-pressed={candidate.id === operation?.id}
+                    className={candidate.id === operation?.id ? 'selected' : ''}
                     onClick={() => selectOperation(candidate.id)}
                   >
                     <strong>{candidate.name || 'Untitled request'}</strong>
@@ -640,246 +604,53 @@ export function ApiClientTesterDialog({
               <button
                 type="button"
                 className="wr-api-remove-operation"
-                disabled={configuration.operations.length === 1}
+                disabled={sending || operation === undefined}
                 onClick={() => {
+                  if (operation === undefined) return;
                   const remaining = configuration.operations.filter(
                     (candidate) => candidate.id !== operation.id,
                   );
                   setConfiguration((current) => ({ ...current, operations: remaining }));
                   selectOperation(remaining[0]?.id ?? '');
+                  if (remaining.length === 0) addOperationRef.current?.focus();
                 }}
               >
                 Remove operation
               </button>
             </aside>
             <div className="wr-api-request-editor">
-              <div className="wr-api-fields two-columns">
-                <label>
-                  <span>Base URL</span>
-                  <input
-                    ref={baseUrlRef}
-                    aria-label="Base URL"
-                    value={baseUrl}
-                    placeholder="https://api.example.com"
-                    spellCheck={false}
-                    onChange={(event) => setBaseUrl(event.currentTarget.value)}
-                  />
-                </label>
-                <label>
-                  <span>Default timeout (ms)</span>
-                  <input
-                    aria-label="Default timeout"
-                    type="number"
-                    min="1"
-                    max="120000"
-                    value={configuration.timeoutMs}
-                    onChange={(event) => {
-                      const value = Number(event.currentTarget.value);
-                      if (Number.isInteger(value) && value >= 1 && value <= 120_000) {
-                        setConfiguration((current) => ({ ...current, timeoutMs: value }));
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-              <ParameterList
-                label="Default headers"
-                parameters={configuration.defaultHeaders}
-                onChange={(defaultHeaders) =>
-                  setConfiguration((current) => ({ ...current, defaultHeaders }))
-                }
-              />
-              <div className="wr-api-operation-form">
-                <div className="wr-api-fields three-columns">
-                  <label>
-                    <span>Operation name</span>
-                    <input
-                      aria-label="Operation name"
-                      value={operation.name}
-                      spellCheck={false}
-                      onChange={(event) => {
-                        const name = event.currentTarget.value;
-                        updateOperation(operation.id, (current) => ({ ...current, name }));
-                      }}
-                    />
-                  </label>
-                  <label>
-                    <span>Method</span>
-                    <input
-                      aria-label="Method"
-                      list={methodListId}
-                      value={operation.method}
-                      spellCheck={false}
-                      onChange={(event) => {
-                        const method = event.currentTarget.value.toUpperCase();
-                        updateOperation(operation.id, (current) => ({ ...current, method }));
-                      }}
-                    />
-                    <datalist id={methodListId}>
-                      {HTTP_METHOD_SUGGESTIONS.map((method) => (
-                        <option value={method} key={method} />
-                      ))}
-                    </datalist>
-                  </label>
-                  <label>
-                    <span>Credentials</span>
-                    <select
-                      aria-label="Credentials"
-                      value={operation.credentials}
-                      onChange={(event) => {
-                        const credentials = event.currentTarget.value as ApiClientCredentials;
-                        updateOperation(operation.id, (current) => ({ ...current, credentials }));
-                      }}
-                    >
-                      {API_CLIENT_CREDENTIALS.map((credentials) => (
-                        <option value={credentials} key={credentials}>
-                          {credentials}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+              {operation === undefined ? (
+                <div className="wr-api-no-operations" role="status">
+                  <h3>No endpoints configured</h3>
+                  <p>Add an operation to configure a request.</p>
                 </div>
-                <div className="wr-api-fields three-columns">
-                  <label>
-                    <span>Path</span>
-                    <input
-                      aria-label="Path"
-                      value={operation.path}
-                      placeholder="/customers"
-                      spellCheck={false}
-                      onChange={(event) => {
-                        const path = event.currentTarget.value;
-                        updateOperation(operation.id, (current) => ({ ...current, path }));
-                      }}
-                    />
-                  </label>
-                  <label>
-                    <span>Dynamic API version</span>
-                    <input
-                      aria-label="Dynamic API version"
-                      type="number"
-                      min={1}
-                      max={Number.MAX_SAFE_INTEGER}
-                      step={1}
-                      placeholder="Use path as entered"
-                      value={operation.apiVersion ?? ''}
-                      onChange={(event) => {
-                        const apiVersion =
-                          event.currentTarget.value === ''
-                            ? null
-                            : event.currentTarget.valueAsNumber;
-                        updateOperation(operation.id, (current) => ({ ...current, apiVersion }));
-                      }}
-                    />
-                    <small>
-                      Per request. Adds /v&#123;version&#125; before the database/endpoint path.
-                    </small>
-                  </label>
-                  <label>
-                    <span>Operation timeout (ms)</span>
-                    <input
-                      aria-label="Operation timeout"
-                      type="number"
-                      min="1"
-                      max="120000"
-                      placeholder="Use default"
-                      value={operation.timeoutMs ?? ''}
-                      onChange={(event) => {
-                        const raw = event.currentTarget.value;
-                        const value = raw.length === 0 ? null : Number(raw);
-                        if (
-                          value === null ||
-                          (Number.isInteger(value) && value >= 1 && value <= 120_000)
-                        ) {
-                          updateOperation(operation.id, (current) => ({
-                            ...current,
-                            timeoutMs: value,
-                          }));
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                <ParameterList
-                  label="Headers"
-                  parameters={operation.headers}
-                  onChange={(headers) =>
-                    updateOperation(operation.id, (current) => ({ ...current, headers }))
+              ) : (
+                <ApiClientRequestEditor
+                  key={operation.id}
+                  baseUrl={baseUrl}
+                  baseUrlRef={baseUrlRef}
+                  configuration={configuration}
+                  operation={operation}
+                  restGoSettings={restGoSettings}
+                  sending={sending}
+                  testJwt={testJwt}
+                  uploads={uploads}
+                  uploadField={uploadField}
+                  onBaseUrlChange={setBaseUrl}
+                  onConfigurationChange={setConfiguration}
+                  onOperationChange={(patch) =>
+                    updateOperation(operation.id, (current) => ({ ...current, ...patch }))
                   }
-                />
-                <ParameterList
-                  label="Query parameters"
-                  parameters={operation.query}
-                  onChange={(query) =>
-                    updateOperation(operation.id, (current) => ({ ...current, query }))
-                  }
-                />
-                <div className="wr-api-body-editor">
-                  <label>
-                    <span>Body type</span>
-                    <select
-                      aria-label="Body type"
-                      value={operation.body.kind}
-                      onChange={(event) => {
-                        const kind = event.currentTarget.value as ApiClientBodyKind;
-                        updateOperation(operation.id, (current) => ({
-                          ...current,
-                          body: { ...current.body, kind },
-                        }));
-                      }}
-                    >
-                      {API_CLIENT_BODY_KINDS.map((kind) => (
-                        <option value={kind} key={kind}>
-                          {kind}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {operation.body.kind !== 'none' && (
-                    <label>
-                      <span>Request body</span>
-                      <textarea
-                        aria-label="Request body"
-                        value={operation.body.content}
-                        placeholder={operation.body.kind === 'json' ? '{\n  "name": "Ada"\n}' : ''}
-                        spellCheck={false}
-                        onChange={(event) => {
-                          const content = event.currentTarget.value;
-                          updateOperation(operation.id, (current) => ({
-                            ...current,
-                            body: { ...current.body, content },
-                          }));
-                        }}
-                      />
-                    </label>
+                  onTestJwtChange={setTestJwt}
+                  onUploadFieldChange={setUploadField}
+                  onUploadsChange={setUploads}
+                  onTest={() => void testOperation()}
+                  onCancelRequest={() => requestAbortRef.current?.abort()}
+                  renderParameters={(label, parameters, onChange) => (
+                    <ParameterList label={label} parameters={parameters} onChange={onChange} />
                   )}
-                </div>
-                {destructiveMethod && (
-                  <p className="wr-api-write-warning" role="note">
-                    This {operation.method.toUpperCase()} test performs a real write operation
-                    against the target API.
-                  </p>
-                )}
-                <p className="wr-api-secret-warning">
-                  Headers are persisted in the project and generated application. Do not save
-                  production secrets; inject them from application code at runtime.
-                </p>
-                <div className="wr-api-test-actions">
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={sending}
-                    onClick={() => void testOperation()}
-                  >
-                    {sending ? 'Sending…' : 'Send test request'}
-                  </button>
-                  {sending && (
-                    <button type="button" onClick={() => requestAbortRef.current?.abort()}>
-                      Cancel request
-                    </button>
-                  )}
-                </div>
-              </div>
+                />
+              )}
               {(error !== null || testResult !== null) && (
                 <section className="wr-api-test-result" aria-live="polite">
                   {error !== null ? (
@@ -918,7 +689,7 @@ export function ApiClientTesterDialog({
                   ) : null}
                 </section>
               )}
-              {responseSchema !== null && (
+              {responseSchema !== null && operation !== undefined && (
                 <section className="wr-api-schema-editor" aria-label="Response definitions">
                   <div className="wr-api-section-heading">
                     <div>

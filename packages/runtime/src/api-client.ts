@@ -1,4 +1,6 @@
 import { WebNonvisualComponent, type WebNonvisualComponentOptions } from './component.js';
+import { RestGoError, type RestGoResult, type RestGoSession } from '@webrad/restgo-sdk';
+import { getRestGoClient } from './restgo.js';
 
 export type QueryValue = string | number | boolean | null | undefined;
 
@@ -19,7 +21,8 @@ export function apiOperationPath(path: string, version?: number | null): string 
 export const WEB_API_RESPONSE_TYPES = ['auto', 'json', 'text', 'blob', 'arrayBuffer'] as const;
 export type WebApiResponseType = (typeof WEB_API_RESPONSE_TYPES)[number];
 
-export type WebApiBodyKind = 'none' | 'json' | 'text' | 'form-urlencoded';
+export type WebApiBodyKind = 'none' | 'json' | 'text' | 'form-urlencoded' | 'form-data';
+export type WebApiConnection = 'custom' | 'restgo-session';
 export type WebApiCredentials = 'omit' | 'same-origin' | 'include';
 export type WebApiOperationStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -68,6 +71,8 @@ export interface WebApiOperation {
 
 export interface WebApiClientConfiguration {
   readonly schemaVersion: number;
+  /** Omitted in existing projects, which continue to use their custom base URL. */
+  readonly connection?: WebApiConnection;
   readonly defaultHeaders: readonly WebApiParameter[];
   readonly timeoutMs: number;
   readonly operations: readonly WebApiOperation[];
@@ -127,6 +132,159 @@ export class WebApiTimeoutError extends Error {
     super(`The API request to ${url} timed out after ${String(timeoutMs)} ms.`);
     this.name = 'WebApiTimeoutError';
   }
+}
+
+/** A real shared SDK client or an explicitly supplied, transient test-session source. */
+export interface RestGoApiSessionSource {
+  readonly baseUrl: string;
+  getSession(): Promise<RestGoResult<Pick<RestGoSession, 'token'> | null>>;
+}
+
+function requestMethod(method: string | undefined): string {
+  const normalized = (method ?? 'GET').toUpperCase();
+  if (!/^[!#$%&'*+.^_`|~\dA-Z-]+$/u.test(normalized)) {
+    throw new TypeError('The HTTP method must be a valid HTTP token without spaces.');
+  }
+  if (normalized === 'CONNECT' || normalized === 'TRACE' || normalized === 'TRACK') {
+    throw new TypeError(`${normalized} is prohibited by browser Fetch and cannot be sent.`);
+  }
+  return normalized;
+}
+
+function assertRequestBody(method: string, body: unknown): void {
+  if ((method === 'GET' || method === 'HEAD') && body !== undefined && body !== null) {
+    throw new TypeError(`${method} requests cannot have a body in browser Fetch.`);
+  }
+}
+
+function hasUrlControlCharacters(value: string, includeSpace = false): boolean {
+  return [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= (includeSpace ? 0x20 : 0x1f) || code === 0x7f;
+  });
+}
+
+function restGoRequestUrl(baseUrl: string, endpoint: string): string {
+  const base = new URL(baseUrl);
+  if (
+    !['http:', 'https:'].includes(base.protocol) ||
+    base.username ||
+    base.password ||
+    base.search ||
+    base.hash ||
+    /[\s\\]/u.test(baseUrl) ||
+    hasUrlControlCharacters(baseUrl, true)
+  ) {
+    throw new TypeError(
+      'The RestGo base URL must be an HTTP(S) URL without credentials, query or hash.',
+    );
+  }
+  if (
+    /^[a-z][a-z\d+.-]*:/iu.test(endpoint) ||
+    endpoint.startsWith('//') ||
+    /[\s\\#]/u.test(endpoint) ||
+    hasUrlControlCharacters(endpoint, true)
+  ) {
+    throw new TypeError(
+      'RestGo requests require an endpoint inside the configured integration URL.',
+    );
+  }
+  const pathname = endpoint.split('?')[0] ?? '';
+  for (const segment of pathname.split('/')) {
+    let decoded = segment;
+    try {
+      // Also reject repeatedly encoded traversal, which proxies may decode more than once.
+      for (let round = 0; round < segment.length + 1; round += 1) {
+        if (
+          decoded === '.' ||
+          decoded === '..' ||
+          /[\\/]/u.test(decoded) ||
+          hasUrlControlCharacters(decoded)
+        ) {
+          throw new TypeError(
+            'RestGo endpoints cannot contain path traversal or encoded separators.',
+          );
+        }
+        let next: string;
+        try {
+          next = decodeURIComponent(decoded);
+        } catch (error) {
+          if (round === 0) throw error;
+          break;
+        }
+        if (next === decoded) break;
+        decoded = next;
+      }
+    } catch (error) {
+      throw new TypeError('RestGo endpoints cannot contain path traversal or malformed encoding.', {
+        cause: error,
+      });
+    }
+  }
+  const basePath = `${base.pathname.replace(/\/+$/u, '')}/`;
+  const result = new URL(`${base.origin}${basePath}${endpoint.replace(/^\//u, '')}`);
+  if (result.origin !== base.origin || !result.pathname.startsWith(basePath)) {
+    throw new TypeError('The endpoint must remain inside the configured RestGo integration URL.');
+  }
+  return result.href;
+}
+
+function withAbort<T>(
+  operation: () => Promise<T>,
+  signal: AbortSignal | null | undefined,
+): Promise<T> {
+  signal?.throwIfAborted();
+  if (signal === undefined || signal === null) return operation();
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    operation().then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        if (signal.aborted) reject(signal.reason);
+        else resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+/**
+ * Pins a REST request to the RestGo integration and validates its current user session.
+ * The SDK validates/renews the session before the request; raw API tokens never qualify.
+ * The optional source lets the IDE test with a transient JWT without persisting it.
+ */
+export async function prepareRestGoApiRequest(
+  endpoint: string,
+  options: RequestInit = {},
+  source?: RestGoApiSessionSource,
+): Promise<{ readonly url: string; readonly init: RequestInit }> {
+  const client = source ?? getRestGoClient();
+  const url = restGoRequestUrl(client.baseUrl, endpoint);
+  const method = requestMethod(options.method);
+  assertRequestBody(method, options.body);
+  const result = await withAbort(() => client.getSession(), options.signal);
+  options.signal?.throwIfAborted();
+  if (result.error !== null) throw result.error;
+  if (!result.data?.token.trim()) {
+    throw new RestGoError('Sign in to RestGo before using this API client.', 'AUTH_REQUIRED', 401);
+  }
+  if (source === undefined && getRestGoClient() !== client) {
+    throw new RestGoError(
+      'The RestGo integration changed before the request.',
+      'AUTH_OPERATION_CANCELLED',
+    );
+  }
+  const headers = new Headers(options.headers);
+  headers.set('Authorization', `Bearer ${result.data.token}`);
+  if (options.body instanceof FormData) headers.delete('Content-Type');
+  return {
+    url,
+    init: { ...options, method, headers, mode: 'cors', credentials: 'omit', redirect: 'error' },
+  };
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -207,8 +365,9 @@ function responseType(value: unknown): WebApiResponseType {
 async function readResponseBody(
   response: Response,
   requestedType: WebApiResponseType,
+  method: string,
 ): Promise<unknown> {
-  if (response.status === 204 || response.status === 205) return undefined;
+  if (method === 'HEAD' || response.status === 204 || response.status === 205) return undefined;
   switch (requestedType) {
     case 'blob':
       return response.blob();
@@ -262,7 +421,11 @@ function normalizeBody(value: unknown): WebApiRequestBody {
   if (!isRecord(value)) return { kind: 'none', content: '' };
   const kind = value.kind;
   const supported =
-    kind === 'none' || kind === 'json' || kind === 'text' || kind === 'form-urlencoded';
+    kind === 'none' ||
+    kind === 'json' ||
+    kind === 'text' ||
+    kind === 'form-urlencoded' ||
+    kind === 'form-data';
   return {
     kind: supported ? kind : 'none',
     content: typeof value.content === 'string' ? value.content : '',
@@ -347,6 +510,9 @@ function normalizeConfiguration(value: unknown): WebApiClientConfiguration {
   }
   return {
     schemaVersion: typeof value.schemaVersion === 'number' ? value.schemaVersion : 1,
+    ...(value.connection === 'restgo-session' || value.connection === 'custom'
+      ? { connection: value.connection }
+      : {}),
     defaultHeaders: normalizeParameters(value.defaultHeaders),
     timeoutMs: finiteTimeout(value.timeoutMs, 30_000),
     operations: Array.isArray(value.operations)
@@ -380,6 +546,13 @@ function configuredBody(body: WebApiRequestBody, headers: Headers): unknown {
         headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
       }
       return new URLSearchParams(body.content);
+    case 'form-data': {
+      const form = new FormData();
+      for (const [name, value] of new URLSearchParams(body.content)) form.append(name, value);
+      // Fetch sets the boundary for the actual multipart payload.
+      headers.delete('content-type');
+      return form;
+    }
   }
 }
 
@@ -482,10 +655,15 @@ export class WebApiClient<
   }
 
   public get baseUrl(): string {
-    return this.#baseUrl;
+    return this.#configuration.connection === 'restgo-session'
+      ? getRestGoClient().baseUrl
+      : this.#baseUrl;
   }
 
   public set baseUrl(value: string) {
+    if (this.#configuration.connection === 'restgo-session') {
+      throw new TypeError('This API client uses the fixed URL from the RestGo integration.');
+    }
     this.#baseUrl = value;
   }
 
@@ -532,7 +710,14 @@ export class WebApiClient<
   }
 
   public async request<T>(path: string, options: WebApiRequestOptions = {}): Promise<T> {
+    const method = requestMethod(options.method);
+    assertRequestBody(method, options.body);
     const headers = new Headers(this.#headers);
+    for (const parameter of this.#configuration.defaultHeaders) {
+      if (parameter.enabled && parameter.name.trim().length > 0) {
+        headers.set(parameter.name, parameter.value);
+      }
+    }
     new Headers(options.headers).forEach((value, name) => headers.set(name, value));
     let body: BodyInit | null | undefined;
     if (options.body !== undefined && options.body !== null) {
@@ -544,8 +729,8 @@ export class WebApiClient<
     } else {
       body = options.body as null | undefined;
     }
+    if (body instanceof FormData) headers.delete('content-type');
 
-    const url = appendQuery(joinUrl(this.#baseUrl, path), options.query);
     const {
       query: _query,
       timeoutMs,
@@ -554,15 +739,32 @@ export class WebApiClient<
       ...requestOptions
     } = options;
     void _query;
-    const timeout = timeoutSignal(signal, timeoutMs ?? null);
+    const boundToRestGo = this.#configuration.connection === 'restgo-session';
+    let url = boundToRestGo
+      ? restGoRequestUrl(getRestGoClient().baseUrl, appendQuery(path, options.query))
+      : appendQuery(joinUrl(this.#baseUrl, path), options.query);
+    const effectiveTimeout = timeoutMs === undefined ? this.#configuration.timeoutMs : timeoutMs;
+    const timeout = timeoutSignal(signal, effectiveTimeout);
     try {
-      const response = await this.#fetch(url, {
+      let init: RequestInit = {
         ...requestOptions,
+        method,
         body,
         headers,
         ...(timeout.signal === undefined ? {} : { signal: timeout.signal }),
-      });
-      const responseBody = await readResponseBody(response, responseType(requestedResponseType));
+      };
+      if (boundToRestGo) {
+        const prepared = await prepareRestGoApiRequest(appendQuery(path, options.query), init);
+        url = prepared.url;
+        init = prepared.init;
+      }
+      timeout.signal?.throwIfAborted();
+      const response = await this.#fetch(url, init);
+      const responseBody = await readResponseBody(
+        response,
+        responseType(requestedResponseType),
+        method,
+      );
       if (!response.ok) {
         throw new WebApiError(
           `HTTP ${String(response.status)} ${response.statusText}`.trim(),
@@ -575,7 +777,7 @@ export class WebApiClient<
       }
       return responseBody as T;
     } catch (error) {
-      if (timeout.timedOut()) throw new WebApiTimeoutError(timeoutMs ?? 0, url);
+      if (timeout.timedOut()) throw new WebApiTimeoutError(effectiveTimeout ?? 0, url);
       throw error;
     } finally {
       timeout.cleanUp();
@@ -600,6 +802,14 @@ export class WebApiClient<
 
   public delete<T>(path: string, options: WebApiRequestOptions = {}): Promise<T> {
     return this.request<T>(path, { ...options, method: 'DELETE' });
+  }
+
+  public head(path: string, options: WebApiRequestOptions = {}): Promise<void> {
+    return this.request<void>(path, { ...options, method: 'HEAD' });
+  }
+
+  public options<T>(path: string, options: WebApiRequestOptions = {}): Promise<T> {
+    return this.request<T>(path, { ...options, method: 'OPTIONS' });
   }
 
   public async execute<K extends keyof TOutputs & string>(
@@ -636,17 +846,20 @@ export class WebApiClient<
       state: loadingState,
     } satisfies WebApiOperationEventDetail<T>);
 
-    const headers = new Headers(this.#headers);
-    for (const parameter of [...this.#configuration.defaultHeaders, ...operation.headers]) {
-      if (parameter.enabled && parameter.name.trim().length > 0) {
-        headers.set(parameter.name, parameter.value);
-      }
-    }
-    new Headers(options.headers).forEach((value, name) => headers.set(name, value));
-    const body =
-      options.body === undefined ? configuredBody(operation.body, headers) : options.body;
-    const timeoutMs = options.timeoutMs ?? operation.timeoutMs ?? this.#configuration.timeoutMs;
     try {
+      const headers = new Headers(this.#headers);
+      for (const parameter of [...this.#configuration.defaultHeaders, ...operation.headers]) {
+        if (parameter.enabled && parameter.name.trim().length > 0) {
+          headers.set(parameter.name, parameter.value);
+        }
+      }
+      new Headers(options.headers).forEach((value, name) => headers.set(name, value));
+      const body =
+        options.body === undefined ? configuredBody(operation.body, headers) : options.body;
+      const timeoutMs =
+        options.timeoutMs === undefined
+          ? (operation.timeoutMs ?? this.#configuration.timeoutMs)
+          : options.timeoutMs;
       const path = appendParameters(
         apiOperationPath(operation.path, operation.apiVersion),
         operation.query,

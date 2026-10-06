@@ -312,6 +312,14 @@ describe('MVP component metadata', () => {
       source: 'props',
       designerAction: 'api-client-tester',
     });
+    const baseUrl = apiClient.properties.find((property) => property.name === 'baseUrl');
+    expect(baseUrl?.description).toContain('RestGo integration');
+    expect(baseUrl?.readOnlyWhen?.({})).toBe(false);
+    expect(baseUrl?.readOnlyWhen?.({ apiClientConfig: null })).toBe(false);
+    expect(baseUrl?.readOnlyWhen?.({ apiClientConfig: { connection: 'custom' } })).toBe(false);
+    expect(baseUrl?.readOnlyWhen?.({ apiClientConfig: { connection: 'restgo-session' } })).toBe(
+      true,
+    );
     expect(apiClient.events.map((eventDefinition) => eventDefinition.name)).toEqual([
       'OnRequest',
       'OnSuccess',

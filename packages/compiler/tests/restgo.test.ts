@@ -1,4 +1,10 @@
-import { bindComponentEvent, createProject, updateProjectSettings } from '@webrad/project-model';
+import {
+  addComponent,
+  bindComponentEvent,
+  createDefaultApiClientConfiguration,
+  createProject,
+  updateProjectSettings,
+} from '@webrad/project-model';
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
@@ -195,6 +201,117 @@ export class ${page.name} extends ${page.name}Generated {
     try {
       dom.window.eval(result.files['assets/app.js'] ?? '');
       expect(() => dom.window.eval('RestGO.auth')).toThrow('Enable and configure RestGO');
+    } finally {
+      dom.window.close();
+    }
+  });
+
+  it('generates an API Client that uses the authenticated JWT beneath the fixed RestGo URL prefix', async () => {
+    const original = createProject('BoundRestGoBrowser');
+    const page = original.pages[0];
+    if (page === undefined) throw new Error('The default project requires an entry page.');
+    const configuration = createDefaultApiClientConfiguration();
+    const boundPage = addComponent(
+      page,
+      defaultComponentRegistry.createComponent('WebApiClient', {
+        id: 'restgo-bound-api',
+        name: 'ApiClient',
+        parentId: page.rootComponentId,
+        props: {
+          baseUrl: 'https://unused-custom.example.test',
+          apiClientConfig: {
+            ...configuration,
+            connection: 'restgo-session',
+            operations: configuration.operations.map((operation) => ({
+              ...operation,
+              path: '/v2/clientes/pessoas',
+              query: [{ id: 'query-limit', name: 'limit', value: '10', enabled: true }],
+            })),
+          },
+        },
+      }),
+      page.rootComponentId,
+    );
+    const baseUrl = 'https://restgo.example.test/services/restgo';
+    const project = updateProjectSettings(
+      { ...original, pages: [boundPage] },
+      {
+        restGo: {
+          ...original.settings.restGo,
+          enabled: true,
+          baseUrl,
+          apiToken: 'application-token-must-not-replace-user-jwt',
+          persistSession: false,
+          sessionStorage: 'memory',
+        },
+      },
+    );
+    const userSource = `import { ${page.name}Generated } from './${page.name}.generated';
+
+export class ${page.name} extends ${page.name}Generated {
+  public constructor(element: HTMLElement) {
+    super(element);
+    this.element.dataset.apiBase = this.ApiClient.baseUrl;
+    void this.loadCustomers();
+  }
+
+  private async loadCustomers(): Promise<void> {
+    const login = await RestGO.login('cliente@example.test', 'senha-de-teste');
+    if (login.error) throw login.error;
+    const customers = await this.ApiClient.execute<readonly { id: string }[]>('Request');
+    this.element.dataset.customerId = customers[0]?.id ?? '';
+  }
+}
+`;
+    const result = await compileProjectToMemory(project, {
+      userSources: { [`pages/${page.name}.ts`]: userSource },
+    });
+    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+    const user = {
+      id: 'cliente-bound',
+      email: 'cliente@example.test',
+      fullName: 'Cliente',
+      avatarUrl: null,
+      active: true,
+      emailConfirmed: true,
+    };
+    const fetch = vi.fn<typeof globalThis.fetch>(async (url, options) => {
+      const requestUrl = new URL(String(url));
+      expect(requestUrl.origin).toBe('https://restgo.example.test');
+      expect(requestUrl.pathname.startsWith('/services/restgo/')).toBe(true);
+      const isLogin = requestUrl.pathname === '/services/restgo/auth/token';
+      expect(new Headers(options?.headers).get('Authorization')).toBe(
+        isLogin ? null : 'Bearer bound-user-jwt',
+      );
+      const body = isLogin
+        ? { token: 'bound-user-jwt', expiresAt: '2099-01-01T00:00:00Z', user }
+        : requestUrl.pathname === '/services/restgo/auth/session'
+          ? { success: true, user }
+          : [{ id: user.id }];
+      return new Response(JSON.stringify(body), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      runScripts: 'outside-only',
+      url: 'https://preview.webrad.test/',
+    });
+    Object.defineProperties(dom.window, {
+      fetch: { value: fetch },
+      Headers: { value: globalThis.Headers },
+      AbortController: { value: globalThis.AbortController },
+    });
+    try {
+      dom.window.eval(result.files['assets/app.js'] ?? '');
+      const root = dom.window.document.querySelector<HTMLElement>('[data-webrad-id]');
+      expect(root?.dataset.apiBase).toBe(baseUrl);
+      await vi.waitFor(() => {
+        expect(root?.dataset.customerId).toBe(user.id);
+        expect(fetch).toHaveBeenCalledWith(
+          `${baseUrl}/v2/clientes/pessoas?limit=10`,
+          expect.objectContaining({ method: 'GET' }),
+        );
+      });
     } finally {
       dom.window.close();
     }

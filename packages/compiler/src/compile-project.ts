@@ -88,6 +88,22 @@ function validateRegistry(
             path: [...path, 'components', componentIndex, 'props', propertyName],
           });
         }
+        if (property.type === 'api-client-config') {
+          const configuration = ApiClientConfigurationSchema.safeParse(value);
+          if (
+            configuration.success &&
+            configuration.data.connection === 'restgo-session' &&
+            !project.settings.restGo.enabled
+          ) {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message:
+                'Enable and configure RestGO in Project Settings > RestGo integration before binding an API Client to the authenticated user.',
+              path: [...path, 'components', componentIndex, 'props', propertyName, 'connection'],
+            });
+          }
+        }
       }
       for (const eventName of Object.keys(component.events)) {
         if (!definition.events.some((event) => event.name === eventName)) {

@@ -19,6 +19,7 @@ describe('compiler environment', () => {
     ).toEqual({
       WEBRAD_ESBUILD_MODULE_PATH: 'C:\\workspace\\WebRad\\node_modules\\esbuild\\lib\\main.js',
       ESBUILD_BINARY_PATH: 'C:\\workspace\\WebRad\\node_modules\\@esbuild\\win32-x64\\esbuild.exe',
+      WEBRAD_TAILWIND_BASE_PATH: 'C:\\workspace\\WebRad',
       WEBRAD_TYPESCRIPT_LIB_PATH: 'C:\\workspace\\WebRad\\node_modules\\typescript\\lib',
     });
 
@@ -33,6 +34,7 @@ describe('compiler environment', () => {
     ).toEqual({
       WEBRAD_ESBUILD_MODULE_PATH: '/workspace/WebRad/node_modules/esbuild/lib/main.js',
       ESBUILD_BINARY_PATH: '/workspace/WebRad/node_modules/@esbuild/linux-arm64/bin/esbuild',
+      WEBRAD_TAILWIND_BASE_PATH: '/workspace/WebRad',
       WEBRAD_TYPESCRIPT_LIB_PATH: '/workspace/WebRad/node_modules/typescript/lib',
     });
   });
@@ -49,6 +51,7 @@ describe('compiler environment', () => {
     ).toEqual({
       WEBRAD_ESBUILD_MODULE_PATH: 'C:\\Program Files\\WebRAD\\resources\\esbuild\\lib\\main.js',
       ESBUILD_BINARY_PATH: 'C:\\Program Files\\WebRAD\\resources\\win32-x64\\esbuild.exe',
+      WEBRAD_TAILWIND_BASE_PATH: 'C:\\Program Files\\WebRAD\\resources\\app.asar',
       WEBRAD_TYPESCRIPT_LIB_PATH: 'C:\\Program Files\\WebRAD\\resources\\typescript\\lib',
     });
 
@@ -63,6 +66,7 @@ describe('compiler environment', () => {
     ).toEqual({
       WEBRAD_ESBUILD_MODULE_PATH: '/opt/WebRAD/resources/esbuild/lib/main.js',
       ESBUILD_BINARY_PATH: '/opt/WebRAD/resources/linux-x64/bin/esbuild',
+      WEBRAD_TAILWIND_BASE_PATH: '/opt/WebRAD/resources/app.asar',
       WEBRAD_TYPESCRIPT_LIB_PATH: '/opt/WebRAD/resources/typescript/lib',
     });
   });

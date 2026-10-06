@@ -27,6 +27,8 @@ export interface ComponentPropertyDefinition {
   readonly options?: readonly string[];
   readonly description?: string;
   readonly readOnly?: boolean;
+  /** Pure design-time rule evaluated against the component's saved property bag. */
+  readonly readOnlyWhen?: (props: Readonly<Record<string, unknown>>) => boolean;
   /** Enables an explicit null value for structural numeric controls. */
   readonly nullable?: boolean;
   /** Optional specialized designer workflow associated with this property. */

@@ -29,6 +29,7 @@ it('persists per-request API versions and rejects invalid versions', () => {
 });
 
 import {
+  API_CLIENT_HTTP_METHODS,
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
   createDefaultApiClientConfiguration,
@@ -37,6 +38,7 @@ import {
   createPage,
   deserializePage,
   normalizeApiClientConfiguration,
+  parseApiClientConfiguration,
   parseDataGridConfiguration,
   safeParsePage,
   serializePage,
@@ -138,6 +140,17 @@ function pageWithApiClientConfiguration(configuration: unknown): PageModel {
 }
 
 describe('persisted API Client configuration', () => {
+  it('preserves an empty endpoint collection through normalization and serialization', () => {
+    const configuration: ApiClientConfiguration = { ...validConfiguration(), operations: [] };
+    expect(parseApiClientConfiguration(configuration)).toEqual(configuration);
+    expect(normalizeApiClientConfiguration(configuration)).toEqual(configuration);
+    const page = pageWithApiClientConfiguration(configuration);
+    const restored = deserializePage(serializePage(page));
+    expect(
+      restored.components.find((component) => component.id === 'api-client')?.props.apiClientConfig,
+    ).toEqual(configuration);
+  });
+
   it('creates independent, valid defaults and normalizes legacy API clients', () => {
     const first = createDefaultApiClientConfiguration();
     const second = createDefaultApiClientConfiguration();
@@ -180,6 +193,147 @@ describe('persisted API Client configuration', () => {
       apiClientConfig: configuration,
     });
   });
+
+  it('keeps legacy custom configurations unchanged and accepts standard and custom methods', () => {
+    const legacy = validConfiguration();
+    expect(parseApiClientConfiguration(legacy)).toEqual(legacy);
+    expect(parseApiClientConfiguration(legacy)).not.toHaveProperty('connection');
+    for (const method of [...API_CLIENT_HTTP_METHODS, 'PROPFIND', 'custom-method']) {
+      expect(
+        ApiClientConfigurationSchema.safeParse({
+          ...legacy,
+          operations: legacy.operations.map((operation) => ({ ...operation, method })),
+        }).success,
+      ).toBe(true);
+    }
+    expect(
+      ApiClientConfigurationSchema.safeParse({
+        ...legacy,
+        operations: legacy.operations.map((operation) => ({ ...operation, method: 'GET /' })),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('persists RestGo session binding and multipart text fields without changing project version', () => {
+    const configuration: ApiClientConfiguration = {
+      ...validConfiguration(),
+      connection: 'restgo-session',
+      operations: validConfiguration().operations.map((operation) => ({
+        ...operation,
+        method: 'POST',
+        path: '/storage/files',
+        body: { kind: 'form-data', content: 'name=Cliente&tag=novo&tag=ativo' },
+      })),
+    };
+    const page = pageWithApiClientConfiguration(configuration);
+    const restored = deserializePage(serializePage(page));
+    expect(restored.formatVersion).toBe(page.formatVersion);
+    expect(restored.components.find((component) => component.id === 'api-client')?.props).toEqual(
+      page.components.find((component) => component.id === 'api-client')?.props,
+    );
+    expect(
+      ApiClientConfigurationSchema.safeParse({ ...configuration, connection: 'unknown' }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    'https://other.example.test/customers',
+    'http://other.example.test/customers',
+    'data:text/plain,example',
+    '//other.example.test/customers',
+    '\\other.example.test/customers',
+    '/customers\\..\\secrets',
+    '../customers',
+    '/customers/../secrets',
+    '/customers/./secret',
+    '/customers/%2e%2e/secrets',
+    '/customers/%2E%2E%2fsecrets',
+    '/customers/%252e%252e/secrets',
+    '%2f%2fother.example.test/customers',
+    '/customers/%5c..%5csecrets',
+    ' /customers',
+    '/customers\n',
+    '/customers/%00/secrets',
+    '/customers#fragment',
+    '/customers/one%2ftwo',
+    '/customers/%zz',
+  ])('rejects a RestGo-bound endpoint that escapes its fixed prefix: %s', (path) => {
+    const configuration = validConfiguration();
+    const operations = configuration.operations.map((operation) => ({ ...operation, path }));
+    const bound = ApiClientConfigurationSchema.safeParse({
+      ...configuration,
+      connection: 'restgo-session',
+      operations,
+    });
+    expect(bound.success).toBe(false);
+    if (!bound.success) {
+      expect(bound.error.issues.some((issue) => issue.path.join('.') === 'operations.0.path')).toBe(
+        true,
+      );
+    }
+    expect(ApiClientConfigurationSchema.safeParse({ ...configuration, operations }).success).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    '',
+    '/',
+    'customers',
+    '/customers',
+    '/.well-known/info',
+    '/customers?id=../123',
+    '/customers/Jo%C3%A3o',
+    '/customers/100%25',
+  ])('accepts a RestGo-relative endpoint: %s', (path) => {
+    const configuration = validConfiguration();
+    expect(
+      ApiClientConfigurationSchema.safeParse({
+        ...configuration,
+        connection: 'restgo-session',
+        operations: configuration.operations.map((operation) => ({ ...operation, path })),
+      }).success,
+    ).toBe(true);
+  });
+
+  it.each(['default', 'operation'])(
+    'reserves enabled %s Authorization headers for RestGo',
+    (level) => {
+      const configuration = validConfiguration();
+      const header = {
+        id: 'authorization',
+        name: 'aUtHoRiZaTiOn',
+        value: 'Bearer saved-jwt',
+        enabled: true,
+      };
+      const customized = {
+        ...configuration,
+        defaultHeaders: level === 'default' ? [header] : [],
+        operations: configuration.operations.map((operation) => ({
+          ...operation,
+          headers: level === 'operation' ? [header] : [],
+        })),
+      };
+      expect(ApiClientConfigurationSchema.safeParse(customized).success).toBe(true);
+      expect(
+        ApiClientConfigurationSchema.safeParse({
+          ...customized,
+          connection: 'restgo-session',
+        }).success,
+      ).toBe(false);
+      expect(
+        ApiClientConfigurationSchema.safeParse({
+          ...customized,
+          connection: 'restgo-session',
+          defaultHeaders: customized.defaultHeaders.map((entry) => ({ ...entry, enabled: false })),
+          operations: customized.operations.map((operation) => ({
+            ...operation,
+            headers: operation.headers.map((entry) => ({ ...entry, enabled: false })),
+          })),
+        }).success,
+      ).toBe(true);
+    },
+  );
 
   it('persists a typed Data Grid binding to a nested API response list', () => {
     const apiConfiguration = validConfiguration();

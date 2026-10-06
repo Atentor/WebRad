@@ -17,6 +17,7 @@ import {
 } from './restgo-smoke';
 import { runDataGridConfigurationSmoke } from './data-grid-smoke';
 import { runStylesWorkspaceSmoke } from './styles-smoke';
+import { runApiClientBrowserSmoke, runApiClientDesignerSmoke } from './api-client-smoke';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -984,6 +985,12 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await captureDesignerSmokeScreenshot(window);
   await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runDataGridConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runApiClientDesignerSmoke(window, {
+    projectPath: smokeProjectPath,
+    log: smokeLog,
+    screenshotPath: smokeScreenshotPath,
+  });
+  await runApiClientBrowserSmoke(smokeLog);
 }
 
 // Vite can wrap this CommonJS boolean in a default-export object.

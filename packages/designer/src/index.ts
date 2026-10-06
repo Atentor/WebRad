@@ -1,4 +1,5 @@
 export * from './clipboard.js';
+export * from './api-client-request.js';
 export * from './command-history.js';
 export * from './commands.js';
 export * from './geometry.js';

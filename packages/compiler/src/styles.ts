@@ -188,7 +188,7 @@ async function processTailwind(
 ): Promise<string> {
   const result = await postcss([
     tailwindcss({
-      base: process.cwd(),
+      base: process.env.WEBRAD_TAILWIND_BASE_PATH ?? process.cwd(),
       optimize: false,
       transformAssetUrls: false,
     }),
