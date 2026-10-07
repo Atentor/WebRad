@@ -4,6 +4,8 @@ The About dialog identifies WebRAD as Powered by Atentor and highlights its webs
 
 ## Direction
 
+Windows installation branding is owned by the Electron main process. For Squirrel installations only, `installation-icon.ts` copies the packaged `resources/Icon.ico` to the installation root's `app.ico` and sets the current user's WebRAD uninstall entry `DisplayIcon` to that local path. It runs during installation, updates, and normal startup to repair older Electron icons, and skips development, portable applications, other platforms, uninstall, and obsolete-version hooks. Forge uses `scripts/windows-installer.nuspectemplate` to omit the legacy `iconUrl` metadata so installation never downloads the Electron icon. Branding failures are logged as `IDE` warnings without blocking application startup.
+
 WebRAD is a desktop IDE built with Electron, React, and web tooling, while projects produced by it are normal browser applications. The versioned Project Model owns all persistent state. The Designer, Object Inspector, Explorer, language services, generator, compiler, and Preview are projections or consumers of that model.
 
 ```text

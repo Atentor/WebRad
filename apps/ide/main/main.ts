@@ -4,6 +4,7 @@ import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
 import { resolveCompilerEnvironment } from './compiler-environment';
+import { synchronizeInstallationIcon } from './installation-icon';
 import { presentMainWindow } from './main-window-presentation';
 import { installApplicationMenu } from './menu';
 import { closePreviewServer, publishPreviewHtml, revokePreview } from './preview-server';
@@ -1030,6 +1031,17 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     screenshotPath: smokeScreenshotPath,
   });
   await runApiClientBrowserSmoke(smokeLog);
+}
+try {
+  synchronizeInstallationIcon({
+    platform: process.platform,
+    packaged: app.isPackaged,
+    executablePath: process.execPath,
+    resourcesPath: process.resourcesPath,
+    arguments: process.argv,
+  });
+} catch (error: unknown) {
+  console.warn('[IDE] Failed to synchronize the Windows installation icon.', error);
 }
 
 // Vite can wrap this CommonJS boolean in a default-export object.

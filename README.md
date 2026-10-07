@@ -117,6 +117,8 @@ Cada execução incrementa a versão de correção no `package.json` e no `packa
 
 O novo Setup fica em `out/make/squirrel.windows/x64/WebRad-<versão> Setup.exe`. Execute esse instalador para atualizar o aplicativo instalado; gerar o arquivo não atualiza a instalação automaticamente. `npm run make` continua gerando artefatos com a versão atual, sem incrementá-la. Se o empacotamento falhar depois do incremento, corrija o erro e execute `npm run make` para tentar novamente com a mesma versão.
 
+No Windows, o instalador usa o ícone do WebRAD também no arquivo `app.ico` da pasta instalada e na lista de aplicativos do sistema. Esse ícone vem do `Icon.ico` incluído no pacote, sem download durante a instalação. Ao abrir a versão atualizada, instalações antigas substituem o ícone padrão do Electron pelo ícone do WebRAD.
+
 O uso de `npm.cmd` evita o erro de segurança que informa que `npm.ps1` não pode ser carregado porque a execução de scripts está desabilitada. Não é necessário alterar a política de execução do Windows.
 
 O arquivo recomendado para entregar ao usuário é `out/make/squirrel.windows/x64/WebRad-<versão> Setup.exe`. Esse é o instalador. O arquivo `.nupkg` presente na mesma pasta não deve ser aberto diretamente pelo usuário final.

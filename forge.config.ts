@@ -78,7 +78,11 @@ const config: ForgeConfig = {
     },
   },
   makers: [
-    new MakerSquirrel({ authors: 'WebRAD', setupIcon: iconIcoPath }),
+    new MakerSquirrel({
+      authors: 'WebRAD',
+      setupIcon: iconIcoPath,
+      nuspecTemplate: path.resolve('scripts', 'windows-installer.nuspectemplate'),
+    }),
     new MakerZIP({}, ['darwin']),
     new MakerDeb({ options: { icon: iconPngPath } }),
     new MakerRpm({ options: { icon: iconPngPath } }),
