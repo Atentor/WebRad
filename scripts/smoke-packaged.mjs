@@ -92,6 +92,7 @@ try {
     'renderer Monaco component members passed:',
     'renderer Monaco caret alignment passed:',
     'renderer F9 preview passed: Olá Ada',
+    'renderer Designer/Preview button style parity passed',
     'renderer Preview isolation passed:',
   ];
   const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));

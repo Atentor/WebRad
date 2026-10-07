@@ -84,7 +84,7 @@ ${applicationIconTag(metadata.applicationIcon, applicationIconHref)}
 ${seoTags(metadata.applicationName, metadata.applicationDescription, metadata.seo, socialImageHref)}
     <link rel="stylesheet" href="./assets/app.css" />
   </head>
-  <body>
+  <body class="wr-project-surface">
     <script src="./assets/app.js"></script>
   </body>
 </html>
@@ -119,7 +119,7 @@ ${seoTags(
 )}
     <style>${styleSafe(css)}</style>
   </head>
-  <body>
+  <body class="wr-project-surface">
     <script>${scriptSafe(javaScript)}</script>
   </body>
 </html>

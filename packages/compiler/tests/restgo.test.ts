@@ -104,12 +104,17 @@ export class ${page.name} extends ${page.name}Generated {
     if (!login.sucess) throw login.error;
     this.element.dataset.loginSucceeded = String(login.sucess);
     this.element.dataset.loginFullName = login.data.user.fullName;
+    const identity = RestGO.CurrentUser;
+    if (!identity) throw new Error('Missing current user after login');
+    this.element.dataset.simpleUser = JSON.stringify(identity);
+    this.element.dataset.sharedCurrentUser = String(SharedRestGO.CurrentUser?.id === identity.id);
     const current = await SharedRestGO.getUser();
     this.element.dataset.restgoUser = current.data?.id ?? '';
     const result = await RestGO.from<readonly { id: string }[]>('pessoas').get();
     this.element.dataset.restgoData = result.error === null ? result.data[0]?.id ?? '' : result.error.code;
     const logout = await RestGO.logout();
     if (logout.error) throw logout.error;
+    this.element.dataset.simpleSignedOut = String(RestGO.CurrentUser === null);
     const session = await RestGO.getSession();
     this.element.dataset.restgoSignedOut = String(session.error === null && session.data === null);
   }
@@ -184,6 +189,15 @@ export class ${page.name} extends ${page.name}Generated {
         expect(root?.getAttribute('data-unauthenticated')).toBe('true');
         expect(root?.getAttribute('data-login-succeeded')).toBe('true');
         expect(root?.getAttribute('data-login-full-name')).toBe(user.fullName);
+        expect(JSON.parse(root?.getAttribute('data-simple-user') ?? '{}')).toEqual({
+          nome: user.fullName,
+          email: user.email,
+          id: user.id,
+          emailconfirmed: true,
+          ativo: true,
+        });
+        expect(root?.getAttribute('data-shared-current-user')).toBe('true');
+        expect(root?.getAttribute('data-simple-signed-out')).toBe('true');
       });
     } finally {
       dom.window.close();

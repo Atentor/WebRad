@@ -313,6 +313,12 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
 }
 
 describe('DesignerSurface responsive projection', () => {
+  it('keeps the page and floating editors inside the shared project style surface', () => {
+    const { container } = renderSurface(pageWithPopupChild(), { selectedIds: ['popup'] });
+    const surface = container.querySelector('.wr-page-surface');
+    expect(surface?.classList.contains('wr-project-surface')).toBe(true);
+    expect(surface?.querySelector('.wr-designer-floating-layer')).not.toBeNull();
+  });
   it.each([50, 100, 150])(
     'fills the available Default width at %s%% zoom and tracks host resizing',
     (zoom) => {

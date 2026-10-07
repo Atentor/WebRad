@@ -172,6 +172,32 @@ this.usuarioNome = user.fullName;
 this.usuarioEmail = user.email;
 ```
 
+## Acesso direto ao usuário atual
+
+Use `RestGO.CurrentUser` para ler a identidade atual sem `await`:
+
+```ts
+const usuario = RestGO.CurrentUser;
+if (usuario) {
+  Message(usuario.nome);
+  // usuario.email, usuario.id, usuario.emailconfirmed, usuario.ativo
+}
+```
+
+As propriedades são somente leitura: `nome`, `email` e `id` são strings;
+`emailconfirmed` e `ativo` são booleanos. O objeto é uma cópia imutável da
+última identidade confirmada pelo servidor. Cada leitura acompanha o estado
+atual do SDK; uma variável já capturada mantém os valores daquele momento.
+Login, restauração validada, renovação e validação da sessão atualizam a
+identidade; logout ou revogação confirmada a limpam. Falhas de rede preservam
+a última identidade confirmada.
+
+Sem sessão ou enquanto a restauração inicial está pendente, retorna `null`.
+Para aguardar a restauração, use `await RestGO.auth.ready`. A leitura não faz
+requisições nem comprova que a sessão ainda é válida no servidor; para buscar
+dados atualizados e validar a sessão, use `await RestGO.getUser()`.
+O mesmo acesso está disponível nos clientes criados por `createClient()`.
+
 ## Renovação da sessão
 
 Login e refresh retornam `token`, `expiresAt`, `refreshToken`, `refreshExpiresAt` e `user`. O SDK salva as quatro propriedades da credencial em um único registro e renova automaticamente antes da expiração do JWT. Também renova antes de uma chamada protegida com JWT expirado ou após uma rejeição autoritativa com 401. A chamada rejeitada pode ser repetida uma vez com o novo JWT, preservando JSON, multipart e download binário. Falhas de rede ou 5xx não provocam repetição de operações de escrita.

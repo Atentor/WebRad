@@ -186,6 +186,54 @@ logout.detail.user./*@logoutUser*/;
     expect(runtimeExports).not.toContain('WebForm');
   });
 
+  it('offers typed readonly CurrentUser members on the shared and standalone clients', () => {
+    const marked =
+      extractMarkers(`import { createClient, type RestGoCurrentUser } from '@webrad/restgo-sdk';
+import { RestGO as shared } from '@webrad/runtime';
+const user: RestGoCurrentUser | null = RestGO.CurrentUser;
+if (user) {
+  user./*@identity*/nome;
+  const nome: string = user.nome;
+  const email: string = user.email;
+  const id: string = user.id;
+  const confirmed: boolean = user.emailconfirmed;
+  const active: boolean = user.ativo;
+}
+const client = createClient('https://restgo.example.test');
+const independent: RestGoCurrentUser | null = client.CurrentUser;
+const imported: RestGoCurrentUser | null = shared.CurrentUser;
+RestGO./*@client*/CurrentUser;
+`);
+    const { service, fileName } = createLanguageService(marked.text);
+    try {
+      expect(service.getSemanticDiagnostics(fileName)).toEqual([]);
+      expect(completionNames(service, fileName, marked.positions.get('identity') ?? 0)).toEqual(
+        expect.arrayContaining(['nome', 'email', 'id', 'emailconfirmed', 'ativo']),
+      );
+      expect(completionNames(service, fileName, marked.positions.get('client') ?? 0)).toContain(
+        'CurrentUser',
+      );
+    } finally {
+      service.dispose();
+    }
+    const invalid = createLanguageService(`RestGO.CurrentUser.nome;
+function replace(): void { RestGO.CurrentUser = null; }
+if (RestGO.CurrentUser) {
+  RestGO.CurrentUser.nome = 'Outro';
+  const active: string = RestGO.CurrentUser.ativo;
+  RestGO.CurrentUser.inexistente;
+}`);
+    try {
+      const codes = invalid.service
+        .getSemanticDiagnostics(invalid.fileName)
+        .map(({ code }) => code);
+      expect(codes).toEqual(expect.arrayContaining([18047, 2540, 2322, 2339]));
+      expect(codes.filter((code) => code === 2540)).toHaveLength(2);
+    } finally {
+      invalid.service.dispose();
+    }
+  });
+
   it('offers login sucess completion and narrows session or error with the boolean', () => {
     const marked =
       extractMarkers(`import { createClient, type RestGoLoginResult, type RestGoUser, RestGoError } from '@webrad/restgo-sdk';

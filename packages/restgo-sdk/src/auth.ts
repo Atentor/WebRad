@@ -9,6 +9,7 @@ import { type RestGoTransport } from './transport';
 import type {
   RestGoAuthEvent,
   RestGoClientOptions,
+  RestGoCurrentUser,
   RestGoManagedUser,
   RestGoRequestOptions,
   RestGoSession,
@@ -127,6 +128,20 @@ export class RestGoAuthClient {
     this.stopTimer();
     this.unsubscribeStorage();
     this.listeners.clear();
+  }
+
+  /** Local snapshot; reading it does not issue a request or validate the session. */
+  get CurrentUser(): RestGoCurrentUser | null {
+    const user = this.disposed || this.closing ? undefined : this.current?.user;
+    return user
+      ? Object.freeze({
+          nome: user.fullName,
+          email: user.email,
+          id: user.id,
+          emailconfirmed: user.emailConfirmed,
+          ativo: user.active,
+        })
+      : null;
   }
 
   private stopTimer(): void {

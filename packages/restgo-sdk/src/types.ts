@@ -24,6 +24,15 @@ export interface RestGoUser {
   emailConfirmed: boolean;
 }
 
+/** Readonly projection of the last server-confirmed user identity. */
+export interface RestGoCurrentUser {
+  readonly nome: string;
+  readonly email: string;
+  readonly id: string;
+  readonly emailconfirmed: boolean;
+  readonly ativo: boolean;
+}
+
 export interface RestGoManagedUser extends Omit<RestGoUser, 'avatarUrl'> {
   avatarUrl?: string;
   createdAt: string;

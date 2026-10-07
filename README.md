@@ -76,6 +76,8 @@ Na página, **Interaction > RestGO** oferece **OnLogin**, **OnLogout** e **OnUna
 
 Consulte o [guia do SDK RestGO](docs/restgo-sdk.md) para exemplos e detalhes dos contratos. O SDK renova o JWT automaticamente por `POST /auth/refresh`, persiste o par de credenciais rotacionado e coordena renovações simultâneas. Novo login é necessário quando o refresh token expira ou é revogado. As sessões continuam sendo validadas pelo servidor; cadastrar uma conta não inicia uma sessão automaticamente.
 
+Para ler o usuário sem `await`, use `RestGO.CurrentUser?.nome`, `.email`, `.id`, `.emailconfirmed` e `.ativo`. `CurrentUser` é somente leitura e retorna `null` sem sessão ou durante a restauração inicial. Os dados acompanham a última identidade confirmada pelo SDK; a leitura não faz requisições. Use `await RestGO.getUser()` quando precisar validar a sessão e atualizar os dados no servidor.
+
 ## Validação
 
 ```sh

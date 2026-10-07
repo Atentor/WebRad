@@ -1809,7 +1809,7 @@ export function DesignerSurface({
         >
           <div
             ref={surfaceRef}
-            className="wr-page-surface"
+            className="wr-page-surface wr-project-surface"
             data-viewport={viewportName}
             style={{
               width: viewportWidth,

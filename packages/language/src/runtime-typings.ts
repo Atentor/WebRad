@@ -836,6 +836,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     sizing?: VisualSizingMode,
   ): ComponentVisualProjection;
   export const WEBRAD_COMPONENT_CSS: string;
+  export const WEBRAD_PROJECT_CSS: string;
 }
 
 /** Globally available WebRAD dialog helper. */

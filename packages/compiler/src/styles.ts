@@ -9,24 +9,13 @@ import {
   tokenizeTailwindClasses,
   type TailwindStyleSource,
   WEBRAD_COMPONENT_CSS,
+  WEBRAD_PROJECT_CSS,
 } from '@webrad/runtime/visual';
 import tailwindcss from '@tailwindcss/postcss';
 import postcss from 'postcss';
 
 /** Base application defaults. They are placed in Tailwind's components layer at build time. */
-export const GENERATED_APP_CSS = `:root {
-  color-scheme: light dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --wr-input-bg: #ffffff;
-  --wr-muted-text: #657184;
-  --wr-accent: #1479d3;
-  --wr-control-border: #9da9b8;
-  --wr-control-surface: #f5f7fa;
-  --wr-button-bg: #edf1f6;
-  --wr-button-hover: #dfe6ef;
-}
-
-* {
+export const GENERATED_APP_CSS = `* {
   box-sizing: border-box;
 }
 
@@ -52,6 +41,7 @@ body {
 }
 
 ${WEBRAD_COMPONENT_CSS}
+${WEBRAD_PROJECT_CSS}
 `;
 
 /**

@@ -100,6 +100,7 @@ describe('single-use RestGO refresh tokens', () => {
     client.auth.onAuthStateChange((event) => events.push(event));
     const result = await client.auth.refreshSession();
     expect(result.data).toEqual(second);
+    expect(client.CurrentUser?.nome).toBe(second.user.fullName);
     const [url, options] = fetch.mock.calls[1]!;
     expect(url).toBe(`${baseUrl}/auth/refresh`);
     expect(options?.method).toBe('POST');
@@ -123,7 +124,9 @@ describe('single-use RestGO refresh tokens', () => {
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(json(renewed));
     const client = createClient(baseUrl, { fetch, storageKey: key });
     clients.push(client);
+    expect(client.CurrentUser).toBeNull();
     expect((await client.auth.ready).data).toEqual(renewed);
+    expect(client.CurrentUser?.nome).toBe(renewed.user.fullName);
     expect(fetch.mock.calls[0]?.[0]).toBe(`${baseUrl}/auth/refresh`);
     expect(fetch).toHaveBeenCalledTimes(1);
   });

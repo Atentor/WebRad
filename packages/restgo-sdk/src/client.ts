@@ -6,6 +6,7 @@ import type { RestGoResult } from './errors';
 import type {
   RestGoAuthEvent,
   RestGoClientOptions,
+  RestGoCurrentUser,
   RestGoLoginResult,
   RestGoSession,
   RestGoSuccess,
@@ -46,6 +47,11 @@ export class RestGoClient {
 
   getUser(): Promise<RestGoResult<RestGoUser | null>> {
     return this.auth.getUser();
+  }
+
+  /** Last server-confirmed identity, or null before authentication/restoration. */
+  get CurrentUser(): RestGoCurrentUser | null {
+    return this.auth.CurrentUser;
   }
 
   refreshSession(): Promise<RestGoResult<RestGoSession>> {

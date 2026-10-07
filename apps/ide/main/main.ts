@@ -20,6 +20,7 @@ import { runDataGridConfigurationSmoke } from './data-grid-smoke';
 import { runStylesWorkspaceSmoke } from './styles-smoke';
 import { runApiClientBrowserSmoke, runApiClientDesignerSmoke } from './api-client-smoke';
 import { runMonacoCaretSmoke } from './monaco-caret-smoke';
+import { captureDesignerButtonStyle, assertPreviewButtonStyle } from './component-style-smoke';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -939,6 +940,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await runDesignerWorkspaceSmoke(window);
 
   await runRestGoSettingsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  const designerButtonStyle = await captureDesignerButtonStyle(window);
 
   const codeDispatched = (await window.webContents.executeJavaScript(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F12', bubbles: true, cancelable: true }))`,
@@ -983,6 +985,8 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     )()`,
     'the mounted Preview controls after F9',
   );
+  await assertPreviewButtonStyle(previewFrame, designerButtonStyle);
+  smokeLog('renderer Designer/Preview button style parity passed');
   const interaction = (await previewFrame.executeJavaScript(
     `(() => {
       globalThis.__webradSmokeMessage = '';

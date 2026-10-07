@@ -58,6 +58,50 @@ afterEach(() => {
 });
 
 describe('RestGo authentication', () => {
+  it('projects a readonly local identity and follows validation, network failures and revocation', async () => {
+    const fetch = fetchMock()
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(
+        json({
+          success: true,
+          user: { ...user, fullName: 'Ana Silva', emailConfirmed: true, active: false },
+        }),
+      )
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValueOnce(json({ error: 'revoked' }, 401));
+    const client = createClient(baseUrl, { fetch, persistSession: false });
+    try {
+      await client.auth.ready;
+      expect(client.CurrentUser).toBeNull();
+      await client.login(user.email, 'secret');
+      const identity = client.CurrentUser;
+      expect(identity).toEqual({
+        nome: 'Ana',
+        email: user.email,
+        id: user.id,
+        emailconfirmed: false,
+        ativo: true,
+      });
+      expect(Object.isFrozen(identity)).toBe(true);
+      const calls = fetch.mock.calls.length;
+      expect(client.CurrentUser).toEqual(identity);
+      expect(fetch).toHaveBeenCalledTimes(calls);
+      await client.getUser();
+      expect(client.CurrentUser).toMatchObject({
+        nome: 'Ana Silva',
+        emailconfirmed: true,
+        ativo: false,
+      });
+      expect(identity?.nome).toBe('Ana');
+      await client.getUser();
+      expect(client.CurrentUser?.nome).toBe('Ana Silva');
+      await client.getUser();
+      expect(client.CurrentUser).toBeNull();
+    } finally {
+      client.dispose();
+    }
+  });
+
   it('uses direct positional helpers and shares the session with the auth service', async () => {
     const fetch = fetchMock().mockImplementation(async (url, options) => {
       const path = new URL(String(url)).pathname;
@@ -81,10 +125,12 @@ describe('RestGo authentication', () => {
     expect(login).toEqual({ sucess: true, data: session, error: null });
     if (!login.sucess) throw login.error;
     expect(login.data.user.fullName).toBe(user.fullName);
+    expect(client.CurrentUser?.nome).toBe(user.fullName);
     expect((await client.auth.getUser()).data).toEqual(user);
     expect((await client.getUser()).data).toEqual(user);
     expect((await client.getSession()).data).toEqual(session);
     expect((await client.logout()).error).toBeNull();
+    expect(client.CurrentUser).toBeNull();
     expect((await client.getSession()).data).toBeNull();
     expect(events).toContain('SIGNED_IN');
     expect(events).toContain('SIGNED_OUT');

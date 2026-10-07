@@ -2167,7 +2167,6 @@ kbd {
   overflow: hidden;
   transform-origin: top left;
   box-shadow: 0 7px 30px rgba(0, 0, 0, 0.48);
-  color: #1e252e;
   outline: 1px solid #9ba4b0;
 }
 

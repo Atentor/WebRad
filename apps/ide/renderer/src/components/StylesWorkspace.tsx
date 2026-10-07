@@ -463,7 +463,10 @@ export function StylesWorkspace({
                     <span>{activeStateDefinition.label}</span>
                   </div>
                   <div className="wr-style-preview-canvas">
-                    <div className="wr-style-preview-frame" data-style-preview={selectedStyle.id}>
+                    <div
+                      className="wr-style-preview-frame wr-project-surface"
+                      data-style-preview={selectedStyle.id}
+                    >
                       {previewNode === undefined ? (
                         <span className="wr-style-preview-unavailable">
                           Preview unavailable for unregistered or nonvisual component type{' '}

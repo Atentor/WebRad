@@ -1089,6 +1089,35 @@ export function projectComponentVisual(
   };
 }
 
+/** Project defaults shared by Designer surfaces and generated browser pages. */
+export const WEBRAD_PROJECT_CSS = `
+.wr-project-surface, .wr-webpage {
+  color-scheme: light dark;
+  font: 400 16px/normal Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: start;
+  text-transform: none;
+  text-rendering: auto;
+  -webkit-font-smoothing: auto;
+  color: #111827;
+  --wr-input-bg: #ffffff;
+  --wr-muted-text: #657184;
+  --wr-accent: #1479d3;
+  --wr-control-border: #9da9b8;
+  --wr-control-surface: #f5f7fa;
+  --wr-button-bg: #edf1f6;
+  --wr-button-hover: #dfe6ef;
+}
+:where(.wr-project-surface, .wr-webpage) :is(button, input, select, textarea) {
+  font: inherit;
+}
+:where(.wr-project-surface, .wr-webpage) :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+`.trim();
+
 /** Shared component styling. Hosts may override the custom properties to theme it. */
 export const WEBRAD_COMPONENT_CSS = `
 .wr-component { --webrad-border-gradient-surface: transparent; box-sizing: border-box; font: inherit; }
