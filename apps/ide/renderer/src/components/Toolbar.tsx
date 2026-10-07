@@ -133,6 +133,9 @@ export function Toolbar(props: ToolbarProps): ReactElement {
         </details>
       )}
       <span className="wr-toolbar-spacer" />
+      <span className="wr-toolbar-beta" title="WebRAD Beta">
+        Beta
+      </span>
       <span
         className={props.dirty ? 'wr-toolbar-save-state dirty' : 'wr-toolbar-save-state'}
         aria-live="polite"

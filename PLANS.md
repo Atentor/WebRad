@@ -1,5 +1,7 @@
 # WebRAD delivery plan
 
+- DONE: Show the IDE's beta release as an amber `Beta` pill on the right of the main toolbar, before the save status and project actions, with theme-aware text, background, and border colors. Typecheck, lint, six shell tests, formatting, and renderer production build pass. Visual Electron validation remains unavailable due to the environment GPU process failure observed during the initial watermark change.
+
 - DONE: Add `npm run release` to increment the application patch version without Git commits/tags and rebuild the current source into a new installer. Document release and installed-app update behavior. Strict typecheck, lint, all 597 tests, icon/runtime-source/format checks, Windows Setup generation, and packaged Electron smoke pass; source, lockfile, packaged manifest, and executable versions match at 0.1.1.
 
 - DONE: Disable font ligatures in the code editor so all operators display their original characters. Typecheck, lint, all 7 editor tests, formatting, and Windows packaging pass.
