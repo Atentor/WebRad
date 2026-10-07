@@ -9,7 +9,7 @@ import {
   type PageModel,
   type ReusableElementModel,
 } from '@webrad/project-model';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DesignerSurface } from './DesignerSurface';
 import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
@@ -49,6 +49,7 @@ function responsivePage(): PageModel {
   } as const;
   return {
     ...initial,
+    width: 1280,
     components: [
       {
         ...root,
@@ -312,6 +313,86 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
 }
 
 describe('DesignerSurface responsive projection', () => {
+  it.each([50, 100, 150])(
+    'fills the available Default width at %s%% zoom and tracks host resizing',
+    (zoom) => {
+      let hostWidth = 964;
+      let notifyResize: (() => void) | undefined;
+      const disconnect = vi.fn();
+      const clientWidth = vi
+        .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          return this.classList.contains('wr-designer-scroll') ? hostWidth : 0;
+        });
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          public constructor(private readonly callback: () => void) {}
+          public observe(host: HTMLElement): void {
+            if (host.classList.contains('wr-designer-scroll')) notifyResize = this.callback;
+          }
+          public disconnect = disconnect;
+        },
+      );
+      const page = responsivePage();
+      const originalPage = JSON.stringify(page);
+      try {
+        const { container, unmount } = renderSurface(page, { zoom });
+        const host = container.querySelector<HTMLElement>('.wr-designer-scroll');
+        if (host === null) throw new Error('Expected scroll host.');
+        host.style.padding = '40px 32px';
+        act(() => notifyResize?.());
+        const surface = container.querySelector<HTMLElement>('.wr-page-surface');
+        const frame = container.querySelector<HTMLElement>('.wr-page-zoom-frame');
+        expect((Number.parseFloat(surface?.style.width ?? '') * zoom) / 100).toBeCloseTo(900);
+        expect(Number.parseFloat(frame?.style.width ?? '')).toBeCloseTo(900);
+
+        hostWidth = 704;
+        act(() => notifyResize?.());
+        expect(Number.parseFloat(frame?.style.width ?? '')).toBeCloseTo(640);
+
+        fireEvent.change(screen.getByLabelText('Viewport'), { target: { value: 'tablet' } });
+        expect(surface?.style.width).toBe('768px');
+        hostWidth = 804;
+        act(() => notifyResize?.());
+        expect(surface?.style.width).toBe('768px');
+        fireEvent.change(screen.getByLabelText('Viewport'), { target: { value: 'mobile' } });
+        expect(surface?.style.width).toBe('390px');
+        fireEvent.change(screen.getByLabelText('Viewport'), { target: { value: 'desktop' } });
+        expect(Number.parseFloat(frame?.style.width ?? '')).toBeCloseTo(740);
+        expect(JSON.stringify(page)).toBe(originalPage);
+        unmount();
+        expect(disconnect).toHaveBeenCalled();
+      } finally {
+        cleanup();
+        clientWidth.mockRestore();
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+
+  it('updates Default on window resize when ResizeObserver is unavailable', () => {
+    let hostWidth = 900;
+    vi.stubGlobal('ResizeObserver', undefined);
+    const clientWidth = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('wr-designer-scroll') ? hostWidth : 0;
+      });
+    try {
+      const { container } = renderSurface();
+      const surface = container.querySelector<HTMLElement>('.wr-page-surface');
+      expect(surface?.style.width).toBe('900px');
+      hostWidth = 700;
+      fireEvent(window, new Event('resize'));
+      expect(surface?.style.width).toBe('700px');
+    } finally {
+      cleanup();
+      clientWidth.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('uses the runtime flow projection and changes the responsive canvas viewport', () => {
     const { container } = renderSurface();
     const children = container.querySelector<HTMLElement>('.wr-runtime-children-row');

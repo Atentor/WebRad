@@ -1,6 +1,6 @@
 /** Browser-safe design-time viewport presets; these never change persisted page geometry. */
 export const DESIGNER_VIEWPORTS = {
-  desktop: { label: 'Desktop', width: 1280 },
+  desktop: { label: 'Default', width: null },
   tablet: { label: 'Tablet', width: 768 },
   mobile: { label: 'Mobile', width: 390 },
 } as const;

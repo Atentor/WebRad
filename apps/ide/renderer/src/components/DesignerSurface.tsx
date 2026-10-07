@@ -47,6 +47,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
+import { useDesignerAvailableWidth } from './useDesignerAvailableWidth';
 
 interface DesignerSurfaceProps {
   viewportName?: ViewportName;
@@ -1140,6 +1141,8 @@ export function DesignerSurface({
   onDefaultEvent,
 }: DesignerSurfaceProps): ReactElement {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const availableWidth = useDesignerAvailableWidth(scrollRef);
   const [interaction, setInteraction] = useState<Interaction | null>(null);
   const [floatingHost, setFloatingHost] = useState<HTMLElement | null>(null);
   const [localViewportName, setLocalViewportName] = useState<ViewportName>('desktop');
@@ -1156,13 +1159,15 @@ export function DesignerSurface({
   >(() => new Map());
   const scale = zoom / 100;
   const viewport = VIEWPORTS[viewportName];
+  const previewWidth =
+    viewport.width ?? (availableWidth === undefined ? page.width : availableWidth / scale);
   const byId = useMemo(() => new Map(page.components.map((node) => [node.id, node])), [page]);
   const root = byId.get(page.rootComponentId);
   const rootFitContentSize = root === undefined ? undefined : fitContentSizes.get(root.id);
   const viewportWidth =
     root?.layout.item.width === 'fit-content' && rootFitContentSize?.width !== undefined
       ? rootFitContentSize.width
-      : viewport.width;
+      : previewWidth;
   const viewportHeight =
     root?.layout.item.height === 'fit-content' && rootFitContentSize?.height !== undefined
       ? rootFitContentSize.height
@@ -1192,7 +1197,7 @@ export function DesignerSurface({
       currentRoot?.layout.item.width === 'fit-content' &&
       currentRootFitContentSize?.width !== undefined
         ? currentRootFitContentSize.width
-        : viewport.width;
+        : previewWidth;
     const currentViewportHeight =
       currentRoot?.layout.item.height === 'fit-content' &&
       currentRootFitContentSize?.height !== undefined
@@ -1209,7 +1214,7 @@ export function DesignerSurface({
           ? interaction.currentBounds
           : centeredBounds,
     };
-  }, [fitContentSizes, floatingContainerEditorNode, interaction, page, viewport.width]);
+  }, [fitContentSizes, floatingContainerEditorNode, interaction, page, previewWidth]);
   const layout = useMemo(
     () => buildLayout(page, byId, measuredBounds, floatingContainerEditor),
     [byId, floatingContainerEditor, measuredBounds, page],
@@ -1780,7 +1785,7 @@ export function DesignerSurface({
             >
               {Object.entries(VIEWPORTS).map(([name, option]) => (
                 <option value={name} key={name}>
-                  {option.label} ({option.width}px)
+                  {option.label} ({option.width === null ? 'available width' : `${option.width}px`})
                 </option>
               ))}
             </select>
@@ -1797,7 +1802,7 @@ export function DesignerSurface({
           </label>
         </div>
       )}
-      <div className="wr-designer-scroll">
+      <div ref={scrollRef} className="wr-designer-scroll">
         <div
           className="wr-page-zoom-frame"
           style={{ width: viewportWidth * scale, height: viewportHeight * scale }}

@@ -30,7 +30,7 @@ O workspace segue a organização visual do designer do Bubble: barra superior c
 
 - Use **Design**, **Code** e **Preview** na barra lateral para alternar a visualização do documento; **F12** abre o código e **F9** compila e executa a aplicação.
 - No **Builder**, selecione um elemento pela árvore ou pelo canvas. Ambos atualizam a mesma seleção e o Inspector. Pesquise os elementos ou os componentes da paleta e arraste um componente para inseri-lo.
-- Abra **Responsive** para visualizar a página nas larguras Desktop, Tablet e Mobile. O zoom na barra superior altera a escala de visualização.
+- Abra **Responsive** para escolher a largura do canvas: **Default** acompanha dinamicamente o espaço disponível no Designer, **Tablet** usa 768 px e **Mobile** usa 390 px. O zoom na barra superior altera a escala de visualização; no modo Default, o canvas continua ocupando a largura disponível. A seleção não altera as dimensões salvas da página.
 - No Inspector, **Visual** reúne as propriedades em seções recolhíveis e **Interaction** permite configurar os eventos existentes do componente.
 - Use **Project Explorer** para gerenciar páginas e componentes reutilizáveis, **Styles** para editar estilos e **Project Settings** para configurar o projeto. O botão **Output** abre o painel de Problems, Output e Build, inicialmente recolhido; a compilação e os diagnósticos também o abrem.
 

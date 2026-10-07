@@ -540,7 +540,6 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
   );
   const viewportEvidence: string[] = [];
   for (const [label, viewport, width] of [
-    ['Desktop', 'desktop', 1280],
     ['Tablet', 'tablet', 768],
     ['Mobile', 'mobile', 390],
   ] as const) {
@@ -562,9 +561,32 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
   }
   await clickRendererControl(
     window,
-    'button[aria-label="Desktop"]',
-    'the restored Desktop viewport',
+    'button[aria-label="Default"]',
+    'the restored Default viewport',
   );
+  const originalSize = window.getSize();
+  const originalWidth = originalSize[0];
+  const originalHeight = originalSize[1];
+  if (originalWidth === undefined || originalHeight === undefined)
+    throw new Error('Missing window size.');
+  for (const width of [originalWidth - 120, originalWidth]) {
+    window.setSize(width, originalHeight);
+    await waitForRendererResult(
+      window,
+      `(() => {
+        const host = document.querySelector('.wr-designer-scroll');
+        const surface = document.querySelector('.wr-page-surface');
+        const frame = document.querySelector('.wr-page-zoom-frame');
+        if (!(host instanceof HTMLElement) || !(surface instanceof HTMLElement) || !(frame instanceof HTMLElement)) return false;
+        const style = getComputedStyle(host);
+        const available = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return surface.dataset.viewport === 'desktop' && available > 0 && Math.abs(parseFloat(frame.style.width) - available) < 1;
+      })()`,
+      'the Default canvas filling the resized Designer host',
+      (value) => value === true,
+    );
+  }
+  viewportEvidence.push('Default:available width (window resize verified)');
   smokeLog(`renderer responsive viewport passed: ${viewportEvidence.join(', ')}`);
   for (const zoom of [75, 100]) {
     await waitForRendererResult(

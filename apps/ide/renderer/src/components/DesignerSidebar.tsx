@@ -78,7 +78,7 @@ export function DesignerSidebar(props: DesignerSidebarProps): ReactElement {
                   >
                     <Icon name={VIEWPORT_ICONS[viewport]} />
                     <strong>{preset.label}</strong>
-                    <span>{preset.width} px</span>
+                    <span>{preset.width === null ? 'Available width' : `${preset.width} px`}</span>
                   </button>
                 );
               })}
