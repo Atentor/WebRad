@@ -387,10 +387,12 @@ describe('compileProject', () => {
     expect(result.files['assets/app.js']).toContain('CustomerCardApiClient');
   });
 
-  it('binds reusable component events inside an isolated authored instance per placement', async () => {
-    const project = reusableElementExecutableProject();
-    const userSources = {
-      'reusables/CustomerCard.ts': `import type { WebButton } from '@webrad/runtime';
+  it.each(['this.', ''])(
+    'binds reusable component events with %s access inside an isolated authored instance per placement',
+    async (access) => {
+      const project = reusableElementExecutableProject();
+      const userSources = {
+        'reusables/CustomerCard.ts': `import type { WebButton } from '@webrad/runtime';
 import { CustomerCardGenerated } from './CustomerCard.generated';
 
 export class CustomerCard extends CustomerCardGenerated {
@@ -398,17 +400,74 @@ export class CustomerCard extends CustomerCardGenerated {
 
   public CustomerCardButtonClick(sender: WebButton): void {
     this.#clicks += 1;
+    ${access}CustomerCardButton.caption = String(this.#clicks);
     sender.element.dataset.reusableClicks = String(this.#clicks);
     sender.element.dataset.hostPageName = this.pageName;
   }
 }
 `,
-    };
-    const result = await compileProjectToMemory(project, { userSources });
+      };
+      const result = await compileProjectToMemory(project, { userSources });
 
-    expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
-    const application = result.files['assets/app.js'] ?? '';
-    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
+      const application = result.files['assets/app.js'] ?? '';
+      const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+        runScripts: 'outside-only',
+        url: 'https://preview.webrad.test/',
+      });
+      Object.defineProperties(dom.window, {
+        fetch: { value: globalThis.fetch },
+        Headers: { value: globalThis.Headers },
+      });
+      dom.window.eval(application);
+
+      const firstButton = dom.window.document.querySelector<HTMLButtonElement>(
+        '[data-webrad-id="customer-card-instance:customer-card-button"]',
+      );
+      const secondButton = dom.window.document.querySelector<HTMLButtonElement>(
+        '[data-webrad-id="customer-card-second-instance:customer-card-button"]',
+      );
+      expect(firstButton).toBeInstanceOf(dom.window.HTMLButtonElement);
+      expect(secondButton).toBeInstanceOf(dom.window.HTMLButtonElement);
+      if (firstButton === null || secondButton === null) {
+        throw new Error('Compiled reusable buttons did not render.');
+      }
+
+      firstButton.click();
+      firstButton.click();
+      secondButton.click();
+      expect(firstButton.dataset.reusableClicks).toBe('2');
+      expect(secondButton.dataset.reusableClicks).toBe('1');
+      expect(firstButton.textContent).toBe('2');
+      expect(secondButton.textContent).toBe('1');
+      expect(firstButton.dataset.hostPageName).toBe('PageMain');
+      expect(secondButton.dataset.hostPageName).toBe('PageMain');
+      dom.window.close();
+    },
+  );
+
+  it('executes bare visual and nonvisual references, lexical bindings and arrow callbacks without modifying authored source', async () => {
+    const project = executableProject();
+    const source = `import { PageMainGenerated } from './PageMain.generated';
+export class PageMain extends PageMainGenerated {
+  public PageMainCreate(): void {
+    EDTNome.value = 'Ada';
+    ApiClient1.baseUrl = 'https://api.changed.test';
+    const fields = { EDTNome };
+    this.element.dataset.fieldName = fields.EDTNome.name;
+    this.element.dataset.apiUrl = ApiClient1.baseUrl;
+  }
+  public BTNMostrarClick(): void {
+    const EDTNome = { value: 'local' };
+    const run = () => BTNMostrar.caption = EDTNome.value;
+    run();
+  }
+}`;
+    const userSources = { 'pages/PageMain.ts': source };
+    const result = await compileProjectToMemory(project, { userSources });
+    expect(result.success, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(userSources['pages/PageMain.ts']).toBe(source);
+    const dom = new JSDOM('<!doctype html><body></body>', {
       runScripts: 'outside-only',
       url: 'https://preview.webrad.test/',
     });
@@ -416,28 +475,36 @@ export class CustomerCard extends CustomerCardGenerated {
       fetch: { value: globalThis.fetch },
       Headers: { value: globalThis.Headers },
     });
-    dom.window.eval(application);
-
-    const firstButton = dom.window.document.querySelector<HTMLButtonElement>(
-      '[data-webrad-id="customer-card-instance:customer-card-button"]',
+    dom.window.eval(result.files['assets/app.js'] ?? '');
+    const button = dom.window.document.querySelector<HTMLButtonElement>(
+      '[data-webrad-id="button-show"]',
     );
-    const secondButton = dom.window.document.querySelector<HTMLButtonElement>(
-      '[data-webrad-id="customer-card-second-instance:customer-card-button"]',
+    const edit = dom.window.document.querySelector<HTMLInputElement>(
+      '[data-webrad-id="edit-name"]',
     );
-    expect(firstButton).toBeInstanceOf(dom.window.HTMLButtonElement);
-    expect(secondButton).toBeInstanceOf(dom.window.HTMLButtonElement);
-    if (firstButton === null || secondButton === null) {
-      throw new Error('Compiled reusable buttons did not render.');
-    }
-
-    firstButton.click();
-    firstButton.click();
-    secondButton.click();
-    expect(firstButton.dataset.reusableClicks).toBe('2');
-    expect(secondButton.dataset.reusableClicks).toBe('1');
-    expect(firstButton.dataset.hostPageName).toBe('PageMain');
-    expect(secondButton.dataset.hostPageName).toBe('PageMain');
+    const root = dom.window.document.querySelector<HTMLElement>('[data-field-name]');
+    expect(edit?.value).toBe('Ada');
+    expect(root?.dataset.fieldName).toBe('EDTNome');
+    expect(root?.dataset.apiUrl).toBe('https://api.changed.test');
+    button?.click();
+    expect(button?.textContent).toBe('local');
     dom.window.close();
+  });
+
+  it('preserves authored diagnostic positions for invalid bare component properties', async () => {
+    const source = `import { PageMainGenerated } from './PageMain.generated';
+export class PageMain extends PageMainGenerated {
+  public PageMainCreate(): void { EDTNome.value = 42; }
+}`;
+    const result = await compileProjectToMemory(executableProject(), {
+      userSources: { 'pages/PageMain.ts': source },
+    });
+    expect(result.success).toBe(false);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 2322, file: 'pages/PageMain.ts', line: 3, column: 35 }),
+      ]),
+    );
   });
 
   it('compiles in-app page navigation for button handlers and hash links', async () => {

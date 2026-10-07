@@ -403,12 +403,14 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('tab', { name: 'Events' }));
     await user.dblClick(screen.getByLabelText('OnClick'));
     const editor = (await screen.findByLabelText('Mock Monaco editor')) as HTMLTextAreaElement;
-    expect(editor.value).toContain('async BTNMostrarClick(sender: WebButton): Promise<void>');
+    expect(editor.value).toContain(
+      '  async BTNMostrarClick(sender: WebButton): Promise<void> {\n    \n  }',
+    );
     const handlerLine =
       editor.value.split('\n').findIndex((line) => line.includes('BTNMostrarClick')) + 1;
     const navigation = screen.getByTestId('mock-monaco');
-    expect(Number(navigation.dataset.navigationLine)).toBeGreaterThan(handlerLine);
-    expect(Number(navigation.dataset.navigationColumn)).toBeGreaterThan(0);
+    expect(Number(navigation.dataset.navigationLine)).toBe(handlerLine + 1);
+    expect(Number(navigation.dataset.navigationColumn)).toBe(5);
     fireEvent.change(editor, { target: { value: `${editor.value}\n// integration edit\n` } });
 
     await user.click(screen.getByRole('tab', { name: 'Design' }));
@@ -1207,7 +1209,14 @@ describe('App MVP integration', () => {
     const reusableEditor = (await screen.findByLabelText(
       'Mock Monaco editor',
     )) as HTMLTextAreaElement;
-    expect(reusableEditor.value).toContain('async Button1Click(sender: WebButton): Promise<void>');
+    expect(reusableEditor.value).toContain(
+      '  async Button1Click(sender: WebButton): Promise<void> {\n    \n  }',
+    );
+    const reusableNavigation = screen.getByTestId('mock-monaco');
+    const reusableHandlerLine =
+      reusableEditor.value.split('\n').findIndex((line) => line.includes('async Button1Click')) + 1;
+    expect(Number(reusableNavigation.dataset.navigationLine)).toBe(reusableHandlerLine + 1);
+    expect(Number(reusableNavigation.dataset.navigationColumn)).toBe(5);
     await user.click(screen.getByRole('tab', { name: 'Design' }));
 
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));

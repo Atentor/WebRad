@@ -26,5 +26,8 @@ describe('renderer Vite configuration', () => {
       ]),
     );
     expect(rendererConfig.optimizeDeps?.include).toContain('typescript');
+    expect(rendererConfig.optimizeDeps?.include).toContain(
+      'monaco-editor/languages/features/typescript/ts.worker.js',
+    );
   });
 });

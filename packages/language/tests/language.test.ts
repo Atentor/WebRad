@@ -411,14 +411,22 @@ export class PageMain extends PageMainGenerated {
 
     expect(edit.changed).toBe(true);
     expect(edit.sourceText).toContain('import type { WebButton } from "@webrad/runtime";');
-    expect(edit.sourceText).toContain('async BTNMostrarClick(sender: WebButton): Promise<void>');
+    expect(edit.sourceText).toContain(
+      '  async BTNMostrarClick(sender: WebButton): Promise<void> {\n    \n  }',
+    );
+    const sourceLines = edit.sourceText.split('\n');
+    const handlerLine = sourceLines.findIndex((line) => line.includes('async BTNMostrarClick')) + 1;
+    expect(edit.cursor.line).toBe(handlerLine + 1);
+    expect(edit.cursor.column).toBe(5);
+    expect(sourceLines[edit.cursor.line - 1]).toBe('    ');
+    expect(edit.sourceText).toContain(original.slice(0, original.lastIndexOf('}')));
     expect(edit.sourceText).toContain('readonly answer = 42;');
     expect(edit.location.line).toBeGreaterThan(1);
     const handlerStart = edit.sourceText.indexOf('async BTNMostrarClick');
     const bodyStart = edit.sourceText.indexOf('{', handlerStart);
     const bodyEnd = edit.sourceText.indexOf('}', bodyStart);
     expect(edit.cursor.start).toBeGreaterThan(bodyStart);
-    expect(edit.cursor.start).toBeLessThanOrEqual(bodyEnd);
+    expect(edit.cursor.start).toBeLessThan(bodyEnd);
     expect(edit.cursor.end).toBe(edit.cursor.start);
 
     const second = ensureEventHandler(edit.sourceText, {
@@ -431,6 +439,34 @@ export class PageMain extends PageMainGenerated {
     expect(second.sourceText).toBe(edit.sourceText);
     expect(second.location).toEqual(edit.location);
     expect(second.cursor).toEqual(edit.cursor);
+  });
+
+  it.each([
+    { source: 'export class PageMain {}\n', indent: '  ', asynchronous: false },
+    {
+      source: 'namespace Pages {\n  export class PageMain {}\n}\n',
+      indent: '    ',
+      asynchronous: true,
+    },
+  ])('indents empty handlers and cursor targets in $source', ({ source, indent, asynchronous }) => {
+    const request = {
+      className: 'PageMain',
+      componentName: 'Button1',
+      componentType: 'WebButton',
+      eventName: 'OnClick',
+      async: asynchronous,
+    };
+    const edit = ensureEventHandler(source, request);
+    const signature = asynchronous
+      ? 'async Button1Click(sender: WebButton): Promise<void>'
+      : 'Button1Click(sender: WebButton): void';
+    expect(edit.sourceText).toContain(indent + signature + ' {\n' + indent + '  \n' + indent + '}');
+    expect(edit.sourceText.split('\n')[edit.cursor.line - 1]).toBe(indent + '  ');
+    expect(edit.cursor.column).toBe(indent.length + 3);
+    const reopened = ensureEventHandler(edit.sourceText, request);
+    expect(reopened.changed).toBe(false);
+    expect(reopened.sourceText).toBe(edit.sourceText);
+    expect(reopened.cursor).toEqual(edit.cursor);
   });
 
   it('returns the first statement inside an existing handler body as its cursor target', () => {
@@ -543,7 +579,7 @@ export class PageMain {}
       'async DataGrid1CellClick(sender: WebDataGrid, event: CustomEvent<WebDataGridCellEventDetail>): Promise<void>',
     );
     expect(edit.sourceText).toContain(
-      'const { column, rowIndex, columnIndex, value, getValue } = event.detail;',
+      '\n    const { column, rowIndex, columnIndex, value, getValue } = event.detail;\n  }',
     );
   });
 

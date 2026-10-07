@@ -121,6 +121,21 @@ function firstEditablePositionInBlock(sourceFile: ts.SourceFile, block: ts.Block
   let position = block.getStart(sourceFile) + 1;
   while (position < closingBrace) {
     const character = sourceFile.text[position];
+    if (character === '\n') {
+      let lineEnd = position + 1;
+      while (
+        lineEnd < closingBrace &&
+        (sourceFile.text[lineEnd] === ' ' || sourceFile.text[lineEnd] === '\t')
+      ) {
+        lineEnd += 1;
+      }
+      if (
+        lineEnd < closingBrace &&
+        (sourceFile.text[lineEnd] === '\n' || sourceFile.text[lineEnd] === '\r')
+      ) {
+        return lineEnd;
+      }
+    }
     if (character !== ' ' && character !== '\t' && character !== '\r' && character !== '\n') break;
     position += 1;
   }
@@ -260,8 +275,48 @@ function insertionIndent(sourceText: string, classDeclaration: ts.ClassDeclarati
 function indentPrintedNode(text: string, indent: string): string {
   return text
     .split('\n')
-    .map((line) => (line.length === 0 ? line : `${indent}${line}`))
+    .map((line) => {
+      if (line.length === 0) return line;
+      // The TypeScript printer uses four spaces; the editor uses two.
+      let leadingSpaces = 0;
+      while (line[leadingSpaces] === ' ') leadingSpaces += 1;
+      return indent + ' '.repeat(leadingSpaces / 2) + line.slice(leadingSpaces);
+    })
     .join('\n');
+}
+
+function printHandlerMethod(
+  printer: ts.Printer,
+  method: ts.MethodDeclaration,
+  sourceFile: ts.SourceFile,
+  indent: string,
+): string {
+  const printed = indentPrintedNode(
+    printer.printNode(ts.EmitHint.Unspecified, method, sourceFile),
+    indent,
+  );
+  if (method.body === undefined || method.body.statements.length > 0) return printed;
+
+  // Parse only the generated fragment to locate its empty body without touching authored code.
+  const prefix = 'class EventHandler {\n';
+  const generated = ts.createSourceFile(
+    sourceFile.fileName,
+    prefix + printed + '\n}',
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const declaration = findClass(generated, 'EventHandler');
+  const member = declaration?.members[0];
+  if (member === undefined || !ts.isMethodDeclaration(member) || member.body === undefined) {
+    throw new LanguageEditError('TypeScript could not parse the generated event handler.');
+  }
+  return applyEdits(printed, [
+    {
+      position: member.body.getStart(generated) + 1 - prefix.length,
+      text: '\n' + indent + '  ',
+    },
+  ]);
 }
 
 export function findEventHandler(
@@ -359,13 +414,14 @@ export function ensureEventHandler(
     request.async ?? true,
   );
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-  const printedMethod = printer.printNode(ts.EmitHint.Unspecified, method, sourceFile);
   const indent = insertionIndent(sourceText, declaration);
+  const printedMethod = printHandlerMethod(printer, method, sourceFile, indent);
+
   const classClosingBrace = declaration.getEnd() - 1;
   const edits: TextEdit[] = [
     {
       position: classClosingBrace,
-      text: `\n${indentPrintedNode(printedMethod, indent)}\n${indent.slice(0, -2)}`,
+      text: `\n${printedMethod}\n${indent.slice(0, -2)}`,
     },
   ];
   const missingImports = [request.componentType, request.eventDetailType].filter(

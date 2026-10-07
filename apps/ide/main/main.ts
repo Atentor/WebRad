@@ -18,6 +18,7 @@ import {
 import { runDataGridConfigurationSmoke } from './data-grid-smoke';
 import { runStylesWorkspaceSmoke } from './styles-smoke';
 import { runApiClientBrowserSmoke, runApiClientDesignerSmoke } from './api-client-smoke';
+import { runMonacoCaretSmoke } from './monaco-caret-smoke';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -332,6 +333,44 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
   );
   smokeLog(`renderer Monaco autocomplete passed: ${suggestions}`);
   sendRendererKey(window, 'Escape');
+
+  // Exercise the native TypeScript member provider on a bare component name.
+  await window.webContents.insertText('EDTNome.va');
+  await waitForRendererResult(
+    window,
+    "[...document.querySelectorAll('.monaco-editor .view-line')].some((line) => line.textContent?.includes('EDTNome.va'))",
+    'the typed bare component member in Monaco',
+    (value) => value === true,
+  );
+  sendRendererKey(window, 'Space', [commandModifier]);
+  const componentMembers = await waitForRendererString(
+    window,
+    `(() => {
+      const widget = document.querySelector('.monaco-editor .suggest-widget.visible');
+      if (!(widget instanceof HTMLElement)) return '';
+      const labels = [...widget.querySelectorAll('.monaco-list-row')]
+        .map((row) => row.querySelector('.label-name, .monaco-highlighted-label')?.textContent?.trim() ?? '');
+      return labels.includes('value') ? JSON.stringify(labels.slice(0, 8)) : '';
+    })()`,
+    'native property completions for EDTNome without this',
+    10_000,
+  ).catch(async (error: unknown) => {
+    const evidence = await window.webContents.executeJavaScript(`({
+      source: [...document.querySelectorAll('.monaco-editor .view-line')].map((line) => line.textContent),
+      widget: document.querySelector('.monaco-editor .suggest-widget')?.textContent,
+      focused: document.activeElement?.className
+    })()`);
+    smokeLog(`renderer Monaco component member failure: ${JSON.stringify(evidence)}`);
+    throw error;
+  });
+  smokeLog(`renderer Monaco component members passed: ${componentMembers}`);
+  sendRendererKey(window, 'Escape');
+  sendRendererKey(window, 'Z', [commandModifier]);
+  await runMonacoCaretSmoke(window, {
+    log: smokeLog,
+    sendKey: (keyCode, modifiers) => sendRendererKey(window, keyCode, modifiers),
+    screenshotPath: smokeScreenshotPath,
+  });
 }
 
 function findFrame(frame: WebFrameMain, url: string): WebFrameMain | undefined {

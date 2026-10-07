@@ -1,8 +1,9 @@
 import Editor, { loader } from '@monaco-editor/react';
 import * as monacoApi from 'monaco-editor/editor';
 import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
-import tsWorker from 'monaco-editor/languages/features/typescript/ts.worker.js?worker';
-import { useCallback, useEffect, useRef, type ReactElement } from 'react';
+import tsWorker from '../typescript.worker?worker';
+import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react';
+import { observeMonacoFontMetrics } from '../monaco-font-metrics';
 import type { IdeCommand } from '../../../shared/contracts';
 import type { EditorProblem } from '../editor-problems';
 import {
@@ -162,8 +163,8 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
     codeLens: true,
     colorDecorators: true,
     contextmenu: true,
-    cursorBlinking: 'smooth',
-    cursorSmoothCaretAnimation: 'on',
+    cursorBlinking: 'blink',
+    cursorSmoothCaretAnimation: 'off',
     detectIndentation: false,
     dragAndDrop: true,
     emptySelectionClipboard: true,
@@ -180,6 +181,7 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
     fontFamily: "'JetBrains Mono', monospace",
     fontWeight: '300',
     fontLigatures: false,
+    fontVariations: false,
     fontSize: 13,
     formatOnPaste: true,
     formatOnType: true,
@@ -198,6 +200,7 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
     lightbulb: { enabled: monacoApi.editor.ShowLightbulbIconMode.On },
     lineDecorationsWidth: 12,
     lineHeight: 20,
+    letterSpacing: 0,
     lineNumbers: 'on',
     lineNumbersMinChars: 3,
     links: true,
@@ -228,7 +231,7 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
     showDeprecated: true,
     showFoldingControls: 'mouseover',
     showUnused: true,
-    smoothScrolling: true,
+    smoothScrolling: false,
     snippetSuggestions: 'inline',
     stickyScroll: {
       defaultModel: 'outlineModel',
@@ -420,6 +423,7 @@ export function CodeEditor({
     editorRef.current = editor;
     for (const disposable of editorDisposablesRef.current) disposable.dispose();
     editorDisposablesRef.current = [
+      observeMonacoFontMetrics(editor),
       monacoApi.languages.registerCompletionItemProvider('typescript', {
         provideCompletionItems: async (model, position, _context, token) => {
           const word = model.getWordUntilPosition(position);
@@ -451,7 +455,7 @@ export function CodeEditor({
               commitCharacters: ['.'],
               detail: `${component.type} - WebRAD component`,
               filterText: component.name,
-              insertText: `this.${component.name}`,
+              insertText: component.name,
               kind: monacoApi.languages.CompletionItemKind.Field,
               label: component.name,
               sortText: `0000_${component.name}`,
@@ -547,6 +551,7 @@ export function CodeEditor({
   );
 
   const label = breadcrumb.at(-1) ?? 'source';
+  const options = useMemo(() => editorOptions(label), [label]);
   return (
     <section className="wr-code-workspace" aria-label={`${label} code workspace`}>
       <div className="wr-code-breadcrumb">
@@ -574,7 +579,7 @@ export function CodeEditor({
           loading={<div className="wr-monaco-loading">Starting TypeScript IntelliSense…</div>}
           onMount={onMount}
           onValidate={publishMarkers}
-          options={editorOptions(label)}
+          options={options}
           path={path}
           saveViewState
           theme={webradMonacoTheme(theme)}

@@ -1,6 +1,12 @@
 import path from 'node:path';
 
 import ts from 'typescript';
+import {
+  analyzeComponentReferences,
+  appendComponentReferenceDeclarations,
+  applyComponentReferenceEdits,
+  type ComponentReferenceScope,
+} from '@webrad/language';
 
 import { fromTypeScriptDiagnostic } from './diagnostics.js';
 import { RESTGO_ENTRY_PATH, RUNTIME_ENTRY_PATH } from './source-graph.js';
@@ -20,7 +26,11 @@ function scriptRootNames(sources: ReadonlyMap<string, string>): readonly string[
 
 export function typecheckSources(
   sources: ReadonlyMap<string, string>,
-): readonly CompileDiagnostic[] {
+  componentScopes: ReadonlyMap<string, ComponentReferenceScope> = new Map(),
+): {
+  readonly diagnostics: readonly CompileDiagnostic[];
+  readonly sources: ReadonlyMap<string, string>;
+} {
   const compilerOptions: ts.CompilerOptions = {
     allowSyntheticDefaultImports: true,
     esModuleInterop: true,
@@ -51,7 +61,15 @@ export function typecheckSources(
       path.join(typeScriptLibLocation, ts.getDefaultLibFileName(options));
   }
   const virtualSources = new Map(
-    [...sources].map(([fileName, contents]) => [canonicalPath(fileName), contents]),
+    [...sources].map(([fileName, contents]) => {
+      const scope = componentScopes.get(fileName);
+      return [
+        canonicalPath(fileName),
+        scope === undefined
+          ? contents
+          : appendComponentReferenceDeclarations(ts, fileName, contents, scope),
+      ];
+    }),
   );
   const virtualDirectories = new Set<string>();
   for (const fileName of sources.keys()) {
@@ -89,5 +107,21 @@ export function typecheckSources(
     options: compilerOptions,
     host,
   });
-  return ts.getPreEmitDiagnostics(program).map(fromTypeScriptDiagnostic);
+  const diagnostics = [...ts.getPreEmitDiagnostics(program)];
+  const bundleSources = new Map(sources);
+  for (const [fileName, scope] of componentScopes) {
+    const sourceFile = program.getSourceFile(fileName);
+    const authored = sources.get(fileName);
+    if (sourceFile === undefined || authored === undefined) continue;
+    const analysis = analyzeComponentReferences(
+      ts,
+      sourceFile,
+      program.getTypeChecker(),
+      authored.length,
+      scope,
+    );
+    diagnostics.push(...analysis.diagnostics);
+    bundleSources.set(fileName, applyComponentReferenceEdits(authored, analysis.edits));
+  }
+  return { diagnostics: diagnostics.map(fromTypeScriptDiagnostic), sources: bundleSources };
 }

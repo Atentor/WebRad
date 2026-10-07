@@ -21,6 +21,8 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
  */
 export function supportsTypeScriptThisExpression(completionInfo: unknown): boolean {
   if (!isRecord(completionInfo) || completionInfo.isMemberCompletion === true) return false;
+  // The WebRAD worker supplies typed native entries; avoid a second suggestion for each name.
+  if (typeof completionInfo.webradSupportsComponentReferences === 'boolean') return false;
   const entries = completionInfo.entries;
   const commitCharacters = completionInfo.defaultCommitCharacters;
   return (

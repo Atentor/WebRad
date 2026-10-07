@@ -43,7 +43,7 @@ try {
 
   const timeout = setTimeout(() => {
     child.kill();
-  }, 90_000);
+  }, 120_000);
 
   const exitCode = await new Promise((resolve, reject) => {
     child.once('error', reject);
@@ -79,6 +79,8 @@ try {
     'renderer Monaco passed',
     'renderer Monaco TypeScript highlight passed:',
     'renderer Monaco autocomplete passed:',
+    'renderer Monaco component members passed:',
+    'renderer Monaco caret alignment passed:',
     'renderer F9 preview passed: Olá Ada',
     'renderer Preview isolation passed:',
   ];

@@ -7,6 +7,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./component-references": {
+      "types": "./src/component-references.ts",
+      "default": "./src/component-references.ts"
     }
   },
   "types": "./src/index.ts",

@@ -400,6 +400,12 @@ describe('CodeEditor professional Monaco workspace', () => {
     });
     expect(mocks.editorProps?.options).toMatchObject({
       bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: true },
+      cursorBlinking: 'blink',
+      cursorSmoothCaretAnimation: 'off',
+      fontLigatures: false,
+      fontVariations: false,
+      letterSpacing: 0,
+      smoothScrolling: false,
       fontWeight: '300',
       formatOnPaste: true,
       formatOnType: true,
@@ -471,7 +477,7 @@ describe('CodeEditor professional Monaco workspace', () => {
         expect.objectContaining({
           label: 'Button1',
           kind: 'field',
-          insertText: 'this.Button1',
+          insertText: 'Button1',
           sortText: '0000_Button1',
           commitCharacters: ['.'],
           range: {

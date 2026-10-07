@@ -36,6 +36,18 @@ O workspace segue a organização visual do designer do Bubble: barra superior c
 
 Os componentes não visuais continuam disponíveis na bandeja abaixo do canvas. A organização do workspace preserva o modelo versionado do projeto, os IDs dos componentes e o histórico de comandos.
 
+## Código dos componentes
+
+Nos métodos da página ou do componente reutilizável, você pode acessar os componentes diretamente pelo nome, com autocomplete e verificação de tipos:
+
+```ts
+public BTNMostrarClick(): void {
+  BTNMostrar.caption = EDTNome.value;
+}
+```
+
+`this.BTNMostrar` continua disponível. Variáveis, parâmetros e imports com o mesmo nome seguem o escopo normal do TypeScript. Em callbacks, use funções de seta (`() => { ... }`) para manter a instância. O acesso direto também funciona em propriedades e accessors da instância e no construtor após `super(...)`; código estático e fora da classe não recebe componentes. O WebRAD resolve as referências na compilação sem reescrever o arquivo salvo.
+
 ## API Client REST
 
 **Remove operation** permite excluir inclusive o último endpoint. A lista vazia pode ser salva e reaberta; use **Add** para criar outro endpoint. A URL base e as demais configurações do cliente são preservadas.

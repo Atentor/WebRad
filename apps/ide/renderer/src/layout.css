@@ -1991,7 +1991,18 @@ kbd {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  font-kerning: none;
+  text-rendering: auto;
   user-select: text;
+}
+
+/* Keep caret, scrollbars, and editor widgets immediate while typing. */
+.wr-monaco-host,
+.wr-monaco-host *,
+.wr-monaco-host *::before,
+.wr-monaco-host *::after {
+  animation: none !important;
+  transition: none !important;
 }
 
 .wr-monaco-loading {

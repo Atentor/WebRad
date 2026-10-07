@@ -378,17 +378,17 @@ export async function compileProject(
       },
     ]);
   }
-  const typeScriptDiagnostics = typecheckSources(graph.sources);
+  const checked = typecheckSources(graph.sources, graph.componentScopes);
   const preBundleDiagnostics = [
     ...registryDiagnostics,
     ...graph.diagnostics,
-    ...typeScriptDiagnostics,
+    ...checked.diagnostics,
   ];
   if (hasErrors(preBundleDiagnostics)) return failedResult(outputDirectory, preBundleDiagnostics);
 
   try {
     const bundle = await bundleSources({
-      sources: graph.sources,
+      sources: checked.sources,
       entryPath: graph.entryPath,
       outputDirectory,
       minify: options.minify ?? false,

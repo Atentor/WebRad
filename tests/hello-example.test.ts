@@ -99,7 +99,7 @@ describe('examples/hello-webrad', () => {
     expect(generatedCodeBefore).toContain(
       "this.bindGeneratedEvent(this.BTNMostrar, 'OnClick', 'BTNMostrarClick')",
     );
-    expect(userCodeBefore).toContain('Message(`Olá ${this.EDTNome.value}`);');
+    expect(userCodeBefore).toContain('Message(`Olá ${EDTNome.value}`);');
 
     const outputDirectory = await createTemporaryDirectory();
     const userSources = { [descriptor.codeFile]: userCodeBefore };

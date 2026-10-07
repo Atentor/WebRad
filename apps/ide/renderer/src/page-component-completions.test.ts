@@ -38,6 +38,15 @@ function completionInfoAtMarker(sourceWithMarker: string): unknown {
 }
 
 describe('page component completion selection', () => {
+  it('defers to typed native component entries when the WebRAD worker supplies them', () => {
+    const info = completionInfoAtMarker('class Page { handler() { /*completion*/Butt; } }');
+    expect(
+      supportsTypeScriptThisExpression({
+        ...(info as object),
+        webradSupportsComponentReferences: true,
+      }),
+    ).toBe(false);
+  });
   it('offers visual and nonvisual component Names in a bare identifier context', () => {
     expect(
       pageComponentCompletionSymbols(COMPONENTS, {

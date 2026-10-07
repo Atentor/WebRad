@@ -33,7 +33,9 @@ export default defineConfig({
     force: true,
     // Language services import the CommonJS TypeScript distribution, which
     // still needs Vite's ESM interop even when its workspace consumer is excluded.
-    include: ['typescript'],
+    // Preload the custom worker's Monaco dependency to avoid a renderer reload
+    // when the Code view starts its language service for the first time.
+    include: ['typescript', 'monaco-editor/languages/features/typescript/ts.worker.js'],
   },
   build: {
     outDir: path.join(repositoryRoot, '.vite', 'renderer', 'main_window'),

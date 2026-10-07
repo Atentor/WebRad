@@ -5,6 +5,8 @@ import type { PageModel, WebRadProject } from '@webrad/project-model';
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   createUserPageSource,
+  componentReferenceScope,
+  type ComponentReferenceScope,
   createUserReusableElementSource,
   generateEnvironmentTypings,
   generatePageSource,
@@ -21,6 +23,7 @@ export const RESTGO_ENTRY_PATH = virtualAbsolutePath('__restgo/index.ts');
 
 export interface VirtualSourceGraph {
   readonly sources: ReadonlyMap<string, string>;
+  readonly componentScopes: ReadonlyMap<string, ComponentReferenceScope>;
   readonly entryPath: string;
   readonly stylePath: string;
   readonly diagnostics: readonly CompileDiagnostic[];
@@ -317,5 +320,17 @@ export function createVirtualSourceGraph(
     generateEnvironmentTypings(project.settings.environmentVariables),
   );
   sources.set(virtualAbsolutePath('styles.d.ts'), `declare module '*.css';\n`);
-  return { sources, entryPath, stylePath, diagnostics };
+  const componentScopes = new Map([
+    ...project.pages.map(
+      (page) => [virtualAbsolutePath(pageSourcePath(page)), componentReferenceScope(page)] as const,
+    ),
+    ...project.reusableElements.map(
+      (element) =>
+        [
+          virtualAbsolutePath(reusableSourcePath(element)),
+          componentReferenceScope(element),
+        ] as const,
+    ),
+  ]);
+  return { sources, componentScopes, entryPath, stylePath, diagnostics };
 }
