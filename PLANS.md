@@ -1,5 +1,7 @@
 # WebRAD delivery plan
 
+- DONE: Remove the explanatory sentence below Preview width in the Responsive sidebar, keeping its viewport controls intact.
+
 - DONE: Designer Default viewport fills the available canvas width dynamically, excluding host padding and scrollbars, including sidebar/window resizing and zoom changes. Retain Tablet (768 px), Mobile (390 px), and model-owned content sizing without persisting viewport state. Strict typecheck, lint, all 721 tests, changed-file formatting, and Windows packaging pass. The packaged smoke now checks Default host sizing after window resizing; execution is blocked before renderer startup by the environment's unusable Electron GPU process (exit -1073741515), so live visual validation remains unconfirmed.
 
 - DONE: Show the IDE's beta release as an amber `Beta` pill on the right of the main toolbar, before the save status and project actions, with theme-aware text, background, and border colors. Typecheck, lint, six shell tests, formatting, and renderer production build pass. Visual Electron validation remains unavailable due to the environment GPU process failure observed during the initial watermark change.

@@ -63,7 +63,6 @@ export function DesignerSidebar(props: DesignerSidebarProps): ReactElement {
         ) : (
           <div className="wr-responsive-panel">
             <h2>Preview width</h2>
-            <p>Check how your page adapts to different screen sizes.</p>
             <div className="wr-viewport-presets" role="group" aria-label="Responsive viewport">
               {Object.entries(DESIGNER_VIEWPORTS).map(([name, preset]) => {
                 const viewport = name as DesignerViewportName;
