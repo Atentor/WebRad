@@ -49,7 +49,10 @@ it.runIf(browserPath !== undefined)(
           parentId: page.rootComponentId,
           x: 24,
           y: 24 + index * 64,
-          props: type === 'WebButton' ? { caption: 'Button text', enabled: index !== 4 } : {},
+          props: {
+            ...(type === 'WebButton' ? { caption: 'Button text', enabled: index !== 4 } : {}),
+            margin: 8 + index,
+          },
         }),
         page.rootComponentId,
       );
@@ -89,10 +92,24 @@ it.runIf(browserPath !== undefined)(
         parentId: 'panel',
         x: 8,
         y: 8,
-        props: { caption: 'Inherited text' },
+        props: { caption: 'Inherited text', margin: 6 },
       }),
       'panel',
     );
+    page = {
+      ...page,
+      components: page.components.map((node) =>
+        node.id === page?.rootComponentId
+          ? {
+              ...node,
+              layout: {
+                ...node.layout,
+                container: { ...node.layout.container, mode: 'row', gap: 7 },
+              },
+            }
+          : node,
+      ),
+    };
     project = updatePage(project, page.id, page);
     project = setComponentStyle(project, page.id, 'control-1', null);
     project = setComponentStyle(project, page.id, 'control-4', explicitStyle.id);
@@ -145,7 +162,7 @@ it.runIf(browserPath !== undefined)(
               onZoomChange: noop,
             }),
           );
-          fixtures.push(`<section data-case="${theme}/${viewportName}/${String(zoom)}" data-theme="${theme}">
+          fixtures.push(`<section data-case="${theme}/${viewportName}/${String(zoom)}" data-theme="${theme}" data-zoom="${String(zoom)}">
             ${designer}<iframe title="Compiled Preview" width="${String(width)}" height="400"
               srcdoc="${attribute(compiled.previewHtml)}"></iframe></section>`);
         }
@@ -275,12 +292,23 @@ it.runIf(browserPath !== undefined)(
           const sizes = [];
           for (const fixture of document.querySelectorAll('[data-case]')) {
             const frame = fixture.querySelector('iframe');
+            const designerFirst = fixture.querySelector('[data-component-id="control-0"]');
+            const designerSecond = fixture.querySelector('[data-component-id="control-1"]');
+            const runtimeFirst = frame.contentDocument.querySelector('[data-webrad-id="control-0"]');
+            const runtimeSecond = frame.contentDocument.querySelector('[data-webrad-id="control-1"]');
+            const designerGap = (designerSecond.getBoundingClientRect().left - designerFirst.getBoundingClientRect().right) / (fixture.dataset.zoom / 100);
+            const runtimeGap = runtimeSecond.getBoundingClientRect().left - runtimeFirst.getBoundingClientRect().right;
+            if (Math.abs(runtimeGap - 24) > 0.1 || Math.abs(designerGap - runtimeGap) > 0.1) failures.push({ case: fixture.dataset.case, designerGap, runtimeGap });
             for (let index = 0; index < 6; index++) {
               const id = 'control-' + index;
               const designer = fixture.querySelector('.wr-component[data-component-id="' + id + '"]');
               const runtime = frame.contentDocument.querySelector('[data-webrad-id="' + id + '"]');
               const left = getComputedStyle(designer);
               const right = frame.contentWindow.getComputedStyle(runtime);
+              const host = designer.parentElement;
+              for (const property of ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']) {
+                if (getComputedStyle(host)[property] !== right[property]) failures.push({ case: fixture.dataset.case, id, property, designer: getComputedStyle(host)[property], preview: right[property] });
+              }
               for (const property of properties) {
                 if (left[property] !== right[property]) failures.push({ case: fixture.dataset.case, id, property, designer: left[property], preview: right[property] });
               }

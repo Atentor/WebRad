@@ -81,6 +81,7 @@ const GENERATED_PAGE_BASE_MEMBER_NAMES = new Set([
   'id',
   'isPrototypeOf',
   'layoutMode',
+  'margin',
   'name',
   'pageName',
   'propertyIsEnumerable',

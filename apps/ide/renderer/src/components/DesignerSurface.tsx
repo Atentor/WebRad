@@ -447,6 +447,7 @@ function projectDesignerItemStyle(
       width: `${String(bounds.width)}px`,
       height: `${String(bounds.height)}px`,
       boxSizing: 'border-box',
+      margin: projectComponentVisual(node, 'fill').style.margin,
     };
   }
   const style = projectItemStyle(
@@ -457,9 +458,10 @@ function projectDesignerItemStyle(
     fitContentSize,
   );
   const visual = projectComponentVisual(node, 'fill');
+  const itemStyle = { ...style, margin: visual.style.margin };
   return !forceVisible && !visual.visible && visual.collapseWhenHidden
-    ? { ...style, display: 'none' }
-    : { ...style, display: 'flex' };
+    ? { ...itemStyle, display: 'none' }
+    : { ...itemStyle, display: 'flex' };
 }
 
 /** Projects persisted floating offsets to the simulated design viewport. */

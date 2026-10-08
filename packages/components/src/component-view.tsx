@@ -54,10 +54,19 @@ function sharedAttributes(
 } {
   const visual = projectComponentVisual(node, 'fill');
   const visible = forceVisible || visual.visible;
-  const style =
+  const paintStyle =
     styleClassName === undefined
       ? visual.style
       : { width: visual.style.width, height: visual.style.height };
+  // In the Designer, the structural host owns child margins so flex layout
+  // measures spacing without moving the fill-sized visual inside that host.
+  const style = {
+    ...paintStyle,
+    margin:
+      designTime && node.parentId !== null && visual.style.margin !== undefined
+        ? 0
+        : visual.style.margin,
+  };
   return {
     className: [...visual.classNames, ...tokenizeTailwindClasses(styleClassName ?? '')].join(' '),
     style: !visible && !visual.collapseWhenHidden ? { ...style, visibility: 'hidden' } : style,

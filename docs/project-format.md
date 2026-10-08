@@ -1,5 +1,7 @@
 # Project format
 
+Visual component property bags may include `margin`, a finite numeric outer spacing in pixels applied equally to all four sides. This optional property does not change the version-2 format or component IDs. An absent value preserves existing style margins; explicitly saving zero clears them.
+
 Every persisted structure carries `formatVersion`. The current Page-based format is version 2, uses UTF-8 JSON, and separates visual state from TypeScript source.
 
 ```text

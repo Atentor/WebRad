@@ -131,6 +131,8 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     y: number;
     width: number;
     height: number;
+    /** Outer spacing on all four sides, in pixels. */
+    margin: number;
     tabIndex: number;
     backgroundColor: string;
     color: string;

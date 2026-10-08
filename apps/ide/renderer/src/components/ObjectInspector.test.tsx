@@ -28,6 +28,39 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('edits numeric Margin on every visual component and keeps it off nonvisual services', () => {
+    const onPropertyChange = vi.fn();
+    const props = { onPropertyChange, onEventChange: vi.fn(), onEventDoubleClick: vi.fn() };
+    const { rerender } = render(<ObjectInspector {...props} selection={[]} />);
+    for (const definition of defaultComponentRegistry.list()) {
+      const node = defaultComponentRegistry.createComponent(definition.type, {
+        id: `inspector-${definition.type}`,
+        name: `Inspect${definition.type}`,
+      });
+      rerender(<ObjectInspector {...props} selection={[node]} />);
+      if (!definition.visual) {
+        expect(screen.queryByLabelText('Margin')).toBeNull();
+        continue;
+      }
+      const input = screen.getByLabelText('Margin') as HTMLInputElement;
+      expect(input.type).toBe('number');
+      expect(input.value).toBe('0');
+      fireEvent.change(input, { target: { value: '12' } });
+      expect(onPropertyChange).toHaveBeenLastCalledWith(
+        'margin',
+        12,
+        expect.objectContaining({ name: 'margin', source: 'props' }),
+      );
+      rerender(
+        <ObjectInspector
+          {...props}
+          selection={[{ ...node, props: { ...node.props, margin: 12 } }]}
+        />,
+      );
+      expect((screen.getByLabelText('Margin') as HTMLInputElement).value).toBe('12');
+    }
+  });
+
   it('updates registry-defined read-only behavior when an API Client binds to RestGo', async () => {
     const user = userEvent.setup();
     const onPropertyChange = vi.fn();

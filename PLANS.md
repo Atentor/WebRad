@@ -184,6 +184,9 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 ## Decision log
 
+- Added the Inspector Margin property and numeric runtime `margin` API to every built-in visual, including Page, Popup, and reusable placements. Preserve existing style margins when the optional property is absent, project explicit margins onto Designer layout hosts, and include child margins in fit-content measurements. Coverage includes persistence, Monaco completion and invalid-use diagnostics, compiled Preview execution for every visual, and real-browser Designer/Preview row spacing. Correct generated API Client type-only imports to allow the Data Grid Preview validation under `verbatimModuleSyntax`.
+- Margin validation on 2026-10-08: strict typecheck, lint, runtime-source parity, formatting, Windows build, all new focused tests, and 72 real Chrome Designer/Preview comparisons passed. The full suite reported 788 passing tests and four failures in API Client template execution, legacy input inference, runtime template-parameter diagnostics, and the RestGo configuration diagnostic expectation; the template-parameter diagnostic failure was reproduced against the original HEAD declarations and test. An additional Inspector test covering every registered visual passed after the full-suite run. The repository-wide test milestone remains open.
+
 - Resolve Tailwind stylesheet imports from the compiler environment's development root or packaged `resources/app.asar`, independently of the launch working directory; exercise this with compiler regression coverage and the packaged smoke launched from its executable directory.
 - Use npm workspaces to minimize bootstrap requirements on Windows and Linux.
 - Keep packages source-first during development, with explicit package exports and project references where useful.

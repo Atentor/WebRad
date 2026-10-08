@@ -19,6 +19,17 @@ const standardCategory = 'Standard';
 const containersCategory = 'Containers';
 const nonvisualCategory = 'Nonvisual';
 
+const marginProperty: ComponentPropertyDefinition = {
+  name: 'margin',
+  label: 'Margin',
+  description:
+    'Outer spacing on all four sides, in pixels. Row and column layouts include this spacing between components.',
+  type: 'number',
+  category: 'Layout',
+  source: 'props',
+  defaultValue: 0,
+};
+
 function geometryProperties(
   bounds: DefaultComponentBounds,
 ): readonly ComponentPropertyDefinition[] {
@@ -57,6 +68,7 @@ function geometryProperties(
       defaultValue: bounds.height,
     },
     ...layoutItemProperties(),
+    marginProperty,
     {
       name: 'visible',
       label: 'Visible',
@@ -95,6 +107,7 @@ function trayVisualProperties(
 ): readonly ComponentPropertyDefinition[] {
   return [
     { name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' },
+    marginProperty,
     {
       name: 'width',
       label: 'Width',

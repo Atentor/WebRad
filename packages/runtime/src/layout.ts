@@ -665,8 +665,19 @@ function contentExtent(
     // reserve space. A zero-width divider can still contribute its x offset,
     // so retain elements that have a size on either axis.
     if (length === 0 && otherLength === 0) continue;
-    const start = axis === 'horizontal' ? rect.left : rect.top;
-    const edge = axis === 'horizontal' ? rect.right : rect.bottom;
+    const computed = child.ownerDocument.defaultView?.getComputedStyle(child);
+    const leadingMargin = finite(
+      Number.parseFloat((axis === 'horizontal' ? computed?.marginLeft : computed?.marginTop) ?? ''),
+      0,
+    );
+    const trailingMargin = finite(
+      Number.parseFloat(
+        (axis === 'horizontal' ? computed?.marginRight : computed?.marginBottom) ?? '',
+      ),
+      0,
+    );
+    const start = (axis === 'horizontal' ? rect.left : rect.top) - leadingMargin * scale;
+    const edge = (axis === 'horizontal' ? rect.right : rect.bottom) + trailingMargin * scale;
     if (Number.isFinite(start)) nearestEdge = Math.min(nearestEdge, start);
     if (Number.isFinite(edge)) farthestEdge = Math.max(farthestEdge, edge);
   }

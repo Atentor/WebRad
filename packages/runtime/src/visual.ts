@@ -995,6 +995,7 @@ export type VisualSizingMode = 'bounds' | 'fill';
 export interface ComponentVisualStyle {
   readonly width: string;
   readonly height: string;
+  readonly margin?: string;
   readonly backgroundColor?: string;
   readonly color?: string;
   readonly borderColor?: string;
@@ -1062,9 +1063,13 @@ export function projectComponentVisual(
   const borderColor = readStringProperty(source, 'borderColor');
   const title = readStringProperty(source, 'title');
   const tabIndex = readIntegerProperty(source, 'tabIndex');
+  const margin = source.props.margin;
   const style: ComponentVisualStyle = {
     width: sizing === 'fill' ? '100%' : `${String(source.bounds.width)}px`,
     height: sizing === 'fill' ? '100%' : `${String(source.bounds.height)}px`,
+    ...(typeof margin === 'number' && Number.isFinite(margin)
+      ? { margin: `${String(margin)}px` }
+      : {}),
     ...(backgroundColor.length > 0 ? { backgroundColor } : {}),
     ...(color.length > 0 ? { color } : {}),
     ...(borderColor.length > 0

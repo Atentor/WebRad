@@ -16,6 +16,21 @@ import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 
 afterEach(cleanup);
 
+it('applies Margin to the Designer layout host once, including components with a selected style', () => {
+  const page = responsivePage();
+  const { container } = renderSurface({
+    ...page,
+    components: page.components.map((node) =>
+      node.id === 'first'
+        ? { ...node, props: { ...node.props, margin: 12 }, styleId: 'selected-style' }
+        : node,
+    ),
+  });
+  const button = container.querySelector<HTMLElement>('[data-component-id="first"]');
+  expect(button?.style.margin).toBe('0px');
+  expect(button?.parentElement?.style.margin).toBe('12px');
+});
+
 function responsivePage(): PageModel {
   const initial = createPage('PageMain', {
     idFactory: (() => {

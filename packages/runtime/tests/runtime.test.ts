@@ -332,6 +332,41 @@ const inspectorPropertyPageModel = withDefaultLayouts({
 });
 
 describe('browser runtime', () => {
+  it('projects saved margins and exposes a finite pixel API without resetting legacy style margins', () => {
+    const node = pageModel.components.find((component) => component.type === 'WebButton');
+    if (node === undefined) throw new Error('Missing button fixture.');
+    expect(projectComponentVisual(node).style.margin).toBeUndefined();
+    for (const value of [12, 0, -4, 1.5]) {
+      expect(
+        projectComponentVisual({ ...node, props: { ...node.props, margin: value } }).style.margin,
+      ).toBe(`${String(value)}px`);
+    }
+    for (const value of [NaN, Infinity, '12px']) {
+      expect(
+        projectComponentVisual({ ...node, props: { margin: value } }).style.margin,
+      ).toBeUndefined();
+    }
+    const mounted = mountPage({
+      ...pageModel,
+      components: pageModel.components.map((component) =>
+        component.id === node.id
+          ? { ...component, props: { ...component.props, margin: 12 }, styleClassName: 'mt-8' }
+          : component,
+      ),
+    });
+    const button = mounted.components.get(node.id);
+    if (button === undefined) throw new Error('Missing mounted button.');
+    expect(button.margin).toBe(12);
+    button.margin = 6.5;
+    expect(button.element.style.margin).toBe('6.5px');
+    expect(() => {
+      button.margin = Infinity;
+    }).toThrow(RangeError);
+    expect(button.margin).toBe(6.5);
+    button.margin = 0;
+    expect(button.element.style.margin).toBe('0px');
+    mounted.dispose();
+  });
   it('mounts the real DOM hierarchy and exposes functional component wrappers', () => {
     const mounted = mountPage(pageModel);
     const edit = new WebEdit(mounted.page.requireComponentElement('edit-name'));
@@ -844,6 +879,28 @@ describe('browser runtime', () => {
       'flex-basis': 'max-content',
       'flex-shrink': '0',
     });
+  });
+
+  it('includes child margins when measuring fit-content, accounting for Designer zoom', () => {
+    const target = document.createElement('div');
+    const child = document.createElement('div');
+    target.append(child);
+    child.style.margin = '12px';
+    const layout = responsiveLayout({}, { width: 'fit-content', height: 'fit-content' });
+    for (const scale of [1, 0.75]) {
+      const rect = (left: number, top: number, width: number, height: number): DOMRect =>
+        ({ left, top, right: left + width, bottom: top + height, width, height }) as DOMRect;
+      vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+        rect(0, 0, 124 * scale, 64 * scale),
+      );
+      vi.spyOn(child, 'getBoundingClientRect').mockReturnValue(
+        rect(12 * scale, 12 * scale, 100 * scale, 40 * scale),
+      );
+      expect(measureRuntimeFitContentSize(target, target, layout, { scale })).toEqual({
+        width: 124,
+        height: 64,
+      });
+    }
   });
 
   it('measures fit-content containers around rendered children without mutating the model', async () => {

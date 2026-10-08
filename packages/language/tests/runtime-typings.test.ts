@@ -151,6 +151,35 @@ function completionNames(
 }
 
 describe('Monaco runtime typings', () => {
+  it('completes numeric margin for every concrete visual type and rejects invalid uses', () => {
+    const visuals = MVP_COMPONENT_DEFINITIONS.filter((definition) => definition.visual);
+    const marked =
+      extractMarkers(`import type { ${visuals.map((definition) => definition.type).join(', ')}, WebApiClient } from '@webrad/runtime';
+${visuals
+  .map(
+    (definition, index) => `declare const component${String(index)}: ${definition.type};
+component${String(index)}./*@margin${String(index)}*/margin = 12;
+const margin${String(index)}: number = component${String(index)}.margin;`,
+  )
+  .join('\n')}
+component0.margin = '12px';
+declare const api: WebApiClient;
+api.margin = 12;
+`);
+    const { service, fileName } = createLanguageService(marked.text);
+    try {
+      for (const [index] of visuals.entries()) {
+        expect(
+          completionNames(service, fileName, marked.positions.get(`margin${String(index)}`) ?? 0),
+        ).toContain('margin');
+      }
+      expect(service.getSemanticDiagnostics(fileName).map((diagnostic) => diagnostic.code)).toEqual(
+        [2322, 2339],
+      );
+    } finally {
+      service.dispose();
+    }
+  });
   it('offers typed current-user fields in page authentication event handlers', () => {
     const marked =
       extractMarkers(`import type { WebPageLoginEventDetail, WebPageLogoutEventDetail } from '@webrad/runtime';

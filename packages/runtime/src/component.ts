@@ -205,6 +205,15 @@ export class WebComponent<TElement extends HTMLElement = HTMLElement> {
     return this.element.tabIndex;
   }
 
+  /** Outer spacing on all four sides, in pixels. */
+  public get margin(): number {
+    return pixelValue(this.element.style.margin, 0);
+  }
+
+  public set margin(value: number) {
+    this.element.style.margin = finitePixels(value, 'margin');
+  }
+
   public set tabIndex(value: number) {
     this.element.tabIndex = value;
   }

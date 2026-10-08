@@ -203,6 +203,7 @@ function applyCommon(
   );
   component.width = node.bounds.width;
   component.height = node.bounds.height;
+  if (visual.style.margin !== undefined) element.style.margin = visual.style.margin;
   // A selected Tailwind style owns paint properties. The structural layout is
   // applied after the hierarchy exists, when each child can read its parent's
   // persisted container mode.

@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
+it('exposes Margin on every visual component, including tray visuals, and keeps services DOM-less', () => {
+  for (const component of componentRegistry.list()) {
+    const margins = component.properties.filter((property) => property.name === 'margin');
+    if (component.visual) {
+      expect(margins).toEqual([
+        expect.objectContaining({
+          label: 'Margin',
+          type: 'number',
+          source: 'props',
+          defaultValue: 0,
+        }),
+      ]);
+      const instance = componentRegistry.createComponent(component.type, {
+        id: `margin-${component.type}`,
+        name: `Margin${component.type}`,
+        props: { margin: 12 },
+      });
+      expect(instance.props.margin).toBe(12);
+    } else expect(margins).toEqual([]);
+  }
+});
+
 import {
   ComponentRegistry,
   DuplicateComponentTypeError,
@@ -220,6 +242,7 @@ describe('MVP component metadata', () => {
     });
     expect(popup.properties.map((property) => property.name)).toEqual([
       'name',
+      'margin',
       'width',
       'height',
       'visible',
