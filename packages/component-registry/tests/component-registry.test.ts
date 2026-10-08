@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 it('exposes Margin on every visual component, including tray visuals, and keeps services DOM-less', () => {
   for (const component of componentRegistry.list()) {
     const margins = component.properties.filter((property) => property.name === 'margin');
+    const sides = component.properties.filter((property) =>
+      ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'].includes(property.name),
+    );
     if (component.visual) {
       expect(margins).toEqual([
         expect.objectContaining({
@@ -18,7 +21,16 @@ it('exposes Margin on every visual component, including tray visuals, and keeps 
         props: { margin: 12 },
       });
       expect(instance.props.margin).toBe(12);
-    } else expect(margins).toEqual([]);
+      expect(sides).toHaveLength(4);
+      for (const side of sides) {
+        expect(side).toMatchObject({ type: 'number', source: 'props' });
+        expect(side.defaultValueWhen?.(instance.props)).toBe(12);
+        expect(instance.props[side.name]).toBeUndefined();
+      }
+    } else {
+      expect(margins).toEqual([]);
+      expect(sides).toEqual([]);
+    }
   }
 });
 
@@ -243,6 +255,10 @@ describe('MVP component metadata', () => {
     expect(popup.properties.map((property) => property.name)).toEqual([
       'name',
       'margin',
+      'marginTop',
+      'marginRight',
+      'marginBottom',
+      'marginLeft',
       'width',
       'height',
       'visible',
@@ -260,8 +276,8 @@ describe('MVP component metadata', () => {
       'modal',
     ]);
     expect(popup.properties.filter((property) => property.source === 'bounds')).toEqual([
-      expect.objectContaining({ name: 'width', category: 'Size', defaultValue: 360 }),
-      expect.objectContaining({ name: 'height', category: 'Size', defaultValue: 200 }),
+      expect.objectContaining({ name: 'width', category: 'Size & position', defaultValue: 360 }),
+      expect.objectContaining({ name: 'height', category: 'Size & position', defaultValue: 200 }),
     ]);
     expect(popup.properties.some((property) => property.name === 'x')).toBe(false);
     expect(popup.properties.some((property) => property.name === 'y')).toBe(false);

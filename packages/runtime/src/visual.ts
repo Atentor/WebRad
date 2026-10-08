@@ -996,6 +996,10 @@ export interface ComponentVisualStyle {
   readonly width: string;
   readonly height: string;
   readonly margin?: string;
+  readonly marginTop?: string;
+  readonly marginRight?: string;
+  readonly marginBottom?: string;
+  readonly marginLeft?: string;
   readonly backgroundColor?: string;
   readonly color?: string;
   readonly borderColor?: string;
@@ -1064,12 +1068,20 @@ export function projectComponentVisual(
   const title = readStringProperty(source, 'title');
   const tabIndex = readIntegerProperty(source, 'tabIndex');
   const margin = source.props.margin;
+  const margins: Partial<ComponentVisualStyle> = {};
+  for (const name of ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'] as const) {
+    const value = source.props[name];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      Object.assign(margins, { [name]: `${String(value)}px` });
+    }
+  }
   const style: ComponentVisualStyle = {
     width: sizing === 'fill' ? '100%' : `${String(source.bounds.width)}px`,
     height: sizing === 'fill' ? '100%' : `${String(source.bounds.height)}px`,
     ...(typeof margin === 'number' && Number.isFinite(margin)
       ? { margin: `${String(margin)}px` }
       : {}),
+    ...margins,
     ...(backgroundColor.length > 0 ? { backgroundColor } : {}),
     ...(color.length > 0 ? { color } : {}),
     ...(borderColor.length > 0

@@ -1,4 +1,5 @@
 import { componentRegistry, ComponentRegistry } from './registry.js';
+import { organizeInspectorProperty } from './inspector-properties.js';
 import {
   createDefaultApiClientConfiguration,
   createDefaultDataGridConfiguration,
@@ -29,6 +30,22 @@ const marginProperty: ComponentPropertyDefinition = {
   source: 'props',
   defaultValue: 0,
 };
+
+const marginSideProperties: readonly ComponentPropertyDefinition[] = [
+  'Top',
+  'Right',
+  'Bottom',
+  'Left',
+].map((side) => ({
+  name: `margin${side}`,
+  label: `Margin ${side.toLowerCase()}`,
+  description: 'Outer spacing on this side, in pixels. Overrides the shared Margin value.',
+  type: 'number',
+  category: 'Layout',
+  source: 'props',
+  defaultValue: 0,
+  defaultValueWhen: (props) => props.margin ?? 0,
+}));
 
 function geometryProperties(
   bounds: DefaultComponentBounds,
@@ -69,6 +86,7 @@ function geometryProperties(
     },
     ...layoutItemProperties(),
     marginProperty,
+    ...marginSideProperties,
     {
       name: 'visible',
       label: 'Visible',
@@ -108,6 +126,7 @@ function trayVisualProperties(
   return [
     { name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' },
     marginProperty,
+    ...marginSideProperties,
     {
       name: 'width',
       label: 'Width',
@@ -1283,7 +1302,12 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webApiClient,
 ];
 
-componentRegistry.registerMany(mvpComponentDefinitions);
+componentRegistry.registerMany(
+  mvpComponentDefinitions.map((definition) => ({
+    ...definition,
+    properties: definition.properties.map(organizeInspectorProperty),
+  })),
+);
 
 /** Frozen canonical metadata as registered, safe to share across IDE consumers. */
 export const MVP_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] = componentRegistry.list();

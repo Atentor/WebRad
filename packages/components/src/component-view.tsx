@@ -56,16 +56,20 @@ function sharedAttributes(
   const visible = forceVisible || visual.visible;
   const paintStyle =
     styleClassName === undefined
-      ? visual.style
+      ? Object.fromEntries(Object.entries(visual.style).filter(([name]) => name !== 'margin'))
       : { width: visual.style.width, height: visual.style.height };
   // In the Designer, the structural host owns child margins so flex layout
   // measures spacing without moving the fill-sized visual inside that host.
+  const margins = Object.fromEntries(
+    (['marginTop', 'marginRight', 'marginBottom', 'marginLeft'] as const)
+      .filter((name) => (visual.style[name] ?? visual.style.margin) !== undefined)
+      .map((name) => [name, visual.style[name] ?? visual.style.margin]),
+  );
   const style = {
     ...paintStyle,
-    margin:
-      designTime && node.parentId !== null && visual.style.margin !== undefined
-        ? 0
-        : visual.style.margin,
+    ...(designTime && node.parentId !== null && Object.keys(margins).length > 0
+      ? { marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0 }
+      : margins),
   };
   return {
     className: [...visual.classNames, ...tokenizeTailwindClasses(styleClassName ?? '')].join(' '),

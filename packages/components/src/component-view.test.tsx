@@ -23,6 +23,19 @@ const button = {
 } as const;
 
 describe('ComponentView', () => {
+  it('preserves side overrides when the shared margin changes or is removed', () => {
+    const node = { ...button, props: { ...button.props, margin: 12, marginTop: 3 } };
+    const view = render(<ComponentView node={node} />);
+    const element = view.container.querySelector('button');
+    expect(element?.style.margin).toBe('3px 12px 12px');
+    view.rerender(<ComponentView node={{ ...node, props: { ...node.props, margin: 20 } }} />);
+    expect(element?.style.margin).toBe('3px 20px 20px');
+    view.rerender(<ComponentView node={{ ...node, props: { ...button.props, marginTop: 3 } }} />);
+    expect(element?.style.marginTop).toBe('3px');
+    expect(element?.style.marginRight).toBe('');
+    view.unmount();
+  });
+
   it('renders a registered component from real DOM elements', () => {
     const markup = renderToStaticMarkup(<ComponentView node={button} />);
 

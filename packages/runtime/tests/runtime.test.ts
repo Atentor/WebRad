@@ -336,6 +336,15 @@ describe('browser runtime', () => {
     const node = pageModel.components.find((component) => component.type === 'WebButton');
     if (node === undefined) throw new Error('Missing button fixture.');
     expect(projectComponentVisual(node).style.margin).toBeUndefined();
+    expect(
+      projectComponentVisual({
+        ...node,
+        props: { margin: 12, marginTop: 3, marginLeft: 0, marginRight: Infinity },
+      }).style,
+    ).toMatchObject({ margin: '12px', marginTop: '3px', marginLeft: '0px' });
+    expect(
+      projectComponentVisual({ ...node, props: { marginTop: 3 } }).style.margin,
+    ).toBeUndefined();
     for (const value of [12, 0, -4, 1.5]) {
       expect(
         projectComponentVisual({ ...node, props: { ...node.props, margin: value } }).style.margin,
@@ -365,6 +374,22 @@ describe('browser runtime', () => {
     expect(button.margin).toBe(6.5);
     button.margin = 0;
     expect(button.element.style.margin).toBe('0px');
+    button.marginTop = -3;
+    button.marginRight = 6.5;
+    button.marginBottom = 9;
+    button.marginLeft = 12;
+    expect([button.marginTop, button.marginRight, button.marginBottom, button.marginLeft]).toEqual([
+      -3, 6.5, 9, 12,
+    ]);
+    expect(button.element.style.margin).toBe('-3px 6.5px 9px 12px');
+    expect(() => {
+      button.marginLeft = NaN;
+    }).toThrow();
+    expect(button.marginLeft).toBe(12);
+    button.margin = 4;
+    expect([button.marginTop, button.marginRight, button.marginBottom, button.marginLeft]).toEqual([
+      4, 4, 4, 4,
+    ]);
     mounted.dispose();
   });
   it('mounts the real DOM hierarchy and exposes functional component wrappers', () => {

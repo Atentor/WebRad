@@ -22,13 +22,17 @@ it('applies Margin to the Designer layout host once, including components with a
     ...page,
     components: page.components.map((node) =>
       node.id === 'first'
-        ? { ...node, props: { ...node.props, margin: 12 }, styleId: 'selected-style' }
+        ? {
+            ...node,
+            props: { ...node.props, margin: 12, marginTop: 3, marginLeft: 0 },
+            styleId: 'selected-style',
+          }
         : node,
     ),
   });
   const button = container.querySelector<HTMLElement>('[data-component-id="first"]');
   expect(button?.style.margin).toBe('0px');
-  expect(button?.parentElement?.style.margin).toBe('12px');
+  expect(button?.parentElement?.style.margin).toBe('3px 12px 12px 0px');
 });
 
 function responsivePage(): PageModel {

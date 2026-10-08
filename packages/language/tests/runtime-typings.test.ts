@@ -159,19 +159,31 @@ ${visuals
   .map(
     (definition, index) => `declare const component${String(index)}: ${definition.type};
 component${String(index)}./*@margin${String(index)}*/margin = 12;
-const margin${String(index)}: number = component${String(index)}.margin;`,
+const margin${String(index)}: number = component${String(index)}.margin;
+component${String(index)}.marginTop = 1;
+component${String(index)}.marginRight = 2;
+component${String(index)}.marginBottom = 3;
+const left${String(index)}: number = component${String(index)}.marginLeft;`,
   )
   .join('\n')}
-component0.margin = '12px';
+component0.marginLeft = '12px';
 declare const api: WebApiClient;
-api.margin = 12;
+api.marginTop = 12;
 `);
     const { service, fileName } = createLanguageService(marked.text);
     try {
       for (const [index] of visuals.entries()) {
         expect(
           completionNames(service, fileName, marked.positions.get(`margin${String(index)}`) ?? 0),
-        ).toContain('margin');
+        ).toEqual(
+          expect.arrayContaining([
+            'margin',
+            'marginTop',
+            'marginRight',
+            'marginBottom',
+            'marginLeft',
+          ]),
+        );
       }
       expect(service.getSemanticDiagnostics(fileName).map((diagnostic) => diagnostic.code)).toEqual(
         [2322, 2339],

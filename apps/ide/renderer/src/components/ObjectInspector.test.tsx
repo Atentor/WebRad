@@ -43,6 +43,7 @@ describe('ObjectInspector', () => {
         continue;
       }
       const input = screen.getByLabelText('Margin') as HTMLInputElement;
+      expect(input.closest('details')?.querySelector('summary')?.textContent).toBe('Spacing');
       expect(input.type).toBe('number');
       expect(input.value).toBe('0');
       fireEvent.change(input, { target: { value: '12' } });
@@ -58,7 +59,76 @@ describe('ObjectInspector', () => {
         />,
       );
       expect((screen.getByLabelText('Margin') as HTMLInputElement).value).toBe('12');
+      for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
+        const sideInput = screen.getByLabelText(`Margin ${side.toLowerCase()}`) as HTMLInputElement;
+        expect(
+          sideInput.closest('.wr-inspector-row')?.classList.contains('wr-inspector-row-compact'),
+        ).toBe(true);
+        expect(sideInput.value).toBe('12');
+        fireEvent.change(sideInput, { target: { value: '0' } });
+        expect(onPropertyChange).toHaveBeenLastCalledWith(
+          `margin${side}`,
+          0,
+          expect.objectContaining({ name: `margin${side}`, source: 'props' }),
+        );
+      }
+      rerender(
+        <ObjectInspector
+          {...props}
+          selection={[{ ...node, props: { ...node.props, margin: 12, marginLeft: 0 } }]}
+        />,
+      );
+      expect((screen.getByLabelText('Margin left') as HTMLInputElement).value).toBe('0');
+      expect((screen.getByLabelText('Margin right') as HTMLInputElement).value).toBe('12');
     }
+  });
+
+  it('searches common properties without losing mixed values or editor callbacks', async () => {
+    const user = userEvent.setup();
+    const onPropertyChange = vi.fn();
+    const second = {
+      ...button,
+      id: 'second-button',
+      name: 'ButtonCancel',
+      props: { ...button.props, marginLeft: 8 },
+    };
+    render(
+      <ObjectInspector
+        selection={[button, second]}
+        onPropertyChange={onPropertyChange}
+        onEventChange={vi.fn()}
+        onEventDoubleClick={vi.fn()}
+      />,
+    );
+    const search = screen.getByRole('searchbox', { name: 'Search properties' });
+    await user.click(screen.getByText('Spacing'));
+    expect(screen.getByText('Spacing').closest('details')?.open).toBe(false);
+    await user.type(search, 'margin left');
+    expect(screen.getByText('Spacing').closest('details')?.open).toBe(true);
+    expect(screen.queryByLabelText('Width')).toBeNull();
+    expect((screen.getByLabelText('Margin left') as HTMLInputElement).placeholder).toBe(
+      '(multiple values)',
+    );
+    fireEvent.change(screen.getByLabelText('Margin left'), { target: { value: '3' } });
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'marginLeft',
+      3,
+      expect.objectContaining({ source: 'props' }),
+    );
+    await user.clear(search);
+    await user.type(search, 'not-a-property');
+    expect(screen.getByRole('status').textContent).toBe('No properties match your search.');
+    await user.click(screen.getByRole('button', { name: 'Clear property search' }));
+    expect(screen.getByText('Spacing').closest('details')?.open).toBe(false);
+    expect(screen.getByLabelText('Width')).toBeTruthy();
+    await user.type(search, 'responsive');
+    expect(
+      screen.getByLabelText('Responsive width').closest('details')?.querySelector('summary')
+        ?.textContent,
+    ).toBe('Responsive size');
+    await user.keyboard('{Escape}');
+    expect((search as HTMLInputElement).value).toBe('');
+    expect(screen.getByLabelText('Name')).toBeTruthy();
   });
 
   it('updates registry-defined read-only behavior when an API Client binds to RestGo', async () => {

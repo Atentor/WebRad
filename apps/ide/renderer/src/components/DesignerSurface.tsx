@@ -431,6 +431,12 @@ function projectDesignerItemStyle(
   forceVisible = false,
   fitContentSize?: RuntimeFitContentSize,
 ): CSSProperties {
+  const visual = projectComponentVisual(node, 'fill');
+  const margins = Object.fromEntries(
+    (['marginTop', 'marginRight', 'marginBottom', 'marginLeft'] as const)
+      .filter((name) => (visual.style[name] ?? visual.style.margin) !== undefined)
+      .map((name) => [name, visual.style[name] ?? visual.style.margin]),
+  );
   if (floatingEditorBounds !== undefined) {
     const bounds =
       interaction?.kind === 'resize' && interaction.id === node.id
@@ -447,7 +453,7 @@ function projectDesignerItemStyle(
       width: `${String(bounds.width)}px`,
       height: `${String(bounds.height)}px`,
       boxSizing: 'border-box',
-      margin: projectComponentVisual(node, 'fill').style.margin,
+      ...margins,
     };
   }
   const style = projectItemStyle(
@@ -457,8 +463,10 @@ function projectDesignerItemStyle(
     designViewport,
     fitContentSize,
   );
-  const visual = projectComponentVisual(node, 'fill');
-  const itemStyle = { ...style, margin: visual.style.margin };
+  const itemStyle = {
+    ...style,
+    ...margins,
+  };
   return !forceVisible && !visual.visible && visual.collapseWhenHidden
     ? { ...itemStyle, display: 'none' }
     : { ...itemStyle, display: 'flex' };

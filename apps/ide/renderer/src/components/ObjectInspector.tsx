@@ -24,6 +24,7 @@ import { ComponentIcon } from './ComponentIcon';
 import { IconPickerDialog } from './IconPickerDialog';
 import { Panel } from './Panel';
 import { responsiveLayoutPropertyReference } from '../layout-property';
+import { buildInspectorSections, inspectorPropertyMatches } from './inspector-sections';
 
 const MULTIPLE_VALUES = Symbol('multiple-values');
 const MULTIPLE_VALUES_LABEL = '(multiple values)';
@@ -208,7 +209,9 @@ function readPropertyValue(
       value = component.props[property.name];
       break;
   }
-  return value === undefined ? property.defaultValue : value;
+  return value === undefined
+    ? (property.defaultValueWhen?.(component.props) ?? property.defaultValue)
+    : value;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -616,7 +619,7 @@ function PropertyRow({
 
   return (
     <div
-      className={`wr-inspector-row${property.type === 'number' && (property.source === 'bounds' || property.source === 'layout-item' || property.source === 'layout-container') ? ' wr-inspector-row-compact' : ''}`}
+      className={`wr-inspector-row${property.editorLayout === 'compact' ? ' wr-inspector-row-compact' : ''}`}
       title={property.description}
     >
       <label className="wr-inspector-name" htmlFor={editorId}>
@@ -711,6 +714,8 @@ export function ObjectInspector({
   registry = defaultComponentRegistry,
 }: ObjectInspectorProps): ReactElement {
   const [activeTab, setActiveTab] = useState<InspectorTab>('properties');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<string>>(new Set());
   const tabId = useId();
   const inspectedSelection = useMemo(
     () => resolveInspectedSelection(selection, page, definition),
@@ -722,10 +727,11 @@ export function ObjectInspector({
   );
   const propertyCategories = useMemo(
     () =>
-      groupByCategory(
+      buildInspectorSections(
         definitions === null ? [] : commonProperties(definitions, inspectedSelection),
+        searchQuery,
       ),
-    [definitions, inspectedSelection],
+    [definitions, inspectedSelection, searchQuery],
   );
   const eventCategories = useMemo(
     () => groupByCategory(definitions === null ? [] : commonEvents(definitions)),
@@ -767,6 +773,13 @@ export function ObjectInspector({
   const propertiesPanelId = `${tabId}-properties-panel`;
   const eventsPanelId = `${tabId}-events-panel`;
   const activeInspectorTab: InspectorTab = eventsEnabled ? activeTab : 'properties';
+  const showStyle =
+    styleComponentType !== undefined &&
+    onStyleChange !== undefined &&
+    inspectorPropertyMatches(
+      { name: 'style', label: 'Style', category: 'Appearance', type: 'enum' },
+      searchQuery,
+    );
 
   return (
     <Panel title="Object Inspector" className="wr-object-inspector">
@@ -829,7 +842,32 @@ export function ObjectInspector({
               role="tabpanel"
               aria-labelledby={propertiesTabId}
             >
-              {styleComponentType !== undefined && onStyleChange !== undefined && (
+              <div className="wr-inspector-search">
+                <Icon name="search" />
+                <input
+                  type="search"
+                  aria-label="Search properties"
+                  placeholder="Search properties..."
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.stopPropagation();
+                      setSearchQuery('');
+                    }
+                  }}
+                />
+                {searchQuery.length > 0 && (
+                  <button
+                    type="button"
+                    aria-label="Clear property search"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    <Icon name="close" />
+                  </button>
+                )}
+              </div>
+              {showStyle && (
                 <details className="wr-inspector-category" open>
                   <summary className="wr-inspector-category-title">Style</summary>
                   <div className="wr-inspector-category-fields">
@@ -846,7 +884,7 @@ export function ObjectInspector({
                           className="wr-inspector-select"
                           value={selectedStyleIsMultiple ? MULTIPLE_OPTION_VALUE : selectedStyleId}
                           onChange={(event) =>
-                            onStyleChange(
+                            onStyleChange?.(
                               event.target.value.length === 0 ? null : event.target.value,
                             )
                           }
@@ -868,27 +906,53 @@ export function ObjectInspector({
                   </div>
                 </details>
               )}
-              {propertyCategories.length === 0 && styleComponentType === undefined ? (
-                <div className="wr-inspector-empty compact">No shared property metadata.</div>
+              {propertyCategories.length === 0 && !showStyle ? (
+                <div className="wr-inspector-empty compact" role="status">
+                  {searchQuery.trim().length > 0
+                    ? 'No properties match your search.'
+                    : 'No shared property metadata.'}
+                </div>
               ) : (
                 propertyCategories.map((category) => (
-                  <details className="wr-inspector-category" key={category.name} open>
-                    <summary className="wr-inspector-category-title">
-                      {category.name === 'Layout' ? 'Size & position' : category.name}
-                    </summary>
-                    <div className="wr-inspector-category-fields">
-                      {category.items.map((property) => (
-                        <PropertyRow
-                          key={`${property.source ?? 'props'}:${property.name}`}
-                          property={property}
-                          selection={inspectedSelection}
-                          page={page}
-                          availableComponents={componentChoices}
-                          availableReusableElements={availableReusableElements}
-                          onChange={onPropertyChange}
-                          onDesignerAction={onDesignerAction}
-                          onIconPickerOpenChange={onIconPickerOpenChange}
-                        />
+                  <details
+                    className="wr-inspector-category"
+                    key={`${category.name}:${searchQuery.trim().length > 0 ? 'filtered' : 'all'}`}
+                    open={searchQuery.trim().length > 0 || !collapsedSections.has(category.name)}
+                    onToggle={(event) => {
+                      if (searchQuery.trim().length > 0) return;
+                      const open = event.currentTarget.open;
+                      setCollapsedSections((previous) => {
+                        if (previous.has(category.name) === !open) return previous;
+                        const next = new Set(previous);
+                        if (open) next.delete(category.name);
+                        else next.add(category.name);
+                        return next;
+                      });
+                    }}
+                  >
+                    <summary className="wr-inspector-category-title">{category.name}</summary>
+                    <div className="wr-inspector-category-groups">
+                      {category.groups.map((group) => (
+                        <div className="wr-inspector-property-group" key={group.name}>
+                          {group.name.length > 0 && (
+                            <div className="wr-inspector-group-title">{group.name}</div>
+                          )}
+                          <div className="wr-inspector-category-fields">
+                            {group.items.map((property) => (
+                              <PropertyRow
+                                key={`${property.source ?? 'props'}:${property.name}`}
+                                property={property}
+                                selection={inspectedSelection}
+                                page={page}
+                                availableComponents={componentChoices}
+                                availableReusableElements={availableReusableElements}
+                                onChange={onPropertyChange}
+                                onDesignerAction={onDesignerAction}
+                                onIconPickerOpenChange={onIconPickerOpenChange}
+                              />
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </details>

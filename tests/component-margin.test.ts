@@ -67,6 +67,10 @@ it('persists Margin and executes typed bare and this-qualified margin access in 
         parentId: page.rootComponentId,
         props: {
           margin: 12,
+          marginTop: 1,
+          marginRight: 2,
+          marginBottom: 3,
+          marginLeft: 4,
           ...(definition.type === 'WebReusableElement' ? { reusableElementId: reusable.id } : {}),
           ...(definition.type === 'WebDataGrid'
             ? {
@@ -93,7 +97,11 @@ export class ${page.name} extends ${page.name}Generated {
 ${visuals
   .map(
     (definition) => `    Margin${definition.type}.margin += 1;
-    this.Margin${definition.type}.margin += 2;`,
+    this.Margin${definition.type}.margin += 2;
+    Margin${definition.type}.marginTop = 5;
+    this.Margin${definition.type}.marginRight = 6;
+    Margin${definition.type}.marginBottom = 7;
+    this.Margin${definition.type}.marginLeft = 8;`,
   )
   .join('\n')}
   }
@@ -122,7 +130,7 @@ ${visuals
         dom.window.document.querySelector<HTMLElement>(
           `[data-webrad-id="margin-${definition.type}"]`,
         )?.style.margin,
-      ).toBe('15px');
+      ).toBe('5px 6px 7px 8px');
     }
   } finally {
     dom.window.close();

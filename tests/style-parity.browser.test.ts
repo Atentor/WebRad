@@ -52,6 +52,10 @@ it.runIf(browserPath !== undefined)(
           props: {
             ...(type === 'WebButton' ? { caption: 'Button text', enabled: index !== 4 } : {}),
             margin: 8 + index,
+            marginTop: 1 + index,
+            marginRight: 12 + index,
+            marginBottom: 3 + index,
+            marginLeft: 4 + index,
           },
         }),
         page.rootComponentId,

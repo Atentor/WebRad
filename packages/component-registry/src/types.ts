@@ -22,8 +22,14 @@ export interface ComponentPropertyDefinition {
   readonly label?: string;
   readonly type: ComponentPropertyType;
   readonly category?: string;
+  /** Optional subgroup inside an Inspector section. */
+  readonly inspectorGroup?: string;
+  /** Pairs related controls with their labels above the editors. */
+  readonly editorLayout?: 'compact';
   readonly source?: ComponentPropertySource;
   readonly defaultValue?: unknown;
+  /** Fallback derived from saved properties without materializing it in the model. */
+  readonly defaultValueWhen?: (props: Readonly<Record<string, unknown>>) => unknown;
   readonly options?: readonly string[];
   readonly description?: string;
   readonly readOnly?: boolean;

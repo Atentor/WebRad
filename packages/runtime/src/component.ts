@@ -214,6 +214,51 @@ export class WebComponent<TElement extends HTMLElement = HTMLElement> {
     this.element.style.margin = finitePixels(value, 'margin');
   }
 
+  /** Outer spacing on the top side, in pixels. */
+  public get marginTop(): number {
+    return pixelValue(this.element.style.marginTop || getComputedStyle(this.element).marginTop, 0);
+  }
+
+  public set marginTop(value: number) {
+    this.element.style.marginTop = finitePixels(value, 'marginTop');
+  }
+
+  /** Outer spacing on the right side, in pixels. */
+  public get marginRight(): number {
+    return pixelValue(
+      this.element.style.marginRight || getComputedStyle(this.element).marginRight,
+      0,
+    );
+  }
+
+  public set marginRight(value: number) {
+    this.element.style.marginRight = finitePixels(value, 'marginRight');
+  }
+
+  /** Outer spacing on the bottom side, in pixels. */
+  public get marginBottom(): number {
+    return pixelValue(
+      this.element.style.marginBottom || getComputedStyle(this.element).marginBottom,
+      0,
+    );
+  }
+
+  public set marginBottom(value: number) {
+    this.element.style.marginBottom = finitePixels(value, 'marginBottom');
+  }
+
+  /** Outer spacing on the left side, in pixels. */
+  public get marginLeft(): number {
+    return pixelValue(
+      this.element.style.marginLeft || getComputedStyle(this.element).marginLeft,
+      0,
+    );
+  }
+
+  public set marginLeft(value: number) {
+    this.element.style.marginLeft = finitePixels(value, 'marginLeft');
+  }
+
   public set tabIndex(value: number) {
     this.element.tabIndex = value;
   }
