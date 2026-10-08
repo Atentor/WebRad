@@ -17,8 +17,12 @@ import {
   type StyleLengthUnit,
   type StyleLengthValue,
   type StylePropertyValue,
+  paletteColorId,
+  resolvePaletteColor,
 } from '@webrad/project-model';
-import { useId, useMemo, useState, type ReactElement, type ReactNode } from 'react';
+import { useContext, useId, useMemo, useState, type ReactElement, type ReactNode } from 'react';
+import { ProjectColorPaletteContext } from '../project-color-palette';
+import { ColorInput, PaletteColorButton } from './ColorInput';
 
 interface VisualStyleEditorProps {
   readonly componentType: string;
@@ -78,10 +82,10 @@ function isLinearGradientValue(value: StylePropertyValue): value is BackgroundGr
     typeof value.direction === 'string' &&
     'from' in value &&
     typeof value.from === 'string' &&
-    HEX_COLOR.test(value.from) &&
+    (HEX_COLOR.test(value.from) || paletteColorId(value.from) !== undefined) &&
     'to' in value &&
     typeof value.to === 'string' &&
-    HEX_COLOR.test(value.to)
+    (HEX_COLOR.test(value.to) || paletteColorId(value.to) !== undefined)
   );
 }
 
@@ -150,18 +154,32 @@ function EnumControl({ definition, value, onChange }: PropertyControlProps): Rea
 }
 
 function ColorControl({ definition, value, onChange }: PropertyControlProps): ReactElement {
+  const colors = useContext(ProjectColorPaletteContext);
   if (definition.editor.kind !== 'color') throw new Error('Expected a color style editor.');
-  const custom = typeof value === 'string' && HEX_COLOR.test(value);
+  const linked = paletteColorId(value) !== undefined;
+  const custom =
+    typeof value === 'string' && (HEX_COLOR.test(value) || paletteColorId(value) !== undefined);
   return (
     <div className="wr-style-color-control">
       <select
         aria-label={`${definition.label} type`}
-        value={custom ? 'custom' : String(value)}
+        value={linked ? 'palette' : custom ? 'custom' : String(value)}
         onChange={(event) =>
-          onChange(event.target.value === 'custom' ? '#000000' : event.target.value)
+          onChange(
+            event.target.value === 'custom'
+              ? linked
+                ? resolvePaletteColor(String(value), colors)
+                : '#000000'
+              : event.target.value,
+          )
         }
       >
         <option value="custom">Custom color</option>
+        {linked && (
+          <option value="palette" disabled>
+            Palette color
+          </option>
+        )}
         {definition.editor.keywords.map((option) => (
           <option value={option.value} key={option.value}>
             {option.label}
@@ -169,16 +187,17 @@ function ColorControl({ definition, value, onChange }: PropertyControlProps): Re
         ))}
       </select>
       {custom && (
-        <label className="wr-style-color-picker">
-          <input
-            type="color"
-            aria-label={definition.label}
+        <div className="wr-style-color-picker">
+          <ColorInput
+            label={definition.label}
             value={value}
-            onChange={(event) => onChange(event.target.value)}
+            showPalette={false}
+            onChange={onChange}
           />
-          <span>{value.toUpperCase()}</span>
-        </label>
+          <span>{resolvePaletteColor(String(value), colors).toUpperCase()}</span>
+        </div>
       )}
+      <PaletteColorButton label={definition.label} value={String(value)} onChange={onChange} />
     </div>
   );
 }
@@ -201,6 +220,7 @@ function exclusivePropertyName(
 }
 
 function GradientControl({ definition, value, onChange }: PropertyControlProps): ReactElement {
+  const colors = useContext(ProjectColorPaletteContext);
   if (definition.editor.kind !== 'gradient') throw new Error('Expected a gradient style editor.');
   const editor = definition.editor;
   const fallbackDirection = gradientDirection(editor.directions[0]?.value ?? '', 'to-right');
@@ -235,26 +255,40 @@ function GradientControl({ definition, value, onChange }: PropertyControlProps):
         ))}
       </select>
       <div className="wr-style-gradient-colors">
-        <label className="wr-style-gradient-color-picker">
-          <span>From</span>
-          <input
-            type="color"
-            aria-label={`${definition.label} from color`}
+        <div className="wr-style-gradient-color-field">
+          <div className="wr-style-gradient-color-picker">
+            <span>From</span>
+            <ColorInput
+              label={`${definition.label} from color`}
+              value={gradient.from}
+              showPalette={false}
+              onChange={(from) => changeGradient({ from })}
+            />
+            <code>{resolvePaletteColor(gradient.from, colors).toUpperCase()}</code>
+          </div>
+          <PaletteColorButton
+            label={`${definition.label} from color`}
             value={gradient.from}
-            onChange={(event) => changeGradient({ from: event.target.value })}
+            onChange={(from) => changeGradient({ from })}
           />
-          <code>{gradient.from.toUpperCase()}</code>
-        </label>
-        <label className="wr-style-gradient-color-picker">
-          <span>To</span>
-          <input
-            type="color"
-            aria-label={`${definition.label} to color`}
+        </div>
+        <div className="wr-style-gradient-color-field">
+          <div className="wr-style-gradient-color-picker">
+            <span>To</span>
+            <ColorInput
+              label={`${definition.label} to color`}
+              value={gradient.to}
+              showPalette={false}
+              onChange={(to) => changeGradient({ to })}
+            />
+            <code>{resolvePaletteColor(gradient.to, colors).toUpperCase()}</code>
+          </div>
+          <PaletteColorButton
+            label={`${definition.label} to color`}
             value={gradient.to}
-            onChange={(event) => changeGradient({ to: event.target.value })}
+            onChange={(to) => changeGradient({ to })}
           />
-          <code>{gradient.to.toUpperCase()}</code>
-        </label>
+        </div>
       </div>
     </div>
   );

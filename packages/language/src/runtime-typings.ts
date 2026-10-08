@@ -626,6 +626,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
   }
 
   export function tokenizeTailwindClasses(value: string): readonly string[];
+  export function paletteColorId(value: unknown): string | undefined;
+  export function paletteColorReference(id: string): string;
   export function resolveDataGridColumnTrackWidths(
     columns: readonly DataGridColumnTrackSource[],
     availableWidth: number,

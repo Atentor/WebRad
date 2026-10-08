@@ -18,8 +18,11 @@ import {
   type WebRadIconName,
   webRadIconLabel,
 } from '@webrad/runtime/icons';
-import { useEffect, useId, useMemo, useState, type ReactElement } from 'react';
+import { useContext, useEffect, useId, useMemo, useState, type ReactElement } from 'react';
+import { resolvePaletteColor } from '@webrad/project-model';
+import { ProjectColorPaletteContext } from '../project-color-palette';
 import { Icon } from './Icon';
+import { ColorInput, PaletteColorButton } from './ColorInput';
 import { ComponentIcon } from './ComponentIcon';
 import { IconPickerDialog } from './IconPickerDialog';
 import { Panel } from './Panel';
@@ -358,7 +361,9 @@ function PropertyEditor({
   onDesignerAction,
   onIconPickerOpenChange,
 }: PropertyEditorProps): ReactElement {
-  const text = editorText(value, multiple);
+  const colors = useContext(ProjectColorPaletteContext);
+  const rawText = editorText(value, multiple);
+  const text = property.type === 'color' ? resolvePaletteColor(rawText, colors) : rawText;
   const placeholder = multiple ? MULTIPLE_VALUES_LABEL : undefined;
   const disabled = property.readOnly === true;
 
@@ -469,24 +474,32 @@ function PropertyEditor({
       );
     case 'color':
       return (
-        <div className="wr-inspector-color-editor">
-          <input
-            className="wr-inspector-color-picker"
-            type="color"
-            value={validPickerColor(text)}
+        <div className="wr-inspector-color-control">
+          <div className="wr-inspector-color-editor">
+            <ColorInput
+              className="wr-inspector-color-picker"
+              value={validPickerColor(text)}
+              disabled={disabled}
+              label={`${property.label ?? property.name} color picker`}
+              showPalette={false}
+              onChange={onChange}
+            />
+            <input
+              id={id}
+              className="wr-inspector-input"
+              type="text"
+              value={text}
+              placeholder={placeholder}
+              readOnly={disabled}
+              spellCheck={false}
+              onChange={(event) => onChange(event.target.value)}
+            />
+          </div>
+          <PaletteColorButton
+            label={`${property.label ?? property.name} color picker`}
+            value={rawText}
             disabled={disabled}
-            aria-label={`${property.label ?? property.name} color picker`}
-            onChange={(event) => onChange(event.target.value)}
-          />
-          <input
-            id={id}
-            className="wr-inspector-input"
-            type="text"
-            value={text}
-            placeholder={placeholder}
-            readOnly={disabled}
-            spellCheck={false}
-            onChange={(event) => onChange(event.target.value)}
+            onChange={onChange}
           />
         </div>
       );

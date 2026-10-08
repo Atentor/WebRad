@@ -1,4 +1,10 @@
 import { ModelUpdateError, ProjectModelError } from './errors.js';
+import { bindStyleColorsToPalette } from './color-palette.js';
+import {
+  DEFAULT_PROJECT_COLOR_PALETTE,
+  COMPONENT_STYLE_STATE_NAMES,
+  type ProjectPaletteColor,
+} from './types.js';
 import {
   applyDefaultComponentStyle,
   defaultComponentStyleId,
@@ -78,12 +84,27 @@ export function createComponentStyle(
 }
 
 /** Creates the protected visual library seeded into every new project. */
-export function createDefaultComponentStyles(projectId: string): readonly ComponentStyleModel[] {
+export function createDefaultComponentStyles(
+  projectId: string,
+  colors: readonly ProjectPaletteColor[] = DEFAULT_PROJECT_COLOR_PALETTE,
+): readonly ComponentStyleModel[] {
   return DEFAULT_COMPONENT_STYLE_DEFINITIONS.map((definition) =>
     createComponentStyle(definition.name, definition.componentType, {
       idFactory: () => defaultComponentStyleId(projectId, definition.componentType),
       preset: 'default',
-      states: definition.states,
+      states: Object.fromEntries(
+        COMPONENT_STYLE_STATE_NAMES.map((state) => [
+          state,
+          bindStyleColorsToPalette(
+            (
+              definition.states as Partial<
+                Record<ComponentStyleStateName, ComponentStyleProperties>
+              >
+            )[state] ?? {},
+            colors,
+          ),
+        ]),
+      ),
     }),
   );
 }
@@ -239,7 +260,7 @@ export function createProject(
     applicationName: name,
     ...(typeof options === 'function' ? {} : options.settings),
   };
-  const styles = createDefaultComponentStyles(projectId);
+  const styles = createDefaultComponentStyles(projectId, settings.colorPalette);
   const styledPage = parsePage({
     ...page,
     components: page.components.map((component) =>

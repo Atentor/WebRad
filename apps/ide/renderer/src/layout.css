@@ -1674,6 +1674,10 @@ button.wr-problem:focus-visible {
   gap: 5px;
 }
 
+.wr-style-color-control:has(.wr-color-palette-trigger) {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
 .wr-style-gradient-control {
   display: grid;
   min-width: 0;
@@ -1692,7 +1696,7 @@ button.wr-problem:focus-visible {
   display: grid;
   min-width: 0;
   height: 29px;
-  grid-template-columns: auto 25px minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 3px;
   padding: 2px 4px;

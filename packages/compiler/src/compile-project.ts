@@ -354,7 +354,11 @@ export async function compileProject(
 
   let generatedAppCss: string;
   try {
-    generatedAppCss = await compileGeneratedAppStyles(project.styles, project.settings.scrollbar);
+    generatedAppCss = await compileGeneratedAppStyles(
+      project.styles,
+      project.settings.scrollbar,
+      project.settings.colorPalette,
+    );
   } catch (error) {
     return failedResult(outputDirectory, [
       ...registryDiagnostics,

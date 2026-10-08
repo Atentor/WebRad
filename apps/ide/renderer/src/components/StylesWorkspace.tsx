@@ -9,11 +9,13 @@ import {
   portableFileNameKey,
   type ComponentStyleModel,
   type ComponentStyleStateName,
+  type ProjectPaletteColor,
 } from '@webrad/project-model';
 import { resolveComponentStylePreviewClassName } from '@webrad/runtime/visual';
 import { useId, useMemo, useState, type FormEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { VisualStyleEditor } from './VisualStyleEditor';
+import { StylesColorPalettePanel } from './StylesColorPalettePanel';
 
 interface StyleStateDefinition {
   readonly key: ComponentStyleStateName;
@@ -83,6 +85,8 @@ function createPreviewProps(
 }
 
 interface StylesWorkspaceProps {
+  readonly colorPalette?: readonly ProjectPaletteColor[];
+  readonly onUpdateColorPalette?: (colors: readonly ProjectPaletteColor[]) => void;
   readonly styles: readonly ComponentStyleModel[];
   readonly selectedComponentType?: string;
   readonly onSelectComponentType?: (type: string) => void;
@@ -175,6 +179,8 @@ function StyleNameEditor({ style, styles, onCommit }: StyleNameEditorProps): Rea
 }
 
 export function StylesWorkspace({
+  colorPalette = [],
+  onUpdateColorPalette,
   styles,
   selectedComponentType,
   onSelectComponentType,
@@ -192,6 +198,7 @@ export function StylesWorkspace({
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editingPalette, setEditingPalette] = useState(false);
   const [draftType, setDraftType] = useState(visualDefinitions[0]?.type ?? '');
   const [draftName, setDraftName] = useState(() =>
     suggestedStyleName(visualDefinitions[0], styles),
@@ -226,6 +233,7 @@ export function StylesWorkspace({
   );
 
   const beginCreate = (): void => {
+    setEditingPalette(false);
     const definition = registry.get(selectedComponentType ?? draftType) ?? visualDefinitions[0];
     const componentType = definition?.type ?? '';
     setDraftType(componentType);
@@ -293,6 +301,22 @@ export function StylesWorkspace({
           </div>
 
           <div className="wr-style-library-content">
+            {onUpdateColorPalette !== undefined && (
+              <button
+                type="button"
+                className="wr-style-palette-entry"
+                aria-label="Color palette"
+                aria-pressed={editingPalette}
+                onClick={() => {
+                  setCreating(false);
+                  setEditingPalette(true);
+                }}
+              >
+                <Icon name="palette" />
+                <span>Color palette</span>
+                <small>{colorPalette.length} / 10</small>
+              </button>
+            )}
             {creating && (
               <form className="wr-style-create-form" onSubmit={submitCreate}>
                 <strong>Create style</strong>
@@ -359,6 +383,7 @@ export function StylesWorkspace({
                       className={selected ? 'selected' : ''}
                       key={style.id}
                       onClick={() => {
+                        setEditingPalette(false);
                         setSelectedId(style.id);
                         setActiveState('base');
                       }}
@@ -380,7 +405,13 @@ export function StylesWorkspace({
         </aside>
 
         <div className="wr-style-configurator">
-          {selectedStyle === undefined ? (
+          {editingPalette && onUpdateColorPalette !== undefined ? (
+            <StylesColorPalettePanel
+              colors={colorPalette}
+              onSave={onUpdateColorPalette}
+              onClose={() => setEditingPalette(false)}
+            />
+          ) : selectedStyle === undefined ? (
             <div className="wr-style-configurator-empty">
               <Icon name="style" />
               <h2>Create your first component style</h2>

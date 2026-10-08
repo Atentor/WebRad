@@ -27,6 +27,8 @@ import {
   createPage,
   createReusableElement,
   DEFAULT_PROJECT_SETTINGS,
+  projectColorPaletteCss,
+  type ProjectPaletteColor,
   getComponent,
   type ApiClientConfiguration,
   type Bounds,
@@ -82,6 +84,7 @@ import { RestGoSidebar, type RestGoSection } from './components/RestGoSidebar';
 import { StatusBar } from './components/StatusBar';
 import { StylesWorkspace } from './components/StylesWorkspace';
 import { StyleComponentList } from './components/StyleComponentList';
+import { ProjectColorPaletteContext } from './project-color-palette';
 import { ToolPalette } from './components/ToolPalette';
 import { Toolbar } from './components/Toolbar';
 import {
@@ -1000,6 +1003,14 @@ export function App(): ReactElement {
     [projectController, addOutput],
   );
 
+  const saveColorPalette = useCallback(
+    (colorPalette: readonly ProjectPaletteColor[]): void => {
+      projectController.updateProjectSettings({ colorPalette });
+      addOutput('PROJECT', 'Updated project color palette.');
+    },
+    [projectController, addOutput],
+  );
+
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
     if (!projectState.dirty) return true;
     if (window.confirm('Save unsaved changes before continuing?')) {
@@ -1644,6 +1655,8 @@ export function App(): ReactElement {
   const pageEditorContent = stylesActive ? (
     <ErrorBoundary area="Styles">
       <StylesWorkspace
+        colorPalette={project?.settings.colorPalette ?? []}
+        onUpdateColorPalette={saveColorPalette}
         styles={project?.styles ?? []}
         selectedComponentType={styleComponentType}
         onSelectComponentType={setStyleComponentType}
@@ -1764,7 +1777,10 @@ export function App(): ReactElement {
     dataGridConfiguratorComponent !== null;
 
   return (
-    <>
+    <ProjectColorPaletteContext.Provider value={project?.settings.colorPalette ?? []}>
+      <style data-webrad-color-palette>
+        {projectColorPaletteCss(project?.settings.colorPalette ?? [])}
+      </style>
       <div
         className="wr-ide-modal-host"
         inert={modalOpen ? true : undefined}
@@ -2096,6 +2112,6 @@ export function App(): ReactElement {
           onSave={saveDataGridConfiguration}
         />
       )}
-    </>
+    </ProjectColorPaletteContext.Provider>
   );
 }

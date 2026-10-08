@@ -19,6 +19,10 @@ import {
   type ReactElement,
 } from 'react';
 import { Icon } from './Icon';
+import { ColorInput, PaletteColorButton } from './ColorInput';
+import { ProjectColorPaletteContext } from '../project-color-palette';
+import { resolvePaletteColor } from '@webrad/project-model';
+import { useContext } from 'react';
 
 interface ProjectSettingsDialogProps {
   readonly projectName: string;
@@ -156,19 +160,18 @@ function ScrollbarColorControl({
   value,
   onChange,
 }: ScrollbarColorControlProps): ReactElement {
+  const colors = useContext(ProjectColorPaletteContext);
   return (
-    <label className="wr-project-settings-scrollbar-color">
+    <div className="wr-project-settings-scrollbar-color">
       <span>{label}</span>
-      <span className="wr-project-settings-scrollbar-color-value">
-        <input
-          type="color"
-          aria-label={label}
-          value={value}
-          onChange={(event) => onChange(event.currentTarget.value)}
-        />
-        <code>{value.toUpperCase()}</code>
+      <span className="wr-project-settings-scrollbar-color-row">
+        <span className="wr-project-settings-scrollbar-color-value">
+          <ColorInput label={label} value={value} onChange={onChange} showPalette={false} />
+          <code>{resolvePaletteColor(value, colors).toUpperCase()}</code>
+        </span>
+        <PaletteColorButton label={label} value={value} onChange={onChange} />
       </span>
-    </label>
+    </div>
   );
 }
 
@@ -322,7 +325,7 @@ export function ProjectSettingsDialog({
   } as CSSProperties;
 
   useEffect(() => {
-    dialogRef.current?.querySelector<HTMLElement>('[role="tab"]')?.focus();
+    dialogRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
     const returnFocus = returnFocusRef.current;
     return () => {
       if (returnFocus?.isConnected) returnFocus.focus();
@@ -511,7 +514,7 @@ export function ProjectSettingsDialog({
     }
   };
 
-  return (
+  const dialog = (
     <div className="wr-modal-backdrop" role="presentation" onKeyDown={handleKeyDown}>
       <section
         ref={dialogRef}
@@ -1257,5 +1260,10 @@ export function ProjectSettingsDialog({
         </footer>
       </section>
     </div>
+  );
+  return (
+    <ProjectColorPaletteContext.Provider value={draft.colorPalette}>
+      {dialog}
+    </ProjectColorPaletteContext.Provider>
   );
 }

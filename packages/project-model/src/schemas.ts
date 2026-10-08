@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paletteColorId } from './color-palette.js';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
@@ -484,12 +485,43 @@ const hexColorSchema = z
   .string()
   .regex(/^#[\da-f]{6}$/iu, 'Expected a six-digit hexadecimal color.');
 
+const paletteLinkedColorSchema = z
+  .string()
+  .refine(
+    (value) => hexColorSchema.safeParse(value).success || paletteColorId(value) !== undefined,
+    'Expected a hexadecimal color or palette reference.',
+  );
+
+export const ProjectColorPaletteSchema = z
+  .array(
+    z
+      .object({
+        id: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/u, 'Invalid palette color ID.'),
+        name: z.string().trim().min(1, 'Enter a color name.').max(40),
+        color: hexColorSchema,
+      })
+      .strict(),
+  )
+  .max(10, 'Use up to 10 palette colors.')
+  .superRefine((colors, context) => {
+    const ids = new Set<string>();
+    colors.forEach((entry, index) => {
+      if (ids.has(entry.id))
+        context.addIssue({
+          code: 'custom',
+          message: 'Palette color IDs must be unique.',
+          path: [index, 'id'],
+        });
+      ids.add(entry.id);
+    });
+  });
+
 export const BackgroundGradientValueSchema: z.ZodType<BackgroundGradientValue> = z
   .object({
     kind: z.literal('linear'),
     direction: z.enum(LINEAR_GRADIENT_DIRECTIONS),
-    from: hexColorSchema,
-    to: hexColorSchema,
+    from: paletteLinkedColorSchema,
+    to: paletteLinkedColorSchema,
   })
   .strict();
 
@@ -523,8 +555,10 @@ function validateStylePropertyValue(
     const isKeyword =
       typeof value === 'string' && editor.keywords.some((option) => option.value === value);
     const isHexColor = typeof value === 'string' && /^#[\da-f]{6}$/iu.test(value);
-    if (!isKeyword && !isHexColor) {
-      addIssue(`${definition.label} must be a hexadecimal color or a supported keyword.`);
+    if (!isKeyword && !isHexColor && paletteColorId(value) === undefined) {
+      addIssue(
+        `${definition.label} must be a hexadecimal color, palette reference, or supported keyword.`,
+      );
     }
     return;
   }
@@ -771,17 +805,17 @@ export const ProjectScrollbarStyleSchema: z.ZodType<ProjectScrollbarStyle> = z
   .object({
     width: z.number().int().min(6).max(32),
     height: z.number().int().min(6).max(32),
-    trackColor: hexColorSchema,
-    trackBorderColor: hexColorSchema,
+    trackColor: paletteLinkedColorSchema,
+    trackBorderColor: paletteLinkedColorSchema,
     trackBorderWidth: z.number().int().min(0).max(8),
     trackBorderRadius: z.number().int().min(0).max(64),
-    thumbColor: hexColorSchema,
-    thumbHoverColor: hexColorSchema,
-    thumbActiveColor: hexColorSchema,
-    thumbBorderColor: hexColorSchema,
+    thumbColor: paletteLinkedColorSchema,
+    thumbHoverColor: paletteLinkedColorSchema,
+    thumbActiveColor: paletteLinkedColorSchema,
+    thumbBorderColor: paletteLinkedColorSchema,
     thumbBorderWidth: z.number().int().min(0).max(8),
     thumbBorderRadius: z.number().int().min(0).max(64),
-    cornerColor: hexColorSchema,
+    cornerColor: paletteLinkedColorSchema,
   })
   .strict();
 
@@ -854,6 +888,7 @@ export const RestGoProjectSettingsSchema: z.ZodType<RestGoProjectSettings> = z
 
 export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   .object({
+    colorPalette: ProjectColorPaletteSchema,
     applicationName: z.string().trim().min(1).max(120),
     applicationDescription: z.string().trim().max(500),
     locale: z
@@ -1134,7 +1169,37 @@ function indexComponentStyles(
   return byId;
 }
 
+function validatePaletteReferences(
+  project: {
+    readonly styles: readonly ComponentStyleModel[];
+    readonly settings: ProjectSettings;
+    readonly reusableElements: readonly ReusableElementModel[];
+    readonly pages: readonly unknown[];
+  },
+  context: z.RefinementCtx,
+): void {
+  const ids = new Set(project.settings.colorPalette.map((entry) => entry.id));
+  const walk = (value: unknown, path: (string | number)[]): void => {
+    const id = paletteColorId(value);
+    if (id !== undefined && !ids.has(id))
+      context.addIssue({ code: 'custom', message: `Palette color "${id}" does not exist.`, path });
+    if (Array.isArray(value)) value.forEach((entry, index) => walk(entry, [...path, index]));
+    else if (isRecord(value))
+      Object.entries(value).forEach(([key, entry]) => walk(entry, [...path, key]));
+  };
+  project.styles.forEach((style, index) => walk(style.states, ['styles', index, 'states']));
+  walk(project.settings.scrollbar, ['settings', 'scrollbar']);
+  for (const collection of ['pages', 'reusableElements'] as const)
+    project[collection].forEach((page, index) => {
+      if (!isRecord(page) || !Array.isArray(page.components)) return;
+      page.components.forEach((node, nodeIndex) => {
+        if (isRecord(node)) walk(node.props, [collection, index, 'components', nodeIndex, 'props']);
+      });
+    });
+}
+
 function validateProjectRelationships(project: WebRadProject, context: z.RefinementCtx): void {
+  validatePaletteReferences(project, context);
   const ids = new Set<string>();
   const names = new Set<string>();
   const stylesById = indexComponentStyles(project.styles, context);
@@ -1429,6 +1494,7 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z.preprocess(
     })
     .strict()
     .superRefine((manifest, context) => {
+      validatePaletteReferences(manifest, context);
       indexComponentStyles(manifest.styles, context);
       const ids = new Set<string>();
       const names = new Set<string>();

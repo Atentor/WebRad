@@ -412,7 +412,31 @@ export interface RestGoProjectSettings {
   readonly storageKey: string;
 }
 
+export interface ProjectPaletteColor {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string;
+}
+
+/** Aurora's primary, accent and neutral colors, with stable project identities. */
+export const DEFAULT_PROJECT_COLOR_PALETTE: readonly ProjectPaletteColor[] = Object.freeze(
+  [
+    { id: 'aurora-blue', name: 'Aurora Blue', color: '#2563eb' },
+    { id: 'aurora-violet', name: 'Aurora Violet', color: '#7c3aed' },
+    { id: 'aurora-sky', name: 'Aurora Sky', color: '#60a5fa' },
+    { id: 'aurora-lavender', name: 'Aurora Lavender', color: '#a78bfa' },
+    { id: 'aurora-white', name: 'Aurora White', color: '#ffffff' },
+    { id: 'aurora-surface', name: 'Aurora Surface', color: '#f8fbff' },
+    { id: 'aurora-mist', name: 'Aurora Mist', color: '#eef2ff' },
+    { id: 'aurora-border', name: 'Aurora Border', color: '#dbeafe' },
+    { id: 'aurora-graphite', name: 'Aurora Graphite', color: '#334155' },
+    { id: 'aurora-ink', name: 'Aurora Ink', color: '#0f172a' },
+  ].map((entry) => Object.freeze(entry)),
+);
+
 export interface ProjectSettings {
+  /** Up to ten named colors with stable identities shared by all color fields. */
+  readonly colorPalette: readonly ProjectPaletteColor[];
   /** Human-facing application title. It may differ from the project file name. */
   readonly applicationName: string;
   /** Optional plain-text description emitted as browser metadata. */
@@ -524,6 +548,7 @@ export const DEFAULT_REST_GO_PROJECT_SETTINGS: Readonly<RestGoProjectSettings> =
 });
 
 export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze({
+  colorPalette: DEFAULT_PROJECT_COLOR_PALETTE,
   applicationName: 'WebRAD Application',
   applicationDescription: '',
   locale: 'pt-BR',

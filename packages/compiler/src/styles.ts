@@ -2,6 +2,9 @@ import {
   DEFAULT_PROJECT_SCROLLBAR_STYLE,
   type ComponentStyleModel,
   type ProjectScrollbarStyle,
+  type ProjectPaletteColor,
+  DEFAULT_PROJECT_COLOR_PALETTE,
+  projectColorPaletteCss,
 } from '@webrad/project-model';
 import {
   resolveComponentStyleClassNames,
@@ -198,6 +201,10 @@ export function compileTailwindStyles(styles: readonly ComponentStyleModel[]): P
 export function compileGeneratedAppStyles(
   styles: readonly ComponentStyleModel[],
   scrollbar: Readonly<ProjectScrollbarStyle> = DEFAULT_PROJECT_SCROLLBAR_STYLE,
+  colorPalette: readonly ProjectPaletteColor[] = DEFAULT_PROJECT_COLOR_PALETTE,
 ): Promise<string> {
-  return processTailwind(styles, `${GENERATED_APP_CSS}\n${projectScrollbarCss(scrollbar)}`);
+  return processTailwind(
+    styles,
+    `${GENERATED_APP_CSS}\n${projectScrollbarCss(scrollbar)}\n${projectColorPaletteCss(colorPalette)}`,
+  );
 }

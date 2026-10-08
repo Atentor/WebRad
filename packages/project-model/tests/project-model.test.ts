@@ -87,6 +87,38 @@ function component(
 }
 
 describe('project factories', () => {
+  it('persists stable palette identities and rejects the obsolete string-array format', () => {
+    const original = createProject('Palette');
+    expect(original.settings.colorPalette).toHaveLength(10);
+    const colors = Array.from({ length: 10 }, (_, index) => ({
+      id: `color-${index}`,
+      name: `Color ${index}`,
+      color: `#${index.toString(16).padStart(6, '0')}`,
+    }));
+    const updated = updateProjectSettings(original, { colorPalette: colors });
+    expect(original.settings.colorPalette).toHaveLength(10);
+    expect(deserializeProject(serializeProject(updated)).settings.colorPalette).toEqual(colors);
+    const manifest = deserializeProjectManifest(
+      serializeProjectManifest(projectToManifest(updated)),
+    );
+    expect(assembleProject(manifest, updated.pages).settings.colorPalette).toEqual(colors);
+    for (const colorPalette of [
+      [...colors, '#ffffff'],
+      ['red'],
+      ['#123'],
+      ['#gg0000'],
+      [17],
+      null,
+      [{ id: 'test', name: 'Color', color: '#123' }],
+      [{ id: 'test', name: '', color: '#ffffff' }],
+      [colors[0], colors[0]],
+    ]) {
+      expect(
+        safeParseProject({ ...updated, settings: { ...updated.settings, colorPalette } }).success,
+      ).toBe(false);
+    }
+  });
+
   it('creates a complete aggregate with an entry page and WebPage root', () => {
     const project = createProject('CustomerApp', {
       idFactory: idSequence('project-id', 'page-id', 'root-id'),
@@ -160,7 +192,7 @@ describe('project factories', () => {
       dataGridHeaderBackgroundColor: '#e0e7ff',
       dataGridHeaderTextColor: '#1e3a8a',
       dataGridFooterBackgroundColor: '#f8fafc',
-      dataGridFooterTextColor: '#334155',
+      dataGridFooterTextColor: 'var(--wr-palette-aurora-graphite)',
       dataGridButtonContentMode: 'text-icon',
       dataGridButtonIconPosition: 'left',
       dataGridButtonIconSize: { value: 16, unit: 'px' },
@@ -174,16 +206,16 @@ describe('project factories', () => {
       dataGridButtonPaddingX: { value: 8, unit: 'px' },
       dataGridButtonPaddingY: { value: 4, unit: 'px' },
       dataGridButtonFontWeight: 'semibold',
-      dataGridCheckboxAccentColor: '#2563eb',
+      dataGridCheckboxAccentColor: 'var(--wr-palette-aurora-blue)',
       dataGridCheckboxSize: { value: 16, unit: 'px' },
-      dataGridCheckboxTextColor: '#334155',
+      dataGridCheckboxTextColor: 'var(--wr-palette-aurora-graphite)',
       dataGridCheckboxFontWeight: 'medium',
       dataGridCheckboxGap: { value: 6, unit: 'px' },
     });
     expect(findDefaultComponentStyle(project.styles, 'WebPopup')?.states.base).toMatchObject({
-      borderRadius: { value: 16, unit: 'px' },
+      borderRadius: { value: 6, unit: 'px' },
       boxShadow: 'md',
-      textColor: '#0f172a',
+      textColor: 'var(--wr-palette-aurora-ink)',
     });
     const defaultCheckBox = findDefaultComponentStyle(project.styles, 'WebCheckBox');
     expect(defaultCheckBox).toBeDefined();
@@ -291,7 +323,7 @@ describe('project factories', () => {
       preset: 'default',
       states: {
         base: {
-          borderRadius: { value: 16, unit: 'px' },
+          borderRadius: { value: 6, unit: 'px' },
           boxShadow: 'md',
           textColor: '#0f172a',
         },

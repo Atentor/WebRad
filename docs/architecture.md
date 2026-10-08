@@ -1,5 +1,9 @@
 # WebRAD architecture
 
+Project colors are owned by `settings.colorPalette`, with up to ten named `{ id, name, color }` entries and a default Aurora palette. The renderer projects them through `ProjectColorPaletteContext`; shared pickers write bounded `var(--wr-palette-<id>)` references into existing string color properties and gradient endpoints. Native inputs resolve the current value while preserving that identity; custom edits replace the reference with a literal. Palette buttons remain separate from color-value fields, and `StylesColorPalettePanel` owns configuration with Save/Cancel and Restore Aurora.
+
+The Project Model validates stable identities and all saved references across styles, pages, reusable definitions, and scrollbars. Removing an entry detaches its references at their last value in one project update. Default style creation binds matching Aurora colors through the central style-property metadata. The renderer emits the current variables for the Designer/style previews; the compiler emits the same variables in ordinary browser CSS. Browser-safe runtime style projection supports palette references in every color and gradient candidate without changing typed component color APIs or introducing a Designer/Electron dependency. The old string-array palette shape has no compatibility layer.
+
 The About dialog identifies WebRAD as Powered by Atentor and highlights its website and documentation. Its `links.open(target)` preload API accepts only the typed `atentor` and `webrad` targets. The main process validates the trusted IDE main frame and exactly one allowed target before calling Electron `shell.openExternal` with the corresponding fixed HTTPS address (`https://atentor.com` or `https://webrad.atentor.com`). The renderer has no arbitrary URL-opening or Electron capability; browser-launch failures remain visible in the dialog.
 
 ## Direction

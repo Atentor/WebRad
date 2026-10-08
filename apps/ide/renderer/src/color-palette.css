@@ -1,0 +1,214 @@
+.wr-color-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.wr-color-palette-trigger {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  padding: 4px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  cursor: pointer;
+}
+
+.wr-color-palette-trigger > .wr-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.wr-color-palette-trigger:hover,
+.wr-color-palette-trigger[aria-expanded='true'] {
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
+}
+
+.wr-color-palette-trigger[data-linked='true'] {
+  color: var(--wr-accent);
+}
+
+.wr-color-palette-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.wr-color-palette-popover {
+  position: fixed;
+  inset: auto;
+  width: 212px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 6px;
+  background: var(--wr-panel-bg);
+  color: var(--wr-text);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 25%);
+  font-size: 12px;
+}
+
+.wr-color-palette-popover:popover-open {
+  display: grid;
+  gap: 10px;
+}
+
+.wr-color-palette-swatches {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wr-color-palette-swatches button {
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.wr-color-palette-swatches button[aria-pressed='true'] {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+
+.wr-color-palette-swatches button:focus-visible,
+.wr-color-palette-trigger:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+
+.wr-inspector-color-control,
+.wr-style-gradient-color-field,
+.wr-project-settings-scrollbar-color-row {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+}
+
+.wr-style-palette-entry {
+  display: flex;
+  width: calc(100% - 16px);
+  align-items: center;
+  gap: 8px;
+  margin: 8px;
+  padding: 8px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-panel-alt);
+  color: var(--wr-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wr-style-palette-entry[aria-pressed='true'] {
+  background: var(--wr-accent-soft);
+}
+
+.wr-style-palette-entry > .wr-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--wr-accent);
+}
+
+.wr-style-palette-entry small {
+  margin-left: auto;
+  color: var(--wr-muted-text);
+}
+
+.wr-styles-color-palette-panel {
+  width: 100%;
+  max-width: 680px;
+  padding: 20px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-panel-bg);
+}
+
+.wr-styles-color-palette-panel h2 {
+  color: var(--wr-text);
+  font-size: 16px;
+}
+
+.wr-styles-color-palette-panel > p {
+  margin: 10px 0 20px;
+  color: var(--wr-muted-text);
+  line-height: 1.5;
+}
+
+.wr-styles-color-palette-panel button {
+  padding: 6px 10px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  cursor: pointer;
+}
+
+.wr-styles-color-palette-panel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.wr-styles-color-palette-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.wr-project-color-palette-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  color: var(--wr-muted-text);
+}
+
+.wr-project-color-palette-heading button,
+.wr-project-color-palette-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wr-project-color-palette-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.wr-project-color-palette-row {
+  display: grid;
+  grid-template-columns: 52px 36px minmax(90px, 1fr) minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.wr-project-color-palette-row input[type='color'] {
+  width: 36px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+}
+
+.wr-project-color-palette-row input[type='text'] {
+  min-width: 0;
+  width: 100%;
+  height: 30px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  font-family: var(--wr-font-mono);
+}

@@ -114,6 +114,18 @@ export interface BackgroundGradientValue {
 export type StylePropertyValue = string | number | StyleLengthValue | BackgroundGradientValue;
 export type TailwindStyleProperties = Readonly<Record<string, StylePropertyValue | undefined>>;
 
+/** Stable, project-owned color identities use bounded CSS custom properties. */
+export function paletteColorId(value: unknown): string | undefined {
+  return typeof value === 'string'
+    ? /^var\(--wr-palette-([a-z][a-z0-9-]{0,63})\)$/u.exec(value)?.[1]
+    : undefined;
+}
+
+export function paletteColorReference(id: string): string {
+  if (!/^[a-z][a-z0-9-]{0,63}$/u.test(id)) throw new Error('Invalid palette color ID.');
+  return `var(--wr-palette-${id})`;
+}
+
 export interface TailwindStyleSource {
   readonly states: Readonly<Record<ComponentStyleStateName, TailwindStyleProperties>>;
 }
@@ -224,10 +236,10 @@ function isBackgroundGradientValue(value: unknown): value is BackgroundGradientV
     LINEAR_GRADIENT_DIRECTIONS.has(value.direction as LinearGradientDirection) &&
     'from' in value &&
     typeof value.from === 'string' &&
-    /^#[\da-f]{6}$/iu.test(value.from) &&
+    (/^#[\da-f]{6}$/iu.test(value.from) || paletteColorId(value.from) !== undefined) &&
     'to' in value &&
     typeof value.to === 'string' &&
-    /^#[\da-f]{6}$/iu.test(value.to)
+    (/^#[\da-f]{6}$/iu.test(value.to) || paletteColorId(value.to) !== undefined)
   );
 }
 
@@ -282,6 +294,7 @@ function mappedEnumClass(
 
 function colorClass(prefix: string, value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
+  if (paletteColorId(value) !== undefined) return `${prefix}-[color:${value}]`;
   if (value === 'current') return `${prefix}-current`;
   if (value === 'transparent' || value === 'inherit') return `${prefix}-${value}`;
   return /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/iu.test(value)
@@ -291,6 +304,7 @@ function colorClass(prefix: string, value: unknown): string | undefined {
 
 function cssColorValue(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
+  if (paletteColorId(value) !== undefined) return value;
   if (value === 'current') return 'currentColor';
   if (value === 'transparent' || value === 'inherit') return value;
   return /^#[\da-f]{6}$/iu.test(value) ? value.toLowerCase() : undefined;
@@ -353,6 +367,7 @@ const DEFAULT_BORDER_GRADIENT_FILL =
 
 function backgroundColorValue(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
+  if (paletteColorId(value) !== undefined) return value;
   if (/^#[\da-f]{6}$/iu.test(value)) return value.toLowerCase();
   if (value === 'transparent') return value;
   if (value === 'current') return 'currentColor';

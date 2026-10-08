@@ -1175,6 +1175,7 @@ describe('App MVP integration', () => {
     const applicationName = within(dialog).getByRole('textbox', { name: /^Application name/ });
     await user.clear(applicationName);
     await user.type(applicationName, 'Mvp Portal');
+    expect(within(dialog).queryByRole('tab', { name: 'Color palette' })).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Settings for MvpProject' })).toBeNull();
@@ -1192,6 +1193,27 @@ describe('App MVP integration', () => {
       ).value,
     ).toBe('Mvp Portal');
     await user.click(within(reopenedDialog).getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Styles' }));
+    await user.click(screen.getByRole('button', { name: 'Color palette' }));
+    fireEvent.change(screen.getByLabelText('Palette color 1'), { target: { value: '#007acc' } });
+    await user.click(screen.getByRole('button', { name: 'Save palette' }));
+    await user.click(screen.getByRole('button', { name: 'Color palette' }));
+    expect((screen.getByLabelText('Palette color 1 hex') as HTMLInputElement).value).toBe(
+      '#007acc',
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await waitFor(() =>
+      expect(harness.persisted().project.settings.colorPalette[0]).toMatchObject({
+        id: 'aurora-blue',
+        color: '#007acc',
+      }),
+    );
+    await user.click(screen.getByRole('option', { name: 'Button' }));
+    await user.click(screen.getByRole('button', { name: 'All properties' }));
+    expect(
+      screen.getByRole('button', { name: 'Predefined colors for Background gradient from color' }),
+    ).toBeDefined();
   });
 
   it('creates a reusable definition and inserts its page-owned instance', async () => {

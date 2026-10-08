@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest';
+import { COMPONENT_STYLE_PROPERTY_DEFINITIONS } from '@webrad/project-model';
 
 import {
   WEBRAD_COMPONENT_CSS,
@@ -35,6 +36,8 @@ import {
   resolveStylePropertyCandidate,
   runtimeEventName,
   tokenizeTailwindClasses,
+  paletteColorId,
+  paletteColorReference,
   type RuntimeComponentLayout,
   type RuntimeComponentNode,
   type WebDataGridCellEventDetail,
@@ -332,6 +335,29 @@ const inspectorPropertyPageModel = withDefaultLayouts({
 });
 
 describe('browser runtime', () => {
+  it('projects palette references through every color and gradient candidate', () => {
+    const linked = paletteColorReference('aurora-blue');
+    expect(paletteColorId(linked)).toBe('aurora-blue');
+    expect(paletteColorId('#2563eb')).toBeUndefined();
+    expect(paletteColorId('var(--wr-palette-evil);color:red')).toBeUndefined();
+    expect(() => paletteColorReference('bad;id')).toThrow();
+    for (const definition of COMPONENT_STYLE_PROPERTY_DEFINITIONS) {
+      if (definition.editor.kind === 'color')
+        expect(resolveStylePropertyCandidate(definition.name, linked), definition.name).toContain(
+          linked,
+        );
+      if (definition.editor.kind === 'gradient')
+        expect(
+          resolveStylePropertyCandidate(definition.name, {
+            kind: 'linear',
+            direction: 'to-right',
+            from: linked,
+            to: paletteColorReference('aurora-violet'),
+          }),
+          definition.name,
+        ).toContain(linked);
+    }
+  });
   it.each(['row', 'column'] as const)(
     'projects per-item alignment in a %s without changing its siblings',
     (mode) => {

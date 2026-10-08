@@ -1,5 +1,6 @@
 import { ModelUpdateError } from './errors.js';
 import { applyDefaultComponentStyle } from './default-styles.js';
+import { detachPaletteColors } from './color-palette.js';
 import {
   assertValidPageName,
   assertValidTypeScriptIdentifier,
@@ -652,7 +653,35 @@ export function updateProjectSettings(
   patch: Partial<ProjectSettings>,
 ): WebRadProject {
   const project = parseProject(projectInput);
-  return parseProject({ ...project, settings: { ...project.settings, ...patch } });
+  const settings = { ...project.settings, ...patch };
+  const removed = new Map(
+    project.settings.colorPalette
+      .filter((color) => !settings.colorPalette.some((entry) => entry.id === color.id))
+      .map((entry) => [entry.id, entry.color]),
+  );
+  if (removed.size === 0) return parseProject({ ...project, settings });
+  return parseProject({
+    ...project,
+    pages: project.pages.map((page) => ({
+      ...page,
+      components: page.components.map((node) => ({
+        ...node,
+        props: detachPaletteColors(node.props, removed),
+      })),
+    })),
+    reusableElements: project.reusableElements.map((page) => ({
+      ...page,
+      components: page.components.map((node) => ({
+        ...node,
+        props: detachPaletteColors(node.props, removed),
+      })),
+    })),
+    styles: project.styles.map((style) => ({
+      ...style,
+      states: detachPaletteColors(style.states, removed),
+    })),
+    settings: { ...settings, scrollbar: detachPaletteColors(settings.scrollbar, removed) },
+  });
 }
 
 export const setComponentProps = updateComponentProps;
