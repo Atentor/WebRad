@@ -184,6 +184,8 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 
 ## Decision log
 
+- New Button, Edit, and Combo Box components use a default height of 36 px instead of 32 px; saved component bounds remain project-owned.
+
 - Styles replaces the page tree and insertion palette with a component-type selection list. The style library filters by that selection, new styles start with that type, and deletion keeps selection within its styles.
 - Component-filtered Styles validation: strict typecheck, lint, 30 focused editor/application tests, and Windows build passed. Packaged renderer smoke stopped before Styles at the existing toolbar brand-icon assertion (`toolbarBrandIcon: false`); live visual verification remains pending.
 

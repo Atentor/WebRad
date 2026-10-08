@@ -215,7 +215,7 @@ describe('MVP component metadata', () => {
         'door-out',
       ]),
     });
-    expect(button.defaultBounds).toEqual({ width: 100, height: 32 });
+    expect(button.defaultBounds).toEqual({ width: 100, height: 36 });
     expect(button.events.map((item) => item.name)).toEqual([
       'OnClick',
       'OnFocus',
@@ -498,7 +498,7 @@ describe('sequential names and node defaults', () => {
       name: 'Button2',
       parentId: 'root-id',
       layout: defaultLayout(),
-      bounds: { x: 420, y: 300, width: 100, height: 32 },
+      bounds: { x: 420, y: 300, width: 100, height: 36 },
       props: {
         caption: 'Gravar',
         icon: 'add',

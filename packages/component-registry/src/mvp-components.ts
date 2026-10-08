@@ -427,11 +427,11 @@ function event(
 const pageBounds = { width: 800, height: 600 } as const;
 const panelBounds = { width: 240, height: 160 } as const;
 const labelBounds = { width: 80, height: 24 } as const;
-const editBounds = { width: 160, height: 32 } as const;
+const editBounds = { width: 160, height: 36 } as const;
 const textAreaBounds = { width: 240, height: 96 } as const;
-const buttonBounds = { width: 100, height: 32 } as const;
+const buttonBounds = { width: 100, height: 36 } as const;
 const checkBoxBounds = { width: 120, height: 24 } as const;
-const comboBoxBounds = { width: 160, height: 32 } as const;
+const comboBoxBounds = { width: 160, height: 36 } as const;
 const imageBounds = { width: 160, height: 120 } as const;
 const listBoxBounds = { width: 180, height: 120 } as const;
 const apiClientBounds = { width: 112, height: 52 } as const;
