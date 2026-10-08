@@ -111,7 +111,21 @@ it.runIf(browserPath !== undefined)(
                 container: { ...node.layout.container, mode: 'row', gap: 7 },
               },
             }
-          : node,
+          : node.id.startsWith('control-')
+            ? {
+                ...node,
+                layout: {
+                  ...node.layout,
+                  item: {
+                    ...node.layout.item,
+                    alignSelf:
+                      (['start', 'center', 'end', 'auto', 'stretch'] as const)[
+                        Number(node.id.slice('control-'.length))
+                      ] ?? 'auto',
+                  },
+                },
+              }
+            : node,
       ),
     };
     project = updatePage(project, page.id, page);
@@ -121,9 +135,6 @@ it.runIf(browserPath !== undefined)(
     project = setComponentStyle(project, page.id, 'control-5', null);
     page = project.pages[0];
     if (page === undefined) throw new Error('Missing styled page.');
-    const compiled = await compileProjectToMemory(project, { userSources: {} });
-    expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
-    if (compiled.previewHtml === undefined) throw new Error('Missing compiled Preview.');
     const css = await compileTailwindStyles(project.styles);
     const chromeCss = (
       await Promise.all(
@@ -134,41 +145,62 @@ it.runIf(browserPath !== undefined)(
     ).join('\n');
     const noop = (): void => {};
     const fixtures: string[] = [];
-    for (const theme of ['dark', 'light']) {
-      for (const [viewportName, width] of [
-        ['desktop', 1280],
-        ['tablet', 768],
-        ['mobile', 390],
-      ] as const) {
-        for (const zoom of [75, 100]) {
-          const designer = renderToStaticMarkup(
-            createElement(DesignerSurface, {
-              page,
-              styles: project.styles,
-              settings: { ...project.settings, showGrid: false },
-              viewportName,
-              showToolbar: false,
-              compiledStylesCss: css,
-              selectedIds: [],
-              selectedPaletteType: null,
-              zoom,
-              onSelect: noop,
-              onAddComponent: noop,
-              onMoveComponents: noop,
-              onResizeComponent: noop,
-              onDeleteSelection: noop,
-              onCopy: noop,
-              onPaste: noop,
-              onUndo: noop,
-              onRedo: noop,
-              onBringToFront: noop,
-              onSendToBack: noop,
-              onZoomChange: noop,
-            }),
-          );
-          fixtures.push(`<section data-case="${theme}/${viewportName}/${String(zoom)}" data-theme="${theme}" data-zoom="${String(zoom)}">
-            ${designer}<iframe title="Compiled Preview" width="${String(width)}" height="400"
+    for (const layoutMode of ['row', 'column'] as const) {
+      const layoutPage = {
+        ...page,
+        components: page.components.map((node) =>
+          node.id === page.rootComponentId
+            ? {
+                ...node,
+                layout: {
+                  ...node.layout,
+                  container: { ...node.layout.container, mode: layoutMode },
+                },
+              }
+            : node,
+        ),
+      };
+      const compiled = await compileProjectToMemory(updatePage(project, page.id, layoutPage), {
+        userSources: {},
+      });
+      expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
+      if (compiled.previewHtml === undefined) throw new Error('Missing compiled Preview.');
+      for (const theme of ['dark', 'light']) {
+        for (const [viewportName, width] of [
+          ['desktop', 1280],
+          ['tablet', 768],
+          ['mobile', 390],
+        ] as const) {
+          for (const zoom of [75, 100]) {
+            const designer = renderToStaticMarkup(
+              createElement(DesignerSurface, {
+                page: layoutPage,
+                styles: project.styles,
+                settings: { ...project.settings, showGrid: false },
+                viewportName,
+                showToolbar: false,
+                compiledStylesCss: css,
+                selectedIds: [],
+                selectedPaletteType: null,
+                zoom,
+                onSelect: noop,
+                onAddComponent: noop,
+                onMoveComponents: noop,
+                onResizeComponent: noop,
+                onDeleteSelection: noop,
+                onCopy: noop,
+                onPaste: noop,
+                onUndo: noop,
+                onRedo: noop,
+                onBringToFront: noop,
+                onSendToBack: noop,
+                onZoomChange: noop,
+              }),
+            );
+            fixtures.push(`<section data-case="${layoutMode}/${theme}/${viewportName}/${String(zoom)}" data-layout="${layoutMode}" data-theme="${theme}" data-zoom="${String(zoom)}">
+            ${designer}<iframe title="Compiled Preview" width="${String(width)}" height="400" style="border:0"
               srcdoc="${attribute(compiled.previewHtml)}"></iframe></section>`);
+          }
         }
       }
     }
@@ -282,7 +314,7 @@ it.runIf(browserPath !== undefined)(
       let loaded = false;
       while (!loaded && Date.now() < deadline) {
         const readiness = await send('Runtime.evaluate', {
-          expression: `document.querySelectorAll('iframe').length === 12 && [...document.querySelectorAll('iframe')].every(frame => frame.contentDocument?.querySelector('[data-webrad-id="control-0"]'))`,
+          expression: `document.querySelectorAll('iframe').length === 24 && [...document.querySelectorAll('iframe')].every(frame => frame.contentDocument?.querySelector('[data-webrad-id="control-0"]'))`,
           returnByValue: true,
         });
         loaded = (readiness.result as { value?: boolean } | undefined)?.value === true;
@@ -302,7 +334,7 @@ it.runIf(browserPath !== undefined)(
             const runtimeSecond = frame.contentDocument.querySelector('[data-webrad-id="control-1"]');
             const designerGap = (designerSecond.getBoundingClientRect().left - designerFirst.getBoundingClientRect().right) / (fixture.dataset.zoom / 100);
             const runtimeGap = runtimeSecond.getBoundingClientRect().left - runtimeFirst.getBoundingClientRect().right;
-            if (Math.abs(runtimeGap - 24) > 0.1 || Math.abs(designerGap - runtimeGap) > 0.1) failures.push({ case: fixture.dataset.case, designerGap, runtimeGap });
+            if (fixture.dataset.layout === 'row' && (Math.abs(runtimeGap - 24) > 0.1 || Math.abs(designerGap - runtimeGap) > 0.1)) failures.push({ case: fixture.dataset.case, designerGap, runtimeGap });
             for (let index = 0; index < 6; index++) {
               const id = 'control-' + index;
               const designer = fixture.querySelector('.wr-component[data-component-id="' + id + '"]');
@@ -310,6 +342,17 @@ it.runIf(browserPath !== undefined)(
               const left = getComputedStyle(designer);
               const right = frame.contentWindow.getComputedStyle(runtime);
               const host = designer.parentElement;
+              if (getComputedStyle(host).alignSelf !== right.alignSelf) failures.push({ case: fixture.dataset.case, id, alignment: [getComputedStyle(host).alignSelf, right.alignSelf] });
+              if (index < 5) {
+                const axis = fixture.dataset.layout === 'row' ? 'top' : 'left';
+                const designerRoot = fixture.querySelector('[data-component-id="${page.rootComponentId}"]');
+                const runtimeRoot = frame.contentDocument.querySelector('[data-webrad-id="${page.rootComponentId}"]');
+                const designerOffset = (designer.getBoundingClientRect()[axis] - designerRoot.getBoundingClientRect()[axis]) / (fixture.dataset.zoom / 100);
+                const runtimeOffset = runtime.getBoundingClientRect()[axis] - runtimeRoot.getBoundingClientRect()[axis];
+                if (Math.abs(designerOffset-runtimeOffset) > 1) failures.push({ case: fixture.dataset.case, id, axis, designerOffset, runtimeOffset });
+                if (index === 1 && runtimeOffset <= 0) failures.push({ case: fixture.dataset.case, id, alignment: 'center did not move the item' });
+                if (index === 2 && runtimeOffset <= 0) failures.push({ case: fixture.dataset.case, id, alignment: 'end did not move the item' });
+              }
               for (const property of ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']) {
                 if (getComputedStyle(host)[property] !== right[property]) failures.push({ case: fixture.dataset.case, id, property, designer: getComputedStyle(host)[property], preview: right[property] });
               }
@@ -333,7 +376,7 @@ it.runIf(browserPath !== undefined)(
         }
       ).value;
       expect(evidence.failures, JSON.stringify(evidence.failures, null, 2)).toEqual([]);
-      expect(evidence.sizes).toHaveLength(72);
+      expect(evidence.sizes).toHaveLength(144);
       expect(evidence.ideFontSize).toBe('12px');
       await send('Browser.close');
     } finally {

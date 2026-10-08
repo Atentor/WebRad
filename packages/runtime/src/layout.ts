@@ -11,6 +11,7 @@ export type RuntimeLayoutAnchor = 'start' | 'center' | 'end' | 'stretch';
 export type RuntimeLayoutJustifyContent =
   'start' | 'center' | 'end' | 'space-between' | 'space-around';
 export type RuntimeLayoutAlignItems = 'start' | 'center' | 'end' | 'stretch';
+export type RuntimeLayoutAlignSelf = 'auto' | RuntimeLayoutAlignItems;
 
 export interface RuntimeContainerLayout {
   readonly mode: RuntimeContainerLayoutMode;
@@ -33,6 +34,7 @@ export interface RuntimeLayoutItem {
   readonly maxHeight: number | null;
   readonly grow: number;
   readonly shrink: boolean;
+  readonly alignSelf?: RuntimeLayoutAlignSelf;
   readonly horizontalAnchor: RuntimeLayoutAnchor;
   readonly verticalAnchor: RuntimeLayoutAnchor;
   readonly left: number;
@@ -132,6 +134,7 @@ const DEFAULT_LAYOUT_ITEM: RuntimeLayoutItem = Object.freeze({
   maxHeight: null,
   grow: 0,
   shrink: true,
+  alignSelf: 'auto',
   horizontalAnchor: 'start',
   verticalAnchor: 'start',
   left: 0,
@@ -537,6 +540,9 @@ function flowItemStyles(
     'flex-shrink': mainSize === 'fit-content' || !item.shrink ? '0' : '1',
     ...mainStyles,
     ...crossStyles,
+    ...(item.alignSelf !== undefined && item.alignSelf !== 'auto'
+      ? { 'align-self': flexAlignment(item.alignSelf) }
+      : {}),
     ...minMaxStyles(item),
   };
 }

@@ -332,6 +332,61 @@ const inspectorPropertyPageModel = withDefaultLayouts({
 });
 
 describe('browser runtime', () => {
+  it.each(['row', 'column'] as const)(
+    'projects per-item alignment in a %s without changing its siblings',
+    (mode) => {
+      const parent = responsiveLayout({ mode, alignItems: 'start' });
+      for (const alignSelf of ['auto', 'start', 'center', 'end', 'stretch'] as const) {
+        const node = {
+          bounds: { x: 0, y: 0, width: 100, height: 32 },
+          layout: responsiveLayout({}, { alignSelf }),
+        };
+        const expected =
+          alignSelf === 'start'
+            ? 'flex-start'
+            : alignSelf === 'end'
+              ? 'flex-end'
+              : alignSelf === 'auto'
+                ? undefined
+                : alignSelf;
+        expect(projectRuntimeLayout(node, parent.container).item['align-self']).toBe(expected);
+        const stretched = {
+          ...node,
+          layout: responsiveLayout(
+            {},
+            { alignSelf, [mode === 'row' ? 'height' : 'width']: 'stretch' },
+          ),
+        };
+        expect(projectRuntimeLayout(stretched, parent.container).item['align-self']).toBe(
+          alignSelf === 'auto' ? 'stretch' : expected,
+        );
+      }
+      const mounted = mountPage({
+        ...pageModel,
+        components: pageModel.components.map((node) => ({
+          ...node,
+          layout:
+            node.id === pageModel.rootComponentId
+              ? parent
+              : responsiveLayout({}, { alignSelf: node.id === 'button-show' ? 'end' : 'auto' }),
+        })),
+      });
+      const button = mounted.components.get('button-show');
+      if (button === undefined) throw new Error('Missing alignment button.');
+      expect(button.alignSelf).toBe('end');
+      button.alignSelf = 'center';
+      expect(button.element.style.alignSelf).toBe('center');
+      expect(button.element.style.getPropertyPriority('align-self')).toBe('important');
+      expect(mounted.page.element.style.alignItems).toBe('flex-start');
+      expect(mounted.page.requireComponentElement('edit-name').style.alignSelf).toBe('');
+      expect(() => Reflect.set(button, 'alignSelf', 'middle')).toThrow(TypeError);
+      expect(button.alignSelf).toBe('center');
+      button.alignSelf = 'auto';
+      expect(button.alignSelf).toBe('auto');
+      mounted.dispose();
+    },
+  );
+
   it('projects saved margins and exposes a finite pixel API without resetting legacy style margins', () => {
     const node = pageModel.components.find((component) => component.type === 'WebButton');
     if (node === undefined) throw new Error('Missing button fixture.');

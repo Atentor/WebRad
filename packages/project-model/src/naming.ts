@@ -81,6 +81,7 @@ const GENERATED_PAGE_BASE_MEMBER_NAMES = new Set([
   'id',
   'isPrototypeOf',
   'layoutMode',
+  'alignSelf',
   'margin',
   'marginTop',
   'marginRight',

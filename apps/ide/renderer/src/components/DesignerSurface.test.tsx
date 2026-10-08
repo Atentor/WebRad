@@ -84,6 +84,31 @@ function responsivePage(): PageModel {
   };
 }
 
+it('projects individual item alignment onto the Designer layout hosts', () => {
+  const page = responsivePage();
+  const { container } = renderSurface({
+    ...page,
+    components: page.components.map((node) =>
+      node.id === 'first'
+        ? {
+            ...node,
+            layout: { ...node.layout, item: { ...node.layout.item, alignSelf: 'center' } },
+          }
+        : node.id === 'second'
+          ? { ...node, layout: { ...node.layout, item: { ...node.layout.item, alignSelf: 'end' } } }
+          : node,
+    ),
+  });
+  expect(
+    container.querySelector<HTMLElement>('[data-component-id="first"]')?.parentElement?.style
+      .alignSelf,
+  ).toBe('center');
+  expect(
+    container.querySelector<HTMLElement>('[data-component-id="second"]')?.parentElement?.style
+      .alignSelf,
+  ).toBe('flex-end');
+});
+
 function pageWithApiClient(): PageModel {
   const page = responsivePage();
   const root = page.components.find((component) => component.id === page.rootComponentId);

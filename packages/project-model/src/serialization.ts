@@ -79,6 +79,7 @@ const KEY_ORDER = new Map<string, number>(
     'maxHeight',
     'grow',
     'shrink',
+    'alignSelf',
     'horizontalAnchor',
     'verticalAnchor',
     'left',

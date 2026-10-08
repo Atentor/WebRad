@@ -2,6 +2,8 @@
 
 Visual component property bags may include `margin`, a finite numeric outer spacing in pixels applied equally to all four sides, and independent `marginTop`, `marginRight`, `marginBottom`, and `marginLeft` overrides. These optional properties do not change the version-2 format or component IDs. Each saved side overrides the shared margin on that side, including explicit zero. Absent values preserve existing style margins, or inherit the shared margin when present. Inspector fallbacks are not persisted until edited.
 
+Version-2 `layout.item` may include `alignSelf` (`auto`, `start`, `center`, `end`, or `stretch`) for individual cross-axis alignment in row/column parents. Parsing a document without this field materializes `auto`; new components use that default. Explicit values override `layout.container.alignItems` on the parent for that item only. Serialization preserves the field in the structural layout section; component IDs and format versions remain unchanged.
+
 Every persisted structure carries `formatVersion`. The current Page-based format is version 2, uses UTF-8 JSON, and separates visual state from TypeScript source.
 
 ```text

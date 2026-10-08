@@ -259,6 +259,7 @@ function createDefaultLayout(): RegisteredComponentNode['layout'] {
       maxHeight: null,
       grow: 0,
       shrink: true,
+      alignSelf: 'auto',
       horizontalAnchor: 'start',
       verticalAnchor: 'start',
       left: 0,

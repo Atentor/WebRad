@@ -88,6 +88,7 @@ export interface RegisteredLayoutItem {
   readonly maxHeight: number | null;
   readonly grow: number;
   readonly shrink: boolean;
+  readonly alignSelf?: 'auto' | 'start' | 'center' | 'end' | 'stretch';
   readonly horizontalAnchor: 'start' | 'center' | 'end' | 'stretch';
   readonly verticalAnchor: 'start' | 'center' | 'end' | 'stretch';
   readonly left: number;

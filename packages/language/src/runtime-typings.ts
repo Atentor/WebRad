@@ -137,6 +137,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     marginRight: number;
     marginBottom: number;
     marginLeft: number;
+    alignSelf: RuntimeLayoutAlignSelf;
     tabIndex: number;
     backgroundColor: string;
     color: string;
@@ -189,6 +190,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     | 'space-between'
     | 'space-around';
   export type RuntimeLayoutAlignItems = 'start' | 'center' | 'end' | 'stretch';
+  export type RuntimeLayoutAlignSelf = 'auto' | RuntimeLayoutAlignItems;
 
   export interface RuntimeContainerLayout {
     readonly mode: RuntimeContainerLayoutMode;
@@ -211,6 +213,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     readonly maxHeight: number | null;
     readonly grow: number;
     readonly shrink: boolean;
+    readonly alignSelf?: RuntimeLayoutAlignSelf;
     readonly horizontalAnchor: RuntimeLayoutAnchor;
     readonly verticalAnchor: RuntimeLayoutAnchor;
     readonly left: number;

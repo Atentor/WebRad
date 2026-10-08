@@ -34,8 +34,10 @@ export function organizeInspectorProperty(
             ? 'Limits'
             : ['itemGrow', 'itemShrink'].includes(property.name)
               ? 'Flex'
-              : 'Sizing',
-      editorLayout: 'compact',
+              : property.name === 'itemAlignSelf'
+                ? 'Alignment'
+                : 'Sizing',
+      editorLayout: property.name === 'itemAlignSelf' ? undefined : 'compact',
     };
   }
   if (property.source === 'layout-container') {

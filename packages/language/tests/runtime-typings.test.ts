@@ -163,12 +163,15 @@ const margin${String(index)}: number = component${String(index)}.margin;
 component${String(index)}.marginTop = 1;
 component${String(index)}.marginRight = 2;
 component${String(index)}.marginBottom = 3;
-const left${String(index)}: number = component${String(index)}.marginLeft;`,
+const left${String(index)}: number = component${String(index)}.marginLeft;
+component${String(index)}.alignSelf = 'center';`,
   )
   .join('\n')}
 component0.marginLeft = '12px';
+component0.alignSelf = 'middle';
 declare const api: WebApiClient;
 api.marginTop = 12;
+api.alignSelf = 'center';
 `);
     const { service, fileName } = createLanguageService(marked.text);
     try {
@@ -182,11 +185,12 @@ api.marginTop = 12;
             'marginRight',
             'marginBottom',
             'marginLeft',
+            'alignSelf',
           ]),
         );
       }
       expect(service.getSemanticDiagnostics(fileName).map((diagnostic) => diagnostic.code)).toEqual(
-        [2322, 2339],
+        [2322, 2322, 2339, 2339],
       );
     } finally {
       service.dispose();

@@ -242,7 +242,9 @@ function containerLayoutProperties(): readonly ComponentPropertyDefinition[] {
     },
     {
       name: 'containerAlignItems',
-      label: 'Align items',
+      label: 'Default alignment',
+      description:
+        'Default cross-axis alignment for children. Each child can override it with Item alignment.',
       type: 'enum',
       category: 'Responsive layout',
       source: 'layout-container',
@@ -327,6 +329,17 @@ function layoutItemProperties(): readonly ComponentPropertyDefinition[] {
       category: 'Responsive layout',
       source: 'layout-item',
       defaultValue: true,
+    },
+    {
+      name: 'itemAlignSelf',
+      label: 'Item alignment',
+      description:
+        'Cross-axis alignment for this item in a row or column. Auto inherits the parent alignment; responsive cross-axis stretch retains its sizing behavior.',
+      type: 'enum',
+      category: 'Responsive layout',
+      source: 'layout-item',
+      defaultValue: 'auto',
+      options: ['auto', 'start', 'center', 'end', 'stretch'],
     },
     {
       name: 'itemHorizontalAnchor',

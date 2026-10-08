@@ -1,3 +1,5 @@
+import type { RuntimeLayoutAlignSelf } from './layout.js';
+
 export type WebComponentEventHandler<TSender = WebComponent> = (
   sender: TSender,
   event: Event,
@@ -203,6 +205,22 @@ export class WebComponent<TElement extends HTMLElement = HTMLElement> {
 
   public get tabIndex(): number {
     return this.element.tabIndex;
+  }
+
+  /** Cross-axis alignment in a row/column parent; auto inherits the parent. */
+  public get alignSelf(): RuntimeLayoutAlignSelf {
+    const value = this.element.style.alignSelf;
+    if (value === 'flex-start') return 'start';
+    if (value === 'flex-end') return 'end';
+    return value === 'center' || value === 'stretch' ? value : 'auto';
+  }
+
+  public set alignSelf(value: RuntimeLayoutAlignSelf) {
+    if (!['auto', 'start', 'center', 'end', 'stretch'].includes(value)) {
+      throw new TypeError('alignSelf must be auto, start, center, end, or stretch.');
+    }
+    const css = value === 'start' ? 'flex-start' : value === 'end' ? 'flex-end' : value;
+    this.element.style.setProperty('align-self', css, 'important');
   }
 
   /** Outer spacing on all four sides, in pixels. */

@@ -510,6 +510,50 @@ describe('project factories', () => {
     expect(project.pages[0]?.components[0]?.layout).toEqual(DEFAULT_COMPONENT_LAYOUT);
   });
 
+  it('persists per-item alignment, validates it and restores auto for documents without it', () => {
+    const page = createPage('AlignmentPage');
+    const button = component(
+      'alignment-button',
+      'WebButton',
+      'AlignedButton',
+      page.rootComponentId,
+    );
+    const saved = addComponent(
+      page,
+      {
+        ...button,
+        layout: { ...button.layout, item: { ...button.layout.item, alignSelf: 'end' } },
+      },
+      page.rootComponentId,
+    );
+    expect(
+      deserializePage(serializePage(saved)).components.find((node) => node.id === button.id)?.layout
+        .item.alignSelf,
+    ).toBe('end');
+    const legacy = {
+      ...saved,
+      components: saved.components.map((node) => {
+        const item = { ...node.layout.item };
+        delete item.alignSelf;
+        return { ...node, layout: { ...node.layout, item } };
+      }),
+    };
+    expect(
+      deserializePage(JSON.stringify(legacy)).components.every(
+        (node) => node.layout.item.alignSelf === 'auto',
+      ),
+    ).toBe(true);
+    expect(
+      safeParsePage({
+        ...saved,
+        components: saved.components.map((node) => ({
+          ...node,
+          layout: { ...node.layout, item: { ...node.layout.item, alignSelf: 'middle' } },
+        })),
+      }).success,
+    ).toBe(false);
+  });
+
   it('allows portable display names for projects while page names remain identifiers', () => {
     const project = createProject('Customer App', idSequence('project-id', 'page-id', 'root-id'));
     expect(project.name).toBe('Customer App');
@@ -834,6 +878,7 @@ describe('name validation', () => {
       'height',
       'layoutMode',
       'margin',
+      'alignSelf',
       'marginTop',
       'marginRight',
       'marginBottom',

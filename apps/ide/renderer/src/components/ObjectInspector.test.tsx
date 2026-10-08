@@ -80,6 +80,19 @@ describe('ObjectInspector', () => {
       );
       expect((screen.getByLabelText('Margin left') as HTMLInputElement).value).toBe('0');
       expect((screen.getByLabelText('Margin right') as HTMLInputElement).value).toBe('12');
+      if (definition.properties.some((property) => property.name === 'itemAlignSelf')) {
+        const alignment = screen.getByLabelText('Item alignment');
+        expect((alignment as HTMLSelectElement).value).toBe('auto');
+        expect(alignment.closest('details')?.querySelector('summary')?.textContent).toBe(
+          'Responsive size',
+        );
+        fireEvent.change(alignment, { target: { value: 'end' } });
+        expect(onPropertyChange).toHaveBeenLastCalledWith(
+          'itemAlignSelf',
+          'end',
+          expect.objectContaining({ source: 'layout-item' }),
+        );
+      }
     }
   });
 

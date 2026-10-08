@@ -15,7 +15,7 @@ import {
 import { JSDOM } from 'jsdom';
 import { expect, it } from 'vitest';
 
-it('persists Margin and executes typed bare and this-qualified margin access in compiled Preview', async () => {
+it('persists spacing and alignment and executes their typed component APIs in compiled Preview', async () => {
   let project = createProject('ComponentMargin');
   const reusable = createReusableElement('MarginReusable');
   project = addReusableElement(project, reusable);
@@ -87,6 +87,13 @@ it('persists Margin and executes typed bare and this-qualified margin access in 
     );
   }
   page = bindComponentEvent(page, page.rootComponentId, 'OnCreate', 'applyMargins');
+  page = {
+    ...page,
+    components: page.components.map((node) => ({
+      ...node,
+      layout: { ...node.layout, item: { ...node.layout.item, alignSelf: 'end' } },
+    })),
+  };
   const restored = deserializePage(serializePage(page));
   expect(restored).toEqual(page);
   project = updatePage(project, page.id, restored);
@@ -101,7 +108,9 @@ ${visuals
     Margin${definition.type}.marginTop = 5;
     this.Margin${definition.type}.marginRight = 6;
     Margin${definition.type}.marginBottom = 7;
-    this.Margin${definition.type}.marginLeft = 8;`,
+    this.Margin${definition.type}.marginLeft = 8;
+    Margin${definition.type}.alignSelf = 'end';
+    this.Margin${definition.type}.alignSelf = 'center';`,
   )
   .join('\n')}
   }
@@ -131,6 +140,11 @@ ${visuals
           `[data-webrad-id="margin-${definition.type}"]`,
         )?.style.margin,
       ).toBe('5px 6px 7px 8px');
+      expect(
+        dom.window.document.querySelector<HTMLElement>(
+          `[data-webrad-id="margin-${definition.type}"]`,
+        )?.style.alignSelf,
+      ).toBe('center');
     }
   } finally {
     dom.window.close();

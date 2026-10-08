@@ -27,6 +27,8 @@ export type LayoutJustifyContent = (typeof LAYOUT_JUSTIFY_CONTENT_VALUES)[number
 
 export const LAYOUT_ALIGN_ITEMS_VALUES = ['start', 'center', 'end', 'stretch'] as const;
 export type LayoutAlignItems = (typeof LAYOUT_ALIGN_ITEMS_VALUES)[number];
+export const LAYOUT_ALIGN_SELF_VALUES = ['auto', ...LAYOUT_ALIGN_ITEMS_VALUES] as const;
+export type LayoutAlignSelf = (typeof LAYOUT_ALIGN_SELF_VALUES)[number];
 
 /** Instance placement modes for a `WebReusableElement` wrapper. */
 export const REUSABLE_ELEMENT_PLACEMENTS = ['in-flow', 'floating'] as const;
@@ -70,6 +72,8 @@ export interface LayoutItem {
   readonly maxHeight: number | null;
   readonly grow: number;
   readonly shrink: boolean;
+  /** Optional per-item cross-axis override for row/column parents. */
+  readonly alignSelf?: LayoutAlignSelf;
   readonly horizontalAnchor: LayoutAnchor;
   readonly verticalAnchor: LayoutAnchor;
   readonly left: number;
@@ -557,6 +561,7 @@ export const DEFAULT_LAYOUT_ITEM: Readonly<LayoutItem> = Object.freeze({
   maxHeight: null,
   grow: 0,
   shrink: true,
+  alignSelf: 'auto',
   horizontalAnchor: 'start',
   verticalAnchor: 'start',
   left: 0,

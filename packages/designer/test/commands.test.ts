@@ -138,6 +138,17 @@ describe('component commands', () => {
     ).toThrow(DesignerModelError);
   });
 
+  it('changes one item alignment independently and restores it through undo/redo', () => {
+    const history = new CommandHistory(pageFixture());
+    history.execute(new ChangeLayoutPropertyCommand('a', 'item', 'alignSelf', 'center'));
+    expect(findDesignerComponent(history.state, 'a').layout.item.alignSelf).toBe('center');
+    expect(findDesignerComponent(history.state, 'b').layout.item.alignSelf).toBe('auto');
+    history.undo();
+    expect(findDesignerComponent(history.state, 'a').layout.item.alignSelf).toBe('auto');
+    history.redo();
+    expect(findDesignerComponent(history.state, 'a').layout.item.alignSelf).toBe('center');
+  });
+
   it('reorders direct flow siblings while preserving component IDs and undo history', () => {
     const history = new CommandHistory(pageFixture());
     history.execute(new ReorderComponentsCommand('root', 'b', 'a'));
