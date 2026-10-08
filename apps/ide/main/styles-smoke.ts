@@ -72,6 +72,18 @@ async function setField(window: BrowserWindow, selector: string, value: string):
 }
 
 async function selectStyle(window: BrowserWindow, name: string): Promise<void> {
+  const componentName =
+    name === 'Default Popup' ? 'Popup' : name === 'PrimaryButton' ? 'Button' : 'Page';
+  await window.webContents.executeJavaScript(
+    `(() => {
+      const option = Array.from(document.querySelectorAll('[aria-label="Style components"] [role="option"]'))
+        .find((item) => item.querySelector('strong')?.textContent?.trim() === ${JSON.stringify(componentName)});
+      if (!(option instanceof HTMLButtonElement)) throw new Error('Missing style component');
+      option.click();
+    })()`,
+    true,
+  );
+  await paint(window);
   const selected: unknown = await window.webContents.executeJavaScript(
     `(() => {
     const option = Array.from(document.querySelectorAll('.wr-style-list [role="option"]'))
@@ -86,7 +98,7 @@ async function selectStyle(window: BrowserWindow, name: string): Promise<void> {
   await paint(window);
   await ready(
     window,
-    `document.querySelector('.wr-style-list [aria-selected="true"] strong')?.textContent?.trim() === ${JSON.stringify(name)}`,
+    `document.querySelector('.wr-style-library .wr-style-list [aria-selected="true"] strong')?.textContent?.trim() === ${JSON.stringify(name)}`,
   );
 }
 

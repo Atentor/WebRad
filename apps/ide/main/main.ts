@@ -889,6 +889,11 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   );
   if (stylesWorkspace !== 'ready')
     throw new Error('Styles workspace did not open without the removed guidance banner.');
+  await clickRendererControl(
+    window,
+    '[data-style-component-type="WebButton"]',
+    'Button style component',
+  );
   await waitForRendererString(
     window,
     `Array.from(document.querySelectorAll('.wr-style-list strong')).some((item) => item.textContent?.trim() === 'PrimaryButton') ? 'ready' : ''`,

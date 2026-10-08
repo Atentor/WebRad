@@ -98,7 +98,7 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     componentType: 'WebLabel',
     states: {
       base: {
-        textGradient: gradient('to-right', '#334155', '#2563eb'),
+        textColor: '#334155',
         fontFamily: 'sans',
         fontSize: px(14),
         fontWeight: 'semibold',

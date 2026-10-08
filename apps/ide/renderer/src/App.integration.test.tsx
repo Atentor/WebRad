@@ -876,6 +876,12 @@ describe('App MVP integration', () => {
     expect(document.querySelector('.wr-inspector-slot')).toBeNull();
     expect(screen.queryByRole('separator', { name: 'Resize inspector' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Style library' })).toBeDefined();
+    expect(screen.getByRole('listbox', { name: 'Style components' })).toBeDefined();
+    expect(screen.queryByRole('textbox', { name: 'Search elements' })).toBeNull();
+    expect(document.querySelector('.wr-tool-palette')).toBeNull();
+    await user.click(screen.getByRole('option', { name: 'Label' }));
+    expect(screen.getByRole('option', { name: /Default Label/ })).toBeDefined();
+    expect(screen.queryByRole('option', { name: /Default Button/ })).toBeNull();
     expect(screen.getByRole('navigation', { name: 'Workspace navigation' })).toBeDefined();
     expect(screen.queryByRole('note')).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Design' })).toBeNull();
@@ -1080,6 +1086,7 @@ describe('App MVP integration', () => {
 
     await user.click(stylesItem);
     await screen.findByRole('region', { name: 'Styles editor' });
+    await user.click(screen.getByRole('option', { name: 'Button' }));
     await user.click(screen.getByRole('option', { name: /Primary Button/ }));
     await user.click(screen.getByRole('button', { name: 'Delete Primary Button' }));
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));

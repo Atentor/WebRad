@@ -81,6 +81,7 @@ import { RestGoSidebar, type RestGoSection } from './components/RestGoSidebar';
 
 import { StatusBar } from './components/StatusBar';
 import { StylesWorkspace } from './components/StylesWorkspace';
+import { StyleComponentList } from './components/StyleComponentList';
 import { ToolPalette } from './components/ToolPalette';
 import { Toolbar } from './components/Toolbar';
 import {
@@ -198,6 +199,7 @@ export function App(): ReactElement {
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>('page');
   const [activeView, setActiveView] = useState<ViewMode>('design');
   const [selectedPaletteType, setSelectedPaletteType] = useState<string | null>(null);
+  const [styleComponentType, setStyleComponentType] = useState('WebPage');
   const [zoom, setZoom] = useState(100);
   const [viewportName, setViewportName] = useState<DesignerViewportName>('desktop');
   const [sidebarMode, setSidebarMode] = useState<DesignerSidebarMode>('builder');
@@ -1643,6 +1645,8 @@ export function App(): ReactElement {
     <ErrorBoundary area="Styles">
       <StylesWorkspace
         styles={project?.styles ?? []}
+        selectedComponentType={styleComponentType}
+        onSelectComponentType={setStyleComponentType}
         compiledCss={compiledStylesCss}
         onCreateStyle={createStyle}
         onUpdateStyle={updateStyle}
@@ -1836,7 +1840,13 @@ export function App(): ReactElement {
             />
           }
           explorer={
-            restGoActive && project !== null ? (
+            stylesActive ? (
+              <StyleComponentList
+                styles={project?.styles ?? []}
+                selectedType={styleComponentType}
+                onSelect={setStyleComponentType}
+              />
+            ) : restGoActive && project !== null ? (
               <RestGoSidebar
                 section={restGoSection}
                 onSelect={setRestGoSection}
@@ -1897,7 +1907,7 @@ export function App(): ReactElement {
             )
           }
           palette={
-            visiblePanels.palette && !restGoActive ? (
+            visiblePanels.palette && !restGoActive && !stylesActive ? (
               <ErrorBoundary area="Tool Palette">
                 <ToolPalette
                   compact

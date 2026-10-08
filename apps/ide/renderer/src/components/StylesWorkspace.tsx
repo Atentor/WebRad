@@ -84,6 +84,8 @@ function createPreviewProps(
 
 interface StylesWorkspaceProps {
   readonly styles: readonly ComponentStyleModel[];
+  readonly selectedComponentType?: string;
+  readonly onSelectComponentType?: (type: string) => void;
   readonly compiledCss?: string;
   readonly onCreateStyle: (name: string, componentType: string) => string | null;
   readonly onUpdateStyle: (style: ComponentStyleModel) => void;
@@ -174,6 +176,8 @@ function StyleNameEditor({ style, styles, onCommit }: StyleNameEditorProps): Rea
 
 export function StylesWorkspace({
   styles,
+  selectedComponentType,
+  onSelectComponentType,
   compiledCss = '',
   onCreateStyle,
   onUpdateStyle,
@@ -194,7 +198,15 @@ export function StylesWorkspace({
   );
   const [createError, setCreateError] = useState<string | null>(null);
   const [activeState, setActiveState] = useState<ComponentStyleStateName>('base');
-  const selectedStyle = styles.find((style) => style.id === selectedId) ?? styles[0];
+  const visibleStyles = useMemo(
+    () =>
+      styles.filter(
+        (style) =>
+          selectedComponentType === undefined || style.componentType === selectedComponentType,
+      ),
+    [styles, selectedComponentType],
+  );
+  const selectedStyle = visibleStyles.find((style) => style.id === selectedId) ?? visibleStyles[0];
   const selectedDefinition =
     selectedStyle === undefined ? undefined : registry.get(selectedStyle.componentType);
   const activeStateDefinition =
@@ -214,7 +226,7 @@ export function StylesWorkspace({
   );
 
   const beginCreate = (): void => {
-    const definition = registry.get(draftType) ?? visualDefinitions[0];
+    const definition = registry.get(selectedComponentType ?? draftType) ?? visualDefinitions[0];
     const componentType = definition?.type ?? '';
     setDraftType(componentType);
     setDraftName(suggestedStyleName(definition, styles));
@@ -239,6 +251,7 @@ export function StylesWorkspace({
     }
     const id = onCreateStyle(name, draftType);
     if (id === null) return;
+    onSelectComponentType?.(draftType);
     setSelectedId(id);
     setActiveState('base');
     setCreating(false);
@@ -255,8 +268,8 @@ export function StylesWorkspace({
     ) {
       return;
     }
-    const index = styles.findIndex((style) => style.id === selectedStyle.id);
-    const nextSelection = styles[index + 1] ?? styles[index - 1];
+    const index = visibleStyles.findIndex((style) => style.id === selectedStyle.id);
+    const nextSelection = visibleStyles[index + 1] ?? visibleStyles[index - 1];
     setSelectedId(nextSelection?.id ?? null);
     onDeleteStyle(selectedStyle.id);
   };
@@ -327,15 +340,15 @@ export function StylesWorkspace({
               </form>
             )}
 
-            {styles.length === 0 && !creating ? (
+            {visibleStyles.length === 0 && !creating ? (
               <div className="wr-style-library-empty">
                 <Icon name="layers" />
                 <strong>No styles yet</strong>
-                <p>Create a reusable style for one of the visual component types.</p>
+                <p>Create a reusable style for the selected component type.</p>
               </div>
             ) : (
               <div className="wr-style-list" role="listbox" aria-label="Project styles">
-                {styles.map((style) => {
+                {visibleStyles.map((style) => {
                   const definition = registry.get(style.componentType);
                   const selected = selectedStyle?.id === style.id;
                   return (

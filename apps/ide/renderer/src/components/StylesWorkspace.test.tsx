@@ -13,6 +13,37 @@ afterEach(() => {
 });
 
 describe('StylesWorkspace', () => {
+  it('filters styles and starts creation with the selected component type', async () => {
+    const user = userEvent.setup();
+    const styles = [
+      createComponentStyle('Label A', 'WebLabel', () => 'label-a'),
+      createComponentStyle('Button A', 'WebButton', () => 'button-a'),
+      createComponentStyle('Label B', 'WebLabel', () => 'label-b'),
+    ];
+    const props = {
+      styles,
+      onCreateStyle: vi.fn(() => 'new-style'),
+      onUpdateStyle: vi.fn(),
+      onDeleteStyle: vi.fn(),
+      onSelectComponentType: vi.fn(),
+    };
+    const { rerender } = render(<StylesWorkspace {...props} selectedComponentType="WebLabel" />);
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+    expect(screen.queryByRole('option', { name: /Button A/ })).toBeNull();
+    await user.click(screen.getByRole('option', { name: /Label B/ }));
+    rerender(<StylesWorkspace {...props} selectedComponentType="WebButton" />);
+    expect((screen.getByLabelText('Style name') as HTMLInputElement).value).toBe('Button A');
+    expect(screen.queryByRole('option', { name: /Label B/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'New style' }));
+    expect((screen.getByLabelText('Component type') as HTMLSelectElement).value).toBe('WebButton');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    expect(props.onCreateStyle).toHaveBeenCalledWith('Button Style', 'WebButton');
+    expect(props.onSelectComponentType).toHaveBeenCalledWith('WebButton');
+    rerender(<StylesWorkspace {...props} selectedComponentType="WebReusableElement" />);
+    expect(screen.queryByLabelText('Style name')).toBeNull();
+    expect(screen.getByText('No styles yet')).toBeDefined();
+  });
+
   it('offers every registered visual type, including Page, and excludes nonvisual types', async () => {
     const user = userEvent.setup();
     render(
