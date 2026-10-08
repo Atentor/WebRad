@@ -1,6 +1,12 @@
 import type { ExternalLinkTarget } from '../shared/external-links';
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  RestGoAdminCatalog,
+  RestGoAdminEndpoint,
+  RestGoAdminPublication,
+  RestGoAdminStatus,
+} from '../shared/restgo-admin';
+import type {
   BuildRequest,
   BuildResponse,
   CompileStylesRequest,
@@ -15,6 +21,35 @@ import type {
 } from '../shared/contracts';
 
 const bridge: WebRadBridge = {
+  restgoAdmin: {
+    status: (request) =>
+      ipcRenderer.invoke('webrad:restgo-admin:status', request) as Promise<RestGoAdminStatus>,
+    connect: (request) =>
+      ipcRenderer.invoke('webrad:restgo-admin:connect', request) as Promise<RestGoAdminStatus>,
+    disconnect: (request) =>
+      ipcRenderer.invoke('webrad:restgo-admin:disconnect', request) as Promise<void>,
+    catalog: (request) =>
+      ipcRenderer.invoke('webrad:restgo-admin:catalog', request) as Promise<RestGoAdminCatalog>,
+    getEndpoint: (request) =>
+      ipcRenderer.invoke(
+        'webrad:restgo-admin:get-endpoint',
+        request,
+      ) as Promise<RestGoAdminEndpoint>,
+    saveEndpoint: (request) =>
+      ipcRenderer.invoke(
+        'webrad:restgo-admin:save-endpoint',
+        request,
+      ) as Promise<RestGoAdminEndpoint>,
+    setEndpointActive: (request) =>
+      ipcRenderer.invoke('webrad:restgo-admin:set-endpoint-active', request) as Promise<void>,
+    savePublication: (request) =>
+      ipcRenderer.invoke(
+        'webrad:restgo-admin:save-publication',
+        request,
+      ) as Promise<RestGoAdminPublication>,
+    setPublicationActive: (request) =>
+      ipcRenderer.invoke('webrad:restgo-admin:set-publication-active', request) as Promise<void>,
+  },
   links: {
     open: (target: ExternalLinkTarget) =>
       ipcRenderer.invoke('webrad:links:open', target) as Promise<void>,

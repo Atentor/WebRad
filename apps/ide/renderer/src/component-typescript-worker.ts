@@ -66,9 +66,10 @@ export class ComponentTypeScriptWorker extends TypeScriptWorker {
     const info = await super.getCompletionsAtPosition(fileName, position);
     const scope = this.scope(fileName);
     const sourceFile = this.getLanguageService().getProgram()?.getSourceFile(fileName);
+    const program = this.getLanguageService().getProgram();
     if (!info || !scope || !sourceFile) return info;
     const available = isComponentReferencePosition(ts, sourceFile, position, scope);
-    const program = this.getLanguageService().getProgram();
+
     const original = super.getScriptSnapshot(fileName);
     const names = new Set(
       program && original

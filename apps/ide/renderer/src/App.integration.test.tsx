@@ -187,6 +187,22 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
   });
 
   const bridge = {
+    restgoAdmin: {
+      status: vi.fn(async (request) => ({
+        baseUrl: request.baseUrl,
+        connected: false,
+        storage: 'none' as const,
+        encryptionAvailable: false,
+      })),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      catalog: vi.fn(async () => ({ endpoints: [], bancos: [], publications: [], operations: [] })),
+      getEndpoint: vi.fn(),
+      saveEndpoint: vi.fn(),
+      setEndpointActive: vi.fn(),
+      savePublication: vi.fn(),
+      setPublicationActive: vi.fn(),
+    },
     project: {
       create,
       open,
@@ -1143,7 +1159,7 @@ describe('App MVP integration', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Settings for MvpProject' });
     expect(within(dialog).getByRole('tab', { name: 'Environment variables' })).toBeDefined();
-    expect(within(dialog).getByRole('tab', { name: 'RestGo integration' })).toBeDefined();
+    expect(within(dialog).queryByRole('tab', { name: 'RestGo integration' })).toBeNull();
     for (const name of ['CORS and origins', 'Headers and CSP', 'Logs and monitoring']) {
       expect(within(dialog).queryByRole('tab', { name })).toBeNull();
     }

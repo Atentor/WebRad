@@ -35,6 +35,22 @@ function projectSession(name: string): ProjectSession {
 
 function fakeBridge(session: ProjectSession): WebRadBridge {
   return {
+    restgoAdmin: {
+      status: vi.fn(async (request) => ({
+        baseUrl: request.baseUrl,
+        connected: false,
+        storage: 'none' as const,
+        encryptionAvailable: false,
+      })),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      catalog: vi.fn(async () => ({ endpoints: [], bancos: [], publications: [], operations: [] })),
+      getEndpoint: vi.fn(),
+      saveEndpoint: vi.fn(),
+      setEndpointActive: vi.fn(),
+      savePublication: vi.fn(),
+      setPublicationActive: vi.fn(),
+    },
     project: {
       restore: vi.fn(async () => null),
       create: vi.fn(async () => session),

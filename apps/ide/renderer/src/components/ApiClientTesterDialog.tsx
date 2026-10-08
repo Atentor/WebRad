@@ -1,4 +1,12 @@
-import { apiOperationPath } from '@webrad/runtime';
+import {
+  getApiClientTemplateParameters,
+  parseApiClientTemplateTestValue,
+  resolveApiClientBodyTemplate,
+  type WebApiTemplateValue,
+  apiOperationPath,
+  prepareRestGoApiRequest,
+  prepareRestGoApplicationApiRequest,
+} from '@webrad/runtime';
 import {
   API_CLIENT_FIELD_TYPES,
   normalizeApiClientConfiguration,
@@ -11,8 +19,11 @@ import {
   type ComponentNode,
   type RestGoProjectSettings,
 } from '@webrad/project-model';
-import { createApiClientTestRequest } from '@webrad/designer';
-import { prepareRestGoApiRequest } from '@webrad/runtime';
+import {
+  createApiClientTestRequest,
+  importRestGoPublishedApis,
+  type RestGoPublishedApi,
+} from '@webrad/designer';
 import { RestGoError } from '@webrad/restgo-sdk';
 import {
   collectApiClientSchemaNodeIds as collectInferredNodeIds,
@@ -32,6 +43,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { ApiClientRequestEditor } from './ApiClientRequestEditor';
+import { RestGoApiPickerDialog } from './RestGoApiPickerDialog';
+import './api-client-editor.css';
 
 const MAX_RESPONSE_PREVIEW_LENGTH = 250_000;
 
@@ -106,7 +119,7 @@ function ParameterList({ label, parameters, onChange }: ParameterListProps): Rea
         </button>
       </div>
       {parameters.length === 0 ? (
-        <p className="wr-api-empty">No {label.toLocaleLowerCase()} configured.</p>
+        <p className="wr-api-empty">No {label.toLocaleLowerCase()}.</p>
       ) : (
         <div className="wr-api-parameter-rows">
           {parameters.map((parameter) => (
@@ -300,7 +313,6 @@ export function ApiClientTesterDialog({
   onSave,
 }: ApiClientTesterDialogProps): ReactElement {
   const titleId = useId();
-  const descriptionId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
   const baseUrlRef = useRef<HTMLInputElement | null>(null);
   const addOperationRef = useRef<HTMLButtonElement | null>(null);
@@ -327,9 +339,13 @@ export function ApiClientTesterDialog({
   const [testResult, setTestResult] = useState<ApiTestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [testJwt, setTestJwt] = useState('');
+  const [showRestGoPicker, setShowRestGoPicker] = useState(false);
   const [uploads, setUploads] = useState<readonly File[]>([]);
   const [uploadField, setUploadField] = useState('file');
-  const restGoBound = configuration.connection === 'restgo-session';
+  const [testParameterValues, setTestParameterValues] = useState<
+    ReadonlyMap<string, ReadonlyMap<string, string>>
+  >(() => new Map());
+  const restGoBound = (configuration.connection ?? 'custom') !== 'custom';
   const effectiveBaseUrl = restGoBound ? (restGoSettings?.baseUrl ?? '') : baseUrl;
   const restGoAvailable = restGoSettings?.enabled === true && restGoSettings.baseUrl.length > 0;
 
@@ -385,6 +401,15 @@ export function ApiClientTesterDialog({
     updateOperation(operationId, (current) => ({ ...current, responseSchema: schema }));
   };
 
+  const addOperation = (): void => {
+    const names = new Set(configuration.operations.map((candidate) => candidate.name));
+    let sequence = configuration.operations.length + 1;
+    while (names.has(`Request${String(sequence)}`)) sequence += 1;
+    const next = createOperation(sequence);
+    setConfiguration((current) => ({ ...current, operations: [...current.operations, next] }));
+    selectOperation(next.id);
+  };
+
   const testOperation = async (): Promise<void> => {
     if (operation === undefined || sending) return;
     const controller = new AbortController();
@@ -397,34 +422,60 @@ export function ApiClientTesterDialog({
     setTestResult(null);
     try {
       const endpoint = apiOperationPath(operation.path, operation.apiVersion);
+      const parameterValues = Object.fromEntries(
+        (operation.body.kind === 'none'
+          ? []
+          : getApiClientTemplateParameters(operation.body.content, operation.body.parameters)
+        ).map((parameter): readonly [string, WebApiTemplateValue] => {
+          const inputs = testParameterValues.get(operation.id);
+          if (parameter.type !== 'null' && !inputs?.has(parameter.name))
+            throw new TypeError('Enter a test value for <' + parameter.name + '>.');
+          return [
+            parameter.name,
+            parseApiClientTemplateTestValue(parameter, inputs?.get(parameter.name) ?? ''),
+          ];
+        }),
+      );
+      const body = {
+        ...operation.body,
+        content: resolveApiClientBodyTemplate(operation.body, parameterValues),
+      };
       let request = createApiClientTestRequest(
         effectiveBaseUrl,
         configuration,
-        { ...operation, path: endpoint },
+        { ...operation, path: endpoint, body },
         uploads,
         uploadField,
       );
       if (restGoBound) {
         if (!restGoAvailable)
-          throw new Error('Enable RestGo integration in Project Settings first.');
-        request = await prepareRestGoApiRequest(
-          endpoint,
-          { ...request.init, signal: controller.signal },
-          {
-            baseUrl: effectiveBaseUrl,
-            getSession: async () =>
-              testJwt.trim()
-                ? { data: { token: testJwt.trim().replace(/^Bearer\s+/iu, '') }, error: null }
-                : {
-                    data: null,
-                    error: new RestGoError(
-                      'Enter a temporary Test JWT, or test the authenticated application in Preview.',
-                      'AUTH_REQUIRED',
-                      401,
-                    ),
-                  },
-          },
-        );
+          throw new Error('Enable RestGo integration in the RestGo sidebar first.');
+        if (configuration.connection === 'restgo-session')
+          request = await prepareRestGoApiRequest(
+            endpoint,
+            { ...request.init, signal: controller.signal },
+            {
+              baseUrl: effectiveBaseUrl,
+              getSession: async () =>
+                testJwt.trim()
+                  ? { data: { token: testJwt.trim().replace(/^Bearer\s+/iu, '') }, error: null }
+                  : {
+                      data: null,
+                      error: new RestGoError(
+                        'Enter a temporary Test JWT, or test the authenticated application in Preview.',
+                        'AUTH_REQUIRED',
+                        401,
+                      ),
+                    },
+            },
+          );
+        else
+          request = prepareRestGoApplicationApiRequest(
+            endpoint,
+            configuration.connection === 'restgo-public' ? 'public' : 'api-token',
+            { ...request.init, signal: controller.signal },
+            { baseUrl: effectiveBaseUrl, apiToken: testJwt.trim() || restGoSettings?.apiToken },
+          );
         const url = new URL(request.url);
         for (const parameter of operation.query) {
           if (parameter.enabled && parameter.name.trim())
@@ -478,20 +529,30 @@ export function ApiClientTesterDialog({
     try {
       const selectedConfiguration: ApiClientConfiguration = {
         ...configuration,
-        operations: configuration.operations.map((candidate) =>
-          candidate.id !== selectedOperationId || candidate.responseSchema === null
-            ? candidate
-            : {
-                ...candidate,
-                responseSchema: pruneApiClientResponseSchema(
-                  candidate.responseSchema,
-                  selectedSchemaIds,
-                ),
-              },
-        ),
+        operations: configuration.operations
+          .map((candidate) =>
+            candidate.id !== selectedOperationId || candidate.responseSchema === null
+              ? candidate
+              : {
+                  ...candidate,
+                  responseSchema: pruneApiClientResponseSchema(
+                    candidate.responseSchema,
+                    selectedSchemaIds,
+                  ),
+                },
+          )
+          .map((candidate) => {
+            const parameters = getApiClientTemplateParameters(
+              candidate.body.content,
+              candidate.body.parameters,
+            );
+            return parameters.length === 0 && candidate.body.parameters === undefined
+              ? candidate
+              : { ...candidate, body: { ...candidate.body, parameters } };
+          }),
       };
       if (restGoBound && !restGoAvailable)
-        throw new Error('Enable RestGo integration in Project Settings first.');
+        throw new Error('Enable RestGo integration in the RestGo sidebar first.');
       onSave(restGoBound ? '' : baseUrl.trim(), parseApiClientConfiguration(selectedConfiguration));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -500,6 +561,7 @@ export function ApiClientTesterDialog({
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     event.stopPropagation();
+    if (showRestGoPicker) return;
     if (event.key === 'Escape' && !sending) {
       event.preventDefault();
       onClose();
@@ -529,217 +591,297 @@ export function ApiClientTesterDialog({
 
   const responseSchema = operation?.responseSchema ?? null;
 
+  const importApis = (apis: readonly RestGoPublishedApi[], convertCustom: boolean): void => {
+    try {
+      const selectedConfiguration: ApiClientConfiguration = {
+        ...configuration,
+        operations: configuration.operations.map((candidate) =>
+          candidate.id !== selectedOperationId || candidate.responseSchema === null
+            ? candidate
+            : {
+                ...candidate,
+                responseSchema: pruneApiClientResponseSchema(
+                  candidate.responseSchema,
+                  selectedSchemaIds,
+                ),
+              },
+        ),
+      };
+      const next = importRestGoPublishedApis(apis, selectedConfiguration, {
+        replaceCustom: convertCustom,
+      });
+      const importedOperation =
+        next.operations.find(
+          (candidate) => !configuration.operations.some((existing) => existing.id === candidate.id),
+        ) ?? next.operations[0];
+      setConfiguration(next);
+      setBaseUrl('');
+      setSelectedOperationId(importedOperation?.id ?? '');
+      setSelectedSchemaIds(
+        importedOperation?.responseSchema == null
+          ? new Set()
+          : collectInferredNodeIds(importedOperation.responseSchema.root),
+      );
+      setTestResult(null);
+      setTestJwt('');
+      setUploads([]);
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
+    setShowRestGoPicker(false);
+  };
+
   return createPortal(
-    <div className="wr-modal-backdrop" role="presentation" onKeyDown={handleKeyDown}>
-      <section
-        ref={dialogRef}
-        className="wr-modal wr-api-client-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        aria-busy={sending}
-      >
-        <header className="wr-modal-header">
-          <div>
-            <span className="wr-modal-eyebrow">API Client / {component.name}</span>
-            <h2 id={titleId}>API Client</h2>
-          </div>
-          <button
-            type="button"
-            className="wr-modal-close"
-            aria-label="Close API Client tester"
-            disabled={sending}
-            onClick={onClose}
-          >
-            &times;
-          </button>
-        </header>
-        <div className="wr-api-client-content">
-          <p className="wr-modal-description" id={descriptionId}>
-            Configure REST requests and their response contracts.
-          </p>
-          <div className="wr-api-client-layout">
-            <aside className="wr-api-operations" aria-label="API operations">
-              <div className="wr-api-section-heading">
-                <span>Operations</span>
+    <>
+      <div className="wr-modal-backdrop" role="presentation" onKeyDown={handleKeyDown}>
+        <section
+          ref={dialogRef}
+          className="wr-modal wr-api-client-dialog"
+          role="dialog"
+          aria-modal={!showRestGoPicker}
+          aria-labelledby={titleId}
+          aria-busy={sending}
+          aria-hidden={showRestGoPicker || undefined}
+          inert={showRestGoPicker}
+        >
+          <header className="wr-modal-header">
+            <div className="wr-api-client-heading">
+              <h2 id={titleId}>API Client</h2>
+              <span className="wr-api-component-name">{component.name}</span>
+            </div>
+            <button
+              type="button"
+              className="wr-modal-close"
+              aria-label="Close API Client tester"
+              disabled={sending}
+              onClick={onClose}
+            >
+              &times;
+            </button>
+          </header>
+          <div className="wr-api-client-content">
+            <div className="wr-api-client-layout">
+              <aside className="wr-api-operations" aria-label="API operations">
+                <div className="wr-api-section-heading">
+                  <span>
+                    Requests <small>{configuration.operations.length}</small>
+                  </span>
+                  <button
+                    ref={addOperationRef}
+                    type="button"
+                    aria-label="Add operation"
+                    disabled={sending}
+                    onClick={addOperation}
+                  >
+                    New
+                  </button>
+                </div>
                 <button
-                  ref={addOperationRef}
+                  className="wr-api-import-button"
                   type="button"
-                  aria-label="Add operation"
                   disabled={sending}
+                  onClick={() => setShowRestGoPicker(true)}
+                >
+                  Import from RestGo
+                </button>
+                <nav className="wr-api-operation-list" aria-label="Saved API operations">
+                  {configuration.operations.map((candidate) => (
+                    <button
+                      key={candidate.id}
+                      type="button"
+                      disabled={sending}
+                      aria-label={`${candidate.name || 'Untitled request'} ${candidate.method || 'GET'}`}
+                      aria-pressed={candidate.id === operation?.id}
+                      title={`${candidate.method || 'GET'} ${candidate.path || 'No endpoint'}`}
+                      className={candidate.id === operation?.id ? 'selected' : ''}
+                      onClick={() => selectOperation(candidate.id)}
+                    >
+                      <small
+                        className={`wr-api-operation-method method-${(candidate.method || 'GET').toLowerCase()}`}
+                      >
+                        {candidate.method || 'GET'}
+                      </small>
+                      <span className="wr-api-operation-label">
+                        <strong>{candidate.name || 'Untitled request'}</strong>
+                        <span className="wr-api-operation-path">
+                          {candidate.path || 'No endpoint'}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </nav>
+                <button
+                  type="button"
+                  className="wr-api-remove-operation"
+                  aria-label="Remove operation"
+                  disabled={sending || operation === undefined}
                   onClick={() => {
-                    const names = new Set(
-                      configuration.operations.map((candidate) => candidate.name),
+                    if (operation === undefined) return;
+                    const remaining = configuration.operations.filter(
+                      (candidate) => candidate.id !== operation.id,
                     );
-                    let sequence = configuration.operations.length + 1;
-                    while (names.has(`Request${String(sequence)}`)) sequence += 1;
-                    const next = createOperation(sequence);
-                    setConfiguration((current) => ({
-                      ...current,
-                      operations: [...current.operations, next],
-                    }));
-                    selectOperation(next.id);
+                    setConfiguration((current) => ({ ...current, operations: remaining }));
+                    selectOperation(remaining[0]?.id ?? '');
+                    if (remaining.length === 0) addOperationRef.current?.focus();
                   }}
                 >
-                  Add
+                  Delete request
                 </button>
-              </div>
-              <nav className="wr-api-operation-list" aria-label="Saved API operations">
-                {configuration.operations.map((candidate) => (
-                  <button
-                    key={candidate.id}
-                    type="button"
-                    disabled={sending}
-                    aria-label={`${candidate.name || 'Untitled request'} ${candidate.method || 'GET'}`}
-                    aria-pressed={candidate.id === operation?.id}
-                    className={candidate.id === operation?.id ? 'selected' : ''}
-                    onClick={() => selectOperation(candidate.id)}
-                  >
-                    <strong>{candidate.name || 'Untitled request'}</strong>
-                    <small>{candidate.method || 'GET'}</small>
-                  </button>
-                ))}
-              </nav>
-              <button
-                type="button"
-                className="wr-api-remove-operation"
-                disabled={sending || operation === undefined}
-                onClick={() => {
-                  if (operation === undefined) return;
-                  const remaining = configuration.operations.filter(
-                    (candidate) => candidate.id !== operation.id,
-                  );
-                  setConfiguration((current) => ({ ...current, operations: remaining }));
-                  selectOperation(remaining[0]?.id ?? '');
-                  if (remaining.length === 0) addOperationRef.current?.focus();
-                }}
-              >
-                Remove operation
-              </button>
-            </aside>
-            <div className="wr-api-request-editor">
-              {operation === undefined ? (
-                <div className="wr-api-no-operations" role="status">
-                  <h3>No endpoints configured</h3>
-                  <p>Add an operation to configure a request.</p>
-                </div>
-              ) : (
-                <ApiClientRequestEditor
-                  key={operation.id}
-                  baseUrl={baseUrl}
-                  baseUrlRef={baseUrlRef}
-                  configuration={configuration}
-                  operation={operation}
-                  restGoSettings={restGoSettings}
-                  sending={sending}
-                  testJwt={testJwt}
-                  uploads={uploads}
-                  uploadField={uploadField}
-                  onBaseUrlChange={setBaseUrl}
-                  onConfigurationChange={setConfiguration}
-                  onOperationChange={(patch) =>
-                    updateOperation(operation.id, (current) => ({ ...current, ...patch }))
-                  }
-                  onTestJwtChange={setTestJwt}
-                  onUploadFieldChange={setUploadField}
-                  onUploadsChange={setUploads}
-                  onTest={() => void testOperation()}
-                  onCancelRequest={() => requestAbortRef.current?.abort()}
-                  renderParameters={(label, parameters, onChange) => (
-                    <ParameterList label={label} parameters={parameters} onChange={onChange} />
-                  )}
-                />
-              )}
-              {(error !== null || testResult !== null) && (
-                <section className="wr-api-test-result" aria-live="polite">
-                  {error !== null ? (
-                    <div className="wr-modal-error" role="alert">
-                      {error}
-                    </div>
-                  ) : testResult !== null ? (
-                    <>
-                      <div
-                        className={`wr-api-response-status ${testResult.status >= 400 ? 'error' : ''}`}
+              </aside>
+              <div className="wr-api-request-editor">
+                {operation === undefined ? (
+                  <div className="wr-api-no-operations" role="status">
+                    <h3>No requests</h3>
+                    <div className="wr-api-empty-actions">
+                      <button type="button" disabled={sending} onClick={addOperation}>
+                        New request
+                      </button>
+                      <button
+                        type="button"
+                        disabled={sending}
+                        onClick={() => setShowRestGoPicker(true)}
                       >
-                        <strong>
-                          {String(testResult.status)} {testResult.statusText}
-                        </strong>
-                        <span>{testResult.durationMs} ms</span>
-                        <code>{testResult.url}</code>
-                      </div>
-                      <details>
-                        <summary>Response headers</summary>
-                        <dl className="wr-api-response-headers">
-                          {testResult.headers.map(([name, value]) => (
-                            <div key={name}>
-                              <dt>{name}</dt>
-                              <dd>{value}</dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </details>
-                      <label className="wr-api-response-body">
-                        <span>
-                          Response body{testResult.bodyTruncated ? ' (preview truncated)' : ''}
-                        </span>
-                        <textarea readOnly value={testResult.bodyText} />
-                      </label>
-                    </>
-                  ) : null}
-                </section>
-              )}
-              {responseSchema !== null && operation !== undefined && (
-                <section className="wr-api-schema-editor" aria-label="Response definitions">
-                  <div className="wr-api-section-heading">
-                    <div>
-                      <span>Response definitions</span>
-                      <small>
-                        Choose the fields, objects, and lists that future components may bind to.
-                      </small>
+                        Import from RestGo
+                      </button>
                     </div>
                   </div>
-                  <ul>
-                    <SchemaNodeEditor
-                      node={responseSchema.root}
-                      depth={0}
-                      selectedIds={selectedSchemaIds}
-                      ancestorIds={[]}
-                      onSelectedChange={(node, selected, ancestors) => {
-                        setSelectedSchemaIds((current) => {
-                          const next = new Set(current);
-                          if (selected) {
-                            ancestors.forEach((id) => next.add(id));
-                            collectInferredNodeIds(node, next);
-                          } else {
-                            collectInferredNodeIds(node).forEach((id) => next.delete(id));
-                          }
-                          return next;
-                        });
-                      }}
-                      onPatch={(nodeId, patch) => {
-                        setSchema(operation.id, {
-                          ...responseSchema,
-                          root: replaceSchemaNode(responseSchema.root, nodeId, patch),
-                        });
-                      }}
-                    />
-                  </ul>
-                </section>
-              )}
+                ) : (
+                  <ApiClientRequestEditor
+                    testParameterValues={
+                      testParameterValues.get(operation.id) ?? new Map<string, string>()
+                    }
+                    onTestParameterChange={(name, value) =>
+                      setTestParameterValues((current) => {
+                        const next = new Map(current);
+                        const values = new Map(current.get(operation.id));
+                        values.set(name, value);
+                        next.set(operation.id, values);
+                        return next;
+                      })
+                    }
+                    key={operation.id}
+                    baseUrl={baseUrl}
+                    baseUrlRef={baseUrlRef}
+                    configuration={configuration}
+                    operation={operation}
+                    restGoSettings={restGoSettings}
+                    sending={sending}
+                    testJwt={testJwt}
+                    uploads={uploads}
+                    uploadField={uploadField}
+                    onBaseUrlChange={setBaseUrl}
+                    onConfigurationChange={setConfiguration}
+                    onOperationChange={(patch) =>
+                      updateOperation(operation.id, (current) => ({ ...current, ...patch }))
+                    }
+                    onTestJwtChange={setTestJwt}
+                    onUploadFieldChange={setUploadField}
+                    onUploadsChange={setUploads}
+                    onTest={() => void testOperation()}
+                    onCancelRequest={() => requestAbortRef.current?.abort()}
+                    renderParameters={(label, parameters, onChange) => (
+                      <ParameterList label={label} parameters={parameters} onChange={onChange} />
+                    )}
+                  />
+                )}
+                {(error !== null || testResult !== null) && (
+                  <section className="wr-api-test-result" aria-live="polite">
+                    <h3>Response</h3>
+                    {error !== null ? (
+                      <div className="wr-modal-error" role="alert">
+                        {error}
+                      </div>
+                    ) : testResult !== null ? (
+                      <>
+                        <div
+                          className={`wr-api-response-status ${testResult.status >= 400 ? 'error' : ''}`}
+                        >
+                          <strong>
+                            {String(testResult.status)} {testResult.statusText}
+                          </strong>
+                          <span>{testResult.durationMs} ms</span>
+                          <code>{testResult.url}</code>
+                        </div>
+                        <details>
+                          <summary>Response headers</summary>
+                          <dl className="wr-api-response-headers">
+                            {testResult.headers.map(([name, value]) => (
+                              <div key={name}>
+                                <dt>{name}</dt>
+                                <dd>{value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </details>
+                        <label className="wr-api-response-body">
+                          <span>
+                            Response body{testResult.bodyTruncated ? ' (preview truncated)' : ''}
+                          </span>
+                          <textarea readOnly value={testResult.bodyText} />
+                        </label>
+                      </>
+                    ) : null}
+                  </section>
+                )}
+                {responseSchema !== null && operation !== undefined && (
+                  <section className="wr-api-schema-editor" aria-label="Response definitions">
+                    <div className="wr-api-section-heading">
+                      <div>
+                        <span>Response fields</span>
+                      </div>
+                    </div>
+                    <ul>
+                      <SchemaNodeEditor
+                        node={responseSchema.root}
+                        depth={0}
+                        selectedIds={selectedSchemaIds}
+                        ancestorIds={[]}
+                        onSelectedChange={(node, selected, ancestors) => {
+                          setSelectedSchemaIds((current) => {
+                            const next = new Set(current);
+                            if (selected) {
+                              ancestors.forEach((id) => next.add(id));
+                              collectInferredNodeIds(node, next);
+                            } else {
+                              collectInferredNodeIds(node).forEach((id) => next.delete(id));
+                            }
+                            return next;
+                          });
+                        }}
+                        onPatch={(nodeId, patch) => {
+                          setSchema(operation.id, {
+                            ...responseSchema,
+                            root: replaceSchemaNode(responseSchema.root, nodeId, patch),
+                          });
+                        }}
+                      />
+                    </ul>
+                  </section>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-        <footer className="wr-modal-actions wr-api-client-actions">
-          <button type="button" disabled={sending} onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" disabled={sending} onClick={save}>
-            Save API Client
-          </button>
-        </footer>
-      </section>
-    </div>,
+          <footer className="wr-modal-actions wr-api-client-actions">
+            <button type="button" disabled={sending} onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="primary" disabled={sending} onClick={save}>
+              Save API Client
+            </button>
+          </footer>
+        </section>
+      </div>
+      {showRestGoPicker && (
+        <RestGoApiPickerDialog
+          restGoSettings={restGoSettings}
+          configuration={configuration}
+          customBaseUrl={baseUrl}
+          onClose={() => setShowRestGoPicker(false)}
+          onImport={importApis}
+        />
+      )}
+    </>,
     document.body,
   );
 }

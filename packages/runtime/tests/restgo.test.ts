@@ -36,7 +36,7 @@ describe('native RestGO project client', () => {
   it('reports disabled integration before any service operation can run', () => {
     expect(configureRestGo({ ...configuration, enabled: false })).toBeNull();
     expect(() => getRestGoClient()).toThrow(RestGoNotConfiguredError);
-    expect(() => RestGO.auth).toThrow('Project Settings > RestGo integration');
+    expect(() => RestGO.auth).toThrow('RestGo integration > Connection');
   });
 
   it('reconfigures the stable facade without retaining the previous services', () => {

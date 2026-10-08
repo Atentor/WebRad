@@ -66,7 +66,7 @@ async function clickText(
     window,
     `(() => {
     const control = Array.from(document.querySelectorAll(${JSON.stringify(`${scope} button, ${scope} summary`)}))
-      .find((candidate) => candidate.textContent.trim() === ${JSON.stringify(text)});
+      .find((candidate) => candidate.getAttribute('aria-label') === ${JSON.stringify(text)} || candidate.textContent.trim() === ${JSON.stringify(text)});
     if (!(control instanceof HTMLElement) || control.disabled) return false;
     control.click();
     return true;
@@ -337,12 +337,12 @@ export async function runApiClientDesignerSmoke(
     );
     await clickText(window, 'Save API Client');
     await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
-    await click(window, 'button[aria-label="Project Settings"]');
-    await click(window, '#project-settings-tab-restgo');
+    await click(window, 'button[aria-label="RestGo integration"]');
+    await click(window, '.wr-restgo-sidebar button:first-child');
     await ready(
       window,
       `(() => {
-      const label = Array.from(document.querySelectorAll('.wr-project-settings-dialog label')).find((item) => item.textContent.includes('Enable native RestGO integration'));
+      const label = Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label')).find((item) => item.textContent.includes('Enable native RestGO integration'));
       const control = label?.querySelector('input');
       if (!(control instanceof HTMLInputElement)) return false;
       if (!control.checked) control.click();
@@ -352,7 +352,7 @@ export async function runApiClientDesignerSmoke(
     await ready(
       window,
       `(() => {
-      const label = Array.from(document.querySelectorAll('.wr-project-settings-dialog label')).find((item) => item.querySelector('span')?.textContent.trim() === 'RestGO instance URL');
+      const label = Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label')).find((item) => item.querySelector('span')?.textContent.trim() === 'RestGO instance URL');
       const control = label?.querySelector('input');
       if (!(control instanceof HTMLInputElement)) return false;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(control, ${JSON.stringify(baseUrl)});
@@ -360,8 +360,12 @@ export async function runApiClientDesignerSmoke(
       return true;
     })()`,
     );
-    await click(window, '.wr-project-settings-actions button.primary');
-    await ready(window, `document.querySelector('.wr-project-settings-dialog') === null`);
+    await click(window, '.wr-restgo-runtime-settings button[type="submit"]');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.disabled === true`,
+    );
+    await click(window, 'button[aria-label="Project Explorer"]');
     await ready(
       window,
       `(() => {

@@ -1,4 +1,7 @@
 export * from './api-client.js';
+export * from './api-client-inputs.js';
+export * from './api-client-accessors.js';
+export * from './api-client-template.js';
 export * from './component.js';
 export * from './data-grid.js';
 export * from './controls.js';
@@ -7,5 +10,6 @@ export * from './page-router.js';
 export * from './globals.js';
 export * from './layout.js';
 export * from './render.js';
-export * from './restgo.js';
+export { configureRestGo, getRestGoClient, RestGO, RestGoNotConfiguredError } from './restgo.js';
+export type { RestGoRuntimeConfiguration } from './restgo.js';
 export * from './visual.js';

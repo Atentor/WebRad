@@ -17,24 +17,17 @@ export function RestGoSettingsSection({
 }: RestGoSettingsSectionProps): ReactElement {
   return (
     <>
-      <p>
-        Configure the native RestGO connection, authentication, Storage, and published dynamic APIs
-        in one place.
-      </p>
-      <fieldset className="wr-project-settings-seo-options">
-        <legend>RestGO connection</legend>
-        <div className="wr-project-settings-toggles">
-          <label>
-            <input
-              type="checkbox"
-              checked={settings.enabled}
-              onChange={(event) => onChange({ enabled: event.currentTarget.checked })}
-            />
-            <span>Enable native RestGO integration</span>
-          </label>
-        </div>
-        <div className="wr-project-settings-fields">
-          <label className="wr-project-settings-field full-width">
+      <div className="wr-restgo-settings-group">
+        <label className="wr-restgo-toggle">
+          <input
+            type="checkbox"
+            checked={settings.enabled}
+            onChange={(event) => onChange({ enabled: event.currentTarget.checked })}
+          />
+          <span>Enable native RestGO integration</span>
+        </label>
+        <div className="wr-restgo-settings-fields">
+          <label className="wr-restgo-settings-field full-width">
             <span>RestGO instance URL</span>
             <input
               type="url"
@@ -44,10 +37,10 @@ export function RestGoSettingsSection({
               spellCheck={false}
               onChange={(event) => onChange({ baseUrl: event.currentTarget.value })}
             />
-            <small>HTTP or HTTPS. A reverse-proxy base path is supported.</small>
+            <small>HTTP or HTTPS, including a reverse-proxy base path.</small>
           </label>
-          <label className="wr-project-settings-field full-width">
-            <span>Authorization token</span>
+          <label className="wr-restgo-settings-field">
+            <span>Application API token</span>
             <input
               type="password"
               value={settings.apiToken}
@@ -57,11 +50,9 @@ export function RestGoSettingsSection({
               placeholder="Raw token, without Bearer"
               onChange={(event) => onChange({ apiToken: event.currentTarget.value })}
             />
-            <small>
-              Optional, for dynamic APIs before login. Signup and login do not send this token.
-            </small>
+            <small>Optional browser token for dynamic APIs. Login and signup omit it.</small>
           </label>
-          <label className="wr-project-settings-field">
+          <label className="wr-restgo-settings-field">
             <span>Default database slug</span>
             <input
               type="text"
@@ -71,32 +62,22 @@ export function RestGoSettingsSection({
               spellCheck={false}
               onChange={(event) => onChange({ defaultDatabase: event.currentTarget.value })}
             />
-            <small>Optional. Calls may select another database explicitly.</small>
+            <small>Optional default for SDK calls.</small>
           </label>
         </div>
-        <p>
-          Dynamic endpoints use{' '}
-          <code>
-            /v{'{version}'}/{'{database}'}/{'{endpoint}'}
-          </code>
-          ; choose the version separately for each request in API Client. The server defines their
-          methods and permissions.
-        </p>
-      </fieldset>
-      <fieldset className="wr-project-settings-seo-options">
-        <legend>User session</legend>
-        <div className="wr-project-settings-toggles">
-          <label>
-            <input
-              type="checkbox"
-              checked={settings.persistSession}
-              onChange={(event) => onChange({ persistSession: event.currentTarget.checked })}
-            />
-            <span>Persist the user session</span>
-          </label>
-        </div>
-        <div className="wr-project-settings-fields">
-          <label className="wr-project-settings-field">
+      </div>
+      <section className="wr-restgo-session-settings" aria-label="User session">
+        <h3>User session</h3>
+        <label className="wr-restgo-toggle">
+          <input
+            type="checkbox"
+            checked={settings.persistSession}
+            onChange={(event) => onChange({ persistSession: event.currentTarget.checked })}
+          />
+          <span>Persist the user session</span>
+        </label>
+        <div className="wr-restgo-settings-fields">
+          <label className="wr-restgo-settings-field">
             <span>Session storage</span>
             <select
               value={settings.sessionStorage}
@@ -111,13 +92,13 @@ export function RestGoSettingsSection({
                 }
               }}
             >
-              <option value="local">Local storage (across browser sessions)</option>
-              <option value="session">Session storage (current browser tab)</option>
-              <option value="memory">Memory (until the page closes)</option>
+              <option value="local">Local storage</option>
+              <option value="session">Current browser tab</option>
+              <option value="memory">Memory only</option>
             </select>
-            <small>When persistence is off, the session remains in memory.</small>
+            <small>Persistence off keeps the session in memory.</small>
           </label>
-          <label className="wr-project-settings-field">
+          <label className="wr-restgo-settings-field">
             <span>Session storage key</span>
             <input
               type="text"
@@ -126,20 +107,13 @@ export function RestGoSettingsSection({
               spellCheck={false}
               onChange={(event) => onChange({ storageKey: event.currentTarget.value })}
             />
-            <small>Use a distinct key for applications sharing the same origin.</small>
+            <small>Use a unique key for this application.</small>
           </label>
         </div>
-        <p>
-          RestGO validates the session and rotates refresh tokens. The SDK renews the JWT
-          automatically; an expired or revoked refresh token requires signing in again.
-        </p>
-      </fieldset>
-      <div className="wr-project-settings-security-note" role="note">
-        These settings, including the Authorization token, are saved with the project and included
-        in Preview and Build. Use an application API token suitable for browser access; keep
-        administrative tokens and passwords on your server. Configure allowed browser origins on the
-        RestGO server.
-      </div>
+      </section>
+      <p className="wr-restgo-settings-note">
+        The application token is included in Preview and Build. Use a browser-safe token.
+      </p>
       {error !== null && (
         <div className="wr-project-settings-error" id={errorId} role="alert">
           {error}

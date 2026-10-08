@@ -6,7 +6,7 @@ import {
   DEFAULT_REST_GO_PROJECT_SETTINGS,
   type ComponentNode,
 } from '@webrad/project-model';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -52,7 +52,7 @@ describe('ApiClientTesterDialog', () => {
     await user.type(screen.getByLabelText('Base URL'), 'https://api.example.test');
     await user.click(remove);
     expect(screen.getByRole('dialog', { name: 'API Client' })).toBeDefined();
-    expect(screen.getByRole('status').textContent).toContain('No endpoints configured');
+    expect(screen.getByRole('status').textContent).toContain('No requests');
     expect(screen.queryByRole('button', { name: 'Send test request' })).toBeNull();
     expect(
       (screen.getByRole('button', { name: 'Remove operation' }) as HTMLButtonElement).disabled,
@@ -77,7 +77,7 @@ describe('ApiClientTesterDialog', () => {
         onSave={onSave}
       />,
     );
-    expect(screen.getByRole('status').textContent).toContain('No endpoints configured');
+    expect(screen.getByRole('status').textContent).toContain('No requests');
     await user.click(screen.getByRole('button', { name: 'Add operation' }));
     expect(screen.queryByRole('status')).toBeNull();
     expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe(baseUrl);
@@ -398,5 +398,78 @@ describe('ApiClientTesterDialog', () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0]?.[1]?.operations[0]?.responseSchema).toBeNull();
+  });
+
+  it('detects body parameters, sends typed test values, and saves definitions without those values', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response('{"success":true}', { headers: { 'Content-Type': 'application/json' } }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const view = render(
+      <ApiClientTesterDialog component={apiClientComponent} onClose={vi.fn()} onSave={onSave} />,
+    );
+    await user.type(screen.getByLabelText('Base URL'), 'https://api.example.test');
+    await user.type(screen.getByLabelText('Path'), '/key');
+    await user.selectOptions(screen.getByLabelText('Method'), 'PUT');
+    await user.click(screen.getByRole('tab', { name: 'Body' }));
+    await user.selectOptions(screen.getByLabelText('Body type'), 'json');
+    const template = '{"idinstancia":<idinstancia>,"chave":<chave>,"repeat":"<chave>"}';
+    fireEvent.change(screen.getByLabelText('Request body'), { target: { value: template } });
+    expect(screen.getAllByLabelText('Test value chave')).toHaveLength(1);
+    await user.selectOptions(screen.getByLabelText('Parameter type idinstancia'), 'integer');
+    await user.type(screen.getByLabelText('Test value idinstancia'), '9');
+    await user.type(screen.getByLabelText('Test value chave'), 'test-only-value');
+    await user.click(screen.getByRole('button', { name: 'Send test request' }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: 'Save API Client' }) as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
+      idinstancia: 9,
+      chave: 'test-only-value',
+      repeat: 'test-only-value',
+    });
+    await user.click(screen.getByRole('button', { name: 'Save API Client' }));
+    const [baseUrl, configuration] = onSave.mock.calls[0] as [
+      string,
+      ReturnType<typeof createDefaultApiClientConfiguration>,
+    ];
+    expect(configuration.operations[0]?.body).toEqual({
+      kind: 'json',
+      content: template,
+      parameters: [
+        { name: 'idinstancia', type: 'integer' },
+        { name: 'chave', type: 'string' },
+      ],
+    });
+    expect(JSON.stringify(configuration)).not.toContain('test-only-value');
+    fireEvent.change(screen.getByLabelText('Request body'), {
+      target: { value: '{"chave":<chave>}' },
+    });
+    expect(screen.queryByLabelText('Parameter type idinstancia')).toBeNull();
+    view.unmount();
+    render(
+      <ApiClientTesterDialog
+        component={{
+          ...apiClientComponent,
+          props: { ...apiClientComponent.props, baseUrl, apiClientConfig: configuration },
+        }}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('tab', { name: 'Body' }));
+    expect((screen.getByLabelText('Parameter type idinstancia') as HTMLSelectElement).value).toBe(
+      'integer',
+    );
+    expect((screen.getByLabelText('Test value idinstancia') as HTMLInputElement).value).toBe('');
+    await user.click(screen.getByRole('button', { name: 'Send test request' }));
+    await screen.findByText('Enter a test value for <idinstancia>.');
+    expect(fetch).toHaveBeenCalledOnce();
   });
 });

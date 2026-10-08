@@ -662,3 +662,61 @@ describe('persisted API Client configuration', () => {
     }
   });
 });
+
+it('serializes request-body template definitions and rejects persisted test values', () => {
+  const original = validConfiguration();
+  const operation = original.operations[0];
+  if (operation === undefined) throw new Error('Expected a request.');
+  const configuration: ApiClientConfiguration = {
+    ...original,
+    operations: [
+      {
+        ...operation,
+        method: 'PUT',
+        body: {
+          kind: 'json',
+          content: '{"id":<id>}',
+          parameters: [{ name: 'id', type: 'integer' }],
+        },
+      },
+    ],
+  };
+  const restored = deserializePage(serializePage(pageWithApiClientConfiguration(configuration)));
+  const client = restored.components.find((component) => component.type === 'WebApiClient');
+  expect(
+    normalizeApiClientConfiguration(client?.props.apiClientConfig).operations[0]?.body,
+  ).toEqual(configuration.operations[0]?.body);
+  expect(
+    ApiClientConfigurationSchema.safeParse({
+      ...configuration,
+      operations: [
+        {
+          ...operation,
+          body: {
+            kind: 'json',
+            content: '{"id":<id>}',
+            parameters: [{ name: 'id', type: 'integer', value: '123' }],
+          },
+        },
+      ],
+    }).success,
+  ).toBe(false);
+  expect(
+    ApiClientConfigurationSchema.safeParse({
+      ...configuration,
+      operations: [
+        {
+          ...operation,
+          body: {
+            kind: 'json',
+            content: '{"id":<id>}',
+            parameters: [
+              { name: 'id', type: 'integer' },
+              { name: 'id', type: 'string' },
+            ],
+          },
+        },
+      ],
+    }).success,
+  ).toBe(false);
+});

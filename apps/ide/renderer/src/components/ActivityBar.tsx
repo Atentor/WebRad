@@ -5,6 +5,7 @@ import type { ViewMode } from './EditorWorkspace';
 interface ActivityBarProps {
   activeView: ViewMode;
   stylesActive: boolean;
+  restGoActive?: boolean;
   projectActive: boolean;
   hasProject: boolean;
   hasDocument: boolean;
@@ -13,6 +14,7 @@ interface ActivityBarProps {
   onShowProject: () => void;
   onOpenStyles: () => void;
   onOpenSettings: () => void;
+  onOpenRestGo?: () => void;
   onToggleOutput: () => void;
 }
 
@@ -25,7 +27,7 @@ const VIEWS: readonly { view: ViewMode; label: string; icon: IconName }[] = [
 export function ActivityBar(props: ActivityBarProps): ReactElement {
   return (
     <nav className="wr-activity-bar" aria-label="Workspace navigation">
-      {!props.stylesActive && (
+      {!props.stylesActive && !props.restGoActive && (
         <div
           className={props.stylesActive ? 'wr-activity-views' : 'wr-activity-views wr-view-tabs'}
           role="tablist"
@@ -76,6 +78,16 @@ export function ActivityBar(props: ActivityBarProps): ReactElement {
         onClick={props.onOpenSettings}
       >
         <Icon name="settings" />
+      </button>
+      <button
+        type="button"
+        aria-label="RestGo integration"
+        title="RestGo integration"
+        aria-pressed={props.restGoActive === true}
+        disabled={!props.hasProject}
+        onClick={props.onOpenRestGo}
+      >
+        <Icon name="database" />
       </button>
       <span className="wr-activity-spacer" />
       <button

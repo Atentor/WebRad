@@ -7,7 +7,7 @@ import type {
   ProjectSocialImageMediaType,
   ProjectSettings,
 } from '@webrad/project-model';
-import { RestGoProjectSettingsSchema } from '@webrad/project-model';
+
 import type { WebRadIconName } from '@webrad/runtime/icons';
 import {
   useEffect,
@@ -19,7 +19,6 @@ import {
   type ReactElement,
 } from 'react';
 import { Icon } from './Icon';
-import { RestGoSettingsSection } from './RestGoSettingsSection';
 
 interface ProjectSettingsDialogProps {
   readonly projectName: string;
@@ -28,8 +27,7 @@ interface ProjectSettingsDialogProps {
   readonly onSave: (settings: ProjectSettings) => void;
 }
 
-type ProjectSettingsSectionId =
-  'general' | 'environment' | 'icons' | 'seo' | 'build' | 'pwa' | 'restgo';
+type ProjectSettingsSectionId = 'general' | 'environment' | 'icons' | 'seo' | 'build' | 'pwa';
 
 interface ProjectSettingsSection {
   readonly id: ProjectSettingsSectionId;
@@ -115,20 +113,6 @@ const SETTINGS_SECTIONS = [
       'Manifest and splash screen',
       'Theme, colors, and installable icons',
       'Title, description, and social metadata',
-    ],
-  },
-  {
-    id: 'restgo',
-    group: 'Platform',
-    label: 'RestGo integration',
-    icon: 'link',
-    title: 'RestGo integration',
-    description:
-      'RestGO connection, Authorization token, user authentication, Storage, and dynamic APIs.',
-    items: [
-      'Connection and Authorization token',
-      'User authentication and session storage',
-      'Storage and published dynamic endpoints',
     ],
   },
 ] as const satisfies readonly ProjectSettingsSection[];
@@ -317,9 +301,9 @@ export function ProjectSettingsDialog({
   const isEnvironmentSection = activeSection.id === 'environment';
   const isIconsSection = activeSection.id === 'icons';
   const isSeoSection = activeSection.id === 'seo';
-  const isRestGoSection = activeSection.id === 'restgo';
+
   const isEditableSection =
-    isGeneralSection || isEnvironmentSection || isIconsSection || isSeoSection || isRestGoSection;
+    isGeneralSection || isEnvironmentSection || isIconsSection || isSeoSection;
   const hasChanges = settingsChanged(settings, draft);
   const scrollbarPreviewStyle = {
     '--wr-project-scrollbar-track': draft.scrollbar.trackColor,
@@ -491,19 +475,14 @@ export function ProjectSettingsDialog({
       }
       variableNames.add(variable.name);
     }
-    const restGoResult = RestGoProjectSettingsSchema.safeParse(draft.restGo);
-    if (!restGoResult.success) {
-      setSaveError(restGoResult.error.issues[0]?.message ?? 'Check the RestGO settings.');
-      if (!isRestGoSection) setActiveSectionId('restgo');
-      return;
-    }
+
     onSave({
       ...draft,
       applicationName,
       applicationDescription: draft.applicationDescription.trim(),
       seo,
       environmentVariables,
-      restGo: restGoResult.data,
+      restGo: settings.restGo,
     });
   };
 
@@ -559,8 +538,8 @@ export function ProjectSettingsDialog({
         <div className="wr-project-settings-content">
           <p id={descriptionId} className="wr-modal-description">
             General settings, scrollbar styles, environment variables, application icons, and SEO
-            metadata, plus native RestGO settings, are saved in the project and applied to the
-            generated output. Other areas remain available for planning.
+            metadata are saved in the project and applied to the generated output. Other areas
+            remain available for planning.
           </p>
           <div className="wr-project-settings-layout">
             <nav
@@ -1242,13 +1221,6 @@ export function ProjectSettingsDialog({
                     </div>
                   )}
                 </>
-              ) : isRestGoSection ? (
-                <RestGoSettingsSection
-                  settings={draft.restGo}
-                  error={saveError}
-                  errorId={`${descriptionId}-error`}
-                  onChange={(patch) => updateDraft({ restGo: { ...draft.restGo, ...patch } })}
-                />
               ) : (
                 <>
                   <p>{activeSection.description}</p>

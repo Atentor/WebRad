@@ -67,7 +67,7 @@ async function click(window: BrowserWindow, selector: string): Promise<void> {
 async function setField(window: BrowserWindow, label: string, value: string): Promise<void> {
   const updated: unknown = await window.webContents.executeJavaScript(
     `(() => {
-      const label = Array.from(document.querySelectorAll('.wr-project-settings-dialog label'))
+      const label = Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label'))
         .find((item) => item.querySelector('span')?.textContent?.trim() === ${JSON.stringify(label)});
       const control = label?.querySelector('input, select');
       if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) return false;
@@ -83,13 +83,16 @@ async function setField(window: BrowserWindow, label: string, value: string): Pr
 }
 
 async function openSettings(window: BrowserWindow): Promise<void> {
-  await click(window, 'button[aria-label="Project Settings"]');
-  await click(window, '#project-settings-tab-restgo');
+  await click(window, 'button[aria-label="RestGo integration"]');
+  await click(window, '.wr-restgo-sidebar button:first-child');
 }
 
 async function saveProject(window: BrowserWindow, projectPath: string): Promise<void> {
-  await click(window, '.wr-project-settings-actions button.primary');
-  await rendererReady(window, 'document.querySelector(".wr-project-settings-dialog") === null');
+  await click(window, '.wr-restgo-runtime-settings button[type="submit"]');
+  await rendererReady(
+    window,
+    'document.querySelector(\'.wr-restgo-runtime-settings button[type="submit"]\')?.disabled === true',
+  );
   await click(window, 'button[aria-label="Save (Ctrl+S)"]');
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
@@ -118,97 +121,61 @@ async function saveProject(window: BrowserWindow, projectPath: string): Promise<
 }
 
 /** Exercises real renderer controls and disk persistence on the isolated smoke fixture. */
+/** Exercises workspace controls and disk persistence on the isolated smoke fixture. */
 export async function runRestGoSettingsSmoke(
   window: BrowserWindow,
   { projectPath, log }: RestGoSettingsSmokeOptions,
 ): Promise<void> {
   await openSettings(window);
   await window.webContents.executeJavaScript(
-    `Array.from(document.querySelectorAll('.wr-project-settings-dialog label'))
-      .find((label) => label.textContent?.includes('Enable native RestGO integration'))
-      ?.querySelector('input')?.click()`,
+    `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label')).find(label => label.textContent?.includes('Enable native RestGO integration'))?.querySelector('input')?.click()`,
     true,
   );
   await setField(window, 'RestGO instance URL', 'https://restgo.example.test/backend');
-  await setField(window, 'Authorization token', 'rgo.settings-smoke');
-  await rendererReady(
-    window,
-    `!Array.from(document.querySelectorAll('.wr-project-settings-dialog label')).some((label) => label.textContent?.includes('Dynamic API version'))`,
-  );
+  await setField(window, 'Application API token', 'rgo.settings-smoke');
   await setField(window, 'Default database slug', 'clientes');
   await setField(window, 'Session storage', 'memory');
+  await click(window, '.wr-restgo-sidebar button:nth-child(2)');
+  await click(window, '.wr-restgo-sidebar button:first-child');
   await rendererReady(
     window,
-    `document.querySelectorAll('#project-settings-tab-restgo').length === 1 && document.querySelector('#project-settings-tab-authentication') === null && document.querySelector('#project-settings-tab-integrations') === null`,
+    `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings input')).some(input => input.value === 'https://restgo.example.test/backend')`,
   );
-  await click(window, '#project-settings-tab-general');
-
-  await click(window, '#project-settings-tab-restgo');
-  await rendererReady(
-    window,
-    `Array.from(document.querySelectorAll('.wr-project-settings-dialog input'))
-      .some((input) => input.value === 'https://restgo.example.test/backend')`,
-  );
-  await window.webContents.executeJavaScript(
-    'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-    true,
-  );
-  await new Promise((resolve) => setTimeout(resolve, 150));
   const screenshot = await window.webContents.capturePage();
   const screenshotPath = path.resolve('node_modules', '.cache', 'webrad-restgo-settings.png');
   await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
   await fs.writeFile(screenshotPath, screenshot.toPNG());
   await saveProject(window, projectPath);
+  await click(window, 'button[aria-label="Close RestGo"]');
+  await openSettings(window);
+  await rendererReady(
+    window,
+    `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings input')).some(input => input.type === 'password' && input.value === 'rgo.settings-smoke')`,
+  );
+  await setField(window, 'RestGO instance URL', 'https://draft.example.test');
+  await setField(window, 'Application API token', 'rgo.unsaved-token');
   const manifest = JSON.parse(await fs.readFile(projectPath, 'utf8')) as {
     settings?: { restGo?: Record<string, unknown> };
   };
-  const configuration = manifest.settings?.restGo;
   if (
-    configuration?.enabled !== true ||
-    configuration.baseUrl !== 'https://restgo.example.test/backend' ||
-    configuration.apiVersion !== 1 ||
-    configuration.defaultDatabase !== 'clientes' ||
-    configuration.sessionStorage !== 'memory' ||
-    configuration.apiToken !== 'rgo.settings-smoke'
+    manifest.settings?.restGo?.baseUrl !== 'https://restgo.example.test/backend' ||
+    manifest.settings.restGo.apiToken !== 'rgo.settings-smoke'
   )
-    throw new Error(`RestGO settings save mismatch: ${JSON.stringify(configuration)}`);
-
-  await openSettings(window);
-  await rendererReady(
-    window,
-    `Array.from(document.querySelectorAll('.wr-project-settings-dialog input')).some((input) => input.type === 'password' && input.value === 'rgo.settings-smoke')`,
-  );
-
-  await rendererReady(
-    window,
-    `Array.from(document.querySelectorAll('.wr-project-settings-dialog input'))
-      .some((input) => input.value === 'https://restgo.example.test/backend')`,
-  );
-  await setField(window, 'RestGO instance URL', 'https://discarded.example.test');
-  await setField(window, 'Authorization token', 'rgo.discarded-token');
-
-  await click(window, 'button[aria-label="Close project settings"]');
-  await openSettings(window);
-  await rendererReady(
-    window,
-    `Array.from(document.querySelectorAll('.wr-project-settings-dialog input')).some((input) => input.type === 'password' && input.value === 'rgo.settings-smoke')`,
-  );
-
-  await rendererReady(
-    window,
-    `Array.from(document.querySelectorAll('.wr-project-settings-dialog input'))
-      .some((input) => input.value === 'https://restgo.example.test/backend')`,
-  );
+    throw new Error('Unapplied workspace edits changed the saved RestGO settings.');
+  await setField(window, 'RestGO instance URL', 'https://restgo.example.test/backend');
+  await setField(window, 'Application API token', 'rgo.settings-smoke');
   await window.webContents.executeJavaScript(
-    `Array.from(document.querySelectorAll('.wr-project-settings-dialog label'))
-      .find((label) => label.textContent?.includes('Enable native RestGO integration'))
-      ?.querySelector('input')?.click()`,
+    `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label')).find(label => label.textContent?.includes('Enable native RestGO integration'))?.querySelector('input')?.click()`,
     true,
   );
-  await click(window, '.wr-project-settings-actions button.primary');
-  await rendererReady(window, 'document.querySelector(".wr-project-settings-dialog") === null');
+  await click(window, '.wr-restgo-runtime-settings button[type="submit"]');
+  await rendererReady(
+    window,
+    `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.disabled === true`,
+  );
+  await click(window, 'button[aria-label="Project Explorer"]');
   log(
-    `renderer RestGO settings passed: save, disk persistence, reopen, cancel; screenshot ${screenshotPath}`,
+    `renderer RestGO workspace passed: save, disk persistence, reopen and unapplied draft isolation; screenshot ${screenshotPath}`,
   );
 }
 

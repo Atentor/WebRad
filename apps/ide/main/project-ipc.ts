@@ -25,6 +25,7 @@ import {
 } from './project-files';
 import { publishPreviewHtml, revokePreview } from './preview-server';
 import { LastProjectStore } from './last-project';
+import { registerRestGoAdminIpc } from './restgo-admin-ipc';
 
 const allowedRoots = new Map<number, Set<string>>();
 const activeProjectRoots = new Map<number, string>();
@@ -305,6 +306,7 @@ export interface RegisterIpcHandlersOptions {
 export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): void {
   if (registered) return;
   registered = true;
+  registerRestGoAdminIpc(requireTrustedSender, options.userDataPath);
   const lastProject =
     options.userDataPath === undefined ? undefined : new LastProjectStore(options.userDataPath);
   const rememberSession = async (

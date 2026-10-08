@@ -1,4 +1,5 @@
 import type { ExternalLinkTarget } from './external-links';
+import type { RestGoAdminBridge } from './restgo-admin';
 import type { ComponentStyleModel, WebRadProject } from '@webrad/project-model';
 
 export const IDE_COMMANDS = [
@@ -92,6 +93,7 @@ export interface CompileStylesResponse {
 }
 
 export interface WebRadBridge {
+  readonly restgoAdmin: RestGoAdminBridge;
   links: { open(target: ExternalLinkTarget): Promise<void> };
   project: {
     create(request: CreateProjectRequest): Promise<ProjectSession | null>;

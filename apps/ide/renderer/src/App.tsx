@@ -35,6 +35,7 @@ import {
   type DataGridConfiguration,
   type PageModel,
   type ProjectSettings,
+  type RestGoProjectSettings,
 } from '@webrad/project-model';
 import {
   createUserPageSource,
@@ -75,6 +76,8 @@ import { ObjectInspector } from './components/ObjectInspector';
 import { PreviewPane } from './components/PreviewPane';
 import { ProjectExplorer } from './components/ProjectExplorer';
 import { ProjectSettingsDialog } from './components/ProjectSettingsDialog';
+import { RestGoWorkspace } from './components/RestGoWorkspace';
+import { RestGoSidebar, type RestGoSection } from './components/RestGoSidebar';
 
 import { StatusBar } from './components/StatusBar';
 import { StylesWorkspace } from './components/StylesWorkspace';
@@ -93,8 +96,9 @@ import { DesignerController } from './state/designer-controller';
 import { ProjectController } from './state/project-controller';
 
 const STYLES_DOCUMENT_ID = 'webrad:project-styles';
+const RESTGO_DOCUMENT_ID = 'webrad:restgo';
 
-type ActiveWorkspace = 'page' | 'styles';
+type ActiveWorkspace = 'page' | 'styles' | 'restgo';
 
 function sourceKey(page: PageModel, kind: 'page' | 'reusable'): string {
   return kind === 'reusable' ? `reusables/${page.name}.ts` : `pages/${page.name}.ts`;
@@ -187,6 +191,10 @@ export function App(): ReactElement {
   const [openPageIds, setOpenPageIds] = useState<readonly string[]>([]);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [stylesOpen, setStylesOpen] = useState(false);
+  const [restGoOpen, setRestGoOpen] = useState(false);
+  const [restGoVisited, setRestGoVisited] = useState(false);
+  const [restGoSection, setRestGoSection] = useState<RestGoSection>('connection');
+
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>('page');
   const [activeView, setActiveView] = useState<ViewMode>('design');
   const [selectedPaletteType, setSelectedPaletteType] = useState<string | null>(null);
@@ -230,11 +238,13 @@ export function App(): ReactElement {
   const project = projectState.project;
   const projectStyles = project?.styles;
   const stylesActive = activeWorkspace === 'styles' && project !== null;
-  const activePage = stylesActive
-    ? null
-    : (project?.pages.find((page) => page.id === activePageId) ??
-      project?.reusableElements.find((reusableElement) => reusableElement.id === activePageId) ??
-      null);
+  const restGoActive = activeWorkspace === 'restgo' && project !== null;
+  const activePage =
+    stylesActive || restGoActive
+      ? null
+      : (project?.pages.find((page) => page.id === activePageId) ??
+        project?.reusableElements.find((reusableElement) => reusableElement.id === activePageId) ??
+        null);
   const activeDocumentKind =
     activePage === null
       ? null
@@ -296,6 +306,10 @@ export function App(): ReactElement {
       setOpenPageIds(initialPageId ? [initialPageId] : []);
       setActivePageId(initialPageId);
       setStylesOpen(false);
+      setRestGoOpen(false);
+      setRestGoVisited(false);
+      setRestGoSection('connection');
+
       setActiveWorkspace('page');
       setActiveView('design');
       selectionManager.clear();
@@ -399,6 +413,14 @@ export function App(): ReactElement {
     if (!project) return;
     setStylesOpen(true);
     setActiveWorkspace('styles');
+    selectionManager.clear();
+  }, [project, selectionManager]);
+
+  const openRestGo = useCallback((): void => {
+    if (!project) return;
+    setRestGoOpen(true);
+    setRestGoVisited(true);
+    setActiveWorkspace('restgo');
     selectionManager.clear();
   }, [project, selectionManager]);
 
@@ -968,6 +990,14 @@ export function App(): ReactElement {
     [addOutput, projectController, reportError],
   );
 
+  const saveRestGoSettings = useCallback(
+    (settings: RestGoProjectSettings): void => {
+      projectController.updateProjectSettings({ restGo: settings });
+      addOutput('PROJECT', 'Updated RestGo connection settings. Save the project to persist them.');
+    },
+    [projectController, addOutput],
+  );
+
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
     if (!projectState.dirty) return true;
     if (window.confirm('Save unsaved changes before continuing?')) {
@@ -1039,6 +1069,9 @@ export function App(): ReactElement {
       setActiveWorkspace('page');
       selectionManager.clear();
       designerController.clear();
+      setRestGoOpen(false);
+
+      setRestGoVisited(false);
       stylesCompileRequestRef.current += 1;
       setPreviewUrl(null);
       setCompiledStylesCss('');
@@ -1397,18 +1430,23 @@ export function App(): ReactElement {
             },
           ];
     });
-    return stylesOpen
-      ? [
-          ...pageDocuments,
-          {
-            id: STYLES_DOCUMENT_ID,
-            label: 'Styles',
-            dirty: projectState.dirty,
-            kind: 'styles' as const,
-          },
-        ]
-      : pageDocuments;
-  }, [openPageIds, project, projectState.dirty, stylesOpen]);
+    return [
+      ...pageDocuments,
+      ...(stylesOpen
+        ? [
+            {
+              id: STYLES_DOCUMENT_ID,
+              label: 'Styles',
+              dirty: projectState.dirty,
+              kind: 'styles' as const,
+            },
+          ]
+        : []),
+      ...(restGoOpen
+        ? [{ id: RESTGO_DOCUMENT_ID, label: 'RestGo', dirty: false, kind: 'restgo' as const }]
+        : []),
+    ];
+  }, [openPageIds, project, projectState.dirty, stylesOpen, restGoOpen]);
 
   const editorPageComponents = useMemo(
     () =>
@@ -1601,7 +1639,7 @@ export function App(): ReactElement {
     primaryComponentDefinition !== undefined &&
     resolveComponentDesignerPresentation(primaryComponentDefinition) === 'canvas';
 
-  const editorContent = stylesActive ? (
+  const pageEditorContent = stylesActive ? (
     <ErrorBoundary area="Styles">
       <StylesWorkspace
         styles={project?.styles ?? []}
@@ -1682,6 +1720,26 @@ export function App(): ReactElement {
     </ErrorBoundary>
   );
 
+  const editorContent = (
+    <>
+      {project !== null && restGoVisited && (
+        <div hidden={!restGoActive} style={{ height: '100%', minHeight: 0 }}>
+          <ErrorBoundary area="RestGo integration">
+            <RestGoWorkspace
+              key={project.id}
+              projectId={project.id}
+              settings={project.settings.restGo}
+              section={restGoSection}
+              onSectionChange={setRestGoSection}
+              onSaveSettings={saveRestGoSettings}
+            />
+          </ErrorBoundary>
+        </div>
+      )}
+      {!restGoActive && pageEditorContent}
+    </>
+  );
+
   const status = !activePage
     ? ({ kind: 'empty' } as const)
     : activeView === 'code'
@@ -1715,12 +1773,20 @@ export function App(): ReactElement {
               canSave={project !== null && !projectState.saving}
               canRun={project !== null && projectState.rootPath !== null && !building}
               documents={documents}
-              activeDocumentId={stylesActive ? STYLES_DOCUMENT_ID : activePageId}
+              activeDocumentId={
+                restGoActive ? RESTGO_DOCUMENT_ID : stylesActive ? STYLES_DOCUMENT_ID : activePageId
+              }
               onSelectDocument={(id) => {
                 if (id === STYLES_DOCUMENT_ID) openStyles();
+                else if (id === RESTGO_DOCUMENT_ID) openRestGo();
                 else openPage(id);
               }}
               onCloseDocument={(id) => {
+                if (id === RESTGO_DOCUMENT_ID) {
+                  setRestGoOpen(false);
+                  if (activeWorkspace === 'restgo') setActiveWorkspace('page');
+                  return;
+                }
                 if (id === STYLES_DOCUMENT_ID) {
                   setStylesOpen(false);
                   if (activeWorkspace === 'styles') setActiveWorkspace('page');
@@ -1770,59 +1836,68 @@ export function App(): ReactElement {
             />
           }
           explorer={
-            <DesignerSidebar
-              mode={sidebarMode}
-              onModeChange={setSidebarMode}
-              page={activePage}
-              viewport={viewportName}
-              onViewportChange={(viewport) => {
-                setViewportName(viewport);
-                if (!stylesActive) setActiveView('design');
-              }}
-              onInspectPage={() => {
-                if (activePage)
-                  selectionManager.set([activePage.rootComponentId], activePage.rootComponentId);
-              }}
-              tree={
-                visiblePanels.explorer ? (
-                  <ElementTree
-                    page={activePage}
-                    selectedIds={selection.ids}
-                    onSelect={(ids, primaryId) => {
-                      setSelectedPaletteType(null);
-                      selectionManager.set(ids, primaryId);
-                    }}
-                    onEditCommand={(command) => executeCommand(command, 'designer')}
-                  />
-                ) : null
-              }
-              explorer={
-                visiblePanels.explorer ? (
-                  <ErrorBoundary area="Project Explorer">
-                    <ProjectExplorer
-                      project={project}
-                      activePageId={
-                        stylesActive || activeDocumentKind === 'reusable' ? null : activePageId
-                      }
-                      onOpenPage={openPage}
-                      onAddPage={addPageToProject}
-                      onDeletePage={deletePage}
-                      onRenamePage={renamePage}
-                      activeReusableElementId={
-                        stylesActive || activeDocumentKind !== 'reusable' ? null : activePageId
-                      }
-                      onOpenReusableElement={openPage}
-                      onAddReusableElement={addReusableElementToProject}
-                      onDeleteReusableElement={deleteReusableElement}
-                      onRenameReusableElement={renameReusableElement}
+            restGoActive && project !== null ? (
+              <RestGoSidebar
+                section={restGoSection}
+                onSelect={setRestGoSection}
+                enabled={project.settings.restGo.enabled}
+                baseUrl={project.settings.restGo.baseUrl}
+              />
+            ) : (
+              <DesignerSidebar
+                mode={sidebarMode}
+                onModeChange={setSidebarMode}
+                page={activePage}
+                viewport={viewportName}
+                onViewportChange={(viewport) => {
+                  setViewportName(viewport);
+                  if (!stylesActive) setActiveView('design');
+                }}
+                onInspectPage={() => {
+                  if (activePage)
+                    selectionManager.set([activePage.rootComponentId], activePage.rootComponentId);
+                }}
+                tree={
+                  visiblePanels.explorer ? (
+                    <ElementTree
+                      page={activePage}
+                      selectedIds={selection.ids}
+                      onSelect={(ids, primaryId) => {
+                        setSelectedPaletteType(null);
+                        selectionManager.set(ids, primaryId);
+                      }}
+                      onEditCommand={(command) => executeCommand(command, 'designer')}
                     />
-                  </ErrorBoundary>
-                ) : null
-              }
-            />
+                  ) : null
+                }
+                explorer={
+                  visiblePanels.explorer ? (
+                    <ErrorBoundary area="Project Explorer">
+                      <ProjectExplorer
+                        project={project}
+                        activePageId={
+                          stylesActive || activeDocumentKind === 'reusable' ? null : activePageId
+                        }
+                        onOpenPage={openPage}
+                        onAddPage={addPageToProject}
+                        onDeletePage={deletePage}
+                        onRenamePage={renamePage}
+                        activeReusableElementId={
+                          stylesActive || activeDocumentKind !== 'reusable' ? null : activePageId
+                        }
+                        onOpenReusableElement={openPage}
+                        onAddReusableElement={addReusableElementToProject}
+                        onDeleteReusableElement={deleteReusableElement}
+                        onRenameReusableElement={renameReusableElement}
+                      />
+                    </ErrorBoundary>
+                  ) : null
+                }
+              />
+            )
           }
           palette={
-            visiblePanels.palette ? (
+            visiblePanels.palette && !restGoActive ? (
               <ErrorBoundary area="Tool Palette">
                 <ToolPalette
                   compact
@@ -1861,7 +1936,8 @@ export function App(): ReactElement {
             <ActivityBar
               activeView={activeView}
               stylesActive={stylesActive}
-              projectActive={sidebarMode === 'project'}
+              restGoActive={restGoActive}
+              projectActive={!restGoActive && sidebarMode === 'project'}
               hasProject={project !== null}
               hasDocument={activePageId !== null}
               outputVisible={visiblePanels.output}
@@ -1871,11 +1947,13 @@ export function App(): ReactElement {
                 if (view === 'design') setSidebarMode('builder');
               }}
               onShowProject={() => {
+                setActiveWorkspace('page');
                 setVisiblePanels((current) => ({ ...current, explorer: true }));
                 setSidebarMode('project');
               }}
               onOpenStyles={openStyles}
               onOpenSettings={() => setProjectSettingsDialogOpen(true)}
+              onOpenRestGo={openRestGo}
               onToggleOutput={() =>
                 setVisiblePanels((current) => ({ ...current, output: !current.output }))
               }
@@ -1884,13 +1962,15 @@ export function App(): ReactElement {
           editor={
             <EditorWorkspace
               documents={documents}
-              activeDocumentId={stylesActive ? STYLES_DOCUMENT_ID : activePageId}
+              activeDocumentId={
+                restGoActive ? RESTGO_DOCUMENT_ID : stylesActive ? STYLES_DOCUMENT_ID : activePageId
+              }
             >
               {editorContent}
             </EditorWorkspace>
           }
           inspector={
-            visiblePanels.inspector && !stylesActive ? (
+            visiblePanels.inspector && !stylesActive && !restGoActive ? (
               <ErrorBoundary area="Object Inspector">
                 <ObjectInspector
                   selection={selectedComponents}
@@ -1947,6 +2027,7 @@ export function App(): ReactElement {
         />
       </div>
       {aboutDialogOpen && <AboutDialog onClose={() => setAboutDialogOpen(false)} />}
+
       {newProjectDialogOpen && (
         <NewProjectDialog
           busy={creatingProject}

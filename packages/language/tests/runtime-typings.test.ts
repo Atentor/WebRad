@@ -921,4 +921,31 @@ void api.get<number>(42);
       invalid.service.getSemanticDiagnostics(invalid.fileName).map(({ code }) => code),
     ).toEqual(expect.arrayContaining([2322, 2339, 2345, 2540]));
   });
+
+  it('offers template parameters in request options and rejects non-JSON runtime values', () => {
+    const marked =
+      extractMarkers(`import { WebApiClient, type WebApiRequestOptions } from '@webrad/runtime';
+declare const options: WebApiRequestOptions;
+options./*@options*/parameters;
+const api = new WebApiClient();
+void api.execute('PutKey', { parameters: { id: 3, chave: 'key', enabled: true, extra: { nested: [1, null] } } });`);
+    const { fileName, service } = createLanguageService(marked.text);
+    try {
+      expect(service.getSemanticDiagnostics(fileName)).toEqual([]);
+      expect(completionNames(service, fileName, marked.positions.get('options') ?? 0)).toContain(
+        'parameters',
+      );
+    } finally {
+      service.dispose();
+    }
+    const invalid = createLanguageService(`import { WebApiClient } from '@webrad/runtime';
+void new WebApiClient().execute('PutKey', { parameters: { id: () => 1 } });`);
+    try {
+      expect(
+        invalid.service.getSemanticDiagnostics(invalid.fileName).some(({ code }) => code === 2322),
+      ).toBe(true);
+    } finally {
+      invalid.service.dispose();
+    }
+  });
 });

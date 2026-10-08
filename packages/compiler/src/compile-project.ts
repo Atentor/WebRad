@@ -92,14 +92,15 @@ function validateRegistry(
           const configuration = ApiClientConfigurationSchema.safeParse(value);
           if (
             configuration.success &&
-            configuration.data.connection === 'restgo-session' &&
+            ['restgo-session', 'restgo-api-token', 'restgo-public'].includes(
+              configuration.data.connection ?? '',
+            ) &&
             !project.settings.restGo.enabled
           ) {
             diagnostics.push({
               category: 'error',
               source: 'registry',
-              message:
-                'Enable and configure RestGO in Project Settings > RestGo integration before binding an API Client to the authenticated user.',
+              message: 'Enable and configure the RestGo connection before binding an API Client.',
               path: [...path, 'components', componentIndex, 'props', propertyName, 'connection'],
             });
           }

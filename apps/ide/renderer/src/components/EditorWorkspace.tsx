@@ -7,7 +7,7 @@ export interface DocumentTab {
   id: string;
   label: string;
   dirty: boolean;
-  kind: 'page' | 'reusable' | 'code' | 'styles';
+  kind: 'page' | 'reusable' | 'code' | 'styles' | 'restgo';
 }
 
 interface EditorWorkspaceProps {
@@ -23,7 +23,8 @@ export function EditorWorkspace({
   children,
 }: EditorWorkspaceProps): ReactElement {
   const activeDocument = documents.find((document) => document.id === activeDocumentId);
-  const stylesDocumentActive = activeDocument?.kind === 'styles';
+  const stylesDocumentActive =
+    activeDocument?.kind === 'styles' || activeDocument?.kind === 'restgo';
 
   return (
     <section className="wr-editor-workspace">

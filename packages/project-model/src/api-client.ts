@@ -21,8 +21,22 @@ export const API_CLIENT_HTTP_METHODS = [
   'TRACE',
 ] as const;
 
-export const API_CLIENT_CONNECTIONS = ['custom', 'restgo-session'] as const;
+export const API_CLIENT_CONNECTIONS = [
+  'custom',
+  'restgo-session',
+  'restgo-api-token',
+  'restgo-public',
+] as const;
 export type ApiClientConnection = (typeof API_CLIENT_CONNECTIONS)[number];
+
+/** All RestGo connections use the project's fixed URL and managed authorization. */
+export function isRestGoApiClientConnection(connection: unknown): boolean {
+  return (
+    connection === 'restgo-session' ||
+    connection === 'restgo-api-token' ||
+    connection === 'restgo-public'
+  );
+}
 
 export const API_CLIENT_BODY_KINDS = [
   'none',
@@ -62,10 +76,27 @@ export interface ApiClientParameter {
   readonly enabled: boolean;
 }
 
+export const API_CLIENT_BODY_PARAMETER_TYPES = [
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'object',
+  'array',
+  'null',
+] as const;
+export type ApiClientBodyParameterType = (typeof API_CLIENT_BODY_PARAMETER_TYPES)[number];
+export interface ApiClientBodyParameter {
+  readonly name: string;
+  readonly type: ApiClientBodyParameterType;
+}
+
 export interface ApiClientRequestBody {
   readonly kind: ApiClientBodyKind;
   /** JSON, text, or URL-encoded text fields for either form body kind. */
   readonly content: string;
+  /** Parameter definitions only; test values never belong to a project. */
+  readonly parameters?: readonly ApiClientBodyParameter[];
 }
 
 /**
@@ -200,6 +231,22 @@ export const ApiClientRequestBodySchema: z.ZodType<ApiClientRequestBody> = z
   .object({
     kind: z.enum(API_CLIENT_BODY_KINDS),
     content: z.string().max(1_000_000),
+    parameters: z
+      .array(
+        z
+          .object({
+            name: z.string().regex(/^[\p{L}_$][\p{L}\p{N}_$.-]{0,119}$/u),
+            type: z.enum(API_CLIENT_BODY_PARAMETER_TYPES),
+          })
+          .strict(),
+      )
+      .max(200)
+      .refine(
+        (parameters) =>
+          new Set(parameters.map((parameter) => parameter.name)).size === parameters.length,
+        { message: 'Request-body parameter names must be unique.' },
+      )
+      .optional(),
   })
   .strict();
 
@@ -311,7 +358,7 @@ export const ApiClientConfigurationSchema: z.ZodType<ApiClientConfiguration> = z
   })
   .strict()
   .superRefine((configuration, context) => {
-    const boundToRestGo = configuration.connection === 'restgo-session';
+    const boundToRestGo = isRestGoApiClientConnection(configuration.connection);
     const validateAuthorization = (
       headers: readonly ApiClientParameter[],
       path: readonly (string | number)[],
@@ -320,7 +367,7 @@ export const ApiClientConfigurationSchema: z.ZodType<ApiClientConfiguration> = z
         if (!header.enabled || header.name.toLowerCase() !== 'authorization') return;
         context.addIssue({
           code: 'custom',
-          message: 'RestGo session authentication manages the Authorization header automatically.',
+          message: 'RestGo connections manage the Authorization header automatically.',
           path: [...path, index, 'name'],
         });
       });

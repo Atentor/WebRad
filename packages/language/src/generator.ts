@@ -1,3 +1,4 @@
+import { getApiClientBodyInputs, type WebApiBodyInput } from '@webrad/runtime';
 import { defaultComponentRegistry, type ComponentRegistry } from '@webrad/component-registry';
 import {
   ApiClientConfigurationSchema,
@@ -45,6 +46,9 @@ function runtimeTypes(page: PageModel, kind: GeneratedDocumentKind): readonly st
       kind === 'page' ? 'WebPage' : 'WebComponent',
       ...(kind === 'page' ? [] : ['WebReusableElementInstance']),
       ...page.components.map((component) => component.type),
+      ...(page.components.some((component) => component.type === 'WebApiClient')
+        ? ['WebApiTemplateValue', 'WebApiQueryValue', 'WebApiClientInstance']
+        : []),
     ]),
   ].sort();
 }
@@ -129,6 +133,24 @@ function schemaObjectTypeName(
   return typeName;
 }
 
+function apiInputType(input: WebApiBodyInput): string {
+  if (input.inferred && input.defaultValue === null) return 'WebApiTemplateValue';
+  switch (input.type) {
+    case 'string':
+      return 'string';
+    case 'number':
+    case 'integer':
+      return 'number';
+    case 'boolean':
+      return 'boolean';
+    case 'null':
+      return 'null';
+    case 'array':
+      return 'readonly WebApiTemplateValue[]';
+    case 'object':
+      return 'Readonly<Record<string, WebApiTemplateValue>>';
+  }
+}
 function apiClientTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
   const declarations: string[] = [];
   const typeByComponentId = new Map<string, string>();
@@ -144,21 +166,62 @@ function apiClientTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
           ? 'unknown'
           : schemaTypeName(
               operation.responseSchema.root,
-              `${component.name}${operation.name}Response`,
+              component.name + operation.name + 'Response',
               builder,
             ),
     }));
-    const outputsTypeName = `${component.name}ApiOutputs`;
+    const outputsTypeName = component.name + 'ApiOutputs';
+    const inputsTypeName = component.name + 'ApiInputs';
+    const headersTypeName = component.name + 'ApiDefaultHeaders';
     declarations.push(...builder.declarations);
     declarations.push(
-      `export interface ${outputsTypeName} {`,
+      'export interface ' + outputsTypeName + ' {',
       ...operationTypes.map(
-        (operation) => `  readonly ${JSON.stringify(operation.name)}: ${operation.type};`,
+        (operation) => '  readonly ' + JSON.stringify(operation.name) + ': ' + operation.type + ';',
       ),
       '}',
       '',
     );
-    typeByComponentId.set(component.id, outputsTypeName);
+    declarations.push('export interface ' + inputsTypeName + ' {');
+    for (const operation of configuration.data.operations) {
+      const fields = new Map<string, string>();
+      const queryNames = [...new Set(operation.query.map((query) => query.name))];
+      for (const name of queryNames) fields.set(name, 'WebApiQueryValue');
+      for (const input of getApiClientBodyInputs(operation.body))
+        fields.set(input.name, apiInputType(input));
+      const headerNames = [...new Set(operation.headers.map((header) => header.name))];
+      declarations.push(
+        '  readonly ' + JSON.stringify(operation.name) + ': {',
+        '    readonly Parameter: {',
+        ...[...fields].map(
+          ([name, type]) => '      readonly ' + JSON.stringify(name) + ': ' + type + ';',
+        ),
+        '    };',
+        '    readonly Query: {',
+        ...queryNames.map(
+          (name) => '      readonly ' + JSON.stringify(name) + ': WebApiQueryValue;',
+        ),
+        '    };',
+        '    readonly Headers: {',
+        ...headerNames.map((name) => '      readonly ' + JSON.stringify(name) + ': string;'),
+        '    };',
+        '  };',
+      );
+    }
+    declarations.push(
+      '}',
+      '',
+      'export interface ' + headersTypeName + ' {',
+      ...[...new Set(configuration.data.defaultHeaders.map((header) => header.name))].map(
+        (name) => '  readonly ' + JSON.stringify(name) + ': string;',
+      ),
+      '}',
+      '',
+    );
+    typeByComponentId.set(
+      component.id,
+      'WebApiClient<' + outputsTypeName + ', ' + inputsTypeName + ', ' + headersTypeName + '>',
+    );
   }
   return { declarations, typeByComponentId };
 }
@@ -214,24 +277,22 @@ function componentConstruction(
   if (definition.visual) {
     return `new ${component.type}(this.requireComponentElement(${elementId}))`;
   }
-  const typeName =
-    component.type === 'WebApiClient' && apiClientTypes.get(component.id) !== undefined
-      ? `WebApiClient<${apiClientTypes.get(component.id)}>`
-      : component.type;
+  const typeName = apiClientTypes.get(component.id) ?? component.type;
   return `new ${typeName}(${JSON.stringify({
     ...component.props,
     id: component.id,
     name: component.name,
-  })})`;
+  })})${apiClientTypes.has(component.id) ? '.withRequests()' : ''}`;
 }
 
 function componentMemberType(
   component: ComponentNode,
   apiClientTypes: ReadonlyMap<string, string>,
 ): string {
-  if (component.type !== 'WebApiClient') return component.type;
-  const outputType = apiClientTypes.get(component.id);
-  return outputType === undefined ? component.type : `WebApiClient<${outputType}>`;
+  const apiType = apiClientTypes.get(component.id);
+  return apiType === undefined
+    ? component.type
+    : 'WebApiClientInstance' + apiType.slice('WebApiClient'.length);
 }
 
 /**

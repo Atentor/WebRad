@@ -14,18 +14,24 @@ export interface RestGoRuntimeConfiguration {
 
 export class RestGoNotConfiguredError extends Error {
   public constructor() {
-    super(
-      'Enable and configure RestGO in Project Settings > RestGo integration before using RestGO.',
-    );
+    super('Enable and configure RestGO in RestGo integration > Connection before using RestGO.');
     this.name = 'RestGoNotConfiguredError';
   }
 }
 
 let projectClient: RestGoClient | null = null;
+let applicationApiToken = '';
+
+/** Internal browser credential projection; never contains an IDE administrator token. */
+export function getRestGoApplicationToken(): string {
+  getRestGoClient();
+  return applicationApiToken;
+}
 
 /** Creates the one shared client before authored page lifecycle handlers run. */
 export function configureRestGo(configuration: RestGoRuntimeConfiguration): RestGoClient | null {
   projectClient?.dispose();
+  applicationApiToken = '';
   projectClient = configuration.enabled
     ? createClient(configuration.baseUrl, {
         apiToken: configuration.apiToken,
@@ -36,6 +42,7 @@ export function configureRestGo(configuration: RestGoRuntimeConfiguration): Rest
         storageKey: configuration.storageKey,
       })
     : null;
+  applicationApiToken = projectClient === null ? '' : (configuration.apiToken ?? '');
   return projectClient;
 }
 

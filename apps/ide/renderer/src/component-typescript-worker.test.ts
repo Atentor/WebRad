@@ -10,7 +10,7 @@ export declare class PageMainGenerated {
   readonly Edit1: { value: string };
 }`;
 
-function workerFor(body: string) {
+function workerFor(body: string, typedDeclaration = declaration) {
   const source = `import { PageMainGenerated } from './PageMain.generated';
 export class PageMain extends PageMainGenerated {
 ${body}
@@ -24,13 +24,59 @@ ${body}
     { getMirrorModels: () => [model] },
     {
       compilerOptions: { strict: true, noLib: true, target: 9, module: 99, moduleResolution: 100 },
-      extraLibs: { [generatedFileName]: { content: declaration, version: 1 } },
+      extraLibs: { [generatedFileName]: { content: typedDeclaration, version: 1 } },
     },
   );
   return { worker, source };
 }
 
 describe('Monaco component TypeScript worker', () => {
+  it('offers canonical native members and diagnoses removed request aliases', async () => {
+    const typedDeclaration = `export declare class PageMainGenerated {
+      readonly ApiClient1: { GetKey: {
+        execute(): void;
+        readonly parameter: { chave: string };
+      } };
+    }`;
+    const fixture = workerFor(
+      `handler() {
+      this.ApiClient1.GetKey.parameter.chave = 'value';
+      this.ApiClient1.GetKey.exe
+    }`,
+      typedDeclaration,
+    );
+    const position = fixture.source.lastIndexOf('GetKey.exe') + 'GetKey.exe'.length;
+    const names = (await fixture.worker.getCompletionsAtPosition(fileName, position))?.entries.map(
+      (entry) => entry.name,
+    );
+    expect(names).toEqual(expect.arrayContaining(['execute', 'parameter']));
+    expect(names).not.toContain('Execute');
+    expect(names).not.toContain('Parameter');
+    const invalid = workerFor(
+      `handler() {
+      this.ApiClient1.GetKey.Execute();
+      this.ApiClient1.GetKey.Parameter.chave = 'value';
+    }`,
+      typedDeclaration,
+    );
+    const diagnostics = await invalid.worker.getSemanticDiagnostics(fileName);
+    expect(diagnostics).toHaveLength(2);
+    expect(
+      diagnostics.every((diagnostic) => diagnostic.code === 2339 || diagnostic.code === 2551),
+    ).toBe(true);
+    const local = workerFor(`handler() {
+      const request = { execute() {}, Execute() {}, parameter: 1, Parameter: 2 };
+      request.exe
+    }`);
+    const localPosition = local.source.lastIndexOf('request.exe') + 'request.exe'.length;
+    const localNames = (
+      await local.worker.getCompletionsAtPosition(fileName, localPosition)
+    )?.entries.map((entry) => entry.name);
+    expect(localNames).toEqual(
+      expect.arrayContaining(['execute', 'Execute', 'parameter', 'Parameter']),
+    );
+  });
+
   it('types bare component members and reports invalid assignments at authored offsets', async () => {
     const { worker, source } = workerFor(
       `handler() { Button1.caption = 123; Edit1.value = 'Ada'; }`,

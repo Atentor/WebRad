@@ -1,6 +1,64 @@
+import { WebApiRequestStore } from './api-client-store.js';
+import { WebApiSelection } from './api-client-selection.js';
+import type {
+  WebApiBodySettings,
+  WebApiCombinedInputs,
+  WebApiConnectionSettings,
+  WebApiHeaderValues,
+  WebApiNamedParameter,
+  WebApiParameterValues,
+  WebApiQueryValues,
+  WebApiRequest,
+  WebApiDefaultInputs,
+  WebApiRequests,
+  WebApiRequestSettings,
+  WebApiResponse,
+} from './api-client-accessors.js';
+import {
+  resolveApiClientBodyTemplate,
+  WEB_API_TEMPLATE_PARAMETER_TYPES,
+  type WebApiTemplateParameter,
+  type WebApiTemplateParameterType,
+  type WebApiTemplateValues,
+} from './api-client-template.js';
 import { WebNonvisualComponent, type WebNonvisualComponentOptions } from './component.js';
 import { RestGoError, type RestGoResult, type RestGoSession } from '@webrad/restgo-sdk';
-import { getRestGoClient } from './restgo.js';
+import { getRestGoApplicationToken, getRestGoClient } from './restgo.js';
+
+/** Names that must never turn an API client into a thenable or replace object behavior. */
+export const WEB_API_REQUEST_RESERVED_NAMES = [
+  'then',
+  'constructor',
+  '__proto__',
+  'prototype',
+  'toString',
+  'toLocaleString',
+  'valueOf',
+  'hasOwnProperty',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+] as const;
+
+/** Named request access with the client's existing public members protected. */
+export type WebApiClientInstance<
+  TOutputs extends object = Record<string, unknown>,
+  TInputs extends object = Record<string, WebApiDefaultInputs>,
+  TDefaultHeaders extends object = Record<string, string>,
+> = WebApiClient<TOutputs, TInputs, TDefaultHeaders> &
+  (string extends keyof TOutputs
+    ? object
+    : Pick<
+        WebApiRequests<TOutputs, TInputs>,
+        Exclude<
+          keyof TOutputs & string,
+          | keyof WebApiClient<TOutputs, TInputs, TDefaultHeaders>
+          | (typeof WEB_API_REQUEST_RESERVED_NAMES)[number]
+        >
+      >);
 
 export type QueryValue = string | number | boolean | null | undefined;
 
@@ -22,7 +80,7 @@ export const WEB_API_RESPONSE_TYPES = ['auto', 'json', 'text', 'blob', 'arrayBuf
 export type WebApiResponseType = (typeof WEB_API_RESPONSE_TYPES)[number];
 
 export type WebApiBodyKind = 'none' | 'json' | 'text' | 'form-urlencoded' | 'form-data';
-export type WebApiConnection = 'custom' | 'restgo-session';
+export type WebApiConnection = 'custom' | 'restgo-session' | 'restgo-api-token' | 'restgo-public';
 export type WebApiCredentials = 'omit' | 'same-origin' | 'include';
 export type WebApiOperationStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -37,6 +95,7 @@ export interface WebApiParameter {
 export interface WebApiRequestBody {
   readonly kind: WebApiBodyKind;
   readonly content: string;
+  readonly parameters?: readonly WebApiTemplateParameter[];
 }
 
 /** Structural contract consumed at runtime; it intentionally has no IDE dependency. */
@@ -80,6 +139,8 @@ export interface WebApiClientConfiguration {
 
 export interface WebApiRequestOptions extends Omit<RequestInit, 'body' | 'headers' | 'signal'> {
   readonly body?: unknown;
+  /** Values supplied to <name> placeholders in the configured body for execute(). */
+  readonly parameters?: WebApiTemplateValues;
   readonly headers?: HeadersInit;
   readonly query?: Readonly<Record<string, QueryValue | readonly QueryValue[]>>;
   readonly signal?: AbortSignal | null;
@@ -138,6 +199,19 @@ export class WebApiTimeoutError extends Error {
 export interface RestGoApiSessionSource {
   readonly baseUrl: string;
   getSession(): Promise<RestGoResult<Pick<RestGoSession, 'token'> | null>>;
+}
+
+export interface RestGoApplicationApiSource {
+  readonly baseUrl: string;
+  readonly apiToken?: string;
+}
+
+function isRestGoConnection(connection: unknown): boolean {
+  return (
+    connection === 'restgo-session' ||
+    connection === 'restgo-api-token' ||
+    connection === 'restgo-public'
+  );
 }
 
 function requestMethod(method: string | undefined): string {
@@ -287,6 +361,47 @@ export async function prepareRestGoApiRequest(
   };
 }
 
+/** Prepares public or application-token requests without borrowing a user or admin credential. */
+export function prepareRestGoApplicationApiRequest(
+  endpoint: string,
+  authentication: 'public' | 'api-token',
+  options: RequestInit = {},
+  source?: RestGoApplicationApiSource,
+): { readonly url: string; readonly init: RequestInit } {
+  if (authentication !== 'public' && authentication !== 'api-token') {
+    throw new TypeError('Choose public access or an application API token for this request.');
+  }
+  const connection = source ?? {
+    baseUrl: getRestGoClient().baseUrl,
+    apiToken: getRestGoApplicationToken(),
+  };
+  const url = restGoRequestUrl(connection.baseUrl, endpoint);
+  const method = requestMethod(options.method);
+  assertRequestBody(method, options.body);
+  options.signal?.throwIfAborted();
+  const headers = new Headers(options.headers);
+  headers.delete('Authorization');
+  if (authentication === 'api-token') {
+    const token = connection.apiToken?.trim();
+    if (!token) {
+      throw new RestGoError(
+        'Configure an application API token in the RestGo connection.',
+        'API_TOKEN_REQUIRED',
+        401,
+      );
+    }
+    if (/[\r\n]/u.test(token) || /^Bearer\s/iu.test(token)) {
+      throw new TypeError('Use a raw application API token without Bearer.');
+    }
+    headers.set('Authorization', token);
+  }
+  if (options.body instanceof FormData) headers.delete('Content-Type');
+  return {
+    url,
+    init: { ...options, method, headers, mode: 'cors', credentials: 'omit', redirect: 'error' },
+  };
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -426,9 +541,28 @@ function normalizeBody(value: unknown): WebApiRequestBody {
     kind === 'text' ||
     kind === 'form-urlencoded' ||
     kind === 'form-data';
+  let parameters: readonly WebApiTemplateParameter[] | undefined;
+  if (value.parameters !== undefined) {
+    if (!Array.isArray(value.parameters) || value.parameters.length > 200)
+      throw new TypeError('Invalid request-body parameter definitions.');
+    const names = new Set<string>();
+    parameters = value.parameters.map((parameter: unknown) => {
+      if (
+        !isRecord(parameter) ||
+        typeof parameter.name !== 'string' ||
+        !/^[\p{L}_$][\p{L}\p{N}_$.-]{0,119}$/u.test(parameter.name) ||
+        !WEB_API_TEMPLATE_PARAMETER_TYPES.some((type) => type === parameter.type) ||
+        names.has(parameter.name)
+      )
+        throw new TypeError('Invalid request-body parameter definitions.');
+      names.add(parameter.name);
+      return { name: parameter.name, type: parameter.type as WebApiTemplateParameterType };
+    });
+  }
   return {
     kind: supported ? kind : 'none',
     content: typeof value.content === 'string' ? value.content : '',
+    ...(parameters === undefined ? {} : { parameters }),
   };
 }
 
@@ -510,8 +644,8 @@ function normalizeConfiguration(value: unknown): WebApiClientConfiguration {
   }
   return {
     schemaVersion: typeof value.schemaVersion === 'number' ? value.schemaVersion : 1,
-    ...(value.connection === 'restgo-session' || value.connection === 'custom'
-      ? { connection: value.connection }
+    ...(isRestGoConnection(value.connection) || value.connection === 'custom'
+      ? { connection: value.connection as WebApiConnection }
       : {}),
     defaultHeaders: normalizeParameters(value.defaultHeaders),
     timeoutMs: finiteTimeout(value.timeoutMs, 30_000),
@@ -524,14 +658,19 @@ function normalizeConfiguration(value: unknown): WebApiClientConfiguration {
   };
 }
 
-function configuredBody(body: WebApiRequestBody, headers: Headers): unknown {
+function configuredBody(
+  body: WebApiRequestBody,
+  headers: Headers,
+  parameters?: WebApiTemplateValues,
+): unknown {
+  const content = resolveApiClientBodyTemplate(body, parameters);
   switch (body.kind) {
     case 'none':
       return undefined;
     case 'json':
-      if (body.content.trim().length === 0) return undefined;
+      if (content.trim().length === 0) return undefined;
       try {
-        return JSON.parse(body.content) as unknown;
+        return JSON.parse(content) as unknown;
       } catch (error) {
         const detail = error instanceof Error ? ` ${error.message}` : '';
         throw new TypeError(`The configured JSON request body is invalid.${detail}`, {
@@ -540,15 +679,15 @@ function configuredBody(body: WebApiRequestBody, headers: Headers): unknown {
       }
     case 'text':
       if (!headers.has('content-type')) headers.set('content-type', 'text/plain;charset=UTF-8');
-      return body.content;
+      return content;
     case 'form-urlencoded':
       if (!headers.has('content-type')) {
         headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
       }
-      return new URLSearchParams(body.content);
+      return new URLSearchParams(content);
     case 'form-data': {
       const form = new FormData();
-      for (const [name, value] of new URLSearchParams(body.content)) form.append(name, value);
+      for (const [name, value] of new URLSearchParams(content)) form.append(name, value);
       // Fetch sets the boundary for the actual multipart payload.
       headers.delete('content-type');
       return form;
@@ -635,15 +774,20 @@ function findSchemaNode(
  */
 export class WebApiClient<
   TOutputs extends object = Record<string, unknown>,
+  TInputs extends object = Record<string, WebApiDefaultInputs>,
+  TDefaultHeaders extends object = Record<string, string>,
 > extends WebNonvisualComponent {
   #baseUrl: string;
   readonly #headers: Headers;
   readonly #fetch: typeof globalThis.fetch;
-  readonly #configuration: WebApiClientConfiguration;
+  readonly #store: WebApiRequestStore;
+  readonly #selection: WebApiSelection<TOutputs, TInputs, TDefaultHeaders>;
   #states = new Map<string, WebApiOperationState<unknown>>();
   #data: Partial<TOutputs> = {};
   #lastOperationName: string | undefined;
   readonly #listeners = new Set<() => void>();
+
+  readonly #directRequests = new Set<string>();
 
   public constructor(options: WebApiClientOptions | string = {}) {
     const normalized = typeof options === 'string' ? { baseUrl: options } : options;
@@ -651,17 +795,90 @@ export class WebApiClient<
     this.#baseUrl = normalized.baseUrl ?? '';
     this.#headers = new Headers(normalized.headers);
     this.#fetch = normalized.fetch ?? globalThis.fetch.bind(globalThis);
-    this.#configuration = normalizeConfiguration(normalized.apiClientConfig);
+    this.#store = new WebApiRequestStore(normalizeConfiguration(normalized.apiClientConfig), {
+      normalize: normalizeConfiguration,
+      validateEndpoint: (value) => {
+        restGoRequestUrl('https://restgo.invalid/', value);
+      },
+      readBaseUrl: () => this.baseUrl,
+      writeBaseUrl: (value) => {
+        this.baseUrl = value;
+      },
+      readHeaders: () => new Headers(this.#headers),
+      deleteHeader: (name) => {
+        this.#headers.delete(name);
+      },
+      readState: (name) => this.getOperationState(name),
+      execute: (name, options) => this.execute(name, options),
+      changed: (previous, current) => {
+        const states = new Map(this.#states);
+        const data: Record<string, unknown> = { ...this.#data };
+        const lastId = previous.operations.find(
+          (entry) => entry.name === this.#lastOperationName,
+        )?.id;
+        this.#states.clear();
+        const nextData: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+        for (const operation of current.operations) {
+          const previousOperation = previous.operations.find(
+            (candidate) => candidate.id === operation.id,
+          );
+          if (previousOperation !== undefined) {
+            const state = states.get(previousOperation.name);
+            if (state !== undefined) this.#states.set(operation.name, state);
+            if (Object.hasOwn(data, previousOperation.name))
+              nextData[operation.name] = data[previousOperation.name];
+          }
+        }
+        this.#lastOperationName = current.operations.find((entry) => entry.id === lastId)?.name;
+        this.#data = nextData as Partial<TOutputs>;
+        this.#selection.changed(current);
+        this.#syncDirectRequests();
+        this.#notify();
+      },
+    });
+    this.#selection = new WebApiSelection<TOutputs, TInputs, TDefaultHeaders>(this.#store);
+    this.#syncDirectRequests();
+  }
+
+  /** Typed view of the same instance, used by generated page and reusable code. */
+  public withRequests(): WebApiClientInstance<TOutputs, TInputs, TDefaultHeaders> {
+    return this as WebApiClientInstance<TOutputs, TInputs, TDefaultHeaders>;
+  }
+
+  #syncDirectRequests(): void {
+    const names = new Set(
+      this.#store.readConfiguration().operations.map((operation) => operation.name),
+    );
+    for (const name of this.#directRequests) {
+      if (!names.has(name)) {
+        Reflect.deleteProperty(this, name);
+        this.#directRequests.delete(name);
+      }
+    }
+    for (const name of names) {
+      if (
+        this.#directRequests.has(name) ||
+        name in this ||
+        WEB_API_REQUEST_RESERVED_NAMES.some((reserved) => reserved === name)
+      )
+        continue;
+      Object.defineProperty(this, name, {
+        configurable: true,
+        enumerable: true,
+        get: () => this.#selection.byName(name),
+      });
+      this.#directRequests.add(name);
+    }
   }
 
   public get baseUrl(): string {
-    return this.#configuration.connection === 'restgo-session'
+    return isRestGoConnection(this.#store.readConfiguration().connection)
       ? getRestGoClient().baseUrl
       : this.#baseUrl;
   }
 
   public set baseUrl(value: string) {
-    if (this.#configuration.connection === 'restgo-session') {
+    if (isRestGoConnection(this.#store.readConfiguration().connection)) {
       throw new TypeError('This API client uses the fixed URL from the RestGo integration.');
     }
     this.#baseUrl = value;
@@ -669,12 +886,103 @@ export class WebApiClient<
 
   /** Immutable normalized contract configured for this client instance. */
   public get apiClientConfig(): WebApiClientConfiguration {
-    return this.#configuration;
+    return this.#store.readConfiguration();
+  }
+  public set apiClientConfig(value: WebApiClientConfiguration) {
+    this.#store.writeConfiguration(value);
+  }
+
+  public get Configuration(): WebApiClientConfiguration {
+    return this.apiClientConfig;
+  }
+  public set Configuration(value: WebApiClientConfiguration) {
+    this.apiClientConfig = value;
+  }
+  public get Connection(): WebApiConnectionSettings<TDefaultHeaders> {
+    return this.#selection.Connection;
+  }
+  public get Operation(): (keyof TOutputs & string) | undefined {
+    return this.#selection.selectedName as (keyof TOutputs & string) | undefined;
+  }
+  public set Operation(value: (keyof TOutputs & string) | undefined) {
+    this.#selection.selectedName = value;
+  }
+
+  public get Requests(): WebApiRequests<TOutputs, TInputs> {
+    return this.#selection.Requests;
+  }
+  public get Request(): WebApiRequest<
+    WebApiCombinedInputs<TInputs, 'Parameter'>,
+    TOutputs[keyof TOutputs],
+    WebApiCombinedInputs<TInputs, 'Query'>,
+    WebApiCombinedInputs<TInputs, 'Headers'>
+  > {
+    return this.#selection.active as unknown as WebApiRequest<
+      WebApiCombinedInputs<TInputs, 'Parameter'>,
+      TOutputs[keyof TOutputs],
+      WebApiCombinedInputs<TInputs, 'Query'>,
+      WebApiCombinedInputs<TInputs, 'Headers'>
+    >;
+  }
+  public get parameter(): WebApiParameterValues<WebApiCombinedInputs<TInputs, 'Parameter'>> {
+    return this.Request.parameter;
+  }
+  public get Query(): WebApiQueryValues<WebApiCombinedInputs<TInputs, 'Query'>> {
+    return this.Request.Query;
+  }
+  public get Headers(): WebApiHeaderValues<WebApiCombinedInputs<TInputs, 'Headers'>> {
+    return this.Request.Headers;
+  }
+  public get Body(): WebApiBodySettings {
+    return this.Request.Body;
+  }
+  public get Options(): WebApiRequestSettings {
+    return this.Request.Options;
+  }
+  public get Response(): WebApiResponse<TOutputs[keyof TOutputs]> {
+    return this.Request.Response;
+  }
+  public get Method(): string {
+    return this.Request.Method;
+  }
+  public set Method(value: string) {
+    this.Request.Method = value;
+  }
+  public get Endpoint(): string {
+    return this.Request.Endpoint;
+  }
+  public set Endpoint(value: string) {
+    this.Request.Endpoint = value;
+  }
+  public get ApiVersion(): number | null {
+    return this.Request.ApiVersion;
+  }
+  public set ApiVersion(value: number | null) {
+    this.Request.ApiVersion = value;
+  }
+
+  public RequestByName<K extends keyof TOutputs & string>(
+    name: K,
+  ): WebApiRequests<TOutputs, TInputs>[K];
+  public RequestByName(name: string): WebApiRequest;
+  public RequestByName(
+    name: string,
+  ): WebApiRequest | WebApiRequests<TOutputs, TInputs>[keyof TOutputs & string] {
+    return this.#selection.byName(name);
+  }
+  public ParamByName(name: string): WebApiNamedParameter {
+    return this.Request.ParamByName(name);
+  }
+  public ClearParameters(): void {
+    this.Request.ClearParameters();
   }
 
   /** Saved operation metadata, safe for a Table or another consumer to inspect. */
   public get operations(): readonly WebApiOperation[] {
-    return this.#configuration.operations;
+    return this.#store.readConfiguration().operations;
+  }
+  public set operations(value: readonly WebApiOperation[]) {
+    this.#store.writeConfiguration({ ...this.apiClientConfig, operations: value });
   }
 
   /** Latest successful data, keyed by the configured operation name. */
@@ -713,7 +1021,7 @@ export class WebApiClient<
     const method = requestMethod(options.method);
     assertRequestBody(method, options.body);
     const headers = new Headers(this.#headers);
-    for (const parameter of this.#configuration.defaultHeaders) {
+    for (const parameter of this.#store.readConfiguration().defaultHeaders) {
       if (parameter.enabled && parameter.name.trim().length > 0) {
         headers.set(parameter.name, parameter.value);
       }
@@ -732,6 +1040,7 @@ export class WebApiClient<
     if (body instanceof FormData) headers.delete('content-type');
 
     const {
+      parameters: _parameters,
       query: _query,
       timeoutMs,
       responseType: requestedResponseType,
@@ -739,11 +1048,13 @@ export class WebApiClient<
       ...requestOptions
     } = options;
     void _query;
-    const boundToRestGo = this.#configuration.connection === 'restgo-session';
+    void _parameters;
+    const boundToRestGo = isRestGoConnection(this.#store.readConfiguration().connection);
     let url = boundToRestGo
       ? restGoRequestUrl(getRestGoClient().baseUrl, appendQuery(path, options.query))
       : appendQuery(joinUrl(this.#baseUrl, path), options.query);
-    const effectiveTimeout = timeoutMs === undefined ? this.#configuration.timeoutMs : timeoutMs;
+    const effectiveTimeout =
+      timeoutMs === undefined ? this.#store.readConfiguration().timeoutMs : timeoutMs;
     const timeout = timeoutSignal(signal, effectiveTimeout);
     try {
       let init: RequestInit = {
@@ -754,7 +1065,16 @@ export class WebApiClient<
         ...(timeout.signal === undefined ? {} : { signal: timeout.signal }),
       };
       if (boundToRestGo) {
-        const prepared = await prepareRestGoApiRequest(appendQuery(path, options.query), init);
+        const prepared =
+          this.#store.readConfiguration().connection === 'restgo-session'
+            ? await prepareRestGoApiRequest(appendQuery(path, options.query), init)
+            : prepareRestGoApplicationApiRequest(
+                appendQuery(path, options.query),
+                this.#store.readConfiguration().connection === 'restgo-api-token'
+                  ? 'api-token'
+                  : 'public',
+                init,
+              );
         url = prepared.url;
         init = prepared.init;
       }
@@ -816,22 +1136,38 @@ export class WebApiClient<
     operationName: K,
     options?: WebApiRequestOptions,
   ): Promise<TOutputs[K]>;
+  public async execute(options?: WebApiRequestOptions): Promise<TOutputs[keyof TOutputs]>;
   public async execute<T = unknown>(
     operationName: string,
     options?: WebApiRequestOptions,
   ): Promise<T>;
   public async execute<T = unknown>(
-    operationName: string,
-    options: WebApiRequestOptions = {},
+    nameOrOptions: string | WebApiRequestOptions = {},
+    explicitOptions: WebApiRequestOptions = {},
   ): Promise<T> {
-    const operation = this.#configuration.operations.find(
-      (candidate) => candidate.name === operationName,
-    );
+    const operationName =
+      typeof nameOrOptions === 'string' ? nameOrOptions : this.#selection.selectedName;
+    if (operationName === undefined)
+      throw new RangeError('Select a configured API request before executing.');
+    let options = typeof nameOrOptions === 'string' ? explicitOptions : nameOrOptions;
+
+    const operation = this.#store
+      .readConfiguration()
+      .operations.find((candidate) => candidate.name === operationName);
     if (operation === undefined) {
       throw new RangeError(
         `API operation "${operationName}" is not configured for ${this.name || 'this client'}.`,
       );
     }
+    this.#selection.selectedName = operation.name;
+    options = {
+      ...options,
+      responseType: options.responseType ?? this.#store.readResponseType(operation.id),
+      parameters: { ...this.#store.parameterValues(operation.id), ...options.parameters },
+    };
+    const stateName = (): string =>
+      this.operations.find((candidate) => candidate.id === operation.id)?.name ?? operation.name;
+    const bodySnapshot = this.#store.bodySnapshot(operation.id);
     const current = this.#states.get(operation.name);
     const previousData = current?.data as T | undefined;
     this.#lastOperationName = operation.name;
@@ -839,7 +1175,7 @@ export class WebApiClient<
       status: 'loading',
       ...(previousData === undefined ? {} : { data: previousData }),
     };
-    this.#states.set(operation.name, loadingState);
+    this.#states.set(stateName(), loadingState);
     this.#notify();
     this.emit('OnRequest', {
       operation,
@@ -848,17 +1184,26 @@ export class WebApiClient<
 
     try {
       const headers = new Headers(this.#headers);
-      for (const parameter of [...this.#configuration.defaultHeaders, ...operation.headers]) {
+      for (const parameter of [
+        ...this.#store.readConfiguration().defaultHeaders,
+        ...operation.headers,
+      ]) {
         if (parameter.enabled && parameter.name.trim().length > 0) {
           headers.set(parameter.name, parameter.value);
         }
       }
       new Headers(options.headers).forEach((value, name) => headers.set(name, value));
       const body =
-        options.body === undefined ? configuredBody(operation.body, headers) : options.body;
+        options.body === undefined
+          ? configuredBody(
+              this.#store.materializeBody(bodySnapshot, options.parameters ?? {}),
+              headers,
+              options.parameters,
+            )
+          : options.body;
       const timeoutMs =
         options.timeoutMs === undefined
-          ? (operation.timeoutMs ?? this.#configuration.timeoutMs)
+          ? (operation.timeoutMs ?? this.#store.readConfiguration().timeoutMs)
           : options.timeoutMs;
       const path = appendParameters(
         apiOperationPath(operation.path, operation.apiVersion),
@@ -872,13 +1217,13 @@ export class WebApiClient<
         credentials: options.credentials ?? operation.credentials,
         timeoutMs,
       });
-      this.#data = { ...this.#data, [operation.name]: result } as Partial<TOutputs>;
+      this.#data = { ...this.#data, [stateName()]: result } as Partial<TOutputs>;
       const successState: WebApiOperationState<T> = {
         status: 'success',
         data: result,
         updatedAt: Date.now(),
       };
-      this.#states.set(operation.name, successState);
+      this.#states.set(stateName(), successState);
       this.#notify();
       const detail = { operation, state: successState } satisfies WebApiOperationEventDetail<T>;
       this.emit('OnSuccess', detail);
@@ -891,7 +1236,7 @@ export class WebApiClient<
         error,
         updatedAt: Date.now(),
       };
-      this.#states.set(operation.name, errorState);
+      this.#states.set(stateName(), errorState);
       this.#notify();
       const detail = { operation, state: errorState } satisfies WebApiOperationEventDetail<T>;
       this.emit('OnError', detail);
@@ -905,9 +1250,9 @@ export class WebApiClient<
     operationName: string,
     schemaNodeIdOrPath: string,
   ): T | undefined {
-    const operation = this.#configuration.operations.find(
-      (candidate) => candidate.name === operationName,
-    );
+    const operation = this.#store
+      .readConfiguration()
+      .operations.find((candidate) => candidate.name === operationName);
     if (operation?.responseSchema === null || operation?.responseSchema === undefined)
       return undefined;
     const node = findSchemaNode(operation.responseSchema.root, schemaNodeIdOrPath);
@@ -917,9 +1262,9 @@ export class WebApiClient<
 
   /** Returns a saved list output, or an empty readonly list when it is unavailable. */
   public getList<T = unknown>(operationName: string, schemaNodeIdOrPath: string): readonly T[] {
-    const operation = this.#configuration.operations.find(
-      (candidate) => candidate.name === operationName,
-    );
+    const operation = this.#store
+      .readConfiguration()
+      .operations.find((candidate) => candidate.name === operationName);
     if (operation?.responseSchema === null || operation?.responseSchema === undefined) return [];
     const node = findSchemaNode(operation.responseSchema.root, schemaNodeIdOrPath);
     if (node?.kind !== 'list') return [];

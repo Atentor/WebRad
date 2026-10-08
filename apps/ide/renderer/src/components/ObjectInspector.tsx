@@ -561,7 +561,7 @@ function PropertyEditor({
             if (action !== undefined) onDesignerAction?.(action);
           }}
         >
-          Configure and test…
+          Open API Client…
         </button>
       );
     }

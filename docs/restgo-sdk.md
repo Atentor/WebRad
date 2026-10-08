@@ -4,11 +4,11 @@ O pacote `@webrad/restgo-sdk` utiliza `fetch`, `FormData`, `Blob` e APIs padrão
 
 ## Configuração no WebRAD
 
-Abra **Project Settings > RestGo integration**. Uma única seção reúne conexão, autorização, autenticação, sessão, Storage e APIs dinâmicas:
+Abra **RestGo integration** pelo ícone de banco no menu vertical esquerdo. A seção **Connection** reúne a configuração usada pelo SDK e uma conexão administrativa exclusiva do WebRAD.
 
 - Ative **Enable native RestGO integration** e informe a URL HTTP(S) da instância. Um caminho de reverse proxy, como `https://exemplo.com/backend`, é preservado.
-- Deixe **Authorization token** vazio para cadastro e login públicos. O campo é opcional para APIs dinâmicas que precisam de token de API; nesse caso, informe o valor sem `Bearer`. Ele é salvo em `settings.restGo.apiToken` e usado como `Authorization: <token>` em chamadas automáticas a essas APIs quando não existe sessão. Cadastro e login não o enviam.
-- Escolha a versão dos endpoints dinâmicos e, opcionalmente, o slug do banco padrão.
+- Deixe **Application API token** vazio para cadastro e login públicos. O campo é opcional para APIs dinâmicas que precisam de token de API; nesse caso, informe o valor sem `Bearer`. Ele é salvo em `settings.restGo.apiToken` e usado como `Authorization: <token>` em chamadas automáticas a essas APIs quando não existe sessão. Cadastro e login não o enviam.
+- Escolha a versão de cada requisição no API Client e, opcionalmente, o slug do banco padrão na conexão.
 - Configure persistência em armazenamento local, armazenamento da aba ou memória. A chave deve distinguir aplicações hospedadas na mesma origem.
 - Clique em **Save changes** e salve o projeto normalmente. A conexão é persistida em `settings.restGo` no arquivo `.wrproj`.
 
@@ -17,6 +17,26 @@ O compilador configura `RestGO` antes de construir as páginas. Esse cliente é 
 As chamadas a APIs dinâmicas com autorização automática usam o JWT da sessão como `Authorization: Bearer <JWT>` quando o usuário está autenticado. Sem sessão, incluindo após logout, usam o token configurado sem `Bearer`. Não há repetição com outro tipo de credencial após rejeição. Cadastro (`POST /auth/users`) e login (`POST /auth/token`) sempre omitem `Authorization`, inclusive quando existe token configurado ou sessão. Falhas nessas operações não encerram uma sessão válida. `POST /auth/refresh` e as operações públicas de recuperação/confirmação também não enviam esse header; operações protegidas preservam o contrato do endpoint.
 
 O token configurado é incluído no projeto, no Preview e no JavaScript gerado, ficando acessível no navegador. Utilize um token de API apropriado para a aplicação; mantenha `RESTGO_AUTHORIZATION` e outras credenciais administrativas no servidor.
+
+## Administração de endpoints dentro do IDE
+
+Na seção **Connection**, informe separadamente um API Token do RestGo com permissão administrativa. **Connect** verifica essa permissão antes de guardar a credencial. A conexão administrativa usa a URL salva para a integração; alterações na URL precisam ser aplicadas antes de conectar.
+
+O token administrativo permanece no processo principal do Electron. Por padrão, vale somente durante a sessão do IDE. A opção de lembrar a conexão grava somente a credencial criptografada pelo armazenamento seguro do sistema operacional no perfil local do WebRAD; quando a criptografia segura não está disponível, a conexão permanece temporária. **Disconnect** também remove a credencial lembrada. Esse token nunca entra no `.wrproj`, nas operações do API Client, no Preview ou no Build.
+
+Em **Endpoints**, crie ou edite um slug e uma versão, configure os métodos HTTP com SQL parametrizado ou selecione uma API Operation existente. Salvar persiste os endpoints na instância. Publicar vincula o grupo de slug/versão a um banco existente, define JWT, API Token ou acesso público e ativa os registros necessários. Os métodos do grupo compartilham a publicação e a política de autenticação segundo o contrato do RestGo. Alterações de estado e publicação afetam a instância imediatamente; o histórico local do Designer cobre apenas alterações dos componentes do projeto.
+
+Ao abrir um endpoint já publicado, **Database** e **Required credential** vêm preenchidos com os valores salvos. Se houver várias publicações, o editor prioriza o banco padrão configurado na conexão; caso contrário, usa a primeira publicação. Selecionar outro banco carrega a política de autenticação já salva para ele.
+
+**Published APIs** lista as rotas com banco, versão, método, autenticação e disponibilidade. Somente rotas ativas, com banco e endpoint ativos e API Operation disponível quando necessária, podem ser importadas. A busca ajuda a localizar APIs existentes.
+
+Abra um componente **API Client** na página ou componente reutilizável e use **Import from RestGo** para selecionar as APIs publicadas. Para um cliente novo, adicione primeiro o componente pelo Designer. O importador preserva identificadores e operações existentes, preenche rota, versão, método e parâmetros de entrada e evita duplicar a mesma rota. Um cliente usa um único modo de autenticação; APIs com modos diferentes ficam em clientes separados. Converter um cliente personalizado exige confirmação explícita no importador do editor, e rotas que escapem da URL da integração são rejeitadas.
+
+Se o acesso administrativo estiver desconectado ou o RestGo rejeitar a credencial, o importador permite informar outro **Administrative API token** e conectar sem fechar o editor. As requisições em edição são preservadas. A credencial recusada deixa de indicar uma conexão ativa; falhas temporárias de rede ou servidor não encerram o acesso. O token continua restrito ao IDE, com a opção de lembrar disponível somente quando há armazenamento seguro.
+
+As conexões **RestGo JWT Authentication** (`restgo-session`), **RestGO API Token** (`restgo-api-token`) e **RestGO Public** (`restgo-public`) fixam a URL da integração e administram o header Authorization. JWT exige a sessão atual e nunca recorre a outro token. API Token usa exclusivamente `settings.restGo.apiToken`, sem `Bearer`, mesmo com usuário autenticado. Público omite Authorization e cookies. Todos os modos enviam requisições pelo `fetch` do navegador, preservam CORS e recusam redirecionamentos. Campos da resposta são inferidos após uma chamada real no editor; amostras, uploads e credenciais temporárias não são persistidos.
+
+O corpo do API Client aceita placeholders `<nome>`, como `{"idinstancia": <idinstancia>, "chave": <chave>}`. A aba **Body** mostra os parâmetros automaticamente e permite definir tipo e valor de teste. Um nome repetido utiliza uma só entrada; remover o placeholder remove sua linha. Tipos são salvos com o template, enquanto os valores de teste ficam em memória. Na aplicação, passe os valores em `ApiClient1.execute('PutKey', { parameters: { idinstancia: 42, chave: 'valor' } })`. A substituição preserva números, booleanos, objetos, arrays e null, e escapa textos como JSON. Esses parâmetros não alteram o modo de autenticação.
 
 ## Login e sessão
 
@@ -313,7 +333,7 @@ Os modos de paginação são `exact`, `simple` e `cursor`. Cursor exige coluna �
 
 ## API Client vinculado ao usuário autenticado
 
-No configurador do componente **API Client**, selecione **Connection > RestGo authenticated user**. A integração nativa deve estar habilitada. A URL base é a mesma de **RestGo integration**, incluindo um eventual prefixo de proxy, e não pode ser alterada nesse componente. O endpoint é relativo à base; por exemplo, `/v1/clientes/listar` com a base `https://api.exemplo.com/backend` chama `https://api.exemplo.com/backend/v1/clientes/listar`.
+No configurador do componente **API Client**, selecione **Connection > RestGo JWT Authentication**. A integração nativa deve estar habilitada. A URL base é a mesma de **RestGo integration**, incluindo um eventual prefixo de proxy, e não pode ser alterada nesse componente. O endpoint é relativo à base; por exemplo, `/v1/clientes/listar` com a base `https://api.exemplo.com/backend` chama `https://api.exemplo.com/backend/v1/clientes/listar`.
 
 ```ts
 const login = await RestGO.login(email, senha);

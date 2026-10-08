@@ -1162,25 +1162,27 @@ const webApiClient: ComponentDefinition = {
       source: 'props',
       defaultValue: '',
       description:
-        'Custom API URL. RestGo-bound clients use the fixed URL from Project Settings > RestGo integration.',
+        'Custom API URL. RestGo-bound clients use the fixed URL from RestGo integration > Connection.',
       readOnlyWhen: (props) => {
         const configuration = props.apiClientConfig;
         return (
           typeof configuration === 'object' &&
           configuration !== null &&
-          Reflect.get(configuration, 'connection') === 'restgo-session'
+          ['restgo-session', 'restgo-api-token', 'restgo-public'].includes(
+            String(Reflect.get(configuration, 'connection')),
+          )
         );
       },
     },
     {
       name: 'apiClientConfig',
-      label: 'Operations & Response Schema',
+      label: 'Requests',
       type: 'api-client-config',
       category: 'API Client',
       source: 'props',
       defaultValue: createDefaultApiClientConfiguration(),
       description:
-        'Configure REST requests, optionally bind the authenticated RestGo user, and save typed response contracts.',
+        'Configure requests in the Designer; access RequestName.parameter and RequestName.execute() in code with typed request objects.',
       designerAction: 'api-client-tester',
     },
   ],

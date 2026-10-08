@@ -1,3 +1,4 @@
+import { createApiClientDeclarations } from './api-client-declarations.mjs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,8 +23,23 @@ const sdkTypingsPath = path.join(
   'src',
   'restgo-typings.generated.json',
 );
+const apiClientTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'api-client-typings.generated.json',
+);
+const apiClientTypings =
+  JSON.stringify(createApiClientDeclarations(repositoryRoot), null, 2) + '\n';
+
 const sourceFiles = [
   'api-client.ts',
+  'api-client-inputs.ts',
+  'api-client-accessors.ts',
+  'api-client-store.ts',
+  'api-client-selection.ts',
+  'api-client-template.ts',
   'component.ts',
   'data-grid.ts',
   'controls.ts',
@@ -211,6 +227,7 @@ const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclaration
 
 const outputs = [
   [outputPath, expected],
+  [apiClientTypingsPath, apiClientTypings],
   [sdkOutputPath, `${JSON.stringify(sdkSources, null, 2)}\n`],
   [sdkTypingsPath, `${JSON.stringify(sdkTypings, null, 2)}\n`],
 ];
