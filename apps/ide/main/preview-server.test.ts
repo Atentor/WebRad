@@ -150,3 +150,25 @@ describe('loopback preview server', () => {
     expect((await httpRequest(restarted)).body).toBe('Restarted');
   });
 });
+
+it('serves imported assets inside their Preview token and revokes them with the HTML', async () => {
+  const asset = {
+    id: 'asset',
+    fileName: 'hello world.txt',
+    mediaType: 'text/plain',
+    base64: Buffer.from('asset content').toString('base64'),
+  };
+  const url = await publishPreviewHtml(7, '<p>Preview</p>', [asset]);
+  const assetUrl = new URL('assets/imported/hello%20world.txt', url).href;
+  const response = await httpRequest(assetUrl);
+  expect(response.status).toBe(200);
+  expect(response.body).toBe('asset content');
+  expect(response.headers['content-type']).toBe('text/plain');
+  expect((await httpRequest(assetUrl, { method: 'HEAD' })).body).toBe('');
+  const otherUrl = await publishPreviewHtml(8, '<p>Other project</p>');
+  expect(
+    (await httpRequest(new URL('assets/imported/hello%20world.txt', otherUrl).href)).status,
+  ).toBe(404);
+  revokePreview(7);
+  expect((await httpRequest(assetUrl)).status).toBe(404);
+});

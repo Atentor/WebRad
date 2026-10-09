@@ -1,6 +1,6 @@
 import type { ExternalLinkTarget } from './external-links';
 import type { RestGoAdminBridge } from './restgo-admin';
-import type { ComponentStyleModel, WebRadProject } from '@webrad/project-model';
+import type { ComponentStyleModel, ProjectAsset, WebRadProject } from '@webrad/project-model';
 
 export const IDE_COMMANDS = [
   'file.newProject',
@@ -25,6 +25,9 @@ export const IDE_COMMANDS = [
   'view.output',
   'project.addPage',
   'project.addReusableElement',
+  'project.addModel',
+  'project.addUnit',
+  'project.importAsset',
   'project.build',
   'run.run',
   'view.toggleTheme',
@@ -103,6 +106,7 @@ export interface WebRadBridge {
     save(request: SaveProjectRequest): Promise<ProjectSession>;
     saveAs(request: Omit<SaveProjectRequest, 'rootPath'>): Promise<ProjectSession | null>;
     release(rootPath: string): Promise<void>;
+    importAsset(rootPath: string): Promise<ProjectAsset | null>;
   };
   files: {
     read(request: ReadFileRequest): Promise<string>;

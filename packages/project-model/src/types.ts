@@ -1,3 +1,4 @@
+import type { ProjectSourceFile, ProjectAsset } from './project-resources.js';
 export const CURRENT_PROJECT_FORMAT_VERSION = 2 as const;
 export const CURRENT_PAGE_FORMAT_VERSION = 2 as const;
 
@@ -479,6 +480,8 @@ export interface WebRadProject {
   readonly reusableElements: readonly ReusableElementModel[];
   /** Reusable Tailwind styles shared by compatible components across all pages. */
   readonly styles: readonly ComponentStyleModel[];
+  readonly sourceFiles?: readonly ProjectSourceFile[];
+  readonly assets?: readonly ProjectAsset[];
   readonly settings: ProjectSettings;
 }
 
@@ -505,6 +508,8 @@ export interface ProjectManifest {
   readonly reusableElements: readonly ReusableElementModel[];
   /** Styles remain inline because they are small project-level metadata. */
   readonly styles: readonly ComponentStyleModel[];
+  readonly sourceFiles?: readonly ProjectSourceFile[];
+  readonly assets?: readonly ProjectAsset[];
   readonly settings: ProjectSettings;
 }
 

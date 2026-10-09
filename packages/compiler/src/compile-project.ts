@@ -1,3 +1,4 @@
+import { projectAssetPath } from '@webrad/project-model';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
@@ -421,6 +422,8 @@ export async function compileProject(
         ? null
         : socialImageOutputPath(project.settings.seo.socialImage);
     const binaryFiles: Record<string, Uint8Array> = {};
+    for (const asset of project.assets ?? [])
+      binaryFiles[projectAssetPath(asset)] = Buffer.from(asset.base64, 'base64');
     if (project.settings.applicationIcon !== null && iconOutputPath !== null) {
       binaryFiles[iconOutputPath] = decodeApplicationIcon(project.settings.applicationIcon);
     }

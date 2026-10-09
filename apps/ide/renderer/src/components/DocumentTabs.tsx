@@ -22,13 +22,15 @@ export function DocumentTabs(props: DocumentTabsProps): ReactElement {
           <button type="button" onClick={() => props.onSelectDocument(document.id)}>
             <Icon
               name={
-                document.kind === 'restgo'
-                  ? 'database'
-                  : document.kind === 'styles'
-                    ? 'palette'
-                    : document.kind === 'reusable'
-                      ? 'layers'
-                      : 'home'
+                document.kind === 'code'
+                  ? 'file'
+                  : document.kind === 'restgo'
+                    ? 'database'
+                    : document.kind === 'styles'
+                      ? 'palette'
+                      : document.kind === 'reusable'
+                        ? 'layers'
+                        : 'home'
               }
             />
             <span>{document.label}</span>

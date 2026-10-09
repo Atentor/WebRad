@@ -23,13 +23,25 @@ MyProject/
     CustomerCard.generated.ts
     CustomerCard.ts
   assets/
+    imported/
+      logo.png
     images/
     styles/
   models/
+    Customer.ts
   units/
+    Helpers.ts
 ```
 
-The `.wrproj` manifest contains the project ID, display name, entry page ID, page descriptors, reusable visual definitions, reusable component styles, and settings. A `.wrpage` contains page metadata and component nodes. Component and style references use immutable IDs; names are user-facing labels and are not identities.
+## Models, Units, and imported assets
+
+The Project menu provides **Add Model**, **Add Unit**, and **Import Asset...**. Models and Units are authored TypeScript modules, listed in the Explorer and opened directly in Monaco. Models start with an exported class; Units start with an empty module. Their `sourceFiles` manifest entries contain stable `id`, validated `name`, and `kind` (`model` or `unit`). Paths are derived as `models/<Name>.ts` and `units/<Name>.ts`. Authored content remains on disk and in the source map, separate from generated files. Pages, reusable components, Models, and Units share the project language graph; use ordinary relative TypeScript imports such as `../models/Customer`.
+
+Imported assets are selected through the main process native file picker, with a 20 MB limit per file. Each `assets` manifest entry stores a stable `id`, portable `fileName`, `mediaType`, and `base64` content. The manifest owns this binary snapshot so unsaved changes, Save As, and Build use the same content. Save materializes the bytes under `assets/imported/<fileName>`; Build emits the same relative path. The isolated HTTP Preview serves these assets within its publication token and revokes them together with the page. Use that application-relative URL in image sources, fetches, or CSS; the asset view provides its encoded URL. Files with a duplicate portable name are rejected rather than replaced. Existing unowned files are protected by the project save transaction. External edits to a materialized asset do not replace its manifest snapshot.
+
+Both collections default to empty when loading earlier version-2 projects. This is an additive version-2 extension; no format version changes or generated browser runtime dependencies are introduced.
+
+The `.wrproj` manifest contains the project ID, display name, entry page ID, page descriptors, reusable visual definitions, reusable component styles, source-file descriptors, imported asset snapshots, and settings. A `.wrpage` contains page metadata and component nodes. Component and style references use immutable IDs; names are user-facing labels and are not identities.
 
 ## General project settings
 

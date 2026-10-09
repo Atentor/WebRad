@@ -544,3 +544,90 @@ describe('project files', () => {
     await expect(loadProjectFiles(initial.projectFilePath)).rejects.toThrow('pageFile');
   });
 });
+
+describe('source files and assets', () => {
+  it('preserves authored modules, binary bytes and identities across save, reopen and Save As', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-resource-files-'));
+    temporaryRoots.push(parent);
+    const session = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
+    const project = {
+      ...session.project,
+      sourceFiles: [
+        { id: 'model', name: 'Customer', kind: 'model' as const },
+        { id: 'unit', name: 'Helpers', kind: 'unit' as const },
+      ],
+      assets: [
+        {
+          id: 'image',
+          fileName: 'sample.bin',
+          mediaType: 'application/octet-stream',
+          base64: 'AP8B',
+        },
+      ],
+    };
+    const userSources = {
+      ...session.userSources,
+      'models/Customer.ts': 'export class Customer { public name = "Alice"; }\n',
+      'units/Helpers.ts': '// authored shared code\nexport {};\n',
+    };
+    const saved = await saveProjectFiles({ rootPath: session.rootPath, project, userSources });
+    const loaded = await loadProjectFiles(saved.projectFilePath);
+    expect(loaded.userSources).toEqual(userSources);
+    expect(loaded.project.sourceFiles).toEqual(project.sourceFiles);
+    expect(await fs.readFile(path.join(session.rootPath, 'assets/imported/sample.bin'))).toEqual(
+      Buffer.from([0, 255, 1]),
+    );
+    const copy = await saveProjectFiles({ ...loaded, rootPath: path.join(parent, 'Copy') });
+    expect((await loadProjectFiles(copy.projectFilePath)).userSources).toEqual(userSources);
+    expect(await fs.readFile(path.join(copy.rootPath, 'assets/imported/sample.bin'))).toEqual(
+      Buffer.from([0, 255, 1]),
+    );
+  });
+
+  it('refuses to overwrite an unowned module or asset', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-resource-collision-'));
+    temporaryRoots.push(parent);
+    const session = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
+    await fs.mkdir(path.join(session.rootPath, 'models'), { recursive: true });
+    await fs.writeFile(
+      path.join(session.rootPath, 'models/Customer.ts'),
+      '// existing author file',
+    );
+    await expect(
+      saveProjectFiles({
+        ...session,
+        project: {
+          ...session.project,
+          sourceFiles: [{ id: 'model', name: 'Customer', kind: 'model' }],
+        },
+      }),
+    ).rejects.toThrow('unowned');
+    expect(await fs.readFile(path.join(session.rootPath, 'models/Customer.ts'), 'utf8')).toBe(
+      '// existing author file',
+    );
+    await fs.mkdir(path.join(session.rootPath, 'assets/imported'), { recursive: true });
+    await fs.writeFile(
+      path.join(session.rootPath, 'assets/imported/sample.bin'),
+      Buffer.from([42]),
+    );
+    await expect(
+      saveProjectFiles({
+        ...session,
+        project: {
+          ...session.project,
+          assets: [
+            {
+              id: 'asset',
+              fileName: 'sample.bin',
+              mediaType: 'application/octet-stream',
+              base64: 'AP8B',
+            },
+          ],
+        },
+      }),
+    ).rejects.toThrow('unowned');
+    expect(await fs.readFile(path.join(session.rootPath, 'assets/imported/sample.bin'))).toEqual(
+      Buffer.from([42]),
+    );
+  });
+});

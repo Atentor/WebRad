@@ -9,7 +9,7 @@ import {
   type ReactElement,
 } from 'react';
 
-export type AddDocumentKind = 'page' | 'reusable';
+export type AddDocumentKind = 'page' | 'reusable' | 'model' | 'unit';
 
 interface AddPageDialogProps {
   readonly kind: AddDocumentKind;
@@ -20,7 +20,7 @@ interface AddPageDialogProps {
 }
 
 function documentLabel(kind: AddDocumentKind): string {
-  return kind === 'page' ? 'page' : 'reusable component';
+  return kind === 'reusable' ? 'reusable component' : kind;
 }
 
 function validationMessage(reason: string): string {
@@ -69,7 +69,7 @@ export function AddPageDialog({
     }
     const normalizedKey = portableFileNameKey(normalizedName);
     if (occupiedNames.some((candidate) => portableFileNameKey(candidate) === normalizedKey)) {
-      setError(`A page or reusable component named "${normalizedName}" already exists.`);
+      setError(`A project document named "${normalizedName}" already exists.`);
       return;
     }
     setError(null);
@@ -127,10 +127,14 @@ export function AddPageDialog({
           <p id={descriptionId} className="wr-modal-description">
             {kind === 'page'
               ? 'Create a navigable page for this application.'
-              : 'Create a shared visual definition that can be dragged into any page.'}
+              : kind === 'reusable'
+                ? 'Create a shared visual definition that can be dragged into any page.'
+                : kind === 'model'
+                  ? 'Create a TypeScript class for application data.'
+                  : 'Create a TypeScript module for shared functions and logic.'}
           </p>
           <label className="wr-modal-field">
-            <span>{kind === 'page' ? 'Page name' : 'Reusable component name'}</span>
+            <span>{`${label.slice(0, 1).toUpperCase()}${label.slice(1)} name`}</span>
             <input
               ref={inputRef}
               type="text"

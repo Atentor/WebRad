@@ -204,6 +204,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
       setPublicationActive: vi.fn(),
     },
     project: {
+      importAsset: vi.fn<WebRadBridge['project']['importAsset']>(async () => null),
       create,
       open,
       restore,
@@ -1112,6 +1113,87 @@ describe('App MVP integration', () => {
         ?.styleId,
     ).toBe(mutedStyle?.id);
   }, 25_000);
+
+  it('creates, edits and reopens models and units from Project commands', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+    for (const kind of ['model', 'unit'] as const) {
+      await act(async () =>
+        harness.invokeCommand(kind === 'model' ? 'project.addModel' : 'project.addUnit'),
+      );
+      const dialog = await screen.findByRole('dialog', { name: `Add ${kind}` });
+      const field = within(dialog).getByRole('textbox');
+      expect((field as HTMLInputElement).value).toBe(kind === 'model' ? 'Model1' : 'Unit1');
+      await user.clear(field);
+      await user.type(field, kind === 'model' ? 'Customer' : 'Helpers');
+      await user.click(within(dialog).getByRole('button', { name: `Add ${kind}` }));
+      const editor = await screen.findByRole('textbox', { name: 'Mock Monaco editor' });
+      fireEvent.change(editor, {
+        target: {
+          value:
+            kind === 'model'
+              ? 'export class Customer { public name = "Alice"; }'
+              : 'export const suffix = "!";',
+        },
+      });
+      await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+      await waitFor(() =>
+        expect(
+          harness.persisted().userSources[
+            kind === 'model' ? 'models/Customer.ts' : 'units/Helpers.ts'
+          ],
+        ).toContain(kind === 'model' ? 'Alice' : 'suffix'),
+      );
+    }
+    await user.click(screen.getByRole('treeitem', { name: 'Customer.ts' }));
+    expect(
+      (screen.getByRole('textbox', { name: 'Mock Monaco editor' }) as HTMLTextAreaElement).value,
+    ).toContain('Alice');
+    await act(async () => harness.invokeCommand('project.addModel'));
+    const duplicate = await screen.findByRole('dialog', { name: 'Add model' });
+    await user.clear(within(duplicate).getByRole('textbox'));
+    await user.type(within(duplicate).getByRole('textbox'), 'customer');
+    await user.click(within(duplicate).getByRole('button', { name: 'Add model' }));
+    expect(within(duplicate).getByRole('alert').textContent).toContain('already exists');
+    await user.click(within(duplicate).getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+    await user.click(await screen.findByRole('treeitem', { name: 'Helpers.ts' }));
+    expect(
+      (screen.getByRole('textbox', { name: 'Mock Monaco editor' }) as HTMLTextAreaElement).value,
+    ).toContain('suffix');
+  });
+
+  it('imports assets through the native bridge, persists them and ignores cancellation', async () => {
+    const harness = createBridgeHarness(initialSession());
+    const asset = {
+      id: 'test-image',
+      fileName: 'logo.png',
+      mediaType: 'image/png',
+      base64: 'AP8B',
+    };
+    vi.mocked(harness.bridge.project.importAsset).mockResolvedValueOnce(asset);
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+    await act(async () => harness.invokeCommand('project.importAsset'));
+    expect(await screen.findByRole('img', { name: 'logo.png' })).toBeDefined();
+    expect(
+      (screen.getByRole('textbox', { name: 'Asset application path' }) as HTMLInputElement).value,
+    ).toBe('assets/imported/logo.png');
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await waitFor(() => expect(harness.persisted().project.assets).toEqual([asset]));
+    await act(async () => harness.invokeCommand('project.importAsset'));
+    expect(harness.bridge.project.importAsset).toHaveBeenCalledTimes(2);
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    expect(harness.persisted().project.assets).toEqual([asset]);
+  });
 
   it('creates additional pages with the Page naming contract', async () => {
     const harness = createBridgeHarness(initialSession());

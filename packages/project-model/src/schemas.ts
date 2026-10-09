@@ -1,3 +1,8 @@
+import {
+  ProjectSourceFilesSchema,
+  ProjectAssetsSchema,
+  validateProjectResourceIds,
+} from './project-resources.js';
 import { z } from 'zod';
 import { paletteColorId } from './color-palette.js';
 
@@ -1199,6 +1204,7 @@ function validatePaletteReferences(
 }
 
 function validateProjectRelationships(project: WebRadProject, context: z.RefinementCtx): void {
+  validateProjectResourceIds(project, context);
   validatePaletteReferences(project, context);
   const ids = new Set<string>();
   const names = new Set<string>();
@@ -1463,6 +1469,8 @@ export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
       pages: z.array(PageModelSchema).min(1),
       reusableElements: z.array(ReusableElementModelSchema),
       styles: z.array(ComponentStyleSchema),
+      sourceFiles: ProjectSourceFilesSchema,
+      assets: ProjectAssetsSchema,
       settings: ProjectSettingsSchema,
     })
     .strict()
@@ -1490,10 +1498,13 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z.preprocess(
       pages: z.array(PageDescriptorSchema).min(1),
       reusableElements: z.array(ReusableElementModelSchema),
       styles: z.array(ComponentStyleSchema),
+      sourceFiles: ProjectSourceFilesSchema,
+      assets: ProjectAssetsSchema,
       settings: ProjectSettingsSchema,
     })
     .strict()
     .superRefine((manifest, context) => {
+      validateProjectResourceIds(manifest, context);
       validatePaletteReferences(manifest, context);
       indexComponentStyles(manifest.styles, context);
       const ids = new Set<string>();

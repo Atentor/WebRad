@@ -1,3 +1,4 @@
+import { projectAssetPath, type ProjectAsset } from '@webrad/project-model';
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
@@ -7,6 +8,7 @@ interface PreviewServer {
 }
 
 const previewByToken = new Map<string, string>();
+const assetsByToken = new Map<string, readonly ProjectAsset[]>();
 const tokenByOwner = new Map<number, string>();
 let serverPromise: Promise<PreviewServer> | undefined;
 let shutdown: Promise<void> | undefined;
@@ -16,9 +18,9 @@ const contentSecurityPolicy = [
   "default-src 'none'",
   "script-src 'unsafe-inline'",
   "style-src 'unsafe-inline'",
-  'img-src data: blob: https: http:',
-  'font-src data: https: http:',
-  'media-src data: blob: https: http:',
+  "img-src 'self' data: blob: https: http:",
+  "font-src 'self' data: https: http:",
+  "media-src 'self' data: blob: https: http:",
   'connect-src https: http:',
   "base-uri 'none'",
   "form-action 'none'",
@@ -27,7 +29,7 @@ const contentSecurityPolicy = [
 function respond(
   request: IncomingMessage,
   response: ServerResponse,
-  body: string,
+  body: string | Uint8Array,
   status: number,
   contentType: string,
 ): void {
@@ -55,6 +57,29 @@ function startPreviewServer(): Promise<PreviewServer> {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       response.setHeader('Allow', 'GET, HEAD');
       respond(request, response, 'Method not allowed', 405, 'text/plain; charset=utf-8');
+      return;
+    }
+    const assetRoute = /^\/([0-9a-f-]{36})\/(assets\/imported\/[^/?]+)$/.exec(
+      (request.url ?? '').split('?')[0] ?? '',
+    );
+    if (assetRoute?.[1] !== undefined && assetRoute[2] !== undefined) {
+      let assetPath: string;
+      try {
+        assetPath = decodeURIComponent(assetRoute[2]);
+      } catch {
+        respond(request, response, 'Invalid asset path', 400, 'text/plain');
+        return;
+      }
+      const asset = assetsByToken
+        .get(assetRoute[1])
+        ?.find((entry) => projectAssetPath(entry) === assetPath);
+      respond(
+        request,
+        response,
+        asset === undefined ? 'Preview expired' : Buffer.from(asset.base64, 'base64'),
+        asset === undefined ? 404 : 200,
+        asset?.mediaType ?? 'text/plain',
+      );
       return;
     }
     // Match the raw request target so normalization cannot admit extra paths or queries.
@@ -97,7 +122,11 @@ function startPreviewServer(): Promise<PreviewServer> {
 }
 
 /** Publish compiler HTML in memory, at a browser HTTP origin separate from the IDE. */
-export async function publishPreviewHtml(ownerId: number, html: string): Promise<string> {
+export async function publishPreviewHtml(
+  ownerId: number,
+  html: string,
+  assets: readonly ProjectAsset[] = [],
+): Promise<string> {
   if (shutdown) await shutdown;
   const publishedGeneration = generation;
   const { origin } = await startPreviewServer();
@@ -107,13 +136,17 @@ export async function publishPreviewHtml(ownerId: number, html: string): Promise
   revokePreview(ownerId);
   const token = randomUUID();
   previewByToken.set(token, html);
+  assetsByToken.set(token, assets);
   tokenByOwner.set(ownerId, token);
   return `${origin}/${token}/index.html`;
 }
 
 export function revokePreview(ownerId: number): void {
   const token = tokenByOwner.get(ownerId);
-  if (token !== undefined) previewByToken.delete(token);
+  if (token !== undefined) {
+    previewByToken.delete(token);
+    assetsByToken.delete(token);
+  }
   tokenByOwner.delete(ownerId);
 }
 
@@ -122,6 +155,7 @@ export function closePreviewServer(): Promise<void> {
   if (shutdown) return shutdown;
   generation++;
   previewByToken.clear();
+  assetsByToken.clear();
   tokenByOwner.clear();
   const starting = serverPromise;
   serverPromise = undefined;

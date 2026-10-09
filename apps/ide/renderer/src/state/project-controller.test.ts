@@ -52,6 +52,7 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
       setPublicationActive: vi.fn(),
     },
     project: {
+      importAsset: vi.fn(async () => null),
       restore: vi.fn(async () => null),
       create: vi.fn(async () => session),
       open: vi.fn(async () => session),

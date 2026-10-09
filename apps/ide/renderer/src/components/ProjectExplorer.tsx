@@ -1,3 +1,4 @@
+import { ProjectResourceFolders } from './ProjectResourceFolders';
 import type { WebRadProject } from '@webrad/project-model';
 import { useState, type DragEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
@@ -6,6 +7,8 @@ import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 
 interface ProjectExplorerProps {
   project: WebRadProject | null;
+  activeResourceId?: string | null;
+  onOpenResource?: (id: string) => void;
   activePageId: string | null;
   onOpenPage: (pageId: string) => void;
   onAddPage: () => void;
@@ -44,6 +47,8 @@ function FolderGlyph({
 
 export function ProjectExplorer({
   project,
+  activeResourceId,
+  onOpenResource,
   activePageId,
   onOpenPage,
   onAddPage,
@@ -217,17 +222,11 @@ export function ProjectExplorer({
                 ))}
               </div>
             )}
-            {['Models', 'Units', 'Assets'].map((folder) => (
-              <div
-                className="wr-tree-row wr-folder-row"
-                role="treeitem"
-                aria-expanded="false"
-                key={folder}
-              >
-                <FolderGlyph open={false} />
-                <span>{folder}</span>
-              </div>
-            ))}
+            <ProjectResourceFolders
+              project={project}
+              activeId={activeResourceId}
+              onOpen={onOpenResource}
+            />
           </div>
         </div>
       )}

@@ -5,6 +5,7 @@ export * from './data-grid.js';
 export * from './errors.js';
 export * from './factories.js';
 export * from './naming.js';
+export * from './project-resources.js';
 export * from './schemas.js';
 export * from './serialization.js';
 export * from './style-properties.js';

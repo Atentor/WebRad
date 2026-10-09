@@ -71,6 +71,10 @@ export function installApplicationMenu(window: BrowserWindow): void {
       submenu: [
         commandItem(window, 'Add Page', 'project.addPage'),
         commandItem(window, 'Add Reusable Component', 'project.addReusableElement'),
+        commandItem(window, 'Add Model', 'project.addModel'),
+        commandItem(window, 'Add Unit', 'project.addUnit'),
+        commandItem(window, 'Import Asset\u2026', 'project.importAsset'),
+        { type: 'separator' },
         commandItem(window, 'Build', 'project.build'),
       ],
     },

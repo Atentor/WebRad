@@ -304,6 +304,8 @@ export function projectToManifest(project: WebRadProject): ProjectManifest {
     pages: parsed.pages.map(createPageDescriptor),
     reusableElements: parsed.reusableElements,
     styles: parsed.styles,
+    sourceFiles: parsed.sourceFiles,
+    assets: parsed.assets,
     settings: parsed.settings,
   });
 }
@@ -352,6 +354,8 @@ export function assembleProject(
     pages,
     reusableElements: manifest.reusableElements,
     styles: manifest.styles,
+    sourceFiles: manifest.sourceFiles,
+    assets: manifest.assets,
     settings: manifest.settings,
   });
 }

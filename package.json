@@ -31,6 +31,7 @@
     "make": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js make",
     "release": "npm version patch --no-git-tag-version && npm run make",
     "smoke:development": "node scripts/smoke-development.mjs",
+    "smoke:resources": "node scripts/smoke-packaged.mjs --webrad-smoke-resources",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
     "validate": "npm run icons:check && npm run runtime:sources:check && npm run typecheck && npm run lint && npm test && npm run format:check && npm run build"
   },

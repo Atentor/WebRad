@@ -1,3 +1,4 @@
+import { ProjectAssetPreview } from './components/ProjectAssetPreview';
 import { AboutDialog } from './components/AboutDialog';
 import { type DesignerViewportName } from '@webrad/designer';
 import { ActivityBar } from './components/ActivityBar';
@@ -24,6 +25,8 @@ import {
 } from '@webrad/component-registry';
 import {
   applyDefaultComponentStyle,
+  projectSourceFilePath,
+  portableFileNameKey,
   createPage,
   createReusableElement,
   DEFAULT_PROJECT_SETTINGS,
@@ -250,6 +253,14 @@ export function App(): ReactElement {
       : (project?.pages.find((page) => page.id === activePageId) ??
         project?.reusableElements.find((reusableElement) => reusableElement.id === activePageId) ??
         null);
+  const activeSourceFile =
+    stylesActive || restGoActive
+      ? undefined
+      : project?.sourceFiles?.find((file) => file.id === activePageId);
+  const activeAsset =
+    stylesActive || restGoActive
+      ? undefined
+      : project?.assets?.find((asset) => asset.id === activePageId);
   const activeDocumentKind =
     activePage === null
       ? null
@@ -403,12 +414,14 @@ export function App(): ReactElement {
     (pageId: string): void => {
       const document =
         project?.pages.find((page) => page.id === pageId) ??
-        project?.reusableElements.find((reusableElement) => reusableElement.id === pageId);
+        project?.reusableElements.find((reusableElement) => reusableElement.id === pageId) ??
+        project?.sourceFiles?.find((file) => file.id === pageId) ??
+        project?.assets?.find((asset) => asset.id === pageId);
       if (document === undefined) return;
       setOpenPageIds((current) => (current.includes(pageId) ? current : [...current, pageId]));
       setActivePageId(pageId);
       setActiveWorkspace('page');
-      setActiveView('design');
+      setActiveView(project?.sourceFiles?.some((file) => file.id === pageId) ? 'code' : 'design');
       selectionManager.clear();
     },
     [project, selectionManager],
@@ -1126,6 +1139,17 @@ export function App(): ReactElement {
       const kind = addDocumentDialogKind;
       if (!project || kind === null) return;
       try {
+        if (kind === 'model' || kind === 'unit') {
+          const file = projectController.addSourceFile(kind, name);
+          setOpenPageIds((current) => [...current, file.id]);
+          setActivePageId(file.id);
+          setActiveWorkspace('page');
+          setActiveView('code');
+          selectionManager.clear();
+          setAddDocumentDialogKind(null);
+          addOutput('PROJECT', `Added ${kind} ${name}.`);
+          return;
+        }
         const document = kind === 'page' ? createPage(name) : createReusableElement(name);
         if (kind === 'page') projectController.addPage(document);
         else projectController.addReusableElement(document);
@@ -1144,6 +1168,29 @@ export function App(): ReactElement {
     },
     [addDocumentDialogKind, addOutput, project, projectController, reportError, selectionManager],
   );
+
+  const importProjectAsset = useCallback(async (): Promise<void> => {
+    const current = projectController.getSnapshot();
+    if (!current.project || !current.rootPath) return;
+    try {
+      const asset = await window.webrad.project.importAsset(current.rootPath);
+      if (
+        asset === null ||
+        projectController.getSnapshot().project?.id !== current.project.id ||
+        projectController.getSnapshot().rootPath !== current.rootPath
+      )
+        return;
+      projectController.addAsset(asset);
+      setOpenPageIds((ids) => [...ids, asset.id]);
+      setActivePageId(asset.id);
+      setActiveWorkspace('page');
+      setActiveView('design');
+      selectionManager.clear();
+      addOutput('PROJECT', `Imported asset ${asset.fileName}.`);
+    } catch (error) {
+      reportError(error, 'PROJECT');
+    }
+  }, [projectController, addOutput, reportError, selectionManager]);
 
   const deletePage = useCallback(
     (pageId: string): void => {
@@ -1338,7 +1385,7 @@ export function App(): ReactElement {
           window.dispatchEvent(new Event('webrad:find'));
           break;
         case 'view.design':
-          if (activeWorkspace === 'page') setActiveView('design');
+          if (activeWorkspace === 'page' && activePage !== null) setActiveView('design');
           break;
         case 'view.code':
           if (activeWorkspace === 'page') setActiveView('code');
@@ -1364,6 +1411,15 @@ export function App(): ReactElement {
         case 'project.addReusableElement':
           addReusableElementToProject();
           break;
+        case 'project.addModel':
+          openAddDocumentDialog('model');
+          break;
+        case 'project.addUnit':
+          openAddDocumentDialog('unit');
+          break;
+        case 'project.importAsset':
+          void importProjectAsset();
+          break;
         case 'project.build':
         case 'run.run':
           void runProject();
@@ -1380,7 +1436,10 @@ export function App(): ReactElement {
       aboutDialogOpen,
       addPageToProject,
       addReusableElementToProject,
+      openAddDocumentDialog,
+      importProjectAsset,
       activeWorkspace,
+      activePage,
       activeView,
       addDocumentDialogKind,
       apiClientTesterComponentId,
@@ -1405,7 +1464,7 @@ export function App(): ReactElement {
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent): void => {
       if (event.key === 'F12') {
-        if (activeWorkspace === 'styles') return;
+        if (activeWorkspace === 'styles' || activeSourceFile || activeAsset) return;
         const target = event.target;
         if (
           activeView === 'code' &&
@@ -1423,7 +1482,7 @@ export function App(): ReactElement {
     };
     window.addEventListener('keydown', keyHandler);
     return () => window.removeEventListener('keydown', keyHandler);
-  }, [activeView, activeWorkspace, runProject]);
+  }, [activeView, activeWorkspace, activeSourceFile, activeAsset, runProject]);
 
   const documents: readonly DocumentTab[] = useMemo(() => {
     const pageDocuments: readonly DocumentTab[] = openPageIds.flatMap<DocumentTab>((id) => {
@@ -1431,6 +1490,17 @@ export function App(): ReactElement {
       if (page !== undefined) {
         return [{ id, label: page.name, dirty: projectState.dirty, kind: 'page' as const }];
       }
+      const sourceFile = project?.sourceFiles?.find((candidate) => candidate.id === id);
+      const asset = project?.assets?.find((candidate) => candidate.id === id);
+      if (sourceFile || asset)
+        return [
+          {
+            id,
+            label: sourceFile ? `${sourceFile.name}.ts` : (asset?.fileName ?? ''),
+            dirty: projectState.dirty,
+            kind: 'code',
+          },
+        ];
       const reusableElement = project?.reusableElements.find((candidate) => candidate.id === id);
       return reusableElement === undefined
         ? []
@@ -1618,7 +1688,8 @@ export function App(): ReactElement {
         project.pages.find((candidate) => sourceKey(candidate, 'page') === relativePath) ??
         project.reusableElements.find(
           (candidate) => sourceKey(candidate, 'reusable') === relativePath,
-        );
+        ) ??
+        project.sourceFiles?.find((file) => projectSourceFilePath(file) === relativePath);
       if (document === undefined) return;
       const resource = sourceUri(projectState.rootPath, project.id, relativePath);
       openPage(document.id);
@@ -1664,6 +1735,38 @@ export function App(): ReactElement {
         onCreateStyle={createStyle}
         onUpdateStyle={updateStyle}
         onDeleteStyle={deleteStyle}
+      />
+    </ErrorBoundary>
+  ) : activeView === 'preview' && (activeAsset || activeSourceFile) ? (
+    <ErrorBoundary area="Preview">
+      <PreviewPane url={previewUrl} running={building} diagnostics={buildDiagnostics} />
+    </ErrorBoundary>
+  ) : activeAsset ? (
+    <ProjectAssetPreview asset={activeAsset} />
+  ) : activeSourceFile ? (
+    <ErrorBoundary area="Monaco">
+      <CodeEditor
+        path={sourceUri(
+          projectState.rootPath,
+          project?.id ?? 'project',
+          projectSourceFilePath(activeSourceFile),
+        )}
+        value={projectState.userSources[projectSourceFilePath(activeSourceFile)] ?? ''}
+        theme={theme}
+        breadcrumb={[
+          project?.name ?? 'Project',
+          activeSourceFile.kind === 'model' ? 'Models' : 'Units',
+          `${activeSourceFile.name}.ts`,
+        ]}
+        extraLibraries={extraLibraries}
+        pageComponents={[]}
+        projectSources={projectSources}
+        buildProblems={buildProblems}
+        navigateTo={navigateTo}
+        onSourceChange={updateEditorSource}
+        onMarkersChange={setMonacoMarkers}
+        onCursorChange={setCursor}
+        onSave={() => void saveProject()}
       />
     </ErrorBoundary>
   ) : !activePage ? null : activeView === 'design' ? (
@@ -1821,12 +1924,14 @@ export function App(): ReactElement {
                 });
               }}
               canUndo={
-                activePage !== null &&
-                (activeView === 'code' || designerController.canUndo(activePage))
+                (activePage !== null || activeSourceFile !== undefined) &&
+                (activeView === 'code' ||
+                  (activePage !== null && designerController.canUndo(activePage)))
               }
               canRedo={
-                activePage !== null &&
-                (activeView === 'code' || designerController.canRedo(activePage))
+                (activePage !== null || activeSourceFile !== undefined) &&
+                (activeView === 'code' ||
+                  (activePage !== null && designerController.canRedo(activePage)))
               }
               projectName={project?.name}
               dirty={projectState.dirty}
@@ -1901,6 +2006,8 @@ export function App(): ReactElement {
                     <ErrorBoundary area="Project Explorer">
                       <ProjectExplorer
                         project={project}
+                        activeResourceId={stylesActive || restGoActive ? null : activePageId}
+                        onOpenResource={openPage}
                         activePageId={
                           stylesActive || activeDocumentKind === 'reusable' ? null : activePageId
                         }
@@ -1968,6 +2075,7 @@ export function App(): ReactElement {
               hasDocument={activePageId !== null}
               outputVisible={visiblePanels.output}
               onSelectView={(view) => {
+                if (view === 'design' && (activeSourceFile || activeAsset)) return;
                 setActiveWorkspace('page');
                 setActiveView(view);
                 if (view === 'design') setSidebarMode('builder');
@@ -1996,7 +2104,11 @@ export function App(): ReactElement {
             </EditorWorkspace>
           }
           inspector={
-            visiblePanels.inspector && !stylesActive && !restGoActive ? (
+            visiblePanels.inspector &&
+            !stylesActive &&
+            !restGoActive &&
+            !activeSourceFile &&
+            !activeAsset ? (
               <ErrorBoundary area="Object Inspector">
                 <ObjectInspector
                   selection={selectedComponents}
@@ -2072,15 +2184,29 @@ export function App(): ReactElement {
           kind={addDocumentDialogKind}
           suggestedName={(() => {
             const occupiedNames = new Set([
+              ...(project.sourceFiles ?? [])
+                .filter((file) => file.kind === addDocumentDialogKind)
+                .map((file) => file.name),
               ...project.pages.map((page) => page.name),
               ...project.reusableElements.map((reusableElement) => reusableElement.name),
             ]);
-            const prefix = addDocumentDialogKind === 'page' ? 'Page' : 'Reusable';
+            const prefix = { page: 'Page', reusable: 'Reusable', model: 'Model', unit: 'Unit' }[
+              addDocumentDialogKind
+            ];
             let sequence = addDocumentDialogKind === 'page' ? 2 : 1;
-            while (occupiedNames.has(`${prefix}${String(sequence)}`)) sequence += 1;
+            while (
+              [...occupiedNames].some(
+                (name) =>
+                  portableFileNameKey(name) === portableFileNameKey(`${prefix}${String(sequence)}`),
+              )
+            )
+              sequence += 1;
             return `${prefix}${String(sequence)}`;
           })()}
           occupiedNames={[
+            ...(project.sourceFiles ?? [])
+              .filter((file) => file.kind === addDocumentDialogKind)
+              .map((file) => file.name),
             ...project.pages.map((page) => page.name),
             ...project.reusableElements.map((reusableElement) => reusableElement.name),
           ]}

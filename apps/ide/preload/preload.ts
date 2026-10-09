@@ -1,3 +1,4 @@
+import type { ProjectAsset } from '@webrad/project-model';
 import type { ExternalLinkTarget } from '../shared/external-links';
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
@@ -55,6 +56,8 @@ const bridge: WebRadBridge = {
       ipcRenderer.invoke('webrad:links:open', target) as Promise<void>,
   },
   project: {
+    importAsset: (rootPath: string) =>
+      ipcRenderer.invoke('webrad:project:import-asset', rootPath) as Promise<ProjectAsset | null>,
     create: (request: CreateProjectRequest) =>
       ipcRenderer.invoke('webrad:project:create', request) as Promise<ProjectSession | null>,
     open: () => ipcRenderer.invoke('webrad:project:open') as Promise<ProjectSession | null>,

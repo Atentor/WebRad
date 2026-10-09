@@ -1,5 +1,8 @@
 import {
   addComponentStyle,
+  projectSourceFilePath,
+  type ProjectSourceFile,
+  type ProjectAsset,
   addPage as addPageToProject,
   addReusableElement as addReusableElementToProject,
   createComponentStyle,
@@ -23,6 +26,7 @@ import {
 } from '@webrad/project-model';
 import {
   createUserPageSource,
+  createUserProjectSource,
   createUserReusableElementSource,
   renamePageUserSource,
 } from '@webrad/language';
@@ -334,6 +338,25 @@ export class ProjectController {
     };
     this.#bridge.lifecycle.setDirty(true);
     this.#emit();
+  }
+
+  public addSourceFile(kind: ProjectSourceFile['kind'], name: string): ProjectSourceFile {
+    const current = this.#requireProject();
+    const file: ProjectSourceFile = { id: globalThis.crypto.randomUUID(), name, kind };
+    const project = parseProject({
+      ...current,
+      sourceFiles: [...(current.sourceFiles ?? []), file],
+    });
+    this.#commitEdit(project, {
+      ...this.#snapshot.userSources,
+      [projectSourceFilePath(file)]: createUserProjectSource(file),
+    });
+    return file;
+  }
+
+  public addAsset(asset: ProjectAsset): void {
+    const current = this.#requireProject();
+    this.replaceProject(parseProject({ ...current, assets: [...(current.assets ?? []), asset] }));
   }
 
   public addPage(page: PageModel, setAsEntry = false): void {

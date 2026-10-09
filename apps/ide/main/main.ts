@@ -1,3 +1,4 @@
+import { runProjectResourcesSmoke } from './project-resources-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
@@ -677,6 +678,10 @@ async function captureDesignerSmokeScreenshot(window: BrowserWindow): Promise<vo
 }
 
 async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
+  if (process.argv.includes('--webrad-smoke-resources') && smokeProjectPath !== undefined) {
+    await runProjectResourcesSmoke(window, smokeProjectPath, smokeLog);
+    return;
+  }
   const shellResult = (await window.webContents.executeJavaScript(
     `(() => ({
       shell: Boolean(document.querySelector('.wr-ide-shell')) && Boolean(document.querySelector('.wr-activity-bar')),

@@ -7,6 +7,7 @@ import type { ProjectSession, SaveProjectRequest } from '../shared/contracts';
 import type * as ProjectFiles from './project-files';
 
 const mocks = vi.hoisted(() => ({
+  readAsset: vi.fn(),
   handlers: new Map<string, (event: unknown, ...input: unknown[]) => unknown>(),
   openExternal: vi.fn().mockResolvedValue(undefined),
   fromWebContents: vi.fn(),
@@ -18,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   remember: vi.fn(),
   statePaths: [] as string[],
 }));
+
+vi.mock('./project-asset', () => ({ readSelectedProjectAsset: mocks.readAsset }));
 
 vi.mock('electron', () => ({
   shell: { openExternal: mocks.openExternal },
@@ -332,5 +335,50 @@ describe('external link IPC', () => {
     await expect(invoke('webrad:links:open', event, 'atentor')).rejects.toThrow(
       'Browser unavailable',
     );
+  });
+});
+
+describe('project asset import IPC', () => {
+  it('requires a trusted opened project and reads only the native picker selection', async () => {
+    const project = session('AssetImport');
+    mocks.loadProjectFiles.mockResolvedValue(project);
+    await register();
+    await expect(invoke('webrad:project:import-asset', event, project.rootPath)).rejects.toThrow(
+      'outside an opened project',
+    );
+    mocks.chooseDirectory.mockResolvedValue({
+      canceled: false,
+      filePaths: [project.projectFilePath],
+    });
+    await invoke('webrad:project:open');
+    const asset = { id: 'asset', fileName: 'logo.png', mediaType: 'image/png', base64: 'AP8B' };
+    mocks.chooseDirectory.mockResolvedValue({
+      canceled: false,
+      filePaths: [path.join(os.tmpdir(), 'logo.png')],
+    });
+    mocks.readAsset.mockResolvedValue(asset);
+    expect(await invoke('webrad:project:import-asset', event, project.rootPath)).toEqual(asset);
+    expect(mocks.readAsset).toHaveBeenCalledWith(path.join(os.tmpdir(), 'logo.png'));
+    await expect(
+      invoke('webrad:project:import-asset', event, project.rootPath, 'arbitrary-path'),
+    ).rejects.toThrow('one project root');
+    const childFrame = { ...event, senderFrame: { url: rendererUrl } };
+    await expect(
+      invoke('webrad:project:import-asset', childFrame, project.rootPath),
+    ).rejects.toThrow('main frame');
+  });
+
+  it('returns null on cancellation without reading or writing a file', async () => {
+    mocks.loadProjectFiles.mockResolvedValue(session('AssetCancel'));
+    await register();
+    mocks.chooseDirectory.mockResolvedValue({
+      canceled: false,
+      filePaths: [session('AssetCancel').projectFilePath],
+    });
+    const project = (await invoke('webrad:project:open')) as ProjectSession;
+    mocks.chooseDirectory.mockResolvedValue({ canceled: true, filePaths: [] });
+    expect(await invoke('webrad:project:import-asset', event, project.rootPath)).toBeNull();
+    expect(mocks.readAsset).not.toHaveBeenCalled();
+    expect(mocks.saveProjectFiles).not.toHaveBeenCalled();
   });
 });

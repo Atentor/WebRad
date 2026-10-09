@@ -3,6 +3,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   assertValidProjectName,
+  projectSourceFilePath,
+  projectAssetPath,
   assembleProject,
   createProject,
   deserializePage,
@@ -18,6 +20,7 @@ import {
 } from '@webrad/project-model';
 import {
   createUserPageSource,
+  createUserProjectSource,
   createUserReusableElementSource,
   generatePageSource,
   generateReusableElementSource,
@@ -105,7 +108,7 @@ export async function resolveInsideProjectSecure(
   return current;
 }
 
-async function writeUtf8(filePath: string, content: string): Promise<void> {
+async function writeUtf8(filePath: string, content: string | Uint8Array): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const temporaryPath = path.join(
     path.dirname(filePath),
@@ -121,6 +124,8 @@ async function writeUtf8(filePath: string, content: string): Promise<void> {
 
 function descriptorPaths(manifest: ProjectManifest): readonly string[] {
   return [
+    ...(manifest.sourceFiles ?? []).map(projectSourceFilePath),
+    ...(manifest.assets ?? []).map(projectAssetPath),
     ...manifest.pages.flatMap((descriptor) => [
       descriptor.pageFile,
       descriptor.generatedFile,
@@ -166,7 +171,8 @@ async function withRootOperation<T>(rootPath: string, operation: () => Promise<T
   }
 }
 
-type ArtifactKind = 'page' | 'generated' | 'code' | 'reusable-generated' | 'reusable-code';
+type ArtifactKind =
+  'source' | 'asset' | 'page' | 'generated' | 'code' | 'reusable-generated' | 'reusable-code';
 
 interface OwnedArtifact {
   readonly projectId: string;
@@ -176,13 +182,13 @@ interface OwnedArtifact {
 }
 
 interface ArtifactWrite extends OwnedArtifact {
-  readonly content: string;
+  readonly content: string | Uint8Array;
   readonly targetPath: string;
 }
 
 interface RollbackEntry {
   readonly targetPath: string;
-  readonly previousContent: string | null;
+  readonly previousContent: Uint8Array | null;
 }
 
 interface PendingCleanup {
@@ -195,6 +201,18 @@ const PENDING_CLEANUP_PATH = '.webrad/pending-cleanup.json';
 
 function manifestArtifacts(manifest: ProjectManifest): readonly OwnedArtifact[] {
   return [
+    ...(manifest.sourceFiles ?? []).map((file) => ({
+      projectId: manifest.id,
+      pageId: file.id,
+      kind: 'source' as const,
+      relativePath: projectSourceFilePath(file),
+    })),
+    ...(manifest.assets ?? []).map((asset) => ({
+      projectId: manifest.id,
+      pageId: asset.id,
+      kind: 'asset' as const,
+      relativePath: projectAssetPath(asset),
+    })),
     ...manifest.pages.flatMap((descriptor) => [
       {
         projectId: manifest.id,
@@ -283,6 +301,10 @@ function reusableGeneratedSourcePathFor(reusableElement: ReusableElementModel): 
 
 export function defaultUserSources(project: WebRadProject): Record<string, string> {
   return Object.fromEntries([
+    ...(project.sourceFiles ?? []).map((file) => [
+      projectSourceFilePath(file),
+      createUserProjectSource(file),
+    ]),
     ...project.pages.map((page) => [sourcePathFor(page), createUserPageSource(page)]),
     ...project.reusableElements.map((reusableElement) => [
       reusableSourcePathFor(reusableElement),
@@ -546,6 +568,34 @@ async function saveProjectFilesUnlocked(
     });
   }
 
+  for (const file of project.sourceFiles ?? []) {
+    const sourceKey = projectSourceFilePath(file);
+    let source = request.userSources[sourceKey];
+    const targetPath = await resolveInsideProjectSecure(rootPath, sourceKey);
+    if (source === undefined && (await exists(targetPath)))
+      source = await fs.readFile(targetPath, 'utf8');
+    source ??= createUserProjectSource(file);
+    resolvedUserSources[sourceKey] = source;
+    writes.push({
+      projectId: manifest.id,
+      pageId: file.id,
+      kind: 'source',
+      relativePath: sourceKey,
+      targetPath,
+      content: source,
+    });
+  }
+  for (const asset of project.assets ?? []) {
+    const relativePath = projectAssetPath(asset);
+    writes.push({
+      projectId: manifest.id,
+      pageId: asset.id,
+      kind: 'asset',
+      relativePath,
+      targetPath: await resolveInsideProjectSecure(rootPath, relativePath),
+      content: Buffer.from(asset.base64, 'base64'),
+    });
+  }
   const rollbackEntries: RollbackEntry[] = [];
   const cleanupPaths = artifactsToArchive
     .filter((artifact) => !currentByPath.has(pathKey(artifact.relativePath)))
@@ -555,7 +605,7 @@ async function saveProjectFilesUnlocked(
       rollbackEntries.push({
         targetPath: write.targetPath,
         previousContent: (await exists(write.targetPath))
-          ? await fs.readFile(write.targetPath, 'utf8')
+          ? await fs.readFile(write.targetPath)
           : null,
       });
       await writeUtf8(write.targetPath, write.content);
@@ -623,6 +673,13 @@ async function loadProjectFilesUnlocked(projectFilePath: string): Promise<Projec
     }
   }
 
+  for (const file of manifest.sourceFiles ?? []) {
+    const sourceKey = projectSourceFilePath(file);
+    userSources[sourceKey] = await fs.readFile(
+      await resolveInsideProjectSecure(rootPath, sourceKey),
+      'utf8',
+    );
+  }
   const project = assembleProject(manifest, pages);
   return { rootPath, projectFilePath: absoluteProjectFile, project, userSources };
 }

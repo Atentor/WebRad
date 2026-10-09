@@ -1,3 +1,4 @@
+import { readSelectedProjectAsset } from './project-asset';
 import { EXTERNAL_LINKS } from '../shared/external-links';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -241,7 +242,7 @@ async function buildHandler(
   });
   const previewUrl =
     result.success && result.previewHtml
-      ? await publishPreviewHtml(event.sender.id, result.previewHtml)
+      ? await publishPreviewHtml(event.sender.id, result.previewHtml, project.assets ?? [])
       : undefined;
   return {
     success: result.success,
@@ -363,6 +364,18 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   ipcMain.handle('webrad:project:save-as', (event, input) =>
     selectProject(event, () => saveProjectAsHandler(event, input)),
   );
+  ipcMain.handle('webrad:project:import-asset', async (event, ...input: unknown[]) => {
+    if (input.length !== 1) throw new Error('Asset import requires one project root.');
+    const rootPath = releaseRootSchema.parse(input[0]);
+    requireGrantedRoot(event, rootPath);
+    const result = await dialog.showOpenDialog(requireTrustedSender(event), {
+      title: 'Import project asset',
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths[0] === undefined) return null;
+    requireGrantedRoot(event, rootPath);
+    return readSelectedProjectAsset(result.filePaths[0]);
+  });
   ipcMain.handle('webrad:project:release', releaseProjectHandler);
   ipcMain.handle('webrad:files:read', readFileHandler);
   ipcMain.handle('webrad:files:write', writeFileHandler);
