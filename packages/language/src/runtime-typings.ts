@@ -703,6 +703,10 @@ ${WEB_BUTTON_ICON_TYPINGS};
   export const WEBRAD_PROJECT_CSS: string;
 }
 
+declare module '@webrad/runtime/image-display' {
+  export function bindImageResampling(element: HTMLImageElement): () => void;
+}
+
 /** Globally available WebRAD dialog helper. */
 declare const Message: typeof import('@webrad/runtime').Message;
 /** Globally available WebRAD confirmation helper. */

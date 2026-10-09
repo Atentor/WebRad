@@ -14,7 +14,8 @@ import {
   tokenizeTailwindClasses,
 } from '@webrad/runtime/visual';
 import { getWebRadIconShapes, isWebRadIconName, type WebRadIconShape } from '@webrad/runtime/icons';
-import type { CSSProperties, ReactElement, ReactNode } from 'react';
+import { bindImageResampling } from '@webrad/runtime/image-display';
+import { useEffect, useRef, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 
 export type ComponentEventName =
   'OnClick' | 'OnChange' | 'OnInput' | 'OnFocus' | 'OnBlur' | 'OnMouseEnter' | 'OnMouseLeave';
@@ -35,6 +36,40 @@ export interface ComponentViewProps {
 }
 
 type ComponentRenderer = (props: ComponentViewProps) => ReactElement;
+
+function ImageView({ node, designTime, styleClassName }: ComponentViewProps): ReactElement {
+  const source = readStringProperty(node, 'src');
+  const ref = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    if (ref.current !== null) return bindImageResampling(ref.current);
+  }, [source]);
+  const attributes = sharedAttributes(node, designTime, styleClassName);
+  return source ? (
+    <img
+      {...attributes}
+      ref={ref}
+      alt={readStringProperty(node, 'alt', node.name)}
+      draggable={false}
+      src={source}
+      style={{
+        ...attributes.style,
+        ...(styleClassName === undefined
+          ? {
+              objectFit: readStringProperty(
+                node,
+                'objectFit',
+                'contain',
+              ) as CSSProperties['objectFit'],
+            }
+          : {}),
+      }}
+    />
+  ) : (
+    <div {...attributes} role="img" aria-label={`${node.name}: no image`}>
+      Image
+    </div>
+  );
+}
 
 function sharedAttributes(
   node: ComponentNode,
@@ -315,34 +350,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       </select>
     );
   },
-  WebImage: ({ node, designTime, styleClassName }) => {
-    const source = readStringProperty(node, 'src');
-    const attributes = sharedAttributes(node, designTime, styleClassName);
-    return source ? (
-      <img
-        {...attributes}
-        alt={readStringProperty(node, 'alt', node.name)}
-        draggable={false}
-        src={source}
-        style={{
-          ...attributes.style,
-          ...(styleClassName === undefined
-            ? {
-                objectFit: readStringProperty(
-                  node,
-                  'objectFit',
-                  'contain',
-                ) as CSSProperties['objectFit'],
-              }
-            : {}),
-        }}
-      />
-    ) : (
-      <div {...attributes} role="img" aria-label={`${node.name}: no image`}>
-        Image
-      </div>
-    );
-  },
+  WebImage: (props) => <ImageView {...props} />,
   WebListBox: ({ node, designTime, styleClassName, onEvent }) => {
     const items = readStringListProperty(node, 'items');
     const selectedIndex = readIntegerProperty(node, 'selectedIndex', -1);

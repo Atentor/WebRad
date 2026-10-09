@@ -47,6 +47,8 @@ const sourceFiles = [
   'page-router.ts',
   'globals.ts',
   'icons.ts',
+  'image-display.ts',
+  'image-resampling.ts',
   'index.ts',
   'layout.ts',
   'render.ts',

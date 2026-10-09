@@ -1,4 +1,5 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
+import { bindImageResampling } from './image-display.js';
 import {
   createWebRadIconElement,
   isWebRadIconName,
@@ -349,11 +350,14 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
 }
 
 export class WebImage extends WebComponent<HTMLImageElement> {
+  readonly #disposeResampling: () => void;
+
   public constructor(element: HTMLElement) {
     if (!(element instanceof HTMLImageElement)) {
       throw new TypeError('WebImage requires an image element.');
     }
     super(element);
+    this.#disposeResampling = bindImageResampling(element);
   }
 
   public get src(): string {
@@ -378,6 +382,11 @@ export class WebImage extends WebComponent<HTMLImageElement> {
 
   public set objectFit(value: WebImageObjectFit) {
     this.element.style.objectFit = value;
+  }
+
+  public override dispose(): void {
+    this.#disposeResampling();
+    super.dispose();
   }
 }
 

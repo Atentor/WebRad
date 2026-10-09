@@ -15,6 +15,10 @@
     "./icons": {
       "types": "./src/icons.ts",
       "default": "./src/icons.ts"
+    },
+    "./image-display": {
+      "types": "./src/image-display.ts",
+      "default": "./src/image-display.ts"
     }
   },
   "types": "./src/index.ts",

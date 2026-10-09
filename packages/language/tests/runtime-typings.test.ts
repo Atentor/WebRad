@@ -151,6 +151,27 @@ function completionNames(
 }
 
 describe('Monaco runtime typings', () => {
+  it('types the shared image binding and rejects non-image DOM elements', () => {
+    const valid =
+      createLanguageService(`import { bindImageResampling } from '@webrad/runtime/image-display';
+const dispose: () => void = bindImageResampling(document.createElement('img'));
+dispose();`);
+    const invalid =
+      createLanguageService(`import { bindImageResampling } from '@webrad/runtime/image-display';
+bindImageResampling(document.createElement('canvas'));`);
+    try {
+      expect(valid.service.getSemanticDiagnostics(valid.fileName)).toEqual([]);
+      expect(
+        invalid.service
+          .getSemanticDiagnostics(invalid.fileName)
+          .some((diagnostic) => diagnostic.code === 2345),
+      ).toBe(true);
+    } finally {
+      valid.service.dispose();
+      invalid.service.dispose();
+    }
+  });
+
   it('completes numeric margin for every concrete visual type and rejects invalid uses', () => {
     const visuals = MVP_COMPONENT_DEFINITIONS.filter((definition) => definition.visual);
     const marked =
