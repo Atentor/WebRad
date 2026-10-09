@@ -68,6 +68,8 @@ export class ${page.name} extends ${page.name}Generated {
 it('offers native binding members through direct and this-scoped typed ComboBox instances', () => {
   const fixture = serviceFor(`ComboBox1.bindApiClient(ApiClient1);
     this.ComboBox1.value = '2';
+    this.ComboBox1.values = ['1', '2'];
+    const keys: readonly string[] = ComboBox1.values; void keys;
     const configuration = this.ComboBox1.comboBoxConfig;
     if (configuration !== null) { const key: string = configuration.keyField; void key; }
     ComboBox1.value; this.ComboBox1.value;`);
@@ -95,12 +97,13 @@ it('offers native binding members through direct and this-scoped typed ComboBox 
 
 it('diagnoses invalid key/value/binding assignments and preserves lexical shadowing', () => {
   const fixture = serviceFor(`this.ComboBox1.value = 3;
+    this.ComboBox1.values = [1];
     this.ComboBox1.bindApiClient('ApiClient1');
     if (this.ComboBox1.comboBoxConfig) this.ComboBox1.comboBoxConfig.keyField = 3;
     { const ComboBox1 = { local: true }; ComboBox1.local; ComboBox1.bindApiClient(null); }`);
   try {
     const diagnostics = fixture.service.getSemanticDiagnostics(fixture.fileName);
-    expect(diagnostics).toHaveLength(4);
+    expect(diagnostics).toHaveLength(5);
     expect(diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
       expect.arrayContaining([2322, 2345, 2540, 2339]),
     );

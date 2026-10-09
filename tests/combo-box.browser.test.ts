@@ -9,9 +9,13 @@ import { withChromium } from './chromium';
 
 const browserPath = process.env.WEBRAD_BROWSER_PATH;
 
-it.runIf(browserPath !== undefined)(
-  'configures a ComboBox in Chromium and executes its compiled F9 Preview with a real HTTP API',
-  async () => {
+it.runIf(browserPath !== undefined).each(['api', 'static'] as const)(
+  'configures a %s ComboBox in Chromium and executes its compiled F9 Preview',
+  async (mode) => {
+    const screenshotPath = process.env.WEBRAD_COMBOBOX_SCREENSHOT?.replace(
+      /\.png$/u,
+      `.${mode}.png`,
+    );
     let previewHtml = '';
     let dialogScript = '';
     const ideCss = (
@@ -66,7 +70,29 @@ it.runIf(browserPath !== undefined)(
       throw new Error('Missing API server port.');
     const url = `http://127.0.0.1:${String(address.port)}`;
     try {
-      const project = comboBoxProject(url);
+      const initial = comboBoxProject(url);
+      const project =
+        mode === 'api'
+          ? initial
+          : {
+              ...initial,
+              pages: initial.pages.map((page) => ({
+                ...page,
+                components: page.components.map((component) =>
+                  component.type === 'WebComboBox'
+                    ? {
+                        ...component,
+                        props: {
+                          ...component.props,
+                          comboBoxConfig: null,
+                          items: ['Ana', 'Bruno'],
+                          values: ['1', '2'],
+                        },
+                      }
+                    : component,
+                ),
+              })),
+            };
       const page = project.pages[0];
       if (page === undefined) throw new Error('Missing fixture page.');
       const compiled = await compileProjectToMemory(project, {
@@ -79,14 +105,17 @@ it.runIf(browserPath !== undefined)(
           contents: `import React from 'react';
         import { createRoot } from 'react-dom/client';
         import { ComboBoxConfigurationDialog } from './apps/ide/renderer/src/components/ComboBoxConfigurationDialog';
+        import { ComboBoxItemsDialog } from './apps/ide/renderer/src/components/ComboBoxItemsDialog';
+        const mode = ${JSON.stringify(mode)};
         const page = ${JSON.stringify(page)};
         const component = page.components.find(item => item.type === 'WebComboBox');
         const root = createRoot(document.getElementById('root'));
-        root.render(React.createElement(ComboBoxConfigurationDialog, {
-          component: { ...component, props: { ...component.props, comboBoxConfig: null } },
+        root.render(React.createElement(mode === 'api' ? ComboBoxConfigurationDialog : ComboBoxItemsDialog, {
+          component: { ...component, props: { ...component.props, comboBoxConfig: null, items: [], values: [] } },
+          focusField: 'items',
           availableComponents: page.components,
           onClose: () => root.unmount(),
-          onSave: configuration => { document.body.dataset.binding = JSON.stringify(configuration); root.unmount(); }
+          onSave: (configuration, values) => { document.body.dataset.binding = JSON.stringify(mode === 'api' ? configuration : { items: configuration, values }); root.unmount(); }
         }));`,
           resolveDir: process.cwd(),
           loader: 'tsx',
@@ -113,40 +142,52 @@ it.runIf(browserPath !== undefined)(
           .poll(
             async () =>
               evaluate(
-                `Boolean(document.querySelector('[aria-label="ComboBox API Client"]')) && document.querySelector('iframe').contentDocument.querySelector('select')?.options.length === 2`,
+                `Boolean(document.querySelector('[aria-label="${mode === 'api' ? 'ComboBox API Client' : 'ComboBox Items'}"]')) && document.querySelector('iframe').contentDocument.querySelector('select')?.options.length === 2`,
               ),
             { timeout: 15_000 },
           )
           .toBe(true);
-        await evaluate(`(() => {
+        if (mode === 'api') {
+          await evaluate(`(() => {
         const change = (label, value) => { const select = document.querySelector('[aria-label="' + label + '"]'); select.value = value; select.dispatchEvent(new Event('change', { bubbles: true })); };
         change('ComboBox API Client', 'customers-api');
       })()`);
-        await expect
-          .poll(async () =>
-            evaluate(
-              `document.querySelector('[aria-label="ComboBox display field"]').options.length`,
-            ),
-          )
-          .toBe(4);
-        await evaluate(`(() => {
+          await expect
+            .poll(async () =>
+              evaluate(
+                `document.querySelector('[aria-label="ComboBox display field"]').options.length`,
+              ),
+            )
+            .toBe(4);
+          await evaluate(`(() => {
         for (const [label, value] of [['ComboBox display field', '/name'], ['ComboBox key field', '/id']]) {
           const select = document.querySelector('[aria-label="' + label + '"]'); select.value = value; select.dispatchEvent(new Event('change', { bubbles: true }));
         }
       })()`);
+        } else {
+          await evaluate(`(() => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+            for (const [label, rows] of [['ComboBox Items', ['Ana', 'Bruno']], ['ComboBox Values', ['1', '2']]]) {
+              const field = document.querySelector('[aria-label="' + label + '"]');
+              setter.call(field, rows.join(String.fromCharCode(10))); field.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          })()`);
+        }
         await expect
           .poll(async () => evaluate(`document.querySelector('button[type="submit"]').disabled`))
           .toBe(false);
-        if (process.env.WEBRAD_COMBOBOX_SCREENSHOT) {
+        if (screenshotPath) {
           const screenshot = await send('Page.captureScreenshot', { format: 'png' });
           await fs.writeFile(
-            path.resolve(process.env.WEBRAD_COMBOBOX_SCREENSHOT).replace(/\.png$/u, '.dialog.png'),
+            path.resolve(screenshotPath).replace(/\.png$/u, '.dialog.png'),
             Buffer.from(String(screenshot.data), 'base64'),
           );
         }
         await evaluate(`document.querySelector('button[type="submit"]').click()`);
         const saved = await evaluate('document.body.dataset.binding');
-        expect(JSON.parse(String(saved))).toEqual(comboBoxBinding);
+        expect(JSON.parse(String(saved))).toEqual(
+          mode === 'api' ? comboBoxBinding : { items: ['Ana', 'Bruno'], values: ['1', '2'] },
+        );
         expect(
           await evaluate(`(() => {
           const frame = document.querySelector('iframe');
@@ -171,20 +212,20 @@ it.runIf(browserPath !== undefined)(
               `document.querySelector('iframe').contentDocument.querySelector('select').options[1]?.text`,
             ),
           )
-          .toBe('Ana updated');
+          .toBe(mode === 'api' ? 'Ana updated' : 'Bruno');
         expect(
           await evaluate(
             `(() => { const doc = document.querySelector('iframe').contentDocument; const combo = doc.querySelector('select'); return { value: combo.value, selectedIndex: combo.selectedIndex, selectedKey: doc.querySelector('[data-webrad-id="selected-label"]').textContent }; })()`,
           ),
-        ).toEqual({ value: '1', selectedIndex: 1, selectedKey: '1' });
-        expect(requestCount).toBe(2);
-        if (process.env.WEBRAD_COMBOBOX_SCREENSHOT) {
+        ).toEqual({ value: '1', selectedIndex: mode === 'api' ? 1 : 0, selectedKey: '1' });
+        await expect.poll(() => requestCount).toBe(2);
+        if (screenshotPath) {
           await evaluate(
             'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
           );
           const screenshot = await send('Page.captureScreenshot', { format: 'png' });
           await fs.writeFile(
-            path.resolve(process.env.WEBRAD_COMBOBOX_SCREENSHOT),
+            path.resolve(screenshotPath),
             Buffer.from(String(screenshot.data), 'base64'),
           );
         }

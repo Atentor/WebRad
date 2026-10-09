@@ -4253,6 +4253,13 @@ kbd {
   width: min(620px, 100%);
 }
 
+.wr-combo-box-static-dialog textarea {
+  width: 100%;
+  min-height: 112px;
+  padding: 8px;
+  resize: vertical;
+}
+
 .wr-data-grid-configuration-dialog .wr-modal-header {
   flex: 0 0 auto;
   gap: 14px;

@@ -333,17 +333,22 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
   ),
   WebComboBox: ({ node, designTime, styleClassName, onEvent }) => {
     const items = node.props.comboBoxConfig == null ? readStringListProperty(node, 'items') : [];
+    const values = readStringListProperty(node, 'values');
     const selectedIndex = readIntegerProperty(node, 'selectedIndex', -1);
     return (
       <select
         {...sharedAttributes(node, designTime, styleClassName)}
         aria-label={node.name}
-        value={items[selectedIndex] ?? readStringProperty(node, 'value')}
+        value={
+          selectedIndex >= 0
+            ? (values[selectedIndex] ?? items[selectedIndex] ?? '')
+            : readStringProperty(node, 'value')
+        }
         disabled={!readBooleanProperty(node, 'enabled', true)}
         onChange={() => onEvent?.('OnChange', node)}
       >
-        {items.map((item) => (
-          <option key={item} value={item}>
+        {items.map((item, index) => (
+          <option key={index} value={values[index] ?? item}>
             {item}
           </option>
         ))}

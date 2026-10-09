@@ -119,6 +119,23 @@ function validateRegistry(
           });
         }
       }
+      if (component.type === 'WebComboBox' && component.props.comboBoxConfig == null) {
+        const items = component.props.items;
+        const values = component.props.values;
+        if (
+          Array.isArray(values) &&
+          values.length > 0 &&
+          Array.isArray(items) &&
+          values.length !== items.length
+        ) {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message: 'WebComboBox Values must have one value per Item.',
+            path: [...path, 'components', componentIndex, 'props', 'values'],
+          });
+        }
+      }
       if (component.type === 'WebComboBox' && component.props.comboBoxConfig != null) {
         const configuration = ComboBoxConfigurationSchema.safeParse(component.props.comboBoxConfig);
         if (!configuration.success) continue;

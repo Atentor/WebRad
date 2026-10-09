@@ -1003,6 +1003,7 @@ const webComboBox: ComponentDefinition = {
   defaultBounds: comboBoxBounds,
   defaults: {
     items: [],
+    values: [],
     comboBoxConfig: null,
     selectedIndex: -1,
     value: '',
@@ -1022,6 +1023,17 @@ const webComboBox: ComponentDefinition = {
       source: 'props',
       defaultValue: [],
       readOnlyWhen: (props) => props.comboBoxConfig != null,
+      designerAction: 'combo-box-items',
+    },
+    {
+      name: 'values',
+      label: 'Values',
+      type: 'string-list',
+      category: 'Data',
+      source: 'props',
+      defaultValue: [],
+      readOnlyWhen: (props) => props.comboBoxConfig != null,
+      designerAction: 'combo-box-values',
     },
     {
       name: 'comboBoxConfig',

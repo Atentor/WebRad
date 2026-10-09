@@ -15,52 +15,108 @@ import {
   comboBoxUserSources,
 } from '../../../tests/fixtures/combo-box.js';
 
-it('executes a compiled Preview binding and passes the selected key to authored OnChange code', async () => {
-  const project = comboBoxProject();
-  const page = project.pages[0];
-  if (page === undefined) throw new Error('Missing page.');
-  const result = await compileProjectToMemory(project, {
-    userSources: comboBoxUserSources(page.name),
-  });
-  expect(result.success, JSON.stringify(result.diagnostics)).toBe(true);
-  const dom = new JSDOM('<!doctype html><body></body>', {
-    runScripts: 'outside-only',
-    url: 'https://preview.webrad.test/',
-  });
-  Object.defineProperties(dom.window, {
-    fetch: {
-      value: async () =>
-        new Response(
-          JSON.stringify({
-            customers: [
-              { id: 1, name: 'Ana' },
-              { id: 2, name: 'Bruno' },
-            ],
-          }),
-          { headers: { 'content-type': 'application/json' } },
-        ),
-    },
-    Headers: { value: globalThis.Headers },
-    ReadableStream: { value: globalThis.ReadableStream },
-    AbortController: { value: globalThis.AbortController },
-  });
-  try {
-    dom.window.eval(result.files['assets/app.js'] ?? '');
-    const select = dom.window.document.querySelector<HTMLSelectElement>(
-      '[data-webrad-id="customer-combo"]',
-    );
-    await expect.poll(() => select?.options.length).toBe(2);
-    expect(select?.options[0]?.textContent).toBe('Ana');
-    expect(select?.value).toBe('2');
-    if (select === null) throw new Error('Missing ComboBox.');
-    select.value = '1';
-    select.dispatchEvent(new dom.window.Event('change'));
-    expect(
-      dom.window.document.querySelector('[data-webrad-id="selected-label"]')?.textContent,
-    ).toBe('1');
-  } finally {
-    dom.window.close();
-  }
+it.each(['api', 'static'] as const)(
+  'executes a compiled %s ComboBox and passes the selected key to authored OnChange code',
+  async (mode) => {
+    const initial = comboBoxProject();
+    const project =
+      mode === 'api'
+        ? initial
+        : {
+            ...initial,
+            pages: initial.pages.map((page) => ({
+              ...page,
+              components: page.components.map((component) =>
+                component.type === 'WebComboBox'
+                  ? {
+                      ...component,
+                      props: {
+                        ...component.props,
+                        comboBoxConfig: null,
+                        items: ['Ana', 'Bruno'],
+                        values: ['1', '2'],
+                      },
+                    }
+                  : component,
+              ),
+            })),
+          };
+    const page = project.pages[0];
+    if (page === undefined) throw new Error('Missing page.');
+    const result = await compileProjectToMemory(project, {
+      userSources: comboBoxUserSources(page.name),
+    });
+    expect(result.success, JSON.stringify(result.diagnostics)).toBe(true);
+    const dom = new JSDOM('<!doctype html><body></body>', {
+      runScripts: 'outside-only',
+      url: 'https://preview.webrad.test/',
+    });
+    Object.defineProperties(dom.window, {
+      fetch: {
+        value: async () =>
+          new Response(
+            JSON.stringify({
+              customers: [
+                { id: 1, name: 'Ana' },
+                { id: 2, name: 'Bruno' },
+              ],
+            }),
+            { headers: { 'content-type': 'application/json' } },
+          ),
+      },
+      Headers: { value: globalThis.Headers },
+      ReadableStream: { value: globalThis.ReadableStream },
+      AbortController: { value: globalThis.AbortController },
+    });
+    try {
+      dom.window.eval(result.files['assets/app.js'] ?? '');
+      const select = dom.window.document.querySelector<HTMLSelectElement>(
+        '[data-webrad-id="customer-combo"]',
+      );
+      await expect.poll(() => select?.options.length).toBe(2);
+      expect(select?.options[0]?.textContent).toBe('Ana');
+      expect(select?.value).toBe('2');
+      if (select === null) throw new Error('Missing ComboBox.');
+      select.value = '1';
+      select.dispatchEvent(new dom.window.Event('change'));
+      expect(
+        dom.window.document.querySelector('[data-webrad-id="selected-label"]')?.textContent,
+      ).toBe('1');
+    } finally {
+      dom.window.close();
+    }
+  },
+);
+
+it('rejects a static Values list which does not match the Items count', async () => {
+  const initial = comboBoxProject();
+  const project = {
+    ...initial,
+    pages: initial.pages.map((page) => ({
+      ...page,
+      components: page.components.map((component) =>
+        component.type === 'WebComboBox'
+          ? {
+              ...component,
+              props: {
+                ...component.props,
+                comboBoxConfig: null,
+                items: ['Ana', 'Bruno'],
+                values: ['1'],
+              },
+            }
+          : component,
+      ),
+    })),
+  };
+  const result = await compileProjectToMemory(project, { userSources: {} });
+  expect(result.success).toBe(false);
+  expect(result.diagnostics).toContainEqual(
+    expect.objectContaining({
+      path: expect.arrayContaining(['values']),
+      message: 'WebComboBox Values must have one value per Item.',
+    }),
+  );
 });
 
 it.each([

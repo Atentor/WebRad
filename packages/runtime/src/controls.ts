@@ -361,6 +361,20 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
     }));
   }
 
+  public get values(): readonly string[] {
+    return this.items.map((item) => item.value);
+  }
+
+  public set values(values: readonly string[]) {
+    const items = this.items;
+    if (values.length !== 0 && values.length !== items.length) {
+      throw new RangeError('ComboBox Values must have one value per item.');
+    }
+    const selectedIndex = this.selectedIndex;
+    this.items = items.map((item, index) => ({ ...item, value: values[index] ?? item.label }));
+    this.selectedIndex = selectedIndex;
+  }
+
   public set onChange(handler: WebComponentEventHandler<this> | null) {
     this.bindEvent('OnChange', handler);
   }

@@ -14,7 +14,11 @@ export type ComponentPropertyType =
 
 /** Named design-time actions kept in the Component Registry metadata. */
 export type ComponentDesignerAction =
-  'api-client-tester' | 'data-grid-configurator' | 'combo-box-configurator';
+  | 'api-client-tester'
+  | 'data-grid-configurator'
+  | 'combo-box-configurator'
+  | 'combo-box-items'
+  | 'combo-box-values';
 
 export type ComponentPropertySource =
   'node' | 'bounds' | 'props' | 'page' | 'layout-container' | 'layout-item';

@@ -32,6 +32,20 @@ function setup() {
 }
 
 describe('ComboBox API binding', () => {
+  it('exposes typed static values while preserving labels and the selected index', () => {
+    const combo = new WebComboBox(document.createElement('select'));
+    combo.items = ['Ana', 'Bruno'];
+    combo.selectedIndex = 1;
+    combo.values = ['1', '2'];
+    expect(combo.value).toBe('2');
+    expect(combo.items.map((item) => item.label)).toEqual(['Ana', 'Bruno']);
+    expect(combo.values).toEqual(['1', '2']);
+    expect(() => {
+      combo.values = ['1'];
+    }).toThrow(RangeError);
+    combo.values = [];
+    expect(combo.value).toBe('Bruno');
+  });
   it('observes named results, uses keys as values, preserves selection across reordering, and emits OnChange', async () => {
     const { combo, api, fetcher, responses } = setup();
     expect(fetcher).not.toHaveBeenCalled();

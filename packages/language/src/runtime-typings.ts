@@ -417,6 +417,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
     constructor(element: HTMLElement);
     value: string;
     selectedIndex: number;
+    get values(): readonly string[];
+    set values(values: readonly string[]);
     get items(): readonly WebSelectItem[];
     set items(items: readonly (string | WebSelectItem)[]);
     comboBoxConfig: WebComboBoxConfiguration | null;

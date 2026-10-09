@@ -33,6 +33,7 @@ import {
   readBooleanProperty,
   readIntegerProperty,
   readStringProperty,
+  readStringListProperty,
   tokenizeTailwindClasses,
 } from './visual.js';
 
@@ -129,9 +130,10 @@ function imageElement(element: HTMLElement): HTMLImageElement {
 
 function selectItems(node: RuntimeComponentNode): readonly (string | WebSelectItem)[] {
   const items = node.props.items;
+  const values = readStringListProperty(node, 'values');
   if (!Array.isArray(items)) return [];
-  return items.flatMap((item): readonly (string | WebSelectItem)[] => {
-    if (typeof item === 'string') return [item];
+  return items.flatMap((item, index): readonly (string | WebSelectItem)[] => {
+    if (typeof item === 'string') return [{ label: item, value: values[index] ?? item }];
     if (typeof item !== 'object' || item === null) return [];
     const value = Reflect.get(item, 'value');
     const label = Reflect.get(item, 'label');
@@ -397,7 +399,7 @@ runtimeComponentRegistry
       const selectedIndex = readIntegerProperty(node, 'selectedIndex');
       if (component.comboBoxConfig !== null) {
         component.value = readStringProperty(node, 'value');
-      } else if (selectedIndex !== undefined) {
+      } else if (selectedIndex !== undefined && selectedIndex >= 0) {
         component.selectedIndex = selectedIndex;
       } else {
         component.value = readStringProperty(node, 'value');

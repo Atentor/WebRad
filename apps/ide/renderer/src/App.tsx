@@ -75,6 +75,7 @@ import { DesignerSurface } from './components/DesignerSurface';
 import { AddPageDialog, type AddDocumentKind } from './components/AddPageDialog';
 import { DataGridConfigurationDialog } from './components/DataGridConfigurationDialog';
 import { ComboBoxConfigurationDialog } from './components/ComboBoxConfigurationDialog';
+import { ComboBoxItemsDialog } from './components/ComboBoxItemsDialog';
 import { EditorWorkspace, type DocumentTab, type ViewMode } from './components/EditorWorkspace';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { IdeShell } from './components/IdeShell';
@@ -225,6 +226,7 @@ export function App(): ReactElement {
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [projectSettingsDialogOpen, setProjectSettingsDialogOpen] = useState(false);
   const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
+  const [comboBoxEditorMode, setComboBoxEditorMode] = useState<'api' | 'items' | 'values'>('api');
   const [comboBoxConfiguratorComponentId, setComboBoxConfiguratorComponentId] = useState<
     string | null
   >(null);
@@ -931,6 +933,10 @@ export function App(): ReactElement {
       } else if (action === 'data-grid-configurator') {
         setDataGridConfiguratorComponentId(component.id);
       } else if (action === 'combo-box-configurator') {
+        setComboBoxEditorMode('api');
+        setComboBoxConfiguratorComponentId(component.id);
+      } else if (action === 'combo-box-items' || action === 'combo-box-values') {
+        setComboBoxEditorMode(action === 'combo-box-items' ? 'items' : 'values');
         setComboBoxConfiguratorComponentId(component.id);
       }
     },
@@ -1036,6 +1042,23 @@ export function App(): ReactElement {
       addOutput,
       reportError,
     ],
+  );
+
+  const saveComboBoxItems = useCallback(
+    (items: readonly string[], values: readonly string[]): void => {
+      if (activePage === null || comboBoxConfiguratorComponent === null) return;
+      try {
+        const next = designerController.executeMany(activePage, 'Edit ComboBox items', [
+          new ChangePropertyCommand(comboBoxConfiguratorComponent.id, 'items', [...items]),
+          new ChangePropertyCommand(comboBoxConfiguratorComponent.id, 'values', [...values]),
+        ]);
+        updateActivePage(next);
+        setComboBoxConfiguratorComponentId(null);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [activePage, comboBoxConfiguratorComponent, designerController, updateActivePage, reportError],
   );
 
   const saveProjectSettings = useCallback(
@@ -2285,12 +2308,20 @@ export function App(): ReactElement {
           onSave={saveDataGridConfiguration}
         />
       )}
-      {comboBoxConfiguratorComponent !== null && (
+      {comboBoxConfiguratorComponent !== null && comboBoxEditorMode === 'api' && (
         <ComboBoxConfigurationDialog
           component={comboBoxConfiguratorComponent}
           availableComponents={activePage?.components ?? []}
           onClose={() => setComboBoxConfiguratorComponentId(null)}
           onSave={saveComboBoxConfiguration}
+        />
+      )}
+      {comboBoxConfiguratorComponent !== null && comboBoxEditorMode !== 'api' && (
+        <ComboBoxItemsDialog
+          component={comboBoxConfiguratorComponent}
+          focusField={comboBoxEditorMode}
+          onClose={() => setComboBoxConfiguratorComponentId(null)}
+          onSave={saveComboBoxItems}
         />
       )}
     </ProjectColorPaletteContext.Provider>

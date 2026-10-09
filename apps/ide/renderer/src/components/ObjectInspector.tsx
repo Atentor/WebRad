@@ -382,6 +382,22 @@ function PropertyEditor({
         />
       );
     case 'string-list':
+      if (property.designerAction !== undefined) {
+        const action = property.designerAction;
+        return (
+          <button
+            id={id}
+            type="button"
+            className="wr-inspector-action"
+            aria-label={`Edit ${property.label ?? property.name}…`}
+            aria-haspopup="dialog"
+            disabled={disabled || multiple}
+            onClick={() => onDesignerAction?.(action)}
+          >
+            Edit {property.label ?? property.name}…
+          </button>
+        );
+      }
       return (
         <textarea
           id={id}

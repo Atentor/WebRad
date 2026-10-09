@@ -4,6 +4,8 @@ O API Client configurado no Designer é uma instância real no código da págin
 
 ## ComboBox conectado ao API Client
 
+Para opções fixas, os botões **Edit Items…** e **Edit Values…** abrem um modal simples. Insira um texto por linha em **Items** e uma chave por linha em **Values**, na mesma ordem. Se **Values** ficar vazio, o texto do item será sua chave. **Save** salva as duas listas em uma única alteração; **Cancel** e Escape descartam o rascunho. A propriedade singular **Value** continua sendo a chave selecionada.
+
 No Designer, dê duplo clique no ComboBox ou abra **API Client binding → Configure ComboBox** no Inspector. Selecione o API Client, a operação, a lista da resposta, o **Display field** (texto exibido) e o **Key field** (valor selecionado). As escolhas vêm do esquema de resposta salvo no editor do API Client. **Static items** remove o vínculo e permite usar a propriedade `Items` novamente.
 
 O ComboBox acompanha o resultado da operação selecionada. Execute a requisição no código da página ou do reutilizável, por exemplo no `OnCreate`:

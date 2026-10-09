@@ -683,6 +683,51 @@ describe('App MVP integration', () => {
     expect(JSON.stringify(configuration)).not.toContain('Ada');
   }, 15_000);
 
+  it('edits static ComboBox labels and values in a modal and undoes both lists together', async () => {
+    const seeded = comboBoxProject();
+    const project = {
+      ...seeded,
+      pages: seeded.pages.map((page) => ({
+        ...page,
+        components: page.components.map((component) =>
+          component.type === 'WebComboBox'
+            ? { ...component, props: { ...component.props, comboBoxConfig: null } }
+            : component,
+        ),
+      })),
+    };
+    const harness = createBridgeHarness({ ...initialSession(), project });
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    fireEvent.doubleClick(await screen.findByTitle('ComboBox1: WebComboBox'));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Edit Items…' }));
+    const editor = within(screen.getByRole('dialog', { name: 'Edit ComboBox items' }));
+    await user.clear(editor.getByLabelText('ComboBox Items'));
+    await user.type(editor.getByLabelText('ComboBox Items'), 'Ana{Enter}Bruno');
+    await user.type(editor.getByLabelText('ComboBox Values'), '1{Enter}2');
+    await user.click(editor.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await waitFor(() =>
+      expect(
+        harness
+          .persisted()
+          .project.pages[0]?.components.find((component) => component.type === 'WebComboBox')
+          ?.props,
+      ).toMatchObject({ items: ['Ana', 'Bruno'], values: ['1', '2'] }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Edit Values…' }));
+    expect(document.activeElement).toBe(screen.getByLabelText('ComboBox Values'));
+    expect(screen.getByLabelText('ComboBox Values')).toHaveProperty('value', '1\n2');
+    await user.keyboard('{Escape}');
+    await act(async () => harness.invokeCommand('edit.undo'));
+    await user.click(screen.getByRole('button', { name: 'Edit Items…' }));
+    expect(screen.getByLabelText('ComboBox Items')).toHaveProperty('value', 'Static item');
+    expect(screen.getByLabelText('ComboBox Values')).toHaveProperty('value', '');
+  });
+
   it('configures the ComboBox from the Designer, persists its binding, and undoes it as one change', async () => {
     const seeded = comboBoxProject();
     const project = {

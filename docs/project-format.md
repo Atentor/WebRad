@@ -96,6 +96,8 @@ API Client configuration schema version 1 accepts zero to 100 operations. Removi
 
 ## ComboBox configuration
 
+Static ComboBoxes persist `items: string[]` and optional `values: string[]`. A non-empty `values` array has one key per label, paired by index. An absent or empty array uses each label as its key. `value` remains the selected string key; the separate `values` collection is available in the concrete runtime class and Monaco. The registry opens one transactional multiline editor for both lists, and compilation rejects a non-empty array with a mismatched count.
+
 `WebComboBox.props.comboBoxConfig` is either `null` (static `items`) or a strict version 1 object: `{ schemaVersion: 1, apiClientId, operationId, listPath, displayField, keyField }`. Client and operation references use stable IDs within the same page or reusable definition. `listPath` is a response-relative JSON Pointer to a saved list node; `displayField` and `keyField` are pointers relative to one list item. An empty field pointer selects a scalar item itself. Labels and keys must reference saved scalar fields; nested objects are traversable, while arrays nested inside another item are excluded. Static items remain saved when binding the API, so switching back restores them. API results are runtime state and are never serialized. An API binding uses the saved string `value` as its initial selected key; design-time `selectedIndex` is available for static items. The compiler validates references and all three paths before emitting Preview.
 
 ## Reusable visual components
