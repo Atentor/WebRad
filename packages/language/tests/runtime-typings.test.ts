@@ -1008,8 +1008,23 @@ void api.execute('PutKey', { parameters: { id: 3, chave: 'key', enabled: true, e
 void new WebApiClient().execute('PutKey', { parameters: { id: () => 1 } });`);
     try {
       expect(
-        invalid.service.getSemanticDiagnostics(invalid.fileName).some(({ code }) => code === 2322),
-      ).toBe(true);
+        invalid.service.getSemanticDiagnostics(invalid.fileName).map((diagnostic) => ({
+          code: diagnostic.code,
+          message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+          source: diagnostic.file?.text.slice(
+            diagnostic.start ?? 0,
+            (diagnostic.start ?? 0) + (diagnostic.length ?? 0),
+          ),
+        })),
+      ).toEqual([
+        {
+          code: 2769,
+          message: expect.stringContaining(
+            "Type '() => number' is not assignable to type 'WebApiTemplateValue'.",
+          ),
+          source: '() => 1',
+        },
+      ]);
     } finally {
       invalid.service.dispose();
     }

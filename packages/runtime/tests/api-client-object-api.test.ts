@@ -219,10 +219,20 @@ describe('API Client object interface', () => {
     expect(first.api.RequestByName('PutKey')).toBe(first.api.Requests.PutKey);
   });
 
-  it('supports older imported JSON fields as parameters without rewriting their saved body', async () => {
+  it('resolves explicit JSON templates once without rewriting saved bodies or literal parameter values', async () => {
     const original = configuration();
     const request = original.operations[0];
     if (request === undefined) throw new Error('Expected PutKey.');
+    const body = {
+      kind: 'json' as const,
+      content:
+        '{"idinstancia":<idinstancia>,"chave":<chave>,"enabled":<enabled>,"message":"Key: <chave>"}',
+      parameters: [
+        { name: 'idinstancia', type: 'integer' as const },
+        { name: 'chave', type: 'string' as const },
+        { name: 'enabled', type: 'boolean' as const },
+      ],
+    };
     const fetch = vi.fn<typeof globalThis.fetch>(
       async () => new Response('{}', { headers: { 'Content-Type': 'application/json' } }),
     );
@@ -234,21 +244,26 @@ describe('API Client object interface', () => {
         operations: [
           {
             ...request,
-            body: { kind: 'json', content: '{"idinstancia":null,"chave":"","enabled":false}' },
+            body,
           },
         ],
       },
     });
+    const literal = '<literal> "<enabled>", "injected": true';
     api.parameter.idinstancia = 9;
-    api.parameter.chave = '<literal> "escaped"';
+    api.parameter.chave = literal;
     api.parameter.enabled = true;
     await api.execute();
     expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
       idinstancia: 9,
-      chave: '<literal> "escaped"',
+      chave: literal,
       enabled: true,
+      message: `Key: ${literal}`,
     });
-    expect(api.Body.Value).toBe('{"idinstancia":null,"chave":"","enabled":false}');
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(api.Body.Value).toBe(body.content);
+    expect(api.Request.Definition.body).toEqual(body);
+    expect(api.parameter.chave).toBe(literal);
   });
 
   it('validates setters, protects request identities and keeps explicit options compatible', async () => {

@@ -666,7 +666,7 @@ export class PageDetails extends PageDetailsGenerated {
         expect.objectContaining({
           source: 'registry',
           category: 'error',
-          message: expect.stringContaining('RestGo integration'),
+          message: 'Enable and configure the RestGo connection before binding an API Client.',
           path: ['pages', 0, 'components', 3, 'props', 'apiClientConfig', 'connection'],
         }),
       ]),

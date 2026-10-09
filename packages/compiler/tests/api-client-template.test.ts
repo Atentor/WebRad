@@ -49,9 +49,13 @@ export class ${page.name} extends ${page.name}Generated {
     super(element);
     ApiClient1.PutKey.parameter.idinstancia = 23;
     this.ApiClient1.PutKey.parameter.chave = 'compiled';
-    void this.ApiClient1.PutKey.execute().then(() => {
-      this.element.dataset.templateComplete = 'true';
-    });
+    void this.ApiClient1.PutKey.execute()
+      .then(() => {
+        this.element.dataset.templateComplete = 'true';
+      })
+      .catch((error: unknown) => {
+        this.element.dataset.templateError = String(error);
+      });
   }
 }`;
     const result = await compileProjectToMemory(
@@ -70,16 +74,16 @@ export class ${page.name} extends ${page.name}Generated {
     Object.defineProperties(dom.window, {
       fetch: { value: fetch },
       Headers: { value: globalThis.Headers },
+      ReadableStream: { value: globalThis.ReadableStream },
       AbortController: { value: globalThis.AbortController },
     });
     try {
       dom.window.eval(result.files['assets/app.js'] ?? '');
       await vi.waitFor(() => {
+        const root = dom.window.document.querySelector<HTMLElement>('[data-webrad-id]');
+        expect(root?.dataset.templateError).toBeUndefined();
         expect(fetch).toHaveBeenCalledOnce();
-        expect(
-          dom.window.document.querySelector<HTMLElement>('[data-webrad-id]')?.dataset
-            .templateComplete,
-        ).toBe('true');
+        expect(root?.dataset.templateComplete).toBe('true');
       });
     } finally {
       dom.window.close();
