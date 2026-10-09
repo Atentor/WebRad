@@ -1247,7 +1247,7 @@ describe('App MVP integration', () => {
         ).toContain(kind === 'model' ? 'Alice' : 'suffix'),
       );
     }
-    await user.click(screen.getByRole('treeitem', { name: 'Customer.ts' }));
+    await user.click(screen.getByRole('treeitem', { name: 'Customer' }));
     expect(
       (screen.getByRole('textbox', { name: 'Mock Monaco editor' }) as HTMLTextAreaElement).value,
     ).toContain('Alice');
@@ -1260,7 +1260,7 @@ describe('App MVP integration', () => {
     await user.click(within(duplicate).getByRole('button', { name: 'Cancel' }));
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
-    await user.click(await screen.findByRole('treeitem', { name: 'Helpers.ts' }));
+    await user.click(await screen.findByRole('treeitem', { name: 'Helpers' }));
     expect(
       (screen.getByRole('textbox', { name: 'Mock Monaco editor' }) as HTMLTextAreaElement).value,
     ).toContain('suffix');

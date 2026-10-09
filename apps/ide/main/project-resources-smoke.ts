@@ -146,7 +146,7 @@ export async function runProjectResourcesSmoke(
   await waitFor("document.querySelector('.wr-page-surface') !== null");
   await click('[aria-label="Project Explorer"]');
   await waitFor(
-    "document.querySelector('[role=tree]')?.textContent?.includes('ResourceModel.ts') === true && document.querySelector('[role=tree]')?.textContent?.includes('resource-image.png') === true",
+    "document.querySelector('[role=tree]')?.textContent?.includes('ResourceModel') === true && document.querySelector('[role=tree]')?.textContent?.includes('ResourceHelpers') === true && document.querySelector('[role=tree]')?.textContent?.includes('resource-image.png') === true",
   );
   window.webContents.send('webrad:menu-command', 'run.run');
   await waitFor('document.querySelector(\'iframe[title="WebRAD application preview"]\') !== null');
