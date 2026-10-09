@@ -17,6 +17,7 @@ import {
 } from './controls.js';
 import { WebPage } from './page.js';
 import { WebDataGrid, normalizeWebDataGridConfiguration } from './data-grid.js';
+import { normalizeWebComboBoxConfiguration } from './combo-box-data.js';
 import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
   applyRuntimeContainerLayout,
@@ -392,8 +393,11 @@ runtimeComponentRegistry
     applyProperties: (component, node) => {
       applyCommon(component, node);
       component.items = selectItems(node);
+      component.comboBoxConfig = normalizeWebComboBoxConfiguration(node.props.comboBoxConfig);
       const selectedIndex = readIntegerProperty(node, 'selectedIndex');
-      if (selectedIndex !== undefined) {
+      if (component.comboBoxConfig !== null) {
+        component.value = readStringProperty(node, 'value');
+      } else if (selectedIndex !== undefined) {
         component.selectedIndex = selectedIndex;
       } else {
         component.value = readStringProperty(node, 'value');

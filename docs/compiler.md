@@ -1,5 +1,7 @@
 # Compiler
 
+ComboBox API bindings are validated against the local document's saved response schema, including the client/operation IDs, response list and both item-relative scalar fields. Generated page and reusable wrappers initialize `comboBoxConfig` and the requested `value`, bind the local API Client, and dispose their ComboBox subscriptions with the authored scope. The emitted browser-only runtime projects API results into native select options; Preview uses this same implementation.
+
 The compiler is an independent Node API and has no React or Electron dependency.
 
 ```text

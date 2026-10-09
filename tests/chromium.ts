@@ -24,6 +24,9 @@ export async function withChromium(
       '--no-first-run',
       '--no-default-browser-check',
       '--disable-gpu',
+      ...(process.env.WEBRAD_BROWSER_NO_SANDBOX === '1'
+        ? ['--no-sandbox', '--disable-gpu-sandbox']
+        : []),
       `--user-data-dir=${profile}`,
       '--window-size=1280,700',
       '--force-device-scale-factor=1',

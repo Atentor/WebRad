@@ -24,6 +24,7 @@ import type {
   WriteFileRequest,
 } from '../../shared/contracts';
 import { applicationIconUrl } from './application-assets';
+import { comboBoxBinding, comboBoxProject } from '../../../../tests/fixtures/combo-box';
 
 interface MockCodeEditorProps {
   readonly path: string;
@@ -681,6 +682,58 @@ describe('App MVP integration', () => {
     });
     expect(JSON.stringify(configuration)).not.toContain('Ada');
   }, 15_000);
+
+  it('configures the ComboBox from the Designer, persists its binding, and undoes it as one change', async () => {
+    const seeded = comboBoxProject();
+    const project = {
+      ...seeded,
+      pages: seeded.pages.map((page) => ({
+        ...page,
+        components: page.components.map((component) =>
+          component.type === 'WebComboBox'
+            ? { ...component, props: { ...component.props, comboBoxConfig: null } }
+            : component,
+        ),
+      })),
+    };
+    const harness = createBridgeHarness({ ...initialSession(), project });
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    const combo = await screen.findByTitle('ComboBox1: WebComboBox');
+    fireEvent.doubleClick(combo);
+    const editor = within(await screen.findByRole('dialog', { name: 'Configure ComboBox' }));
+    await user.selectOptions(editor.getByLabelText('ComboBox API Client'), 'customers-api');
+    await user.selectOptions(editor.getByLabelText('ComboBox display field'), '/name');
+    await user.selectOptions(editor.getByLabelText('ComboBox key field'), '/id');
+    await user.click(editor.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await waitFor(() =>
+      expect(
+        harness
+          .persisted()
+          .project.pages[0]?.components.find((component) => component.type === 'WebComboBox')?.props
+          .comboBoxConfig,
+      ).toEqual(comboBoxBinding),
+    );
+    await user.click(screen.getByRole('button', { name: 'Configure ComboBox' }));
+    expect(
+      within(screen.getByRole('dialog', { name: 'Configure ComboBox' })).getByLabelText(
+        'ComboBox key field',
+      ),
+    ).toHaveProperty('value', '/id');
+    await act(async () => harness.invokeCommand('edit.undo'));
+    expect(screen.getByRole('dialog', { name: 'Configure ComboBox' })).toBeDefined();
+    await user.keyboard('{Escape}');
+    await act(async () => harness.invokeCommand('edit.undo'));
+    await user.click(screen.getByRole('button', { name: 'Configure ComboBox' }));
+    expect(
+      within(screen.getByRole('dialog', { name: 'Configure ComboBox' })).getByLabelText(
+        'ComboBox API Client',
+      ),
+    ).toHaveProperty('value', '');
+  });
 
   it('opens the dedicated Data Grid editor and persists mixed column and row sizing', async () => {
     const harness = createBridgeHarness(initialSession());

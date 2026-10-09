@@ -581,14 +581,17 @@ function PropertyEditor({
         </button>
       );
     }
+    case 'combo-box-config':
     case 'data-grid-config': {
       const action = property.designerAction;
+      const label =
+        property.type === 'combo-box-config' ? 'Configure ComboBox' : 'Configure Data Grid';
       return (
         <button
           id={id}
           type="button"
           className="wr-inspector-action"
-          aria-label="Configure Data Grid"
+          aria-label={label}
           aria-haspopup="dialog"
           disabled={disabled || multiple || action === undefined}
           title={property.description}
@@ -596,7 +599,7 @@ function PropertyEditor({
             if (action !== undefined) onDesignerAction?.(action);
           }}
         >
-          Configure Data Grid…
+          {label}…
         </button>
       );
     }

@@ -94,6 +94,10 @@ Body templates use `<name>` placeholders in `body.content`. The additive optiona
 
 API Client configuration schema version 1 accepts zero to 100 operations. Removing the final endpoint persists `operations: []`; normalization and compilation preserve that empty collection instead of restoring a default request. New clients still start with one default operation. A Data Grid referencing a removed operation continues to report its existing missing-operation validation error.
 
+## ComboBox configuration
+
+`WebComboBox.props.comboBoxConfig` is either `null` (static `items`) or a strict version 1 object: `{ schemaVersion: 1, apiClientId, operationId, listPath, displayField, keyField }`. Client and operation references use stable IDs within the same page or reusable definition. `listPath` is a response-relative JSON Pointer to a saved list node; `displayField` and `keyField` are pointers relative to one list item. An empty field pointer selects a scalar item itself. Labels and keys must reference saved scalar fields; nested objects are traversable, while arrays nested inside another item are excluded. Static items remain saved when binding the API, so switching back restores them. API results are runtime state and are never serialized. An API binding uses the saved string `value` as its initial selected key; design-time `selectedIndex` is available for static items. The compiler validates references and all three paths before emitting Preview.
+
 ## Reusable visual components
 
 `reusableElements: ReusableElementModel[]` is stored inline in the manifest. A reusable element deliberately uses the same document shape as a page (`formatVersion`, immutable `id`, `name`, `caption`, dimensions, component nodes, and `rootComponentId`) so it can use the normal Designer, history, bounds, responsive-layout contract, events, and typed code-behind. It is nevertheless a definition, not a page: its root must be `WebPanel`, it has no route, page descriptor, or `.wrpage`. Its deterministic sources are `reusables/<Name>.generated.ts` and `reusables/<Name>.ts`; its document ID and portable name must be unique across both pages and reusable definitions.

@@ -4249,6 +4249,10 @@ kbd {
   flex-direction: column;
 }
 
+.wr-combo-box-configuration-dialog {
+  width: min(620px, 100%);
+}
+
 .wr-data-grid-configuration-dialog .wr-modal-header {
   flex: 0 0 auto;
   gap: 14px;

@@ -41,6 +41,7 @@ const sourceFiles = [
   'api-client-selection.ts',
   'api-client-template.ts',
   'component.ts',
+  'combo-box-data.ts',
   'data-grid.ts',
   'controls.ts',
   'page.ts',

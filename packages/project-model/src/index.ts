@@ -1,4 +1,5 @@
 export * from './api-client.js';
+export * from './combo-box.js';
 export * from './color-palette.js';
 export * from './default-styles.js';
 export * from './data-grid.js';

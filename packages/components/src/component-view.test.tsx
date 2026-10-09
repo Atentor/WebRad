@@ -9,6 +9,7 @@ import {
 } from '@webrad/project-model';
 import { ComponentView, hasComponentRenderer } from './component-view';
 import { WEBRAD_COMPONENT_CSS } from './styles';
+import { comboBoxProject } from '../../../tests/fixtures/combo-box';
 
 const button = {
   id: 'button-id',
@@ -23,6 +24,22 @@ const button = {
 } as const;
 
 describe('ComponentView', () => {
+  it('keeps API-bound ComboBoxes empty in the Designer while preserving saved static items', () => {
+    const component = comboBoxProject().pages[0]?.components.find(
+      (node) => node.type === 'WebComboBox',
+    );
+    if (component === undefined) throw new Error('Missing ComboBox.');
+    const view = render(<ComponentView node={component} designTime />);
+    expect(view.container.querySelector('select')?.options.length).toBe(0);
+    view.rerender(
+      <ComponentView
+        node={{ ...component, props: { ...component.props, comboBoxConfig: null } }}
+        designTime
+      />,
+    );
+    expect(view.container.querySelector('option')?.textContent).toBe('Static item');
+    view.unmount();
+  });
   it('preserves side overrides when the shared margin changes or is removed', () => {
     const node = { ...button, props: { ...button.props, margin: 12, marginTop: 3 } };
     const view = render(<ComponentView node={node} />);

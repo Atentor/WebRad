@@ -1,4 +1,10 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
+import type { WebApiClient } from './api-client.js';
+import {
+  comboBoxItemText,
+  normalizeWebComboBoxConfiguration,
+  type WebComboBoxConfiguration,
+} from './combo-box-data.js';
 import { bindImageResampling } from './image-display.js';
 import {
   createWebRadIconElement,
@@ -309,11 +315,19 @@ function replaceOptions(
 }
 
 export class WebComboBox extends WebComponent<HTMLSelectElement> {
+  #configuration: WebComboBoxConfiguration | null = null;
+  #apiClient: WebApiClient | null = null;
+  #unsubscribe: (() => void) | null = null;
+  #requestedValue: string;
+  #staticItems: readonly WebSelectItem[];
+
   public constructor(element: HTMLElement) {
     if (!(element instanceof HTMLSelectElement)) {
       throw new TypeError('WebComboBox requires a select element.');
     }
     super(element);
+    this.#requestedValue = element.value;
+    this.#staticItems = this.items;
   }
 
   public get value(): string {
@@ -321,6 +335,7 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
   }
 
   public set value(value: string) {
+    this.#requestedValue = value;
     this.element.value = value;
   }
 
@@ -330,9 +345,11 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
 
   public set selectedIndex(value: number) {
     this.element.selectedIndex = value;
+    this.#requestedValue = this.element.value;
   }
 
   public set items(items: readonly (string | WebSelectItem)[]) {
+    this.#staticItems = normalizeItems(items);
     replaceOptions(this.element, items);
   }
 
@@ -346,6 +363,67 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
 
   public set onChange(handler: WebComponentEventHandler<this> | null) {
     this.bindEvent('OnChange', handler);
+  }
+
+  public get comboBoxConfig(): WebComboBoxConfiguration | null {
+    return this.#configuration;
+  }
+
+  public set comboBoxConfig(value: WebComboBoxConfiguration | null) {
+    this.#configuration = normalizeWebComboBoxConfiguration(value);
+    this.#renderApiItems();
+  }
+
+  /** Observes results; requests remain under the control of authored page code. */
+  public bindApiClient(apiClient: WebApiClient | null): void {
+    this.#unsubscribe?.();
+    this.#apiClient = apiClient;
+    this.#unsubscribe = apiClient?.subscribe(() => this.#renderApiItems()) ?? null;
+    this.#renderApiItems();
+  }
+
+  #renderApiItems(): void {
+    const configuration = this.#configuration;
+    if (this.element.selectedIndex >= 0) this.#requestedValue = this.element.value;
+    if (configuration === null) {
+      replaceOptions(this.element, this.#staticItems);
+      this.element.value = this.#requestedValue;
+      return;
+    }
+    const apiClient = this.#apiClient;
+    const operation =
+      apiClient !== null && apiClient.id === configuration.apiClientId
+        ? apiClient.operations.find((candidate) => candidate.id === configuration.operationId)
+        : undefined;
+    const rows =
+      operation === undefined || apiClient === null
+        ? []
+        : apiClient.getList<unknown>(operation.name, configuration.listPath);
+    const items: WebSelectItem[] = [];
+    for (const row of rows) {
+      const value = comboBoxItemText(row, configuration.keyField);
+      const label = comboBoxItemText(row, configuration.displayField);
+      if (value !== undefined && label !== undefined) items.push({ value, label });
+    }
+    // Loading or unrelated operations should not recreate identical options.
+    const current = this.items;
+    if (
+      current.length !== items.length ||
+      current.some(
+        (item, index) =>
+          item.value !== items[index]?.value || item.label !== items[index]?.label || item.disabled,
+      )
+    ) {
+      replaceOptions(this.element, items);
+      this.element.value = this.#requestedValue;
+    }
+  }
+
+  public override dispose(): void {
+    this.#unsubscribe?.();
+    this.#unsubscribe = null;
+    this.#apiClient = null;
+    super.dispose();
   }
 }
 

@@ -3,6 +3,7 @@ import { defaultComponentRegistry, type ComponentRegistry } from '@webrad/compon
 import {
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
+  ComboBoxConfigurationSchema,
   parsePage,
   parseReusableElement,
   type ApiClientSchemaNode,
@@ -238,12 +239,17 @@ function assignedEvents(page: PageModel): readonly {
   );
 }
 
-function dataGridBindings(
+function apiListBindings(
   page: PageModel,
 ): readonly { readonly grid: ComponentNode; readonly apiClient: ComponentNode }[] {
   return page.components.flatMap((grid) => {
-    if (grid.type !== 'WebDataGrid') return [];
-    const configuration = DataGridConfigurationSchema.safeParse(grid.props.dataGridConfig);
+    const configuration =
+      grid.type === 'WebDataGrid'
+        ? DataGridConfigurationSchema.safeParse(grid.props.dataGridConfig)
+        : grid.type === 'WebComboBox' && grid.props.comboBoxConfig != null
+          ? ComboBoxConfigurationSchema.safeParse(grid.props.comboBoxConfig)
+          : undefined;
+    if (configuration === undefined) return [];
     if (!configuration.success || configuration.data.apiClientId === null) return [];
     const apiClient = page.components.find(
       (component) =>
@@ -303,6 +309,12 @@ function componentMemberType(
  * the wrapper's defaults instead of the model-backed Data Grid binding.
  */
 function componentInitialization(component: ComponentNode): readonly string[] {
+  if (component.type === 'WebComboBox' && component.props.comboBoxConfig != null) {
+    return [
+      `    this.${component.name}.comboBoxConfig = ${JSON.stringify(component.props.comboBoxConfig)};`,
+      `    this.${component.name}.value = ${JSON.stringify(component.props.value ?? '')};`,
+    ];
+  }
   if (component.type !== 'WebDataGrid') return [];
   return [
     `    this.${component.name}.dataGridConfig = ${JSON.stringify(component.props.dataGridConfig)};`,
@@ -325,7 +337,7 @@ function generateDocumentSource(
   const className = generatedClassName(page, options.generatedSuffix ?? 'Generated');
   const components = page.components.filter((component) => component.id !== page.rootComponentId);
   const events = assignedEvents(page);
-  const gridBindings = dataGridBindings(page);
+  const gridBindings = apiListBindings(page);
   const apiClientTypes = apiClientTypeDeclarations(page);
   const isReusable = kind === 'reusable';
   const baseClass = isReusable ? 'WebReusableElementInstance' : 'WebPage';
@@ -381,7 +393,14 @@ function generateDocumentSource(
       `    this.bindGeneratedEvent(${sender}, ${quoted(event.eventName)}, ${quoted(event.handlerName)});`,
     );
   }
-  lines.push('  }', '}', '');
+  lines.push('  }');
+  const boundComboBoxes = gridBindings.filter((binding) => binding.grid.type === 'WebComboBox');
+  if (boundComboBoxes.length > 0) {
+    lines.push('', '  public override dispose(): void {');
+    for (const binding of boundComboBoxes) lines.push(`    this.${binding.grid.name}.dispose();`);
+    lines.push('    super.dispose();', '  }');
+  }
+  lines.push('}', '');
   if (apiClientTypes.declarations.length > 0) lines.push(...apiClientTypes.declarations);
 
   return `${lines.join('\n')}\n`;

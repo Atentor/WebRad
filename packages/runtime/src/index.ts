@@ -3,6 +3,7 @@ export * from './api-client-inputs.js';
 export * from './api-client-accessors.js';
 export * from './api-client-template.js';
 export * from './component.js';
+export type { WebComboBoxConfiguration } from './combo-box-data.js';
 export * from './data-grid.js';
 export * from './controls.js';
 export * from './page.js';

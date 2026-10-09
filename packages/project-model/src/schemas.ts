@@ -8,6 +8,7 @@ import { paletteColorId } from './color-palette.js';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
+import { ComboBoxConfigurationSchema } from './combo-box.js';
 import { defaultComponentStyleId, DEFAULT_COMPONENT_STYLE_DEFINITIONS } from './default-styles.js';
 import { ProjectValidationError } from './errors.js';
 import {
@@ -461,18 +462,22 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
           ? 'apiClientConfig'
           : component.type === 'WebDataGrid'
             ? 'dataGridConfig'
-            : undefined;
+            : component.type === 'WebComboBox'
+              ? 'comboBoxConfig'
+              : undefined;
       if (propertyName === undefined || component.props[propertyName] === undefined) return;
       const schema =
         component.type === 'WebApiClient'
           ? ApiClientConfigurationSchema
-          : DataGridConfigurationSchema;
+          : component.type === 'WebDataGrid'
+            ? DataGridConfigurationSchema
+            : ComboBoxConfigurationSchema.nullable();
       const result = schema.safeParse(component.props[propertyName]);
       if (result.success) return;
       for (const issue of result.error.issues) {
         context.addIssue({
           code: 'custom',
-          message: `Invalid ${component.type === 'WebApiClient' ? 'API Client' : 'Data Grid'} configuration: ${issue.message}`,
+          message: `Invalid ${component.type === 'WebApiClient' ? 'API Client' : component.type === 'WebDataGrid' ? 'Data Grid' : 'ComboBox'} configuration: ${issue.message}`,
           path: ['props', propertyName, ...issue.path],
         });
       }

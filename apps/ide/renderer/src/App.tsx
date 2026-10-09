@@ -38,6 +38,7 @@ import {
   type ComponentNode,
   type ComponentStyleModel,
   type DataGridConfiguration,
+  type ComboBoxConfiguration,
   type PageModel,
   type ProjectSettings,
   type RestGoProjectSettings,
@@ -73,6 +74,7 @@ import {
 import { DesignerSurface } from './components/DesignerSurface';
 import { AddPageDialog, type AddDocumentKind } from './components/AddPageDialog';
 import { DataGridConfigurationDialog } from './components/DataGridConfigurationDialog';
+import { ComboBoxConfigurationDialog } from './components/ComboBoxConfigurationDialog';
 import { EditorWorkspace, type DocumentTab, type ViewMode } from './components/EditorWorkspace';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { IdeShell } from './components/IdeShell';
@@ -223,6 +225,9 @@ export function App(): ReactElement {
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [projectSettingsDialogOpen, setProjectSettingsDialogOpen] = useState(false);
   const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
+  const [comboBoxConfiguratorComponentId, setComboBoxConfiguratorComponentId] = useState<
+    string | null
+  >(null);
   const [dataGridConfiguratorComponentId, setDataGridConfiguratorComponentId] = useState<
     string | null
   >(null);
@@ -288,6 +293,13 @@ export function App(): ReactElement {
       null
     );
   }, [activePage, dataGridConfiguratorComponentId]);
+  const comboBoxConfiguratorComponent = useMemo(
+    () =>
+      activePage?.components.find(
+        (component) => component.id === comboBoxConfiguratorComponentId,
+      ) ?? null,
+    [activePage, comboBoxConfiguratorComponentId],
+  );
 
   const addOutput = useCallback((category: string, message: string): void => {
     setOutput((current) => [
@@ -337,6 +349,7 @@ export function App(): ReactElement {
       setBottomPanelTab('output');
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
+      setComboBoxConfiguratorComponentId(null);
       setAddDocumentDialogKind(null);
       setProjectSettingsDialogOpen(false);
       addOutput('PROJECT', `Opened ${session.project.name}.`);
@@ -917,6 +930,8 @@ export function App(): ReactElement {
         setApiClientTesterComponentId(component.id);
       } else if (action === 'data-grid-configurator') {
         setDataGridConfiguratorComponentId(component.id);
+      } else if (action === 'combo-box-configurator') {
+        setComboBoxConfiguratorComponentId(component.id);
       }
     },
     [selectionManager],
@@ -992,6 +1007,34 @@ export function App(): ReactElement {
       designerController,
       reportError,
       updateActivePage,
+    ],
+  );
+
+  const saveComboBoxConfiguration = useCallback(
+    (configuration: ComboBoxConfiguration | null): void => {
+      if (!activePage || comboBoxConfiguratorComponent === null) return;
+      try {
+        const next = designerController.executeMany(activePage, 'Configure ComboBox', [
+          new ChangePropertyCommand(
+            comboBoxConfiguratorComponent.id,
+            'comboBoxConfig',
+            configuration,
+          ),
+        ]);
+        updateActivePage(next);
+        setComboBoxConfiguratorComponentId(null);
+        addOutput('DESIGNER', `Configured ComboBox ${comboBoxConfiguratorComponent.name}.`);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activePage,
+      comboBoxConfiguratorComponent,
+      designerController,
+      updateActivePage,
+      addOutput,
+      reportError,
     ],
   );
 
@@ -1105,6 +1148,7 @@ export function App(): ReactElement {
       setMonacoMarkers([]);
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
+      setComboBoxConfiguratorComponentId(null);
       setAddDocumentDialogKind(null);
       setProjectSettingsDialogOpen(false);
     } catch (error) {
@@ -1318,6 +1362,7 @@ export function App(): ReactElement {
     (command: IdeCommand, target?: 'designer'): void => {
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
       if (dataGridConfiguratorComponent !== null && command !== 'view.toggleTheme') return;
+      if (comboBoxConfiguratorComponent !== null && command !== 'view.toggleTheme') return;
       if (
         aboutDialogOpen ||
         newProjectDialogOpen ||
@@ -1456,6 +1501,7 @@ export function App(): ReactElement {
       saveProject,
       undo,
       dataGridConfiguratorComponent,
+      comboBoxConfiguratorComponent,
     ],
   );
 
@@ -1877,7 +1923,8 @@ export function App(): ReactElement {
     iconPickerOpen ||
     projectSettingsDialogOpen ||
     apiClientTesterComponent !== null ||
-    dataGridConfiguratorComponent !== null;
+    dataGridConfiguratorComponent !== null ||
+    comboBoxConfiguratorComponent !== null;
 
   return (
     <ProjectColorPaletteContext.Provider value={project?.settings.colorPalette ?? []}>
@@ -2236,6 +2283,14 @@ export function App(): ReactElement {
           component={dataGridConfiguratorComponent}
           onClose={() => setDataGridConfiguratorComponentId(null)}
           onSave={saveDataGridConfiguration}
+        />
+      )}
+      {comboBoxConfiguratorComponent !== null && (
+        <ComboBoxConfigurationDialog
+          component={comboBoxConfiguratorComponent}
+          availableComponents={activePage?.components ?? []}
+          onClose={() => setComboBoxConfiguratorComponentId(null)}
+          onSave={saveComboBoxConfiguration}
         />
       )}
     </ProjectColorPaletteContext.Provider>

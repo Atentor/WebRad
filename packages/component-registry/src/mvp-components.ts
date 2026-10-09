@@ -999,9 +999,11 @@ const webComboBox: ComponentDefinition = {
   styleEditor: inputStyleEditor,
   canHaveChildren: false,
   defaultEvent: 'OnChange',
+  designerAction: 'combo-box-configurator',
   defaultBounds: comboBoxBounds,
   defaults: {
     items: [],
+    comboBoxConfig: null,
     selectedIndex: -1,
     value: '',
     visible: true,
@@ -1019,6 +1021,17 @@ const webComboBox: ComponentDefinition = {
       category: 'Data',
       source: 'props',
       defaultValue: [],
+      readOnlyWhen: (props) => props.comboBoxConfig != null,
+    },
+    {
+      name: 'comboBoxConfig',
+      label: 'API Client binding',
+      type: 'combo-box-config',
+      category: 'Data',
+      source: 'props',
+      defaultValue: null,
+      description: 'Select the API Client response list, display field, and key field.',
+      designerAction: 'combo-box-configurator',
     },
     {
       name: 'selectedIndex',
@@ -1027,6 +1040,8 @@ const webComboBox: ComponentDefinition = {
       category: 'Data',
       source: 'props',
       defaultValue: -1,
+      readOnlyWhen: (props) => props.comboBoxConfig != null,
+      description: 'For API-bound options, use Value to select the key after the list loads.',
     },
     {
       name: 'value',

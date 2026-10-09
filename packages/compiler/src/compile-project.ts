@@ -10,6 +10,8 @@ import {
 import {
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
+  ComboBoxConfigurationSchema,
+  comboBoxSchemaChoices,
   safeParseProject,
   type ProjectApplicationIcon,
   type ProjectSocialImage,
@@ -115,6 +117,55 @@ function validateRegistry(
             message: `Event "${eventName}" is not registered for ${component.type}.`,
             path: [...path, 'components', componentIndex, 'events', eventName],
           });
+        }
+      }
+      if (component.type === 'WebComboBox' && component.props.comboBoxConfig != null) {
+        const configuration = ComboBoxConfigurationSchema.safeParse(component.props.comboBoxConfig);
+        if (!configuration.success) continue;
+        const binding = configuration.data;
+        const bindingPath = [...path, 'components', componentIndex, 'props', 'comboBoxConfig'];
+        const report = (field: string, message: string): void => {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message,
+            path: [...bindingPath, field],
+          });
+        };
+        const apiClient = document.components.find(
+          (candidate) => candidate.id === binding.apiClientId,
+        );
+        if (apiClient?.type !== 'WebApiClient') {
+          report('apiClientId', 'WebComboBox must reference a WebApiClient in the same document.');
+          continue;
+        }
+        const apiConfiguration = ApiClientConfigurationSchema.safeParse(
+          apiClient.props.apiClientConfig,
+        );
+        const operation = apiConfiguration.success
+          ? apiConfiguration.data.operations.find(
+              (candidate) => candidate.id === binding.operationId,
+            )
+          : undefined;
+        if (operation === undefined) {
+          report(
+            'operationId',
+            'WebComboBox must reference an operation of the selected WebApiClient.',
+          );
+          continue;
+        }
+        const choices = comboBoxSchemaChoices(operation.responseSchema, binding.listPath);
+        if (!choices.lists.some((choice) => choice.path === binding.listPath)) {
+          report('listPath', 'WebComboBox must reference a saved response list.');
+          continue;
+        }
+        for (const field of ['displayField', 'keyField'] as const) {
+          if (!choices.fields.some((choice) => choice.path === binding[field])) {
+            report(
+              field,
+              `WebComboBox ${field} must reference a scalar field of the selected list item.`,
+            );
+          }
         }
       }
       if (component.type === 'WebDataGrid') {
@@ -242,6 +293,8 @@ function isValidPropertyValue(
       return ApiClientConfigurationSchema.safeParse(value).success;
     case 'data-grid-config':
       return DataGridConfigurationSchema.safeParse(value).success;
+    case 'combo-box-config':
+      return value === null || ComboBoxConfigurationSchema.safeParse(value).success;
   }
 }
 

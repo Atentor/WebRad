@@ -2,6 +2,19 @@
 
 O API Client configurado no Designer é uma instância real no código da página ou do componente reutilizável. O Monaco completa requisições, parâmetros e campos da resposta com base no modelo salvo. Tanto `ApiClient1` quanto `this.ApiClient1` funcionam dentro da instância; variáveis locais com o mesmo nome continuam respeitando o escopo normal do TypeScript.
 
+## ComboBox conectado ao API Client
+
+No Designer, dê duplo clique no ComboBox ou abra **API Client binding → Configure ComboBox** no Inspector. Selecione o API Client, a operação, a lista da resposta, o **Display field** (texto exibido) e o **Key field** (valor selecionado). As escolhas vêm do esquema de resposta salvo no editor do API Client. **Static items** remove o vínculo e permite usar a propriedade `Items` novamente.
+
+O ComboBox acompanha o resultado da operação selecionada. Execute a requisição no código da página ou do reutilizável, por exemplo no `OnCreate`:
+
+```ts
+await ApiClient1.ListCustomers.execute();
+const customerKey: string = ComboBox1.value;
+```
+
+Com texto `/name` e chave `/id`, uma opção pode mostrar `Ana` e retornar `"42"` em `ComboBox1.value`. Chaves numéricas e booleanas são convertidas para string. `OnChange` continua disponível e a seleção é preservada pela chave quando os resultados mudam de ordem. `value` também pode receber uma chave antes de a lista carregar. Listas de valores simples usam **Item value** nos dois campos. O vínculo não executa requisições automaticamente e não salva os dados retornados no projeto.
+
 ## Preencher e executar pelo nome
 
 Configure uma requisição chamada `PutKey`, com o corpo abaixo e os tipos `integer` para `idinstancia` e `string` para `chave`:

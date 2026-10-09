@@ -404,12 +404,24 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly disabled?: boolean;
   }
 
+  export interface WebComboBoxConfiguration {
+    readonly schemaVersion: 1;
+    readonly apiClientId: string | null;
+    readonly operationId: string | null;
+    readonly listPath: string;
+    readonly displayField: string;
+    readonly keyField: string;
+  }
+
   export class WebComboBox extends WebComponent<HTMLSelectElement> {
     constructor(element: HTMLElement);
     value: string;
     selectedIndex: number;
     get items(): readonly WebSelectItem[];
     set items(items: readonly (string | WebSelectItem)[]);
+    comboBoxConfig: WebComboBoxConfiguration | null;
+    bindApiClient(apiClient: WebApiClient | null): void;
+    override dispose(): void;
     set onChange(handler: WebComponentEventHandler<this> | null);
   }
 

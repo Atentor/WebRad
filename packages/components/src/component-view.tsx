@@ -332,7 +332,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
     </label>
   ),
   WebComboBox: ({ node, designTime, styleClassName, onEvent }) => {
-    const items = readStringListProperty(node, 'items');
+    const items = node.props.comboBoxConfig == null ? readStringListProperty(node, 'items') : [];
     const selectedIndex = readIntegerProperty(node, 'selectedIndex', -1);
     return (
       <select
