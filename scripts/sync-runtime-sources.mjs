@@ -43,6 +43,7 @@ const sourceFiles = [
   'component.ts',
   'combo-box-data.ts',
   'data-grid.ts',
+  'file-upload.ts',
   'controls.ts',
   'page.ts',
   'page-router.ts',

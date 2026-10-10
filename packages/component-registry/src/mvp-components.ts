@@ -430,6 +430,7 @@ const labelBounds = { width: 80, height: 24 } as const;
 const editBounds = { width: 160, height: 36 } as const;
 const textAreaBounds = { width: 240, height: 96 } as const;
 const buttonBounds = { width: 100, height: 36 } as const;
+const fileUploadBounds = { width: 112, height: 52 } as const;
 const checkBoxBounds = { width: 120, height: 24 } as const;
 const comboBoxBounds = { width: 160, height: 36 } as const;
 const imageBounds = { width: 160, height: 120 } as const;
@@ -954,6 +955,70 @@ const webButton: ComponentDefinition = {
   ],
 };
 
+const webFileUpload: ComponentDefinition = {
+  type: 'WebFileUpload',
+  displayName: 'File Upload',
+  namePrefix: 'FileUpload',
+  palette: { category: nonvisualCategory, caption: 'File Upload' },
+  icon: 'component-file-upload',
+  visual: false,
+  canHaveChildren: false,
+  defaultEvent: 'OnChange',
+  defaultBounds: fileUploadBounds,
+  defaults: {
+    accept: '',
+    isPublic: false,
+    enabled: true,
+  },
+  properties: [
+    { name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' },
+    {
+      name: 'accept',
+      label: 'Accepted file types',
+      type: 'string',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: '',
+      description:
+        'Native file chooser filter, such as image/* or .pdf,.txt. Empty accepts all file types.',
+    },
+    {
+      name: 'enabled',
+      label: 'Enabled',
+      type: 'boolean',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: true,
+    },
+    {
+      name: 'isPublic',
+      label: 'Public file',
+      type: 'boolean',
+      category: 'Storage',
+      source: 'props',
+      defaultValue: false,
+      description:
+        'Default visibility when uploading. Private files require authorized access; upload options can override this value.',
+    },
+  ],
+  events: [
+    event('OnChange', 'Selection', { eventDetailType: 'WebFileUploadChangeEventDetail' }),
+    event('OnSuccess', 'Upload', {
+      eventDetailType: 'WebFileUploadResult',
+      eventDetailProperties: ['id', 'downloadUrl', 'url', 'isPublic'],
+    }),
+    event('OnProgress', 'Upload', {
+      eventDetailType: 'WebFileUploadProgressEventDetail',
+      eventDetailProperties: ['percentage', 'loaded', 'total', 'lengthComputable'],
+    }),
+    event('OnError', 'Upload', { eventDetailType: 'Error' }),
+    event('OnComplete', 'Upload', {
+      eventDetailType: 'WebFileUploadCompleteEventDetail',
+      eventDetailProperties: ['result', 'error'],
+    }),
+  ],
+};
+
 const webCheckBox: ComponentDefinition = {
   type: 'WebCheckBox',
   displayName: 'Check Box',
@@ -1321,6 +1386,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebDataGrid',
   'WebPopup',
   'WebApiClient',
+  'WebFileUpload',
 ] as const;
 
 export type MvpComponentType = (typeof MVP_COMPONENT_TYPES)[number];
@@ -1340,6 +1406,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webDataGrid,
   webPopup,
   webApiClient,
+  webFileUpload,
 ];
 
 componentRegistry.registerMany(

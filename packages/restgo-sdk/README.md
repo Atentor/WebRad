@@ -62,8 +62,13 @@ const removed = await restGo.storage.remove(uploaded.data.id);
 - `storage.list({ page?, pageSize?, q?, ownerId?, signal? })` preserva a lista original ou o envelope paginado `{ data, page, page_size, has_more }` do servidor.
 - `storage.get(id)`, `storage.update(id, { file?, name?, isPublic?, ownerId? })`, `storage.remove(id)` e `storage.usage()` usam a sessão JWT.
 - `storage.upload(blob, options)` e `storage.update(id, options)` enviam multipart. O navegador define o boundary automaticamente.
+- As duas operações aceitam `onUploadProgress: ({ loaded, total, percentage, lengthComputable }) => void`. Os bytes medidos incluem o multipart inteiro, além do arquivo. `total` e `percentage` são `null` quando o navegador não informa o total; 100% significa que o corpo foi enviado, e o resultado assíncrono ainda precisa confirmar o armazenamento no servidor. Uma repetição após renovar o JWT inicia outra medição.
 - `storage.download(id, { range?, public?, signal? })` retorna `Blob` e suporta Range. Sem sessão, a chamada permite baixar arquivos públicos; arquivos privados continuam sujeitos à autorização do servidor.
 - `storage.getPublicUrl(id)` retorna `{ data: { publicUrl }, error: null }`. A URL funciona publicamente somente quando o arquivo tem `isPublic: true`; ela não altera permissões.
+
+O progresso real usa `XMLHttpRequest.upload` somente quando solicitado, em uma página HTTP(S), para um servidor de outra origem, com `withCredentials: false`. Na mesma origem, fora do navegador ou quando o cliente recebe um `fetch` personalizado, o envio mantém `fetch` com `credentials: 'omit'` e `redirect: 'error'`, e o callback informa uma medição indeterminada (`percentage: null`). Nenhuma porcentagem intermediária é simulada.
+
+Configure a URL final do RestGo, sem redirecionamento: o transporte XHR pode seguir redirecionamentos antes de expor a URL final, e o SDK rejeita respostas cuja URL final difere da solicitação. Essa verificação não impede a primeira requisição redirecionada nem identifica uma cadeia que retorna à URL original. O navegador remove `Authorization` em redirecionamentos entre origens. As chamadas sem acompanhamento de progresso preservam a rejeição antecipada de redirecionamentos do `fetch`.
 
 ## Endpoints publicados
 

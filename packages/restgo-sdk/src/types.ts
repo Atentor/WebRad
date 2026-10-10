@@ -141,6 +141,15 @@ export interface RestGoFileOptions {
   isPublic?: boolean;
   ownerId?: string;
   signal?: AbortSignal;
+  /** Actual multipart upload progress. The percentage is null when it cannot be measured. */
+  onUploadProgress?: (progress: RestGoUploadProgress) => void;
+}
+
+export interface RestGoUploadProgress {
+  loaded: number;
+  total: number | null;
+  percentage: number | null;
+  lengthComputable: boolean;
 }
 
 export interface RestGoFileUpdate extends RestGoFileOptions {

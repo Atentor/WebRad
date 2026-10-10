@@ -24,6 +24,10 @@ const button = {
 } as const;
 
 describe('ComponentView', () => {
+  it('keeps File Upload outside the visual component renderer catalog', () => {
+    expect(hasComponentRenderer('WebFileUpload')).toBe(false);
+  });
+
   it('keeps API-bound ComboBoxes empty in the Designer while preserving saved static items', () => {
     const component = comboBoxProject().pages[0]?.components.find(
       (node) => node.type === 'WebComboBox',

@@ -519,6 +519,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebComboBox,
   WebDataGrid,
   WebEdit,
+  WebFileUpload,
   WebPage,
   WebImage,
   WebLabel,
@@ -536,6 +537,7 @@ class EditorPage extends WebPage {
     reusable: WebReusableElement,
     label: WebLabel,
     edit: WebEdit,
+    fileUpload: WebFileUpload,
     textArea: WebTextArea,
     button: WebButton,
     checkBox: WebCheckBox,
@@ -551,6 +553,7 @@ class EditorPage extends WebPage {
     reusable./*@reusable*/placement;
     label./*@label*/autoSize;
     edit./*@edit*/inputType;
+    fileUpload./*@fileUpload*/upload;
     textArea./*@textArea*/rows;
     button./*@button*/caption;
     checkBox./*@checkBox*/checked;
@@ -709,6 +712,7 @@ class EditorPage extends WebPage {
       WebCheckBox: 'checkBox',
       WebComboBox: 'combo',
       WebEdit: 'edit',
+      WebFileUpload: 'fileUpload',
       WebDataGrid: 'grid',
       WebPage: 'page',
       WebImage: 'image',

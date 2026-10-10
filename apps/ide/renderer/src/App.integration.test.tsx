@@ -467,6 +467,44 @@ describe('App MVP integration', () => {
       ).not.toBeNull();
     });
 
+    await user.click(screen.getByRole('tab', { name: 'Builder' }));
+    await user.click(screen.getByRole('treeitem', { name: 'PageMain' }));
+    await user.dblClick(screen.getByRole('button', { name: 'File Upload' }));
+    const uploadTrayItem = await screen.findByRole('option', { name: 'FileUpload1, File Upload' });
+    await waitFor(() => {
+      expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('FileUpload1');
+    });
+    const uploadId = uploadTrayItem.getAttribute('data-nonvisual-component-id');
+    expect(uploadId).toBeTruthy();
+    expect(document.querySelector('[data-component-type="WebFileUpload"]')).toBeNull();
+    expect(screen.queryByLabelText('Caption')).toBeNull();
+    expect(screen.queryByLabelText('Upload caption')).toBeNull();
+    expect(screen.queryByLabelText('Width')).toBeNull();
+    expect((screen.getByLabelText('Public file') as HTMLInputElement).checked).toBe(false);
+    fireEvent.change(screen.getByLabelText('Accepted file types'), { target: { value: '.pdf' } });
+    await user.click(screen.getByLabelText('Public file'));
+    await user.click(screen.getByRole('tab', { name: 'Events' }));
+    await user.dblClick(screen.getByLabelText('OnSuccess'));
+    const uploadEventEditor = (await screen.findByLabelText(
+      'Mock Monaco editor',
+    )) as HTMLTextAreaElement;
+    expect(uploadEventEditor.value).toContain(
+      'async FileUpload1Success(sender: WebFileUpload, event: CustomEvent<WebFileUploadResult>): Promise<void>',
+    );
+    expect(uploadEventEditor.value).toContain(
+      'const { id, downloadUrl, url, isPublic } = event.detail;',
+    );
+    await user.click(screen.getByRole('tab', { name: 'Events' }));
+    await user.dblClick(screen.getByLabelText('OnProgress'));
+    const progressEventEditor = (await screen.findByLabelText(
+      'Mock Monaco editor',
+    )) as HTMLTextAreaElement;
+    expect(progressEventEditor.value).toContain(
+      'async FileUpload1Progress(sender: WebFileUpload, event: CustomEvent<WebFileUploadProgressEventDetail>): Promise<void>',
+    );
+    expect(progressEventEditor.value).toContain(
+      'const { percentage, loaded, total, lengthComputable } = event.detail;',
+    );
     await user.click(screen.getByRole('tab', { name: 'Code' }));
     expect(screen.getByTestId('mock-monaco-page-components').textContent).toBe(
       JSON.stringify([
@@ -475,6 +513,7 @@ describe('App MVP integration', () => {
         { name: 'BTNMostrar', type: 'WebButton' },
         { name: 'ApiClientes', type: 'WebApiClient' },
         { name: 'Popup1', type: 'WebPopup' },
+        { name: 'FileUpload1', type: 'WebFileUpload' },
       ]),
     );
 
@@ -489,7 +528,16 @@ describe('App MVP integration', () => {
       'WebButton',
       'WebApiClient',
       'WebPopup',
+      'WebFileUpload',
     ]);
+    expect(
+      saved.project.pages[0]?.components.find((component) => component.id === uploadId),
+    ).toMatchObject({
+      name: 'FileUpload1',
+      type: 'WebFileUpload',
+      props: { isPublic: true, accept: '.pdf', enabled: true },
+      events: { OnSuccess: 'FileUpload1Success', OnProgress: 'FileUpload1Progress' },
+    });
     expect(
       saved.project.pages[0]?.components.find((component) => component.name === 'BTNMostrar')?.props
         .icon,
@@ -526,6 +574,9 @@ describe('App MVP integration', () => {
       saved.project.pages[0]?.components.find((component) => component.type === 'WebPopup')
         ?.styleId,
     ).toBe(defaultStyleIdByType.get('WebPopup'));
+    expect(
+      saved.project.pages[0]?.components.find((component) => component.id === uploadId)?.styleId,
+    ).toBeUndefined();
 
     await act(async () => {
       harness.invokeCommand('file.closeProject');
@@ -537,6 +588,12 @@ describe('App MVP integration', () => {
     await screen.findByTitle('BTNMostrar: WebButton');
     await screen.findByRole('option', { name: 'ApiClientes, API Client' });
     await screen.findByRole('option', { name: 'Popup1, Popup' });
+    expect(
+      (await screen.findByRole('option', { name: 'FileUpload1, File Upload' })).getAttribute(
+        'data-nonvisual-component-id',
+      ),
+    ).toBe(uploadId);
+    expect(document.querySelector('[data-component-type="WebFileUpload"]')).toBeNull();
     expect(harness.open).toHaveBeenCalledOnce();
 
     await user.click(screen.getByRole('button', { name: 'Build and run (F9)' }));
@@ -556,6 +613,7 @@ describe('App MVP integration', () => {
       'WebButton',
       'WebApiClient',
       'WebPopup',
+      'WebFileUpload',
     ]);
     expect(harness.save.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(harness.setDirty).toHaveBeenCalledWith(true);

@@ -267,6 +267,11 @@ A recuperação permite `url` HTTP(S) opcional para o destino do link; sem ela, 
 
 ## Storage
 
+Para seleção e envio por código, use o componente não visual
+[File Upload](file-upload.md). `OpenFile()` retorna os metadados locais;
+`SendToRestGO()` retorna todos os campos de arquivo da API e a URL absoluta.
+O evento `OnProgress` permite atualizar outros componentes pelo Monaco.
+
 ```ts
 const uploaded = await RestGO.storage.upload(file, {
   name: 'documento.pdf',
@@ -293,6 +298,15 @@ const objectUrl = URL.createObjectURL(download.data);
 | `storage.usage()`                                                    | Retorna espaço utilizado, capacidade e espaço disponível                |
 
 `getPublicUrl()` não torna um arquivo público. O servidor continua verificando `isPublic`. Arquivos privados exigem JWT do dono ou autorização administrativa; tokens de API dinâmica não autorizam Storage. `ownerId` não amplia os direitos do usuário. O RestGO bloqueia a alteração de arquivos de avatar pelas rotas genéricas de Storage.
+
+`storage.upload()` e `storage.update()` aceitam `onUploadProgress`, com
+`loaded`, `total`, `percentage` e `lengthComputable`. O SDK mede o multipart
+pelo XHR em envios entre origens HTTP(S), sem cookies. Na mesma origem, sem XHR
+ou com `fetch` personalizado, conserva `credentials: 'omit'` e informa
+`percentage: null`. Use a URL final do RestGo: XHR pode seguir redirecionamentos
+antes de o SDK rejeitar uma URL final diferente. Sem acompanhamento de progresso,
+o transporte `fetch` continua usando `redirect: 'error'`. Consulte as
+[regras de progresso do SDK](../packages/restgo-sdk/README.md#storage).
 
 ## APIs dinâmicas e API Operations
 
@@ -369,4 +383,4 @@ await restgo.auth.signInWithPassword({ email, password });
 
 O pacote é um workspace fonte TypeScript deste repositório, sem publicação automática no npm. O compilador do WebRAD resolve seu import diretamente e inclui o código na aplicação. As opções permitem injetar `fetch` para testes ou outros ambientes compatíveis.
 
-As chamadas são feitas diretamente pelo navegador, com `credentials: 'omit'` e autenticação por headers. O CORS do RestGO aceita origens HTTP/HTTPS válidas, responde ao preflight `OPTIONS` antes da autenticação e expõe `Retry-After`; origens `null`, `file://` ou com esquemas personalizados são rejeitadas. O Preview e a IDE empacotada usam origens HTTP locais separadas em `127.0.0.1` para permitir esses fluxos sem um proxy de requisições ou desativar a segurança do Electron. A porta é definida por execução da IDE. APIs com uma lista restrita de origens precisam permitir a origem local recebida; proxies na frente do RestGO também precisam preservar os headers de CORS. Publique a aplicação gerada em HTTP/HTTPS. OAuth, MFA, Realtime e consulta arbitrária a tabelas exigiriam novos contratos no backend.
+As chamadas são feitas diretamente pelo navegador, com autenticação por headers. O transporte `fetch` utiliza `credentials: 'omit'`; o progresso de upload entre origens utiliza XHR com `withCredentials: false`, conforme as regras de Storage acima. O CORS do RestGO aceita origens HTTP/HTTPS válidas, responde ao preflight `OPTIONS` antes da autenticação e expõe `Retry-After`; origens `null`, `file://` ou com esquemas personalizados são rejeitadas. O Preview e a IDE empacotada usam origens HTTP locais separadas em `127.0.0.1` para permitir esses fluxos sem um proxy de requisições ou desativar a segurança do Electron. A porta é definida por execução da IDE. APIs com uma lista restrita de origens precisam permitir a origem local recebida; proxies na frente do RestGO também precisam preservar os headers de CORS. Publique a aplicação gerada em HTTP/HTTPS. OAuth, MFA, Realtime e consulta arbitrária a tabelas exigiriam novos contratos no backend.

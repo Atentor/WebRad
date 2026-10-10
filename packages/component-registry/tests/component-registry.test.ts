@@ -109,13 +109,15 @@ function defaultLayout() {
 describe('MVP component metadata', () => {
   it('registers the reusable visual wrapper, controls, Popup, and WebApiClient in a stable order', () => {
     expect(componentRegistry.list().map((item) => item.type)).toEqual(MVP_COMPONENT_TYPES);
-    expect(componentRegistry.size).toBe(14);
+    expect(componentRegistry.size).toBe(15);
     expect(
       componentRegistry
         .list()
         .filter((item) => item.visual)
         .map((item) => item.type),
-    ).toEqual(MVP_COMPONENT_TYPES.filter((type) => type !== 'WebApiClient'));
+    ).toEqual(
+      MVP_COMPONENT_TYPES.filter((type) => !['WebApiClient', 'WebFileUpload'].includes(type)),
+    );
   });
 
   it('describes role, palette, icon, size, defaults, properties, and events for every type', () => {
@@ -236,6 +238,67 @@ describe('MVP component metadata', () => {
     expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual([
       'WebPopup',
       'WebApiClient',
+      'WebFileUpload',
+    ]);
+  });
+
+  it('registers File Upload as a nonvisual service with private storage and typed upload progress', () => {
+    const upload = componentRegistry.require('WebFileUpload');
+    expect(upload).toMatchObject({
+      displayName: 'File Upload',
+      namePrefix: 'FileUpload',
+      palette: { category: 'Nonvisual', caption: 'File Upload' },
+      visual: false,
+      canHaveChildren: false,
+      defaultEvent: 'OnChange',
+      defaultBounds: { width: 112, height: 52 },
+    });
+    expect(resolveComponentDesignerPresentation(upload)).toBe('tray');
+    expect(upload.styleEditor).toBeUndefined();
+    expect(upload.defaults).toEqual({
+      accept: '',
+      isPublic: false,
+      enabled: true,
+    });
+    expect(upload.properties.map((property) => property.name)).toEqual([
+      'name',
+      'accept',
+      'enabled',
+      'isPublic',
+    ]);
+    expect(upload.properties).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'accept', type: 'string', source: 'props' }),
+        expect.objectContaining({
+          name: 'isPublic',
+          type: 'boolean',
+          source: 'props',
+          defaultValue: false,
+        }),
+        expect.objectContaining({ name: 'enabled', type: 'boolean', source: 'props' }),
+      ]),
+    );
+    expect(upload.events).toEqual([
+      expect.objectContaining({
+        name: 'OnChange',
+        eventDetailType: 'WebFileUploadChangeEventDetail',
+      }),
+      expect.objectContaining({
+        name: 'OnSuccess',
+        eventDetailType: 'WebFileUploadResult',
+        eventDetailProperties: ['id', 'downloadUrl', 'url', 'isPublic'],
+      }),
+      expect.objectContaining({
+        name: 'OnProgress',
+        eventDetailType: 'WebFileUploadProgressEventDetail',
+        eventDetailProperties: ['percentage', 'loaded', 'total', 'lengthComputable'],
+      }),
+      expect.objectContaining({ name: 'OnError', eventDetailType: 'Error' }),
+      expect.objectContaining({
+        name: 'OnComplete',
+        eventDetailType: 'WebFileUploadCompleteEventDetail',
+        eventDetailProperties: ['result', 'error'],
+      }),
     ]);
   });
 
@@ -470,7 +533,7 @@ describe('ComponentRegistry behavior', () => {
   it('supports the conceptual static global registry API', () => {
     expect(ComponentRegistry.has('WebButton')).toBe(true);
     expect(ComponentRegistry.get('WebButton')).toBe(componentRegistry.get('WebButton'));
-    expect(ComponentRegistry.list()).toHaveLength(14);
+    expect(ComponentRegistry.list()).toHaveLength(15);
   });
 });
 
@@ -516,6 +579,41 @@ describe('sequential names and node defaults', () => {
       },
       children: [],
     });
+  });
+
+  it('materializes nonvisual File Upload with a stable ID and saved visibility, filter, and handlers', () => {
+    const node = componentRegistry.createComponent('WebFileUpload', {
+      id: 'upload-stable-id',
+      existingNames: ['FileUpload1'],
+      parentId: 'page-id',
+      props: {
+        isPublic: true,
+        accept: 'image/*,.pdf',
+      },
+      events: { OnSuccess: 'ArquivoEnviado' },
+    });
+    expect(node).toMatchObject({
+      id: 'upload-stable-id',
+      type: 'WebFileUpload',
+      name: 'FileUpload2',
+      parentId: 'page-id',
+      bounds: { x: 0, y: 0, width: 112, height: 52 },
+      props: {
+        isPublic: true,
+        accept: 'image/*,.pdf',
+        enabled: true,
+      },
+      events: {
+        OnChange: null,
+        OnSuccess: 'ArquivoEnviado',
+        OnProgress: null,
+        OnError: null,
+        OnComplete: null,
+      },
+      children: [],
+    });
+    expect(node.props).not.toHaveProperty('selectedFile');
+    expect(node.props).not.toHaveProperty('result');
   });
 
   it('materializes a nonvisual API client using the same persistent node contract', () => {

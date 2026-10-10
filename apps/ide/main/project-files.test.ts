@@ -82,6 +82,7 @@ describe('project files', () => {
     };
     expect(manifest.formatVersion).toBe(CURRENT_PROJECT_FORMAT_VERSION);
     expect(manifest.styles).toHaveLength(12);
+    expect(manifest.styles.some((style) => style.componentType === 'WebFileUpload')).toBe(false);
     const defaultPageStyle = manifest.styles.find(
       (style) => style.componentType === 'WebPage' && style.preset === 'default',
     );

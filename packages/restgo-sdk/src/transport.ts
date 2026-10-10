@@ -4,7 +4,13 @@ import type {
   RestGoCredentialMode,
   RestGoRequestOptions,
   RestGoSession,
+  RestGoUploadProgress,
 } from './types';
+import {
+  notifyUploadProgress,
+  requestWithUploadProgress,
+  supportsCrossOriginUpload,
+} from './upload-transport';
 
 export interface TransportRequest extends RestGoRequestOptions {
   method?: string;
@@ -15,6 +21,7 @@ export interface TransportRequest extends RestGoRequestOptions {
   /** A 401 from this endpoint definitively rejects the user session. */
   sessionAuthority?: boolean;
   skipUnauthorized?: boolean;
+  onUploadProgress?: (progress: RestGoUploadProgress) => void;
 }
 
 export class RestGoTransport {
@@ -23,6 +30,7 @@ export class RestGoTransport {
   readonly defaultDatabase: string;
   readonly apiToken: string | undefined;
   private readonly fetcher: typeof fetch;
+  private readonly customFetch: boolean;
   session: () => RestGoSession | null = () => null;
   sessionVersion: () => number = () => 0;
   prepareSession: () => Promise<RestGoResult<null>> = async () => success(null);
@@ -54,6 +62,7 @@ export class RestGoTransport {
     }
     this.defaultDatabase = options.defaultDatabase ?? '';
     this.apiToken = options.apiToken;
+    this.customFetch = options.fetch !== undefined;
     this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
@@ -98,7 +107,7 @@ export class RestGoTransport {
       }
       if (credential) headers.set('Authorization', credential);
       if (usedSessionToken) usedSessionVersion = this.sessionVersion();
-      let body: BodyInit | undefined;
+      let body: FormData | Blob | string | undefined;
       if (options.body instanceof FormData || options.body instanceof Blob) {
         body = options.body;
         headers.delete('Content-Type');
@@ -106,15 +115,39 @@ export class RestGoTransport {
         body = JSON.stringify(options.body);
         headers.set('Content-Type', 'application/json');
       }
-      const response = await this.fetcher(this.url(path, options), {
-        method: options.method ?? 'GET',
-        headers,
-        body,
-        signal: options.signal,
-        // The SDK uses explicit JWT/API-token headers, never ambient dashboard cookies.
-        credentials: 'omit',
-        redirect: 'error',
-      });
+      const url = this.url(path, options);
+      if (options.onUploadProgress && body !== undefined) {
+        notifyUploadProgress(options.onUploadProgress, {
+          loaded: 0,
+          total: null,
+          percentage: null,
+          lengthComputable: false,
+        });
+        if (options.signal?.aborted) return failure('RestGo request was aborted.', 'ABORTED');
+      }
+      const response =
+        options.onUploadProgress &&
+        body !== undefined &&
+        !this.customFetch &&
+        supportsCrossOriginUpload(url)
+          ? await requestWithUploadProgress(
+              url,
+              options.method ?? 'GET',
+              headers,
+              body,
+              options.signal,
+              options.onUploadProgress,
+              options.responseType,
+            )
+          : await this.fetcher(url, {
+              method: options.method ?? 'GET',
+              headers,
+              body,
+              signal: options.signal,
+              // The SDK uses explicit JWT/API-token headers, never ambient dashboard cookies.
+              credentials: 'omit',
+              redirect: 'error',
+            });
       if (!response.ok) {
         let details: unknown;
         try {

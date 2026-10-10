@@ -390,6 +390,61 @@ ${WEB_BUTTON_ICON_TYPINGS};
     set onClick(handler: WebComponentEventHandler<this> | null);
   }
 
+  export interface WebFileUploadOptions {
+    readonly isPublic?: boolean;
+    readonly name?: string;
+    readonly signal?: AbortSignal;
+  }
+
+  export interface WebFileUploadConfiguration extends WebNonvisualComponentOptions {
+    readonly accept?: string;
+    readonly isPublic?: boolean;
+    readonly enabled?: boolean;
+  }
+
+  export interface WebFileUploadSelection {
+    readonly name: string;
+    readonly path: string | null;
+    readonly size: number;
+    readonly extension: string;
+  }
+
+  export interface WebFileUploadResult extends Readonly<import('@webrad/restgo-sdk').RestGoStoredFile> {
+    readonly url: string;
+  }
+
+  export type WebFileUploadChangeEventDetail = WebFileUploadSelection | null;
+
+  export type WebFileUploadProgressEventDetail = import('@webrad/restgo-sdk').RestGoUploadProgress;
+
+  export interface WebFileUploadCompleteEventDetail {
+    readonly result: WebFileUploadResult | null;
+    readonly error: Error | null;
+  }
+
+  /** Selects a local file and uploads it through the configured RestGO client. */
+  export class WebFileUpload extends WebNonvisualComponent {
+    constructor(configuration?: WebFileUploadConfiguration);
+    accept: string;
+    isPublic: boolean;
+    enabled: boolean;
+    readonly selectedFile: File | null;
+    readonly selection: WebFileUploadSelection | null;
+    readonly fileName: string;
+    readonly uploading: boolean;
+    readonly progress: number | null;
+    readonly result: WebFileUploadResult | null;
+    readonly lastError: Error | null;
+    OpenFile(): Promise<WebFileUploadSelection | null>;
+    SendToRestGO(options?: WebFileUploadOptions): Promise<WebFileUploadResult>;
+    Clear(): void;
+    set onChange(handler: WebComponentEventHandler<this> | null);
+    set onSuccess(handler: WebComponentEventHandler<this> | null);
+    set onError(handler: WebComponentEventHandler<this> | null);
+    set onComplete(handler: WebComponentEventHandler<this> | null);
+    set onProgress(handler: WebComponentEventHandler<this> | null);
+  }
+
   export class WebCheckBox extends WebComponent<HTMLElement> {
     constructor(element: HTMLElement);
     checked: boolean;

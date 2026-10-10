@@ -395,9 +395,14 @@ function generateDocumentSource(
   }
   lines.push('  }');
   const boundComboBoxes = gridBindings.filter((binding) => binding.grid.type === 'WebComboBox');
-  if (boundComboBoxes.length > 0) {
+  const nonvisualComponents = components.filter(
+    (component) => !registry.require(component.type).visual,
+  );
+  if (boundComboBoxes.length > 0 || nonvisualComponents.length > 0) {
     lines.push('', '  public override dispose(): void {');
     for (const binding of boundComboBoxes) lines.push(`    this.${binding.grid.name}.dispose();`);
+    for (const component of nonvisualComponents)
+      lines.push(`    this.${component.name}.dispose();`);
     lines.push('    super.dispose();', '  }');
   }
   lines.push('}', '');

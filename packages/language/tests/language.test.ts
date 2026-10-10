@@ -50,15 +50,16 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'data-grid', type: 'WebDataGrid', name: 'DataGrid1' },
   { id: 'popup-dialog', type: 'WebPopup', name: 'Popup1' },
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
+  { id: 'stable-file-upload', type: 'WebFileUpload', name: 'FileUpload1' },
 ] as const satisfies readonly MvpComponentFixture[];
 
 function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
   const isPanel = fixture.type === 'WebPanel';
-  const isApiClient = fixture.type === 'WebApiClient';
+  const isNonvisual = !defaultComponentRegistry.require(fixture.type).visual;
   const isPopup = fixture.type === 'WebPopup';
   return {
     ...fixture,
-    parentId: isPanel || isApiClient || isPopup ? 'page-root' : 'stable-panel-main',
+    parentId: isPanel || isNonvisual || isPopup ? 'page-root' : 'stable-panel-main',
     layout: createDefaultComponentLayout(),
     bounds: { x: 16, y: 16, width: 120, height: 32 },
     props:
@@ -117,7 +118,7 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
       ? MVP_COMPONENT_FIXTURES.filter(
           (candidate) =>
             candidate.type !== 'WebPanel' &&
-            candidate.type !== 'WebApiClient' &&
+            defaultComponentRegistry.require(candidate.type).visual &&
             candidate.type !== 'WebPopup',
         ).map((candidate) => candidate.id)
       : [],
@@ -148,7 +149,7 @@ function testPage(): PageModel {
           OnHide: null,
           OnResize: null,
         },
-        children: ['stable-panel-main', 'popup-dialog', 'api-client'],
+        children: ['stable-panel-main', 'popup-dialog', 'api-client', 'stable-file-upload'],
       },
       ...MVP_COMPONENT_FIXTURES.map(fixtureComponent),
     ],
@@ -213,7 +214,7 @@ describe('page language generation', () => {
       const declaration = `public readonly ${component.name}: ${component.type};`;
       expect(source).toContain(declaration);
       expect(typings).toContain(declaration);
-      if (component.type !== 'WebApiClient') {
+      if (defaultComponentRegistry.require(component.type).visual) {
         expect(source).toContain(
           `this.${component.name} = new ${component.type}(this.requireComponentElement(${JSON.stringify(component.id)}))`,
         );
@@ -234,6 +235,10 @@ describe('page language generation', () => {
     expect(source).toContain('"id":"api-client"');
     expect(source).toContain('"name":"ApiClient1"');
     expect(source).not.toContain('requireComponentElement("api-client")');
+    expect(source).not.toContain('requireComponentElement("stable-file-upload")');
+    expect(source).toContain('this.FileUpload1 = new WebFileUpload(');
+    expect(source).toContain('this.FileUpload1.dispose();');
+    expect(source).toContain('this.ApiClient1.dispose();');
     expect(source).not.toContain('public readonly PageMain: WebPage;');
     expect(typings).not.toContain('public readonly PageMain: WebPage;');
     expect(source).not.toContain('requireComponentElement("page-root")');
@@ -249,7 +254,7 @@ describe('page language generation', () => {
       MVP_COMPONENT_FIXTURES.filter(
         (component) =>
           component.type !== 'WebPanel' &&
-          component.type !== 'WebApiClient' &&
+          defaultComponentRegistry.require(component.type).visual &&
           component.type !== 'WebPopup',
       ).map((component) => component.id),
     );
@@ -258,7 +263,7 @@ describe('page language generation', () => {
         .filter(
           (component) =>
             component.type !== 'WebPage' &&
-            component.type !== 'WebApiClient' &&
+            defaultComponentRegistry.require(component.type).visual &&
             component.type !== 'WebPopup',
         )
         .slice(1)

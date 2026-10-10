@@ -13,6 +13,7 @@ const COMPONENT_ICON_ALIASES: Readonly<Record<string, WebRadIconName>> = {
   'component-check-box': 'check-square',
   'component-combo-box': 'chevron-down',
   'component-image': 'image',
+  'component-file-upload': 'upload',
   'component-list-box': 'list',
   'component-popup': 'panel-top',
   'component-api-client': 'globe',

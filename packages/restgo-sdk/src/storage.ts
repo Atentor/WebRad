@@ -49,6 +49,7 @@ export class RestGoStorageClient {
       method: 'POST',
       body: fileForm(file, options),
       signal: options.signal,
+      onUploadProgress: options.onUploadProgress,
       auth: 'session',
       sessionAuthority: true,
     });
@@ -65,6 +66,7 @@ export class RestGoStorageClient {
       method: 'PUT',
       body: fileForm(input.file, input),
       signal: input.signal,
+      onUploadProgress: input.onUploadProgress,
       auth: 'session',
       sessionAuthority: true,
     });

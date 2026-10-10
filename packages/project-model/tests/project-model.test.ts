@@ -1356,6 +1356,42 @@ describe('reusable elements', () => {
 });
 
 describe('serialization', () => {
+  it('round-trips a nonvisual File Upload configuration and handlers without visual styles or runtime selection state', () => {
+    const project = createProject('Files');
+    const page = project.pages[0];
+    if (page === undefined) throw new Error('Missing page.');
+    const upload = applyDefaultComponentStyle(
+      {
+        ...component('file-upload-id', 'WebFileUpload', 'FileUpload1', page.rootComponentId, {
+          accept: '.pdf',
+          isPublic: false,
+          enabled: true,
+        }),
+        events: {
+          OnChange: 'ArquivoSelecionado',
+          OnSuccess: 'ArquivoEnviado',
+          OnProgress: 'ArquivoProgresso',
+          OnError: null,
+          OnComplete: null,
+        },
+      },
+      project.styles,
+    );
+    const updated = updatePage(project, page.id, addComponent(page, upload, page.rootComponentId));
+    const restored = deserializeProject(serializeProject(updated));
+    expect(restored.pages[0]?.components.find((node) => node.id === upload.id)).toEqual(upload);
+    expect(upload.styleId).toBeUndefined();
+    expect(findDefaultComponentStyle(restored.styles, 'WebFileUpload')).toBeUndefined();
+    expect(
+      restored.pages[0]?.components.find((node) => node.id === upload.id)?.props,
+    ).not.toHaveProperty('selectedFile');
+    expect(
+      deserializePage(serializePage(restored.pages[0]!)).components.find(
+        (node) => node.id === upload.id,
+      ),
+    ).toEqual(upload);
+  });
+
   it('round-trips a Popup child relationship and its responsive container layout', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = project.pages[0];
