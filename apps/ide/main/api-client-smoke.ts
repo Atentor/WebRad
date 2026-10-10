@@ -21,12 +21,25 @@ interface ApiClientDesignerSmokeOptions {
 
 async function ready(window: BrowserWindow, expression: string): Promise<void> {
   const deadline = Date.now() + 10_000;
+  let lastResult: unknown;
   while (Date.now() < deadline) {
-    const result: unknown = await window.webContents.executeJavaScript(expression, true);
-    if (result === true) return;
+    lastResult = await window.webContents.executeJavaScript(expression, true);
+    if (lastResult === true) return;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error(`API Client smoke timed out: ${expression}`);
+  const evidence: unknown = await window.webContents.executeJavaScript(
+    `({
+      dialog: document.querySelector('.wr-api-client-dialog') !== null,
+      method: document.querySelector('[aria-label="Method"]')?.value,
+      notes: [...document.querySelectorAll('.wr-api-client-dialog [role="note"], .wr-api-client-dialog [role="alert"]')].map(note => note.textContent),
+      buttons: [...document.querySelectorAll('.wr-api-client-dialog button')].map(button => ({ label: button.getAttribute('aria-label'), text: button.textContent?.trim(), disabled: button.disabled })),
+      focused: document.activeElement?.getAttribute('aria-label'),
+    })`,
+    true,
+  );
+  throw new Error(
+    `API Client smoke timed out: ${JSON.stringify({ expression, lastResult, evidence })}`,
+  );
 }
 
 async function click(window: BrowserWindow, selector: string): Promise<void> {
@@ -255,8 +268,10 @@ export async function runApiClientDesignerSmoke(
     await setControl(window, '[aria-label="Method"]', 'TRACE');
     await ready(
       window,
-      `Array.from(document.querySelectorAll('.wr-api-client-dialog button')).some((button) => button.textContent.trim() === 'Send test request' && button.disabled)`,
+      `document.querySelector('.wr-api-client-dialog button[aria-label="Send test request"]')?.disabled === true && [...document.querySelectorAll('.wr-api-client-dialog [role="note"]')].some(note => note.textContent?.includes('Browsers prohibit TRACE'))`,
     );
+    if (calls.length !== 0)
+      throw new Error('API Client sent an HTTP request for a prohibited method.');
     await setControl(window, '[aria-label="Method"]', 'GET');
     for (const tab of ['Query parameters', 'Headers', 'Body', 'Options']) {
       await clickText(window, tab);

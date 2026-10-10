@@ -395,14 +395,19 @@ describe('compileProject', () => {
         'reusables/CustomerCard.ts': `import type { WebButton } from '@webrad/runtime';
 import { CustomerCardGenerated } from './CustomerCard.generated';
 
+for (const CustomerCardButton of ['module-local']) { void CustomerCardButton; }
+
 export class CustomerCard extends CustomerCardGenerated {
   #clicks = 0;
+
+  private readCaption(value = ${access}CustomerCardButton.caption): string { return value; }
 
   public CustomerCardButtonClick(sender: WebButton): void {
     this.#clicks += 1;
     ${access}CustomerCardButton.caption = String(this.#clicks);
     sender.element.dataset.reusableClicks = String(this.#clicks);
     sender.element.dataset.hostPageName = this.pageName;
+    sender.element.dataset.defaultCaption = this.readCaption();
   }
 }
 `,
@@ -442,20 +447,29 @@ export class CustomerCard extends CustomerCardGenerated {
       expect(secondButton.textContent).toBe('1');
       expect(firstButton.dataset.hostPageName).toBe('PageMain');
       expect(secondButton.dataset.hostPageName).toBe('PageMain');
+      expect(firstButton.dataset.defaultCaption).toBe('2');
+      expect(secondButton.dataset.defaultCaption).toBe('1');
       dom.window.close();
     },
   );
 
-  it('executes bare visual and nonvisual references, lexical bindings and arrow callbacks without modifying authored source', async () => {
+  it('executes bare component references, method defaults, lexical bindings and arrows without modifying authored source', async () => {
     const project = executableProject();
     const source = `import { PageMainGenerated } from './PageMain.generated';
+for (const EDTNome of [{ value: 'module-local' }]) { void EDTNome.value; }
+for (let BTNMostrar of ['module-local']) { void BTNMostrar; }
 export class PageMain extends PageMainGenerated {
+  private readDefaults(value = EDTNome.value, { caption = BTNMostrar.caption } = {}): string {
+    return value + ':' + caption;
+  }
   public PageMainCreate(): void {
     EDTNome.value = 'Ada';
+    BTNMostrar.caption = 'Ready';
     ApiClient1.baseUrl = 'https://api.changed.test';
     const fields = { EDTNome };
     this.element.dataset.fieldName = fields.EDTNome.name;
     this.element.dataset.apiUrl = ApiClient1.baseUrl;
+    this.element.dataset.defaults = this.readDefaults();
   }
   public BTNMostrarClick(): void {
     const EDTNome = { value: 'local' };
@@ -486,6 +500,7 @@ export class PageMain extends PageMainGenerated {
     expect(edit?.value).toBe('Ada');
     expect(root?.dataset.fieldName).toBe('EDTNome');
     expect(root?.dataset.apiUrl).toBe('https://api.changed.test');
+    expect(root?.dataset.defaults).toBe('Ada:Ready');
     button?.click();
     expect(button?.textContent).toBe('local');
     dom.window.close();

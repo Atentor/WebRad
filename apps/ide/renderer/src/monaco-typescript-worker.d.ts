@@ -7,8 +7,14 @@ declare module 'monaco-editor/languages/features/typescript/ts.worker.js' {
   > {
     readonly file?: { readonly fileName: string };
   }
+  export interface TypeScriptWorkerContext {
+    getMirrorModels(): readonly {
+      readonly uri: { toString(skipEncoding?: boolean): string };
+      readonly version: number;
+    }[];
+  }
   export class TypeScriptWorker {
-    constructor(context: unknown, data: unknown);
+    constructor(context: TypeScriptWorkerContext, data: unknown);
     getScriptSnapshot(fileName: string): tsApi.IScriptSnapshot | undefined;
     getScriptVersion(fileName: string): string;
     getExtraLibs(): Record<string, { readonly content: string; readonly version: number }>;
@@ -45,5 +51,7 @@ declare module 'monaco-editor/languages/features/typescript/ts.worker.js' {
       options: tsApi.FormatCodeSettings,
     ): Promise<tsApi.CodeFixAction[]>;
   }
-  export function initialize(factory: (context: unknown, data: unknown) => TypeScriptWorker): void;
+  export function initialize(
+    factory: (context: TypeScriptWorkerContext, data: unknown) => TypeScriptWorker,
+  ): void;
 }

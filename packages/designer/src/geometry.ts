@@ -1,4 +1,4 @@
-import type { Bounds } from '@webrad/project-model';
+import type { Bounds, ContainerLayoutMode, LayoutItem } from '@webrad/project-model';
 
 export const DEFAULT_GRID_SIZE = 8;
 export const DEFAULT_NUDGE_DISTANCE = 1;
@@ -28,6 +28,24 @@ export const RESIZE_HANDLES: readonly ResizeHandle[] = [
   'w',
 ] as const;
 
+/** Only offer gestures that can be expressed by changing the item's bounds. */
+export function getBoundsResizeHandles(
+  item: Pick<LayoutItem, 'width' | 'height'>,
+  parentMode: ContainerLayoutMode,
+): readonly ResizeHandle[] {
+  if (parentMode === 'align-to-parent') return [];
+  const canResizeWidth = item.width === 'fixed';
+  const canResizeHeight = item.height === 'fixed';
+  return RESIZE_HANDLES.filter((handle) => {
+    const horizontal = handle.includes('w') || handle.includes('e');
+    const vertical = handle.includes('n') || handle.includes('s');
+    if ((horizontal && !canResizeWidth) || (vertical && !canResizeHeight)) return false;
+    // Flow layout owns the leading position. Growing the trailing edge edits
+    // a fixed size; moving the leading edge would require a layout command.
+    return parentMode === 'fixed' || (!handle.includes('w') && !handle.includes('n'));
+  });
+}
+
 export interface GridOptions {
   readonly snapToGrid?: boolean;
   readonly gridSize?: number;
@@ -36,6 +54,13 @@ export interface GridOptions {
 
 export interface MovementOptions extends GridOptions {
   readonly containerBounds?: Bounds;
+  readonly constraints?: readonly MovementConstraint[];
+}
+
+/** Each group keeps its own coordinate system while sharing a single movement delta. */
+export interface MovementConstraint {
+  readonly bounds: Bounds;
+  readonly containerBounds: Bounds;
 }
 
 export interface ResizeOptions extends GridOptions {
@@ -166,22 +191,21 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function constrainAxisDelta(
-  requested: number,
+function movementAxisRange(
   selectionStart: number,
   selectionEnd: number,
   containerStart: number,
   containerEnd: number,
-): number {
+): readonly [number, number] {
   const minimum = containerStart - selectionStart;
   const maximum = containerEnd - selectionEnd;
   if (minimum <= maximum) {
-    return clamp(requested, minimum, maximum);
+    return [minimum, maximum];
   }
 
   // The selection is larger than its container. It may move only while it still
   // covers the container; this is the only useful bounded behavior in that case.
-  return clamp(requested, maximum, minimum);
+  return [maximum, minimum];
 }
 
 export function constrainMovementDelta(
@@ -202,24 +226,42 @@ export function constrainMovementDelta(
     y = snapValue(selectionBounds.y + y, gridSize, origin.y) - selectionBounds.y;
   }
 
-  if (options.containerBounds !== undefined) {
-    const container = options.containerBounds;
-    assertValidBounds(container, 'containerBounds');
-    x = constrainAxisDelta(
-      x,
-      selectionBounds.x,
-      selectionBounds.x + selectionBounds.width,
+  const constraints =
+    options.containerBounds === undefined
+      ? (options.constraints ?? [])
+      : [
+          { bounds: selectionBounds, containerBounds: options.containerBounds },
+          ...(options.constraints ?? []),
+        ];
+  let minimumX = Number.NEGATIVE_INFINITY;
+  let maximumX = Number.POSITIVE_INFINITY;
+  let minimumY = Number.NEGATIVE_INFINITY;
+  let maximumY = Number.POSITIVE_INFINITY;
+  for (const { bounds, containerBounds: container } of constraints) {
+    assertValidBounds(bounds, 'constraint.bounds');
+    assertValidBounds(container, 'constraint.containerBounds');
+    const [left, right] = movementAxisRange(
+      bounds.x,
+      bounds.x + bounds.width,
       container.x,
       container.x + container.width,
     );
-    y = constrainAxisDelta(
-      y,
-      selectionBounds.y,
-      selectionBounds.y + selectionBounds.height,
+    const [top, bottom] = movementAxisRange(
+      bounds.y,
+      bounds.y + bounds.height,
       container.y,
       container.y + container.height,
     );
+    minimumX = Math.max(minimumX, left);
+    maximumX = Math.min(maximumX, right);
+    minimumY = Math.max(minimumY, top);
+    maximumY = Math.min(maximumY, bottom);
   }
+
+  // Conflicting containers have no legal shared delta on that axis. Leave the
+  // original positions intact rather than distort the selection on commit.
+  x = minimumX <= maximumX ? clamp(x, minimumX, maximumX) : 0;
+  y = minimumY <= maximumY ? clamp(y, minimumY, maximumY) : 0;
 
   return { x, y };
 }
@@ -263,6 +305,8 @@ export function clampBounds(
   assertValidBounds(containerBounds, 'containerBounds');
   const requestedMinWidth = minimumSize.width ?? 0;
   const requestedMinHeight = minimumSize.height ?? 0;
+  assertFinite(requestedMinWidth, 'minimumSize.width');
+  assertFinite(requestedMinHeight, 'minimumSize.height');
   if (requestedMinWidth < 0 || requestedMinHeight < 0) {
     throw new RangeError('Minimum dimensions must not be negative.');
   }
@@ -332,7 +376,7 @@ function moveHorizontalEdge(
       nextLeft = snapValue(nextLeft, gridSize, origin);
     }
     const lower = options.containerBounds?.x ?? Number.NEGATIVE_INFINITY;
-    nextLeft = clamp(nextLeft, lower, right - minWidth);
+    nextLeft = clamp(nextLeft, Math.min(lower, right - minWidth), right - minWidth);
   } else {
     nextRight += deltaX;
     if (options.snapToGrid === true) {
@@ -342,7 +386,7 @@ function moveHorizontalEdge(
       options.containerBounds === undefined
         ? Number.POSITIVE_INFINITY
         : options.containerBounds.x + options.containerBounds.width;
-    nextRight = clamp(nextRight, left + minWidth, upper);
+    nextRight = clamp(nextRight, left + minWidth, Math.max(left + minWidth, upper));
   }
 
   return [nextLeft, nextRight];
@@ -374,7 +418,7 @@ function moveVerticalEdge(
       nextTop = snapValue(nextTop, gridSize, origin);
     }
     const lower = options.containerBounds?.y ?? Number.NEGATIVE_INFINITY;
-    nextTop = clamp(nextTop, lower, bottom - minHeight);
+    nextTop = clamp(nextTop, Math.min(lower, bottom - minHeight), bottom - minHeight);
   } else {
     nextBottom += deltaY;
     if (options.snapToGrid === true) {
@@ -384,7 +428,7 @@ function moveVerticalEdge(
       options.containerBounds === undefined
         ? Number.POSITIVE_INFINITY
         : options.containerBounds.y + options.containerBounds.height;
-    nextBottom = clamp(nextBottom, top + minHeight, upper);
+    nextBottom = clamp(nextBottom, top + minHeight, Math.max(top + minHeight, upper));
   }
 
   return [nextTop, nextBottom];

@@ -10,10 +10,15 @@ import {
 import {
   RESIZE_HANDLES,
   constrainMovementDelta,
+  getParentContentBounds,
+  getBoundsResizeHandles,
   intersectsBounds,
   normalizeBounds,
+  normalizeTopLevelIds,
   resizeBounds,
+  unionBounds,
   type Point,
+  type MovementConstraint,
   type ResizeHandle,
 } from '@webrad/designer';
 import type {
@@ -48,6 +53,8 @@ import {
 import { createPortal } from 'react-dom';
 import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 import { useDesignerAvailableWidth } from './useDesignerAvailableWidth';
+import { useDesignerPointerInteraction } from './useDesignerPointerInteraction';
+import { measureDesignerChildrenHost, measureDesignerNodeMargins } from './designer-host-geometry';
 
 interface DesignerSurfaceProps {
   viewportName?: ViewportName;
@@ -88,11 +95,6 @@ interface DesignerSurfaceProps {
   onComponentActivate?: (componentId: string) => void;
   /** Opens the source definition instead of editing reusable children in-place. */
   onOpenReusableElement?: (reusableElementId: string) => void;
-  /**
-   * Legacy activation callback retained while callers migrate to
-   * `onComponentActivate`.
-   */
-  onDefaultEvent?: (componentId: string) => void;
 }
 
 type ContainerLayoutMode = ComponentNode['layout']['container']['mode'];
@@ -125,7 +127,9 @@ interface DragInteraction {
   ids: readonly string[];
   originalBounds: ReadonlyMap<string, Bounds>;
   selectionBounds: Bounds;
+  constraints: readonly MovementConstraint[];
   delta: Point;
+  activated: boolean;
   reorderTarget?: ReorderTarget;
 }
 
@@ -138,6 +142,7 @@ interface ResizeInteraction {
   originalBounds: Bounds;
   currentBounds: Bounds;
   containerBounds: Bounds;
+  activated: boolean;
 }
 
 interface MarqueeInteraction {
@@ -149,22 +154,6 @@ interface MarqueeInteraction {
 }
 
 type Interaction = DragInteraction | ResizeInteraction | MarqueeInteraction;
-
-function unionBounds(bounds: readonly Bounds[]): Bounds {
-  const first = bounds[0];
-  if (!first) return { x: 0, y: 0, width: 0, height: 0 };
-  let left = first.x;
-  let top = first.y;
-  let right = first.x + first.width;
-  let bottom = first.y + first.height;
-  for (const item of bounds.slice(1)) {
-    left = Math.min(left, item.x);
-    top = Math.min(top, item.y);
-    right = Math.max(right, item.x + item.width);
-    bottom = Math.max(bottom, item.y + item.height);
-  }
-  return { x: left, y: top, width: right - left, height: bottom - top };
-}
 
 function pointInside(bounds: Bounds, point: Point): boolean {
   return (
@@ -298,6 +287,55 @@ function movementDeltaForNode(node: ComponentNode, delta: Point): Point {
 function movementSignature(node: ComponentNode): string {
   const delta = movementDeltaForNode(node, { x: 1, y: 1 });
   return `${isFloatingReusableElement(node) ? 'floating' : 'in-flow'}:${String(delta.x)}:${String(delta.y)}`;
+}
+
+function boundsResizeHandles(
+  node: ComponentNode,
+  parentMode: ContainerLayoutMode,
+): readonly ResizeHandle[] {
+  // Floating surfaces own their dimensions independently of item sizing and
+  // the parent flow. The ordinary layout contract governs every other item.
+  return isDesignerFloatingContainer(node) || isFloatingReusableElement(node)
+    ? RESIZE_HANDLES
+    : getBoundsResizeHandles(node.layout.item, parentMode);
+}
+
+function movementConstraintsForIds(
+  page: PageModel,
+  byId: ReadonlyMap<string, ComponentNode>,
+  ids: readonly string[],
+  surface: HTMLElement | null,
+  scale: number,
+  layoutById: ReadonlyMap<string, LayoutNode>,
+): readonly MovementConstraint[] {
+  const groups = new Map<string, ComponentNode[]>();
+  for (const id of ids) {
+    const selected = byId.get(id);
+    if (selected?.parentId == null || isFloatingReusableElement(selected)) continue;
+    const group = groups.get(selected.parentId) ?? [];
+    group.push(selected);
+    groups.set(selected.parentId, group);
+  }
+  return [...groups].map(([parentId, nodes]) => {
+    const host = measureDesignerChildrenHost(surface, parentId, scale);
+    return {
+      bounds: unionBounds(
+        nodes.map((node) => {
+          const visual = layoutById.get(node.id)?.absoluteBounds;
+          const margins = measureDesignerNodeMargins(surface, node.id);
+          return host === undefined || visual === undefined
+            ? node.bounds
+            : {
+                x: visual.x - host.origin.x - margins.left,
+                y: visual.y - host.origin.y - margins.top,
+                width: visual.width + margins.left + margins.right,
+                height: visual.height + margins.top + margins.bottom,
+              };
+        }),
+      ),
+      containerBounds: host?.bounds ?? getParentContentBounds(page, parentId),
+    };
+  });
 }
 
 function localBoundsWithPreview(node: ComponentNode, interaction: Interaction | null): Bounds {
@@ -945,7 +983,8 @@ const RuntimeNode = memo(function RuntimeNode({
     node.type === 'WebReusableElement' && referencedReusableElementId !== undefined
       ? reusableElementsById.get(referencedReusableElementId)
       : undefined;
-  const isContainer = children.length > 0 || reusableElement !== undefined;
+  const supportsChildren = componentRegistry.get(node.type)?.canHaveChildren === true;
+  const isContainer = supportsChildren || reusableElement !== undefined;
   const isFloatingContainerEditor = floatingEditorBounds !== undefined;
   const element = (
     <div
@@ -984,9 +1023,10 @@ const RuntimeNode = memo(function RuntimeNode({
             floatingHost={floatingHost}
           />
         ) : (
-          children.length > 0 && (
+          supportsChildren && (
             <div
               className={`wr-runtime-children wr-runtime-children-${node.layout.container.mode}`}
+              data-designer-parent-id={node.id}
               style={projectChildrenStyle(node)}
             >
               {children.map((child) => (
@@ -1148,15 +1188,19 @@ export function DesignerSurface({
   onZoomChange,
   onComponentActivate,
   onOpenReusableElement,
-  onDefaultEvent,
 }: DesignerSurfaceProps): ReactElement {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const availableWidth = useDesignerAvailableWidth(scrollRef);
-  const [interaction, setInteraction] = useState<Interaction | null>(null);
   const [floatingHost, setFloatingHost] = useState<HTMLElement | null>(null);
   const [localViewportName, setLocalViewportName] = useState<ViewportName>('desktop');
   const viewportName = controlledViewportName ?? localViewportName;
+  const interactionContext = useMemo(
+    () => ({ page, zoom, viewportName, availableWidth, settings, selectedPaletteType }),
+    [page, zoom, viewportName, availableWidth, settings, selectedPaletteType],
+  );
+  const pointerInteraction = useDesignerPointerInteraction<Interaction>(interactionContext);
+  const { interaction } = pointerInteraction;
   const setViewportName = (value: ViewportName): void => {
     setLocalViewportName(value);
     onViewportChange?.(value);
@@ -1250,7 +1294,8 @@ export function DesignerSurface({
     [byId, floatingContainerEditorNodeId, page.rootComponentId, selectedIds],
   );
   const positionMovableSelectedIds = useMemo(() => {
-    const allFixed = selectedVisualIds.every((id) => {
+    const topLevelIds = normalizeTopLevelIds(page, selectedVisualIds);
+    const allFixed = topLevelIds.every((id) => {
       const node = byId.get(id);
       return (
         node !== undefined &&
@@ -1258,16 +1303,16 @@ export function DesignerSurface({
         parentModeOf(node, byId) === 'fixed'
       );
     });
-    const first = selectedVisualIds[0] === undefined ? undefined : byId.get(selectedVisualIds[0]);
+    const first = topLevelIds[0] === undefined ? undefined : byId.get(topLevelIds[0]);
     const signature = first === undefined ? undefined : movementSignature(first);
     const matchingAxes =
       signature !== undefined &&
-      selectedVisualIds.every((id) => {
+      topLevelIds.every((id) => {
         const node = byId.get(id);
         return node !== undefined && movementSignature(node) === signature;
       });
-    return allFixed && matchingAxes ? selectedVisualIds : [];
-  }, [byId, selectedVisualIds]);
+    return allFixed && matchingAxes ? topLevelIds : [];
+  }, [byId, page, selectedVisualIds]);
 
   const measureLayout = useCallback((): void => {
     const surface = surfaceRef.current;
@@ -1430,12 +1475,16 @@ export function DesignerSurface({
           pointInside(item.absoluteBounds, point),
       );
     const parent = candidates[0];
-    return parent
-      ? {
-          parentId: parent.node.id,
-          point: { x: point.x - parent.absoluteBounds.x, y: point.y - parent.absoluteBounds.y },
-        }
-      : { parentId: page.rootComponentId, point };
+    const parentId = parent?.node.id ?? page.rootComponentId;
+    const host = measureDesignerChildrenHost(surfaceRef.current, parentId, scale);
+    const origin = host?.origin ?? {
+      x: parent?.absoluteBounds.x ?? 0,
+      y: parent?.absoluteBounds.y ?? 0,
+    };
+    return {
+      parentId,
+      point: { x: Math.max(0, point.x - origin.x), y: Math.max(0, point.y - origin.y) },
+    };
   };
 
   const insertAt = (type: string, point: Point): void => {
@@ -1464,12 +1513,13 @@ export function DesignerSurface({
       onComponentActivate(componentId);
       return;
     }
-    onDefaultEvent?.(componentId);
   };
 
   const startComponentDrag = (event: PointerEvent<HTMLDivElement>, node: ComponentNode): void => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || pointerInteraction.get() !== null) return;
     event.stopPropagation();
+    event.preventDefault();
+    surfaceRef.current?.focus({ preventScroll: true });
     const point = eventPoint(event);
     if (selectedPaletteType) {
       insertAt(selectedPaletteType, point);
@@ -1482,8 +1532,9 @@ export function DesignerSurface({
       onSelect(next, node.id);
       return;
     }
-    const ids = selectedIds.includes(node.id) ? selectedIds : [node.id];
-    onSelect(ids, node.id);
+    const selection = selectedIds.includes(node.id) ? selectedIds : [node.id];
+    onSelect(selection, node.id);
+    const ids = normalizeTopLevelIds(page, selection).filter((id) => id !== page.rootComponentId);
     // Tray-authored visual containers are intentionally centered by their
     // editor/runtime host, so their page coordinates are never mutated.
     if (isDesignerFloatingContainer(node)) return;
@@ -1522,20 +1573,32 @@ export function DesignerSurface({
         originalBounds.set(item.node.id, item.node.bounds);
         return item.absoluteBounds;
       });
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setInteraction({
-      kind: 'drag',
-      mode: canReorder ? 'reorder' : 'move',
-      pointerId: event.pointerId,
-      start: point,
-      ids,
-      originalBounds,
-      selectionBounds: unionBounds(absolute),
-      delta: { x: 0, y: 0 },
-      ...(canReorder && parent !== undefined
-        ? { reorderTarget: reorderTargetForPoint(parent, ids, point, layoutById) }
-        : {}),
-    });
+    if (absolute.length === 0) return;
+    pointerInteraction.begin(
+      {
+        kind: 'drag',
+        mode: canReorder ? 'reorder' : 'move',
+        pointerId: event.pointerId,
+        start: point,
+        ids,
+        originalBounds,
+        selectionBounds: unionBounds(absolute),
+        constraints: movementConstraintsForIds(
+          page,
+          byId,
+          ids,
+          surfaceRef.current,
+          scale,
+          layoutById,
+        ),
+        delta: { x: 0, y: 0 },
+        activated: false,
+        ...(canReorder && parent !== undefined
+          ? { reorderTarget: reorderTargetForPoint(parent, ids, point, layoutById) }
+          : {}),
+      },
+      event.currentTarget,
+    );
   };
 
   const startResize = (
@@ -1543,81 +1606,130 @@ export function DesignerSurface({
     node: ComponentNode,
     handle: ResizeHandle,
   ): void => {
+    if (
+      event.button !== 0 ||
+      pointerInteraction.get() !== null ||
+      !boundsResizeHandles(node, parentModeOf(node, byId)).includes(handle)
+    )
+      return;
     event.stopPropagation();
+    event.preventDefault();
+    surfaceRef.current?.focus({ preventScroll: true });
     const parent = node.parentId ? byId.get(node.parentId) : undefined;
+    const parentHost =
+      parent === undefined
+        ? undefined
+        : measureDesignerChildrenHost(surfaceRef.current, parent.id, scale);
     const measuredParent =
-      parent === undefined ? undefined : layoutById.get(parent.id)?.absoluteBounds;
+      parentHost?.bounds ??
+      (parent === undefined ? undefined : layoutById.get(parent.id)?.absoluteBounds);
     const isFloatingContainerEditor =
       isDesignerFloatingContainer(node) && node.id === floatingContainerEditor?.rootId;
     const editorBounds = isFloatingContainerEditor
       ? (layoutById.get(node.id)?.absoluteBounds ?? floatingContainerEditor?.bounds ?? node.bounds)
       : node.bounds;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setInteraction({
-      kind: 'resize',
-      pointerId: event.pointerId,
-      start: eventPoint(event),
-      id: node.id,
-      handle,
-      originalBounds: editorBounds,
-      currentBounds: editorBounds,
-      containerBounds: {
-        x: 0,
-        y: 0,
-        width:
-          isFloatingReusableElement(node) || isFloatingContainerEditor
+    const visualBounds = layoutById.get(node.id)?.absoluteBounds;
+    const useParentHost =
+      parentHost !== undefined &&
+      visualBounds !== undefined &&
+      !isFloatingReusableElement(node) &&
+      !isFloatingContainerEditor;
+    const margins = measureDesignerNodeMargins(surfaceRef.current, node.id);
+    const viewportOwned = isFloatingReusableElement(node) || isFloatingContainerEditor;
+    const containerBounds: Bounds = useParentHost
+      ? {
+          x: editorBounds.x - (visualBounds.x - parentHost.origin.x) + margins.left,
+          y: editorBounds.y - (visualBounds.y - parentHost.origin.y) + margins.top,
+          width: Math.max(0, parentHost.bounds.width - margins.left - margins.right),
+          height: Math.max(0, parentHost.bounds.height - margins.top - margins.bottom),
+        }
+      : {
+          x: 0,
+          y: 0,
+          width: viewportOwned
             ? viewportWidth
             : (measuredParent?.width ?? parent?.bounds.width ?? viewportWidth),
-        height:
-          isFloatingReusableElement(node) || isFloatingContainerEditor
+          height: viewportOwned
             ? viewportHeight
             : (measuredParent?.height ?? parent?.bounds.height ?? viewportHeight),
+        };
+    pointerInteraction.begin(
+      {
+        kind: 'resize',
+        pointerId: event.pointerId,
+        start: eventPoint(event),
+        id: node.id,
+        handle,
+        originalBounds: editorBounds,
+        currentBounds: editorBounds,
+        activated: false,
+        containerBounds,
       },
-    });
+      event.currentTarget,
+    );
   };
 
   const startMarquee = (event: PointerEvent<HTMLDivElement>): void => {
-    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    if (
+      event.button !== 0 ||
+      event.target !== event.currentTarget ||
+      pointerInteraction.get() !== null
+    )
+      return;
+    event.preventDefault();
+    surfaceRef.current?.focus({ preventScroll: true });
     const point = eventPoint(event);
     if (selectedPaletteType) {
       insertAt(selectedPaletteType, point);
       return;
     }
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setInteraction({
-      kind: 'marquee',
-      pointerId: event.pointerId,
-      start: point,
-      current: point,
-      additive: event.shiftKey,
-    });
-    if (!event.shiftKey) onSelect([]);
+    pointerInteraction.begin(
+      {
+        kind: 'marquee',
+        pointerId: event.pointerId,
+        start: point,
+        current: point,
+        additive: event.shiftKey,
+      },
+      event.currentTarget,
+    );
   };
 
-  const updateInteraction = (event: PointerEvent<HTMLDivElement>): void => {
-    if (!interaction || interaction.pointerId !== event.pointerId) return;
+  const advanceInteraction = (
+    active: Interaction,
+    event: PointerEvent<HTMLDivElement>,
+  ): Interaction => {
     const current = eventPoint(event);
-    const requested = { x: current.x - interaction.start.x, y: current.y - interaction.start.y };
+    const requested = { x: current.x - active.start.x, y: current.y - active.start.y };
+    if (
+      active.kind !== 'marquee' &&
+      !active.activated &&
+      Math.hypot(requested.x, requested.y) * scale < 3
+    ) {
+      return active;
+    }
+    const interaction = active;
     if (interaction.kind === 'drag') {
       if (interaction.mode === 'reorder') {
         const firstId = interaction.ids[0];
         const dragged = firstId === undefined ? undefined : byId.get(firstId);
         const parent = dragged?.parentId === null ? undefined : byId.get(dragged?.parentId ?? '');
-        setInteraction({
+        return {
           ...interaction,
+          activated: true,
           reorderTarget:
             parent === undefined
               ? undefined
               : reorderTargetForPoint(parent, interaction.ids, current, layoutById),
-        });
-        return;
+        };
       }
       const delta = constrainMovementDelta(interaction.selectionBounds, requested, {
         snapToGrid: settings.snapToGrid,
         gridSize: settings.gridSize,
         containerBounds: { x: 0, y: 0, width: viewportWidth, height: viewportHeight },
+        constraints: interaction.constraints,
       });
-      setInteraction({ ...interaction, delta });
+      return { ...interaction, delta, activated: true };
     } else if (interaction.kind === 'resize') {
       const node = byId.get(interaction.id);
       const resizeOptions = {
@@ -1643,17 +1755,30 @@ export function DesignerSurface({
               { width: viewportWidth, height: viewportHeight },
             )
           : resizeBounds(interaction.originalBounds, interaction.handle, requested, resizeOptions);
-      setInteraction({
+      return {
         ...interaction,
         currentBounds,
-      });
+        activated: true,
+      };
     } else {
-      setInteraction({ ...interaction, current });
+      return { ...interaction, current };
     }
   };
 
+  const updateInteraction = (event: PointerEvent<HTMLDivElement>): void => {
+    const active = pointerInteraction.get();
+    if (active?.pointerId !== event.pointerId) return;
+    pointerInteraction.preview(advanceInteraction(active, event));
+  };
+
   const finishInteraction = (event: PointerEvent<HTMLDivElement>): void => {
-    if (!interaction || interaction.pointerId !== event.pointerId) return;
+    const active = pointerInteraction.get();
+    if (active?.pointerId !== event.pointerId) return;
+    // pointerup is authoritative even when the browser coalesced the last move
+    // or the scheduled preview frame has not rendered yet.
+    const interaction = advanceInteraction(active, event);
+    pointerInteraction.end(event.pointerId);
+    if (interaction.kind !== 'marquee' && !interaction.activated) return;
     if (interaction.kind === 'drag') {
       if (interaction.mode === 'move' && (interaction.delta.x !== 0 || interaction.delta.y !== 0)) {
         const first = interaction.ids[0] === undefined ? undefined : byId.get(interaction.ids[0]);
@@ -1683,7 +1808,9 @@ export function DesignerSurface({
         node !== undefined && isDesignerFloatingContainer(node)
           ? { ...interaction.currentBounds, x: 0, y: 0 }
           : interaction.currentBounds;
-      onResizeComponent(interaction.id, nextBounds);
+      if (node !== undefined && !sameBounds(node.bounds, nextBounds)) {
+        onResizeComponent(interaction.id, nextBounds);
+      }
     } else {
       const bounds = normalizeBounds({
         x: interaction.start.x,
@@ -1691,9 +1818,8 @@ export function DesignerSurface({
         width: interaction.current.x - interaction.start.x,
         height: interaction.current.y - interaction.start.y,
       });
-      if (bounds.width < 2 && bounds.height < 2 && !interaction.additive) {
-        onSelect([page.rootComponentId], page.rootComponentId);
-        setInteraction(null);
+      if (bounds.width * scale < 3 && bounds.height * scale < 3) {
+        if (!interaction.additive) onSelect([page.rootComponentId], page.rootComponentId);
         return;
       }
       const matched = layout
@@ -1701,10 +1827,10 @@ export function DesignerSurface({
         .map((item) => item.node.id);
       onSelect(interaction.additive ? [...new Set([...selectedIds, ...matched])] : matched);
     }
-    setInteraction(null);
   };
 
   const handleKeyboard = (event: KeyboardEvent<HTMLElement>): void => {
+    if (pointerInteraction.get() !== null) return;
     if (event.key.startsWith('Arrow') && positionMovableSelectedIds.length > 0) {
       const distance = event.shiftKey ? 8 : 1;
       const deltas: Record<string, Point> = {
@@ -1713,9 +1839,25 @@ export function DesignerSurface({
         ArrowUp: { x: 0, y: -distance },
         ArrowDown: { x: 0, y: distance },
       };
-      const delta = deltas[event.key];
-      if (delta) {
+      const requested = deltas[event.key];
+      if (requested) {
         event.preventDefault();
+        const absolute = positionMovableSelectedIds
+          .map((id) => layoutById.get(id)?.absoluteBounds)
+          .filter((bounds): bounds is Bounds => bounds !== undefined);
+        if (absolute.length === 0) return;
+        const delta = constrainMovementDelta(unionBounds(absolute), requested, {
+          containerBounds: { x: 0, y: 0, width: viewportWidth, height: viewportHeight },
+          constraints: movementConstraintsForIds(
+            page,
+            byId,
+            positionMovableSelectedIds,
+            surfaceRef.current,
+            scale,
+            layoutById,
+          ),
+        });
+        if (delta.x === 0 && delta.y === 0) return;
         const first =
           positionMovableSelectedIds[0] === undefined
             ? undefined
@@ -1841,6 +1983,7 @@ export function DesignerSurface({
                 )}
                 <div
                   className={`wr-runtime-children wr-runtime-children-${root.layout.container.mode}`}
+                  data-designer-parent-id={root.id}
                   style={projectChildrenStyle(root)}
                 >
                   {root.children.map((childId) => {
@@ -1893,7 +2036,8 @@ export function DesignerSurface({
               onPointerDown={startMarquee}
               onPointerMove={updateInteraction}
               onPointerUp={finishInteraction}
-              onPointerCancel={() => setInteraction(null)}
+              onPointerCancel={(event) => pointerInteraction.cancelPointer(event.pointerId)}
+              onLostPointerCapture={(event) => pointerInteraction.cancelPointer(event.pointerId)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={handleDrop}
             >
@@ -1925,9 +2069,11 @@ export function DesignerSurface({
                   >
                     {selected &&
                       selectedIds.length === 1 &&
-                      RESIZE_HANDLES.map((handle) => (
+                      boundsResizeHandles(node, parentMode).map((handle) => (
                         <div
                           className={`wr-resize-handle handle-${handle}`}
+                          data-resize-handle={handle}
+                          aria-label={`Resize ${node.name} (${handle})`}
                           key={handle}
                           onPointerDown={(event) => startResize(event, node, handle)}
                         />

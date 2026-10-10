@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { BrowserWindow, KeyboardInputEvent } from 'electron';
+import { runMonacoWorkspaceSmoke } from './monaco-workspace-smoke';
 
 interface MonacoCaretSmokeOptions {
   readonly log: (message: string) => void;
@@ -128,4 +129,5 @@ export async function runMonacoCaretSmoke(
     );
   }
   log(`renderer Monaco caret alignment passed: ${JSON.stringify({ samples, maxDelta })}`);
+  await runMonacoWorkspaceSmoke(window, { log, sendKey });
 }

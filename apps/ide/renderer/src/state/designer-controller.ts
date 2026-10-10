@@ -156,24 +156,36 @@ export interface PasteResult {
   readonly selectedIds: readonly string[];
 }
 
+interface DesignerHistory {
+  readonly history: CommandHistory<PageModel>;
+  comparedPage: PageModel;
+  comparedState: PageModel;
+}
+
 export class DesignerController {
-  readonly #histories = new Map<string, CommandHistory<PageModel>>();
+  readonly #histories = new Map<string, DesignerHistory>();
   #clipboard: DesignerClipboardData | null = null;
 
   public synchronize(page: PageModel): CommandHistory<PageModel> {
     const current = this.#histories.get(page.id);
     if (!current) {
       const created = new CommandHistory(page, { maxEntries: 250 });
-      this.#histories.set(page.id, created);
+      this.#histories.set(page.id, { history: created, comparedPage: page, comparedState: page });
       return created;
     }
+    const history = current.history;
+    // Validated Project Model projections are immutable. Compare a new projection
+    // once, then reuse that result until either the model or history changes.
+    if (current.comparedPage === page && current.comparedState === history.state) return history;
     if (
-      current.state !== page &&
-      serializeVisualDocument(current.state) !== serializeVisualDocument(page)
+      history.state !== page &&
+      serializeVisualDocument(history.state) !== serializeVisualDocument(page)
     ) {
-      current.reset(page);
+      history.reset(page);
     }
-    return current;
+    current.comparedPage = page;
+    current.comparedState = history.state;
+    return history;
   }
 
   public execute(page: PageModel, command: Command<PageModel>): PageModel {
@@ -274,6 +286,7 @@ export class DesignerController {
     eventName: string,
     handlerName: string | null,
   ): PageModel {
+    if ((getComponent(page, componentId).events[eventName] ?? null) === handlerName) return page;
     return this.execute(page, new BindEventCommand(componentId, eventName, handlerName));
   }
 

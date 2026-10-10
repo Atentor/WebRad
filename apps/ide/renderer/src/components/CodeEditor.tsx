@@ -2,8 +2,9 @@ import Editor, { loader } from '@monaco-editor/react';
 import * as monacoApi from 'monaco-editor/editor';
 import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 import tsWorker from '../typescript.worker?worker';
-import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactElement } from 'react';
 import { observeMonacoFontMetrics } from '../monaco-font-metrics';
+import { synchronizeMonacoModel } from '../monaco-model-sync';
 import type { IdeCommand } from '../../../shared/contracts';
 import type { EditorProblem } from '../editor-problems';
 import {
@@ -73,6 +74,15 @@ function isEditorEditCommand(command: unknown): command is keyof typeof EDITOR_C
 const BUILD_MARKER_OWNER = 'webrad-build';
 const managedModelUris = new Set<string>();
 const buildMarkerUris = new Set<string>();
+const modelViewStates = new Map<string, monacoApi.editor.ICodeEditorViewState>();
+let appliedNavigationRequest: { readonly resource: string; readonly requestId: number } | null =
+  null;
+
+interface ModelSubscription {
+  readonly model: monacoApi.editor.ITextModel;
+  readonly disposable: monacoApi.IDisposable;
+  content: string;
+}
 
 function markerSeverity(category: EditorProblem['category']): monacoApi.MarkerSeverity {
   if (category === 'error') return monacoApi.MarkerSeverity.Error;
@@ -84,6 +94,14 @@ function disposeManagedModel(resource: string): void {
   const model = monacoApi.editor.getModel(monacoApi.Uri.parse(resource));
   if (model !== null && !model.isDisposed()) model.dispose();
   managedModelUris.delete(resource);
+  modelViewStates.delete(resource);
+}
+
+function rememberViewState(editor: monacoApi.editor.IStandaloneCodeEditor): void {
+  const model = editor.getModel();
+  if (model === null || model.isDisposed() || !managedModelUris.has(model.uri.toString())) return;
+  const state = editor.saveViewState();
+  if (state !== null) modelViewStates.set(model.uri.toString(), state);
 }
 
 function clearBuildMarkers(): void {
@@ -102,6 +120,8 @@ function clearBuildMarkers(): void {
 export function releaseMonacoWorkspace(): void {
   clearBuildMarkers();
   for (const resource of [...managedModelUris]) disposeManagedModel(resource);
+  modelViewStates.clear();
+  appliedNavigationRequest = null;
   synchronizeMonacoExtraLibraries({});
 }
 
@@ -278,34 +298,44 @@ export function CodeEditor({
 }: CodeEditorProps): ReactElement {
   const editorRef = useRef<monacoApi.editor.IStandaloneCodeEditor | null>(null);
   const editorDisposablesRef = useRef<monacoApi.IDisposable[]>([]);
-  const modelDisposablesRef = useRef(new Map<string, monacoApi.IDisposable>());
+  const modelDisposablesRef = useRef(new Map<string, ModelSubscription>());
   const synchronizingModelsRef = useRef(new Set<string>());
   const projectSourceUrisRef = useRef(new Set<string>());
   const projectSourceResourcesRef = useRef(new Map<string, string>());
   const completionResourceRef = useRef(canonicalResource(path));
+  const projectSourcesRef = useRef(projectSources);
+  const extraLibrariesRef = useRef(extraLibraries);
+  const buildProblemsRef = useRef(buildProblems);
+  const completionSessionRef = useRef(0);
+  const switchingModelRef = useRef(false);
   const pageComponentsRef = useRef(pageComponents);
   const onSourceChangeRef = useRef(onSourceChange);
   const onMarkersChangeRef = useRef(onMarkersChange);
   const onCursorChangeRef = useRef(onCursorChange);
   const onSaveRef = useRef(onSave);
   const navigateToRef = useRef<EditorNavigationTarget | null | undefined>(navigateTo);
-  const appliedNavigationRequestRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     onSourceChangeRef.current = onSourceChange;
     onMarkersChangeRef.current = onMarkersChange;
     onCursorChangeRef.current = onCursorChange;
     onSaveRef.current = onSave;
   }, [onCursorChange, onMarkersChange, onSave, onSourceChange]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     navigateToRef.current = navigateTo;
   }, [navigateTo]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     completionResourceRef.current = canonicalResource(path);
     pageComponentsRef.current = pageComponents;
   }, [pageComponents, path]);
+
+  useLayoutEffect(() => {
+    projectSourcesRef.current = projectSources;
+    extraLibrariesRef.current = extraLibraries;
+    buildProblemsRef.current = buildProblems;
+  }, [buildProblems, extraLibraries, projectSources]);
 
   const publishMarkers = useCallback((): void => {
     const markers = [...projectSourceUrisRef.current].flatMap((resource) =>
@@ -318,7 +348,7 @@ export function CodeEditor({
 
   const synchronizeProjectModels = useCallback((): void => {
     const canonicalSources = new Map(
-      Object.entries(projectSources).map(([resource, content]) => [
+      Object.entries(projectSourcesRef.current).map(([resource, content]) => [
         canonicalResource(resource),
         { content, externalResource: resource },
       ]),
@@ -331,7 +361,7 @@ export function CodeEditor({
 
     for (const resource of [...managedModelUris]) {
       if (nextResources.has(resource)) continue;
-      modelDisposablesRef.current.get(resource)?.dispose();
+      modelDisposablesRef.current.get(resource)?.disposable.dispose();
       modelDisposablesRef.current.delete(resource);
       disposeManagedModel(resource);
     }
@@ -340,36 +370,43 @@ export function CodeEditor({
       const { content } = source;
       const uri = monacoApi.Uri.parse(resource);
       let model = monacoApi.editor.getModel(uri);
+      const current = modelDisposablesRef.current.get(resource);
       if (model === null) {
         model = monacoApi.editor.createModel(content, 'typescript', uri);
       } else {
         if (model.getLanguageId() !== 'typescript') {
           monacoApi.editor.setModelLanguage(model, 'typescript');
         }
-        if (model.getValue() !== content) {
+        if (current?.model !== model || current.content !== content) {
           synchronizingModelsRef.current.add(resource);
           try {
-            model.setValue(content);
+            synchronizeMonacoModel(model, model.getValue(), content, editorRef.current);
           } finally {
             synchronizingModelsRef.current.delete(resource);
           }
         }
       }
       managedModelUris.add(resource);
-      if (!modelDisposablesRef.current.has(resource)) {
-        modelDisposablesRef.current.set(
-          resource,
-          model.onDidChangeContent(() => {
+      if (current?.model !== model) {
+        current?.disposable.dispose();
+        const subscription: ModelSubscription = {
+          model,
+          content,
+          disposable: model.onDidChangeContent(() => {
             if (synchronizingModelsRef.current.has(resource)) return;
+            subscription.content = model.getValue();
             onSourceChangeRef.current(
               projectSourceResourcesRef.current.get(resource) ?? resource,
-              model.getValue(),
+              subscription.content,
             );
           }),
-        );
+        };
+        modelDisposablesRef.current.set(resource, subscription);
+      } else {
+        current.content = content;
       }
     }
-  }, [projectSources]);
+  }, []);
 
   const publishCursor = useCallback((editor: monacoApi.editor.IStandaloneCodeEditor): void => {
     const position = editor.getPosition();
@@ -393,45 +430,78 @@ export function CodeEditor({
       const model = editor.getModel();
       if (model === null || model.uri.toString() !== canonicalResource(target.resource))
         return false;
-      if (appliedNavigationRequestRef.current === target.requestId) {
-        editor.focus();
-        return true;
-      }
+      const resource = model.uri.toString();
+      if (
+        appliedNavigationRequest?.requestId === target.requestId &&
+        appliedNavigationRequest.resource === resource
+      )
+        return false;
 
-      const range = new monacoApi.Range(
-        target.line,
-        target.column ?? 1,
-        target.endLine ?? target.line,
-        target.endColumn ?? target.column ?? 1,
+      const range = model.validateRange(
+        new monacoApi.Range(
+          target.line,
+          target.column ?? 1,
+          target.endLine ?? target.line,
+          target.endColumn ?? target.column ?? 1,
+        ),
       );
       editor.setSelection(range);
       editor.revealRangeInCenter(range);
       editor.focus();
-      appliedNavigationRequestRef.current = target.requestId;
+      appliedNavigationRequest = { resource, requestId: target.requestId };
       return true;
     },
     [],
   );
 
+  const activateProjectModel = useCallback(
+    (editor: monacoApi.editor.IStandaloneCodeEditor, restoreCurrent = false): void => {
+      const resource = completionResourceRef.current;
+      const model = monacoApi.editor.getModel(monacoApi.Uri.parse(resource));
+      if (model === null || model.isDisposed()) return;
+      if (editor.getModel() !== model) {
+        rememberViewState(editor);
+        switchingModelRef.current = true;
+        try {
+          editor.setModel(model);
+        } finally {
+          switchingModelRef.current = false;
+        }
+      } else if (!restoreCurrent) {
+        return;
+      }
+      const state = modelViewStates.get(resource);
+      if (state !== undefined) editor.restoreViewState(state);
+      const navigated = applyNavigation(editor, navigateToRef.current);
+      publishCursor(editor);
+      if (!navigated) editor.focus();
+    },
+    [applyNavigation, publishCursor],
+  );
+
   const beforeMount = (): void => {
     configureMonaco();
-    synchronizeMonacoExtraLibraries(extraLibraries);
+    synchronizeMonacoExtraLibraries(extraLibrariesRef.current);
     synchronizeProjectModels();
   };
 
   const onMount = (editor: monacoApi.editor.IStandaloneCodeEditor): void => {
     editorRef.current = editor;
+    const completionSession = ++completionSessionRef.current;
     for (const disposable of editorDisposablesRef.current) disposable.dispose();
     editorDisposablesRef.current = [
       observeMonacoFontMetrics(editor),
       monacoApi.languages.registerCompletionItemProvider('typescript', {
         provideCompletionItems: async (model, position, _context, token) => {
+          if (token.isCancellationRequested || model.isDisposed()) return { suggestions: [] };
+          const version = model.getVersionId();
+          const pageComponentSnapshot = pageComponentsRef.current;
           const word = model.getWordUntilPosition(position);
           const requestedResource = canonicalResource(model.uri.toString());
           const wordPrefix = word.word.toLowerCase();
           if (
             requestedResource !== completionResourceRef.current ||
-            !pageComponentsRef.current.some((component) =>
+            !pageComponentSnapshot.some((component) =>
               component.name.toLowerCase().startsWith(wordPrefix),
             )
           ) {
@@ -441,8 +511,16 @@ export function CodeEditor({
             requestedResource,
             model.getOffsetAt(position),
           );
-          if (token?.isCancellationRequested === true) return { suggestions: [] };
-          const matchingComponents = pageComponentsRef.current.filter((component) =>
+          if (
+            token.isCancellationRequested ||
+            model.isDisposed() ||
+            model.getVersionId() !== version ||
+            completionSessionRef.current !== completionSession ||
+            pageComponentsRef.current !== pageComponentSnapshot ||
+            completionResourceRef.current !== requestedResource
+          )
+            return { suggestions: [] };
+          const matchingComponents = pageComponentSnapshot.filter((component) =>
             component.name.toLowerCase().startsWith(wordPrefix),
           );
           const components = pageComponentCompletionSymbols(matchingComponents, {
@@ -471,6 +549,7 @@ export function CodeEditor({
       }),
       editor.onDidChangeCursorSelection(() => publishCursor(editor)),
       editor.onDidChangeModel(() => {
+        if (!switchingModelRef.current) applyNavigation(editor, navigateToRef.current);
         publishCursor(editor);
         publishMarkers();
       }),
@@ -489,18 +568,18 @@ export function CodeEditor({
       }),
     ];
     synchronizeProjectModels();
-    synchronizeMonacoExtraLibraries(extraLibraries);
-    synchronizeBuildMarkers(buildProblems);
-    const navigated = applyNavigation(editor, navigateToRef.current);
-    publishCursor(editor);
+    synchronizeMonacoExtraLibraries(extraLibrariesRef.current);
+    synchronizeBuildMarkers(buildProblemsRef.current);
+    activateProjectModel(editor, true);
     publishMarkers();
-    if (!navigated) editor.focus();
   };
 
   useEffect(() => {
     synchronizeProjectModels();
+    const editor = editorRef.current;
+    if (editor !== null) activateProjectModel(editor);
     publishMarkers();
-  }, [publishMarkers, synchronizeProjectModels]);
+  }, [activateProjectModel, path, projectSources, publishMarkers, synchronizeProjectModels]);
 
   useEffect(() => {
     synchronizeMonacoExtraLibraries(extraLibraries);
@@ -540,9 +619,14 @@ export function CodeEditor({
 
   useEffect(
     () => () => {
+      const editor = editorRef.current;
+      if (editor !== null) rememberViewState(editor);
+      completionSessionRef.current += 1;
       for (const disposable of editorDisposablesRef.current) disposable.dispose();
       editorDisposablesRef.current = [];
-      for (const disposable of modelDisposablesRef.current.values()) disposable.dispose();
+      for (const subscription of modelDisposablesRef.current.values()) {
+        subscription.disposable.dispose();
+      }
       modelDisposablesRef.current.clear();
       projectSourceResourcesRef.current.clear();
       editorRef.current = null;
@@ -580,8 +664,8 @@ export function CodeEditor({
           onMount={onMount}
           onValidate={publishMarkers}
           options={options}
-          path={path}
-          saveViewState
+          defaultPath={path}
+          saveViewState={false}
           theme={webradMonacoTheme(theme)}
           defaultValue={value}
         />

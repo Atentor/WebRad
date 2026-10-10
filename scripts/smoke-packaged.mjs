@@ -57,7 +57,7 @@ try {
 
   const timeout = setTimeout(() => {
     child.kill();
-  }, 90_000);
+  }, 120_000);
 
   const exitCode = await new Promise((resolve, reject) => {
     child.once('error', reject);
@@ -83,7 +83,7 @@ try {
         'renderer About WebRAD modal passed',
         'renderer application icon passed',
         'renderer project open passed',
-        'renderer RestGO settings passed:',
+        'renderer RestGO workspace passed:',
         'renderer RestGO browser passed:',
         'renderer CORS origin passed:',
         'renderer RestGO iframe CORS passed:',
@@ -101,6 +101,7 @@ try {
         'renderer Monaco autocomplete passed:',
         'renderer Monaco component members passed:',
         'renderer Monaco caret alignment passed:',
+        'renderer Monaco workspace state passed:',
         'renderer F9 preview passed: Olá Ada',
         'renderer Designer/Preview button style parity passed',
         'renderer Preview isolation passed:',

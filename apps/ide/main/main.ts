@@ -22,6 +22,7 @@ import { runStylesWorkspaceSmoke } from './styles-smoke';
 import { runApiClientBrowserSmoke, runApiClientDesignerSmoke } from './api-client-smoke';
 import { runMonacoCaretSmoke } from './monaco-caret-smoke';
 import { captureDesignerButtonStyle, assertPreviewButtonStyle } from './component-style-smoke';
+import type { WebRadBridge } from '../shared/contracts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -686,6 +687,13 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     `(() => ({
       shell: Boolean(document.querySelector('.wr-ide-shell')) && Boolean(document.querySelector('.wr-activity-bar')),
       toolbar: Boolean(document.querySelector('.wr-toolbar')),
+      toolbarActions: ['New project (Ctrl+N)', 'Open project (Ctrl+O)', 'Save (Ctrl+S)', 'Undo (Ctrl+Z)', 'Redo (Ctrl+Y)', 'Build and run (F9)']
+        .map(label => {
+          const button = document.querySelector('.wr-toolbar button[aria-label="' + label + '"]');
+          return button instanceof HTMLButtonElement ? !button.disabled : null;
+        }),
+      workspaceNavigation: ['Design', 'Code', 'Preview', 'Project Explorer', 'Toggle output']
+        .every(label => document.querySelector('.wr-activity-bar button[aria-label="' + label + '"]') instanceof HTMLButtonElement),
       toolbarBrandIcon: Boolean(document.querySelector('img.wr-toolbar-mark')),
       toolbarThemeToggle: Boolean(document.querySelector('.wr-theme-toggle')),
       welcomeIcon: document.querySelector('img.wr-welcome-mark')?.src ?? '',
@@ -699,24 +707,29 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   }
   const shell = Reflect.get(shellResult, 'shell');
   const toolbar = Reflect.get(shellResult, 'toolbar');
+  const toolbarActions = Reflect.get(shellResult, 'toolbarActions');
+  const workspaceNavigation = Reflect.get(shellResult, 'workspaceNavigation');
   const toolbarBrandIcon = Reflect.get(shellResult, 'toolbarBrandIcon');
   const toolbarThemeToggle = Reflect.get(shellResult, 'toolbarThemeToggle');
   const welcomeIcon = Reflect.get(shellResult, 'welcomeIcon');
   const favicon = Reflect.get(shellResult, 'favicon');
   const bridge = Reflect.get(shellResult, 'bridge');
-  const expectedBridge = [
-    'build',
-    'commands',
-    'files',
-    'lifecycle',
-    'links',
-    'platform',
-    'project',
-    'styles',
-  ];
+  const expectedBridge = Object.keys({
+    build: true,
+    commands: true,
+    files: true,
+    lifecycle: true,
+    links: true,
+    platform: true,
+    project: true,
+    restgoAdmin: true,
+    styles: true,
+  } satisfies Record<keyof WebRadBridge, true>).sort();
   if (
     shell !== true ||
     toolbar !== true ||
+    JSON.stringify(toolbarActions) !== JSON.stringify([true, true, false, false, false, false]) ||
+    workspaceNavigation !== true ||
     toolbarBrandIcon !== false ||
     toolbarThemeToggle !== false ||
     typeof welcomeIcon !== 'string' ||
@@ -1161,12 +1174,11 @@ async function createWindow(): Promise<BrowserWindow> {
     rendererSmokeStarted = true;
     void runRendererWorkflowSmoke(window)
       .then(() => {
-        app.quit();
+        app.exit(0);
       })
       .catch((error: unknown) => {
         smokeLog('renderer workflow failed', error);
-        process.exitCode = 1;
-        app.quit();
+        app.exit(1);
       });
   });
   window.webContents.on('did-fail-load', (_event, code, description) =>
@@ -1227,6 +1239,10 @@ app
   .catch((error: unknown) => {
     smokeLog('startup failed', error);
     console.error('WebRAD failed to start.', error);
+    if (smokeAutoExit) {
+      app.exit(1);
+      return;
+    }
     process.exitCode = 1;
     app.quit();
   });

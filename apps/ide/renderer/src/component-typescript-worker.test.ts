@@ -11,11 +11,11 @@ export declare class PageMainGenerated {
 }`;
 
 function workerFor(body: string, typedDeclaration = declaration) {
-  const source = `import { PageMainGenerated } from './PageMain.generated';
+  let source = `import { PageMainGenerated } from './PageMain.generated';
 export class PageMain extends PageMainGenerated {
 ${body}
 }`;
-  const model = {
+  let model = {
     uri: { path: '/project/pages/PageMain.ts', toString: () => fileName },
     version: 1,
     getValue: () => source,
@@ -27,7 +27,18 @@ ${body}
       extraLibs: { [generatedFileName]: { content: typedDeclaration, version: 1 } },
     },
   );
-  return { worker, source };
+  return {
+    worker,
+    source,
+    updateSource: (value: string) => {
+      source = value;
+      model.version += 1;
+    },
+    reopenSource: (value: string) => {
+      source = value;
+      model = { ...model, version: 1 };
+    },
+  };
 }
 
 describe('Monaco component TypeScript worker', () => {
@@ -124,6 +135,64 @@ describe('Monaco component TypeScript worker', () => {
     expect(info?.entries.some((entry) => entry.name === 'Edit1')).toBe(false);
   });
 
+  it('types method defaults with the same instance members as the body', async () => {
+    const valid = workerFor(`handler(value = Button1.caption, { text = Edit1.value } = {}) {
+      return value + text;
+    }`);
+    expect(await valid.worker.getSemanticDiagnostics(fileName)).toEqual([]);
+    const invalid = workerFor(`handler(value = Button1.missing) { return value; }`);
+    const diagnostics = await invalid.worker.getSemanticDiagnostics(fileName);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]?.code).toBe(2339);
+    expect(invalid.source.slice(diagnostics[0]?.start, (diagnostics[0]?.start ?? 0) + 7)).toBe(
+      'missing',
+    );
+    const completion = workerFor(`handler(value = Button1.ca) { return value; }`);
+    const info = await completion.worker.getCompletionsAtPosition(
+      fileName,
+      completion.source.indexOf('Button1.ca') + 'Button1.ca'.length,
+    );
+    expect(info?.entries.some((entry) => entry.name === 'caption')).toBe(true);
+  });
+
+  it('reuses stable snapshots and invalidates them after authored edits or component changes', async () => {
+    const fixture = workerFor(`handler() { Button1.caption = 'ok'; }`);
+    const initial = fixture.worker.getScriptSnapshot(fileName);
+    expect(fixture.worker.getScriptSnapshot(fileName)).toBe(initial);
+    fixture.updateSource(fixture.source.replace("'ok'", '123'));
+    const edited = fixture.worker.getScriptSnapshot(fileName);
+    expect(edited).not.toBe(initial);
+    expect(fixture.worker.getScriptSnapshot(fileName)).toBe(edited);
+    expect((await fixture.worker.getSemanticDiagnostics(fileName))[0]?.code).toBe(2322);
+
+    fixture.worker.getExtraLibs()[generatedFileName] = {
+      content: declaration.replaceAll('Button1', 'RenamedButton'),
+      version: 2,
+    };
+    const renamed = fixture.worker.getScriptSnapshot(fileName);
+    expect(renamed).not.toBe(edited);
+    expect(renamed?.getText(0, renamed.getLength())).toContain('declare const RenamedButton');
+    expect(
+      (await fixture.worker.getSemanticDiagnostics(fileName)).some(
+        (diagnostic) => diagnostic.code === 2304,
+      ),
+    ).toBe(true);
+    delete fixture.worker.getExtraLibs()[generatedFileName];
+    const detached = fixture.worker.getScriptSnapshot(fileName);
+    expect(detached?.getText(0, detached.getLength())).not.toContain('declare const');
+  });
+
+  it('refreshes native diagnostics after a document is recreated at the same path and version', async () => {
+    const fixture = workerFor(`handler() { Button1.caption = 'ok'; }`);
+    const initial = fixture.worker.getScriptSnapshot(fileName);
+    expect(await fixture.worker.getSemanticDiagnostics(fileName)).toEqual([]);
+    fixture.reopenSource(fixture.source.replace("'ok'", '123'));
+    const diagnostics = await fixture.worker.getSemanticDiagnostics(fileName);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]?.code).toBe(2322);
+    expect(fixture.worker.getScriptSnapshot(fileName)).not.toBe(initial);
+  });
+
   it('navigates to the generated field and never formats or displays synthetic declarations', async () => {
     const { worker, source } = workerFor(`handler(){Button1.caption='ok';}`);
     const definitions = await worker.getDefinitionAtPosition(fileName, source.indexOf('Button1'));
@@ -144,6 +213,31 @@ describe('Monaco component TypeScript worker', () => {
     expect(await worker.getRenameInfo(fileName, source.indexOf('Button1'), {})).toMatchObject({
       canRename: false,
     });
+  });
+
+  it('keeps component renames in the Designer for bare and this access while allowing local renames', async () => {
+    const fixture = workerFor(`handler() {
+      Button1.caption = 'bare';
+      this.Button1.caption = 'instance';
+      const local = { Button1: 'local' };
+      local.Button1;
+      { const Button1 = 'binding'; void Button1; }
+    }`);
+    for (const position of [
+      fixture.source.indexOf('Button1.caption'),
+      fixture.source.indexOf('this.Button1') + 'this.'.length,
+    ])
+      expect(await fixture.worker.getRenameInfo(fileName, position, {})).toMatchObject({
+        canRename: false,
+        localizedErrorMessage: 'Rename this component in the Designer.',
+      });
+    for (const position of [
+      fixture.source.indexOf('local.Button1') + 'local.'.length,
+      fixture.source.lastIndexOf('Button1'),
+    ])
+      expect(await fixture.worker.getRenameInfo(fileName, position, {})).toMatchObject({
+        canRename: true,
+      });
   });
 
   it('preserves shadowing in static completions and refreshes aliases after component metadata changes', async () => {

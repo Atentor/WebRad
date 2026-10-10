@@ -290,6 +290,64 @@ afterEach(() => {
 });
 
 describe('App MVP integration', () => {
+  it('isolates the icon picker from native commands and F9/F12 shortcuts', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.dblClick(screen.getByRole('button', { name: 'Button' }));
+    const button = await screen.findByTitle('Button1: WebButton');
+    await user.click(screen.getByRole('button', { name: 'Icon' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Choose an icon' });
+    await act(async () => {
+      harness.invokeCommand('file.save');
+      harness.invokeCommand('edit.delete');
+      harness.invokeCommand('run.run');
+    });
+    fireEvent.keyDown(dialog, { key: 'F9' });
+    fireEvent.keyDown(dialog, { key: 'F12' });
+    expect(harness.save).not.toHaveBeenCalled();
+    expect(harness.build).not.toHaveBeenCalled();
+    expect(button.isConnected).toBe(true);
+    expect(screen.getByRole('dialog', { name: 'Choose an icon' })).toBe(dialog);
+    await user.click(within(dialog).getByRole('button', { name: 'Close icon picker' }));
+    expect(screen.getByRole('tab', { name: 'Design' }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(window, { key: 'F9' });
+    await waitFor(() => expect(harness.build).toHaveBeenCalledOnce());
+  });
+
+  it('keeps F12 and native editing scoped to the visible workspace', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+    await user.click(screen.getByRole('button', { name: 'Styles' }));
+    const editorCommand = vi.fn();
+    const textCommand = vi.fn();
+    window.addEventListener('webrad:editor-command', editorCommand);
+    const originalExecCommand = document.execCommand;
+    document.execCommand = textCommand;
+    try {
+      await act(async () => harness.invokeCommand('edit.undo'));
+      fireEvent.keyDown(window, { key: 'F12' });
+      expect(editorCommand).not.toHaveBeenCalled();
+      expect(textCommand).toHaveBeenCalledWith('undo');
+      expect(screen.getByRole('region', { name: 'Styles editor' })).toBeDefined();
+      expect(screen.queryByTestId('mock-monaco')).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'PageMain' }));
+      await user.click(screen.getByRole('tab', { name: 'Code' }));
+      await screen.findByTestId('mock-monaco');
+      await act(async () => harness.invokeCommand('edit.undo'));
+      expect(editorCommand).toHaveBeenCalledOnce();
+    } finally {
+      window.removeEventListener('webrad:editor-command', editorCommand);
+      document.execCommand = originalExecCommand;
+    }
+  });
+
   it('reopens the last project on startup once in StrictMode with its saved source', async () => {
     const session = initialSession();
     session.userSources['pages/PageMain.ts'] += '\n// Restored authored source';
@@ -944,6 +1002,13 @@ describe('App MVP integration', () => {
       'checked',
       !originalConfiguration.showHeader,
     );
+    fireEvent.keyDown(editor.getByLabelText('Data Grid empty-state message'), { key: 'F9' });
+    fireEvent.keyDown(editor.getByLabelText('Data Grid empty-state message'), { key: 'F12' });
+    expect(harness.build).not.toHaveBeenCalled();
+    expect(harness.save).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('tab', { name: 'Design', hidden: true }).getAttribute('aria-selected'),
+    ).toBe('true');
     await act(async () => harness.invokeCommand('view.toggleTheme'));
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(screen.getByRole('dialog', { name: 'Configure Data Grid' })).toBe(dialog);

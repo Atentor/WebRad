@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 interface MockEditorProps {
   readonly beforeMount?: (monaco: unknown) => void;
   readonly defaultLanguage?: string;
+  readonly defaultPath?: string;
   readonly defaultValue?: string;
   readonly keepCurrentModel?: boolean;
   readonly language?: string;
@@ -42,6 +43,8 @@ const mocks = vi.hoisted(() => {
   interface MockCompletionModel {
     readonly uri: MockUri;
     getOffsetAt(position: { readonly lineNumber: number; readonly column: number }): number;
+    getVersionId(): number;
+    isDisposed(): boolean;
     getWordUntilPosition(position: { readonly lineNumber: number; readonly column: number }): {
       readonly word: string;
       readonly startColumn: number;
@@ -53,6 +56,8 @@ const mocks = vi.hoisted(() => {
     provideCompletionItems(
       model: MockCompletionModel,
       position: { readonly lineNumber: number; readonly column: number },
+      context?: unknown,
+      token?: { readonly isCancellationRequested: boolean },
     ): Promise<{
       readonly suggestions: readonly {
         readonly label: string;
@@ -105,6 +110,10 @@ const mocks = vi.hoisted(() => {
     let value = content;
     let languageId = language;
     let disposed = false;
+    let version = 1;
+    let eol = content.includes('\r\n') ? '\r\n' : '\n';
+    const undoHistory: string[] = [];
+    const redoHistory: string[] = [];
     const contentListeners = new Set<ContentListener>();
     const model = {
       uri: resource,
@@ -113,10 +122,27 @@ const mocks = vi.hoisted(() => {
         models.delete(resource.toString());
       }),
       fireUserChange(nextValue: string): void {
+        undoHistory.push(value);
+        redoHistory.length = 0;
         value = nextValue;
+        version += 1;
         for (const listener of contentListeners) listener();
       },
       getLanguageId: vi.fn(() => languageId),
+      getEOL: vi.fn(() => eol),
+      getOffsetAt(position: { readonly lineNumber: number; readonly column: number }): number {
+        const lines = value.split('\n');
+        return (
+          lines.slice(0, position.lineNumber - 1).reduce((sum, line) => sum + line.length + 1, 0) +
+          position.column -
+          1
+        );
+      },
+      getPositionAt(offset: number): { readonly lineNumber: number; readonly column: number } {
+        const lines = value.slice(0, offset).split('\n');
+        return { lineNumber: lines.length, column: (lines.at(-1)?.length ?? 0) + 1 };
+      },
+      getVersionId: vi.fn(() => version),
       getValue: vi.fn(() => value),
       getValueLengthInRange: vi.fn(() => 3),
       isDisposed: vi.fn(() => disposed),
@@ -124,13 +150,63 @@ const mocks = vi.hoisted(() => {
         contentListeners.add(listener);
         return disposable(() => contentListeners.delete(listener));
       }),
+      pushEditOperations: vi.fn(
+        (
+          _cursor: unknown,
+          edits: readonly { readonly range: MockRange; readonly text: string }[],
+        ) => {
+          undoHistory.push(value);
+          redoHistory.length = 0;
+          for (const edit of [...edits].reverse()) {
+            const start = model.getOffsetAt({
+              lineNumber: edit.range.startLineNumber,
+              column: edit.range.startColumn,
+            });
+            const end = model.getOffsetAt({
+              lineNumber: edit.range.endLineNumber,
+              column: edit.range.endColumn,
+            });
+            value = value.slice(0, start) + edit.text + value.slice(end);
+          }
+          version += 1;
+          for (const listener of contentListeners) listener();
+          return null;
+        },
+      ),
+      pushEOL: vi.fn((sequence: number) => {
+        eol = sequence === 1 ? '\r\n' : '\n';
+        value = value.split(/\r?\n/).join(eol);
+        version += 1;
+        for (const listener of contentListeners) listener();
+      }),
+      pushStackElement: vi.fn(),
+      redo(): void {
+        const next = redoHistory.pop();
+        if (next === undefined) return;
+        undoHistory.push(value);
+        value = next;
+        version += 1;
+        for (const listener of contentListeners) listener();
+      },
       setLanguage(nextLanguage: string): void {
         languageId = nextLanguage;
       },
       setValue: vi.fn((nextValue: string) => {
+        undoHistory.length = 0;
+        redoHistory.length = 0;
         value = nextValue;
+        version += 1;
         for (const listener of contentListeners) listener();
       }),
+      undo(): void {
+        const previous = undoHistory.pop();
+        if (previous === undefined) return;
+        redoHistory.push(value);
+        value = previous;
+        version += 1;
+        for (const listener of contentListeners) listener();
+      },
+      validateRange: vi.fn((range: MockRange) => range),
     };
     return model;
   }
@@ -171,9 +247,17 @@ const mocks = vi.hoisted(() => {
   });
   const registerCompletionItemProvider = vi.fn(
     (_language: string, provider: MockCompletionProvider) => {
-      completion.provider = provider;
+      const registeredProvider: MockCompletionProvider = {
+        provideCompletionItems: (
+          model,
+          position,
+          context = {},
+          token = { isCancellationRequested: false },
+        ) => provider.provideCompletionItems(model, position, context, token),
+      };
+      completion.provider = registeredProvider;
       return disposable(() => {
-        if (completion.provider === provider) completion.provider = undefined;
+        if (completion.provider === registeredProvider) completion.provider = undefined;
       });
     },
   );
@@ -184,6 +268,7 @@ const mocks = vi.hoisted(() => {
   const webradMonacoTheme = vi.fn((theme: 'dark' | 'light') => `webrad-${theme}`);
 
   const createEditor = (resource: string) => {
+    let currentModel = models.get(resource) ?? null;
     const selectionListeners = new Set<() => void>();
     const modelListeners = new Set<() => void>();
     const actions = new Map<string, { readonly run: () => void }>();
@@ -195,9 +280,18 @@ const mocks = vi.hoisted(() => {
         return disposable(() => actions.delete(action.id));
       }),
       findRun,
+      executeEdits: vi.fn(
+        (
+          _source: string,
+          edits: readonly { readonly range: MockRange; readonly text: string }[],
+        ) => {
+          currentModel?.pushEditOperations(null, edits);
+          return true;
+        },
+      ),
       focus: vi.fn(),
       getAction: vi.fn((id: string) => (id === 'actions.find' ? { run: findRun } : null)),
-      getModel: vi.fn(() => models.get(resource) ?? null),
+      getModel: vi.fn(() => currentModel),
       getPosition: vi.fn(() => ({ lineNumber: 3, column: 5 })),
       getSelection: vi.fn(() => new MockRange(3, 2, 3, 5)),
       onDidChangeCursorSelection: vi.fn((listener: () => void) => {
@@ -209,7 +303,20 @@ const mocks = vi.hoisted(() => {
         return disposable(() => modelListeners.delete(listener));
       }),
       revealRangeInCenter: vi.fn(),
-      trigger: vi.fn(),
+      restoreViewState: vi.fn(),
+      saveViewState: vi.fn(() => ({
+        cursorState: [],
+        viewState: { scrollTop: 100, scrollLeft: 0 },
+        contributionsState: {},
+      })),
+      setModel: vi.fn((model: typeof currentModel) => {
+        currentModel = model;
+        for (const listener of modelListeners) listener();
+      }),
+      trigger: vi.fn((_source: string, action: string) => {
+        if (action === 'undo') currentModel?.undo();
+        if (action === 'redo') currentModel?.redo();
+      }),
       setSelection: vi.fn(),
     };
     return editor;
@@ -394,8 +501,8 @@ describe('CodeEditor professional Monaco workspace', () => {
       defaultValue: props.value,
       keepCurrentModel: true,
       language: 'typescript',
-      path: MAIN_RESOURCE,
-      saveViewState: true,
+      defaultPath: MAIN_RESOURCE,
+      saveViewState: false,
       theme: 'webrad-dark',
     });
     expect(mocks.editorProps?.options).toMatchObject({
@@ -443,7 +550,13 @@ describe('CodeEditor professional Monaco workspace', () => {
     });
     rerender(<CodeEditor {...nextProps} />);
 
-    expect(mainModel?.setValue).toHaveBeenCalledWith('export class PageMain { answer = 43; }');
+    expect(mainModel?.getValue()).toBe('export class PageMain { answer = 43; }');
+    expect(mainModel?.setValue).not.toHaveBeenCalled();
+    expect(mainModel?.pushEditOperations).toHaveBeenCalledWith(
+      null,
+      [expect.objectContaining({ text: '3' })],
+      expect.any(Function),
+    );
     expect(onSourceChange).not.toHaveBeenCalled();
     expect(otherModel?.dispose).toHaveBeenCalledOnce();
     expect(mocks.models.has(CANONICAL_OTHER_RESOURCE)).toBe(false);
@@ -468,6 +581,8 @@ describe('CodeEditor professional Monaco workspace', () => {
       {
         uri: { value: CANONICAL_MAIN_RESOURCE, toString: () => CANONICAL_MAIN_RESOURCE },
         getOffsetAt: () => 120,
+        getVersionId: () => 1,
+        isDisposed: () => false,
         getWordUntilPosition: () => ({ word: 'Butt', startColumn: 5, endColumn: 9 }),
       },
       { lineNumber: 7, column: 9 },
@@ -499,6 +614,8 @@ describe('CodeEditor professional Monaco workspace', () => {
       {
         uri: { value: CANONICAL_MAIN_RESOURCE, toString: () => CANONICAL_MAIN_RESOURCE },
         getOffsetAt: () => 130,
+        getVersionId: () => 1,
+        isDisposed: () => false,
         getWordUntilPosition: () => ({ word: 'Butt', startColumn: 6, endColumn: 10 }),
       },
       { lineNumber: 1, column: 10 },
@@ -509,12 +626,236 @@ describe('CodeEditor professional Monaco workspace', () => {
       {
         uri: { value: CANONICAL_OTHER_RESOURCE, toString: () => CANONICAL_OTHER_RESOURCE },
         getOffsetAt: () => 10,
+        getVersionId: () => 1,
+        isDisposed: () => false,
         getWordUntilPosition: () => ({ word: 'Butt', startColumn: 1, endColumn: 5 }),
       },
       { lineNumber: 1, column: 5 },
     );
     expect(otherResource.suggestions).toEqual([]);
   });
+
+  it('preserves typed edits in undo history when the Project Model inserts or changes source', () => {
+    const onSourceChange = vi.fn();
+    const props = codeEditorProps({ onSourceChange });
+    const { rerender } = render(<CodeEditor {...props} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    const model = mocks.models.get(CANONICAL_MAIN_RESOURCE);
+    const typedSource = 'export class PageMain { answer = 42; }';
+    const projectedSource = 'export class PageMain { answer = 43; }';
+    model?.fireUserChange(typedSource);
+    onSourceChange.mockClear();
+
+    rerender(
+      <CodeEditor
+        {...props}
+        projectSources={{ ...props.projectSources, [MAIN_RESOURCE]: projectedSource }}
+        value={projectedSource}
+      />,
+    );
+
+    expect(editor.executeEdits).toHaveBeenCalledWith('webrad.project-model', [
+      expect.objectContaining({ text: '3' }),
+    ]);
+    expect(model?.setValue).not.toHaveBeenCalled();
+    expect(onSourceChange).not.toHaveBeenCalled();
+    window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail: 'edit.undo' }));
+    expect(model?.getValue()).toBe(typedSource);
+    expect(onSourceChange).toHaveBeenLastCalledWith(MAIN_RESOURCE, typedSource);
+    window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail: 'edit.undo' }));
+    expect(model?.getValue()).toBe(props.value);
+    window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail: 'edit.redo' }));
+    expect(model?.getValue()).toBe(typedSource);
+  });
+
+  it('does not read every source buffer again when React acknowledges a typed edit', () => {
+    const props = codeEditorProps();
+    const { rerender } = render(<CodeEditor {...props} />);
+    const model = mocks.models.get(CANONICAL_MAIN_RESOURCE);
+    const otherModel = mocks.models.get(CANONICAL_OTHER_RESOURCE);
+    const source = 'export class PageMain { answer = 42; }';
+    model?.fireUserChange(source);
+    model?.getValue.mockClear();
+    otherModel?.getValue.mockClear();
+
+    rerender(
+      <CodeEditor
+        {...props}
+        value={source}
+        projectSources={{ ...props.projectSources, [MAIN_RESOURCE]: source }}
+      />,
+    );
+
+    expect(model?.getValue).not.toHaveBeenCalled();
+    expect(otherModel?.getValue).not.toHaveBeenCalled();
+    expect(model?.pushEditOperations).not.toHaveBeenCalled();
+  });
+
+  it('uses the current workspace snapshot when Monaco initializes after a source change', () => {
+    const props = codeEditorProps();
+    const { rerender } = render(<CodeEditor {...props} />);
+    const beforeMount = mocks.editorProps?.beforeMount;
+    const onMount = mocks.editorProps?.onMount;
+    const source = 'export class PageMain { answer = 42; }';
+    const nextLibraries = { 'file:///runtime.d.ts': 'declare const current: 42;' };
+    const nextProblem = buildProblem({ message: 'Current build result' });
+    const onSourceChange = vi.fn();
+
+    rerender(
+      <CodeEditor
+        {...props}
+        extraLibraries={nextLibraries}
+        buildProblems={[nextProblem]}
+        onSourceChange={onSourceChange}
+        value={source}
+        projectSources={{ [MAIN_RESOURCE]: source }}
+      />,
+    );
+    beforeMount?.({});
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    onMount?.(editor);
+
+    expect(mocks.models.get(CANONICAL_MAIN_RESOURCE)?.getValue()).toBe(source);
+    expect(mocks.models.has(CANONICAL_OTHER_RESOURCE)).toBe(false);
+    expect(mocks.synchronizeMonacoExtraLibraries).toHaveBeenLastCalledWith(nextLibraries);
+    expect(mocks.setModelMarkers).toHaveBeenLastCalledWith(
+      mocks.models.get(CANONICAL_MAIN_RESOURCE),
+      'webrad-build',
+      [expect.objectContaining({ message: 'Current build result' })],
+    );
+    mocks.models.get(CANONICAL_MAIN_RESOURCE)?.fireUserChange(`${source}\n`);
+    expect(onSourceChange).toHaveBeenLastCalledWith(MAIN_RESOURCE, `${source}\n`);
+    expect(props.onSourceChange).not.toHaveBeenCalled();
+  });
+
+  it('owns cursor, scroll, and folding restoration across documents and Code/Designer switches', () => {
+    const props = codeEditorProps();
+    const { rerender, unmount } = render(<CodeEditor {...props} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    const state = {
+      cursorState: [],
+      viewState: { scrollTop: 340, scrollLeft: 20 },
+      contributionsState: { folding: [3] },
+    };
+    editor.saveViewState.mockReturnValue(state);
+
+    rerender(
+      <CodeEditor
+        {...props}
+        path={OTHER_RESOURCE}
+        value={props.projectSources[OTHER_RESOURCE] ?? ''}
+      />,
+    );
+    expect(editor.setModel).toHaveBeenLastCalledWith(mocks.models.get(CANONICAL_OTHER_RESOURCE));
+    rerender(<CodeEditor {...props} />);
+    expect(editor.restoreViewState).toHaveBeenLastCalledWith(state);
+    unmount();
+
+    render(<CodeEditor {...props} />);
+    const remounted = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(remounted);
+    expect(remounted.restoreViewState).toHaveBeenCalledWith(state);
+    expect(mocks.editorProps?.saveViewState).toBe(false);
+  });
+
+  it('restores a document before applying navigation and does not replay it after a view switch', () => {
+    const props = codeEditorProps();
+    const { rerender, unmount } = render(<CodeEditor {...props} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    rerender(<CodeEditor {...props} path={OTHER_RESOURCE} />);
+    rerender(<CodeEditor {...props} />);
+    const navigateTo = { resource: OTHER_RESOURCE, line: 5, column: 4, requestId: 9 };
+    rerender(<CodeEditor {...props} navigateTo={navigateTo} />);
+    expect(editor.setSelection).not.toHaveBeenCalled();
+    editor.restoreViewState.mockClear();
+    rerender(<CodeEditor {...props} path={OTHER_RESOURCE} navigateTo={navigateTo} />);
+    expect(editor.setSelection).toHaveBeenCalledOnce();
+    expect(editor.restoreViewState.mock.invocationCallOrder[0]).toBeLessThan(
+      editor.setSelection.mock.invocationCallOrder[0] ?? 0,
+    );
+    unmount();
+
+    render(<CodeEditor {...props} path={OTHER_RESOURCE} navigateTo={navigateTo} />);
+    const remounted = mocks.createEditor(CANONICAL_OTHER_RESOURCE);
+    mocks.editorProps?.onMount?.(remounted);
+    expect(remounted.restoreViewState).toHaveBeenCalledOnce();
+    expect(remounted.setSelection).not.toHaveBeenCalled();
+  });
+
+  it('clears saved editor state when closing the workspace and reconnects recreated models', () => {
+    const props = codeEditorProps();
+    const { rerender, unmount } = render(<CodeEditor {...props} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    rerender(<CodeEditor {...props} path={OTHER_RESOURCE} />);
+    releaseMonacoWorkspace();
+    rerender(<CodeEditor {...props} projectSources={{ ...props.projectSources }} />);
+    const recreated = mocks.models.get(CANONICAL_MAIN_RESOURCE);
+    recreated?.fireUserChange('export class PageMain { recreated = true; }');
+    expect(props.onSourceChange).toHaveBeenLastCalledWith(
+      MAIN_RESOURCE,
+      'export class PageMain { recreated = true; }',
+    );
+    expect(editor.restoreViewState).not.toHaveBeenCalled();
+    unmount();
+    releaseMonacoWorkspace();
+
+    render(<CodeEditor {...props} />);
+    const reopened = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(reopened);
+    expect(reopened.restoreViewState).not.toHaveBeenCalled();
+  });
+
+  it.each(['document change', 'typing', 'cancellation', 'disposal', 'unmount'] as const)(
+    'discards a pending object completion after %s',
+    async (change) => {
+      const props = codeEditorProps();
+      const { rerender, unmount } = render(<CodeEditor {...props} />);
+      const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+      mocks.editorProps?.onMount?.(editor);
+      const provider = mocks.completion.provider;
+      if (provider === undefined) throw new Error('Missing object completion provider.');
+      let resolve!: (value: boolean) => void;
+      mocks.isTypeScriptThisExpressionPosition.mockReturnValueOnce(
+        new Promise<boolean>((resolvePromise) => {
+          resolve = resolvePromise;
+        }),
+      );
+      let version = 1;
+      let disposed = false;
+      const token = { isCancellationRequested: false };
+      const pending = provider.provideCompletionItems(
+        {
+          uri: { value: CANONICAL_MAIN_RESOURCE, toString: () => CANONICAL_MAIN_RESOURCE },
+          getOffsetAt: () => 120,
+          getVersionId: () => version,
+          isDisposed: () => disposed,
+          getWordUntilPosition: () => ({ word: 'Butt', startColumn: 5, endColumn: 9 }),
+        },
+        { lineNumber: 7, column: 9 },
+        {},
+        token,
+      );
+      if (change === 'document change')
+        rerender(
+          <CodeEditor
+            {...props}
+            path={OTHER_RESOURCE}
+            pageComponents={[{ name: 'ButtonOther', type: 'WebButton' }]}
+          />,
+        );
+      if (change === 'typing') version += 1;
+      if (change === 'cancellation') token.isCancellationRequested = true;
+      if (change === 'disposal') disposed = true;
+      if (change === 'unmount') unmount();
+      resolve(true);
+
+      await expect(pending).resolves.toEqual({ suggestions: [] });
+    },
+  );
 
   it('applies a pending navigation when Monaco mounts after switching to Code', () => {
     const navigation = {

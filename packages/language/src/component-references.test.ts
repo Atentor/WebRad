@@ -95,6 +95,44 @@ describe('instance component references', () => {
     expect(block.edits).toHaveLength(1);
   });
 
+  it('keeps top-level loop and catch bindings local while honoring module var declarations', () => {
+    const result = analyze(`for (let Button1 of []) { Button1; }
+      for (const Edit1 of []) { Edit1; }
+      try {} catch (Button1) { Button1; }
+      export class PageMain extends PageMainGenerated {
+        handler() { return { Button1, Edit1 }; }
+      }`);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.edits).toHaveLength(2);
+    expect(result.output).toContain('return { Button1: this.Button1, Edit1: this.Edit1 }');
+    expect(result.output).toContain('for (let Button1 of []) { Button1; }');
+
+    const moduleVar = analyze(`for (var Button1 of []) { Button1; }
+      export class PageMain extends PageMainGenerated { handler() { return { Button1, Edit1 }; } }`);
+    expect(moduleVar.edits).toHaveLength(1);
+    expect(moduleVar.output).toContain('return { Button1, Edit1: this.Edit1 }');
+  });
+
+  it('uses the receiver in method parameter defaults and destructuring defaults', () => {
+    const result = analyze(`export class PageMain extends PageMainGenerated {
+      handler(value = Button1.caption, { text = Edit1.value } = {}) { return value + text; }
+      callback(action = () => Button1.enabled = false) { action(); }
+    }`);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.edits).toHaveLength(3);
+    expect(result.output).toContain('value = this.Button1.caption');
+    expect(result.output).toContain('{ text = this.Edit1.value }');
+    expect(result.output).toContain('() => this.Button1.enabled = false');
+    expect(
+      isComponentReferencePosition(
+        ts,
+        result.file,
+        result.authored.indexOf('Button1.caption'),
+        scope,
+      ),
+    ).toBe(true);
+  });
+
   it.each([
     'Button1.enabled = false;',
     'export { Button1 };',
@@ -105,6 +143,8 @@ describe('instance component references', () => {
     'export class Unrelated { handler() { return Button1; } }',
     'export class PageMain extends PageMainGenerated { constructor() { Button1.caption = "early"; super(document.body); } }',
     'export class PageMain extends PageMainGenerated { [Button1.caption]() {} }',
+    'export class PageMain extends PageMainGenerated { constructor(value = Button1.caption) { super(value); } }',
+    'export class PageMain extends PageMainGenerated { static handler(value = Button1.caption) {} }',
   ])('rejects component access without the page instance: %s', (source) => {
     const result = analyze(source);
     expect(result.edits).toEqual([]);
@@ -117,7 +157,7 @@ describe('instance component references', () => {
 
   it('supports constructors after super and leaves type queries as ordinary TypeScript', () => {
     const result = analyze(`export class PageMain extends PageMainGenerated {
-      constructor(element: HTMLElement) { super(element); Button1.caption = 'ready'; }
+      constructor(element: HTMLElement) { super(element);Button1.caption = 'ready'; }
       handler(value: typeof Edit1) { return value; }
     }`);
     expect(result.diagnostics).toEqual([]);

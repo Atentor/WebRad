@@ -74,7 +74,8 @@ export function appendComponentReferenceDeclarations(
       const list = node.parent;
       if (
         api.isVariableDeclarationList(list) &&
-        ((list.flags & api.NodeFlags.BlockScoped) === 0 || list.parent.parent === sourceFile)
+        ((list.flags & api.NodeFlags.BlockScoped) === 0 ||
+          (api.isVariableStatement(list.parent) && list.parent.parent === sourceFile))
       )
         collectBinding(node.name);
     }
@@ -147,14 +148,14 @@ function hasInstanceContext(
             api.isCallExpression(statement.expression) &&
             statement.expression.expression.kind === api.SyntaxKind.SuperKeyword,
         );
-        return superStatement !== undefined && node.getStart() > superStatement.end;
+        return superStatement !== undefined && node.getStart() >= superStatement.end;
       }
       return (
         ((api.isMethodDeclaration(child) ||
           api.isGetAccessorDeclaration(child) ||
           api.isSetAccessorDeclaration(child)) &&
-          child.body !== undefined &&
-          node.getStart() >= child.body.getStart()) ||
+          ((child.body !== undefined && node.getStart() >= child.body.getStart()) ||
+            isParameterInitializer(api, node, child))) ||
         (api.isPropertyDeclaration(child) &&
           child.initializer !== undefined &&
           node.getStart() >= child.initializer.getStart())
@@ -170,6 +171,23 @@ function hasInstanceContext(
     )
       return false;
   }
+  return false;
+}
+
+/** Method defaults evaluate with the instance receiver, including destructuring defaults. */
+function isParameterInitializer(
+  api: typeof ts,
+  node: ts.Node,
+  method: ts.SignatureDeclaration,
+): boolean {
+  let child = node;
+  for (
+    let parent = node.parent;
+    parent && parent !== method;
+    child = parent, parent = parent.parent
+  )
+    if ((api.isParameter(parent) || api.isBindingElement(parent)) && parent.initializer === child)
+      return true;
   return false;
 }
 
@@ -289,9 +307,13 @@ export function applyComponentReferenceEdits(
   source: string,
   edits: readonly ComponentReferenceEdit[],
 ): string {
-  let result = source;
-  for (const edit of [...edits].sort((left, right) => right.start - left.start)) {
-    result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
+  if (edits.length === 0) return source;
+  const chunks: string[] = [];
+  let offset = 0;
+  for (const edit of [...edits].sort((left, right) => left.start - right.start)) {
+    chunks.push(source.slice(offset, edit.start), edit.text);
+    offset = edit.end;
   }
-  return result;
+  chunks.push(source.slice(offset));
+  return chunks.join('');
 }

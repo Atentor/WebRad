@@ -14,6 +14,7 @@ import {
   ResizeCommand,
   SelectionManager,
   SendToBackCommand,
+  normalizeTopLevelIds,
   snapPoint,
 } from '@webrad/designer';
 import {
@@ -102,6 +103,7 @@ import {
   type MonacoMarkerLike,
 } from './editor-problems';
 import { canonicalMonacoResource } from './monaco-resource';
+import { editCommandTarget, executeTextEditingCommand } from './workbench-commands';
 import { DesignerController } from './state/designer-controller';
 import { ProjectController } from './state/project-controller';
 
@@ -164,28 +166,6 @@ function selectionNodes(page: PageModel | null, ids: readonly string[]): readonl
   if (!page) return [];
   const idSet = new Set(ids);
   return page.components.filter((component) => idSet.has(component.id));
-}
-
-function isTextEditingElement(element: Element | null): boolean {
-  return (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement ||
-    (element instanceof HTMLElement && element.isContentEditable)
-  );
-}
-
-function executeTextEditingCommand(command: IdeCommand): void {
-  const commandNames: Partial<Record<IdeCommand, string>> = {
-    'edit.undo': 'undo',
-    'edit.redo': 'redo',
-    'edit.cut': 'cut',
-    'edit.copy': 'copy',
-    'edit.paste': 'paste',
-    'edit.delete': 'delete',
-  };
-  const commandName = commandNames[command];
-  if (commandName !== undefined) document.execCommand(commandName);
 }
 
 export function App(): ReactElement {
@@ -302,6 +282,19 @@ export function App(): ReactElement {
       ) ?? null,
     [activePage, comboBoxConfiguratorComponentId],
   );
+  const modalOpen =
+    aboutDialogOpen ||
+    newProjectDialogOpen ||
+    addDocumentDialogKind !== null ||
+    iconPickerOpen ||
+    projectSettingsDialogOpen ||
+    apiClientTesterComponent !== null ||
+    dataGridConfiguratorComponent !== null ||
+    comboBoxConfiguratorComponent !== null;
+  const codeEditorVisible =
+    activeWorkspace === 'page' &&
+    activeView !== 'preview' &&
+    (activeSourceFile !== undefined || (activePage !== null && activeView === 'code'));
 
   const addOutput = useCallback((category: string, message: string): void => {
     setOutput((current) => [
@@ -459,7 +452,7 @@ export function App(): ReactElement {
 
   const updateActivePage = useCallback(
     (nextPage: PageModel): void => {
-      if (!activePage) return;
+      if (!activePage || nextPage === activePage) return;
       if (activeDocumentKind === 'reusable') {
         projectController.updateReusableElement(activePage.id, () => nextPage);
       } else {
@@ -576,15 +569,7 @@ export function App(): ReactElement {
     (ids: readonly string[], delta: { x: number; y: number }): void => {
       if (!activePage) return;
       try {
-        const selected = new Set(ids);
-        const topLevelIds = ids.filter((id) => {
-          let parentId = getComponent(activePage, id).parentId;
-          while (parentId !== null) {
-            if (selected.has(parentId)) return false;
-            parentId = getComponent(activePage, parentId).parentId;
-          }
-          return true;
-        });
+        const topLevelIds = normalizeTopLevelIds(activePage, ids);
         const groups = new Map<string, string[]>();
         for (const id of topLevelIds) {
           if (id === activePage.rootComponentId) continue;
@@ -592,18 +577,11 @@ export function App(): ReactElement {
           if (!component.parentId) continue;
           groups.set(component.parentId, [...(groups.get(component.parentId) ?? []), id]);
         }
-        const commands = [...groups.values()].map((group) => {
-          const hasFloatingReusableElement = group.some((id) => {
-            const component = getComponent(activePage, id);
-            return (
-              component.type === 'WebReusableElement' && component.props.placement === 'floating'
-            );
-          });
-          return new MoveCommand(group, delta, {
-            snapToGrid: false,
-            constrainToParent: !hasFloatingReusableElement,
-          });
-        });
+        // Designer geometry already accounts for responsive dimensions, intrinsic
+        // content, padding and zoom. Persist its delta without applying fallback bounds again.
+        const commands = [...groups.values()].map(
+          (group) => new MoveCommand(group, delta, { snapToGrid: false, constrainToParent: false }),
+        );
         if (commands.length === 0) return;
         const next = designerController.executeMany(activePage, 'Move selection', commands);
         updateActivePage(next);
@@ -1384,34 +1362,29 @@ export function App(): ReactElement {
   const executeCommand = useCallback(
     (command: IdeCommand, target?: 'designer'): void => {
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
-      if (dataGridConfiguratorComponent !== null && command !== 'view.toggleTheme') return;
-      if (comboBoxConfiguratorComponent !== null && command !== 'view.toggleTheme') return;
       if (
-        aboutDialogOpen ||
-        newProjectDialogOpen ||
-        addDocumentDialogKind !== null ||
-        projectSettingsDialogOpen ||
-        apiClientTesterComponentId !== null
+        modalOpen &&
+        !(
+          command === 'view.toggleTheme' &&
+          (dataGridConfiguratorComponent !== null || comboBoxConfiguratorComponent !== null)
+        )
       ) {
         return;
       }
-      if (
-        target !== 'designer' &&
-        command.startsWith('edit.') &&
-        activeView === 'code' &&
-        (!isTextEditingElement(document.activeElement) ||
-          document.activeElement?.closest('.monaco-editor') !== null)
-      ) {
-        window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail: command }));
-        return;
-      }
-      if (
-        target !== 'designer' &&
-        command.startsWith('edit.') &&
-        (activeView !== 'design' || isTextEditingElement(document.activeElement))
-      ) {
-        executeTextEditingCommand(command);
-        return;
+      if (target !== 'designer' && command.startsWith('edit.')) {
+        const editTarget = editCommandTarget(
+          codeEditorVisible,
+          activeWorkspace === 'page' && activePage !== null && activeView === 'design',
+          document.activeElement,
+        );
+        if (editTarget === 'editor') {
+          window.dispatchEvent(new CustomEvent('webrad:editor-command', { detail: command }));
+          return;
+        }
+        if (editTarget === 'text') {
+          executeTextEditingCommand(command);
+          return;
+        }
       }
       switch (command) {
         case 'help.about':
@@ -1501,7 +1474,6 @@ export function App(): ReactElement {
       }
     },
     [
-      aboutDialogOpen,
       addPageToProject,
       addReusableElementToProject,
       openAddDocumentDialog,
@@ -1509,16 +1481,14 @@ export function App(): ReactElement {
       activeWorkspace,
       activePage,
       activeView,
-      addDocumentDialogKind,
-      apiClientTesterComponentId,
+      codeEditorVisible,
+      modalOpen,
       closeProject,
       copySelection,
       deleteSelection,
-      newProjectDialogOpen,
       openNewProjectDialog,
       openProject,
       pasteSelection,
-      projectSettingsDialogOpen,
       redo,
       runProject,
       saveProject,
@@ -1532,8 +1502,10 @@ export function App(): ReactElement {
 
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || event.isComposing || event.repeat || modalOpen) return;
       if (event.key === 'F12') {
-        if (activeWorkspace === 'styles' || activeSourceFile || activeAsset) return;
+        if (activeWorkspace !== 'page' || activePage === null || activeSourceFile || activeAsset)
+          return;
         const target = event.target;
         if (
           activeView === 'code' &&
@@ -1546,12 +1518,20 @@ export function App(): ReactElement {
         setActiveView((current) => (current === 'design' ? 'code' : 'design'));
       } else if (event.key === 'F9') {
         event.preventDefault();
-        void runProject();
+        executeCommand('run.run');
       }
     };
     window.addEventListener('keydown', keyHandler);
     return () => window.removeEventListener('keydown', keyHandler);
-  }, [activeView, activeWorkspace, activeSourceFile, activeAsset, runProject]);
+  }, [
+    activeView,
+    activeWorkspace,
+    activePage,
+    activeSourceFile,
+    activeAsset,
+    executeCommand,
+    modalOpen,
+  ]);
 
   const documents: readonly DocumentTab[] = useMemo(() => {
     const pageDocuments: readonly DocumentTab[] = openPageIds.flatMap<DocumentTab>((id) => {
@@ -1939,16 +1919,6 @@ export function App(): ReactElement {
           bounds: primaryComponentAppearsOnCanvas ? primaryComponent?.bounds : undefined,
           zoom,
         } as const);
-  const modalOpen =
-    aboutDialogOpen ||
-    newProjectDialogOpen ||
-    addDocumentDialogKind !== null ||
-    iconPickerOpen ||
-    projectSettingsDialogOpen ||
-    apiClientTesterComponent !== null ||
-    dataGridConfiguratorComponent !== null ||
-    comboBoxConfiguratorComponent !== null;
-
   return (
     <ProjectColorPaletteContext.Provider value={project?.settings.colorPalette ?? []}>
       <style data-webrad-color-palette>

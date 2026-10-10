@@ -299,7 +299,7 @@ interface RenderSurfaceOptions {
   ) => void;
   readonly onComponentActivate?: (componentId: string) => void;
   readonly onOpenReusableElement?: (reusableElementId: string) => void;
-  readonly onDefaultEvent?: (componentId: string) => void;
+  readonly onMoveComponents?: (ids: readonly string[], delta: { x: number; y: number }) => void;
   readonly onResizeComponent?: (id: string, bounds: ComponentNode['bounds']) => void;
   readonly reusableElements?: readonly ReusableElementModel[];
 }
@@ -311,20 +311,24 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
   const onReorderComponents = options.onReorderComponents ?? vi.fn();
   const onComponentActivate = options.onComponentActivate ?? vi.fn();
   const onOpenReusableElement = options.onOpenReusableElement ?? vi.fn();
-  const onDefaultEvent = options.onDefaultEvent ?? vi.fn();
+  const onMoveComponents = options.onMoveComponents ?? vi.fn();
   const onResizeComponent = options.onResizeComponent ?? vi.fn();
-  const renderDesignerSurface = (selectedIds: readonly string[]) => (
+  const renderDesignerSurface = (
+    selectedIds: readonly string[],
+    currentPage = page,
+    currentZoom = options.zoom ?? 100,
+  ) => (
     <DesignerSurface
-      page={page}
+      page={currentPage}
       reusableElements={options.reusableElements}
       settings={DEFAULT_PROJECT_SETTINGS}
       selectedIds={selectedIds}
       selectedPaletteType={options.selectedPaletteType ?? null}
-      zoom={options.zoom ?? 100}
+      zoom={currentZoom}
       onSelect={onSelect}
       onAddComponent={onAddComponent}
       onAddReusableElement={onAddReusableElement}
-      onMoveComponents={vi.fn()}
+      onMoveComponents={onMoveComponents}
       onReorderComponents={onReorderComponents}
       onResizeComponent={onResizeComponent}
       onDeleteSelection={vi.fn()}
@@ -337,7 +341,6 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
       onZoomChange={vi.fn()}
       onComponentActivate={onComponentActivate}
       onOpenReusableElement={onOpenReusableElement}
-      onDefaultEvent={onDefaultEvent}
     />
   );
   const view = render(renderDesignerSurface(options.selectedIds ?? []));
@@ -345,16 +348,643 @@ function renderSurface(page: PageModel = responsivePage(), options: RenderSurfac
     ...view,
     rerenderWithSelectedIds: (selectedIds: readonly string[]) =>
       view.rerender(renderDesignerSurface(selectedIds)),
+    rerenderWithPage: (currentPage: PageModel) =>
+      view.rerender(renderDesignerSurface(options.selectedIds ?? [], currentPage)),
+    rerenderWithZoom: (currentZoom: number) =>
+      view.rerender(renderDesignerSurface(options.selectedIds ?? [], page, currentZoom)),
     onSelect,
     onAddComponent,
     onAddReusableElement,
     onReorderComponents,
     onComponentActivate,
     onOpenReusableElement,
-    onDefaultEvent,
+    onMoveComponents,
     onResizeComponent,
   };
 }
+
+function fixedPage(): PageModel {
+  const page = responsivePage();
+  return {
+    ...page,
+    components: page.components.map((node) =>
+      node.id === page.rootComponentId
+        ? {
+            ...node,
+            layout: { ...node.layout, container: { ...node.layout.container, mode: 'fixed' } },
+          }
+        : node.id === 'first'
+          ? { ...node, bounds: { ...node.bounds, x: 24, y: 24 } }
+          : node,
+    ),
+  };
+}
+
+function measuredPanel(sizing: 'fixed' | 'stretch' | 'fit-content', width: number, childX: number) {
+  const page = fixedPage();
+  const first = page.components.find((node) => node.id === 'first');
+  if (first === undefined) throw new Error('Expected panel node.');
+  const projected: PageModel = {
+    ...page,
+    components: [
+      ...page.components.map((node) => {
+        if (node.id === page.rootComponentId) return { ...node, children: ['first'] };
+        if (node.id === 'first')
+          return {
+            ...node,
+            type: 'WebPanel',
+            bounds: { ...node.bounds, width: 300, height: 200 },
+            layout: { ...node.layout, item: { ...node.layout.item, width: sizing } },
+            children: ['second', 'third'],
+          };
+        return { ...node, parentId: 'first', bounds: { ...node.bounds, x: childX, y: 17 } };
+      }),
+      {
+        ...first,
+        id: 'third',
+        name: 'ThirdButton',
+        parentId: 'first',
+        bounds: { x: width - 100, y: 17, width: 86, height: 36 },
+      },
+    ],
+  };
+  const rectangle = (x: number, y: number, rectangleWidth: number, height: number): DOMRect => ({
+    x,
+    y,
+    left: x,
+    top: y,
+    width: rectangleWidth,
+    height,
+    right: x + rectangleWidth,
+    bottom: y + height,
+    toJSON: () => ({}),
+  });
+  const measure = vi
+    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('wr-page-surface')) return rectangle(0, 0, 1280, 720);
+      if (this.dataset.designerNodeId === 'first' || this.dataset.componentId === 'first')
+        return rectangle(24, 24, width, 200);
+      if (this.dataset.designerParentId === 'first') return rectangle(31, 31, width - 14, 186);
+      if (this.dataset.designerNodeId === 'second' || this.dataset.designerNodeId === 'third') {
+        const stored = projected.components.find(
+          (node) => node.id === this.dataset.designerNodeId,
+        )!;
+        return rectangle(
+          31 +
+            (Number.parseFloat(this.style.left) || stored.bounds.x) +
+            (Number.parseFloat(this.style.marginLeft) || 0),
+          31 +
+            (Number.parseFloat(this.style.top) || stored.bounds.y) +
+            (Number.parseFloat(this.style.marginTop) || 0),
+          Number.parseFloat(this.style.width) || stored.bounds.width,
+          stored.bounds.height,
+        );
+      }
+      return rectangle(0, 0, 0, 0);
+    });
+  const clientWidth = vi
+    .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+    .mockImplementation(function (this: HTMLElement) {
+      return this.dataset.designerParentId === 'first' ? width - 14 : 0;
+    });
+  const clientHeight = vi
+    .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
+    .mockImplementation(function (this: HTMLElement) {
+      return this.dataset.designerParentId === 'first' ? 186 : 0;
+    });
+  return {
+    page: projected,
+    restore: () => {
+      cleanup();
+      measure.mockRestore();
+      clientWidth.mockRestore();
+      clientHeight.mockRestore();
+    },
+  };
+}
+
+describe('DesignerSurface pointer transactions', () => {
+  function targets(container: HTMLElement) {
+    Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const hit = container.querySelector<HTMLElement>('.wr-design-hit[data-component-id="first"]');
+    const overlay = container.querySelector<HTMLElement>('.wr-design-overlay');
+    const surface = container.querySelector<HTMLElement>('.wr-page-surface');
+    if (hit === null || overlay === null || surface === null)
+      throw new Error('Expected canvas targets.');
+    return { hit, overlay, surface };
+  }
+
+  it.each([50, 100, 150])(
+    'commits the pointerup position at %s%% even without a pointermove',
+    (zoom) => {
+      const { container, onMoveComponents } = renderSurface(fixedPage(), { zoom });
+      const { hit, overlay } = targets(container);
+      const scale = zoom / 100;
+      fireEvent.pointerDown(hit, {
+        button: 0,
+        pointerId: 31,
+        clientX: 30 * scale,
+        clientY: 30 * scale,
+      });
+      fireEvent.pointerUp(overlay, { pointerId: 31, clientX: 70 * scale, clientY: 30 * scale });
+      expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['first'], { x: 40, y: 0 });
+    },
+  );
+
+  it('uses the final coordinates when several moves arrive before a preview frame', () => {
+    const { container, onMoveComponents } = renderSurface(fixedPage());
+    const { hit, overlay } = targets(container);
+    fireEvent.pointerDown(hit, { button: 0, pointerId: 31, clientX: 30, clientY: 30 });
+    fireEvent.pointerMove(overlay, { pointerId: 31, clientX: 46, clientY: 30 });
+    fireEvent.pointerMove(overlay, { pointerId: 31, clientX: 54, clientY: 30 });
+    fireEvent.pointerUp(overlay, { pointerId: 31, clientX: 70, clientY: 30 });
+    expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['first'], { x: 40, y: 0 });
+  });
+
+  it('keeps off-grid geometry unchanged on clicks and focuses canvas keyboard actions', () => {
+    const page = fixedPage();
+    const offGrid = {
+      ...page,
+      components: page.components.map((node) =>
+        node.id === 'first' ? { ...node, bounds: { ...node.bounds, x: 21, y: 21 } } : node,
+      ),
+    };
+    const { container, onMoveComponents, onResizeComponent } = renderSurface(offGrid, {
+      selectedIds: ['first'],
+    });
+    const { hit, overlay, surface } = targets(container);
+    fireEvent.pointerDown(hit, { button: 0, pointerId: 31, clientX: 30, clientY: 30 });
+    fireEvent.pointerMove(overlay, { pointerId: 31, clientX: 31, clientY: 31 });
+    fireEvent.pointerUp(overlay, { pointerId: 31, clientX: 31, clientY: 31 });
+    expect(onMoveComponents).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(surface);
+    const handle = hit.querySelector<HTMLElement>('.handle-e');
+    if (handle === null) throw new Error('Expected resize handle.');
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 32, clientX: 141, clientY: 31 });
+    fireEvent.pointerUp(overlay, { pointerId: 32, clientX: 141, clientY: 31 });
+    expect(onResizeComponent).not.toHaveBeenCalled();
+    fireEvent.keyDown(surface, { key: 'ArrowRight' });
+    expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['first'], { x: 1, y: 0 });
+  });
+
+  it('ignores secondary buttons and pointers during a transaction', () => {
+    const { container, onMoveComponents, onResizeComponent } = renderSurface(fixedPage(), {
+      selectedIds: ['first'],
+    });
+    const { hit, overlay } = targets(container);
+    const handle = hit.querySelector<HTMLElement>('.handle-e');
+    if (handle === null) throw new Error('Expected resize handle.');
+    fireEvent.pointerDown(handle, { button: 2, pointerId: 30, clientX: 0, clientY: 0 });
+    fireEvent.pointerUp(overlay, { pointerId: 30, clientX: 40, clientY: 0 });
+    expect(onResizeComponent).not.toHaveBeenCalled();
+    fireEvent.pointerDown(hit, { button: 0, pointerId: 31, clientX: 30, clientY: 30 });
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 32, clientX: 144, clientY: 30 });
+    fireEvent.pointerUp(overlay, { pointerId: 32, clientX: 184, clientY: 30 });
+    fireEvent.pointerUp(overlay, { pointerId: 31, clientX: 70, clientY: 30 });
+    expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['first'], { x: 40, y: 0 });
+    expect(onResizeComponent).not.toHaveBeenCalled();
+  });
+
+  it.each(['escape', 'blur', 'capture', 'cancel', 'page', 'zoom', 'viewport'] as const)(
+    'discards a drag when interrupted by %s',
+    (reason) => {
+      const page = fixedPage();
+      const view = renderSurface(page);
+      const { hit, overlay } = targets(view.container);
+      fireEvent.pointerDown(hit, { button: 0, pointerId: 31, clientX: 30, clientY: 30 });
+      fireEvent.pointerMove(overlay, { pointerId: 31, clientX: 70, clientY: 30 });
+      if (reason === 'escape') fireEvent.keyDown(window, { key: 'Escape' });
+      else if (reason === 'blur') fireEvent(window, new Event('blur'));
+      else if (reason === 'capture') fireEvent.lostPointerCapture(hit, { pointerId: 31 });
+      else if (reason === 'cancel') fireEvent.pointerCancel(overlay, { pointerId: 31 });
+      else if (reason === 'page') view.rerenderWithPage({ ...page, id: 'another-page' });
+      else if (reason === 'zoom') view.rerenderWithZoom(150);
+      else fireEvent.change(screen.getByLabelText('Viewport'), { target: { value: 'mobile' } });
+      fireEvent.pointerUp(overlay, { pointerId: 31, clientX: 70, clientY: 30 });
+      expect(view.onMoveComponents).not.toHaveBeenCalled();
+    },
+  );
+
+  it('resizes from the release coordinates without an intermediate preview event', () => {
+    const { container, onResizeComponent } = renderSurface(fixedPage(), { selectedIds: ['first'] });
+    const { hit, overlay } = targets(container);
+    const handle = hit.querySelector<HTMLElement>('.handle-e');
+    if (handle === null) throw new Error('Expected resize handle.');
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 32, clientX: 144, clientY: 30 });
+    fireEvent.pointerUp(overlay, { pointerId: 32, clientX: 184, clientY: 30 });
+    expect(onResizeComponent).toHaveBeenCalledExactlyOnceWith('first', {
+      x: 24,
+      y: 24,
+      width: 160,
+      height: 36,
+    });
+  });
+
+  it('previews a selected parent and child with one movement on their common root', async () => {
+    const page = fixedPage();
+    const nested: PageModel = {
+      ...page,
+      components: page.components.map((node) => {
+        if (node.id === page.rootComponentId) return { ...node, children: ['first'] };
+        if (node.id === 'first')
+          return {
+            ...node,
+            type: 'WebPanel',
+            bounds: { ...node.bounds, width: 300, height: 200 },
+            children: ['second'],
+          };
+        return { ...node, parentId: 'first', bounds: { x: 16, y: 16, width: 120, height: 36 } };
+      }),
+    };
+    const { container, onMoveComponents } = renderSurface(nested, {
+      selectedIds: ['first', 'second'],
+    });
+    const { hit, overlay } = targets(container);
+    fireEvent.pointerDown(hit, { button: 0, pointerId: 31, clientX: 30, clientY: 30 });
+    fireEvent.pointerMove(overlay, { pointerId: 31, clientX: 70, clientY: 30 });
+    await waitFor(() =>
+      expect(
+        container.querySelector<HTMLElement>('[data-designer-node-id="first"]')?.style.left,
+      ).toBe('64px'),
+    );
+    expect(
+      container.querySelector<HTMLElement>('[data-designer-node-id="second"]')?.style.left,
+    ).toBe('16px');
+    fireEvent.pointerUp(overlay, { pointerId: 31, clientX: 70, clientY: 30 });
+    expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['first'], { x: 40, y: 0 });
+  });
+
+  it('bounds a nested child preview to the same parent limits used on commit', async () => {
+    const page = fixedPage();
+    const nested: PageModel = {
+      ...page,
+      components: page.components.map((node) => {
+        if (node.id === page.rootComponentId) return { ...node, children: ['first'] };
+        if (node.id === 'first')
+          return {
+            ...node,
+            type: 'WebPanel',
+            bounds: { ...node.bounds, width: 300, height: 200 },
+            children: ['second'],
+          };
+        return { ...node, parentId: 'first', bounds: { x: 16, y: 16, width: 120, height: 36 } };
+      }),
+    };
+    const { container, onMoveComponents } = renderSurface(nested, { selectedIds: ['second'] });
+    const overlay = container.querySelector<HTMLElement>('.wr-design-overlay');
+    const hit = container.querySelector<HTMLElement>('.wr-design-hit[data-component-id="second"]');
+    targets(container);
+    if (overlay === null || hit === null) throw new Error('Expected nested component.');
+    fireEvent.pointerDown(hit, { button: 0, pointerId: 31, clientX: 44, clientY: 44 });
+    fireEvent.pointerMove(overlay, { pointerId: 31, clientX: 600, clientY: 44 });
+    await waitFor(() =>
+      expect(
+        container.querySelector<HTMLElement>('[data-designer-node-id="second"]')?.style.left,
+      ).toBe('180px'),
+    );
+    fireEvent.pointerUp(overlay, { pointerId: 31, clientX: 600, clientY: 44 });
+    expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['second'], { x: 164, y: 0 });
+  });
+
+  it('preserves spacing on a keyboard move across different parents', () => {
+    const page = fixedPage();
+    const first = page.components.find((node) => node.id === 'first');
+    if (first === undefined) throw new Error('Expected first component.');
+    const nested: PageModel = {
+      ...page,
+      components: [
+        ...page.components.map((node) =>
+          node.id === 'first'
+            ? {
+                ...node,
+                type: 'WebPanel',
+                bounds: { ...node.bounds, width: 300, height: 200 },
+                children: ['third'],
+              }
+            : node,
+        ),
+        {
+          ...first,
+          id: 'third',
+          name: 'ThirdButton',
+          parentId: 'first',
+          bounds: { x: 176, y: 16, width: 120, height: 36 },
+        },
+      ],
+    };
+    const { container, onMoveComponents } = renderSurface(nested, {
+      selectedIds: ['second', 'third'],
+    });
+    const { surface } = targets(container);
+    fireEvent.keyDown(surface, { key: 'ArrowRight', shiftKey: true });
+    expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['second', 'third'], { x: 4, y: 0 });
+  });
+
+  it('keeps the original selection when a marquee is cancelled', () => {
+    const { container, onSelect } = renderSurface(fixedPage(), { selectedIds: ['first'] });
+    const { overlay } = targets(container);
+    fireEvent.pointerDown(overlay, { button: 0, pointerId: 33, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(overlay, { pointerId: 33, clientX: 400, clientY: 200 });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.pointerUp(overlay, { pointerId: 33, clientX: 400, clientY: 200 });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['fixed', 'stretch', 'fixed', ['n', 's']],
+    ['fixed', 'fixed', 'fit-content', ['e', 'w']],
+    ['fixed', 'fit-content', 'stretch', []],
+    ['row', 'fixed', 'fixed', ['e', 'se', 's']],
+    ['column', 'stretch', 'fixed', ['s']],
+    ['row', 'fixed', 'fit-content', ['e']],
+    ['align-to-parent', 'fixed', 'fixed', []],
+  ] as const)(
+    'projects only working handles in %s with %s/%s sizing',
+    (mode, width, height, handles) => {
+      const page = fixedPage();
+      const current: PageModel = {
+        ...page,
+        components: page.components.map((node) =>
+          node.id === page.rootComponentId
+            ? { ...node, layout: { ...node.layout, container: { ...node.layout.container, mode } } }
+            : node.id === 'first'
+              ? {
+                  ...node,
+                  layout: { ...node.layout, item: { ...node.layout.item, width, height } },
+                }
+              : node,
+        ),
+      };
+      const { container } = renderSurface(current, { selectedIds: ['first'] });
+      const { hit } = targets(container);
+      expect(
+        Array.from(
+          hit.querySelectorAll<HTMLElement>('[data-resize-handle]'),
+          (element) => element.dataset.resizeHandle,
+        ),
+      ).toEqual(handles);
+    },
+  );
+
+  it.each([50, 100, 150])(
+    'uses the real child host origin including border, padding and scroll at %s%%',
+    (zoom) => {
+      const page = fixedPage();
+      const panel: PageModel = {
+        ...page,
+        components: page.components.map((node) =>
+          node.id === 'first'
+            ? { ...node, type: 'WebPanel', bounds: { ...node.bounds, width: 300, height: 200 } }
+            : node,
+        ),
+      };
+      const scale = zoom / 100;
+      const rectangle = (x: number, y: number, width: number, height: number): DOMRect => ({
+        x,
+        y,
+        left: x,
+        top: y,
+        width,
+        height,
+        right: x + width,
+        bottom: y + height,
+        toJSON: () => ({}),
+      });
+      const measure = vi
+        .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+        .mockImplementation(function (this: HTMLElement) {
+          if (this.classList.contains('wr-page-surface'))
+            return rectangle(100, 80, 1280 * scale, 720 * scale);
+          if (this.dataset.designerNodeId === 'first')
+            return rectangle(100 + 24 * scale, 80 + 24 * scale, 300 * scale, 200 * scale);
+          if (this.dataset.designerParentId === 'first')
+            return rectangle(100 + 31 * scale, 80 + 31 * scale, 286 * scale, 186 * scale);
+          return rectangle(0, 0, 0, 0);
+        });
+      try {
+        const { container, onAddComponent } = renderSurface(panel, { zoom });
+        const { overlay } = targets(container);
+        const host = container.querySelector<HTMLElement>('[data-designer-parent-id="first"]');
+        if (host === null)
+          throw new Error('Expected child host in the empty registered container.');
+        Object.defineProperties(host, {
+          clientLeft: { value: 2 },
+          clientTop: { value: 3 },
+          scrollLeft: { value: 12 },
+          scrollTop: { value: 20 },
+        });
+        const event = new MouseEvent('drop', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100 + 51 * scale,
+          clientY: 80 + 54 * scale,
+        });
+        Object.defineProperty(event, 'dataTransfer', {
+          value: {
+            getData: (type: string) =>
+              type === 'application/x-webrad-component' ? 'WebButton' : '',
+          },
+        });
+        fireEvent(overlay, event);
+        expect(onAddComponent).toHaveBeenCalledExactlyOnceWith(
+          'WebButton',
+          { x: 30, y: 40 },
+          'first',
+        );
+      } finally {
+        cleanup();
+        measure.mockRestore();
+      }
+    },
+  );
+
+  it.each(['stretch', 'fit-content'] as const)(
+    'moves a child within the actual %s parent width beyond its stored bounds fallback',
+    (sizing) => {
+      const projection = measuredPanel(sizing, 700, 121);
+      try {
+        const { container, onMoveComponents } = renderSurface(projection.page, {
+          selectedIds: ['second'],
+        });
+        const { overlay } = targets(container);
+        const child = container.querySelector<HTMLElement>(
+          '.wr-design-hit[data-component-id="second"]',
+        );
+        if (child === null) throw new Error('Expected nested child.');
+        fireEvent.pointerDown(child, { button: 0, pointerId: 35, clientX: 160, clientY: 52 });
+        fireEvent.pointerUp(overlay, { pointerId: 35, clientX: 240, clientY: 52 });
+        expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['second'], { x: 80, y: 0 });
+      } finally {
+        projection.restore();
+      }
+    },
+  );
+
+  it('clamps child dragging inside the parent child host, excluding its visual border and padding', async () => {
+    const projection = measuredPanel('fixed', 300, 16);
+    try {
+      const { container, onMoveComponents } = renderSurface(projection.page, {
+        selectedIds: ['second'],
+      });
+      const { overlay } = targets(container);
+      const child = container.querySelector<HTMLElement>(
+        '.wr-design-hit[data-component-id="second"]',
+      );
+      if (child === null) throw new Error('Expected nested child.');
+      fireEvent.pointerDown(child, { button: 0, pointerId: 35, clientX: 50, clientY: 52 });
+      fireEvent.pointerMove(overlay, { pointerId: 35, clientX: 700, clientY: 52 });
+      await waitFor(() =>
+        expect(
+          container.querySelector<HTMLElement>('[data-designer-node-id="second"]')?.style.left,
+        ).toBe('166px'),
+      );
+      fireEvent.pointerUp(overlay, { pointerId: 35, clientX: 700, clientY: 52 });
+      expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['second'], { x: 150, y: 0 });
+    } finally {
+      projection.restore();
+    }
+  });
+
+  it('clamps child resizing to its parent child host instead of its outer painted size', () => {
+    const projection = measuredPanel('fixed', 300, 16);
+    try {
+      const { container, onResizeComponent } = renderSurface(projection.page, {
+        selectedIds: ['second'],
+      });
+      const { overlay } = targets(container);
+      const handle = container.querySelector<HTMLElement>(
+        '.wr-design-hit[data-component-id="second"] [data-resize-handle="e"]',
+      );
+      if (handle === null) throw new Error('Expected nested resize handle.');
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 35, clientX: 167, clientY: 52 });
+      fireEvent.pointerUp(overlay, { pointerId: 35, clientX: 700, clientY: 52 });
+      expect(onResizeComponent).toHaveBeenCalledExactlyOnceWith('second', {
+        x: 16,
+        y: 17,
+        width: 270,
+        height: 36,
+      });
+    } finally {
+      projection.restore();
+    }
+  });
+
+  it('accounts for visual margins when bounding the resize inside its parent host', () => {
+    const projection = measuredPanel('fixed', 300, 16);
+    try {
+      const page: PageModel = {
+        ...projection.page,
+        components: projection.page.components.map((node) =>
+          node.id === 'second' ? { ...node, props: { ...node.props, marginLeft: 12 } } : node,
+        ),
+      };
+      const { container, onResizeComponent } = renderSurface(page, { selectedIds: ['second'] });
+      const { overlay } = targets(container);
+      const handle = container.querySelector<HTMLElement>(
+        '.wr-design-hit[data-component-id="second"] [data-resize-handle="e"]',
+      );
+      if (handle === null) throw new Error('Expected nested resize handle.');
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 35, clientX: 179, clientY: 52 });
+      fireEvent.pointerUp(overlay, { pointerId: 35, clientX: 700, clientY: 52 });
+      expect(onResizeComponent).toHaveBeenCalledExactlyOnceWith('second', {
+        x: 16,
+        y: 17,
+        width: 258,
+        height: 36,
+      });
+    } finally {
+      projection.restore();
+    }
+  });
+
+  it('reserves trailing margins as well as the projected origin during a corner resize', () => {
+    const projection = measuredPanel('fixed', 300, 16);
+    try {
+      const page: PageModel = {
+        ...projection.page,
+        components: projection.page.components.map((node) =>
+          node.id === 'second'
+            ? {
+                ...node,
+                props: {
+                  ...node.props,
+                  marginLeft: 12,
+                  marginRight: 8,
+                  marginTop: 7,
+                  marginBottom: 5,
+                },
+              }
+            : node,
+        ),
+      };
+      const { container, onResizeComponent } = renderSurface(page, { selectedIds: ['second'] });
+      const { overlay } = targets(container);
+      const handle = container.querySelector<HTMLElement>(
+        '.wr-design-hit[data-component-id="second"] [data-resize-handle="se"]',
+      );
+      if (handle === null) throw new Error('Expected nested corner handle.');
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 35, clientX: 179, clientY: 91 });
+      fireEvent.pointerUp(overlay, { pointerId: 35, clientX: 700, clientY: 700 });
+      expect(onResizeComponent).toHaveBeenCalledExactlyOnceWith('second', {
+        x: 16,
+        y: 17,
+        width: 250,
+        height: 157,
+      });
+    } finally {
+      projection.restore();
+    }
+  });
+
+  it.each([
+    { requested: -1000, expected: -16 },
+    { requested: 1000, expected: 130 },
+  ])(
+    'keeps all margins inside the host when dragging by $requested pixels',
+    ({ requested, expected }) => {
+      const projection = measuredPanel('fixed', 300, 16);
+      try {
+        const page: PageModel = {
+          ...projection.page,
+          components: projection.page.components.map((node) =>
+            node.id === 'second'
+              ? { ...node, props: { ...node.props, marginLeft: 12, marginRight: 8 } }
+              : node,
+          ),
+        };
+        const { container, onMoveComponents } = renderSurface(page, { selectedIds: ['second'] });
+        const { overlay } = targets(container);
+        const child = container.querySelector<HTMLElement>(
+          '.wr-design-hit[data-component-id="second"]',
+        );
+        if (child === null) throw new Error('Expected nested child.');
+        fireEvent.pointerDown(child, { button: 0, pointerId: 35, clientX: 60, clientY: 52 });
+        fireEvent.pointerUp(overlay, { pointerId: 35, clientX: 60 + requested, clientY: 52 });
+        expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['second'], { x: expected, y: 0 });
+      } finally {
+        projection.restore();
+      }
+    },
+  );
+
+  it('uses available parent host space for keyboard nudges beyond stored fallback dimensions', () => {
+    const projection = measuredPanel('stretch', 700, 185);
+    try {
+      const { container, onMoveComponents } = renderSurface(projection.page, {
+        selectedIds: ['second'],
+      });
+      const { surface } = targets(container);
+      fireEvent.keyDown(surface, { key: 'ArrowRight', shiftKey: true });
+      expect(onMoveComponents).toHaveBeenCalledExactlyOnceWith(['second'], { x: 8, y: 0 });
+    } finally {
+      projection.restore();
+    }
+  });
+});
 
 describe('DesignerSurface responsive projection', () => {
   it('keeps the page and floating editors inside the shared project style surface', () => {
@@ -683,11 +1313,9 @@ describe('DesignerSurface responsive projection', () => {
   it('activates visual and nonvisual components through the generic callback', () => {
     const onSelect = vi.fn();
     const onComponentActivate = vi.fn();
-    const onDefaultEvent = vi.fn();
     const { container } = renderSurface(pageWithApiClient(), {
       onSelect,
       onComponentActivate,
-      onDefaultEvent,
     });
     const visual = container.querySelector<HTMLElement>(
       '.wr-design-hit[data-component-id="first"]',
@@ -706,7 +1334,6 @@ describe('DesignerSurface responsive projection', () => {
     expect(onSelect).toHaveBeenLastCalledWith(['api-client'], 'api-client');
     expect(onComponentActivate).toHaveBeenLastCalledWith('api-client');
     expect(onComponentActivate).toHaveBeenCalledTimes(2);
-    expect(onDefaultEvent).not.toHaveBeenCalled();
   });
 
   it('shows a runtime visual Popup in the nonvisual tray instead of canvas geometry', () => {
