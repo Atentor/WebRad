@@ -2107,6 +2107,8 @@ export function App(): ReactElement {
               dirty={projectState.dirty}
               saving={projectState.saving}
               building={building}
+              debugStatus={debugState.status}
+              debugBusy={debugBusy}
               selectedName={primaryComponent?.name}
               selectedIcon={primaryComponentDefinition?.icon}
               onClearSelection={() => selectionManager.clear()}

@@ -293,6 +293,26 @@ afterEach(() => {
 });
 
 describe('App MVP integration', () => {
+  it('shows active debug feedback and stops the session when the toolbar button is clicked again', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    render(<App />);
+    await act(async () => harness.invokeCommand('file.openProject'));
+    fireEvent.click(screen.getByRole('button', { name: 'Start debugging (F5)' }));
+    const stop = await screen.findByRole('button', { name: 'Stop debugging (Shift+F5)' });
+    await waitFor(() => expect(stop.getAttribute('data-debug-status')).toBe('running'));
+    expect(stop.getAttribute('aria-pressed')).toBe('true');
+    expect(stop.classList.contains('active')).toBe(true);
+    expect(stop.textContent).toBe('Stop Debug');
+    fireEvent.click(stop);
+    await waitFor(() => expect(harness.bridge.debugger.command).toHaveBeenCalledWith('stop'));
+    const idle = await screen.findByRole('button', { name: 'Start debugging (F5)' });
+    expect(idle.getAttribute('aria-pressed')).toBe('false');
+    expect(idle.classList.contains('active')).toBe(false);
+    expect(harness.bridge.debugger.start).toHaveBeenCalledTimes(1);
+    expect(harness.bridge.debugger.command).not.toHaveBeenCalledWith('resume');
+  });
+
   it('starts debugging with F5, navigates paused frames, persists watches, and dispatches step/stop controls', async () => {
     const harness = createBridgeHarness(initialSession());
     const listeners = new Set<(event: DebugEvent) => void>();
@@ -332,6 +352,9 @@ describe('App MVP integration', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('mock-monaco').getAttribute('data-navigation-line')).toBe('7'),
+    );
+    expect(screen.getByRole('button', { name: 'Stop debugging (Shift+F5)' }).textContent).toBe(
+      'Debug Paused',
     );
     fireEvent.change(screen.getByRole('textbox', { name: 'New watch expression' }), {
       target: { value: 'this.name' },

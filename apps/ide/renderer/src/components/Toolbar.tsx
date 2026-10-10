@@ -2,6 +2,7 @@ import { DocumentTabs, type DocumentTabsProps } from './DocumentTabs';
 import { ComponentIcon } from './ComponentIcon';
 import type { ReactElement } from 'react';
 import type { IdeCommand } from '../../../shared/contracts';
+import type { DebugState } from '../../../shared/debugger-contracts';
 import { Icon, type IconName } from './Icon';
 
 interface ToolbarProps extends DocumentTabsProps {
@@ -17,6 +18,8 @@ interface ToolbarProps extends DocumentTabsProps {
   dirty: boolean;
   saving: boolean;
   building: boolean;
+  debugStatus: DebugState['status'];
+  debugBusy: boolean;
   selectedName?: string;
   selectedIcon?: string;
   onClearSelection: () => void;
@@ -51,6 +54,10 @@ function ToolButton({ command, label, glyph, disabled, onCommand }: ToolButtonPr
 }
 
 export function Toolbar(props: ToolbarProps): ReactElement {
+  const debugActive =
+    props.debugBusy || ['starting', 'running', 'paused'].includes(props.debugStatus);
+  const debugLabel = debugActive ? 'Stop debugging (Shift+F5)' : 'Start debugging (F5)';
+  const debugStatus = props.debugBusy ? 'starting' : props.debugStatus;
   return (
     <header className="wr-toolbar" role="toolbar" aria-label="Main toolbar">
       <span className="wr-toolbar-platform" title={props.projectName ?? 'Browser applications'}>
@@ -197,15 +204,31 @@ export function Toolbar(props: ToolbarProps): ReactElement {
         <span>{props.issueCount} issues</span>
       </button>
       <button
-        className="wr-toolbar-run"
+        className={
+          debugActive ? 'wr-toolbar-run wr-toolbar-debug active' : 'wr-toolbar-run wr-toolbar-debug'
+        }
         type="button"
-        title="Start debugging (F5)"
-        aria-label="Start debugging (F5)"
-        disabled={!props.canRun}
-        onClick={() => props.onCommand('debug.start')}
+        title={
+          debugActive
+            ? `${debugStatus === 'paused' ? 'Paused' : debugStatus === 'starting' ? 'Starting' : 'Running'} — ${debugLabel}`
+            : debugLabel
+        }
+        aria-label={debugLabel}
+        aria-pressed={debugActive}
+        data-debug-status={debugStatus}
+        disabled={!debugActive && !props.canRun}
+        onClick={() => props.onCommand(debugActive ? 'debug.stop' : 'debug.start')}
       >
-        <Icon name="play" />
-        <span>Debug</span>
+        <Icon name={debugActive ? 'stop' : 'play'} />
+        <span aria-live="polite">
+          {!debugActive
+            ? 'Debug'
+            : debugStatus === 'starting'
+              ? 'Starting...'
+              : debugStatus === 'paused'
+                ? 'Debug Paused'
+                : 'Stop Debug'}
+        </span>
       </button>
       <button
         className="wr-toolbar-run"

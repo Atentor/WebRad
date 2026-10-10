@@ -356,11 +356,39 @@ export async function runDebuggerSmoke(
       'window.webrad.debugger.getState().then(state => state.status === "running")',
       'toolbar debug start',
     );
+    await waitFor(
+      `document.querySelector('.wr-toolbar-debug.active[data-debug-status="running"]')?.getAttribute('aria-pressed') === 'true' && document.querySelector('.wr-toolbar-debug.active')?.textContent === 'Stop Debug'`,
+      'active debug toolbar feedback',
+    );
+    const colors = await bridge<{ idle: string; active: string }>(
+      `(() => ({ idle: getComputedStyle(document.querySelector('.wr-toolbar-run:not(.wr-toolbar-debug)')).backgroundColor, active: getComputedStyle(document.querySelector('.wr-toolbar-debug')).backgroundColor }))()`,
+    );
+    if (colors.idle === colors.active)
+      throw new Error('Active debugging has no distinct toolbar color.');
+    await bridge(`document.querySelector('.wr-toolbar-debug').click(); true`);
+    await waitFor(
+      'window.webrad.debugger.getState().then(state => state.status === "stopped")',
+      'second Debug click stops the running session',
+    );
+    if (getDebugPreviewWindow(window.webContents.id) !== undefined)
+      throw new Error('Toolbar stop left Debug Preview open.');
+    await waitFor(
+      `document.querySelector('.wr-toolbar-debug:not(.active)')?.getAttribute('aria-pressed') === 'false'`,
+      'idle debug toolbar feedback',
+    );
+    await bridge(`document.querySelector('[aria-label="Start debugging (F5)"]').click(); true`);
+    await waitFor(
+      'window.webrad.debugger.getState().then(state => state.status === "running")',
+      'toolbar debug start after toggling stop',
+    );
     await runScenario();
     paused = await waitPaused('toolbar-started breakpoint');
-    await bridge(
-      `document.querySelector('.wr-debug-toolbar button[title="Stop (Shift+F5)"]').click(); true`,
+    await waitFor(
+      `document.querySelector('.wr-toolbar-debug.active[data-debug-status="paused"]')?.textContent === 'Debug Paused'`,
+      'paused debug toolbar feedback',
     );
+    await bridge(`document.querySelector('.wr-toolbar-debug').click(); true`);
+    log('renderer debugger toolbar toggle and feedback passed');
     await waitFor(
       'window.webrad.debugger.getState().then(state => state.status === "stopped")',
       'debugger toolbar stop',

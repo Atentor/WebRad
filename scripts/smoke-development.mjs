@@ -71,6 +71,7 @@ try {
         'renderer debugger Monaco controls and persistence passed',
         'renderer debugger Monaco variable hover passed',
         'renderer debugger Monaco breakpoint focus passed',
+        'renderer debugger toolbar toggle and feedback passed',
         'renderer debugger restart and teardown passed',
       ]
     : resourceSmoke

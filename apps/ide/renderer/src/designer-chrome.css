@@ -284,6 +284,12 @@
   filter: brightness(1.12);
 }
 
+.wr-toolbar-debug.active {
+  border-color: var(--wr-danger);
+  background: color-mix(in srgb, var(--wr-danger) 65%, #000);
+  color: #fff;
+}
+
 .wr-activity-bar {
   display: flex;
   grid-column: 1;

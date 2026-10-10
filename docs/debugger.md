@@ -6,6 +6,8 @@ Open a page, reusable component, Model, or Unit in Code. Click the Monaco gutter
 
 When execution pauses at a breakpoint, step, or exception, WebRAD restores the IDE if minimized, brings it in front of Debug Preview, and focuses Monaco at the paused source line. Editing debugger preferences during the same pause preserves your current focus.
 
+The main toolbar's Debug button switches to a red stop button while a session starts, runs, or pauses. Its text displays **Starting...**, **Stop Debug**, or **Debug Paused**. Clicking it again stops the session and closes Debug Preview. F5 and the Run menu retain start/continue behavior; Shift+F5 also stops debugging.
+
 | Action                    | Shortcut                              |
 | ------------------------- | ------------------------------------- |
 | Start or continue         | F5                                    |
