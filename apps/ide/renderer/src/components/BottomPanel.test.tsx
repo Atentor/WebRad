@@ -52,6 +52,23 @@ function props(overrides: Partial<BottomPanelProps> = {}): BottomPanelProps {
 }
 
 describe('BottomPanel', () => {
+  it('offers the debugger tab when functional debugger content is provided', async () => {
+    const user = userEvent.setup();
+    const onActiveTabChange = vi.fn();
+    render(
+      <BottomPanel
+        {...props({
+          activeTab: 'debug',
+          debugContent: <div>Debugger controls</div>,
+          onActiveTabChange,
+        })}
+      />,
+    );
+    expect(screen.getByRole('tabpanel').textContent).toBe('Debugger controls');
+    await user.click(screen.getByRole('tab', { name: 'Debugger' }));
+    expect(onActiveTabChange).toHaveBeenCalledWith('debug');
+  });
+
   it('renders only Problems, Output, and Build as externally controlled tabs', async () => {
     const user = userEvent.setup();
     const onActiveTabChange = vi.fn();

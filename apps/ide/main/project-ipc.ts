@@ -27,6 +27,13 @@ import {
 import { publishPreviewHtml, revokePreview } from './preview-server';
 import { LastProjectStore } from './last-project';
 import { registerRestGoAdminIpc } from './restgo-admin-ipc';
+import {
+  forgetDebuggerOwner,
+  registerDebuggerIpc,
+  stopDebuggerForOwner,
+  type DebugCompilation,
+} from './debugger-ipc';
+import type { DebugStartRequest } from '../shared/debugger-contracts';
 
 const allowedRoots = new Map<number, Set<string>>();
 const activeProjectRoots = new Map<number, string>();
@@ -198,8 +205,9 @@ async function releaseProjectHandler(event: IpcMainInvokeEvent, input: unknown):
   allowedRoots.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
   if (activeProjectRoots.get(window.webContents.id) === normalizedRoot(rootPath)) {
     activeProjectRoots.delete(window.webContents.id);
+    revokePreview(window.webContents.id);
+    stopDebuggerForOwner(window.webContents.id);
   }
-  revokePreview(window.webContents.id);
 }
 
 async function readFileHandler(event: IpcMainInvokeEvent, input: ReadFileRequest): Promise<string> {
@@ -225,6 +233,7 @@ async function buildHandler(
 ): Promise<BuildResponse> {
   const request = buildRequestSchema.parse(input);
   requireGrantedRoot(event, request.rootPath);
+  stopDebuggerForOwner(event.sender.id);
   revokePreview(event.sender.id);
   const project = parseProject(request.project);
   await saveProjectFiles({
@@ -249,6 +258,32 @@ async function buildHandler(
     outputDirectory,
     previewUrl,
     diagnostics: result.diagnostics,
+  };
+}
+
+async function debugCompileHandler(
+  event: IpcMainInvokeEvent,
+  request: DebugStartRequest,
+): Promise<DebugCompilation> {
+  requireGrantedRoot(event, request.rootPath);
+  const project = parseProject(request.project);
+  await saveProjectFiles({ rootPath: request.rootPath, project, userSources: request.userSources });
+  const outputDirectory = await resolveInsideProjectSecure(
+    request.rootPath,
+    request.outputDirectory ?? project.settings.outputDirectory,
+  );
+  const result = await compileProject(project, {
+    outputDirectory,
+    userSources: request.userSources,
+    debug: true,
+    write: false,
+  });
+  return {
+    build: { success: result.success, outputDirectory, diagnostics: result.diagnostics },
+    sourceMap: result.debug?.sourceMap,
+    scriptUrl: result.debug?.scriptUrl,
+    previewHtml: result.previewHtml,
+    assets: project.assets ?? [],
   };
 }
 
@@ -289,6 +324,7 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
   window.on('closed', () => {
     const id = windowId;
     revokePreview(id);
+    forgetDebuggerOwner(id);
     allowedRoots.delete(id);
     activeProjectRoots.delete(id);
     projectSelectionRevisions.delete(id);
@@ -308,6 +344,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   if (registered) return;
   registered = true;
   registerRestGoAdminIpc(requireTrustedSender, options.userDataPath);
+  registerDebuggerIpc({ requireTrustedSender, requireGrantedRoot, compile: debugCompileHandler });
   const lastProject =
     options.userDataPath === undefined ? undefined : new LastProjectStore(options.userDataPath);
   const rememberSession = async (
@@ -333,6 +370,8 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
     const session = await loadSession();
     // A manual selection supersedes restoration or any earlier pending selection.
     if (session === null || projectSelectionRevisions.get(id) !== revision) return null;
+    stopDebuggerForOwner(id);
+    revokePreview(id);
     grantRoot(event, session.rootPath);
     if (remember) await rememberSession(event, session);
     return projectSelectionRevisions.get(id) === revision ? session : null;

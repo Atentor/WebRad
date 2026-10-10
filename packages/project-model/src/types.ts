@@ -465,6 +465,22 @@ export interface ProjectSettings {
   readonly outputDirectory: string;
 }
 
+export interface ProjectDebugBreakpoint {
+  readonly path: string;
+  readonly line: number;
+  readonly column?: number;
+  readonly enabled: boolean;
+  readonly condition?: string;
+}
+
+/** IDE debugging preferences; runtime pause state is never persisted. */
+export interface ProjectDebuggerSettings {
+  readonly version: 1;
+  readonly breakpoints: readonly ProjectDebugBreakpoint[];
+  readonly watches: readonly string[];
+  readonly pauseOnExceptions: 'none' | 'uncaught' | 'all';
+}
+
 export interface WebRadProject {
   readonly formatVersion: ProjectFormatVersion;
   readonly id: string;
@@ -482,6 +498,7 @@ export interface WebRadProject {
   readonly styles: readonly ComponentStyleModel[];
   readonly sourceFiles?: readonly ProjectSourceFile[];
   readonly assets?: readonly ProjectAsset[];
+  readonly debugger?: ProjectDebuggerSettings;
   readonly settings: ProjectSettings;
 }
 
@@ -510,6 +527,7 @@ export interface ProjectManifest {
   readonly styles: readonly ComponentStyleModel[];
   readonly sourceFiles?: readonly ProjectSourceFile[];
   readonly assets?: readonly ProjectAsset[];
+  readonly debugger?: ProjectDebuggerSettings;
   readonly settings: ProjectSettings;
 }
 

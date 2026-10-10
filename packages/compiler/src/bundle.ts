@@ -162,6 +162,8 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
     platform: 'browser',
     plugins: [virtualPlugin(options)],
     sourcemap: options.sourcemap ? 'external' : false,
+    // The Preview embeds this exact bundle; escape HTML delimiters before mapping it.
+    supported: { 'inline-script': true },
     target: ['es2022'],
     treeShaking: true,
     write: false,

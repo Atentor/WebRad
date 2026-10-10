@@ -5,6 +5,7 @@ import {
   analyzeComponentReferences,
   appendComponentReferenceDeclarations,
   applyComponentReferenceEdits,
+  type ComponentReferenceEdit,
   type ComponentReferenceScope,
 } from '@webrad/language';
 
@@ -30,6 +31,7 @@ export function typecheckSources(
 ): {
   readonly diagnostics: readonly CompileDiagnostic[];
   readonly sources: ReadonlyMap<string, string>;
+  readonly sourceEdits: ReadonlyMap<string, readonly ComponentReferenceEdit[]>;
 } {
   const compilerOptions: ts.CompilerOptions = {
     allowSyntheticDefaultImports: true,
@@ -109,6 +111,7 @@ export function typecheckSources(
   });
   const diagnostics = [...ts.getPreEmitDiagnostics(program)];
   const bundleSources = new Map(sources);
+  const sourceEdits = new Map<string, readonly ComponentReferenceEdit[]>();
   for (const [fileName, scope] of componentScopes) {
     const sourceFile = program.getSourceFile(fileName);
     const authored = sources.get(fileName);
@@ -122,6 +125,11 @@ export function typecheckSources(
     );
     diagnostics.push(...analysis.diagnostics);
     bundleSources.set(fileName, applyComponentReferenceEdits(authored, analysis.edits));
+    if (analysis.edits.length > 0) sourceEdits.set(fileName, analysis.edits);
   }
-  return { diagnostics: diagnostics.map(fromTypeScriptDiagnostic), sources: bundleSources };
+  return {
+    diagnostics: diagnostics.map(fromTypeScriptDiagnostic),
+    sources: bundleSources,
+    sourceEdits,
+  };
 }

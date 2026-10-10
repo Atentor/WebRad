@@ -92,7 +92,13 @@ ${seoTags(metadata.applicationName, metadata.applicationDescription, metadata.se
 }
 
 function scriptSafe(value: string): string {
-  return value.replaceAll('</script', '<\\/script');
+  const lower = value.toLowerCase();
+  if (!lower.includes('</script') && !lower.includes('<script') && !lower.includes('<!--'))
+    return value;
+  // HTML raw-text parsing also treats <!-- followed by <script> specially. Decode the
+  // exact bundle into a separate script, preserving both its semantics and map columns.
+  const encoded = JSON.stringify(value).replaceAll('<', '\\u003c');
+  return `(() => { const script = document.createElement('script'); script.textContent = ${encoded}; document.body.append(script); })();`;
 }
 
 function styleSafe(value: string): string {

@@ -1,0 +1,319 @@
+.wr-debugger {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  font-size: 12px;
+  color: var(--wr-text);
+}
+.wr-debug-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-panel-bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.wr-debugger button,
+.wr-debugger select,
+.wr-debugger input {
+  font: inherit;
+}
+.wr-debugger button {
+  border: 1px solid var(--wr-border-strong);
+  background: var(--wr-button-bg);
+  color: var(--wr-text);
+  border-radius: 3px;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+.wr-debugger button:hover:enabled {
+  background: var(--wr-button-hover);
+}
+.wr-debugger button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.wr-debugger input,
+.wr-debugger select {
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 3px;
+  padding: 3px 5px;
+  min-width: 0;
+}
+.wr-debugger input[type='checkbox'] {
+  accent-color: var(--wr-accent);
+  flex: 0 0 auto;
+}
+.wr-debug-status {
+  margin: 0 6px;
+  color: var(--wr-muted-text);
+}
+.wr-debug-status-paused {
+  color: var(--wr-warning);
+}
+.wr-debug-status-running {
+  color: var(--wr-success);
+}
+.wr-debug-exceptions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.wr-debug-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  flex: 1;
+  min-height: 110px;
+}
+.wr-debug-section {
+  padding: 6px 8px;
+  min-width: 0;
+  border-right: 1px solid var(--wr-border);
+  max-height: 240px;
+  overflow: auto;
+}
+.wr-debug-section:last-child {
+  border-right: 0;
+}
+.wr-debugger h3 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+  color: var(--wr-muted-text);
+}
+.wr-debug-section-heading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.wr-debug-section-heading h3 {
+  margin: 0;
+}
+.wr-debug-empty,
+.wr-debug-muted {
+  color: var(--wr-muted-text);
+}
+.wr-debug-empty {
+  margin: 6px 0;
+  font-size: 11px;
+}
+.wr-debug-error {
+  color: var(--wr-danger);
+  overflow-wrap: anywhere;
+}
+.wr-debug-message {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--wr-border);
+}
+.wr-debug-stack,
+.wr-debug-breakpoints {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.wr-debug-stack button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wr-debug-stack button.selected {
+  background: var(--wr-accent-soft);
+}
+.wr-debug-stack strong {
+  font-weight: 500;
+}
+.wr-debug-stack small {
+  color: var(--wr-muted-text);
+  overflow-wrap: anywhere;
+}
+.wr-debug-value {
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+  min-width: 0;
+}
+.wr-debug-value-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 20px;
+}
+.wr-debugger .wr-debug-disclosure {
+  width: 15px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: inline-block;
+  flex: 0 0 15px;
+}
+.wr-debug-value-name {
+  color: var(--wr-accent);
+  overflow-wrap: anywhere;
+}
+.wr-debug-value-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wr-debug-value-children {
+  padding-left: 15px;
+}
+.wr-debug-type-string {
+  color: var(--wr-success);
+}
+.wr-debug-type-number,
+.wr-debug-type-bigint,
+.wr-debug-type-boolean {
+  color: var(--wr-warning);
+}
+.wr-debug-type-undefined {
+  color: var(--wr-muted-text);
+}
+.wr-debug-inline-form,
+.wr-debug-watch {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 5px;
+  min-width: 0;
+}
+.wr-debug-inline-form input {
+  width: 0;
+  flex: 1;
+  font-family: var(--wr-font-mono);
+}
+.wr-debug-watch-value {
+  flex: 1;
+  min-width: 0;
+}
+.wr-debugger .wr-debug-remove {
+  border: 0;
+  background: transparent;
+  padding: 0 4px;
+  color: var(--wr-muted-text);
+  flex: 0 0 auto;
+}
+.wr-debug-watch .wr-debug-remove {
+  margin-left: auto;
+}
+.wr-debug-breakpoint-row {
+  padding-bottom: 7px;
+}
+.wr-debug-breakpoint-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.wr-debugger .wr-debug-source-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+}
+.wr-debug-condition {
+  width: 100%;
+  margin-top: 4px;
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+}
+.wr-debug-console {
+  padding: 5px 8px;
+  border-top: 1px solid var(--wr-border);
+}
+.wr-debug-console-log {
+  max-height: 100px;
+  overflow: auto;
+  font: 11px var(--wr-font-mono);
+}
+.wr-debug-console-entry {
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.wr-debug-console-error {
+  color: var(--wr-danger);
+}
+.wr-debug-console-warning {
+  color: var(--wr-warning);
+}
+.wr-debug-console-form {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+}
+.wr-debug-console-form input {
+  flex: 1;
+  width: 0;
+  font: 11px var(--wr-font-mono);
+}
+.monaco-editor .wr-debug-breakpoint::before {
+  content: '';
+  display: block;
+  position: absolute;
+  left: calc(50% - 5px);
+  top: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e54949;
+  border: 1px solid #e54949;
+  box-sizing: border-box;
+}
+.monaco-editor .wr-debug-breakpoint-pending::before {
+  background: transparent;
+}
+.monaco-editor .wr-debug-breakpoint-disabled::before {
+  background: #858585;
+  border-color: #858585;
+  opacity: 0.65;
+}
+.monaco-editor .wr-debug-breakpoint-conditional::before {
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+.monaco-editor .wr-debug-execution-line {
+  background: rgba(232, 178, 54, 0.2);
+}
+.monaco-editor .wr-debug-execution-arrow::after {
+  content: '';
+  display: block;
+  position: absolute;
+  left: calc(50% - 4px);
+  top: calc(50% - 5px);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid #e8b236;
+  z-index: 1;
+}
+@media (max-width: 900px) {
+  .wr-debug-exceptions {
+    margin-left: 0;
+  }
+  .wr-debug-section {
+    border-bottom: 1px solid var(--wr-border);
+  }
+}
+.wr-bottom-debug-content {
+  padding: 0;
+  font-family: var(--wr-font-ui);
+}

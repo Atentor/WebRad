@@ -1,5 +1,12 @@
 import type { ProjectAsset } from '@webrad/project-model';
 import type { ExternalLinkTarget } from '../shared/external-links';
+import type {
+  DebugEvent,
+  DebugStartResponse,
+  DebugState,
+  DebugEvaluation,
+  DebugVariable,
+} from '../shared/debugger-contracts';
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   RestGoAdminCatalog,
@@ -22,6 +29,26 @@ import type {
 } from '../shared/contracts';
 
 const bridge: WebRadBridge = {
+  debugger: {
+    start: (request) =>
+      ipcRenderer.invoke('webrad:debug:start', request) as Promise<DebugStartResponse>,
+    command: (action) => ipcRenderer.invoke('webrad:debug:command', action) as Promise<DebugState>,
+    getState: () => ipcRenderer.invoke('webrad:debug:state') as Promise<DebugState>,
+    setBreakpoints: (breakpoints) =>
+      ipcRenderer.invoke('webrad:debug:breakpoints', breakpoints) as Promise<DebugState>,
+    setPauseOnExceptions: (mode) =>
+      ipcRenderer.invoke('webrad:debug:exceptions', mode) as Promise<void>,
+    evaluate: (request) =>
+      ipcRenderer.invoke('webrad:debug:evaluate', request) as Promise<DebugEvaluation>,
+    properties: (request) =>
+      ipcRenderer.invoke('webrad:debug:properties', request) as Promise<readonly DebugVariable[]>,
+    subscribe: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, event: DebugEvent): void =>
+        listener(event);
+      ipcRenderer.on('webrad:debug:event', handler);
+      return () => ipcRenderer.removeListener('webrad:debug:event', handler);
+    },
+  },
   restgoAdmin: {
     status: (request) =>
       ipcRenderer.invoke('webrad:restgo-admin:status', request) as Promise<RestGoAdminStatus>,

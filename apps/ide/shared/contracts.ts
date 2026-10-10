@@ -1,5 +1,6 @@
 import type { ExternalLinkTarget } from './external-links';
 import type { RestGoAdminBridge } from './restgo-admin';
+import type { DebugBridge } from './debugger-contracts';
 import type { ComponentStyleModel, ProjectAsset, WebRadProject } from '@webrad/project-model';
 
 export const IDE_COMMANDS = [
@@ -30,6 +31,14 @@ export const IDE_COMMANDS = [
   'project.importAsset',
   'project.build',
   'run.run',
+  'debug.start',
+  'debug.pause',
+  'debug.stepOver',
+  'debug.stepInto',
+  'debug.stepOut',
+  'debug.stop',
+  'debug.restart',
+  'view.debugger',
   'view.toggleTheme',
   'help.about',
 ] as const;
@@ -96,6 +105,7 @@ export interface CompileStylesResponse {
 }
 
 export interface WebRadBridge {
+  readonly debugger: DebugBridge;
   readonly restgoAdmin: RestGoAdminBridge;
   links: { open(target: ExternalLinkTarget): Promise<void> };
   project: {

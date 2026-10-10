@@ -25,6 +25,8 @@ import type {
 } from '../../shared/contracts';
 import { applicationIconUrl } from './application-assets';
 import { comboBoxBinding, comboBoxProject } from '../../../../tests/fixtures/combo-box';
+import { createDebugTestBridge } from '../../shared/debugger-test-bridge';
+import type { DebugEvent } from '../../shared/debugger-contracts';
 
 interface MockCodeEditorProps {
   readonly path: string;
@@ -188,6 +190,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
   });
 
   const bridge = {
+    debugger: createDebugTestBridge(),
     restgoAdmin: {
       status: vi.fn(async (request) => ({
         baseUrl: request.baseUrl,
@@ -290,6 +293,60 @@ afterEach(() => {
 });
 
 describe('App MVP integration', () => {
+  it('starts debugging with F5, navigates paused frames, persists watches, and dispatches step/stop controls', async () => {
+    const harness = createBridgeHarness(initialSession());
+    const listeners = new Set<(event: DebugEvent) => void>();
+    harness.bridge.debugger.subscribe = vi.fn((next) => {
+      listeners.add(next);
+      return () => {
+        listeners.delete(next);
+      };
+    });
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    render(<App />);
+    await act(async () => harness.invokeCommand('file.openProject'));
+    fireEvent.keyDown(window, { key: 'F5' });
+    await waitFor(() => expect(harness.bridge.debugger.start).toHaveBeenCalled());
+    expect(screen.getByRole('region', { name: 'Code debugger' })).toBeDefined();
+    expect(harness.save).toHaveBeenCalled();
+    const frame = {
+      id: 'frame',
+      name: 'onClick',
+      location: { path: 'pages/PageMain.ts', line: 7, column: 5 },
+      scopes: [],
+      thisValue: { type: 'object', description: 'PageMain' },
+    };
+    act(() =>
+      listeners.forEach((listener) =>
+        listener({
+          type: 'state',
+          state: {
+            sessionId: 'test-debug',
+            status: 'paused',
+            frames: [frame],
+            breakpoints: [],
+            reason: 'breakpoint',
+          },
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('mock-monaco').getAttribute('data-navigation-line')).toBe('7'),
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'New watch expression' }), {
+      target: { value: 'this.name' },
+    });
+    fireEvent.submit(
+      screen.getByRole('textbox', { name: 'New watch expression' }).closest('form')!,
+    );
+    await act(async () => harness.invokeCommand('file.save'));
+    expect(harness.persisted().project.debugger?.watches).toEqual(['this.name']);
+    fireEvent.keyDown(window, { key: 'F10' });
+    await waitFor(() => expect(harness.bridge.debugger.command).toHaveBeenCalledWith('stepOver'));
+    fireEvent.keyDown(window, { key: 'F5', shiftKey: true });
+    await waitFor(() => expect(harness.bridge.debugger.command).toHaveBeenCalledWith('stop'));
+  });
+
   it('isolates the icon picker from native commands and F9/F12 shortcuts', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });

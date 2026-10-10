@@ -5,7 +5,14 @@ import tsWorker from '../typescript.worker?worker';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactElement } from 'react';
 import { observeMonacoFontMetrics } from '../monaco-font-metrics';
 import { synchronizeMonacoModel } from '../monaco-model-sync';
+import { createDebugHoverProvider, type DebugHoverContext } from '../debugger-hover';
 import type { IdeCommand } from '../../../shared/contracts';
+import type {
+  DebugBreakpoint,
+  DebugLocation,
+  ResolvedDebugBreakpoint,
+} from '../../../shared/debugger-contracts';
+import '../debugger.css';
 import type { EditorProblem } from '../editor-problems';
 import {
   pageComponentCompletionSymbols,
@@ -52,6 +59,13 @@ interface CodeEditorProps {
   readonly pageComponents: readonly PageComponentSymbol[];
   readonly buildProblems: readonly EditorProblem[];
   readonly navigateTo?: EditorNavigationTarget | null;
+  readonly sourcePath?: string;
+  readonly debugBreakpoints?: readonly ResolvedDebugBreakpoint[];
+  readonly debugLocation?: DebugLocation | null;
+  readonly debugging?: boolean;
+  readonly debugHoverContext?: DebugHoverContext | null;
+  readonly onToggleBreakpoint?: (path: string, line: number) => void;
+  readonly onBreakpointsMoved?: (breakpoints: readonly DebugBreakpoint[]) => void;
   readonly onSourceChange: (resource: string, value: string) => void;
   readonly onMarkersChange: (markers: readonly monacoApi.editor.IMarker[]) => void;
   readonly onCursorChange: (status: EditorCursorStatus) => void;
@@ -291,12 +305,20 @@ export function CodeEditor({
   pageComponents,
   buildProblems,
   navigateTo,
+  sourcePath,
+  debugBreakpoints = [],
+  debugLocation,
+  debugging = false,
+  debugHoverContext,
+  onToggleBreakpoint,
+  onBreakpointsMoved,
   onSourceChange,
   onMarkersChange,
   onCursorChange,
   onSave,
 }: CodeEditorProps): ReactElement {
   const editorRef = useRef<monacoApi.editor.IStandaloneCodeEditor | null>(null);
+  const hoverContextRef = useRef<DebugHoverContext | null>(null);
   const editorDisposablesRef = useRef<monacoApi.IDisposable[]>([]);
   const modelDisposablesRef = useRef(new Map<string, ModelSubscription>());
   const synchronizingModelsRef = useRef(new Set<string>());
@@ -314,6 +336,105 @@ export function CodeEditor({
   const onCursorChangeRef = useRef(onCursorChange);
   const onSaveRef = useRef(onSave);
   const navigateToRef = useRef<EditorNavigationTarget | null | undefined>(navigateTo);
+  const debugRef = useRef({
+    sourcePath: sourcePath ?? path,
+    debugBreakpoints,
+    debugLocation,
+    onToggleBreakpoint,
+    onBreakpointsMoved,
+  });
+  const debugDecorationsRef = useRef(
+    new Map<
+      string,
+      {
+        readonly model: monacoApi.editor.ITextModel;
+        readonly path: string;
+        ids: string[];
+        breakpoints: { readonly id: string; readonly breakpoint: DebugBreakpoint }[];
+      }
+    >(),
+  );
+
+  useLayoutEffect(() => {
+    const nextHover = debugHoverContext?.path === (sourcePath ?? path) ? debugHoverContext : null;
+    if (hoverContextRef.current !== nextHover) {
+      hoverContextRef.current = nextHover;
+      editorRef.current?.trigger('debugger', 'editor.action.hideHover', undefined);
+    }
+    debugRef.current = {
+      sourcePath: sourcePath ?? path,
+      debugBreakpoints,
+      debugLocation,
+      onToggleBreakpoint,
+      onBreakpointsMoved,
+    };
+  }, [
+    sourcePath,
+    path,
+    debugBreakpoints,
+    debugLocation,
+    debugHoverContext,
+    onToggleBreakpoint,
+    onBreakpointsMoved,
+  ]);
+
+  const synchronizeDebuggerDecorations = useCallback((): void => {
+    const activeModel = editorRef.current?.getModel();
+    if (activeModel !== undefined && activeModel !== null && !activeModel.isDisposed()) {
+      const resource = activeModel.uri.toString();
+      if (!debugDecorationsRef.current.has(resource)) {
+        debugDecorationsRef.current.set(resource, {
+          model: activeModel,
+          path: debugRef.current.sourcePath,
+          ids: [],
+          breakpoints: [],
+        });
+      }
+    }
+    for (const [resource, entry] of debugDecorationsRef.current) {
+      if (entry.model.isDisposed()) {
+        debugDecorationsRef.current.delete(resource);
+        continue;
+      }
+      const breakpoints = debugRef.current.debugBreakpoints.filter(
+        (breakpoint) => breakpoint.path === entry.path,
+      );
+      const decorations: monacoApi.editor.IModelDeltaDecoration[] = breakpoints.map(
+        (breakpoint) => ({
+          range: new monacoApi.Range(
+            breakpoint.actualLine ?? breakpoint.line,
+            1,
+            breakpoint.actualLine ?? breakpoint.line,
+            1,
+          ),
+          options: {
+            glyphMarginClassName: `wr-debug-breakpoint${!breakpoint.enabled ? ' wr-debug-breakpoint-disabled' : !breakpoint.verified ? ' wr-debug-breakpoint-pending' : ''}${breakpoint.condition ? ' wr-debug-breakpoint-conditional' : ''}`,
+            glyphMarginHoverMessage: {
+              value: `${breakpoint.enabled ? 'Breakpoint' : 'Disabled breakpoint'}${breakpoint.condition ? `: ${breakpoint.condition}` : ''}${breakpoint.message ? ` — ${breakpoint.message}` : !breakpoint.verified ? ' — waiting for executable code' : ''}\n\nClick to remove. Ctrl+F9 to toggle.`,
+            },
+            stickiness: monacoApi.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+          },
+        }),
+      );
+      const location = debugRef.current.debugLocation;
+      if (location?.path === entry.path)
+        decorations.push({
+          range: new monacoApi.Range(location.line, 1, location.line, 1),
+          options: {
+            isWholeLine: true,
+            className: 'wr-debug-execution-line',
+            glyphMarginClassName: 'wr-debug-execution-arrow',
+            glyphMarginHoverMessage: { value: 'Execution paused here' },
+          },
+        });
+      if (entry.ids.length === 0 && decorations.length === 0) continue;
+      entry.ids = entry.model.deltaDecorations(entry.ids, decorations);
+      entry.breakpoints = breakpoints.flatMap((breakpoint, index) => {
+        const id = entry.ids[index];
+        return id === undefined ? [] : [{ id, breakpoint }];
+      });
+    }
+  }, []);
 
   useLayoutEffect(() => {
     onSourceChangeRef.current = onSourceChange;
@@ -394,6 +515,32 @@ export function CodeEditor({
           content,
           disposable: model.onDidChangeContent(() => {
             if (synchronizingModelsRef.current.has(resource)) return;
+            const decorationEntry = debugDecorationsRef.current.get(resource);
+            if (
+              decorationEntry !== undefined &&
+              debugRef.current.onBreakpointsMoved !== undefined
+            ) {
+              const moved = new Map(
+                decorationEntry.breakpoints.map(({ id, breakpoint }) => [
+                  breakpoint,
+                  model.getDecorationRange(id)?.startLineNumber ?? breakpoint.line,
+                ]),
+              );
+              if ([...moved].some(([breakpoint, line]) => breakpoint.line !== line)) {
+                debugRef.current.onBreakpointsMoved(
+                  debugRef.current.debugBreakpoints.map((breakpoint) => {
+                    const line = moved.get(breakpoint);
+                    return {
+                      path: breakpoint.path,
+                      line: line ?? breakpoint.line,
+                      column: breakpoint.column,
+                      enabled: breakpoint.enabled,
+                      condition: breakpoint.condition,
+                    };
+                  }),
+                );
+              }
+            }
             subscription.content = model.getValue();
             onSourceChangeRef.current(
               projectSourceResourcesRef.current.get(resource) ?? resource,
@@ -491,6 +638,13 @@ export function CodeEditor({
     for (const disposable of editorDisposablesRef.current) disposable.dispose();
     editorDisposablesRef.current = [
       observeMonacoFontMetrics(editor),
+      monacoApi.languages.registerHoverProvider(
+        'typescript',
+        createDebugHoverProvider(
+          () => hoverContextRef.current,
+          () => editorRef.current?.getModel(),
+        ),
+      ),
       monacoApi.languages.registerCompletionItemProvider('typescript', {
         provideCompletionItems: async (model, position, _context, token) => {
           if (token.isCancellationRequested || model.isDisposed()) return { suggestions: [] };
@@ -549,14 +703,54 @@ export function CodeEditor({
       }),
       editor.onDidChangeCursorSelection(() => publishCursor(editor)),
       editor.onDidChangeModel(() => {
+        synchronizeDebuggerDecorations();
         if (!switchingModelRef.current) applyNavigation(editor, navigateToRef.current);
         publishCursor(editor);
         publishMarkers();
+      }),
+      editor.onMouseDown((event) => {
+        if (
+          event.target.type !== monacoApi.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+          event.target.position === null ||
+          !event.event.leftButton
+        )
+          return;
+        const clickedLine = event.target.position.lineNumber;
+        const existing = debugRef.current.debugBreakpoints.find(
+          (breakpoint) =>
+            breakpoint.path === debugRef.current.sourcePath &&
+            (breakpoint.actualLine ?? breakpoint.line) === clickedLine,
+        );
+        debugRef.current.onToggleBreakpoint?.(
+          debugRef.current.sourcePath,
+          existing?.line ?? clickedLine,
+        );
       }),
       monacoApi.editor.onDidChangeMarkers((resources) => {
         if (resources.some((resource) => projectSourceUrisRef.current.has(resource.toString()))) {
           publishMarkers();
         }
+      }),
+      editor.addAction({
+        id: 'webrad.toggle-breakpoint',
+        label: 'Toggle Breakpoint',
+        keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.F9],
+        contextMenuGroupId: 'navigation',
+        contextMenuOrder: 2,
+        run: () => {
+          const position = editor.getPosition();
+          if (position !== null) {
+            const existing = debugRef.current.debugBreakpoints.find(
+              (breakpoint) =>
+                breakpoint.path === debugRef.current.sourcePath &&
+                (breakpoint.actualLine ?? breakpoint.line) === position.lineNumber,
+            );
+            debugRef.current.onToggleBreakpoint?.(
+              debugRef.current.sourcePath,
+              existing?.line ?? position.lineNumber,
+            );
+          }
+        },
       }),
       editor.addAction({
         id: 'webrad.save-project',
@@ -571,8 +765,13 @@ export function CodeEditor({
     synchronizeMonacoExtraLibraries(extraLibrariesRef.current);
     synchronizeBuildMarkers(buildProblemsRef.current);
     activateProjectModel(editor, true);
+    synchronizeDebuggerDecorations();
     publishMarkers();
   };
+
+  useEffect(() => {
+    synchronizeDebuggerDecorations();
+  }, [debugBreakpoints, debugLocation, path, sourcePath, synchronizeDebuggerDecorations]);
 
   useEffect(() => {
     synchronizeProjectModels();
@@ -628,6 +827,11 @@ export function CodeEditor({
         subscription.disposable.dispose();
       }
       modelDisposablesRef.current.clear();
+      for (const entry of debugDecorationsRef.current.values()) {
+        if (!entry.model.isDisposed() && entry.ids.length > 0)
+          entry.model.deltaDecorations(entry.ids, []);
+      }
+      debugDecorationsRef.current.clear();
       projectSourceResourcesRef.current.clear();
       editorRef.current = null;
     },
@@ -635,7 +839,14 @@ export function CodeEditor({
   );
 
   const label = breadcrumb.at(-1) ?? 'source';
-  const options = useMemo(() => editorOptions(label), [label]);
+  const options = useMemo(
+    () => ({
+      ...editorOptions(label),
+      readOnly: debugging,
+      readOnlyMessage: { value: 'Stop debugging to edit the source.' },
+    }),
+    [debugging, label],
+  );
   return (
     <section className="wr-code-workspace" aria-label={`${label} code workspace`}>
       <div className="wr-code-breadcrumb">
@@ -650,6 +861,7 @@ export function CodeEditor({
         <span className="wr-code-shortcuts" aria-label="Editor shortcuts">
           <kbd>Ctrl+Space</kbd> IntelliSense
           <kbd>F8</kbd> Next problem
+          <kbd>Ctrl+F9</kbd> Breakpoint
           <kbd>Shift+Alt+F</kbd> Format
         </span>
       </div>

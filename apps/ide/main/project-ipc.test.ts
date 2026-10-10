@@ -382,3 +382,64 @@ describe('project asset import IPC', () => {
     expect(mocks.saveProjectFiles).not.toHaveBeenCalled();
   });
 });
+
+describe('debugger IPC authorization', () => {
+  it('requires an opened root before compilation and rejects renderer-supplied CDP targets', async () => {
+    await register();
+    const opened = session('DebugSecurity');
+    const request = { ...saveRequest(opened), breakpoints: [], pauseOnExceptions: 'none' };
+    await expect(invoke('webrad:debug:start', event, request)).rejects.toThrow(
+      'outside an opened project',
+    );
+    for (const extra of [
+      { targetUrl: 'file:///secret' },
+      { method: 'Runtime.evaluate' },
+      { debug: true },
+    ]) {
+      await expect(invoke('webrad:debug:start', event, { ...request, ...extra })).rejects.toThrow();
+    }
+    expect(mocks.saveProjectFiles).not.toHaveBeenCalled();
+  });
+
+  it('rejects child frames for every debugger operation and rejects extra arguments', async () => {
+    await register();
+    const child = { sender: webContents, senderFrame: { url: rendererUrl } };
+    for (const operation of [
+      'start',
+      'state',
+      'command',
+      'breakpoints',
+      'exceptions',
+      'evaluate',
+      'properties',
+    ]) {
+      await expect(invoke(`webrad:debug:${operation}`, child, {})).rejects.toThrow(
+        'IDE main frame',
+      );
+      await expect(invoke(`webrad:debug:${operation}`, event, {}, 'extra')).rejects.toThrow();
+    }
+  });
+
+  it('rejects absolute/traversal breakpoint paths and raw CDP capabilities', async () => {
+    await register();
+    for (const breakpointPath of ['../private.ts', 'C:\\secret.ts', '/private.ts']) {
+      await expect(
+        invoke('webrad:debug:breakpoints', event, [
+          { path: breakpointPath, line: 1, enabled: true },
+        ]),
+      ).rejects.toThrow('project relative');
+    }
+    await expect(
+      invoke('webrad:debug:evaluate', event, {
+        sessionId: 'raw',
+        frameId: 'raw-frame',
+        expression: '1',
+      }),
+    ).rejects.toThrow();
+    await expect(
+      invoke('webrad:debug:properties', event, { sessionId: 'raw', objectId: 'raw-object' }),
+    ).rejects.toThrow();
+    await expect(invoke('webrad:debug:command', event, 'Runtime.evaluate')).rejects.toThrow();
+    expect(mocks.saveProjectFiles).not.toHaveBeenCalled();
+  });
+});

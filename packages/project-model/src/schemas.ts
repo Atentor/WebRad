@@ -1463,6 +1463,43 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
   }
 }
 
+export const ProjectDebuggerSettingsSchema = z
+  .object({
+    version: z.literal(1),
+    breakpoints: z
+      .array(
+        z
+          .object({
+            path: relativeProjectPathSchema.refine(
+              (value) => value.endsWith('.ts') && !value.endsWith('.generated.ts'),
+              'Breakpoints must reference authored TypeScript files.',
+            ),
+            line: z.number().int().min(1).max(10_000_000),
+            column: z.number().int().min(1).max(10_000_000).optional(),
+            enabled: z.boolean(),
+            condition: z.string().max(4096).optional(),
+          })
+          .strict(),
+      )
+      .max(500),
+    watches: z.array(z.string().trim().min(1).max(4096)).max(100),
+    pauseOnExceptions: z.enum(['none', 'uncaught', 'all']),
+  })
+  .strict()
+  .superRefine((settings, context) => {
+    const keys = new Set<string>();
+    for (const [index, breakpoint] of settings.breakpoints.entries()) {
+      const key = `${breakpoint.path}:${breakpoint.line}:${breakpoint.column ?? 1}`;
+      if (keys.has(key))
+        context.addIssue({
+          code: 'custom',
+          message: 'Duplicate breakpoint.',
+          path: ['breakpoints', index],
+        });
+      keys.add(key);
+    }
+  });
+
 export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
   materializeProjectDefaults,
   z
@@ -1476,6 +1513,7 @@ export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
       styles: z.array(ComponentStyleSchema),
       sourceFiles: ProjectSourceFilesSchema,
       assets: ProjectAssetsSchema,
+      debugger: ProjectDebuggerSettingsSchema.optional(),
       settings: ProjectSettingsSchema,
     })
     .strict()
@@ -1505,6 +1543,7 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z.preprocess(
       styles: z.array(ComponentStyleSchema),
       sourceFiles: ProjectSourceFilesSchema,
       assets: ProjectAssetsSchema,
+      debugger: ProjectDebuggerSettingsSchema.optional(),
       settings: ProjectSettingsSchema,
     })
     .strict()

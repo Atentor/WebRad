@@ -21,6 +21,8 @@ export interface CompileProjectOptions {
   readonly write?: boolean;
   readonly minify?: boolean;
   readonly sourcemap?: boolean;
+  /** Emit the original TypeScript mappings and an unminified Debug Preview. */
+  readonly debug?: boolean;
   readonly registry?: ComponentRegistry;
 }
 
@@ -32,6 +34,11 @@ export interface CompileProjectResult {
   readonly files: Readonly<Record<string, string>>;
   /** The same real app bundle as `files`, inlined for the isolated HTTP Preview. */
   readonly previewHtml?: string;
+  /** Original authored-source mappings for the JavaScript executed by Debug Preview. */
+  readonly debug?: {
+    readonly sourceMap: string;
+    readonly scriptUrl: string;
+  };
 }
 
 export interface CompileProjectMemoryOptions extends Omit<

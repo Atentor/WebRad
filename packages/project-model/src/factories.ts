@@ -306,6 +306,7 @@ export function projectToManifest(project: WebRadProject): ProjectManifest {
     styles: parsed.styles,
     sourceFiles: parsed.sourceFiles,
     assets: parsed.assets,
+    debugger: parsed.debugger,
     settings: parsed.settings,
   });
 }
@@ -356,6 +357,7 @@ export function assembleProject(
     styles: manifest.styles,
     sourceFiles: manifest.sourceFiles,
     assets: manifest.assets,
+    debugger: manifest.debugger,
     settings: manifest.settings,
   });
 }

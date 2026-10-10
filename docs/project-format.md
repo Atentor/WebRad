@@ -145,3 +145,7 @@ Readers validate the complete document before it enters the model. Only the curr
 Generated `.generated.ts` files are replaced atomically. User-authored `.ts` files are changed only from explicit editor state, never by generation; an unowned file collision is rejected instead of overwritten. Page and reusable source paths are deterministic, canonical, and portable across case-insensitive filesystems.
 
 Saves are serialized per project root. Artifact writes have rollback snapshots, the manifest is the commit point after all referenced files exist, and retired or path-reused artifacts are copied to `.webrad/trash/<timestamp>-<id>/` before replacement. A small `.webrad/pending-cleanup.json` journal makes post-commit removal retryable after interruption.
+
+# Debugger preferences
+
+Format-v2 manifests may include optional `debugger` metadata with its own `version: 1`, `breakpoints`, `watches`, and `pauseOnExceptions` fields. Breakpoints contain a project-relative authored `.ts` path, a one-based line and optional column, `enabled`, and an optional JavaScript `condition`. Watches are expressions evaluated in the selected paused frame. The exception policy is `none`, `uncaught`, or `all`. Preferences are validated and saved with the Project Model; transient execution state is excluded. Projects without this field retain their existing format. See [the debugger](debugger.md).

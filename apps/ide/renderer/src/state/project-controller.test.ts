@@ -8,6 +8,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import type { ProjectSession, WebRadBridge } from '../../../shared/contracts';
 import { ProjectController } from './project-controller';
+import { createDebugTestBridge } from '../../../shared/debugger-test-bridge';
 
 function deferred<T>(): {
   readonly promise: Promise<T>;
@@ -35,6 +36,7 @@ function projectSession(name: string): ProjectSession {
 
 function fakeBridge(session: ProjectSession): WebRadBridge {
   return {
+    debugger: createDebugTestBridge(),
     restgoAdmin: {
       status: vi.fn(async (request) => ({
         baseUrl: request.baseUrl,
@@ -71,6 +73,26 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
 }
 
 describe('ProjectController', () => {
+  it('keeps debugger breakpoints attached to renamed pages and removes deleted source breakpoints', () => {
+    const session = projectSession('Debug');
+    const page = session.project.pages[0]!;
+    const controller = new ProjectController(fakeBridge(session));
+    controller.load(session);
+    controller.updateDebugger({
+      version: 1,
+      breakpoints: [{ path: 'pages/PageMain.ts', line: 7, enabled: true }],
+      watches: ['this.name'],
+      pauseOnExceptions: 'uncaught',
+    });
+    controller.renamePage(page.id, 'Renamed');
+    expect(controller.getSnapshot().project?.debugger?.breakpoints[0]?.path).toBe(
+      'pages/Renamed.ts',
+    );
+    controller.addPage(createPage('Other'));
+    controller.removePage(page.id);
+    expect(controller.getSnapshot().project?.debugger?.breakpoints).toEqual([]);
+  });
+
   it('restores once, shares the startup promise, and loads a clean authored project', async () => {
     const session = {
       ...projectSession('Previous'),

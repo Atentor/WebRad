@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import {
   countEditorProblems,
   isProblemNavigable,
@@ -14,13 +14,14 @@ export interface OutputEntry {
   timestamp: string;
 }
 
-export type BottomPanelTab = 'problems' | 'output' | 'build';
+export type BottomPanelTab = 'problems' | 'output' | 'build' | 'debug';
 
 export interface BottomPanelProps {
   readonly activeTab: BottomPanelTab;
   readonly problems: readonly EditorProblem[];
   readonly output: readonly OutputEntry[];
   readonly building: boolean;
+  readonly debugContent?: ReactNode;
   readonly onActiveTabChange: (tab: BottomPanelTab) => void;
   readonly onProblemActivate: (problem: EditorProblem) => void;
 }
@@ -130,6 +131,7 @@ export function BottomPanel({
   problems,
   output,
   building,
+  debugContent,
   onActiveTabChange,
   onProblemActivate,
 }: BottomPanelProps): ReactElement {
@@ -139,7 +141,7 @@ export function BottomPanel({
   return (
     <section className="wr-bottom-panel" aria-label="IDE messages">
       <div className="wr-bottom-tabs" role="tablist" aria-label="Messages">
-        {tabs.map((tab) => {
+        {(debugContent === undefined ? tabs : [...tabs, 'debug' as const]).map((tab) => {
           const selected = activeTab === tab;
           return (
             <button
@@ -154,8 +156,7 @@ export function BottomPanel({
               onClick={() => onActiveTabChange(tab)}
             >
               <span>
-                {tab[0]?.toUpperCase()}
-                {tab.slice(1)}
+                {tab === 'debug' ? 'Debugger' : `${tab[0]?.toUpperCase() ?? ''}${tab.slice(1)}`}
               </span>
               {tab === 'problems' && counts.total > 0 && (
                 <span className="wr-problem-tab-counts" aria-hidden="true">
@@ -172,8 +173,9 @@ export function BottomPanel({
         })}
       </div>
       <div
-        id={`wr-bottom-panel-${activeTab}`}
+        id={`wr-bottom-panel-${activeTab === 'debug' ? 'messages' : activeTab}`}
         className="wr-bottom-content"
+        hidden={activeTab === 'debug'}
         role="tabpanel"
         aria-labelledby={`wr-bottom-tab-${activeTab}`}
       >
@@ -216,6 +218,17 @@ export function BottomPanel({
           </>
         )}
       </div>
+      {debugContent !== undefined && (
+        <div
+          id="wr-bottom-panel-debug"
+          className="wr-bottom-content wr-bottom-debug-content"
+          role="tabpanel"
+          aria-labelledby="wr-bottom-tab-debug"
+          hidden={activeTab !== 'debug'}
+        >
+          {debugContent}
+        </div>
+      )}
     </section>
   );
 }

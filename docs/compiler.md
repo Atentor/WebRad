@@ -36,3 +36,7 @@ For native RestGO integration, `settings.restGo` determines whether the shared b
 `npm run runtime:sources` synchronizes the runtime and SDK snapshots and produces editor SDK declarations with the TypeScript compiler. `npm run runtime:sources:check` verifies all those artifacts. This makes the SDK available in development and packaged builds without runtime filesystem access or an Electron dependency in emitted applications.
 
 Models and Units are ordinary authored TypeScript inputs from `models/` and `units/`, participating in strict type checking and bundling through relative imports. Imported manifest assets are emitted as exact binary bytes under `assets/imported/` and served at that relative URL by the isolated HTTP Preview. Asset paths are separate from compiler-owned `app.js` and `app.css`.
+
+# Debug source maps
+
+`compileProject` accepts `debug: true` to force an unminified bundle and composed source maps. Successful debug compilation returns `debug.sourceMap` and `debug.scriptUrl`, with original authored contents and portable project-relative source paths. Maps preserve columns across AST-selected component-reference edits. The dedicated debug Preview uses that script URL to resolve breakpoints before execution. See [the integrated debugger](debugger.md) for IDE behavior and security boundaries.

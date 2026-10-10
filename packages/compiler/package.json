@@ -15,6 +15,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@jridgewell/gen-mapping": "0.3.13",
+    "@jridgewell/trace-mapping": "0.3.31",
     "@tailwindcss/postcss": "4.3.3",
     "@webrad/component-registry": "0.1.0",
     "@webrad/language": "0.1.0",

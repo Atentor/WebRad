@@ -115,8 +115,31 @@ const mocks = vi.hoisted(() => {
     const undoHistory: string[] = [];
     const redoHistory: string[] = [];
     const contentListeners = new Set<ContentListener>();
+    const decorations = new Map<
+      string,
+      { readonly range: MockRange; readonly options: Readonly<Record<string, unknown>> }
+    >();
+    let decorationId = 0;
     const model = {
       uri: resource,
+      decorations,
+      deltaDecorations: vi.fn(
+        (
+          oldIds: readonly string[],
+          next: readonly {
+            readonly range: MockRange;
+            readonly options: Readonly<Record<string, unknown>>;
+          }[],
+        ) => {
+          for (const id of oldIds) decorations.delete(id);
+          return next.map((decoration) => {
+            const id = `decoration-${String(++decorationId)}`;
+            decorations.set(id, decoration);
+            return id;
+          });
+        },
+      ),
+      getDecorationRange: vi.fn((id: string) => decorations.get(id)?.range ?? null),
       dispose: vi.fn(() => {
         disposed = true;
         models.delete(resource.toString());
@@ -271,6 +294,15 @@ const mocks = vi.hoisted(() => {
     let currentModel = models.get(resource) ?? null;
     const selectionListeners = new Set<() => void>();
     const modelListeners = new Set<() => void>();
+    const mouseListeners = new Set<
+      (event: {
+        readonly target: {
+          readonly type: number;
+          readonly position: { readonly lineNumber: number } | null;
+        };
+        readonly event: { readonly leftButton: boolean };
+      }) => void
+    >();
     const actions = new Map<string, { readonly run: () => void }>();
     const findRun = vi.fn();
     const editor = {
@@ -280,6 +312,24 @@ const mocks = vi.hoisted(() => {
         return disposable(() => actions.delete(action.id));
       }),
       findRun,
+      fireMouseDown(type: number, line: number, leftButton = true): void {
+        for (const listener of mouseListeners)
+          listener({ target: { type, position: { lineNumber: line } }, event: { leftButton } });
+      },
+      onMouseDown: vi.fn(
+        (
+          listener: (event: {
+            readonly target: {
+              readonly type: number;
+              readonly position: { readonly lineNumber: number } | null;
+            };
+            readonly event: { readonly leftButton: boolean };
+          }) => void,
+        ) => {
+          mouseListeners.add(listener);
+          return disposable(() => mouseListeners.delete(listener));
+        },
+      ),
       executeEdits: vi.fn(
         (
           _source: string,
@@ -373,6 +423,8 @@ vi.mock('@monaco-editor/react', () => ({
 
 vi.mock('monaco-editor/editor', () => ({
   editor: {
+    TrackedRangeStickiness: { NeverGrowsWhenTypingAtEdges: 1 },
+    MouseTargetType: { GUTTER_GLYPH_MARGIN: 2 },
     ShowLightbulbIconMode: { On: 'on' },
     createModel: mocks.createModel,
     getModel: mocks.getModel,
@@ -381,9 +433,10 @@ vi.mock('monaco-editor/editor', () => ({
     setModelLanguage: mocks.setModelLanguage,
     setModelMarkers: mocks.setModelMarkers,
   },
-  KeyCode: { KeyS: 49 },
+  KeyCode: { KeyS: 49, F9: 67 },
   KeyMod: { CtrlCmd: 2048 },
   languages: {
+    registerHoverProvider: vi.fn(() => ({ dispose: vi.fn() })),
     CompletionItemKind: { Field: 'field' },
     registerCompletionItemProvider: mocks.registerCompletionItemProvider,
   },
@@ -473,6 +526,103 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('CodeEditor professional Monaco workspace', () => {
+  it('renders verified, pending, disabled and execution decorations without changing source and toggles via gutter and native action', () => {
+    const onToggleBreakpoint = vi.fn();
+    const props = codeEditorProps({
+      sourcePath: 'pages/PageMain.ts',
+      debugging: true,
+      onToggleBreakpoint,
+      debugLocation: { path: 'pages/PageMain.ts', line: 3, column: 5 },
+      debugBreakpoints: [
+        { path: 'pages/PageMain.ts', line: 2, enabled: true, verified: true },
+        {
+          path: 'pages/PageMain.ts',
+          line: 4,
+          enabled: true,
+          verified: false,
+          condition: 'counter > 2',
+        },
+        { path: 'pages/PageMain.ts', line: 6, enabled: false, verified: false },
+      ],
+    });
+    const { rerender, unmount } = render(<CodeEditor {...props} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    const model = mocks.models.get(CANONICAL_MAIN_RESOURCE);
+    expect(mocks.editorProps?.options?.readOnly).toBe(true);
+    expect(
+      [...(model?.decorations.values() ?? [])].map((entry) => entry.options.glyphMarginClassName),
+    ).toEqual([
+      'wr-debug-breakpoint',
+      'wr-debug-breakpoint wr-debug-breakpoint-pending wr-debug-breakpoint-conditional',
+      'wr-debug-breakpoint wr-debug-breakpoint-disabled',
+      'wr-debug-execution-arrow',
+    ]);
+    editor.fireMouseDown(2, 8);
+    expect(onToggleBreakpoint).toHaveBeenLastCalledWith('pages/PageMain.ts', 8);
+    editor.fireMouseDown(3, 9);
+    editor.fireMouseDown(2, 9, false);
+    expect(onToggleBreakpoint).toHaveBeenCalledTimes(1);
+    editor.actions.get('webrad.toggle-breakpoint')?.run();
+    expect(onToggleBreakpoint).toHaveBeenLastCalledWith('pages/PageMain.ts', 3);
+    rerender(
+      <CodeEditor
+        {...props}
+        path={OTHER_RESOURCE}
+        sourcePath="pages/PageOther.ts"
+        debugLocation={{ path: 'pages/PageOther.ts', line: 2, column: 1 }}
+      />,
+    );
+    expect([...(model?.decorations.values() ?? [])]).toHaveLength(3);
+    expect(
+      [...(mocks.models.get(CANONICAL_OTHER_RESOURCE)?.decorations.values() ?? [])][0]?.options
+        .glyphMarginClassName,
+    ).toBe('wr-debug-execution-arrow');
+    expect(props.onSourceChange).not.toHaveBeenCalled();
+    unmount();
+    expect(model?.decorations.size).toBe(0);
+  });
+
+  it('tracks breakpoint movement after edits and retains breakpoints in other sources', () => {
+    const onBreakpointsMoved = vi.fn();
+    const sourceBreakpoint = { path: 'pages/PageMain.ts', line: 2, enabled: true, verified: false };
+    const otherBreakpoint = { path: 'pages/PageOther.ts', line: 4, enabled: true, verified: false };
+    render(
+      <CodeEditor
+        {...codeEditorProps({
+          sourcePath: sourceBreakpoint.path,
+          debugBreakpoints: [sourceBreakpoint, otherBreakpoint],
+          onBreakpointsMoved,
+        })}
+      />,
+    );
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    const model = mocks.models.get(CANONICAL_MAIN_RESOURCE);
+    const [id, decoration] = [...(model?.decorations ?? [])][0] ?? [];
+    expect(id).toBeTruthy();
+    if (id === undefined || decoration === undefined)
+      throw new Error('Missing breakpoint decoration');
+    model?.decorations.set(id, { ...decoration, range: new mocks.MockRange(3, 1, 3, 1) });
+    model?.fireUserChange('\nexport class PageMain {}');
+    expect(onBreakpointsMoved).toHaveBeenCalledWith([
+      {
+        path: sourceBreakpoint.path,
+        line: 3,
+        column: undefined,
+        condition: undefined,
+        enabled: true,
+      },
+      {
+        path: otherBreakpoint.path,
+        line: 4,
+        column: undefined,
+        condition: undefined,
+        enabled: true,
+      },
+    ]);
+  });
+
   it('configures the language service, persistent project models, theme, chrome, and editor options', () => {
     const props = codeEditorProps();
     const { container } = render(<CodeEditor {...props} />);

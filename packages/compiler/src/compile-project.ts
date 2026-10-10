@@ -23,6 +23,7 @@ import { bundleSources } from './bundle.js';
 import { fromEsbuildMessage } from './diagnostics.js';
 import { createIndexHtml, createPreviewHtml } from './html.js';
 import { createVirtualSourceGraph } from './source-graph.js';
+import { composeSourceMap, DEBUG_SCRIPT_URL } from './source-maps.js';
 import { compileGeneratedAppStyles } from './styles.js';
 import { typecheckSources } from './typecheck.js';
 import type {
@@ -467,9 +468,14 @@ export async function compileProject(
       sources: checked.sources,
       entryPath: graph.entryPath,
       outputDirectory,
-      minify: options.minify ?? false,
-      sourcemap: options.sourcemap ?? false,
+      minify: options.debug ? false : (options.minify ?? false),
+      sourcemap: options.debug || (options.sourcemap ?? false),
     });
+    const bundleFiles = { ...bundle.files };
+    for (const [file, sourceMap] of Object.entries(bundleFiles)) {
+      if (file.endsWith('.map'))
+        bundleFiles[file] = composeSourceMap(sourceMap, graph.sources, checked.sourceEdits);
+    }
     const javaScript = bundle.files['assets/app.js'];
     const css = bundle.files['assets/app.css'];
     if (javaScript === undefined || css === undefined) {
@@ -501,7 +507,7 @@ export async function compileProject(
       binaryFiles[socialImageOutputPathValue] = decodeSocialImage(project.settings.seo.socialImage);
     }
     const files = {
-      ...bundle.files,
+      ...bundleFiles,
       'index.html': createIndexHtml(
         project.settings,
         iconOutputPath === null ? null : `./${iconOutputPath}`,
@@ -510,12 +516,20 @@ export async function compileProject(
     };
     const diagnostics = [...preBundleDiagnostics, ...bundle.diagnostics];
     if (options.write ?? true) await writeOutputFiles(outputDirectory, files, binaryFiles);
+    const debugSourceMap = bundleFiles['assets/app.js.map'];
     return {
       success: true,
       outputDirectory,
       diagnostics,
       files,
-      previewHtml: createPreviewHtml(project.settings, javaScript, css),
+      previewHtml: createPreviewHtml(
+        project.settings,
+        options.debug ? `${javaScript}\n//# sourceURL=${DEBUG_SCRIPT_URL}\n` : javaScript,
+        css,
+      ),
+      ...(options.debug && debugSourceMap !== undefined
+        ? { debug: { sourceMap: debugSourceMap, scriptUrl: DEBUG_SCRIPT_URL } }
+        : {}),
     };
   } catch (error) {
     const diagnostics = isBuildFailure(error)

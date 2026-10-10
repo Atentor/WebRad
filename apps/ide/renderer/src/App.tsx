@@ -106,6 +106,9 @@ import { canonicalMonacoResource } from './monaco-resource';
 import { editCommandTarget, executeTextEditingCommand } from './workbench-commands';
 import { DesignerController } from './state/designer-controller';
 import { ProjectController } from './state/project-controller';
+import { useDebugger } from './state/useDebugger';
+import { DebuggerPanel } from './components/DebuggerPanel';
+import type { DebugLocation } from '../../shared/debugger-contracts';
 
 const STYLES_DOCUMENT_ID = 'webrad:project-styles';
 const RESTGO_DOCUMENT_ID = 'webrad:restgo';
@@ -1312,8 +1315,56 @@ export function App(): ReactElement {
     [projectController, reportError],
   );
 
+  const navigateDebugLocation = useCallback(
+    (location: DebugLocation): void => {
+      const current = projectController.getSnapshot();
+      if (!current.project) return;
+      const document =
+        current.project.pages.find((page) => sourceKey(page, 'page') === location.path) ??
+        current.project.reusableElements.find(
+          (page) => sourceKey(page, 'reusable') === location.path,
+        ) ??
+        current.project.sourceFiles?.find((file) => projectSourceFilePath(file) === location.path);
+      if (!document) return;
+      openPage(document.id);
+      setActiveView('code');
+      setNavigateTo({
+        resource: sourceUri(current.rootPath, current.project.id, location.path),
+        line: location.line,
+        column: location.column,
+        requestId: ++navigationRequestRef.current,
+      });
+    },
+    [openPage, projectController],
+  );
+  const showDebugger = useCallback((): void => {
+    setVisiblePanels((current) => ({ ...current, output: true }));
+    setBottomPanelTab('debug');
+  }, []);
+  const acceptDebugDiagnostics = useCallback((diagnostics: readonly BuildDiagnostic[]): void => {
+    setBuildDiagnostics(diagnostics);
+    if (diagnostics.some((item) => item.category === 'error')) setBottomPanelTab('problems');
+  }, []);
+  const debuggerSession = useDebugger({
+    controller: projectController,
+    project,
+    onOutput: addOutput,
+    onShow: showDebugger,
+    onNavigate: navigateDebugLocation,
+    onDiagnostics: acceptDebugDiagnostics,
+  });
+  const {
+    busy: debugBusy,
+    command: debugCommand,
+    start: debugStart,
+    active: debugActive,
+    state: debugState,
+  } = debuggerSession;
+
   const runProject = useCallback(async (): Promise<void> => {
     if (!projectState.project || !projectState.rootPath) return;
+    if (building || debugBusy) return;
+    await debugCommand('stop');
     const requestId = (buildRequestRef.current += 1);
     setBuilding(true);
     setBuildDiagnostics([]);
@@ -1357,7 +1408,16 @@ export function App(): ReactElement {
     } finally {
       if (requestId === buildRequestRef.current) setBuilding(false);
     }
-  }, [addOutput, projectController, projectState.project, projectState.rootPath, reportError]);
+  }, [
+    addOutput,
+    projectController,
+    projectState.project,
+    projectState.rootPath,
+    reportError,
+    building,
+    debugBusy,
+    debugCommand,
+  ]);
 
   const executeCommand = useCallback(
     (command: IdeCommand, target?: 'designer'): void => {
@@ -1465,6 +1525,37 @@ export function App(): ReactElement {
         case 'run.run':
           void runProject();
           break;
+        case 'view.debugger':
+          showDebugger();
+          break;
+        case 'debug.start':
+          if (!building && project) {
+            setActiveWorkspace('page');
+            setActiveView('code');
+            void debugStart();
+          }
+          break;
+        case 'debug.pause':
+          if (debugState.status === 'running') void debugCommand('pause');
+          break;
+        case 'debug.stepOver':
+        case 'debug.stepInto':
+        case 'debug.stepOut':
+          if (debugState.status === 'paused')
+            void debugCommand(
+              command === 'debug.stepOver'
+                ? 'stepOver'
+                : command === 'debug.stepInto'
+                  ? 'stepInto'
+                  : 'stepOut',
+            );
+          break;
+        case 'debug.stop':
+          void debugCommand('stop');
+          break;
+        case 'debug.restart':
+          if (debugActive) void debugCommand('restart');
+          break;
         case 'file.exit':
           window.close();
           break;
@@ -1495,6 +1586,13 @@ export function App(): ReactElement {
       undo,
       dataGridConfiguratorComponent,
       comboBoxConfiguratorComponent,
+      showDebugger,
+      debugStart,
+      debugCommand,
+      debugActive,
+      debugState.status,
+      building,
+      project,
     ],
   );
 
@@ -1516,7 +1614,25 @@ export function App(): ReactElement {
         }
         event.preventDefault();
         setActiveView((current) => (current === 'design' ? 'code' : 'design'));
-      } else if (event.key === 'F9') {
+      } else if (event.key === 'F5') {
+        event.preventDefault();
+        executeCommand(
+          event.shiftKey
+            ? event.ctrlKey || event.metaKey
+              ? 'debug.restart'
+              : 'debug.stop'
+            : 'debug.start',
+        );
+      } else if (event.key === 'F10' || event.key === 'F11') {
+        event.preventDefault();
+        executeCommand(
+          event.key === 'F10'
+            ? 'debug.stepOver'
+            : event.shiftKey
+              ? 'debug.stepOut'
+              : 'debug.stepInto',
+        );
+      } else if (event.key === 'F9' && !event.ctrlKey && !event.metaKey) {
         event.preventDefault();
         executeCommand('run.run');
       }
@@ -1795,6 +1911,13 @@ export function App(): ReactElement {
   ) : activeSourceFile ? (
     <ErrorBoundary area="Monaco">
       <CodeEditor
+        sourcePath={projectSourceFilePath(activeSourceFile)}
+        debugBreakpoints={debuggerSession.breakpoints}
+        debugLocation={debuggerSession.location}
+        debugHoverContext={debuggerSession.hoverContext}
+        debugging={debuggerSession.active || debuggerSession.busy}
+        onToggleBreakpoint={debuggerSession.toggleBreakpoint}
+        onBreakpointsMoved={debuggerSession.moveBreakpoints}
         path={sourceUri(
           projectState.rootPath,
           project?.id ?? 'project',
@@ -1853,6 +1976,13 @@ export function App(): ReactElement {
   ) : activeView === 'code' ? (
     <ErrorBoundary area="Monaco">
       <CodeEditor
+        sourcePath={activeSourceKey ?? undefined}
+        debugBreakpoints={debuggerSession.breakpoints}
+        debugLocation={debuggerSession.location}
+        debugHoverContext={debuggerSession.hoverContext}
+        debugging={debuggerSession.active || debuggerSession.busy}
+        onToggleBreakpoint={debuggerSession.toggleBreakpoint}
+        onBreakpointsMoved={debuggerSession.moveBreakpoints}
         path={sourceUri(projectState.rootPath, project?.id ?? 'project', activeSourceKey ?? '')}
         value={
           activeSourceKey === null || activeDocumentKind === null
@@ -2188,9 +2318,37 @@ export function App(): ReactElement {
                 building={building}
                 onActiveTabChange={setBottomPanelTab}
                 onProblemActivate={activateProblem}
+                debugContent={
+                  project ? (
+                    <DebuggerPanel
+                      key={project.id}
+                      state={debuggerSession.state}
+                      bridge={debuggerSession.bridge}
+                      breakpoints={debuggerSession.settings.breakpoints}
+                      watches={debuggerSession.settings.watches}
+                      pauseOnExceptions={debuggerSession.settings.pauseOnExceptions}
+                      selectedFrameId={debuggerSession.selectedFrameId}
+                      busy={debugBusy}
+                      canStart={!building}
+                      onAction={(action) => void debuggerSession.command(action)}
+                      onStart={() => executeCommand('debug.start')}
+                      onToggleBreakpoint={debuggerSession.toggleBreakpoint}
+                      onUpdateBreakpoint={debuggerSession.updateBreakpoint}
+                      onRemoveBreakpoint={debuggerSession.removeBreakpoint}
+                      onClearBreakpoints={debuggerSession.clearBreakpoints}
+                      onWatchesChange={debuggerSession.setWatches}
+                      onExceptionModeChange={debuggerSession.setExceptionMode}
+                      onSelectFrame={debuggerSession.selectFrame}
+                      onNavigateLocation={navigateDebugLocation}
+                    />
+                  ) : (
+                    <div className="wr-empty-state compact">Open a project to debug its code.</div>
+                  )
+                }
               />
             ) : null
           }
+          bottomMinimumHeight={bottomPanelTab === 'debug' ? 300 : 96}
           status={
             <StatusBar
               status={status}

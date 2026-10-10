@@ -16,6 +16,7 @@ interface IdeShellProps {
   editor: ReactNode;
   inspector: ReactNode;
   bottom: ReactNode;
+  bottomMinimumHeight?: number;
   status: ReactNode;
 }
 
@@ -38,11 +39,13 @@ export function IdeShell({
   editor,
   inspector,
   bottom,
+  bottomMinimumHeight = 96,
   status,
 }: IdeShellProps): ReactElement {
   const [leftWidth, setLeftWidth] = useState(250);
   const [rightWidth, setRightWidth] = useState(360);
   const [bottomHeight, setBottomHeight] = useState(188);
+  const visibleBottomHeight = Math.max(bottomHeight, bottomMinimumHeight);
   const resize = useRef<ResizeSession | null>(null);
   const workbenchRef = useRef<HTMLDivElement>(null);
   const [workbenchWidth, setWorkbenchWidth] = useState(() => window.innerWidth);
@@ -90,10 +93,10 @@ export function IdeShell({
             ? visibleLeftWidth
             : target === 'right'
               ? visibleRightWidth
-              : bottomHeight,
+              : visibleBottomHeight,
       };
     },
-    [bottomHeight, visibleLeftWidth, visibleRightWidth],
+    [visibleBottomHeight, visibleLeftWidth, visibleRightWidth],
   );
 
   const continueResize = useCallback(
@@ -116,11 +119,14 @@ export function IdeShell({
         );
       } else {
         setBottomHeight(
-          Math.min(360, Math.max(96, session.startValue - event.clientY + session.startY)),
+          Math.min(
+            360,
+            Math.max(bottomMinimumHeight, session.startValue - event.clientY + session.startY),
+          ),
         );
       }
     },
-    [leftResizeMaximum, rightResizeMaximum],
+    [leftResizeMaximum, rightResizeMaximum, bottomMinimumHeight],
   );
 
   const finishResize = useCallback((event: PointerEvent<HTMLDivElement>) => {
@@ -153,7 +159,7 @@ export function IdeShell({
             inspector ? '1px ' + String(visibleRightWidth) + 'px' : '0px 0px',
           ].join(' '),
           gridTemplateRows: bottom
-            ? 'minmax(0, 1fr) 1px ' + String(bottomHeight) + 'px'
+            ? 'minmax(0, 1fr) 1px ' + String(visibleBottomHeight) + 'px'
             : 'minmax(0, 1fr) 0px 0px',
         }}
       >

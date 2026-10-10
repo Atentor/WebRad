@@ -21,6 +21,7 @@ import {
   type ComponentStyleModel,
   type PageModel,
   type ProjectSettings,
+  type ProjectDebuggerSettings,
   type ReusableElementModel,
   type WebRadProject,
 } from '@webrad/project-model';
@@ -74,6 +75,23 @@ function reusableSourcePath(reusableElementName: string): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function renameDebugSource(
+  project: WebRadProject,
+  oldPath: string,
+  newPath: string,
+): WebRadProject {
+  if (project.debugger === undefined) return project;
+  return {
+    ...project,
+    debugger: {
+      ...project.debugger,
+      breakpoints: project.debugger.breakpoints.map((breakpoint) =>
+        breakpoint.path === oldPath ? { ...breakpoint, path: newPath } : breakpoint,
+      ),
+    },
+  };
 }
 
 export class ProjectController {
@@ -379,6 +397,10 @@ export class ProjectController {
     this.#commitEdit(project, userSources);
   }
 
+  public updateDebugger(settings: ProjectDebuggerSettings): void {
+    this.#commitEdit({ ...this.#requireProject(), debugger: settings }, this.#snapshot.userSources);
+  }
+
   public removeReusableElement(reusableElementId: string): void {
     const project = this.#requireProject();
     const reusableElement = getReusableElement(project, reusableElementId);
@@ -404,7 +426,7 @@ export class ProjectController {
     ).sourceText;
     const userSources = { ...this.#snapshot.userSources, [newKey]: renamedSource };
     delete userSources[oldKey];
-    this.#commitEdit(nextProject, userSources);
+    this.#commitEdit(renameDebugSource(nextProject, oldKey, newKey), userSources);
   }
 
   public removePage(pageId: string): void {
@@ -426,7 +448,7 @@ export class ProjectController {
     const renamedSource = renamePageUserSource(source, oldPage.name, newName, oldKey).sourceText;
     const userSources = { ...this.#snapshot.userSources, [newKey]: renamedSource };
     delete userSources[oldKey];
-    this.#commitEdit(nextProject, userSources);
+    this.#commitEdit(renameDebugSource(nextProject, oldKey, newKey), userSources);
   }
 
   async #restoreAtStartup(operationRevision: number): Promise<ProjectSession | null> {
@@ -510,7 +532,21 @@ export class ProjectController {
     projectInput: WebRadProject,
     userSourcesInput: Readonly<Record<string, string>>,
   ): void {
-    const project = parseProject(projectInput);
+    const debuggerSettings = projectInput.debugger;
+    const availablePaths = new Set(Object.keys(userSourcesInput));
+    const project = parseProject(
+      debuggerSettings === undefined
+        ? projectInput
+        : {
+            ...projectInput,
+            debugger: {
+              ...debuggerSettings,
+              breakpoints: debuggerSettings.breakpoints.filter((breakpoint) =>
+                availablePaths.has(breakpoint.path),
+              ),
+            },
+          },
+    );
     const userSources = { ...userSourcesInput };
     const session = this.#snapshot.session
       ? { ...this.#snapshot.session, project, userSources }

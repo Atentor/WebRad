@@ -1,4 +1,5 @@
 import { runProjectResourcesSmoke } from './project-resources-smoke';
+import { runDebuggerSmoke } from './debugger-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
@@ -6,6 +7,7 @@ import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
 import { resolveCompilerEnvironment } from './compiler-environment';
 import { synchronizeInstallationIcon } from './installation-icon';
+import { applicationWindowIconPath } from './application-icon';
 import { presentMainWindow } from './main-window-presentation';
 import { installApplicationMenu } from './menu';
 import { closePreviewServer, publishPreviewHtml, revokePreview } from './preview-server';
@@ -43,13 +45,6 @@ const smokeScreenshotArgument = process.argv.find((value) =>
 const smokeScreenshotPath = smokeMode
   ? smokeScreenshotArgument?.slice('--webrad-smoke-screenshot='.length)
   : undefined;
-
-function applicationWindowIconPath(): string {
-  const fileName = process.platform === 'win32' ? 'Icon.ico' : 'Icon.png';
-  return app.isPackaged
-    ? path.join(process.resourcesPath, fileName)
-    : path.resolve(__dirname, '..', '..', fileName);
-}
 
 function verifyApplicationIconResource(): void {
   if (!smokeMode) return;
@@ -679,6 +674,10 @@ async function captureDesignerSmokeScreenshot(window: BrowserWindow): Promise<vo
 }
 
 async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
+  if (process.argv.includes('--webrad-smoke-debugger') && smokeProjectPath !== undefined) {
+    await runDebuggerSmoke(window, smokeProjectPath, smokeLog);
+    return;
+  }
   if (process.argv.includes('--webrad-smoke-resources') && smokeProjectPath !== undefined) {
     await runProjectResourcesSmoke(window, smokeProjectPath, smokeLog);
     return;
@@ -715,6 +714,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const favicon = Reflect.get(shellResult, 'favicon');
   const bridge = Reflect.get(shellResult, 'bridge');
   const expectedBridge = Object.keys({
+    debugger: true,
     build: true,
     commands: true,
     files: true,

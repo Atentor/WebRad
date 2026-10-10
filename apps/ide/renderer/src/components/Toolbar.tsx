@@ -199,6 +199,17 @@ export function Toolbar(props: ToolbarProps): ReactElement {
       <button
         className="wr-toolbar-run"
         type="button"
+        title="Start debugging (F5)"
+        aria-label="Start debugging (F5)"
+        disabled={!props.canRun}
+        onClick={() => props.onCommand('debug.start')}
+      >
+        <Icon name="play" />
+        <span>Debug</span>
+      </button>
+      <button
+        className="wr-toolbar-run"
+        type="button"
         title="Build and run (F9)"
         aria-label="Build and run (F9)"
         disabled={!props.canRun}
