@@ -279,6 +279,13 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       'Administrative access disconnected.',
     ).catch(() => undefined);
   };
+  const openRestGo = (): void => {
+    setError(null);
+    setNotice(null);
+    void window.webrad.links.open('restgo').catch((reason: unknown) => {
+      setError(`Could not open RestGO in your default browser: ${restGoErrorMessage(reason)}`);
+    });
+  };
   const openEndpoint = (group: RestGoEndpointGroup): void => {
     if (endpointDirty) return;
     void perform('Loading endpoint scripts', async () => {
@@ -442,6 +449,17 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       <header className="wr-restgo-workspace-header">
         <h1 title={title.description}>{title.title}</h1>
         <div className="wr-restgo-header-tools">
+          {section === 'connection' && (
+            <button
+              className="wr-restgo-button"
+              type="button"
+              onClick={openRestGo}
+              title="Open RestGO in your default browser"
+            >
+              <Icon name="external-link" />
+              Open RestGO
+            </button>
+          )}
           <span className={`wr-restgo-status${status?.connected ? ' is-connected' : ''}`}>
             <span className={`wr-restgo-dot${status?.connected ? ' is-active' : ''}`} />
             {checking

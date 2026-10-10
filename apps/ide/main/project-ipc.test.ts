@@ -296,9 +296,11 @@ describe('external link IPC', () => {
   it('opens only the approved websites in the default browser', async () => {
     await register();
     await invoke('webrad:links:open', event, 'atentor');
+    await invoke('webrad:links:open', event, 'restgo');
     await invoke('webrad:links:open', event, 'webrad');
     expect(mocks.openExternal.mock.calls).toEqual([
       ['https://atentor.com'],
+      ['https://restgo.atentor.com'],
       ['https://webrad.atentor.com'],
     ]);
   });
