@@ -1,5 +1,6 @@
 import { componentRegistry, ComponentRegistry } from './registry.js';
 import { organizeInspectorProperty } from './inspector-properties.js';
+import { webVideoUpload } from './video-upload.js';
 import {
   createDefaultApiClientConfiguration,
   createDefaultDataGridConfiguration,
@@ -1387,6 +1388,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebPopup',
   'WebApiClient',
   'WebFileUpload',
+  'WebVideoUpload',
 ] as const;
 
 export type MvpComponentType = (typeof MVP_COMPONENT_TYPES)[number];
@@ -1407,6 +1409,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webPopup,
   webApiClient,
   webFileUpload,
+  webVideoUpload,
 ];
 
 componentRegistry.registerMany(

@@ -9,6 +9,7 @@ import { paletteColorId } from './color-palette.js';
 import { ApiClientConfigurationSchema } from './api-client.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
 import { ComboBoxConfigurationSchema } from './combo-box.js';
+import { VideoUploadPropertiesSchema } from './video-upload.js';
 import { defaultComponentStyleId, DEFAULT_COMPONENT_STYLE_DEFINITIONS } from './default-styles.js';
 import { ProjectValidationError } from './errors.js';
 import {
@@ -457,6 +458,17 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
     })
     .strict()
     .superRefine((component, context) => {
+      if (component.type === 'WebVideoUpload') {
+        const result = VideoUploadPropertiesSchema.safeParse(component.props);
+        if (!result.success)
+          for (const issue of result.error.issues) {
+            context.addIssue({
+              code: 'custom',
+              message: `Invalid Video Upload configuration: ${issue.message}`,
+              path: ['props', ...issue.path],
+            });
+          }
+      }
       const propertyName =
         component.type === 'WebApiClient'
           ? 'apiClientConfig'

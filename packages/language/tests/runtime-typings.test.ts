@@ -520,6 +520,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebDataGrid,
   WebEdit,
   WebFileUpload,
+  WebVideoUpload,
   WebPage,
   WebImage,
   WebLabel,
@@ -538,6 +539,7 @@ class EditorPage extends WebPage {
     label: WebLabel,
     edit: WebEdit,
     fileUpload: WebFileUpload,
+    videoUpload: WebVideoUpload,
     textArea: WebTextArea,
     button: WebButton,
     checkBox: WebCheckBox,
@@ -554,6 +556,7 @@ class EditorPage extends WebPage {
     label./*@label*/autoSize;
     edit./*@edit*/inputType;
     fileUpload./*@fileUpload*/upload;
+    videoUpload./*@videoUpload*/SendToRestGO;
     textArea./*@textArea*/rows;
     button./*@button*/caption;
     checkBox./*@checkBox*/checked;
@@ -713,6 +716,7 @@ class EditorPage extends WebPage {
       WebComboBox: 'combo',
       WebEdit: 'edit',
       WebFileUpload: 'fileUpload',
+      WebVideoUpload: 'videoUpload',
       WebDataGrid: 'grid',
       WebPage: 'page',
       WebImage: 'image',

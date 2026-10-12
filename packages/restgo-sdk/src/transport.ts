@@ -22,6 +22,10 @@ export interface TransportRequest extends RestGoRequestOptions {
   sessionAuthority?: boolean;
   skipUnauthorized?: boolean;
   onUploadProgress?: (progress: RestGoUploadProgress) => void;
+  /** Send a Blob as binary without changing its explicit Content-Type. */
+  binary?: boolean;
+  /** Resumable writes must reconcile their offset after session renewal. */
+  retryUnauthorized?: boolean;
 }
 
 export class RestGoTransport {
@@ -110,7 +114,9 @@ export class RestGoTransport {
       let body: FormData | Blob | string | undefined;
       if (options.body instanceof FormData || options.body instanceof Blob) {
         body = options.body;
-        headers.delete('Content-Type');
+        if (options.binary && body instanceof Blob)
+          headers.set('Content-Type', 'application/octet-stream');
+        else headers.delete('Content-Type');
       } else if (options.body !== undefined) {
         body = JSON.stringify(options.body);
         headers.set('Content-Type', 'application/json');
@@ -172,7 +178,11 @@ export class RestGoTransport {
               'AUTH_OPERATION_CANCELLED',
             );
           if (renewed.error) return renewed;
-          if (renewed.data && renewed.data.token !== usedSessionToken) {
+          if (
+            renewed.data &&
+            renewed.data.token !== usedSessionToken &&
+            options.retryUnauthorized !== false
+          ) {
             return this.request<T>(path, {
               ...options,
               token: renewed.data.token,

@@ -2,7 +2,7 @@
 
 **Data de referência:** 12/10/2026.
 
-**Situação:** documentação e proposta para implementação futura. Nenhuma API ou componente de vídeo do WebRad é implementado por este documento.
+**Situação:** SDK de vídeos e componente não visual `WebVideoUpload` implementados. O player visual Shaka permanece uma proposta. Consulte [docs/video-upload.md](docs/video-upload.md) para a API atual, limites e validação do upload.
 
 ## 1. Objetivo e limites
 
@@ -12,7 +12,7 @@ Preparar a integração do módulo nativo de vídeos do RestGo com o WebRad por 
 2. Um componente **não visual** com seleção de arquivo, upload resumível, progresso, pausa, retomada, cancelamento e acompanhamento do processamento.
 3. Um componente **visual** de reprodução usando [Shaka Player](https://github.com/shaka-project/shaka-player), com HLS do RestGo, adaptação automática de qualidade e seleção manual das variantes disponíveis.
 
-Os contratos HTTP abaixo foram consultados no checkout `C:\GitHub\RestGo`. Os nomes `RestGO.videos`, `RestGoVideosClient`, `WebVideoUpload` e `WebVideoPlayer`, seus membros e os exemplos de uso são **propostas**, ainda inexistentes no WebRad. Os nomes públicos do backend, como `descri`, `sizeBytes` e `maxChunkBytes`, devem ser preservados.
+Os contratos HTTP abaixo foram consultados no checkout `C:\GitHub\RestGo`. `RestGO.videos`, `RestGoVideosClient` e `WebVideoUpload` agora existem; `WebVideoPlayer` permanece proposto. As seções de player e os exemplos que o usam dependem dessa implementação futura. Os nomes públicos do backend, como `descri`, `sizeBytes` e `maxChunkBytes`, são preservados.
 
 YouTube fica fora desta proposta: a condição de suporte pela própria biblioteca Shaka não foi atendida. A evidência e a alternativa oficial estão na seção 9.
 
@@ -45,7 +45,7 @@ YouTube fica fora desta proposta: a condição de suporte pela própria bibliote
 | `packages/language`                                                                                                                      | Instâncias concretas, eventos e declarações para Monaco.                                         |
 | [packages/compiler/src/bundle.ts](packages/compiler/src/bundle.ts), [scripts/sync-runtime-sources.mjs](scripts/sync-runtime-sources.mjs) | Integração da dependência Shaka e sincronização das fontes/declarações geradas.                  |
 
-O SDK atual ainda não expõe `videos`. O `WebFileUpload` atual envia arquivos comuns por multipart para `/storage/files`; isso não cria um vídeo na biblioteca `/videos`, não gera HLS e não substitui o protocolo resumível do módulo.
+O SDK expõe `videos` e `WebVideoUpload` usa o protocolo resumível. O `WebFileUpload` envia arquivos comuns por multipart para `/storage/files`; isso não cria um vídeo na biblioteca `/videos`, não gera HLS e não substitui esse protocolo.
 
 ## 3. O que o backend já oferece
 
@@ -201,9 +201,9 @@ Playlists e segmentos também aceitam HEAD/Range. Recursos usam `private, no-sto
 | 507                      | Quota/disco insuficientes; manter diagnóstico sem simular conclusão.                                                |
 | 429, 5xx e falha de rede | Tentativas limitadas, espera progressiva e `Retry-After` quando presente; reconciliar upload antes de reenviar.     |
 
-## 5. Estrutura proposta do SDK
+## 5. Estrutura do SDK
 
-Criar `RestGoVideosClient` em módulo próprio de `packages/restgo-sdk`, sem dependência de Shaka ou DOM visual. Expor a instância como `client.videos` e `RestGO.videos`, reutilizando transporte e autenticação existentes. O SDK retorna `{data,error}`; os componentes podem seguir a convenção existente de Promise com rejeição e eventos tipados.
+`RestGoVideosClient` está em módulo próprio de `packages/restgo-sdk`, sem dependência de Shaka ou DOM visual. A instância é exposta como `client.videos` e `RestGO.videos`, reutilizando transporte e autenticação existentes. O SDK retorna `{data,error}`; o componente usa Promise com rejeição e eventos tipados. A referência abaixo conserva a especificação original; a API implementada e as opções de retomada constam em [Video Upload](docs/video-upload.md).
 
 ### Tipos públicos
 
@@ -391,9 +391,11 @@ O navegador normalmente exige selecionar novamente o arquivo; não prometer aces
 
 Nome/tamanho/data são verificações de identidade preliminares e não provam que o conteúdo seja o mesmo. O backend recebe hashes por chunk, mas não fornece uma identidade global do arquivo original para retomada. Uma implementação que prometa verificação forte deve definir e validar uma impressão do conteúdo calculada por partes; não aceitar silenciosamente outro arquivo de mesmo tamanho. Troca de servidor, logout ou troca de usuário deve invalidar/suspender a associação local de retomada.
 
-## 7. Componente não visual proposto: `WebVideoUpload`
+## 7. Componente não visual: `WebVideoUpload`
 
 Classe real de runtime, seguindo a base não visual existente, registrada na paleta/bandeja **Nonvisual**. Sua responsabilidade é selecionar e enviar vídeos pelo serviço SDK; a conversão ocorre no RestGo.
+
+A implementação também expõe `maxFileSizeMB` e `maxDurationSeconds`, opcionais e positivos, para limitar arquivo e duração antes do envio. `resumeToken` permite retomada após nova seleção do original, com servidor/dono e impressão do conteúdo verificados. Durante a criação de sessão, uma pausa preserva a resposta antes de interromper o fluxo. Consulte [o guia atual](docs/video-upload.md) para os tipos públicos e as condições de leitura de duração no navegador.
 
 | Categoria                | Proposta                                                                                                                                     |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -486,11 +488,11 @@ O [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_r
 | Compiler/Preview   | Instanciação real, eventos, fontes/declarações sincronizadas, Shaka e CSS/assets resolvidos no bundle e no Preview/F9.                                                |
 | IDE administrativa | Somente se houver trabalho específico: configuração de `/videos/settings` pelo canal administrativo tipado, separado do runtime/browser.                              |
 
-Manter TypeScript `strict`, separação runtime/designer e aplicações exportadas independentes de Electron/Node. Mudanças em código TypeScript do usuário exigem AST; não sobrescrever arquivos autorais. Ao implementar, atualizar `PLANS.md` e documentação pertinente de arquitetura/formato persistente. Nesta etapa, a alteração é apenas este documento de referência na raiz.
+Manter TypeScript `strict`, separação runtime/designer e aplicações exportadas independentes de Electron/Node. Mudanças em código TypeScript do usuário exigem AST; não sobrescrever arquivos autorais. A implementação de upload atualiza `PLANS.md` e a documentação de arquitetura/formato persistente; a etapa de player continua futura.
 
 ### Exemplo de uso futuro
 
-Este exemplo depende das APIs propostas acima e ainda **não compila no WebRad atual**. Seleção/envio, conversão e reprodução são chamadas explícitas:
+Seleção/envio e espera já funcionam. Este exemplo completo ainda **não compila no WebRad atual** porque depende de `WebVideoPlayer`, que permanece proposto. Seleção/envio, conversão e reprodução são chamadas explícitas:
 
 ```ts
 const selecao = await VideoUpload1.OpenFile();
@@ -536,4 +538,4 @@ npm.cmd run format:check
 npm.cmd run build
 ```
 
-Esta documentação foi baseada em leitura dos arquivos locais e consulta das fontes oficiais do Shaka/YouTube. Não foi executado smoke HTTP do RestGo nem teste de reprodução nesta etapa; a integração futura permanece pendente. Não é necessário gerar release/instalador ou alterar versão para produzir este documento.
+Esta referência foi baseada em leitura dos arquivos locais e consulta das fontes oficiais do Shaka/YouTube. O SDK e o componente de envio agora têm testes de runtime, Monaco, Preview compilado e smoke Chrome com vídeo real contra um servidor HTTP de contrato. A validação contra uma instância RestGo/FFmpeg real e o player visual permanecem pendentes. Não foi necessário gerar instalador ou alterar versão. Consulte [o guia atual de Video Upload](docs/video-upload.md).

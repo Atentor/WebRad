@@ -1,5 +1,7 @@
 # SDK nativo RestGo
 
+O serviço `videos` implementa upload binário resumível com SHA-256, progresso confirmado, checkpoints verificados, renovação de sessão e espera explícita do processamento. Também oferece biblioteca, metadados, tarefas, descritor HLS e thumbnail. Consulte [Video Upload](../../docs/video-upload.md) para exemplos. As rotas nativas usam JWT de Authentication; consultas públicas a HLS/thumbnail selecionam explicitamente `{ public: true }`.
+
 Cliente TypeScript para aplicações de navegador. O pacote não depende do designer, Electron ou Node.js. O cadastro público requer que o RestGo permita `POST /auth/users` sem `Authorization`; enquanto o servidor exigir credencial nessa rota, ele rejeitará o cadastro com 401.
 
 ```ts

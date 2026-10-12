@@ -6,3 +6,5 @@ export type { RestGoDynamicResult, RestGoEndpointOptions, RestGoHttpMethod } fro
 export { RestGoError } from './errors';
 export type { RestGoErrorCode, RestGoResult } from './errors';
 export type * from './types';
+export * from './video-types';
+export { RestGoVideosClient, RestGoVideoUploadsClient } from './videos';

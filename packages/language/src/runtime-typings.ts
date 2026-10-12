@@ -1,4 +1,5 @@
 import apiClientTypings from './api-client-typings.generated.json';
+import videoUploadTypings from './video-upload-typings.generated.json';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 
 import restGoTypings from './restgo-typings.generated.json';
@@ -522,6 +523,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
   export const navigate: typeof Navigate;
 
   ${apiClientTypings.source}
+  ${videoUploadTypings.source}
   export interface RuntimeBounds {
     readonly x: number;
     readonly y: number;

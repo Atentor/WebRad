@@ -51,6 +51,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'popup-dialog', type: 'WebPopup', name: 'Popup1' },
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
   { id: 'stable-file-upload', type: 'WebFileUpload', name: 'FileUpload1' },
+  { id: 'stable-video-upload', type: 'WebVideoUpload', name: 'VideoUpload1' },
 ] as const satisfies readonly MvpComponentFixture[];
 
 function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
@@ -149,7 +150,13 @@ function testPage(): PageModel {
           OnHide: null,
           OnResize: null,
         },
-        children: ['stable-panel-main', 'popup-dialog', 'api-client', 'stable-file-upload'],
+        children: [
+          'stable-panel-main',
+          'popup-dialog',
+          'api-client',
+          'stable-file-upload',
+          'stable-video-upload',
+        ],
       },
       ...MVP_COMPONENT_FIXTURES.map(fixtureComponent),
     ],

@@ -32,6 +32,23 @@ const apiClientTypingsPath = path.join(
 );
 const apiClientTypings =
   JSON.stringify(createApiClientDeclarations(repositoryRoot), null, 2) + '\n';
+const videoTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'video-upload-typings.generated.json',
+);
+const videoTypings =
+  JSON.stringify(
+    createApiClientDeclarations(
+      repositoryRoot,
+      ['video-file-selection.ts', 'video-upload.ts'],
+      (name) => name.startsWith('WebVideo'),
+    ),
+    null,
+    2,
+  ) + '\n';
 
 const sourceFiles = [
   'api-client.ts',
@@ -44,6 +61,8 @@ const sourceFiles = [
   'combo-box-data.ts',
   'data-grid.ts',
   'file-upload.ts',
+  'video-file-selection.ts',
+  'video-upload.ts',
   'controls.ts',
   'page.ts',
   'page-router.ts',
@@ -230,6 +249,7 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [videoTypingsPath, videoTypings],
   [outputPath, expected],
   [apiClientTypingsPath, apiClientTypings],
   [sdkOutputPath, `${JSON.stringify(sdkSources, null, 2)}\n`],

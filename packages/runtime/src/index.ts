@@ -6,6 +6,7 @@ export * from './component.js';
 export type { WebComboBoxConfiguration } from './combo-box-data.js';
 export * from './data-grid.js';
 export * from './file-upload.js';
+export * from './video-upload.js';
 export * from './controls.js';
 export * from './page.js';
 export * from './page-router.js';

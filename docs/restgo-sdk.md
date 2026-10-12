@@ -1,5 +1,7 @@
 # SDK nativo do RestGO
 
+O serviço `RestGO.videos` oferece upload resumível em blocos binários, retomada verificada, biblioteca, metadados, tarefas e descritores HLS. A classe não visual `WebVideoUpload` integra esse serviço ao Designer, Monaco e Preview, com limites opcionais de arquivo e duração. Consulte [Video Upload](video-upload.md) para métodos, eventos, checkpoint e exemplos. Essas rotas usam a sessão Authentication, nunca o token de API da aplicação.
+
 O pacote `@webrad/restgo-sdk` utiliza `fetch`, `FormData`, `Blob` e APIs padrão do navegador para autenticação, Storage e APIs dinâmicas. O Preview e a aplicação compilada utilizam o mesmo cliente, sem dependências de Electron ou Node.js. O SDK está preparado para cadastro público; a instância RestGo precisa permitir `POST /auth/users` sem `Authorization` para esse fluxo funcionar.
 
 ## Configuração no WebRAD

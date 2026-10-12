@@ -2,13 +2,16 @@ import path from 'node:path';
 import ts from 'typescript';
 
 /** Real declaration emit keeps object API, generics and Monaco signatures in parity. */
-export function createApiClientDeclarations(repositoryRoot) {
-  const sourceNames = [
+export function createApiClientDeclarations(
+  repositoryRoot,
+  sourceNames = [
     'api-client-template.ts',
     'api-client-inputs.ts',
     'api-client-accessors.ts',
     'api-client.ts',
-  ];
+  ],
+  includeName = () => true,
+) {
   const sourceRoot = path.join(repositoryRoot, 'packages', 'runtime', 'src');
   const compilerOptions = {
     target: ts.ScriptTarget.ES2022,
@@ -93,6 +96,7 @@ export function createApiClientDeclarations(repositoryRoot) {
       const transformed = transform.transformed[0];
       for (const statement of transformed.statements) {
         if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) continue;
+        if (statement.name && !includeName(statement.name.text)) continue;
         if (ts.isInterfaceDeclaration(statement) && statement.name.text === 'TemplateBody')
           continue;
         if (
