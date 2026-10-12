@@ -109,7 +109,7 @@ function defaultLayout() {
 describe('MVP component metadata', () => {
   it('registers the reusable visual wrapper, controls, Popup, and WebApiClient in a stable order', () => {
     expect(componentRegistry.list().map((item) => item.type)).toEqual(MVP_COMPONENT_TYPES);
-    expect(componentRegistry.size).toBe(16);
+    expect(componentRegistry.size).toBe(17);
     expect(
       componentRegistry
         .list()
@@ -536,7 +536,7 @@ describe('ComponentRegistry behavior', () => {
   it('supports the conceptual static global registry API', () => {
     expect(ComponentRegistry.has('WebButton')).toBe(true);
     expect(ComponentRegistry.get('WebButton')).toBe(componentRegistry.get('WebButton'));
-    expect(ComponentRegistry.list()).toHaveLength(16);
+    expect(ComponentRegistry.list()).toHaveLength(17);
   });
 });
 

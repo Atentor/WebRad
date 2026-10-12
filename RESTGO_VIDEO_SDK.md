@@ -2,7 +2,7 @@
 
 **Data de referência:** 12/10/2026.
 
-**Situação:** SDK de vídeos e componente não visual `WebVideoUpload` implementados. O player visual Shaka permanece uma proposta. Consulte [docs/video-upload.md](docs/video-upload.md) para a API atual, limites e validação do upload.
+**Situação:** SDK de vídeos, `WebVideoUpload` não visual e `WebVideoPlayer` visual implementados. O player usa Shaka 5.2.13, último release estável verificado em 12/10/2026. Consulte [Video Upload](docs/video-upload.md) e [Video Player](docs/video-player.md) para as APIs atuais e a validação.
 
 ## 1. Objetivo e limites
 
@@ -12,7 +12,7 @@ Preparar a integração do módulo nativo de vídeos do RestGo com o WebRad por 
 2. Um componente **não visual** com seleção de arquivo, upload resumível, progresso, pausa, retomada, cancelamento e acompanhamento do processamento.
 3. Um componente **visual** de reprodução usando [Shaka Player](https://github.com/shaka-project/shaka-player), com HLS do RestGo, adaptação automática de qualidade e seleção manual das variantes disponíveis.
 
-Os contratos HTTP abaixo foram consultados no checkout `C:\GitHub\RestGo`. `RestGO.videos`, `RestGoVideosClient` e `WebVideoUpload` agora existem; `WebVideoPlayer` permanece proposto. As seções de player e os exemplos que o usam dependem dessa implementação futura. Os nomes públicos do backend, como `descri`, `sizeBytes` e `maxChunkBytes`, são preservados.
+Os contratos HTTP abaixo foram consultados no checkout `C:\GitHub\RestGo`. `RestGO.videos`, `RestGoVideosClient`, `WebVideoUpload` e `WebVideoPlayer` agora existem. As seções seguintes conservam os requisitos da especificação; os guias acima descrevem o contrato implementado. Os nomes públicos do backend, como `descri`, `sizeBytes` e `maxChunkBytes`, são preservados.
 
 YouTube fica fora desta proposta: a condição de suporte pela própria biblioteca Shaka não foi atendida. A evidência e a alternativa oficial estão na seção 9.
 
@@ -410,7 +410,7 @@ O estado local deve distinguir seleção, hashing, envio, pausa, finalização e
 
 `SendToRestGO()` deve aceitar sobrescritas de título/descrição/visibilidade e `signal`, e retornar o registro do vídeo confirmado. O acompanhamento até reprodução é uma chamada explícita. Upload não deve abrir o player automaticamente.
 
-## 8. Componente visual proposto: `WebVideoPlayer`
+## 8. Componente visual: `WebVideoPlayer`
 
 Classe real baseada em `WebComponent`, com elemento `<video>` encapsulado e instância própria de Shaka. A biblioteca suporta HLS e DASH em navegadores compatíveis; o fluxo RestGo desta proposta fornece HLS. Reprodução depende também de codecs e capacidades do navegador. [Fonte: projeto Shaka](https://github.com/shaka-project/shaka-player).
 
@@ -430,7 +430,7 @@ A fonte URL é uma possibilidade proposta para mídia direta compatível, sem en
 
 Usar configuração programática por instância (`shaka.Player`, `attach()` e `load()`), com listeners registrados antes do carregamento. Para controles, usar `shaka.ui.Overlay` e o CSS distribuído com a mesma versão da biblioteca. A configuração programática evita depender de descoberta global do DOM em páginas/reutilizáveis. [Uso básico](https://shaka-project.github.io/shaka-player/docs/api/tutorial-basic-usage.html), [UI Library](https://shaka-project.github.io/shaka-player/docs/api/tutorial-ui.html).
 
-Fixar uma versão estável na futura dependência/lockfile, validar sua API e manter os avisos da licença Apache-2.0. A versão não foi escolhida nem instalada nesta etapa. Incluir JavaScript, CSS e eventuais workers/assets necessários tanto no Preview quanto na aplicação exportada, com caminhos portáveis e suporte a prefixos de hospedagem. O bundler atual possui fontes virtuais para runtime/SDK: instalar o npm package na IDE, isoladamente, não demonstra que a exportação conseguirá resolver o Shaka.
+Shaka 5.2.13 está fixado no workspace runtime e no lockfile. A sincronização incorpora o bundle UI, CSS dos controles e licença Apache-2.0 ao compilador. Um namespace dedicado resolve esses recursos no Preview e na aplicação exportada, independentemente do diretório de execução, com transmuxing local sem worker remoto. O CSS dos controles usa a camada components para preservar a precedência dos estilos do projeto.
 
 Encapsular a biblioteca em um adaptador tipado. Componentes devem ser referenciados por `VideoPlayer1` e `this.VideoPlayer1`, sem `any`, globais Shaka expostos como API do usuário ou acesso obrigatório ao DOM. Troca de fonte deve cancelar a carga anterior e impedir que respostas antigas sobrescrevam a fonte atual.
 
@@ -488,11 +488,11 @@ O [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_r
 | Compiler/Preview   | Instanciação real, eventos, fontes/declarações sincronizadas, Shaka e CSS/assets resolvidos no bundle e no Preview/F9.                                                |
 | IDE administrativa | Somente se houver trabalho específico: configuração de `/videos/settings` pelo canal administrativo tipado, separado do runtime/browser.                              |
 
-Manter TypeScript `strict`, separação runtime/designer e aplicações exportadas independentes de Electron/Node. Mudanças em código TypeScript do usuário exigem AST; não sobrescrever arquivos autorais. A implementação de upload atualiza `PLANS.md` e a documentação de arquitetura/formato persistente; a etapa de player continua futura.
+Manter TypeScript `strict`, separação runtime/designer e aplicações exportadas independentes de Electron/Node. Mudanças em código TypeScript do usuário exigem AST; não sobrescrever arquivos autorais. As implementações de upload e player atualizam `PLANS.md` e a documentação de arquitetura/formato persistente.
 
-### Exemplo de uso futuro
+### Exemplo de uso
 
-Seleção/envio e espera já funcionam. Este exemplo completo ainda **não compila no WebRad atual** porque depende de `WebVideoPlayer`, que permanece proposto. Seleção/envio, conversão e reprodução são chamadas explícitas:
+Com `VideoUpload1` e `VideoPlayer1` adicionados à página, o exemplo compila. Seleção/envio, conversão e reprodução são chamadas explícitas:
 
 ```ts
 const selecao = await VideoUpload1.OpenFile();
@@ -538,4 +538,4 @@ npm.cmd run format:check
 npm.cmd run build
 ```
 
-Esta referência foi baseada em leitura dos arquivos locais e consulta das fontes oficiais do Shaka/YouTube. O SDK e o componente de envio agora têm testes de runtime, Monaco, Preview compilado e smoke Chrome com vídeo real contra um servidor HTTP de contrato. A validação contra uma instância RestGo/FFmpeg real e o player visual permanecem pendentes. Não foi necessário gerar instalador ou alterar versão. Consulte [o guia atual de Video Upload](docs/video-upload.md).
+Esta referência foi baseada em leitura dos arquivos locais e consulta das fontes oficiais do Shaka/YouTube. SDK, upload e player têm testes de runtime, Monaco, Preview compilado e Chrome real com mídias HLS/TS e DASH contra um servidor HTTP de contrato, em página e reutilizáveis. A validação contra uma instância RestGo/FFmpeg real e navegadores Safari/iOS/Linux permanece pendente. Não foi necessário gerar instalador ou alterar versão. Consulte [Video Upload](docs/video-upload.md) e [Video Player](docs/video-player.md).

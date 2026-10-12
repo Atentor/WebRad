@@ -1183,6 +1183,132 @@ const webImage: ComponentDefinition = {
   events: [event('OnClick'), event('OnLoad'), event('OnError')],
 };
 
+const webVideoPlayer: ComponentDefinition = {
+  type: 'WebVideoPlayer',
+  displayName: 'Video Player',
+  namePrefix: 'VideoPlayer',
+  palette: { category: standardCategory, caption: 'Video Player' },
+  icon: 'video',
+  visual: true,
+  canHaveChildren: false,
+  defaultEvent: 'OnLoaded',
+  styleEditor: imageStyleEditor,
+  defaultBounds: { width: 480, height: 270 },
+  defaults: {
+    source: null,
+    controls: true,
+    autoplay: false,
+    muted: false,
+    loop: false,
+    playsInline: true,
+    volume: 1,
+    playbackRate: 1,
+    objectFit: 'contain',
+    quality: 'auto',
+    poster: '',
+    visible: true,
+    collapseWhenHidden: true,
+    enabled: true,
+  },
+  properties: [
+    ...geometryProperties({ width: 480, height: 270 }),
+    tabIndexProperty(),
+    {
+      name: 'source',
+      label: 'Video source',
+      type: 'video-source',
+      category: 'Video',
+      source: 'props',
+      defaultValue: null,
+    },
+    ...['controls', 'autoplay', 'muted', 'loop', 'playsInline'].map(
+      (name): ComponentPropertyDefinition => ({
+        name,
+        label: {
+          controls: 'Show controls',
+          autoplay: 'Autoplay',
+          muted: 'Muted',
+          loop: 'Loop',
+          playsInline: 'Play inline',
+        }[name],
+        type: 'boolean',
+        category: 'Video',
+        source: 'props',
+        defaultValue: name === 'controls' || name === 'playsInline',
+      }),
+    ),
+    {
+      name: 'volume',
+      label: 'Volume (0–1)',
+      type: 'number',
+      category: 'Video',
+      source: 'props',
+      defaultValue: 1,
+    },
+    {
+      name: 'playbackRate',
+      label: 'Playback rate',
+      type: 'number',
+      category: 'Video',
+      source: 'props',
+      defaultValue: 1,
+    },
+    {
+      name: 'objectFit',
+      label: 'Object fit',
+      type: 'enum',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'contain',
+      options: ['contain', 'cover', 'fill', 'none', 'scale-down'],
+    },
+    {
+      name: 'quality',
+      label: 'Initial quality',
+      type: 'enum',
+      category: 'Video',
+      source: 'props',
+      defaultValue: 'auto',
+      options: ['auto'],
+      validateValue: (value) =>
+        value === 'auto' || (typeof value === 'number' && Number.isFinite(value) && value > 0),
+      description:
+        'Manual qualities are discovered from the loaded video. Use the playback quality menu or SetQuality().',
+    },
+    {
+      name: 'poster',
+      label: 'Poster',
+      type: 'string',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: '',
+      description:
+        'Optional poster URL. RestGo thumbnails are fetched with the current access policy.',
+    },
+  ],
+  events: [
+    event('OnLoaded', 'Video', {
+      eventDetailType: 'WebVideoPlayerLoadedEventDetail',
+      eventDetailProperties: ['source', 'duration', 'availableQualities'],
+    }),
+    ...['OnPlay', 'OnPause', 'OnEnded', 'OnTimeUpdate'].map((name) =>
+      event(name, 'Video', {
+        eventDetailType: 'WebVideoPlayerTimeEventDetail',
+        eventDetailProperties: ['currentTime', 'duration'],
+      }),
+    ),
+    event('OnBuffering', 'Video', {
+      eventDetailType: 'WebVideoPlayerBufferingEventDetail',
+      eventDetailProperties: ['buffering'],
+    }),
+    event('OnQualityChange', 'Video', {
+      eventDetailType: 'WebVideoPlayerQualityEventDetail',
+      eventDetailProperties: ['requested', 'current'],
+    }),
+    event('OnError', 'Video', { eventDetailType: 'Error' }),
+  ],
+};
+
 const webListBox: ComponentDefinition = {
   type: 'WebListBox',
   displayName: 'List Box',
@@ -1389,6 +1515,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebApiClient',
   'WebFileUpload',
   'WebVideoUpload',
+  'WebVideoPlayer',
 ] as const;
 
 export type MvpComponentType = (typeof MVP_COMPONENT_TYPES)[number];
@@ -1410,6 +1537,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webApiClient,
   webFileUpload,
   webVideoUpload,
+  webVideoPlayer,
 ];
 
 componentRegistry.registerMany(

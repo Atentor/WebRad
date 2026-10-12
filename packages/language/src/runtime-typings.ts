@@ -1,5 +1,6 @@
 import apiClientTypings from './api-client-typings.generated.json';
 import videoUploadTypings from './video-upload-typings.generated.json';
+import videoPlayerTypings from './video-player-typings.generated.json';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 
 import restGoTypings from './restgo-typings.generated.json';
@@ -524,6 +525,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
 
   ${apiClientTypings.source}
   ${videoUploadTypings.source}
+  ${videoPlayerTypings.source}
   export interface RuntimeBounds {
     readonly x: number;
     readonly y: number;

@@ -6,6 +6,7 @@ import type { build as esbuildBuild, Loader, OnLoadResult, Plugin } from 'esbuil
 import { fromEsbuildMessage } from './diagnostics.js';
 import runtimeSourcesJson from './runtime-sources.json';
 import restGoSourcesJson from './restgo-sources.json';
+import shakaSources from './shaka-sources.generated.json';
 import type { CompileDiagnostic } from './types.js';
 
 const RUNTIME_NAMESPACE = 'webrad-runtime';
@@ -70,6 +71,19 @@ function virtualPlugin(options: BundleOptions): Plugin {
   return {
     name: 'webrad-virtual-project',
     setup(buildContext) {
+      buildContext.onResolve(
+        { filter: /^shaka-player\/dist\/(shaka-player\.ui\.js|controls\.css)$/ },
+        (args) => ({
+          path: args.path.endsWith('.css') ? 'controls.css' : 'shaka-player.ui.js',
+          namespace: 'webrad-shaka',
+        }),
+      );
+      buildContext.onLoad({ filter: /.*/, namespace: 'webrad-shaka' }, (args) => ({
+        contents: args.path.endsWith('.css')
+          ? `@layer components {\n${shakaSources.css}\n}`
+          : shakaSources.javascript,
+        loader: args.path.endsWith('.css') ? 'css' : 'js',
+      }));
       buildContext.onResolve({ filter: /^@webrad\/runtime$/ }, () => ({
         namespace: RUNTIME_NAMESPACE,
         path: 'index.ts',
@@ -174,6 +188,8 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
       file.text,
     ]),
   );
+  files['licenses/Shaka-Player-Apache-2.0.txt'] =
+    `Shaka Player ${shakaSources.version}\nCopyright 2016 Google LLC\n\n${shakaSources.license}`;
   return {
     files,
     diagnostics: result.warnings.map((warning) => fromEsbuildMessage(warning, 'warning')),

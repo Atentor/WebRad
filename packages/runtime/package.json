@@ -23,7 +23,8 @@
   },
   "types": "./src/index.ts",
   "dependencies": {
-    "@webrad/restgo-sdk": "0.1.0"
+    "@webrad/restgo-sdk": "0.1.0",
+    "shaka-player": "5.2.13"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

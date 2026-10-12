@@ -13,3 +13,4 @@ export * from './style-properties.js';
 export * from './types.js';
 export * from './updates.js';
 export * from './video-upload.js';
+export * from './video-player.js';

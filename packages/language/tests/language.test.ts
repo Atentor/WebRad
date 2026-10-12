@@ -52,6 +52,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
   { id: 'stable-file-upload', type: 'WebFileUpload', name: 'FileUpload1' },
   { id: 'stable-video-upload', type: 'WebVideoUpload', name: 'VideoUpload1' },
+  { id: 'stable-video-player', type: 'WebVideoPlayer', name: 'VideoPlayer1' },
 ] as const satisfies readonly MvpComponentFixture[];
 
 function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {

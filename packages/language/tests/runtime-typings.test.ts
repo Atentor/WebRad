@@ -521,6 +521,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebEdit,
   WebFileUpload,
   WebVideoUpload,
+  WebVideoPlayer,
   WebPage,
   WebImage,
   WebLabel,
@@ -540,6 +541,7 @@ class EditorPage extends WebPage {
     edit: WebEdit,
     fileUpload: WebFileUpload,
     videoUpload: WebVideoUpload,
+    videoPlayer: WebVideoPlayer,
     textArea: WebTextArea,
     button: WebButton,
     checkBox: WebCheckBox,
@@ -557,6 +559,7 @@ class EditorPage extends WebPage {
     edit./*@edit*/inputType;
     fileUpload./*@fileUpload*/upload;
     videoUpload./*@videoUpload*/SendToRestGO;
+    videoPlayer./*@videoPlayer*/LoadRestGo;
     textArea./*@textArea*/rows;
     button./*@button*/caption;
     checkBox./*@checkBox*/checked;
@@ -717,6 +720,7 @@ class EditorPage extends WebPage {
       WebEdit: 'edit',
       WebFileUpload: 'fileUpload',
       WebVideoUpload: 'videoUpload',
+      WebVideoPlayer: 'videoPlayer',
       WebDataGrid: 'grid',
       WebPage: 'page',
       WebImage: 'image',

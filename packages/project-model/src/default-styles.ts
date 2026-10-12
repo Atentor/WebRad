@@ -348,6 +348,18 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Video Player',
+    componentType: 'WebVideoPlayer',
+    states: {
+      base: {
+        backgroundColor: '#111827',
+        borderRadius: px(6),
+        textColor: '#ffffff',
+        objectFit: 'contain',
+      },
+    },
+  },
+  {
     name: 'Default List Box',
     componentType: 'WebListBox',
     states: {

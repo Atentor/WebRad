@@ -49,6 +49,23 @@ const videoTypings =
     null,
     2,
   ) + '\n';
+const playerTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'video-player-typings.generated.json',
+);
+const playerTypings =
+  JSON.stringify(
+    createApiClientDeclarations(
+      repositoryRoot,
+      ['video-player-types.ts', 'video-player.ts'],
+      (name) => name.startsWith('WebVideoPlayer'),
+    ),
+    null,
+    2,
+  ) + '\n';
 
 const sourceFiles = [
   'api-client.ts',
@@ -63,6 +80,9 @@ const sourceFiles = [
   'file-upload.ts',
   'video-file-selection.ts',
   'video-upload.ts',
+  'video-player-types.ts',
+  'video-player-shaka.ts',
+  'video-player.ts',
   'controls.ts',
   'page.ts',
   'page-router.ts',
@@ -249,6 +269,34 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [playerTypingsPath, playerTypings],
+  [
+    path.join(repositoryRoot, 'packages', 'compiler', 'src', 'shaka-sources.generated.json'),
+    JSON.stringify(
+      {
+        version: JSON.parse(
+          await fs.readFile(
+            path.join(repositoryRoot, 'node_modules', 'shaka-player', 'package.json'),
+            'utf8',
+          ),
+        ).version,
+        javascript: await fs.readFile(
+          path.join(repositoryRoot, 'node_modules', 'shaka-player', 'dist', 'shaka-player.ui.js'),
+          'utf8',
+        ),
+        css: await fs.readFile(
+          path.join(repositoryRoot, 'node_modules', 'shaka-player', 'dist', 'controls.css'),
+          'utf8',
+        ),
+        license: await fs.readFile(
+          path.join(repositoryRoot, 'node_modules', 'shaka-player', 'LICENSE'),
+          'utf8',
+        ),
+      },
+      null,
+      2,
+    ) + '\n',
+  ],
   [videoTypingsPath, videoTypings],
   [outputPath, expected],
   [apiClientTypingsPath, apiClientTypings],

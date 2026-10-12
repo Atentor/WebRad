@@ -204,6 +204,7 @@ import type {
 ${pageImports}
 ${reusableImports}
 import './app.css';
+${[...project.pages, ...project.reusableElements].some((document) => document.components.some((component) => component.type === 'WebVideoPlayer')) ? "import 'shaka-player/dist/controls.css';" : ''}
 
 type ReusableElementFactory = (
   element: HTMLElement,

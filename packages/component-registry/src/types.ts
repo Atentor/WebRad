@@ -10,7 +10,8 @@ export type ComponentPropertyType =
   | 'reusable-element'
   | 'api-client-config'
   | 'combo-box-config'
-  | 'data-grid-config';
+  | 'data-grid-config'
+  | 'video-source';
 
 /** Named design-time actions kept in the Component Registry metadata. */
 export type ComponentDesignerAction =
@@ -39,6 +40,8 @@ export interface ComponentPropertyDefinition {
   readonly options?: readonly string[];
   readonly description?: string;
   readonly readOnly?: boolean;
+  /** Optional runtime-independent validation for a specialized public property. */
+  readonly validateValue?: (value: unknown) => boolean;
   /** Pure design-time rule evaluated against the component's saved property bag. */
   readonly readOnlyWhen?: (props: Readonly<Record<string, unknown>>) => boolean;
   /** Enables an explicit null value for structural numeric controls. */

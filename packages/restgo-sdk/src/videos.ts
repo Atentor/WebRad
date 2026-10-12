@@ -278,6 +278,52 @@ export class RestGoVideosClient {
       (value): value is Blob => value instanceof Blob,
     );
   }
+  /** Browser media bridge: current shared session, one 401 renewal, no cookies or redirects. */
+  getMedia(
+    id: string,
+    uri: string,
+    options: RestGoVideoRequestOptions & {
+      public?: boolean;
+      range?: string;
+      method?: 'GET' | 'HEAD';
+    } = {},
+  ): Promise<RestGoResult<Response>> {
+    let url: URL;
+    try {
+      url = new URL(uri);
+    } catch {
+      return Promise.resolve(failure('Invalid video media URL.', 'INVALID_ARGUMENT'));
+    }
+    const base = new URL(this.transport.baseUrl);
+    const prefix = `${base.pathname.replace(/\/$/, '')}/videos/${encodeURIComponent(id)}/`;
+    if (
+      !videoId(id) ||
+      url.origin !== base.origin ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      !url.pathname.startsWith(prefix) ||
+      /[%\\]/.test(url.pathname) ||
+      !/^(hls\/[^/]+\/|thumbnail$)/.test(url.pathname.slice(prefix.length))
+    )
+      return Promise.resolve(
+        failure(
+          'Video media URL is outside the configured RestGo video scope.',
+          'INVALID_ARGUMENT',
+        ),
+      );
+    return this.transport.request<Response>(
+      url.pathname.slice(base.pathname.replace(/\/$/, '').length),
+      {
+        method: options.method ?? 'GET',
+        responseType: 'response',
+        auth: options.public ? 'none' : 'session',
+        signal: options.signal,
+        headers: options.range ? { Range: options.range } : undefined,
+      },
+    );
+  }
   async waitUntilReady(
     id: string,
     options: RestGoVideoWaitOptions = {},

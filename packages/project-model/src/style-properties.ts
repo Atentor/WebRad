@@ -1000,7 +1000,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
       ['none', 'None'],
       ['scale-down', 'Scale down'],
     ],
-    ['WebImage'],
+    ['WebImage', 'WebVideoPlayer'],
   ),
   enumProperty(
     'objectPosition',
@@ -1017,7 +1017,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
       ['left', 'Left'],
       ['top-left', 'Top left'],
     ],
-    ['WebImage'],
+    ['WebImage', 'WebVideoPlayer'],
   ),
 ];
 

@@ -1173,6 +1173,10 @@ export const WEBRAD_COMPONENT_CSS = `
 .wr-button-icon-left { flex-direction: row; }
 .wr-webcheckbox { display: flex; align-items: center; gap: 7px; }
 .wr-webimage { display: block; object-fit: contain; border: 1px dashed var(--wr-control-border, #677184); color: var(--wr-muted-text, #8e98aa); }
+.wr-webvideoplayer { display: block; position: relative; overflow: hidden; min-width: 0; min-height: 0; background: #111827; color: #fff; }
+.wr-webvideoplayer > video { display: block; width: 100%; height: 100%; }
+.wr-video-designer-preview { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; pointer-events: none; font-size: 13px; }
+.wr-video-designer-preview > span:first-child { font-size: 36px; }
 .wr-webdatagrid { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); display: block; overflow: hidden; border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); color: inherit; }
 .wr-data-grid-scroll { width: 100%; height: 100%; overflow: auto; }
 .wr-data-grid-content { width: 100%; min-width: var(--wr-data-grid-min-width, 0); }

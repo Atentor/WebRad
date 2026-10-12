@@ -356,6 +356,33 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
     );
   },
   WebImage: (props) => <ImageView {...props} />,
+  WebVideoPlayer: ({ node, designTime, styleClassName }) => (
+    <div
+      {...sharedAttributes(node, designTime, styleClassName)}
+      role="img"
+      aria-label={`${node.name}: video player`}
+    >
+      <video
+        preload="none"
+        muted
+        playsInline
+        poster={readStringProperty(node, 'poster') || undefined}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: styleClassName
+            ? 'inherit'
+            : (readStringProperty(node, 'objectFit', 'contain') as CSSProperties['objectFit']),
+          objectPosition: 'inherit',
+          pointerEvents: 'none',
+        }}
+      />
+      <span className="wr-video-designer-preview" aria-hidden="true">
+        <span>▶</span>
+        <span>{node.name}</span>
+      </span>
+    </div>
+  ),
   WebListBox: ({ node, designTime, styleClassName, onEvent }) => {
     const items = readStringListProperty(node, 'items');
     const selectedIndex = readIntegerProperty(node, 'selectedIndex', -1);

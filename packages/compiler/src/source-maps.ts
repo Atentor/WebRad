@@ -17,6 +17,7 @@ export const DEBUG_SCRIPT_URL = 'webrad-debug://app.js';
 function portableSourcePath(source: string): string {
   const portable = source.replaceAll('\\', '/');
   if (portable.startsWith('webrad-runtime:')) return `__runtime/${portable.slice(15)}`;
+  if (portable.startsWith('webrad-shaka:')) return `__vendor/shaka/${portable.slice(13)}`;
   if (portable.startsWith('webrad-restgo:')) return `__restgo/${portable.slice(14)}`;
   const virtualMarker = '.webrad-compiler-virtual/';
   const markerOffset = portable.lastIndexOf(virtualMarker);
@@ -121,6 +122,7 @@ export function composeSourceMap(
     if (
       portable.startsWith('__runtime/') ||
       portable.startsWith('__restgo/') ||
+      portable.startsWith('__vendor/') ||
       portable === 'entry.ts' ||
       portable.endsWith('.generated.ts')
     )

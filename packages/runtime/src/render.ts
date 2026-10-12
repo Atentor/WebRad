@@ -17,6 +17,8 @@ import {
 } from './controls.js';
 import { WebPage } from './page.js';
 import { WebDataGrid, normalizeWebDataGridConfiguration } from './data-grid.js';
+import { WebVideoPlayer } from './video-player.js';
+import { normalizeVideoPlayerSource, type WebVideoPlayerObjectFit } from './video-player-types.js';
 import { normalizeWebComboBoxConfiguration } from './combo-box-data.js';
 import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
@@ -417,6 +419,30 @@ runtimeComponentRegistry
         const objectFit = readStringProperty(node, 'objectFit');
         if (objectFit.length > 0) component.objectFit = objectFit as WebImageObjectFit;
       }
+    },
+  })
+  .register<WebVideoPlayer>('WebVideoPlayer', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebVideoPlayer(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.controls = readBooleanProperty(node, 'controls', true);
+      component.autoplay = readBooleanProperty(node, 'autoplay');
+      component.muted = readBooleanProperty(node, 'muted');
+      component.loop = readBooleanProperty(node, 'loop');
+      component.playsInline = readBooleanProperty(node, 'playsInline', true);
+      component.volume = typeof node.props.volume === 'number' ? node.props.volume : 1;
+      component.playbackRate =
+        typeof node.props.playbackRate === 'number' ? node.props.playbackRate : 1;
+      if (node.styleClassName === undefined)
+        component.objectFit = readStringProperty(
+          node,
+          'objectFit',
+          'contain',
+        ) as WebVideoPlayerObjectFit;
+      component.poster = readStringProperty(node, 'poster');
+      component.quality = typeof node.props.quality === 'number' ? node.props.quality : 'auto';
+      component.source = normalizeVideoPlayerSource(node.props.source);
     },
   })
   .register<WebListBox>('WebListBox', {

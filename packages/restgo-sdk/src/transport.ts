@@ -17,7 +17,7 @@ export interface TransportRequest extends RestGoRequestOptions {
   body?: unknown;
   auth?: RestGoCredentialMode;
   token?: string;
-  responseType?: 'json' | 'blob';
+  responseType?: 'json' | 'blob' | 'response';
   /** A 401 from this endpoint definitively rejects the user session. */
   sessionAuthority?: boolean;
   skipUnauthorized?: boolean;
@@ -143,7 +143,7 @@ export class RestGoTransport {
               body,
               options.signal,
               options.onUploadProgress,
-              options.responseType,
+              options.responseType === 'blob' ? 'blob' : 'json',
             )
           : await this.fetcher(url, {
               method: options.method ?? 'GET',
@@ -211,6 +211,7 @@ export class RestGoTransport {
           retryAfterMs !== undefined && Number.isFinite(retryAfterMs) ? retryAfterMs : undefined,
         );
       }
+      if (options.responseType === 'response') return success(response as T);
       if (options.responseType === 'blob') return success((await response.blob()) as T);
       if (response.status === 204 || options.method === 'HEAD') return success(null as T);
       const content = await response.text();

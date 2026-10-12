@@ -1357,7 +1357,7 @@ describe('App MVP integration', () => {
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const savedWithStyles = harness.persisted().project;
-    expect(savedWithStyles.styles).toHaveLength(15);
+    expect(savedWithStyles.styles).toHaveLength(16);
     const primaryStyle = savedWithStyles.styles.find((style) => style.name === 'Primary Button');
     const mutedStyle = savedWithStyles.styles.find((style) => style.name === 'Muted Label');
     const pageStyle = savedWithStyles.styles.find((style) => style.name === 'Page Surface');
@@ -1394,16 +1394,16 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await waitFor(() => {
       const styles = harness.persisted().project.styles;
-      expect(styles).toHaveLength(14);
-      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(12);
+      expect(styles).toHaveLength(15);
+      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(13);
       expect(styles.some((style) => style.name === 'Primary Button')).toBe(false);
       expect(styles.some((style) => style.name === 'Muted Label')).toBe(true);
       expect(styles.some((style) => style.name === 'Page Surface')).toBe(true);
     });
 
     const savedAfterDelete = harness.persisted().project;
-    expect(savedAfterDelete.styles).toHaveLength(14);
-    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(12);
+    expect(savedAfterDelete.styles).toHaveLength(15);
+    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(13);
     expect(
       savedAfterDelete.pages[0]?.components
         .filter((component) => component.type === 'WebButton')

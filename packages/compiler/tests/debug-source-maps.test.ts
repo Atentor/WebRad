@@ -92,6 +92,13 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
     expect(result.files['assets/app.js']).not.toContain('sourceURL=');
     expect(result.files['assets/app.js']?.split('\n').length).toBeGreaterThan(100);
     const map = new TraceMap(result.debug!.sourceMap);
+    const shakaIndex = map.sources.indexOf('__vendor/shaka/shaka-player.ui.js');
+    expect(shakaIndex).toBeGreaterThanOrEqual(0);
+    const encoded = JSON.parse(result.debug!.sourceMap) as {
+      ignoreList?: number[];
+      x_google_ignoreList?: number[];
+    };
+    expect(encoded.ignoreList ?? encoded.x_google_ignoreList).toContain(shakaIndex);
     expect(map.sources).toEqual(
       expect.arrayContaining([
         'pages/PageMain.ts',

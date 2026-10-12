@@ -11,6 +11,7 @@ import {
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
   ComboBoxConfigurationSchema,
+  VideoPlayerSourceSchema,
   comboBoxSchemaChoices,
   safeParseProject,
   type ProjectApplicationIcon,
@@ -284,7 +285,10 @@ function isValidPropertyValue(
   components: WebRadProject['pages'][number]['components'],
   reusableElements: WebRadProject['reusableElements'],
 ): boolean {
+  if (property.validateValue) return property.validateValue(value);
   switch (property.type) {
+    case 'video-source':
+      return VideoPlayerSourceSchema.safeParse(value).success;
     case 'string':
     case 'color':
       return typeof value === 'string';

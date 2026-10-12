@@ -259,6 +259,7 @@ function validPickerColor(value: string): string {
 
 interface PropertyEditorProps {
   readonly id: string;
+  readonly scopeId?: string;
   readonly property: ComponentPropertyDefinition;
   readonly value: unknown;
   readonly multiple: boolean;
@@ -352,6 +353,7 @@ function IconPropertyEditor({
 
 function PropertyEditor({
   id,
+  scopeId,
   property,
   value,
   multiple,
@@ -368,6 +370,16 @@ function PropertyEditor({
   const disabled = property.readOnly === true;
 
   switch (property.type) {
+    case 'video-source':
+      return (
+        <VideoPlayerSourceEditor
+          key={`${scopeId ?? id}:${JSON.stringify(value)}`}
+          id={id}
+          value={value}
+          disabled={disabled || multiple}
+          onChange={onChange}
+        />
+      );
     case 'string':
       return (
         <input
@@ -474,6 +486,9 @@ function PropertyEditor({
               {option}
             </option>
           ))}
+          {!multiple && property.validateValue?.(value) && !property.options?.includes(text) && (
+            <option value={text}>{text}</option>
+          )}
         </select>
       );
     case 'icon':
@@ -660,6 +675,7 @@ function PropertyRow({
       <div className="wr-inspector-value">
         <PropertyEditor
           id={editorId}
+          scopeId={selection.map((component) => component.id).join(':')}
           property={property}
           value={multiple ? undefined : value}
           multiple={multiple}
@@ -1025,3 +1041,4 @@ export function ObjectInspector({
     </Panel>
   );
 }
+import { VideoPlayerSourceEditor } from './VideoPlayerSourceEditor';
