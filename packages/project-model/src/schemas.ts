@@ -4,7 +4,7 @@ import {
   validateProjectResourceIds,
 } from './project-resources.js';
 import { z } from 'zod';
-import { paletteColorId } from './color-palette.js';
+import { bindStyleColorsToPalette, paletteColorId } from './color-palette.js';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
@@ -58,6 +58,7 @@ import {
   type PageDescriptor,
   type PageModel,
   type ProjectManifest,
+  type ProjectPaletteColor,
   type ProjectEnvironmentVariable,
   type ProjectApplicationIcon,
   type ProjectSocialImage,
@@ -157,26 +158,28 @@ function materializeDefaultStyleStates(
   };
 }
 
-interface PopupStyleMaterialization {
+interface DefaultStyleMaterialization {
   readonly styles: readonly unknown[];
 }
 
 /**
- * Popup became a standard Aurora visual after valid v2 projects already
- * existed. Add its protected style deterministically without disturbing a
- * project's other saved styles.
+ * Add a newly introduced Aurora visual's protected style deterministically
+ * without disturbing a project's other saved styles or component bindings.
  */
-function materializePopupDefaultStyle(
+function materializeComponentDefaultStyle(
   projectId: string,
   styles: readonly unknown[],
-): PopupStyleMaterialization {
-  const existingDefault = styles.find((style) => isDefaultStyleForComponent(style, 'WebPopup'));
+  componentType: string,
+  precedingTypes: readonly string[],
+  colors?: readonly ProjectPaletteColor[],
+): DefaultStyleMaterialization {
+  const existingDefault = styles.find((style) => isDefaultStyleForComponent(style, componentType));
   if (existingDefault !== undefined) {
     return { styles };
   }
 
   const definition = DEFAULT_COMPONENT_STYLE_DEFINITIONS.find(
-    (style) => style.componentType === 'WebPopup',
+    (style) => style.componentType === componentType,
   );
   if (definition === undefined) return { styles };
 
@@ -190,32 +193,29 @@ function materializePopupDefaultStyle(
   );
   const styleId = uniqueDefaultStyleId(projectId, definition.componentType, occupiedIds);
   const styleName = uniqueDefaultStyleName(definition.name, occupiedNames);
-  const defaultPopupStyle = {
+  const states = materializeDefaultStyleStates(definition.states);
+  const defaultStyle = {
     id: styleId,
     name: styleName,
     componentType: definition.componentType,
     preset: 'default' as const,
-    states: materializeDefaultStyleStates(definition.states),
+    states:
+      colors === undefined
+        ? states
+        : Object.fromEntries(
+            COMPONENT_STYLE_STATE_NAMES.map((state) => [
+              state,
+              bindStyleColorsToPalette(states[state], colors),
+            ]),
+          ),
   };
-  const panelDefaultIndex = styles.findIndex((style) =>
-    isDefaultStyleForComponent(style, 'WebPanel'),
-  );
-  const pageDefaultIndex = styles.findIndex((style) =>
-    isDefaultStyleForComponent(style, 'WebPage'),
-  );
-  const insertionIndex =
-    panelDefaultIndex >= 0
-      ? panelDefaultIndex + 1
-      : pageDefaultIndex >= 0
-        ? pageDefaultIndex + 1
-        : 0;
+  const precedingIndex = precedingTypes
+    .map((type) => styles.findIndex((style) => isDefaultStyleForComponent(style, type)))
+    .find((index) => index >= 0);
+  const insertionIndex = precedingIndex === undefined ? 0 : precedingIndex + 1;
 
   return {
-    styles: [
-      ...styles.slice(0, insertionIndex),
-      defaultPopupStyle,
-      ...styles.slice(insertionIndex),
-    ],
+    styles: [...styles.slice(0, insertionIndex), defaultStyle, ...styles.slice(insertionIndex)],
   };
 }
 
@@ -228,18 +228,31 @@ function materializeProjectDefaults(input: unknown): unknown {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) return input;
   const candidate = input as Readonly<Record<string, unknown>>;
   const settings = candidate.settings;
-  const popupStyle =
-    typeof candidate.id === 'string' && Array.isArray(candidate.styles)
-      ? materializePopupDefaultStyle(candidate.id, candidate.styles)
-      : undefined;
+  let styles = candidate.styles;
+  if (typeof candidate.id === 'string' && Array.isArray(styles)) {
+    const popupStyles = materializeComponentDefaultStyle(candidate.id, styles, 'WebPopup', [
+      'WebPanel',
+      'WebPage',
+    ]).styles;
+    const palette = ProjectColorPaletteSchema.safeParse(
+      isRecord(settings)
+        ? (settings.colorPalette ?? DEFAULT_PROJECT_SETTINGS.colorPalette)
+        : DEFAULT_PROJECT_SETTINGS.colorPalette,
+    );
+    styles = materializeComponentDefaultStyle(
+      candidate.id,
+      popupStyles,
+      'WebVideoPlayer',
+      ['WebImage'],
+      palette.success ? palette.data : [],
+    ).styles;
+  }
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;
   return {
     ...candidate,
     ...(Object.hasOwn(candidate, 'reusableElements') ? {} : { reusableElements: [] }),
-    ...(popupStyle === undefined || popupStyle.styles === candidate.styles
-      ? {}
-      : { styles: popupStyle.styles }),
+    ...(styles === candidate.styles ? {} : { styles }),
     ...(settings !== null && typeof settings === 'object' && !Array.isArray(settings)
       ? {
           settings: materializeProjectSettings({

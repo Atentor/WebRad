@@ -18,7 +18,11 @@ import {
 import { WebPage } from './page.js';
 import { WebDataGrid, normalizeWebDataGridConfiguration } from './data-grid.js';
 import { WebVideoPlayer } from './video-player.js';
-import { normalizeVideoPlayerSource, type WebVideoPlayerObjectFit } from './video-player-types.js';
+import {
+  normalizeVideoPlayerSource,
+  type WebVideoPlayerObjectFit,
+  type WebVideoPlayerAspectRatio,
+} from './video-player-types.js';
 import { normalizeWebComboBoxConfiguration } from './combo-box-data.js';
 import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
@@ -427,6 +431,11 @@ runtimeComponentRegistry
     createComponent: (element) => new WebVideoPlayer(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
+      component.aspectRatio = readStringProperty(
+        node,
+        'aspectRatio',
+        'none',
+      ) as WebVideoPlayerAspectRatio;
       component.controls = readBooleanProperty(node, 'controls', true);
       component.autoplay = readBooleanProperty(node, 'autoplay');
       component.muted = readBooleanProperty(node, 'muted');

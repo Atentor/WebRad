@@ -144,6 +144,7 @@ const DEFAULT_LAYOUT_ITEM: RuntimeLayoutItem = Object.freeze({
 });
 
 const LAYOUT_PROPERTIES = [
+  'aspect-ratio',
   'align-self',
   'bottom',
   'display',
@@ -576,8 +577,107 @@ export function projectRuntimeLayout(
   const container = resolveRuntimeContainerLayout(node.layout);
   return {
     container: projectContainer(node, container),
-    item: projectItem(node, parentContainer),
+    item: projectAspectRatio(node, parentContainer, projectItem(node, parentContainer)),
   };
+}
+
+function projectAspectRatio(
+  node: RuntimeLayoutNode,
+  parent: RuntimeContainerLayout | undefined,
+  styles: Readonly<Record<string, string>>,
+): Readonly<Record<string, string>> {
+  const ratio = node.props?.aspectRatio;
+  if (ratio !== '16:9' && ratio !== '9:16') return styles;
+  const item = normalizeItem(node.layout);
+  const mode = parent?.mode ?? 'fixed';
+  const flow = mode === 'row' || mode === 'column';
+  const end =
+    mode === 'align-to-parent' && item.verticalAnchor === 'end' && item.height !== 'stretch';
+  const center =
+    mode === 'align-to-parent' && item.verticalAnchor === 'center' && item.height !== 'stretch';
+  return {
+    ...styles,
+    'aspect-ratio': ratio === '16:9' ? '16 / 9' : '9 / 16',
+    height: 'auto',
+    'min-height': '0px',
+    'max-height': 'none',
+    ...(flow
+      ? {}
+      : {
+          bottom: end ? (styles.bottom ?? pixels(item.bottom)) : 'auto',
+          ...(end ? { top: 'auto' } : {}),
+        }),
+    ...(center
+      ? {
+          top: `calc(50% + ${coordinatePixels(item.top)})`,
+          translate: `${styles.translate?.split(' ')[0] ?? '0'} -50%`,
+        }
+      : {}),
+    ...(mode === 'column' ? { 'flex-basis': 'auto', 'flex-grow': '0', 'flex-shrink': '0' } : {}),
+    ...(mode === 'row' &&
+    (styles['align-self'] === 'stretch' ||
+      (styles['align-self'] === undefined && parent?.alignItems === 'stretch'))
+      ? { 'align-self': 'flex-start' }
+      : {}),
+  };
+}
+
+interface RuntimeLayoutBinding {
+  readonly node: RuntimeLayoutNode;
+  readonly parent?: RuntimeContainerLayout;
+}
+const layoutBindings = new WeakMap<HTMLElement, RuntimeLayoutBinding>();
+const aspectRatioOverrides = new WeakMap<HTMLElement, 'none' | '16:9' | '9:16'>();
+const standaloneRatioStyles = new WeakMap<HTMLElement, readonly [string, string, string][]>();
+
+/** Updates the same structural projection used by the Designer without changing saved rules. */
+export function setRuntimeLayoutAspectRatio(
+  element: HTMLElement,
+  ratio: 'none' | '16:9' | '9:16',
+): void {
+  const previousRatio = aspectRatioOverrides.get(element);
+  aspectRatioOverrides.set(element, ratio);
+  const binding = layoutBindings.get(element);
+  if (binding !== undefined) {
+    const projectRatio = (value: 'none' | '16:9' | '9:16' | undefined) =>
+      projectRuntimeLayout(
+        value === undefined
+          ? binding.node
+          : { ...binding.node, props: { ...binding.node.props, aspectRatio: value } },
+        binding.parent,
+      ).item;
+    const before = projectRatio(previousRatio);
+    const after = projectRatio(ratio);
+    // Only update declarations affected by the ratio. Application changes to
+    // width, position or unrelated layout properties remain instance-owned.
+    for (const name of new Set([...Object.keys(before), ...Object.keys(after)])) {
+      if (before[name] === after[name]) continue;
+      const value = after[name];
+      if (value === undefined) element.style.removeProperty(name);
+      else element.style.setProperty(name, value, 'important');
+    }
+    return;
+  }
+  // A directly constructed player can precede mounting. Preserve its original
+  // dimensions until the model-owned layout becomes available.
+  if (!standaloneRatioStyles.has(element)) {
+    standaloneRatioStyles.set(
+      element,
+      ['height', 'aspect-ratio'].map((name) => [
+        name,
+        element.style.getPropertyValue(name),
+        element.style.getPropertyPriority(name),
+      ]),
+    );
+  }
+  if (ratio === 'none') {
+    for (const [name, value, priority] of standaloneRatioStyles.get(element)!)
+      element.style.setProperty(name, value, priority);
+    standaloneRatioStyles.delete(element);
+  } else {
+    element.style.setProperty('height', 'auto', 'important');
+    element.style.setProperty('aspect-ratio', ratio === '16:9' ? '16 / 9' : '9 / 16', 'important');
+  }
 }
 
 function parsedCssPixels(value: string): number {
@@ -882,7 +982,13 @@ export function applyRuntimeLayout(
   parentContainer?: RuntimeContainerLayout,
   options: ApplyRuntimeLayoutOptions = {},
 ): RuntimeLayoutProjection {
-  const projection = projectRuntimeLayout(node, parentContainer);
+  layoutBindings.set(element, { node, parent: parentContainer });
+  standaloneRatioStyles.delete(element);
+  const ratio = aspectRatioOverrides.get(element);
+  const projection = projectRuntimeLayout(
+    ratio === undefined ? node : { ...node, props: { ...node.props, aspectRatio: ratio } },
+    parentContainer,
+  );
   const item = normalizeItem(node.layout);
   const rootStyles = options.isPageRoot
     ? {

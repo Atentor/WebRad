@@ -158,3 +158,11 @@ the chosen muted gray SVG in Designer and compiled Preview; a nonempty source ta
 The runtime exposes `placeholder: WebImagePlaceholder` and accepts `src = null`, while reading
 `src` returns an empty string for the empty state. The SVG is a rendering projection and is never
 saved into the authored source property or imported assets.
+
+# Video Player aspect ratio
+
+`WebVideoPlayer.props.aspectRatio` optionally stores `none`, `16:9`, or `9:16` in format-v2 documents. Missing values behave as `none`; new components persist that default. Fixed ratios project height from the responsive width through the shared structural layout, overriding vertical sizing and limits without rewriting saved bounds or layout rules. Disabling the ratio restores those saved rules. Runtime assignments affect only the mounted instance. This additive property requires no format-version change.
+
+# Video Player default style
+
+Format-v2 project and manifest loading restores a missing protected `Default Video Player` Aurora style with deterministic collision-safe ID/name and links matching colors to the actual project palette. Existing default/custom styles and component `styleId` bindings remain unchanged. New Video Player insertion uses the ordinary default-style binding; an existing unstyled player can select the restored style in the Inspector.

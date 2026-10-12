@@ -283,6 +283,10 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     node: RuntimeLayoutNode,
     parentContainer?: RuntimeContainerLayout,
   ): RuntimeLayoutProjection;
+  export function setRuntimeLayoutAspectRatio(
+    element: HTMLElement,
+    ratio: 'none' | '16:9' | '9:16',
+  ): void;
   export function measureRuntimeFitContentSize(
     target: HTMLElement,
     contentHost: HTMLElement,

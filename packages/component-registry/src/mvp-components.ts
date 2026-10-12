@@ -1215,6 +1215,7 @@ const webVideoPlayer: ComponentDefinition = {
     volume: 1,
     playbackRate: 1,
     objectFit: 'contain',
+    aspectRatio: 'none',
     quality: 'auto',
     poster: '',
     visible: true,
@@ -1224,6 +1225,17 @@ const webVideoPlayer: ComponentDefinition = {
   properties: [
     ...geometryProperties({ width: 480, height: 270 }),
     tabIndexProperty(),
+    {
+      name: 'aspectRatio',
+      label: 'Aspect ratio',
+      type: 'enum',
+      category: 'Video',
+      source: 'props',
+      defaultValue: 'none',
+      options: ['none', '16:9', '9:16'],
+      description:
+        'Keep a fixed ratio by calculating height from the responsive width. none uses the saved height rules.',
+    },
     {
       name: 'source',
       label: 'Video source',

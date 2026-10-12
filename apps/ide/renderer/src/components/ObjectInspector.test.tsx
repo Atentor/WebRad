@@ -28,6 +28,30 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('offers saved Video Player aspect ratios through Registry metadata', () => {
+    const onPropertyChange = vi.fn();
+    const node = defaultComponentRegistry.createComponent('WebVideoPlayer', {
+      id: 'video',
+      name: 'VideoPlayer1',
+    });
+    render(
+      <ObjectInspector
+        selection={[node]}
+        onPropertyChange={onPropertyChange}
+        onEventChange={vi.fn()}
+        onEventDoubleClick={vi.fn()}
+      />,
+    );
+    const select = screen.getByLabelText('Aspect ratio') as HTMLSelectElement;
+    expect(select.value).toBe('none');
+    expect(Array.from(select.options, (option) => option.value)).toEqual(['none', '16:9', '9:16']);
+    fireEvent.change(select, { target: { value: '9:16' } });
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'aspectRatio',
+      '9:16',
+      expect.objectContaining({ source: 'props' }),
+    );
+  });
   it('edits numeric Margin on every visual component and keeps it off nonvisual services', () => {
     const onPropertyChange = vi.fn();
     const props = { onPropertyChange, onEventChange: vi.fn(), onEventDoubleClick: vi.fn() };

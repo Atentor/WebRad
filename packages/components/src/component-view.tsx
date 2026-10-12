@@ -372,6 +372,8 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
         style={{
           width: '100%',
           height: '100%',
+          position: 'absolute',
+          inset: 0,
           objectFit: styleClassName
             ? 'inherit'
             : (readStringProperty(node, 'objectFit', 'contain') as CSSProperties['objectFit']),

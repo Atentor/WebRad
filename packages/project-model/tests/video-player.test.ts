@@ -26,17 +26,20 @@ it('persists the discriminated source and visual properties with stable identity
     source: { kind: 'restgo', videoId: 'video-id' },
     muted: true,
     volume: 0.5,
+    aspectRatio: '9:16',
   });
   const restored = deserializePage(serializePage(updated));
   expect(restored.components.find((node) => node.id === 'video-1')?.props).toMatchObject({
     source: { kind: 'restgo', videoId: 'video-id' },
     muted: true,
     volume: 0.5,
+    aspectRatio: '9:16',
   });
 });
 it.each([
   { volume: 2 },
   { playbackRate: 0 },
+  { aspectRatio: '4:3' },
   { source: { kind: 'url', url: 'https://youtube.com/watch?v=x', format: 'hls' } },
   { source: { kind: 'restgo', videoId: 'video-id', token: 'secret' } },
   { source: { kind: 'url', url: 'javascript:alert(1)', format: 'hls' } },

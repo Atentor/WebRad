@@ -5,6 +5,7 @@ export type WebVideoPlayerState =
   'idle' | 'loading' | 'loaded' | 'playing' | 'paused' | 'ended' | 'error' | 'disposed';
 export type WebVideoPlayerQuality = 'auto' | number;
 export type WebVideoPlayerObjectFit = 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+export type WebVideoPlayerAspectRatio = 'none' | '16:9' | '9:16';
 export interface WebVideoPlayerLoadOptions {
   readonly signal?: AbortSignal;
   readonly startTime?: number;

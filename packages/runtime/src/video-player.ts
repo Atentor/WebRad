@@ -1,5 +1,6 @@
 import type { RestGoVideoHlsDescriptor } from '@webrad/restgo-sdk';
 import { WebComponent, type WebComponentEventHandler } from './component.js';
+import { setRuntimeLayoutAspectRatio } from './layout.js';
 import { getRestGoClient } from './restgo.js';
 import {
   loadVideoShaka,
@@ -12,6 +13,7 @@ import {
 } from './video-player-shaka.js';
 import {
   normalizeVideoPlayerSource,
+  type WebVideoPlayerAspectRatio,
   type WebVideoPlayerAvailableQuality,
   type WebVideoPlayerBufferedRange,
   type WebVideoPlayerBufferingEventDetail,
@@ -27,6 +29,7 @@ import {
   type WebVideoPlayerUrlOptions,
 } from './video-player-types.js';
 export type {
+  WebVideoPlayerAspectRatio,
   WebVideoPlayerAvailableQuality,
   WebVideoPlayerBufferedRange,
   WebVideoPlayerBufferingEventDetail,
@@ -82,6 +85,7 @@ export class WebVideoPlayer extends WebComponent {
   #controls = true;
   #autoplay = false;
   #quality: WebVideoPlayerQuality = 'auto';
+  #aspectRatio: WebVideoPlayerAspectRatio = 'none';
   #descriptor: RestGoVideoHlsDescriptor | null = null;
   #posterUrl: string | null = null;
   #authPoster = '';
@@ -97,6 +101,8 @@ export class WebVideoPlayer extends WebComponent {
     this.#video.dataset.webradVideo = '';
     this.#video.style.width = '100%';
     this.#video.style.height = '100%';
+    this.#video.style.position = 'absolute';
+    this.#video.style.inset = '0';
     this.#video.style.objectFit = 'inherit';
     this.#video.style.objectPosition = 'inherit';
     this.#video.playsInline = true;
@@ -199,6 +205,16 @@ export class WebVideoPlayer extends WebComponent {
     if (!['contain', 'cover', 'fill', 'none', 'scale-down'].includes(value))
       throw new TypeError('Invalid video objectFit.');
     this.element.style.objectFit = value;
+  }
+  /** Fixed ratios derive height from the responsive width, overriding vertical sizing rules. */
+  public get aspectRatio(): WebVideoPlayerAspectRatio {
+    return this.#aspectRatio;
+  }
+  public set aspectRatio(value: WebVideoPlayerAspectRatio) {
+    if (!['none', '16:9', '9:16'].includes(value))
+      throw new TypeError('Invalid video aspectRatio.');
+    this.#aspectRatio = value;
+    setRuntimeLayoutAspectRatio(this.element, value);
   }
   public get poster(): string {
     return this.#authPoster;

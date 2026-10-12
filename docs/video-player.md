@@ -1,6 +1,14 @@
 # Video Player
 
+O estilo **Default Video Player** segue Aurora: fundo em degradê Graphite/Ink, borda Sky/Lavender de 1 px, cantos de 6 px, texto branco e sombra suave. Hover aumenta a sombra; foco nos controles mostra um anel azul; desabilitado reduz a opacidade. As cores ficam vinculadas à paleta do projeto. O estilo usa `contain` e posição central para preservar o enquadramento do vídeo.
+
+Projetos antigos que ainda não possuem esse estilo recebem a definição ao abrir, disponível para seleção em **Style** e aplicada automaticamente aos novos Video Players. Estilos e vínculos já salvos são preservados.
+
 `Video Player` é um componente visual da paleta **Standard**. A classe `WebVideoPlayer` usa [Shaka Player 5.2.13](https://github.com/shaka-project/shaka-player/releases/tag/v5.2.13), o último release estável verificado em 12/10/2026. A aplicação exportada inclui o JavaScript, o CSS dos controles e `licenses/Shaka-Player-Apache-2.0.txt`; não depende de CDN, Electron ou Node.js.
+
+Em **Properties → Video → Aspect ratio**, escolha `none` (padrão), `16:9` (horizontal) ou `9:16` (vertical). Uma proporção fixa calcula a altura a partir da largura responsiva do componente, tanto no Designer quanto no Preview e na aplicação exportada. Configure a largura como **Stretch** para acompanhar o espaço do container. A proporção fixa tem precedência sobre altura, limites verticais, stretch vertical e crescimento vertical; `none` restaura essas regras salvas. O ajuste do conteúdo continua sendo controlado por **Object fit**.
+
+A mesma propriedade é tipada no código: `VideoPlayer1.aspectRatio = '16:9'` ou `this.VideoPlayer1.aspectRatio = '9:16'`. Para voltar ao dimensionamento livre, atribua `'none'`.
 
 Adicione `VideoPlayer1` à página. Para um vídeo RestGo já convertido:
 

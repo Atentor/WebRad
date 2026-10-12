@@ -84,6 +84,7 @@ it.each([false, true])(
     await VideoPlayer1.LoadRestGo('video-1', {public:true}); await this.VideoPlayer1.LoadUrl('https://cdn.test/a.mpd',{format:'dash'});
     await VideoPlayer1.Play(); this.VideoPlayer1.Pause(); VideoPlayer1.Stop(); VideoPlayer1.Seek(1);
     VideoPlayer1.SetQuality('auto'); this.VideoPlayer1.SetQuality(720); await VideoPlayer1.Unload();
+    VideoPlayer1.aspectRatio = '16:9'; this.VideoPlayer1.aspectRatio = '9:16'; VideoPlayer1.aspectRatio = 'none';
     VideoPlayer1.LoadRestGo('id'); this.VideoPlayer1.LoadRestGo('id');
     {const VideoPlayer1={local:true};VideoPlayer1.local;} void instance;`,
       reusable,
@@ -116,6 +117,7 @@ it.each([false, true])(
             'state',
             'controls',
             'poster',
+            'aspectRatio',
             'onLoaded',
             'onError',
           ]),
@@ -155,6 +157,14 @@ it('rejects invalid source unions, media options, readonly state and wrong argum
   );
   try {
     expect(fixture.service.getSemanticDiagnostics(fixture.filename)).toHaveLength(8);
+  } finally {
+    fixture.service.dispose();
+  }
+});
+it.each(['VideoPlayer1', 'this.VideoPlayer1'])('rejects invalid ratios on %s', (access) => {
+  const fixture = serviceFor(`${access}.aspectRatio = '4:3';`, false);
+  try {
+    expect(fixture.service.getSemanticDiagnostics(fixture.filename)).toHaveLength(1);
   } finally {
     fixture.service.dispose();
   }

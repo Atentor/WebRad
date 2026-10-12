@@ -31,6 +31,7 @@ export const VideoPlayerPropertiesSchema = z
     volume: z.number().finite().min(0).max(1).optional(),
     playbackRate: z.number().finite().positive().optional(),
     objectFit: z.enum(['contain', 'cover', 'fill', 'none', 'scale-down']).optional(),
+    aspectRatio: z.enum(['none', '16:9', '9:16']).optional(),
     quality: z.union([z.literal('auto'), z.number().finite().positive()]).optional(),
     poster: z.string().optional(),
     visible: z.boolean().optional(),
