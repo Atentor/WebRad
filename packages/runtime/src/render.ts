@@ -414,6 +414,7 @@ runtimeComponentRegistry
     applyProperties: (component, node) => {
       applyCommon(component, node);
       component.src = readStringProperty(node, 'src');
+      component.placeholder = readStringProperty(node, 'placeholder') === 'user' ? 'user' : 'image';
       component.alt = readStringProperty(node, 'alt', node.name);
       if (node.styleClassName === undefined) {
         const objectFit = readStringProperty(node, 'objectFit');

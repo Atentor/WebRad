@@ -5,7 +5,12 @@ import {
   normalizeWebComboBoxConfiguration,
   type WebComboBoxConfiguration,
 } from './combo-box-data.js';
-import { bindImageResampling } from './image-display.js';
+import {
+  bindImageResampling,
+  imagePlaceholderSource,
+  type WebImagePlaceholder,
+} from './image-display.js';
+export type { WebImagePlaceholder } from './image-display.js';
 import {
   createWebRadIconElement,
   isWebRadIconName,
@@ -443,21 +448,41 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
 
 export class WebImage extends WebComponent<HTMLImageElement> {
   readonly #disposeResampling: () => void;
+  #source: string;
+  #placeholder: WebImagePlaceholder = 'image';
 
   public constructor(element: HTMLElement) {
     if (!(element instanceof HTMLImageElement)) {
       throw new TypeError('WebImage requires an image element.');
     }
     super(element);
+    this.#source = element.getAttribute('src') ?? '';
+    this.#updateSource();
     this.#disposeResampling = bindImageResampling(element);
   }
 
   public get src(): string {
-    return this.element.src;
+    return this.#source.trim() === '' ? '' : this.element.src;
   }
 
-  public set src(value: string) {
-    this.element.src = value;
+  public set src(value: string | null) {
+    this.#source = value ?? '';
+    this.#updateSource();
+  }
+
+  public get placeholder(): WebImagePlaceholder {
+    return this.#placeholder;
+  }
+
+  public set placeholder(value: WebImagePlaceholder) {
+    this.#placeholder = value;
+    this.#updateSource();
+  }
+
+  #updateSource(): void {
+    const source =
+      this.#source.trim() === '' ? imagePlaceholderSource(this.#placeholder) : this.#source;
+    if (this.element.getAttribute('src') !== source) this.element.setAttribute('src', source);
   }
 
   public get alt(): string {

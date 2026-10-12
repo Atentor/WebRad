@@ -790,6 +790,20 @@ describe('browser runtime', () => {
     expect(textArea.element.rows).toBe(7);
 
     const image = new WebImage(document.createElement('img'));
+    expect(image.src).toBe('');
+    expect(decodeURIComponent(image.element.src)).toContain('<rect');
+    image.placeholder = 'user';
+    expect(decodeURIComponent(image.element.src)).toContain('cy="32"');
+    image.src = '/avatar.png';
+    image.placeholder = 'image';
+    expect(image.src).toContain('/avatar.png');
+    image.src = null;
+    expect(image.src).toBe('');
+    expect(decodeURIComponent(image.element.src)).toContain('<rect');
+    image.placeholder = 'user';
+    image.src = '  ';
+    expect(image.src).toBe('');
+    expect(decodeURIComponent(image.element.src)).toContain('cy="32"');
     image.objectFit = 'cover';
     expect(image.objectFit).toBe('cover');
     expect(image.element.style.objectFit).toBe('cover');

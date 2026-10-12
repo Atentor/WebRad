@@ -372,6 +372,8 @@ describe('page language generation', () => {
 export class PageMain extends PageMainGenerated {
   inspectComponents(): void {
 ${memberExpressions}
+    this.IMGLogo.placeholder = 'user';
+    this.IMGLogo.src = null;
   }
 }
 `;
@@ -388,6 +390,12 @@ ${memberExpressions}
         start: diagnostic.start,
       }));
       expect(diagnostics).toEqual([]);
+      const imagePosition = userSource.indexOf('this.IMGLogo.placeholder') + 'this.IMGLogo.'.length;
+      expect(
+        service
+          .getCompletionsAtPosition(userFileName, imagePosition, {})
+          ?.entries.map((entry) => entry.name),
+      ).toContain('placeholder');
       const firstMember = MVP_COMPONENT_FIXTURES[0];
       const completionPosition = userSource.indexOf(`this.${firstMember.name}`) + 'this.'.length;
       const completions = service.getCompletionsAtPosition(userFileName, completionPosition, {});

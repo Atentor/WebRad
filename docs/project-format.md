@@ -149,3 +149,12 @@ Saves are serialized per project root. Artifact writes have rollback snapshots, 
 # Debugger preferences
 
 Format-v2 manifests may include optional `debugger` metadata with its own `version: 1`, `breakpoints`, `watches`, and `pauseOnExceptions` fields. Breakpoints contain a project-relative authored `.ts` path, a one-based line and optional column, `enabled`, and an optional JavaScript `condition`. Watches are expressions evaluated in the selected paused frame. The exception policy is `none`, `uncaught`, or `all`. Preferences are validated and saved with the Project Model; transient execution state is excluded. Projects without this field retain their existing format. See [the debugger](debugger.md).
+
+# Image empty state
+
+`WebImage.props.placeholder` stores the fixed empty-image choice: `image` (default) or `user`.
+Missing values in existing projects use `image`. A null, empty or whitespace-only `src` displays
+the chosen muted gray SVG in Designer and compiled Preview; a nonempty source takes precedence.
+The runtime exposes `placeholder: WebImagePlaceholder` and accepts `src = null`, while reading
+`src` returns an empty string for the empty state. The SVG is a rendering projection and is never
+saved into the authored source property or imported assets.

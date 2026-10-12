@@ -486,12 +486,15 @@ ${WEB_BUTTON_ICON_TYPINGS};
 
   export class WebImage extends WebComponent<HTMLImageElement> {
     constructor(element: HTMLElement);
-    src: string;
+    get src(): string;
+    set src(value: string | null);
+    placeholder: WebImagePlaceholder;
     alt: string;
     objectFit: WebImageObjectFit;
   }
 
   export type WebImageObjectFit = 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+  export type WebImagePlaceholder = 'image' | 'user';
 
   export class WebListBox extends WebComponent<HTMLSelectElement> {
     constructor(element: HTMLElement);
@@ -777,6 +780,8 @@ ${WEB_BUTTON_ICON_TYPINGS};
 }
 
 declare module '@webrad/runtime/image-display' {
+  export type WebImagePlaceholder = 'image' | 'user';
+  export function imagePlaceholderSource(placeholder: WebImagePlaceholder): string;
   export function bindImageResampling(element: HTMLImageElement): () => void;
 }
 

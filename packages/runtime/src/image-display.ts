@@ -1,5 +1,16 @@
 import { isStaticResamplingImage, resampleImagePixels } from './image-resampling.js';
 
+export type WebImagePlaceholder = 'image' | 'user';
+
+/** Fixed, browser-only empty-image artwork shared by Designer and Preview. */
+export function imagePlaceholderSource(placeholder: WebImagePlaceholder): string {
+  const shape =
+    placeholder === 'user'
+      ? '<circle cx="48" cy="32" r="15" fill="#9ca3af"/><path d="M20 79c0-17 12-27 28-27s28 10 28 27" fill="#9ca3af"/>'
+      : '<rect x="17" y="21" width="62" height="54" rx="6" fill="none" stroke="#9ca3af" stroke-width="4"/><circle cx="36" cy="38" r="6" fill="#9ca3af"/><path d="m21 68 19-19 12 12 10-10 13 17" fill="none" stroke="#9ca3af" stroke-width="4" stroke-linejoin="round"/>';
+  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><g opacity="0.55">${shape}</g></svg>`)}`;
+}
+
 const MAX_SOURCE_PIXELS = 16_777_216;
 const MAX_DISPLAY_PIXELS = 4_194_304;
 const MAX_SOURCE_BYTES = 20 * 1024 * 1024;

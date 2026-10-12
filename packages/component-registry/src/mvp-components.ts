@@ -1146,6 +1146,7 @@ const webImage: ComponentDefinition = {
   defaultBounds: imageBounds,
   defaults: {
     src: '',
+    placeholder: 'image',
     alt: '',
     objectFit: 'contain',
     visible: true,
@@ -1161,6 +1162,16 @@ const webImage: ComponentDefinition = {
       category: 'Data',
       source: 'props',
       defaultValue: '',
+      validateValue: (value) => value === null || typeof value === 'string',
+    },
+    {
+      name: 'placeholder',
+      label: 'Empty Image',
+      type: 'enum',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'image',
+      options: ['image', 'user'],
     },
     {
       name: 'alt',

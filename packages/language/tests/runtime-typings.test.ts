@@ -151,6 +151,31 @@ function completionNames(
 }
 
 describe('Monaco runtime typings', () => {
+  it('completes the typed empty-image choice and accepts a nullable source', () => {
+    const marked = extractMarkers(`import { WebImage } from '@webrad/runtime';
+declare const image: WebImage;
+image./*@image*/placeholder = 'user';
+image.src = null;
+const source: string = image.src;`);
+    const valid = createLanguageService(marked.text);
+    const invalid = createLanguageService(`import { WebImage } from '@webrad/runtime';
+declare const image: WebImage;
+image.placeholder = 'unknown';
+image.src = 42;`);
+    try {
+      expect(valid.service.getSemanticDiagnostics(valid.fileName)).toEqual([]);
+      expect(
+        completionNames(valid.service, valid.fileName, marked.positions.get('image')!),
+      ).toContain('placeholder');
+      expect(
+        invalid.service.getSemanticDiagnostics(invalid.fileName).map(({ code }) => code),
+      ).toEqual([2322, 2322]);
+    } finally {
+      valid.service.dispose();
+      invalid.service.dispose();
+    }
+  });
+
   it('types the shared image binding and rejects non-image DOM elements', () => {
     const valid =
       createLanguageService(`import { bindImageResampling } from '@webrad/runtime/image-display';

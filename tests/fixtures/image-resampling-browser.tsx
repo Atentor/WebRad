@@ -102,6 +102,18 @@ async function run(): Promise<void> {
     ),
   );
   document.body.dataset.stage = 'pixels';
+  for (const id of ['empty-image', 'empty-user']) {
+    await until(() => designer(id).complete && preview(id).complete);
+    assert(
+      designer(id).naturalWidth === 96 && preview(id).naturalWidth === 96,
+      `${id}: SVG did not load`,
+    );
+    assert(designer(id).src === preview(id).src, `${id}: empty image differs in Designer/Preview`);
+    assert(
+      decodeURIComponent(designer(id).src).includes(id === 'empty-user' ? 'cy="32"' : '<rect'),
+      `${id}: wrong artwork`,
+    );
+  }
   for (const id of ['image', 'contain', 'cover', 'fill', 'rectangular']) {
     const left = await pixelData(designer(id));
     const right = await pixelData(preview(id));
@@ -186,9 +198,26 @@ async function run(): Promise<void> {
   );
 
   document.body.dataset.stage = 'replace';
+  resized = updatePage(
+    resized,
+    page.id,
+    updateComponentProps(resized.pages[0]!, 'empty-image', { placeholder: 'user' }),
+  );
+  flushSync(() => changeProject(resized));
+  await until(
+    () => designer('empty-image').complete && designer('empty-image').naturalWidth === 96,
+  );
+  assert(
+    decodeURIComponent(designer('empty-image').src).includes('cy="32"'),
+    'Designer did not update chosen placeholder',
+  );
   const previousDesigner = designer('image').currentSrc;
   const previousPreview = preview('image').currentSrc;
   frame.contentDocument!.querySelector<HTMLButtonElement>('[data-webrad-id="replace"]')!.click();
+  assert(
+    decodeURIComponent(preview('empty-user').src).includes('<rect'),
+    'Typed placeholder/null assignment failed',
+  );
   page = updateComponentProps(resized.pages[0]!, 'image', { src: '/red.png' });
   resized = updatePage(resized, page.id, page);
   flushSync(() => changeProject(resized));
@@ -229,7 +258,7 @@ async function run(): Promise<void> {
   document.body.dataset.evidence = encodeURIComponent(
     JSON.stringify({
       passed: true,
-      cases: 10,
+      cases: 12,
       resized: true,
       replaced: true,
       zoom: true,

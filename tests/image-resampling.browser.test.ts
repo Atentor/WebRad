@@ -7,7 +7,14 @@ import sharp from 'sharp';
 import { expect, it } from 'vitest';
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { compileProjectToMemory, compileTailwindStyles } from '@webrad/compiler';
-import { addComponent, bindComponentEvent, createProject, updatePage } from '@webrad/project-model';
+import {
+  addComponent,
+  bindComponentEvent,
+  createProject,
+  deserializeProject,
+  serializeProject,
+  updatePage,
+} from '@webrad/project-model';
 import { withChromium } from './chromium';
 
 const browserPath = process.env.WEBRAD_BROWSER_PATH;
@@ -59,6 +66,8 @@ it.runIf(browserPath !== undefined)(
       'remote',
       'none',
       'rectangular',
+      'empty-image',
+      'empty-user',
     ].entries()) {
       const node = defaultComponentRegistry.createComponent('WebImage', {
         id,
@@ -67,8 +76,9 @@ it.runIf(browserPath !== undefined)(
         x: 12 + (index % 4) * 130,
         y: 12 + Math.floor(index / 4) * 130,
         props: {
-          src:
-            id === 'vector'
+          src: id.startsWith('empty-')
+            ? null
+            : id === 'vector'
               ? 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="256" height="256"%3E%3Cpath d="M0 256L256 0" stroke="blue"/%3E%3C/svg%3E'
               : id === 'animated'
                 ? 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
@@ -78,6 +88,7 @@ it.runIf(browserPath !== undefined)(
                     ? '/rectangular.png'
                     : '/pattern.png',
           alt: id,
+          placeholder: id === 'empty-user' ? 'user' : 'image',
           objectFit: ['contain', 'cover', 'fill', 'none'].includes(id) ? id : 'contain',
         },
       });
@@ -113,12 +124,20 @@ it.runIf(browserPath !== undefined)(
       page = bindComponentEvent(page, id, 'OnClick', handler);
     }
     project = updatePage(project, page.id, page);
+    project = deserializeProject(serializeProject(project));
+    expect(
+      project.pages[0]!.components.find((node) => node.id === 'empty-user')?.props,
+    ).toMatchObject({ src: null, placeholder: 'user' });
     const compiled = await compileProjectToMemory(project, {
       userSources: {
         'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
 export class PageMain extends PageMainGenerated {
   public ResizeClick(): void { this.Image1.width = 130; Image1.height = 130; }
-  public ReplaceClick(): void { this.Image1.src = '/red.png'; }
+  public ReplaceClick(): void {
+    this.Image1.src = '/red.png';
+    this.Sample11.placeholder = 'image';
+    Sample11.src = null;
+  }
 }`,
       },
     });
@@ -200,7 +219,7 @@ export class PageMain extends PageMainGenerated {
             cases: number;
           };
           expect(evidence.passed, evidence.error).toBe(true);
-          expect(evidence.cases).toBe(10);
+          expect(evidence.cases).toBe(12);
           await send('Emulation.setDeviceMetricsOverride', {
             width: 1280,
             height: 700,

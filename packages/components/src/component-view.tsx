@@ -14,7 +14,7 @@ import {
   tokenizeTailwindClasses,
 } from '@webrad/runtime/visual';
 import { getWebRadIconShapes, isWebRadIconName, type WebRadIconShape } from '@webrad/runtime/icons';
-import { bindImageResampling } from '@webrad/runtime/image-display';
+import { bindImageResampling, imagePlaceholderSource } from '@webrad/runtime/image-display';
 import { useEffect, useRef, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 
 export type ComponentEventName =
@@ -38,13 +38,19 @@ export interface ComponentViewProps {
 type ComponentRenderer = (props: ComponentViewProps) => ReactElement;
 
 function ImageView({ node, designTime, styleClassName }: ComponentViewProps): ReactElement {
-  const source = readStringProperty(node, 'src');
+  const authoredSource = readStringProperty(node, 'src');
+  const source =
+    authoredSource.trim() === ''
+      ? imagePlaceholderSource(
+          readStringProperty(node, 'placeholder') === 'user' ? 'user' : 'image',
+        )
+      : authoredSource;
   const ref = useRef<HTMLImageElement>(null);
   useEffect(() => {
     if (ref.current !== null) return bindImageResampling(ref.current);
   }, [source]);
   const attributes = sharedAttributes(node, designTime, styleClassName);
-  return source ? (
+  return (
     <img
       {...attributes}
       ref={ref}
@@ -64,10 +70,6 @@ function ImageView({ node, designTime, styleClassName }: ComponentViewProps): Re
           : {}),
       }}
     />
-  ) : (
-    <div {...attributes} role="img" aria-label={`${node.name}: no image`}>
-      Image
-    </div>
   );
 }
 
