@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { promises as fs } from 'node:fs';
 import { build } from 'esbuild';
+import sharp from 'sharp';
 import { expect, it } from 'vitest';
 import { compileGeneratedAppStyles, compileProjectToMemory } from '@webrad/compiler';
 import { withChromium } from './chromium';
@@ -60,8 +61,8 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
         const e = ${expression}; if (!e) return null;
         const svg = e.querySelector('.wr-panel-progress'); if (!svg) return { visible: false };
         const w = e.ownerDocument.defaultView, s = w.getComputedStyle(e), path = svg.querySelector('.wr-panel-progress-fill');
-        const box = e.getBoundingClientRect(), overlay = svg.getBoundingClientRect();
-        return { visible: true, value: svg.getAttribute('aria-valuenow'), d: path.getAttribute('d'), length: path.getTotalLength(), dash: path.getAttribute('stroke-dasharray'), color: w.getComputedStyle(path).stroke, track: w.getComputedStyle(svg.querySelector('.wr-panel-progress-track')).stroke, thickness: path.getAttribute('stroke-width'), paintedThickness: w.getComputedStyle(path).strokeWidth, svgWidth: overlay.width, svgHeight: overlay.height, width: box.width, height: box.height, leftOffset: overlay.left-box.left, topOffset: overlay.top-box.top, radius: s.borderTopLeftRadius, pointer: w.getComputedStyle(svg).pointerEvents };
+        const box = e.getBoundingClientRect(), overlay = svg.getBoundingClientRect(), pathBox = path.getBBox();
+        return { visible: true, value: svg.getAttribute('aria-valuenow'), d: path.getAttribute('d'), length: path.getTotalLength(), dash: path.getAttribute('stroke-dasharray'), color: w.getComputedStyle(path).stroke, track: w.getComputedStyle(svg.querySelector('.wr-panel-progress-track')).stroke, thickness: path.getAttribute('stroke-width'), paintedThickness: w.getComputedStyle(path).strokeWidth, svgWidth: overlay.width, svgHeight: overlay.height, width: box.width, height: box.height, leftOffset: overlay.left-box.left, topOffset: overlay.top-box.top, pathBox: { x: pathBox.x, y: pathBox.y, width: pathBox.width, height: pathBox.height }, radius: s.borderTopLeftRadius, pointer: w.getComputedStyle(svg).pointerEvents };
       })()`);
           await expect
             .poll(() => paint(runtime), { timeout: 15_000 })
@@ -78,6 +79,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
             svgHeight: 160,
             leftOffset: 0,
             topOffset: 0,
+            pathBox: { x: 0, y: 0, width: 280, height: 160 },
             radius: '6px',
             pointer: 'none',
           });
@@ -86,6 +88,48 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
               `(() => { const b=${runtime}.querySelector('button').getBoundingClientRect(); return [b.width,b.height]; })()`,
             );
           const before = await childBounds();
+          for (const expression of [designer, runtime]) {
+            await evaluate(`${expression}.style.setProperty('--wr-panel-progress-thickness','6')`);
+            await expect
+              .poll(() => paint(expression))
+              .toMatchObject({
+                thickness: '6',
+                paintedThickness: '6px',
+                pathBox: { x: 0, y: 0, width: 280, height: 160 },
+              });
+          }
+          const centeredScreenshot = await send('Page.captureScreenshot', { format: 'png' });
+          const centeredPixels = await sharp(
+            Buffer.from(centeredScreenshot.data as string, 'base64'),
+          )
+            .removeAlpha()
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          for (const expression of [designer, runtime]) {
+            const point = (await evaluate(
+              `(() => { const e=${expression}, b=e.getBoundingClientRect(), f=e.ownerDocument===document ? {left:0,top:0} : document.querySelector('iframe').getBoundingClientRect(); return {x:Math.round(f.left+b.left+b.width/2),y:Math.round(f.top+b.top)}; })()`,
+            )) as { x: number; y: number };
+            const rgb = (dy: number): number[] => {
+              const offset =
+                ((point.y + dy) * centeredPixels.info.width + point.x) *
+                centeredPixels.info.channels;
+              return [...centeredPixels.data.subarray(offset, offset + 3)];
+            };
+            expect(rgb(-2), 'The outer half must be painted above the Panel edge').toEqual([
+              37, 99, 235,
+            ]);
+            expect(rgb(1), 'The inner half must be painted below the Panel edge').toEqual([
+              37, 99, 235,
+            ]);
+            expect(rgb(-4), 'The outer half stops at half the 6px thickness').not.toEqual([
+              37, 99, 235,
+            ]);
+            expect(rgb(3), 'The inner half stops at half the 6px thickness').not.toEqual([
+              37, 99, 235,
+            ]);
+            await evaluate(`${expression}.style.removeProperty('--wr-panel-progress-thickness')`);
+            await expect.poll(() => paint(expression)).toMatchObject({ thickness: '3' });
+          }
           await fs.mkdir('out/panel-progress-review', { recursive: true });
           const auroraScreenshot = await send('Page.captureScreenshot', { format: 'png' });
           await fs.writeFile(
@@ -112,6 +156,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
                 paintedThickness: '5px',
                 leftOffset: 0,
                 topOffset: 0,
+                pathBox: { x: 0, y: 0, width, height },
               });
             await expect.poll(() => paint(designer)).toEqual(await paint(runtime));
             expect(await childBounds()).toEqual(before);

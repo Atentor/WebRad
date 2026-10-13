@@ -20,7 +20,7 @@ function VisiblePanelProgress({
     if (svg === null || host === undefined || host === null) return;
     return bindPanelProgressGeometry(host, svg).dispose;
   }, []);
-  const d = panelProgressPath(node.bounds.width, node.bounds.height, 3, [
+  const d = panelProgressPath(node.bounds.width, node.bounds.height, [
     [6, 6],
     [6, 6],
     [6, 6],

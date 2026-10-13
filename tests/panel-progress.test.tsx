@@ -138,13 +138,13 @@ it('normalizes persisted values and constructs finite clockwise paths with asymm
     visible: false,
   });
   expect(projectPanelProgress({ progressValue: 50 }).visible).toBe(false);
-  const d = panelProgressPath(280, 160, 4, [
+  const d = panelProgressPath(280, 160, [
     [6, 6],
     [12, 20],
     [30, 10],
     [0, 0],
   ]);
-  expect(d).toContain('M 6 2 H 268 A 10 18');
+  expect(d).toContain('M 6 0 H 268 A 12 20');
   expect(d).toMatch(/Z$/u);
   for (const [width, height] of [
     [240, 120],
@@ -153,7 +153,7 @@ it('normalizes persisted values and constructs finite clockwise paths with asymm
     [0, 0],
   ]) {
     expect(
-      panelProgressPath(width!, height!, 20, [
+      panelProgressPath(width!, height!, [
         [200, 200],
         [200, 200],
         [200, 200],

@@ -14,16 +14,14 @@ export function projectPanelProgress(props: Readonly<Record<string, unknown>>): 
 
 type Corner = readonly [number, number];
 
-/** Pixel geometry avoids stretching the stroke on non-square responsive panels. */
+/** Center the stroke on the Panel's outer contour: half inside and half outside. */
 export function panelProgressPath(
   width: number,
   height: number,
-  thickness: number,
   corners: readonly Corner[],
 ): string {
   const w = Math.max(1, Number.isFinite(width) ? width : 1);
   const h = Math.max(1, Number.isFinite(height) ? height : 1);
-  const inset = Math.min(w, h, Math.max(0.5, Number.isFinite(thickness) ? thickness : 3)) / 2;
   const radii = [0, 1, 2, 3].map((index): Corner => {
     const corner = corners[index] ?? [0, 0];
     const finite = (radius: number): number => (Number.isFinite(radius) ? Math.max(0, radius) : 0);
@@ -37,15 +35,12 @@ export function panelProgressPath(
     h / Math.max(1, tl[1] + bl[1]),
     h / Math.max(1, tr[1] + br[1]),
   );
-  const inner = radii.map(([x, y]): Corner => [
-    Math.max(0, x * scale - inset),
-    Math.max(0, y * scale - inset),
-  ]);
-  const [a, b, c, d] = inner as [Corner, Corner, Corner, Corner];
-  const left = inset,
-    top = inset,
-    right = w - inset,
-    bottom = h - inset;
+  const normalized = radii.map(([x, y]): Corner => [x * scale, y * scale]);
+  const [a, b, c, d] = normalized as [Corner, Corner, Corner, Corner];
+  const left = 0,
+    top = 0,
+    right = w,
+    bottom = h;
   const arc = ([rx, ry]: Corner, x: number, y: number): string =>
     rx > 0 && ry > 0 ? `A ${rx} ${ry} 0 0 1 ${x} ${y}` : `L ${x} ${y}`;
   return `M ${left + a[0]} ${top} H ${right - b[0]} ${arc(b, right, top + b[1])} V ${bottom - c[1]} ${arc(c, right - c[0], bottom)} H ${left + d[0]} ${arc(d, left, bottom - d[1])} V ${top + a[1]} ${arc(a, left + a[0], top)} Z`;
@@ -111,7 +106,6 @@ export function bindPanelProgressGeometry(
     const d = panelProgressPath(
       width,
       height,
-      thickness,
       [
         style.borderTopLeftRadius,
         style.borderTopRightRadius,

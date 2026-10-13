@@ -1277,7 +1277,7 @@ export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
 .wr-reusable-definition-root > .wr-component { position: relative !important; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }
 .wr-webpanel { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
-.wr-webpanel:has(> .wr-panel-progress) { position: relative; overflow: var(--wr-panel-overflow, clip); overflow-clip-margin: border-box; }
+.wr-webpanel:has(> .wr-panel-progress) { position: relative; overflow: var(--wr-panel-overflow, clip); overflow-clip-margin: border-box calc(var(--wr-panel-progress-thickness, 3) * 0.5px); }
 .wr-panel-progress { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2147483647; overflow: visible; pointer-events: none; }
 .wr-panel-progress-track, .wr-panel-progress-fill { fill: none; }
 .wr-panel-progress-track { stroke: var(--wr-panel-progress-track-color, var(--wr-palette-aurora-border, #dbeafe)); }
