@@ -177,6 +177,10 @@ saved into the authored source property or imported assets.
 
 Format-v2 project and manifest loading restores a missing protected `Default Video Player` Aurora style with deterministic collision-safe ID/name and links matching colors to the actual project palette. Existing default/custom styles and component `styleId` bindings remain unchanged. New Video Player insertion uses the ordinary default-style binding; an existing unstyled player can select the restored style in the Inspector.
 
+# Panel border progress
+
+`WebPanel.props` may persist `progressEnabled` (boolean, default false) and `progressValue` (finite percentage from 0 to 100, default 0). Indicator visibility is derived as enabled and strictly between 0 and 100; no `progressVisible` field or child component is persisted. Panel styles support `panelProgressColor`, `panelProgressTrackColor` and `panelProgressThickness` (0.5–20 px) in their normal state maps. New default styles link the two colors to Aurora Blue/Border and seed 3 px thickness; saved styles are preserved and missing fields use browser Aurora fallbacks. This is an additive format-v2 extension. See [Panel border progress](panel-progress.md).
+
 # ProgressBar
 
 `WebProgressBar.props` persists `format` (`bars`, `dunnet`, or `circus`), finite `min`, `max` and `value`, and boolean `showValue`, alongside shared visual/layout properties. Display values are clamped to valid ranges; invalid saved ranges project to 0–100 without rewriting the model. Geometry and computed percentages are derived values. Styles persist `progressColor`, `progressTrackColor` and `progressThickness` (1–20 SVG units), with the regular visual states. Format-v2 projects and manifests restore the protected, palette-linked `Default ProgressBar` style using collision-safe identities while preserving custom styles and component bindings. See [ProgressBar](progress-bar.md) for the public runtime API.

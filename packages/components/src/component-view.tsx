@@ -1,5 +1,6 @@
 import { projectProgressBar } from '@webrad/runtime/progress-bar';
 import { ProgressBarGraphic } from './progress-bar-graphic.js';
+import { PanelProgressGraphic } from './panel-progress-graphic.js';
 import { ProjectAssetsContext, resolveProjectImageSource } from './project-assets.js';
 import {
   normalizeDataGridConfiguration,
@@ -78,6 +79,7 @@ function PanelView({
       aria-label={readStringProperty(node, 'caption', node.name)}
     >
       {children}
+      <PanelProgressGraphic node={node} />
     </section>
   );
 }

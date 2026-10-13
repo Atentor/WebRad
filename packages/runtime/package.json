@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./panel-progress": {
+      "types": "./src/panel-progress.ts",
+      "default": "./src/panel-progress.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

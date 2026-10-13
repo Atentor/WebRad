@@ -753,6 +753,12 @@ export function resolveStylePropertyCandidate(
     }
     case 'progressColor':
       return cssVariableClass('--wr-progress-color', cssColorValue(value));
+    case 'panelProgressColor':
+      return cssVariableClass('--wr-panel-progress-color', cssColorValue(value));
+    case 'panelProgressTrackColor':
+      return cssVariableClass('--wr-panel-progress-track-color', cssColorValue(value));
+    case 'panelProgressThickness':
+      return cssVariableClass('--wr-panel-progress-thickness', String(value));
     case 'progressTrackColor':
       return cssVariableClass('--wr-progress-track-color', cssColorValue(value));
     case 'progressThickness':
@@ -971,6 +977,13 @@ function resolveComponentStyleStateClassNamesInternal(
     }
     const candidateExpression = resolveStylePropertyCandidate(propertyName, value);
     appendCandidateExpression(resolved, seen, candidateExpression);
+    if (panelBackground && propertyName === 'overflow') {
+      appendCandidateExpression(
+        resolved,
+        seen,
+        cssVariableClass('--wr-panel-overflow', stringValue(value)),
+      );
+    }
   }
   return resolved;
 }
@@ -1264,6 +1277,11 @@ export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
 .wr-reusable-definition-root > .wr-component { position: relative !important; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }
 .wr-webpanel { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
+.wr-webpanel:has(> .wr-panel-progress) { position: relative; overflow: var(--wr-panel-overflow, clip); overflow-clip-margin: border-box; }
+.wr-panel-progress { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2147483647; overflow: visible; pointer-events: none; }
+.wr-panel-progress-track, .wr-panel-progress-fill { fill: none; }
+.wr-panel-progress-track { stroke: var(--wr-panel-progress-track-color, var(--wr-palette-aurora-border, #dbeafe)); }
+.wr-panel-progress-fill { stroke: var(--wr-panel-progress-color, var(--wr-palette-aurora-blue, #2563eb)); stroke-linecap: round; }
 .wr-webpopup { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); border-radius: 8px; background: var(--wr-control-surface, #262b35); color: inherit; overflow: hidden; padding: 0; }
 .wr-webpopup::backdrop { background: rgb(15 23 42 / .48); }
 .wr-popup-children { box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: auto; }

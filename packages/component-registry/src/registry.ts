@@ -77,6 +77,9 @@ function copyDefinition(definition: ComponentDefinition): ComponentDefinition {
         : {
             ...definition.styleEditor,
             essentialProperties: [...definition.styleEditor.essentialProperties],
+            ...(definition.styleEditor.previewProps === undefined
+              ? {}
+              : { previewProps: structuredClone(definition.styleEditor.previewProps) }),
           },
     defaultBounds: { ...definition.defaultBounds },
     defaults: structuredClone(definition.defaults),

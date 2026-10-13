@@ -307,6 +307,11 @@ runtimeComponentRegistry
         PANEL_BACKGROUND_REPEATS.find((value) => value === node.props.backgroundRepeat) ??
         'no-repeat';
       component.backgroundImage = readStringProperty(node, 'backgroundImage');
+      component.progressValue =
+        typeof node.props.progressValue === 'number' && Number.isFinite(node.props.progressValue)
+          ? node.props.progressValue
+          : 0;
+      component.progressEnabled = readBooleanProperty(node, 'progressEnabled', false);
     },
   })
   .register<WebGroup>('WebGroup', {

@@ -23,7 +23,8 @@ export type ComponentStylePropertyCategory =
   | 'Data Grid Footer'
   | 'Data Grid Button'
   | 'Data Grid Checkbox'
-  | 'Image';
+  | 'Image'
+  | 'Panel progress';
 
 export interface StyleEditorOption {
   readonly value: string;
@@ -595,6 +596,29 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     componentTypes: ['WebProgressBar'],
     description:
       'Donut stroke width in the 100-unit graphic. Scales with the component dimensions.',
+  },
+  colorProperty('panelProgressColor', 'Progress color', 'Panel progress', {
+    componentTypes: ['WebPanel'],
+    defaultValue: '#2563eb',
+  }),
+  colorProperty('panelProgressTrackColor', 'Track color', 'Panel progress', {
+    componentTypes: ['WebPanel'],
+    defaultValue: '#dbeafe',
+  }),
+  {
+    ...numberProperty(
+      'panelProgressThickness',
+      'Progress thickness',
+      'Panel progress',
+      0.5,
+      20,
+      0.5,
+      'px',
+    ),
+    componentTypes: ['WebPanel'],
+    defaultValue: 3,
+    description:
+      'Border-progress stroke width in pixels. Follows the Panel border and rounded corners without changing child layout.',
   },
 
   colorProperty('textColor', 'Text color', 'Colors'),

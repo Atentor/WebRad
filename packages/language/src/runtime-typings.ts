@@ -169,6 +169,9 @@ ${repeatingGroupTypings.source}
   export const PANEL_BACKGROUND_REPEATS: readonly ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'];
   export class WebPanel extends WebComponent<HTMLElement> {
     caption: string;
+    progressEnabled: boolean;
+    progressValue: number;
+    readonly progressVisible: boolean;
     backgroundImage: string;
     backgroundSize: WebPanelBackgroundSize;
     backgroundPosition: WebPanelBackgroundPosition;

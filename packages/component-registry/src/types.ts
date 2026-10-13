@@ -117,6 +117,8 @@ export interface RegisteredComponentLayout {
 
 /** Design-time shortcuts for the component's visual style editor. */
 export interface ComponentStyleEditorMetadata {
+  /** Transient representative values for the Styles preview, separate from insertion defaults. */
+  readonly previewProps?: Readonly<Record<string, unknown>>;
   /** Frequently used property names, independent of the selected interaction state. */
   readonly essentialProperties: readonly string[];
 }

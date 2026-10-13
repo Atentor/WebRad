@@ -1,5 +1,10 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
 import {
+  disposePanelProgress,
+  projectPanelProgress,
+  renderPanelProgress,
+} from './panel-progress.js';
+import {
   projectPanelBackground,
   type WebPanelBackgroundSize,
   type WebPanelBackgroundPosition,
@@ -635,6 +640,39 @@ export class WebListBox extends WebComponent<HTMLSelectElement> {
 }
 
 export class WebPanel extends WebComponent<HTMLElement> {
+  #progressDisposed = false;
+
+  public get progressEnabled(): boolean {
+    return this.element.dataset.webradPanelProgressEnabled === 'true';
+  }
+
+  public set progressEnabled(value: boolean) {
+    this.element.dataset.webradPanelProgressEnabled = String(value);
+    if (!this.#progressDisposed) renderPanelProgress(this.element);
+  }
+
+  public get progressValue(): number {
+    return projectPanelProgress({
+      progressValue: Number(this.element.dataset.webradPanelProgressValue ?? 0),
+    }).value;
+  }
+
+  public set progressValue(value: number) {
+    if (!Number.isFinite(value)) throw new RangeError('Panel progress value must be finite.');
+    this.element.dataset.webradPanelProgressValue = String(Math.max(0, Math.min(100, value)));
+    if (!this.#progressDisposed) renderPanelProgress(this.element);
+  }
+
+  public get progressVisible(): boolean {
+    return this.progressEnabled && this.progressValue > 0 && this.progressValue < 100;
+  }
+
+  public override dispose(): void {
+    this.#progressDisposed = true;
+    disposePanelProgress(this.element);
+    super.dispose();
+  }
+
   public get backgroundImage(): string {
     return this.element.dataset.webradBackgroundImage ?? '';
   }

@@ -97,6 +97,7 @@ const sourceFiles = [
   'video-player.ts',
   'controls.ts',
   'progress-bar.ts',
+  'panel-progress.ts',
   'page.ts',
   'page-event-hooks.ts',
   'page-router.ts',

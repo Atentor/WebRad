@@ -40,6 +40,7 @@ const GROUP_NAMES: Readonly<Record<string, string>> = {
 
 const GROUP_ORDER = [
   'Appearance',
+  'Panel progress',
   'Text',
   'Spacing',
   'Icon',

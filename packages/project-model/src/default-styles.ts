@@ -63,6 +63,9 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     states: {
       base: {
         backgroundGradient: subtleSurface,
+        panelProgressColor: '#2563eb',
+        panelProgressTrackColor: '#dbeafe',
+        panelProgressThickness: 3,
         borderWidth: px(1),
         borderStyle: 'solid',
         borderGradient: subtleBorder,

@@ -621,7 +621,15 @@ const webPanel: ComponentDefinition = {
   palette: { category: containersCategory, caption: 'Panel' },
   icon: 'component-panel',
   visual: true,
-  styleEditor: containerStyleEditor,
+  styleEditor: {
+    previewProps: { progressEnabled: true, progressValue: 50 },
+    essentialProperties: [
+      ...containerStyleEditor.essentialProperties,
+      'panelProgressColor',
+      'panelProgressTrackColor',
+      'panelProgressThickness',
+    ],
+  },
   canHaveChildren: true,
   defaultEvent: 'OnClick',
   defaultBounds: panelBounds,
@@ -636,11 +644,34 @@ const webPanel: ComponentDefinition = {
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
+    progressEnabled: false,
+    progressValue: 0,
   },
   properties: [
     ...geometryProperties(panelBounds),
     ...containerLayoutProperties(),
     captionProperty(''),
+    {
+      name: 'progressEnabled',
+      label: 'Enable border progress',
+      type: 'boolean',
+      category: 'Progress',
+      source: 'props',
+      defaultValue: false,
+      description:
+        'Show progress along the Panel border automatically when the value is greater than 0 and less than 100.',
+    },
+    {
+      name: 'progressValue',
+      label: 'Progress (%)',
+      type: 'number',
+      category: 'Progress',
+      source: 'props',
+      defaultValue: 0,
+      description: 'Progress percentage from 0 to 100. At 0 or 100 the indicator is hidden.',
+      validateValue: (value) =>
+        typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100,
+    },
     {
       name: 'backgroundImage',
       label: 'Background image',

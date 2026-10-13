@@ -13,6 +13,25 @@ afterEach(() => {
 });
 
 describe('StylesWorkspace', () => {
+  it('previews Panel progress at 50 percent without enabling it on new Panels', () => {
+    const style = createComponentStyle('Panel Surface', 'WebPanel', {
+      states: { base: { panelProgressColor: '#123456', panelProgressThickness: 5 } },
+    });
+    render(
+      <StylesWorkspace
+        styles={[style]}
+        onCreateStyle={vi.fn(() => null)}
+        onUpdateStyle={vi.fn()}
+        onDeleteStyle={vi.fn()}
+      />,
+    );
+    const progress = screen.getByRole('progressbar');
+    expect(progress.getAttribute('aria-valuenow')).toBe('50');
+    expect(screen.getByText('Panel progress')).toBeDefined();
+    expect(
+      defaultComponentRegistry.createComponent('WebPanel', { id: 'new-panel' }).props,
+    ).toMatchObject({ progressEnabled: false, progressValue: 0 });
+  });
   it('filters styles and starts creation with the selected component type', async () => {
     const user = userEvent.setup();
     const styles = [

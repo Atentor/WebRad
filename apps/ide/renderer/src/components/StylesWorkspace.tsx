@@ -230,7 +230,10 @@ export function StylesWorkspace({
             name: 'StylePreview',
             width: 180,
             height: 72,
-            props: createPreviewProps(selectedStyle.componentType, activeState),
+            props: {
+              ...registry.require(selectedStyle.componentType).styleEditor?.previewProps,
+              ...createPreviewProps(selectedStyle.componentType, activeState),
+            },
           }),
     [activeState, registry, selectedDefinition, selectedStyle],
   );

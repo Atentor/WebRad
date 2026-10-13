@@ -28,6 +28,34 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('edits the Panel progress enable flag and percentage independently of Panel visibility', () => {
+    const onPropertyChange = vi.fn();
+    const node = defaultComponentRegistry.createComponent('WebPanel', {
+      id: 'panel',
+      name: 'Panel1',
+    });
+    render(
+      <ObjectInspector
+        selection={[node]}
+        onPropertyChange={onPropertyChange}
+        onEventChange={vi.fn()}
+        onEventDoubleClick={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Enable border progress'));
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'progressEnabled',
+      true,
+      expect.objectContaining({ source: 'props' }),
+    );
+    fireEvent.change(screen.getByLabelText('Progress (%)'), { target: { value: '35' } });
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'progressValue',
+      35,
+      expect.objectContaining({ source: 'props' }),
+    );
+    expect((screen.getByLabelText('Visible') as HTMLInputElement).checked).toBe(true);
+  });
   it('edits Panel background configuration through Registry properties', () => {
     const onPropertyChange = vi.fn();
     const node = defaultComponentRegistry.createComponent('WebPanel', {
