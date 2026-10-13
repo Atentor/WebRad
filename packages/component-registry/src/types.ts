@@ -130,6 +130,8 @@ export interface ComponentDefinition {
   readonly icon: string;
   /** Whether the component owns a browser DOM projection at runtime. */
   readonly visual: boolean;
+  /** Structural containers may opt out of project visual styles. */
+  readonly supportsStyles?: boolean;
   /** Visual style shortcuts; the complete property catalog remains available. */
   readonly styleEditor?: ComponentStyleEditorMetadata;
   /**

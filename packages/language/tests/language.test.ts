@@ -38,6 +38,7 @@ interface MvpComponentFixture {
 
 const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-panel-main', type: 'WebPanel', name: 'PanelMain' },
+  { id: 'stable-group', type: 'WebGroup', name: 'Group1' },
   { id: 'reusable-card', type: 'WebReusableElement', name: 'ReusableCard' },
   { id: 'stable-label-status', type: 'WebLabel', name: 'LBLStatus' },
   { id: 'stable-edit-name', type: 'WebEdit', name: 'EDTNome' },

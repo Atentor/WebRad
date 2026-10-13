@@ -193,7 +193,10 @@ export function StylesWorkspace({
   const createNameId = useId();
   const createTypeId = useId();
   const visualDefinitions = useMemo(
-    () => registry.list().filter((definition) => definition.visual),
+    () =>
+      registry
+        .list()
+        .filter((definition) => definition.visual && definition.supportsStyles !== false),
     [registry],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);

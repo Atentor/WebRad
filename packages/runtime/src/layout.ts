@@ -230,6 +230,7 @@ function hasContainerSemantics(
   return (
     node.type === 'WebPage' ||
     node.type === 'WebPanel' ||
+    node.type === 'WebGroup' ||
     (node.children?.length ?? 0) > 0 ||
     container.mode !== 'fixed' ||
     container.paddingTop !== 0 ||

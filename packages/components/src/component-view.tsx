@@ -342,6 +342,11 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       {children}
     </section>
   ),
+  WebGroup: ({ node, designTime, children }) => (
+    <section {...sharedAttributes(node, designTime)} aria-label={node.name}>
+      {children}
+    </section>
+  ),
   // A popup is authored from the nonvisual tray, but it is still a visual
   // runtime component. The Styles workspace needs a stable, accessible
   // surface instead of an active browser dialog, so styles can be previewed

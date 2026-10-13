@@ -578,6 +578,9 @@ export class WebPanel extends WebComponent<HTMLElement> {
   }
 }
 
+/** Transparent structural container with the same runtime API as Panel. */
+export class WebGroup extends WebPanel {}
+
 function popupElement(element: HTMLElement): HTMLDialogElement {
   if (element.tagName !== 'DIALOG') {
     throw new TypeError('WebPopup requires a dialog element.');

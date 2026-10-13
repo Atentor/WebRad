@@ -657,6 +657,22 @@ const webPanel: ComponentDefinition = {
   ],
 };
 
+const webGroup: ComponentDefinition = {
+  supportsStyles: false,
+  type: 'WebGroup',
+  displayName: 'Group',
+  namePrefix: 'Group',
+  palette: { category: containersCategory, caption: 'Group' },
+  icon: 'component-panel',
+  visual: true,
+  canHaveChildren: true,
+  defaultEvent: 'OnClick',
+  defaultBounds: panelBounds,
+  defaults: { visible: true, collapseWhenHidden: true, enabled: true },
+  properties: [...geometryProperties(panelBounds), ...containerLayoutProperties()],
+  events: webPanel.events,
+};
+
 /**
  * A placement-owned instance of a project reusable definition. The referenced
  * definition remains in the Project Model, so this node intentionally cannot
@@ -1563,6 +1579,7 @@ const webRepeatingGroup: ComponentDefinition = {
 export const MVP_COMPONENT_TYPES = [
   'WebPage',
   'WebPanel',
+  'WebGroup',
   'WebReusableElement',
   'WebLabel',
   'WebEdit',
@@ -1586,6 +1603,7 @@ export type MvpComponentType = (typeof MVP_COMPONENT_TYPES)[number];
 const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webPage,
   webPanel,
+  webGroup,
   webReusableElement,
   webLabel,
   webEdit,

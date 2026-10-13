@@ -8,6 +8,7 @@ import {
   WebLabel,
   WebListBox,
   WebPanel,
+  WebGroup,
   WebPopup,
   WebReusableElement,
   WebTextArea,
@@ -291,6 +292,14 @@ runtimeComponentRegistry
     applyProperties: (component, node) => {
       applyCommon(component, node);
       component.caption = readStringProperty(node, 'caption');
+    },
+  })
+  .register<WebGroup>('WebGroup', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebGroup(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.caption = readStringProperty(node, 'caption', node.name);
     },
   })
   .register<WebPopup>('WebPopup', {

@@ -552,7 +552,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebImage,
   WebLabel,
   WebListBox,
-  WebPanel,
+  WebPanel, WebGroup,
   WebPopup,
   WebReusableElement,
   WebReusableElementInstance,
@@ -561,7 +561,7 @@ void source; void unsupportedBody; void unsupportedConnection;
 
 class EditorPage extends WebPage {
   configure(
-    panel: WebPanel,
+    panel: WebPanel, group: WebGroup,
     reusable: WebReusableElement,
     label: WebLabel,
     edit: WebEdit,
@@ -581,6 +581,7 @@ class EditorPage extends WebPage {
     reusableInstance: WebReusableElementInstance,
   ): void {
     panel./*@panel*/caption;
+    group./*@group*/caption;
     reusable./*@reusable*/placement;
     label./*@label*/autoSize;
     edit./*@edit*/inputType;
@@ -756,6 +757,7 @@ class EditorPage extends WebPage {
       WebLabel: 'label',
       WebListBox: 'list',
       WebPanel: 'panel',
+      WebGroup: 'group',
       WebPopup: 'popup',
       WebReusableElement: 'reusable',
       WebTextArea: 'textArea',

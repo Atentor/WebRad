@@ -16,7 +16,7 @@ function essentialProperties(type: string): readonly string[] {
 describe('registry visual style shortcuts', () => {
   it('curates a small, valid set for every visual component without replacing the full catalog', () => {
     for (const component of componentRegistry.list()) {
-      if (!component.visual) {
+      if (!component.visual || component.supportsStyles === false) {
         expect(component.styleEditor).toBeUndefined();
         continue;
       }

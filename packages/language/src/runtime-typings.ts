@@ -164,6 +164,8 @@ ${repeatingGroupTypings.source}
   export class WebPanel extends WebComponent<HTMLElement> {
     caption: string;
   }
+  export class WebGroup extends WebPanel {}
+
 
   /** Browser-native floating child container that can be shown or closed from page code. */
   export class WebPopup extends WebComponent<HTMLDialogElement> {

@@ -842,6 +842,7 @@ export function ObjectInspector({
   const eventsPanelId = `${tabId}-events-panel`;
   const activeInspectorTab: InspectorTab = eventsEnabled ? activeTab : 'properties';
   const showStyle =
+    primaryDefinition?.supportsStyles !== false &&
     styleComponentType !== undefined &&
     onStyleChange !== undefined &&
     inspectorPropertyMatches(
