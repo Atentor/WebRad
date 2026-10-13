@@ -21,7 +21,7 @@ export interface CompileProjectOptions {
   readonly write?: boolean;
   readonly minify?: boolean;
   readonly sourcemap?: boolean;
-  /** Preview embeds an isolated bundle; deploy emits browser ES modules for hosting. */
+  /** Deploy applies publishing settings/PWA; both targets use the same browser bundle. */
   readonly target?: 'preview' | 'deploy';
   /** Emit the original TypeScript mappings and an unminified Debug Preview. */
   readonly debug?: boolean;

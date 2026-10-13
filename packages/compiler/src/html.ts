@@ -74,7 +74,7 @@ export function createIndexHtml(
   metadata: HtmlDocumentMetadata,
   applicationIconHref: string | null,
   socialImageHref: string | null,
-  options: { readonly modules?: boolean; readonly pwa?: ProjectPwaSettings } = {},
+  options: { readonly pwa?: ProjectPwaSettings } = {},
 ): string {
   return `<!doctype html>
 <html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}">
@@ -88,8 +88,8 @@ ${options.pwa?.enabled === true ? `    <meta name="theme-color" content="${escap
     <link rel="stylesheet" href="./assets/app.css" />
   </head>
   <body class="wr-project-surface">
-    <script${options.modules === true ? ' type="module"' : ''} src="./assets/app.js"></script>
-${options.pwa?.enabled === true ? '    <script type="module" src="./assets/pwa-register.js"></script>\n' : ''}
+    <script src="./assets/app.js"></script>
+${options.pwa?.enabled === true ? '    <script src="./assets/pwa-register.js"></script>\n' : ''}
   </body>
 </html>
 `;

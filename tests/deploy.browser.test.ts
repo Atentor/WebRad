@@ -1,12 +1,75 @@
 import { createServer } from 'node:http';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { expect, it } from 'vitest';
-import { compileProjectToMemory } from '@webrad/compiler';
+import { compileProject, compileProjectToMemory } from '@webrad/compiler';
 import { parseProject, updateProjectSettings } from '@webrad/project-model';
 import { withChromium } from './chromium';
-import { groupProject } from './fixtures/group';
+import { groupProject, groupUserSources } from './fixtures/group';
 
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
-  'executes deployed modules in a subfolder, installs the scoped PWA, and reloads offline',
+  'renders the exported classic bundle through file URLs with working component events',
+  async () => {
+    const original = groupProject();
+    const project = updateProjectSettings(original, {
+      pwa: { ...original.settings.pwa, enabled: true },
+    });
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-deploy-file-'));
+    const resolved = path.resolve(directory);
+    if (
+      !resolved.startsWith(`${path.resolve(os.tmpdir())}${path.sep}`) ||
+      !path.basename(resolved).startsWith('webrad-deploy-file-')
+    )
+      throw new Error('Unsafe deploy fixture directory.');
+    try {
+      const compiled = await compileProject(project, {
+        outputDirectory: directory,
+        target: 'deploy',
+        userSources: groupUserSources,
+      });
+      expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
+      await withChromium(
+        process.env.WEBRAD_BROWSER_PATH!,
+        pathToFileURL(path.join(directory, 'index.html')).href,
+        async (send) => {
+          const evaluate = async (expression: string) => {
+            const result = await send('Runtime.evaluate', { expression, returnByValue: true });
+            if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
+            return (result.result as { value?: unknown })?.value;
+          };
+          await expect
+            .poll(
+              () =>
+                evaluate(
+                  `document.querySelector('[data-webrad-id="group"]')?.getAttribute('aria-label')`,
+                ),
+              { timeout: 15_000 },
+            )
+            .toBe('Ready');
+          expect(await evaluate('location.protocol')).toBe('file:');
+          expect(
+            await evaluate(
+              `document.querySelector('button').click(); document.querySelector('button').textContent`,
+            ),
+          ).toBe('Ready');
+          expect(
+            await evaluate(
+              `Array.from(document.scripts).every(script => script.type !== 'module')`,
+            ),
+          ).toBe(true);
+        },
+      );
+    } finally {
+      await fs.rm(resolved, { recursive: true, force: true });
+    }
+  },
+  40_000,
+);
+
+it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
+  'executes the deployed Preview bundle in a subfolder and keeps scoped PWA behavior',
   async () => {
     const original = groupProject();
     const project = updateProjectSettings(
@@ -99,12 +162,14 @@ export class PageMain extends PageMainGenerated {
           )
           .toBe('Hosted ready');
         expect(requests).toEqual(
-          expect.arrayContaining([
-            '/app/models/Customer.js',
-            '/app/units/Greeting.js',
-            '/app/pages/PageMain.js',
-          ]),
+          expect.arrayContaining(['/app/assets/app.js', '/app/assets/app.css']),
         );
+        expect(
+          requests.some(
+            (url) =>
+              /^\/app\/(pages|models|units|reusable)\//u.test(url) || url.includes('/chunks/'),
+          ),
+        ).toBe(false);
         await expect
           .poll(() => evaluate('Boolean(navigator.serviceWorker.controller)'), { timeout: 15_000 })
           .toBe(true);

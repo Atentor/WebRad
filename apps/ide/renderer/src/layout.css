@@ -2841,6 +2841,44 @@ kbd {
 
 .wr-project-settings-directory button {
   flex-shrink: 0;
+  height: 31px;
+  padding: 0 12px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 4px;
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.wr-project-settings-directory button:hover:not(:disabled) {
+  border-color: var(--wr-accent);
+  background: var(--wr-surface-hover);
+}
+
+.wr-project-settings-directory button:focus-visible {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+
+#project-settings-panel-build > .wr-project-settings-fields,
+#project-settings-panel-build > .wr-project-settings-toggles,
+#project-settings-panel-build > .wr-project-settings-note {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 620px;
+}
+
+#project-settings-panel-build > .wr-project-settings-toggles {
+  gap: 12px;
+  margin-top: 16px;
+}
+
+#project-settings-panel-build > .wr-project-settings-note {
+  margin-top: 20px;
 }
 
 .wr-deploy-dialog {

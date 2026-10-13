@@ -66,8 +66,6 @@ function isReservedSourcePath(sourcePath: string): boolean {
     normalized.startsWith('__runtime/') ||
     normalized === '__restgo' ||
     normalized.startsWith('__restgo/') ||
-    normalized === '__deploy' ||
-    normalized.startsWith('__deploy/') ||
     [
       'entry.ts',
       'app.css',

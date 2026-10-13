@@ -5,7 +5,9 @@ import path from 'node:path';
 import { z } from 'zod';
 
 export const DEPLOY_MANIFEST = '.webrad-deploy.json';
-const APPLICATION_DIRECTORIES = ['pages', 'reusable', 'models', 'units', 'assets'] as const;
+const APPLICATION_DIRECTORIES = ['assets'] as const;
+// Previously generated empty folders can be retired together with their owned files.
+const RETIRED_APPLICATION_DIRECTORIES = ['pages', 'reusable', 'models', 'units'] as const;
 const PROTECTED_PROJECT_DIRECTORIES = new Set([
   'pages',
   'reusable',
@@ -107,7 +109,10 @@ function digest(content: string | Uint8Array): string {
 }
 
 function directoryPaths(files: readonly string[]): Set<string> {
-  const directories = new Set<string>(APPLICATION_DIRECTORIES);
+  const directories = new Set<string>([
+    ...APPLICATION_DIRECTORIES,
+    ...RETIRED_APPLICATION_DIRECTORIES,
+  ]);
   for (const file of files) {
     const segments = file.split('/');
     for (let count = 1; count < segments.length; count += 1)

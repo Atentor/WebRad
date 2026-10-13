@@ -24,21 +24,21 @@ afterEach(async () => {
 });
 
 describe('hosted application deployment', () => {
-  it('writes text and binary artifacts, creates application folders, and reports exact file progress', async () => {
+  it('writes the Preview layout with binary assets and exact file progress', async () => {
     const { projectRoot, destination } = await fixture();
     const progress: [number, number, string][] = [];
     const result = await writeDeployment({
       projectRoot,
       destination,
       projectId: 'project-1',
-      files: { 'index.html': '<html>Hosted</html>', 'pages/main.js': 'export {}' },
+      files: { 'index.html': '<html>Hosted</html>', 'assets/app.js': '(() => {})();' },
       binaryFiles: { 'assets/icon.png': Uint8Array.from([0, 255, 42]) },
       onFileWritten: (...event) => progress.push(event),
     });
     expect(result.fileCount).toBe(3);
     expect(progress).toEqual([
       [1, 3, 'index.html'],
-      [2, 3, 'pages/main.js'],
+      [2, 3, 'assets/app.js'],
       [3, 3, 'assets/icon.png'],
     ]);
     expect(await fs.readFile(path.join(destination, 'index.html'), 'utf8')).toBe(
@@ -48,13 +48,13 @@ describe('hosted application deployment', () => {
       Buffer.from([0, 255, 42]),
     );
     expect((await fs.readdir(destination)).sort()).toEqual(
-      [DEPLOY_MANIFEST, 'assets', 'index.html', 'models', 'pages', 'reusable', 'units'].sort(),
+      [DEPLOY_MANIFEST, 'assets', 'index.html'].sort(),
     );
     const manifest = JSON.parse(
       await fs.readFile(path.join(destination, DEPLOY_MANIFEST), 'utf8'),
     ) as { projectId: string; files: Record<string, string> };
     expect(manifest.projectId).toBe('project-1');
-    expect(Object.keys(manifest.files)).toEqual(['index.html', 'pages/main.js', 'assets/icon.png']);
+    expect(Object.keys(manifest.files)).toEqual(['index.html', 'assets/app.js', 'assets/icon.png']);
   });
 
   it('replaces only its managed output and removes stale generated files', async () => {
@@ -65,16 +65,21 @@ describe('hosted application deployment', () => {
       projectId: 'owned',
       files: { 'index.html': 'old', 'pages/retired.js': 'old page' },
     });
+    for (const directory of ['reusable', 'models', 'units'])
+      await fs.mkdir(path.join(destination, directory));
     await writeDeployment({
       projectRoot,
       destination,
       projectId: 'owned',
-      files: { 'index.html': 'new', 'pages/current.js': 'new page' },
+      files: { 'index.html': 'new', 'assets/app.js': 'new app' },
     });
     expect(await fs.readFile(path.join(destination, 'index.html'), 'utf8')).toBe('new');
     await expect(fs.stat(path.join(destination, 'pages/retired.js'))).rejects.toMatchObject({
       code: 'ENOENT',
     });
+    expect((await fs.readdir(destination)).sort()).toEqual(
+      [DEPLOY_MANIFEST, 'assets', 'index.html'].sort(),
+    );
     expect((await fs.readdir(parent)).sort()).toEqual(['published', 'source']);
   });
 

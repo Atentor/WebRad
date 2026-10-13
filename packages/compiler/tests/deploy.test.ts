@@ -41,7 +41,7 @@ function fixture() {
 }
 
 describe('hosting deployment', () => {
-  it('exports real modules, selects runtime controls, and omits unreferenced code', async () => {
+  it('exports the Preview bundle layout and omits unreferenced code', async () => {
     let project = fixture();
     project = addReusableElement(project, createReusableElement('UnusedVideo'));
     project = parseProject({
@@ -54,30 +54,38 @@ describe('hosting deployment', () => {
     });
     const page = project.pages[0];
     if (page === undefined) throw new Error('Expected entry page.');
-    const result = await compileProjectToMemory(project, {
-      target: 'deploy',
-      userSources: {
-        'models/Customer.ts': 'export class Customer { public name = "Marta"; }',
-        'units/Greeting.ts':
-          'import type { Customer } from "../models/Customer"; export const greeting = (customer: Customer): string => "Hello " + customer.name; export const unused = "UNUSED_EXPORT_FROM_USED_UNIT";',
-        'units/Unused.ts':
-          'export const UNUSED_MARKER = "UNREACHABLE_CODE_SENTINEL"; export const unusedRestGo = (): unknown => RestGO.auth;',
-        'reusables/UnusedVideo.ts':
-          'import { UnusedVideoGenerated } from "./UnusedVideo.generated"; export class UnusedVideo extends UnusedVideoGenerated {}',
-        'pages/PageMain.ts':
-          'import { Customer } from "../models/Customer"; import { greeting } from "../units/Greeting";\n' +
-          createUserPageSource(page) +
-          '\ndocument.documentElement.dataset.greeting = greeting(new Customer());',
-      },
-    });
+    const userSources = {
+      'models/Customer.ts': 'export class Customer { public name = "Marta"; }',
+      'units/Greeting.ts':
+        'import type { Customer } from "../models/Customer"; export const greeting = (customer: Customer): string => "Hello " + customer.name; export const unused = "UNUSED_EXPORT_FROM_USED_UNIT";',
+      'units/Unused.ts':
+        'export const UNUSED_MARKER = "UNREACHABLE_CODE_SENTINEL"; export const unusedRestGo = (): unknown => RestGO.auth;',
+      'reusables/UnusedVideo.ts':
+        'import { UnusedVideoGenerated } from "./UnusedVideo.generated"; export class UnusedVideo extends UnusedVideoGenerated {}',
+      'pages/PageMain.ts':
+        'import { Customer } from "../models/Customer"; import { greeting } from "../units/Greeting";\n' +
+        createUserPageSource(page) +
+        '\ndocument.documentElement.dataset.greeting = greeting(new Customer());',
+    };
+    const result = await compileProjectToMemory(project, { target: 'deploy', userSources });
     expect(result.diagnostics).toEqual([]);
     expect(result.success).toBe(true);
     expect(result.previewHtml).toBeUndefined();
-    expect(result.files['index.html']).toContain('type="module" src="./assets/app.js"');
-    expect(Object.keys(result.files)).toEqual(
-      expect.arrayContaining(['pages/PageMain.js', 'models/Customer.js', 'units/Greeting.js']),
+    expect(result.files['index.html']).toContain('<script src="./assets/app.js"></script>');
+    expect(result.files['index.html']).not.toContain('type="module"');
+    expect(Object.keys(result.files).sort()).toEqual([
+      'assets/app.css',
+      'assets/app.js',
+      'index.html',
+      'service-worker.js',
+    ]);
+    const preview = await compileProjectToMemory(
+      updateProjectSettings(project, { environment: 'production' }),
+      { userSources },
     );
-    expect(Object.keys(result.files)).not.toContain('units/Unused.js');
+    expect(preview.success, JSON.stringify(preview.diagnostics)).toBe(true);
+    expect(result.files['assets/app.js']).toBe(preview.files['assets/app.js']);
+    expect(result.files['assets/app.css']).toBe(preview.files['assets/app.css']);
     expect(Object.keys(result.files).some((file) => file.includes('UnusedVideo'))).toBe(false);
     const javascript = Object.entries(result.files)
       .filter(([file]) => file.endsWith('.js'))
@@ -129,8 +137,10 @@ describe('hosting deployment', () => {
     }
     expect(result.files['index.html']).toContain('href="./manifest.webmanifest"');
     expect(result.files['index.html']).toContain('name="theme-color" content="#123456"');
-    expect(result.files['assets/pwa-register.js']).toContain(
-      "new URL('../service-worker.js', import.meta.url)",
+    expect(result.files['assets/pwa-register.js']).toContain("new URL('service-worker.js', scope)");
+    expect(result.files['assets/pwa-register.js']).not.toContain('import.meta');
+    expect(result.files['index.html']).toContain(
+      '<script src="./assets/pwa-register.js"></script>',
     );
 
     const listeners = new Map<string, (event: unknown) => void>();

@@ -26,8 +26,7 @@ import {
 import type { BuildFailure } from 'esbuild';
 import { repeatingGroupForComponent } from '@webrad/language';
 
-import { bundleSources, sourceCandidatePaths } from './bundle.js';
-import { createDeployEntryPoints } from './deploy-entry-points.js';
+import { bundleSources } from './bundle.js';
 import { fromEsbuildMessage } from './diagnostics.js';
 import { createIndexHtml, createPreviewHtml } from './html.js';
 import { createVirtualSourceGraph } from './source-graph.js';
@@ -653,19 +652,9 @@ export async function compileProject(
       sourcemap:
         options.debug ||
         (options.sourcemap ?? (target === 'deploy' && project.settings.build.sourceMaps)),
-      target,
       componentTypes: graph.componentTypes,
     };
-    let bundle = await bundleSources(bundleOptions);
-    if (target === 'deploy') {
-      const deployment = createDeployEntryPoints(
-        checked.sources,
-        graph.entryPath,
-        bundle.usedSources,
-        sourceCandidatePaths,
-      );
-      bundle = await bundleSources({ ...bundleOptions, ...deployment });
-    }
+    const bundle = await bundleSources(bundleOptions);
     const bundleFiles = { ...bundle.files };
     for (const [file, sourceMap] of Object.entries(bundleFiles)) {
       if (file.endsWith('.map'))
@@ -712,7 +701,6 @@ export async function compileProject(
         iconOutputPath === null ? null : `./${iconOutputPath}`,
         socialImageOutputPathValue === null ? null : `./${socialImageOutputPathValue}`,
         {
-          modules: target === 'deploy',
           ...(target === 'deploy' ? { pwa: project.settings.pwa } : {}),
         },
       ),

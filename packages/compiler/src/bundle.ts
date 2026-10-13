@@ -22,15 +22,12 @@ export interface BundleOptions {
   readonly outputDirectory: string;
   readonly minify: boolean;
   readonly sourcemap: boolean;
-  readonly target?: 'preview' | 'deploy';
   readonly componentTypes?: ReadonlySet<string>;
-  readonly entryPoints?: Readonly<Record<string, string>>;
 }
 
 export interface BundleResult {
   readonly files: Readonly<Record<string, string>>;
   readonly diagnostics: readonly CompileDiagnostic[];
-  readonly usedSources: readonly string[];
 }
 
 function loaderFor(fileName: string): Loader {
@@ -42,7 +39,7 @@ function loaderFor(fileName: string): Loader {
   return 'ts';
 }
 
-export function sourceCandidatePaths(importer: string, specifier: string): readonly string[] {
+function sourceCandidatePaths(importer: string, specifier: string): readonly string[] {
   const resolved = path.resolve(path.dirname(importer), specifier);
   const extension = path.extname(resolved);
   if (extension === '.js' || extension === '.jsx' || extension === '.mjs') {
@@ -127,7 +124,7 @@ function virtualPlugin(options: BundleOptions): Plugin {
       buildContext.onResolve({ filter: /.*/ }, (args) => {
         if (args.kind === 'entry-point')
           return {
-            path: args.path === 'webrad-entry' ? options.entryPath : args.path,
+            path: options.entryPath,
             namespace: 'webrad',
           };
         if (args.namespace !== 'webrad' || !args.path.startsWith('.')) return undefined;
@@ -185,14 +182,9 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
     absWorkingDir: process.cwd(),
     assetNames: '[name]-[hash]',
     bundle: true,
-    entryNames: '[dir]/[name]',
-    entryPoints:
-      options.target === 'deploy'
-        ? (options.entryPoints ?? { 'assets/app': 'webrad-entry' })
-        : { app: 'webrad-entry' },
-    format: options.target === 'deploy' ? 'esm' : 'iife',
-    splitting: options.target === 'deploy',
-    chunkNames: 'assets/chunks/[name]-[hash]',
+    entryNames: 'app',
+    entryPoints: ['webrad-entry'],
+    format: 'iife',
     metafile: true,
     legalComments: 'none',
     loader: {
@@ -205,10 +197,7 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
     },
     logLevel: 'silent',
     minify: options.minify,
-    outdir:
-      options.target === 'deploy'
-        ? options.outputDirectory
-        : path.join(options.outputDirectory, 'assets'),
+    outdir: path.join(options.outputDirectory, 'assets'),
     platform: 'browser',
     plugins: [virtualPlugin(options)],
     sourcemap: options.sourcemap ? 'external' : false,
@@ -238,8 +227,5 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
   return {
     files,
     diagnostics: result.warnings.map((warning) => fromEsbuildMessage(warning, 'warning')),
-    usedSources: [...usedInputs]
-      .filter((input) => input.startsWith('webrad:'))
-      .map((input) => input.slice('webrad:'.length)),
   };
 }

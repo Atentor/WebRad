@@ -191,11 +191,20 @@ export async function runDeploySmoke(
       `renderer Deploy file progress passed: ${String(evidence.finalCompleted)} of ${String(evidence.finalTotal)} files`,
     );
     const entries = await fs.readdir(destination, { withFileTypes: true });
-    for (const directory of ['pages', 'reusable', 'models', 'units', 'assets']) {
-      if (!entries.some((entry) => entry.name === directory && entry.isDirectory()))
-        throw new Error(`Deploy folder missing: ${directory}`);
-    }
+    if (!entries.some((entry) => entry.name === 'assets' && entry.isDirectory()))
+      throw new Error('Deploy assets folder missing.');
+    if (entries.some((entry) => ['pages', 'reusable', 'models', 'units'].includes(entry.name)))
+      throw new Error('Deploy retained split application folders.');
+    if (
+      await fs.stat(path.join(destination, 'assets/chunks')).then(
+        () => true,
+        () => false,
+      )
+    )
+      throw new Error('Deploy retained split JavaScript chunks.');
     const html = await fs.readFile(path.join(destination, 'index.html'), 'utf8');
+    if (html.includes('type="module"') || !html.includes('<script src="./assets/app.js"></script>'))
+      throw new Error('Deploy did not use the classic Preview bundle.');
     if (!html.includes('manifest.webmanifest') || !html.includes('assets/pwa-register.js'))
       throw new Error('Hosted HTML does not load PWA output.');
     const manifest = JSON.parse(

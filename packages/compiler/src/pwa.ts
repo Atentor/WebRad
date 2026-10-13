@@ -57,11 +57,15 @@ export async function createPwaOutput(
   const files: Record<string, string> = {
     'manifest.webmanifest': `${JSON.stringify(manifest, null, 2)}\n`,
   };
-  files['assets/pwa-register.js'] = `if ('serviceWorker' in navigator && window.isSecureContext) {
+  files['assets/pwa-register.js'] = `(() => {
+  if (!('serviceWorker' in navigator) || !window.isSecureContext || !['http:', 'https:'].includes(location.protocol)) return;
+  const script = document.currentScript;
+  if (!(script instanceof HTMLScriptElement)) return;
+  const scope = new URL('../', script.src);
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register(new URL('../service-worker.js', import.meta.url), { scope: new URL('../', import.meta.url).href, updateViaCache: 'none' }).catch(() => {});
+    void navigator.serviceWorker.register(new URL('service-worker.js', scope), { scope: scope.href, updateViaCache: 'none' }).catch(() => {});
   }, { once: true });
-}
+})();
 `;
   const shellFiles = Object.keys({ ...appFiles, ...files, ...appBinaryFiles, ...binaryFiles })
     .filter((name) => !name.endsWith('.map') && !name.includes('/licenses/'))
