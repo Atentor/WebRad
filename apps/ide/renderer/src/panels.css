@@ -112,6 +112,10 @@
   font-size: 11px;
 }
 
+.wr-palette-chevron .wr-icon {
+  transform: scale(1.5);
+}
+
 .wr-palette-items {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));

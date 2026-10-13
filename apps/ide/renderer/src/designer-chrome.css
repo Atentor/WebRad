@@ -609,6 +609,7 @@
 .wr-element-chevron .wr-icon {
   width: 10px;
   height: 10px;
+  transform: scale(1.5);
 }
 
 .wr-element-icon,
