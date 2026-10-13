@@ -7,6 +7,62 @@ export interface VisualPropertySource {
   readonly props: Readonly<Record<string, unknown>>;
 }
 
+export const PANEL_BACKGROUND_SIZES = ['cover', 'contain', 'auto', 'stretch'] as const;
+export type WebPanelBackgroundSize = (typeof PANEL_BACKGROUND_SIZES)[number];
+export const PANEL_BACKGROUND_POSITIONS = [
+  'center',
+  'top',
+  'bottom',
+  'left',
+  'right',
+  'left top',
+  'right top',
+  'left bottom',
+  'right bottom',
+] as const;
+export type WebPanelBackgroundPosition = (typeof PANEL_BACKGROUND_POSITIONS)[number];
+export const PANEL_BACKGROUND_REPEATS = ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'] as const;
+export type WebPanelBackgroundRepeat = (typeof PANEL_BACKGROUND_REPEATS)[number];
+
+/** An authored URL is a CSS string, never an arbitrary CSS expression. */
+export function projectPanelBackground(
+  props: Readonly<Record<string, unknown>>,
+  styled = false,
+): {
+  '--wr-panel-background-image': string;
+  backgroundImage: string;
+  backgroundSize: string;
+  backgroundPosition: string;
+  backgroundRepeat: string;
+} {
+  const source = typeof props.backgroundImage === 'string' ? props.backgroundImage : '';
+  if (source.trim() === '') {
+    return {
+      '--wr-panel-background-image': '',
+      backgroundImage: '',
+      backgroundSize: '',
+      backgroundPosition: '',
+      backgroundRepeat: '',
+    };
+  }
+  const size = PANEL_BACKGROUND_SIZES.find((value) => value === props.backgroundSize) ?? 'cover';
+  const position =
+    PANEL_BACKGROUND_POSITIONS.find((value) => value === props.backgroundPosition) ?? 'center';
+  const repeat =
+    PANEL_BACKGROUND_REPEATS.find((value) => value === props.backgroundRepeat) ?? 'no-repeat';
+  const escaped = source.replace(
+    /["\\\n\r\f]/gu,
+    (character) => `\\${character.charCodeAt(0).toString(16)} `,
+  );
+  return {
+    '--wr-panel-background-image': `url("${escaped}")`,
+    backgroundImage: styled ? '' : `url("${escaped}")`,
+    backgroundSize: `${size === 'stretch' ? '100% 100%' : size}${styled ? ', auto' : ''}`,
+    backgroundPosition: `${position}${styled ? ', 0% 0%' : ''}`,
+    backgroundRepeat: `${repeat}${styled ? ', no-repeat' : ''}`,
+  };
+}
+
 export interface VisualComponentSource extends VisualPropertySource {
   readonly type: string;
   readonly bounds: {
@@ -127,6 +183,7 @@ export function paletteColorReference(id: string): string {
 }
 
 export interface TailwindStyleSource {
+  readonly componentType?: string;
   readonly states: Readonly<Record<ComponentStyleStateName, TailwindStyleProperties>>;
 }
 
@@ -374,7 +431,8 @@ function backgroundColorValue(value: unknown): string | undefined {
   return undefined;
 }
 
-function backgroundFillValue(properties: TailwindStyleProperties): string {
+function backgroundFillValue(properties: TailwindStyleProperties, panelBackground = false): string {
+  if (panelBackground) return `var(--wr-panel-background-image,${backgroundFillValue(properties)})`;
   const gradient = linearGradientValue(properties.backgroundGradient);
   if (gradient !== undefined) return gradient;
   const color = backgroundColorValue(properties.backgroundColor);
@@ -401,14 +459,17 @@ function borderGradientClass(value: unknown): string | undefined {
   ].join(' ');
 }
 
-function borderGradientClassForProperties(properties: TailwindStyleProperties): string | undefined {
+function borderGradientClassForProperties(
+  properties: TailwindStyleProperties,
+  panelBackground = false,
+): string | undefined {
   const gradient = linearGradientValue(properties.borderGradient);
   if (gradient === undefined) return undefined;
   return [
     'border',
     'border-transparent',
     '[border-style:solid]',
-    `[background:${backgroundFillValue(properties)}_padding-box,${gradient}_border-box]`,
+    `[background:${backgroundFillValue(properties, panelBackground)}_padding-box,${gradient}_border-box]`,
   ].join(' ');
 }
 
@@ -846,11 +907,12 @@ function appendCandidateExpression(
 function resolveRootPaintClassNames(
   properties: TailwindStyleProperties,
   forceBackgroundReset: boolean,
+  panelBackground = false,
 ): readonly string[] {
   const resolved: string[] = [];
   const seen = new Set<string>();
 
-  const borderGradient = borderGradientClassForProperties(properties);
+  const borderGradient = borderGradientClassForProperties(properties, panelBackground);
   if (borderGradient !== undefined) {
     appendCandidateExpression(resolved, seen, borderGradient);
     return resolved;
@@ -863,10 +925,17 @@ function resolveRootPaintClassNames(
     appendCandidateExpression(
       resolved,
       seen,
-      backgroundGradientClass(properties.backgroundGradient),
+      panelBackground ? undefined : backgroundGradientClass(properties.backgroundGradient),
     );
   }
   appendCandidateExpression(resolved, seen, colorClass('border', properties.borderColor));
+  if (panelBackground) {
+    appendCandidateExpression(
+      resolved,
+      seen,
+      `[background-image:var(--wr-panel-background-image,${linearGradientValue(properties.backgroundGradient) ?? 'none'})]`,
+    );
+  }
   return resolved;
 }
 
@@ -874,6 +943,7 @@ function resolveComponentStyleStateClassNamesInternal(
   properties: TailwindStyleProperties | null | undefined,
   rootPaintProperties: TailwindStyleProperties | null | undefined = properties,
   forceBackgroundReset = false,
+  panelBackground = false,
 ): readonly string[] {
   if (properties === undefined || properties === null || typeof properties !== 'object') return [];
   const rootPaint =
@@ -888,7 +958,11 @@ function resolveComponentStyleStateClassNamesInternal(
     if (isRootPaintProperty(propertyName)) {
       if (appendedRootPaint) continue;
       appendedRootPaint = true;
-      for (const candidate of resolveRootPaintClassNames(rootPaint, forceBackgroundReset)) {
+      for (const candidate of resolveRootPaintClassNames(
+        rootPaint,
+        forceBackgroundReset,
+        panelBackground,
+      )) {
         if (seen.has(candidate)) continue;
         seen.add(candidate);
         resolved.push(candidate);
@@ -974,6 +1048,7 @@ export function resolveComponentStyleClassNames(
       selected,
       effective,
       stateName !== 'base' && requiresBackgroundReset(base, selected, effective),
+      style?.componentType === 'WebPanel',
     );
     for (const candidate of candidates) {
       for (const variant of variants) {
@@ -986,6 +1061,13 @@ export function resolveComponentStyleClassNames(
   };
 
   appendState('base', ['']);
+  if (style?.componentType === 'WebPanel' && !hasRootPaintProperties(base)) {
+    appendCandidateExpression(
+      resolved,
+      seen,
+      '[background-image:var(--wr-panel-background-image,none)]',
+    );
+  }
   appendState('hover', ['hover']);
   // focus-within supports compound controls such as WebCheckBox.
   appendState('focus', ['focus', 'focus-within']);
@@ -1012,7 +1094,18 @@ export function resolveComponentStylePreviewClassName(
 ): string {
   const base = stateProperties(style, 'base') ?? {};
   const selected = stateName === 'base' ? {} : (stateProperties(style, stateName) ?? {});
-  return resolveComponentStyleStateClassNames(mergeStateProperties(base, selected)).join(' ');
+  const effective = mergeStateProperties(base, selected);
+  const candidates = [
+    ...resolveComponentStyleStateClassNamesInternal(
+      effective,
+      effective,
+      false,
+      style?.componentType === 'WebPanel',
+    ),
+  ];
+  if (style?.componentType === 'WebPanel' && !hasRootPaintProperties(effective))
+    candidates.push('[background-image:var(--wr-panel-background-image,none)]');
+  return candidates.join(' ');
 }
 
 export type VisualSizingMode = 'bounds' | 'fill';

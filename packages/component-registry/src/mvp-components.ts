@@ -11,6 +11,11 @@ import {
   REUSABLE_ELEMENT_VERTICAL_ANCHORS,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
+import {
+  PANEL_BACKGROUND_SIZES,
+  PANEL_BACKGROUND_POSITIONS,
+  PANEL_BACKGROUND_REPEATS,
+} from '@webrad/runtime/visual';
 import type {
   ComponentDefinition,
   ComponentEventDefinition,
@@ -627,11 +632,54 @@ const webPanel: ComponentDefinition = {
     enabled: true,
     backgroundColor: 'transparent',
     borderColor: '#808080',
+    backgroundImage: '',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
   },
   properties: [
     ...geometryProperties(panelBounds),
     ...containerLayoutProperties(),
     captionProperty(''),
+    {
+      name: 'backgroundImage',
+      label: 'Background image',
+      type: 'string',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: '',
+      description:
+        'Image URL, data URL, or project asset path (assets/imported/...). Leave empty to use only the selected style.',
+    },
+    {
+      name: 'backgroundSize',
+      label: 'Background size',
+      type: 'enum',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'cover',
+      options: PANEL_BACKGROUND_SIZES,
+      description:
+        'Cover fills with cropping; contain keeps the full image; auto uses its original size; stretch fills both dimensions.',
+    },
+    {
+      name: 'backgroundPosition',
+      label: 'Background position',
+      type: 'enum',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'center',
+      options: PANEL_BACKGROUND_POSITIONS,
+    },
+    {
+      name: 'backgroundRepeat',
+      label: 'Background repeat',
+      type: 'enum',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'no-repeat',
+      options: PANEL_BACKGROUND_REPEATS,
+    },
     {
       name: 'backgroundColor',
       label: 'Background Color',

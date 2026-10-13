@@ -28,6 +28,41 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('edits Panel background configuration through Registry properties', () => {
+    const onPropertyChange = vi.fn();
+    const node = defaultComponentRegistry.createComponent('WebPanel', {
+      id: 'panel',
+      name: 'Panel1',
+    });
+    render(
+      <ObjectInspector
+        selection={[node]}
+        onPropertyChange={onPropertyChange}
+        onEventChange={vi.fn()}
+        onEventDoubleClick={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Background image'), {
+      target: { value: 'assets/imported/background.png' },
+    });
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'backgroundImage',
+      'assets/imported/background.png',
+      expect.objectContaining({ source: 'props' }),
+    );
+    for (const [label, name, value] of [
+      ['Background size', 'backgroundSize', 'contain'],
+      ['Background position', 'backgroundPosition', 'right bottom'],
+      ['Background repeat', 'backgroundRepeat', 'repeat-x'],
+    ]) {
+      fireEvent.change(screen.getByLabelText(label!), { target: { value } });
+      expect(onPropertyChange).toHaveBeenLastCalledWith(
+        name,
+        value,
+        expect.objectContaining({ source: 'props' }),
+      );
+    }
+  });
   it('offers saved Video Player aspect ratios through Registry metadata', () => {
     const onPropertyChange = vi.fn();
     const node = defaultComponentRegistry.createComponent('WebVideoPlayer', {

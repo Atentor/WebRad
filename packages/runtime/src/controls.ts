@@ -1,4 +1,10 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
+import {
+  projectPanelBackground,
+  type WebPanelBackgroundSize,
+  type WebPanelBackgroundPosition,
+  type WebPanelBackgroundRepeat,
+} from './visual.js';
 import type { WebApiClient } from './api-client.js';
 import {
   comboBoxItemText,
@@ -629,6 +635,65 @@ export class WebListBox extends WebComponent<HTMLSelectElement> {
 }
 
 export class WebPanel extends WebComponent<HTMLElement> {
+  public get backgroundImage(): string {
+    return this.element.dataset.webradBackgroundImage ?? '';
+  }
+
+  public set backgroundImage(value: string) {
+    this.element.dataset.webradBackgroundImage = value;
+    this.applyBackgroundImage();
+  }
+
+  public get backgroundSize(): WebPanelBackgroundSize {
+    return (
+      (this.element.dataset.webradBackgroundSize as WebPanelBackgroundSize | undefined) ?? 'cover'
+    );
+  }
+
+  public set backgroundSize(value: WebPanelBackgroundSize) {
+    this.element.dataset.webradBackgroundSize = value;
+    this.applyBackgroundImage();
+  }
+
+  public get backgroundPosition(): WebPanelBackgroundPosition {
+    return (
+      (this.element.dataset.webradBackgroundPosition as WebPanelBackgroundPosition | undefined) ??
+      'center'
+    );
+  }
+
+  public set backgroundPosition(value: WebPanelBackgroundPosition) {
+    this.element.dataset.webradBackgroundPosition = value;
+    this.applyBackgroundImage();
+  }
+
+  public get backgroundRepeat(): WebPanelBackgroundRepeat {
+    return (
+      (this.element.dataset.webradBackgroundRepeat as WebPanelBackgroundRepeat | undefined) ??
+      'no-repeat'
+    );
+  }
+
+  public set backgroundRepeat(value: WebPanelBackgroundRepeat) {
+    this.element.dataset.webradBackgroundRepeat = value;
+    this.applyBackgroundImage();
+  }
+
+  private applyBackgroundImage(): void {
+    const { '--wr-panel-background-image': image, ...style } = projectPanelBackground(
+      {
+        backgroundImage: this.backgroundImage,
+        backgroundSize: this.backgroundSize,
+        backgroundPosition: this.backgroundPosition,
+        backgroundRepeat: this.backgroundRepeat,
+      },
+      this.element.dataset.webradPanelStyled === 'true',
+    );
+    if (image === '') this.element.style.removeProperty('--wr-panel-background-image');
+    else this.element.style.setProperty('--wr-panel-background-image', image);
+    Object.assign(this.element.style, style);
+  }
+
   public get caption(): string {
     return this.element.dataset.webradCaption ?? this.element.getAttribute('aria-label') ?? '';
   }

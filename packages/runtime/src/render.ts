@@ -53,6 +53,9 @@ import {
   readStringProperty,
   readStringListProperty,
   tokenizeTailwindClasses,
+  PANEL_BACKGROUND_SIZES,
+  PANEL_BACKGROUND_POSITIONS,
+  PANEL_BACKGROUND_REPEATS,
 } from './visual.js';
 
 export interface RuntimeBounds {
@@ -293,7 +296,17 @@ runtimeComponentRegistry
     createComponent: (element) => new WebPanel(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
+      component.element.dataset.webradPanelStyled = String(node.styleClassName !== undefined);
       component.caption = readStringProperty(node, 'caption');
+      component.backgroundSize =
+        PANEL_BACKGROUND_SIZES.find((value) => value === node.props.backgroundSize) ?? 'cover';
+      component.backgroundPosition =
+        PANEL_BACKGROUND_POSITIONS.find((value) => value === node.props.backgroundPosition) ??
+        'center';
+      component.backgroundRepeat =
+        PANEL_BACKGROUND_REPEATS.find((value) => value === node.props.backgroundRepeat) ??
+        'no-repeat';
+      component.backgroundImage = readStringProperty(node, 'backgroundImage');
     },
   })
   .register<WebGroup>('WebGroup', {

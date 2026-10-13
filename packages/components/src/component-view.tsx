@@ -1,5 +1,6 @@
 import { projectProgressBar } from '@webrad/runtime/progress-bar';
 import { ProgressBarGraphic } from './progress-bar-graphic.js';
+import { ProjectAssetsContext, resolveProjectImageSource } from './project-assets.js';
 import {
   normalizeDataGridConfiguration,
   normalizeRepeatingGroupConfiguration,
@@ -10,6 +11,7 @@ import {
 } from '@webrad/project-model';
 import {
   projectComponentVisual,
+  projectPanelBackground,
   readBooleanProperty,
   readIntegerProperty,
   readStringListProperty,
@@ -25,6 +27,7 @@ import {
   cloneElement,
   isValidElement,
   useEffect,
+  useContext,
   useRef,
   type CSSProperties,
   type ReactElement,
@@ -52,6 +55,32 @@ export interface ComponentViewProps {
 }
 
 type ComponentRenderer = (props: ComponentViewProps) => ReactElement;
+
+function PanelView({
+  node,
+  designTime,
+  styleClassName,
+  children,
+}: ComponentViewProps): ReactElement {
+  const assets = useContext(ProjectAssetsContext);
+  const attributes = sharedAttributes(node, designTime, styleClassName);
+  const backgroundImage = resolveProjectImageSource(
+    readStringProperty(node, 'backgroundImage'),
+    assets,
+  );
+  return (
+    <section
+      {...attributes}
+      style={{
+        ...attributes.style,
+        ...projectPanelBackground({ ...node.props, backgroundImage }, styleClassName !== undefined),
+      }}
+      aria-label={readStringProperty(node, 'caption', node.name)}
+    >
+      {children}
+    </section>
+  );
+}
 
 function ImageView({ node, designTime, styleClassName }: ComponentViewProps): ReactElement {
   const authoredSource = readStringProperty(node, 'src');
@@ -361,14 +390,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       {children}
     </section>
   ),
-  WebPanel: ({ node, designTime, styleClassName, children }) => (
-    <section
-      {...sharedAttributes(node, designTime, styleClassName)}
-      aria-label={readStringProperty(node, 'caption', node.name)}
-    >
-      {children}
-    </section>
-  ),
+  WebPanel: (props) => <PanelView {...props} />,
   WebGroup: ({ node, designTime, children }) => (
     <section {...sharedAttributes(node, designTime)} aria-label={node.name}>
       {children}

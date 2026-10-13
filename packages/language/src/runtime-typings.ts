@@ -161,8 +161,18 @@ ${repeatingGroupTypings.source}
   }
 
   /** Visual container used to group controls. */
+  export type WebPanelBackgroundSize = 'cover' | 'contain' | 'auto' | 'stretch';
+  export type WebPanelBackgroundPosition = 'center' | 'top' | 'bottom' | 'left' | 'right' | 'left top' | 'right top' | 'left bottom' | 'right bottom';
+  export type WebPanelBackgroundRepeat = 'no-repeat' | 'repeat' | 'repeat-x' | 'repeat-y';
+  export const PANEL_BACKGROUND_SIZES: readonly ['cover', 'contain', 'auto', 'stretch'];
+  export const PANEL_BACKGROUND_POSITIONS: readonly ['center', 'top', 'bottom', 'left', 'right', 'left top', 'right top', 'left bottom', 'right bottom'];
+  export const PANEL_BACKGROUND_REPEATS: readonly ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'];
   export class WebPanel extends WebComponent<HTMLElement> {
     caption: string;
+    backgroundImage: string;
+    backgroundSize: WebPanelBackgroundSize;
+    backgroundPosition: WebPanelBackgroundPosition;
+    backgroundRepeat: WebPanelBackgroundRepeat;
   }
   export class WebGroup extends WebPanel {}
 
@@ -689,6 +699,14 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly props: Readonly<Record<string, unknown>>;
   }
 
+  export function projectPanelBackground(props: Readonly<Record<string, unknown>>, styled?: boolean): {
+    '--wr-panel-background-image': string;
+    backgroundImage: string;
+    backgroundSize: string;
+    backgroundPosition: string;
+    backgroundRepeat: string;
+  };
+
   export interface VisualComponentSource extends VisualPropertySource {
     readonly type: string;
     readonly bounds: {
@@ -736,6 +754,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
   >;
 
   export interface TailwindStyleSource {
+    readonly componentType?: string;
     readonly states: Readonly<Record<ComponentStyleStateName, TailwindStyleProperties>>;
   }
 

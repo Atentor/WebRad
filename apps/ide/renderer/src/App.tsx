@@ -111,7 +111,7 @@ import { RestGoSidebar, type RestGoSection } from './components/RestGoSidebar';
 import { StatusBar } from './components/StatusBar';
 import { StylesWorkspace } from './components/StylesWorkspace';
 import { StyleComponentList } from './components/StyleComponentList';
-import { ProjectColorPaletteContext } from './project-color-palette';
+import { ProjectVisualResources } from './ProjectVisualResources';
 import { ToolPalette } from './components/ToolPalette';
 import { Toolbar } from './components/Toolbar';
 import {
@@ -2246,7 +2246,10 @@ export function App(): ReactElement {
           zoom,
         } as const);
   return (
-    <ProjectColorPaletteContext.Provider value={project?.settings.colorPalette ?? []}>
+    <ProjectVisualResources
+      colors={project?.settings.colorPalette ?? []}
+      assets={project?.assets ?? []}
+    >
       <style data-webrad-color-palette>
         {projectColorPaletteCss(project?.settings.colorPalette ?? [])}
       </style>
@@ -2680,6 +2683,6 @@ export function App(): ReactElement {
           onSave={saveComboBoxItems}
         />
       )}
-    </ProjectColorPaletteContext.Provider>
+    </ProjectVisualResources>
   );
 }
