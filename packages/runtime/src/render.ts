@@ -1,5 +1,7 @@
+import { WebProgressBar, projectProgressBar } from './progress-bar.js';
 import type { WebComponent } from './component.js';
 import {
+  WebToggle,
   WebButton,
   WebCheckBox,
   WebComboBox,
@@ -423,6 +425,37 @@ runtimeComponentRegistry
       applyCommon(component, node);
       component.caption = readStringProperty(node, 'caption', node.name);
       component.checked = readBooleanProperty(node, 'checked');
+    },
+  })
+  .register<WebToggle>('WebToggle', {
+    createElement: (document, node) => {
+      const button = document.createElement('button');
+      button.setAttribute('aria-label', node.name);
+      const track = document.createElement('span');
+      track.className = 'wr-toggle-track';
+      track.setAttribute('aria-hidden', 'true');
+      const thumb = document.createElement('span');
+      thumb.className = 'wr-toggle-thumb';
+      thumb.setAttribute('aria-hidden', 'true');
+      button.append(track, thumb);
+      return button;
+    },
+    createComponent: (element) => new WebToggle(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.checked = readBooleanProperty(node, 'checked');
+    },
+  })
+  .register<WebProgressBar>('WebProgressBar', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebProgressBar(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      const state = projectProgressBar(node.props);
+      component.setRange(state.min, state.max);
+      component.value = state.value;
+      component.format = state.format;
+      component.showValue = state.showValue;
     },
   })
   .register<WebComboBox>('WebComboBox', {

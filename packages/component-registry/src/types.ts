@@ -122,6 +122,8 @@ export interface ComponentStyleEditorMetadata {
 }
 
 export interface ComponentDefinition {
+  /** Component styles reused by embedded controls, retained in browser builds. */
+  readonly styleDependencies?: readonly string[];
   readonly type: string;
   readonly displayName: string;
   readonly namePrefix: string;

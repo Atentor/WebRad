@@ -690,6 +690,16 @@ export function resolveStylePropertyCandidate(
         weight === undefined ? undefined : DATA_GRID_FONT_WEIGHT_VALUES[weight],
       );
     }
+    case 'progressColor':
+      return cssVariableClass('--wr-progress-color', cssColorValue(value));
+    case 'progressTrackColor':
+      return cssVariableClass('--wr-progress-track-color', cssColorValue(value));
+    case 'progressThickness':
+      return cssVariableClass('--wr-progress-thickness', String(value));
+    case 'toggleCheckedColor':
+      return cssVariableClass('--wr-toggle-checked-color', cssColorValue(value));
+    case 'toggleThumbColor':
+      return cssVariableClass('--wr-toggle-thumb-color', cssColorValue(value));
     case 'dataGridCheckboxAccentColor':
       return cssVariableClass('--wr-data-grid-checkbox-accent-color', cssColorValue(value));
     case 'dataGridCheckboxSize':
@@ -1204,4 +1214,26 @@ export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
 .wr-data-grid-checkbox { flex: none; width: var(--wr-data-grid-checkbox-size, 16px); height: var(--wr-data-grid-checkbox-size, 16px); margin: 0; accent-color: var(--wr-data-grid-checkbox-accent-color, #2563eb); }
 .wr-data-grid-checkbox-caption { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wr-data-grid-empty { color: var(--wr-muted-text, #8e98aa); font-style: italic; text-align: center !important; }
+
+.wr-webtoggle { position: relative; display: block; min-width: 0; min-height: 0; padding: 0; overflow: hidden; isolation: isolate; border: 1px solid var(--wr-control-border, #9da9b8); border-radius: 6px; background: var(--wr-control-surface, #f5f7fa); cursor: pointer; }
+.wr-toggle-track { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; transition: background-color .2s ease-out; }
+.wr-webtoggle[aria-checked='true'] > .wr-toggle-track { background: var(--wr-toggle-checked-color, #2563eb); }
+.wr-toggle-thumb { position: absolute; top: 3px; left: 3px; height: calc(100% - 6px); aspect-ratio: 1; max-width: calc(100% - 6px); border-radius: inherit; background: var(--wr-toggle-thumb-color, #ffffff); box-shadow: 0 1px 3px rgb(15 23 42 / .22); pointer-events: none; transition: left .2s ease-out, transform .2s ease-out, background-color .2s ease-out; }
+.wr-webtoggle[aria-checked='true'] > .wr-toggle-thumb { left: calc(100% - 3px); transform: translateX(-100%); }
+.wr-webtoggle:disabled { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .wr-toggle-track, .wr-toggle-thumb { transition: none; } }
+
+.wr-data-grid-toggle { display: inline-block; width: 48px; height: 24px; vertical-align: middle; margin: 0; background: linear-gradient(to bottom, #e2e8f0, #cbd5e1); border-color: #bfdbfe; pointer-events: none; }
+.wr-data-grid-toggle[aria-checked='true'] > .wr-toggle-track { background: var(--wr-toggle-checked-color, var(--wr-palette-aurora-blue, #2563eb)); }
+.wr-data-grid-toggle > .wr-toggle-thumb { background: var(--wr-toggle-thumb-color, var(--wr-palette-aurora-white, #ffffff)); }
+
+.wr-webprogressbar { position: relative; display: block; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 6px; background: transparent; }
+.wr-progress-graphic { display: block; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
+.wr-webprogressbar[data-webrad-progress-format='bars'] > .wr-progress-graphic { border-radius: inherit; }
+.wr-progress-track { fill: var(--wr-progress-track-color, #e2e8f0); }
+.wr-progress-fill { fill: var(--wr-progress-color, #2563eb); }
+.wr-webprogressbar[data-webrad-progress-format='dunnet'] .wr-progress-track { fill: none; stroke: var(--wr-progress-track-color, #e2e8f0); stroke-width: var(--wr-progress-thickness, 8); }
+.wr-webprogressbar[data-webrad-progress-format='dunnet'] .wr-progress-fill { fill: none; stroke: var(--wr-progress-color, #2563eb); stroke-width: var(--wr-progress-thickness, 8); }
+.wr-progress-label { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; overflow: hidden; white-space: nowrap; }
+.wr-progress-label[hidden] { display: none; }
 `.trim();

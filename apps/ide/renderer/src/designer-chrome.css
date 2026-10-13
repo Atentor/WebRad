@@ -1,4 +1,10 @@
 /* Design workspace chrome. Project and runtime styles retain their own projection. */
+.wr-page-surface [data-component-type='WebGroup'] {
+  outline: 1px dashed white;
+  outline-offset: -1px;
+  box-shadow: inset 0 0 0 1px black;
+}
+
 :root:not([data-theme]),
 [data-theme='dark'] {
   --wr-font-size-ui: 12px;

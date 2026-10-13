@@ -7,7 +7,7 @@ export const DATA_GRID_CONFIGURATION_VERSION = 2 as const;
 
 const LEGACY_DATA_GRID_CONFIGURATION_VERSION = 1 as const;
 
-export const DATA_GRID_CELL_KINDS = ['text', 'image', 'button', 'checkbox'] as const;
+export const DATA_GRID_CELL_KINDS = ['text', 'image', 'button', 'checkbox', 'toggle'] as const;
 export type DataGridCellKind = (typeof DATA_GRID_CELL_KINDS)[number];
 
 /** The way one column claims horizontal space in the grid. */

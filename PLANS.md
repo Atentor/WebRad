@@ -312,3 +312,35 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Added `WebGroup` to Containers as a transparent structural container with Panel layout, child ownership and events. It has a concrete exported runtime class, Designer projection, generated instance/Monaco declarations and synchronized embedded runtime sources.
 - Added Registry `supportsStyles` metadata: Group has no default paint style or appearance properties and is excluded from the Inspector style selector and Styles component catalog.
 - DONE: strict typecheck, lint, formatting, runtime-source parity and Windows x64 production build passed. Full suite: 1,198 passed and 15 optional skips. Group coverage includes serialization, runtime visibility, typed bare/this references and invalid-use diagnostics in page/reusable scopes, and compiled Preview child events. Real Chrome separately passed Designer/compiled Preview transparency, border/shadow absence and child-event execution.
+
+# Group canvas limits - 2026-10-13
+
+- Added a simple 1px outline to Group inside the Designer canvas only. The inset outline does not change layout or persist appearance in the Project Model. Preview and exported runtime remain transparent.
+- Validation: CSS formatting, 67 existing DesignerSurface tests and production renderer build passed; live visual review not performed.
+
+- Group canvas outline now alternates white dashes over a black inset line for contrast on light and dark backgrounds, without affecting layout. Validation: CSS formatting passed; live visual review not performed.
+
+# Clipboard numeric component names - 2026-10-13
+
+- Pasted components use the first available numeric suffix instead of Copy, stripping existing trailing digits before resolving collisions case-insensitively. Preserve available source names in other target pages and apply the same naming to descendants.
+- DONE: root typecheck, lint, formatting, 74 Designer tests and Windows x64 production build passed. Regression coverage includes repeated paste, copying a copy, case-insensitive collisions, cross-page names and undo/redo.
+
+# Toggle - 2026-10-13
+
+- Added centrally registered visual `WebToggle` in Standard, with Checkbox-like checked/enabled/events and no caption. Native button/switch semantics support keyboard, focus, accessible state and typed page/reusable instances; activation is shared between wrappers and released on disposal.
+- Integrated Designer, runtime adapter, Monaco declarations and generated runtime sources. Added protected palette-linked Aurora `Default Toggle`, configurable checked-track/thumb colors and interaction states, plus missing-default materialization for v2 projects/manifests while preserving saved styles and bindings.
+- DONE: strict root typecheck, lint, formatting, generated-runtime source parity and Windows x64 production build passed. Full suite: 1,257 passed and 18 optional skips. Toggle coverage includes model/style restoration, shared runtime activation/disposal, typed page/reusable completion and invalid-use diagnostics, and isolated compiled Preview execution. The separate real Chrome check passed Designer/Preview Aurora styling, hover/focus/active/disabled states, linked palette changes and native Space/Enter activation.
+
+# Data Grid Toggle cells - 2026-10-13
+
+- Added `toggle` to the model/runtime/Monaco cell-kind contract and the Data Grid Cell type selector. Designer and runtime project label-free boolean switches, preserving the grid's readonly-data and OnCellClick behavior. Real WebToggle cell instances are disposed on rerender and grid disposal.
+- Shared Toggle track/thumb style colors now support WebDataGrid, with Aurora defaults and palette-linked browser/Designer parity. Registry `styleDependencies` retains embedded Toggle CSS in Preview/Deploy when there is no standalone Toggle. The additive cell kind preserves configuration v2 and stable column IDs.
+- DONE: strict root typecheck, lint, formatting, generated-runtime source parity and Windows x64 production build passed. Full suite: 1,264 passed and 19 optional skips. New coverage includes selection/save/reopen without caption/icon fields, serialization, typed cell-kind completion/diagnostics, runtime disposal, compiler CSS dependencies and compiled Preview. The separate real Chrome check passed Designer/Preview checked/unchecked styling, palette propagation, readonly state and native pointer routing to OnCellClick.
+
+# ProgressBar - 2026-10-13
+
+- Added visual `WebProgressBar` in Standard with `bars`, `dunnet` and `circus` formats, finite/clamped values, range, optional percentage, typed methods/events and shared Designer/runtime SVG geometry.
+- Integrated Registry/Inspector, model-owned palette-linked default style and missing-default restoration, Styles colors/ring thickness, runtime adapter, page/reusable Monaco declarations and generated runtime sources.
+- DONE: strict root typecheck, lint, formatting, runtime-source parity and Windows x64 production packaging passed. Packaging used the existing Electron 43.3.0 ZIP cache after the standard build compiled production bundles but its download was blocked by network restrictions. Full suite: 1,275 passed and 20 optional skips. ProgressBar coverage includes model/style restoration, range clamping, shared-wrapper state/events/disposal, typed bare/this completion, hover/signatures and invalid diagnostics in page/reusable scopes, and isolated compiled Preview execution. A separate real Chrome test passed all three Designer/Preview formats, palette and ring-thickness changes, disabled state, percentage visibility and circular geometry at square/non-square dimensions.
+
+- DONE - ProgressBar Aurora border correction: completed the seeded default with the shared field surface, 1px solid blue/lilac gradient border and existing 6px corners. Added border style/gradient to essential Styles properties. Saved styles retain their authored values. Strict root typecheck, lint, formatting, runtime-source parity, 67 scoped tests and Windows x64 production packaging with the existing Electron ZIP cache passed. Real Chrome confirmed the 1px solid gradient border and matching surface/geometry for all three formats in Designer and compiled Preview.

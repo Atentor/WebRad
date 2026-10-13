@@ -43,6 +43,7 @@ const CELL_KIND_LABELS: Readonly<Record<DataGridCellKind, string>> = {
   image: 'Image',
   button: 'Button',
   checkbox: 'Checkbox',
+  toggle: 'Toggle',
 };
 
 const HORIZONTAL_ALIGNMENT_LABELS: Readonly<Record<DataGridHorizontalAlignment, string>> = {

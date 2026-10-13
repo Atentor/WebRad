@@ -51,7 +51,7 @@ ${repeatingGroupTypings.source}
     dispose(): void;
   }
 
-  export const WEB_DATA_GRID_CELL_KINDS: readonly ['text', 'image', 'button', 'checkbox'];
+  export const WEB_DATA_GRID_CELL_KINDS: readonly ['text', 'image', 'button', 'checkbox', 'toggle'];
   export type WebDataGridCellKind = (typeof WEB_DATA_GRID_CELL_KINDS)[number];
 
   export const WEB_DATA_GRID_COLUMN_WIDTH_MODES: readonly ['fixed', 'dynamic'];
@@ -461,6 +461,29 @@ ${WEB_BUTTON_ICON_TYPINGS};
     set onComplete(handler: WebComponentEventHandler<this> | null);
     set onProgress(handler: WebComponentEventHandler<this> | null);
   }
+
+  export class WebToggle extends WebComponent<HTMLButtonElement> {
+    constructor(element: HTMLElement);
+    checked: boolean;
+    click(): void;
+    set onChange(handler: WebComponentEventHandler<this> | null);
+    set onClick(handler: WebComponentEventHandler<this> | null);
+  }
+  export type WebProgressBarFormat = 'bars' | 'dunnet' | 'circus';
+  export class WebProgressBar extends WebComponent<HTMLElement> {
+    constructor(element: HTMLElement);
+    value: number;
+    min: number;
+    max: number;
+    format: WebProgressBarFormat;
+    showValue: boolean;
+    readonly percentage: number;
+    setRange(min: number, max: number): void;
+    increment(amount?: number): void;
+    reset(): void;
+    set onChange(handler: WebComponentEventHandler<this> | null);
+  }
+
 
   export class WebCheckBox extends WebComponent<HTMLElement> {
     constructor(element: HTMLElement);

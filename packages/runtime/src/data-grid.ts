@@ -1,9 +1,10 @@
 import type { WebApiClient } from './api-client.js';
 import { WebComponent } from './component.js';
+import { WebToggle } from './controls.js';
 import { createWebRadIconElement, isWebRadIconName, type WebRadIconName } from './icons.js';
 import { resolveDataGridColumnTrackWidths } from './visual.js';
 
-export const WEB_DATA_GRID_CELL_KINDS = ['text', 'image', 'button', 'checkbox'] as const;
+export const WEB_DATA_GRID_CELL_KINDS = ['text', 'image', 'button', 'checkbox', 'toggle'] as const;
 export type WebDataGridCellKind = (typeof WEB_DATA_GRID_CELL_KINDS)[number];
 
 export const WEB_DATA_GRID_COLUMN_WIDTH_MODES = ['fixed', 'dynamic'] as const;
@@ -155,7 +156,11 @@ function normalizeColumn(value: unknown, index: number): WebDataGridColumn {
     header: typeof source.header === 'string' ? source.header : `Column ${String(index + 1)}`,
     fieldPath: typeof source.fieldPath === 'string' ? source.fieldPath : '',
     cellKind:
-      kind === 'image' || kind === 'button' || kind === 'checkbox' || kind === 'text'
+      kind === 'image' ||
+      kind === 'button' ||
+      kind === 'checkbox' ||
+      kind === 'text' ||
+      kind === 'toggle'
         ? kind
         : 'text',
     fixedCaption: typeof source.fixedCaption === 'string' ? source.fixedCaption : '',
@@ -313,6 +318,7 @@ function dataCell(
   rowIndex: number,
   columnIndex: number,
   onCellClick: (value: unknown) => void,
+  toggles: WebToggle[],
 ): HTMLDivElement {
   const cell = document.createElement('div');
   cell.className = 'wr-data-grid-cell';
@@ -359,6 +365,25 @@ function dataCell(
         button.append(caption);
       }
       cell.append(button);
+      break;
+    }
+    case 'toggle': {
+      const element = document.createElement('button');
+      element.className = 'wr-component wr-webtoggle wr-data-grid-toggle';
+      element.setAttribute('aria-label', column.header || 'Toggle');
+      element.setAttribute('aria-readonly', 'true');
+      element.tabIndex = -1;
+      for (const name of ['track', 'thumb']) {
+        const part = document.createElement('span');
+        part.className = 'wr-toggle-' + name;
+        part.setAttribute('aria-hidden', 'true');
+        element.append(part);
+      }
+      const toggle = new WebToggle(element);
+      toggle.checked = cellBoolean(value);
+      toggle.enabled = false;
+      toggles.push(toggle);
+      cell.append(element);
       break;
     }
     case 'checkbox': {
@@ -467,6 +492,7 @@ function applyGridLayout(
  * execution through `api.execute(...)`.
  */
 export class WebDataGrid extends WebComponent<HTMLDivElement> {
+  #toggles: WebToggle[] = [];
   #configuration: WebDataGridConfiguration = normalizeWebDataGridConfiguration(undefined);
   #apiClient: WebApiClient | null = null;
   #unsubscribe: (() => void) | null = null;
@@ -515,6 +541,8 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   }
 
   #render(): void {
+    for (const toggle of this.#toggles) toggle.dispose();
+    this.#toggles = [];
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = null;
     const document = this.element.ownerDocument;
@@ -584,17 +612,25 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       row.setAttribute('aria-rowindex', String(rowIndex + headerRowCount + 1));
       for (const [columnIndex, column] of configuration.columns.entries()) {
         row.append(
-          dataCell(document, column, rowValue, rowIndex, columnIndex, (value) => {
-            this.emit('OnCellClick', {
-              rowIndex,
-              columnIndex,
-              row: rowValue,
-              column,
-              value,
-              getValue: <T = unknown>(fieldNameOrPath: string) =>
-                dataGridRowValue<T>(rowValue, fieldNameOrPath),
-            } satisfies WebDataGridCellEventDetail);
-          }),
+          dataCell(
+            document,
+            column,
+            rowValue,
+            rowIndex,
+            columnIndex,
+            (value) => {
+              this.emit('OnCellClick', {
+                rowIndex,
+                columnIndex,
+                row: rowValue,
+                column,
+                value,
+                getValue: <T = unknown>(fieldNameOrPath: string) =>
+                  dataGridRowValue<T>(rowValue, fieldNameOrPath),
+              } satisfies WebDataGridCellEventDetail);
+            },
+            this.#toggles,
+          ),
         );
       }
       body.append(row);
@@ -658,6 +694,8 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   }
 
   public override dispose(): void {
+    for (const toggle of this.#toggles) toggle.dispose();
+    this.#toggles = [];
     this.#unsubscribe?.();
     this.#unsubscribe = null;
     this.#resizeObserver?.disconnect();

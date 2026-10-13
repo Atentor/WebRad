@@ -573,6 +573,30 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     defaultValue: 'current',
   }),
 
+  colorProperty('toggleCheckedColor', 'Checked track color', 'Colors', {
+    componentTypes: ['WebToggle', 'WebDataGrid'],
+    defaultValue: '#2563eb',
+  }),
+  colorProperty('toggleThumbColor', 'Thumb color', 'Colors', {
+    componentTypes: ['WebToggle', 'WebDataGrid'],
+    defaultValue: '#ffffff',
+  }),
+  colorProperty('progressColor', 'Progress color', 'Colors', {
+    componentTypes: ['WebProgressBar'],
+    defaultValue: '#2563eb',
+  }),
+  colorProperty('progressTrackColor', 'Track color', 'Colors', {
+    componentTypes: ['WebProgressBar'],
+    defaultValue: '#e2e8f0',
+  }),
+  {
+    ...numberProperty('progressThickness', 'Ring thickness', 'Border', 1, 20, 1, '%'),
+    defaultValue: 8,
+    componentTypes: ['WebProgressBar'],
+    description:
+      'Donut stroke width in the 100-unit graphic. Scales with the component dimensions.',
+  },
+
   colorProperty('textColor', 'Text color', 'Colors'),
   gradientProperty('textGradient', 'Text gradient', 'Colors', [
     'WebLabel',

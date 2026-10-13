@@ -405,6 +405,52 @@ describe('DataGridConfigurationDialog', () => {
     ]);
   });
 
+  it('selects and reopens Toggle cells without a label or icon field', async () => {
+    const defaults = createDefaultDataGridConfiguration();
+    const configuration = {
+      ...defaults,
+      columns: defaults.columns.map((column, index) =>
+        index === 0
+          ? { ...column, cellKind: 'checkbox' as const, fixedCaption: 'Previous caption' }
+          : column,
+      ),
+    };
+    const onSave = vi.fn();
+    const view = render(
+      <DataGridConfigurationDialog
+        availableComponents={[]}
+        component={createDataGridComponent(configuration)}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    const user = userEvent.setup();
+    expect(screen.getByLabelText('Fixed caption for Data Grid column 1')).toBeDefined();
+    await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 1'), 'toggle');
+    expect(screen.queryByLabelText('Fixed caption for Data Grid column 1')).toBeNull();
+    expect(screen.queryByLabelText('Button icon for Data Grid column 1')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save Data Grid' }));
+    const saved = onSave.mock.calls[0]![0] as DataGridConfiguration;
+    expect(saved.columns[0]).toMatchObject({
+      id: configuration.columns[0]!.id,
+      cellKind: 'toggle',
+      fieldPath: '',
+    });
+    view.unmount();
+    render(
+      <DataGridConfigurationDialog
+        availableComponents={[]}
+        component={createDataGridComponent(saved)}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    expect(
+      (screen.getByLabelText('Cell type for Data Grid column 1') as HTMLSelectElement).value,
+    ).toBe('toggle');
+    expect(screen.queryByLabelText('Fixed caption for Data Grid column 1')).toBeNull();
+  });
+
   it('offers and saves fixed captions for button and checkbox columns', async () => {
     const onSave = vi.fn();
     render(

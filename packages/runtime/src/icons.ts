@@ -216,6 +216,7 @@ export const WEBRAD_ICON_NAMES = [
   'briefcase',
   'target',
   'trophy',
+  'toggle-right',
 ] as const;
 
 export type WebRadIconName = (typeof WEBRAD_ICON_NAMES)[number];
@@ -932,6 +933,10 @@ const WEBRAD_ICON_SHAPES: Readonly<Record<WebRadIconName, readonly WebRadIconSha
       kind: 'path',
       d: 'M8 4h8v6a4 4 0 0 1-8 0zM8 6H4v2a4 4 0 0 0 4 4M16 6h4v2a4 4 0 0 1-4 4M12 14v4m-4 3h8',
     },
+  ],
+  'toggle-right': [
+    { kind: 'path', d: 'M8 6h8a6 6 0 0 1 0 12H8a6 6 0 0 1 0-12Z' },
+    { kind: 'circle', cx: '16', cy: '12', r: '3' },
   ],
 };
 

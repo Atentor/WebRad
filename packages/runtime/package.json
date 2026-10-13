@@ -19,6 +19,10 @@
     "./image-display": {
       "types": "./src/image-display.ts",
       "default": "./src/image-display.ts"
+    },
+    "./progress-bar": {
+      "types": "./src/progress-bar.ts",
+      "default": "./src/progress-bar.ts"
     }
   },
   "types": "./src/index.ts",

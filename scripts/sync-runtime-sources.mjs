@@ -96,6 +96,7 @@ const sourceFiles = [
   'video-player-shaka.ts',
   'video-player.ts',
   'controls.ts',
+  'progress-bar.ts',
   'page.ts',
   'page-event-hooks.ts',
   'page-router.ts',

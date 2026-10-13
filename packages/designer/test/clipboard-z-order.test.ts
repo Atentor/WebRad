@@ -28,16 +28,52 @@ describe('designer clipboard', () => {
 
     expect(paste.rootIds).toEqual(['copy-panel']);
     expect(paste.components.find(({ id }) => id === 'copy-panel')).toMatchObject({
-      name: 'PNLMainCopy',
+      name: 'PNLMain1',
       parentId: 'root',
       bounds: { x: 208, y: 108, width: 200, height: 160 },
       children: ['copy-inside'],
     });
     expect(paste.components.find(({ id }) => id === 'copy-inside')).toMatchObject({
-      name: 'LBLInsideCopy',
+      name: 'LBLInside1',
       parentId: 'copy-panel',
       bounds: { x: 8, y: 8, width: 80, height: 24 },
     });
+  });
+
+  it('uses available numeric suffixes across repeated pastes and copied copies', () => {
+    const original = pageFixture();
+    const history = new CommandHistory(original);
+    history.execute(
+      new PasteComponentsCommand(copyComponents(original, ['panel']), {
+        createId: (id) => `first-${id}`,
+      }),
+    );
+    history.execute(
+      new PasteComponentsCommand(copyComponents(history.state, ['first-panel']), {
+        createId: (id) => `second-${id}`,
+      }),
+    );
+    expect(findDesignerComponent(history.state, 'second-first-panel').name).toBe('PNLMain2');
+    expect(findDesignerComponent(history.state, 'second-first-inside').name).toBe('LBLInside2');
+    const pasted = history.state;
+    history.undo();
+    history.redo();
+    expect(history.state).toEqual(pasted);
+  });
+
+  it('checks numeric names case-insensitively and preserves names available in the target', () => {
+    const original = pageFixture();
+    const page = {
+      ...original,
+      components: original.components.map((node) => ({
+        ...node,
+        name: node.id === 'panel' ? 'Component1' : node.id === 'a' ? 'component2' : node.name,
+      })),
+    };
+    const clipboard = copyComponents(page, ['panel']);
+    const options = { createId: (id: string) => `paste-${id}` };
+    expect(materializePaste(page, clipboard, options).components[0]?.name).toBe('Component3');
+    expect(materializePaste(original, clipboard, options).components[0]?.name).toBe('Component1');
   });
 
   it('pastes and reverses a subtree while reusing the same IDs on redo', () => {

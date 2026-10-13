@@ -53,12 +53,12 @@ function nextAvailableName(sourceName: string, usedNames: Set<string>): string {
     return sourceName;
   }
 
-  const base = `${sourceName}Copy`;
-  let candidate = base;
-  let suffix = 2;
+  const base = sourceName.replace(/\d+$/u, '');
+  let suffix = 1;
+  let candidate = `${base}${suffix}`;
   while (usedNames.has(candidate.toLocaleLowerCase())) {
-    candidate = `${base}${suffix}`;
     suffix += 1;
+    candidate = `${base}${suffix}`;
   }
   usedNames.add(candidate.toLocaleLowerCase());
   return candidate;

@@ -68,6 +68,8 @@ function isSafeIdentifier(value: string): boolean {
 function copyDefinition(definition: ComponentDefinition): ComponentDefinition {
   return {
     ...definition,
+    styleDependencies:
+      definition.styleDependencies === undefined ? undefined : [...definition.styleDependencies],
     palette: { ...definition.palette },
     styleEditor:
       definition.styleEditor === undefined
@@ -115,6 +117,19 @@ function assertUniqueNames(
 }
 
 export function validateComponentDefinition(definition: ComponentDefinition): void {
+  if (definition.styleDependencies !== undefined) {
+    assertUniqueNames(
+      definition.styleDependencies.map((name) => ({ name })),
+      'Style dependency',
+    );
+    for (const type of definition.styleDependencies) {
+      if (!isSafeIdentifier(type))
+        throw new InvalidComponentDefinitionError(
+          'Style dependencies must be TypeScript-safe component types.',
+        );
+    }
+  }
+
   if (!isSafeIdentifier(definition.type)) {
     throw new InvalidComponentDefinitionError(
       `Component type "${definition.type}" must be a TypeScript-safe identifier.`,

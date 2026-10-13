@@ -48,10 +48,12 @@ export const GENERATED_APP_CSS = `${APP_BASE_CSS}\n${WEBRAD_COMPONENT_CSS}\n${WE
 
 /** Secondary DOM classes are owned by the same centrally registered runtime control. */
 const CONTROL_CLASS_PREFIXES: Readonly<Record<string, string>> = {
+  'wr-progress-': 'WebProgressBar',
   'wr-button-': 'WebButton',
   'wr-popup-': 'WebPopup',
   'wr-data-grid-': 'WebDataGrid',
   'wr-video-': 'WebVideoPlayer',
+  'wr-toggle-': 'WebToggle',
 };
 
 /** Removes only selectors whose registered component is provably absent. */
@@ -59,6 +61,12 @@ export function selectComponentCss(
   componentTypes: ReadonlySet<string>,
   componentCss = WEBRAD_COMPONENT_CSS,
 ): string {
+  const requiredTypes = new Set(componentTypes);
+  for (const type of requiredTypes) {
+    for (const dependency of defaultComponentRegistry.get(type)?.styleDependencies ?? [])
+      requiredTypes.add(dependency);
+  }
+
   const primaryClasses = new Map(
     defaultComponentRegistry
       .list()
@@ -75,7 +83,7 @@ export function selectComponentCss(
       );
       return classes.every((className) => {
         const componentType = owner(className);
-        return componentType === undefined || componentTypes.has(componentType);
+        return componentType === undefined || requiredTypes.has(componentType);
       });
     });
     if (selectors.length === 0) rule.remove();

@@ -249,11 +249,27 @@ function materializeProjectDefaults(input: unknown): unknown {
       ['WebImage'],
       palette.success ? palette.data : [],
     ).styles;
-    styles = materializeComponentDefaultStyle(
+    const repeatingStyles = materializeComponentDefaultStyle(
       candidate.id,
       videoStyles,
       'WebRepeatingGroup',
       ['WebPanel'],
+      palette.success ? palette.data : [],
+    ).styles;
+
+    const toggleStyles = materializeComponentDefaultStyle(
+      candidate.id,
+      repeatingStyles,
+      'WebToggle',
+      ['WebCheckBox'],
+      palette.success ? palette.data : [],
+    ).styles;
+
+    styles = materializeComponentDefaultStyle(
+      candidate.id,
+      toggleStyles,
+      'WebProgressBar',
+      ['WebToggle'],
       palette.success ? palette.data : [],
     ).styles;
   }

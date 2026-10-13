@@ -1,3 +1,5 @@
+import { projectProgressBar } from '@webrad/runtime/progress-bar';
+import { ProgressBarGraphic } from './progress-bar-graphic.js';
 import {
   normalizeDataGridConfiguration,
   normalizeRepeatingGroupConfiguration,
@@ -324,7 +326,32 @@ function RepeatingGroupView({
   );
 }
 
+function ProgressBarView({
+  node,
+  designTime,
+  styleClassName,
+  onEvent,
+}: ComponentViewProps): ReactElement {
+  const state = projectProgressBar(node.props);
+  return (
+    <div
+      {...sharedAttributes(node, designTime, styleClassName)}
+      role="progressbar"
+      aria-label={node.name}
+      aria-valuemin={state.min}
+      aria-valuemax={state.max}
+      aria-valuenow={state.value}
+      aria-valuetext={state.label}
+      data-webrad-progress-format={state.format}
+      onClick={() => onEvent?.('OnClick', node)}
+    >
+      <ProgressBarGraphic state={state} />
+    </div>
+  );
+}
+
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
+  WebProgressBar: ProgressBarView,
   WebRepeatingGroup: RepeatingGroupView,
   WebPage: ({ node, designTime, styleClassName, children }) => (
     <section
@@ -421,6 +448,25 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       </button>
     );
   },
+  WebToggle: ({ node, designTime, styleClassName, onEvent }) => (
+    <button
+      {...sharedAttributes(node, designTime, styleClassName)}
+      type="button"
+      role="switch"
+      aria-label={node.name}
+      aria-checked={readBooleanProperty(node, 'checked')}
+      disabled={!readBooleanProperty(node, 'enabled', true)}
+      onClick={() => {
+        onEvent?.('OnChange', node);
+        onEvent?.('OnClick', node);
+      }}
+      onFocus={() => onEvent?.('OnFocus', node)}
+      onBlur={() => onEvent?.('OnBlur', node)}
+    >
+      <span className="wr-toggle-track" aria-hidden="true" />
+      <span className="wr-toggle-thumb" aria-hidden="true" />
+    </button>
+  ),
   WebCheckBox: ({ node, designTime, styleClassName, onEvent }) => (
     <label {...sharedAttributes(node, designTime, styleClassName)}>
       <input
@@ -573,6 +619,21 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
                         </span>
                       ) : column.cellKind === 'button' ? (
                         <DataGridButtonPreview column={column} />
+                      ) : column.cellKind === 'toggle' ? (
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-label={column.header || 'Toggle'}
+                          aria-checked={column.fieldPath.length > 0 && rowIndex % 2 === 0}
+                          aria-readonly="true"
+                          aria-disabled="true"
+                          className="wr-component wr-webtoggle wr-data-grid-toggle"
+                          tabIndex={-1}
+                          disabled
+                        >
+                          <span className="wr-toggle-track" aria-hidden="true" />
+                          <span className="wr-toggle-thumb" aria-hidden="true" />
+                        </button>
                       ) : column.cellKind === 'checkbox' ? (
                         <label className="wr-data-grid-checkbox-control">
                           <input

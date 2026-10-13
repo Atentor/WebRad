@@ -1,3 +1,5 @@
+export { WebProgressBar } from './progress-bar.js';
+export type { WebProgressBarFormat } from './progress-bar.js';
 export * from './api-client.js';
 export * from './api-client-inputs.js';
 export * from './api-client-accessors.js';

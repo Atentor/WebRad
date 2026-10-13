@@ -541,6 +541,8 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebApiClient,
   WebButton,
   WebCheckBox,
+  WebToggle,
+  WebProgressBar,
   WebComboBox,
   WebDataGrid,
   WebRepeatingGroup,
@@ -571,6 +573,8 @@ class EditorPage extends WebPage {
     textArea: WebTextArea,
     button: WebButton,
     checkBox: WebCheckBox,
+    toggle: WebToggle,
+    progressBar: WebProgressBar,
     combo: WebComboBox,
     image: WebImage,
     list: WebListBox,
@@ -590,6 +594,8 @@ class EditorPage extends WebPage {
     videoPlayer./*@videoPlayer*/LoadRestGo;
     textArea./*@textArea*/rows;
     button./*@button*/caption;
+    toggle./*@toggle*/checked;
+    progressBar./*@progressBar*/value;
     checkBox./*@checkBox*/checked;
     combo./*@combo*/items;
     image./*@image*/objectFit;
@@ -742,6 +748,7 @@ class EditorPage extends WebPage {
     );
 
     const completionMarkerByType: Readonly<Record<string, string>> = {
+      WebProgressBar: 'progressBar',
       WebApiClient: 'api',
       WebButton: 'button',
       WebCheckBox: 'checkBox',
@@ -761,6 +768,7 @@ class EditorPage extends WebPage {
       WebPopup: 'popup',
       WebReusableElement: 'reusable',
       WebTextArea: 'textArea',
+      WebToggle: 'toggle',
     };
     for (const definition of MVP_COMPONENT_DEFINITIONS) {
       const marker = completionMarkerByType[definition.type];

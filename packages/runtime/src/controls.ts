@@ -251,6 +251,67 @@ function checkboxInput(element: HTMLElement): HTMLInputElement {
   return input;
 }
 
+/** A label-free native button with accessible switch semantics. */
+interface ToggleActivation {
+  references: number;
+  readonly listener: EventListener;
+}
+
+// Mounting and generated code may wrap the same DOM element independently.
+const toggleActivations = new WeakMap<HTMLButtonElement, ToggleActivation>();
+
+export class WebToggle extends WebComponent<HTMLButtonElement> {
+  #disposed = false;
+
+  public constructor(element: HTMLElement) {
+    if (!(element instanceof HTMLButtonElement))
+      throw new TypeError('WebToggle requires a button element.');
+    super(element);
+    element.type = 'button';
+    element.setAttribute('role', 'switch');
+    if (!element.hasAttribute('aria-checked')) element.setAttribute('aria-checked', 'false');
+    const activation = toggleActivations.get(element);
+    if (activation !== undefined) {
+      activation.references += 1;
+      return;
+    }
+    const listener: EventListener = () => {
+      if (element.disabled) return;
+      element.setAttribute('aria-checked', String(element.getAttribute('aria-checked') !== 'true'));
+      const ChangeEvent = element.ownerDocument.defaultView?.Event ?? Event;
+      element.dispatchEvent(new ChangeEvent('change', { bubbles: true }));
+    };
+    toggleActivations.set(element, { references: 1, listener });
+    element.addEventListener('click', listener);
+  }
+
+  public get checked(): boolean {
+    return this.element.getAttribute('aria-checked') === 'true';
+  }
+  public set checked(value: boolean) {
+    this.element.setAttribute('aria-checked', String(value));
+  }
+  public click(): void {
+    this.element.click();
+  }
+  public set onChange(handler: WebComponentEventHandler<this> | null) {
+    this.bindEvent('OnChange', handler);
+  }
+  public set onClick(handler: WebComponentEventHandler<this> | null) {
+    this.bindEvent('OnClick', handler);
+  }
+  public override dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    const activation = toggleActivations.get(this.element);
+    if (activation !== undefined && --activation.references === 0) {
+      this.element.removeEventListener('click', activation.listener);
+      toggleActivations.delete(this.element);
+    }
+    super.dispose();
+  }
+}
+
 export class WebCheckBox extends WebComponent<HTMLElement> {
   readonly #input: HTMLInputElement;
 
