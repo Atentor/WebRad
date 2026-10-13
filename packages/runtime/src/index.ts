@@ -5,6 +5,7 @@ export * from './api-client-template.js';
 export * from './component.js';
 export type { WebComboBoxConfiguration } from './combo-box-data.js';
 export * from './data-grid.js';
+export * from './repeating-group.js';
 export * from './file-upload.js';
 export * from './video-upload.js';
 export * from './video-player.js';

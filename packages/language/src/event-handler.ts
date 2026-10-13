@@ -12,6 +12,8 @@ export interface EventHandlerRequest {
   readonly eventDetailType?: string;
   /** Optional event detail fields to destructure in the generated handler body. */
   readonly eventDetailProperties?: readonly string[];
+  /** Generated document alias for a repeating row's third event argument. */
+  readonly currentRowType?: string;
   readonly async?: boolean;
 }
 
@@ -113,6 +115,16 @@ function handlerBody(member: ts.ClassElement): ts.ConciseBody | undefined {
   return undefined;
 }
 
+function handlerSignature(
+  member: ts.ClassElement,
+): ts.MethodDeclaration | ts.ArrowFunction | ts.FunctionExpression | undefined {
+  if (ts.isMethodDeclaration(member)) return member;
+  if (!ts.isPropertyDeclaration(member) || member.initializer === undefined) return undefined;
+  return ts.isArrowFunction(member.initializer) || ts.isFunctionExpression(member.initializer)
+    ? member.initializer
+    : undefined;
+}
+
 function firstEditablePositionInBlock(sourceFile: ts.SourceFile, block: ts.Block): number {
   const firstStatement = block.statements[0];
   if (firstStatement !== undefined) return firstStatement.getStart(sourceFile);
@@ -151,11 +163,15 @@ function cursorLocationOf(sourceFile: ts.SourceFile, member: ts.ClassElement): S
   return sourceLocation(sourceFile, position, position);
 }
 
-function importedLocalName(sourceFile: ts.SourceFile, importedName: string): string | undefined {
+function importedLocalName(
+  sourceFile: ts.SourceFile,
+  importedName: string,
+  moduleName = '@webrad/runtime',
+): string | undefined {
   for (const statement of sourceFile.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
       continue;
-    if (statement.moduleSpecifier.text !== '@webrad/runtime') continue;
+    if (statement.moduleSpecifier.text !== moduleName) continue;
     const bindings = statement.importClause?.namedBindings;
     if (bindings === undefined || !ts.isNamedImports(bindings)) continue;
     for (const specifier of bindings.elements) {
@@ -174,6 +190,7 @@ function createMethod(
   eventDetailTypeName: string | undefined,
   eventDetailProperties: readonly string[] | undefined,
   asynchronous: boolean,
+  currentRowType: string | undefined,
 ): ts.MethodDeclaration {
   const eventDetailDestructuring =
     eventDetailProperties === undefined || eventDetailProperties.length === 0
@@ -220,7 +237,18 @@ function createMethod(
         undefined,
       ),
       ...(eventDetailTypeName === undefined
-        ? []
+        ? currentRowType === undefined
+          ? []
+          : [
+              ts.factory.createParameterDeclaration(
+                undefined,
+                undefined,
+                'event',
+                undefined,
+                ts.factory.createTypeReferenceNode('Event'),
+                undefined,
+              ),
+            ]
         : [
             ts.factory.createParameterDeclaration(
               undefined,
@@ -230,6 +258,18 @@ function createMethod(
               ts.factory.createTypeReferenceNode('CustomEvent', [
                 ts.factory.createTypeReferenceNode(eventDetailTypeName),
               ]),
+              undefined,
+            ),
+          ]),
+      ...(currentRowType === undefined
+        ? []
+        : [
+            ts.factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              'CurrentRow',
+              undefined,
+              ts.factory.createTypeReferenceNode(currentRowType),
               undefined,
             ),
           ]),
@@ -358,6 +398,8 @@ export function ensureEventHandler(
   if (request.eventDetailType !== undefined) {
     assertIdentifier(request.eventDetailType, 'Event detail type');
   }
+  if (request.currentRowType !== undefined)
+    assertIdentifier(request.currentRowType, 'Current row type');
   if (request.eventDetailProperties !== undefined) {
     if (request.eventDetailType === undefined) {
       throw new LanguageEditError('Event detail properties require an event detail type.');
@@ -388,6 +430,186 @@ export function ensureEventHandler(
   }
   const existing = findHandlerMember(declaration, methodName);
   if (existing !== undefined) {
+    const signature = handlerSignature(existing);
+    if (request.currentRowType !== undefined && signature !== undefined) {
+      const current = signature.parameters[2];
+      const generatedModule = `./${request.className}.generated`;
+      const localRowName = importedLocalName(sourceFile, request.currentRowType, generatedModule);
+      const correctType =
+        current?.type !== undefined &&
+        ((ts.isTypeReferenceNode(current.type) &&
+          ts.isIdentifier(current.type.typeName) &&
+          current.type.typeName.text === localRowName) ||
+          (ts.isImportTypeNode(current.type) &&
+            ts.isLiteralTypeNode(current.type.argument) &&
+            ts.isStringLiteral(current.type.argument.literal) &&
+            current.type.argument.literal.text === generatedModule &&
+            current.type.qualifier !== undefined &&
+            ts.isIdentifier(current.type.qualifier) &&
+            current.type.qualifier.text === request.currentRowType));
+      if (
+        current !== undefined &&
+        ts.isIdentifier(current.name) &&
+        current.name.text === 'CurrentRow' &&
+        !correctType
+      ) {
+        const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+        const type = ts.factory.createImportTypeNode(
+          ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(generatedModule)),
+          undefined,
+          ts.factory.createIdentifier(request.currentRowType),
+        );
+        const parameter = ts.factory.updateParameterDeclaration(
+          current,
+          current.modifiers,
+          current.dotDotDotToken,
+          current.name,
+          current.questionToken,
+          type,
+          current.initializer,
+        );
+        let updated =
+          sourceText.slice(0, current.getStart(sourceFile)) +
+          printer.printNode(ts.EmitHint.Unspecified, parameter, sourceFile) +
+          sourceText.slice(current.end);
+        if (
+          current.type !== undefined &&
+          ts.isTypeReferenceNode(current.type) &&
+          ts.isIdentifier(current.type.typeName)
+        ) {
+          const previousType = current.type.typeName.text;
+          let usedElsewhere = false;
+          const visit = (node: ts.Node): void => {
+            if (ts.isImportDeclaration(node) || node === current) return;
+            if (ts.isIdentifier(node) && node.text === previousType) usedElsewhere = true;
+            ts.forEachChild(node, visit);
+          };
+          ts.forEachChild(sourceFile, visit);
+          if (!usedElsewhere)
+            for (const statement of sourceFile.statements) {
+              if (
+                !ts.isImportDeclaration(statement) ||
+                !ts.isStringLiteral(statement.moduleSpecifier) ||
+                statement.moduleSpecifier.text !== generatedModule
+              )
+                continue;
+              const clause = statement.importClause;
+              const bindings = clause?.namedBindings;
+              if (clause === undefined || bindings === undefined || !ts.isNamedImports(bindings))
+                continue;
+              const retained = bindings.elements.filter(
+                (element) => element.name.text !== previousType,
+              );
+              if (retained.length === bindings.elements.length) continue;
+              const replacement =
+                retained.length === 0 && clause.name === undefined
+                  ? ''
+                  : printer.printNode(
+                      ts.EmitHint.Unspecified,
+                      ts.factory.updateImportDeclaration(
+                        statement,
+                        statement.modifiers,
+                        ts.factory.updateImportClause(
+                          clause,
+                          clause.isTypeOnly,
+                          clause.name,
+                          retained.length === 0
+                            ? undefined
+                            : ts.factory.updateNamedImports(bindings, retained),
+                        ),
+                        statement.moduleSpecifier,
+                        statement.attributes,
+                      ),
+                      sourceFile,
+                    );
+              const adjustment =
+                statement.getStart(sourceFile) > current.end
+                  ? updated.length - sourceText.length
+                  : 0;
+              updated =
+                updated.slice(0, statement.getStart(sourceFile) + adjustment) +
+                replacement +
+                updated.slice(statement.end + adjustment);
+              break;
+            }
+        }
+        const target = ensureEventHandler(updated, { ...request, currentRowType: undefined });
+        return { ...target, sourceText: updated, text: updated, changed: true };
+      }
+    }
+    if (
+      request.currentRowType !== undefined &&
+      signature !== undefined &&
+      !signature.parameters.some(
+        (parameter) => ts.isIdentifier(parameter.name) && parameter.name.text === 'CurrentRow',
+      )
+    ) {
+      if (signature.parameters.length > 2) {
+        throw new LanguageEditError(
+          'A repeating row handler must name its third parameter CurrentRow.',
+        );
+      }
+      const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+      const parameters = [...signature.parameters];
+      if (parameters.length === 0)
+        parameters.push(
+          ts.factory.createParameterDeclaration(
+            undefined,
+            undefined,
+            senderName,
+            undefined,
+            ts.factory.createImportTypeNode(
+              ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral('@webrad/runtime')),
+              undefined,
+              ts.factory.createIdentifier(request.componentType),
+            ),
+            undefined,
+          ),
+        );
+      if (parameters.length === 1)
+        parameters.push(
+          ts.factory.createParameterDeclaration(
+            undefined,
+            undefined,
+            'event',
+            undefined,
+            ts.factory.createTypeReferenceNode('Event'),
+            undefined,
+          ),
+        );
+      parameters.push(
+        ts.factory.createParameterDeclaration(
+          undefined,
+          undefined,
+          'CurrentRow',
+          undefined,
+          ts.factory.createImportTypeNode(
+            ts.factory.createLiteralTypeNode(
+              ts.factory.createStringLiteral(`./${request.className}.generated`),
+            ),
+            undefined,
+            ts.factory.createIdentifier(request.currentRowType),
+          ),
+          undefined,
+        ),
+      );
+      let replacement = parameters
+        .map((parameter) => printer.printNode(ts.EmitHint.Unspecified, parameter, sourceFile))
+        .join(', ');
+      if (
+        ts.isArrowFunction(signature) &&
+        !signature
+          .getChildren(sourceFile)
+          .some((child) => child.kind === ts.SyntaxKind.OpenParenToken)
+      )
+        replacement = `(${replacement})`;
+      const updated =
+        sourceText.slice(0, signature.parameters.pos) +
+        replacement +
+        sourceText.slice(signature.parameters.end);
+      const target = ensureEventHandler(updated, { ...request, currentRowType: undefined });
+      return { ...target, sourceText: updated, text: updated, changed: true };
+    }
     const location = locationOf(sourceFile, existing);
     return {
       sourceText,
@@ -412,6 +634,13 @@ export function ensureEventHandler(
     localEventDetailTypeName,
     request.eventDetailProperties,
     request.async ?? true,
+    request.currentRowType === undefined
+      ? undefined
+      : (importedLocalName(
+          sourceFile,
+          request.currentRowType,
+          `./${request.className}.generated`,
+        ) ?? request.currentRowType),
   );
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
   const indent = insertionIndent(sourceText, declaration);
@@ -428,6 +657,31 @@ export function ensureEventHandler(
     (typeName): typeName is string =>
       typeName !== undefined && importedLocalName(sourceFile, typeName) === undefined,
   );
+  if (
+    request.currentRowType !== undefined &&
+    importedLocalName(sourceFile, request.currentRowType, `./${request.className}.generated`) ===
+      undefined
+  ) {
+    const generatedImport = ts.factory.createImportDeclaration(
+      undefined,
+      ts.factory.createImportClause(
+        true,
+        undefined,
+        ts.factory.createNamedImports([
+          ts.factory.createImportSpecifier(
+            false,
+            undefined,
+            ts.factory.createIdentifier(request.currentRowType),
+          ),
+        ]),
+      ),
+      ts.factory.createStringLiteral(`./${request.className}.generated`),
+    );
+    edits.push({
+      position: 0,
+      text: printer.printNode(ts.EmitHint.Unspecified, generatedImport, sourceFile) + '\n',
+    });
+  }
   for (const typeName of missingImports) {
     const importDeclaration = ts.factory.createImportDeclaration(
       undefined,

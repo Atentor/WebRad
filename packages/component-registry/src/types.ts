@@ -11,12 +11,16 @@ export type ComponentPropertyType =
   | 'api-client-config'
   | 'combo-box-config'
   | 'data-grid-config'
+  | 'repeating-group-config'
+  | 'current-row-bindings'
   | 'video-source';
 
 /** Named design-time actions kept in the Component Registry metadata. */
 export type ComponentDesignerAction =
   | 'api-client-tester'
   | 'data-grid-configurator'
+  | 'repeating-group-configurator'
+  | 'current-row-bindings'
   | 'combo-box-configurator'
   | 'combo-box-items'
   | 'combo-box-values';
@@ -134,6 +138,8 @@ export interface ComponentDefinition {
    */
   readonly designerPresentation?: ComponentDesignerPresentation;
   readonly canHaveChildren: boolean;
+  /** Children author a repeated row template rather than the outer shell. */
+  readonly designerChildHost?: 'repeating-row';
   readonly defaultEvent: string | null;
   /** Optional action activated by a double-click in the Designer. */
   readonly designerAction?: ComponentDesignerAction;

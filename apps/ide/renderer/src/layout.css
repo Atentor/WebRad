@@ -4253,6 +4253,64 @@ kbd {
   width: min(620px, 100%);
 }
 
+.wr-repeating-group-configuration-dialog,
+.wr-current-row-bindings-dialog {
+  width: min(680px, 100%);
+}
+
+.wr-repeating-group-full-width {
+  grid-column: 1 / -1;
+}
+
+.wr-row-editor-section {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--wr-border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--wr-panel-alt) 35%, var(--wr-panel-bg));
+}
+
+.wr-row-editor-section > legend {
+  padding: 0 6px;
+  color: var(--wr-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wr-row-editor-hint,
+.wr-row-binding-static-value {
+  margin: 9px 0 0;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.wr-row-binding-static-value {
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-row-editor-section input[aria-invalid='true'],
+.wr-row-editor-section select[aria-invalid='true'] {
+  border-color: var(--wr-danger);
+}
+
+.wr-repeating-group-configuration-dialog .wr-data-grid-configuration-fields,
+.wr-current-row-bindings-dialog .wr-data-grid-configuration-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 600px) {
+  .wr-repeating-group-configuration-dialog .wr-data-grid-configuration-fields,
+  .wr-current-row-bindings-dialog .wr-data-grid-configuration-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .wr-combo-box-static-dialog textarea {
   width: 100%;
   min-height: 112px;

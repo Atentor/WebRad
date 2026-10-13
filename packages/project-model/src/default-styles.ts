@@ -224,6 +224,22 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Repeating Group',
+    componentType: 'WebRepeatingGroup',
+    states: {
+      base: {
+        backgroundColor: '#ffffff',
+        borderWidth: px(1),
+        borderStyle: 'solid',
+        borderColor: '#cbd5e1',
+        borderRadius: px(6),
+        textColor: '#334155',
+        fontFamily: 'sans',
+        fontSize: px(14),
+      },
+    },
+  },
+  {
     name: 'Default Data Grid',
     componentType: 'WebDataGrid',
     states: {

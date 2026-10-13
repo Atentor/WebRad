@@ -1,9 +1,11 @@
 import { componentRegistry, ComponentRegistry } from './registry.js';
 import { organizeInspectorProperty } from './inspector-properties.js';
+import { CURRENT_ROW_BINDINGS_PROPERTY } from './current-row-bindings.js';
 import { webVideoUpload } from './video-upload.js';
 import {
   createDefaultApiClientConfiguration,
   createDefaultDataGridConfiguration,
+  createDefaultRepeatingGroupConfiguration,
   REUSABLE_ELEMENT_HORIZONTAL_ANCHORS,
   REUSABLE_ELEMENT_PLACEMENTS,
   REUSABLE_ELEMENT_VERTICAL_ANCHORS,
@@ -1521,6 +1523,43 @@ const webDataGrid: ComponentDefinition = {
   ],
 };
 
+const webRepeatingGroup: ComponentDefinition = {
+  type: 'WebRepeatingGroup',
+  displayName: 'Repeating Group',
+  namePrefix: 'RepeatingGroup',
+  palette: { category: containersCategory, caption: 'Repeating Group' },
+  icon: 'component-list-box',
+  visual: true,
+  styleEditor: containerStyleEditor,
+  canHaveChildren: true,
+  designerChildHost: 'repeating-row',
+  defaultEvent: null,
+  designerAction: 'repeating-group-configurator',
+  defaultBounds: { width: 420, height: 320 },
+  defaults: {
+    visible: true,
+    collapseWhenHidden: true,
+    enabled: true,
+    repeatingGroupConfig: createDefaultRepeatingGroupConfiguration(),
+  },
+  properties: [
+    ...geometryProperties({ width: 420, height: 320 }),
+    ...containerLayoutProperties(),
+    {
+      name: 'repeatingGroupConfig',
+      label: 'Data source and rows',
+      type: 'repeating-group-config',
+      category: 'Repeating Group',
+      source: 'props',
+      defaultValue: createDefaultRepeatingGroupConfiguration(),
+      designerAction: 'repeating-group-configurator',
+      description:
+        'Choose the API response list and row sizing. Children form one responsive row template.',
+    },
+  ],
+  events: [event('OnClick'), event('OnDblClick')],
+};
+
 export const MVP_COMPONENT_TYPES = [
   'WebPage',
   'WebPanel',
@@ -1534,6 +1573,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebImage',
   'WebListBox',
   'WebDataGrid',
+  'WebRepeatingGroup',
   'WebPopup',
   'WebApiClient',
   'WebFileUpload',
@@ -1556,6 +1596,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webImage,
   webListBox,
   webDataGrid,
+  webRepeatingGroup,
   webPopup,
   webApiClient,
   webFileUpload,
@@ -1566,7 +1607,10 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
 componentRegistry.registerMany(
   mvpComponentDefinitions.map((definition) => ({
     ...definition,
-    properties: definition.properties.map(organizeInspectorProperty),
+    properties: [
+      ...definition.properties,
+      ...(definition.visual ? [CURRENT_ROW_BINDINGS_PROPERTY] : []),
+    ].map(organizeInspectorProperty),
   })),
 );
 

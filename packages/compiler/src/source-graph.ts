@@ -192,6 +192,7 @@ function createEntrySource(project: WebRadProject, registry: ComponentRegistry):
   Navigate as RuntimeNavigate,
   RestGO,
   WebPageRouter,
+  setRepeatingGroupReusableFactory,
 } from '@webrad/runtime';
 import type {
   MountedRuntimePage,
@@ -216,6 +217,14 @@ type ReusableElementFactory = (
 const reusableElementFactories: ReadonlyMap<string, ReusableElementFactory> = new Map([
 ${reusableFactories}
 ]);
+
+setRepeatingGroupReusableFactory((row) => {
+  const instances = row.reusableInstances.flatMap((placement) => {
+    const factory = reusableElementFactories.get(placement.reusableElementId);
+    return factory === undefined ? [] : [factory(placement.element, placement.instanceId, row.components, placement.componentIds)];
+  });
+  return () => { for (const instance of instances) instance.dispose(); };
+});
 
 function createReusableElements(
   mounted: MountedRuntimePage,

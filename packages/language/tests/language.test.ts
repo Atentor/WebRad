@@ -48,6 +48,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-image-logo', type: 'WebImage', name: 'IMGLogo' },
   { id: 'stable-list-box-results', type: 'WebListBox', name: 'LSTResultados' },
   { id: 'data-grid', type: 'WebDataGrid', name: 'DataGrid1' },
+  { id: 'repeating-group', type: 'WebRepeatingGroup', name: 'RepeatingGroup1' },
   { id: 'popup-dialog', type: 'WebPopup', name: 'Popup1' },
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
   { id: 'stable-file-upload', type: 'WebFileUpload', name: 'FileUpload1' },
@@ -219,12 +220,16 @@ describe('page language generation', () => {
       MVP_COMPONENT_TYPES.slice(1),
     );
     for (const component of MVP_COMPONENT_FIXTURES) {
-      const declaration = `public readonly ${component.name}: ${component.type};`;
+      const typeName =
+        component.type === 'WebRepeatingGroup'
+          ? 'WebRepeatingGroup<RepeatingGroup1RowValue>'
+          : component.type;
+      const declaration = `public readonly ${component.name}: ${typeName};`;
       expect(source).toContain(declaration);
       expect(typings).toContain(declaration);
       if (defaultComponentRegistry.require(component.type).visual) {
         expect(source).toContain(
-          `this.${component.name} = new ${component.type}(this.requireComponentElement(${JSON.stringify(component.id)}))`,
+          `this.${component.name} = new ${typeName}(this.requireComponentElement(${JSON.stringify(component.id)}))`,
         );
       }
     }

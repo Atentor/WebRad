@@ -8,6 +8,7 @@ import {
   addReusableElement,
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
+  DEFAULT_COMPONENT_STYLE_DEFINITIONS,
   createComponentStyle,
   createDefaultComponentLayout,
   createPage,
@@ -81,7 +82,8 @@ describe('project files', () => {
       styles: { id: string; componentType: string; preset?: string }[];
     };
     expect(manifest.formatVersion).toBe(CURRENT_PROJECT_FORMAT_VERSION);
-    expect(manifest.styles).toHaveLength(13);
+    expect(manifest.styles).toHaveLength(DEFAULT_COMPONENT_STYLE_DEFINITIONS.length);
+    expect(manifest.styles.some((style) => style.componentType === 'WebRepeatingGroup')).toBe(true);
     expect(manifest.styles.some((style) => style.componentType === 'WebFileUpload')).toBe(false);
     const defaultPageStyle = manifest.styles.find(
       (style) => style.componentType === 'WebPage' && style.preset === 'default',

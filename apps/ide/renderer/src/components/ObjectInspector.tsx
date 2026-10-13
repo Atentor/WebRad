@@ -1,5 +1,7 @@
 import {
   defaultComponentRegistry,
+  CURRENT_ROW_BINDINGS_PROPERTY,
+  getCurrentRowBindableProperties,
   type ComponentDefinition,
   type ComponentDesignerAction,
   type ComponentEventDefinition,
@@ -28,6 +30,7 @@ import { IconPickerDialog } from './IconPickerDialog';
 import { Panel } from './Panel';
 import { responsiveLayoutPropertyReference } from '../layout-property';
 import { buildInspectorSections, inspectorPropertyMatches } from './inspector-sections';
+import { currentRowGroup } from './repeating-group-editor';
 
 const MULTIPLE_VALUES = Symbol('multiple-values');
 const MULTIPLE_VALUES_LABEL = '(multiple values)';
@@ -613,10 +616,16 @@ function PropertyEditor({
       );
     }
     case 'combo-box-config':
+    case 'repeating-group-config':
+    case 'current-row-bindings':
     case 'data-grid-config': {
       const action = property.designerAction;
-      const label =
-        property.type === 'combo-box-config' ? 'Configure ComboBox' : 'Configure Data Grid';
+      const label = {
+        'combo-box-config': 'Configure ComboBox',
+        'data-grid-config': 'Configure Data Grid',
+        'repeating-group-config': 'Configure Repeating Group',
+        'current-row-bindings': 'Bind Current Row',
+      }[property.type];
       return (
         <button
           id={id}
@@ -773,19 +782,30 @@ export function ObjectInspector({
     () => definitionsForSelection(inspectedSelection, definition, registry),
     [definition, inspectedSelection, registry],
   );
-  const propertyCategories = useMemo(
-    () =>
-      buildInspectorSections(
-        definitions === null ? [] : commonProperties(definitions, inspectedSelection),
-        searchQuery,
-      ),
-    [definitions, inspectedSelection, searchQuery],
-  );
+  const componentChoices = availableComponents ?? page?.components ?? inspectedSelection;
+  const propertyCategories = useMemo(() => {
+    const properties =
+      definitions === null
+        ? []
+        : commonProperties(definitions, inspectedSelection).filter(
+            (property) => property.name !== CURRENT_ROW_BINDINGS_PROPERTY.name,
+          );
+    const component = inspectedSelection.length === 1 ? inspectedSelection[0] : undefined;
+    const definition = definitions?.[0];
+    const rowBindingsAvailable =
+      component !== undefined &&
+      definition !== undefined &&
+      getCurrentRowBindableProperties(definition).length > 0 &&
+      currentRowGroup(component, componentChoices, registry) !== undefined;
+    return buildInspectorSections(
+      rowBindingsAvailable ? [...properties, CURRENT_ROW_BINDINGS_PROPERTY] : properties,
+      searchQuery,
+    );
+  }, [definitions, inspectedSelection, componentChoices, registry, searchQuery]);
   const eventCategories = useMemo(
     () => groupByCategory(definitions === null ? [] : commonEvents(definitions)),
     [definitions],
   );
-  const componentChoices = availableComponents ?? page?.components ?? inspectedSelection;
   const primaryComponent = inspectedSelection.at(-1);
   const primaryDefinition =
     primaryComponent === undefined

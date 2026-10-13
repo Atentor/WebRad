@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 
 import { createUserPageSource } from '@webrad/language';
+import { componentRegistry } from '@webrad/component-registry';
 import { StrictMode } from 'react';
 import {
   createProject,
+  addComponent,
+  updatePage,
+  createDefaultRepeatingGroupConfiguration,
   parseApiClientConfiguration,
   parseDataGridConfiguration,
   type WebRadProject,
@@ -128,6 +132,41 @@ function initialSession(): ProjectSession {
     projectFilePath: 'C:\\Projects\\MvpProject\\MvpProject.wrproj',
     project,
     userSources: { 'pages/PageMain.ts': createUserPageSource(page) },
+  };
+}
+
+function repeatingGroupSession(): ProjectSession {
+  const project = comboBoxProject();
+  let page = project.pages[0];
+  if (page === undefined) throw new Error('Missing repeating project page.');
+  const group = componentRegistry.createComponent('WebRepeatingGroup', {
+    id: 'repeating-group',
+    name: 'RepeatingGroup1',
+    parentId: page.rootComponentId,
+    props: {
+      repeatingGroupConfig: {
+        ...createDefaultRepeatingGroupConfiguration(),
+        apiClientId: 'customers-api',
+        operationId: 'load-customers',
+        listPath: '/customers',
+      },
+    },
+  });
+  page = addComponent(page, group, page.rootComponentId);
+  page = addComponent(
+    page,
+    componentRegistry.createComponent('WebButton', {
+      id: 'row-button',
+      name: 'RowButton',
+      parentId: group.id,
+      props: { currentRowBindings: [{ property: 'caption', fieldPath: '/name' }] },
+    }),
+    group.id,
+  );
+  return {
+    ...initialSession(),
+    project: updatePage(project, page.id, { components: page.components }),
+    userSources: { [`pages/${page.name}.ts`]: createUserPageSource(page) },
   };
 }
 
@@ -293,6 +332,116 @@ afterEach(() => {
 });
 
 describe('App MVP integration', () => {
+  it('inserts palette and dropped children inside a fixed Repeating Group row', async () => {
+    const session = repeatingGroupSession();
+    const page = session.project.pages[0];
+    if (page === undefined) throw new Error('Missing repeating fixture page.');
+    const project = updatePage(session.project, page.id, {
+      components: page.components.map((component) =>
+        component.id === 'repeating-group'
+          ? {
+              ...component,
+              props: {
+                ...component.props,
+                repeatingGroupConfig: {
+                  ...createDefaultRepeatingGroupConfiguration(),
+                  rowHeightMode: 'fixed',
+                  fixedRowHeight: 120,
+                },
+              },
+            }
+          : component,
+      ),
+    });
+    const harness = createBridgeHarness({ ...session, project });
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByTitle('RepeatingGroup1: WebRepeatingGroup');
+    selectDesignerComponent('RepeatingGroup1: WebRepeatingGroup');
+    await user.dblClick(screen.getByTitle('Select Button; drag or double-click to insert'));
+    await screen.findByTitle('Button1: WebButton');
+    selectDesignerComponent('RepeatingGroup1: WebRepeatingGroup');
+    const overlay = document.querySelector<HTMLElement>('.wr-design-overlay');
+    if (overlay === null) throw new Error('Missing Designer overlay.');
+    const drop = new MouseEvent('drop', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 300,
+      clientY: 250,
+    });
+    Object.defineProperty(drop, 'dataTransfer', {
+      value: {
+        getData: (type: string) => (type === 'application/x-webrad-component' ? 'WebButton' : ''),
+      },
+    });
+    fireEvent(overlay, drop);
+    await screen.findByTitle('Button2: WebButton');
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledOnce());
+    const components = harness.persisted().project.pages[0]?.components;
+    expect(components?.find((component) => component.name === 'Button1')).toMatchObject({
+      parentId: 'repeating-group',
+      bounds: { x: 160, y: 40, width: 100, height: 36 },
+    });
+    expect(components?.find((component) => component.name === 'Button2')).toMatchObject({
+      parentId: 'repeating-group',
+      bounds: { x: 304, y: 84, width: 100, height: 36 },
+    });
+  }, 15_000);
+
+  it('persists Repeating Group and row bindings with atomic source changes and undo/redo', async () => {
+    const harness = createBridgeHarness(repeatingGroupSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await screen.findByTitle('RepeatingGroup1: WebRepeatingGroup');
+    selectDesignerComponent('RepeatingGroup1: WebRepeatingGroup');
+    await user.click(screen.getByRole('button', { name: 'Configure Repeating Group' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Configure Repeating Group' }));
+    await user.selectOptions(dialog.getByLabelText('Repeating Group response list'), '/codes');
+    await act(async () => harness.invokeCommand('file.save'));
+    expect(harness.save).not.toHaveBeenCalled();
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(1));
+    const savedComponent = (id: string) =>
+      harness.persisted().project.pages[0]?.components.find((component) => component.id === id);
+    expect(savedComponent('repeating-group')?.props.repeatingGroupConfig).toMatchObject({
+      listPath: '/codes',
+    });
+    expect(savedComponent('row-button')?.props.currentRowBindings).toEqual([]);
+    await act(async () => harness.invokeCommand('edit.undo'));
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(2));
+    expect(savedComponent('repeating-group')?.props.repeatingGroupConfig).toMatchObject({
+      listPath: '/customers',
+    });
+    expect(savedComponent('row-button')?.props.currentRowBindings).toEqual([
+      { property: 'caption', fieldPath: '/name' },
+    ]);
+
+    selectDesignerComponent('RowButton: WebButton');
+    await user.click(screen.getByRole('button', { name: 'Bind Current Row' }));
+    const bindingDialog = within(await screen.findByRole('dialog', { name: 'Bind Current Row' }));
+    await user.selectOptions(bindingDialog.getByLabelText('Current row Caption'), '/id');
+    await user.click(bindingDialog.getByRole('button', { name: 'Save' }));
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(3));
+    expect(savedComponent('row-button')?.props.currentRowBindings).toEqual([
+      { property: 'caption', fieldPath: '/id' },
+    ]);
+    await act(async () => harness.invokeCommand('edit.undo'));
+    await act(async () => harness.invokeCommand('edit.redo'));
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(4));
+    expect(savedComponent('row-button')?.props.currentRowBindings).toEqual([
+      { property: 'caption', fieldPath: '/id' },
+    ]);
+  }, 15_000);
+
   it('shows active debug feedback and stops the session when the toolbar button is clicked again', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
@@ -1357,7 +1506,7 @@ describe('App MVP integration', () => {
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const savedWithStyles = harness.persisted().project;
-    expect(savedWithStyles.styles).toHaveLength(16);
+    expect(savedWithStyles.styles).toHaveLength(17);
     const primaryStyle = savedWithStyles.styles.find((style) => style.name === 'Primary Button');
     const mutedStyle = savedWithStyles.styles.find((style) => style.name === 'Muted Label');
     const pageStyle = savedWithStyles.styles.find((style) => style.name === 'Page Surface');
@@ -1394,16 +1543,16 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await waitFor(() => {
       const styles = harness.persisted().project.styles;
-      expect(styles).toHaveLength(15);
-      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(13);
+      expect(styles).toHaveLength(16);
+      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(14);
       expect(styles.some((style) => style.name === 'Primary Button')).toBe(false);
       expect(styles.some((style) => style.name === 'Muted Label')).toBe(true);
       expect(styles.some((style) => style.name === 'Page Surface')).toBe(true);
     });
 
     const savedAfterDelete = harness.persisted().project;
-    expect(savedAfterDelete.styles).toHaveLength(15);
-    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(13);
+    expect(savedAfterDelete.styles).toHaveLength(16);
+    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(14);
     expect(
       savedAfterDelete.pages[0]?.components
         .filter((component) => component.type === 'WebButton')

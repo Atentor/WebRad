@@ -1,10 +1,21 @@
 import type ts from 'typescript';
 import type { PageModel } from '@webrad/project-model';
+import { repeatingGroupForComponent } from './repeating-context.js';
 
 export interface ComponentReferenceScope {
   readonly className: string;
   readonly generatedClassName: string;
+  readonly reusable?: boolean;
   readonly componentNames: readonly string[];
+  readonly repeatingHandlers?: Readonly<
+    Record<
+      string,
+      {
+        readonly currentRowType: string;
+        readonly componentIds: Readonly<Record<string, string>>;
+      }
+    >
+  >;
 }
 
 export interface ComponentReferenceEdit {
@@ -16,12 +27,34 @@ export interface ComponentReferenceEdit {
 export const COMPONENT_SCOPE_PREFIX = '// @webrad-component-scope ';
 
 export function componentReferenceScope(document: PageModel): ComponentReferenceScope {
+  const repeatingHandlers: Record<
+    string,
+    { currentRowType: string; componentIds: Record<string, string> }
+  > = {};
+  for (const component of document.components) {
+    const group = repeatingGroupForComponent(document, component.id);
+    if (group === undefined) continue;
+    const componentIds = Object.fromEntries(
+      document.components
+        .filter((candidate) => repeatingGroupForComponent(document, candidate.id)?.id === group.id)
+        .map((candidate) => [candidate.name, candidate.id]),
+    );
+    for (const handler of Object.values(component.events)) {
+      if (handler !== null)
+        repeatingHandlers[handler] = { currentRowType: `${group.name}CurrentRow`, componentIds };
+    }
+  }
   return {
     className: document.name,
     generatedClassName: `${document.name}Generated`,
+    ...(document.components.find((component) => component.id === document.rootComponentId)?.type ===
+    'WebPage'
+      ? {}
+      : { reusable: true }),
     componentNames: document.components
       .filter((component) => component.id !== document.rootComponentId)
       .map((component) => component.name),
+    ...(Object.keys(repeatingHandlers).length === 0 ? {} : { repeatingHandlers }),
   };
 }
 
@@ -118,7 +151,9 @@ function hasInstanceContext(
 ): boolean {
   let child = node;
   for (let parent = node.parent; parent !== undefined; child = parent, parent = parent.parent) {
-    if (api.isFunctionDeclaration(parent) || api.isFunctionExpression(parent)) return false;
+    if (api.isFunctionDeclaration(parent)) return false;
+    if (api.isFunctionExpression(parent) && !isRepeatingPropertyHandler(api, parent, scope))
+      return false;
     if (api.isClassDeclaration(parent) || api.isClassExpression(parent)) {
       if (parent.name?.text !== scope.className) return false;
       if (
@@ -172,6 +207,23 @@ function hasInstanceContext(
       return false;
   }
   return false;
+}
+
+function isRepeatingPropertyHandler(
+  api: typeof ts,
+  node: ts.Node,
+  scope: ComponentReferenceScope,
+): node is ts.ArrowFunction | ts.FunctionExpression {
+  if (!api.isArrowFunction(node) && !api.isFunctionExpression(node)) return false;
+  const property = node.parent;
+  return (
+    api.isPropertyDeclaration(property) &&
+    property.initializer === node &&
+    api.isIdentifier(property.name) &&
+    api.isClassDeclaration(property.parent) &&
+    property.parent.name?.text === scope.className &&
+    scope.repeatingHandlers?.[property.name.text] !== undefined
+  );
 }
 
 /** Method defaults evaluate with the instance receiver, including destructuring defaults. */
@@ -253,8 +305,104 @@ export function analyzeComponentReferences(
   const edits: ComponentReferenceEdit[] = [];
   const diagnostics: ts.DiagnosticWithLocation[] = [];
   const names = new Set(scope.componentNames);
+  const identifiers = new Set<string>();
+  const collectIdentifiers = (node: ts.Node): void => {
+    if (api.isIdentifier(node)) identifiers.add(node.text);
+    api.forEachChild(node, collectIdentifiers);
+  };
+  collectIdentifiers(sourceFile);
+  const capturedRows = new Map<
+    ts.MethodDeclaration | ts.ArrowFunction | ts.FunctionExpression,
+    string
+  >();
+  const rowContext = (node: ts.Node) => {
+    let ancestor: ts.Node | undefined = node;
+    while (ancestor !== undefined) {
+      if (api.isFunctionDeclaration(ancestor)) return undefined;
+      const propertyHandler = isRepeatingPropertyHandler(api, ancestor, scope)
+        ? ancestor
+        : undefined;
+      if (api.isFunctionExpression(ancestor) && propertyHandler === undefined) return undefined;
+      const methodHandler =
+        api.isMethodDeclaration(ancestor) && api.isClassDeclaration(ancestor.parent)
+          ? ancestor
+          : undefined;
+      const handler = propertyHandler ?? methodHandler;
+      if (handler !== undefined) {
+        const member =
+          propertyHandler !== undefined
+            ? (propertyHandler.parent as ts.PropertyDeclaration)
+            : methodHandler!;
+        if (
+          !api.isClassDeclaration(member.parent) ||
+          member.parent.name?.text !== scope.className ||
+          !api.isIdentifier(member.name)
+        )
+          return undefined;
+        const row = scope.repeatingHandlers?.[member.name.text];
+        if (row === undefined || handler.body === undefined) return undefined;
+        const parameter = handler.parameters[2];
+        const argument = api.isArrowFunction(handler)
+          ? parameter !== undefined && api.isIdentifier(parameter.name)
+            ? parameter.name.text
+            : undefined
+          : 'arguments[2]';
+        if (argument === undefined) {
+          diagnostics.push({
+            file: sourceFile,
+            start: handler.getStart(sourceFile),
+            length: handler.getWidth(sourceFile),
+            category: api.DiagnosticCategory.Error,
+            code: 95002,
+            messageText:
+              'A repeating row arrow handler must declare its third CurrentRow parameter. Open the assigned event to add it.',
+          });
+          return undefined;
+        }
+        const argumentType = `import(${JSON.stringify(`./${scope.className}.generated`)}).${row.currentRowType}`;
+        if (isParameterInitializer(api, node, handler))
+          return { ...row, receiver: `(${argument} as ${argumentType})` };
+        let receiver = capturedRows.get(handler);
+        if (receiver === undefined) {
+          let sequence = 1;
+          receiver = `__wrCurrentRow${String(sequence)}`;
+          while (identifiers.has(receiver)) receiver = `__wrCurrentRow${String(++sequence)}`;
+          identifiers.add(receiver);
+          capturedRows.set(handler, receiver);
+          const capture = `\nconst ${receiver} = ${argument} as ${argumentType};\n`;
+          if (api.isBlock(handler.body)) {
+            const position = handler.body.getStart(sourceFile) + 1;
+            edits.push({ start: position, end: position, text: capture });
+          } else {
+            const position = handler.body.getStart(sourceFile);
+            edits.push({ start: position, end: position, text: `{${capture}return ` });
+            edits.push({ start: handler.body.end, end: handler.body.end, text: ';}' });
+          }
+        }
+        return { ...row, receiver };
+      }
+      ancestor = ancestor.parent;
+    }
+    return undefined;
+  };
   const visit = (node: ts.Node): void => {
     if (node.getStart(sourceFile) >= authoredLength) return;
+    if (
+      api.isPropertyAccessExpression(node) &&
+      node.expression.kind === api.SyntaxKind.ThisKeyword &&
+      names.has(node.name.text)
+    ) {
+      const row = rowContext(node);
+      const componentId = row?.componentIds[node.name.text];
+      if (row !== undefined && componentId !== undefined && hasInstanceContext(api, node, scope)) {
+        edits.push({
+          start: node.getStart(sourceFile),
+          end: node.end,
+          text: `${row.receiver}.component<import(${JSON.stringify(`./${scope.className}.generated`)}).${scope.generatedClassName}[${JSON.stringify(node.name.text)}]>(${scope.reusable ? `this.componentId(${JSON.stringify(componentId)})` : JSON.stringify(componentId)})`,
+        });
+        return;
+      }
+    }
     if (api.isIdentifier(node) && names.has(node.text)) {
       const shorthand = api.isShorthandPropertyAssignment(node.parent) && node.parent.name === node;
       let symbol = shorthand
@@ -288,10 +436,16 @@ export function analyzeComponentReferences(
             messageText: `Component '${node.text}' is available only in instance code of '${scope.className}'. Use an arrow function for callbacks.`,
           });
         } else {
+          const row = rowContext(node);
+          const componentId = row?.componentIds[node.text];
+          const reference =
+            row !== undefined && componentId !== undefined
+              ? `${row.receiver}.component<import(${JSON.stringify(`./${scope.className}.generated`)}).${scope.generatedClassName}[${JSON.stringify(node.text)}]>(${scope.reusable ? `this.componentId(${JSON.stringify(componentId)})` : JSON.stringify(componentId)})`
+              : `this.${node.text}`;
           edits.push({
             start: node.getStart(sourceFile),
             end: node.end,
-            text: shorthand ? `${node.text}: this.${node.text}` : `this.${node.text}`,
+            text: shorthand ? `${node.text}: ${reference}` : reference,
           });
         }
       }

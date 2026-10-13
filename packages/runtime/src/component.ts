@@ -5,6 +5,13 @@ export type WebComponentEventHandler<TSender = WebComponent> = (
   event: Event,
 ) => void | Promise<void>;
 
+export interface WebCurrentRowBinding {
+  readonly property: string;
+  readonly fieldPath: string;
+}
+
+const currentRowBindings = new WeakMap<HTMLElement, readonly WebCurrentRowBinding[]>();
+
 const EVENT_NAME_MAP: Readonly<Record<string, string>> = Object.freeze({
   OnBlur: 'blur',
   OnChange: 'change',
@@ -107,6 +114,19 @@ export class WebComponent<TElement extends HTMLElement = HTMLElement> {
   readonly #eventDisposers = new Map<string, () => void>();
 
   public constructor(public readonly element: TElement) {}
+
+  /** Declarative visual bindings shared by every wrapper for this element. */
+  public get currentRowBindings(): readonly WebCurrentRowBinding[] {
+    return currentRowBindings.get(this.element) ?? [];
+  }
+
+  public set currentRowBindings(bindings: readonly WebCurrentRowBinding[]) {
+    const normalized = Object.freeze(bindings.map((binding) => Object.freeze({ ...binding })));
+    currentRowBindings.set(this.element, normalized);
+    this.element.dispatchEvent(
+      new CustomEvent('webrad:row-bindings-change', { detail: normalized }),
+    );
+  }
 
   public get id(): string {
     return this.element.dataset.webradId ?? this.element.id;

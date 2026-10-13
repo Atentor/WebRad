@@ -19,6 +19,7 @@ import {
 } from '@webrad/designer';
 import {
   componentRegistry,
+  getCurrentRowBindableProperties,
   requireComponentDefinition,
   resolveComponentDesignerPresentation,
   type ComponentDesignerAction,
@@ -40,6 +41,9 @@ import {
   type ComponentStyleModel,
   type DataGridConfiguration,
   type ComboBoxConfiguration,
+  type RepeatingGroupConfiguration,
+  type CurrentRowBinding,
+  normalizeCurrentRowBindings,
   type PageModel,
   type ProjectSettings,
   type RestGoProjectSettings,
@@ -47,6 +51,7 @@ import {
 import {
   createUserPageSource,
   createUserReusableElementSource,
+  currentRowHandlerType,
   ensureEventHandler,
   eventHandlerName,
   generateEnvironmentTypings,
@@ -77,6 +82,14 @@ import { AddPageDialog, type AddDocumentKind } from './components/AddPageDialog'
 import { DataGridConfigurationDialog } from './components/DataGridConfigurationDialog';
 import { ComboBoxConfigurationDialog } from './components/ComboBoxConfigurationDialog';
 import { ComboBoxItemsDialog } from './components/ComboBoxItemsDialog';
+import { RepeatingGroupConfigurationDialog } from './components/RepeatingGroupConfigurationDialog';
+import { CurrentRowBindingsDialog } from './components/CurrentRowBindingsDialog';
+import { designerInsertionBounds } from './components/designer-insertion-bounds';
+import {
+  currentRowGroup,
+  repeatingGroupSource,
+  compatibleCurrentRowField,
+} from './components/repeating-group-editor';
 import { EditorWorkspace, type DocumentTab, type ViewMode } from './components/EditorWorkspace';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { IdeShell } from './components/IdeShell';
@@ -216,6 +229,11 @@ export function App(): ReactElement {
   const [dataGridConfiguratorComponentId, setDataGridConfiguratorComponentId] = useState<
     string | null
   >(null);
+  const [repeatingGroupConfiguratorComponentId, setRepeatingGroupConfiguratorComponentId] =
+    useState<string | null>(null);
+  const [currentRowBindingsComponentId, setCurrentRowBindingsComponentId] = useState<string | null>(
+    null,
+  );
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectError, setNewProjectError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<EditorCursorStatus>({
@@ -285,6 +303,23 @@ export function App(): ReactElement {
       ) ?? null,
     [activePage, comboBoxConfiguratorComponentId],
   );
+  const repeatingGroupConfiguratorComponent = useMemo(
+    () =>
+      activePage?.components.find(
+        (component) => component.id === repeatingGroupConfiguratorComponentId,
+      ) ?? null,
+    [activePage, repeatingGroupConfiguratorComponentId],
+  );
+  const currentRowBindingsComponent = useMemo(
+    () =>
+      activePage?.components.find((component) => component.id === currentRowBindingsComponentId) ??
+      null,
+    [activePage, currentRowBindingsComponentId],
+  );
+  const currentRowBindingsGroup =
+    currentRowBindingsComponent === null
+      ? undefined
+      : currentRowGroup(currentRowBindingsComponent, activePage?.components ?? []);
   const modalOpen =
     aboutDialogOpen ||
     newProjectDialogOpen ||
@@ -293,6 +328,8 @@ export function App(): ReactElement {
     projectSettingsDialogOpen ||
     apiClientTesterComponent !== null ||
     dataGridConfiguratorComponent !== null ||
+    repeatingGroupConfiguratorComponent !== null ||
+    (currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined) ||
     comboBoxConfiguratorComponent !== null;
   const codeEditorVisible =
     activeWorkspace === 'page' &&
@@ -347,6 +384,8 @@ export function App(): ReactElement {
       setBottomPanelTab('output');
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
+      setRepeatingGroupConfiguratorComponentId(null);
+      setCurrentRowBindingsComponentId(null);
       setComboBoxConfiguratorComponentId(null);
       setAddDocumentDialogKind(null);
       setProjectSettingsDialogOpen(false);
@@ -488,14 +527,20 @@ export function App(): ReactElement {
             ? requestedParent.id
             : activePage.rootComponentId;
         const parent = getComponent(activePage, parentId);
+        const parentBounds = designerInsertionBounds(
+          parent,
+          activePage,
+          document.querySelector<HTMLElement>('.wr-page-surface'),
+          zoom / 100,
+        );
         const snapped = project?.settings.snapToGrid
           ? snapPoint(point, project.settings.gridSize)
           : point;
         const x = appearsOnCanvas
-          ? Math.max(0, Math.min(snapped.x, parent.bounds.width - definition.defaultBounds.width))
+          ? Math.max(0, Math.min(snapped.x, parentBounds.width - definition.defaultBounds.width))
           : 0;
         const y = appearsOnCanvas
-          ? Math.max(0, Math.min(snapped.y, parent.bounds.height - definition.defaultBounds.height))
+          ? Math.max(0, Math.min(snapped.y, parentBounds.height - definition.defaultBounds.height))
           : 0;
         const createdNode = componentRegistry.createComponent(type, {
           existingNames: activePage.components,
@@ -514,7 +559,7 @@ export function App(): ReactElement {
         reportError(error, 'DESIGNER');
       }
     },
-    [activePage, addOutput, commitDesignerCommand, project, reportError, selectionManager],
+    [activePage, addOutput, commitDesignerCommand, project, reportError, selectionManager, zoom],
   );
 
   const addReusableElementAt = useCallback(
@@ -532,16 +577,22 @@ export function App(): ReactElement {
         }
         const definition = requireComponentDefinition('WebReusableElement');
         const parent = getComponent(activePage, requestedParentId);
+        const parentBounds = designerInsertionBounds(
+          parent,
+          activePage,
+          document.querySelector<HTMLElement>('.wr-page-surface'),
+          zoom / 100,
+        );
         const snapped = project.settings.snapToGrid
           ? snapPoint(point, project.settings.gridSize)
           : point;
         const x = Math.max(
           0,
-          Math.min(snapped.x, parent.bounds.width - definition.defaultBounds.width),
+          Math.min(snapped.x, parentBounds.width - definition.defaultBounds.width),
         );
         const y = Math.max(
           0,
-          Math.min(snapped.y, parent.bounds.height - definition.defaultBounds.height),
+          Math.min(snapped.y, parentBounds.height - definition.defaultBounds.height),
         );
         const node = componentRegistry.createComponent('WebReusableElement', {
           existingNames: activePage.components,
@@ -565,6 +616,7 @@ export function App(): ReactElement {
       project,
       reportError,
       selectionManager,
+      zoom,
     ],
   );
 
@@ -861,6 +913,7 @@ export function App(): ReactElement {
           eventName,
           eventDetailType: eventDefinition?.eventDetailType,
           eventDetailProperties: eventDefinition?.eventDetailProperties,
+          currentRowType: currentRowHandlerType(activePage, component.id),
           handlerName,
           fileName: key,
         });
@@ -913,6 +966,10 @@ export function App(): ReactElement {
         setApiClientTesterComponentId(component.id);
       } else if (action === 'data-grid-configurator') {
         setDataGridConfiguratorComponentId(component.id);
+      } else if (action === 'repeating-group-configurator') {
+        setRepeatingGroupConfiguratorComponentId(component.id);
+      } else if (action === 'current-row-bindings') {
+        setCurrentRowBindingsComponentId(component.id);
       } else if (action === 'combo-box-configurator') {
         setComboBoxEditorMode('api');
         setComboBoxConfiguratorComponentId(component.id);
@@ -994,6 +1051,94 @@ export function App(): ReactElement {
       designerController,
       reportError,
       updateActivePage,
+    ],
+  );
+
+  const saveRepeatingGroupConfiguration = useCallback(
+    (configuration: RepeatingGroupConfiguration): void => {
+      if (activePage === null || repeatingGroupConfiguratorComponent === null) return;
+      try {
+        const fields = repeatingGroupSource(activePage.components, configuration).fields;
+        const commands = [
+          new ChangePropertyCommand(
+            repeatingGroupConfiguratorComponent.id,
+            'repeatingGroupConfig',
+            configuration,
+          ),
+        ];
+        for (const component of activePage.components) {
+          if (
+            currentRowGroup(component, activePage.components)?.id !==
+            repeatingGroupConfiguratorComponent.id
+          )
+            continue;
+          const bindings = normalizeCurrentRowBindings(component.props.currentRowBindings);
+          const definition = componentRegistry.get(component.type);
+          const properties =
+            definition === undefined ? [] : getCurrentRowBindableProperties(definition);
+          const nextBindings = bindings.filter((binding) =>
+            properties.some(
+              (property) =>
+                property.name === binding.property &&
+                fields.some(
+                  (field) =>
+                    field.path === binding.fieldPath && compatibleCurrentRowField(property, field),
+                ),
+            ),
+          );
+          if (nextBindings.length !== bindings.length)
+            commands.push(
+              new ChangePropertyCommand(component.id, 'currentRowBindings', nextBindings),
+            );
+        }
+        updateActivePage(
+          designerController.executeMany(activePage, 'Configure Repeating Group', commands),
+        );
+        setRepeatingGroupConfiguratorComponentId(null);
+        addOutput(
+          'DESIGNER',
+          `Configured Repeating Group ${repeatingGroupConfiguratorComponent.name}.`,
+        );
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activePage,
+      repeatingGroupConfiguratorComponent,
+      designerController,
+      updateActivePage,
+      addOutput,
+      reportError,
+    ],
+  );
+
+  const saveCurrentRowBindings = useCallback(
+    (bindings: readonly CurrentRowBinding[]): void => {
+      if (activePage === null || currentRowBindingsComponent === null) return;
+      try {
+        updateActivePage(
+          designerController.executeMany(activePage, 'Bind Current Row', [
+            new ChangePropertyCommand(
+              currentRowBindingsComponent.id,
+              'currentRowBindings',
+              bindings,
+            ),
+          ]),
+        );
+        setCurrentRowBindingsComponentId(null);
+        addOutput('DESIGNER', `Bound current row values for ${currentRowBindingsComponent.name}.`);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activePage,
+      currentRowBindingsComponent,
+      designerController,
+      updateActivePage,
+      addOutput,
+      reportError,
     ],
   );
 
@@ -1153,6 +1298,8 @@ export function App(): ReactElement {
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
       setComboBoxConfiguratorComponentId(null);
+      setRepeatingGroupConfiguratorComponentId(null);
+      setCurrentRowBindingsComponentId(null);
       setAddDocumentDialogKind(null);
       setProjectSettingsDialogOpen(false);
     } catch (error) {
@@ -1426,7 +1573,10 @@ export function App(): ReactElement {
         modalOpen &&
         !(
           command === 'view.toggleTheme' &&
-          (dataGridConfiguratorComponent !== null || comboBoxConfiguratorComponent !== null)
+          (dataGridConfiguratorComponent !== null ||
+            comboBoxConfiguratorComponent !== null ||
+            repeatingGroupConfiguratorComponent !== null ||
+            currentRowBindingsComponent !== null)
         )
       ) {
         return;
@@ -1586,6 +1736,8 @@ export function App(): ReactElement {
       undo,
       dataGridConfiguratorComponent,
       comboBoxConfiguratorComponent,
+      repeatingGroupConfiguratorComponent,
+      currentRowBindingsComponent,
       showDebugger,
       debugStart,
       debugCommand,
@@ -2219,14 +2371,18 @@ export function App(): ReactElement {
                             (component) => component.id === activePage.rootComponentId,
                           );
                     if (selectedContainer === undefined) return;
+                    const containerBounds = designerInsertionBounds(
+                      selectedContainer,
+                      activePage,
+                      document.querySelector<HTMLElement>('.wr-page-surface'),
+                      zoom / 100,
+                    );
                     addComponentAt(
                       type,
                       {
-                        x: Math.round(
-                          (selectedContainer.bounds.width - definition.defaultBounds.width) / 2,
-                        ),
+                        x: Math.round((containerBounds.width - definition.defaultBounds.width) / 2),
                         y: Math.round(
-                          (selectedContainer.bounds.height - definition.defaultBounds.height) / 2,
+                          (containerBounds.height - definition.defaultBounds.height) / 2,
                         ),
                       },
                       selectedContainer.id,
@@ -2436,6 +2592,23 @@ export function App(): ReactElement {
           component={dataGridConfiguratorComponent}
           onClose={() => setDataGridConfiguratorComponentId(null)}
           onSave={saveDataGridConfiguration}
+        />
+      )}
+      {repeatingGroupConfiguratorComponent !== null && (
+        <RepeatingGroupConfigurationDialog
+          component={repeatingGroupConfiguratorComponent}
+          availableComponents={activePage?.components ?? []}
+          onClose={() => setRepeatingGroupConfiguratorComponentId(null)}
+          onSave={saveRepeatingGroupConfiguration}
+        />
+      )}
+      {currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined && (
+        <CurrentRowBindingsDialog
+          component={currentRowBindingsComponent}
+          group={currentRowBindingsGroup}
+          availableComponents={activePage?.components ?? []}
+          onClose={() => setCurrentRowBindingsComponentId(null)}
+          onSave={saveCurrentRowBindings}
         />
       )}
       {comboBoxConfiguratorComponent !== null && comboBoxEditorMode === 'api' && (

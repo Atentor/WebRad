@@ -1,6 +1,7 @@
 import apiClientTypings from './api-client-typings.generated.json';
 import videoUploadTypings from './video-upload-typings.generated.json';
 import videoPlayerTypings from './video-player-typings.generated.json';
+import repeatingGroupTypings from './repeating-group-typings.generated.json';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 
 import restGoTypings from './restgo-typings.generated.json';
@@ -8,6 +9,7 @@ import restGoTypings from './restgo-typings.generated.json';
 const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'`).join('\n');
 
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
+${repeatingGroupTypings.source}
   export interface RestGoRuntimeConfiguration {
     readonly enabled: boolean;
     readonly baseUrl: string;
@@ -121,7 +123,13 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   }
 
   /** Base browser-side wrapper shared by every visual WebRAD component. */
+  export interface WebCurrentRowBinding {
+    readonly property: string;
+    readonly fieldPath: string;
+  }
+
   export class WebComponent<TElement extends HTMLElement = HTMLElement> {
+    currentRowBindings: readonly WebCurrentRowBinding[];
     readonly element: TElement;
     constructor(element: TElement);
     readonly id: string;
@@ -320,7 +328,8 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
       component: WebComponent | WebNonvisualComponent,
       eventName: string,
       handlerName: string,
-    ): void;
+      currentRow?: WebRepeatingGroupCurrentRow,
+    ): () => void;
     dispose(): void;
   }
 

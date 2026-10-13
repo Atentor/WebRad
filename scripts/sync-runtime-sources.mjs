@@ -67,6 +67,17 @@ const playerTypings =
     2,
   ) + '\n';
 
+const repeatingGroupTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'repeating-group-typings.generated.json',
+);
+const repeatingGroupTypings =
+  JSON.stringify(createApiClientDeclarations(repositoryRoot, ['repeating-group.ts']), null, 2) +
+  '\n';
+
 const sourceFiles = [
   'api-client.ts',
   'api-client-inputs.ts',
@@ -77,6 +88,7 @@ const sourceFiles = [
   'component.ts',
   'combo-box-data.ts',
   'data-grid.ts',
+  'repeating-group.ts',
   'file-upload.ts',
   'video-file-selection.ts',
   'video-upload.ts',
@@ -269,6 +281,7 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [repeatingGroupTypingsPath, repeatingGroupTypings],
   [playerTypingsPath, playerTypings],
   [
     path.join(repositoryRoot, 'packages', 'compiler', 'src', 'shaka-sources.generated.json'),

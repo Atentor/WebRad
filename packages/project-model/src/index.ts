@@ -3,6 +3,7 @@ export * from './combo-box.js';
 export * from './color-palette.js';
 export * from './default-styles.js';
 export * from './data-grid.js';
+export * from './repeating-group.js';
 export * from './errors.js';
 export * from './factories.js';
 export * from './naming.js';

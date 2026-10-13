@@ -152,7 +152,7 @@ describe('project factories', () => {
     });
     expect(project.settings.scrollbar).toEqual(DEFAULT_PROJECT_SCROLLBAR_STYLE);
     expect(project.pages).toHaveLength(1);
-    expect(project.styles).toHaveLength(13);
+    expect(project.styles).toHaveLength(14);
     expect(project.styles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ componentType: 'WebPage', preset: 'default' }),

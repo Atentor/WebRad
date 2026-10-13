@@ -2,6 +2,7 @@ import type { WebComponent, WebNonvisualComponent } from './component.js';
 import { WebPanel } from './controls.js';
 import type { RuntimeContainerLayoutMode } from './layout.js';
 import { bindPageRestGoEvents } from './restgo-page-events.js';
+import { getRepeatingGroupCurrentRow } from './repeating-group.js';
 
 export type { WebPageLoginEventDetail, WebPageLogoutEventDetail } from './restgo-page-events.js';
 
@@ -36,7 +37,7 @@ export type WebPageLayoutMode = RuntimeContainerLayoutMode;
  * of component identity and the DOM remains its runtime projection.
  */
 export class WebComponentScope extends WebPanel {
-  readonly #generatedBindings: Array<() => void> = [];
+  readonly #generatedBindings = new Set<() => void>();
   readonly #components: ReadonlyMap<string, WebComponent> | undefined;
 
   public constructor(element: HTMLElement, components?: ReadonlyMap<string, WebComponent>) {
@@ -68,14 +69,25 @@ export class WebComponentScope extends WebPanel {
     component: WebComponent | WebNonvisualComponent,
     eventName: string,
     handlerName: string,
-  ): void {
-    const dispose = component.bindEvent(eventName, (sender, event) => {
+    currentRow?: unknown,
+  ): () => void {
+    const unbind = component.bindEvent(eventName, (sender, event) => {
       const handler = Reflect.get(this, handlerName);
       if (typeof handler !== 'function') return;
-      Reflect.apply(handler, this, [sender, event]);
+      const row =
+        currentRow ??
+        ('element' in sender && sender.element instanceof HTMLElement
+          ? getRepeatingGroupCurrentRow(sender.element)
+          : undefined);
+      Reflect.apply(handler, this, [sender, event, row]);
     });
-    this.#generatedBindings.push(dispose);
+    const dispose = (): void => {
+      unbind();
+      this.#generatedBindings.delete(dispose);
+    };
+    this.#generatedBindings.add(dispose);
     if (component === this) this.onRootGeneratedEventBound(eventName);
+    return dispose;
   }
 
   /** Allows mounted authored scopes to observe registered root events. */
@@ -84,7 +96,7 @@ export class WebComponentScope extends WebPanel {
   }
 
   public override dispose(): void {
-    for (const dispose of this.#generatedBindings.splice(0)) dispose();
+    for (const dispose of [...this.#generatedBindings]) dispose();
     super.dispose();
   }
 }

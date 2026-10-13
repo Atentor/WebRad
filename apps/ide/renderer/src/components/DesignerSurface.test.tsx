@@ -2,6 +2,7 @@
 
 import {
   createDefaultComponentLayout,
+  createDefaultRepeatingGroupConfiguration,
   createPage,
   createReusableElement,
   DEFAULT_PROJECT_SETTINGS,
@@ -15,6 +16,84 @@ import { DesignerSurface } from './DesignerSurface';
 import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 
 afterEach(cleanup);
+
+it.each(['fixed', 'align-to-parent', 'row', 'column'] as const)(
+  'keeps one editable Repeating Group template with the full %s layout contract',
+  (mode) => {
+    const page = responsivePage();
+    const root = page.components[0];
+    const button = page.components[1];
+    if (root === undefined || button === undefined) throw new Error('Missing Designer fixture.');
+    const group: ComponentNode = {
+      ...button,
+      id: 'group',
+      name: 'RepeatingGroup1',
+      type: 'WebRepeatingGroup',
+      parentId: root.id,
+      bounds: { x: 10, y: 20, width: 320, height: 300 },
+      props: {
+        repeatingGroupConfig: {
+          ...createDefaultRepeatingGroupConfiguration(),
+          rowHeightMode: 'fixed',
+          fixedRowHeight: 160,
+        },
+      },
+      children: [button.id],
+      layout: {
+        ...button.layout,
+        container: { ...button.layout.container, mode, paddingLeft: 12, gap: 8, wrap: true },
+      },
+    };
+    const child = {
+      ...button,
+      parentId: group.id,
+      layout: {
+        ...button.layout,
+        item: {
+          ...button.layout.item,
+          width: 'stretch' as const,
+          alignSelf: 'end' as const,
+          horizontalAnchor: 'stretch' as const,
+        },
+      },
+    };
+    const { container } = renderSurface({
+      ...page,
+      components: [{ ...root, children: [group.id] }, group, child],
+    });
+    const groupElement = container.querySelector<HTMLElement>('[data-component-id="group"]');
+    const host = groupElement?.querySelector<HTMLElement>('[data-designer-parent-id="group"]');
+    expect(groupElement?.querySelectorAll('[data-webrad-repeating-row]').length).toBe(1);
+    expect(host?.dataset.webradRepeatingRow).toBe('template');
+    expect(host?.style.height).toBe('160px');
+    expect(host?.style.paddingLeft).toBe(mode === 'fixed' ? '' : '12px');
+    const childElement = host?.querySelector<HTMLElement>('[data-designer-node-id="first"]');
+    expect(childElement?.classList.contains(`wr-runtime-item-${mode}`)).toBe(true);
+    if (mode === 'row' || mode === 'column') expect(childElement?.style.alignSelf).toBe('flex-end');
+    expect(groupElement?.querySelector('[role="columnheader"]')).toBeNull();
+  },
+);
+
+it('keeps an empty Repeating Group row as a real editable child host', () => {
+  const page = responsivePage();
+  const current = {
+    ...page,
+    components: page.components.map((component) =>
+      component.id === 'first'
+        ? {
+            ...component,
+            type: 'WebRepeatingGroup',
+            props: { repeatingGroupConfig: createDefaultRepeatingGroupConfiguration() },
+          }
+        : component,
+    ),
+  };
+  const { container } = renderSurface(current);
+  const host = container.querySelector<HTMLElement>('[data-designer-parent-id="first"]');
+  expect(host).not.toBeNull();
+  expect(host?.textContent).toContain('Drop components to design one repeated row');
+  expect(host?.style.minHeight).toBe('80px');
+});
 
 it('applies Margin to the Designer layout host once, including components with a selected style', () => {
   const page = responsivePage();

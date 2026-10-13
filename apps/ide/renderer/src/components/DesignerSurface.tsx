@@ -30,7 +30,6 @@ import type {
 } from '@webrad/project-model';
 import type { ComponentStyleModel } from '@webrad/project-model';
 import {
-  measureRuntimeFitContentSize,
   projectRuntimeLayout,
   type RuntimeContainerLayout,
   type RuntimeFitContentSize,
@@ -55,6 +54,7 @@ import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 import { useDesignerAvailableWidth } from './useDesignerAvailableWidth';
 import { useDesignerPointerInteraction } from './useDesignerPointerInteraction';
 import { measureDesignerChildrenHost, measureDesignerNodeMargins } from './designer-host-geometry';
+import { measureDesignerFitContentSize } from './designer-fit-content';
 
 interface DesignerSurfaceProps {
   viewportName?: ViewportName;
@@ -582,6 +582,10 @@ function directChildrenLayoutHost(component: HTMLElement, type: string): HTMLEle
     child.classList.contains('wr-runtime-children'),
   );
   if (directHost !== undefined) return directHost;
+  const registeredHost = component.querySelector<HTMLElement>(
+    '[data-webrad-child-host] > .wr-runtime-children',
+  );
+  if (registeredHost?.closest('[data-component-id]') === component) return registeredHost;
   if (type !== 'WebPopup') return undefined;
   const popupChildrenHost = directElementChildren(component).find(
     (child) => child.dataset.webradPopupChildren === '',
@@ -651,19 +655,14 @@ function useReusableDefinitionFitContentSizes(
         (child) => child.dataset.componentId === node.id,
       );
       if (component === undefined) continue;
-      const size = measureRuntimeFitContentSize(
-        component,
-        fitContentHost(component, node),
-        node.layout,
-        {
-          scale,
-          isLayoutChild: (child) => {
-            const childNodeId = child.dataset.designerDefinitionNodeId;
-            const childNode = childNodeId === undefined ? undefined : byId.get(childNodeId);
-            return childNode === undefined || !isDesignerFloatingContainer(childNode);
-          },
+      const size = measureDesignerFitContentSize(component, fitContentHost(component, node), node, {
+        scale,
+        isLayoutChild: (child) => {
+          const childNodeId = child.dataset.designerDefinitionNodeId;
+          const childNode = childNodeId === undefined ? undefined : byId.get(childNodeId);
+          return childNode === undefined || !isDesignerFloatingContainer(childNode);
         },
-      );
+      });
       if (size.width !== undefined || size.height !== undefined) next.set(node.id, size);
     }
     setFitContentSizes((current) => (sameFitContentSizeMap(current, next) ? current : next));
@@ -917,6 +916,7 @@ function ReusableDefinitionNode({
       <ComponentView
         node={node}
         designTime
+        templateChildrenBounds={children.map((child) => child.bounds)}
         styleClassName={
           node.styleId === undefined ? undefined : (styleClassNames.get(node.styleId) ?? '')
         }
@@ -1005,6 +1005,7 @@ const RuntimeNode = memo(function RuntimeNode({
       <ComponentView
         node={node}
         designTime
+        templateChildrenBounds={children.map((child) => child.bounds)}
         forceVisible={isFloatingContainerEditor}
         styleClassName={
           node.styleId === undefined ? undefined : (styleClassNames.get(node.styleId) ?? '')
@@ -1370,19 +1371,14 @@ export function DesignerSurface({
       // The wrapper receives the computed item size, while the ComponentView
       // owns visual padding and borders. Measure its actual border box so the
       // fitted wrapper has room for both sides of that visual surface.
-      const size = measureRuntimeFitContentSize(
-        component,
-        fitContentHost(component, node),
-        node.layout,
-        {
-          scale,
-          isLayoutChild: (child) => {
-            const childNodeId = child.dataset.designerNodeId;
-            const childNode = childNodeId === undefined ? undefined : byId.get(childNodeId);
-            return childNode === undefined || !isDesignerFloatingContainer(childNode);
-          },
+      const size = measureDesignerFitContentSize(component, fitContentHost(component, node), node, {
+        scale,
+        isLayoutChild: (child) => {
+          const childNodeId = child.dataset.designerNodeId;
+          const childNode = childNodeId === undefined ? undefined : byId.get(childNodeId);
+          return childNode === undefined || !isDesignerFloatingContainer(childNode);
         },
-      );
+      });
       if (size.width !== undefined || size.height !== undefined) next.set(node.id, size);
     }
     setFitContentSizes((current) => (sameFitContentSizeMap(current, next) ? current : next));

@@ -109,7 +109,7 @@ function defaultLayout() {
 describe('MVP component metadata', () => {
   it('registers the reusable visual wrapper, controls, Popup, and WebApiClient in a stable order', () => {
     expect(componentRegistry.list().map((item) => item.type)).toEqual(MVP_COMPONENT_TYPES);
-    expect(componentRegistry.size).toBe(17);
+    expect(componentRegistry.size).toBe(18);
     expect(
       componentRegistry
         .list()
@@ -146,7 +146,7 @@ describe('MVP component metadata', () => {
         .list()
         .filter((item) => item.canHaveChildren)
         .map((item) => item.type),
-    ).toEqual(['WebPage', 'WebPanel', 'WebPopup']);
+    ).toEqual(['WebPage', 'WebPanel', 'WebRepeatingGroup', 'WebPopup']);
   });
 
   it('exposes structural responsive-layout metadata only where it applies', () => {
@@ -179,7 +179,7 @@ describe('MVP component metadata', () => {
       'itemBottom',
     ];
 
-    for (const type of ['WebPage', 'WebPanel', 'WebPopup']) {
+    for (const type of ['WebPage', 'WebPanel', 'WebRepeatingGroup', 'WebPopup']) {
       const definition = componentRegistry.require(type);
       expect(
         definition.properties
@@ -236,6 +236,7 @@ describe('MVP component metadata', () => {
       'WebPage',
       'WebPanel',
       'WebReusableElement',
+      'WebRepeatingGroup',
     ]);
     expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual([
       'WebPopup',
@@ -342,6 +343,7 @@ describe('MVP component metadata', () => {
       'containerJustifyContent',
       'containerAlignItems',
       'modal',
+      'currentRowBindings',
     ]);
     expect(popup.properties.filter((property) => property.source === 'bounds')).toEqual([
       expect.objectContaining({ name: 'width', category: 'Size & position', defaultValue: 360 }),
@@ -536,7 +538,7 @@ describe('ComponentRegistry behavior', () => {
   it('supports the conceptual static global registry API', () => {
     expect(ComponentRegistry.has('WebButton')).toBe(true);
     expect(ComponentRegistry.get('WebButton')).toBe(componentRegistry.get('WebButton'));
-    expect(ComponentRegistry.list()).toHaveLength(17);
+    expect(ComponentRegistry.list()).toHaveLength(18);
   });
 });
 

@@ -6,19 +6,25 @@ import {
   defaultComponentRegistry,
   type ComponentPropertyDefinition,
   type ComponentRegistry,
+  getCurrentRowBindableProperties,
+  isCurrentRowFieldCompatible,
 } from '@webrad/component-registry';
 import {
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
   ComboBoxConfigurationSchema,
+  CurrentRowBindingsSchema,
+  RepeatingGroupConfigurationSchema,
   VideoPlayerSourceSchema,
   comboBoxSchemaChoices,
   safeParseProject,
   type ProjectApplicationIcon,
   type ProjectSocialImage,
   type WebRadProject,
+  type ApiClientSchemaNode,
 } from '@webrad/project-model';
 import type { BuildFailure } from 'esbuild';
+import { repeatingGroupForComponent } from '@webrad/language';
 
 import { bundleSources } from './bundle.js';
 import { fromEsbuildMessage } from './diagnostics.js';
@@ -50,6 +56,7 @@ function validateRegistry(
     })),
   ];
   for (const { document, path } of documents) {
+    const rowHandlerGroups = new Map<string, string>();
     for (const [componentIndex, component] of document.components.entries()) {
       const definition = registry.get(component.type);
       if (definition === undefined) {
@@ -256,6 +263,153 @@ function validateRegistry(
           });
         }
       }
+      const rowGroup = repeatingGroupForComponent(document, component.id);
+      if (rowGroup !== undefined) {
+        for (const [eventName, handler] of Object.entries(component.events)) {
+          if (handler === null) continue;
+          const owner = rowHandlerGroups.get(handler);
+          if (owner !== undefined && owner !== rowGroup.id)
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message: `Handler "${handler}" is assigned to different Repeating Groups. Use a separate handler for each row template.`,
+              path: [...path, 'components', componentIndex, 'events', eventName],
+            });
+          else rowHandlerGroups.set(handler, rowGroup.id);
+        }
+      }
+      if (component.type === 'WebRepeatingGroup') {
+        const config = RepeatingGroupConfigurationSchema.safeParse(
+          component.props.repeatingGroupConfig,
+        );
+        if (config.success && config.data.apiClientId !== null) {
+          const report = (field: string, message: string): void => {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message,
+              path: [...path, 'components', componentIndex, 'props', 'repeatingGroupConfig', field],
+            });
+          };
+          const api = document.components.find(
+            (candidate) => candidate.id === config.data.apiClientId,
+          );
+          if (api?.type !== 'WebApiClient')
+            report(
+              'apiClientId',
+              'WebRepeatingGroup must reference a WebApiClient in the same document.',
+            );
+          else {
+            const apiConfig = ApiClientConfigurationSchema.safeParse(api.props.apiClientConfig);
+            const operation = apiConfig.success
+              ? apiConfig.data.operations.find(
+                  (candidate) => candidate.id === config.data.operationId,
+                )
+              : undefined;
+            if (operation === undefined)
+              report(
+                'operationId',
+                'WebRepeatingGroup must reference an operation of the selected WebApiClient.',
+              );
+            else if (
+              !comboBoxSchemaChoices(operation.responseSchema, config.data.listPath).lists.some(
+                (choice) => choice.path === config.data.listPath,
+              )
+            )
+              report('listPath', 'WebRepeatingGroup must reference a saved response list.');
+          }
+        }
+      }
+      const bindings = CurrentRowBindingsSchema.safeParse(component.props.currentRowBindings ?? []);
+      if (bindings.success && bindings.data.length > 0) {
+        const report = (bindingIndex: number, field: string, message: string): void => {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message,
+            path: [
+              ...path,
+              'components',
+              componentIndex,
+              'props',
+              'currentRowBindings',
+              bindingIndex,
+              field,
+            ],
+          });
+        };
+        if (rowGroup === undefined)
+          report(
+            0,
+            'fieldPath',
+            'Current row bindings require a component inside a Repeating Group row template.',
+          );
+        else {
+          const config = RepeatingGroupConfigurationSchema.safeParse(
+            rowGroup.props.repeatingGroupConfig,
+          );
+          const api = config.success
+            ? document.components.find((candidate) => candidate.id === config.data.apiClientId)
+            : undefined;
+          const apiConfig = ApiClientConfigurationSchema.safeParse(api?.props.apiClientConfig);
+          const operation =
+            config.success && apiConfig.success
+              ? apiConfig.data.operations.find(
+                  (candidate) => candidate.id === config.data.operationId,
+                )
+              : undefined;
+          const find = (
+            node: ApiClientSchemaNode,
+            target: string,
+          ): ApiClientSchemaNode | undefined => {
+            if (node.path === target) return node;
+            for (const child of node.children) {
+              const match = find(child, target);
+              if (match !== undefined) return match;
+            }
+            return undefined;
+          };
+          const properties = new Map(
+            getCurrentRowBindableProperties(definition).map((property) => [
+              property.name,
+              property,
+            ]),
+          );
+          for (const [bindingIndex, binding] of bindings.data.entries()) {
+            const property = properties.get(binding.property);
+            if (property === undefined) {
+              report(
+                bindingIndex,
+                'property',
+                `Property "${binding.property}" is not a writable visual value of ${component.type}.`,
+              );
+              continue;
+            }
+            const field =
+              config.success && operation?.responseSchema != null
+                ? find(
+                    operation.responseSchema.root,
+                    `${config.data.listPath}/*${binding.fieldPath}`,
+                  )
+                : undefined;
+            if (field?.kind !== 'field') {
+              report(
+                bindingIndex,
+                'fieldPath',
+                'Current row binding must reference a saved scalar field of the selected response-list item.',
+              );
+              continue;
+            }
+            const compatible = isCurrentRowFieldCompatible(property, field.fieldType);
+            if (!compatible)
+              report(
+                bindingIndex,
+                'fieldPath',
+                `Field "${binding.fieldPath}" is incompatible with the ${property.type} property "${binding.property}".`,
+              );
+          }
+        }
+      }
     }
   }
   for (const [styleIndex, style] of project.styles.entries()) {
@@ -317,6 +471,10 @@ function isValidPropertyValue(
       return DataGridConfigurationSchema.safeParse(value).success;
     case 'combo-box-config':
       return value === null || ComboBoxConfigurationSchema.safeParse(value).success;
+    case 'repeating-group-config':
+      return RepeatingGroupConfigurationSchema.safeParse(value).success;
+    case 'current-row-bindings':
+      return CurrentRowBindingsSchema.safeParse(value).success;
   }
 }
 

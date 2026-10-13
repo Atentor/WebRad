@@ -1,4 +1,8 @@
-import type { ComponentNode, PageModel } from '@webrad/project-model';
+import {
+  RepeatingGroupConfigurationSchema,
+  type ComponentNode,
+  type PageModel,
+} from '@webrad/project-model';
 
 import type { Command } from './command-history.js';
 import { DEFAULT_GRID_SIZE, moveBoundsTogether, type Point } from './geometry.js';
@@ -179,6 +183,7 @@ export function materializePaste(
     }
     return {
       ...cloneComponentNode(source),
+      props: remapRepeatingGroupApiReference(source.props, idMap),
       id,
       name: nextAvailableName(source.name, usedNames),
       parentId: mappedParent,
@@ -214,6 +219,18 @@ export function materializePaste(
   });
 
   return { parentId, rootIds: pastedRootIds, components };
+}
+
+function remapRepeatingGroupApiReference(
+  props: ComponentNode['props'],
+  idMap: ReadonlyMap<string, string>,
+): ComponentNode['props'] {
+  const parsed = RepeatingGroupConfigurationSchema.safeParse(props.repeatingGroupConfig);
+  if (!parsed.success || parsed.data.apiClientId === null) return props;
+  const apiClientId = idMap.get(parsed.data.apiClientId);
+  return apiClientId === undefined
+    ? props
+    : { ...props, repeatingGroupConfig: { ...parsed.data, apiClientId } };
 }
 
 export class PasteComponentsCommand implements Command<PageModel> {

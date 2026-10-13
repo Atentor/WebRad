@@ -1,5 +1,7 @@
 import {
   normalizeDataGridConfiguration,
+  normalizeRepeatingGroupConfiguration,
+  type Bounds,
   type ComponentNode,
   type DataGridColumn,
   type DataGridConfiguration,
@@ -15,7 +17,17 @@ import {
 } from '@webrad/runtime/visual';
 import { getWebRadIconShapes, isWebRadIconName, type WebRadIconShape } from '@webrad/runtime/icons';
 import { bindImageResampling, imagePlaceholderSource } from '@webrad/runtime/image-display';
-import { useEffect, useRef, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { projectRepeatingGroupRowStyle } from '@webrad/runtime';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 
 export type ComponentEventName =
   'OnClick' | 'OnChange' | 'OnInput' | 'OnFocus' | 'OnBlur' | 'OnMouseEnter' | 'OnMouseLeave';
@@ -27,6 +39,8 @@ export interface ComponentViewProps {
   styleClassName?: string;
   /** Visual descendants for containers such as WebPage, WebPanel, and WebPopup. */
   children?: ReactNode;
+  /** Row geometry comes from the saved child template, never sampled API data. */
+  templateChildrenBounds?: readonly Bounds[];
   /**
    * Lets a design-only host inspect an otherwise hidden visual component
    * without mutating the versioned project model.
@@ -228,7 +242,90 @@ function dataGridLayoutStyle(
   } as CSSProperties;
 }
 
+function RepeatingGroupView({
+  node,
+  designTime,
+  styleClassName,
+  children,
+  templateChildrenBounds = [],
+}: ComponentViewProps): ReactElement {
+  const configuration = normalizeRepeatingGroupConfiguration(node.props.repeatingGroupConfig);
+  const rowStyle = Object.fromEntries(
+    Object.entries(
+      projectRepeatingGroupRowStyle(configuration, node.layout, templateChildrenBounds),
+    ).map(([property, value]) => [
+      property.replace(/-([a-z])/gu, (_match: string, letter: string) => letter.toUpperCase()),
+      value,
+    ]),
+  ) as CSSProperties;
+  const child = Children.toArray(children)[0];
+  const placeholder =
+    node.children.length === 0 ? (
+      <span
+        className="wr-repeating-group-template-placeholder"
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'grid',
+          placeItems: 'center',
+          padding: 12,
+          opacity: 0.65,
+          pointerEvents: 'none',
+        }}
+      >
+        Drop components to design one repeated row
+      </span>
+    ) : null;
+  const row =
+    isValidElement<{ className?: string; style?: CSSProperties; children?: ReactNode }>(child) &&
+    child.props.className?.split(/\s+/u).includes('wr-runtime-children') === true ? (
+      cloneElement(
+        child,
+        {
+          className: `${child.props.className ?? ''} wr-repeating-group-row`,
+          style: { ...child.props.style, ...rowStyle },
+          ...{
+            'data-webrad-repeating-row': 'template',
+            'data-webrad-child-host': '',
+            role: 'listitem',
+          },
+        },
+        child.props.children,
+        placeholder,
+      )
+    ) : (
+      <div
+        className="wr-repeating-group-row"
+        data-webrad-repeating-row="template"
+        data-webrad-child-host=""
+        role="listitem"
+        style={{ position: 'relative', ...rowStyle }}
+      >
+        {children}
+        {placeholder}
+      </div>
+    );
+  return (
+    <div
+      {...sharedAttributes(node, designTime, styleClassName)}
+      role="list"
+      aria-label={node.name}
+      style={{
+        ...sharedAttributes(node, designTime, styleClassName).style,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: configuration.gap,
+        overflow: 'auto',
+      }}
+    >
+      {row}
+    </div>
+  );
+}
+
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
+  WebRepeatingGroup: RepeatingGroupView,
   WebPage: ({ node, designTime, styleClassName, children }) => (
     <section
       {...sharedAttributes(node, designTime, styleClassName)}

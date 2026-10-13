@@ -17,6 +17,15 @@ import {
 } from './controls.js';
 import { WebPage } from './page.js';
 import { WebDataGrid, normalizeWebDataGridConfiguration } from './data-grid.js';
+import {
+  WebRepeatingGroup,
+  applyCurrentRowBindings,
+  bindRepeatingGroupRowContext,
+  normalizeWebRepeatingGroupConfiguration,
+  projectRepeatingGroupRowStyle,
+  type WebRepeatingGroupConfiguration,
+  type WebRepeatingGroupRow,
+} from './repeating-group.js';
 import { WebVideoPlayer } from './video-player.js';
 import {
   normalizeVideoPlayerSource,
@@ -54,6 +63,8 @@ export interface RuntimeComponentNode {
   readonly id: string;
   /** Stable source-node identity when this node was expanded from a reusable definition. */
   readonly templateId?: string;
+  /** Authored identity before a repeating row receives a physical scope. */
+  readonly repeatingTemplateId?: string;
   /** True only for the definition root mounted inside a reusable instance. */
   readonly reusableRoot?: boolean;
   /** Stable reusable-definition ID that owns this expanded definition node. */
@@ -206,6 +217,16 @@ function applyCommon(
   if (node.templateId !== undefined) element.dataset.webradTemplateId = node.templateId;
   element.dataset.webradName = node.name;
   element.dataset.webradType = node.type;
+  component.currentRowBindings = Array.isArray(node.props.currentRowBindings)
+    ? node.props.currentRowBindings.flatMap((binding: unknown) => {
+        if (typeof binding !== 'object' || binding === null) return [];
+        const property = Reflect.get(binding, 'property') as unknown;
+        const fieldPath = Reflect.get(binding, 'fieldPath') as unknown;
+        return typeof property === 'string' && typeof fieldPath === 'string'
+          ? [{ property, fieldPath }]
+          : [];
+      })
+    : [];
   element.classList.add(
     ...visual.classNames,
     ...tokenizeTailwindClasses(node.styleClassName ?? ''),
@@ -481,6 +502,19 @@ runtimeComponentRegistry
       applyCommon(component, node);
       component.dataGridConfig = normalizeWebDataGridConfiguration(node.props.dataGridConfig);
     },
+  })
+  .register<WebRepeatingGroup>('WebRepeatingGroup', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebRepeatingGroup(element),
+    getChildrenHost: (component) => component.getTemplateHost(),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.repeatingGroupConfig = normalizeWebRepeatingGroupConfiguration(
+        node.props.repeatingGroupConfig,
+      );
+      component.element.classList.add('wr-repeating-group');
+      component.element.style.overflow = 'auto';
+    },
   });
 
 export interface MountedRuntimePage {
@@ -665,6 +699,247 @@ export function expandReusableElements(model: RuntimePageModel): RuntimePageMode
   return { ...model, components: [...expanded.values()], reusableElements: [] };
 }
 
+function collectMountedReusableInstances(
+  nodes: Iterable<RuntimeComponentNode>,
+  components: ReadonlyMap<string, WebComponent>,
+): readonly MountedReusableElementInstance[] {
+  const allNodes = [...nodes];
+  const maps = new Map<string, Map<string, string>>();
+  for (const node of allNodes) {
+    if (node.reusableInstanceId === undefined || node.templateId === undefined) continue;
+    let map = maps.get(node.reusableInstanceId);
+    if (map === undefined) {
+      map = new Map();
+      maps.set(node.reusableInstanceId, map);
+    }
+    map.set(node.templateId, node.id);
+  }
+  return allNodes.flatMap((node) => {
+    const component = components.get(node.id);
+    return node.reusableRoot !== true ||
+      node.reusableDefinitionId === undefined ||
+      node.reusableInstanceId === undefined ||
+      component === undefined
+      ? []
+      : [
+          {
+            instanceId: node.reusableInstanceId,
+            reusableElementId: node.reusableDefinitionId,
+            element: component.element,
+            componentIds: maps.get(node.reusableInstanceId) ?? new Map<string, string>(),
+          },
+        ];
+  });
+}
+
+function mountRepeatingGroupRow(
+  group: RuntimeComponentNode,
+  index: number,
+  value: unknown,
+  configuration: WebRepeatingGroupConfiguration,
+  sourceNodes: ReadonlyMap<string, RuntimeComponentNode>,
+  registry: RuntimeComponentRegistry,
+  document: Document,
+  pageName: string,
+): WebRepeatingGroupRow {
+  const scope = `@wr-row:${encodeURIComponent(group.id)}:${String(index)}`;
+  const rowElement = document.createElement('div');
+  rowElement.className = 'wr-repeating-group-row';
+  rowElement.dataset.webradRepeatingRow = String(index);
+  rowElement.setAttribute('role', 'listitem');
+  const originals = new Map<string, RuntimeComponentNode>();
+  const collect = (id: string): void => {
+    if (originals.has(id)) return;
+    const source = sourceNodes.get(id);
+    if (source === undefined)
+      throw new Error(`Repeating Group template references unknown component "${id}".`);
+    originals.set(id, source);
+    for (const child of source.children) collect(child);
+  };
+  for (const child of group.children) collect(child);
+  const occupiedIds = new Set(sourceNodes.keys());
+  const physicalIds = new Map(
+    [...originals.keys()].map((id) => [
+      id,
+      scopedReusableComponentId(scope, encodeURIComponent(id), occupiedIds),
+    ]),
+  );
+  const nodes = new Map<string, RuntimeComponentNode>();
+  const componentIds = new Map<string, string>();
+  for (const source of originals.values()) {
+    const id = physicalIds.get(source.id);
+    if (id === undefined) throw new Error('Repeating Group physical identity was not allocated.');
+    componentIds.set(source.id, id);
+    componentIds.set(source.repeatingTemplateId ?? source.id, id);
+    if (source.templateId !== undefined && !componentIds.has(source.templateId))
+      componentIds.set(source.templateId, id);
+    nodes.set(id, {
+      ...source,
+      id,
+      repeatingTemplateId: source.repeatingTemplateId ?? source.id,
+      parentId:
+        source.parentId === group.id ? null : (physicalIds.get(source.parentId ?? '') ?? null),
+      children: source.children.map((child) => physicalIds.get(child) ?? child),
+      ...(source.reusableInstanceId === undefined
+        ? {}
+        : {
+            reusableInstanceId:
+              physicalIds.get(source.reusableInstanceId) ?? source.reusableInstanceId,
+          }),
+    });
+  }
+  const components = new Map<string, WebComponent>();
+  const observers: RuntimeFitContentBinding[] = [];
+  const bindingDisposers: Array<() => void> = [];
+  let disposed = false;
+  try {
+    const createBranch = (id: string): HTMLElement => {
+      const node = nodes.get(id);
+      if (node === undefined)
+        throw new Error(`Repeating Group row references unknown component "${id}".`);
+      const component = registry.create(document, node);
+      components.set(id, component);
+      applyCurrentRowBindings(component, node.props.currentRowBindings, value);
+      const updateBindings = (): void =>
+        applyCurrentRowBindings(component, component.currentRowBindings, value);
+      component.element.addEventListener('webrad:row-bindings-change', updateBindings);
+      bindingDisposers.push(() =>
+        component.element.removeEventListener('webrad:row-bindings-change', updateBindings),
+      );
+      if (node.reusableRoot === true) component.element.dataset.webradPageName = pageName;
+      if (component instanceof WebRepeatingGroup) {
+        component.configureRowTemplate((childIndex, childValue, childConfiguration) =>
+          mountRepeatingGroupRow(
+            node,
+            childIndex,
+            childValue,
+            childConfiguration,
+            nodes,
+            registry,
+            document,
+            pageName,
+          ),
+        );
+      } else {
+        const host =
+          registry.require(node.type).getChildrenHost?.(component, node) ?? component.element;
+        for (const child of node.children) host.append(createBranch(child));
+      }
+      return component.element;
+    };
+    const rootIds = group.children.map((id) => physicalIds.get(id) ?? id);
+    for (const id of rootIds) rowElement.append(createBranch(id));
+    applyRuntimeContainerLayout(rowElement, group);
+    for (const [property, style] of Object.entries(
+      projectRepeatingGroupRowStyle(
+        configuration,
+        group.layout,
+        group.children.flatMap((id) => {
+          const node = sourceNodes.get(id);
+          return node === undefined ? [] : [node.bounds];
+        }),
+      ),
+    ))
+      rowElement.style.setProperty(property, style, 'important');
+    const applyBranch = (id: string, parentLayout: RuntimeContainerLayout): void => {
+      const node = nodes.get(id);
+      const component = components.get(id);
+      if (node === undefined || component === undefined) return;
+      const adapter = registry.require(node.type);
+      if (adapter.participatesInLayout !== false)
+        applyRuntimeLayout(
+          component.element,
+          component instanceof WebRepeatingGroup
+            ? {
+                ...node,
+                layout: { ...node.layout, container: { ...node.layout.container, mode: 'fixed' } },
+              }
+            : node,
+          parentLayout,
+          { isReusableRoot: node.reusableRoot },
+        );
+      if (component instanceof WebRepeatingGroup) return;
+      const childHost = adapter.getChildrenHost?.(component, node);
+      if (childHost !== undefined) applyRuntimeContainerLayout(childHost, node);
+      const container = resolveRuntimeContainerLayout(node.layout);
+      for (const child of node.children) applyBranch(child, container);
+      if (
+        node.children.length > 0 &&
+        adapter.participatesInLayout !== false &&
+        (node.layout.item.width === 'fit-content' || node.layout.item.height === 'fit-content')
+      ) {
+        const host = fitContentMeasurementHost(node, component, nodes, components, registry);
+        observers.push(
+          bindRuntimeFitContent(component.element, host, node.layout, {
+            isLayoutChild: (child) => isRuntimeLayoutChild(child, nodes, registry),
+          }),
+        );
+      }
+    };
+    const parentContainer = resolveRuntimeContainerLayout(group.layout);
+    for (const id of rootIds) applyBranch(id, parentContainer);
+    const fitRowWidth = group.layout.item.width === 'fit-content';
+    const fitRowHeight =
+      configuration.rowHeightMode === 'dynamic' &&
+      (parentContainer.mode === 'fixed' || parentContainer.mode === 'align-to-parent');
+    if (fitRowWidth || fitRowHeight) {
+      // Rows are assembled off-DOM. Measuring a flex row before attachment
+      // would write zero pixels and shrink its children before their first paint.
+      queueMicrotask(() => {
+        if (disposed) return;
+        observers.push(
+          bindRuntimeFitContent(
+            rowElement,
+            rowElement,
+            {
+              ...group.layout,
+              item: {
+                ...group.layout.item,
+                width: fitRowWidth ? 'fit-content' : 'stretch',
+                height: fitRowHeight ? 'fit-content' : 'fixed',
+                minHeight: configuration.minRowHeight,
+                maxHeight: configuration.maxRowHeight,
+              },
+            },
+            { isLayoutChild: (child) => isRuntimeLayoutChild(child, nodes, registry) },
+          ),
+        );
+      });
+    }
+    const row: WebRepeatingGroupRow = {
+      index,
+      value,
+      element: rowElement,
+      components,
+      componentIds,
+      reusableInstances: collectMountedReusableInstances(nodes.values(), components),
+      component: <C extends WebComponent>(templateId: string): C => {
+        const id = componentIds.get(templateId);
+        const component = id === undefined ? undefined : components.get(id);
+        if (component === undefined)
+          throw new Error(`Repeating Group row ${String(index)} has no component "${templateId}".`);
+        return component as C;
+      },
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        for (const observer of observers) observer.dispose();
+        for (const dispose of bindingDisposers) dispose();
+        for (const component of components.values()) component.dispose();
+      },
+    };
+    bindRepeatingGroupRowContext(rowElement, row);
+    for (const component of components.values())
+      bindRepeatingGroupRowContext(component.element, row);
+    return row;
+  } catch (error) {
+    for (const observer of observers) observer.dispose();
+    for (const dispose of bindingDisposers) dispose();
+    for (const component of components.values()) component.dispose();
+    throw error;
+  }
+}
+
 export function mountPage(
   model: RuntimePageModel,
   host: HTMLElement = document.body,
@@ -694,6 +969,21 @@ export function mountPage(
       component.element.dataset.webradPageName = expandedModel.name;
     }
     components.set(node.id, component);
+    if (component instanceof WebRepeatingGroup) {
+      component.configureRowTemplate((index, value, configuration) =>
+        mountRepeatingGroupRow(
+          node,
+          index,
+          value,
+          configuration,
+          nodes,
+          registry,
+          host.ownerDocument,
+          expandedModel.name,
+        ),
+      );
+      return component.element;
+    }
     const childrenHost = registry.require(node.type).getChildrenHost?.(component, node);
     for (const childId of node.children) {
       const child = nodes.get(childId);
@@ -739,12 +1029,23 @@ export function mountPage(
           }
         : undefined;
     if (adapter.participatesInLayout !== false) {
-      applyRuntimeLayout(component.element, node, parentContainer, {
-        isPageRoot,
-        isReusableRoot: node.reusableRoot,
-        reusableRootFitContent,
-      });
+      applyRuntimeLayout(
+        component.element,
+        component instanceof WebRepeatingGroup
+          ? {
+              ...node,
+              layout: { ...node.layout, container: { ...node.layout.container, mode: 'fixed' } },
+            }
+          : node,
+        parentContainer,
+        {
+          isPageRoot,
+          isReusableRoot: node.reusableRoot,
+          reusableRootFitContent,
+        },
+      );
     }
+    if (component instanceof WebRepeatingGroup) return;
     const childrenHost = adapter.getChildrenHost?.(component, node);
     if (childrenHost !== undefined) applyRuntimeContainerLayout(childrenHost, node);
     const container = resolveRuntimeContainerLayout(node.layout);
@@ -773,6 +1074,7 @@ export function mountPage(
       throw new Error(`Runtime fit-content layout references unknown component "${nodeId}".`);
     }
     const adapter = registry.require(node.type);
+    if (component instanceof WebRepeatingGroup) return;
     const item = node.layout.item;
     // Bind structural containers only. Leaf controls retain the browser's own
     // intrinsic sizing (for example native inputs), while a container needs
@@ -795,35 +1097,7 @@ export function mountPage(
     for (const childId of node.children) bindBranchFitContent(childId);
   };
   bindBranchFitContent(expandedModel.rootComponentId);
-  const componentIdsByReusableInstance = new Map<string, Map<string, string>>();
-  for (const node of expandedModel.components) {
-    if (node.reusableInstanceId === undefined || node.templateId === undefined) continue;
-    let componentIds = componentIdsByReusableInstance.get(node.reusableInstanceId);
-    if (componentIds === undefined) {
-      componentIds = new Map();
-      componentIdsByReusableInstance.set(node.reusableInstanceId, componentIds);
-    }
-    componentIds.set(node.templateId, node.id);
-  }
-  const reusableInstances = expandedModel.components.flatMap((node) => {
-    if (
-      node.reusableRoot !== true ||
-      node.reusableDefinitionId === undefined ||
-      node.reusableInstanceId === undefined
-    ) {
-      return [];
-    }
-    const root = components.get(node.id);
-    if (root === undefined) return [];
-    return [
-      {
-        instanceId: node.reusableInstanceId,
-        reusableElementId: node.reusableDefinitionId,
-        element: root.element,
-        componentIds: componentIdsByReusableInstance.get(node.reusableInstanceId) ?? new Map(),
-      },
-    ];
-  });
+  const reusableInstances = collectMountedReusableInstances(expandedModel.components, components);
   return {
     element: rootElement,
     page: rootComponent,
@@ -831,6 +1105,8 @@ export function mountPage(
     reusableInstances,
     dispose: () => {
       for (const binding of fitContentBindings) binding.dispose();
+      for (const component of components.values())
+        if (component instanceof WebRepeatingGroup) component.dispose();
     },
   };
 }

@@ -8,6 +8,7 @@ import { bindStyleColorsToPalette, paletteColorId } from './color-palette.js';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
+import { CurrentRowBindingsSchema, RepeatingGroupConfigurationSchema } from './repeating-group.js';
 import { ComboBoxConfigurationSchema } from './combo-box.js';
 import { VideoUploadPropertiesSchema } from './video-upload.js';
 import { VideoPlayerPropertiesSchema } from './video-player.js';
@@ -239,11 +240,18 @@ function materializeProjectDefaults(input: unknown): unknown {
         ? (settings.colorPalette ?? DEFAULT_PROJECT_SETTINGS.colorPalette)
         : DEFAULT_PROJECT_SETTINGS.colorPalette,
     );
-    styles = materializeComponentDefaultStyle(
+    const videoStyles = materializeComponentDefaultStyle(
       candidate.id,
       popupStyles,
       'WebVideoPlayer',
       ['WebImage'],
+      palette.success ? palette.data : [],
+    ).styles;
+    styles = materializeComponentDefaultStyle(
+      candidate.id,
+      videoStyles,
+      'WebRepeatingGroup',
+      ['WebPanel'],
       palette.success ? palette.data : [],
     ).styles;
   }
@@ -472,6 +480,16 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
     })
     .strict()
     .superRefine((component, context) => {
+      if (component.props.currentRowBindings !== undefined) {
+        const result = CurrentRowBindingsSchema.safeParse(component.props.currentRowBindings);
+        if (!result.success)
+          for (const issue of result.error.issues)
+            context.addIssue({
+              code: 'custom',
+              message: `Invalid current-row binding: ${issue.message}`,
+              path: ['props', 'currentRowBindings', ...issue.path],
+            });
+      }
       if (component.type === 'WebVideoUpload' || component.type === 'WebVideoPlayer') {
         const result = (
           component.type === 'WebVideoUpload'
@@ -492,22 +510,26 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
           ? 'apiClientConfig'
           : component.type === 'WebDataGrid'
             ? 'dataGridConfig'
-            : component.type === 'WebComboBox'
-              ? 'comboBoxConfig'
-              : undefined;
+            : component.type === 'WebRepeatingGroup'
+              ? 'repeatingGroupConfig'
+              : component.type === 'WebComboBox'
+                ? 'comboBoxConfig'
+                : undefined;
       if (propertyName === undefined || component.props[propertyName] === undefined) return;
       const schema =
         component.type === 'WebApiClient'
           ? ApiClientConfigurationSchema
           : component.type === 'WebDataGrid'
             ? DataGridConfigurationSchema
-            : ComboBoxConfigurationSchema.nullable();
+            : component.type === 'WebRepeatingGroup'
+              ? RepeatingGroupConfigurationSchema
+              : ComboBoxConfigurationSchema.nullable();
       const result = schema.safeParse(component.props[propertyName]);
       if (result.success) return;
       for (const issue of result.error.issues) {
         context.addIssue({
           code: 'custom',
-          message: `Invalid ${component.type === 'WebApiClient' ? 'API Client' : component.type === 'WebDataGrid' ? 'Data Grid' : 'ComboBox'} configuration: ${issue.message}`,
+          message: `Invalid ${component.type === 'WebApiClient' ? 'API Client' : component.type === 'WebDataGrid' ? 'Data Grid' : component.type === 'WebRepeatingGroup' ? 'Repeating Group' : 'ComboBox'} configuration: ${issue.message}`,
           path: ['props', propertyName, ...issue.path],
         });
       }

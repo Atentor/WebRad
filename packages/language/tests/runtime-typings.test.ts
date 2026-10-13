@@ -543,6 +543,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebCheckBox,
   WebComboBox,
   WebDataGrid,
+  WebRepeatingGroup,
   WebEdit,
   WebFileUpload,
   WebVideoUpload,
@@ -574,6 +575,7 @@ class EditorPage extends WebPage {
     image: WebImage,
     list: WebListBox,
     grid: WebDataGrid,
+    repeatingGroup: WebRepeatingGroup,
     popup: WebPopup,
     api: WebApiClient,
     reusableInstance: WebReusableElementInstance,
@@ -592,6 +594,7 @@ class EditorPage extends WebPage {
     image./*@image*/objectFit;
     list./*@list*/selectedIndex;
     grid./*@grid*/configuration;
+    repeatingGroup./*@repeatingGroup*/rows;
     popup./*@popup*/modal;
     api./*@api*/request;
     reusableInstance./*@reusableInstance*/pageName;
@@ -747,6 +750,7 @@ class EditorPage extends WebPage {
       WebVideoUpload: 'videoUpload',
       WebVideoPlayer: 'videoPlayer',
       WebDataGrid: 'grid',
+      WebRepeatingGroup: 'repeatingGroup',
       WebPage: 'page',
       WebImage: 'image',
       WebLabel: 'label',
