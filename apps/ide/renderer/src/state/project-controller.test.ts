@@ -64,6 +64,11 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
     },
     files: { read: vi.fn(), write: vi.fn() },
     build: { run: vi.fn() },
+    deploy: {
+      chooseDirectory: vi.fn(async () => null),
+      run: vi.fn(),
+      subscribe: vi.fn(() => () => undefined),
+    },
     styles: { compile: vi.fn(async () => ({ css: '' })) },
     commands: { subscribe: vi.fn(() => () => undefined) },
     lifecycle: { setDirty: vi.fn() },

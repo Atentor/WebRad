@@ -21,6 +21,8 @@ export interface CompileProjectOptions {
   readonly write?: boolean;
   readonly minify?: boolean;
   readonly sourcemap?: boolean;
+  /** Preview embeds an isolated bundle; deploy emits browser ES modules for hosting. */
+  readonly target?: 'preview' | 'deploy';
   /** Emit the original TypeScript mappings and an unminified Debug Preview. */
   readonly debug?: boolean;
   readonly registry?: ComponentRegistry;
@@ -32,6 +34,8 @@ export interface CompileProjectResult {
   readonly diagnostics: readonly CompileDiagnostic[];
   /** Browser files keyed by their POSIX path relative to outputDirectory. */
   readonly files: Readonly<Record<string, string>>;
+  /** Imported assets and generated application icons, including memory-only builds. */
+  readonly binaryFiles?: Readonly<Record<string, Uint8Array>>;
   /** The same real app bundle as `files`, inlined for the isolated HTTP Preview. */
   readonly previewHtml?: string;
   /** Original authored-source mappings for the JavaScript executed by Debug Preview. */

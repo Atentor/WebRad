@@ -206,7 +206,12 @@ export class ${page.name} extends ${page.name}Generated {
 
   it('provides an actionable runtime error when the project integration is disabled', async () => {
     const project = createProject('RestGoDisabled');
-    const result = await compileProjectToMemory(project, { userSources: {} });
+    const result = await compileProjectToMemory(project, {
+      userSources: {
+        'pages/PageMain.ts':
+          'import { PageMainGenerated } from "./PageMain.generated"; export class PageMain extends PageMainGenerated { public configured(): boolean { return Boolean(RestGO.auth); } }',
+      },
+    });
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
       runScripts: 'outside-only',

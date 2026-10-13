@@ -20,6 +20,9 @@ import type {
   CompileStylesRequest,
   CompileStylesResponse,
   CreateProjectRequest,
+  DeployProgress,
+  DeployRequest,
+  DeployResponse,
   IdeCommand,
   ProjectSession,
   ReadFileRequest,
@@ -105,6 +108,18 @@ const bridge: WebRadBridge = {
   build: {
     run: (request: BuildRequest) =>
       ipcRenderer.invoke('webrad:build:run', request) as Promise<BuildResponse>,
+  },
+  deploy: {
+    chooseDirectory: (rootPath: string) =>
+      ipcRenderer.invoke('webrad:deploy:choose-directory', rootPath) as Promise<string | null>,
+    run: (request: DeployRequest) =>
+      ipcRenderer.invoke('webrad:deploy:run', request) as Promise<DeployResponse>,
+    subscribe: (listener: (progress: DeployProgress) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: DeployProgress): void =>
+        listener(progress);
+      ipcRenderer.on('webrad:deploy:progress', handler);
+      return () => ipcRenderer.removeListener('webrad:deploy:progress', handler);
+    },
   },
   styles: {
     compile: (request: CompileStylesRequest) =>

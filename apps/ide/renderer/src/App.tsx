@@ -1,5 +1,7 @@
 import { ProjectAssetPreview } from './components/ProjectAssetPreview';
 import { AboutDialog } from './components/AboutDialog';
+import { DeployDialog } from './components/DeployDialog';
+import { useDeploy } from './use-deploy';
 import { type DesignerViewportName } from '@webrad/designer';
 import { ActivityBar } from './components/ActivityBar';
 import { DesignerSidebar, type DesignerSidebarMode } from './components/DesignerSidebar';
@@ -68,7 +70,12 @@ import {
   useSyncExternalStore,
   type ReactElement,
 } from 'react';
-import type { BuildDiagnostic, IdeCommand, ProjectSession } from '../../shared/contracts';
+import type {
+  BuildDiagnostic,
+  DeployResponse,
+  IdeCommand,
+  ProjectSession,
+} from '../../shared/contracts';
 import { BottomPanel, type BottomPanelTab, type OutputEntry } from './components/BottomPanel';
 import { ApiClientTesterDialog } from './components/ApiClientTesterDialog';
 import {
@@ -221,6 +228,9 @@ export function App(): ReactElement {
   const [addDocumentDialogKind, setAddDocumentDialogKind] = useState<AddDocumentKind | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [projectSettingsDialogOpen, setProjectSettingsDialogOpen] = useState(false);
+  const [projectSettingsInitialSection, setProjectSettingsInitialSection] = useState<
+    'general' | 'build'
+  >('general');
   const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
   const [comboBoxEditorMode, setComboBoxEditorMode] = useState<'api' | 'items' | 'values'>('api');
   const [comboBoxConfiguratorComponentId, setComboBoxConfiguratorComponentId] = useState<
@@ -320,17 +330,6 @@ export function App(): ReactElement {
     currentRowBindingsComponent === null
       ? undefined
       : currentRowGroup(currentRowBindingsComponent, activePage?.components ?? []);
-  const modalOpen =
-    aboutDialogOpen ||
-    newProjectDialogOpen ||
-    addDocumentDialogKind !== null ||
-    iconPickerOpen ||
-    projectSettingsDialogOpen ||
-    apiClientTesterComponent !== null ||
-    dataGridConfiguratorComponent !== null ||
-    repeatingGroupConfiguratorComponent !== null ||
-    (currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined) ||
-    comboBoxConfiguratorComponent !== null;
   const codeEditorVisible =
     activeWorkspace === 'page' &&
     activeView !== 'preview' &&
@@ -1508,9 +1507,49 @@ export function App(): ReactElement {
     state: debugState,
   } = debuggerSession;
 
+  const configureDeploy = useCallback(() => {
+    setProjectSettingsInitialSection('build');
+    setProjectSettingsDialogOpen(true);
+  }, []);
+  const acceptDeployResult = useCallback(
+    (result: DeployResponse): void => {
+      setBuildDiagnostics(result.diagnostics);
+      addOutput(
+        'COMPILER',
+        result.success
+          ? `Deploy completed: ${result.fileCount ?? 0} files in ${result.outputDirectory ?? ''}.`
+          : 'Deploy failed. See Problems for details.',
+      );
+      if (!result.success) {
+        setBottomPanelTab('problems');
+        setVisiblePanels((current) => ({ ...current, output: true }));
+      }
+    },
+    [addOutput],
+  );
+  const deploy = useDeploy({
+    controller: projectController,
+    blocked: building || debugBusy,
+    onConfigure: configureDeploy,
+    onResult: acceptDeployResult,
+  });
+  const { run: deployProject } = deploy;
+  const modalOpen =
+    aboutDialogOpen ||
+    newProjectDialogOpen ||
+    addDocumentDialogKind !== null ||
+    iconPickerOpen ||
+    projectSettingsDialogOpen ||
+    deploy.state !== null ||
+    apiClientTesterComponent !== null ||
+    dataGridConfiguratorComponent !== null ||
+    repeatingGroupConfiguratorComponent !== null ||
+    (currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined) ||
+    comboBoxConfiguratorComponent !== null;
+
   const runProject = useCallback(async (): Promise<void> => {
     if (!projectState.project || !projectState.rootPath) return;
-    if (building || debugBusy) return;
+    if (building || debugBusy || deploy.busy) return;
     await debugCommand('stop');
     const requestId = (buildRequestRef.current += 1);
     setBuilding(true);
@@ -1563,6 +1602,7 @@ export function App(): ReactElement {
     reportError,
     building,
     debugBusy,
+    deploy.busy,
     debugCommand,
   ]);
 
@@ -1675,6 +1715,9 @@ export function App(): ReactElement {
         case 'run.run':
           void runProject();
           break;
+        case 'project.deploy':
+          void deployProject();
+          break;
         case 'view.debugger':
           showDebugger();
           break;
@@ -1732,6 +1775,7 @@ export function App(): ReactElement {
       pasteSelection,
       redo,
       runProject,
+      deployProject,
       saveProject,
       undo,
       dataGridConfiguratorComponent,
@@ -2414,7 +2458,10 @@ export function App(): ReactElement {
                 setSidebarMode('project');
               }}
               onOpenStyles={openStyles}
-              onOpenSettings={() => setProjectSettingsDialogOpen(true)}
+              onOpenSettings={() => {
+                setProjectSettingsInitialSection('general');
+                setProjectSettingsDialogOpen(true);
+              }}
               onOpenRestGo={openRestGo}
               onToggleOutput={() =>
                 setVisiblePanels((current) => ({ ...current, output: !current.output }))
@@ -2574,10 +2621,16 @@ export function App(): ReactElement {
         <ProjectSettingsDialog
           projectName={project.name}
           settings={project.settings}
+          initialSectionId={projectSettingsInitialSection}
+          onChooseDeployDirectory={async () => {
+            const rootPath = projectController.getSnapshot().rootPath;
+            return rootPath ? window.webrad.deploy.chooseDirectory(rootPath) : null;
+          }}
           onClose={() => setProjectSettingsDialogOpen(false)}
           onSave={saveProjectSettings}
         />
       )}
+      {deploy.state !== null && <DeployDialog state={deploy.state} onClose={deploy.close} />}
       {apiClientTesterComponent !== null && (
         <ApiClientTesterDialog
           component={apiClientTesterComponent}

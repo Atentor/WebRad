@@ -20,8 +20,8 @@ function packageDirectory(packageName: string): string {
   return path.join(productionNodeModulesPath, ...packageName.split('/'));
 }
 
-async function copyTailwindRuntime(buildPath: string): Promise<void> {
-  const pending = ['@tailwindcss/postcss', 'postcss'];
+async function copyNativeRuntimeDependencies(buildPath: string): Promise<void> {
+  const pending = ['@tailwindcss/postcss', 'postcss', 'sharp'];
   const copied = new Set<string>();
 
   while (pending.length > 0) {
@@ -51,7 +51,7 @@ async function copyTailwindRuntime(buildPath: string): Promise<void> {
         }
       }
     } catch (error) {
-      throw new Error(`Unable to package Tailwind dependency "${packageName}".`, {
+      throw new Error(`Unable to package runtime dependency "${packageName}".`, {
         cause: error,
       });
     }
@@ -60,7 +60,7 @@ async function copyTailwindRuntime(buildPath: string): Promise<void> {
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: { unpack: '**/*.node' },
+    asar: { unpack: '{**/*.node,**/node_modules/@img/**/*}' },
     icon: iconBasePath,
     extraResource: [
       iconIcoPath,
@@ -74,7 +74,7 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   hooks: {
     packageAfterPrune: async (_forgeConfig, buildPath) => {
-      await copyTailwindRuntime(buildPath);
+      await copyNativeRuntimeDependencies(buildPath);
     },
   },
   makers: [

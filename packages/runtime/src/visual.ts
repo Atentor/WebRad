@@ -1122,7 +1122,7 @@ export function projectComponentVisual(
 }
 
 /** Project defaults shared by Designer surfaces and generated browser pages. */
-export const WEBRAD_PROJECT_CSS = `
+export const WEBRAD_PROJECT_CSS = /* @__PURE__ */ `
 .wr-project-surface, .wr-webpage {
   color-scheme: light dark;
   font: 400 16px/normal Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -1151,7 +1151,7 @@ export const WEBRAD_PROJECT_CSS = `
 `.trim();
 
 /** Shared component styling. Hosts may override the custom properties to theme it. */
-export const WEBRAD_COMPONENT_CSS = `
+export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
 .wr-component { --webrad-border-gradient-surface: transparent; box-sizing: border-box; font: inherit; }
 .wr-component[hidden] { display: none !important; }
 .wr-webpage { --webrad-border-gradient-surface: var(--wr-page-surface, #ffffff); overflow: hidden; }

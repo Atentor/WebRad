@@ -12,6 +12,8 @@ import type {
   CompileStylesRequest,
   CompileStylesResponse,
   CreateProjectRequest,
+  DeployProgress,
+  DeployResponse,
   ProjectSession,
   ReadFileRequest,
   SaveProjectRequest,
@@ -34,9 +36,17 @@ import {
   type DebugCompilation,
 } from './debugger-ipc';
 import type { DebugStartRequest } from '../shared/debugger-contracts';
+import { DeployDirectoryGrants } from './deploy-grants';
+import {
+  resolveDeploymentDirectory,
+  validateDeploymentDestination,
+  writeDeployment,
+} from './deploy-files';
 
 const allowedRoots = new Map<number, Set<string>>();
 const activeProjectRoots = new Map<number, string>();
+const openedProjectIds = new Map<number, Map<string, string>>();
+const deployingWindows = new Set<number>();
 const projectSelectionRevisions = new Map<number, number>();
 const trustedRendererUrls = new Map<number, string>();
 const dirtyWindows = new Set<number>();
@@ -69,6 +79,9 @@ const writeFileSchema = readFileSchema.extend({ content: z.string() }).strict();
 const buildRequestSchema = saveProjectSchema
   .extend({ outputDirectory: z.string().min(1).optional() })
   .strict();
+const deployRequestSchema = saveProjectSchema
+  .extend({ requestId: z.string().min(1).max(128) })
+  .strict();
 const compileStylesRequestSchema = z.object({ styles: z.array(z.unknown()) }).strict();
 
 function normalizedRoot(rootPath: string): string {
@@ -94,12 +107,15 @@ function requireTrustedSender(event: IpcMainInvokeEvent): BrowserWindow {
   return window;
 }
 
-function grantRoot(event: IpcMainInvokeEvent, rootPath: string): void {
+function grantRoot(event: IpcMainInvokeEvent, rootPath: string, projectId: string): void {
   const window = requireTrustedSender(event);
   const roots = allowedRoots.get(window.webContents.id) ?? new Set<string>();
   roots.add(normalizedRoot(rootPath));
   allowedRoots.set(window.webContents.id, roots);
   activeProjectRoots.set(window.webContents.id, normalizedRoot(rootPath));
+  const projects = openedProjectIds.get(window.webContents.id) ?? new Map<string, string>();
+  projects.set(normalizedRoot(rootPath), projectId);
+  openedProjectIds.set(window.webContents.id, projects);
 }
 
 function requireGrantedRoot(event: IpcMainInvokeEvent, rootPath: string): void {
@@ -203,6 +219,7 @@ async function releaseProjectHandler(event: IpcMainInvokeEvent, input: unknown):
   const window = requireTrustedSender(event);
   const rootPath = releaseRootSchema.parse(input);
   allowedRoots.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
+  openedProjectIds.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
   if (activeProjectRoots.get(window.webContents.id) === normalizedRoot(rootPath)) {
     activeProjectRoots.delete(window.webContents.id);
     revokePreview(window.webContents.id);
@@ -259,6 +276,150 @@ async function buildHandler(
     previewUrl,
     diagnostics: result.diagnostics,
   };
+}
+
+async function chooseDeploymentDirectory(
+  event: IpcMainInvokeEvent,
+  rootPath: string,
+  projectId: string,
+  grants: DeployDirectoryGrants,
+  defaultPath?: string,
+): Promise<string | null> {
+  requireGrantedRoot(event, rootPath);
+  const result = await dialog.showOpenDialog(requireTrustedSender(event), {
+    title: 'Choose a folder for the hosted application',
+    properties: ['openDirectory', 'createDirectory'],
+    ...(defaultPath === undefined ? {} : { defaultPath }),
+  });
+  if (result.canceled || result.filePaths[0] === undefined) return null;
+  requireGrantedRoot(event, rootPath);
+  const destination = await resolveDeploymentDirectory(rootPath, result.filePaths[0]);
+  await validateDeploymentDestination(destination, projectId);
+  await grants.grant(await fs.realpath(rootPath), projectId, destination);
+  return destination;
+}
+
+async function deployHandler(
+  event: IpcMainInvokeEvent,
+  input: unknown,
+  grants: DeployDirectoryGrants,
+): Promise<DeployResponse> {
+  const request = deployRequestSchema.parse(input);
+  requireGrantedRoot(event, request.rootPath);
+  const project = parseProject(request.project);
+  const id = event.sender.id;
+  if (openedProjectIds.get(id)?.get(normalizedRoot(request.rootPath)) !== project.id) {
+    throw new Error('Deploy must belong to the opened project.');
+  }
+  if (deployingWindows.has(id)) throw new Error('A deployment is already running in this window.');
+  deployingWindows.add(id);
+  const progress = (value: Omit<DeployProgress, 'requestId'>): void => {
+    event.sender.send('webrad:deploy:progress', {
+      requestId: request.requestId,
+      ...value,
+    } satisfies DeployProgress);
+  };
+  try {
+    const root = await fs.realpath(request.rootPath);
+    let destination = await resolveDeploymentDirectory(
+      root,
+      project.settings.build.deployDirectory,
+    );
+    if (!(await grants.has(root, project.id, destination))) {
+      const selected = await chooseDeploymentDirectory(
+        event,
+        root,
+        project.id,
+        grants,
+        destination,
+      );
+      if (selected === null)
+        return {
+          success: false,
+          cancelled: true,
+          diagnostics: [{ category: 'info', source: 'ide', message: 'Deploy canceled.' }],
+        };
+      destination = selected;
+    }
+    const savedProject = {
+      ...project,
+      settings: {
+        ...project.settings,
+        build: { ...project.settings.build, deployDirectory: destination },
+      },
+    };
+    await saveProjectFiles({
+      rootPath: request.rootPath,
+      project: savedProject,
+      userSources: request.userSources,
+    });
+    await validateDeploymentDestination(destination, project.id);
+    progress({ phase: 'compiling', completedFiles: 0, totalFiles: 0 });
+    const result = await compileProject(
+      {
+        ...savedProject,
+        settings: {
+          ...savedProject.settings,
+          environment: savedProject.settings.build.environment,
+        },
+      },
+      {
+        outputDirectory: destination,
+        userSources: request.userSources,
+        target: 'deploy',
+        minify: project.settings.build.minify,
+        sourcemap: project.settings.build.sourceMaps,
+        write: false,
+      },
+    );
+    if (!result.success)
+      return { success: false, outputDirectory: destination, diagnostics: result.diagnostics };
+    requireGrantedRoot(event, request.rootPath);
+    const totalFiles =
+      Object.keys(result.files).length + Object.keys(result.binaryFiles ?? {}).length;
+    progress({ phase: 'writing', completedFiles: 0, totalFiles });
+    const written = await writeDeployment({
+      projectRoot: root,
+      destination,
+      projectId: project.id,
+      files: result.files,
+      binaryFiles: result.binaryFiles,
+      onFileWritten: (completedFiles, total, currentFile) => {
+        requireGrantedRoot(event, request.rootPath);
+        progress({ phase: 'writing', completedFiles, totalFiles: total, currentFile });
+      },
+    });
+    progress({
+      phase: 'complete',
+      completedFiles: written.fileCount,
+      totalFiles: written.fileCount,
+    });
+    return {
+      success: true,
+      outputDirectory: destination,
+      fileCount: written.fileCount,
+      diagnostics:
+        written.cleanupWarning === undefined
+          ? result.diagnostics
+          : [
+              ...result.diagnostics,
+              { category: 'warning', source: 'ide', message: written.cleanupWarning },
+            ],
+    };
+  } catch (error) {
+    return {
+      success: false,
+      diagnostics: [
+        {
+          category: 'error',
+          source: 'ide',
+          message: error instanceof Error ? error.message : 'Deploy failed.',
+        },
+      ],
+    };
+  } finally {
+    deployingWindows.delete(id);
+  }
 }
 
 async function debugCompileHandler(
@@ -327,6 +488,8 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
     forgetDebuggerOwner(id);
     allowedRoots.delete(id);
     activeProjectRoots.delete(id);
+    openedProjectIds.delete(id);
+    deployingWindows.delete(id);
     projectSelectionRevisions.delete(id);
     trustedRendererUrls.delete(id);
     dirtyWindows.delete(id);
@@ -347,6 +510,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   registerDebuggerIpc({ requireTrustedSender, requireGrantedRoot, compile: debugCompileHandler });
   const lastProject =
     options.userDataPath === undefined ? undefined : new LastProjectStore(options.userDataPath);
+  const deployGrants = new DeployDirectoryGrants(options.userDataPath);
   const rememberSession = async (
     event: IpcMainInvokeEvent,
     session: ProjectSession | null,
@@ -372,7 +536,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
     if (session === null || projectSelectionRevisions.get(id) !== revision) return null;
     stopDebuggerForOwner(id);
     revokePreview(id);
-    grantRoot(event, session.rootPath);
+    grantRoot(event, session.rootPath, session.project.id);
     if (remember) await rememberSession(event, session);
     return projectSelectionRevisions.get(id) === revision ? session : null;
   };
@@ -419,6 +583,19 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   ipcMain.handle('webrad:files:read', readFileHandler);
   ipcMain.handle('webrad:files:write', writeFileHandler);
   ipcMain.handle('webrad:build:run', buildHandler);
+  ipcMain.handle('webrad:deploy:choose-directory', async (event, ...input: unknown[]) => {
+    if (input.length !== 1)
+      throw new Error('Choosing a deploy folder requires exactly one project root.');
+    const rootPath = releaseRootSchema.parse(input[0]);
+    requireGrantedRoot(event, rootPath);
+    const projectId = openedProjectIds.get(event.sender.id)?.get(normalizedRoot(rootPath));
+    if (projectId === undefined) throw new Error('Choose a deploy folder for an opened project.');
+    return chooseDeploymentDirectory(event, rootPath, projectId, deployGrants);
+  });
+  ipcMain.handle('webrad:deploy:run', (event, ...input: unknown[]) => {
+    if (input.length !== 1) throw new Error('Deploy requires exactly one project request.');
+    return deployHandler(event, deployRequestSchema.parse(input[0]), deployGrants);
+  });
   ipcMain.handle('webrad:styles:compile', compileStylesHandler);
   ipcMain.on('webrad:lifecycle:set-dirty', (event, dirty: unknown) => {
     if (typeof dirty !== 'boolean') return;

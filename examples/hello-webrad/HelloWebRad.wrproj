@@ -53,6 +53,21 @@
     }
   ],
   "settings": {
+    "build": {
+      "deployDirectory": "",
+      "environment": "production",
+      "minify": true,
+      "sourceMaps": false
+    },
+    "pwa": {
+      "enabled": false,
+      "shortName": "",
+      "display": "standalone",
+      "orientation": "any",
+      "themeColor": "#2563eb",
+      "backgroundColor": "#ffffff",
+      "offline": true
+    },
     "gridSize": 8,
     "snapToGrid": true,
     "showGrid": true,

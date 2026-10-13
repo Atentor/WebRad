@@ -2828,6 +2828,84 @@ kbd {
   flex-direction: column;
 }
 
+.wr-project-settings-directory {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wr-project-settings-directory input {
+  flex: 1;
+  min-width: 0;
+}
+
+.wr-project-settings-directory button {
+  flex-shrink: 0;
+}
+
+.wr-deploy-dialog {
+  width: min(480px, calc(100vw - 32px));
+  outline: none;
+}
+
+.wr-deploy-dialog .wr-modal-actions {
+  padding: 0 24px 20px;
+}
+
+.wr-deploy-dialog .wr-modal-header > .wr-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--wr-accent);
+}
+
+.wr-deploy-content {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+}
+
+.wr-deploy-content p {
+  margin: 0;
+}
+
+.wr-deploy-content progress {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border: none;
+  border-radius: 8px;
+  accent-color: var(--wr-accent);
+}
+
+.wr-deploy-content progress::-webkit-progress-bar {
+  background: var(--wr-border);
+  border-radius: 8px;
+}
+
+.wr-deploy-content progress::-webkit-progress-value {
+  background: var(--wr-accent);
+  border-radius: 8px;
+  transition: width 160ms ease;
+}
+
+.wr-deploy-content progress::-moz-progress-bar {
+  background: var(--wr-accent);
+  border-radius: 8px;
+}
+
+.wr-deploy-count {
+  font-size: 12px;
+  color: var(--wr-muted-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.wr-deploy-path {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--wr-muted-text);
+}
+
 .wr-project-settings-content {
   display: flex;
   min-height: 0;

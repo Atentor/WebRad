@@ -1,4 +1,5 @@
 import type { ProjectApplicationIcon, ProjectSeoSettings } from '@webrad/project-model';
+import type { ProjectPwaSettings } from '@webrad/project-model';
 
 function escapeHtml(value: string): string {
   return value
@@ -73,6 +74,7 @@ export function createIndexHtml(
   metadata: HtmlDocumentMetadata,
   applicationIconHref: string | null,
   socialImageHref: string | null,
+  options: { readonly modules?: boolean; readonly pwa?: ProjectPwaSettings } = {},
 ): string {
   return `<!doctype html>
 <html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}">
@@ -82,10 +84,12 @@ export function createIndexHtml(
 ${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(metadata.applicationName)}</title>
 ${applicationIconTag(metadata.applicationIcon, applicationIconHref)}
 ${seoTags(metadata.applicationName, metadata.applicationDescription, metadata.seo, socialImageHref)}
+${options.pwa?.enabled === true ? `    <meta name="theme-color" content="${escapeHtml(options.pwa.themeColor)}" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="${escapeHtml(options.pwa.shortName || metadata.applicationName)}" />\n    <link rel="manifest" href="./manifest.webmanifest" />\n    <link rel="apple-touch-icon" href="./assets/icons/pwa-192.png" />\n` : ''}
     <link rel="stylesheet" href="./assets/app.css" />
   </head>
   <body class="wr-project-surface">
-    <script src="./assets/app.js"></script>
+    <script${options.modules === true ? ' type="module"' : ''} src="./assets/app.js"></script>
+${options.pwa?.enabled === true ? '    <script type="module" src="./assets/pwa-register.js"></script>\n' : ''}
   </body>
 </html>
 `;

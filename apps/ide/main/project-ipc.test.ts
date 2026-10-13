@@ -1,13 +1,15 @@
 import os from 'node:os';
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createProject } from '@webrad/project-model';
 import type { BrowserWindow } from 'electron';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectSession, SaveProjectRequest } from '../shared/contracts';
 import type * as ProjectFiles from './project-files';
 
 const mocks = vi.hoisted(() => ({
   readAsset: vi.fn(),
+  compileProject: vi.fn(),
   handlers: new Map<string, (event: unknown, ...input: unknown[]) => unknown>(),
   openExternal: vi.fn().mockResolvedValue(undefined),
   fromWebContents: vi.fn(),
@@ -18,6 +20,11 @@ const mocks = vi.hoisted(() => ({
   restore: vi.fn(),
   remember: vi.fn(),
   statePaths: [] as string[],
+}));
+
+vi.mock('@webrad/compiler', () => ({
+  compileProject: mocks.compileProject,
+  compileTailwindStyles: vi.fn(),
 }));
 
 vi.mock('./project-asset', () => ({ readSelectedProjectAsset: mocks.readAsset }));
@@ -59,6 +66,7 @@ const mainFrame = { url: rendererUrl };
 const webContents = { id: 17, mainFrame, send: vi.fn() };
 const window = { webContents, on: vi.fn(), close: vi.fn() };
 const event = { sender: webContents, senderFrame: mainFrame };
+const temporaryRoots: string[] = [];
 
 function session(name: string): ProjectSession {
   const rootPath = path.join(os.tmpdir(), `webrad-ipc-last-project-${name}`);
@@ -99,6 +107,243 @@ beforeEach(() => {
   mocks.restore.mockResolvedValue(null);
   mocks.remember.mockResolvedValue(undefined);
   mocks.chooseDirectory.mockResolvedValue({ canceled: true, filePaths: [] });
+  mocks.compileProject.mockReset();
+  mocks.compileProject.mockResolvedValue({
+    success: true,
+    diagnostics: [],
+    files: { 'index.html': '<html>app</html>', 'pages/main.js': 'export {}' },
+    binaryFiles: { 'assets/icon.png': Uint8Array.from([0, 255]) },
+  });
+});
+
+afterEach(async () => {
+  for (const root of temporaryRoots.splice(0)) {
+    if (!path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep))
+      throw new Error('Unsafe test cleanup.');
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+async function deploymentSession(): Promise<{
+  opened: ProjectSession;
+  output: string;
+  userData: string;
+}> {
+  const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-deploy-ipc-'));
+  temporaryRoots.push(parent);
+  const opened = session('Deploy');
+  opened.rootPath = path.join(parent, 'source');
+  opened.projectFilePath = path.join(opened.rootPath, 'Deploy.wrproj');
+  await fs.mkdir(opened.rootPath);
+  const output = path.join(parent, 'output');
+  await fs.mkdir(output);
+  opened.project = {
+    ...opened.project,
+    settings: {
+      ...opened.project.settings,
+      environment: 'development',
+      build: {
+        ...opened.project.settings.build,
+        deployDirectory: output,
+        environment: 'production',
+        minify: true,
+        sourceMaps: false,
+      },
+    },
+  };
+  mocks.loadProjectFiles.mockResolvedValue(opened);
+  mocks.saveProjectFiles.mockResolvedValue(opened);
+  mocks.chooseDirectory.mockResolvedValue({ canceled: false, filePaths: [opened.projectFilePath] });
+  return { opened, output, userData: path.join(parent, 'preferences') };
+}
+
+describe('deploy IPC', () => {
+  it('requires a trusted opened project, validates argument counts, and rejects renderer output overrides', async () => {
+    await register();
+    const unopened = session('UnopenedDeploy');
+    const request = { ...saveRequest(unopened), requestId: 'deployment-1' };
+    await expect(invoke('webrad:deploy:run', event, request)).rejects.toThrow(
+      'outside an opened project',
+    );
+    await expect(
+      invoke('webrad:deploy:choose-directory', event, unopened.rootPath),
+    ).rejects.toThrow('outside an opened project');
+    await expect(
+      invoke('webrad:deploy:choose-directory', event, unopened.rootPath, '/override'),
+    ).rejects.toThrow('exactly one');
+    await expect(
+      invoke('webrad:deploy:run', event, { ...request, outputDirectory: '/override' }),
+    ).rejects.toThrow();
+    await expect(invoke('webrad:deploy:run', event, request, {})).rejects.toThrow('exactly one');
+    await expect(
+      invoke('webrad:deploy:run', { ...event, senderFrame: { url: rendererUrl } }, request),
+    ).rejects.toThrow('main frame');
+    expect(mocks.compileProject).not.toHaveBeenCalled();
+  });
+
+  it('grants only the native selection and exports exact file progress with production settings', async () => {
+    const { opened, output } = await deploymentSession();
+    await register();
+    await invoke('webrad:project:open');
+    mocks.chooseDirectory.mockResolvedValue({ canceled: false, filePaths: [output] });
+    expect(await invoke('webrad:deploy:choose-directory', event, opened.rootPath)).toBe(output);
+    mocks.chooseDirectory.mockClear();
+    const response = await invoke('webrad:deploy:run', event, {
+      ...saveRequest(opened),
+      requestId: 'deploy-success',
+    });
+    expect(response).toMatchObject({ success: true, outputDirectory: output, fileCount: 3 });
+    expect(mocks.chooseDirectory).not.toHaveBeenCalled();
+    expect(mocks.compileProject).toHaveBeenCalledWith(
+      expect.objectContaining({ settings: expect.objectContaining({ environment: 'production' }) }),
+      expect.objectContaining({
+        target: 'deploy',
+        outputDirectory: output,
+        write: false,
+        minify: true,
+        sourcemap: false,
+      }),
+    );
+    expect(mocks.saveProjectFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        project: expect.objectContaining({
+          settings: expect.objectContaining({ environment: 'development' }),
+        }),
+      }),
+    );
+    const events = webContents.send.mock.calls
+      .filter(([channel]) => channel === 'webrad:deploy:progress')
+      .map(
+        ([, progress]) =>
+          progress as {
+            requestId: string;
+            phase: string;
+            completedFiles: number;
+            totalFiles: number;
+          },
+      );
+    expect(events).toEqual([
+      { requestId: 'deploy-success', phase: 'compiling', completedFiles: 0, totalFiles: 0 },
+      { requestId: 'deploy-success', phase: 'writing', completedFiles: 0, totalFiles: 3 },
+      {
+        requestId: 'deploy-success',
+        phase: 'writing',
+        completedFiles: 1,
+        totalFiles: 3,
+        currentFile: 'index.html',
+      },
+      {
+        requestId: 'deploy-success',
+        phase: 'writing',
+        completedFiles: 2,
+        totalFiles: 3,
+        currentFile: 'pages/main.js',
+      },
+      {
+        requestId: 'deploy-success',
+        phase: 'writing',
+        completedFiles: 3,
+        totalFiles: 3,
+        currentFile: 'assets/icon.png',
+      },
+      { requestId: 'deploy-success', phase: 'complete', completedFiles: 3, totalFiles: 3 },
+    ]);
+    expect(await fs.readFile(path.join(output, 'assets/icon.png'))).toEqual(Buffer.from([0, 255]));
+  });
+
+  it('requires a native selection for an ungranted saved path and persists a newly selected destination before compiling', async () => {
+    const { opened, output } = await deploymentSession();
+    await register();
+    await invoke('webrad:project:open');
+    const selected = path.join(path.dirname(output), 'selected');
+    await fs.mkdir(selected);
+    mocks.chooseDirectory.mockResolvedValue({ canceled: false, filePaths: [selected] });
+    const response = await invoke('webrad:deploy:run', event, {
+      ...saveRequest(opened),
+      requestId: 'new-choice',
+    });
+    expect(response).toMatchObject({ success: true, outputDirectory: selected });
+    expect(mocks.chooseDirectory).toHaveBeenLastCalledWith(
+      window,
+      expect.objectContaining({ defaultPath: output }),
+    );
+    expect(mocks.saveProjectFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        project: expect.objectContaining({
+          settings: expect.objectContaining({
+            build: expect.objectContaining({ deployDirectory: selected }),
+          }),
+        }),
+      }),
+    );
+    await expect(fs.stat(path.join(output, 'index.html'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('returns cancellation without compilation or file writes', async () => {
+    const { opened, output } = await deploymentSession();
+    await register();
+    await invoke('webrad:project:open');
+    mocks.chooseDirectory.mockResolvedValue({ canceled: true, filePaths: [] });
+    expect(
+      await invoke('webrad:deploy:run', event, { ...saveRequest(opened), requestId: 'cancel' }),
+    ).toMatchObject({ success: false, cancelled: true });
+    expect(mocks.compileProject).not.toHaveBeenCalled();
+    expect(mocks.saveProjectFiles).not.toHaveBeenCalled();
+    expect(await fs.readdir(output)).toEqual([]);
+  });
+
+  it('reuses persisted native grants after reopening, while rejecting another project identity', async () => {
+    const { opened, output, userData } = await deploymentSession();
+    await register(userData);
+    await invoke('webrad:project:open');
+    mocks.chooseDirectory.mockResolvedValue({ canceled: false, filePaths: [output] });
+    await invoke('webrad:deploy:choose-directory', event, opened.rootPath);
+    vi.resetModules();
+    await register(userData);
+    mocks.chooseDirectory.mockResolvedValue({
+      canceled: false,
+      filePaths: [opened.projectFilePath],
+    });
+    await invoke('webrad:project:open');
+    mocks.chooseDirectory.mockClear();
+    expect(
+      await invoke('webrad:deploy:run', event, { ...saveRequest(opened), requestId: 'reopened' }),
+    ).toMatchObject({ success: true });
+    expect(mocks.chooseDirectory).not.toHaveBeenCalled();
+    await expect(
+      invoke('webrad:deploy:run', event, {
+        ...saveRequest(opened),
+        project: { ...opened.project, id: 'other-project' },
+        requestId: 'wrong-owner',
+      }),
+    ).rejects.toThrow('opened project');
+  });
+
+  it('preserves previous output on compiler errors and reports diagnostics without completion progress', async () => {
+    const { opened, output } = await deploymentSession();
+    await register();
+    await invoke('webrad:project:open');
+    mocks.chooseDirectory.mockResolvedValue({ canceled: false, filePaths: [output] });
+    await invoke('webrad:deploy:choose-directory', event, opened.rootPath);
+    await invoke('webrad:deploy:run', event, { ...saveRequest(opened), requestId: 'first' });
+    webContents.send.mockClear();
+    mocks.compileProject.mockResolvedValue({
+      success: false,
+      files: {},
+      diagnostics: [{ category: 'error', source: 'typescript', message: 'Invalid code' }],
+    });
+    expect(
+      await invoke('webrad:deploy:run', event, { ...saveRequest(opened), requestId: 'broken' }),
+    ).toMatchObject({ success: false, diagnostics: [{ message: 'Invalid code' }] });
+    expect(await fs.readFile(path.join(output, 'index.html'), 'utf8')).toBe('<html>app</html>');
+    expect(webContents.send).toHaveBeenCalledTimes(1);
+    expect(webContents.send).toHaveBeenCalledWith(
+      'webrad:deploy:progress',
+      expect.objectContaining({ phase: 'compiling' }),
+    );
+  });
 });
 
 describe('last project IPC', () => {

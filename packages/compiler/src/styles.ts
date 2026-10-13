@@ -16,9 +16,10 @@ import {
 } from '@webrad/runtime/visual';
 import tailwindcss from '@tailwindcss/postcss';
 import postcss from 'postcss';
+import { defaultComponentRegistry } from '@webrad/component-registry';
 
 /** Base application defaults. They are placed in Tailwind's components layer at build time. */
-export const GENERATED_APP_CSS = `* {
+const APP_BASE_CSS = `* {
   box-sizing: border-box;
 }
 
@@ -41,11 +42,50 @@ body {
   height: 100vh !important;
   color: #111827;
   background: #ffffff;
-}
+}`;
 
-${WEBRAD_COMPONENT_CSS}
-${WEBRAD_PROJECT_CSS}
-`;
+export const GENERATED_APP_CSS = `${APP_BASE_CSS}\n${WEBRAD_COMPONENT_CSS}\n${WEBRAD_PROJECT_CSS}`;
+
+/** Secondary DOM classes are owned by the same centrally registered runtime control. */
+const CONTROL_CLASS_PREFIXES: Readonly<Record<string, string>> = {
+  'wr-button-': 'WebButton',
+  'wr-popup-': 'WebPopup',
+  'wr-data-grid-': 'WebDataGrid',
+  'wr-video-': 'WebVideoPlayer',
+};
+
+/** Removes only selectors whose registered component is provably absent. */
+export function selectComponentCss(
+  componentTypes: ReadonlySet<string>,
+  componentCss = WEBRAD_COMPONENT_CSS,
+): string {
+  const primaryClasses = new Map(
+    defaultComponentRegistry
+      .list()
+      .map((definition) => [`wr-${definition.type.toLowerCase()}`, definition.type]),
+  );
+  const owner = (className: string): string | undefined =>
+    primaryClasses.get(className) ??
+    Object.entries(CONTROL_CLASS_PREFIXES).find(([prefix]) => className.startsWith(prefix))?.[1];
+  const root = postcss.parse(componentCss);
+  root.walkRules((rule) => {
+    const selectors = rule.selectors.filter((selector) => {
+      const classes = [...selector.matchAll(/\.([a-zA-Z_][\w-]*)/gu)].map(
+        (match) => match[1] ?? '',
+      );
+      return classes.every((className) => {
+        const componentType = owner(className);
+        return componentType === undefined || componentTypes.has(componentType);
+      });
+    });
+    if (selectors.length === 0) rule.remove();
+    else rule.selectors = selectors;
+  });
+  root.walkAtRules((rule) => {
+    if (rule.nodes?.length === 0) rule.remove();
+  });
+  return root.toString();
+}
 
 /**
  * Emits the project-owned scrollbar treatment used by Preview and generated
@@ -202,9 +242,14 @@ export function compileGeneratedAppStyles(
   styles: readonly ComponentStyleModel[],
   scrollbar: Readonly<ProjectScrollbarStyle> = DEFAULT_PROJECT_SCROLLBAR_STYLE,
   colorPalette: readonly ProjectPaletteColor[] = DEFAULT_PROJECT_COLOR_PALETTE,
+  componentTypes?: ReadonlySet<string>,
 ): Promise<string> {
+  const base =
+    componentTypes === undefined
+      ? GENERATED_APP_CSS
+      : `${APP_BASE_CSS}\n${selectComponentCss(componentTypes)}\n${WEBRAD_PROJECT_CSS}`;
   return processTailwind(
     styles,
-    `${GENERATED_APP_CSS}\n${projectScrollbarCss(scrollbar)}\n${projectColorPaletteCss(colorPalette)}`,
+    `${base}\n${projectScrollbarCss(scrollbar)}\n${projectColorPaletteCss(colorPalette)}`,
   );
 }

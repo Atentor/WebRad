@@ -16,6 +16,12 @@ import {
 import runtimeSources from './runtime-sources.json';
 import restGoSources from './restgo-sources.json';
 import type { CompileDiagnostic } from './types.js';
+import {
+  selectApplicationSources,
+  selectedComponentTypes,
+  usesRestGo,
+  usesRuntimeGlobal,
+} from './runtime-selection.js';
 
 export const VIRTUAL_ROOT = path.resolve(process.cwd(), '.webrad-compiler-virtual');
 export const RUNTIME_ENTRY_PATH = virtualAbsolutePath('__runtime/index.ts');
@@ -27,6 +33,7 @@ export interface VirtualSourceGraph {
   readonly entryPath: string;
   readonly stylePath: string;
   readonly diagnostics: readonly CompileDiagnostic[];
+  readonly componentTypes: ReadonlySet<string>;
 }
 
 function hasDrivePrefix(value: string): boolean {
@@ -59,6 +66,8 @@ function isReservedSourcePath(sourcePath: string): boolean {
     normalized.startsWith('__runtime/') ||
     normalized === '__restgo' ||
     normalized.startsWith('__restgo/') ||
+    normalized === '__deploy' ||
+    normalized.startsWith('__deploy/') ||
     [
       'entry.ts',
       'app.css',
@@ -147,7 +156,13 @@ function runtimePageModel(
   };
 }
 
-function createEntrySource(project: WebRadProject, registry: ComponentRegistry): string {
+function createEntrySource(
+  project: WebRadProject,
+  registry: ComponentRegistry,
+  restGo: boolean,
+  componentTypes: ReadonlySet<string>,
+  userSources: Readonly<Record<string, string>>,
+): string {
   const entryPage = project.pages.find((page) => page.id === project.entryPage);
   if (entryPage === undefined) throw new Error('The validated project has no entry page.');
   const pageImports = project.pages
@@ -185,14 +200,19 @@ function createEntrySource(project: WebRadProject, registry: ComponentRegistry):
       variable.values[project.settings.environment],
     ]),
   );
+  const repeatingGroups = [...project.pages, ...project.reusableElements].some((document) =>
+    document.components.some((component) => component.type === 'WebRepeatingGroup'),
+  );
+  const confirm = usesRuntimeGlobal(userSources, 'Confirm');
+  const message = usesRuntimeGlobal(userSources, 'Message');
   return `import {
-  Confirm,
-  configureRestGo,
-  Message,
+  ${confirm ? 'Confirm,' : ''}
+  ${restGo ? 'configureRestGo,' : ''}
+  ${message ? 'Message,' : ''}
   Navigate as RuntimeNavigate,
-  RestGO,
+  ${restGo ? 'RestGO,' : ''}
   WebPageRouter,
-  setRepeatingGroupReusableFactory,
+  ${repeatingGroups ? 'setRepeatingGroupReusableFactory,' : ''}
 } from '@webrad/runtime';
 import type {
   MountedRuntimePage,
@@ -205,7 +225,7 @@ import type {
 ${pageImports}
 ${reusableImports}
 import './app.css';
-${[...project.pages, ...project.reusableElements].some((document) => document.components.some((component) => component.type === 'WebVideoPlayer')) ? "import 'shaka-player/dist/controls.css';" : ''}
+${componentTypes.has('WebVideoPlayer') ? "import 'shaka-player/dist/controls.css';" : ''}
 
 type ReusableElementFactory = (
   element: HTMLElement,
@@ -218,13 +238,17 @@ const reusableElementFactories: ReadonlyMap<string, ReusableElementFactory> = ne
 ${reusableFactories}
 ]);
 
-setRepeatingGroupReusableFactory((row) => {
+${
+  repeatingGroups
+    ? `setRepeatingGroupReusableFactory((row) => {
   const instances = row.reusableInstances.flatMap((placement) => {
     const factory = reusableElementFactories.get(placement.reusableElementId);
     return factory === undefined ? [] : [factory(placement.element, placement.instanceId, row.components, placement.componentIds)];
   });
   return () => { for (const instance of instances) instance.dispose(); };
-});
+});`
+    : ''
+}
 
 function createReusableElements(
   mounted: MountedRuntimePage,
@@ -241,13 +265,14 @@ const routes: readonly RuntimePageRoute[] = [
 ${routes}
 ];
 const Env = Object.freeze(${JSON.stringify(environmentValues)});
-configureRestGo(${JSON.stringify(project.settings.restGo)});
+${restGo ? `configureRestGo(${JSON.stringify(project.settings.restGo)});` : ''}
 const router = new WebPageRouter(routes, document.body);
 const Navigate = (destination: string | URL, options: NavigateOptions = {}): void => {
   router.navigateBrowser(destination, options);
 };
 
-Object.assign(globalThis, { Confirm, Message, Navigate, Env, RestGO });
+Object.assign(globalThis, { ${confirm ? 'Confirm,' : ''} ${message ? 'Message,' : ''} Navigate, Env${restGo ? ', RestGO' : ''} });
+${restGo ? '' : `Object.defineProperty(globalThis, 'RestGO', { configurable: true, get: () => { throw new Error('Enable and configure RestGO in RestGo integration > Connection before using RestGO.'); } });`}
 router.start(${JSON.stringify(entryPage.id)});
 `;
 }
@@ -322,7 +347,19 @@ export function createVirtualSourceGraph(
 
   const entryPath = virtualAbsolutePath('entry.ts');
   const stylePath = virtualAbsolutePath('app.css');
-  sources.set(entryPath, createEntrySource(project, registry));
+  const selected = selectApplicationSources(project, userSources);
+  const runtimeProject = selected.project;
+  const componentTypes = selectedComponentTypes(selected, registry);
+  sources.set(
+    entryPath,
+    createEntrySource(
+      runtimeProject,
+      registry,
+      usesRestGo(runtimeProject, selected.userSources),
+      componentTypes,
+      selected.userSources,
+    ),
+  );
   sources.set(stylePath, generatedAppCss);
   sources.set(virtualAbsolutePath('webrad-globals.d.ts'), createGlobalTypings());
   sources.set(
@@ -342,5 +379,5 @@ export function createVirtualSourceGraph(
         ] as const,
     ),
   ]);
-  return { sources, componentScopes, entryPath, stylePath, diagnostics };
+  return { sources, componentScopes, entryPath, stylePath, diagnostics, componentTypes };
 }

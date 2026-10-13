@@ -8,6 +8,7 @@ import runtimeSourcesJson from './runtime-sources.json';
 import restGoSourcesJson from './restgo-sources.json';
 import shakaSources from './shaka-sources.generated.json';
 import type { CompileDiagnostic } from './types.js';
+import { selectRuntimeAdapters, selectRuntimeExports } from './runtime-selection.js';
 
 const RUNTIME_NAMESPACE = 'webrad-runtime';
 const RESTGO_NAMESPACE = 'webrad-restgo';
@@ -21,11 +22,15 @@ export interface BundleOptions {
   readonly outputDirectory: string;
   readonly minify: boolean;
   readonly sourcemap: boolean;
+  readonly target?: 'preview' | 'deploy';
+  readonly componentTypes?: ReadonlySet<string>;
+  readonly entryPoints?: Readonly<Record<string, string>>;
 }
 
 export interface BundleResult {
   readonly files: Readonly<Record<string, string>>;
   readonly diagnostics: readonly CompileDiagnostic[];
+  readonly usedSources: readonly string[];
 }
 
 function loaderFor(fileName: string): Loader {
@@ -37,7 +42,7 @@ function loaderFor(fileName: string): Loader {
   return 'ts';
 }
 
-function sourceCandidatePaths(importer: string, specifier: string): readonly string[] {
+export function sourceCandidatePaths(importer: string, specifier: string): readonly string[] {
   const resolved = path.resolve(path.dirname(importer), specifier);
   const extension = path.extname(resolved);
   if (extension === '.js' || extension === '.jsx' || extension === '.mjs') {
@@ -68,6 +73,12 @@ function runtimeCandidatePaths(importer: string, specifier: string): readonly st
 }
 
 function virtualPlugin(options: BundleOptions): Plugin {
+  const selectedRuntimeEntry = selectRuntimeExports(
+    options.sources,
+    options.entryPath,
+    runtimeSources,
+    sourceCandidatePaths,
+  );
   return {
     name: 'webrad-virtual-project',
     setup(buildContext) {
@@ -76,6 +87,7 @@ function virtualPlugin(options: BundleOptions): Plugin {
         (args) => ({
           path: args.path.endsWith('.css') ? 'controls.css' : 'shaka-player.ui.js',
           namespace: 'webrad-shaka',
+          sideEffects: args.path.endsWith('.css'),
         }),
       );
       buildContext.onLoad({ filter: /.*/, namespace: 'webrad-shaka' }, (args) => ({
@@ -87,10 +99,12 @@ function virtualPlugin(options: BundleOptions): Plugin {
       buildContext.onResolve({ filter: /^@webrad\/runtime$/ }, () => ({
         namespace: RUNTIME_NAMESPACE,
         path: 'index.ts',
+        sideEffects: false,
       }));
       buildContext.onResolve({ filter: /^@webrad\/restgo-sdk$/ }, () => ({
         namespace: RESTGO_NAMESPACE,
         path: 'index.ts',
+        sideEffects: false,
       }));
       buildContext.onResolve({ filter: /.*/, namespace: RUNTIME_NAMESPACE }, (args) => {
         if (!args.path.startsWith('.')) return undefined;
@@ -99,7 +113,7 @@ function virtualPlugin(options: BundleOptions): Plugin {
         );
         return candidate === undefined
           ? undefined
-          : { path: candidate, namespace: RUNTIME_NAMESPACE };
+          : { path: candidate, namespace: RUNTIME_NAMESPACE, sideEffects: false };
       });
       buildContext.onResolve({ filter: /.*/, namespace: RESTGO_NAMESPACE }, (args) => {
         if (!args.path.startsWith('.')) return undefined;
@@ -108,10 +122,14 @@ function virtualPlugin(options: BundleOptions): Plugin {
         );
         return candidate === undefined
           ? undefined
-          : { path: candidate, namespace: RESTGO_NAMESPACE };
+          : { path: candidate, namespace: RESTGO_NAMESPACE, sideEffects: false };
       });
       buildContext.onResolve({ filter: /.*/ }, (args) => {
-        if (args.kind === 'entry-point') return { path: options.entryPath, namespace: 'webrad' };
+        if (args.kind === 'entry-point')
+          return {
+            path: args.path === 'webrad-entry' ? options.entryPath : args.path,
+            namespace: 'webrad',
+          };
         if (args.namespace !== 'webrad' || !args.path.startsWith('.')) return undefined;
         const candidate = sourceCandidatePaths(args.importer, args.path).find((fileName) =>
           options.sources.has(fileName),
@@ -129,7 +147,16 @@ function virtualPlugin(options: BundleOptions): Plugin {
         if (contents === undefined) {
           return { errors: [{ text: `Unknown embedded runtime source: ${args.path}` }] };
         }
-        return { contents, loader: loaderFor(args.path), resolveDir: '/' };
+        return {
+          contents:
+            args.path === 'index.ts'
+              ? selectedRuntimeEntry
+              : args.path === 'render.ts' && options.componentTypes !== undefined
+                ? selectRuntimeAdapters(contents, options.componentTypes)
+                : contents,
+          loader: loaderFor(args.path),
+          resolveDir: '/',
+        };
       });
       buildContext.onLoad({ filter: /.*/, namespace: RESTGO_NAMESPACE }, (args): OnLoadResult => {
         const contents = restGoSources[args.path];
@@ -158,9 +185,15 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
     absWorkingDir: process.cwd(),
     assetNames: '[name]-[hash]',
     bundle: true,
-    entryNames: 'app',
-    entryPoints: ['webrad-entry'],
-    format: 'iife',
+    entryNames: '[dir]/[name]',
+    entryPoints:
+      options.target === 'deploy'
+        ? (options.entryPoints ?? { 'assets/app': 'webrad-entry' })
+        : { app: 'webrad-entry' },
+    format: options.target === 'deploy' ? 'esm' : 'iife',
+    splitting: options.target === 'deploy',
+    chunkNames: 'assets/chunks/[name]-[hash]',
+    metafile: true,
     legalComments: 'none',
     loader: {
       '.gif': 'dataurl',
@@ -172,7 +205,10 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
     },
     logLevel: 'silent',
     minify: options.minify,
-    outdir: path.join(options.outputDirectory, 'assets'),
+    outdir:
+      options.target === 'deploy'
+        ? options.outputDirectory
+        : path.join(options.outputDirectory, 'assets'),
     platform: 'browser',
     plugins: [virtualPlugin(options)],
     sourcemap: options.sourcemap ? 'external' : false,
@@ -188,10 +224,22 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
       file.text,
     ]),
   );
-  files['licenses/Shaka-Player-Apache-2.0.txt'] =
-    `Shaka Player ${shakaSources.version}\nCopyright 2016 Google LLC\n\n${shakaSources.license}`;
+  const usedInputs = new Set(
+    Object.values(result.metafile?.outputs ?? {}).flatMap((output) =>
+      Object.entries(output.inputs)
+        .filter(([, input]) => input.bytesInOutput > 0)
+        .map(([input]) => input),
+    ),
+  );
+  if ([...usedInputs].some((input) => input.startsWith('webrad-shaka:'))) {
+    files['assets/licenses/Shaka-Player-Apache-2.0.txt'] =
+      `Shaka Player ${shakaSources.version}\nCopyright 2016 Google LLC\n\n${shakaSources.license}`;
+  }
   return {
     files,
     diagnostics: result.warnings.map((warning) => fromEsbuildMessage(warning, 'warning')),
+    usedSources: [...usedInputs]
+      .filter((input) => input.startsWith('webrad:'))
+      .map((input) => input.slice('webrad:'.length)),
   };
 }

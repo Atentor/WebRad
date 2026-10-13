@@ -19,6 +19,7 @@ const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
 const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');
 const resourceSmoke = process.argv.includes('--webrad-smoke-resources');
 const debuggerSmoke = process.argv.includes('--webrad-smoke-debugger');
+const deploySmoke = process.argv.includes('--webrad-smoke-deploy');
 const screenshotArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-screenshot='),
 );
@@ -37,9 +38,13 @@ try {
       '--',
       '--webrad-smoke',
       '--webrad-smoke-auto-exit',
-      ...(resourceSmoke || debuggerSmoke
+      ...(resourceSmoke || debuggerSmoke || deploySmoke
         ? [
-            debuggerSmoke ? '--webrad-smoke-debugger' : '--webrad-smoke-resources',
+            debuggerSmoke
+              ? '--webrad-smoke-debugger'
+              : deploySmoke
+                ? '--webrad-smoke-deploy'
+                : '--webrad-smoke-resources',
             `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
           ]
         : []),
@@ -64,7 +69,7 @@ try {
   }).finally(() => clearTimeout(timeout));
 
   const log = await fs.readFile(logPath, 'utf8');
-  const requiredEvidence = debuggerSmoke
+  const standardEvidence = debuggerSmoke
     ? [
         'renderer debugger breakpoints and stepping passed',
         'renderer debugger inspection and evaluation passed',
@@ -113,6 +118,14 @@ try {
           'renderer Designer/Preview button style parity passed',
           'renderer Preview isolation passed:',
         ];
+  const requiredEvidence = deploySmoke
+    ? [
+        'renderer Deploy menu and directory settings passed',
+        'renderer PWA project settings passed',
+        'renderer Deploy file progress passed:',
+        'renderer Deploy hosting output passed:',
+      ]
+    : standardEvidence;
   const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));
 
   if (exitCode !== 0 || missingEvidence.length > 0) {

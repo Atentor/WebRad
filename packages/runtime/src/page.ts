@@ -1,7 +1,7 @@
 import type { WebComponent, WebNonvisualComponent } from './component.js';
 import { WebPanel } from './controls.js';
 import type { RuntimeContainerLayoutMode } from './layout.js';
-import { bindPageRestGoEvents } from './restgo-page-events.js';
+import { bindPageIntegrationEvents } from './page-event-hooks.js';
 import { getRepeatingGroupCurrentRow } from './repeating-group.js';
 
 export type { WebPageLoginEventDetail, WebPageLogoutEventDetail } from './restgo-page-events.js';
@@ -142,7 +142,7 @@ export class WebReusableElementInstance extends WebComponentScope {
 
   protected override onRootGeneratedEventBound(eventName: string): void {
     if (eventName === 'OnLogin' || eventName === 'OnLogout' || eventName === 'OnUnauthenticated')
-      this.#restGoEvents ??= bindPageRestGoEvents(this);
+      this.#restGoEvents ??= bindPageIntegrationEvents(this);
   }
 
   public override dispose(): void {
@@ -183,7 +183,7 @@ export class WebPage extends WebComponentScope {
 
   public override show(): void {
     super.show();
-    this.#restGoEvents ??= bindPageRestGoEvents(this);
+    this.#restGoEvents ??= bindPageIntegrationEvents(this);
     for (const layer of floatingLayersForPage(this.element)) layer.hidden = false;
     if (!this.#created) {
       this.#created = true;

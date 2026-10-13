@@ -30,6 +30,7 @@ export const IDE_COMMANDS = [
   'project.addUnit',
   'project.importAsset',
   'project.build',
+  'project.deploy',
   'run.run',
   'debug.start',
   'debug.pause',
@@ -96,6 +97,26 @@ export interface BuildResponse {
   diagnostics: readonly BuildDiagnostic[];
 }
 
+export interface DeployRequest extends SaveProjectRequest {
+  requestId: string;
+}
+
+export interface DeployResponse {
+  success: boolean;
+  cancelled?: boolean;
+  outputDirectory?: string;
+  diagnostics: readonly BuildDiagnostic[];
+  fileCount?: number;
+}
+
+export interface DeployProgress {
+  requestId: string;
+  phase: 'compiling' | 'writing' | 'complete';
+  completedFiles: number;
+  totalFiles: number;
+  currentFile?: string;
+}
+
 export interface CompileStylesRequest {
   readonly styles: readonly ComponentStyleModel[];
 }
@@ -124,6 +145,11 @@ export interface WebRadBridge {
   };
   build: {
     run(request: BuildRequest): Promise<BuildResponse>;
+  };
+  deploy: {
+    chooseDirectory(rootPath: string): Promise<string | null>;
+    run(request: DeployRequest): Promise<DeployResponse>;
+    subscribe(listener: (progress: DeployProgress) => void): () => void;
   };
   styles: {
     /** Compiles the project style catalog for live design-time preview. */

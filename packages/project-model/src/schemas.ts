@@ -65,6 +65,8 @@ import {
   type ProjectSocialImage,
   type ProjectSeoSettings,
   type ProjectSettings,
+  type ProjectBuildSettings,
+  type ProjectPwaSettings,
   type RestGoProjectSettings,
   type ProjectScrollbarStyle,
   type ReusableElementModel,
@@ -948,6 +950,43 @@ export const RestGoProjectSettingsSchema: z.ZodType<RestGoProjectSettings> = z
     }
   });
 
+export const ProjectBuildSettingsSchema: z.ZodType<ProjectBuildSettings> = z
+  .object({
+    deployDirectory: z
+      .string()
+      .trim()
+      .max(4096)
+      .refine(
+        (value) => [...value].every((character) => character.charCodeAt(0) >= 32),
+        'The deployment directory cannot contain control characters.',
+      )
+      .refine((value) => {
+        if (value === '') return true;
+        if (/^[A-Za-z]:/.test(value) && !/^[A-Za-z]:[\\/]/.test(value)) return false;
+        return value.split(/[\\/]/).every((segment) => segment !== '.' && segment !== '..');
+      }, 'Choose an absolute directory or a relative path without . or .. segments.'),
+    environment: z.enum(PROJECT_ENVIRONMENTS),
+    minify: z.boolean(),
+    sourceMaps: z.boolean(),
+  })
+  .strict();
+
+export const ProjectPwaSettingsSchema: z.ZodType<ProjectPwaSettings> = z
+  .object({
+    enabled: z.boolean(),
+    shortName: z.string().trim().max(32),
+    display: z.enum(['standalone', 'fullscreen', 'minimal-ui']),
+    orientation: z.enum(['any', 'portrait', 'landscape']),
+    themeColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, 'Choose a six-digit hexadecimal theme color.'),
+    backgroundColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, 'Choose a six-digit hexadecimal background color.'),
+    offline: z.boolean(),
+  })
+  .strict();
+
 export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   .object({
     colorPalette: ProjectColorPaletteSchema,
@@ -970,6 +1009,8 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
     gridSize: z.number().int().positive(),
     snapToGrid: z.boolean(),
     showGrid: z.boolean(),
+    build: ProjectBuildSettingsSchema,
+    pwa: ProjectPwaSettingsSchema,
     outputDirectory: relativeProjectPathSchema,
   })
   .strict()

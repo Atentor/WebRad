@@ -40,6 +40,15 @@ describe('debug source maps', () => {
       page.rootComponentId,
     );
     page = bindComponentEvent(page, page.rootComponentId, 'OnCreate', 'PageMainCreate');
+    page = addComponent(
+      page,
+      defaultComponentRegistry.createComponent('WebVideoPlayer', {
+        id: 'debug-video',
+        name: 'VideoPlayer1',
+        parentId: page.rootComponentId,
+      }),
+      page.rootComponentId,
+    );
     project = updatePage(project, page.id, page);
     let reusable = createReusableElement('DebugReusable');
     reusable = addComponent(
@@ -52,6 +61,17 @@ describe('debug source maps', () => {
       reusable.rootComponentId,
     );
     project = addReusableElement(project, reusable);
+    page = addComponent(
+      page,
+      defaultComponentRegistry.createComponent('WebReusableElement', {
+        id: 'debug-reusable-placement',
+        name: 'Reusable1',
+        parentId: page.rootComponentId,
+        props: { reusableElementId: reusable.id },
+      }),
+      page.rootComponentId,
+    );
+    project = updatePage(project, page.id, page);
     const pageSource = [
       `import { PageMainGenerated } from './PageMain.generated';`,
       `import { Customer } from '../models/Customer';`,

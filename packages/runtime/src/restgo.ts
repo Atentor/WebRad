@@ -1,4 +1,6 @@
 import { createClient, type RestGoClient } from '@webrad/restgo-sdk';
+import { setPageEventBinder } from './page-event-hooks.js';
+import { bindPageRestGoEvents } from './restgo-page-events.js';
 
 /** Browser-safe projection of the RestGO integration saved in the Project Model. */
 export interface RestGoRuntimeConfiguration {
@@ -30,6 +32,7 @@ export function getRestGoApplicationToken(): string {
 
 /** Creates the one shared client before authored page lifecycle handlers run. */
 export function configureRestGo(configuration: RestGoRuntimeConfiguration): RestGoClient | null {
+  setPageEventBinder(bindPageRestGoEvents);
   projectClient?.dispose();
   applicationApiToken = '';
   projectClient = configuration.enabled

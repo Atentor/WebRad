@@ -22,13 +22,18 @@ import { Icon } from './Icon';
 import { ColorInput, PaletteColorButton } from './ColorInput';
 import { ProjectColorPaletteContext } from '../project-color-palette';
 import { resolvePaletteColor } from '@webrad/project-model';
+import { ProjectSettingsSchema } from '@webrad/project-model';
 import { useContext } from 'react';
+import { ProjectBuildSettings } from './ProjectBuildSettings';
+import { ProjectPwaSettings } from './ProjectPwaSettings';
 
 interface ProjectSettingsDialogProps {
   readonly projectName: string;
   readonly settings: ProjectSettings;
   readonly onClose: () => void;
   readonly onSave: (settings: ProjectSettings) => void;
+  readonly onChooseDeployDirectory?: () => Promise<string | null>;
+  readonly initialSectionId?: ProjectSettingsSectionId;
 }
 
 type ProjectSettingsSectionId = 'general' | 'environment' | 'icons' | 'seo' | 'build' | 'pwa';
@@ -40,7 +45,6 @@ interface ProjectSettingsSection {
   readonly icon: WebRadIconName;
   readonly title: string;
   readonly description: string;
-  readonly items: readonly string[];
 }
 
 const SETTINGS_SECTIONS = [
@@ -51,12 +55,6 @@ const SETTINGS_SECTIONS = [
     icon: 'settings',
     title: 'General settings',
     description: 'Identity, default behavior, and preferences for this web project.',
-    items: [
-      'Application name and description',
-      'Language, time zone, and region',
-      'Designer settings',
-      'Application scrollbar style',
-    ],
   },
   {
     id: 'environment',
@@ -65,11 +63,6 @@ const SETTINGS_SECTIONS = [
     icon: 'terminal',
     title: 'Environment variables',
     description: 'Values separated by environment for development and production.',
-    items: [
-      'Public keys and service URLs',
-      'Development and production environments',
-      'References to secrets without exposing them in the client',
-    ],
   },
   {
     id: 'icons',
@@ -78,11 +71,6 @@ const SETTINGS_SECTIONS = [
     icon: 'image',
     title: 'Application icons',
     description: 'Visual assets used by the browser, shortcuts, and application installation.',
-    items: [
-      'Favicon and tab icons',
-      'Icons for shortcuts and devices',
-      'Light, dark, and adaptive variants',
-    ],
   },
   {
     id: 'seo',
@@ -91,11 +79,6 @@ const SETTINGS_SECTIONS = [
     icon: 'globe',
     title: 'SEO and social sharing',
     description: 'Metadata for search engines and the previews shown when a public link is shared.',
-    items: [
-      'Canonical URL and search indexing',
-      'Open Graph and Twitter cards',
-      'Share title, description, and image',
-    ],
   },
   {
     id: 'build',
@@ -104,7 +87,6 @@ const SETTINGS_SECTIONS = [
     icon: 'upload-cloud',
     title: 'Build and publishing',
     description: 'Options for browser output and application delivery.',
-    items: ['Output directory and build profile', 'Publishing environment', 'Static asset caching'],
   },
   {
     id: 'pwa',
@@ -113,11 +95,6 @@ const SETTINGS_SECTIONS = [
     icon: 'smartphone',
     title: 'PWA and metadata',
     description: 'Information for installation, sharing, and presentation in the browser.',
-    items: [
-      'Manifest and splash screen',
-      'Theme, colors, and installable icons',
-      'Title, description, and social metadata',
-    ],
   },
 ] as const satisfies readonly ProjectSettingsSection[];
 
@@ -253,6 +230,17 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
     left.gridSize !== right.gridSize ||
     left.snapToGrid !== right.snapToGrid ||
     left.showGrid !== right.showGrid ||
+    left.build.deployDirectory !== right.build.deployDirectory ||
+    left.build.environment !== right.build.environment ||
+    left.build.minify !== right.build.minify ||
+    left.build.sourceMaps !== right.build.sourceMaps ||
+    left.pwa.enabled !== right.pwa.enabled ||
+    left.pwa.shortName !== right.pwa.shortName ||
+    left.pwa.display !== right.pwa.display ||
+    left.pwa.orientation !== right.pwa.orientation ||
+    left.pwa.themeColor !== right.pwa.themeColor ||
+    left.pwa.backgroundColor !== right.pwa.backgroundColor ||
+    left.pwa.offline !== right.pwa.offline ||
     left.scrollbar.width !== right.scrollbar.width ||
     left.scrollbar.height !== right.scrollbar.height ||
     left.scrollbar.trackColor !== right.scrollbar.trackColor ||
@@ -284,6 +272,8 @@ export function ProjectSettingsDialog({
   settings,
   onClose,
   onSave,
+  onChooseDeployDirectory,
+  initialSectionId = 'general',
 }: ProjectSettingsDialogProps): ReactElement {
   const titleId = useId();
   const descriptionId = useId();
@@ -293,7 +283,8 @@ export function ProjectSettingsDialog({
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
-  const [activeSectionId, setActiveSectionId] = useState<ProjectSettingsSectionId>('general');
+  const [activeSectionId, setActiveSectionId] =
+    useState<ProjectSettingsSectionId>(initialSectionId);
   const [draft, setDraft] = useState<ProjectSettings>(settings);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
@@ -304,9 +295,7 @@ export function ProjectSettingsDialog({
   const isEnvironmentSection = activeSection.id === 'environment';
   const isIconsSection = activeSection.id === 'icons';
   const isSeoSection = activeSection.id === 'seo';
-
-  const isEditableSection =
-    isGeneralSection || isEnvironmentSection || isIconsSection || isSeoSection;
+  const isBuildSection = activeSection.id === 'build';
   const hasChanges = settingsChanged(settings, draft);
   const scrollbarPreviewStyle = {
     '--wr-project-scrollbar-track': draft.scrollbar.trackColor,
@@ -479,7 +468,7 @@ export function ProjectSettingsDialog({
       variableNames.add(variable.name);
     }
 
-    onSave({
+    const result = ProjectSettingsSchema.safeParse({
       ...draft,
       applicationName,
       applicationDescription: draft.applicationDescription.trim(),
@@ -487,6 +476,11 @@ export function ProjectSettingsDialog({
       environmentVariables,
       restGo: settings.restGo,
     });
+    if (!result.success) {
+      setSaveError(result.error.issues[0]?.message ?? 'Review the project settings.');
+      return;
+    }
+    onSave(result.data);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -540,9 +534,8 @@ export function ProjectSettingsDialog({
         </header>
         <div className="wr-project-settings-content">
           <p id={descriptionId} className="wr-modal-description">
-            General settings, scrollbar styles, environment variables, application icons, and SEO
-            metadata are saved in the project and applied to the generated output. Other areas
-            remain available for planning.
+            Application settings, environment variables, icons, SEO, publishing, and PWA options are
+            saved in the project and applied to the generated output.
           </p>
           <div className="wr-project-settings-layout">
             <nav
@@ -580,7 +573,7 @@ export function ProjectSettingsDialog({
               <div className="wr-project-settings-panel-heading">
                 <Icon name={activeSection.icon} />
                 <div>
-                  <span>{isEditableSection ? 'Applied to project' : 'Configuration planning'}</span>
+                  <span>Applied to project</span>
                   <h3>{activeSection.title}</h3>
                 </div>
               </div>
@@ -1224,39 +1217,40 @@ export function ProjectSettingsDialog({
                     </div>
                   )}
                 </>
+              ) : isBuildSection ? (
+                <ProjectBuildSettings
+                  value={draft.build}
+                  onChange={(build) => updateDraft({ build })}
+                  {...(onChooseDeployDirectory === undefined
+                    ? {}
+                    : { onChooseDirectory: onChooseDeployDirectory })}
+                />
               ) : (
-                <>
-                  <p>{activeSection.description}</p>
-                  <h4>Planned options</h4>
-                  <ul>
-                    {activeSection.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  <div className="wr-project-settings-note" role="note">
-                    Data structures and editing controls will be added when these settings are
-                    implemented.
-                  </div>
-                </>
+                <ProjectPwaSettings
+                  value={draft.pwa}
+                  applicationName={draft.applicationName}
+                  onChange={(pwa) => updateDraft({ pwa })}
+                />
+              )}
+              {(isBuildSection || activeSection.id === 'pwa') && saveError !== null && (
+                <div
+                  className="wr-project-settings-error"
+                  id={`${descriptionId}-error`}
+                  role="alert"
+                >
+                  {saveError}
+                </div>
               )}
             </section>
           </div>
         </div>
         <footer className="wr-modal-actions wr-project-settings-actions">
-          {isEditableSection ? (
-            <>
-              <button type="button" onClick={onClose}>
-                Cancel
-              </button>
-              <button type="button" className="primary" disabled={!hasChanges} onClick={save}>
-                Save changes
-              </button>
-            </>
-          ) : (
-            <button type="button" className="primary" onClick={onClose}>
-              Close
-            </button>
-          )}
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="primary" disabled={!hasChanges} onClick={save}>
+            Save changes
+          </button>
         </footer>
       </section>
     </div>

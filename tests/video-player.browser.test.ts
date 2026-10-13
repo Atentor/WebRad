@@ -214,7 +214,7 @@ it.runIf(browser !== undefined).each([false, true])(
       });
       expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
       expect(compiled.files['assets/app.css']).toContain('.shaka-controls-container');
-      expect(compiled.files['licenses/Shaka-Player-Apache-2.0.txt']).toContain('Apache');
+      expect(compiled.files['assets/licenses/Shaka-Player-Apache-2.0.txt']).toContain('Apache');
       preview = compiled.previewHtml!;
       await withChromium(browser!, `http://127.0.0.1:${appAddress.port}/`, async (send) => {
         const evaluate = async (expression: string): Promise<unknown> => {

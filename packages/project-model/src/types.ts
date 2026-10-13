@@ -322,6 +322,28 @@ export type ReusableElementModel = PageModel;
 export const PROJECT_ENVIRONMENTS = ['development', 'production'] as const;
 export type ProjectEnvironment = (typeof PROJECT_ENVIRONMENTS)[number];
 
+/** Delivery options for a browser application ready for static hosting. */
+export interface ProjectBuildSettings {
+  /** Native absolute directory or safe relative path resolved from the project directory. */
+  readonly deployDirectory: string;
+  readonly environment: ProjectEnvironment;
+  readonly minify: boolean;
+  /** Include source maps when diagnosing a deployed application. */
+  readonly sourceMaps: boolean;
+}
+
+/** Installable application metadata and optional offline application shell. */
+export interface ProjectPwaSettings {
+  readonly enabled: boolean;
+  /** Empty uses applicationName. */
+  readonly shortName: string;
+  readonly display: 'standalone' | 'fullscreen' | 'minimal-ui';
+  readonly orientation: 'any' | 'portrait' | 'landscape';
+  readonly themeColor: string;
+  readonly backgroundColor: string;
+  readonly offline: boolean;
+}
+
 export const PROJECT_APPLICATION_ICON_MEDIA_TYPES = ['image/svg+xml', 'image/png'] as const;
 export type ProjectApplicationIconMediaType = (typeof PROJECT_APPLICATION_ICON_MEDIA_TYPES)[number];
 
@@ -461,6 +483,8 @@ export interface ProjectSettings {
   readonly gridSize: number;
   readonly snapToGrid: boolean;
   readonly showGrid: boolean;
+  readonly build: ProjectBuildSettings;
+  readonly pwa: ProjectPwaSettings;
   /** POSIX-style relative path persisted in the project, independent of the host OS. */
   readonly outputDirectory: string;
 }
@@ -585,6 +609,21 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   gridSize: 8,
   snapToGrid: true,
   showGrid: true,
+  build: Object.freeze({
+    deployDirectory: '',
+    environment: 'production',
+    minify: true,
+    sourceMaps: false,
+  }),
+  pwa: Object.freeze({
+    enabled: false,
+    shortName: '',
+    display: 'standalone',
+    orientation: 'any',
+    themeColor: '#2563eb',
+    backgroundColor: '#ffffff',
+    offline: true,
+  }),
   outputDirectory: 'dist',
 });
 

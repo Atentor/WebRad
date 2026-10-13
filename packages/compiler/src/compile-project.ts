@@ -26,13 +26,17 @@ import {
 import type { BuildFailure } from 'esbuild';
 import { repeatingGroupForComponent } from '@webrad/language';
 
-import { bundleSources } from './bundle.js';
+import { bundleSources, sourceCandidatePaths } from './bundle.js';
+import { createDeployEntryPoints } from './deploy-entry-points.js';
 import { fromEsbuildMessage } from './diagnostics.js';
 import { createIndexHtml, createPreviewHtml } from './html.js';
 import { createVirtualSourceGraph } from './source-graph.js';
 import { composeSourceMap, DEBUG_SCRIPT_URL } from './source-maps.js';
 import { compileGeneratedAppStyles } from './styles.js';
 import { typecheckSources } from './typecheck.js';
+import { selectApplicationSources, selectedComponentTypes } from './runtime-selection.js';
+import { selectProjectAssets } from './asset-selection.js';
+import { createPwaOutput, createPwaRetirementWorker } from './pwa.js';
 import type {
   CompileDiagnostic,
   CompileProjectMemoryOptions,
@@ -581,17 +585,30 @@ export async function compileProject(
     );
   }
 
-  const project = validation.data;
+  const target = options.target ?? 'preview';
+  const project =
+    target === 'deploy'
+      ? {
+          ...validation.data,
+          settings: {
+            ...validation.data.settings,
+            environment: validation.data.settings.build.environment,
+          },
+        }
+      : validation.data;
   const registry = options.registry ?? defaultComponentRegistry;
   const registryDiagnostics = validateRegistry(project, registry);
   if (hasErrors(registryDiagnostics)) return failedResult(outputDirectory, registryDiagnostics);
 
+  const selected = selectApplicationSources(project, options.userSources);
+
   let generatedAppCss: string;
   try {
     generatedAppCss = await compileGeneratedAppStyles(
-      project.styles,
+      selected.project.styles,
       project.settings.scrollbar,
       project.settings.colorPalette,
+      selectedComponentTypes(selected, registry),
     );
   } catch (error) {
     return failedResult(outputDirectory, [
@@ -626,13 +643,29 @@ export async function compileProject(
   if (hasErrors(preBundleDiagnostics)) return failedResult(outputDirectory, preBundleDiagnostics);
 
   try {
-    const bundle = await bundleSources({
+    const bundleOptions = {
       sources: checked.sources,
       entryPath: graph.entryPath,
       outputDirectory,
-      minify: options.debug ? false : (options.minify ?? false),
-      sourcemap: options.debug || (options.sourcemap ?? false),
-    });
+      minify: options.debug
+        ? false
+        : (options.minify ?? (target === 'deploy' ? project.settings.build.minify : false)),
+      sourcemap:
+        options.debug ||
+        (options.sourcemap ?? (target === 'deploy' && project.settings.build.sourceMaps)),
+      target,
+      componentTypes: graph.componentTypes,
+    };
+    let bundle = await bundleSources(bundleOptions);
+    if (target === 'deploy') {
+      const deployment = createDeployEntryPoints(
+        checked.sources,
+        graph.entryPath,
+        bundle.usedSources,
+        sourceCandidatePaths,
+      );
+      bundle = await bundleSources({ ...bundleOptions, ...deployment });
+    }
     const bundleFiles = { ...bundle.files };
     for (const [file, sourceMap] of Object.entries(bundleFiles)) {
       if (file.endsWith('.map'))
@@ -660,7 +693,11 @@ export async function compileProject(
         ? null
         : socialImageOutputPath(project.settings.seo.socialImage);
     const binaryFiles: Record<string, Uint8Array> = {};
-    for (const asset of project.assets ?? [])
+    const assets =
+      target === 'deploy'
+        ? selectProjectAssets(selected.project, selected.userSources, generatedAppCss)
+        : (project.assets ?? []);
+    for (const asset of assets)
       binaryFiles[projectAssetPath(asset)] = Buffer.from(asset.base64, 'base64');
     if (project.settings.applicationIcon !== null && iconOutputPath !== null) {
       binaryFiles[iconOutputPath] = decodeApplicationIcon(project.settings.applicationIcon);
@@ -668,14 +705,25 @@ export async function compileProject(
     if (project.settings.seo.socialImage !== null && socialImageOutputPathValue !== null) {
       binaryFiles[socialImageOutputPathValue] = decodeSocialImage(project.settings.seo.socialImage);
     }
-    const files = {
+    const files: Record<string, string> = {
       ...bundleFiles,
       'index.html': createIndexHtml(
         project.settings,
         iconOutputPath === null ? null : `./${iconOutputPath}`,
         socialImageOutputPathValue === null ? null : `./${socialImageOutputPathValue}`,
+        {
+          modules: target === 'deploy',
+          ...(target === 'deploy' ? { pwa: project.settings.pwa } : {}),
+        },
       ),
     };
+    if (target === 'deploy' && project.settings.pwa.enabled) {
+      const pwa = await createPwaOutput(project.settings, files, binaryFiles);
+      Object.assign(files, pwa.files);
+      Object.assign(binaryFiles, pwa.binaryFiles);
+    } else if (target === 'deploy') {
+      files['service-worker.js'] = createPwaRetirementWorker();
+    }
     const diagnostics = [...preBundleDiagnostics, ...bundle.diagnostics];
     if (options.write ?? true) await writeOutputFiles(outputDirectory, files, binaryFiles);
     const debugSourceMap = bundleFiles['assets/app.js.map'];
@@ -684,11 +732,16 @@ export async function compileProject(
       outputDirectory,
       diagnostics,
       files,
-      previewHtml: createPreviewHtml(
-        project.settings,
-        options.debug ? `${javaScript}\n//# sourceURL=${DEBUG_SCRIPT_URL}\n` : javaScript,
-        css,
-      ),
+      binaryFiles,
+      ...(target === 'preview'
+        ? {
+            previewHtml: createPreviewHtml(
+              project.settings,
+              options.debug ? `${javaScript}\n//# sourceURL=${DEBUG_SCRIPT_URL}\n` : javaScript,
+              css,
+            ),
+          }
+        : {}),
       ...(options.debug && debugSourceMap !== undefined
         ? { debug: { sourceMap: debugSourceMap, scriptUrl: DEBUG_SCRIPT_URL } }
         : {}),

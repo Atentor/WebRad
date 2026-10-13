@@ -13,7 +13,7 @@ function projectSettings() {
 }
 
 describe('ProjectSettingsDialog', () => {
-  it('organizes web application configuration areas while keeping future sections in planning', async () => {
+  it('organizes implemented web application configuration areas', async () => {
     const user = userEvent.setup();
     render(
       <ProjectSettingsDialog
@@ -36,13 +36,139 @@ describe('ProjectSettingsDialog', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Build and publishing' }));
     expect(screen.getByRole('heading', { name: 'Build and publishing' })).toBeDefined();
-    expect(screen.getByText('Output directory and build profile')).toBeDefined();
+    expect(screen.getByRole('textbox', { name: /^Deploy directory/ })).toBeDefined();
+    expect(screen.queryByText('Planned options')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDefined();
+    await user.click(screen.getByRole('tab', { name: 'PWA and metadata' }));
+    expect(screen.getByRole('checkbox', { name: 'Enable PWA installation' })).toBeDefined();
+  });
+
+  it('chooses a deploy destination and saves delivery options without changing Preview environment', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const onChooseDeployDirectory = vi.fn().mockResolvedValue('C:\\Hosting\\Portal');
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+        onChooseDeployDirectory={onChooseDeployDirectory}
+        initialSectionId="build"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Choose folder' }));
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('textbox', { name: /^Deploy directory/ }) as HTMLInputElement).value,
+      ).toBe('C:\\Hosting\\Portal'),
+    );
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /^Deploy environment/ }),
+      'development',
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Minify JavaScript and CSS' }));
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Include source maps for troubleshooting' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onChooseDeployDirectory).toHaveBeenCalledOnce();
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        environment: 'development',
+        build: {
+          deployDirectory: 'C:\\Hosting\\Portal',
+          environment: 'development',
+          minify: false,
+          sourceMaps: true,
+        },
+      }),
+    );
+  });
+
+  it('preserves the deploy directory when native folder selection is canceled', async () => {
+    const user = userEvent.setup();
+    const settings = projectSettings();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={{ ...settings, build: { ...settings.build, deployDirectory: 'hosting' } }}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        onChooseDeployDirectory={vi.fn().mockResolvedValue(null)}
+        initialSectionId="build"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Choose folder' }));
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('textbox', { name: /^Deploy directory/ }) as HTMLInputElement).value,
+      ).toBe('hosting'),
+    );
     expect(
-      screen.getByText(
-        /General settings, scrollbar styles, environment variables, application icons, and SEO metadata/i,
-      ),
-    ).toBeDefined();
-    expect(screen.getByRole('note').textContent).toContain('Data structures');
+      (screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it('validates unsafe deploy paths before saving', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+        initialSectionId="build"
+      />,
+    );
+    await user.type(screen.getByRole('textbox', { name: /^Deploy directory/ }), '../hosting');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(screen.getByRole('alert').textContent).toContain('without . or ..');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('saves PWA installation metadata and retains unsaved changes across sections', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+        initialSectionId="pwa"
+      />,
+    );
+    const shortName = screen.getByRole('textbox', { name: /^Short name/ }) as HTMLInputElement;
+    expect(shortName.matches(':disabled')).toBe(true);
+    expect(shortName.closest('fieldset')?.disabled).toBe(true);
+    await user.click(screen.getByRole('checkbox', { name: 'Enable PWA installation' }));
+    await user.type(shortName, ' Client Portal ');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Display mode' }), 'fullscreen');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Orientation' }), 'portrait');
+    fireEvent.change(screen.getByLabelText(/^Theme color/), { target: { value: '#123456' } });
+    fireEvent.change(screen.getByLabelText(/^Background color/), { target: { value: '#abcdef' } });
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Keep the application available offline' }),
+    );
+    await user.click(screen.getByRole('tab', { name: 'Build and publishing' }));
+    await user.type(screen.getByRole('textbox', { name: /^Deploy directory/ }), 'hosting/portal');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pwa: {
+          enabled: true,
+          shortName: 'Client Portal',
+          display: 'fullscreen',
+          orientation: 'portrait',
+          themeColor: '#123456',
+          backgroundColor: '#abcdef',
+          offline: false,
+        },
+        build: expect.objectContaining({ deployDirectory: 'hosting/portal' }),
+      }),
+    );
   });
 
   it('saves general metadata and Designer preferences as one project settings update', async () => {

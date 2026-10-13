@@ -20,6 +20,8 @@ import type {
   BuildRequest,
   BuildResponse,
   CreateProjectRequest,
+  DeployProgress,
+  DeployResponse,
   IdeCommand,
   ProjectSession,
   ReadFileRequest,
@@ -274,6 +276,11 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
       },
     },
     build: { run: build },
+    deploy: {
+      chooseDirectory: vi.fn(async () => 'C:\\Hosting\\MvpProject'),
+      run: vi.fn(),
+      subscribe: vi.fn(() => () => undefined),
+    },
     styles: { compile: compileStyles },
     commands: { subscribe },
     lifecycle: { setDirty },
@@ -332,6 +339,85 @@ afterEach(() => {
 });
 
 describe('App MVP integration', () => {
+  it('configures Deploy first and reports correlated file progress without running on settings save', async () => {
+    const harness = createBridgeHarness(initialSession());
+    let listener: ((progress: DeployProgress) => void) | undefined;
+    let finish: ((response: DeployResponse) => void) | undefined;
+    harness.bridge.deploy.subscribe = (callback) => {
+      listener = callback;
+      return () => {
+        listener = undefined;
+      };
+    };
+    const runDeploy = vi.fn<WebRadBridge['deploy']['run']>(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    harness.bridge.deploy.run = runDeploy;
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    act(() => harness.invokeCommand('project.deploy'));
+    const settings = await screen.findByRole('dialog', { name: 'Settings for MvpProject' });
+    expect(
+      within(settings)
+        .getByRole('tab', { name: 'Build and publishing' })
+        .getAttribute('aria-selected'),
+    ).toBe('true');
+    await user.click(within(settings).getByRole('button', { name: 'Choose folder' }));
+    await user.click(within(settings).getByRole('tab', { name: 'PWA and metadata' }));
+    await user.click(within(settings).getByLabelText('Enable PWA installation'));
+    await user.click(within(settings).getByRole('button', { name: 'Save changes' }));
+    expect(runDeploy).not.toHaveBeenCalled();
+    act(() => harness.invokeCommand('project.deploy'));
+    await waitFor(() => expect(runDeploy).toHaveBeenCalledOnce());
+    const request = runDeploy.mock.calls[0]![0];
+    expect(request.project.settings.build).toMatchObject({
+      deployDirectory: 'C:\\Hosting\\MvpProject',
+      environment: 'production',
+    });
+    expect(request.project.settings.pwa.enabled).toBe(true);
+    const progress = screen.getByRole('progressbar', { name: 'Deploy progress' });
+    expect(progress.getAttribute('value')).toBeNull();
+    act(() =>
+      listener?.({
+        requestId: 'other-request',
+        phase: 'writing',
+        completedFiles: 8,
+        totalFiles: 8,
+      }),
+    );
+    expect(progress.getAttribute('value')).toBeNull();
+    act(() =>
+      listener?.({
+        requestId: request.requestId,
+        phase: 'writing',
+        completedFiles: 2,
+        totalFiles: 8,
+        currentFile: 'pages/PageMain.js',
+      }),
+    );
+    expect(progress.getAttribute('value')).toBe('2');
+    expect(progress.getAttribute('max')).toBe('8');
+    expect(screen.getByText('2 of 8 files')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Deploying…' }).hasAttribute('disabled')).toBe(true);
+    await act(async () => {
+      finish?.({
+        success: true,
+        outputDirectory: 'C:\\Hosting\\MvpProject',
+        diagnostics: [],
+        fileCount: 8,
+      });
+    });
+    expect(await screen.findByText('Your application is ready for hosting.')).toBeDefined();
+    expect(screen.getByText('8 of 8 files')).toBeDefined();
+    expect(harness.build).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'Deploy' })).toBeNull();
+  });
   it('inserts palette and dropped children inside a fixed Repeating Group row', async () => {
     const session = repeatingGroupSession();
     const page = session.project.pages[0];

@@ -1,5 +1,6 @@
 import { runProjectResourcesSmoke } from './project-resources-smoke';
 import { runDebuggerSmoke } from './debugger-smoke';
+import { runDeploySmoke } from './deploy-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
@@ -674,6 +675,10 @@ async function captureDesignerSmokeScreenshot(window: BrowserWindow): Promise<vo
 }
 
 async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
+  if (process.argv.includes('--webrad-smoke-deploy') && smokeProjectPath !== undefined) {
+    await runDeploySmoke(window, smokeProjectPath, smokeLog, smokeScreenshotPath);
+    return;
+  }
   if (process.argv.includes('--webrad-smoke-debugger') && smokeProjectPath !== undefined) {
     await runDebuggerSmoke(window, smokeProjectPath, smokeLog);
     return;
@@ -715,6 +720,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const bridge = Reflect.get(shellResult, 'bridge');
   const expectedBridge = Object.keys({
     debugger: true,
+    deploy: true,
     build: true,
     commands: true,
     files: true,
@@ -1136,6 +1142,7 @@ async function createWindow(): Promise<BrowserWindow> {
       // Smoke windows stay hidden, so keep renderer timers alive for debounced
       // live style compilation while preserving normal Electron throttling.
       backgroundThrottling: !smokeMode,
+      offscreen: smokeMode && process.argv.includes('--webrad-smoke-deploy'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
