@@ -1,7 +1,7 @@
 {
   "name": "webrad",
   "productName": "WebRad",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "description": "A visual RAD IDE for modern web applications",
   "main": ".vite/build/main.js",

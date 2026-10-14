@@ -631,6 +631,10 @@
   height: 14px;
 }
 
+.wr-element-icon .wr-icon {
+  transform: scale(1.2);
+}
+
 .wr-element-row.selected .wr-element-icon {
   color: var(--wr-text);
 }
@@ -683,6 +687,7 @@
 .wr-tool-palette-compact .wr-palette-item-icon .wr-icon {
   width: 14px;
   height: 14px;
+  transform: scale(1.2);
 }
 
 .wr-tool-palette-compact .wr-palette-item.selected .wr-palette-item-icon {
