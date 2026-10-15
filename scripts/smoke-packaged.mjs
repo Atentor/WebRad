@@ -70,7 +70,13 @@ try {
     });
   }).finally(() => clearTimeout(timeout));
 
-  const log = await fs.readFile(logPath, 'utf8');
+  const log = await fs.readFile(logPath, 'utf8').catch((error) => {
+    if (error.code !== 'ENOENT') throw error;
+    throw new Error(
+      `Packaged smoke failed before creating its log (exit ${String(exitCode)}; expected ${logPath}). Check the Electron startup output above. On Linux, chrome-sandbox must be owned by root and have mode 4755.`,
+      { cause: error },
+    );
+  });
   const requiredEvidence = deploySmoke
     ? [
         'renderer Deploy menu and directory settings passed',

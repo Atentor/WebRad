@@ -380,6 +380,14 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Matched compact palette component icons to the tree icons with the same 14px base and 20% visual scaling, preserving item spacing and captions.
 - Palette validation: CSS formatting, three existing ToolPalette tests and production renderer build passed. Live visual review was not performed.
 
+# GitHub Actions Linux Electron sandbox - 2026-10-15
+
+- Configure the development and packaged `chrome-sandbox` helpers with root ownership and mode 4755 after the validation build and before Linux smoke tests. Derive the package directory from package metadata and the runner platform/architecture; retain Electron sandboxing.
+- Development and packaged smoke failures without a log now report the child exit code, expected log path and Linux sandbox setup requirement instead of an unexplained ENOENT.
+- Validation: icon/runtime-source parity, strict root typecheck, lint, repository formatting and Windows x64 production packaging passed. Parsed the workflow YAML, checked the Linux Bash syntax and simulated startup failures without a log in both smoke scripts, confirming the child exit code and sandbox guidance.
+- Both complete Windows Electron smoke workflows passed. Development required a rerun outside restricted execution after the initial GPU subprocess startup failure; Electron sandboxing stayed enabled.
+- The full regression run reported 1,361 passed, 27 optional skips and one 5-second timeout in the unchanged component-margin test. That test passed separately in 1.67 seconds. Native Ubuntu permission/launch validation remains pending the next GitHub Actions run.
+
 # Report Builder - 2026-10-14
 
 - Added centrally registered nonvisual `WebReportBuilder`, a versioned JSON template, strict persistent validation, generated page/reusable types and Monaco parameter completion. Templates use Text, Image, Line and one-level Repeater components in title/header/detail/footer/summary bands, with paper/orientation/margins, loaded ApiClient field bindings and typed parameter defaults.

@@ -18,6 +18,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run validate
+      - name: Configure Linux Electron sandbox
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          package_directory="out/$(node -p '[require("./package.json").productName, process.platform, process.arch].join("-")')"
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox "$package_directory/chrome-sandbox"
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox "$package_directory/chrome-sandbox"
       - if: runner.os == 'Windows'
         run: npm run smoke:development
       - if: runner.os == 'Linux'
