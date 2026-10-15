@@ -30,14 +30,12 @@ export function PreviewPane({ url, running, diagnostics }: PreviewPaneProps): Re
     );
   }
 
+  // Preview uses a separate origin and main-process navigation/IPC guards.
+  // HTML iframe sandboxing blocks native PDF viewers; Electron's process
+  // sandbox remains enabled for the entire renderer window.
   return (
     <div className="wr-preview-pane">
-      <iframe
-        title="WebRAD application preview"
-        sandbox="allow-forms allow-modals allow-scripts allow-same-origin"
-        referrerPolicy="no-referrer"
-        src={url}
-      />
+      <iframe title="WebRAD application preview" referrerPolicy="no-referrer" src={url} />
     </div>
   );
 }

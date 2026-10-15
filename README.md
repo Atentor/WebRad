@@ -80,6 +80,8 @@ O componente não visual [File Upload](docs/file-upload.md) oferece `OpenFile()`
 
 O componente não visual [Video Upload](docs/video-upload.md) envia vídeos para o módulo nativo do RestGo com limites opcionais de tamanho do arquivo e duração, progresso confirmado, pausa, retomada e acompanhamento explícito da conversão. Ele usa `RestGO.videos`, mantém seleção e envio separados e oferece a mesma API tipada em páginas e reutilizáveis.
 
+O componente não visual [Report Builder](docs/report-builder.md) oferece um construtor maximizado de relatórios com bandas, textos, imagens, linhas e repetidores. Os templates JSON usam parâmetros preenchidos pelo código e respostas já carregadas dos ApiClients; a geração produz PDF paginado em modal, nova aba ou download, com troca de modelos externos em execução.
+
 O componente visual [Video Player](docs/video-player.md) usa Shaka Player 5.2.13 para reproduzir vídeos RestGo públicos/privados e manifestos HLS/DASH, com controles, Auto/manual, seek e API tipada no Monaco. JavaScript, CSS e licença acompanham o Preview e a exportação; o Designer não inicia playback.
 
 Use atalhos com parâmetros diretos, como `await RestGO.login(email, senha)`, `await RestGO.getUser()` e `await RestGO.logout()`. As operações retornam `{ data, error }` e compartilham a sessão em todas as páginas. O `login()` também retorna `sucess: true | false`: use `if (log.sucess)` para acessar `log.data.user` ou, no ramo de falha, `log.error.message`.

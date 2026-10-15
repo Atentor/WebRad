@@ -1,7 +1,7 @@
 {
   "name": "webrad",
   "productName": "WebRad",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "description": "A visual RAD IDE for modern web applications",
   "main": ".vite/build/main.js",
@@ -33,6 +33,7 @@
     "smoke:development": "node scripts/smoke-development.mjs",
     "smoke:debugger": "node scripts/smoke-development.mjs --webrad-smoke-debugger",
     "smoke:resources": "node scripts/smoke-packaged.mjs --webrad-smoke-resources",
+    "smoke:report-builder": "node scripts/smoke-report-builder.mjs",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
     "validate": "npm run icons:check && npm run runtime:sources:check && npm run typecheck && npm run lint && npm test && npm run format:check && npm run build"
   },

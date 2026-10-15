@@ -78,6 +78,21 @@ const repeatingGroupTypings =
   JSON.stringify(createApiClientDeclarations(repositoryRoot, ['repeating-group.ts']), null, 2) +
   '\n';
 
+const reportBuilderTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'report-builder-typings.generated.json',
+);
+const reportSourceNames = ['report-template.ts', 'report-pdf.ts', 'report-builder.ts'];
+const reportBuilderTypings =
+  JSON.stringify(
+    createApiClientDeclarations(repositoryRoot, ['report-template.ts', 'report-builder.ts']),
+    null,
+    2,
+  ) + '\n';
+
 const sourceFiles = [
   'api-client.ts',
   'api-client-inputs.ts',
@@ -89,6 +104,7 @@ const sourceFiles = [
   'combo-box-data.ts',
   'data-grid.ts',
   'repeating-group.ts',
+  ...reportSourceNames,
   'file-upload.ts',
   'video-file-selection.ts',
   'video-upload.ts',
@@ -284,6 +300,7 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [reportBuilderTypingsPath, reportBuilderTypings],
   [repeatingGroupTypingsPath, repeatingGroupTypings],
   [playerTypingsPath, playerTypings],
   [
@@ -319,6 +336,51 @@ const outputs = [
   [sdkOutputPath, `${JSON.stringify(sdkSources, null, 2)}\n`],
   [sdkTypingsPath, `${JSON.stringify(sdkTypings, null, 2)}\n`],
 ];
+
+async function collectVendorDeclarations(directory, prefix = '') {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const result = [];
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const relative = path.posix.join(prefix, entry.name);
+    if (entry.isDirectory())
+      result.push(...(await collectVendorDeclarations(path.join(directory, entry.name), relative)));
+    else if (entry.name.endsWith('.d.ts'))
+      result.push([relative, await fs.readFile(path.join(directory, entry.name), 'utf8')]);
+  }
+  return result;
+}
+
+const pdfLibraryRoot = path.join(repositoryRoot, 'node_modules', 'pdf-lib');
+const pdfSources = {
+  version: JSON.parse(await fs.readFile(path.join(pdfLibraryRoot, 'package.json'), 'utf8')).version,
+  javascript: await fs.readFile(path.join(pdfLibraryRoot, 'dist', 'pdf-lib.esm.min.js'), 'utf8'),
+  license: await fs.readFile(path.join(pdfLibraryRoot, 'LICENSE.md'), 'utf8'),
+  dependencyLicenses: Object.fromEntries(
+    await Promise.all(
+      [
+        [
+          'standard-fonts-MIT.txt',
+          path.join(repositoryRoot, 'node_modules', '@pdf-lib', 'standard-fonts', 'LICENSE.md'),
+        ],
+        ['upng-MIT.txt', path.join(repositoryRoot, 'node_modules', '@pdf-lib', 'upng', 'LICENSE')],
+        ['pako-MIT-Zlib.txt', path.join(repositoryRoot, 'node_modules', 'pako', 'LICENSE')],
+        ['tslib-0BSD.txt', path.join(pdfLibraryRoot, 'node_modules', 'tslib', 'LICENSE.txt')],
+      ].map(async ([name, licensePath]) => [name, await fs.readFile(licensePath, 'utf8')]),
+    ),
+  ),
+  declarations: Object.fromEntries(
+    await collectVendorDeclarations(path.join(pdfLibraryRoot, 'es')),
+  ),
+  standardFontDeclarations: Object.fromEntries(
+    await collectVendorDeclarations(
+      path.join(repositoryRoot, 'node_modules', '@pdf-lib', 'standard-fonts', 'es'),
+    ),
+  ),
+};
+outputs.push([
+  path.join(repositoryRoot, 'packages', 'compiler', 'src', 'pdf-lib-sources.generated.json'),
+  JSON.stringify(pdfSources, null, 2) + '\n',
+]);
 
 if (globalThis.process.argv.includes('--check')) {
   for (const [fileName, contents] of outputs) {

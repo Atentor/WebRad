@@ -8,7 +8,8 @@
   },
   "types": "./src/index.ts",
   "dependencies": {
-    "@webrad/project-model": "*"
+    "@webrad/project-model": "*",
+    "@webrad/runtime": "*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

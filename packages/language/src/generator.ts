@@ -1,3 +1,4 @@
+import { createDefaultReportTemplate, parseReportTemplate } from '@webrad/runtime/report-template';
 import { getApiClientBodyInputs, type WebApiBodyInput } from '@webrad/runtime';
 import { defaultComponentRegistry, type ComponentRegistry } from '@webrad/component-registry';
 import {
@@ -276,12 +277,45 @@ function repeatingGroupTypeDeclarations(page: PageModel): ApiClientTypeDeclarati
   return { declarations, typeByComponentId };
 }
 
+function reportTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
+  const declarations: string[] = [];
+  const typeByComponentId = new Map<string, string>();
+  for (const component of page.components) {
+    if (component.type !== 'WebReportBuilder') continue;
+    const template =
+      component.props.reportTemplate === undefined
+        ? createDefaultReportTemplate()
+        : parseReportTemplate(component.props.reportTemplate);
+    if (template.parameters.length === 0) continue;
+    const typeName = component.name + 'ReportParameters';
+    declarations.push(
+      'export type ' + typeName + ' = {',
+      ...template.parameters.map(
+        (parameter) =>
+          '  ' +
+          JSON.stringify(parameter.name) +
+          ': ' +
+          (parameter.type === 'date' ? 'string' : parameter.type) +
+          ' | null;',
+      ),
+      '};',
+      '',
+    );
+    typeByComponentId.set(component.id, 'WebReportBuilder<' + typeName + '>');
+  }
+  return { declarations, typeByComponentId };
+}
 function documentTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
   const api = apiClientTypeDeclarations(page);
   const rows = repeatingGroupTypeDeclarations(page);
+  const reports = reportTypeDeclarations(page);
   return {
-    declarations: [...api.declarations, ...rows.declarations],
-    typeByComponentId: new Map([...api.typeByComponentId, ...rows.typeByComponentId]),
+    declarations: [...api.declarations, ...rows.declarations, ...reports.declarations],
+    typeByComponentId: new Map([
+      ...api.typeByComponentId,
+      ...rows.typeByComponentId,
+      ...reports.typeByComponentId,
+    ]),
   };
 }
 
@@ -348,7 +382,7 @@ function componentConstruction(
     ...component.props,
     id: component.id,
     name: component.name,
-  })})${apiClientTypes.has(component.id) ? '.withRequests()' : ''}`;
+  })})${component.type === 'WebApiClient' ? '.withRequests()' : ''}`;
 }
 
 function componentMemberType(
@@ -457,6 +491,29 @@ function generateDocumentSource(
     lines.push(...componentInitialization(component));
   }
   if ((gridBindings.length > 0 || events.length > 0) && components.length > 0) lines.push('');
+  for (const report of components.filter((component) => component.type === 'WebReportBuilder')) {
+    for (const client of components.filter((component) => component.type === 'WebApiClient')) {
+      lines.push(
+        '    this.' +
+          report.name +
+          '.bindApiClient(' +
+          quoted(client.id) +
+          ', this.' +
+          client.name +
+          ');',
+      );
+      if (client.id !== client.name)
+        lines.push(
+          '    this.' +
+            report.name +
+            '.bindApiClient(' +
+            quoted(client.name) +
+            ', this.' +
+            client.name +
+            ');',
+        );
+    }
+  }
   for (const binding of gridBindings) {
     if (repeatingGroupForComponent(page, binding.grid.id) !== undefined) continue;
     lines.push(`    this.${binding.grid.name}.bindApiClient(this.${binding.apiClient.name});`);

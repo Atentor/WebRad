@@ -1,7 +1,9 @@
+import type { WebReportElement } from '@webrad/runtime/report-template';
 import {
   RepeatingGroupConfigurationSchema,
   type ComponentNode,
   type PageModel,
+  ReportTemplateSchema,
 } from '@webrad/project-model';
 
 import type { Command } from './command-history.js';
@@ -183,7 +185,10 @@ export function materializePaste(
     }
     return {
       ...cloneComponentNode(source),
-      props: remapRepeatingGroupApiReference(source.props, idMap),
+      props: remapReportTemplateApiReferences(
+        remapRepeatingGroupApiReference(source.props, idMap),
+        idMap,
+      ),
       id,
       name: nextAvailableName(source.name, usedNames),
       parentId: mappedParent,
@@ -221,6 +226,42 @@ export function materializePaste(
   return { parentId, rootIds: pastedRootIds, components };
 }
 
+function remapReportTemplateApiReferences(
+  props: ComponentNode['props'],
+  idMap: ReadonlyMap<string, string>,
+): ComponentNode['props'] {
+  if (props.reportTemplate === undefined) return props;
+  const parsed = ReportTemplateSchema.safeParse(props.reportTemplate);
+  if (!parsed.success) return props;
+  const elements = (items: readonly WebReportElement[]): readonly WebReportElement[] =>
+    items.map((element) => {
+      if (element.type === 'repeater')
+        return {
+          ...element,
+          source: {
+            ...element.source,
+            apiClientId: idMap.get(element.source.apiClientId) ?? element.source.apiClientId,
+          },
+          children: elements(element.children) as typeof element.children,
+        };
+      if (element.type !== 'line' && element.value.kind === 'field')
+        return {
+          ...element,
+          value: {
+            ...element.value,
+            apiClientId: idMap.get(element.value.apiClientId) ?? element.value.apiClientId,
+          },
+        };
+      return element;
+    });
+  return {
+    ...props,
+    reportTemplate: {
+      ...parsed.data,
+      bands: parsed.data.bands.map((band) => ({ ...band, elements: elements(band.elements) })),
+    },
+  };
+}
 function remapRepeatingGroupApiReference(
   props: ComponentNode['props'],
   idMap: ReadonlyMap<string, string>,

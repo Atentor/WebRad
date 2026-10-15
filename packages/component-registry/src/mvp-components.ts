@@ -1,3 +1,4 @@
+import { webReportBuilder } from './report-builder.js';
 import { componentRegistry, ComponentRegistry } from './registry.js';
 import { organizeInspectorProperty } from './inspector-properties.js';
 import { CURRENT_ROW_BINDINGS_PROPERTY } from './current-row-bindings.js';
@@ -1791,6 +1792,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebFileUpload',
   'WebVideoUpload',
   'WebVideoPlayer',
+  'WebReportBuilder',
 ] as const;
 
 export type MvpComponentType = (typeof MVP_COMPONENT_TYPES)[number];
@@ -1817,6 +1819,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webFileUpload,
   webVideoUpload,
   webVideoPlayer,
+  webReportBuilder,
 ];
 
 componentRegistry.registerMany(

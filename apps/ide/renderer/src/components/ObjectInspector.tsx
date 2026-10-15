@@ -616,12 +616,14 @@ function PropertyEditor({
       );
     }
     case 'combo-box-config':
+    case 'report-template':
     case 'repeating-group-config':
     case 'current-row-bindings':
     case 'data-grid-config': {
       const action = property.designerAction;
       const label = {
         'combo-box-config': 'Configure ComboBox',
+        'report-template': 'Open Report Builder',
         'data-grid-config': 'Configure Data Grid',
         'repeating-group-config': 'Configure Repeating Group',
         'current-row-bindings': 'Bind Current Row',

@@ -31,6 +31,7 @@ import type {
 } from '../../shared/contracts';
 import { applicationIconUrl } from './application-assets';
 import { comboBoxBinding, comboBoxProject } from '../../../../tests/fixtures/combo-box';
+import { reportBuilderProject } from '../../../../tests/fixtures/report-builder';
 import { createDebugTestBridge } from '../../shared/debugger-test-bridge';
 import type { DebugEvent } from '../../shared/debugger-contracts';
 
@@ -475,6 +476,70 @@ describe('App MVP integration', () => {
       parentId: 'repeating-group',
       bounds: { x: 304, y: 84, width: 100, height: 36 },
     });
+  }, 15_000);
+
+  it('opens Report Builder from the nonvisual tray and commits or cancels its complete template through project history', async () => {
+    const project = reportBuilderProject('https://example.test');
+    const page = project.pages[0]!;
+    const original = page.components.find((component) => component.id === 'report')!.props
+      .reportTemplate;
+    const harness = createBridgeHarness({
+      ...initialSession(),
+      project,
+      userSources: { [`pages/${page.name}.ts`]: createUserPageSource(page) },
+    });
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    const trayItem = await screen.findByRole('option', { name: 'ReportBuilder1, Report Builder' });
+    fireEvent.doubleClick(trayItem);
+    const editor = within(await screen.findByRole('dialog', { name: 'Report template' }));
+    await user.clear(editor.getByLabelText('Report template name'));
+    await user.type(editor.getByLabelText('Report template name'), 'Canceled report');
+    await act(async () => harness.invokeCommand('file.save'));
+    expect(harness.save).not.toHaveBeenCalled();
+    await user.click(editor.getByRole('button', { name: 'Cancel' }));
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(1));
+    const savedTemplate = () =>
+      harness
+        .persisted()
+        .project.pages[0]?.components.find((component) => component.id === 'report')?.props
+        .reportTemplate;
+    expect(savedTemplate()).toEqual(original);
+
+    fireEvent.doubleClick(trayItem);
+    const reopened = within(await screen.findByRole('dialog', { name: 'Report template' }));
+    expect(reopened.getByLabelText('Report template name')).toHaveProperty('value', 'Clientes');
+    await user.clear(reopened.getByLabelText('Report template name'));
+    await user.type(reopened.getByLabelText('Report template name'), 'Quarterly customers');
+    await user.click(reopened.getByRole('tab', { name: 'Parameters (1)' }));
+    await user.clear(reopened.getByLabelText('Parameter 1 default'));
+    await user.type(reopened.getByLabelText('Parameter 1 default'), 'Quarterly report');
+    await user.click(reopened.getByRole('button', { name: 'Save template' }));
+    expect(screen.queryByRole('dialog', { name: 'Report template' })).toBeNull();
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(2));
+    const edited = savedTemplate();
+    expect(edited).toMatchObject({
+      name: 'Quarterly customers',
+      parameters: [{ name: 'Title', type: 'string', defaultValue: 'Quarterly report' }],
+    });
+    await act(async () => harness.invokeCommand('edit.undo'));
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(3));
+    expect(savedTemplate()).toEqual(original);
+    await act(async () => harness.invokeCommand('edit.redo'));
+    await act(async () => harness.invokeCommand('file.save'));
+    await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(4));
+    expect(savedTemplate()).toEqual(edited);
+    fireEvent.doubleClick(trayItem);
+    expect(await screen.findByLabelText('Report template name')).toHaveProperty(
+      'value',
+      'Quarterly customers',
+    );
+    await user.keyboard('{Escape}');
   }, 15_000);
 
   it('persists Repeating Group and row bindings with atomic source changes and undo/redo', async () => {
@@ -972,9 +1037,7 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Build and run (F9)' }));
     const preview = await screen.findByTitle('WebRAD application preview');
     expect(preview.getAttribute('src')).toBe('http://127.0.0.1:49152/integration/index.html');
-    expect(preview.getAttribute('sandbox')).toBe(
-      'allow-forms allow-modals allow-scripts allow-same-origin',
-    );
+    expect(preview.hasAttribute('sandbox')).toBe(false);
     expect(preview.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(harness.build).toHaveBeenCalledOnce();
     const buildRequest = harness.build.mock.calls[0]?.[0] as BuildRequest | undefined;

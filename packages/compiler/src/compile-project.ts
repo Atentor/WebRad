@@ -1,3 +1,4 @@
+import { parseReportTemplate, type WebReportElement } from '@webrad/runtime/report-template';
 import { projectAssetPath } from '@webrad/project-model';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -130,6 +131,62 @@ function validateRegistry(
             path: [...path, 'components', componentIndex, 'events', eventName],
           });
         }
+      }
+      if (component.type === 'WebReportBuilder' && component.props.reportTemplate !== undefined) {
+        const template = parseReportTemplate(component.props.reportTemplate);
+        const validateSource = (
+          clientKey: string,
+          operationKey: string,
+          location: readonly (string | number)[],
+        ): void => {
+          if (!clientKey && !operationKey) return;
+          const client = document.components.find(
+            (candidate) =>
+              candidate.type === 'WebApiClient' &&
+              (candidate.id === clientKey || candidate.name === clientKey),
+          );
+          const configuration = ApiClientConfigurationSchema.safeParse(
+            client?.props.apiClientConfig,
+          );
+          const message =
+            client === undefined
+              ? 'Report field must reference an API Client in the same document.'
+              : !configuration.success ||
+                  !configuration.data.operations.some(
+                    (operation) => operation.id === operationKey || operation.name === operationKey,
+                  )
+                ? 'Report field must reference an operation of the selected API Client.'
+                : undefined;
+          if (message !== undefined)
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message,
+              path: [...path, 'components', componentIndex, 'props', 'reportTemplate', ...location],
+            });
+        };
+        const validateElements = (
+          elements: readonly WebReportElement[],
+          location: readonly (string | number)[],
+        ): void => {
+          elements.forEach((element, index) => {
+            const itemPath = [...location, index];
+            if (element.type === 'repeater') {
+              validateSource(element.source.apiClientId, element.source.operationId, [
+                ...itemPath,
+                'source',
+              ]);
+              validateElements(element.children, [...itemPath, 'children']);
+            } else if (element.type !== 'line' && element.value.kind === 'field')
+              validateSource(element.value.apiClientId, element.value.operationId, [
+                ...itemPath,
+                'value',
+              ]);
+          });
+        };
+        template.bands.forEach((band, index) =>
+          validateElements(band.elements, ['bands', index, 'elements']),
+        );
       }
       if (component.type === 'WebComboBox' && component.props.comboBoxConfig == null) {
         const items = component.props.items;
@@ -444,6 +501,13 @@ function isValidPropertyValue(
 ): boolean {
   if (property.validateValue) return property.validateValue(value);
   switch (property.type) {
+    case 'report-template':
+      try {
+        parseReportTemplate(value);
+        return true;
+      } catch {
+        return false;
+      }
     case 'video-source':
       return VideoPlayerSourceSchema.safeParse(value).success;
     case 'string':

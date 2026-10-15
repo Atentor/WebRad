@@ -1,3 +1,4 @@
+import pdfSources from './pdf-lib-sources.generated.json';
 import path from 'node:path';
 
 import type { ComponentRegistry } from '@webrad/component-registry';
@@ -62,6 +63,8 @@ export function virtualAbsolutePath(portablePath: string): string {
 function isReservedSourcePath(sourcePath: string): boolean {
   const normalized = sourcePath.toLocaleLowerCase();
   return (
+    normalized === '__vendor' ||
+    normalized.startsWith('__vendor/') ||
     normalized === '__runtime' ||
     normalized.startsWith('__runtime/') ||
     normalized === '__restgo' ||
@@ -284,6 +287,10 @@ export function createVirtualSourceGraph(
   const sources = new Map<string, string>();
   const diagnostics: CompileDiagnostic[] = [];
 
+  for (const [fileName, contents] of Object.entries(pdfSources.declarations))
+    sources.set(virtualAbsolutePath('__vendor/pdf-lib/' + fileName), contents);
+  for (const [fileName, contents] of Object.entries(pdfSources.standardFontDeclarations))
+    sources.set(virtualAbsolutePath('__vendor/pdf-standard-fonts/' + fileName), contents);
   for (const [fileName, contents] of Object.entries(runtimeSources)) {
     sources.set(virtualAbsolutePath(`__runtime/${fileName}`), contents);
   }

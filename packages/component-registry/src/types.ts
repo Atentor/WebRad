@@ -13,7 +13,8 @@ export type ComponentPropertyType =
   | 'data-grid-config'
   | 'repeating-group-config'
   | 'current-row-bindings'
-  | 'video-source';
+  | 'video-source'
+  | 'report-template';
 
 /** Named design-time actions kept in the Component Registry metadata. */
 export type ComponentDesignerAction =
@@ -23,7 +24,8 @@ export type ComponentDesignerAction =
   | 'current-row-bindings'
   | 'combo-box-configurator'
   | 'combo-box-items'
-  | 'combo-box-values';
+  | 'combo-box-values'
+  | 'report-builder';
 
 export type ComponentPropertySource =
   'node' | 'bounds' | 'props' | 'page' | 'layout-container' | 'layout-item';

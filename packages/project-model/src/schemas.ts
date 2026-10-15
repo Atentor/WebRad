@@ -1,3 +1,4 @@
+import { ReportBuilderPropertiesSchema } from './report-builder.js';
 import {
   ProjectSourceFilesSchema,
   ProjectAssetsSchema,
@@ -506,6 +507,16 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
               code: 'custom',
               message: `Invalid current-row binding: ${issue.message}`,
               path: ['props', 'currentRowBindings', ...issue.path],
+            });
+      }
+      if (component.type === 'WebReportBuilder') {
+        const result = ReportBuilderPropertiesSchema.safeParse(component.props);
+        if (!result.success)
+          for (const issue of result.error.issues)
+            context.addIssue({
+              code: 'custom',
+              message: 'Invalid Report Builder configuration: ' + issue.message,
+              path: ['props', ...issue.path],
             });
       }
       if (component.type === 'WebVideoUpload' || component.type === 'WebVideoPlayer') {

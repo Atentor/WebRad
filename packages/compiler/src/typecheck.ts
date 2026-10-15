@@ -48,6 +48,10 @@ export function typecheckSources(
     paths: {
       '@webrad/runtime': [RUNTIME_ENTRY_PATH],
       '@webrad/restgo-sdk': [RESTGO_ENTRY_PATH],
+      'pdf-lib': [path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/pdf-lib/index.d.ts')],
+      '@pdf-lib/standard-fonts': [
+        path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/pdf-standard-fonts/index.d.ts'),
+      ],
     },
     skipLibCheck: true,
     strict: true,

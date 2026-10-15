@@ -31,11 +31,11 @@ export default defineConfig({
   optimizeDeps: {
     exclude: [...workspacePackages],
     force: true,
-    // Language services import the CommonJS TypeScript distribution, which
-    // still needs Vite's ESM interop even when its workspace consumer is excluded.
+    // TypeScript and pdf-lib's CommonJS dependencies (including pako) need
+    // Vite's ESM interop even when their workspace consumers are excluded.
     // Preload the custom worker's Monaco dependency to avoid a renderer reload
     // when the Code view starts its language service for the first time.
-    include: ['typescript', 'monaco-editor/languages/features/typescript/ts.worker.js'],
+    include: ['typescript', 'pdf-lib', 'monaco-editor/languages/features/typescript/ts.worker.js'],
   },
   build: {
     outDir: path.join(repositoryRoot, '.vite', 'renderer', 'main_window'),

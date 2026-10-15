@@ -10,6 +10,7 @@ interface PreviewServer {
 const previewByToken = new Map<string, string>();
 const assetsByToken = new Map<string, readonly ProjectAsset[]>();
 const tokenByOwner = new Map<number, string>();
+const urlByOwner = new Map<number, string>();
 let serverPromise: Promise<PreviewServer> | undefined;
 let shutdown: Promise<void> | undefined;
 let generation = 0;
@@ -21,7 +22,8 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https: http:",
   "font-src 'self' data: https: http:",
   "media-src 'self' data: blob: https: http:",
-  'connect-src https: http:',
+  'frame-src blob:',
+  'connect-src https: http: data: blob:',
   "base-uri 'none'",
   "form-action 'none'",
 ].join('; ');
@@ -138,7 +140,14 @@ export async function publishPreviewHtml(
   previewByToken.set(token, html);
   assetsByToken.set(token, assets);
   tokenByOwner.set(ownerId, token);
-  return `${origin}/${token}/index.html`;
+  const url = `${origin}/${token}/index.html`;
+  urlByOwner.set(ownerId, url);
+  return url;
+}
+
+/** Exact live publication check; revoked URLs cannot authorize report windows. */
+export function isPublishedPreviewUrl(url: string): boolean {
+  return [...urlByOwner.values()].includes(url);
 }
 
 export function revokePreview(ownerId: number): void {
@@ -148,6 +157,7 @@ export function revokePreview(ownerId: number): void {
     assetsByToken.delete(token);
   }
   tokenByOwner.delete(ownerId);
+  urlByOwner.delete(ownerId);
 }
 
 /** Revoke all publications and release the local listener, including a pending startup. */
@@ -157,6 +167,7 @@ export function closePreviewServer(): Promise<void> {
   previewByToken.clear();
   assetsByToken.clear();
   tokenByOwner.clear();
+  urlByOwner.clear();
   const starting = serverPromise;
   serverPromise = undefined;
   if (!starting) return Promise.resolve();

@@ -17,6 +17,7 @@ export const DEBUG_SCRIPT_URL = 'webrad-debug://app.js';
 function portableSourcePath(source: string): string {
   const portable = source.replaceAll('\\', '/');
   if (portable.startsWith('webrad-runtime:')) return `__runtime/${portable.slice(15)}`;
+  if (portable.startsWith('webrad-pdf:')) return '__vendor/pdf-lib/' + portable.slice(11);
   if (portable.startsWith('webrad-shaka:')) return `__vendor/shaka/${portable.slice(13)}`;
   if (portable.startsWith('webrad-restgo:')) return `__restgo/${portable.slice(14)}`;
   const virtualMarker = '.webrad-compiler-virtual/';

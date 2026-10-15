@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./report-template": {
+      "types": "./src/report-template.ts",
+      "default": "./src/report-template.ts"
+    },
     "./panel-progress": {
       "types": "./src/panel-progress.ts",
       "default": "./src/panel-progress.ts"
@@ -32,6 +36,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@webrad/restgo-sdk": "0.1.0",
+    "pdf-lib": "1.17.1",
     "shaka-player": "5.2.13"
   },
   "scripts": {

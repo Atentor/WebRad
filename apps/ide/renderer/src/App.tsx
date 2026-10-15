@@ -90,6 +90,8 @@ import { DataGridConfigurationDialog } from './components/DataGridConfigurationD
 import { ComboBoxConfigurationDialog } from './components/ComboBoxConfigurationDialog';
 import { ComboBoxItemsDialog } from './components/ComboBoxItemsDialog';
 import { RepeatingGroupConfigurationDialog } from './components/RepeatingGroupConfigurationDialog';
+import { ReportBuilderDialog } from './components/ReportBuilderDialog';
+import type { WebReportTemplate } from '@webrad/runtime/report-template';
 import { CurrentRowBindingsDialog } from './components/CurrentRowBindingsDialog';
 import { designerInsertionBounds } from './components/designer-insertion-bounds';
 import {
@@ -241,6 +243,7 @@ export function App(): ReactElement {
   >(null);
   const [repeatingGroupConfiguratorComponentId, setRepeatingGroupConfiguratorComponentId] =
     useState<string | null>(null);
+  const [reportBuilderComponentId, setReportBuilderComponentId] = useState<string | null>(null);
   const [currentRowBindingsComponentId, setCurrentRowBindingsComponentId] = useState<string | null>(
     null,
   );
@@ -320,6 +323,11 @@ export function App(): ReactElement {
       ) ?? null,
     [activePage, repeatingGroupConfiguratorComponentId],
   );
+  const reportBuilderComponent = useMemo(
+    () =>
+      activePage?.components.find((component) => component.id === reportBuilderComponentId) ?? null,
+    [activePage, reportBuilderComponentId],
+  );
   const currentRowBindingsComponent = useMemo(
     () =>
       activePage?.components.find((component) => component.id === currentRowBindingsComponentId) ??
@@ -384,6 +392,7 @@ export function App(): ReactElement {
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
       setRepeatingGroupConfiguratorComponentId(null);
+      setReportBuilderComponentId(null);
       setCurrentRowBindingsComponentId(null);
       setComboBoxConfiguratorComponentId(null);
       setAddDocumentDialogKind(null);
@@ -967,6 +976,8 @@ export function App(): ReactElement {
         setDataGridConfiguratorComponentId(component.id);
       } else if (action === 'repeating-group-configurator') {
         setRepeatingGroupConfiguratorComponentId(component.id);
+      } else if (action === 'report-builder') {
+        setReportBuilderComponentId(component.id);
       } else if (action === 'current-row-bindings') {
         setCurrentRowBindingsComponentId(component.id);
       } else if (action === 'combo-box-configurator') {
@@ -1050,6 +1061,31 @@ export function App(): ReactElement {
       designerController,
       reportError,
       updateActivePage,
+    ],
+  );
+
+  const saveReportTemplate = useCallback(
+    (template: WebReportTemplate): void => {
+      if (activePage === null || reportBuilderComponent === null) return;
+      try {
+        updateActivePage(
+          designerController.executeMany(activePage, 'Configure Report Builder', [
+            new ChangePropertyCommand(reportBuilderComponent.id, 'reportTemplate', template),
+          ]),
+        );
+        setReportBuilderComponentId(null);
+        addOutput('DESIGNER', `Configured Report Builder ${reportBuilderComponent.name}.`);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activePage,
+      reportBuilderComponent,
+      designerController,
+      updateActivePage,
+      addOutput,
+      reportError,
     ],
   );
 
@@ -1298,6 +1334,7 @@ export function App(): ReactElement {
       setDataGridConfiguratorComponentId(null);
       setComboBoxConfiguratorComponentId(null);
       setRepeatingGroupConfiguratorComponentId(null);
+      setReportBuilderComponentId(null);
       setCurrentRowBindingsComponentId(null);
       setAddDocumentDialogKind(null);
       setProjectSettingsDialogOpen(false);
@@ -1544,6 +1581,7 @@ export function App(): ReactElement {
     apiClientTesterComponent !== null ||
     dataGridConfiguratorComponent !== null ||
     repeatingGroupConfiguratorComponent !== null ||
+    reportBuilderComponent !== null ||
     (currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined) ||
     comboBoxConfiguratorComponent !== null;
 
@@ -1616,6 +1654,7 @@ export function App(): ReactElement {
           (dataGridConfiguratorComponent !== null ||
             comboBoxConfiguratorComponent !== null ||
             repeatingGroupConfiguratorComponent !== null ||
+            reportBuilderComponent !== null ||
             currentRowBindingsComponent !== null)
         )
       ) {
@@ -1781,6 +1820,7 @@ export function App(): ReactElement {
       dataGridConfiguratorComponent,
       comboBoxConfiguratorComponent,
       repeatingGroupConfiguratorComponent,
+      reportBuilderComponent,
       currentRowBindingsComponent,
       showDebugger,
       debugStart,
@@ -2656,6 +2696,14 @@ export function App(): ReactElement {
           availableComponents={activePage?.components ?? []}
           onClose={() => setRepeatingGroupConfiguratorComponentId(null)}
           onSave={saveRepeatingGroupConfiguration}
+        />
+      )}
+      {reportBuilderComponent !== null && (
+        <ReportBuilderDialog
+          component={reportBuilderComponent}
+          availableComponents={activePage?.components ?? []}
+          onClose={() => setReportBuilderComponentId(null)}
+          onSave={saveReportTemplate}
         />
       )}
       {currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined && (

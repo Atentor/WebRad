@@ -11,7 +11,7 @@ const URL_PROPERTIES = new Set([
   'srcset',
   'backgroundimage',
 ]);
-const URL_METHODS = new Set(['fetch', 'loadsource', 'setsource', 'setsrc', 'open']);
+const URL_METHODS = new Set(['fetch', 'loadsource', 'setsource', 'setsrc', 'open', 'loadtemplate']);
 
 function memberName(node: ts.Node): string | undefined {
   if (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) return node.text.toLowerCase();
@@ -78,6 +78,15 @@ export function selectProjectAssets(
     } else if (Array.isArray(value)) {
       for (const entry of value) collectValue(entry, key);
     } else if (typeof value === 'object' && value !== null) {
+      if (Reflect.get(value, 'type') === 'image') {
+        const source = Reflect.get(value, 'value');
+        if (
+          typeof source === 'object' &&
+          source !== null &&
+          Reflect.get(source, 'kind') !== 'static'
+        )
+          dynamic = true;
+      }
       if (key === 'currentRowBindings') {
         const property = Reflect.get(value, 'property');
         if (typeof property === 'string' && URL_PROPERTIES.has(property.toLowerCase()))
@@ -102,6 +111,8 @@ export function selectProjectAssets(
       if (ts.isCallExpression(node)) {
         const method = memberName(node.expression);
         const first = node.arguments[0];
+        // An external template can reference project images even when its URL is a literal.
+        if (method === 'loadtemplate') dynamic = true;
         if (
           method !== undefined &&
           URL_METHODS.has(method) &&

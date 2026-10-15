@@ -9,3 +9,6 @@ export * from './selection-manager.js';
 export * from './z-order.js';
 export * from './viewport.js';
 export * from './style-editor.js';
+
+export * from './report-builder-data.js';
+export * from './report-builder-model.js';

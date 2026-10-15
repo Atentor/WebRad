@@ -8,6 +8,8 @@ export * from './component.js';
 export type { WebComboBoxConfiguration } from './combo-box-data.js';
 export * from './data-grid.js';
 export * from './repeating-group.js';
+export * from './report-template.js';
+export * from './report-builder.js';
 export * from './file-upload.js';
 export * from './video-upload.js';
 export * from './video-player.js';

@@ -13,6 +13,7 @@ import { presentMainWindow } from './main-window-presentation';
 import { installApplicationMenu } from './menu';
 import { closePreviewServer, publishPreviewHtml, revokePreview } from './preview-server';
 import { closeRendererServer, publishRenderer } from './renderer-server';
+import { installReportPreviewWindows } from './report-preview-windows';
 import { loadProjectFiles } from './project-files';
 import { installDirtyGuard, registerIpcHandlers } from './project-ipc';
 import {
@@ -1152,7 +1153,7 @@ async function createWindow(): Promise<BrowserWindow> {
 
   installApplicationMenu(window);
   installDirtyGuard(window, rendererUrl);
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  installReportPreviewWindows(window.webContents);
   window.webContents.on('will-attach-webview', (event) => event.preventDefault());
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = null;

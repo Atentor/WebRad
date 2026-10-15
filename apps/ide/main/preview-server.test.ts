@@ -64,7 +64,10 @@ describe('loopback preview server', () => {
     expect(response.headers['x-content-type-options']).toBe('nosniff');
     expect(response.headers['referrer-policy']).toBe('no-referrer');
     expect(response.headers['content-security-policy']).toContain("default-src 'none'");
-    expect(response.headers['content-security-policy']).toContain('connect-src https: http:');
+    expect(response.headers['content-security-policy']).toContain(
+      'connect-src https: http: data: blob:',
+    );
+    expect(response.headers['content-security-policy']).toContain('frame-src blob:');
     expect(response.headers['access-control-allow-origin']).toBeUndefined();
   });
 

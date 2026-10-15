@@ -559,7 +559,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebReusableElement,
   WebReusableElementInstance,
   WebTextArea,
-} from '@webrad/runtime';
+ WebReportBuilder,} from '@webrad/runtime';
 
 class EditorPage extends WebPage {
   configure(
@@ -582,9 +582,10 @@ class EditorPage extends WebPage {
     repeatingGroup: WebRepeatingGroup,
     popup: WebPopup,
     api: WebApiClient,
-    reusableInstance: WebReusableElementInstance,
+    reusableInstance: WebReusableElementInstance, reportBuilder: WebReportBuilder,
   ): void {
-    panel./*@panel*/caption;
+    reportBuilder./*@reportBuilder*/Generate;
+panel./*@panel*/caption;
     group./*@group*/caption;
     reusable./*@reusable*/placement;
     label./*@label*/autoSize;
@@ -769,6 +770,7 @@ class EditorPage extends WebPage {
       WebReusableElement: 'reusable',
       WebTextArea: 'textArea',
       WebToggle: 'toggle',
+      WebReportBuilder: 'reportBuilder',
     };
     for (const definition of MVP_COMPONENT_DEFINITIONS) {
       const marker = completionMarkerByType[definition.type];

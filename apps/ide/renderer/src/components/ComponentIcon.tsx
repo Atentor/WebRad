@@ -17,6 +17,7 @@ const COMPONENT_ICON_ALIASES: Readonly<Record<string, WebRadIconName>> = {
   'component-list-box': 'list',
   'component-popup': 'panel-top',
   'component-api-client': 'globe',
+  'component-report-builder': 'page',
   'component-toggle': 'toggle-right',
 };
 

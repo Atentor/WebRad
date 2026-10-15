@@ -1,3 +1,4 @@
+import pdfSources from './pdf-lib-sources.generated.json';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -79,6 +80,15 @@ function virtualPlugin(options: BundleOptions): Plugin {
   return {
     name: 'webrad-virtual-project',
     setup(buildContext) {
+      buildContext.onResolve({ filter: /^pdf-lib$/ }, () => ({
+        path: 'pdf-lib.esm.min.js',
+        namespace: 'webrad-pdf',
+        sideEffects: false,
+      }));
+      buildContext.onLoad({ filter: /.*/, namespace: 'webrad-pdf' }, () => ({
+        contents: pdfSources.javascript,
+        loader: 'js',
+      }));
       buildContext.onResolve(
         { filter: /^shaka-player\/dist\/(shaka-player\.ui\.js|controls\.css)$/ },
         (args) => ({
@@ -223,6 +233,12 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
   if ([...usedInputs].some((input) => input.startsWith('webrad-shaka:'))) {
     files['assets/licenses/Shaka-Player-Apache-2.0.txt'] =
       `Shaka Player ${shakaSources.version}\nCopyright 2016 Google LLC\n\n${shakaSources.license}`;
+  }
+  if ([...usedInputs].some((input) => input.startsWith('webrad-pdf:'))) {
+    files['assets/licenses/pdf-lib-MIT.txt'] =
+      'pdf-lib ' + pdfSources.version + '\n\n' + pdfSources.license;
+    for (const [name, license] of Object.entries(pdfSources.dependencyLicenses))
+      files['assets/licenses/pdf-lib/' + name] = license;
   }
   return {
     files,

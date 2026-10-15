@@ -117,7 +117,8 @@ describe('MVP component metadata', () => {
         .map((item) => item.type),
     ).toEqual(
       MVP_COMPONENT_TYPES.filter(
-        (type) => !['WebApiClient', 'WebFileUpload', 'WebVideoUpload'].includes(type),
+        (type) =>
+          !['WebApiClient', 'WebFileUpload', 'WebVideoUpload', 'WebReportBuilder'].includes(type),
       ),
     );
   });
@@ -244,6 +245,7 @@ describe('MVP component metadata', () => {
       'WebApiClient',
       'WebFileUpload',
       'WebVideoUpload',
+      'WebReportBuilder',
     ]);
   });
 

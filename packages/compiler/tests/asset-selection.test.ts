@@ -72,3 +72,66 @@ describe('reachable deployment resources', () => {
     expect(edit).not.toContain('.wr-webtextarea');
   });
 });
+
+it('keeps report image resources and conservatively retains external template resources', () => {
+  const initial = project();
+  const page = initial.pages[0]!;
+  const withTemplate = {
+    ...initial,
+    pages: [
+      {
+        ...page,
+        components: page.components.map((component) => ({
+          ...component,
+          props: {
+            ...component.props,
+            reportTemplate: {
+              bands: [
+                {
+                  elements: [
+                    { type: 'image', value: { kind: 'static', value: 'assets/imported/logo.png' } },
+                  ],
+                },
+              ],
+            },
+          },
+        })),
+      },
+    ],
+  };
+  expect(selectProjectAssets(withTemplate, {}).map((asset) => asset.id)).toEqual(['logo']);
+  const withBoundImage = {
+    ...initial,
+    pages: [
+      {
+        ...page,
+        components: page.components.map((component) => ({
+          ...component,
+          props: {
+            ...component.props,
+            reportTemplate: {
+              bands: [
+                { elements: [{ type: 'image', value: { kind: 'parameter', name: 'Image' } }] },
+              ],
+            },
+          },
+        })),
+      },
+    ],
+  };
+  expect(selectProjectAssets(withBoundImage, {})).toHaveLength(2);
+  expect(
+    selectProjectAssets(initial, {
+      'pages/PageMain.ts': 'ReportBuilder1.LoadTemplate(templateUrl);',
+    }),
+  ).toHaveLength(2);
+});
+
+it('retains project image assets referenced only by an external template loaded from a literal URL', () => {
+  expect(
+    selectProjectAssets(project(), {
+      'pages/PageMain.ts':
+        "await ReportBuilder1.LoadTemplate('https://reports.example.test/template.json');",
+    }),
+  ).toHaveLength(2);
+});

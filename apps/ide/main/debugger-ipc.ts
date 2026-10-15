@@ -13,6 +13,7 @@ import { publishPreviewHtml, revokePreview } from './preview-server';
 import { DebugSession } from './debugger-session';
 import { applicationWindowIconPath } from './application-icon';
 import { createDebugPausePresenter } from './debugger-presentation';
+import { installReportPreviewWindows } from './report-preview-windows';
 import { DebugSourceMap, portableDebugPath } from './debugger-source-map';
 
 const pathSchema = z
@@ -231,7 +232,7 @@ async function startDebug(
     );
     ensureCurrent(ownerId, owner);
     preview.removeMenu();
-    preview.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    installReportPreviewWindows(preview.webContents);
     preview.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) =>
       callback(false),
     );

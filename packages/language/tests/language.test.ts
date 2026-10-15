@@ -57,6 +57,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-file-upload', type: 'WebFileUpload', name: 'FileUpload1' },
   { id: 'stable-video-upload', type: 'WebVideoUpload', name: 'VideoUpload1' },
   { id: 'stable-video-player', type: 'WebVideoPlayer', name: 'VideoPlayer1' },
+  { id: 'stable-report-builder', type: 'WebReportBuilder', name: 'ReportBuilder1' },
 ] as const satisfies readonly MvpComponentFixture[];
 
 function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
@@ -161,6 +162,7 @@ function testPage(): PageModel {
           'api-client',
           'stable-file-upload',
           'stable-video-upload',
+          'stable-report-builder',
         ],
       },
       ...MVP_COMPONENT_FIXTURES.map(fixtureComponent),

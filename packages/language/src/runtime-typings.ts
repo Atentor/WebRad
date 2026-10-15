@@ -1,3 +1,4 @@
+import reportBuilderTypings from './report-builder-typings.generated.json';
 import apiClientTypings from './api-client-typings.generated.json';
 import videoUploadTypings from './video-upload-typings.generated.json';
 import videoPlayerTypings from './video-player-typings.generated.json';
@@ -9,6 +10,7 @@ import restGoTypings from './restgo-typings.generated.json';
 const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'`).join('\n');
 
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
+${reportBuilderTypings.source}
 ${repeatingGroupTypings.source}
   export interface RestGoRuntimeConfiguration {
     readonly enabled: boolean;
