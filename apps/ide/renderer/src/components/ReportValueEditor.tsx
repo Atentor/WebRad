@@ -13,7 +13,7 @@ interface ReportValueEditorProps {
   readonly image: boolean;
   readonly parameters: readonly WebReportParameter[];
   readonly components: readonly ComponentNode[];
-  readonly row?: WebReportRepeaterElement;
+  readonly row?: WebReportRepeaterElement['source'];
   readonly onChange: (value: WebReportValueSource) => void;
 }
 
@@ -28,12 +28,7 @@ export function ReportValueEditor({
   const rowFields =
     row === undefined
       ? []
-      : reportApiSource(
-          components,
-          row.source.apiClientId,
-          row.source.operationId,
-          row.source.listPath,
-        ).rowFields;
+      : reportApiSource(components, row.apiClientId, row.operationId, row.listPath).rowFields;
   return (
     <>
       <label>

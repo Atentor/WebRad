@@ -131,7 +131,11 @@ it.runIf(browser !== undefined)(
           button: 'left',
           clickCount: 1,
         });
-        expect(Number(await value('Report x (mm)'))).toBeGreaterThan(0.5);
+        expect(Number(await value('Report x (mm)'))).toBeCloseTo(16 / 3);
+        await click('Undo report edit');
+        expect(Number(await value('Report x (mm)'))).toBe(0.5);
+        await click('Redo report edit');
+        expect(Number(await value('Report x (mm)'))).toBeCloseTo(16 / 3);
         await setValue('Report width (mm)', '100');
         const handle = await evaluate<{ x: number; y: number }>(
           `(() => { const rect = document.querySelector('[aria-label="Resize Customer name"]').getBoundingClientRect(); return { x: rect.left + 4, y: rect.top + 4 }; })()`,
@@ -157,13 +161,66 @@ it.runIf(browser !== undefined)(
           button: 'left',
           clickCount: 1,
         });
-        expect(await value('Report width (mm)')).toBe('105');
+        expect(Number(await value('Report width (mm)'))).toBeCloseTo(104);
+        expect(Number(await value('Report y (mm)'))).toBe(0);
+        const gesture = async (label: string, dx: number, dy: number): Promise<void> => {
+          const point = await evaluate<{ x: number; y: number }>(
+            `(() => { const rect = document.querySelector('[aria-label=' + ${JSON.stringify(JSON.stringify(label))} + ']').getBoundingClientRect(); return { x: rect.left + 3, y: rect.top + 3 }; })()`,
+          );
+          await send('Input.dispatchMouseEvent', {
+            type: 'mousePressed',
+            ...point,
+            button: 'left',
+            clickCount: 1,
+          });
+          await send('Input.dispatchMouseEvent', {
+            type: 'mouseMoved',
+            x: point.x + dx,
+            y: point.y + dy,
+            button: 'left',
+            buttons: 1,
+          });
+          await send('Input.dispatchMouseEvent', {
+            type: 'mouseReleased',
+            x: point.x + dx,
+            y: point.y + dy,
+            button: 'left',
+            clickCount: 1,
+          });
+        };
+        for (const zoom of [0.5, 1.25]) {
+          await setValue('Report canvas zoom', String(zoom));
+          await setValue('Report x (mm)', '0.5');
+          await setValue('Report y (mm)', '0.5');
+          await setValue('Report width (mm)', '100');
+          await setValue('Report height (mm)', '4');
+          await gesture('Select Customer name', 0, 0);
+          expect(Number(await value('Report x (mm)'))).toBe(0.5);
+          expect(Number(await value('Report y (mm)'))).toBe(0.5);
+          await gesture('Select Customer name', 11, 2);
+          expect(Number(await value('Report x (mm)'))).toBeCloseTo(zoom === 0.5 ? 8 : 8 / 3);
+          expect(Number(await value('Report y (mm)'))).toBeCloseTo(zoom === 0.5 ? 8 / 3 : 0);
+          await gesture('Resize Customer name', 11, 2);
+          expect(Number(await value('Report width (mm)'))).toBeCloseTo(
+            zoom === 0.5 ? 320 / 3 : 104,
+          );
+          expect(Number(await value('Report height (mm)'))).toBeCloseTo(16 / 3);
+          await click('Undo report edit');
+          expect(Number(await value('Report width (mm)'))).toBe(100);
+          expect(Number(await value('Report height (mm)'))).toBe(4);
+          await click('Redo report edit');
+          expect(Number(await value('Report height (mm)'))).toBeCloseTo(16 / 3);
+        }
         await setValue('Report row field', '/id');
         // Start native palette drags with the mouse, then deliver the intercepted drop via CDP.
         // This exercises the real draggable button and its payload, zoom and scrolled geometry.
         await send('Input.setInterceptDrags', { enabled: true });
         for (const zoom of [0.5, 1.25]) {
           await setValue('Report canvas zoom', String(zoom));
+          const backgrounds = await evaluate<string[]>(
+            `[...document.querySelectorAll('.wr-report-canvas-scroll, .wr-report-paper, .wr-report-band, .wr-report-element-repeater')].map(element => getComputedStyle(element).backgroundImage)`,
+          );
+          expect(backgrounds).toEqual(backgrounds.map(() => 'none'));
           for (const type of ['text', 'image', 'line', 'repeater']) {
             const count = await evaluate<number>(
               `document.querySelectorAll('.wr-report-element').length`,
@@ -207,7 +264,7 @@ it.runIf(browser !== undefined)(
               localX: number;
               localY: number;
             }>(
-              `(() => { const band = document.querySelector('.wr-report-band'); const box = band.getBoundingClientRect(); const x = Math.round(box.left + band.clientLeft + 30 * ${3 * zoom}); const y = Math.round(box.top + band.clientTop + ${3 * zoom}); return { x, y, localX: Math.round((x - box.left - band.clientLeft) / ${3 * zoom} * 2) / 2, localY: Math.round((y - box.top - band.clientTop) / ${3 * zoom} * 2) / 2 }; })()`,
+              `(() => { const band = document.querySelector('.wr-report-band'); const box = band.getBoundingClientRect(); const x = Math.round(box.left + band.clientLeft + 30 * ${3 * zoom}); const y = Math.round(box.top + band.clientTop + ${3 * zoom}); return { x, y, localX: Math.round((x - box.left - band.clientLeft) / ${8 * zoom}) * 8 / 3, localY: Math.round((y - box.top - band.clientTop) / ${8 * zoom}) * 8 / 3 }; })()`,
             );
             for (const event of ['dragEnter', 'dragOver', 'drop']) {
               await send('Input.dispatchDragEvent', {
@@ -230,10 +287,10 @@ it.runIf(browser !== undefined)(
                 evaluate<number>(`document.querySelectorAll('.wr-report-element').length`),
               )
               .toBe(count + 1);
-            expect(await value('Report x (mm)')).toBe(
-              type === 'repeater' ? '0' : String(destination.localX),
+            expect(Number(await value('Report x (mm)'))).toBeCloseTo(
+              type === 'repeater' ? 0 : destination.localX,
             );
-            expect(await value('Report y (mm)')).toBe(String(destination.localY));
+            expect(Number(await value('Report y (mm)'))).toBeCloseTo(destination.localY);
             await click('Undo report edit');
             expect(
               await evaluate<number>(`document.querySelectorAll('.wr-report-element').length`),
@@ -303,9 +360,10 @@ it.runIf(browser !== undefined)(
                 footerGap: number;
                 footerHeight: number;
                 gapAfterSummary: number;
+                gapBeforeSummary: number;
                 paperHeight: number;
               }>(
-                `(() => { const paper = document.querySelector('.wr-report-paper').getBoundingClientRect(); const footer = document.querySelector('[data-report-band-kind="pageFooter"]').getBoundingClientRect(); const summary = document.querySelector('[data-report-band-kind="summary"]').getBoundingClientRect(); return { footerGap: paper.bottom - footer.bottom, footerHeight: footer.height, gapAfterSummary: footer.top - summary.bottom, paperHeight: paper.height }; })()`,
+                `(() => { const paper = document.querySelector('.wr-report-paper').getBoundingClientRect(); const footer = document.querySelector('[data-report-band-kind="pageFooter"]').getBoundingClientRect(); const summary = document.querySelector('[data-report-band-kind="summary"]').getBoundingClientRect(); const detail = document.querySelector('[data-report-band-kind="detail"]').getBoundingClientRect(); return { footerGap: paper.bottom - footer.bottom, footerHeight: footer.height, gapAfterSummary: footer.top - summary.bottom, gapBeforeSummary: summary.top - detail.bottom, paperHeight: paper.height }; })()`,
               );
               const height =
                 orientation === 'portrait'
@@ -319,6 +377,7 @@ it.runIf(browser !== undefined)(
               expect(geometry.footerGap).toBeCloseTo(23 * 3 * zoom, 1);
               expect(geometry.footerHeight).toBeCloseTo(10 * 3 * zoom, 1);
               expect(geometry.gapAfterSummary).toBeGreaterThan(0);
+              expect(geometry.gapBeforeSummary).toBeCloseTo(0, 1);
             }
         // The footer remains editable at the bottom of the scrolled paper.
         await evaluate(

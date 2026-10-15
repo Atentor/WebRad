@@ -5,6 +5,10 @@ import { decodePDFRawStream, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { WebApiClient, type WebApiClientConfiguration } from '../src/api-client.js';
 import { WebReportBuilder } from '../src/report-builder.js';
 import {
+  nestedReportData,
+  nestedReportTemplate,
+} from '../../../tests/fixtures/report-builder-nested.js';
+import {
   createDefaultReportTemplate,
   parseReportTemplate,
   serializeReportTemplate,
@@ -160,7 +164,7 @@ describe('Report templates and typed parameters', () => {
     report.Parameters.Clear();
     expect(report.Parameters.GetValue('Other')).toBe(0);
   });
-  it('roundtrips versioned JSON, validates geometry, bindings and single-level repeaters', () => {
+  it('roundtrips versioned JSON and validates geometry, bindings and nested repeaters', () => {
     expect(parseReportTemplate(serializeReportTemplate(template()))).toEqual(template());
     expect(() => parseReportTemplate({ ...template(), schemaVersion: 2 })).toThrow('version 1');
     expect(() =>
@@ -208,7 +212,7 @@ describe('Report templates and typed parameters', () => {
           },
         ],
       }),
-    ).toThrow('nested repeaters');
+    ).not.toThrow();
   });
   it('loads objects, JSON, files and external URLs atomically while retaining compatible overrides', async () => {
     const report = builder(template());
@@ -267,6 +271,80 @@ describe('Report templates and typed parameters', () => {
 });
 
 describe('Report PDF generation', () => {
+  it('snapshots additional API fields in deeply nested Footer sections without starting requests', async () => {
+    const primaryFetch = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response(JSON.stringify(nestedReportData), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    );
+    const secondaryFetch = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response(JSON.stringify({ stamp: 'Footer source' }), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    );
+    const primary = new WebApiClient({
+      baseUrl: 'https://example.test',
+      apiClientConfig: {
+        ...apiConfiguration,
+        operations: apiConfiguration.operations.map((operation) => ({
+          ...operation,
+          id: 'load-customers',
+        })),
+      },
+      fetch: primaryFetch,
+    });
+    const secondary = new WebApiClient({
+      baseUrl: 'https://example.test',
+      apiClientConfig: apiConfiguration,
+      fetch: secondaryFetch,
+    });
+    clients.push(primary, secondary);
+    await primary.execute('Load');
+    await secondary.execute('Load');
+    const original = nestedReportTemplate();
+    const report = builder({
+      ...original,
+      bands: original.bands.map((band) => ({
+        ...band,
+        elements: band.elements.map((group) =>
+          group.type !== 'repeater'
+            ? group
+            : {
+                ...group,
+                children: group.children.map((child) =>
+                  child.type !== 'repeater'
+                    ? child
+                    : {
+                        ...child,
+                        footer: {
+                          ...child.footer!,
+                          elements: [
+                            {
+                              ...(child.footer!.elements[0] as WebReportTextElement),
+                              value: {
+                                kind: 'field',
+                                apiClientId: 'secondary',
+                                operationId: 'Load',
+                                path: '/stamp',
+                              },
+                            },
+                          ],
+                        },
+                      },
+                ),
+              },
+        ),
+      })),
+    });
+    report.bindApiClient('customers-api', primary);
+    report.bindApiClient('secondary', secondary);
+    const pdf = await pdfText((await report.GeneratePDF()).blob);
+    expect(pdf.text.split(encoded('Footer source'))).toHaveLength(9);
+    expect(primaryFetch).toHaveBeenCalledOnce();
+    expect(secondaryFetch).toHaveBeenCalledOnce();
+  });
   it('resolves client and operation names and embeds a field-bound PNG into the PDF', async () => {
     const png =
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';

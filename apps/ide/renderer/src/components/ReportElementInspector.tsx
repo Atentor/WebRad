@@ -5,47 +5,24 @@ import type {
   WebReportRepeaterElement,
   WebReportTemplate,
 } from '@webrad/runtime/report-template';
+import { reportRepeaterSectionLayout } from '@webrad/runtime/report-template';
 import type { ReactElement } from 'react';
-import { ReportApiBinding } from './ReportApiBinding';
 import { ReportValueEditor } from './ReportValueEditor';
-import { REPORT_BAND_LABELS } from '@webrad/designer';
-
-interface NumberFieldProps {
-  readonly label: string;
-  readonly value: number;
-  readonly min?: number;
-  readonly max?: number;
-  readonly onChange: (value: number) => void;
-}
-function NumberField({ label, value, min = 0, max, onChange }: NumberFieldProps): ReactElement {
-  return (
-    <label>
-      <span>{label}</span>
-      <input
-        aria-label={`Report ${label.toLowerCase()}`}
-        type="number"
-        min={min}
-        max={max}
-        step="any"
-        value={value}
-        onChange={(event) => {
-          const next = Number(event.currentTarget.value);
-          if (Number.isFinite(next)) onChange(next);
-        }}
-      />
-    </label>
-  );
-}
+import { REPORT_BAND_LABELS, type ReportRepeaterSection } from '@webrad/designer';
+import { ReportNumberField as NumberField } from './ReportNumberField';
+import { ReportRepeaterInspector } from './ReportRepeaterInspector';
 
 interface ReportElementInspectorProps {
   readonly template: WebReportTemplate;
   readonly band?: WebReportBand;
   readonly element?: WebReportElement;
   readonly row?: WebReportRepeaterElement;
+  readonly rowSource?: WebReportRepeaterElement['source'];
+  readonly section: ReportRepeaterSection;
   readonly components: readonly ComponentNode[];
   readonly onElementChange: (element: WebReportElement) => void;
   readonly onBandChange: (height: number) => void;
-  readonly onEditRow: (row: WebReportRepeaterElement) => void;
+  readonly onEditRow: (row: WebReportRepeaterElement, section?: ReportRepeaterSection) => void;
   readonly onExitRow: () => void;
 }
 
@@ -54,6 +31,8 @@ export function ReportElementInspector({
   band,
   element,
   row,
+  rowSource,
+  section,
   components,
   onElementChange,
   onBandChange,
@@ -65,7 +44,11 @@ export function ReportElementInspector({
       <h3>
         {element?.name ??
           (row !== undefined
-            ? 'Row template'
+            ? section === 'row'
+              ? 'Row template'
+              : section === 'header'
+                ? 'Header'
+                : 'Footer'
             : band === undefined
               ? 'Properties'
               : REPORT_BAND_LABELS[band.kind])}
@@ -81,10 +64,7 @@ export function ReportElementInspector({
       {element === undefined ? (
         <>
           {row !== undefined ? (
-            <p className="wr-report-hint">
-              Add Text, Image or Line from the toolbox. Bind values to Current row field to repeat
-              them for each record.
-            </p>
+            <p className="wr-report-hint">Drag components or another Repeater into this section.</p>
           ) : (
             band !== undefined && (
               <>
@@ -117,6 +97,35 @@ export function ReportElementInspector({
                 }
               />
             </label>
+            {row !== undefined && section !== 'row' && (
+              <label>
+                <span>Column</span>
+                <select
+                  aria-label="Report section column"
+                  value={element.column ?? 0}
+                  onChange={(event) =>
+                    onElementChange({ ...element, column: Number(event.currentTarget.value) })
+                  }
+                >
+                  {Array.from(
+                    {
+                      length: Math.max(
+                        1,
+                        Math.min(
+                          24,
+                          Math.trunc(reportRepeaterSectionLayout(row[section]).columns) || 1,
+                        ),
+                      ),
+                    },
+                    (_, index) => (
+                      <option key={index} value={index}>
+                        Column {index + 1}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+            )}
             <div className="wr-report-field-grid">
               {(['x', 'y', 'width', 'height'] as const).map((property) => (
                 <NumberField
@@ -137,7 +146,7 @@ export function ReportElementInspector({
                 image={element.type === 'image'}
                 parameters={template.parameters}
                 components={components}
-                row={row}
+                row={rowSource}
                 onChange={(value) => onElementChange({ ...element, value })}
               />
             </fieldset>
@@ -223,43 +232,13 @@ export function ReportElementInspector({
             </p>
           )}
           {element.type === 'repeater' && (
-            <>
-              <fieldset>
-                <legend>Repeated records</legend>
-                <ReportApiBinding
-                  value={{ ...element.source, path: element.source.listPath }}
-                  list
-                  components={components}
-                  onChange={(source) =>
-                    onElementChange({
-                      ...element,
-                      source: {
-                        apiClientId: source.apiClientId,
-                        operationId: source.operationId,
-                        listPath: source.path,
-                      },
-                    })
-                  }
-                />
-                <NumberField
-                  label="Row gap (mm)"
-                  value={element.gap}
-                  max={100}
-                  onChange={(gap) => onElementChange({ ...element, gap })}
-                />
-              </fieldset>
-              <button
-                type="button"
-                className="wr-report-edit-row"
-                onClick={() => onEditRow(element)}
-              >
-                Edit row template
-              </button>
-              <p className="wr-report-hint">
-                Height is the height of each row. Complete rows continue on the next page
-                automatically.
-              </p>
-            </>
+            <ReportRepeaterInspector
+              element={element}
+              parentSource={rowSource}
+              components={components}
+              onChange={onElementChange}
+              onEdit={onEditRow}
+            />
           )}
         </>
       )}

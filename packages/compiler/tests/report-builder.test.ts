@@ -15,6 +15,7 @@ import {
   type WebReportTemplate,
 } from '@webrad/runtime/report-template';
 import { comboBoxApiConfiguration } from '../../../tests/fixtures/combo-box.js';
+import { nestedReportProject } from '../../../tests/fixtures/report-builder-nested.js';
 import { compileProjectToMemory } from '../src/index.js';
 
 function reportProject(clientKey = 'CustomersApi') {
@@ -81,6 +82,74 @@ function reportProject(clientKey = 'CustomersApi') {
   page = bindComponentEvent(page, page.rootComponentId, 'OnCreate', 'run');
   return updatePage(project, page.id, () => page);
 }
+
+it('validates API references in deep report Header and Footer sections', async () => {
+  const project = nestedReportProject('https://example.test');
+  const page = project.pages[0]!;
+  const broken = {
+    ...project,
+    pages: [
+      {
+        ...page,
+        components: page.components.map((component) => {
+          if (component.type !== 'WebReportBuilder') return component;
+          const template = component.props.reportTemplate as WebReportTemplate;
+          return {
+            ...component,
+            props: {
+              ...component.props,
+              reportTemplate: {
+                ...template,
+                bands: template.bands.map((band) => ({
+                  ...band,
+                  elements: band.elements.map((group) =>
+                    group.type !== 'repeater'
+                      ? group
+                      : {
+                          ...group,
+                          children: group.children.map((child) =>
+                            child.type !== 'repeater'
+                              ? child
+                              : {
+                                  ...child,
+                                  footer: {
+                                    ...child.footer!,
+                                    elements: [
+                                      {
+                                        ...child.footer!.elements[0],
+                                        value: {
+                                          kind: 'field',
+                                          apiClientId: 'Missing',
+                                          operationId: 'Load',
+                                          path: '/name',
+                                        },
+                                      },
+                                    ],
+                                  },
+                                },
+                          ),
+                        },
+                  ),
+                })),
+              },
+            },
+          };
+        }),
+      },
+    ],
+  };
+  const result = await compileProjectToMemory(broken, { userSources: {} });
+  expect(result.success).toBe(false);
+  expect(result.diagnostics).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        source: 'registry',
+        message: 'Report field must reference an API Client in the same document.',
+        path: expect.arrayContaining(['footer', 'elements']),
+      }),
+    ]),
+  );
+});
 
 it.each(['CustomersApi', 'report-api'])(
   'compiles and generates a genuine PDF from loaded API state bound by %s',

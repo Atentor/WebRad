@@ -85,7 +85,12 @@ const reportBuilderTypingsPath = path.join(
   'src',
   'report-builder-typings.generated.json',
 );
-const reportSourceNames = ['report-template.ts', 'report-pdf.ts', 'report-builder.ts'];
+const reportSourceNames = [
+  'report-template.ts',
+  'report-pdf-layout.ts',
+  'report-pdf.ts',
+  'report-builder.ts',
+];
 const reportBuilderTypings =
   JSON.stringify(
     createApiClientDeclarations(repositoryRoot, ['report-template.ts', 'report-builder.ts']),

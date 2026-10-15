@@ -24,6 +24,8 @@ export interface WebReportElementBase {
   readonly y: number;
   readonly width: number;
   readonly height: number;
+  /** Zero-based owning column when placed directly in a Repeater Header or Footer. */
+  readonly column?: number;
 }
 export interface WebReportTextElement extends WebReportElementBase {
   readonly type: 'text';
@@ -47,16 +49,46 @@ export interface WebReportLineElement extends WebReportElementBase {
 }
 export type WebReportLeafElement =
   WebReportTextElement | WebReportImageElement | WebReportLineElement;
+export interface WebReportRepeaterSection {
+  readonly height: number;
+  readonly elements: readonly WebReportElement[];
+  readonly columns?: number;
+  readonly columnGap?: number;
+}
+export interface WebReportRepeaterAppearance {
+  readonly backgroundColor: string | null;
+  readonly borderColor: string;
+  /** Millimetres, matching the editor's geometry. */
+  readonly borderWidth: number;
+  readonly borderStyle: 'solid' | 'dashed';
+  readonly rowLines: boolean;
+  readonly columnLines: boolean;
+  readonly lineColor: string;
+  readonly lineWidth: number;
+}
+export interface WebReportRepeaterLayout {
+  readonly columns: number;
+  /** Rows per grid block; zero fits all records into the configured columns. */
+  readonly rows: number;
+  readonly columnGap: number;
+  readonly fill: 'rows' | 'columns';
+}
 export interface WebReportRepeaterElement extends WebReportElementBase {
   readonly type: 'repeater';
   readonly source: {
     readonly apiClientId: string;
     readonly operationId: string;
     readonly listPath: string;
+    /** Nested repeaters can read a list relative to the enclosing record. */
+    readonly scope?: 'api' | 'row';
   };
   /** Space in millimetres between complete records. */
   readonly gap: number;
-  readonly children: readonly WebReportLeafElement[];
+  readonly children: readonly WebReportElement[];
+  readonly header?: WebReportRepeaterSection;
+  readonly footer?: WebReportRepeaterSection;
+  readonly appearance?: WebReportRepeaterAppearance;
+  readonly layout?: WebReportRepeaterLayout;
 }
 export type WebReportElement = WebReportLeafElement | WebReportRepeaterElement;
 export type WebReportBandKind = 'title' | 'pageHeader' | 'detail' | 'pageFooter' | 'summary';
@@ -81,6 +113,55 @@ export interface WebReportTemplate {
   };
   readonly parameters: readonly WebReportParameter[];
   readonly bands: readonly WebReportBand[];
+}
+
+export function reportRepeaterLayout(element: WebReportRepeaterElement): WebReportRepeaterLayout {
+  return element.layout ?? { columns: 1, rows: 0, columnGap: 0, fill: 'rows' };
+}
+export function reportRepeaterAppearance(
+  element: WebReportRepeaterElement,
+): WebReportRepeaterAppearance {
+  return (
+    element.appearance ?? {
+      backgroundColor: null,
+      borderColor: '#94a3b8',
+      borderWidth: 0,
+      borderStyle: 'solid',
+      rowLines: false,
+      columnLines: false,
+      lineColor: '#cbd5e1',
+      lineWidth: 0.2,
+    }
+  );
+}
+export function reportRepeaterColumnWidth(element: WebReportRepeaterElement): number {
+  const layout = reportRepeaterLayout(element);
+  return (element.width - (layout.columns - 1) * layout.columnGap) / layout.columns;
+}
+export function reportRepeaterSectionLayout(
+  section: WebReportRepeaterSection | undefined,
+): Pick<WebReportRepeaterLayout, 'columns' | 'columnGap'> {
+  return { columns: section?.columns ?? 1, columnGap: section?.columnGap ?? 0 };
+}
+export function reportRepeaterSectionColumnWidth(
+  element: WebReportRepeaterElement,
+  section: 'header' | 'footer',
+): number {
+  const layout = reportRepeaterSectionLayout(element[section]);
+  return (element.width - (layout.columns - 1) * layout.columnGap) / layout.columns;
+}
+export function reportRepeaterTemplateHeight(element: WebReportRepeaterElement): number {
+  return (element.header?.height ?? 0) + element.height + (element.footer?.height ?? 0);
+}
+/** All authored descendants, including sections, without introducing runtime globals. */
+export function reportRepeaterElements(
+  element: WebReportRepeaterElement,
+): readonly WebReportElement[] {
+  return [
+    ...(element.header?.elements ?? []),
+    ...element.children,
+    ...(element.footer?.elements ?? []),
+  ];
 }
 
 export function createDefaultReportTemplate(): WebReportTemplate {
@@ -300,7 +381,10 @@ export function parseReportTemplate(value: unknown): WebReportTemplate {
     parentWidth: number,
     parentHeight: number,
     kind: WebReportBandKind,
+    depth = 0,
+    sectionColumns?: number,
   ): WebReportElement => {
+    if (depth > 16) return fail('element', 'repeater nesting exceeds 16 levels.');
     const item = record(value, 'element');
     const base: WebReportElementBase = {
       id: id(item.id),
@@ -309,7 +393,15 @@ export function parseReportTemplate(value: unknown): WebReportTemplate {
       y: number(item.y, 'element.y'),
       width: number(item.width, 'element.width', 0.1),
       height: number(item.height, 'element.height', 0.1),
+      ...(item.column === undefined
+        ? {}
+        : { column: number(item.column, 'element.column', 0, (sectionColumns ?? 1) - 1) }),
     };
+    if (
+      base.column !== undefined &&
+      (!Number.isInteger(base.column) || sectionColumns === undefined)
+    )
+      return fail('element.column', 'choose an existing Header or Footer column.');
     if (base.x + base.width > parentWidth + 0.001 || base.y + base.height > parentHeight + 0.001)
       return fail(`element.${base.name}`, 'geometry exceeds its band or row.');
     switch (item.type) {
@@ -340,10 +432,96 @@ export function parseReportTemplate(value: unknown): WebReportTemplate {
           strokeWidth: number(item.strokeWidth, 'element.strokeWidth', 0.1, 20),
         };
       case 'repeater': {
-        if (inRow) return fail('element.type', 'nested repeaters are not supported.');
         if (kind === 'pageHeader' || kind === 'pageFooter')
           return fail('element.type', 'page headers and footers cannot contain repeaters.');
         const data = record(item.source, 'repeater.source');
+        const scope =
+          data.scope === undefined ? undefined : choice(data.scope, ['api', 'row'], 'source.scope');
+        if (scope === 'row' && !inRow)
+          return fail('source.scope', 'a parent row source requires an enclosing record.');
+        const layoutSource =
+          item.layout === undefined ? undefined : record(item.layout, 'repeater.layout');
+        const layout: WebReportRepeaterLayout | undefined =
+          layoutSource === undefined
+            ? undefined
+            : {
+                columns: number(layoutSource.columns, 'layout.columns', 1, 24),
+                rows: number(layoutSource.rows, 'layout.rows', 0, 100_000),
+                columnGap: number(layoutSource.columnGap, 'layout.columnGap', 0, 100),
+                fill: choice(layoutSource.fill, ['rows', 'columns'], 'layout.fill'),
+              };
+        if (
+          layout !== undefined &&
+          (!Number.isInteger(layout.columns) || !Number.isInteger(layout.rows))
+        )
+          return fail('repeater.layout', 'rows and columns must be whole numbers.');
+        const columnWidth =
+          (base.width - ((layout?.columns ?? 1) - 1) * (layout?.columnGap ?? 0)) /
+          (layout?.columns ?? 1);
+        if (columnWidth < 0.1)
+          return fail('layout.columnGap', 'columns must have at least 0.1 mm of content width.');
+        const section = (value: unknown, name: string): WebReportRepeaterSection | undefined => {
+          if (value === undefined) return undefined;
+          const source = record(value, `repeater.${name}`);
+          const height = number(source.height, `${name}.height`, 0.1, parentHeight);
+          const columns =
+            source.columns === undefined ? 1 : number(source.columns, `${name}.columns`, 1, 24);
+          if (!Number.isInteger(columns))
+            return fail(`${name}.columns`, 'columns must be a whole number.');
+          const columnGap =
+            source.columnGap === undefined
+              ? 0
+              : number(source.columnGap, `${name}.columnGap`, 0, 100);
+          const width = (base.width - (columns - 1) * columnGap) / columns;
+          if (width < 0.1)
+            return fail(`${name}.columnGap`, 'columns must have at least 0.1 mm of content width.');
+          return {
+            height,
+            ...(source.columns === undefined ? {} : { columns }),
+            ...(source.columnGap === undefined ? {} : { columnGap }),
+            elements: list(source.elements, `${name}.elements`, 500).map((child) =>
+              element(child, inRow, width, height, kind, depth + 1, columns),
+            ),
+          };
+        };
+        const header = section(item.header, 'header');
+        const footer = section(item.footer, 'footer');
+        if (
+          base.y + (header?.height ?? 0) + base.height + (footer?.height ?? 0) >
+          parentHeight + 0.001
+        )
+          return fail(
+            `element.${base.name}`,
+            'geometry including Header and Footer exceeds its band or row.',
+          );
+        const paint =
+          item.appearance === undefined
+            ? undefined
+            : record(item.appearance, 'repeater.appearance');
+        const flag = (value: unknown, name: string): boolean => {
+          if (typeof value !== 'boolean') return fail(name, 'expected a boolean.');
+          return value;
+        };
+        const appearance: WebReportRepeaterAppearance | undefined =
+          paint === undefined
+            ? undefined
+            : {
+                backgroundColor:
+                  paint.backgroundColor === null
+                    ? null
+                    : color(paint.backgroundColor, 'appearance.backgroundColor'),
+                borderColor: color(paint.borderColor, 'appearance.borderColor'),
+                borderWidth: number(paint.borderWidth, 'appearance.borderWidth', 0, 10),
+                borderStyle: choice(
+                  paint.borderStyle,
+                  ['solid', 'dashed'],
+                  'appearance.borderStyle',
+                ),
+                rowLines: flag(paint.rowLines, 'appearance.rowLines'),
+                columnLines: flag(paint.columnLines, 'appearance.columnLines'),
+                lineColor: color(paint.lineColor, 'appearance.lineColor'),
+                lineWidth: number(paint.lineWidth, 'appearance.lineWidth', 0.01, 10),
+              };
         return {
           ...base,
           type: 'repeater',
@@ -351,11 +529,16 @@ export function parseReportTemplate(value: unknown): WebReportTemplate {
             apiClientId: text(data.apiClientId, 'source.apiClientId', true),
             operationId: text(data.operationId, 'source.operationId', true),
             listPath: pointer(data.listPath, 'source.listPath'),
+            ...(scope === undefined ? {} : { scope }),
           },
           gap: number(item.gap, 'repeater.gap', 0, 100),
-          children: list(item.children, 'repeater.children', 500).map(
-            (child) => element(child, true, base.width, base.height, kind) as WebReportLeafElement,
+          children: list(item.children, 'repeater.children', 500).map((child) =>
+            element(child, true, columnWidth, base.height, kind, depth + 1),
           ),
+          ...(header === undefined ? {} : { header }),
+          ...(footer === undefined ? {} : { footer }),
+          ...(appearance === undefined ? {} : { appearance }),
+          ...(layout === undefined ? {} : { layout }),
         };
       }
       default:

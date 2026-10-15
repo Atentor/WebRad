@@ -3,27 +3,17 @@ import {
   reportPaperSize,
   resolveReportPointer,
   type WebReportBand,
-  type WebReportLeafElement,
-  type WebReportParameterValue,
   type WebReportTemplate,
   type WebReportValueSource,
 } from './report-template.js';
+import {
+  reportBandBlocks,
+  type ReportDataSnapshot,
+  type ReportPlacement as Placement,
+} from './report-pdf-layout.js';
+export type { ReportDataSnapshot } from './report-pdf-layout.js';
 
 const PT = 72 / 25.4;
-export interface ReportDataSnapshot {
-  readonly parameters: Readonly<Record<string, WebReportParameterValue>>;
-  readonly operation: (apiClientId: string, operationId: string) => unknown;
-}
-interface Placement {
-  readonly element: WebReportLeafElement;
-  readonly x: number;
-  readonly y: number;
-  readonly row: unknown;
-}
-interface Block {
-  readonly height: number;
-  readonly elements: readonly Placement[];
-}
 export interface ReportPdfOutput {
   readonly blob: Blob;
   readonly pageCount: number;
@@ -62,72 +52,6 @@ function display(value: unknown): string {
   throw new TypeError(
     'Report fields must resolve to text, a number or a boolean. Select a concrete field.',
   );
-}
-function blocksFor(band: WebReportBand, data: ReportDataSnapshot): readonly Block[] {
-  const leaves = band.elements.filter(
-    (element): element is WebReportLeafElement => element.type !== 'repeater',
-  );
-  const repeaters = band.elements
-    .filter((element) => element.type === 'repeater')
-    .sort((left, right) => left.y - right.y);
-  const blocks: Block[] = [];
-  let cursor = 0;
-  const staticBlock = (end: number): void => {
-    const elements = leaves.filter(
-      (element) => element.y >= cursor - 0.001 && element.y < end - 0.001,
-    );
-    if (elements.some((element) => element.y + element.height > end + 0.001))
-      throw new RangeError('Report elements cannot cross the beginning or end of a repeater row.');
-    if (end > cursor)
-      blocks.push({
-        height: end - cursor,
-        elements: elements.map((element) => ({
-          element,
-          x: element.x,
-          y: element.y - cursor,
-          row: undefined,
-        })),
-      });
-    cursor = end;
-  };
-  for (const repeater of repeaters) {
-    if (repeater.y < cursor - 0.001) throw new RangeError('Report repeater rows cannot overlap.');
-    staticBlock(repeater.y);
-    if (
-      leaves.some(
-        (element) =>
-          element.y < repeater.y + repeater.height && element.y + element.height > repeater.y,
-      )
-    )
-      throw new RangeError(
-        'Place ordinary elements above or below the repeater. Put row elements inside it.',
-      );
-    if (!repeater.source.apiClientId || !repeater.source.operationId)
-      throw new Error(`Select an ApiClient and operation for repeater "${repeater.name}".`);
-    const values = resolveReportPointer(
-      data.operation(repeater.source.apiClientId, repeater.source.operationId),
-      repeater.source.listPath,
-    );
-    if (!Array.isArray(values))
-      throw new TypeError(
-        `Repeater "${repeater.name}" must point to an array in an already loaded ApiClient response.`,
-      );
-    if (values.length > 100_000)
-      throw new RangeError('A report supports at most 100,000 records per repeater.');
-    for (let index = 0; index < values.length; index++)
-      blocks.push({
-        height: repeater.height + (index + 1 < values.length ? repeater.gap : 0),
-        elements: repeater.children.map((element) => ({
-          element,
-          x: repeater.x + element.x,
-          y: element.y,
-          row: values[index] as unknown,
-        })),
-      });
-    cursor = repeater.y + repeater.height;
-  }
-  staticBlock(band.height);
-  return blocks;
 }
 function parseColor(value: string): ReturnType<typeof rgb> {
   return rgb(
@@ -202,7 +126,7 @@ export async function generateReportPdf(
   for (const kind of ['title', 'detail', 'summary'] as const) {
     const band = template.bands.find((candidate) => candidate.kind === kind);
     if (!band) continue;
-    for (const block of blocksFor(band, data)) {
+    for (const block of reportBandBlocks(band, data)) {
       checkAbort(signal);
       if (block.height > bodyHeight + 0.001)
         throw new RangeError(
@@ -241,6 +165,61 @@ export async function generateReportPdf(
     ];
     for (const { element, x, y, row } of all) {
       checkAbort(signal);
+      if (element.type === 'frame') {
+        const paint = element.appearance;
+        if (paint.backgroundColor !== null)
+          page.drawRectangle({
+            x: x * PT,
+            y: (paper.height - y - element.height) * PT,
+            width: element.width * PT,
+            height: element.height * PT,
+            color: parseColor(paint.backgroundColor),
+          });
+        const line = (
+          x1: number,
+          y1: number,
+          x2: number,
+          y2: number,
+          width: number,
+          color: string,
+          dashed = false,
+        ): void => {
+          if (width === 0) return;
+          page.drawLine({
+            start: { x: x1 * PT, y: (paper.height - y1) * PT },
+            end: { x: x2 * PT, y: (paper.height - y2) * PT },
+            thickness: width * PT,
+            color: parseColor(color),
+            ...(dashed ? { dashArray: [2 * PT, PT] } : {}),
+          });
+        };
+        const border = (x1: number, y1: number, x2: number, y2: number): void =>
+          line(
+            x1,
+            y1,
+            x2,
+            y2,
+            paint.borderWidth,
+            paint.borderColor,
+            paint.borderStyle === 'dashed',
+          );
+        const inset = paint.borderWidth / 2;
+        if (element.top) border(x, y + inset, x + element.width, y + inset);
+        else if (element.rowLine && paint.rowLines)
+          line(x, y, x + element.width, y, paint.lineWidth, paint.lineColor);
+        if (element.bottom)
+          border(x, y + element.height - inset, x + element.width, y + element.height - inset);
+        border(x + inset, y, x + inset, y + element.height);
+        border(x + element.width - inset, y, x + element.width - inset, y + element.height);
+        if (paint.columnLines)
+          for (let column = 1; column < element.columns; column++) {
+            const columnWidth =
+              (element.width - (element.columns - 1) * element.columnGap) / element.columns;
+            const left = x + column * columnWidth + (column - 0.5) * element.columnGap;
+            line(left, y, left, y + element.height, paint.lineWidth, paint.lineColor);
+          }
+        continue;
+      }
       if (element.type === 'line') {
         const baseline = (paper.height - y - element.height / 2) * PT;
         page.drawLine({

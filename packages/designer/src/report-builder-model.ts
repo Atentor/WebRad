@@ -3,12 +3,13 @@ import {
   reportPaperSize,
   type WebReportBandKind,
   type WebReportElement,
-  type WebReportLeafElement,
   type WebReportParameter,
   type WebReportTemplate,
   type WebReportValueSource,
 } from '@webrad/runtime/report-template';
 import { reportApiSource } from './report-builder-data.js';
+import { mapReportElements, reportContainer, type ReportSelection } from './report-builder-tree.js';
+export type { ReportSelection } from './report-builder-tree.js';
 
 export const REPORT_BAND_LABELS: Readonly<Record<WebReportBandKind, string>> = {
   title: 'Title',
@@ -31,23 +32,16 @@ export function reportOrderedBands(template: WebReportTemplate) {
   );
 }
 
-export interface ReportSelection {
-  readonly bandId: string;
-  readonly elementId: string | null;
-  readonly parentId?: string;
-}
-
 export function reportSelectedElement(
   template: WebReportTemplate,
   selection: ReportSelection,
 ): WebReportElement | undefined {
-  const band = template.bands.find((item) => item.id === selection.bandId);
-  if (selection.parentId === undefined)
-    return band?.elements.find((item) => item.id === selection.elementId);
-  const parent = band?.elements.find((item) => item.id === selection.parentId);
-  return parent?.type === 'repeater'
-    ? parent.children.find((item) => item.id === selection.elementId)
-    : undefined;
+  const container = reportContainer(template, selection);
+  const elements =
+    container.parent !== undefined && selection.section !== undefined && selection.section !== 'row'
+      ? (container.parent[selection.section]?.elements ?? [])
+      : container.elements;
+  return elements.find((item) => item.id === selection.elementId);
 }
 
 export function editReportElement(
@@ -55,33 +49,17 @@ export function editReportElement(
   selection: ReportSelection,
   edit: (element: WebReportElement) => WebReportElement | null,
 ): WebReportTemplate {
-  const update = (elements: readonly WebReportElement[]): WebReportElement[] =>
-    elements.flatMap((element) => {
-      if (
-        selection.parentId !== undefined &&
-        element.id === selection.parentId &&
-        element.type === 'repeater'
-      ) {
-        return [
-          {
-            ...element,
-            children: element.children.flatMap((child) => {
-              const next = child.id === selection.elementId ? edit(child) : child;
-              return next !== null && next.type !== 'repeater' ? [next] : [];
-            }),
-          },
-        ];
-      }
-      const next =
-        selection.parentId === undefined && element.id === selection.elementId
-          ? edit(element)
-          : element;
-      return next === null ? [] : [next];
-    });
   return {
     ...template,
     bands: template.bands.map((band) =>
-      band.id === selection.bandId ? { ...band, elements: update(band.elements) } : band,
+      band.id === selection.bandId
+        ? {
+            ...band,
+            elements: mapReportElements(band.elements, (element) =>
+              element.id === selection.elementId ? edit(element) : element,
+            ),
+          }
+        : band,
     ),
   };
 }
@@ -142,9 +120,23 @@ export function insertReportElement(
   if (selection.parentId !== undefined) {
     const parentSelection = { bandId: selection.bandId, elementId: selection.parentId };
     return editReportElement(template, parentSelection, (parent) =>
-      parent.type === 'repeater' && element.type !== 'repeater'
-        ? { ...parent, children: [...parent.children, element] }
-        : parent,
+      parent.type !== 'repeater'
+        ? parent
+        : selection.section === undefined || selection.section === 'row'
+          ? { ...parent, children: [...parent.children, element] }
+          : {
+              ...parent,
+              [selection.section]: {
+                ...parent[selection.section],
+                elements: [
+                  ...(parent[selection.section]?.elements ?? []),
+                  {
+                    ...element,
+                    ...(selection.column === undefined ? {} : { column: selection.column }),
+                  },
+                ],
+              },
+            },
     );
   }
   return {
@@ -161,9 +153,23 @@ export function duplicateReportElement(element: WebReportElement): WebReportElem
   return base.type === 'repeater'
     ? {
         ...base,
-        children: base.children.map(
-          (child) => duplicateReportElement(child) as WebReportLeafElement,
-        ),
+        children: base.children.map(duplicateReportElement),
+        ...(base.header === undefined
+          ? {}
+          : {
+              header: {
+                ...base.header,
+                elements: base.header.elements.map(duplicateReportElement),
+              },
+            }),
+        ...(base.footer === undefined
+          ? {}
+          : {
+              footer: {
+                ...base.footer,
+                elements: base.footer.elements.map(duplicateReportElement),
+              },
+            }),
       }
     : base;
 }
@@ -175,11 +181,6 @@ export function renameReportParameter(
 ): WebReportTemplate {
   const oldName = template.parameters[index]?.name;
   const update = (element: WebReportElement): WebReportElement => {
-    if (element.type === 'repeater')
-      return {
-        ...element,
-        children: element.children.map((child) => update(child) as WebReportLeafElement),
-      };
     if ('value' in element && element.value.kind === 'parameter' && element.value.name === oldName)
       return { ...element, value: { kind: 'parameter', name: parameter.name } };
     return element;
@@ -189,7 +190,10 @@ export function renameReportParameter(
     parameters: template.parameters.map((item, position) =>
       position === index ? parameter : item,
     ),
-    bands: template.bands.map((band) => ({ ...band, elements: band.elements.map(update) })),
+    bands: template.bands.map((band) => ({
+      ...band,
+      elements: mapReportElements(band.elements, update),
+    })),
   };
 }
 
@@ -222,19 +226,27 @@ export function reportBindingError(
     },
   ): string | null => {
     if (element.type === 'repeater') {
+      const effective =
+        element.source.scope === 'row' && rowSource !== undefined
+          ? { ...rowSource, listPath: `${rowSource.listPath}/*${element.source.listPath}` }
+          : element.source;
       const source = reportApiSource(
         components,
-        element.source.apiClientId,
-        element.source.operationId,
-        element.source.listPath,
+        effective.apiClientId,
+        effective.operationId,
+        effective.listPath,
       );
-      if (
-        source.operation === undefined ||
-        !source.lists.some((item) => item.path === element.source.listPath)
-      )
+      if (source.operation === undefined || !source.listExists)
         return `${element.name}: choose an API Client, operation and response list.`;
+      for (const child of [
+        ...(element.header?.elements ?? []),
+        ...(element.footer?.elements ?? []),
+      ]) {
+        const error = visit(child, rowSource);
+        if (error !== null) return error;
+      }
       for (const child of element.children) {
-        const error = visit(child, element.source);
+        const error = visit(child, effective);
         if (error !== null) return error;
       }
     } else if ('value' in element) {

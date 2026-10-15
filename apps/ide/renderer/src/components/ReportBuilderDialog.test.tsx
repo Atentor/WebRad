@@ -10,6 +10,7 @@ import { StrictMode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { comboBoxApiConfiguration } from '../../../../../tests/fixtures/combo-box';
 import { reportBuilderTemplate } from '../../../../../tests/fixtures/report-builder';
+import { nestedReportProject } from '../../../../../tests/fixtures/report-builder-nested';
 import { ReportBuilderDialog } from './ReportBuilderDialog';
 import { ObjectInspector } from './ObjectInspector';
 
@@ -48,12 +49,234 @@ function dragReportComponent(
     getData: (key: string) => values.get(key) ?? '',
   };
   fireEvent.dragStart(palette, { dataTransfer });
-  fireEvent.dragOver(target, { dataTransfer });
-  const event = createEvent.drop(target, { dataTransfer });
+  const rowTarget = target.matches('.wr-report-element-repeater')
+    ? target.querySelector('[data-report-repeater-section="row"]')!
+    : target;
+  const dropTarget = rowTarget.matches('.wr-report-repeater-section')
+    ? rowTarget.querySelector('[data-report-section-column="0"]')!
+    : rowTarget;
+  fireEvent.dragOver(dropTarget, { dataTransfer });
+  const event = createEvent.drop(dropTarget, { dataTransfer });
   Object.defineProperties(event, { clientX: { value: x }, clientY: { value: y } });
-  fireEvent(target, event);
+  fireEvent(dropTarget, event);
   fireEvent.dragEnd(palette, { dataTransfer });
 }
+
+it('edits nested sections, parent-row fields and appearance while preserving undo and saved geometry', () => {
+  const components = nestedReportProject('https://example.test').pages[0]!.components;
+  const component = components.find((item) => item.type === 'WebReportBuilder')!;
+  const onSave = vi.fn();
+  render(
+    <ReportBuilderDialog
+      component={component}
+      availableComponents={components}
+      onSave={onSave}
+      onClose={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Select Customers' }));
+  fireEvent.click(screen.getByLabelText('Report repeater header'));
+  expect(screen.getByLabelText('Report repeater header')).toHaveProperty('checked', false);
+  fireEvent.click(screen.getByRole('button', { name: 'Undo report edit' }));
+  expect(screen.getByLabelText('Report repeater header')).toHaveProperty('checked', true);
+  fireEvent.change(screen.getByLabelText('Report columns'), { target: { value: '3' } });
+  fireEvent.change(screen.getByLabelText('Report repeater background color'), {
+    target: { value: '#abcdef' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Select order-header' }));
+  expect(screen.getByLabelText('Report row field')).toHaveProperty('value', '/name');
+  fireEvent.click(screen.getByRole('button', { name: 'Select order-product' }));
+  expect(screen.getByLabelText('Report row field')).toHaveProperty('value', '/product');
+  const row = screen
+    .getByRole('button', { name: 'Select Orders' })
+    .querySelector('[data-report-repeater-section="row"]')!;
+  dragReportComponent('repeater', row);
+  expect(
+    document.querySelectorAll('.wr-report-element-repeater[data-report-primary="true"]'),
+  ).toHaveLength(3);
+  fireEvent.click(screen.getByRole('button', { name: 'Undo report edit' }));
+  expect(
+    document.querySelectorAll('.wr-report-element-repeater[data-report-primary="true"]'),
+  ).toHaveLength(2);
+  const header = screen
+    .getByRole('button', { name: 'Select Customers' })
+    .querySelector('[data-report-repeater-section="header"]')!;
+  dragReportComponent('text', header);
+  fireEvent.change(screen.getByLabelText('Report text'), {
+    target: { value: 'Saved header field' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+  expect(onSave).toHaveBeenCalledOnce();
+  const saved = onSave.mock.calls[0]![0] as WebReportTemplate;
+  const group = saved.bands[0]!.elements[0]!;
+  expect(group).toMatchObject({
+    layout: { columns: 3 },
+    appearance: { backgroundColor: '#abcdef' },
+    header: {
+      elements: expect.arrayContaining([
+        expect.objectContaining({ value: { kind: 'static', value: 'Saved header field' } }),
+      ]),
+    },
+  });
+});
+
+it('authors separate Header/Footer column content, preserves selection across moves and saves each section layout', () => {
+  const components = nestedReportProject('https://example.test').pages[0]!.components;
+  const component = components.find((item) => item.type === 'WebReportBuilder')!;
+  const onSave = vi.fn();
+  render(
+    <ReportBuilderDialog
+      component={component}
+      availableComponents={components}
+      onSave={onSave}
+      onClose={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Select Customers' }));
+  fireEvent.change(screen.getByLabelText('Report header columns'), { target: { value: '2' } });
+  fireEvent.change(screen.getByLabelText('Report header column gap (mm)'), {
+    target: { value: '4' },
+  });
+  fireEvent.change(screen.getByLabelText('Report footer columns'), { target: { value: '3' } });
+  fireEvent.change(screen.getByLabelText('Report footer column gap (mm)'), {
+    target: { value: '3' },
+  });
+  const group = screen.getByRole('button', { name: 'Select Customers' });
+  dragReportComponent(
+    'text',
+    group.querySelector(
+      ':scope > [data-report-repeater-section="header"] > [data-report-section-column="1"]',
+    )!,
+  );
+  fireEvent.change(screen.getByLabelText('Report text'), {
+    target: { value: 'Header right field' },
+  });
+  expect(screen.getByLabelText('Report section column')).toHaveProperty('value', '1');
+  dragReportComponent(
+    'text',
+    group.querySelector(
+      ':scope > [data-report-repeater-section="footer"] > [data-report-section-column="2"]',
+    )!,
+  );
+  fireEvent.change(screen.getByLabelText('Report text'), {
+    target: { value: 'Footer right field' },
+  });
+  fireEvent.change(screen.getByLabelText('Report section column'), { target: { value: '1' } });
+  expect(screen.getByLabelText('Report text')).toHaveProperty('value', 'Footer right field');
+  fireEvent.click(screen.getByRole('button', { name: 'Undo report edit' }));
+  expect(screen.getByLabelText('Report section column')).toHaveProperty('value', '2');
+  fireEvent.click(screen.getByRole('button', { name: 'Redo report edit' }));
+  expect(screen.getByLabelText('Report section column')).toHaveProperty('value', '1');
+  fireEvent.click(screen.getByRole('button', { name: 'Select Customers' }));
+  fireEvent.change(screen.getByLabelText('Report header columns'), {
+    target: { value: '1000000' },
+  });
+  expect(screen.getByRole('alert').textContent).toContain('header.columns');
+  expect(screen.getByRole('button', { name: 'Save template' })).toHaveProperty('disabled', true);
+  fireEvent.click(screen.getByRole('button', { name: 'Undo report edit' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+  expect(onSave).toHaveBeenCalledOnce();
+  const saved = (onSave.mock.calls[0]![0] as WebReportTemplate).bands[0]!.elements[0]!;
+  expect(saved).toMatchObject({
+    layout: { columns: 2 },
+    header: {
+      columns: 2,
+      columnGap: 4,
+      elements: expect.arrayContaining([
+        expect.objectContaining({
+          column: 1,
+          value: { kind: 'static', value: 'Header right field' },
+        }),
+      ]),
+    },
+    footer: {
+      columns: 3,
+      columnGap: 3,
+      elements: expect.arrayContaining([
+        expect.objectContaining({
+          column: 1,
+          value: { kind: 'static', value: 'Footer right field' },
+        }),
+      ]),
+    },
+  });
+});
+
+it('drops into a later record column using local coordinates and edits one shared template with undo/redo', () => {
+  const components = nestedReportProject('https://example.test').pages[0]!.components;
+  const original = components.find((item) => item.type === 'WebReportBuilder')!;
+  const template = original.props.reportTemplate as WebReportTemplate;
+  const component = {
+    ...original,
+    props: {
+      ...original.props,
+      reportTemplate: {
+        ...template,
+        bands: template.bands.map((band) => ({
+          ...band,
+          elements: band.elements.map((element) =>
+            element.type !== 'repeater' ? element : { ...element, children: [] },
+          ),
+        })),
+      },
+    },
+  };
+  const onSave = vi.fn();
+  render(
+    <ReportBuilderDialog
+      component={component}
+      availableComponents={components}
+      onSave={onSave}
+      onClose={vi.fn()}
+    />,
+  );
+  const cell = screen
+    .getByRole('button', { name: 'Select Customers' })
+    .querySelector(
+      ':scope > [data-report-repeater-section="row"] > [data-report-section-column="1"]',
+    )!;
+  vi.spyOn(cell, 'getBoundingClientRect').mockReturnValue({
+    x: 320,
+    y: 200,
+    left: 320,
+    top: 200,
+    right: 584,
+    bottom: 284,
+    width: 264,
+    height: 84,
+    toJSON: () => ({}),
+  });
+  dragReportComponent('text', cell, 335, 207);
+  expect(Number((screen.getByLabelText('Report x (mm)') as HTMLInputElement).value)).toBeCloseTo(
+    16 / 3,
+  );
+  expect(Number((screen.getByLabelText('Report y (mm)') as HTMLInputElement).value)).toBeCloseTo(
+    8 / 3,
+  );
+  expect(screen.getByRole('button', { name: 'Select Text (column 2)' })).toHaveProperty(
+    'ariaPressed',
+    'true',
+  );
+  expect(screen.getByRole('button', { name: 'Select Text' })).toHaveProperty(
+    'ariaPressed',
+    'false',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Undo report edit' }));
+  expect(screen.queryByRole('button', { name: 'Select Text' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Redo report edit' }));
+  expect(screen.getByRole('button', { name: 'Select Text (column 2)' })).toHaveProperty(
+    'ariaPressed',
+    'true',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+  expect(onSave).toHaveBeenCalledOnce();
+  const group = (onSave.mock.calls[0]![0] as WebReportTemplate).bands[0]!.elements[0]!;
+  if (group.type !== 'repeater') throw new Error('Missing repeater.');
+  expect(group.children).toHaveLength(1);
+  expect(group.children[0]).toMatchObject({ x: 16 / 3, y: 8 / 3 });
+  expect(group.children[0]).not.toHaveProperty('column');
+  expect(group.children[0]).not.toHaveProperty('canvasPath');
+});
 
 it('opens the registry action from the Inspector and saves one isolated report draft', async () => {
   const { component, components } = fixture();
@@ -126,8 +349,6 @@ it('binds a single repeated row to saved API responses and exposes its fields', 
   expect(screen.getByLabelText('Report response list')).toHaveProperty('value', '/customers');
   await user.click(screen.getByRole('button', { name: 'Edit row template' }));
   const row = screen.getByRole('button', { name: 'Select Repeater' });
-  dragReportComponent('repeater', row);
-  expect(document.querySelectorAll('.wr-report-element-repeater')).toHaveLength(1);
   dragReportComponent('text', row);
   await user.selectOptions(screen.getByLabelText('Report value source'), 'row');
   await user.selectOptions(screen.getByLabelText('Report row field'), '/name');
@@ -200,8 +421,12 @@ it('drops into the hovered band at the current zoom with one undoable insertion'
   fireEvent.change(screen.getByLabelText('Report canvas zoom'), { target: { value: '0.5' } });
   const title = document.querySelector('.wr-report-band')!;
   dragReportComponent('text', title, 15, 4.5);
-  expect(screen.getByLabelText('Report x (mm)')).toHaveProperty('value', '10');
-  expect(screen.getByLabelText('Report y (mm)')).toHaveProperty('value', '3');
+  expect(Number((screen.getByLabelText('Report x (mm)') as HTMLInputElement).value)).toBeCloseTo(
+    32 / 3,
+  );
+  expect(Number((screen.getByLabelText('Report y (mm)') as HTMLInputElement).value)).toBeCloseTo(
+    8 / 3,
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Undo report edit' }));
   expect(screen.queryByRole('button', { name: 'Select Text' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Redo report edit' }));
@@ -210,8 +435,8 @@ it('drops into the hovered band at the current zoom with one undoable insertion'
   expect(saved.bands.find((band) => band.kind === 'detail')?.elements).toEqual([]);
   expect(saved.bands.find((band) => band.kind === 'title')?.elements.at(-1)).toMatchObject({
     type: 'text',
-    x: 10,
-    y: 3,
+    x: 32 / 3,
+    y: 8 / 3,
   });
 });
 

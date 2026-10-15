@@ -310,7 +310,7 @@
 .wr-report-dialog .wr-report-band.is-drop-target,
 .wr-report-dialog .wr-report-element.is-drop-target {
   outline: 2px solid var(--wr-accent);
-  background: #007acc14;
+  background-color: #ebf5fb;
 }
 
 .wr-report-palette .wr-icon {
@@ -381,8 +381,6 @@
   height: 100%;
   overflow: auto;
   padding: 22px 80px 30px;
-  background-image: radial-gradient(var(--wr-border) 0.7px, transparent 0.7px);
-  background-size: 12px 12px;
 }
 
 .wr-report-paper-caption,
@@ -417,6 +415,7 @@
   flex-shrink: 0;
   border-top: 1px dashed #cbd5e1;
   border-bottom: 1px dotted #e2e8f0;
+  background-color: white;
 }
 
 .wr-report-band[data-report-band-kind='pageFooter'] {
@@ -425,7 +424,7 @@
 
 .wr-report-band.is-active {
   outline: 1px solid #007acc44;
-  background: #007acc04;
+  background-color: #fbfdfe;
 }
 
 .wr-report-dialog .wr-report-band-tag {
@@ -517,7 +516,91 @@
 
 .wr-report-element-repeater {
   outline: 1px dashed #6d8eae;
-  background: #007acc06;
+  background-color: #f9fcfe;
+}
+
+.wr-report-repeater-section {
+  position: absolute;
+  left: 0;
+  box-sizing: border-box;
+  outline: 1px dotted #6d8eae55;
+}
+
+.wr-report-repeater-section.is-drop-target {
+  outline: 2px solid var(--wr-accent);
+  background-color: #ebf5fb;
+}
+
+.wr-report-dialog .wr-report-repeater-section-tag {
+  position: absolute;
+  z-index: 4;
+  top: 1px;
+  right: 3px;
+  min-height: 12px;
+  padding: 0 2px;
+  border: 0;
+  background-color: #e8f2fb;
+  color: #3c668c;
+  font:
+    8px Arial,
+    sans-serif;
+  white-space: nowrap;
+}
+
+.wr-report-repeater-border {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.wr-report-repeater-divider {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.wr-report-section-column {
+  position: absolute;
+  top: 0;
+  box-sizing: border-box;
+  outline: 1px dotted #6d8eae44;
+}
+
+.wr-report-section-column.is-drop-target {
+  outline: 2px solid var(--wr-accent);
+  background-color: #ebf5fb;
+}
+
+.wr-report-dialog .wr-report-section-column-tag {
+  position: absolute;
+  z-index: 4;
+  right: 2px;
+  bottom: 1px;
+  min-height: 10px;
+  padding: 0 2px;
+  border: 0;
+  background-color: #e8f2fb;
+  color: #3c668c;
+  font:
+    8px Arial,
+    sans-serif;
+}
+
+.wr-report-repeater-row-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+}
+
+.wr-report-outline .wr-report-outline-section {
+  min-height: 22px;
+  color: var(--wr-muted-text);
+  font-size: 10px;
 }
 
 .wr-report-repeater-label {

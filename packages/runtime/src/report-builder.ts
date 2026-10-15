@@ -7,6 +7,7 @@ import {
   serializeReportTemplate,
   validateReportParameterValue,
   type WebReportParameterValue,
+  type WebReportElement,
   type WebReportTemplate,
 } from './report-template.js';
 
@@ -288,15 +289,21 @@ export class WebReportBuilder<
       }
       operations.add(operationId);
     };
-    for (const band of this.#template.bands)
-      for (const element of band.elements) {
-        if (element.type === 'repeater')
+    const visit = (element: WebReportElement): void => {
+      if (element.type === 'repeater') {
+        if (element.source.scope !== 'row')
           requireOperation(element.source.apiClientId, element.source.operationId);
-        for (const leaf of element.type === 'repeater' ? element.children : [element]) {
-          if (leaf.type !== 'line' && leaf.value.kind === 'field')
-            requireOperation(leaf.value.apiClientId, leaf.value.operationId);
-        }
+        for (const child of [
+          ...(element.header?.elements ?? []),
+          ...element.children,
+          ...(element.footer?.elements ?? []),
+        ])
+          visit(child);
+      } else if (element.type !== 'line' && element.value.kind === 'field') {
+        requireOperation(element.value.apiClientId, element.value.operationId);
       }
+    };
+    for (const band of this.#template.bands) for (const element of band.elements) visit(element);
     for (const [key, client] of this.#clients) {
       const operations = required.get(key);
       if (!operations) continue;

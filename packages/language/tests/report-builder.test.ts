@@ -97,6 +97,57 @@ export class ${document.name} extends ${document.name}Generated { public async r
 }
 
 it.each([false, true])(
+  'exposes typed nested report sections, appearance and grid completion for reusable=%s',
+  (reusable) => {
+    const fixture = serviceFor(
+      `const group = ReportBuilder1.template.bands[0]!.elements[0]!;
+if (group.type === 'repeater') {
+  const columns: number | undefined = group.layout?.columns;
+  const height: number | undefined = group.header?.height;
+  const headerColumns: number | undefined = group.header?.columns;
+  const footerGap: number | undefined = group.footer?.columnGap;
+  const color: string | null | undefined = group.appearance?.backgroundColor;
+  const inner = group.children[0];
+  if (inner?.type === 'repeater') { const footer = inner.footer; void footer; }
+  void columns; void height; void color; void headerColumns; void footerGap; group.header;
+}`,
+      reusable,
+    );
+    try {
+      expect(fixture.service.getSemanticDiagnostics(fixture.fileName)).toEqual([]);
+      const position = fixture.source.lastIndexOf('group.header;') + 'group.'.length;
+      expect(
+        fixture.service
+          .getCompletionsAtPosition(fixture.fileName, position, {})
+          ?.entries.map((entry) => entry.name),
+      ).toEqual(expect.arrayContaining(['header', 'footer', 'children', 'appearance', 'layout']));
+      const columnPosition =
+        fixture.source.indexOf('group.header?.columns') + 'group.header?.'.length;
+      expect(
+        fixture.service
+          .getCompletionsAtPosition(fixture.fileName, columnPosition, {})
+          ?.entries.map((entry) => entry.name),
+      ).toEqual(expect.arrayContaining(['columns', 'columnGap', 'elements', 'height']));
+    } finally {
+      fixture.service.dispose();
+    }
+    const invalid = serviceFor(
+      `const group = this.ReportBuilder1.template.bands[0]!.elements[0]!;
+if (group.type === 'repeater') {
+  const layout: NonNullable<typeof group.layout> = { columns: 2, rows: 0, columnGap: 0, fill: 'spiral' };
+  group.footer = undefined; void layout;
+}`,
+      reusable,
+    );
+    try {
+      expect(invalid.service.getSemanticDiagnostics(invalid.fileName)).toHaveLength(2);
+    } finally {
+      invalid.service.dispose();
+    }
+  },
+);
+
+it.each([false, true])(
   'generates isolated concrete report instances and loaded API bindings for reusable=%s',
   (reusable) => {
     const document = reportDocument(reusable);

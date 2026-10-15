@@ -5,6 +5,10 @@ import {
 } from '@webrad/component-registry';
 import { createDefaultReportTemplate } from '@webrad/runtime/report-template';
 import {
+  nestedReportProject,
+  reportSectionColumnsTemplate,
+} from '../../../tests/fixtures/report-builder-nested.js';
+import {
   addComponent,
   createPage,
   deserializePage,
@@ -27,6 +31,18 @@ it('persists the report template and typed defaults as nonvisual project data', 
     }),
   );
   expect(deserializePage(serializePage(page))).toEqual(page);
+  const sectionColumns = {
+    ...page,
+    components: page.components.map((component) =>
+      component.type !== 'WebReportBuilder'
+        ? component
+        : {
+            ...component,
+            props: { ...component.props, reportTemplate: reportSectionColumnsTemplate() },
+          },
+    ),
+  };
+  expect(deserializePage(serializePage(sectionColumns))).toEqual(sectionColumns);
   const metadata = componentRegistry.require('WebReportBuilder');
   expect(resolveComponentDesignerPresentation(metadata)).toBe('tray');
   expect(metadata).toMatchObject({
@@ -76,4 +92,9 @@ it('rejects malformed saved templates and preview options during deserialization
     ),
   };
   expect(() => deserializePage(JSON.stringify(invalidMode))).toThrow();
+});
+
+it('persists the complete nested report tree and appearance in the project model', () => {
+  const page = nestedReportProject('https://example.test').pages[0]!;
+  expect(deserializePage(serializePage(page))).toEqual(page);
 });

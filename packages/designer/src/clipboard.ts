@@ -242,7 +242,13 @@ function remapReportTemplateApiReferences(
             ...element.source,
             apiClientId: idMap.get(element.source.apiClientId) ?? element.source.apiClientId,
           },
-          children: elements(element.children) as typeof element.children,
+          children: elements(element.children),
+          ...(element.header === undefined
+            ? {}
+            : { header: { ...element.header, elements: elements(element.header.elements) } }),
+          ...(element.footer === undefined
+            ? {}
+            : { footer: { ...element.footer, elements: elements(element.footer.elements) } }),
         };
       if (element.type !== 'line' && element.value.kind === 'field')
         return {

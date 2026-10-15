@@ -13,16 +13,21 @@ import { ReportCanvas, REPORT_COMPONENT_DRAG_TYPE } from './ReportCanvas';
 import { ReportElementInspector } from './ReportElementInspector';
 import { ReportPageSetup } from './ReportPageSetup';
 import { ReportParametersEditor } from './ReportParametersEditor';
+import { ReportOutline } from './ReportOutline';
 import {
   createReportElement,
   duplicateReportElement,
   editReportElement,
+  fitReportContainers,
   insertReportElement,
-  REPORT_BAND_LABELS,
   reportBindingError,
   reportContentWidth,
-  reportOrderedBands,
+  reportContainer,
+  reportElementSelection,
+  reportRowSource,
+  reportApiSource,
   reportSelectedElement,
+  snapReportCoordinate,
   type ReportSelection,
 } from '@webrad/designer';
 import { useRowConfigurationDialog } from './useRowConfigurationDialog';
@@ -125,11 +130,8 @@ export function ReportBuilderDialog({
     });
   const band = draft.bands.find((item) => item.id === selection.bandId);
   const element = reportSelectedElement(draft, selection);
-  const parentElement =
-    selection.parentId === undefined
-      ? undefined
-      : band?.elements.find((item) => item.id === selection.parentId);
-  const row = parentElement?.type === 'repeater' ? parentElement : undefined;
+  const row = reportContainer(draft, selection).parent;
+  const rowSource = reportRowSource(draft, selection);
   let parsed: WebReportTemplate | null = null;
   let validationError: string | null = null;
   try {
@@ -145,27 +147,39 @@ export function ReportBuilderDialog({
     x: number,
     y: number,
   ): void => {
-    const band = draft.bands.find((item) => item.id === target.bandId);
-    const parent = band?.elements.find((item) => item.id === target.parentId);
-    const row = parent?.type === 'repeater' ? parent : undefined;
+    const container = reportContainer(draft, target);
+    const { band, parent: row } = container;
     if (
       band === undefined ||
       (target.parentId !== undefined && row === undefined) ||
-      (type === 'repeater' &&
-        (row !== undefined || band.kind === 'pageHeader' || band.kind === 'pageFooter'))
+      (type === 'repeater' && (band.kind === 'pageHeader' || band.kind === 'pageFooter'))
     )
       return;
-    const height = row?.height ?? band.height;
+    const height = container.height ?? 0;
     if (height < 0.1) {
       setIoError('Increase the selected band height before adding an element.');
       return;
     }
-    const width = row?.width ?? reportContentWidth(draft);
-    const created = createReportElement(type, width, height);
+    const width = container.width ?? reportContentWidth(draft);
+    let created = createReportElement(type, width, height);
+    const parentSource = reportRowSource(draft, target);
+    if (created.type === 'repeater' && parentSource !== undefined) {
+      const lists = reportApiSource(
+        availableComponents,
+        parentSource.apiClientId,
+        parentSource.operationId,
+        parentSource.listPath,
+      ).rowLists;
+      if (lists[0] !== undefined)
+        created = {
+          ...created,
+          source: { apiClientId: '', operationId: '', scope: 'row', listPath: lists[0].path },
+        };
+    }
     const next = {
       ...created,
-      x: Math.max(0, Math.min(Math.round(x * 2) / 2, width - created.width)),
-      y: Math.max(0, Math.min(Math.round(y * 2) / 2, height - created.height)),
+      x: snapReportCoordinate(x, width - created.width),
+      y: snapReportCoordinate(y, height - created.height),
     };
     change(insertReportElement(draft, target, next));
     setSelection({ ...target, elementId: next.id });
@@ -180,7 +194,18 @@ export function ReportBuilderDialog({
   const duplicate = (): void => {
     if (element === undefined) return;
     const next = duplicateReportElement(element);
-    change(insertReportElement(draft, selection, next));
+    change(
+      insertReportElement(
+        draft,
+        {
+          ...selection,
+          ...(selection.section === undefined || selection.section === 'row'
+            ? {}
+            : { column: element.column ?? 0 }),
+        },
+        next,
+      ),
+    );
     setSelection({ ...selection, elementId: next.id });
   };
   const importText = (text: string, origin: string): void => {
@@ -490,53 +515,7 @@ export function ReportBuilderDialog({
                 ))}
               </div>
               <h3>Report outline</h3>
-              <div className="wr-report-outline">
-                {reportOrderedBands(draft).map((item) => (
-                  <div key={item.id}>
-                    <button
-                      type="button"
-                      className={`wr-report-outline-band${selection.bandId === item.id && selection.elementId === null && row === undefined ? ' is-selected' : ''}`}
-                      onClick={() => select({ bandId: item.id, elementId: null })}
-                    >
-                      {REPORT_BAND_LABELS[item.kind]}
-                      <span>{item.elements.length}</span>
-                    </button>
-                    {item.elements.map((child) => (
-                      <div key={child.id}>
-                        <button
-                          type="button"
-                          className={`wr-report-outline-element${selection.elementId === child.id ? ' is-selected' : ''}`}
-                          onClick={() => select({ bandId: item.id, elementId: child.id })}
-                        >
-                          <span>
-                            {child.type === 'repeater'
-                              ? '↻'
-                              : child.type === 'text'
-                                ? 'T'
-                                : child.type === 'image'
-                                  ? '▧'
-                                  : '—'}
-                          </span>
-                          {child.name}
-                        </button>
-                        {child.type === 'repeater' &&
-                          child.children.map((leaf) => (
-                            <button
-                              key={leaf.id}
-                              type="button"
-                              className={`wr-report-outline-element wr-report-outline-child${selection.elementId === leaf.id ? ' is-selected' : ''}`}
-                              onClick={() =>
-                                select({ bandId: item.id, elementId: leaf.id, parentId: child.id })
-                              }
-                            >
-                              {leaf.name}
-                            </button>
-                          ))}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
+              <ReportOutline template={draft} selection={selection} onSelect={select} />
               <p className="wr-report-hint">Drag components onto a band or row template.</p>
             </aside>
             <main className="wr-report-main">
@@ -561,10 +540,15 @@ export function ReportBuilderDialog({
               band={band}
               element={element}
               row={row}
+              rowSource={rowSource}
+              section={selection.section ?? 'row'}
               components={availableComponents}
               onElementChange={(next) => {
                 setIoError(null);
-                change(editReportElement(draft, selection, () => next));
+                if (next.column !== element?.column)
+                  setSelection({ ...selection, column: next.column });
+                const edited = editReportElement(draft, selection, () => next);
+                change(next.type === 'repeater' ? fitReportContainers(edited, selection) : edited);
               }}
               onBandChange={(height) => {
                 setIoError(null);
@@ -575,11 +559,16 @@ export function ReportBuilderDialog({
                   ),
                 });
               }}
-              onEditRow={(next) =>
-                select({ bandId: selection.bandId, elementId: null, parentId: next.id })
+              onEditRow={(next, section = 'row') =>
+                select({ bandId: selection.bandId, elementId: null, parentId: next.id, section })
               }
               onExitRow={() =>
-                select({ bandId: selection.bandId, elementId: selection.parentId ?? null })
+                select(
+                  reportElementSelection(draft, selection.bandId, selection.parentId ?? '') ?? {
+                    bandId: selection.bandId,
+                    elementId: null,
+                  },
+                )
               }
             />
           </div>
