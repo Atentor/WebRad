@@ -6,7 +6,7 @@ O modelo é um documento JSON versionado, salvo em `props.reportTemplate` pelo P
 
 ## Construtor
 
-O conjunto inicial contém **Text**, **Image**, **Line** e **Repeater**. O texto pode ser fixo, um parâmetro, um campo da resposta de um ApiClient, um campo do registro atual ou o número/total de páginas. Imagens aceitam uma URL fixa, um parâmetro ou um campo; a geração suporta PNG e JPEG, incluindo data URLs. Linhas são elementos gráficos.
+O conjunto contém **Text**, **Image**, **Line**, **Group** e **Repeater**. O texto pode ser fixo, um parâmetro, um campo da resposta de um ApiClient, um campo do registro atual ou o número/total de páginas. Imagens aceitam uma URL fixa, um parâmetro ou um campo; a geração suporta PNG e JPEG, incluindo data URLs. Linhas são elementos gráficos.
 
 As bandas **Title**, **Detail** e **Summary** aparecem uma vez no fluxo. **Page header** e **Page footer** são reservadas e repetidas em cada página. Os campos do Repeater se repetem para os registros de uma lista. Cada Repeater pode conter outros Repeaters e suas próprias seções **Header**, **Row template** e **Footer**. Agrupamentos por chave e totalizadores não fazem parte deste componente.
 
@@ -15,6 +15,14 @@ No canvas, **Page footer** fica no fim da folha, junto à margem inferior, mesmo
 No editor, **Summary** fica logo após **Detail**, no fluxo do relatório. O espaço livre fica entre **Summary** e **Page footer**.
 
 Arraste um componente da paleta e solte sobre uma banda ou seção do Repeater para inseri-lo na posição escolhida. Clicar na paleta não insere componentes. **Edit row template**, **Edit header**, **Edit footer** e a árvore **Report outline** selecionam as seções, inclusive nos níveis internos. O destino recebe um destaque durante o arraste. Repeaters continuam indisponíveis nas bandas Page header/Page footer. A posição respeita o zoom, a rolagem e os limites da banda ou seção. O canvas mantém o magnetismo de **8 px a 100%**, acompanhando o zoom, sem exibir a grade de fundo. Inserção e movimento encaixam a posição na grade local; o redimensionamento encaixa as bordas direita e inferior, respeitando os limites disponíveis. A geometria continua salva em milímetros (8 px equivalem a 8/3 mm na escala do editor). A origem da lista e os campos são escolhidos entre os schemas salvos dos ApiClients do documento. Essa seleção não executa requisições. É possível mover/redimensionar no canvas, editar posição e tamanho livremente no Inspector e usar as setas para ajustes finos em passos de 0,5 mm; Shift usa 5 mm. A edição tem undo/redo próprio até salvar.
+
+### Group
+
+**Group** organiza componentes em um contêiner único. Arraste Text, Image, Line, Repeater ou outro Group para dentro dele; as posições X/Y são relativas ao Group. Ele também pode ser inserido nas colunas de Header/Footer e no modelo de linha de um Repeater. Os filhos herdam o registro atual e seus campos, sem criar uma nova fonte de dados. As restrições de Repeater em Page header/Page footer continuam válidas dentro de Groups.
+
+Em **Group appearance**, configure fundo ou transparência, cor, espessura e estilo sólido/tracejado da borda e **Group corner radius**. Espessura e raio usam milímetros e acompanham o zoom. A borda ocupa a área interna do Group sem deslocar os filhos. O raio é limitado visualmente à metade da largura/altura; os componentes internos mantêm suas próprias caixas, sem recorte pelos cantos. **Edit group contents**, a etiqueta no canvas e a árvore selecionam o conteúdo; **Back to group** retorna ao contêiner. Movimentação, redimensionamento, duplicação e undo/redo preservam a árvore e os vínculos.
+
+O JSON usa `type: 'group'`, `children` e `appearance` opcional (`backgroundColor`, `borderColor`, `borderWidth`, `borderStyle`, `borderRadius`), mantendo `schemaVersion: 1`. Sem aparência explícita, o fundo é transparente, a borda é sólida de 0,2 mm e o raio é zero. O PDF desenha fundo e cantos como vetores, antes dos filhos. Se houver Repeater dentro do Group, sua altura no PDF cresce com os registros; esse Group completo é mantido na mesma página e precisa caber na área imprimível.
 
 ### Seções, aparência e registros do Repeater
 

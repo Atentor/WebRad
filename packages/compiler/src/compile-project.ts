@@ -171,7 +171,9 @@ function validateRegistry(
         ): void => {
           elements.forEach((element, index) => {
             const itemPath = [...location, index];
-            if (element.type === 'repeater') {
+            if (element.type === 'group') {
+              validateElements(element.children, [...itemPath, 'children']);
+            } else if (element.type === 'repeater') {
               if (element.source.scope !== 'row')
                 validateSource(element.source.apiClientId, element.source.operationId, [
                   ...itemPath,
@@ -182,7 +184,7 @@ function validateRegistry(
                 validateElements(element.header.elements, [...itemPath, 'header', 'elements']);
               if (element.footer !== undefined)
                 validateElements(element.footer.elements, [...itemPath, 'footer', 'elements']);
-            } else if (element.type !== 'line' && element.value.kind === 'field')
+            } else if ('value' in element && element.value.kind === 'field')
               validateSource(element.value.apiClientId, element.value.operationId, [
                 ...itemPath,
                 'value',

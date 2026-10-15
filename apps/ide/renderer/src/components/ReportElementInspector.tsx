@@ -3,6 +3,7 @@ import type {
   WebReportBand,
   WebReportElement,
   WebReportRepeaterElement,
+  WebReportContainerElement,
   WebReportTemplate,
 } from '@webrad/runtime/report-template';
 import { reportRepeaterSectionLayout } from '@webrad/runtime/report-template';
@@ -11,18 +12,19 @@ import { ReportValueEditor } from './ReportValueEditor';
 import { REPORT_BAND_LABELS, type ReportRepeaterSection } from '@webrad/designer';
 import { ReportNumberField as NumberField } from './ReportNumberField';
 import { ReportRepeaterInspector } from './ReportRepeaterInspector';
+import { ReportGroupInspector } from './ReportGroupInspector';
 
 interface ReportElementInspectorProps {
   readonly template: WebReportTemplate;
   readonly band?: WebReportBand;
   readonly element?: WebReportElement;
-  readonly row?: WebReportRepeaterElement;
+  readonly row?: WebReportContainerElement;
   readonly rowSource?: WebReportRepeaterElement['source'];
   readonly section: ReportRepeaterSection;
   readonly components: readonly ComponentNode[];
   readonly onElementChange: (element: WebReportElement) => void;
   readonly onBandChange: (height: number) => void;
-  readonly onEditRow: (row: WebReportRepeaterElement, section?: ReportRepeaterSection) => void;
+  readonly onEditRow: (row: WebReportContainerElement, section?: ReportRepeaterSection) => void;
   readonly onExitRow: () => void;
 }
 
@@ -44,11 +46,13 @@ export function ReportElementInspector({
       <h3>
         {element?.name ??
           (row !== undefined
-            ? section === 'row'
-              ? 'Row template'
-              : section === 'header'
-                ? 'Header'
-                : 'Footer'
+            ? row.type === 'group'
+              ? 'Group contents'
+              : section === 'row'
+                ? 'Row template'
+                : section === 'header'
+                  ? 'Header'
+                  : 'Footer'
             : band === undefined
               ? 'Properties'
               : REPORT_BAND_LABELS[band.kind])}
@@ -57,14 +61,16 @@ export function ReportElementInspector({
         <div className="wr-report-row-context">
           <span>Inside {row.name}</span>
           <button type="button" onClick={onExitRow}>
-            Back to repeater
+            Back to {row.type === 'group' ? 'group' : 'repeater'}
           </button>
         </div>
       )}
       {element === undefined ? (
         <>
           {row !== undefined ? (
-            <p className="wr-report-hint">Drag components or another Repeater into this section.</p>
+            <p className="wr-report-hint">
+              Drag components, Groups or Repeaters into this container.
+            </p>
           ) : (
             band !== undefined && (
               <>
@@ -97,7 +103,7 @@ export function ReportElementInspector({
                 }
               />
             </label>
-            {row !== undefined && section !== 'row' && (
+            {row?.type === 'repeater' && section !== 'row' && (
               <label>
                 <span>Column</span>
                 <select
@@ -238,6 +244,13 @@ export function ReportElementInspector({
               components={components}
               onChange={onElementChange}
               onEdit={onEditRow}
+            />
+          )}
+          {element.type === 'group' && (
+            <ReportGroupInspector
+              element={element}
+              onChange={onElementChange}
+              onEdit={() => onEditRow(element)}
             />
           )}
         </>

@@ -97,6 +97,53 @@ export class ${document.name} extends ${document.name}Generated { public async r
 }
 
 it.each([false, true])(
+  'exposes Group contents and appearance completion with invalid-use diagnostics for reusable=%s',
+  (reusable) => {
+    const fixture = serviceFor(
+      `const group = ReportBuilder1.template.bands[0]!.elements[0]!;
+if (group.type === 'group') { const radius: number | undefined = group.appearance?.borderRadius; const children = group.children; void radius; void children; group.appearance; }`,
+      reusable,
+    );
+    try {
+      expect(fixture.service.getSemanticDiagnostics(fixture.fileName)).toEqual([]);
+      const position =
+        fixture.source.indexOf('group.appearance?.borderRadius') + 'group.appearance?.'.length;
+      expect(
+        fixture.service
+          .getCompletionsAtPosition(fixture.fileName, position, {})
+          ?.entries.map((entry) => entry.name),
+      ).toEqual(
+        expect.arrayContaining([
+          'borderRadius',
+          'borderWidth',
+          'borderColor',
+          'borderStyle',
+          'backgroundColor',
+        ]),
+      );
+      const childPosition = fixture.source.lastIndexOf('group.appearance;') + 'group.'.length;
+      expect(
+        fixture.service
+          .getCompletionsAtPosition(fixture.fileName, childPosition, {})
+          ?.entries.map((entry) => entry.name),
+      ).toEqual(expect.arrayContaining(['children', 'appearance', 'width', 'height']));
+    } finally {
+      fixture.service.dispose();
+    }
+    const invalid = serviceFor(
+      `const group = this.ReportBuilder1.template.bands[0]!.elements[0]!;
+if (group.type === 'group') { group.source; const appearance: NonNullable<typeof group.appearance> = { backgroundColor: null, borderColor: '#000000', borderWidth: 1, borderRadius: 'wrong', borderStyle: 'solid' }; void appearance; }`,
+      reusable,
+    );
+    try {
+      expect(invalid.service.getSemanticDiagnostics(invalid.fileName)).toHaveLength(2);
+    } finally {
+      invalid.service.dispose();
+    }
+  },
+);
+
+it.each([false, true])(
   'exposes typed nested report sections, appearance and grid completion for reusable=%s',
   (reusable) => {
     const fixture = serviceFor(

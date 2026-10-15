@@ -519,6 +519,34 @@
   background-color: #f9fcfe;
 }
 
+.wr-report-element-group {
+  outline: 1px dotted #6d8eae66;
+}
+
+.wr-report-group-content {
+  position: absolute;
+  inset: 0;
+}
+
+.wr-report-group-content.is-drop-target {
+  outline: 2px solid var(--wr-accent);
+}
+
+.wr-report-dialog .wr-report-group-tag {
+  position: absolute;
+  z-index: 4;
+  right: 2px;
+  bottom: 1px;
+  min-height: 10px;
+  padding: 0 2px;
+  border: 0;
+  background: #e8f2fb;
+  color: #3c668c;
+  font:
+    8px Arial,
+    sans-serif;
+}
+
 .wr-report-repeater-section {
   position: absolute;
   left: 0;

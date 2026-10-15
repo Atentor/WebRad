@@ -16,6 +16,10 @@ import {
 } from '@webrad/runtime/report-template';
 import { comboBoxApiConfiguration } from '../../../tests/fixtures/combo-box.js';
 import { nestedReportProject } from '../../../tests/fixtures/report-builder-nested.js';
+import {
+  reportGroupProject,
+  reportGroupTemplate,
+} from '../../../tests/fixtures/report-builder-group.js';
 import { compileProjectToMemory } from '../src/index.js';
 
 function reportProject(clientKey = 'CustomersApi') {
@@ -82,6 +86,42 @@ function reportProject(clientKey = 'CustomersApi') {
   page = bindComponentEvent(page, page.rootComponentId, 'OnCreate', 'run');
   return updatePage(project, page.id, () => page);
 }
+
+it('validates API references inside report Groups before compiling', async () => {
+  const template = reportGroupTemplate();
+  const group = template.bands[0]!.elements[0]!;
+  if (group.type !== 'group') throw new Error('Missing Group.');
+  const invalid = {
+    ...template,
+    bands: [
+      {
+        ...template.bands[0]!,
+        elements: [
+          {
+            ...group,
+            children: group.children.map((child) =>
+              child.type !== 'repeater'
+                ? child
+                : { ...child, source: { ...child.source, apiClientId: 'missing-api' } },
+            ),
+          },
+        ],
+      },
+    ],
+  };
+  const result = await compileProjectToMemory(reportGroupProject('https://example.test', invalid), {
+    userSources: {},
+  });
+  expect(result.success).toBe(false);
+  expect(result.diagnostics).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        message: 'Report field must reference an API Client in the same document.',
+        path: expect.arrayContaining(['children', 'source']),
+      }),
+    ]),
+  );
+});
 
 it('validates API references in deep report Header and Footer sections', async () => {
   const project = nestedReportProject('https://example.test');

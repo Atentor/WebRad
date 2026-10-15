@@ -235,6 +235,7 @@ function remapReportTemplateApiReferences(
   if (!parsed.success) return props;
   const elements = (items: readonly WebReportElement[]): readonly WebReportElement[] =>
     items.map((element) => {
+      if (element.type === 'group') return { ...element, children: elements(element.children) };
       if (element.type === 'repeater')
         return {
           ...element,
@@ -250,7 +251,7 @@ function remapReportTemplateApiReferences(
             ? {}
             : { footer: { ...element.footer, elements: elements(element.footer.elements) } }),
         };
-      if (element.type !== 'line' && element.value.kind === 'field')
+      if ('value' in element && element.value.kind === 'field')
         return {
           ...element,
           value: {

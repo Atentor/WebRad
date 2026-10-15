@@ -4,6 +4,7 @@ import {
   resolveComponentDesignerPresentation,
 } from '@webrad/component-registry';
 import { createDefaultReportTemplate } from '@webrad/runtime/report-template';
+import { reportGroupProject } from '../../../tests/fixtures/report-builder-group.js';
 import {
   nestedReportProject,
   reportSectionColumnsTemplate,
@@ -96,5 +97,10 @@ it('rejects malformed saved templates and preview options during deserialization
 
 it('persists the complete nested report tree and appearance in the project model', () => {
   const page = nestedReportProject('https://example.test').pages[0]!;
+  expect(deserializePage(serializePage(page))).toEqual(page);
+});
+
+it('persists nested Group styles and stable child identities through project serialization', () => {
+  const page = reportGroupProject('https://example.test').pages[0]!;
   expect(deserializePage(serializePage(page))).toEqual(page);
 });

@@ -4,10 +4,12 @@ import {
   reportRepeaterLayout,
   reportRepeaterTemplateHeight,
   reportRepeaterSectionLayout,
+  reportElementChildren,
   resolveReportPointer,
   type WebReportBand,
   type WebReportElement,
   type WebReportLeafElement,
+  type WebReportGroupElement,
   type WebReportParameterValue,
   type WebReportRepeaterAppearance,
   type WebReportRepeaterElement,
@@ -29,7 +31,7 @@ export interface ReportFrame {
   readonly columnGap: number;
 }
 export interface ReportPlacement {
-  readonly element: WebReportLeafElement | ReportFrame;
+  readonly element: WebReportLeafElement | WebReportGroupElement | ReportFrame;
   readonly x: number;
   readonly y: number;
   readonly row: unknown;
@@ -45,19 +47,17 @@ export function reportBandBlocks(
   data: ReportDataSnapshot,
 ): readonly ReportBlock[] {
   let recordCount = 0;
+  const expands = (element: WebReportElement): boolean =>
+    element.type === 'repeater' || reportElementChildren(element).some(expands);
   const container = (
     elements: readonly WebReportElement[],
     height: number,
     row: unknown,
     depth: number,
   ): ReportBlock[] => {
-    if (depth > 16) throw new RangeError('Report repeater nesting exceeds 16 levels.');
-    const leaves = elements.filter(
-      (element): element is WebReportLeafElement => element.type !== 'repeater',
-    );
-    const repeaters = elements
-      .filter((element) => element.type === 'repeater')
-      .sort((a, b) => a.y - b.y);
+    if (depth > 16) throw new RangeError('Report container nesting exceeds 16 levels.');
+    const leaves = elements.filter((element) => !expands(element));
+    const flowing = elements.filter(expands).sort((a, b) => a.y - b.y);
     const blocks: ReportBlock[] = [];
     let cursor = 0;
     const staticBlock = (end: number): void => {
@@ -71,23 +71,64 @@ export function reportBandBlocks(
       if (end > cursor)
         blocks.push({
           height: end - cursor,
-          elements: items.map((element) => ({ element, x: element.x, y: element.y - cursor, row })),
+          elements: items.flatMap((element): ReportPlacement[] => {
+            if (element.type === 'repeater') return [];
+            const origin = { element, x: element.x, y: element.y - cursor, row };
+            if (element.type !== 'group') return [origin];
+            return [
+              origin,
+              ...container(element.children, element.height, row, depth + 1).flatMap((block) =>
+                block.elements.map((child) => ({
+                  ...child,
+                  x: child.x + origin.x,
+                  y: child.y + origin.y,
+                })),
+              ),
+            ];
+          }),
         });
       cursor = end;
     };
-    for (const repeater of repeaters) {
-      if (repeater.y < cursor - 0.001) throw new RangeError('Report repeater rows cannot overlap.');
-      staticBlock(repeater.y);
-      const templateHeight = reportRepeaterTemplateHeight(repeater);
+    for (const element of flowing) {
+      if (element.y < cursor - 0.001)
+        throw new RangeError('Report expanded containers cannot overlap.');
+      staticBlock(element.y);
+      const templateHeight =
+        element.type === 'repeater' ? reportRepeaterTemplateHeight(element) : element.height;
       if (
         leaves.some(
-          (element) =>
-            element.y < repeater.y + templateHeight && element.y + element.height > repeater.y,
+          (leaf) => leaf.y < element.y + templateHeight && leaf.y + leaf.height > element.y,
         )
       )
         throw new RangeError(
           'Place ordinary elements above or below the repeater. Put row elements inside it.',
         );
+      if (element.type === 'group') {
+        const content = container(element.children, element.height, row, depth + 1);
+        let offset = 0;
+        const placements: ReportPlacement[] = [];
+        for (const block of content) {
+          placements.push(
+            ...block.elements.map((child) => ({
+              ...child,
+              x: child.x + element.x,
+              y: child.y + offset,
+            })),
+          );
+          offset += block.height;
+        }
+        blocks.push({
+          height: offset,
+          elements: [
+            { element: { ...element, height: offset }, x: element.x, y: 0, row },
+            ...placements,
+          ],
+        });
+        cursor = element.y + templateHeight;
+        continue;
+      }
+      if (element.type !== 'repeater') continue;
+      const repeater = element;
       const values = resolveReportPointer(
         repeater.source.scope === 'row'
           ? row

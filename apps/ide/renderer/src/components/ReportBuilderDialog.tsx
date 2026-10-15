@@ -482,7 +482,7 @@ export function ReportBuilderDialog({
             <aside className="wr-report-toolbox">
               <h3>Components</h3>
               <div className="wr-report-palette">
-                {(['text', 'image', 'line', 'repeater'] as const).map((type) => (
+                {(['text', 'image', 'line', 'group', 'repeater'] as const).map((type) => (
                   <button
                     key={type}
                     type="button"
@@ -505,7 +505,9 @@ export function ReportBuilderDialog({
                             ? 'image'
                             : type === 'line'
                               ? 'minus'
-                              : 'repeat'
+                              : type === 'group'
+                                ? 'square'
+                                : 'repeat'
                       }
                     />
                     <span>
@@ -546,9 +548,13 @@ export function ReportBuilderDialog({
               onElementChange={(next) => {
                 setIoError(null);
                 if (next.column !== element?.column)
-                  setSelection({ ...selection, column: next.column });
+                  setSelection({ ...selection, column: next.column, canvasPath: undefined });
                 const edited = editReportElement(draft, selection, () => next);
-                change(next.type === 'repeater' ? fitReportContainers(edited, selection) : edited);
+                change(
+                  next.type === 'repeater' || next.type === 'group'
+                    ? fitReportContainers(edited, selection)
+                    : edited,
+                );
               }}
               onBandChange={(height) => {
                 setIoError(null);

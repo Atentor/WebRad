@@ -290,7 +290,9 @@ export class WebReportBuilder<
       operations.add(operationId);
     };
     const visit = (element: WebReportElement): void => {
-      if (element.type === 'repeater') {
+      if (element.type === 'group') {
+        for (const child of element.children) visit(child);
+      } else if (element.type === 'repeater') {
         if (element.source.scope !== 'row')
           requireOperation(element.source.apiClientId, element.source.operationId);
         for (const child of [
@@ -299,7 +301,7 @@ export class WebReportBuilder<
           ...(element.footer?.elements ?? []),
         ])
           visit(child);
-      } else if (element.type !== 'line' && element.value.kind === 'field') {
+      } else if ('value' in element && element.value.kind === 'field') {
         requireOperation(element.value.apiClientId, element.value.operationId);
       }
     };

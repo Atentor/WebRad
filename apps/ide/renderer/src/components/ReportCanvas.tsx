@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   reportPaperSize,
+  reportGroupAppearance,
   reportRepeaterAppearance,
   reportRepeaterColumnWidth,
   reportRepeaterLayout,
@@ -261,6 +262,13 @@ export function ReportCanvas({
         backgroundColor: paint.backgroundColor ?? undefined,
       });
     }
+    if (element.type === 'group') {
+      const paint = reportGroupAppearance(element);
+      Object.assign(style, {
+        backgroundColor: paint.backgroundColor ?? undefined,
+        borderRadius: Math.min(paint.borderRadius, element.width / 2, element.height / 2) * scale,
+      });
+    }
     return (
       <div
         key={element.id}
@@ -341,6 +349,53 @@ export function ReportCanvas({
             }}
           />
         )}
+        {element.type === 'group' &&
+          (() => {
+            const cellPath = `${canvasPath}${JSON.stringify([element.id, 'group'])}`;
+            const destination: ReportSelection = {
+              bandId,
+              elementId: null,
+              parentId: element.id,
+              canvasPath: cellPath,
+            };
+            return (
+              <div
+                className={`wr-report-group-content${dropTarget === cellPath ? ' is-drop-target' : ''}`}
+                data-report-group-content="true"
+                onDragOver={(event) => {
+                  over(event, destination);
+                  if (canDrop(destination)) setDropTarget(cellPath);
+                }}
+                onDrop={(event) => drop(event, destination)}
+                onDragLeave={() => setDropTarget(null)}
+              >
+                <button
+                  type="button"
+                  className="wr-report-group-tag"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelect(destination);
+                  }}
+                >
+                  Group
+                </button>
+                {element.children.map((child) =>
+                  renderElement(
+                    child,
+                    bandId,
+                    element.width,
+                    element.height,
+                    element.id,
+                    undefined,
+                    cellPath,
+                    primaryProjection,
+                    projectionLabel,
+                  ),
+                )}
+              </div>
+            );
+          })()}
         {element.type === 'repeater' && (
           <>
             <span className="wr-report-repeater-label">
@@ -507,6 +562,15 @@ export function ReportCanvas({
             className="wr-report-repeater-border"
             style={{
               border: `${reportRepeaterAppearance(element).borderWidth * scale}px ${reportRepeaterAppearance(element).borderStyle} ${reportRepeaterAppearance(element).borderColor}`,
+            }}
+          />
+        )}
+        {element.type === 'group' && (
+          <span
+            className="wr-report-repeater-border"
+            style={{
+              border: `${Math.min(reportGroupAppearance(element).borderWidth, element.width, element.height) * scale}px ${reportGroupAppearance(element).borderStyle} ${reportGroupAppearance(element).borderColor}`,
+              borderRadius: style.borderRadius,
             }}
           />
         )}

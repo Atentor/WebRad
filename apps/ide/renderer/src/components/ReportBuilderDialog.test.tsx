@@ -11,6 +11,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { comboBoxApiConfiguration } from '../../../../../tests/fixtures/combo-box';
 import { reportBuilderTemplate } from '../../../../../tests/fixtures/report-builder';
 import { nestedReportProject } from '../../../../../tests/fixtures/report-builder-nested';
+import { reportGroupProject } from '../../../../../tests/fixtures/report-builder-group';
 import { ReportBuilderDialog } from './ReportBuilderDialog';
 import { ObjectInspector } from './ObjectInspector';
 
@@ -36,7 +37,7 @@ function fixture(template: WebReportTemplate = createDefaultReportTemplate()) {
 }
 
 function dragReportComponent(
-  type: 'text' | 'image' | 'line' | 'repeater',
+  type: 'text' | 'image' | 'line' | 'repeater' | 'group',
   target: Element = document.querySelectorAll('.wr-report-band')[2]!,
   x = 0,
   y = 0,
@@ -49,9 +50,11 @@ function dragReportComponent(
     getData: (key: string) => values.get(key) ?? '',
   };
   fireEvent.dragStart(palette, { dataTransfer });
-  const rowTarget = target.matches('.wr-report-element-repeater')
-    ? target.querySelector('[data-report-repeater-section="row"]')!
-    : target;
+  const rowTarget = target.matches('.wr-report-element-group')
+    ? target.querySelector(':scope > [data-report-group-content]')!
+    : target.matches('.wr-report-element-repeater')
+      ? target.querySelector('[data-report-repeater-section="row"]')!
+      : target;
   const dropTarget = rowTarget.matches('.wr-report-repeater-section')
     ? rowTarget.querySelector('[data-report-section-column="0"]')!
     : rowTarget;
@@ -61,6 +64,110 @@ function dragReportComponent(
   fireEvent(dropTarget, event);
   fireEvent.dragEnd(palette, { dataTransfer });
 }
+
+it('authors Group styles and nested contents with local coordinates, undo/redo and stable saved identities', () => {
+  const { component, components } = fixture();
+  const onSave = vi.fn();
+  render(
+    <ReportBuilderDialog
+      component={component}
+      availableComponents={components}
+      onSave={onSave}
+      onClose={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add report group' }));
+  expect(screen.queryByRole('button', { name: 'Select Group' })).toBeNull();
+  dragReportComponent('group');
+  const originalId = screen
+    .getByRole('button', { name: 'Select Group' })
+    .getAttribute('data-report-element-id');
+  fireEvent.click(screen.getByLabelText('Report group background'));
+  fireEvent.change(screen.getByLabelText('Report group background color'), {
+    target: { value: '#e0f2fe' },
+  });
+  fireEvent.change(screen.getByLabelText('Report group border color'), {
+    target: { value: '#007acc' },
+  });
+  fireEvent.change(screen.getByLabelText('Report group border style'), {
+    target: { value: 'dashed' },
+  });
+  fireEvent.change(screen.getByLabelText('Report group border width (mm)'), {
+    target: { value: '0.5' },
+  });
+  fireEvent.change(screen.getByLabelText('Report group corner radius (mm)'), {
+    target: { value: '3' },
+  });
+  const content = screen
+    .getByRole('button', { name: 'Select Group' })
+    .querySelector('[data-report-group-content]')!;
+  vi.spyOn(content, 'getBoundingClientRect').mockReturnValue({
+    x: 300,
+    y: 200,
+    left: 300,
+    top: 200,
+    right: 840,
+    bottom: 290,
+    width: 540,
+    height: 90,
+    toJSON: () => ({}),
+  });
+  dragReportComponent('text', content, 309, 209);
+  expect(screen.getByText('Back to group')).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Report text'), { target: { value: 'Inside Group' } });
+  dragReportComponent('group', content, 300, 200);
+  fireEvent.change(screen.getByLabelText('Report element name'), {
+    target: { value: 'Inner Group' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Undo report edit' }));
+  expect(screen.queryByRole('button', { name: 'Select Inner Group' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Redo report edit' }));
+  expect(screen.getByRole('button', { name: 'Select Inner Group' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+  expect(onSave).toHaveBeenCalledOnce();
+  const template = onSave.mock.calls[0]![0] as WebReportTemplate;
+  const group = template.bands.find((band) => band.kind === 'detail')!.elements[0]!;
+  expect(group).toMatchObject({
+    id: originalId,
+    type: 'group',
+    appearance: {
+      backgroundColor: '#e0f2fe',
+      borderColor: '#007acc',
+      borderWidth: 0.5,
+      borderStyle: 'dashed',
+      borderRadius: 3,
+    },
+  });
+  if (group.type !== 'group') throw new Error('Missing Group.');
+  expect(group.children).toHaveLength(2);
+  expect(group.children[0]).toMatchObject({
+    type: 'text',
+    x: 8 / 3,
+    y: 8 / 3,
+    value: { value: 'Inside Group' },
+  });
+  expect(group.children[1]).toMatchObject({ type: 'group', name: 'Inner Group' });
+});
+
+it('retains the enclosing record schema inside Groups and exposes group context in the outline', () => {
+  const components = reportGroupProject('https://example.test').pages[0]!.components;
+  const component = components.find((item) => item.type === 'WebReportBuilder')!;
+  render(
+    <ReportBuilderDialog
+      component={component}
+      availableComponents={components}
+      onSave={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Select customer-name' }));
+  expect(screen.getByLabelText('Report row field')).toHaveProperty('value', '/name');
+  expect(screen.getByText('Inside Record card')).toBeTruthy();
+  fireEvent.click(screen.getByText('Back to group'));
+  expect(screen.getByRole('button', { name: 'Edit group contents' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit group contents' }));
+  expect(screen.getByRole('heading', { name: 'Group contents' })).toBeTruthy();
+});
 
 it('edits nested sections, parent-row fields and appearance while preserving undo and saved geometry', () => {
   const components = nestedReportProject('https://example.test').pages[0]!.components;
@@ -163,6 +270,7 @@ it('authors separate Header/Footer column content, preserves selection across mo
   });
   fireEvent.change(screen.getByLabelText('Report section column'), { target: { value: '1' } });
   expect(screen.getByLabelText('Report text')).toHaveProperty('value', 'Footer right field');
+  expect(screen.getByRole('button', { name: 'Select Text', pressed: true })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Undo report edit' }));
   expect(screen.getByLabelText('Report section column')).toHaveProperty('value', '2');
   fireEvent.click(screen.getByRole('button', { name: 'Redo report edit' }));

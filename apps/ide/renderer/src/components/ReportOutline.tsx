@@ -32,16 +32,24 @@ export function ReportOutline({ template, selection, onSelect }: Props): ReactEl
             }
           >
             <span>
-              {element.type === 'repeater'
-                ? '↻'
-                : element.type === 'text'
-                  ? 'T'
-                  : element.type === 'image'
-                    ? '▧'
-                    : '—'}
+              {element.type === 'group'
+                ? '□'
+                : element.type === 'repeater'
+                  ? '↻'
+                  : element.type === 'text'
+                    ? 'T'
+                    : element.type === 'image'
+                      ? '▧'
+                      : '—'}
             </span>
             {element.name}
           </button>
+          {element.type === 'group' &&
+            elements(
+              element.children,
+              { bandId: target.bandId, elementId: null, parentId: element.id },
+              depth + 1,
+            )}
           {element.type === 'repeater' &&
             (['header', 'row', 'footer'] as const).map((kind) => {
               if (kind !== 'row' && element[kind] === undefined) return null;

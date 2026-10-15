@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont } from 'pdf-lib';
 import {
   reportPaperSize,
+  reportGroupAppearance,
   resolveReportPointer,
   type WebReportBand,
   type WebReportTemplate,
@@ -59,6 +60,14 @@ function parseColor(value: string): ReturnType<typeof rgb> {
     Number.parseInt(value.slice(3, 5), 16) / 255,
     Number.parseInt(value.slice(5, 7), 16) / 255,
   );
+}
+function roundedRectanglePath(width: number, height: number, radius: number): string {
+  const r = Math.min(radius, width / 2, height / 2);
+  const k = r * 0.5522847498307936;
+  return `M ${r} 0 L ${width - r} 0 C ${width - r + k} 0 ${width} ${r - k} ${width} ${r}
+    L ${width} ${height - r} C ${width} ${height - r + k} ${width - r + k} ${height} ${width - r} ${height}
+    L ${r} ${height} C ${r - k} ${height} 0 ${height - r + k} 0 ${height - r}
+    L 0 ${r} C 0 ${r - k} ${r - k} 0 ${r} 0 Z`;
 }
 function linesFor(value: string, font: PDFFont, size: number, width: number): readonly string[] {
   const lines: string[] = [];
@@ -152,12 +161,20 @@ export async function generateReportPdf(
   for (const [pageIndex, placements] of pages.entries()) {
     checkAbort(signal);
     const page = document.addPage([paper.width * PT, paper.height * PT]);
-    const fixed = (band: WebReportBand | undefined, y: number): readonly Placement[] =>
-      band?.elements.flatMap((element) =>
-        element.type === 'repeater'
-          ? []
-          : [{ element, x: margins.left + element.x, y: y + element.y, row: undefined }],
-      ) ?? [];
+    const fixed = (band: WebReportBand | undefined, y: number): readonly Placement[] => {
+      let offset = y;
+      return band === undefined
+        ? []
+        : reportBandBlocks(band, data).flatMap((block) => {
+            const placements = block.elements.map((item) => ({
+              ...item,
+              x: margins.left + item.x,
+              y: offset + item.y,
+            }));
+            offset += block.height;
+            return placements;
+          });
+    };
     const all = [
       ...fixed(header, margins.top),
       ...placements,
@@ -165,6 +182,28 @@ export async function generateReportPdf(
     ];
     for (const { element, x, y, row } of all) {
       checkAbort(signal);
+      if (element.type === 'group') {
+        const paint = reportGroupAppearance(element);
+        if (paint.backgroundColor === null && paint.borderWidth === 0) continue;
+        const stroke = Math.min(paint.borderWidth, element.width, element.height);
+        const inset = stroke / 2;
+        page.drawSvgPath(
+          roundedRectanglePath(
+            (element.width - stroke) * PT,
+            (element.height - stroke) * PT,
+            Math.max(0, paint.borderRadius - inset) * PT,
+          ),
+          {
+            x: (x + inset) * PT,
+            y: (paper.height - y - inset) * PT,
+            ...(paint.backgroundColor === null ? {} : { color: parseColor(paint.backgroundColor) }),
+            borderColor: parseColor(paint.borderColor),
+            borderWidth: stroke * PT,
+            ...(paint.borderStyle === 'dashed' ? { borderDashArray: [2 * PT, PT] } : {}),
+          },
+        );
+        continue;
+      }
       if (element.type === 'frame') {
         const paint = element.appearance;
         if (paint.backgroundColor !== null)

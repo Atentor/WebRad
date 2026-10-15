@@ -73,6 +73,21 @@ export interface WebReportRepeaterLayout {
   readonly columnGap: number;
   readonly fill: 'rows' | 'columns';
 }
+export interface WebReportGroupAppearance {
+  readonly backgroundColor: string | null;
+  readonly borderColor: string;
+  /** Millimetres, matching the editor's geometry. */
+  readonly borderWidth: number;
+  readonly borderStyle: 'solid' | 'dashed';
+  /** Millimetres; limited to half the rendered width/height when painting. */
+  readonly borderRadius: number;
+}
+/** A single container; children inherit the enclosing record without introducing a data source. */
+export interface WebReportGroupElement extends WebReportElementBase {
+  readonly type: 'group';
+  readonly children: readonly WebReportElement[];
+  readonly appearance?: WebReportGroupAppearance;
+}
 export interface WebReportRepeaterElement extends WebReportElementBase {
   readonly type: 'repeater';
   readonly source: {
@@ -90,7 +105,9 @@ export interface WebReportRepeaterElement extends WebReportElementBase {
   readonly appearance?: WebReportRepeaterAppearance;
   readonly layout?: WebReportRepeaterLayout;
 }
-export type WebReportElement = WebReportLeafElement | WebReportRepeaterElement;
+export type WebReportElement =
+  WebReportLeafElement | WebReportRepeaterElement | WebReportGroupElement;
+export type WebReportContainerElement = WebReportRepeaterElement | WebReportGroupElement;
 export type WebReportBandKind = 'title' | 'pageHeader' | 'detail' | 'pageFooter' | 'summary';
 export interface WebReportBand {
   readonly id: string;
@@ -152,6 +169,24 @@ export function reportRepeaterSectionColumnWidth(
 }
 export function reportRepeaterTemplateHeight(element: WebReportRepeaterElement): number {
   return (element.header?.height ?? 0) + element.height + (element.footer?.height ?? 0);
+}
+export function reportGroupAppearance(element: WebReportGroupElement): WebReportGroupAppearance {
+  return (
+    element.appearance ?? {
+      backgroundColor: null,
+      borderColor: '#94a3b8',
+      borderWidth: 0.2,
+      borderStyle: 'solid',
+      borderRadius: 0,
+    }
+  );
+}
+export function reportElementChildren(element: WebReportElement): readonly WebReportElement[] {
+  return element.type === 'repeater'
+    ? reportRepeaterElements(element)
+    : element.type === 'group'
+      ? element.children
+      : [];
 }
 /** All authored descendants, including sections, without introducing runtime globals. */
 export function reportRepeaterElements(
@@ -384,7 +419,7 @@ export function parseReportTemplate(value: unknown): WebReportTemplate {
     depth = 0,
     sectionColumns?: number,
   ): WebReportElement => {
-    if (depth > 16) return fail('element', 'repeater nesting exceeds 16 levels.');
+    if (depth > 16) return fail('element', 'container nesting exceeds 16 levels.');
     const item = record(value, 'element');
     const base: WebReportElementBase = {
       id: id(item.id),
@@ -431,6 +466,35 @@ export function parseReportTemplate(value: unknown): WebReportTemplate {
           color: color(item.color, 'element.color'),
           strokeWidth: number(item.strokeWidth, 'element.strokeWidth', 0.1, 20),
         };
+      case 'group': {
+        const paint =
+          item.appearance === undefined ? undefined : record(item.appearance, 'group.appearance');
+        return {
+          ...base,
+          type: 'group',
+          children: list(item.children, 'group.children', 500).map((child) =>
+            element(child, inRow, base.width, base.height, kind, depth + 1),
+          ),
+          ...(paint === undefined
+            ? {}
+            : {
+                appearance: {
+                  backgroundColor:
+                    paint.backgroundColor === null
+                      ? null
+                      : color(paint.backgroundColor, 'appearance.backgroundColor'),
+                  borderColor: color(paint.borderColor, 'appearance.borderColor'),
+                  borderWidth: number(paint.borderWidth, 'appearance.borderWidth', 0, 10),
+                  borderStyle: choice(
+                    paint.borderStyle,
+                    ['solid', 'dashed'],
+                    'appearance.borderStyle',
+                  ),
+                  borderRadius: number(paint.borderRadius, 'appearance.borderRadius', 0, 100),
+                },
+              }),
+        };
+      }
       case 'repeater': {
         if (kind === 'pageHeader' || kind === 'pageFooter')
           return fail('element.type', 'page headers and footers cannot contain repeaters.');

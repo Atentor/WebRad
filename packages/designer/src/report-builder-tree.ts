@@ -1,6 +1,6 @@
 import {
   reportRepeaterColumnWidth,
-  reportRepeaterElements,
+  reportElementChildren,
   reportRepeaterTemplateHeight,
   reportRepeaterSectionColumnWidth,
   type WebReportElement,
@@ -25,10 +25,8 @@ export function findReportElement(
 ): WebReportElement | undefined {
   for (const element of elements) {
     if (element.id === id) return element;
-    if (element.type === 'repeater') {
-      const match = findReportElement(reportRepeaterElements(element), id);
-      if (match !== undefined) return match;
-    }
+    const match = findReportElement(reportElementChildren(element), id);
+    if (match !== undefined) return match;
   }
   return undefined;
 }
@@ -38,28 +36,30 @@ export function mapReportElements(
 ): WebReportElement[] {
   return elements.flatMap((element) => {
     const nested =
-      element.type !== 'repeater'
-        ? element
-        : {
-            ...element,
-            children: mapReportElements(element.children, edit),
-            ...(element.header === undefined
-              ? {}
-              : {
-                  header: {
-                    ...element.header,
-                    elements: mapReportElements(element.header.elements, edit),
-                  },
-                }),
-            ...(element.footer === undefined
-              ? {}
-              : {
-                  footer: {
-                    ...element.footer,
-                    elements: mapReportElements(element.footer.elements, edit),
-                  },
-                }),
-          };
+      element.type === 'group'
+        ? { ...element, children: mapReportElements(element.children, edit) }
+        : element.type !== 'repeater'
+          ? element
+          : {
+              ...element,
+              children: mapReportElements(element.children, edit),
+              ...(element.header === undefined
+                ? {}
+                : {
+                    header: {
+                      ...element.header,
+                      elements: mapReportElements(element.header.elements, edit),
+                    },
+                  }),
+              ...(element.footer === undefined
+                ? {}
+                : {
+                    footer: {
+                      ...element.footer,
+                      elements: mapReportElements(element.footer.elements, edit),
+                    },
+                  }),
+            };
     const next = edit(nested);
     return next === null ? [] : [next];
   });
@@ -70,7 +70,7 @@ export function reportContainer(template: WebReportTemplate, selection: ReportSe
     selection.parentId === undefined
       ? undefined
       : findReportElement(band?.elements ?? [], selection.parentId);
-  const parent = element?.type === 'repeater' ? element : undefined;
+  const parent = element?.type === 'repeater' || element?.type === 'group' ? element : undefined;
   const section = selection.section ?? 'row';
   return {
     band,
@@ -78,7 +78,7 @@ export function reportContainer(template: WebReportTemplate, selection: ReportSe
     elements:
       parent === undefined
         ? (band?.elements ?? [])
-        : section === 'row'
+        : parent.type === 'group' || section === 'row'
           ? parent.children
           : (parent[section]?.elements ?? []).filter(
               (element) => (element.column ?? 0) === (selection.column ?? 0),
@@ -86,13 +86,15 @@ export function reportContainer(template: WebReportTemplate, selection: ReportSe
     width:
       parent === undefined
         ? undefined
-        : section === 'row'
-          ? reportRepeaterColumnWidth(parent)
-          : reportRepeaterSectionColumnWidth(parent, section),
+        : parent.type === 'group'
+          ? parent.width
+          : section === 'row'
+            ? reportRepeaterColumnWidth(parent)
+            : reportRepeaterSectionColumnWidth(parent, section),
     height:
       parent === undefined
         ? band?.height
-        : section === 'row'
+        : parent.type === 'group' || section === 'row'
           ? parent.height
           : parent[section]?.height,
   };
@@ -116,7 +118,10 @@ export function reportElementSelection(
           ...(section === undefined ? {} : { section }),
           ...(section === undefined || section === 'row' ? {} : { column: element.column ?? 0 }),
         };
-      if (element.type === 'repeater')
+      if (element.type === 'group') {
+        const found = visit(element.children, element.id);
+        if (found !== undefined) return found;
+      } else if (element.type === 'repeater')
         for (const kind of ['header', 'row', 'footer'] as const) {
           const found = visit(
             kind === 'row' ? element.children : (element[kind]?.elements ?? []),
@@ -136,6 +141,10 @@ export function reportRowSource(
 ): WebReportRepeaterElement['source'] | undefined {
   const { parent } = reportContainer(template, selection);
   if (parent === undefined) return undefined;
+  if (parent.type === 'group') {
+    const owner = reportElementSelection(template, selection.bandId, parent.id);
+    return owner === undefined ? undefined : reportRowSource(template, owner);
+  }
   if (selection.section !== undefined && selection.section !== 'row') {
     const owner = reportElementSelection(template, selection.bandId, parent.id);
     return owner === undefined ? undefined : reportRowSource(template, owner);
@@ -165,37 +174,39 @@ function scaleReportElementsWidth(
 ): WebReportElement[] {
   return items.map((child) => {
     const base = { ...child, x: child.x * ratio, width: child.width * ratio };
-    return base.type !== 'repeater'
-      ? base
-      : {
-          ...base,
-          children: scaleReportElementsWidth(base.children, ratio),
-          ...(base.header === undefined
-            ? {}
-            : {
-                header: {
-                  ...base.header,
-                  ...(base.header.columnGap === undefined
-                    ? {}
-                    : { columnGap: base.header.columnGap * ratio }),
-                  elements: scaleReportElementsWidth(base.header.elements, ratio),
-                },
-              }),
-          ...(base.footer === undefined
-            ? {}
-            : {
-                footer: {
-                  ...base.footer,
-                  ...(base.footer.columnGap === undefined
-                    ? {}
-                    : { columnGap: base.footer.columnGap * ratio }),
-                  elements: scaleReportElementsWidth(base.footer.elements, ratio),
-                },
-              }),
-          ...(base.layout === undefined
-            ? {}
-            : { layout: { ...base.layout, columnGap: base.layout.columnGap * ratio } }),
-        };
+    return base.type === 'group'
+      ? { ...base, children: scaleReportElementsWidth(base.children, ratio) }
+      : base.type !== 'repeater'
+        ? base
+        : {
+            ...base,
+            children: scaleReportElementsWidth(base.children, ratio),
+            ...(base.header === undefined
+              ? {}
+              : {
+                  header: {
+                    ...base.header,
+                    ...(base.header.columnGap === undefined
+                      ? {}
+                      : { columnGap: base.header.columnGap * ratio }),
+                    elements: scaleReportElementsWidth(base.header.elements, ratio),
+                  },
+                }),
+            ...(base.footer === undefined
+              ? {}
+              : {
+                  footer: {
+                    ...base.footer,
+                    ...(base.footer.columnGap === undefined
+                      ? {}
+                      : { columnGap: base.footer.columnGap * ratio }),
+                    elements: scaleReportElementsWidth(base.footer.elements, ratio),
+                  },
+                }),
+            ...(base.layout === undefined
+              ? {}
+              : { layout: { ...base.layout, columnGap: base.layout.columnGap * ratio } }),
+          };
   });
 }
 
@@ -261,9 +272,9 @@ export function fitReportContainers(
       : {
           ...band,
           elements: mapReportElements(band.elements, (element) =>
-            element.id !== parent.id || element.type !== 'repeater'
+            element.id !== parent.id || (element.type !== 'repeater' && element.type !== 'group')
               ? element
-              : section === 'row'
+              : element.type === 'group' || section === 'row'
                 ? { ...element, height }
                 : { ...element, [section]: { ...element[section], height } },
           ),

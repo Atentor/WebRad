@@ -38,7 +38,9 @@ export function reportSelectedElement(
 ): WebReportElement | undefined {
   const container = reportContainer(template, selection);
   const elements =
-    container.parent !== undefined && selection.section !== undefined && selection.section !== 'row'
+    container.parent?.type === 'repeater' &&
+    selection.section !== undefined &&
+    selection.section !== 'row'
       ? (container.parent[selection.section]?.elements ?? [])
       : container.elements;
   return elements.find((item) => item.id === selection.elementId);
@@ -77,13 +79,26 @@ export function createReportElement(
 ): WebReportElement {
   const base = {
     id: crypto.randomUUID(),
-    name: { text: 'Text', image: 'Image', line: 'Line', repeater: 'Repeater' }[type],
+    name: { text: 'Text', image: 'Image', line: 'Line', repeater: 'Repeater', group: 'Group' }[
+      type
+    ],
     x: 0,
     y: 0,
-    width: Math.min(width, type === 'repeater' ? width : type === 'image' ? 30 : 60),
+    width: Math.min(
+      width,
+      type === 'repeater' || type === 'group' ? width : type === 'image' ? 30 : 60,
+    ),
     height: Math.min(
       height,
-      type === 'line' ? 1 : type === 'repeater' ? 18 : type === 'image' ? 20 : 8,
+      type === 'line'
+        ? 1
+        : type === 'repeater'
+          ? 18
+          : type === 'group'
+            ? 30
+            : type === 'image'
+              ? 20
+              : 8,
     ),
   };
   switch (type) {
@@ -101,6 +116,8 @@ export function createReportElement(
       return { ...base, type, value: { kind: 'static', value: '' }, fit: 'contain' };
     case 'line':
       return { ...base, type, color: '#94a3b8', strokeWidth: 0.75 };
+    case 'group':
+      return { ...base, type, children: [] };
     case 'repeater':
       return {
         ...base,
@@ -120,23 +137,25 @@ export function insertReportElement(
   if (selection.parentId !== undefined) {
     const parentSelection = { bandId: selection.bandId, elementId: selection.parentId };
     return editReportElement(template, parentSelection, (parent) =>
-      parent.type !== 'repeater'
-        ? parent
-        : selection.section === undefined || selection.section === 'row'
-          ? { ...parent, children: [...parent.children, element] }
-          : {
-              ...parent,
-              [selection.section]: {
-                ...parent[selection.section],
-                elements: [
-                  ...(parent[selection.section]?.elements ?? []),
-                  {
-                    ...element,
-                    ...(selection.column === undefined ? {} : { column: selection.column }),
-                  },
-                ],
+      parent.type === 'group'
+        ? { ...parent, children: [...parent.children, element] }
+        : parent.type !== 'repeater'
+          ? parent
+          : selection.section === undefined || selection.section === 'row'
+            ? { ...parent, children: [...parent.children, element] }
+            : {
+                ...parent,
+                [selection.section]: {
+                  ...parent[selection.section],
+                  elements: [
+                    ...(parent[selection.section]?.elements ?? []),
+                    {
+                      ...element,
+                      ...(selection.column === undefined ? {} : { column: selection.column }),
+                    },
+                  ],
+                },
               },
-            },
     );
   }
   return {
@@ -150,28 +169,30 @@ export function insertReportElement(
 /** Duplicates preserve data bindings but always receive fresh persistent identities. */
 export function duplicateReportElement(element: WebReportElement): WebReportElement {
   const base = { ...element, id: crypto.randomUUID(), name: `${element.name} copy` };
-  return base.type === 'repeater'
-    ? {
-        ...base,
-        children: base.children.map(duplicateReportElement),
-        ...(base.header === undefined
-          ? {}
-          : {
-              header: {
-                ...base.header,
-                elements: base.header.elements.map(duplicateReportElement),
-              },
-            }),
-        ...(base.footer === undefined
-          ? {}
-          : {
-              footer: {
-                ...base.footer,
-                elements: base.footer.elements.map(duplicateReportElement),
-              },
-            }),
-      }
-    : base;
+  return base.type === 'group'
+    ? { ...base, children: base.children.map(duplicateReportElement) }
+    : base.type === 'repeater'
+      ? {
+          ...base,
+          children: base.children.map(duplicateReportElement),
+          ...(base.header === undefined
+            ? {}
+            : {
+                header: {
+                  ...base.header,
+                  elements: base.header.elements.map(duplicateReportElement),
+                },
+              }),
+          ...(base.footer === undefined
+            ? {}
+            : {
+                footer: {
+                  ...base.footer,
+                  elements: base.footer.elements.map(duplicateReportElement),
+                },
+              }),
+        }
+      : base;
 }
 
 export function renameReportParameter(
@@ -225,7 +246,12 @@ export function reportBindingError(
       readonly listPath: string;
     },
   ): string | null => {
-    if (element.type === 'repeater') {
+    if (element.type === 'group') {
+      for (const child of element.children) {
+        const error = visit(child, rowSource);
+        if (error !== null) return error;
+      }
+    } else if (element.type === 'repeater') {
       const effective =
         element.source.scope === 'row' && rowSource !== undefined
           ? { ...rowSource, listPath: `${rowSource.listPath}/*${element.source.listPath}` }
