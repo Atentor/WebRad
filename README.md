@@ -107,6 +107,8 @@ npm run smoke:packaged
 
 Execute toda a sequência com `npm run validate`. Formate o código-fonte com `npm run format` e verifique a formatação com `npm run format:check`. O comando `npm run runtime:sources:check` verifica se o runtime de navegador incorporado ao compilador corresponde ao pacote-fonte.
 
+A configuração raiz do Vitest limita a execução a dois workers, tanto localmente quanto nos workflows de validação e release. O projeto `unit` mantém o timeout de 5 segundos; `integration` usa 30 segundos para os testes do compilador, as interações React da IDE (`apps/ide/renderer/src/**/*.test.tsx`) e os cenários entre pacotes em `tests/`. O projeto `ide` executa `App.integration.test.tsx` depois dos demais arquivos, com limite de 30 segundos, evitando que os fluxos completos da IDE disputem CPU com as compilações. Limites específicos declarados nos testes prevalecem. Para reproduzir o comando do release, execute `npm test -- --maxWorkers=2 --minWorkers=1`. Esses limites acomodam a variação de desempenho dos runners sem retries automáticos ou supressão de falhas.
+
 No PowerShell que bloqueia `npm.ps1`, substitua `npm` por `npm.cmd` nesses comandos. Por exemplo: `npm.cmd run validate`.
 
 ## Empacotamento e distribuição

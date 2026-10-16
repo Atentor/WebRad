@@ -1056,7 +1056,7 @@ describe('App MVP integration', () => {
     expect(harness.save.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(harness.setDirty).toHaveBeenCalledWith(true);
     expect(harness.setDirty).toHaveBeenLastCalledWith(false);
-  }, 15_000);
+  }, 30_000);
 
   it('adds palette controls inside the selected floating Popup container', async () => {
     const harness = createBridgeHarness(initialSession());
@@ -1713,7 +1713,7 @@ describe('App MVP integration', () => {
       savedAfterDelete.pages[0]?.components.find((component) => component.type === 'WebLabel')
         ?.styleId,
     ).toBe(mutedStyle?.id);
-  }, 25_000);
+  }, 30_000);
 
   it('creates, edits and reopens models and units from Project commands', async () => {
     const harness = createBridgeHarness(initialSession());
