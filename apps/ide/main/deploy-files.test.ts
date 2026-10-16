@@ -7,7 +7,8 @@ import { DEPLOY_MANIFEST, resolveDeploymentDirectory, writeDeployment } from './
 const temporaryRoots: string[] = [];
 
 async function fixture(): Promise<{ parent: string; projectRoot: string; destination: string }> {
-  const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-deploy-test-'));
+  // macOS temporary paths may pass through /var -> /private/var.
+  const parent = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-deploy-test-')));
   temporaryRoots.push(parent);
   const projectRoot = path.join(parent, 'source');
   await fs.mkdir(projectRoot);
@@ -17,7 +18,7 @@ async function fixture(): Promise<{ parent: string; projectRoot: string; destina
 afterEach(async () => {
   vi.restoreAllMocks();
   for (const root of temporaryRoots.splice(0)) {
-    if (!path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep))
+    if (!path.resolve(root).startsWith((await fs.realpath(os.tmpdir())) + path.sep))
       throw new Error('Unsafe test cleanup.');
     await fs.rm(root, { recursive: true, force: true });
   }
