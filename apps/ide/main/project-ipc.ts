@@ -95,7 +95,7 @@ function senderWindow(event: IpcMainInvokeEvent): BrowserWindow {
   return window;
 }
 
-function requireTrustedSender(event: IpcMainInvokeEvent): BrowserWindow {
+export function requireTrustedSender(event: IpcMainInvokeEvent): BrowserWindow {
   const window = senderWindow(event);
   if (event.senderFrame !== event.sender.mainFrame) {
     throw new Error('Project IPC is restricted to the IDE main frame.');
@@ -456,6 +456,10 @@ async function compileStylesHandler(
   const request = compileStylesRequestSchema.parse(input);
   const styles = request.styles.map((style) => parseComponentStyle(style));
   return { css: await compileTailwindStyles(styles) };
+}
+
+export function hasUnsavedProjectChanges(): boolean {
+  return dirtyWindows.size > 0;
 }
 
 export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: string): void {

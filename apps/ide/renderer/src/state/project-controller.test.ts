@@ -1,3 +1,4 @@
+import { createUpdateTestBridge } from '../../../shared/update-test-bridge';
 import {
   addPage as addPageToProject,
   createPage,
@@ -36,6 +37,7 @@ function projectSession(name: string): ProjectSession {
 
 function fakeBridge(session: ProjectSession): WebRadBridge {
   return {
+    updates: createUpdateTestBridge(),
     debugger: createDebugTestBridge(),
     restgoAdmin: {
       status: vi.fn(async (request) => ({

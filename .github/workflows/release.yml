@@ -1,0 +1,138 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: webrad-release
+  cancel-in-progress: false
+
+env:
+  WEBRAD_RELEASE_REPOSITORY: ${{ vars.WEBRAD_RELEASE_REPOSITORY || 'Atentor/WebRad-Releases' }}
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate tag and public release destination
+        env:
+          GH_TOKEN: ${{ secrets.WEBRAD_RELEASE_TOKEN }}
+        run: node scripts/release-tools.mjs preflight
+
+  build:
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win32
+            arch: x64
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Set build version from tag
+        run: node scripts/release-tools.mjs prepare
+      - run: npm ci
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fakeroot rpm
+      - name: Import optional macOS signing certificate
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/macos-signing.mjs
+      - run: npm run icons:check
+      - run: npm run runtime:sources:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test -- --maxWorkers=2 --minWorkers=1
+      - name: Package application
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run build
+      - name: Configure Linux Electron sandbox
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          package_directory="out/$(node -p '[require("./package.json").productName, process.platform, process.arch].join("-")')"
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox "$package_directory/chrome-sandbox"
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox "$package_directory/chrome-sandbox"
+      - name: Test packaged application on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run smoke:packaged
+      - name: Test packaged application on Windows and macOS
+        if: runner.os != 'Linux'
+        run: npm run smoke:packaged
+      - name: Test update UI and IPC on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run smoke:packaged -- --webrad-smoke-updates
+      - name: Test update UI and IPC on Windows and macOS
+        if: runner.os != 'Linux'
+        run: npm run smoke:packaged -- --webrad-smoke-updates
+      - name: Generate distributables
+        run: npm run make -- --skip-package
+      - name: Stage installers and update metadata
+        run: node scripts/release-tools.mjs stage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}-${{ matrix.arch }}
+          path: out/release/*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove macOS signing material
+        if: always() && runner.os == 'macOS'
+        run: node scripts/macos-signing.mjs cleanup
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-downloads
+          merge-multiple: true
+      - name: Verify all platforms and assemble update feeds
+        run: node scripts/release-tools.mjs assemble
+      - name: Publish complete release
+        env:
+          GH_TOKEN: ${{ secrets.WEBRAD_RELEASE_TOKEN }}
+        run: node scripts/release-tools.mjs publish

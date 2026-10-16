@@ -60,6 +60,24 @@ async function copyNativeRuntimeDependencies(buildPath: string): Promise<void> {
 
 const config: ForgeConfig = {
   packagerConfig: {
+    appBundleId: 'com.atentor.webrad',
+    ...(process.platform === 'darwin' && process.env.WEBRAD_MAC_SIGNED === 'true'
+      ? {
+          osxSign: {
+            identity: process.env.APPLE_SIGNING_IDENTITY,
+            keychain: process.env.WEBRAD_MAC_KEYCHAIN,
+            optionsForFile: () => ({
+              hardenedRuntime: true,
+              entitlements: path.resolve('scripts', 'macos-entitlements.plist'),
+            }),
+          },
+          osxNotarize: {
+            appleId: process.env.APPLE_ID!,
+            appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD!,
+            teamId: process.env.APPLE_TEAM_ID!,
+          },
+        }
+      : {}),
     asar: { unpack: '{**/*.node,**/node_modules/@img/**/*}' },
     icon: iconBasePath,
     extraResource: [
@@ -84,8 +102,28 @@ const config: ForgeConfig = {
       nuspecTemplate: path.resolve('scripts', 'windows-installer.nuspectemplate'),
     }),
     new MakerZIP({}, ['darwin']),
-    new MakerDeb({ options: { icon: iconPngPath } }),
-    new MakerRpm({ options: { icon: iconPngPath } }),
+    new MakerDeb({
+      options: {
+        name: 'webrad',
+        productName: 'WebRad',
+        bin: 'WebRad',
+        icon: iconPngPath,
+        homepage: 'https://webrad.atentor.com',
+        maintainer: 'Atentor',
+        categories: ['Development'],
+      },
+    }),
+    new MakerRpm({
+      options: {
+        name: 'webrad',
+        productName: 'WebRad',
+        bin: 'WebRad',
+        icon: iconPngPath,
+        homepage: 'https://webrad.atentor.com',
+        license: 'Proprietary',
+        categories: ['Development'],
+      },
+    }),
   ],
   plugins: [
     new VitePlugin({

@@ -15,14 +15,18 @@ if (typeof productName !== 'string' || productName.length === 0) {
 const platformDirectory = `${productName}-${process.platform}-${process.arch}`;
 const executableName = process.platform === 'win32' ? `${productName}.exe` : productName;
 const packageDirectory = path.resolve('out', platformDirectory);
-const executablePath = path.join(packageDirectory, executableName);
-const logPath = path.join(packageDirectory, 'webrad-smoke.log');
+const executablePath =
+  process.platform === 'darwin'
+    ? path.join(packageDirectory, `${productName}.app`, 'Contents', 'MacOS', executableName)
+    : path.join(packageDirectory, executableName);
 const fixtureDirectory = path.resolve('examples', 'hello-webrad');
 const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-packaged-smoke-'));
+const logPath = path.join(temporaryRoot, 'webrad-smoke.log');
 const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
 const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');
 const resourceSmoke = process.argv.includes('--webrad-smoke-resources');
 const deploySmoke = process.argv.includes('--webrad-smoke-deploy');
+const updateSmoke = process.argv.includes('--webrad-smoke-updates');
 const screenshotArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-screenshot='),
 );
@@ -33,7 +37,9 @@ if (!outputEntries.includes(platformDirectory)) {
 }
 
 const packageEntries = await fs.readdir(packageDirectory);
-if (!packageEntries.includes(executableName)) {
+if (
+  !packageEntries.includes(process.platform === 'darwin' ? `${productName}.app` : executableName)
+) {
   throw new Error(`Packaged executable must use the exact product name: ${executableName}.`);
 }
 
@@ -47,6 +53,10 @@ try {
     [
       '--webrad-smoke',
       '--webrad-smoke-auto-exit',
+      `--webrad-smoke-log=${logPath}`,
+      ...(updateSmoke
+        ? ['--webrad-smoke-updates', `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`]
+        : []),
       ...(resourceSmoke || deploySmoke
         ? [
             deploySmoke ? '--webrad-smoke-deploy' : '--webrad-smoke-resources',
@@ -77,52 +87,58 @@ try {
       { cause: error },
     );
   });
-  const requiredEvidence = deploySmoke
+  const requiredEvidence = updateSmoke
     ? [
-        'renderer Deploy menu and directory settings passed',
-        'renderer PWA project settings passed',
-        'renderer Deploy file progress passed:',
-        'renderer Deploy hosting output passed:',
+        'renderer update availability without download passed',
+        'renderer update download and unsaved changes guard passed',
+        'renderer update install action and restart feedback passed',
       ]
-    : resourceSmoke
+    : deploySmoke
       ? [
-          'renderer project Models and Units passed',
-          'renderer project asset import passed',
-          'renderer project resources restore and F9 passed',
+          'renderer Deploy menu and directory settings passed',
+          'renderer PWA project settings passed',
+          'renderer Deploy file progress passed:',
+          'renderer Deploy hosting output passed:',
         ]
-      : [
-          'compiler passed:',
-          'preview HTTP server passed',
-          'preview renderer passed',
-          'application icon resource passed:',
-          'renderer loaded:',
-          'renderer shell passed',
-          'renderer About WebRAD modal passed',
-          'renderer application icon passed',
-          'renderer project open passed',
-          'renderer RestGO workspace passed:',
-          'renderer RestGO browser passed:',
-          'renderer CORS origin passed:',
-          'renderer RestGO iframe CORS passed:',
-          'renderer RestGO page Interaction passed:',
-          'renderer Data Grid configuration passed:',
-          'renderer API Client designer passed:',
-          'renderer API Client browser passed:',
-          'renderer last project restore passed',
-          'renderer bottom dock passed',
-          'renderer element tree selection passed:',
-          'renderer responsive viewport passed:',
-          'renderer toolbar zoom passed:',
-          'renderer Monaco passed',
-          'renderer Monaco TypeScript highlight passed:',
-          'renderer Monaco autocomplete passed:',
-          'renderer Monaco component members passed:',
-          'renderer Monaco caret alignment passed:',
-          'renderer Monaco workspace state passed:',
-          'renderer F9 preview passed: Olá Ada',
-          'renderer Designer/Preview button style parity passed',
-          'renderer Preview isolation passed:',
-        ];
+      : resourceSmoke
+        ? [
+            'renderer project Models and Units passed',
+            'renderer project asset import passed',
+            'renderer project resources restore and F9 passed',
+          ]
+        : [
+            'compiler passed:',
+            'preview HTTP server passed',
+            'preview renderer passed',
+            'application icon resource passed:',
+            'renderer loaded:',
+            'renderer shell passed',
+            'renderer About WebRAD modal passed',
+            'renderer application icon passed',
+            'renderer project open passed',
+            'renderer RestGO workspace passed:',
+            'renderer RestGO browser passed:',
+            'renderer CORS origin passed:',
+            'renderer RestGO iframe CORS passed:',
+            'renderer RestGO page Interaction passed:',
+            'renderer Data Grid configuration passed:',
+            'renderer API Client designer passed:',
+            'renderer API Client browser passed:',
+            'renderer last project restore passed',
+            'renderer bottom dock passed',
+            'renderer element tree selection passed:',
+            'renderer responsive viewport passed:',
+            'renderer toolbar zoom passed:',
+            'renderer Monaco passed',
+            'renderer Monaco TypeScript highlight passed:',
+            'renderer Monaco autocomplete passed:',
+            'renderer Monaco component members passed:',
+            'renderer Monaco caret alignment passed:',
+            'renderer Monaco workspace state passed:',
+            'renderer F9 preview passed: Olá Ada',
+            'renderer Designer/Preview button style parity passed',
+            'renderer Preview isolation passed:',
+          ];
   const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));
 
   if (exitCode !== 0 || missingEvidence.length > 0) {

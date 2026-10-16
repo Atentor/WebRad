@@ -1,3 +1,5 @@
+import type { UpdateState } from '../../../shared/update-contracts';
+import { UpdateIndicator } from './UpdateIndicator';
 import { DocumentTabs, type DocumentTabsProps } from './DocumentTabs';
 import { ComponentIcon } from './ComponentIcon';
 import type { ReactElement } from 'react';
@@ -6,6 +8,9 @@ import type { DebugState } from '../../../shared/debugger-contracts';
 import { Icon, type IconName } from './Icon';
 
 interface ToolbarProps extends DocumentTabsProps {
+  updateState: UpdateState;
+  onCheckUpdates: () => void;
+  onUpdate: () => void;
   canArrange: boolean;
   onBringToFront: () => void;
   onSendToBack: () => void;
@@ -140,6 +145,11 @@ export function Toolbar(props: ToolbarProps): ReactElement {
         </details>
       )}
       <span className="wr-toolbar-spacer" />
+      <UpdateIndicator
+        state={props.updateState}
+        onCheck={props.onCheckUpdates}
+        onUpdate={props.onUpdate}
+      />
       <span className="wr-toolbar-beta" title="WebRAD Beta">
         Beta
       </span>

@@ -12,14 +12,15 @@ const forgeCli = path.resolve(
   'dist',
   'electron-forge.js',
 );
-const logPath = path.resolve('node_modules', 'electron', 'dist', 'webrad-smoke.log');
 const fixtureDirectory = path.resolve('examples', 'hello-webrad');
 const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-development-smoke-'));
+const logPath = path.join(temporaryRoot, 'webrad-smoke.log');
 const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
 const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');
 const resourceSmoke = process.argv.includes('--webrad-smoke-resources');
 const debuggerSmoke = process.argv.includes('--webrad-smoke-debugger');
 const deploySmoke = process.argv.includes('--webrad-smoke-deploy');
+const updateSmoke = process.argv.includes('--webrad-smoke-updates');
 const screenshotArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-screenshot='),
 );
@@ -38,6 +39,10 @@ try {
       '--',
       '--webrad-smoke',
       '--webrad-smoke-auto-exit',
+      `--webrad-smoke-log=${logPath}`,
+      ...(updateSmoke
+        ? ['--webrad-smoke-updates', `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`]
+        : []),
       ...(resourceSmoke || debuggerSmoke || deploySmoke
         ? [
             debuggerSmoke
@@ -124,14 +129,20 @@ try {
           'renderer Designer/Preview button style parity passed',
           'renderer Preview isolation passed:',
         ];
-  const requiredEvidence = deploySmoke
+  const requiredEvidence = updateSmoke
     ? [
-        'renderer Deploy menu and directory settings passed',
-        'renderer PWA project settings passed',
-        'renderer Deploy file progress passed:',
-        'renderer Deploy hosting output passed:',
+        'renderer update availability without download passed',
+        'renderer update download and unsaved changes guard passed',
+        'renderer update install action and restart feedback passed',
       ]
-    : standardEvidence;
+    : deploySmoke
+      ? [
+          'renderer Deploy menu and directory settings passed',
+          'renderer PWA project settings passed',
+          'renderer Deploy file progress passed:',
+          'renderer Deploy hosting output passed:',
+        ]
+      : standardEvidence;
   const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));
 
   if (exitCode !== 0 || missingEvidence.length > 0) {

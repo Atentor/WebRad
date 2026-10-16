@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { createUpdateTestBridge } from '../../shared/update-test-bridge';
 import { createUserPageSource } from '@webrad/language';
 import { componentRegistry } from '@webrad/component-registry';
 import { StrictMode } from 'react';
@@ -232,6 +233,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
   });
 
   const bridge = {
+    updates: createUpdateTestBridge(),
     debugger: createDebugTestBridge(),
     restgoAdmin: {
       status: vi.fn(async (request) => ({

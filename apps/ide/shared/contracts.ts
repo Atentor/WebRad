@@ -1,3 +1,4 @@
+import type { UpdateBridge } from './update-contracts';
 import type { ExternalLinkTarget } from './external-links';
 import type { RestGoAdminBridge } from './restgo-admin';
 import type { DebugBridge } from './debugger-contracts';
@@ -42,6 +43,7 @@ export const IDE_COMMANDS = [
   'view.debugger',
   'view.toggleTheme',
   'help.about',
+  'help.checkUpdates',
 ] as const;
 
 export type IdeCommand = (typeof IDE_COMMANDS)[number];
@@ -126,6 +128,7 @@ export interface CompileStylesResponse {
 }
 
 export interface WebRadBridge {
+  readonly updates: UpdateBridge;
   readonly debugger: DebugBridge;
   readonly restgoAdmin: RestGoAdminBridge;
   links: { open(target: ExternalLinkTarget): Promise<void> };

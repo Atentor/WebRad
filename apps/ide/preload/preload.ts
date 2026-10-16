@@ -1,3 +1,4 @@
+import type { UpdateState } from '../shared/update-contracts';
 import type { ProjectAsset } from '@webrad/project-model';
 import type { ExternalLinkTarget } from '../shared/external-links';
 import type {
@@ -32,6 +33,18 @@ import type {
 } from '../shared/contracts';
 
 const bridge: WebRadBridge = {
+  updates: {
+    getState: () => ipcRenderer.invoke('webrad:updates:state') as Promise<UpdateState>,
+    check: () => ipcRenderer.invoke('webrad:updates:check') as Promise<UpdateState>,
+    download: () => ipcRenderer.invoke('webrad:updates:download') as Promise<UpdateState>,
+    install: () => ipcRenderer.invoke('webrad:updates:install') as Promise<UpdateState>,
+    subscribe: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: UpdateState): void =>
+        listener(state);
+      ipcRenderer.on('webrad:updates:state', handler);
+      return () => ipcRenderer.removeListener('webrad:updates:state', handler);
+    },
+  },
   debugger: {
     start: (request) =>
       ipcRenderer.invoke('webrad:debug:start', request) as Promise<DebugStartResponse>,

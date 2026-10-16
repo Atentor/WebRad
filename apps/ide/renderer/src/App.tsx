@@ -1,3 +1,5 @@
+import { useUpdates } from './use-updates';
+import { UpdateInstallingDialog } from './components/UpdateIndicator';
 import { ProjectAssetPreview } from './components/ProjectAssetPreview';
 import { AboutDialog } from './components/AboutDialog';
 import { DeployDialog } from './components/DeployDialog';
@@ -195,6 +197,8 @@ function selectionNodes(page: PageModel | null, ids: readonly string[]): readonl
 
 export function App(): ReactElement {
   const projectController = useMemo(() => new ProjectController(window.webrad), []);
+  const updates = useUpdates(projectController);
+  const checkForUpdates = updates.check;
   const designerController = useMemo(() => new DesignerController(), []);
   const selectionManager = useMemo(() => new SelectionManager(), []);
   const projectState = useSyncExternalStore(
@@ -1572,6 +1576,7 @@ export function App(): ReactElement {
   });
   const { run: deployProject } = deploy;
   const modalOpen =
+    updates.state.status === 'installing' ||
     aboutDialogOpen ||
     newProjectDialogOpen ||
     addDocumentDialogKind !== null ||
@@ -1676,6 +1681,9 @@ export function App(): ReactElement {
         }
       }
       switch (command) {
+        case 'help.checkUpdates':
+          void checkForUpdates();
+          break;
         case 'help.about':
           setAboutDialogOpen(true);
           break;
@@ -1797,6 +1805,7 @@ export function App(): ReactElement {
       }
     },
     [
+      checkForUpdates,
       addPageToProject,
       addReusableElementToProject,
       openAddDocumentDialog,
@@ -2301,6 +2310,13 @@ export function App(): ReactElement {
         <IdeShell
           toolbar={
             <Toolbar
+              updateState={updates.state}
+              onCheckUpdates={() => {
+                void checkForUpdates();
+              }}
+              onUpdate={() => {
+                void updates.update();
+              }}
               onCommand={executeCommand}
               canSave={project !== null && !projectState.saving}
               canRun={project !== null && projectState.rootPath !== null && !building}
@@ -2610,6 +2626,7 @@ export function App(): ReactElement {
           }
         />
       </div>
+      {updates.state.status === 'installing' && <UpdateInstallingDialog />}
       {aboutDialogOpen && <AboutDialog onClose={() => setAboutDialogOpen(false)} />}
 
       {newProjectDialogOpen && (

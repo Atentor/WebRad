@@ -1,3 +1,7 @@
+import { createUpdateSmokeService, runUpdateSmoke } from './update-smoke';
+import { createApplicationUpdates, scheduleUpdateChecks } from './application-updates';
+import { registerUpdateIpc } from './update-ipc';
+import { requireTrustedSender, hasUnsavedProjectChanges } from './project-ipc';
 import { runProjectResourcesSmoke } from './project-resources-smoke';
 import { runDebuggerSmoke } from './debugger-smoke';
 import { runDeploySmoke } from './deploy-smoke';
@@ -61,7 +65,10 @@ function smokeLog(message: string, error?: unknown): void {
   const detail = error instanceof Error ? `\n${error.stack ?? error.message}` : '';
   try {
     appendFileSync(
-      path.join(path.dirname(process.execPath), 'webrad-smoke.log'),
+      process.argv
+        .find((value) => value.startsWith('--webrad-smoke-log='))
+        ?.slice('--webrad-smoke-log='.length) ??
+        path.join(path.dirname(process.execPath), 'webrad-smoke.log'),
       `${new Date().toISOString()} ${message}${detail}\n`,
       'utf8',
     );
@@ -676,6 +683,10 @@ async function captureDesignerSmokeScreenshot(window: BrowserWindow): Promise<vo
 }
 
 async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
+  if (process.argv.includes('--webrad-smoke-updates')) {
+    await runUpdateSmoke(window, smokeLog);
+    return;
+  }
   if (process.argv.includes('--webrad-smoke-deploy') && smokeProjectPath !== undefined) {
     await runDeploySmoke(window, smokeProjectPath, smokeLog, smokeScreenshotPath);
     return;
@@ -720,6 +731,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const favicon = Reflect.get(shellResult, 'favicon');
   const bridge = Reflect.get(shellResult, 'bridge');
   const expectedBridge = Object.keys({
+    updates: true,
     debugger: true,
     deploy: true,
     build: true,
@@ -1233,6 +1245,14 @@ app
           ? { userDataPath: app.getPath('userData') }
           : {},
     );
+    const updates = (
+      smokeMode && process.argv.includes('--webrad-smoke-updates')
+        ? createUpdateSmokeService
+        : createApplicationUpdates
+    )(() => !hasUnsavedProjectChanges());
+    registerUpdateIpc(updates, requireTrustedSender);
+    const stopUpdateChecks = scheduleUpdateChecks(updates);
+    app.once('will-quit', stopUpdateChecks);
     await ensureMainWindow();
     mainWindowLifecycleStarted = true;
 

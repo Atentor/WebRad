@@ -1,5 +1,7 @@
 # WebRAD
 
+Releases automáticas por tags para Windows, Linux e macOS, publicação dos instaladores em repositório público separado e atualização pelo IDE: veja [configuração e uso](docs/releases.md). A instalação automática no macOS exige Developer ID; sem assinatura, o IDE oferece o download para substituição manual.
+
 O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com páginas, componentes, propriedades, eventos, TypeScript e um fluxo real de compilação e visualização. A IDE desktop utiliza Electron e React; as aplicações geradas utilizam somente tecnologias do navegador.
 
 ## Pré-requisitos

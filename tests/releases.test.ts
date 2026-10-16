@@ -1,0 +1,117 @@
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import { parseUpdateManifest } from '../apps/ide/main/update-release';
+
+const script = path.resolve('scripts/release-tools.mjs');
+const directories: string[] = [];
+async function directory(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-release-test-'));
+  directories.push(root);
+  return root;
+}
+function run(root: string, command: string, extra: Record<string, string> = {}): string {
+  return execFileSync(process.execPath, [script, command], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GITHUB_REF_NAME: 'v0.2.0',
+      GITHUB_REPOSITORY: 'Atentor/WebRad',
+      WEBRAD_RELEASE_REPOSITORY: 'Atentor/WebRad-Releases',
+      ...extra,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+afterEach(async () => {
+  for (const root of directories.splice(0)) await fs.rm(root, { recursive: true, force: true });
+});
+
+describe('tagged release assembly', () => {
+  it('derives the package and lockfile root version from the tag while retaining workspace versions', async () => {
+    const root = await directory();
+    await fs.writeFile(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'webrad', version: '0.1.11' }),
+    );
+    await fs.writeFile(
+      path.join(root, 'package-lock.json'),
+      JSON.stringify({
+        version: '0.1.11',
+        packages: { '': { version: '0.1.11' }, 'packages/runtime': { version: '0.1.0' } },
+      }),
+    );
+    run(root, 'prepare');
+    const lock = JSON.parse(await fs.readFile(path.join(root, 'package-lock.json'), 'utf8')) as {
+      version: string;
+      packages: Record<string, { version: string }>;
+    };
+    expect(lock.version).toBe('0.2.0');
+    expect(lock.packages['']?.version).toBe('0.2.0');
+    expect(lock.packages['packages/runtime']?.version).toBe('0.1.0');
+    expect(() => run(root, 'prepare', { GITHUB_REF_NAME: 'v1.0.0-beta' })).toThrow();
+  });
+  it('stages all platforms, verifies hashes and emits native macOS feeds without exposing private files', async () => {
+    const root = await directory();
+    const publicDirectory = path.join(root, 'release-downloads');
+    await fs.mkdir(publicDirectory);
+    for (const [platform, arch] of [
+      ['win32', 'x64'],
+      ['linux', 'x64'],
+      ['darwin', 'x64'],
+      ['darwin', 'arm64'],
+    ] as const) {
+      const build = path.join(root, `${platform}-${arch}`);
+      const make = path.join(build, 'out', 'make');
+      await fs.mkdir(make, { recursive: true });
+      await fs.writeFile(path.join(build, 'package.json'), JSON.stringify({ version: '0.2.0' }));
+      if (platform === 'win32') {
+        const data = Buffer.from('NuGet fixture');
+        const file = 'webrad-0.2.0-full.nupkg';
+        await fs.writeFile(path.join(make, file), data);
+        await fs.writeFile(
+          path.join(make, 'RELEASES'),
+          `${createHash('sha1').update(data).digest('hex')} ${file} ${String(data.length)}\n`,
+        );
+        await fs.writeFile(path.join(make, 'WebRad Setup.exe'), 'exe fixture');
+      } else if (platform === 'linux') {
+        for (const kind of ['deb', 'rpm'])
+          await fs.writeFile(path.join(make, `webrad.${kind}`), `${kind} fixture`);
+      } else await fs.writeFile(path.join(make, 'webrad.zip'), `${arch} ZIP fixture`);
+      await fs.writeFile(path.join(make, 'private-source.ts'), 'must never be published');
+      run(build, 'stage', { WEBRAD_RELEASE_PLATFORM: platform, WEBRAD_RELEASE_ARCH: arch });
+      const staged = path.join(build, 'out', 'release');
+      for (const file of await fs.readdir(staged))
+        await fs.copyFile(path.join(staged, file), path.join(publicDirectory, file));
+    }
+    run(root, 'assemble');
+    const manifest = parseUpdateManifest(
+      JSON.parse(await fs.readFile(path.join(publicDirectory, 'webrad-update.json'), 'utf8')),
+    );
+    expect(manifest.targets).toHaveLength(5);
+    expect(
+      manifest.targets.filter((target) => target.kind === 'mac').every((target) => !target.signed),
+    ).toBe(true);
+    const feed = JSON.parse(
+      await fs.readFile(path.join(publicDirectory, 'webrad-darwin-arm64.json'), 'utf8'),
+    ) as { currentRelease: string; releases: { updateTo: { url: string; sha256: string } }[] };
+    expect(feed.currentRelease).toBe('0.2.0');
+    expect(feed.releases[0]?.updateTo.url).toContain(
+      '/Atentor/WebRad-Releases/releases/download/v0.2.0/',
+    );
+    expect(feed.releases[0]?.updateTo.sha256).toHaveLength(64);
+    const entries = await fs.readdir(publicDirectory);
+    expect(entries).not.toContain('private-source.ts');
+    expect(entries.some((name) => name.startsWith('webrad-target-'))).toBe(false);
+    expect(entries).toContain('SHA256SUMS');
+  });
+  it('refuses a partial multi-platform release', async () => {
+    const root = await directory();
+    await fs.mkdir(path.join(root, 'release-downloads'));
+    expect(() => run(root, 'assemble')).toThrow();
+  });
+});

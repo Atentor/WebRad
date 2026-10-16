@@ -98,7 +98,10 @@ export function installApplicationMenu(window: BrowserWindow): void {
     { label: 'Tools', submenu: [commandItem(window, 'Toggle Theme', 'view.toggleTheme')] },
     {
       label: 'Help',
-      submenu: [commandItem(window, 'About WebRAD', 'help.about')],
+      submenu: [
+        commandItem(window, 'Check for Updates...', 'help.checkUpdates'),
+        commandItem(window, 'About WebRAD', 'help.about'),
+      ],
     },
   ];
 
