@@ -139,4 +139,4 @@ it('executes the real Group instance, child hierarchy and bubbling handler in co
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);

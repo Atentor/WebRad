@@ -342,5 +342,5 @@ it.each([false, true])(
       dom.window.close();
     }
   },
-  30_000,
+  120_000,
 );

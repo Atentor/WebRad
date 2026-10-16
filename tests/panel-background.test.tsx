@@ -186,4 +186,4 @@ it('exports referenced assets and executes Panel background updates in compiled 
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);

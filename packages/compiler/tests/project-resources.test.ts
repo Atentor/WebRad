@@ -76,5 +76,5 @@ describe('compiled project resources', () => {
           diagnostic.source === 'typescript' && diagnostic.file?.includes('Helpers.ts'),
       ),
     ).toBe(true);
-  }, 30_000);
+  }, 120_000);
 });

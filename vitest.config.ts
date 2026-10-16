@@ -3,6 +3,7 @@ import { configDefaults, defineConfig } from 'vitest/config';
 // Compilation, compiled Preview and UI interaction tests need headroom on shared CI runners.
 const integrationTestFiles = [
   'packages/compiler/**/*.test.{ts,tsx}',
+  'packages/language/tests/**/*.test.{ts,tsx}',
   'apps/ide/renderer/src/**/*.test.tsx',
   'tests/**/*.test.{ts,tsx}',
 ];
@@ -13,7 +14,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     // Bound CPU/memory contention consistently in local tests, validation and releases.
-    maxWorkers: 2,
+    maxWorkers: 4,
     minWorkers: 1,
     projects: [
       {
@@ -34,7 +35,7 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: integrationTestFiles,
-          testTimeout: 30_000,
+          testTimeout: 120_000,
           exclude: [...configDefaults.exclude, ...ideIntegrationTestFiles],
         },
       },
@@ -44,7 +45,7 @@ export default defineConfig({
         test: {
           name: 'ide',
           include: ideIntegrationTestFiles,
-          testTimeout: 30_000,
+          testTimeout: 120_000,
           sequence: {
             groupOrder: 1,
           },

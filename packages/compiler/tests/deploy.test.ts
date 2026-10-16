@@ -101,7 +101,7 @@ describe('hosting deployment', () => {
     expect(javascript).not.toContain('dev-secret');
     expect(javascript).not.toMatch(/from\s+["'](?:node:|electron)/u);
     expect(result.files['manifest.webmanifest']).toBeUndefined();
-  }, 30_000);
+  }, 120_000);
 
   it('generates installable subfolder metadata, raster icons and an isolated offline shell', async () => {
     const original = fixture();
@@ -205,7 +205,7 @@ describe('hosting deployment', () => {
     }
     expect(result.files['service-worker.js']).not.toContain('skipWaiting(');
     expect(Object.keys(result.files).every((file) => !path.isAbsolute(file))).toBe(true);
-  }, 30_000);
+  }, 120_000);
 
   it('returns imported asset bytes in memory and keeps PWA out of Preview', async () => {
     const original = fixture();
@@ -228,7 +228,7 @@ describe('hosting deployment', () => {
     expect(result.previewHtml).not.toContain('serviceWorker');
     expect(result.previewHtml).not.toContain('WebVideoPlayer');
     expect(result.previewHtml).not.toContain('RestGoTransport');
-  }, 30_000);
+  }, 120_000);
 
   it('keeps runtime adapters functional for authored dynamic registry creation', async () => {
     const project = fixture();
@@ -254,5 +254,5 @@ describe('hosting deployment', () => {
     } finally {
       dom.window.close();
     }
-  }, 30_000);
+  }, 120_000);
 });

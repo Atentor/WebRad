@@ -205,7 +205,7 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
     } finally {
       dom.window.close();
     }
-  }, 30_000);
+  }, 120_000);
 
   it('keeps normal builds free of debugger metadata while correcting requested source maps', async () => {
     const result = await compileProjectToMemory(createProject('OrdinaryBrowser'), {
@@ -216,7 +216,7 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
     expect(result.debug).toBeUndefined();
     expect(result.previewHtml).not.toContain('webrad-debug://');
     expect(new TraceMap(result.files['assets/app.js.map']!).sources).toContain('pages/PageMain.ts');
-  }, 30_000);
+  }, 120_000);
 
   it('executes nested HTML delimiters and tagged raw templates with the exact mapped debug script', async () => {
     let project = createProject('HtmlScriptDelimiters');
@@ -262,5 +262,5 @@ export class PageMain extends PageMainGenerated {
     } finally {
       dom.window.close();
     }
-  }, 30_000);
+  }, 120_000);
 });

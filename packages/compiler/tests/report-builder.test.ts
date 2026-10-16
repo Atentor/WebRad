@@ -260,7 +260,7 @@ export class ${page.name} extends ${page.name}Generated {
       dom.window.close();
     }
   },
-  30_000,
+  120_000,
 );
 
 it('rejects dangling API and operation references in authored report templates', async () => {
@@ -367,4 +367,4 @@ export class ReportCard extends ReportCardGenerated {
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);

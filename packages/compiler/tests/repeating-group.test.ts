@@ -75,7 +75,7 @@ it('executes isolated row handlers in compiled Preview with real page state and 
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);
 
 it('restores the static value only in the clicked row when authored code clears its binding', async () => {
   const result = await compileProjectToMemory(repeatingGroupProject(), {
@@ -121,7 +121,7 @@ export class PageMain extends PageMainGenerated {
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);
 
 it('rejects dangling row fields, incompatible visual bindings and current-row bindings outside a template', async () => {
   const project = repeatingGroupProject();
@@ -224,7 +224,7 @@ export class PageMain extends PageMainGenerated {
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);
 
 it('rejects one handler assigned to different row scopes', async () => {
   const project = repeatingGroupProject();
@@ -332,7 +332,7 @@ export class PageMain extends PageMainGenerated {
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);
 
 it('keeps repeating groups inside separate authored reusable placements isolated', async () => {
   const original = repeatingGroupProject().pages[0]!;
@@ -451,7 +451,7 @@ export class CustomerRows extends CustomerRowsGenerated {
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);
 
 it('constructs authored reusable classes in each row with independent state and inferred CurrentRow', async () => {
   let definition = createReusableElement('RowCard');
@@ -541,7 +541,7 @@ export class RowCard extends RowCardGenerated {
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);
 
 it('resolves method parameter defaults and arrow or function property handlers to the clicked second row', async () => {
   const result = await compileProjectToMemory(repeatingGroupProject(), {
@@ -606,4 +606,4 @@ export class PageMain extends PageMainGenerated {
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);

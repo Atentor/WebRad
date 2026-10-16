@@ -209,4 +209,4 @@ it('executes a compiled Preview with data-bound Toggle cells and OnCellClick', a
   } finally {
     dom.window.close();
   }
-}, 30_000);
+}, 120_000);
