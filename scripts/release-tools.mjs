@@ -5,7 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 
 const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-const repository = process.env.WEBRAD_RELEASE_REPOSITORY || 'Atentor/WebRad-Releases';
+const repository =
+  process.env.WEBRAD_RELEASE_REPOSITORY || process.env.GITHUB_REPOSITORY || 'Atentor/WebRad';
 const root = process.cwd();
 const command = process.argv[2];
 const tag = process.env.GITHUB_REF_NAME;
@@ -22,11 +23,6 @@ function versionFromTag() {
 function validateRepository() {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(repository))
     throw new Error('Invalid release repository.');
-  if (process.env.GITHUB_REPOSITORY?.toLowerCase() === repository.toLowerCase()) {
-    throw new Error(
-      'Publish installers to the separate public release repository, not the private source repository.',
-    );
-  }
 }
 
 function gh(arguments_) {
@@ -61,14 +57,14 @@ async function preflight() {
   validateRepository();
   if (!process.env.GH_TOKEN)
     throw new Error(
-      'Configure WEBRAD_RELEASE_TOKEN with Contents read/write access to the public release repository.',
+      'Set GH_TOKEN to the workflow GITHUB_TOKEN. The publish job requires Contents write access.',
     );
   let metadata;
   try {
     metadata = JSON.parse(gh(['api', `repos/${repository}`]));
   } catch {
     throw new Error(
-      `Create the public ${repository} repository with a README and grant WEBRAD_RELEASE_TOKEN access to it. See docs/releases.md.`,
+      `Cannot access the public ${repository} repository. Check the workflow token and repository visibility. See docs/releases.md.`,
     );
   }
   if (metadata.private !== false)
@@ -276,6 +272,7 @@ async function publish() {
       tag,
       '--repo',
       repository,
+      '--verify-tag',
       '--draft',
       '--title',
       `WebRad ${manifest.version}`,

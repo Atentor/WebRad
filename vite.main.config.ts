@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   define: {
     __WEBRAD_RELEASE_REPOSITORY__: JSON.stringify(
-      process.env.WEBRAD_RELEASE_REPOSITORY || 'Atentor/WebRad-Releases',
+      process.env.WEBRAD_RELEASE_REPOSITORY || 'Atentor/WebRad',
     ),
   },
   build: {

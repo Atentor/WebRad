@@ -4,7 +4,11 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { parseUpdateManifest } from '../apps/ide/main/update-release';
+import {
+  parseUpdateManifest,
+  DEFAULT_RELEASE_REPOSITORY,
+  latestManifestUrl,
+} from '../apps/ide/main/update-release';
 
 const script = path.resolve('scripts/release-tools.mjs');
 const directories: string[] = [];
@@ -14,24 +18,47 @@ async function directory(): Promise<string> {
   return root;
 }
 function run(root: string, command: string, extra: Record<string, string> = {}): string {
-  return execFileSync(process.execPath, [script, command], {
-    cwd: root,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      GITHUB_REF_NAME: 'v0.2.0',
-      GITHUB_REPOSITORY: 'Atentor/WebRad',
-      WEBRAD_RELEASE_REPOSITORY: 'Atentor/WebRad-Releases',
-      ...extra,
+  return execFileSync(
+    process.execPath,
+    [
+      '--import',
+      new URL('./fixtures/release-github-cli.mjs', import.meta.url).href,
+      script,
+      command,
+    ],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GITHUB_REF_NAME: 'v0.2.0',
+        GITHUB_REPOSITORY: 'Atentor/WebRad',
+        WEBRAD_RELEASE_REPOSITORY: '',
+        GH_TOKEN: 'release-test-token',
+        WEBRAD_RELEASE_TEST_CALLS: path.join(root, 'github-cli.jsonl'),
+        ...extra,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  );
 }
 afterEach(async () => {
   for (const root of directories.splice(0)) await fs.rm(root, { recursive: true, force: true });
 });
 
 describe('tagged release assembly', () => {
+  it('uses the public source repository and the workflow token while rejecting private destinations', async () => {
+    const root = await directory();
+    expect(run(root, 'preflight')).toContain('Release destination ready: Atentor/WebRad');
+    expect(latestManifestUrl(DEFAULT_RELEASE_REPOSITORY)).toBe(
+      'https://github.com/Atentor/WebRad/releases/latest/download/webrad-update.json',
+    );
+    expect(() => run(root, 'preflight', { WEBRAD_RELEASE_TEST_PRIVATE: 'true' })).toThrow(
+      'must be public',
+    );
+    expect(() => run(root, 'preflight', { GH_TOKEN: '' })).toThrow('GITHUB_TOKEN');
+  });
+
   it('derives the package and lockfile root version from the tag while retaining workspace versions', async () => {
     const root = await directory();
     await fs.writeFile(
@@ -100,14 +127,45 @@ describe('tagged release assembly', () => {
       await fs.readFile(path.join(publicDirectory, 'webrad-darwin-arm64.json'), 'utf8'),
     ) as { currentRelease: string; releases: { updateTo: { url: string; sha256: string } }[] };
     expect(feed.currentRelease).toBe('0.2.0');
-    expect(feed.releases[0]?.updateTo.url).toContain(
-      '/Atentor/WebRad-Releases/releases/download/v0.2.0/',
-    );
+    expect(feed.releases[0]?.updateTo.url).toContain('/Atentor/WebRad/releases/download/v0.2.0/');
     expect(feed.releases[0]?.updateTo.sha256).toHaveLength(64);
     const entries = await fs.readdir(publicDirectory);
     expect(entries).not.toContain('private-source.ts');
     expect(entries.some((name) => name.startsWith('webrad-target-'))).toBe(false);
     expect(entries).toContain('SHA256SUMS');
+
+    run(root, 'publish');
+    const calls = (await fs.readFile(path.join(root, 'github-cli.jsonl'), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as string[]);
+    expect(calls[0]).toEqual(['api', 'repos/Atentor/WebRad']);
+    expect(calls.find((call) => call[1] === 'create')).toEqual([
+      'release',
+      'create',
+      'v0.2.0',
+      '--repo',
+      'Atentor/WebRad',
+      '--verify-tag',
+      '--draft',
+      '--title',
+      'WebRad 0.2.0',
+      '--notes-file',
+      path.join(root, 'release-notes.md'),
+    ]);
+    const upload = calls.findIndex((call) => call[1] === 'upload');
+    const publication = calls.findIndex((call) => call[1] === 'edit');
+    expect(upload).toBeGreaterThan(-1);
+    expect(publication).toBeGreaterThan(upload);
+    expect(calls[publication]).toEqual([
+      'release',
+      'edit',
+      'v0.2.0',
+      '--repo',
+      'Atentor/WebRad',
+      '--draft=false',
+      '--latest=true',
+    ]);
   });
   it('refuses a partial multi-platform release', async () => {
     const root = await directory();

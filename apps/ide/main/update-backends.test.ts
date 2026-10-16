@@ -38,14 +38,14 @@ describe('native update protocols', () => {
       'x64',
       'squirrel',
       'webrad-0.2.0-full.nupkg',
-      'https://github.com/Atentor/WebRad-Releases/releases/download/v0.2.0',
+      'https://github.com/Atentor/WebRad/releases/download/v0.2.0',
     ],
     [
       'darwin',
       'arm64',
       'mac',
       'WebRad-0.2.0-darwin-arm64.zip',
-      'https://github.com/Atentor/WebRad-Releases/releases/download/v0.2.0/webrad-darwin-arm64.json',
+      'https://github.com/Atentor/WebRad/releases/download/v0.2.0/webrad-darwin-arm64.json',
     ],
   ] as const)(
     'uses the pinned %s feed and waits for the actual native download event',
@@ -57,7 +57,7 @@ describe('native update protocols', () => {
         publishedAt: '2026-10-15T12:00:00.000Z',
         targets: [{ platform, arch, kind, file, size: 10, sha256: 'a'.repeat(64), signed: true }],
       };
-      const { target, backend } = await selectUpdateBackend('Atentor/WebRad-Releases', manifest);
+      const { target, backend } = await selectUpdateBackend('Atentor/WebRad', manifest);
       expect(backend.mode).toBe('automatic');
       const download = backend.download(manifest, target, vi.fn());
       expect(mocks.setFeedURL).toHaveBeenCalledWith(
@@ -92,7 +92,7 @@ describe('native update protocols', () => {
         },
       ],
     };
-    const { target, backend } = await selectUpdateBackend('Atentor/WebRad-Releases', manifest);
+    const { target, backend } = await selectUpdateBackend('Atentor/WebRad', manifest);
     const download = backend.download(manifest, target, vi.fn());
     autoUpdater.emit('error', new Error('native signature validation failed'));
     await expect(download).rejects.toThrow('signature validation failed');

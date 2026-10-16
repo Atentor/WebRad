@@ -1,15 +1,14 @@
 # Releases e atualizações do WebRad
 
-O workflow `.github/workflows/release.yml` responde ao envio de tags estáveis `vMAJOR.MINOR.PATCH` ao repositório privado de código. Ele gera Windows x64 (Setup/Squirrel), Linux x64 (`.deb` e `.rpm`), macOS Intel x64 e macOS Apple Silicon arm64 (ZIP contendo `WebRad.app`). Não há build para iOS.
+O workflow `.github/workflows/release.yml` responde ao envio de tags estáveis `vMAJOR.MINOR.PATCH` ao repositório público **Atentor/WebRad**. Ele gera Windows x64 (Setup/Squirrel), Linux x64 (`.deb` e `.rpm`), macOS Intel x64 e macOS Apple Silicon arm64 (ZIP contendo `WebRad.app`) e publica os arquivos em [Releases do próprio WebRad](https://github.com/Atentor/WebRad/releases). Não há build para iOS.
 
 ## Configuração inicial do GitHub
 
-1. Crie **Atentor/WebRad-Releases**, **público**, inicializado com um README. Esse repositório recebe os instaladores e os metadados de atualização. O código-fonte continua em **Atentor/WebRad**, privado. Os arquivos fonte ZIP/TAR que o próprio GitHub oferece na Release são do repositório público de distribuição.
-2. Crie um token fine-grained com acesso ao repositório público de distribuição e a permissão **Contents: Read and write**. Se a organização exigir aprovação de tokens, conclua essa aprovação.
-3. No repositório **privado de código**, abra **Settings → Secrets and variables → Actions** e crie o Secret **`WEBRAD_RELEASE_TOKEN`** com esse token. O `GITHUB_TOKEN` normal do workflow não tem permissão de escrita em outro repositório.
-4. Opcionalmente, crie a variável de Actions **`WEBRAD_RELEASE_REPOSITORY`** no formato `Owner/Repository` para usar outro repositório público. Sem essa variável, o destino é `Atentor/WebRad-Releases`. O mesmo valor é incorporado ao processo principal da aplicação durante o build; nenhum token é incorporado.
+1. Mantenha **Atentor/WebRad** público e o GitHub Actions habilitado. As tags, o código e os instaladores ficam no mesmo repositório; os arquivos fonte ZIP/TAR oferecidos pelo GitHub correspondem à própria tag do WebRad.
+2. O workflow usa o **`GITHUB_TOKEN`** fornecido automaticamente pelo GitHub Actions. A permissão padrão é **Contents: Read**; somente o job `publish` recebe **Contents: Write** para criar a Release e anexar os instaladores. Não é necessário criar um token fine-grained para essa publicação.
+3. O destino vem de **`${{ github.repository }}`**, e o mesmo valor é incorporado ao processo principal durante o build. Nenhum token é incorporado ao aplicativo. A variável de Actions antiga `WEBRAD_RELEASE_REPOSITORY` não altera mais o destino; ela e o Secret `WEBRAD_RELEASE_TOKEN` podem ser removidos, pois este workflow não os utiliza.
 
-O job inicial verifica a tag, o token e a visibilidade pública do destino antes de iniciar os quatro builds. Esta configuração local não cria o repositório remoto nem configura Secrets na conta do GitHub.
+O job inicial verifica a tag, o acesso do token e a visibilidade pública do próprio repositório antes de iniciar os quatro builds. Nenhum repositório separado de instaladores é necessário.
 
 ## Publicar uma versão
 
@@ -20,11 +19,11 @@ git tag v0.1.12
 git push origin v0.1.12
 ```
 
-Use uma versão maior que a última publicada. A tag determina a versão do aplicativo: `scripts/release-tools.mjs prepare` altera `package.json` e a entrada raiz do lockfile **somente no checkout temporário do CI**, antes de instalar dependências e compilar. O workflow não incrementa a versão novamente, não cria commits no código privado e não executa `npm run release`.
+Use uma versão maior que a última publicada, considerando também versões já distribuídas pelo repositório anterior. A tag determina a versão do aplicativo: `scripts/release-tools.mjs prepare` altera `package.json` e a entrada raiz do lockfile **somente no checkout temporário do CI**, antes de instalar dependências e compilar. O workflow não incrementa a versão novamente, não cria commits e não executa `npm run release`.
 
 Cada build executa as verificações de ícones/fontes geradas, typecheck estrito, lint, formatação, testes, empacotamento e smoke do aplicativo empacotado. Há também um smoke específico da interface/IPC de atualização usando um backend de teste, sem instalar software no runner. O Linux configura o sandbox do Electron; os smokes escrevem logs fora do bundle, preservando assinaturas macOS.
 
-A publicação exige os quatro builds completos e confere tamanho e SHA-256 dos pacotes recebidos dos jobs. Cria uma Release em rascunho, envia todos os arquivos e só então a torna pública. Uma falha de upload deixa o rascunho para uma nova execução; uma Release já pública não é sobrescrita. Uma tag antiga não substitui a versão mais recente.
+A publicação exige os quatro builds completos e confere tamanho e SHA-256 dos pacotes recebidos dos jobs. Confirma que a tag já existe no repositório, cria uma Release em rascunho, envia todos os arquivos e só então a torna pública. Uma falha de upload deixa o rascunho para uma nova execução; uma Release já pública não é sobrescrita. Uma tag antiga não substitui a versão mais recente.
 
 ## Comportamento na aplicação
 
@@ -38,9 +37,11 @@ A publicação exige os quatro builds completos e confere tamanho e SHA-256 dos 
 
 As versões anteriores a esta implementação precisam receber a primeira atualização pelo instalador, pois ainda não possuem o atualizador.
 
+Versões já instaladas que consultam `Atentor/WebRad-Releases` continuam usando o endereço incorporado naquele build. Para migrar, instale uma vez a nova versão disponível nas Releases de **Atentor/WebRad**. A partir desse build, as verificações e os downloads usam o próprio repositório WebRad. O workflow não transfere nem apaga Releases antigas do repositório anterior.
+
 ## Assinatura macOS opcional
 
-Sem conta Apple, os dois builds macOS geram ZIPs não assinados, e a Release informa essa condição. Para habilitar distribuição assinada e atualização automática nativa, obtenha um certificado **Developer ID Application** pelo Apple Developer Program e configure estes Secrets no repositório privado:
+Sem conta Apple, os dois builds macOS geram ZIPs não assinados, e a Release informa essa condição. Para habilitar distribuição assinada e atualização automática nativa, obtenha um certificado **Developer ID Application** pelo Apple Developer Program e configure estes Secrets em **Atentor/WebRad**:
 
 | Secret                        | Conteúdo                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------ |
@@ -55,7 +56,7 @@ O workflow importa o certificado em um keychain temporário e o remove ao termin
 
 ## Contrato de distribuição
 
-A Release pública contém os instaladores, `RELEASES`, o pacote Squirrel `.nupkg`, `webrad-darwin-x64.json`, `webrad-darwin-arm64.json`, `webrad-update.json` e `SHA256SUMS`. O manifest `webrad-update.json`, versão de formato 1, identifica versão estável, data e targets por plataforma, arquitetura, formato, nome de arquivo, tamanho, SHA-256 e indicador de assinatura macOS. Os feeds macOS usam o formato estático Squirrel (`currentRelease`/`releases`/`updateTo`). O aplicativo consulta `releases/latest/download/webrad-update.json` e fixa os downloads na tag concreta encontrada.
+A Release pública contém os instaladores, `RELEASES`, o pacote Squirrel `.nupkg`, `webrad-darwin-x64.json`, `webrad-darwin-arm64.json`, `webrad-update.json` e `SHA256SUMS`. O manifest `webrad-update.json`, versão de formato 1, identifica versão estável, data e targets por plataforma, arquitetura, formato, nome de arquivo, tamanho, SHA-256 e indicador de assinatura macOS. Os feeds macOS usam o formato estático Squirrel (`currentRelease`/`releases`/`updateTo`). O aplicativo consulta `https://github.com/Atentor/WebRad/releases/latest/download/webrad-update.json` e fixa os downloads na tag concreta encontrada.
 
 A ponte preload expõe somente `getState()`, `check()`, `download()`, `install()` e uma assinatura de estados. IPC valida a origem e o frame principal confiável; não aceita URL, caminho, token ou comando vindo do renderer. Downloads próprios aceitam HTTPS e validam cada redirecionamento para os hosts de assets do GitHub, com limites de tempo/tamanho. Windows e macOS assinados usam as verificações dos atualizadores nativos. Esse recurso pertence ao IDE desktop; os projetos e as aplicações web exportadas não recebem dependências do Electron ou do atualizador.
 

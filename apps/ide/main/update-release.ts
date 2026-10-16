@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const DEFAULT_RELEASE_REPOSITORY = 'Atentor/WebRad-Releases';
+export const DEFAULT_RELEASE_REPOSITORY = 'Atentor/WebRad';
 export const stableVersionSchema = z.string().regex(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
 const assetNameSchema = z
   .string()

@@ -61,8 +61,8 @@ describe('release metadata and trust boundary', () => {
     ).toThrow();
   });
   it('pins generated asset URLs and validates each possible redirect host', () => {
-    expect(releaseAssetUrl('Atentor/WebRad-Releases', '0.2.0', 'WebRad Setup.exe')).toBe(
-      'https://github.com/Atentor/WebRad-Releases/releases/download/v0.2.0/WebRad%20Setup.exe',
+    expect(releaseAssetUrl('Atentor/WebRad', '0.2.0', 'WebRad Setup.exe')).toBe(
+      'https://github.com/Atentor/WebRad/releases/download/v0.2.0/WebRad%20Setup.exe',
     );
     expect(validateUpdateUrl('https://release-assets.githubusercontent.com/a?sig=1').hostname).toBe(
       'release-assets.githubusercontent.com',

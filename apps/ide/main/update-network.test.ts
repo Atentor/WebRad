@@ -36,7 +36,7 @@ describe('update download integrity', () => {
     respond('{"version":"0.2.0"}');
     expect(
       await readUpdateManifest(
-        'https://github.com/Atentor/WebRad-Releases/releases/latest/download/webrad-update.json',
+        'https://github.com/Atentor/WebRad/releases/latest/download/webrad-update.json',
       ),
     ).toEqual({ version: '0.2.0' });
     expect(transport.get).toHaveBeenCalledTimes(2);
