@@ -310,11 +310,11 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
   // Place the cursor on the empty line immediately before the handler's closing brace.
   // This is a real expression-statement position, so the custom Delphi-style provider
   // must contribute the active page component Names without modifying the source.
-  sendRendererKey(window, 'End', [commandModifier]);
+  sendRendererKey(window, process.platform === 'darwin' ? 'Down' : 'End', [commandModifier]);
   sendRendererKey(window, 'Up');
   sendRendererKey(window, 'Up');
   sendRendererKey(window, 'Home');
-  sendRendererKey(window, 'Space', [commandModifier]);
+  sendRendererKey(window, 'Space', ['control']);
 
   const suggestions = await waitForRendererString(
     window,
@@ -350,7 +350,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
     'the typed bare component member in Monaco',
     (value) => value === true,
   );
-  sendRendererKey(window, 'Space', [commandModifier]);
+  sendRendererKey(window, 'Space', ['control']);
   const componentMembers = await waitForRendererString(
     window,
     `(() => {

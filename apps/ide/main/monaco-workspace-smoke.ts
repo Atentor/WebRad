@@ -66,7 +66,7 @@ export async function runMonacoWorkspaceSmoke(
   const command: NonNullable<KeyboardInputEvent['modifiers']>[number] =
     process.platform === 'darwin' ? 'meta' : 'control';
   sendKey('Escape');
-  sendKey('End', [command]);
+  sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
   await settle(window);
   const originalEnd: unknown = await window.webContents.executeJavaScript(
     "document.querySelector('.wr-status-position')?.getAttribute('aria-label')",
@@ -96,7 +96,7 @@ export async function runMonacoWorkspaceSmoke(
     'the temporary source block',
   );
   // Cursor movement separates the short edit from native multiline input's undo groups.
-  sendKey('End', [command]);
+  sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
   sendKey('Left');
   sendKey('Right');
   await settle(window);
@@ -169,7 +169,7 @@ export async function runMonacoWorkspaceSmoke(
     'the cursor after undoing the single marker',
   );
   await settle(window);
-  sendKey('End', [command]);
+  sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
   await waitFor(
     window,
     `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(blockEnd)} && [...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('workspaceSmoke_${String(commentCount - 1)}')) && ![...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes(${JSON.stringify(marker)}))`,
@@ -180,7 +180,7 @@ export async function runMonacoWorkspaceSmoke(
     process.platform === 'darwin' ? [command, 'shift'] : [command],
   );
   await settle(window);
-  sendKey('End', [command]);
+  sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
   await waitFor(
     window,
     `[...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes(${JSON.stringify(marker)})) && document.querySelector('.wr-status-position')?.getAttribute('aria-label')?.startsWith('Line ${String(markerLine)},') === true`,
@@ -193,7 +193,7 @@ export async function runMonacoWorkspaceSmoke(
     'the cursor after final marker undo',
   );
   await settle(window);
-  sendKey('End', [command]);
+  sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
   sendKey('Home', ['shift']);
   for (let index = 0; index < commentCount; index += 1) sendKey('Up', ['shift']);
   for (let index = 1; index < originalColumn; index += 1) sendKey('Right', ['shift']);
