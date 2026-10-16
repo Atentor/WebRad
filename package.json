@@ -25,6 +25,7 @@
     "runtime:sources": "node scripts/sync-runtime-sources.mjs",
     "runtime:sources:check": "node scripts/sync-runtime-sources.mjs --check",
     "test": "vitest run",
+    "test:portable": "node scripts/test-portability.mjs",
     "test:watch": "vitest",
     "build": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js package",
     "package": "node --max-old-space-size=4096 ./node_modules/@electron-forge/cli/dist/electron-forge.js package",
@@ -35,7 +36,7 @@
     "smoke:resources": "node scripts/smoke-packaged.mjs --webrad-smoke-resources",
     "smoke:report-builder": "node scripts/smoke-report-builder.mjs",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
-    "validate": "npm run icons:check && npm run runtime:sources:check && npm run typecheck && npm run lint && npm test && npm run format:check && npm run build"
+    "validate": "npm run icons:check && npm run runtime:sources:check && npm run typecheck && npm run lint && npm run test:portable && npm run format:check && npm run build"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "5.3.0",

@@ -20,7 +20,9 @@ const executablePath =
     ? path.join(packageDirectory, `${productName}.app`, 'Contents', 'MacOS', executableName)
     : path.join(packageDirectory, executableName);
 const fixtureDirectory = path.resolve('examples', 'hello-webrad');
-const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-packaged-smoke-'));
+const temporaryRoot = await fs.realpath(
+  await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-packaged-smoke-')),
+);
 const logPath = path.join(temporaryRoot, 'webrad-smoke.log');
 const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
 const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');

@@ -1,7 +1,10 @@
 import childProcess from 'node:child_process';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, realpathSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import process from 'node:process';
+
+// POSIX subprocesses report the physical cwd. Exercise that behavior on Windows too.
+process.chdir(realpathSync(process.cwd()));
 
 // Exercise the real release script without contacting GitHub or publishing assets.
 childProcess.execFileSync = (command, arguments_) => {

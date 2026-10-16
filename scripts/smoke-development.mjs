@@ -13,7 +13,9 @@ const forgeCli = path.resolve(
   'electron-forge.js',
 );
 const fixtureDirectory = path.resolve('examples', 'hello-webrad');
-const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-development-smoke-'));
+const temporaryRoot = await fs.realpath(
+  await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-development-smoke-')),
+);
 const logPath = path.join(temporaryRoot, 'webrad-smoke.log');
 const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
 const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');

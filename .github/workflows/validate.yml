@@ -22,9 +22,14 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
+          node -e 'require("electron")'
+          development_sandbox="$(node -p 'require("node:path").join(require("node:path").dirname(require("electron")), "chrome-sandbox")')"
           package_directory="out/$(node -p '[require("./package.json").productName, process.platform, process.arch].join("-")')"
-          sudo chown root:root node_modules/electron/dist/chrome-sandbox "$package_directory/chrome-sandbox"
-          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox "$package_directory/chrome-sandbox"
+          packaged_sandbox="$package_directory/chrome-sandbox"
+          test -f "$development_sandbox"
+          test -f "$packaged_sandbox"
+          sudo chown root:root "$development_sandbox" "$packaged_sandbox"
+          sudo chmod 4755 "$development_sandbox" "$packaged_sandbox"
       - if: runner.os == 'Windows'
         run: npm run smoke:development
       - if: runner.os == 'Linux'

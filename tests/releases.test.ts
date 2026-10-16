@@ -13,7 +13,7 @@ import {
 const script = path.resolve('scripts/release-tools.mjs');
 const directories: string[] = [];
 async function directory(): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-release-test-'));
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-release-test-')));
   directories.push(root);
   return root;
 }
