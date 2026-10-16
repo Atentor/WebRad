@@ -118,7 +118,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   for (const root of temporaryRoots.splice(0)) {
-    if (!path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep))
+    if (!path.resolve(root).startsWith((await fs.realpath(os.tmpdir())) + path.sep))
       throw new Error('Unsafe test cleanup.');
     await fs.rm(root, { recursive: true, force: true });
   }
@@ -129,7 +129,7 @@ async function deploymentSession(): Promise<{
   output: string;
   userData: string;
 }> {
-  const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-deploy-ipc-'));
+  const parent = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-deploy-ipc-')));
   temporaryRoots.push(parent);
   const opened = session('Deploy');
   opened.rootPath = path.join(parent, 'source');

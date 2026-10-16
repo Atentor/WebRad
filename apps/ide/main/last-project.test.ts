@@ -8,7 +8,7 @@ import { createProjectFiles } from './project-files';
 const temporaryRoots: string[] = [];
 
 async function temporaryRoot(): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-last-project-'));
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-last-project-')));
   temporaryRoots.push(root);
   return root;
 }
