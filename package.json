@@ -50,7 +50,7 @@
     "postcss": "8.5.26",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "sharp": "0.35.3",
+    "sharp": "0.35.5",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "zod": "4.4.3"
@@ -73,7 +73,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "4.7.0",
-    "electron": "43.3.0",
+    "electron": "43.8.0",
     "eslint": "10.8.1",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.4",
@@ -85,12 +85,21 @@
     "vitest": "3.2.7"
   },
   "overrides": {
-    "dompurify": "3.4.13",
+    "dompurify": "3.4.17",
     "yauzl": "3.4.0"
   },
   "allowScripts": {
     "electron-winstaller@5.4.4": true,
     "esbuild@0.28.2": true,
     "esbuild@0.21.5": true
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Atentor/WebRad.git"
+  },
+  "homepage": "https://webrad.atentor.com",
+  "bugs": {
+    "url": "https://github.com/Atentor/WebRad/issues"
   }
 }

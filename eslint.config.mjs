@@ -6,7 +6,16 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/.vite/**', '**/out/**', '**/dist/**', '**/coverage/**', '**/node_modules/**'],
+    ignores: [
+      '**/.vite/**',
+      '**/out/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/node_modules/**',
+      '**/.tmp/**',
+      '**/artifacts/**',
+      '**/release-downloads/**',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

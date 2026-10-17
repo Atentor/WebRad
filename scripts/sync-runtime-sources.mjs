@@ -386,6 +386,14 @@ outputs.push([
   path.join(repositoryRoot, 'packages', 'compiler', 'src', 'pdf-lib-sources.generated.json'),
   JSON.stringify(pdfSources, null, 2) + '\n',
 ]);
+outputs.push([
+  path.join(repositoryRoot, 'packages', 'compiler', 'src', 'license-sources.generated.json'),
+  JSON.stringify(
+    { webrad: await fs.readFile(path.join(repositoryRoot, 'LICENSE'), 'utf8') },
+    null,
+    2,
+  ) + '\n',
+]);
 
 if (globalThis.process.argv.includes('--check')) {
   for (const [fileName, contents] of outputs) {

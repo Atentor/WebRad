@@ -5,54 +5,37 @@ import { Icon } from './Icon';
 
 interface UpdateIndicatorProps {
   readonly state: UpdateState;
-  readonly onCheck: () => void;
   readonly onUpdate: () => void;
 }
 
-export function UpdateIndicator({
-  state,
-  onCheck,
-  onUpdate,
-}: UpdateIndicatorProps): ReactElement | null {
-  if (state.status === 'idle' || state.status === 'disabled') return null;
-  const busy = ['checking', 'downloading', 'installing'].includes(state.status);
-  const actionable = state.status === 'available' || state.status === 'ready';
-  const label =
-    state.status === 'available'
-      ? state.mode === 'manual'
-        ? 'Download update'
-        : 'Update'
-      : state.status === 'ready'
-        ? 'Restart to update'
-        : state.status === 'checking'
-          ? 'Checking...'
-          : state.status === 'downloading'
-            ? `Downloading${state.progress === undefined ? '...' : ` ${String(state.progress)}%`}`
-            : state.status === 'installing'
-              ? 'Installing...'
-              : state.status === 'manual'
-                ? 'Update downloaded'
-                : state.status === 'current'
-                  ? 'Up to date'
-                  : 'Retry update check';
+export function UpdateIndicator({ state, onUpdate }: UpdateIndicatorProps): ReactElement | null {
+  if (!['available', 'downloading', 'ready', 'installing', 'manual'].includes(state.status))
+    return null;
+  const busy = state.status === 'downloading' || state.status === 'installing';
   const title =
     state.message ??
-    (state.latestVersion
-      ? `WebRad ${state.latestVersion} is available. Your project will be saved before restarting.`
-      : `WebRad ${state.currentVersion}`);
+    (state.status === 'downloading'
+      ? `Downloading${state.progress === undefined ? '...' : ` ${String(state.progress)}%`}`
+      : state.status === 'installing'
+        ? 'Installing update...'
+        : state.status === 'manual'
+          ? 'Update downloaded. Complete the installation manually.'
+          : state.latestVersion
+            ? `WebRad ${state.latestVersion} is available. Your project will be saved before restarting.`
+            : `WebRad ${state.currentVersion}`);
   return (
     <button
       type="button"
-      className={`wr-toolbar-update${state.status === 'error' ? ' error' : ''}`}
+      className="wr-toolbar-update"
       data-update-status={state.status}
       disabled={busy || state.status === 'manual'}
       title={title}
-      aria-label={label}
+      aria-label="Update"
       aria-busy={busy}
-      onClick={actionable ? onUpdate : onCheck}
+      onClick={onUpdate}
     >
       <Icon name="download" />
-      <span aria-live="polite">{label}</span>
+      <span aria-live="polite">Update</span>
     </button>
   );
 }

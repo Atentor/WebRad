@@ -2311,9 +2311,6 @@ export function App(): ReactElement {
           toolbar={
             <Toolbar
               updateState={updates.state}
-              onCheckUpdates={() => {
-                void checkForUpdates();
-              }}
               onUpdate={() => {
                 void updates.update();
               }}

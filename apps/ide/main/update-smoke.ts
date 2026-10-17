@@ -57,10 +57,12 @@ export async function runUpdateSmoke(
   log: (message: string) => void,
 ): Promise<void> {
   await waitFor(window, "!!document.querySelector('.wr-toolbar') && !!window.webrad?.updates");
+  if (await window.webContents.executeJavaScript("!!document.querySelector('.wr-toolbar-update')"))
+    throw new Error('Update button appeared before a newer release was confirmed.');
   await window.webContents.executeJavaScript('window.webrad.updates.check()', true);
   await waitFor(
     window,
-    "document.querySelector('[data-update-status=available]')?.textContent.includes('Update') === true",
+    "document.querySelector('[data-update-status=available]')?.textContent.trim() === 'Update'",
   );
   if (downloads || installations) throw new Error('Checking updates started an installation.');
   log('renderer update availability without download passed');
@@ -68,7 +70,10 @@ export async function runUpdateSmoke(
     "window.webrad.lifecycle.setDirty(true); document.querySelector('[data-update-status=available]').click()",
     true,
   );
-  await waitFor(window, "!!document.querySelector('[data-update-status=ready]')");
+  await waitFor(
+    window,
+    "document.querySelector('[data-update-status=ready]')?.textContent.trim() === 'Update'",
+  );
   if (installations !== 0 || downloads !== 1 || smokeService?.getState().status !== 'ready')
     throw new Error('Update bypassed unsaved changes.');
   log('renderer update download and unsaved changes guard passed');

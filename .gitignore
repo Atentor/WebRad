@@ -9,3 +9,29 @@ coverage/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local verification output and scratch files
+.tmp/
+artifacts/
+release-downloads/
+
+# Local configuration and credentials; commit only sanitized examples
+.env
+.env.*
+!.env.example
+!.env.*.example
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+credentials.json
+secrets.json
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+/.tmp

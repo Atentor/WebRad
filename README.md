@@ -1,5 +1,11 @@
 # WebRAD
 
+Código original disponível sob a [licença MIT](LICENSE), incluindo o runtime
+de navegador e o SDK RestGo. As dependências e mídias de terceiros mantêm suas
+[próprias licenças](THIRD_PARTY_NOTICES.md). Veja também como
+[contribuir](CONTRIBUTING.md), a [política de segurança](SECURITY.md) e a
+[revisão de preparação para código aberto](docs/open-source-readiness.md).
+
 Releases automáticas por tags para Windows, Linux e macOS, publicação dos instaladores no próprio repositório Atentor/WebRad e atualização pelo IDE: veja [configuração e uso](docs/releases.md). A instalação automática no macOS exige Developer ID; sem assinatura, o IDE oferece o download para substituição manual.
 
 O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com páginas, componentes, propriedades, eventos, TypeScript e um fluxo real de compilação e visualização. A IDE desktop utiliza Electron e React; as aplicações geradas utilizam somente tecnologias do navegador.
@@ -8,19 +14,19 @@ O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com p
 
 - Node.js 24 ou mais recente
 - npm 11 ou mais recente
-- Windows ou Linux (a arquitetura mantém possível o suporte ao macOS)
+- Windows, Linux ou macOS; o empacotamento deve ocorrer no sistema de destino.
 
 ## Instalação e desenvolvimento
 
 ```sh
-npm install
+npm ci
 npm start
 ```
 
 Se o PowerShell do Windows bloquear a execução de `npm.ps1`, utilize o executável `npm.cmd` sem precisar alterar a política de execução do sistema:
 
 ```powershell
-npm.cmd install
+npm.cmd ci
 npm.cmd start
 ```
 
@@ -107,7 +113,7 @@ npm run smoke:packaged
 
 Execute toda a sequência com `npm run validate`. Formate o código-fonte com `npm run format` e verifique a formatação com `npm run format:check`. O comando `npm run runtime:sources:check` verifica se o runtime de navegador incorporado ao compilador corresponde ao pacote-fonte.
 
-A configuração raiz do Vitest limita a execução a quatro workers, tanto localmente quanto nos workflows de validação e release. O projeto `unit` mantém o timeout de 5 segundos; `integration` usa 2 minutos (120 segundos) para os testes do compilador e de tipos do Monaco (`packages/language/tests/`), as interações React da IDE (`apps/ide/renderer/src/**/*.test.tsx`) e os cenários entre pacotes em `tests/`. O projeto `ide` executa `App.integration.test.tsx` depois dos demais arquivos, com limite de 2 minutos, evitando que os fluxos completos da IDE disputem CPU com as compilações. Os limites explícitos de 30 segundos desses testes também foram elevados para 2 minutos; os demais limites específicos continuam prevalecendo. Para reproduzir o comando do release, execute `npm test -- --maxWorkers=4 --minWorkers=1`. Esses limites acomodam a variação de desempenho dos runners sem retries automáticos ou supressão de falhas.
+A configuração raiz do Vitest limita a execução a dois workers, tanto localmente quanto nos workflows de validação e release. O projeto `unit` mantém o timeout de 5 segundos; `integration` usa 2 minutos (120 segundos) para os testes do compilador e de tipos do Monaco (`packages/language/tests/`), as interações React da IDE (`apps/ide/renderer/src/**/*.test.tsx`) e os cenários entre pacotes em `tests/`. O projeto `ide` executa `App.integration.test.tsx` depois dos demais arquivos, com limite de 2 minutos. Para reproduzir o comando do release com caminhos temporários portáveis, execute `npm run test:portable -- --maxWorkers=2 --minWorkers=1`.
 
 No PowerShell que bloqueia `npm.ps1`, substitua `npm` por `npm.cmd` nesses comandos. Por exemplo: `npm.cmd run validate`.
 
@@ -118,7 +124,7 @@ O comando `npm run smoke:development` inicia o Forge e o Vite reais, confirma qu
 Os dois smokes também verificam a reabertura automática do último projeto com preferências temporárias isoladas, a seleção compartilhada entre árvore, canvas e Inspector, as larguras de visualização responsiva, o zoom e o painel Output. Para salvar uma captura real do Designer ao final do smoke, forneça um caminho absoluto:
 
 ```powershell
-npm.cmd run smoke:development -- --webrad-smoke-screenshot=C:\GitHub\WebRad\.tmp\designer.png
+npm.cmd run smoke:development -- --webrad-smoke-screenshot="$PWD\.tmp\designer.png"
 ```
 
 Para gerar o instalador destinado a outro computador Windows x64, execute no PowerShell:

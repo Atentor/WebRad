@@ -76,6 +76,7 @@ describe('hosting deployment', () => {
     expect(Object.keys(result.files).sort()).toEqual([
       'assets/app.css',
       'assets/app.js',
+      'assets/licenses/WebRAD-MIT.txt',
       'index.html',
       'service-worker.js',
     ]);

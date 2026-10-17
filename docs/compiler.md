@@ -19,6 +19,13 @@ Diagnostics use stable categories and preserve source, code, file, line, column,
 
 The API accepts explicit input/output paths and options, making a future `webrad build` CLI a thin wrapper. Output is browser-only and must not import Electron or Node built-ins.
 
+Generated applications keep `index.html`, `assets/app.js` and `assets/app.css`
+and include `assets/licenses/WebRAD-MIT.txt` for the embedded WebRAD runtime and
+RestGo SDK. This notice is synchronized from the root license by `runtime:sources`
+and verified by `runtime:sources:check`. PDF/video dependencies retain their
+conditional license files. Deployments must preserve `assets/licenses/`;
+user-authored application code keeps its own license.
+
 Within page and reusable instance code, `BTNMostrar.caption` and `this.BTNMostrar.caption` address the same component. Type checking uses module-local declarations appended to virtual snapshots, preserving authored line/column positions. After validation, an AST and symbol pass qualifies unshadowed bare names only in the in-memory bundle input, including object shorthand such as `{ EDTNome }`. Lexical bindings win, arrow callbacks retain the receiver, and unsupported instance contexts fail before bundling. Saved source files remain untouched and reusable placements retain independent instances.
 
 Tailwind compilation uses the official PostCSS plugin with source discovery disabled. The compiler resolves the exact saved utility candidates, adds interaction variants for the state-specific groups, imports theme and utilities without Preflight, and places WebRAD defaults in the lower-priority `components` layer. This lets utilities override initial paint properties without resetting the runtime controls. The resulting `app.css` is static; Tailwind, PostCSS, and the native Oxide compiler remain build-time dependencies in the Electron main process and are not shipped to generated browser applications.

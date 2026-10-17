@@ -9,7 +9,6 @@ import { Icon, type IconName } from './Icon';
 
 interface ToolbarProps extends DocumentTabsProps {
   updateState: UpdateState;
-  onCheckUpdates: () => void;
   onUpdate: () => void;
   canArrange: boolean;
   onBringToFront: () => void;
@@ -145,11 +144,7 @@ export function Toolbar(props: ToolbarProps): ReactElement {
         </details>
       )}
       <span className="wr-toolbar-spacer" />
-      <UpdateIndicator
-        state={props.updateState}
-        onCheck={props.onCheckUpdates}
-        onUpdate={props.onUpdate}
-      />
+      <UpdateIndicator state={props.updateState} onUpdate={props.onUpdate} />
       <span className="wr-toolbar-beta" title="WebRAD Beta">
         Beta
       </span>

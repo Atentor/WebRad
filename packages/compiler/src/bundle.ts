@@ -1,4 +1,5 @@
 import pdfSources from './pdf-lib-sources.generated.json';
+import webRadLicense from './license-sources.generated.json';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -223,6 +224,7 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
       file.text,
     ]),
   );
+  files['assets/licenses/WebRAD-MIT.txt'] = webRadLicense.webrad;
   const usedInputs = new Set(
     Object.values(result.metafile?.outputs ?? {}).flatMap((output) =>
       Object.entries(output.inputs)

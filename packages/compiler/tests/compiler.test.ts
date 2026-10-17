@@ -382,6 +382,9 @@ describe('compileProject', () => {
 
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.diagnostics).toEqual([]);
+    expect(result.files['assets/licenses/WebRAD-MIT.txt']).toBe(
+      await fs.readFile(new URL('../../../LICENSE', import.meta.url), 'utf8'),
+    );
     expect(result.files['assets/app.js']).toContain('reusableElements');
     expect(result.files['assets/app.js']).toContain(reusableDefinition.id);
     expect(result.files['assets/app.js']).toContain('CustomerCardApiClient');

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { UpdateStatus } from '../../../shared/update-contracts';
 import { UpdateIndicator } from './UpdateIndicator';
 
 afterEach(cleanup);
 describe('update toolbar indicator', () => {
   it('offers Update only when a newer release is available and disables duplicate download clicks', () => {
     const onUpdate = vi.fn();
-    const onCheck = vi.fn();
     const view = render(
       <UpdateIndicator
         state={{
@@ -17,22 +17,22 @@ describe('update toolbar indicator', () => {
           mode: 'automatic',
         }}
         onUpdate={onUpdate}
-        onCheck={onCheck}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
     expect(onUpdate).toHaveBeenCalledTimes(1);
-    expect(onCheck).not.toHaveBeenCalled();
     view.rerender(
       <UpdateIndicator
         state={{ status: 'downloading', currentVersion: '0.1.11', progress: 40 }}
         onUpdate={onUpdate}
-        onCheck={onCheck}
       />,
     );
-    expect(
-      (screen.getByRole('button', { name: 'Downloading 40%' }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    expect((screen.getByRole('button', { name: 'Update' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole('button', { name: 'Update' }).title).toBe('Downloading 40%');
+    fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+    expect(onUpdate).toHaveBeenCalledTimes(1);
     view.rerender(
       <UpdateIndicator
         state={{
@@ -42,23 +42,37 @@ describe('update toolbar indicator', () => {
           message: 'Replace WebRad.app in Applications.',
         }}
         onUpdate={onUpdate}
-        onCheck={onCheck}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Download update' }).title).toContain(
-      'Replace WebRad.app',
-    );
+    expect(screen.getByRole('button', { name: 'Update' }).title).toContain('Replace WebRad.app');
   });
-  it('offers a retry after failure without falsely reporting installation', () => {
-    const onCheck = vi.fn();
-    render(
-      <UpdateIndicator
-        state={{ status: 'error', currentVersion: '0.1.11', message: 'offline' }}
-        onCheck={onCheck}
-        onUpdate={vi.fn()}
-      />,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Retry update check' }));
-    expect(onCheck).toHaveBeenCalledTimes(1);
-  });
+  it.each<UpdateStatus>(['idle', 'disabled', 'checking', 'current', 'error'])(
+    'hides the button when update availability is not confirmed (%s)',
+    (status) => {
+      render(
+        <UpdateIndicator
+          state={{ status, currentVersion: '0.1.11', message: 'offline' }}
+          onUpdate={vi.fn()}
+        />,
+      );
+      expect(screen.queryByRole('button')).toBeNull();
+    },
+  );
+  it.each<UpdateStatus>(['ready', 'installing', 'manual'])(
+    'keeps the Update label during the confirmed update flow (%s)',
+    (status) => {
+      const onUpdate = vi.fn();
+      render(
+        <UpdateIndicator
+          state={{ status, currentVersion: '0.1.11', latestVersion: '0.2.0' }}
+          onUpdate={onUpdate}
+        />,
+      );
+      const button = screen.getByRole('button', { name: 'Update' }) as HTMLButtonElement;
+      expect(button.textContent).toBe('Update');
+      expect(button.disabled).toBe(status !== 'ready');
+      fireEvent.click(button);
+      expect(onUpdate).toHaveBeenCalledTimes(status === 'ready' ? 1 : 0);
+    },
+  );
 });

@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -81,6 +83,8 @@ const config: ForgeConfig = {
     asar: { unpack: '{**/*.node,**/node_modules/@img/**/*}' },
     icon: iconBasePath,
     extraResource: [
+      path.resolve('LICENSE'),
+      path.resolve('THIRD_PARTY_NOTICES.md'),
       iconIcoPath,
       iconPngPath,
       jetBrainsMonoLicensePath,
@@ -93,6 +97,10 @@ const config: ForgeConfig = {
   hooks: {
     packageAfterPrune: async (_forgeConfig, buildPath) => {
       await copyNativeRuntimeDependencies(buildPath);
+      await promisify(execFile)(process.execPath, [
+        path.resolve('scripts/generate-third-party-notices.mjs'),
+        path.join(buildPath, 'THIRD_PARTY_LICENSES.txt'),
+      ]);
     },
   },
   makers: [
@@ -120,7 +128,7 @@ const config: ForgeConfig = {
         bin: 'WebRad',
         icon: iconPngPath,
         homepage: 'https://webrad.atentor.com',
-        license: 'Proprietary',
+        license: 'MIT',
         categories: ['Development'],
       },
     }),

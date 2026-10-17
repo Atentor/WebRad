@@ -42,5 +42,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
-  }
+  },
+  "license": "MIT"
 }
