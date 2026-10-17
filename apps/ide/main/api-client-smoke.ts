@@ -155,7 +155,8 @@ async function captureThemeAndViewportVariants(
     throw new Error('API Client viewport smoke could not read the original window dimensions.');
   }
   try {
-    window.setMinimumSize(0, 0);
+    // macOS treats 0x0 as unspecified and keeps Cocoa's previous minimum.
+    window.setMinimumSize(1, 1);
     for (const [width, height, suffix] of [
       [1080, 760, 'compact'],
       [740, 700, 'narrow'],

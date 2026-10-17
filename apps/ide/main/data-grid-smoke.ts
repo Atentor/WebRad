@@ -219,7 +219,8 @@ export async function runDataGridConfigurationSmoke(
   let saved = false;
   try {
     if (wasMaximized) window.unmaximize();
-    window.setMinimumSize(0, 0);
+    // macOS treats 0x0 as unspecified and keeps Cocoa's previous minimum.
+    window.setMinimumSize(1, 1);
     await click(window, 'button[aria-label="Design"]');
     await click(
       window,

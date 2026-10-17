@@ -7,7 +7,7 @@ interface SmokeViewport {
 
 type SmokeViewportWindow = Pick<
   BrowserWindow,
-  'setContentSize' | 'getContentSize' | 'getBounds'
+  'setContentSize' | 'getContentSize' | 'getBounds' | 'getMinimumSize'
 > & {
   readonly webContents: Pick<BrowserWindow['webContents'], 'executeJavaScript'>;
 };
@@ -59,6 +59,6 @@ export async function resizeSmokeViewport(
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(
-    `Smoke viewport resize timed out: ${JSON.stringify({ requested, native, renderer, bounds: window.getBounds() })}`,
+    `Smoke viewport resize timed out: ${JSON.stringify({ requested, native, renderer, bounds: window.getBounds(), minimumSize: window.getMinimumSize() })}`,
   );
 }

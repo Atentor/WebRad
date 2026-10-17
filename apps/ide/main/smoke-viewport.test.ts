@@ -7,6 +7,7 @@ function smokeWindow(nativeSize: readonly number[], rendererSize = nativeSize) {
   return {
     setContentSize: vi.fn(),
     getContentSize: vi.fn(() => [...nativeSize]),
+    getMinimumSize: vi.fn(() => [1, 1]),
     getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1080, height: 728 })),
     webContents: {
       executeJavaScript: vi.fn(async () => ({ width: rendererSize[0], height: rendererSize[1] })),

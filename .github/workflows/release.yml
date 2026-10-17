@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: webrad-release-${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'publish' || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   WEBRAD_RELEASE_REPOSITORY: ${{ github.repository }}
@@ -72,6 +72,9 @@ jobs:
       - name: Set build version from release candidate
         run: node scripts/release-tools.mjs prepare
       - run: npm ci
+      - name: Test native macOS viewport constraints
+        if: runner.os == 'macOS'
+        run: npm run smoke:viewport
       - name: Install Linux packaging tools
         if: runner.os == 'Linux'
         run: |
