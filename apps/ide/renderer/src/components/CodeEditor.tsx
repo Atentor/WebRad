@@ -5,6 +5,7 @@ import tsWorker from '../typescript.worker?worker';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactElement } from 'react';
 import { observeMonacoFontMetrics } from '../monaco-font-metrics';
 import { synchronizeMonacoModel } from '../monaco-model-sync';
+import { restoreMonacoViewState } from '../monaco-view-state';
 import { createDebugHoverProvider, type DebugHoverContext } from '../debugger-hover';
 import type { IdeCommand } from '../../../shared/contracts';
 import type {
@@ -618,7 +619,7 @@ export function CodeEditor({
         return;
       }
       const state = modelViewStates.get(resource);
-      if (state !== undefined) editor.restoreViewState(state);
+      if (state !== undefined) restoreMonacoViewState(editor, state);
       const navigated = applyNavigation(editor, navigateToRef.current);
       publishCursor(editor);
       if (!navigated) editor.focus();

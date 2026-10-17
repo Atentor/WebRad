@@ -30,7 +30,7 @@ async function waitFor(
   const evidence: unknown = await window.webContents.executeJavaScript(
     `({
       view: ${viewSnapshotExpression},
-      source: [...document.querySelectorAll('.monaco-editor .view-lines .view-line')].map(line => line.textContent),
+      source: [...document.querySelectorAll('.monaco-editor .view-lines .view-line')].sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top).map(line => line.textContent),
       focused: document.activeElement?.className,
       undoDisabled: document.querySelector('button[aria-label="Undo (Ctrl+Z)"]')?.disabled,
       redoDisabled: document.querySelector('button[aria-label="Redo (Ctrl+Y)"]')?.disabled,
@@ -48,13 +48,21 @@ const viewSnapshotExpression = `(() => {
   const cursor = editor?.querySelector('.cursors-layer > .cursor');
   if (!(editor instanceof HTMLElement) || !(cursor instanceof HTMLElement)) return null;
   const bounds = editor.getBoundingClientRect();
-  const firstLine = [...editor.querySelectorAll('.view-lines .view-line')]
-    .find(line => line.getBoundingClientRect().top >= bounds.top);
+  const firstLine = [...editor.querySelectorAll('.view-lines .view-line')].sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top).find(
+    (line) => line.getBoundingClientRect().top >= bounds.top,
+  );
   return {
+    editorWidth: bounds.width,
+    editorHeight: bounds.height,
+    scrollWidth: Number.parseFloat(editor.querySelector('.view-lines')?.style.width ?? '0'),
+    scrollHeight: Number.parseFloat(editor.querySelector('.view-lines')?.style.height ?? '0'),
+
     position: document.querySelector('.wr-status-position')?.getAttribute('aria-label'),
     firstLine: firstLine?.textContent,
     caretTop: cursor.getBoundingClientRect().top - bounds.top,
-    scrollTop: Number.parseFloat(editor.querySelector('.scrollbar.vertical .slider')?.style.top ?? '0'),
+    scrollTop: Number.parseFloat(
+      editor.querySelector('.scrollbar.vertical .slider')?.style.top ?? '0',
+    ),
   };
 })()`;
 
@@ -74,7 +82,7 @@ export async function runMonacoWorkspaceSmoke(
   );
   if (typeof originalEnd !== 'string') throw new Error('Monaco original cursor was unavailable.');
   const originalLines: unknown = await window.webContents.executeJavaScript(
-    "[...document.querySelectorAll('.monaco-editor .view-lines .view-line')].map(line => line.textContent)",
+    "[...document.querySelectorAll('.monaco-editor .view-lines .view-line')].sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top).map(line => line.textContent)",
     true,
   );
   if (!Array.isArray(originalLines)) throw new Error('Monaco original source was unavailable.');
@@ -205,7 +213,7 @@ export async function runMonacoWorkspaceSmoke(
   sendKey('Backspace');
   await waitFor(
     window,
-    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(originalEnd)} && JSON.stringify([...document.querySelectorAll('.monaco-editor .view-lines .view-line')].map(line => line.textContent)) === ${JSON.stringify(JSON.stringify(originalLines))}`,
+    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(originalEnd)} && JSON.stringify([...document.querySelectorAll('.monaco-editor .view-lines .view-line')].sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top).map(line => line.textContent)) === ${JSON.stringify(JSON.stringify(originalLines))}`,
     'the restored authored source',
   );
   log(

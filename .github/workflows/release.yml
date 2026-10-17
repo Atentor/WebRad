@@ -99,13 +99,21 @@ jobs:
           sudo chmod 4755 "$development_sandbox" "$packaged_sandbox"
       - name: Test packaged application on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm run smoke:packaged
+        shell: bash
+        run: |
+          xauth_file="$(mktemp "$RUNNER_TEMP/webrad-xauth.XXXXXX")"
+          trap 'rm -f -- "$xauth_file"' EXIT
+          xvfb-run --auto-servernum --auth-file="$xauth_file" --error-file=/dev/stderr npm run smoke:packaged
       - name: Test packaged application on Windows and macOS
         if: runner.os != 'Linux'
         run: npm run smoke:packaged
       - name: Test update UI and IPC on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm run smoke:packaged -- --webrad-smoke-updates
+        shell: bash
+        run: |
+          xauth_file="$(mktemp "$RUNNER_TEMP/webrad-xauth.XXXXXX")"
+          trap 'rm -f -- "$xauth_file"' EXIT
+          xvfb-run --auto-servernum --auth-file="$xauth_file" --error-file=/dev/stderr npm run smoke:packaged -- --webrad-smoke-updates
       - name: Test update UI and IPC on Windows and macOS
         if: runner.os != 'Linux'
         run: npm run smoke:packaged -- --webrad-smoke-updates

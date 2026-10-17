@@ -25,6 +25,10 @@ Cada build executa as verificações de ícones/fontes geradas, typecheck estrit
 
 Os testes do release e de `npm run validate` usam `npm run test:portable`: a suíte completa roda com `TEMP`, `TMP` e `TMPDIR` apontando para um symlink/junction temporário. Isso verifica em todos os sistemas os casos em que o caminho lógico difere do caminho físico, como `/var` e `/private/var` no macOS. Fixtures e smokes usam o caminho físico para operações que atravessam processos; as proteções de Deploy contra links permanecem ativas. O limite continua em dois workers. Para reproduzir somente a montagem/publicação simulada, execute `npm run test:portable -- tests/releases.test.ts`.
 
+O smoke também verifica cursor, rolagem e código preservados ao alternar entre Design e Code. A restauração do Monaco mede as linhas iniciais antes de aplicar o viewport salvo, mantendo a extensão horizontal de linhas que ficarão fora da área visível. A comparação do código renderizado ordena as linhas pela posição visual, pois o Monaco pode reciclar os elementos do DOM. A regressão `tests/monaco-view-state.browser.test.ts` cobre a restauração em editores estreitos e largos com o Monaco real; pode ser executada separadamente ao definir `WEBRAD_BROWSER_PATH` para um executável Chromium/Chrome.
+
+Nos smokes Linux, cada execução do Xvfb recebe um arquivo de autenticação privado criado por `mktemp` em `RUNNER_TEMP`, removido ao encerrar o passo. Isso evita a limpeza do diretório temporário interno do `xvfb-run` que falhou no runner, preservando a autorização X11, o sandbox do Electron e o código de saída do teste. Erros do servidor virtual são enviados ao log do passo.
+
 A publicação exige os quatro builds completos e confere tamanho e SHA-256 dos pacotes recebidos dos jobs. Confirma que a tag já existe no repositório, cria uma Release em rascunho, envia todos os arquivos e só então a torna pública. Uma falha de upload deixa o rascunho para uma nova execução; uma Release já pública não é sobrescrita. Uma tag antiga não substitui a versão mais recente.
 
 ## Comportamento na aplicação

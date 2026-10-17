@@ -33,8 +33,16 @@ jobs:
       - if: runner.os == 'Windows'
         run: npm run smoke:development
       - if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm run smoke:development
+        shell: bash
+        run: |
+          xauth_file="$(mktemp "$RUNNER_TEMP/webrad-xauth.XXXXXX")"
+          trap 'rm -f -- "$xauth_file"' EXIT
+          xvfb-run --auto-servernum --auth-file="$xauth_file" --error-file=/dev/stderr npm run smoke:development
       - if: runner.os == 'Windows'
         run: npm run smoke:packaged
       - if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm run smoke:packaged
+        shell: bash
+        run: |
+          xauth_file="$(mktemp "$RUNNER_TEMP/webrad-xauth.XXXXXX")"
+          trap 'rm -f -- "$xauth_file"' EXIT
+          xvfb-run --auto-servernum --auth-file="$xauth_file" --error-file=/dev/stderr npm run smoke:packaged
