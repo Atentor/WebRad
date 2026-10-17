@@ -6,7 +6,7 @@ import { withChromium } from './chromium';
 const browser = process.env.WEBRAD_BROWSER_PATH;
 
 it.runIf(browser !== undefined)(
-  'preserves a real Monaco viewport when a long first line is outside the restored viewport',
+  'preserves a real Monaco viewport after a hidden editor becomes visible',
   async () => {
     const bundle = await build({
       stdin: {
@@ -14,13 +14,14 @@ it.runIf(browser !== undefined)(
         contents: `
           import * as monaco from 'monaco-editor/editor/editor.api.js';
           import '@fontsource/jetbrains-mono/300.css';
+          import { observeMonacoFontMetrics } from './apps/ide/renderer/src/monaco-font-metrics.ts';
           import { restoreMonacoViewState } from './apps/ide/renderer/src/monaco-view-state.ts';
           const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
           const source = [
             "import { PageMainGenerated } from './PageMain.generated';",
             'export class PageMain extends PageMainGenerated {',
             '  public async BTNMostrarClick(): Promise<void> {',
-            "    Message('Ol\u00E1 Ada');", '  }', '}', ''
+            "    Message('Ol\\u00E1 Ada');", '  }', '}', ''
           ].join('\\n');
           const snapshot = editor => {
             const dom = editor.getDomNode();
@@ -41,12 +42,17 @@ it.runIf(browser !== undefined)(
             host.style.width = width + 'px';
             const model = monaco.editor.createModel(source, 'typescript');
             const options = {
-              model, dimension: { width, height: 638 },
+              model, automaticLayout: true,
               fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: '300',
-              lineHeight: 20, padding: { top: 8, bottom: 8 }, minimap: { enabled: true },
+              fontLigatures: false, fontVariations: false,
+              lineHeight: 20, padding: { top: 8, bottom: 8 },
+              glyphMargin: true, lineNumbersMinChars: 3, lineDecorationsWidth: 12,
+              minimap: { enabled: true, maxColumn: 100, renderCharacters: false,
+                showSlider: 'mouseover', size: 'proportional' },
               scrollBeyondLastLine: false, smoothScrolling: false,
             };
             let editor = monaco.editor.create(host, options);
+            let fontObserver = observeMonacoFontMetrics(editor);
             try {
               editor.focus();
               await document.fonts.ready;
@@ -64,15 +70,20 @@ it.runIf(browser !== undefined)(
               await frame(); await frame();
               const before = snapshot(editor);
               const state = editor.saveViewState();
+              fontObserver.dispose();
               editor.dispose();
               host.replaceChildren();
+              // The React Monaco wrapper constructs its editor hidden, then reveals it before onMount.
+              host.style.display = 'none';
               editor = monaco.editor.create(host, options);
+              host.style.display = '';
+              fontObserver = observeMonacoFontMetrics(editor);
               restoreMonacoViewState(editor, state);
               editor.focus();
               editor.render(true);
               await frame(); await frame();
               return { before, after: snapshot(editor) };
-            } finally { editor.dispose(); model.dispose(); }
+            } finally { fontObserver.dispose(); editor.dispose(); model.dispose(); host.style.display = ''; }
           };
         `,
       },
@@ -118,7 +129,7 @@ it.runIf(browser !== undefined)(
             timeout: 15_000,
           })
           .toBe(true);
-        for (const width of [500, 900]) {
+        for (const width of [500, 628, 900]) {
           interface Viewport {
             readonly position: { readonly lineNumber: number; readonly column: number };
             readonly scrollTop: number;
@@ -133,7 +144,7 @@ it.runIf(browser !== undefined)(
           );
           expect(before.position).toEqual({ lineNumber: 39, column: 6 });
           expect(before.scrollTop).toBeGreaterThan(0);
-          expect(before.scrollWidth > before.contentWidth).toBe(width === 500);
+          expect(before.scrollWidth > before.contentWidth).toBe(width !== 900);
           expect(after.position).toEqual(before.position);
           expect(after.scrollTop).toBe(before.scrollTop);
           expect(after.scrollHeight).toBe(before.scrollHeight);

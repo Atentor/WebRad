@@ -12,6 +12,7 @@ import {
 import { BrowserWindow } from 'electron';
 
 import { publishPreviewHtml, revokePreview } from './preview-server';
+import { resizeSmokeViewport } from './smoke-viewport';
 
 interface ApiClientDesignerSmokeOptions {
   readonly projectPath: string;
@@ -29,6 +30,7 @@ async function ready(window: BrowserWindow, expression: string): Promise<void> {
   }
   const evidence: unknown = await window.webContents.executeJavaScript(
     `({
+      viewport: { width: innerWidth, height: innerHeight },
       dialog: document.querySelector('.wr-api-client-dialog') !== null,
       method: document.querySelector('[aria-label="Method"]')?.value,
       notes: [...document.querySelectorAll('.wr-api-client-dialog [role="note"], .wr-api-client-dialog [role="alert"]')].map(note => note.textContent),
@@ -158,18 +160,16 @@ async function captureThemeAndViewportVariants(
       [1080, 760, 'compact'],
       [740, 700, 'narrow'],
     ] as const) {
-      window.setContentSize(width, height);
-      await ready(window, `innerWidth === ${String(width)} && innerHeight === ${String(height)}`);
+      await resizeSmokeViewport(window, { width, height });
       await verifyDialogViewport(window, width <= 760);
       await capture(window, `${screenshotRoot}-custom-${suffix}.png`);
     }
   } finally {
-    window.setContentSize(originalWidth, originalHeight);
-    window.setMinimumSize(minimumWidth, minimumHeight);
-    await ready(
-      window,
-      `innerWidth === ${String(originalWidth)} && innerHeight === ${String(originalHeight)}`,
-    );
+    try {
+      await resizeSmokeViewport(window, { width: originalWidth, height: originalHeight });
+    } finally {
+      window.setMinimumSize(minimumWidth, minimumHeight);
+    }
   }
 }
 

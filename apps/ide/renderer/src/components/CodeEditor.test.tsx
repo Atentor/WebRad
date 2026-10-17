@@ -352,6 +352,7 @@ const mocks = vi.hoisted(() => {
         modelListeners.add(listener);
         return disposable(() => modelListeners.delete(listener));
       }),
+      layout: vi.fn(),
       render: vi.fn(),
       revealRangeInCenter: vi.fn(),
       restoreViewState: vi.fn(),
@@ -908,6 +909,11 @@ describe('CodeEditor professional Monaco workspace', () => {
     const remounted = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
     mocks.editorProps?.onMount?.(remounted);
     expect(remounted.restoreViewState).toHaveBeenCalledWith(state);
+
+    expect(remounted.layout).toHaveBeenCalledWith();
+    expect(remounted.layout.mock.invocationCallOrder[0]).toBeLessThan(
+      remounted.render.mock.invocationCallOrder[0] ?? 0,
+    );
     expect(remounted.render).toHaveBeenCalledWith(true);
     expect(remounted.render.mock.invocationCallOrder[0]).toBeLessThan(
       remounted.restoreViewState.mock.invocationCallOrder[0] ?? 0,

@@ -10,6 +10,12 @@ O workflow `.github/workflows/release.yml` responde ao envio de tags estáveis `
 
 O job inicial verifica a tag, o acesso do token e a visibilidade pública do próprio repositório antes de iniciar os quatro builds. Nenhum repositório separado de instaladores é necessário.
 
+## Verificar os quatro sistemas antes de publicar
+
+O mesmo workflow também executa sem publicação em branches `codex/verify-release-*` e pelo botão **Run workflow** do GitHub Actions. Esse modo usa a versão temporária `0.0.0` somente no checkout do CI, executa os quatro builds, os smokes do aplicativo e do atualizador, gera todos os instaladores e confere a montagem completa dos artefatos. O resultado fica no artifact `release-assembled`; nenhuma tag ou Release é criada. A execução manual estará disponível quando a definição atualizada estiver na branch padrão.
+
+A montagem usa um token somente de leitura. O job de publicação recebe permissão de escrita apenas em pushes de tags, depois da montagem aprovada; o script também recusa publicação quando `WEBRAD_RELEASE_VERIFY_ONLY` está ativo. Uma reexecução de uma tag antiga mantém o commit original e não aplica correções posteriores.
+
 ## Publicar uma versão
 
 Depois de enviar o commit contendo o workflow e a implementação do atualizador, crie e envie uma nova tag:
@@ -25,7 +31,9 @@ Cada build executa as verificações de ícones/fontes geradas, typecheck estrit
 
 Os testes do release e de `npm run validate` usam `npm run test:portable`: a suíte completa roda com `TEMP`, `TMP` e `TMPDIR` apontando para um symlink/junction temporário. Isso verifica em todos os sistemas os casos em que o caminho lógico difere do caminho físico, como `/var` e `/private/var` no macOS. Fixtures e smokes usam o caminho físico para operações que atravessam processos; as proteções de Deploy contra links permanecem ativas. O limite continua em dois workers. Para reproduzir somente a montagem/publicação simulada, execute `npm run test:portable -- tests/releases.test.ts`.
 
-O smoke também verifica cursor, rolagem e código preservados ao alternar entre Design e Code. A restauração do Monaco mede as linhas iniciais antes de aplicar o viewport salvo, mantendo a extensão horizontal de linhas que ficarão fora da área visível. A comparação do código renderizado ordena as linhas pela posição visual, pois o Monaco pode reciclar os elementos do DOM. A regressão `tests/monaco-view-state.browser.test.ts` cobre a restauração em editores estreitos e largos com o Monaco real; pode ser executada separadamente ao definir `WEBRAD_BROWSER_PATH` para um executável Chromium/Chrome.
+O smoke também verifica cursor, rolagem e código preservados ao alternar entre Design e Code. O wrapper React cria o Monaco em um contêiner oculto: a restauração primeiro mede o contêiner já visível, depois renderiza as linhas iniciais e aplica o viewport salvo. Isso mantém a extensão horizontal de linhas que ficarão fora da área visível. A comparação do código renderizado ordena as linhas pela posição visual, pois o Monaco pode reciclar os elementos do DOM. A regressão `tests/monaco-view-state.browser.test.ts` reproduz essa montagem oculta com layout automático, fontes e Monaco reais em três larguras; pode ser executada separadamente ao definir `WEBRAD_BROWSER_PATH` para um executável Chromium/Chrome.
+
+As variantes responsivas da API Client mantêm a largura solicitada e aguardam o renderer acompanhar a altura real permitida pela janela nativa. Assim, uma tela menor no runner macOS continua verificando colunas, empilhamento, conteúdo, rodapé e ausência de overflow, sem exigir uma altura que o sistema operacional limita. Falhas de redimensionamento registram as dimensões solicitadas, nativas e do renderer.
 
 Nos smokes Linux, cada execução do Xvfb recebe um arquivo de autenticação privado criado por `mktemp` em `RUNNER_TEMP`, removido ao encerrar o passo. Isso evita a limpeza do diretório temporário interno do `xvfb-run` que falhou no runner, preservando a autorização X11, o sandbox do Electron e o código de saída do teste. Erros do servidor virtual são enviados ao log do passo.
 

@@ -9,7 +9,7 @@ const repository =
   process.env.WEBRAD_RELEASE_REPOSITORY || process.env.GITHUB_REPOSITORY || 'Atentor/WebRad';
 const root = process.cwd();
 const command = process.argv[2];
-const tag = process.env.GITHUB_REF_NAME;
+const tag = process.env.WEBRAD_RELEASE_TAG || process.env.GITHUB_REF_NAME;
 
 function versionFromTag() {
   if (!tag?.startsWith('v') || !versionPattern.test(tag.slice(1))) {
@@ -241,6 +241,8 @@ async function assemble() {
 }
 
 async function publish() {
+  if (process.env.WEBRAD_RELEASE_VERIFY_ONLY && process.env.WEBRAD_RELEASE_VERIFY_ONLY !== 'false')
+    throw new Error('Verification runs cannot publish a release.');
   await preflight();
   const directory = path.join(root, 'release-downloads');
   const notesPath = path.join(root, 'release-notes.md');

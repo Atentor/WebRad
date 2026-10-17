@@ -1,10 +1,11 @@
 import type { editor } from 'monaco-editor/editor';
 
-/** Measure the initial lines before a saved viewport can hide their horizontal overflow. */
+/** Measure the visible container and initial lines before restoring an offscreen viewport. */
 export function restoreMonacoViewState(
-  target: Pick<editor.IStandaloneCodeEditor, 'render' | 'restoreViewState'>,
+  target: Pick<editor.IStandaloneCodeEditor, 'layout' | 'render' | 'restoreViewState'>,
   state: editor.ICodeEditorViewState,
 ): void {
+  target.layout();
   target.render(true);
   target.restoreViewState(state);
 }
