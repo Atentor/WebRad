@@ -22,7 +22,7 @@ it.runIf(browser !== undefined)(
             const host = document.getElementById('root');
             // Initialize standalone services before TypeScript's dynamic tsMode import.
             const initial = monaco.editor.create(host, { value: '', language: 'plaintext' });
-          
+
             const source = 'export const message: string = "Hello";';
             const languageReady = new Promise((resolve) =>
               monaco.languages.onLanguage('typescript', resolve),
