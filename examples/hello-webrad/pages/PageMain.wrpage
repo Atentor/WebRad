@@ -1,0 +1,238 @@
+{
+  "formatVersion": 2,
+  "id": "hello-webrad-form-main-v1",
+  "name": "PageMain",
+  "caption": "Olá WebRAD",
+  "width": 640,
+  "height": 320,
+  "rootComponentId": "hello-webrad-component-form-main-v1",
+  "components": [
+    {
+      "id": "hello-webrad-component-form-main-v1",
+      "type": "WebPage",
+      "name": "PageMain",
+      "parentId": null,
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "fixed",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 640,
+        "height": 320,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Olá WebRAD",
+        "backgroundColor": "#ffffff",
+        "enabled": true,
+        "visible": true
+      },
+      "events": {
+        "OnCreate": null,
+        "OnHide": null,
+        "OnResize": null,
+        "OnShow": null
+      },
+      "children": [
+        "hello-webrad-component-label-name-v1",
+        "hello-webrad-component-edit-name-v1",
+        "hello-webrad-component-button-show-v1"
+      ]
+    },
+    {
+      "id": "hello-webrad-component-label-name-v1",
+      "type": "WebLabel",
+      "name": "LBLNome",
+      "parentId": "hello-webrad-component-form-main-v1",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "fixed",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 64,
+        "height": 24,
+        "x": 24,
+        "y": 32
+      },
+      "props": {
+        "caption": "Nome",
+        "autoSize": true,
+        "color": "#000000",
+        "enabled": true,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "children": []
+    },
+    {
+      "id": "hello-webrad-component-edit-name-v1",
+      "type": "WebEdit",
+      "name": "EDTNome",
+      "parentId": "hello-webrad-component-form-main-v1",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "fixed",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 32,
+        "x": 104,
+        "y": 28
+      },
+      "props": {
+        "enabled": true,
+        "placeholder": "Digite seu nome",
+        "readOnly": false,
+        "tabIndex": 0,
+        "value": "",
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "children": []
+    },
+    {
+      "id": "hello-webrad-component-button-show-v1",
+      "type": "WebButton",
+      "name": "BTNMostrar",
+      "parentId": "hello-webrad-component-form-main-v1",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "fixed",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 100,
+        "height": 32,
+        "x": 104,
+        "y": 80
+      },
+      "props": {
+        "caption": "Mostrar",
+        "enabled": true,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnClick": "BTNMostrarClick",
+        "OnFocus": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "hello-webrad-style-button-primary-v1",
+      "children": []
+    }
+  ]
+}

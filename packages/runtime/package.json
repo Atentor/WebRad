@@ -1,0 +1,47 @@
+{
+  "name": "@webrad/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./report-template": {
+      "types": "./src/report-template.ts",
+      "default": "./src/report-template.ts"
+    },
+    "./panel-progress": {
+      "types": "./src/panel-progress.ts",
+      "default": "./src/panel-progress.ts"
+    },
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./visual": {
+      "types": "./src/visual.ts",
+      "default": "./src/visual.ts"
+    },
+    "./icons": {
+      "types": "./src/icons.ts",
+      "default": "./src/icons.ts"
+    },
+    "./image-display": {
+      "types": "./src/image-display.ts",
+      "default": "./src/image-display.ts"
+    },
+    "./progress-bar": {
+      "types": "./src/progress-bar.ts",
+      "default": "./src/progress-bar.ts"
+    }
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@webrad/restgo-sdk": "0.1.0",
+    "pdf-lib": "1.17.1",
+    "shaka-player": "5.2.13"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "license": "MIT"
+}

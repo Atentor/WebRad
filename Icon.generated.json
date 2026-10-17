@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "source": "Icon.svg",
+  "sourceSha256": "0e112b15f5275b43d80cbaf9f005b438bf44e59ecba4c664f171bcd06b7393e3",
+  "outputs": {
+    "Icon.png": {
+      "bytes": 15107,
+      "sha256": "c155288673a163c90a0995d472f3ea3f33121c5b7fa1c2f041120c21ef304051"
+    },
+    "Icon.ico": {
+      "bytes": 20004,
+      "sha256": "ae65c8ce049669cbdf8d2551e74f20c64971e794773375098316289d9274face"
+    },
+    "Icon.icns": {
+      "bytes": 60646,
+      "sha256": "45625be668287cf23acb2d3d08c58e147a4233e5b28fbc744a0988e44167a4d1"
+    }
+  }
+}

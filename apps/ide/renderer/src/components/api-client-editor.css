@@ -1,0 +1,504 @@
+.wr-modal.wr-api-client-dialog {
+  width: min(1100px, calc(100vw - 48px));
+  height: min(720px, calc(100vh - 48px));
+}
+
+.wr-modal.wr-api-client-dialog > .wr-modal-header,
+.wr-modal.wr-restgo-api-picker > .wr-modal-header {
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 10px 16px;
+}
+
+.wr-api-client-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wr-api-component-name {
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-api-client-dialog > .wr-api-client-content {
+  padding: 0;
+  gap: 0;
+}
+
+.wr-api-client-dialog .wr-api-client-layout {
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 0;
+}
+
+.wr-api-client-dialog .wr-api-operations {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  padding: 10px 8px 0;
+  border-right: 1px solid var(--wr-border);
+  background: var(--wr-bg);
+}
+
+.wr-api-client-dialog .wr-api-section-heading {
+  padding: 5px 0;
+  border: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.wr-api-client-dialog .wr-api-section-heading > span > small {
+  padding-left: 6px;
+}
+
+.wr-api-client-dialog .wr-api-import-button,
+.wr-api-client-dialog .wr-api-empty-actions button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 4px;
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.wr-api-client-dialog .wr-api-import-button {
+  width: 100%;
+  margin: 4px 0 8px;
+}
+
+.wr-api-client-dialog .wr-api-operation-list {
+  padding: 0;
+  gap: 3px;
+}
+
+.wr-api-client-dialog .wr-api-operation-list button {
+  grid-template-columns: 42px minmax(0, 1fr);
+  padding: 8px;
+  gap: 8px;
+}
+
+.wr-api-operation-label {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.wr-api-operation-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--wr-muted-text);
+  font-family: var(--wr-font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-api-client-dialog .wr-api-operation-method {
+  padding: 3px 2px;
+  border-radius: 3px;
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
+  font-size: 9px;
+  text-align: center;
+}
+
+.wr-api-client-dialog .wr-api-operation-method.method-get {
+  background: color-mix(in srgb, var(--wr-success) 12%, transparent);
+  color: var(--wr-success);
+}
+
+.wr-api-client-dialog .wr-api-operation-method:is(.method-put, .method-patch) {
+  background: color-mix(in srgb, var(--wr-warning) 12%, transparent);
+  color: var(--wr-warning);
+}
+
+.wr-api-client-dialog .wr-api-operation-method.method-delete {
+  background: color-mix(in srgb, var(--wr-danger) 12%, transparent);
+  color: var(--wr-danger);
+}
+
+.wr-api-client-dialog .wr-api-remove-operation {
+  min-height: 34px;
+  margin-top: 8px;
+}
+
+.wr-api-client-dialog .wr-api-request-editor {
+  gap: 16px;
+  padding: 16px;
+}
+
+.wr-api-client-dialog .wr-api-request-top {
+  display: grid;
+  gap: 12px;
+}
+
+.wr-api-client-dialog .wr-api-operation-heading {
+  grid-template-columns: minmax(0, 1fr) 108px;
+}
+
+.wr-api-client-dialog .wr-api-request-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.wr-api-client-dialog .wr-api-endpoint-fields {
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.wr-api-client-dialog .wr-api-test-actions {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.wr-api-client-dialog .wr-api-test-actions button {
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+.wr-api-client-dialog .wr-api-test-actions button.primary {
+  min-width: 74px;
+}
+
+.wr-api-client-dialog .wr-api-connection-fields {
+  grid-template-columns: minmax(160px, 0.9fr) minmax(0, 1.5fr);
+}
+
+.wr-api-client-dialog .wr-api-custom-method {
+  max-width: 160px;
+}
+
+.wr-api-client-dialog .wr-api-operation-form {
+  gap: 12px;
+  padding-top: 0;
+  border: 0;
+}
+
+.wr-api-client-dialog .wr-api-request-tab-panel {
+  min-height: 100px;
+  gap: 14px;
+}
+
+.wr-api-client-dialog .wr-api-empty {
+  margin: 8px 0;
+}
+
+.wr-api-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wr-api-request-error {
+  margin: 0;
+  color: var(--wr-warning);
+  font-size: 11px;
+}
+
+.wr-api-upload-count {
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+
+.wr-api-body-parameters {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.wr-api-body-parameter-heading,
+.wr-api-body-parameter-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) 130px minmax(0, 1.8fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.wr-api-body-parameter-heading {
+  padding-bottom: 2px;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+
+.wr-api-body-parameter-row code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wr-text);
+  font-size: 11px;
+}
+
+.wr-api-body-parameter-row :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.wr-api-client-dialog .wr-api-test-result,
+.wr-api-client-dialog .wr-api-schema-editor {
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--wr-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.wr-api-client-dialog .wr-api-test-result h3 {
+  margin: 0 0 4px;
+  color: var(--wr-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.wr-api-client-dialog .wr-api-client-actions {
+  padding: 9px 16px;
+}
+
+.wr-modal.wr-restgo-api-picker {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, calc(100vw - 48px));
+  max-width: 680px;
+  max-height: min(620px, calc(100vh - 48px));
+}
+
+.wr-restgo-api-picker > .wr-api-client-content {
+  flex: 0 1 auto;
+  min-height: 0;
+  gap: 12px;
+  overflow: auto;
+  padding: 14px 16px;
+}
+
+.wr-restgo-api-picker .wr-restgo-api-picker-tools {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.wr-restgo-api-picker-connect {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.wr-restgo-api-picker-credential {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.wr-restgo-api-picker-credential > label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.wr-restgo-api-picker-credential input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  font: inherit;
+}
+
+.wr-restgo-api-picker-credential button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--wr-accent);
+  border-radius: 4px;
+  background: var(--wr-selection);
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.wr-restgo-api-picker-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.wr-restgo-api-picker-remember input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--wr-accent);
+}
+
+.wr-restgo-api-picker .wr-restgo-api-picker-list {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.wr-restgo-api-picker .wr-restgo-api-picker-row {
+  min-width: 0;
+  gap: 10px;
+  padding: 11px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--wr-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.wr-restgo-api-picker .wr-restgo-api-picker-row:has(input:checked) {
+  background: var(--wr-accent-soft);
+}
+
+.wr-restgo-api-picker .wr-restgo-api-picker-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.wr-restgo-api-picker .wr-restgo-method-badge {
+  flex: 0 0 44px;
+  align-self: center;
+}
+
+.wr-restgo-api-picker-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+}
+
+.wr-restgo-api-picker .wr-restgo-api-picker-route {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-restgo-api-picker .wr-restgo-api-picker-auth {
+  flex: 0 0 auto;
+  max-width: 150px;
+  text-align: right;
+}
+
+.wr-restgo-api-picker .wr-restgo-api-picker-unavailable {
+  color: var(--wr-warning);
+}
+
+.wr-restgo-api-picker > .wr-modal-actions {
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 10px 16px;
+  margin: 0;
+  border-top: 1px solid var(--wr-border);
+}
+
+.wr-restgo-api-picker-count {
+  margin-right: auto;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+
+.wr-restgo-api-picker .wr-restgo-api-conversion {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 10px;
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .wr-modal.wr-api-client-dialog {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 24px);
+  }
+
+  .wr-api-client-dialog > .wr-api-client-content {
+    display: block;
+    overflow: auto;
+  }
+
+  .wr-api-client-dialog .wr-api-client-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow: visible;
+  }
+
+  .wr-api-client-dialog .wr-api-operations {
+    grid-template-rows: auto auto auto auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--wr-border);
+  }
+
+  .wr-api-client-dialog .wr-api-operation-list {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    max-height: 132px;
+  }
+
+  .wr-api-client-dialog .wr-api-request-editor {
+    overflow: visible;
+  }
+
+  .wr-api-client-dialog .wr-api-connection-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .wr-api-body-parameter-heading,
+  .wr-api-body-parameter-row {
+    grid-template-columns: minmax(72px, 0.8fr) 104px minmax(0, 1.4fr);
+    gap: 6px;
+  }
+
+  .wr-api-client-dialog .wr-api-request-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wr-api-client-dialog .wr-api-test-actions {
+    justify-content: flex-end;
+  }
+
+  .wr-restgo-api-picker .wr-restgo-api-picker-row {
+    flex-wrap: wrap;
+  }
+
+  .wr-restgo-api-picker .wr-restgo-api-picker-auth {
+    max-width: none;
+    margin-left: 82px;
+    text-align: left;
+  }
+
+  .wr-restgo-api-picker > .wr-modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .wr-restgo-api-picker-count {
+    flex-basis: 100%;
+  }
+
+  .wr-restgo-api-picker-credential {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wr-restgo-api-picker-credential button {
+    justify-self: end;
+  }
+}

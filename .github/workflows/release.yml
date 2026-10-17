@@ -1,0 +1,212 @@
+name: release
+
+on:
+  push:
+    branches:
+      - 'codex/verify-release-*'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: webrad-release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  WEBRAD_RELEASE_REPOSITORY: ${{ github.repository }}
+  WEBRAD_RELEASE_TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.0.0' }}
+  WEBRAD_RELEASE_VERIFY_ONLY: ${{ github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.candidate.outputs.tag }}
+      verify_only: ${{ steps.candidate.outputs.verify_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Select release or verification candidate
+        id: candidate
+        run: |
+          node --input-type=module -e 'import fs from "node:fs/promises"; await fs.appendFile(process.env.GITHUB_OUTPUT, `tag=${process.env.WEBRAD_RELEASE_TAG}\nverify_only=${process.env.WEBRAD_RELEASE_VERIFY_ONLY}\n`);'
+      - name: Validate tag and public release destination
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-tools.mjs preflight
+
+  build:
+    needs: preflight
+    env:
+      WEBRAD_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+      WEBRAD_RELEASE_VERIFY_ONLY: ${{ needs.preflight.outputs.verify_only }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win32
+            arch: x64
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Set build version from release candidate
+        run: node scripts/release-tools.mjs prepare
+      - run: npm ci
+      - name: Test native macOS viewport constraints
+        if: runner.os == 'macOS'
+        run: npm run smoke:viewport
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fakeroot rpm
+      - name: Import optional macOS signing certificate
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/macos-signing.mjs
+      - run: npm run icons:check
+      - run: npm run runtime:sources:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:portable -- --maxWorkers=2 --minWorkers=1
+      - name: Package application
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run build
+      - name: Configure Linux Electron sandbox
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          node -e 'require("electron")'
+          development_sandbox="$(node -p 'require("node:path").join(require("node:path").dirname(require("electron")), "chrome-sandbox")')"
+          package_directory="out/$(node -p '[require("./package.json").productName, process.platform, process.arch].join("-")')"
+          packaged_sandbox="$package_directory/chrome-sandbox"
+          test -f "$development_sandbox"
+          test -f "$packaged_sandbox"
+          sudo chown root:root "$development_sandbox" "$packaged_sandbox"
+          sudo chmod 4755 "$development_sandbox" "$packaged_sandbox"
+      - name: Test packaged application on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          xauth_file="$(mktemp "$RUNNER_TEMP/webrad-xauth.XXXXXX")"
+          trap 'rm -f -- "$xauth_file"' EXIT
+          xvfb-run --auto-servernum --auth-file="$xauth_file" --error-file=/dev/stderr npm run smoke:packaged
+      - name: Test packaged application on Windows and macOS
+        if: runner.os != 'Linux'
+        run: npm run smoke:packaged
+      - name: Test update UI and IPC on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          xauth_file="$(mktemp "$RUNNER_TEMP/webrad-xauth.XXXXXX")"
+          trap 'rm -f -- "$xauth_file"' EXIT
+          xvfb-run --auto-servernum --auth-file="$xauth_file" --error-file=/dev/stderr npm run smoke:packaged -- --webrad-smoke-updates
+      - name: Test update UI and IPC on Windows and macOS
+        if: runner.os != 'Linux'
+        run: npm run smoke:packaged -- --webrad-smoke-updates
+      - name: Generate distributables
+        run: npm run make -- --skip-package
+      - name: Stage installers and update metadata
+        run: node scripts/release-tools.mjs stage
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-${{ matrix.platform }}-${{ matrix.arch }}
+          path: out/release/*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove macOS signing material
+        if: always() && runner.os == 'macOS'
+        run: node scripts/macos-signing.mjs cleanup
+
+  assemble:
+    needs: [preflight, build]
+    runs-on: ubuntu-24.04
+    env:
+      WEBRAD_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+      WEBRAD_RELEASE_VERIFY_ONLY: ${{ needs.preflight.outputs.verify_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: release-*-*
+          path: release-downloads
+          merge-multiple: true
+      - name: Verify all platforms and assemble update feeds
+        run: node scripts/release-tools.mjs assemble
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-assembled
+          path: release-downloads/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && needs.preflight.outputs.verify_only == 'false'
+    needs: [preflight, assemble]
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: webrad-release-publish
+      queue: max
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      WEBRAD_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+      WEBRAD_RELEASE_VERIFY_ONLY: ${{ needs.preflight.outputs.verify_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release-assembled
+          path: release-downloads
+      - name: Publish complete release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-tools.mjs publish

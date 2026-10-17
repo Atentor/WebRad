@@ -1,0 +1,19 @@
+{
+  "name": "@webrad/designer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@webrad/project-model": "*",
+    "@webrad/runtime": "*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "license": "MIT"
+}

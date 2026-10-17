@@ -1,0 +1,10 @@
+.vite
+out
+dist
+coverage
+node_modules
+package-lock.json
+.tmp
+artifacts
+release-downloads
+

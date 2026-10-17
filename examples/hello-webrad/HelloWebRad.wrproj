@@ -1,0 +1,76 @@
+{
+  "formatVersion": 2,
+  "id": "hello-webrad-project-v1",
+  "name": "HelloWebRad",
+  "entryPage": "hello-webrad-form-main-v1",
+  "pages": [
+    {
+      "id": "hello-webrad-form-main-v1",
+      "name": "PageMain",
+      "pageFile": "pages/PageMain.wrpage",
+      "generatedFile": "pages/PageMain.generated.ts",
+      "codeFile": "pages/PageMain.ts"
+    }
+  ],
+  "styles": [
+    {
+      "id": "hello-webrad-style-button-primary-v1",
+      "name": "PrimaryButton",
+      "componentType": "WebButton",
+      "states": {
+        "base": {
+          "backgroundColor": "#0284c7",
+          "textColor": "#ffffff",
+          "borderColor": "transparent",
+          "borderRadius": "lg",
+          "boxShadow": "md",
+          "fontWeight": "medium",
+          "userSelect": "none",
+          "transitionProperty": "all",
+          "transitionDuration": 200,
+          "transitionTimingFunction": "easeOut"
+        },
+        "hover": {
+          "backgroundColor": "#0369a1",
+          "translateY": { "value": -2, "unit": "px" },
+          "boxShadow": "lg"
+        },
+        "focus": {
+          "outlineStyle": "none",
+          "ringWidth": { "value": 2, "unit": "px" },
+          "ringColor": "#38bdf8",
+          "ringOffsetWidth": { "value": 2, "unit": "px" }
+        },
+        "active": {
+          "translateY": { "value": 0, "unit": "px" },
+          "scale": 95
+        },
+        "disabled": {
+          "opacity": 50,
+          "cursor": "not-allowed"
+        }
+      }
+    }
+  ],
+  "settings": {
+    "build": {
+      "deployDirectory": "",
+      "environment": "production",
+      "minify": true,
+      "sourceMaps": false
+    },
+    "pwa": {
+      "enabled": false,
+      "shortName": "",
+      "display": "standalone",
+      "orientation": "any",
+      "themeColor": "#2563eb",
+      "backgroundColor": "#ffffff",
+      "offline": true
+    },
+    "gridSize": 8,
+    "snapToGrid": true,
+    "showGrid": true,
+    "outputDirectory": "dist"
+  }
+}

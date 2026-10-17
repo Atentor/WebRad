@@ -1,0 +1,442 @@
+// @vitest-environment jsdom
+
+import { render } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import {
+  createDefaultComponentLayout,
+  createDefaultDataGridConfiguration,
+} from '@webrad/project-model';
+import { ComponentView, hasComponentRenderer } from './component-view';
+import { WEBRAD_COMPONENT_CSS } from './styles';
+import { comboBoxProject } from '../../../tests/fixtures/combo-box';
+
+const button = {
+  id: 'button-id',
+  type: 'WebButton',
+  name: 'BTNMostrar',
+  parentId: 'page-id',
+  layout: createDefaultComponentLayout(),
+  bounds: { x: 10, y: 20, width: 100, height: 32 },
+  props: { caption: 'Mostrar', visible: true, enabled: true },
+  events: { OnClick: 'BTNMostrarClick' },
+  children: [],
+} as const;
+
+describe('ComponentView', () => {
+  it('keeps File Upload outside the visual component renderer catalog', () => {
+    expect(hasComponentRenderer('WebFileUpload')).toBe(false);
+  });
+
+  it('keeps API-bound ComboBoxes empty in the Designer while preserving saved static items', () => {
+    const component = comboBoxProject().pages[0]?.components.find(
+      (node) => node.type === 'WebComboBox',
+    );
+    if (component === undefined) throw new Error('Missing ComboBox.');
+    const view = render(<ComponentView node={component} designTime />);
+    expect(view.container.querySelector('select')?.options.length).toBe(0);
+    view.rerender(
+      <ComponentView
+        node={{ ...component, props: { ...component.props, comboBoxConfig: null } }}
+        designTime
+      />,
+    );
+    expect(view.container.querySelector('option')?.textContent).toBe('Static item');
+    view.unmount();
+  });
+  it('preserves side overrides when the shared margin changes or is removed', () => {
+    const node = { ...button, props: { ...button.props, margin: 12, marginTop: 3 } };
+    const view = render(<ComponentView node={node} />);
+    const element = view.container.querySelector('button');
+    expect(element?.style.margin).toBe('3px 12px 12px');
+    view.rerender(<ComponentView node={{ ...node, props: { ...node.props, margin: 20 } }} />);
+    expect(element?.style.margin).toBe('3px 20px 20px');
+    view.rerender(<ComponentView node={{ ...node, props: { ...button.props, marginTop: 3 } }} />);
+    expect(element?.style.marginTop).toBe('3px');
+    expect(element?.style.marginRight).toBe('');
+    view.unmount();
+  });
+
+  it('renders a registered component from real DOM elements', () => {
+    const markup = renderToStaticMarkup(<ComponentView node={button} />);
+
+    expect(markup).toContain('Mostrar');
+    expect(markup).toContain('<button');
+    expect(markup).toContain(
+      'class="wr-component wr-webbutton wr-button-content-text-icon wr-button-icon-left"',
+    );
+    expect(markup).toContain('data-webrad-button-icon=""');
+    expect(markup).toContain('data-webrad-text-content=""');
+  });
+
+  it('collapses invisible components by default and can retain their layout area', () => {
+    const invisible = {
+      ...button,
+      props: { ...button.props, visible: false },
+    };
+    const view = render(<ComponentView node={invisible} />);
+    const renderedButton = view.container.querySelector('button');
+    if (renderedButton === null) throw new Error('Expected rendered button.');
+
+    expect(renderedButton.hidden).toBe(true);
+    expect(renderedButton.getAttribute('aria-hidden')).toBe('true');
+
+    view.rerender(
+      <ComponentView
+        node={{
+          ...invisible,
+          props: { ...invisible.props, collapseWhenHidden: false },
+        }}
+      />,
+    );
+
+    expect(renderedButton.hidden).toBe(false);
+    expect(renderedButton.style.visibility).toBe('hidden');
+    expect(renderedButton.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('renders the Data Grid design-time table with configured headers and footer', () => {
+    const markup = renderToStaticMarkup(
+      <ComponentView
+        node={{
+          ...button,
+          id: 'data-grid-id',
+          type: 'WebDataGrid',
+          name: 'DataGrid1',
+          props: {
+            dataGridConfig: {
+              schemaVersion: 2,
+              apiClientId: null,
+              operationId: null,
+              listPath: '',
+              columnCount: 2,
+              showHeader: true,
+              stickyHeader: true,
+              showFooter: true,
+              stickyFooter: true,
+              rowHeightMode: 'dynamic',
+              fixedRowHeight: 40,
+              minRowHeight: 42,
+              maxRowHeight: 160,
+              cellPaddingHorizontal: 12,
+              cellPaddingVertical: 6,
+              wrapText: true,
+              stripedRows: true,
+              showHorizontalLines: true,
+              showVerticalLines: true,
+              emptyMessage: 'No records',
+              columns: [
+                {
+                  id: 'name',
+                  header: 'Name',
+                  fieldPath: '/name',
+                  cellKind: 'button',
+                  fixedCaption: 'View',
+                  buttonIcon: 'eye',
+                  footer: 'Total',
+                  widthMode: 'dynamic',
+                  width: 180,
+                  minWidth: 120,
+                  maxWidth: null,
+                  flex: 2,
+                  headerAlign: 'start',
+                  cellAlign: 'start',
+                },
+                {
+                  id: 'active',
+                  header: 'Active',
+                  fieldPath: '/active',
+                  cellKind: 'checkbox',
+                  fixedCaption: 'Enabled',
+                  buttonIcon: null,
+                  footer: '',
+                  widthMode: 'fixed',
+                  width: 88,
+                  minWidth: 88,
+                  maxWidth: 88,
+                  flex: 1,
+                  headerAlign: 'center',
+                  cellAlign: 'center',
+                },
+              ],
+            },
+            visible: true,
+            enabled: true,
+          },
+        }}
+      />,
+    );
+
+    expect(markup).toContain('wr-webdatagrid');
+    expect(markup).toContain('role="columnheader"');
+    expect(markup).toContain('data-webrad-data-grid-column="name"');
+    expect(markup).toContain('Total');
+    expect(markup).toContain('wr-data-grid-button-caption');
+    expect(markup).toContain('>View</span>');
+    expect(markup).toContain('aria-hidden="true" class="wr-data-grid-button-icon-slot"');
+    expect(markup).toContain('class="wr-data-grid-button-icon-slot"');
+    expect(markup).toContain('class="wr-button-icon wr-data-grid-button-icon"');
+    expect(markup).toContain('data-webrad-button-icon=""');
+    expect(markup).toContain('wr-data-grid-checkbox-control');
+    expect(markup).toContain('wr-data-grid-checkbox-caption');
+    expect(markup).toContain('>Enabled</span>');
+    expect(markup).toContain('data-webrad-row-height-mode="dynamic"');
+    expect(markup).toContain('--wr-data-grid-columns:120px 88px');
+    expect(markup).toContain('wr-data-grid-has-footer');
+  });
+
+  it('renders an icon-only Data Grid button when both caption and field are empty', () => {
+    const defaults = createDefaultDataGridConfiguration();
+    const iconOnlyColumn = {
+      ...defaults.columns[0]!,
+      header: 'Run action',
+      fieldPath: '',
+      cellKind: 'button' as const,
+      fixedCaption: '',
+      buttonIcon: 'play' as const,
+    };
+    const node = {
+      ...button,
+      id: 'icon-grid-id',
+      type: 'WebDataGrid',
+      name: 'IconGrid',
+      props: {
+        dataGridConfig: {
+          ...defaults,
+          columnCount: 1,
+          columns: [iconOnlyColumn],
+        },
+      },
+    };
+    const view = render(<ComponentView node={node} />);
+
+    const buttons = view.container.querySelectorAll<HTMLButtonElement>('.wr-data-grid-button');
+    expect(buttons).toHaveLength(3);
+    for (const cellButton of buttons) {
+      expect(cellButton.getAttribute('aria-label')).toBe('Run action');
+      expect(
+        cellButton.querySelector('.wr-data-grid-button-icon-slot')?.getAttribute('aria-hidden'),
+      ).toBe('true');
+      expect(cellButton.querySelector('.wr-button-icon.wr-data-grid-button-icon')).not.toBeNull();
+      expect(cellButton.querySelector('.wr-data-grid-button-caption')).toBeNull();
+      expect(cellButton.textContent).toBe('');
+    }
+
+    view.rerender(
+      <ComponentView
+        node={{
+          ...node,
+          props: {
+            dataGridConfig: {
+              ...defaults,
+              columnCount: 1,
+              columns: [{ ...iconOnlyColumn, buttonIcon: null }],
+            },
+          },
+        }}
+      />,
+    );
+    expect(view.container.querySelector('.wr-data-grid-button .wr-button-icon')).toBeNull();
+  });
+
+  it('projects the selected reusable style classes onto the component root', () => {
+    const markup = renderToStaticMarkup(
+      <ComponentView
+        node={{
+          ...button,
+          props: { ...button.props, backgroundColor: 'red', color: 'white' },
+        }}
+        styleClassName="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 animate-pulse"
+      />,
+    );
+
+    expect(markup).toContain(
+      'class="wr-component wr-webbutton wr-button-content-text-icon wr-button-icon-left bg-blue-600 hover:bg-blue-700 disabled:opacity-50 animate-pulse"',
+    );
+    expect(markup).not.toContain('background-color:red');
+    expect(markup).not.toContain('color:white');
+
+    const emptyStyleMarkup = renderToStaticMarkup(
+      <ComponentView
+        node={{ ...button, props: { ...button.props, backgroundColor: 'red' } }}
+        styleClassName=""
+      />,
+    );
+    expect(emptyStyleMarkup).not.toContain('background-color:red');
+  });
+
+  it('keeps the instance icon while style classes choose button content and placement', () => {
+    const view = render(
+      <ComponentView
+        node={{ ...button, props: { ...button.props, icon: 'save' } }}
+        styleClassName="[&_.wr-button-icon]:block [&_.wr-button-icon]:w-[24px]! [&_.wr-button-icon]:h-[24px]! [&_.wr-button-icon]:text-[#f59e0b] [&_.wr-button-text]:sr-only flex-col-reverse"
+      />,
+    );
+    const element = view.getByRole('button', { name: 'Mostrar' });
+
+    expect(element.querySelector('[data-webrad-button-icon] path')?.getAttribute('d')).toContain(
+      'M5 3h12',
+    );
+    expect(element.classList).toContain('[&_.wr-button-icon]:block');
+    expect(element.classList).toContain('[&_.wr-button-icon]:w-[24px]!');
+    expect(element.classList).toContain('[&_.wr-button-icon]:h-[24px]!');
+    expect(element.classList).toContain('[&_.wr-button-icon]:text-[#f59e0b]');
+    expect(element.classList).toContain('[&_.wr-button-text]:sr-only');
+    expect(element.classList).toContain('flex-col-reverse');
+    expect(element.querySelector('[data-webrad-text-content]')?.textContent).toBe('Mostrar');
+    view.unmount();
+  });
+
+  it('renders visual descendants inside container roots', () => {
+    const panel = {
+      ...button,
+      id: 'panel-id',
+      type: 'WebPanel',
+      name: 'Panel1',
+      props: { caption: 'Actions', visible: true, enabled: true },
+      children: [button.id],
+    };
+    const markup = renderToStaticMarkup(
+      <ComponentView node={panel} styleClassName="[&>button]:uppercase">
+        <ComponentView node={button} />
+      </ComponentView>,
+    );
+
+    expect(markup).toContain('<section');
+    expect(markup).toContain('[&amp;&gt;button]:uppercase');
+    expect(markup).toContain('<button');
+    expect(markup.indexOf('<button')).toBeGreaterThan(markup.indexOf('<section'));
+    expect(markup.indexOf('</button>')).toBeLessThan(markup.indexOf('</section>'));
+  });
+
+  it('renders Popup as an accessible, styleable static container surface', () => {
+    const popup = {
+      ...button,
+      id: 'popup-id',
+      type: 'WebPopup',
+      name: 'Popup1',
+      props: {
+        modal: true,
+        visible: true,
+        enabled: true,
+      },
+    };
+    const view = render(
+      <ComponentView node={popup} styleClassName="bg-white text-slate-900 shadow-xl" />,
+    );
+    const dialog = view.getByRole('dialog', { name: 'Popup1' });
+
+    expect(dialog.getAttribute('aria-modal')).toBeNull();
+    expect(dialog.classList.contains('wr-component')).toBe(true);
+    expect(dialog.classList.contains('wr-webpopup')).toBe(true);
+    expect(dialog.classList.contains('bg-white')).toBe(true);
+    expect(dialog.classList.contains('shadow-xl')).toBe(true);
+    expect(dialog.querySelector('[data-webrad-popup-children]')).not.toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-content]')).toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-caption]')).toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-message]')).toBeNull();
+    view.unmount();
+  });
+
+  it('renders Popup descendants in its dedicated floating-container body', () => {
+    const popup = {
+      ...button,
+      id: 'popup-container-id',
+      type: 'WebPopup',
+      name: 'Popup1',
+      children: [button.id],
+      props: {
+        modal: true,
+        visible: false,
+        collapseWhenHidden: true,
+        enabled: true,
+      },
+    };
+    const view = render(
+      <ComponentView node={popup} designTime forceVisible>
+        <ComponentView node={button} designTime />
+      </ComponentView>,
+    );
+
+    const dialog = view.getByRole('dialog', { name: 'Popup1' });
+    const children = dialog.querySelector<HTMLElement>('[data-webrad-popup-children]');
+    expect(dialog.hidden).toBe(false);
+    expect(children?.querySelector('[data-component-id="button-id"]')).not.toBeNull();
+    expect(dialog.querySelector('[data-webrad-popup-content]')).toBeNull();
+    view.unmount();
+  });
+
+  it('keeps enabled controls visually enabled at design time while removing them from tab order', () => {
+    const markup = renderToStaticMarkup(<ComponentView node={button} designTime />);
+
+    expect(markup).not.toContain('disabled=""');
+    expect(markup).toContain('aria-disabled="false"');
+    expect(markup).toContain('tabindex="-1"');
+  });
+
+  it('still projects an explicitly disabled model property', () => {
+    const markup = renderToStaticMarkup(
+      <ComponentView node={{ ...button, props: { ...button.props, enabled: false } }} designTime />,
+    );
+
+    expect(markup).toContain('disabled=""');
+    expect(markup).toContain('aria-disabled="true"');
+  });
+
+  it('projects list metadata with the same visible selection shape as the runtime', () => {
+    const list = {
+      ...button,
+      type: 'WebListBox',
+      name: 'ListBox1',
+      props: { items: ['One', 'Two'], selectedIndex: 1, multiple: false },
+    };
+    const markup = renderToStaticMarkup(<ComponentView node={list} designTime />);
+
+    expect(markup).toContain('size="4"');
+    expect(markup).toContain('<option value="Two" selected="">Two</option>');
+  });
+
+  it('synchronizes live control state when Inspector-backed props change', () => {
+    const edit = {
+      ...button,
+      type: 'WebEdit',
+      name: 'Edit1',
+      props: { value: 'first', visible: true, enabled: true },
+    };
+    const view = render(<ComponentView node={edit} designTime />);
+    expect((view.getByRole('textbox') as HTMLInputElement).value).toBe('first');
+    view.rerender(
+      <ComponentView node={{ ...edit, props: { ...edit.props, value: 'second' } }} designTime />,
+    );
+    expect((view.getByRole('textbox') as HTMLInputElement).value).toBe('second');
+
+    const checkBox = {
+      ...button,
+      type: 'WebCheckBox',
+      name: 'CheckBox1',
+      props: { caption: 'Enabled', checked: false, visible: true, enabled: true },
+    };
+    view.rerender(<ComponentView node={checkBox} designTime />);
+    expect((view.getByRole('checkbox') as HTMLInputElement).checked).toBe(false);
+    view.rerender(
+      <ComponentView
+        node={{ ...checkBox, props: { ...checkBox.props, checked: true } }}
+        designTime
+      />,
+    );
+    expect((view.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+    view.unmount();
+  });
+
+  it('reports renderer coverage', () => {
+    expect(hasComponentRenderer('WebButton')).toBe(true);
+    expect(hasComponentRenderer('WebPopup')).toBe(true);
+    expect(hasComponentRenderer('Missing')).toBe(false);
+  });
+
+  it('uses the browser runtime visual stylesheet contract', () => {
+    expect(WEBRAD_COMPONENT_CSS).toContain('.wr-component');
+    expect(WEBRAD_COMPONENT_CSS).toContain('.wr-webbutton:hover:not(:disabled)');
+    expect(WEBRAD_COMPONENT_CSS).not.toContain('.wr-runtime-component');
+  });
+});

@@ -1,0 +1,10 @@
+# Normalize repository text so Windows and Linux builds produce stable diffs.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
