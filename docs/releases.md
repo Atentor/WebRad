@@ -37,6 +37,8 @@ As variantes responsivas da API Client mantêm a largura solicitada e aguardam o
 
 `npm run smoke:viewport` verifica diretamente o redimensionamento em um Electron com sandbox, sem compilar o IDE. O workflow executa essa checagem nos dois Macs logo após `npm ci`, antes da suíte completa, para detectar restrições nativas cedo. O smoke completo continua verificando as larguras exatas de 1080 e 740 pixels.
 
+O smoke de desenvolvimento separa a inicialização fria do Forge/Vite da execução das verificações: até 120 segundos para carregar o renderer e, depois, 120 segundos para o fluxo funcional (180 no debugger). Os limites de cada interação e as evidências obrigatórias permanecem ativos; falhas informam a fase, o prazo e o último progresso. O setup granular do Monaco registra estaticamente o recurso público `dropOrPasteInto` antes do primeiro editor, preservando os serviços necessários quando o TypeScript é carregado sob demanda e o editor é recriado.
+
 Nos smokes Linux, cada execução do Xvfb recebe um arquivo de autenticação privado criado por `mktemp` em `RUNNER_TEMP`, removido ao encerrar o passo. Isso evita a limpeza do diretório temporário interno do `xvfb-run` que falhou no runner, preservando a autorização X11, o sandbox do Electron e o código de saída do teste. Erros do servidor virtual são enviados ao log do passo.
 
 A publicação exige os quatro builds completos e confere tamanho e SHA-256 dos pacotes recebidos dos jobs. Confirma que a tag já existe no repositório, cria uma Release em rascunho, envia todos os arquivos e só então a torna pública. Uma falha de upload deixa o rascunho para uma nova execução; uma Release já pública não é sobrescrita. Uma tag antiga não substitui a versão mais recente.

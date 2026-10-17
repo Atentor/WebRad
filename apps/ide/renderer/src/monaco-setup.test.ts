@@ -51,6 +51,7 @@ vi.mock('monaco-editor/features/codicon/register', () => ({}));
 vi.mock('monaco-editor/features/comment/register', () => ({}));
 vi.mock('monaco-editor/features/contextmenu/register', () => ({}));
 vi.mock('monaco-editor/features/documentSymbols/register', () => ({}));
+vi.mock('monaco-editor/features/dropOrPasteInto/register', () => ({}));
 vi.mock('monaco-editor/features/find/register', () => ({}));
 vi.mock('monaco-editor/features/folding/register', () => ({}));
 vi.mock('monaco-editor/features/format/register', () => ({}));

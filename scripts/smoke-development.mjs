@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { clearTimeout, setTimeout } from 'node:timers';
+import { waitForDevelopmentSmoke } from './smoke-process.mjs';
 
 const forgeCli = path.resolve(
   'node_modules',
@@ -61,24 +61,19 @@ try {
     { stdio: 'inherit' },
   );
 
-  const timeout = setTimeout(
-    () => {
-      child.kill();
-    },
-    debuggerSmoke ? 180_000 : 120_000,
-  );
-
-  const exitCode = await new Promise((resolve, reject) => {
-    child.once('error', reject);
-    child.once('exit', (code, signal) => {
-      resolve(code ?? (signal === null ? 1 : 2));
-    });
-  }).finally(() => clearTimeout(timeout));
+  const { exitCode, timedOut } = await waitForDevelopmentSmoke(child, {
+    logPath,
+    functionalTimeoutMilliseconds: debuggerSmoke ? 180_000 : 120_000,
+  });
+  const timeoutDetails =
+    timedOut === undefined
+      ? ''
+      : `; ${timedOut.phase} timeout after ${String(timedOut.milliseconds / 1000)}s; last progress: ${timedOut.lastProgress}`;
 
   const log = await fs.readFile(logPath, 'utf8').catch((error) => {
     if (error.code !== 'ENOENT') throw error;
     throw new Error(
-      `Development smoke failed before creating its log (exit ${String(exitCode)}; expected ${logPath}). Check the Electron startup output above. On Linux, chrome-sandbox must be owned by root and have mode 4755.`,
+      `Development smoke failed before creating its log (exit ${String(exitCode)}${timeoutDetails}; expected ${logPath}). Check the Electron startup output above. On Linux, chrome-sandbox must be owned by root and have mode 4755.`,
       { cause: error },
     );
   });
@@ -147,9 +142,9 @@ try {
       : standardEvidence;
   const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));
 
-  if (exitCode !== 0 || missingEvidence.length > 0) {
+  if (exitCode !== 0 || timedOut !== undefined || missingEvidence.length > 0) {
     throw new Error(
-      `Development smoke failed (exit ${String(exitCode)}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
+      `Development smoke failed (exit ${String(exitCode)}${timeoutDetails}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
     );
   }
 

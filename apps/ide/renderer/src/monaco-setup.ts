@@ -12,6 +12,8 @@ import 'monaco-editor/features/codicon/register';
 import 'monaco-editor/features/comment/register';
 import 'monaco-editor/features/contextmenu/register';
 import 'monaco-editor/features/documentSymbols/register';
+// Register its shared service before the lazy TypeScript worker can add editor contributions.
+import 'monaco-editor/features/dropOrPasteInto/register';
 import 'monaco-editor/features/find/register';
 import 'monaco-editor/features/folding/register';
 import 'monaco-editor/features/format/register';
