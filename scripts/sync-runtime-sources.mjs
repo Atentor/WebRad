@@ -322,6 +322,10 @@ const outputs = [
           path.join(repositoryRoot, 'node_modules', 'shaka-player', 'dist', 'shaka-player.ui.js'),
           'utf8',
         ),
+        declarations: await fs.readFile(
+          path.join(repositoryRoot, 'node_modules', 'shaka-player', 'dist', 'shaka-player.ui.d.ts'),
+          'utf8',
+        ),
         css: await fs.readFile(
           path.join(repositoryRoot, 'node_modules', 'shaka-player', 'dist', 'controls.css'),
           'utf8',

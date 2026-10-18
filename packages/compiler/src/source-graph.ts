@@ -1,4 +1,5 @@
 import pdfSources from './pdf-lib-sources.generated.json';
+import shakaSources from './shaka-sources.generated.json';
 import path from 'node:path';
 
 import type { ComponentRegistry } from '@webrad/component-registry';
@@ -287,6 +288,10 @@ export function createVirtualSourceGraph(
   const sources = new Map<string, string>();
   const diagnostics: CompileDiagnostic[] = [];
 
+  sources.set(
+    virtualAbsolutePath('__vendor/shaka/shaka-player.ui.d.ts'),
+    shakaSources.declarations,
+  );
   for (const [fileName, contents] of Object.entries(pdfSources.declarations))
     sources.set(virtualAbsolutePath('__vendor/pdf-lib/' + fileName), contents);
   for (const [fileName, contents] of Object.entries(pdfSources.standardFontDeclarations))

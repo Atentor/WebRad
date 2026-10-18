@@ -27,7 +27,7 @@ git tag -a v0.1.12 -m "WebRad 0.1.12"
 git push origin v0.1.12
 ```
 
-A tag define a versão compilada no GitHub Actions. Não execute `npm run release` para preparar o workflow: esse comando gera um instalador local e incrementa a versão local. A publicação por tags, os quatro destinos e o modo de verificação sem publicação estão documentados em [releases.md](releases.md).
+A tag define a versão compilada no GitHub Actions. O comando `npm run release` é um atalho para `npm run make`: gera um instalador local com a versão de desenvolvimento fixa, sem incrementar a versão nem publicar no GitHub. Não é necessário executá-lo para preparar o workflow. A publicação por tags, os quatro destinos e o modo de verificação sem publicação estão documentados em [releases.md](releases.md).
 
 ## Limites do reinício
 

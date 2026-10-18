@@ -48,6 +48,9 @@ export function typecheckSources(
     paths: {
       '@webrad/runtime': [RUNTIME_ENTRY_PATH],
       '@webrad/restgo-sdk': [RESTGO_ENTRY_PATH],
+      'shaka-player/dist/shaka-player.ui.js': [
+        path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/shaka/shaka-player.ui.d.ts'),
+      ],
       'pdf-lib': [path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/pdf-lib/index.d.ts')],
       '@pdf-lib/standard-fonts': [
         path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/pdf-standard-fonts/index.d.ts'),

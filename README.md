@@ -133,21 +133,21 @@ Para gerar o instalador destinado a outro computador Windows x64, execute no Pow
 npm.cmd run make
 ```
 
-Para gerar um novo instalador com uma nova versão do aplicativo, execute:
+Para gerar um instalador local com a versão de desenvolvimento atual, execute:
 
 ```powershell
 npm.cmd run release
 ```
 
-Cada execução incrementa a versão de correção no `package.json` e no `package-lock.json` (por exemplo, `0.1.0` → `0.1.1` → `0.1.2`) e executa o empacotamento completo com o código atual salvo no repositório. O comando não cria commits ou tags Git. Em Linux, utilize `npm run release`.
+O comando `release` é um atalho para `npm run make`: executa o empacotamento completo sem incrementar a versão, alterar `package.json` ou `package-lock.json`, criar commits ou tags Git, ou publicar no GitHub. A versão local pode permanecer fixa durante o desenvolvimento. Em Linux, utilize `npm run release`.
 
-O novo Setup fica em `out/make/squirrel.windows/x64/WebRad-<versão> Setup.exe`. Execute esse instalador para atualizar o aplicativo instalado; gerar o arquivo não atualiza a instalação automaticamente. `npm run make` continua gerando artefatos com a versão atual, sem incrementá-la. Se o empacotamento falhar depois do incremento, corrija o erro e execute `npm run make` para tentar novamente com a mesma versão.
+O Setup local fica em `out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`. Gerar o arquivo não atualiza a instalação automaticamente. Para publicações oficiais, a tag `vMAJOR.MINOR.PATCH` define a versão no GitHub Actions, que a aplica somente ao checkout temporário do build e publica o instalador com o nome versionado `WebRad-<versão>-win32-x64-Setup.exe`. Consulte [Releases e atualizações](docs/releases.md).
 
 No Windows, o instalador usa o ícone do WebRAD também no arquivo `app.ico` da pasta instalada e na lista de aplicativos do sistema. Esse ícone vem do `Icon.ico` incluído no pacote, sem download durante a instalação. Ao abrir a versão atualizada, instalações antigas substituem o ícone padrão do Electron pelo ícone do WebRAD.
 
 O uso de `npm.cmd` evita o erro de segurança que informa que `npm.ps1` não pode ser carregado porque a execução de scripts está desabilitada. Não é necessário alterar a política de execução do Windows.
 
-O arquivo recomendado para entregar ao usuário é `out/make/squirrel.windows/x64/WebRad-<versão> Setup.exe`. Esse é o instalador. O arquivo `.nupkg` presente na mesma pasta não deve ser aberto diretamente pelo usuário final.
+Para compartilhar o build local de desenvolvimento, utilize `out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`. Esse é o instalador. Para versões oficiais, utilize os instaladores publicados no GitHub Releases. O arquivo `.nupkg` presente na pasta local não deve ser aberto diretamente pelo usuário final.
 
 Para distribuir uma versão portátil, sem instalação, compacte e transfira o diretório completo `out/WebRad-win32-x64`. No outro computador, execute `WebRad.exe` dentro dessa pasta. Não transfira apenas o arquivo `WebRad.exe`, pois ele depende dos demais arquivos e diretórios de recursos que ficam ao lado dele.
 

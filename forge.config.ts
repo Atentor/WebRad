@@ -106,6 +106,7 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       authors: 'WebRAD',
+      setupExe: 'WebRAD-Dev Setup.exe',
       setupIcon: iconIcoPath,
       nuspecTemplate: path.resolve('scripts', 'windows-installer.nuspectemplate'),
     }),

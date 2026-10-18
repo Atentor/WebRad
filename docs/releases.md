@@ -2,6 +2,8 @@
 
 O workflow `.github/workflows/release.yml` responde ao envio de tags estáveis `vMAJOR.MINOR.PATCH` ao repositório público **Atentor/WebRad**. Ele gera Windows x64 (Setup/Squirrel), Linux x64 (`.deb` e `.rpm`), macOS Intel x64 e macOS Apple Silicon arm64 (ZIP contendo `WebRad.app`) e publica os arquivos em [Releases do próprio WebRad](https://github.com/Atentor/WebRad/releases). Não há build para iOS.
 
+A versão local em `package.json` e `package-lock.json` pode permanecer fixa durante o desenvolvimento. `npm run release` é somente um atalho para `npm run make`: gera os instaladores locais com essa versão, sem incrementá-la nem publicar. No Windows, o arquivo local tem o nome fixo `out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`. A versão oficial vem da tag e é aplicada pelo workflow somente no checkout temporário do CI; a etapa de staging publica o instalador como `WebRad-<versão>-win32-x64-Setup.exe`.
+
 ## Configuração inicial do GitHub
 
 1. Mantenha **Atentor/WebRad** público e o GitHub Actions habilitado. As tags, o código e os instaladores ficam no mesmo repositório; os arquivos fonte ZIP/TAR oferecidos pelo GitHub correspondem à própria tag do WebRad.
