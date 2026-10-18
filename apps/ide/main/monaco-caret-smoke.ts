@@ -12,6 +12,20 @@ interface MonacoCaretSmokeOptions {
   readonly screenshotPath?: string;
 }
 
+async function readCursorLine(window: BrowserWindow): Promise<unknown> {
+  return window.webContents.executeJavaScript(
+    `(() => {
+    const cursor = document.querySelector('.monaco-editor .cursors-layer > .cursor');
+    if (!(cursor instanceof HTMLElement)) return null;
+    const top = cursor.getBoundingClientRect().top;
+    const line = [...document.querySelectorAll('.monaco-editor .view-lines .view-line')]
+      .find((node) => Math.abs(node.getBoundingClientRect().top - top) < 1);
+    return line?.textContent?.replaceAll('\\u00a0', ' ') ?? null;
+  })()`,
+    true,
+  );
+}
+
 /** Compare the real caret with the rendered glyph edge after each character. */
 export async function runMonacoCaretSmoke(
   window: BrowserWindow,
@@ -23,17 +37,7 @@ export async function runMonacoCaretSmoke(
     'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
     true,
   );
-  const originalLine: unknown = await window.webContents.executeJavaScript(
-    `(() => {
-    const cursor = document.querySelector('.monaco-editor .cursors-layer > .cursor');
-    if (!(cursor instanceof HTMLElement)) return null;
-    const top = cursor.getBoundingClientRect().top;
-    const line = [...document.querySelectorAll('.monaco-editor .view-lines .view-line')]
-      .find((node) => Math.abs(node.getBoundingClientRect().top - top) < 1);
-    return line?.textContent?.replaceAll('\\u00a0', ' ') ?? null;
-  })()`,
-    true,
-  );
+  const originalLine = await readCursorLine(window);
   if (typeof originalLine !== 'string') {
     throw new Error(
       `Monaco caret smoke could not read the current source line: ${JSON.stringify(originalLine)}`,
@@ -44,6 +48,7 @@ export async function runMonacoCaretSmoke(
   let maxDelta = 0;
   for (const prefix of ['caretSmoke_', '// caretSmoke_']) {
     await window.webContents.insertText(prefix);
+    let insertedLength = prefix.length;
     let expectedSource = originalLine + prefix;
     for (const fragment of [
       ...'WiIlm0_!==',
@@ -51,6 +56,7 @@ export async function runMonacoCaretSmoke(
       'WiIlm0123456789_'.repeat(4),
     ]) {
       await window.webContents.insertText(fragment);
+      insertedLength += fragment.length;
       expectedSource += fragment;
       const evidence: unknown = await window.webContents.executeJavaScript(
         `new Promise((resolve) => {
@@ -118,15 +124,17 @@ export async function runMonacoCaretSmoke(
       await fs.writeFile(destination, (await window.webContents.capturePage()).toPNG());
       log(`renderer Monaco screenshot saved: ${destination}`);
     }
-    // Select to column 1 even when smart Home initially stops at indentation.
-    sendKey('Home', ['shift']);
-    sendKey('Home', ['shift']);
-    sendKey('Backspace');
-    if (originalLine.length > 0) await window.webContents.insertText(originalLine);
+    for (let index = 0; index < insertedLength; index += 1) sendKey('Backspace');
     await window.webContents.executeJavaScript(
-      'new Promise((resolve) => requestAnimationFrame(resolve))',
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
       true,
     );
+    const restoredLine = await readCursorLine(window);
+    if (restoredLine !== originalLine) {
+      throw new Error(
+        `Monaco caret smoke did not restore the original line: ${JSON.stringify({ originalLine, restoredLine })}`,
+      );
+    }
   }
   log(`renderer Monaco caret alignment passed: ${JSON.stringify({ samples, maxDelta })}`);
   await runMonacoWorkspaceSmoke(window, { log, sendKey });

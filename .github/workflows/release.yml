@@ -99,7 +99,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
-      - run: npm run test:portable -- --maxWorkers=2 --minWorkers=1
+      - run: npm run test:portable -- --maxWorkers=4 --minWorkers=1
       - name: Package application
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
