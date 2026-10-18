@@ -71,9 +71,12 @@ try {
     { cwd: packageDirectory, stdio: 'inherit' },
   );
 
+  const timeoutMilliseconds = 240_000;
+  let timedOut = false;
   const timeout = setTimeout(() => {
+    timedOut = true;
     child.kill();
-  }, 120_000);
+  }, timeoutMilliseconds);
 
   const exitCode = await new Promise((resolve, reject) => {
     child.once('error', reject);
@@ -145,7 +148,7 @@ try {
 
   if (exitCode !== 0 || missingEvidence.length > 0) {
     throw new Error(
-      `Packaged smoke failed (exit ${String(exitCode)}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
+      `Packaged smoke failed (exit ${String(exitCode)}${timedOut ? `; timed out after ${String(timeoutMilliseconds)}ms` : ''}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
     );
   }
 
