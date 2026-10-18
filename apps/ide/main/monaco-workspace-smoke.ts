@@ -219,4 +219,56 @@ export async function runMonacoWorkspaceSmoke(
   log(
     `renderer Monaco workspace state passed: ${JSON.stringify({ before, after, undo: true, redo: true, restoredSource: true })}`,
   );
+
+  for (const entry of ['Designer', 'Inspector']) {
+    sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
+    await settle(window);
+    await window.webContents.executeJavaScript(
+      'document.querySelector(\'button[aria-label="Design"]\')?.click()',
+      true,
+    );
+    await waitFor(window, "document.querySelector('.wr-design-hit') !== null", 'event Designer');
+    await window.webContents.executeJavaScript(
+      entry === 'Designer'
+        ? `document.querySelector('.wr-design-hit[title^="BTNMostrar:"]')
+            .dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`
+        : `document.querySelector('[role="treeitem"][aria-label="BTNMostrar"]')?.click();
+            document.querySelector('button[role="tab"][aria-label="Events"]')?.click()`,
+      true,
+    );
+    if (entry === 'Inspector') {
+      await waitFor(
+        window,
+        `[...document.querySelectorAll('.wr-inspector-event-row')].some(row =>
+          row.querySelector('label')?.textContent === 'OnClick' &&
+          row.querySelector('input')?.value === 'BTNMostrarClick')`,
+        'the bound Inspector event',
+      );
+      await window.webContents.executeJavaScript(
+        `[...document.querySelectorAll('.wr-inspector-event-row')]
+          .find(row => row.querySelector('label')?.textContent === 'OnClick')
+          .dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
+        true,
+      );
+    }
+    await waitFor(window, "document.querySelector('.monaco-editor') !== null", 'event editor');
+    await window.webContents.executeJavaScript('document.fonts.ready', true);
+    await settle(window);
+    await waitFor(
+      window,
+      `(() => {
+        const cursor = document.querySelector('.monaco-editor .cursors-layer > .cursor');
+        const line = [...document.querySelectorAll('.monaco-editor .view-lines .view-line')]
+          .find(node => cursor && Math.abs(node.getBoundingClientRect().top - cursor.getBoundingClientRect().top) < 1);
+        return line?.textContent?.includes('Message(') === true &&
+          document.querySelector('.wr-status-position')?.getAttribute('aria-label')?.endsWith('column 5') === true &&
+          document.querySelector('.wr-status-selection') === null &&
+          document.activeElement?.closest('.monaco-editor') !== null;
+      })()`,
+      `the ${entry} event body after font/layout restoration`,
+    );
+  }
+  log(
+    'renderer Monaco event navigation passed: Designer and Inspector, existing handler body, column 5',
+  );
 }

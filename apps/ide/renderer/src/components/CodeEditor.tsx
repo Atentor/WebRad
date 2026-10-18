@@ -319,6 +319,7 @@ export function CodeEditor({
   onSave,
 }: CodeEditorProps): ReactElement {
   const editorRef = useRef<monacoApi.editor.IStandaloneCodeEditor | null>(null);
+  const viewRestorationRef = useRef<monacoApi.IDisposable | null>(null);
   const hoverContextRef = useRef<DebugHoverContext | null>(null);
   const editorDisposablesRef = useRef<monacoApi.IDisposable[]>([]);
   const modelDisposablesRef = useRef(new Map<string, ModelSubscription>());
@@ -585,6 +586,8 @@ export function CodeEditor({
       )
         return false;
 
+      viewRestorationRef.current?.dispose();
+      viewRestorationRef.current = null;
       const range = model.validateRange(
         new monacoApi.Range(
           target.line,
@@ -607,6 +610,9 @@ export function CodeEditor({
       const resource = completionResourceRef.current;
       const model = monacoApi.editor.getModel(monacoApi.Uri.parse(resource));
       if (model === null || model.isDisposed()) return;
+      if (editor.getModel() === model && !restoreCurrent) return;
+      viewRestorationRef.current?.dispose();
+      viewRestorationRef.current = null;
       if (editor.getModel() !== model) {
         rememberViewState(editor);
         switchingModelRef.current = true;
@@ -615,11 +621,9 @@ export function CodeEditor({
         } finally {
           switchingModelRef.current = false;
         }
-      } else if (!restoreCurrent) {
-        return;
       }
       const state = modelViewStates.get(resource);
-      if (state !== undefined) restoreMonacoViewState(editor, state);
+      if (state !== undefined) viewRestorationRef.current = restoreMonacoViewState(editor, state);
       const navigated = applyNavigation(editor, navigateToRef.current);
       publishCursor(editor);
       if (!navigated) editor.focus();
@@ -702,8 +706,14 @@ export function CodeEditor({
           };
         },
       }),
-      editor.onDidChangeCursorSelection(() => publishCursor(editor)),
+      editor.onDidChangeCursorSelection(() => {
+        viewRestorationRef.current?.dispose();
+        viewRestorationRef.current = null;
+        publishCursor(editor);
+      }),
       editor.onDidChangeModel(() => {
+        viewRestorationRef.current?.dispose();
+        viewRestorationRef.current = null;
         synchronizeDebuggerDecorations();
         if (!switchingModelRef.current) applyNavigation(editor, navigateToRef.current);
         publishCursor(editor);
@@ -819,6 +829,8 @@ export function CodeEditor({
 
   useEffect(
     () => () => {
+      viewRestorationRef.current?.dispose();
+      viewRestorationRef.current = null;
       const editor = editorRef.current;
       if (editor !== null) rememberViewState(editor);
       completionSessionRef.current += 1;

@@ -140,6 +140,7 @@ try {
             'renderer Monaco component members passed:',
             'renderer Monaco caret alignment passed:',
             'renderer Monaco workspace state passed:',
+            'renderer Monaco event navigation passed:',
             'renderer F9 preview passed: Olá Ada',
             'renderer Designer/Preview button style parity passed',
             'renderer Preview isolation passed:',

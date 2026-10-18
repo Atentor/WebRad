@@ -1,4 +1,4 @@
-import type { editor } from 'monaco-editor/editor';
+import type { editor, IDisposable } from 'monaco-editor/editor';
 
 /** Measure the visible container and initial lines before restoring an offscreen viewport. */
 export function restoreMonacoViewState(
@@ -7,7 +7,8 @@ export function restoreMonacoViewState(
     'getDomNode' | 'layout' | 'render' | 'restoreViewState'
   >,
   state: editor.ICodeEditorViewState,
-): void {
+): IDisposable {
+  let disposed = false;
   const restore = (): void => {
     target.layout();
     target.render(true);
@@ -16,9 +17,16 @@ export function restoreMonacoViewState(
 
   restore();
   void document.fonts?.ready.then(() => {
+    if (disposed) return;
     requestAnimationFrame(() => {
-      if (target.getDomNode() === null) return;
+      if (disposed || target.getDomNode() === null) return;
       restore();
     });
   });
+  // A navigation, user edit, document switch or unmount supersedes the saved viewport.
+  return {
+    dispose: () => {
+      disposed = true;
+    },
+  };
 }

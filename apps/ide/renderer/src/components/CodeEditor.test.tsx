@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -340,6 +340,7 @@ const mocks = vi.hoisted(() => {
         },
       ),
       focus: vi.fn(),
+      getDomNode: vi.fn(() => document.createElement('div')),
       getAction: vi.fn((id: string) => (id === 'actions.find' ? { run: findRun } : null)),
       getModel: vi.fn(() => currentModel),
       getPosition: vi.fn(() => ({ lineNumber: 3, column: 5 })),
@@ -425,6 +426,7 @@ vi.mock('@monaco-editor/react', () => ({
 
 vi.mock('monaco-editor/editor', () => ({
   editor: {
+    remeasureFonts: vi.fn(),
     TrackedRangeStickiness: { NeverGrowsWhenTypingAtEdges: 1 },
     MouseTargetType: { GUTTER_GLYPH_MARGIN: 2 },
     ShowLightbulbIconMode: { On: 'on' },
@@ -945,6 +947,67 @@ describe('CodeEditor professional Monaco workspace', () => {
     expect(remounted.restoreViewState).toHaveBeenCalledOnce();
     expect(remounted.setSelection).not.toHaveBeenCalled();
   });
+
+  it.each(['mount', 'after mount', 'after frame queued'] as const)(
+    'keeps event navigation after delayed font restoration when requested %s',
+    async (timing) => {
+      const props = codeEditorProps();
+      const first = render(<CodeEditor {...props} />);
+      mocks.editorProps?.onMount?.(mocks.createEditor(CANONICAL_MAIN_RESOURCE));
+      first.unmount();
+
+      let resolveFonts!: () => void;
+      const ready = new Promise<void>((resolve) => {
+        resolveFonts = resolve;
+      });
+      const previousFonts = Object.getOwnPropertyDescriptor(document, 'fonts');
+      Object.defineProperty(document, 'fonts', {
+        configurable: true,
+        value: Object.assign(new EventTarget(), { ready }),
+      });
+      const frames: FrameRequestCallback[] = [];
+      const requestFrame = vi
+        .spyOn(window, 'requestAnimationFrame')
+        .mockImplementation((callback) => {
+          frames.push(callback);
+          return frames.length;
+        });
+      try {
+        const navigateTo = { resource: MAIN_RESOURCE, line: 5, column: 5, requestId: 10 };
+        const { rerender } = render(
+          <CodeEditor {...props} navigateTo={timing === 'mount' ? navigateTo : null} />,
+        );
+        const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+        mocks.editorProps?.onMount?.(editor);
+        if (timing === 'after frame queued') {
+          await act(async () => {
+            resolveFonts();
+            await ready;
+          });
+          expect(frames).toHaveLength(1);
+        }
+        if (timing !== 'mount') rerender(<CodeEditor {...props} navigateTo={navigateTo} />);
+        expect(editor.setSelection).toHaveBeenLastCalledWith(new mocks.MockRange(5, 5, 5, 5));
+        expect(editor.restoreViewState).toHaveBeenCalledOnce();
+
+        await act(async () => {
+          resolveFonts();
+          await ready;
+        });
+        act(() => {
+          for (const frame of frames) frame(0);
+        });
+        // A second restore here would overwrite the event body with the saved cursor/viewport.
+        expect(editor.restoreViewState).toHaveBeenCalledOnce();
+        expect(editor.revealRangeInCenter).toHaveBeenCalledOnce();
+      } finally {
+        cleanup();
+        requestFrame.mockRestore();
+        if (previousFonts === undefined) Reflect.deleteProperty(document, 'fonts');
+        else Object.defineProperty(document, 'fonts', previousFonts);
+      }
+    },
+  );
 
   it('clears saved editor state when closing the workspace and reconnects recreated models', () => {
     const props = codeEditorProps();
