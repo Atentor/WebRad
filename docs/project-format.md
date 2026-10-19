@@ -1,5 +1,11 @@
 # Project format
 
+Visual style `fontFamily` values include `sans`, `serif`, `mono`, `roboto`,
+`open-sans`, `jetbrains-mono`, `inter`, `lato`, `montserrat`, `poppins` and `nunito`.
+These stable IDs are validated in every style state. Font bytes are compiler
+resources, so this additive catalog requires no format-version change and does
+not rewrite saved styles. See [Project fonts](fonts.md).
+
 `settings.colorPalette` contains zero to ten `{ "id": "aurora-blue", "name": "Aurora Blue", "color": "#2563eb" }` entries. IDs are stable lowercase slugs (up to 64 characters), names contain 1–40 characters, and colors are six-digit hexadecimal values. New projects start with ten Aurora colors: blue, violet, sky, lavender, white, surface, mist, border, graphite, and ink. Palette IDs must be unique. The palette is saved in `.wrproj` and retained by project assembly and settings updates. The former string-array palette shape is rejected; there is no conversion layer.
 
 The Styles workspace **Color palette** panel edits the list with Save/Cancel and can restore Aurora. Every design-time color property, style color, gradient endpoint, and scrollbar color exposes these choices through a shared picker. Choosing a swatch stores `var(--wr-palette-<id>)`, preserving its identity even when its name, color, or list position changes. Native color inputs and displayed hex codes resolve this reference without overwriting it. Entering a custom color replaces the reference with a literal and removes the link. Matching Aurora colors in the seeded default styles are linked automatically.
@@ -163,6 +169,8 @@ The public browser-safe report parser validates both project templates and impor
 Generated `.generated.ts` files are replaced atomically. User-authored `.ts` files are changed only from explicit editor state, never by generation; an unowned file collision is rejected instead of overwritten. Page and reusable source paths are deterministic, canonical, and portable across case-insensitive filesystems.
 
 Saves are serialized per project root. Artifact writes have rollback snapshots, the manifest is the commit point after all referenced files exist, and retired or path-reused artifacts are copied to `.webrad/trash/<timestamp>-<id>/` before replacement. A small `.webrad/pending-cleanup.json` journal makes post-commit removal retryable after interruption.
+
+The Project Explorer trash button deletes the selected page, reusable component, Model, Unit or imported Asset after confirmation. Delete on a focused item uses the same confirmation. The last page cannot be deleted; reusable components already placed in documents retain the existing reference validation. Removing a Model or Unit also removes its authored source and breakpoints from the active project; imports and other authored references are not rewritten. Removal is persisted on Save, when the retired files are archived through the transaction above.
 
 # Debugger preferences
 

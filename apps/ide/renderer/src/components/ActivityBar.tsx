@@ -21,7 +21,6 @@ interface ActivityBarProps {
 const VIEWS: readonly { view: ViewMode; label: string; icon: IconName }[] = [
   { view: 'design', label: 'Design', icon: 'layout' },
   { view: 'code', label: 'Code', icon: 'code' },
-  { view: 'preview', label: 'Preview', icon: 'play' },
 ];
 
 export function ActivityBar(props: ActivityBarProps): ReactElement {

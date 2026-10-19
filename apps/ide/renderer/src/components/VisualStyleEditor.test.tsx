@@ -52,6 +52,29 @@ async function expandCategory(
 }
 
 describe('VisualStyleEditor', () => {
+  it('selects the eight bundled font families and keeps generic options available', async () => {
+    const user = userEvent.setup();
+    render(<VisualEditorHarness initialProperties={{ fontFamily: 'sans' }} />);
+    await expandCategory(user, 'Text');
+    const select = screen.getByLabelText('Font family', { selector: 'select' });
+    const fonts = [
+      ['roboto', 'Roboto'],
+      ['open-sans', 'Open Sans'],
+      ['jetbrains-mono', 'JetBrains Mono'],
+      ['inter', 'Inter'],
+      ['lato', 'Lato'],
+      ['montserrat', 'Montserrat'],
+      ['poppins', 'Poppins'],
+      ['nunito', 'Nunito'],
+    ] as const;
+    for (const [id, label] of fonts) {
+      expect(screen.getByRole('option', { name: label }).getAttribute('value')).toBe(id);
+      await user.selectOptions(select, id);
+      expect(currentProperties()).toEqual({ fontFamily: id });
+    }
+    await user.selectOptions(select, 'mono');
+    expect(currentProperties()).toEqual({ fontFamily: 'mono' });
+  });
   it('edits enum, length, color, gradient, and number values without exposing class or CSS inputs', async () => {
     const user = userEvent.setup();
     const { container } = render(<VisualEditorHarness />);

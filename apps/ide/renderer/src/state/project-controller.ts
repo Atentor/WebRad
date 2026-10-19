@@ -9,6 +9,7 @@ import {
   getPage,
   getReusableElement,
   parseProject,
+  portableFileNameKey,
   removeComponentStyle,
   removePage as removePageFromProject,
   removeReusableElement as removeReusableElementFromProject,
@@ -297,6 +298,20 @@ export class ProjectController {
     return style;
   }
 
+  public duplicateStyle(styleId: string): ComponentStyleModel {
+    const project = this.#requireProject();
+    const source = project.styles.find((style) => style.id === styleId);
+    if (source === undefined) throw new Error('Style does not exist: ' + styleId);
+    const base = source.name + ' Copy';
+    const occupied = new Set(project.styles.map((style) => portableFileNameKey(style.name)));
+    let name = base;
+    let sequence = 2;
+    while (occupied.has(portableFileNameKey(name))) name = base + ' ' + String(sequence++);
+    const style = createComponentStyle(name, source.componentType, { states: source.states });
+    this.replaceProject(addComponentStyle(project, style));
+    return style;
+  }
+
   public updateStyle(style: ComponentStyleModel): void {
     const project = this.#requireProject();
     this.replaceProject(updateComponentStyle(project, style.id, () => style));
@@ -375,6 +390,28 @@ export class ProjectController {
   public addAsset(asset: ProjectAsset): void {
     const current = this.#requireProject();
     this.replaceProject(parseProject({ ...current, assets: [...(current.assets ?? []), asset] }));
+  }
+
+  public removeSourceFile(id: string): void {
+    const project = this.#requireProject();
+    const file = project.sourceFiles?.find((candidate) => candidate.id === id);
+    if (!file) throw new Error(`Project source file not found: ${id}`);
+    const userSources = { ...this.#snapshot.userSources };
+    delete userSources[projectSourceFilePath(file)];
+    this.#commitEdit(
+      { ...project, sourceFiles: project.sourceFiles?.filter((candidate) => candidate.id !== id) },
+      userSources,
+    );
+  }
+
+  public removeAsset(id: string): void {
+    const project = this.#requireProject();
+    if (!project.assets?.some((asset) => asset.id === id))
+      throw new Error(`Project asset not found: ${id}`);
+    this.#commitEdit(
+      { ...project, assets: project.assets.filter((asset) => asset.id !== id) },
+      this.#snapshot.userSources,
+    );
   }
 
   public addPage(page: PageModel, setAsEntry = false): void {

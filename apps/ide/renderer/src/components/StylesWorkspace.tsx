@@ -93,6 +93,7 @@ interface StylesWorkspaceProps {
   readonly compiledCss?: string;
   readonly onCreateStyle: (name: string, componentType: string) => string | null;
   readonly onUpdateStyle: (style: ComponentStyleModel) => void;
+  readonly onDuplicateStyle?: (styleId: string) => string | null;
   readonly onDeleteStyle: (styleId: string) => void;
   readonly registry?: ComponentRegistry;
 }
@@ -188,6 +189,7 @@ export function StylesWorkspace({
   onCreateStyle,
   onUpdateStyle,
   onDeleteStyle,
+  onDuplicateStyle,
   registry = defaultComponentRegistry,
 }: StylesWorkspaceProps): ReactElement {
   const createNameId = useId();
@@ -443,6 +445,23 @@ export function StylesWorkspace({
                     {componentGlyph(selectedDefinition)}
                     {selectedDefinition?.displayName ?? selectedStyle.componentType}
                   </span>
+                  {onDuplicateStyle !== undefined && (
+                    <button
+                      type="button"
+                      className="wr-style-duplicate-button"
+                      title="Duplicate style"
+                      aria-label={`Duplicate ${selectedStyle.name}`}
+                      onClick={() => {
+                        const id = onDuplicateStyle(selectedStyle.id);
+                        if (id === null) return;
+                        setSelectedId(id);
+                        setCreating(false);
+                      }}
+                    >
+                      <Icon name="copy" />
+                      Duplicate
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="wr-style-delete-button"

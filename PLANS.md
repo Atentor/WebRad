@@ -456,3 +456,43 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Validation: root typecheck, lint, scoped formatting, production renderer build and 23 scoped tests passed, including real Chrome editor and compiled PDF Preview. Browser geometry covers A4/Letter, portrait/landscape, 50%/125% zoom, a custom bottom margin and footer-height editing; reviewed the footer screenshot.
 - Report header polish (2026-10-15): compact the title, place the template-name label beside its field and reduce header/toolbar padding with consistent 28px controls. Replace the close glyph with the shared close icon centered in a transparent 28px button, with the existing focus/hover behavior and an Escape tooltip.
 - Validation: root typecheck, lint, scoped formatting, ten editor tests (including real Chrome) and production renderer build passed. Reviewed light/dark screenshots at 1000/1280px; the compact header and toolbar leave more vertical space for the canvas.
+
+# Project Explorer deletion - 2026-10-18
+
+- Added a visible trash button next to the Explorer creation actions for the selected page, reusable component, Model, Unit or Asset. Confirmation identifies the item; cancel preserves the selection and content. The last page stays protected.
+- Models, Units and Assets now support deletion through the project controller, with source/tab/breakpoint cleanup and the existing transactional save/archive behavior. Authored references are preserved and mentioned in resource confirmations.
+- DONE: strict root typecheck, lint, scoped formatting, Windows production packaging and all 86 scoped tests passed. Native Windows Electron smoke verified resource creation, save/reopen, compiled F9 asset delivery, trash-button cancellation/acceptance, last-page protection and persisted resource deletion. Confirmation decisions are automated in the smoke. Reviewed the Explorer screenshot; no installer or release was generated.
+
+# Visual click cursor - 2026-10-18
+
+- All visual runtime wrappers now mark active click bindings with a shared hand-cursor rule, including internal visual content. Replacing/removing handlers and disposing wrappers updates the marker; multiple wrappers for one element retain the cursor until the last click binding is removed. Disabled controls keep their own cursor. Designer component views project the same marker from saved OnClick bindings.
+- DONE: strict root typecheck, lint, scoped formatting, generated runtime-source parity and Windows x64 production packaging passed. All 300 scoped runtime/compiler/component tests passed, plus a real Chromium regression covering Designer representations and compiled Preview across Panel, Label, Image, Button, CheckBox and Toggle, disabled states, passive labels and authored click execution.
+
+# Duplicate component styles - 2026-10-18
+
+- Added Duplicate beside the selected style's delete action. Copies retain the component type and all five visual states, receive a new ID and a collision-safe Copy name, and are selected immediately. Protected defaults produce ordinary removable copies; existing component assignments remain intact.
+- The project controller commits the complete copy in one edit through the existing project model/save flow. Controller and workspace tests cover independent nested properties, repeated duplication, save, deletion, missing sources, protected defaults, active-state preservation and failed duplication.
+- DONE: strict root typecheck, lint, scoped formatting, production renderer build and all 76 scoped controller/workspace/App integration tests passed. Native Electron visual validation was not run for this change.
+
+# Remove sidebar Preview button - 2026-10-18
+
+- Removed Preview from the Activity Bar navigation, leaving Design and Code as document-view buttons. Updated the existing App integration assertion to require its absence.
+- DONE: strict root typecheck, scoped lint/formatting, all 39 App integration tests and production renderer build passed. Native Electron visual validation was not run for this change.
+
+# Simplify current document toolbar - 2026-10-18
+
+- The toolbar shows only the active document tab. Removed selected-component details, zoom and arrange controls from this strip; other documents remain accessible through the Project Explorer.
+- Updated integration coverage for the single current-page tab and absent detail controls. Workspace navigation coverage returns from Styles through its close action.
+- DONE: strict root typecheck, scoped lint/formatting and production renderer build passed. The integration suite passed 38 cases initially; the updated navigation case and final toolbar assertions passed in focused reruns. Native Electron visual validation was not run.
+
+# TextArea style preview sample - 2026-10-18
+
+- Added multiline sample content through the component registry's style preview metadata so text formatting is visible in the Styles workspace.
+- Strict root typecheck, scoped lint/formatting and all 18 registry/workspace tests passed. Native Electron visual validation was not run.
+
+# Bundled project fonts - 2026-10-18
+
+- Added Roboto, Open Sans, JetBrains Mono, Inter, Lato, Montserrat, Poppins and Nunito to the validated Font family style catalog. Generic families and saved project styles remain compatible; font IDs persist in the existing version-2 style states.
+- Designer/Styles and generated Preview/export share Tailwind family tokens and embedded Latin/Latin Extended WOFF2, including normal/italic faces and upstream weights. Only referenced families are emitted; unassigned export styles remain pruned. Fontsource packages are pinned, runtime-source generation/checks maintain the embedded snapshot, and exported font licenses accompany selected families.
+- DONE: strict root typecheck, lint, repository formatting, runtime-source parity, Windows x64 production packaging and all 24 scoped model/compiler/editor tests passed. Real Chrome separately verified 72 samples across Designer representations, compiled Preview and HTTP static export with external font loading blocked; reviewed the comparison screenshot. Inspected the packaged compiler chunk for embedded font data and the desktop license inventory for all eight packages.
+- The broader regression run passed 1,467 tests with 31 optional skips; its only failure was the new font fixture using the CSS spelling `pre-line` instead of the model enum `preLine`. The corrected compiler file and browser regression both passed on rerun. No native Electron UI smoke was run for this change.

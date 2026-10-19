@@ -92,6 +92,7 @@ try {
           'renderer project Models and Units passed',
           'renderer project asset import passed',
           'renderer project resources restore and F9 passed',
+          'renderer project Explorer confirmed deletion and persistence passed',
         ]
       : [
           'compiler passed:',

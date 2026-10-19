@@ -9,6 +9,7 @@ import {
   WebApiError,
   WebApiTimeoutError,
   WebButton,
+  WebComponent,
   WebCheckBox,
   WebComboBox,
   WebDataGrid,
@@ -45,6 +46,30 @@ import {
   type RuntimePageModel,
 } from '../src/index.js';
 import { resolveDataGridColumnTrackWidths } from '../src/visual.js';
+
+it('tracks click bindings across wrappers, replacements and idempotent disposal', () => {
+  const element = document.createElement('div');
+  const first = new WebComponent(element);
+  const second = new WebComponent(element);
+  const old = first.bindEvent('OnClick', () => {});
+  const replacement = first.bindEvent('OnClick', () => {});
+  old();
+  expect(element.hasAttribute('data-webrad-clickable')).toBe(true);
+  const other = second.bindEvent('click', () => {});
+  replacement();
+  replacement();
+  expect(element.hasAttribute('data-webrad-clickable')).toBe(true);
+  other();
+  expect(element.hasAttribute('data-webrad-clickable')).toBe(false);
+  first.bindEvent('OnChange', () => {});
+  expect(element.hasAttribute('data-webrad-clickable')).toBe(false);
+  first.bindEvent('OnClick', () => {});
+  first.bindEvent('OnClick', null);
+  expect(element.hasAttribute('data-webrad-clickable')).toBe(false);
+  first.bindEvent('OnClick', () => {});
+  first.dispose();
+  expect(element.hasAttribute('data-webrad-clickable')).toBe(false);
+});
 
 function responsiveLayout(
   container: Partial<RuntimeComponentLayout['container']> = {},

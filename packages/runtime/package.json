@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./fonts": {
+      "types": "./src/fonts.ts",
+      "default": "./src/fonts.ts"
+    },
     "./report-template": {
       "types": "./src/report-template.ts",
       "default": "./src/report-template.ts"

@@ -549,6 +549,59 @@ describe('project files', () => {
 });
 
 describe('source files and assets', () => {
+  it('archives deleted resources on save and excludes them when reopening', async () => {
+    const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-resource-delete-'));
+    temporaryRoots.push(parent);
+    const session = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
+    const project = {
+      ...session.project,
+      sourceFiles: [
+        { id: 'model', name: 'Customer', kind: 'model' as const },
+        { id: 'unit', name: 'Helpers', kind: 'unit' as const },
+      ],
+      assets: [
+        {
+          id: 'binary',
+          fileName: 'sample.bin',
+          mediaType: 'application/octet-stream',
+          base64: 'AP8B',
+        },
+      ],
+    };
+    const sources = {
+      ...session.userSources,
+      'models/Customer.ts': 'export class Customer {}',
+      'units/Helpers.ts': 'export const value = 1;',
+    };
+    await saveProjectFiles({ rootPath: session.rootPath, project, userSources: sources });
+    const unrelated = path.join(session.rootPath, 'models', 'untracked.ts');
+    await fs.writeFile(unrelated, '// keep this file');
+    await saveProjectFiles({
+      rootPath: session.rootPath,
+      project: { ...project, sourceFiles: [], assets: [] },
+      userSources: session.userSources,
+    });
+    const loaded = await loadProjectFiles(session.projectFilePath);
+    expect(loaded.project.sourceFiles).toEqual([]);
+    expect(loaded.project.assets).toEqual([]);
+    expect(loaded.userSources).toEqual(session.userSources);
+    expect(await fs.readFile(unrelated, 'utf8')).toBe('// keep this file');
+    const trashRoot = path.join(session.rootPath, '.webrad', 'trash');
+    const archived = await fs.readdir(trashRoot, { recursive: true });
+    for (const [relativePath, content] of [
+      ['models/Customer.ts', Buffer.from(sources['models/Customer.ts'])],
+      ['units/Helpers.ts', Buffer.from(sources['units/Helpers.ts'])],
+      ['assets/imported/sample.bin', Buffer.from([0, 255, 1])],
+    ] as const) {
+      await expect(fs.stat(path.join(session.rootPath, relativePath))).rejects.toThrow();
+      const archivedPath = archived.find((entry) =>
+        String(entry).replaceAll('\\', '/').endsWith(relativePath),
+      );
+      expect(archivedPath).toBeDefined();
+      expect(await fs.readFile(path.join(trashRoot, String(archivedPath)))).toEqual(content);
+    }
+  });
+
   it('preserves authored modules, binary bytes and identities across save, reopen and Save As', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-resource-files-'));
     temporaryRoots.push(parent);

@@ -6,6 +6,8 @@ import { componentRegistry } from '@webrad/component-registry';
 import { StrictMode } from 'react';
 import {
   createProject,
+  createPage,
+  createReusableElement,
   addComponent,
   updatePage,
   createDefaultRepeatingGroupConfiguration,
@@ -342,6 +344,112 @@ afterEach(() => {
 });
 
 describe('App MVP integration', () => {
+  it.each(['page', 'reusable', 'model', 'unit', 'asset'] as const)(
+    'deletes a selected %s from the Explorer only after confirmation and persists the removal',
+    async (kind) => {
+      const session = initialSession();
+      const page = createPage('PageOther');
+      const reusable = createReusableElement('Card');
+      const sourceFiles = [
+        { id: 'delete-model', name: 'Customer', kind: 'model' as const },
+        { id: 'delete-unit', name: 'Helpers', kind: 'unit' as const },
+      ];
+      const asset = {
+        id: 'delete-asset',
+        fileName: 'logo.png',
+        mediaType: 'image/png',
+        base64: 'AP8B',
+      };
+      session.project = {
+        ...session.project,
+        pages: [...session.project.pages, page],
+        reusableElements: [reusable],
+        sourceFiles,
+        assets: [asset],
+      };
+      session.userSources = {
+        ...session.userSources,
+        'models/Customer.ts': 'export class Customer {}',
+        'units/Helpers.ts': 'export const value = 1;',
+      };
+      const name = {
+        page: 'PageOther',
+        reusable: 'Card',
+        model: 'Customer',
+        unit: 'Helpers',
+        asset: 'logo.png',
+      }[kind];
+      const path = {
+        page: 'pages/PageOther.ts',
+        reusable: 'reusables/Card.ts',
+        model: 'models/Customer.ts',
+        unit: 'units/Helpers.ts',
+        asset: '',
+      }[kind];
+      const harness = createBridgeHarness(session);
+      Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+      await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+      await user.click(screen.getByRole('treeitem', { name }));
+      const trash = screen.getByRole('button', { name: 'Delete selected project item' });
+      expect(trash.getAttribute('title')).toBe(`Delete ${name}`);
+      await user.click(trash);
+      expect(confirm).toHaveBeenCalledOnce();
+      expect(confirm.mock.calls[0]?.[0]).toContain(name);
+      expect(screen.getByRole('treeitem', { name, selected: true })).toBeDefined();
+      confirm.mockReturnValue(true);
+      // Resources support the same confirmation from the Delete key.
+      if (kind === 'unit')
+        fireEvent.keyDown(screen.getByRole('treeitem', { name }), { key: 'Delete' });
+      else await user.click(trash);
+      expect(confirm).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole('treeitem', { name })).toBeNull();
+      expect(screen.queryByRole('tab', { name: new RegExp(name) })).toBeNull();
+      expect(document.querySelector('.wr-page-surface')).not.toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+      await waitFor(() => expect(harness.save).toHaveBeenCalledOnce());
+      const saved = harness.persisted();
+      const names = [
+        ...saved.project.pages.map((item) => item.name),
+        ...saved.project.reusableElements.map((item) => item.name),
+        ...(saved.project.sourceFiles ?? []).map((item) => item.name),
+        ...(saved.project.assets ?? []).map((item) => item.fileName),
+      ];
+      expect(names).not.toContain(name);
+      if (path) expect(saved.userSources[path]).toBeUndefined();
+      await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+      await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+      expect(screen.queryByRole('treeitem', { name })).toBeNull();
+      expect(
+        (screen.getByRole('button', { name: 'Delete selected project item' }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(kind === 'page');
+    },
+  );
+
+  it('disables the Explorer trash without a project and for the last page', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const confirm = vi.spyOn(window, 'confirm');
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+    expect(
+      (screen.getByRole('button', { name: 'Delete selected project item' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
+    const trash = screen.getByRole('button', { name: 'Delete selected project item' });
+    expect((trash as HTMLButtonElement).disabled).toBe(true);
+    expect(trash.getAttribute('title')).toContain('at least one page');
+    await user.click(trash);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
   it('configures Deploy first and reports correlated file progress without running on settings save', async () => {
     const harness = createBridgeHarness(initialSession());
     let listener: ((progress: DeployProgress) => void) | undefined;
@@ -719,7 +827,7 @@ describe('App MVP integration', () => {
       expect(textCommand).toHaveBeenCalledWith('undo');
       expect(screen.getByRole('region', { name: 'Styles editor' })).toBeDefined();
       expect(screen.queryByTestId('mock-monaco')).toBeNull();
-      await user.click(screen.getByRole('button', { name: 'PageMain' }));
+      await user.click(screen.getByRole('button', { name: 'Close Styles' }));
       await user.click(screen.getByRole('tab', { name: 'Code' }));
       await screen.findByTestId('mock-monaco');
       await act(async () => harness.invokeCommand('edit.undo'));
@@ -1927,7 +2035,7 @@ describe('App MVP integration', () => {
       within(openDocuments).getByRole('tab', { name: /CustomerCard/, selected: true }),
     ).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Code' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'Preview' })).toBeDefined();
+    expect(screen.queryByRole('tab', { name: 'Preview' })).toBeNull();
     expect(screen.getByRole('tab', { name: 'Design' })).toBeDefined();
 
     await user.dblClick(screen.getByRole('button', { name: 'Button' }));
@@ -2223,7 +2331,7 @@ describe('App MVP integration', () => {
     expect(screen.getByRole('tab', { name: 'Code' }).getAttribute('aria-selected')).toBe('true');
   });
 
-  it('synchronizes builder selection and toolbar controls while preserving component IDs and bounds', async () => {
+  it('keeps the toolbar focused on the current page while preserving component IDs and bounds', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
@@ -2246,7 +2354,12 @@ describe('App MVP integration', () => {
       selected: true,
     });
     expect(renamed.getAttribute('data-component-id')).toBe(componentId);
-    expect(document.querySelector('.wr-toolbar-selection')?.textContent).toContain('SaveOrder');
+    expect(document.querySelector('.wr-toolbar-selection')).toBeNull();
+    const documents = within(screen.getByRole('tablist', { name: 'Open documents' }));
+    expect(documents.getAllByRole('tab')).toHaveLength(1);
+    expect(documents.getByRole('tab', { name: /PageMain/ })).toBeDefined();
+    expect(screen.queryByRole('combobox', { name: 'Zoom' })).toBeNull();
+    expect(screen.queryByLabelText('Arrange selection')).toBeNull();
 
     await user.click(within(tree).getByRole('treeitem', { name: 'PageMain' }));
     expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('PageMain');
@@ -2254,10 +2367,6 @@ describe('App MVP integration', () => {
     expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('SaveOrder');
     const width = Number((screen.getByLabelText('Width') as HTMLInputElement).value);
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Zoom' }), '75');
-    expect(document.querySelector<HTMLElement>('.wr-page-surface')?.style.transform).toBe(
-      'scale(0.75)',
-    );
     await user.click(screen.getByRole('tab', { name: 'Responsive' }));
     await user.click(screen.getByRole('button', { name: 'Mobile' }));
     expect(document.querySelector('.wr-page-surface')?.getAttribute('data-viewport')).toBe(
@@ -2287,17 +2396,14 @@ describe('App MVP integration', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Design' }));
     await user.click(screen.getByRole('treeitem', { name: 'SaveOrder' }));
-    await user.click(screen.getByLabelText('Arrange selection'));
-    await user.click(screen.getByRole('button', { name: 'Bring to Front' }));
+
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await waitFor(() => expect(harness.save).toHaveBeenCalledOnce());
     const frontPage = harness.persisted().project.pages[0];
     expect(
       frontPage?.components.find((component) => component.id === frontPage.rootComponentId)
         ?.children,
-    ).toEqual([labelId, componentId]);
-    await user.click(screen.getByLabelText('Arrange selection'));
-    await user.click(screen.getByRole('button', { name: 'Send to Back' }));
+    ).toEqual([componentId, labelId]);
 
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(2));

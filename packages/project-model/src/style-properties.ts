@@ -1,3 +1,4 @@
+import { WEBRAD_FONT_FAMILIES } from '@webrad/runtime/fonts';
 import type {
   ComponentStyleStateName,
   ComponentStylePropertyName,
@@ -487,6 +488,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ['sans', 'Sans serif'],
     ['serif', 'Serif'],
     ['mono', 'Monospace'],
+    ...WEBRAD_FONT_FAMILIES.map((font) => [font.id, font.label] as const),
   ]),
   lengthProperty('fontSize', 'Font size', 'Typography', { units: ['px', 'rem'], min: 0 }),
   enumProperty('fontWeight', 'Font weight', 'Typography', [

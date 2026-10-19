@@ -8,6 +8,7 @@ export async function runProjectResourcesSmoke(
   window: BrowserWindow,
   projectPath: string,
   log: (message: string) => void,
+  screenshotPath?: string,
 ): Promise<void> {
   async function waitFor(expression: string): Promise<void> {
     const deadline = Date.now() + 20_000;
@@ -158,4 +159,62 @@ export async function runProjectResourcesSmoke(
   if (!response.ok || !Buffer.from(await response.arrayBuffer()).equals(bytes))
     throw new Error('F9 Preview asset content differs.');
   log('renderer project resources restore and F9 passed');
+
+  await click('[aria-label="Design"]');
+  await click('[aria-label="Project Explorer"]');
+  await waitFor("document.querySelector('[role=tree]') !== null");
+  for (const name of ['ResourceHelpers', 'ResourceModel', 'resource-image.png']) {
+    await window.webContents.executeJavaScript(
+      `Array.from(document.querySelectorAll('[role=treeitem]')).find(item => item.querySelector('span:last-child')?.textContent === ${JSON.stringify(name)})?.click()`,
+      true,
+    );
+    await waitFor(
+      `document.querySelector('[aria-label="Delete selected project item"]')?.title === ${JSON.stringify(`Delete ${name}`)}`,
+    );
+    if (name === 'ResourceHelpers' && screenshotPath !== undefined) {
+      await fs.writeFile(screenshotPath, (await window.webContents.capturePage()).toPNG());
+      log(`renderer project Explorer screenshot saved: ${screenshotPath}`);
+    }
+    for (const accepted of [false, true]) {
+      const confirmed: unknown = await window.webContents.executeJavaScript(
+        `(() => {
+          const button = document.querySelector('[aria-label="Delete selected project item"]');
+          if (!(button instanceof HTMLButtonElement) || button.disabled) return false;
+          const original = window.confirm;
+          let message = '';
+          window.confirm = text => { message = text; return ${String(accepted)}; };
+          try { button.click(); } finally { window.confirm = original; }
+          return message.includes(${JSON.stringify(name)});
+        })()`,
+        true,
+      );
+      if (confirmed !== true) throw new Error(`Missing delete confirmation for ${name}.`);
+      await waitFor(
+        `Array.from(document.querySelectorAll('[role=treeitem]')).some(item => item.querySelector('span:last-child')?.textContent === ${JSON.stringify(name)}) === ${String(!accepted)}`,
+      );
+    }
+  }
+  await waitFor("document.querySelector('.wr-page-surface') !== null");
+  await waitFor(
+    'document.querySelector(\'[aria-label="Delete selected project item"]\')?.disabled === true',
+  );
+  window.webContents.send('webrad:menu-command', 'file.save');
+  await waitFor("document.querySelector('.wr-toolbar')?.textContent?.includes('*') === false");
+  const deleted = await loadProjectFiles(projectPath);
+  if (deleted.project.sourceFiles?.length !== 0 || deleted.project.assets?.length !== 0)
+    throw new Error('Deleted resources returned after save/reopen.');
+  for (const retiredPath of [
+    'models/ResourceModel.ts',
+    'units/ResourceHelpers.ts',
+    'assets/imported/resource-image.png',
+  ]) {
+    if (
+      await fs.stat(path.join(deleted.rootPath, retiredPath)).then(
+        () => true,
+        () => false,
+      )
+    )
+      throw new Error(`Deleted resource still exists: ${retiredPath}`);
+  }
+  log('renderer project Explorer confirmed deletion and persistence passed');
 }

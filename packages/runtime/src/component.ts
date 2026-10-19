@@ -11,6 +11,7 @@ export interface WebCurrentRowBinding {
 }
 
 const currentRowBindings = new WeakMap<HTMLElement, readonly WebCurrentRowBinding[]>();
+const clickBindings = new WeakMap<HTMLElement, Set<object>>();
 
 const EVENT_NAME_MAP: Readonly<Record<string, string>> = Object.freeze({
   OnBlur: 'blur',
@@ -347,8 +348,23 @@ export class WebComponent<TElement extends HTMLElement = HTMLElement> {
       void handler(this, event);
     };
     this.element.addEventListener(browserEventName, listener);
+    const clickToken = {};
+    if (browserEventName === 'click') {
+      const bindings = clickBindings.get(this.element) ?? new Set<object>();
+      bindings.add(clickToken);
+      clickBindings.set(this.element, bindings);
+      this.element.setAttribute('data-webrad-clickable', '');
+    }
     const dispose = (): void => {
       this.element.removeEventListener(browserEventName, listener);
+      if (browserEventName === 'click') {
+        const bindings = clickBindings.get(this.element);
+        bindings?.delete(clickToken);
+        if (bindings?.size === 0) {
+          clickBindings.delete(this.element);
+          this.element.removeAttribute('data-webrad-clickable');
+        }
+      }
       if (this.#eventDisposers.get(eventName) === dispose) this.#eventDisposers.delete(eventName);
     };
     this.#eventDisposers.set(eventName, dispose);

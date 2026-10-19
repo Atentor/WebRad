@@ -13,6 +13,39 @@ afterEach(() => {
 });
 
 describe('StylesWorkspace', () => {
+  it('duplicates a protected style and selects its editable copy while preserving the active state', async () => {
+    const user = userEvent.setup();
+    const source = createComponentStyle('Default Button', 'WebButton', { preset: 'default' });
+    const copy = createComponentStyle('Default Button Copy', 'WebButton', {
+      states: source.states,
+    });
+    const onDuplicateStyle = vi.fn((): string | null => null);
+    const props = {
+      onCreateStyle: vi.fn(() => null),
+      onUpdateStyle: vi.fn(),
+      onDeleteStyle: vi.fn(),
+      onDuplicateStyle,
+    };
+    const { rerender } = render(
+      <StylesWorkspace {...props} styles={[source]} selectedComponentType="WebButton" />,
+    );
+    await user.click(screen.getByRole('tab', { name: 'Hover' }));
+    await user.click(screen.getByRole('button', { name: 'Duplicate Default Button' }));
+    expect(onDuplicateStyle).toHaveBeenCalledWith(source.id);
+    expect((screen.getByLabelText('Style name') as HTMLInputElement).value).toBe(source.name);
+    onDuplicateStyle.mockReturnValue(copy.id);
+    await user.click(screen.getByRole('button', { name: 'Duplicate Default Button' }));
+    rerender(
+      <StylesWorkspace {...props} styles={[source, copy]} selectedComponentType="WebButton" />,
+    );
+    expect((screen.getByLabelText('Style name') as HTMLInputElement).value).toBe(copy.name);
+    expect(screen.getByRole('tab', { name: 'Hover' }).getAttribute('aria-selected')).toBe('true');
+    expect(
+      (screen.getByRole('button', { name: 'Delete Default Button Copy' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
   it('previews Panel progress at 50 percent without enabling it on new Panels', () => {
     const style = createComponentStyle('Panel Surface', 'WebPanel', {
       states: { base: { panelProgressColor: '#123456', panelProgressThickness: 5 } },

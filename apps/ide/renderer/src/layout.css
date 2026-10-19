@@ -222,8 +222,13 @@
   background: transparent;
 }
 
-.wr-panel-actions button:hover {
+.wr-panel-actions button:hover:not(:disabled) {
   background: var(--wr-surface-hover);
+}
+
+.wr-panel-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .wr-panel-actions .wr-icon {
@@ -1305,6 +1310,24 @@ button.wr-problem:focus-visible {
   background: transparent;
   color: var(--wr-muted-text);
   cursor: pointer;
+}
+
+.wr-style-duplicate-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  cursor: pointer;
+}
+
+.wr-style-duplicate-button:hover {
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
 }
 
 .wr-style-delete-button:hover {

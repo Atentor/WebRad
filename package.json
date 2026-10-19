@@ -40,7 +40,15 @@
     "validate": "npm run icons:check && npm run runtime:sources:check && npm run typecheck && npm run lint && npm run test:portable && npm run format:check && npm run build"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@fontsource-variable/montserrat": "5.3.0",
+    "@fontsource-variable/nunito": "5.3.0",
+    "@fontsource-variable/open-sans": "5.3.0",
+    "@fontsource-variable/roboto": "5.3.0",
     "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/lato": "5.3.0",
+    "@fontsource/poppins": "5.3.0",
     "@jridgewell/trace-mapping": "0.3.31",
     "@monaco-editor/react": "4.7.0",
     "@tailwindcss/postcss": "4.3.3",

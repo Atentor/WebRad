@@ -696,7 +696,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     return;
   }
   if (process.argv.includes('--webrad-smoke-resources') && smokeProjectPath !== undefined) {
-    await runProjectResourcesSmoke(window, smokeProjectPath, smokeLog);
+    await runProjectResourcesSmoke(window, smokeProjectPath, smokeLog, smokeScreenshotPath);
     return;
   }
   const shellResult = (await window.webContents.executeJavaScript(

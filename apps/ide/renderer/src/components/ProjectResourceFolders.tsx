@@ -6,10 +6,12 @@ export function ProjectResourceFolders({
   project,
   activeId,
   onOpen,
+  onDelete,
 }: {
   project: WebRadProject;
   activeId?: string | null;
   onOpen?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }): ReactElement {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const groups = [
@@ -76,6 +78,11 @@ export function ProjectResourceFolders({
                     onClick={() => onOpen?.(entry.id)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') onOpen?.(entry.id);
+                      if (event.key === 'Delete') {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onDelete?.(entry.id);
+                      }
                     }}
                   >
                     <span className="wr-page-icon" aria-hidden="true">

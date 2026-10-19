@@ -951,7 +951,12 @@ const webTextArea: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Text Area' },
   icon: 'component-text-area',
   visual: true,
-  styleEditor: inputStyleEditor,
+  styleEditor: {
+    ...inputStyleEditor,
+    previewProps: {
+      value: 'Sample text\nSee how your text style looks across multiple lines.',
+    },
+  },
   canHaveChildren: false,
   defaultEvent: 'OnChange',
   defaultBounds: textAreaBounds,

@@ -1,7 +1,6 @@
 import type { UpdateState } from '../../../shared/update-contracts';
 import { UpdateIndicator } from './UpdateIndicator';
 import { DocumentTabs, type DocumentTabsProps } from './DocumentTabs';
-import { ComponentIcon } from './ComponentIcon';
 import type { ReactElement } from 'react';
 import type { IdeCommand } from '../../../shared/contracts';
 import type { DebugState } from '../../../shared/debugger-contracts';
@@ -72,77 +71,11 @@ export function Toolbar(props: ToolbarProps): ReactElement {
         /
       </span>
       <DocumentTabs
-        documents={props.documents}
+        documents={props.documents.filter((document) => document.id === props.activeDocumentId)}
         activeDocumentId={props.activeDocumentId}
         onSelectDocument={props.onSelectDocument}
         onCloseDocument={props.onCloseDocument}
       />
-      {props.selectedName && (
-        <div className="wr-toolbar-selection">
-          <ComponentIcon icon={props.selectedIcon ?? 'component-page'} />
-          <span>{props.selectedName}</span>
-          <button
-            type="button"
-            aria-label="Clear selection"
-            title="Clear selection"
-            onClick={props.onClearSelection}
-          >
-            <Icon name="close" />
-          </button>
-        </div>
-      )}
-      {props.zoomEnabled && (
-        <select
-          className="wr-toolbar-zoom"
-          aria-label="Zoom"
-          value={props.zoom}
-          onChange={(event) => props.onZoomChange(Number(event.target.value))}
-        >
-          {[50, 75, 100, 125, 150].map((value) => (
-            <option value={value} key={value}>
-              {value}%
-            </option>
-          ))}
-        </select>
-      )}
-      {props.zoomEnabled && (
-        <details
-          className="wr-toolbar-arrange"
-          onBlur={(event) => {
-            if (
-              !(event.relatedTarget instanceof Node) ||
-              !event.currentTarget.contains(event.relatedTarget)
-            )
-              event.currentTarget.open = false;
-          }}
-        >
-          <summary aria-label="Arrange selection" title="Arrange selection">
-            <Icon name="layers" />
-          </summary>
-          <div className="wr-toolbar-arrange-menu">
-            <button
-              type="button"
-              disabled={!props.canArrange}
-              onClick={(event) => {
-                props.onBringToFront();
-                event.currentTarget.closest('details')?.removeAttribute('open');
-              }}
-            >
-              Bring to Front
-            </button>
-            <button
-              type="button"
-              disabled={!props.canArrange}
-              onClick={(event) => {
-                props.onSendToBack();
-                event.currentTarget.closest('details')?.removeAttribute('open');
-              }}
-            >
-              Send to Back
-            </button>
-          </div>
-        </details>
-      )}
       <span className="wr-toolbar-spacer" />
       <UpdateIndicator state={props.updateState} onUpdate={props.onUpdate} />
       <span className="wr-toolbar-beta" title="WebRAD Beta">

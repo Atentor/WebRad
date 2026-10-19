@@ -19,6 +19,10 @@ Keep these files with redistributed desktop packages.
 
 - JetBrains Mono: SIL Open Font License 1.1, preserved in
   [licenses/JetBrainsMono-OFL.txt](licenses/JetBrainsMono-OFL.txt).
+- The bundled project fonts Roboto, Open Sans, JetBrains Mono, Inter, Lato,
+  Montserrat, Poppins and Nunito use SIL Open Font License 1.1. Their Fontsource
+  packages retain the upstream license texts in the desktop license inventory;
+  the compiler's generated font snapshot also preserves each notice.
 - Sharp: Apache-2.0; its native binaries include libvips and other libraries with
   separate terms, including LGPL-3.0-or-later. Preserve their notices and review
   the [Sharp distribution guidance](https://sharp.pixelplumbing.com/install/#licensing)
@@ -33,6 +37,8 @@ When used by the application, it also includes:
 - pdf-lib: MIT, in `assets/licenses/pdf-lib-MIT.txt`.
 - pdf-lib dependencies: notices in `assets/licenses/pdf-lib/`, including
   standard-fonts, UPNG, pako and tslib.
+- Bundled font families used by the application: upstream SIL Open Font License
+  notices in `assets/licenses/fonts/<font-id>-OFL-1.1.txt`.
 
 Preserve the `assets/licenses/` directory when deploying exported applications.
 User-authored code, project assets and external dependencies require their own

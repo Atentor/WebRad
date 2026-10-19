@@ -133,6 +133,7 @@ function sharedAttributes(
   'aria-disabled': boolean;
   'data-component-id': string;
   'data-component-type': string;
+  'data-webrad-clickable'?: string;
   title?: string;
   tabIndex?: number;
 } {
@@ -163,6 +164,9 @@ function sharedAttributes(
     'aria-disabled': !visual.enabled,
     'data-component-id': node.id,
     'data-component-type': node.type,
+    ...(typeof node.events.OnClick === 'string' && node.events.OnClick.trim().length > 0
+      ? { 'data-webrad-clickable': '' }
+      : {}),
     ...(visual.title === undefined ? {} : { title: visual.title }),
     ...(designTime
       ? { tabIndex: -1 }

@@ -11,6 +11,7 @@ import restGoSourcesJson from './restgo-sources.json';
 import shakaSources from './shaka-sources.generated.json';
 import type { CompileDiagnostic } from './types.js';
 import { selectRuntimeAdapters, selectRuntimeExports } from './runtime-selection.js';
+import { projectFontLicenseFiles } from './fonts.js';
 
 const RUNTIME_NAMESPACE = 'webrad-runtime';
 const RESTGO_NAMESPACE = 'webrad-restgo';
@@ -225,6 +226,9 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
     ]),
   );
   files['assets/licenses/WebRAD-MIT.txt'] = webRadLicense.webrad;
+  for (const [fileName, contents] of options.sources) {
+    if (fileName.endsWith('.css')) Object.assign(files, projectFontLicenseFiles(contents));
+  }
   const usedInputs = new Set(
     Object.values(result.metafile?.outputs ?? {}).flatMap((output) =>
       Object.entries(output.inputs)

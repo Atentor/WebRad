@@ -832,6 +832,20 @@ export function App(): ReactElement {
     [addOutput, projectController, reportError],
   );
 
+  const duplicateStyle = useCallback(
+    (styleId: string): string | null => {
+      try {
+        const style = projectController.duplicateStyle(styleId);
+        addOutput('PROJECT', 'Duplicated style ' + style.name + '.');
+        return style.id;
+      } catch (error) {
+        reportError(error, 'PROJECT');
+        return null;
+      }
+    },
+    [addOutput, projectController, reportError],
+  );
+
   const updateStyle = useCallback(
     (style: ComponentStyleModel): void => {
       try {
@@ -1457,6 +1471,42 @@ export function App(): ReactElement {
       }
     },
     [projectController, reportError],
+  );
+
+  const deleteProjectResource = useCallback(
+    (id: string): void => {
+      if (!project) return;
+      const source = project.sourceFiles?.find((file) => file.id === id);
+      const asset = project.assets?.find((candidate) => candidate.id === id);
+      const name = source?.name ?? asset?.fileName;
+      if (
+        !name ||
+        !window.confirm(
+          `Delete ${source?.kind ?? 'asset'} ${name} from this project? References in your code will not be changed.`,
+        )
+      )
+        return;
+      try {
+        if (source) projectController.removeSourceFile(id);
+        else projectController.removeAsset(id);
+        const fallbackId = project.pages[0]?.id ?? null;
+        setOpenPageIds((current) => {
+          const remaining = current.filter((openId) => openId !== id);
+          return activePageId === id && fallbackId && !remaining.includes(fallbackId)
+            ? [...remaining, fallbackId]
+            : remaining;
+        });
+        if (activePageId === id) {
+          setActivePageId(fallbackId);
+          setActiveView('design');
+        }
+        selectionManager.clear();
+        addOutput('PROJECT', `Deleted ${source?.kind ?? 'asset'} ${name}.`);
+      } catch (error) {
+        reportError(error, 'PROJECT');
+      }
+    },
+    [activePageId, addOutput, project, projectController, reportError, selectionManager],
   );
 
   const deleteReusableElement = useCallback(
@@ -2143,6 +2193,7 @@ export function App(): ReactElement {
         onSelectComponentType={setStyleComponentType}
         compiledCss={compiledStylesCss}
         onCreateStyle={createStyle}
+        onDuplicateStyle={duplicateStyle}
         onUpdateStyle={updateStyle}
         onDeleteStyle={deleteStyle}
       />
@@ -2432,15 +2483,20 @@ export function App(): ReactElement {
                         project={project}
                         activeResourceId={stylesActive || restGoActive ? null : activePageId}
                         onOpenResource={openPage}
+                        onDeleteResource={deleteProjectResource}
                         activePageId={
-                          stylesActive || activeDocumentKind === 'reusable' ? null : activePageId
+                          stylesActive || restGoActive || activeDocumentKind === 'reusable'
+                            ? null
+                            : activePageId
                         }
                         onOpenPage={openPage}
                         onAddPage={addPageToProject}
                         onDeletePage={deletePage}
                         onRenamePage={renamePage}
                         activeReusableElementId={
-                          stylesActive || activeDocumentKind !== 'reusable' ? null : activePageId
+                          stylesActive || restGoActive || activeDocumentKind !== 'reusable'
+                            ? null
+                            : activePageId
                         }
                         onOpenReusableElement={openPage}
                         onAddReusableElement={addReusableElementToProject}

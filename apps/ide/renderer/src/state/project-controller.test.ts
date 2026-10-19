@@ -80,6 +80,93 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
 }
 
 describe('ProjectController', () => {
+  it('duplicates all style states with unique names and saves an independent removable copy', async () => {
+    const session = projectSession('StyleCopies');
+    const bridge = fakeBridge(session);
+    const controller = new ProjectController(bridge);
+    controller.load(session);
+    const source = session.project.styles.find((style) => style.componentType === 'WebButton')!;
+    controller.updateStyle({
+      ...source,
+      states: {
+        ...source.states,
+        hover: { backgroundColor: '#123456' },
+        focus: { opacity: 80 },
+        active: { scale: 95 },
+        disabled: { opacity: 40 },
+      },
+    });
+    const original = controller
+      .getSnapshot()
+      .project!.styles.find((style) => style.id === source.id)!;
+    const copy = controller.duplicateStyle(source.id);
+    expect(copy.id).not.toBe(original.id);
+    expect(copy.name).toBe(original.name + ' Copy');
+    expect(copy.componentType).toBe(original.componentType);
+    expect(copy.preset).toBeUndefined();
+    expect(copy.states).toEqual(original.states);
+    expect(copy.states.base).not.toBe(original.states.base);
+    expect(copy.states.base.backgroundGradient).not.toBe(original.states.base.backgroundGradient);
+    controller.updateStyle({ ...copy, states: { ...copy.states, hover: { opacity: 20 } } });
+    expect(
+      controller.getSnapshot().project!.styles.find((style) => style.id === source.id),
+    ).toEqual(original);
+    const another = controller.duplicateStyle(source.id);
+    expect(another.name).toBe(original.name + ' Copy 2');
+    await controller.save();
+    expect(bridge.project.save).toHaveBeenCalled();
+    expect(
+      controller.getSnapshot().project!.styles.find((style) => style.id === another.id),
+    ).toEqual(another);
+    controller.removeStyle(copy.id);
+    expect(controller.getSnapshot().project!.styles.some((style) => style.id === copy.id)).toBe(
+      false,
+    );
+    const before = controller.getSnapshot();
+    expect(() => controller.duplicateStyle('missing')).toThrow('Style does not exist');
+    expect(controller.getSnapshot()).toBe(before);
+  });
+
+  it('removes project resources, authored sources and their breakpoints without changing other sources', () => {
+    const session = projectSession('Resources');
+    const controller = new ProjectController(fakeBridge(session));
+    controller.load(session);
+    const model = controller.addSourceFile('model', 'Customer');
+    const unit = controller.addSourceFile('unit', 'Helpers');
+    controller.addAsset({
+      id: 'logo',
+      fileName: 'logo.png',
+      mediaType: 'image/png',
+      base64: 'AP8B',
+    });
+    controller.updateDebugger({
+      version: 1,
+      breakpoints: [
+        { path: 'models/Customer.ts', line: 1, enabled: true },
+        { path: 'units/Helpers.ts', line: 1, enabled: true },
+      ],
+      watches: [],
+      pauseOnExceptions: 'uncaught',
+    });
+    const before = controller.getSnapshot();
+    controller.removeSourceFile(model.id);
+    controller.removeAsset('logo');
+    const after = controller.getSnapshot();
+    expect(after.project?.sourceFiles).toEqual([unit]);
+    expect(after.project?.assets).toEqual([]);
+    expect(after.userSources['models/Customer.ts']).toBeUndefined();
+    expect(after.userSources['units/Helpers.ts']).toBe(before.userSources['units/Helpers.ts']);
+    expect(after.userSources['pages/PageMain.ts']).toBe(before.userSources['pages/PageMain.ts']);
+    expect(after.project?.debugger?.breakpoints).toEqual([
+      { path: 'units/Helpers.ts', line: 1, enabled: true },
+    ]);
+    expect(after.dirty).toBe(true);
+    expect(after.revision).toBe(before.revision + 2);
+    expect(() => controller.removeSourceFile('missing')).toThrow('not found');
+    expect(() => controller.removeAsset('missing')).toThrow('not found');
+    expect(controller.getSnapshot()).toBe(after);
+  });
+
   it('keeps debugger breakpoints attached to renamed pages and removes deleted source breakpoints', () => {
     const session = projectSession('Debug');
     const page = session.project.pages[0]!;

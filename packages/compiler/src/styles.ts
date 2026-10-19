@@ -17,6 +17,7 @@ import {
 import tailwindcss from '@tailwindcss/postcss';
 import postcss from 'postcss';
 import { defaultComponentRegistry } from '@webrad/component-registry';
+import { PROJECT_FONT_THEME_CSS, projectFontFaceCss } from './fonts.js';
 
 /** Base application defaults. They are placed in Tailwind's components layer at build time. */
 const APP_BASE_CSS = `* {
@@ -219,7 +220,9 @@ function tailwindInput(
   const components = componentCss === undefined ? '' : `\n@layer components {\n${componentCss}\n}`;
   return `${TAILWIND_LAYER_ORDER}
 @import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities) source(none);${sourceDirective}${components}
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+${PROJECT_FONT_THEME_CSS}
+${projectFontFaceCss(candidates)}${sourceDirective}${components}
 `;
 }
 

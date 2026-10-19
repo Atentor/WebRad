@@ -9,6 +9,7 @@ interface ProjectExplorerProps {
   project: WebRadProject | null;
   activeResourceId?: string | null;
   onOpenResource?: (id: string) => void;
+  onDeleteResource?: (id: string) => void;
   activePageId: string | null;
   onOpenPage: (pageId: string) => void;
   onAddPage: () => void;
@@ -49,6 +50,7 @@ export function ProjectExplorer({
   project,
   activeResourceId,
   onOpenResource,
+  onDeleteResource,
   activePageId,
   onOpenPage,
   onAddPage,
@@ -64,6 +66,27 @@ export function ProjectExplorer({
   const [draftName, setDraftName] = useState('');
   const [pagesExpanded, setPagesExpanded] = useState(true);
   const [reusableElementsExpanded, setReusableElementsExpanded] = useState(true);
+  const selectedPage = project?.pages.find((page) => page.id === activePageId);
+  const selectedReusable = project?.reusableElements.find(
+    (element) => element.id === activeReusableElementId,
+  );
+  const selectedSource = project?.sourceFiles?.find((file) => file.id === activeResourceId);
+  const selectedAsset = project?.assets?.find((asset) => asset.id === activeResourceId);
+  const selectedResource = selectedSource ?? selectedAsset;
+  const selectedName = selectedResource
+    ? (selectedSource?.name ?? selectedAsset?.fileName)
+    : (selectedReusable?.name ?? selectedPage?.name);
+  const canDelete = selectedResource
+    ? onDeleteResource !== undefined
+    : selectedReusable
+      ? onDeleteReusableElement !== undefined
+      : selectedPage !== undefined && (project?.pages.length ?? 0) > 1;
+  const deleteSelected = (): void => {
+    if (!canDelete) return;
+    if (selectedResource) onDeleteResource?.(selectedResource.id);
+    else if (selectedReusable) onDeleteReusableElement?.(selectedReusable.id);
+    else if (selectedPage) onDeletePage(selectedPage.id);
+  };
 
   const beginRename = (pageId: string, name: string): void => {
     setEditingPageId(pageId);
@@ -96,6 +119,21 @@ export function ProjectExplorer({
             onClick={onAddReusableElement}
           >
             <span aria-hidden="true">R</span>
+          </button>
+          <button
+            type="button"
+            title={
+              selectedPage && !selectedResource && !selectedReusable && !canDelete
+                ? 'The project must keep at least one page'
+                : selectedName
+                  ? `Delete ${selectedName}`
+                  : 'Select an item to delete'
+            }
+            aria-label="Delete selected project item"
+            disabled={!canDelete}
+            onClick={deleteSelected}
+          >
+            <Icon name="delete" />
           </button>
         </>
       }
@@ -226,6 +264,7 @@ export function ProjectExplorer({
               project={project}
               activeId={activeResourceId}
               onOpen={onOpenResource}
+              onDelete={onDeleteResource}
             />
           </div>
         </div>

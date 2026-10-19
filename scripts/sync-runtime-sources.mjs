@@ -1,4 +1,5 @@
 import { createApiClientDeclarations } from './api-client-declarations.mjs';
+import { createFontSources } from './font-sources.mjs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -305,6 +306,10 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [
+    path.join(repositoryRoot, 'packages', 'compiler', 'src', 'font-sources.generated.json'),
+    await createFontSources(repositoryRoot),
+  ],
   [reportBuilderTypingsPath, reportBuilderTypings],
   [repeatingGroupTypingsPath, repeatingGroupTypings],
   [playerTypingsPath, playerTypings],

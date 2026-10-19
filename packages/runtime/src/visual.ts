@@ -1270,6 +1270,8 @@ export const WEBRAD_PROJECT_CSS = /* @__PURE__ */ `
 export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
 .wr-component { --webrad-border-gradient-surface: transparent; box-sizing: border-box; font: inherit; }
 .wr-component[hidden] { display: none !important; }
+[data-webrad-clickable]:not(:disabled):not([aria-disabled="true"]),
+[data-webrad-clickable]:not(:disabled):not([aria-disabled="true"]) :where(*):not(:disabled):not([aria-disabled="true"]):not(:is(:disabled, [aria-disabled="true"]) *) { cursor: pointer !important; }
 .wr-webpage { --webrad-border-gradient-surface: var(--wr-page-surface, #ffffff); overflow: hidden; }
 .wr-webreusableelement { border: 0; background: transparent; overflow: visible; }
 .wr-floating-layer { position: static; width: 0; height: 0; overflow: visible; }

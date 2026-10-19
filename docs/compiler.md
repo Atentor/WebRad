@@ -30,6 +30,14 @@ Within page and reusable instance code, `BTNMostrar.caption` and `this.BTNMostra
 
 Tailwind compilation uses the official PostCSS plugin with source discovery disabled. The compiler resolves the exact saved utility candidates, adds interaction variants for the state-specific groups, imports theme and utilities without Preflight, and places WebRAD defaults in the lower-priority `components` layer. This lets utilities override initial paint properties without resetting the runtime controls. The resulting `app.css` is static; Tailwind, PostCSS, and the native Oxide compiler remain build-time dependencies in the Electron main process and are not shipped to generated browser applications.
 
+The shared [project font catalog](fonts.md) registers matching `font-<id>` theme
+tokens. Designer and application CSS embed the selected families' Latin/Latin
+Extended WOFF2 faces as data URLs, with normal/italic and upstream weight ranges.
+The checked-in snapshot is regenerated and verified by `runtime:sources` and
+`runtime:sources:check`; compilation requires no network or Fontsource package
+lookup at runtime. Static exports retain the selected fonts' upstream notices
+under `assets/licenses/fonts/`.
+
 Runtime TypeScript sources are embedded into the compiler's virtual graph from a generated, checked-in snapshot. `npm run runtime:sources:check` prevents that snapshot from drifting. Packaged desktop builds carry the TypeScript standard libraries, the host-specific esbuild binary, and the platform-specific Tailwind native dependency closure as explicit resources, so F9 and live style preview use the same compiler APIs inside and outside Electron.
 
 The Shaka Player snapshot includes its upstream UI declarations alongside JavaScript, CSS and license. Strict type checking resolves `shaka-player/dist/shaka-player.ui.js` to `__vendor/shaka/shaka-player.ui.d.ts` in the virtual graph; bundling resolves the same import to the embedded JavaScript. Neither phase requires Shaka in the project's or executable's `node_modules`. All embedded runtime modules participate in type checking, including the video adapter when a page has no Video Player. Preview, Debug and Deploy share this contract.
