@@ -10,6 +10,16 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ProjectSession, WebRadBridge } from '../../../shared/contracts';
 import { ProjectController } from './project-controller';
 import { createDebugTestBridge } from '../../../shared/debugger-test-bridge';
+import { defaultComponentRegistry } from '@webrad/component-registry';
+import {
+  addComponent,
+  parseApiClientConfiguration,
+  serializeVisualDocument,
+  parseVisualDocument,
+} from '@webrad/project-model';
+import { importRestGoPublishedApis, type RestGoPublishedApi } from '@webrad/designer';
+import { DesignerController } from './designer-controller';
+import { synchronizeProjectRestGoClients } from './restgo-api-sync';
 
 function deferred<T>(): {
   readonly promise: Promise<T>;
@@ -39,6 +49,12 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
   return {
     updates: createUpdateTestBridge(),
     debugger: createDebugTestBridge(),
+    restgoDevelopment: {
+      status: vi.fn(),
+      login: vi.fn(),
+      logout: vi.fn(),
+      token: vi.fn(),
+    },
     restgoAdmin: {
       status: vi.fn(async (request) => ({
         baseUrl: request.baseUrl,
@@ -80,6 +96,94 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
 }
 
 describe('ProjectController', () => {
+  it('synchronizes imported clients across pages and reusables, persists the inputs, and supports undo without touching authored sources', async () => {
+    const seed = projectSession('RestGoSync');
+    const api: RestGoPublishedApi = {
+      id: '20:11',
+      name: 'anotacoes',
+      database: 'demo',
+      endpoint: 'anotacoes',
+      method: 'GET',
+      apiVersion: 1,
+      authentication: 'jwt',
+      kind: 'sql',
+      script: 'SELECT :id',
+    };
+    const configuration = importRestGoPublishedApis([api]);
+    const attachClient = <T extends ReturnType<typeof createPage>>(document: T): T => ({
+      ...document,
+      ...addComponent(document, {
+        ...defaultComponentRegistry.createComponent('WebApiClient', { name: 'ApiNotas' }),
+        parentId: document.rootComponentId,
+        props: { apiClientConfig: configuration, baseUrl: '' },
+      }),
+    });
+    const first = attachClient(seed.project.pages[0]!);
+    const second = attachClient(createPage('OtherPage'));
+    const reusable = attachClient(createReusableElement('ReusableNotes'));
+    const baseUrl = 'https://restgo.example.test/backend';
+    const session = {
+      ...seed,
+      project: {
+        ...seed.project,
+        pages: [first, second],
+        reusableElements: [reusable],
+        settings: {
+          ...seed.project.settings,
+          restGo: { ...seed.project.settings.restGo, enabled: true, baseUrl },
+        },
+      },
+    };
+    const bridge = fakeBridge(session);
+    const controller = new ProjectController(bridge);
+    const designer = new DesignerController();
+    controller.load(session);
+    const beforeSources = controller.getSnapshot().userSources;
+    const changed = { ...api, script: 'SELECT :id, :pesquisa' };
+    expect(
+      synchronizeProjectRestGoClients(controller, designer, 'another-project', baseUrl, [changed])
+        .updated,
+    ).toBe(0);
+    expect(
+      synchronizeProjectRestGoClients(
+        controller,
+        designer,
+        session.project.id,
+        'https://other.example',
+        [changed],
+      ).updated,
+    ).toBe(0);
+    expect(
+      synchronizeProjectRestGoClients(controller, designer, session.project.id, baseUrl, [changed]),
+    ).toEqual({ updated: 3, issues: [] });
+    const project = controller.getSnapshot().project!;
+    for (const document of [...project.pages, ...project.reusableElements]) {
+      const restored = parseVisualDocument(JSON.parse(serializeVisualDocument(document)));
+      const client = restored.components.find((component) => component.type === 'WebApiClient')!;
+      expect(
+        parseApiClientConfiguration(client.props.apiClientConfig).operations[0]!.query.map(
+          (entry) => entry.name,
+        ),
+      ).toEqual(['id', 'page', 'pesquisa']);
+    }
+    expect(controller.getSnapshot().userSources).toEqual(beforeSources);
+    expect(controller.getSnapshot().dirty).toBe(true);
+    const revision = controller.getSnapshot().revision;
+    expect(
+      synchronizeProjectRestGoClients(controller, designer, session.project.id, baseUrl, [changed])
+        .updated,
+    ).toBe(0);
+    expect(controller.getSnapshot().revision).toBe(revision);
+    await controller.save();
+    expect(bridge.project.save).toHaveBeenCalled();
+    const undone = designer.undo(controller.getSnapshot().project!.pages[0]!);
+    expect(
+      parseApiClientConfiguration(
+        undone.components.find((component) => component.type === 'WebApiClient')!.props
+          .apiClientConfig,
+      ).operations[0]!.query.some((entry) => entry.name === 'pesquisa'),
+    ).toBe(false);
+  });
   it('duplicates all style states with unique names and saves an independent removable copy', async () => {
     const session = projectSession('StyleCopies');
     const bridge = fakeBridge(session);

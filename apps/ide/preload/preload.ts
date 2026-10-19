@@ -1,4 +1,5 @@
 import type { UpdateState } from '../shared/update-contracts';
+import type { RestGoDevelopmentStatus } from '../shared/restgo-development';
 import type { ProjectAsset } from '@webrad/project-model';
 import type { ExternalLinkTarget } from '../shared/external-links';
 import type {
@@ -33,6 +34,22 @@ import type {
 } from '../shared/contracts';
 
 const bridge: WebRadBridge = {
+  restgoDevelopment: {
+    status: (request) =>
+      ipcRenderer.invoke(
+        'webrad:restgo-development:status',
+        request,
+      ) as Promise<RestGoDevelopmentStatus>,
+    login: (request) =>
+      ipcRenderer.invoke(
+        'webrad:restgo-development:login',
+        request,
+      ) as Promise<RestGoDevelopmentStatus>,
+    logout: (request) =>
+      ipcRenderer.invoke('webrad:restgo-development:logout', request) as Promise<void>,
+    token: (request) =>
+      ipcRenderer.invoke('webrad:restgo-development:token', request) as Promise<string>,
+  },
   updates: {
     getState: () => ipcRenderer.invoke('webrad:updates:state') as Promise<UpdateState>,
     check: () => ipcRenderer.invoke('webrad:updates:check') as Promise<UpdateState>,

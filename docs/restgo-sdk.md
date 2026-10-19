@@ -40,6 +40,18 @@ As conexões **RestGo JWT Authentication** (`restgo-session`), **RestGO API Toke
 
 O corpo do API Client aceita placeholders `<nome>`, como `{"idinstancia": <idinstancia>, "chave": <chave>}`. A aba **Body** mostra os parâmetros automaticamente e permite definir tipo e valor de teste. Um nome repetido utiliza uma só entrada; remover o placeholder remove sua linha. Tipos são salvos com o template, enquanto os valores de teste ficam em memória. Na aplicação, passe os valores em `ApiClient1.execute('PutKey', { parameters: { idinstancia: 42, chave: 'valor' } })`. A substituição preserva números, booleanos, objetos, arrays e null, e escapa textos como JSON. Esses parâmetros não alteram o modo de autenticação.
 
+## Login de desenvolvimento no API Client
+
+Salvar alterações nos endpoints e usar **Refresh** sincroniza os clientes importados já existentes no projeto. Isso inclui query e JSON, preservando IDs, nomes, valores e o contrato de resposta. A reimportação atualiza a mesma operação. Consulte [Atualização de APIs importadas](api-client.md#atualizacao-de-apis-importadas-do-restgo) para persistência, histórico e casos que exigem ajuste manual.
+
+Em **RestGo integration → Connection**, salve a configuração da conexão e use **Development login**, abaixo de **Application SDK**. Informe o e-mail e a senha de um usuário Authentication da aplicação e clique em **Sign in for development**. Não é necessário conectar um token administrativo para esse login.
+
+**Remember development login on this device** guarda somente o JWT, o refresh token e suas datas de expiração, com a criptografia do sistema operacional no perfil local do IDE. A senha não é salva. Sem armazenamento seguro, a sessão fica apenas em memória até fechar a janela. As sessões são separadas pela URL normalizada da instância, incluindo o caminho do reverse proxy, e ficam em `restgo-development-credentials`, separadas das credenciais administrativas.
+
+No API Client, selecione **RestGo JWT Authentication** e deixe **Test JWT** vazio. Antes de cada teste, o IDE valida a sessão em `/auth/session` e, se rejeitada com 401, tenta renová-la em `/auth/refresh`, serializando a rotação entre janelas. Uma rejeição definitiva remove a sessão salva; falhas transitórias de rede preservam as credenciais. Um **Test JWT** preenchido substitui a sessão somente nesse editor. Os modos **RestGO Public**, **RestGO API Token** e **Custom API** mantêm suas próprias regras de autenticação.
+
+**Sign out and forget session** tenta revogar a sessão em `/auth/logout` e remove a cópia local mesmo se o servidor estiver indisponível. A autenticação acontece no processo principal por IPC validado, sem cookies ou redirecionamentos; as chamadas de teste aos endpoints continuam no navegador, com CORS. As credenciais de desenvolvimento não entram no `.wrproj`, nas páginas, no Preview ou no Build. A aplicação continua usando seu próprio fluxo de login.
+
 ## Login e sessão
 
 Em um método de evento da página:

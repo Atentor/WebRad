@@ -1,6 +1,7 @@
 import type { UpdateBridge } from './update-contracts';
 import type { ExternalLinkTarget } from './external-links';
 import type { RestGoAdminBridge } from './restgo-admin';
+import type { RestGoDevelopmentBridge } from './restgo-development';
 import type { DebugBridge } from './debugger-contracts';
 import type { ComponentStyleModel, ProjectAsset, WebRadProject } from '@webrad/project-model';
 
@@ -131,6 +132,7 @@ export interface WebRadBridge {
   readonly updates: UpdateBridge;
   readonly debugger: DebugBridge;
   readonly restgoAdmin: RestGoAdminBridge;
+  readonly restgoDevelopment: RestGoDevelopmentBridge;
   links: { open(target: ExternalLinkTarget): Promise<void> };
   project: {
     create(request: CreateProjectRequest): Promise<ProjectSession | null>;

@@ -140,6 +140,11 @@ export interface ApiClientOperation {
   readonly timeoutMs: number | null;
   /** Only the contract is persisted; sampled API data is never saved. */
   readonly responseSchema: ApiClientResponseSchema | null;
+  /** Design-time origin and last imported inputs; never contains SQL or credentials. */
+  readonly restGoSource?: {
+    readonly apiId: string;
+    readonly parameterNames: readonly string[];
+  };
 }
 
 /** Complete persisted configuration for the nonvisual API Client component. */
@@ -345,6 +350,13 @@ export const ApiClientOperationSchema: z.ZodType<ApiClientOperation> = z
     credentials: z.enum(API_CLIENT_CREDENTIALS),
     timeoutMs: z.number().int().min(1).max(120_000).nullable(),
     responseSchema: ApiClientResponseSchemaSchema.nullable(),
+    restGoSource: z
+      .object({
+        apiId: z.string().min(1).max(160),
+        parameterNames: z.array(parameterNameSchema.min(1)).max(200),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

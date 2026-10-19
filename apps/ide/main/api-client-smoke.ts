@@ -13,6 +13,7 @@ import { BrowserWindow } from 'electron';
 
 import { publishPreviewHtml, revokePreview } from './preview-server';
 import { resizeSmokeViewport } from './smoke-viewport';
+import type { RestGoAdminEndpoint } from '../shared/restgo-admin';
 
 interface ApiClientDesignerSmokeOptions {
   readonly projectPath: string;
@@ -180,7 +181,35 @@ export async function runApiClientDesignerSmoke(
   { projectPath, log, screenshotPath }: ApiClientDesignerSmokeOptions,
 ): Promise<void> {
   const calls: Array<{ method: string; path: string; authorization: string | undefined }> = [];
-  const server = createServer((request, response) => {
+  const synchronizationEndpoints: RestGoAdminEndpoint[] = ['GET', 'PUT'].map((method, index) => ({
+    id: 11 + index,
+    ativo: true,
+    slug: 'anotacoes',
+    versao: 1,
+    metodo: method as 'GET' | 'PUT',
+    script: 'SELECT :rgouserid, :active',
+    tipo: 'normal',
+    idoperacao: null,
+  }));
+  const developmentUser = {
+    id: 'development-user',
+    email: 'development@example.test',
+    fullName: 'Development',
+    avatarUrl: null,
+    active: true,
+    emailConfirmed: true,
+  };
+  let developmentRotation = 0;
+  let developmentSignedIn = false;
+  let developmentExpired = false;
+  const developmentSession = () => ({
+    token: `development-smoke-jwt-${String(developmentRotation)}`,
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    refreshToken: `development-smoke-refresh-${String(developmentRotation)}`,
+    refreshExpiresAt: new Date(Date.now() + 86400_000).toISOString(),
+    user: developmentUser,
+  });
+  const server = createServer(async (request, response) => {
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.setHeader(
       'Access-Control-Allow-Methods',
@@ -197,6 +226,123 @@ export async function runApiClientDesignerSmoke(
       authorization: request.headers.authorization,
     });
     response.setHeader('Content-Type', 'application/json');
+    const route = new URL(request.url ?? '/', 'http://localhost').pathname;
+    if (
+      [
+        '/backend/endpoints',
+        '/backend/bancos',
+        '/backend/endpoints-bancos',
+        '/backend/api-operations',
+      ].includes(route) ||
+      route.startsWith('/backend/endpoints/')
+    ) {
+      if (request.headers.authorization !== 'rgo.synchronization-smoke') {
+        response
+          .writeHead(403)
+          .end(JSON.stringify({ error: 'Administrative fixture token required' }));
+        return;
+      }
+      if (route.startsWith('/backend/endpoints/')) {
+        const index = synchronizationEndpoints.findIndex(
+          (endpoint) => endpoint.id === Number(route.split('/').at(-1)),
+        );
+        if (index < 0) {
+          response.writeHead(404).end('{}');
+          return;
+        }
+        if (request.method === 'PUT') {
+          const input = await readBody(request);
+          if (!input || typeof input !== 'object') {
+            response.writeHead(400).end('{}');
+            return;
+          }
+          synchronizationEndpoints[index] = { ...synchronizationEndpoints[index]!, ...input };
+        }
+        response.end(JSON.stringify(synchronizationEndpoints[index]));
+        return;
+      }
+      response.end(
+        JSON.stringify(
+          route === '/backend/endpoints'
+            ? synchronizationEndpoints
+            : route === '/backend/bancos'
+              ? [
+                  {
+                    id: 1,
+                    ativo: true,
+                    slug: 'demo',
+                    host: 'localhost',
+                    port: 5432,
+                    database: 'demo',
+                    descri: '',
+                    sslMode: 'require',
+                  },
+                ]
+              : route === '/backend/endpoints-bancos'
+                ? [
+                    {
+                      id: 20,
+                      ativo: true,
+                      idbanco: 1,
+                      idendpoint: 11,
+                      bancoSlug: 'demo',
+                      endpointSlug: 'anotacoes',
+                      versao: 1,
+                      requiresAuthentication: true,
+                      isPublic: false,
+                    },
+                  ]
+                : [],
+        ),
+      );
+      return;
+    }
+    if (request.url === '/backend/auth/token') {
+      const body = await readBody(request);
+      if (
+        !body ||
+        typeof body !== 'object' ||
+        Reflect.get(body, 'email') !== developmentUser.email ||
+        Reflect.get(body, 'password') !== 'development-smoke-password' ||
+        request.headers.authorization
+      ) {
+        response.writeHead(401).end(JSON.stringify({ error: 'Invalid development credentials' }));
+        return;
+      }
+      developmentSignedIn = true;
+      response.end(JSON.stringify(developmentSession()));
+      return;
+    }
+    if (request.url === '/backend/auth/refresh') {
+      const body = await readBody(request);
+      if (
+        !developmentSignedIn ||
+        !body ||
+        typeof body !== 'object' ||
+        Reflect.get(body, 'refreshToken') !== developmentSession().refreshToken ||
+        request.headers.authorization
+      ) {
+        response.writeHead(401).end(JSON.stringify({ error: 'Invalid development refresh' }));
+        return;
+      }
+      developmentRotation++;
+      developmentExpired = false;
+      response.end(JSON.stringify(developmentSession()));
+      return;
+    }
+    if (request.url === '/backend/auth/session' || request.url === '/backend/auth/logout') {
+      if (
+        !developmentSignedIn ||
+        developmentExpired ||
+        request.headers.authorization !== `Bearer ${developmentSession().token}`
+      ) {
+        response.writeHead(401).end(JSON.stringify({ error: 'Expired development session' }));
+        return;
+      }
+      if (request.url.endsWith('/logout')) developmentSignedIn = false;
+      response.end(JSON.stringify({ success: true, user: developmentUser }));
+      return;
+    }
     response.end(JSON.stringify({ data: [{ id: 42, name: 'Cliente de teste' }] }));
   });
   await new Promise<void>((resolve, reject) => {
@@ -381,6 +527,32 @@ export async function runApiClientDesignerSmoke(
       window,
       `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.disabled === true`,
     );
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-development-login fieldset')?.disabled === false`,
+    );
+    await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-restgo-development-login').scrollIntoView({ block: 'center' })`,
+      true,
+    );
+    await capture(window, `${screenshotRoot}-development-login.png`);
+    await setControl(
+      window,
+      '.wr-restgo-development-login input[type="email"]',
+      developmentUser.email,
+    );
+    await setControl(
+      window,
+      '.wr-restgo-development-login input[type="password"]',
+      'development-smoke-password',
+    );
+    await clickText(window, 'Sign in for development', '.wr-restgo-development-login');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-development-login [role="status"]')?.textContent.includes(${JSON.stringify(developmentUser.email)}) === true`,
+    );
+    await capture(window, `${screenshotRoot}-development-signed-in.png`);
+    developmentExpired = true;
     await click(window, 'button[aria-label="Project Explorer"]');
     await ready(
       window,
@@ -396,6 +568,17 @@ export async function runApiClientDesignerSmoke(
       window,
       `document.querySelector('[aria-label="Base URL"]').readOnly === true && document.querySelector('[aria-label="Base URL"]').value === ${JSON.stringify(baseUrl)}`,
     );
+    await clickText(window, 'Send test request');
+    await ready(
+      window,
+      `document.querySelector('.wr-api-response-status')?.textContent.includes('200') === true`,
+    );
+    if (
+      calls.at(-1)?.authorization !== 'Bearer development-smoke-jwt-1' ||
+      developmentRotation !== 1
+    ) {
+      throw new Error('API Client did not renew and use the saved development login.');
+    }
     await clickText(window, 'Test authentication');
     await setControl(window, '[aria-label="Test JWT"]', 'designer-smoke-jwt');
     await clickText(window, 'Test authentication');
@@ -434,7 +617,12 @@ export async function runApiClientDesignerSmoke(
           component.props.apiClientConfig.operations?.[0]?.name === 'LoadCustomers',
       );
       if (persisted) {
-        if (source.includes('designer-smoke-jwt') || source.includes('Cliente de teste')) {
+        if (
+          source.includes('designer-smoke-jwt') ||
+          source.includes('Cliente de teste') ||
+          source.includes('development-smoke') ||
+          source.includes(developmentUser.email)
+        ) {
           throw new Error('API Client persisted test credentials or sampled response data.');
         }
         break;
@@ -442,6 +630,106 @@ export async function runApiClientDesignerSmoke(
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     if (!persisted) throw new Error('API Client RestGO binding did not persist.');
+    const projectSource = await fs.readFile(projectPath, 'utf8');
+    if (
+      projectSource.includes('development-smoke') ||
+      projectSource.includes(developmentUser.email)
+    ) {
+      throw new Error('The project persisted development authentication credentials.');
+    }
+    await click(window, 'button[aria-label="RestGo integration"]');
+    await click(window, '.wr-restgo-sidebar button:first-child');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-development-login [role="status"]')?.textContent.includes(${JSON.stringify(developmentUser.email)}) === true`,
+    );
+    await clickText(window, 'Sign out and forget session', '.wr-restgo-development-login');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-development-login input[type="email"]') !== null && document.querySelector('.wr-restgo-development-login fieldset')?.disabled === false`,
+    );
+    if (developmentSignedIn)
+      throw new Error('Development logout did not revoke the server session.');
+    log(
+      'renderer RestGO development login passed: user login, saved session restoration, JWT renewal, automatic API Client authentication, manual override, project isolation and logout',
+    );
+    await setControl(
+      window,
+      '.wr-restgo-admin-settings input[type="password"]',
+      'rgo.synchronization-smoke',
+    );
+    await click(window, '.wr-restgo-admin-settings button[type="submit"]');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-status')?.textContent.includes('Admin connected') === true`,
+    );
+    await click(window, 'button[aria-label="Project Explorer"]');
+    await ready(
+      window,
+      `(() => { const item = document.querySelector('.wr-nonvisual-item[aria-label$=", API Client"]'); if (!(item instanceof HTMLElement)) return false; item.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return true; })()`,
+    );
+    await clickText(window, 'Remove operation');
+    await clickText(window, 'Import from RestGo');
+    await click(window, '[aria-label="Import GET demo/anotacoes v1"]');
+    await click(window, '[aria-label="Import PUT demo/anotacoes v1"]');
+    await clickText(window, 'Import 2 requests', '.wr-restgo-api-picker');
+    await setControl(window, '[aria-label="Operation name"]', 'LoadNotes');
+    await setControl(window, '[aria-label="Query parameters value rgouserid"]', 'user-42');
+    await clickText(window, 'Save API Client');
+    await click(window, 'button[aria-label="RestGo integration"]');
+    await click(window, '.wr-restgo-sidebar nav button:nth-child(3)');
+    await click(window, '.wr-restgo-endpoint-list-item');
+    await setControl(window, '.wr-restgo-sql', 'SELECT :rgouserid, :pesquisa');
+    await clickText(window, 'PUT', '.wr-restgo-method-tabs');
+    await setControl(window, '.wr-restgo-sql', 'SELECT :rgouserid, :caption');
+    await clickText(window, 'Save endpoint', '.wr-restgo-endpoint-editor');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false' && document.querySelector('.wr-restgo-notice')?.textContent.includes('Endpoint methods saved on RestGO.') === true && document.querySelector('.wr-restgo-endpoint-editor button[type="submit"]')?.disabled === true && document.querySelector('.wr-restgo-workspace [role="alert"]') === null`,
+    );
+    await click(window, 'button[aria-label="Project Explorer"]');
+    await ready(
+      window,
+      `(() => { const item = document.querySelector('.wr-nonvisual-item[aria-label$=", API Client"]'); if (!(item instanceof HTMLElement)) return false; item.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return true; })()`,
+    );
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Operation name"]')?.value === 'LoadNotes' && document.querySelector('[aria-label="Query parameters value rgouserid"]')?.value === 'user-42' && document.querySelector('[aria-label="Query parameters name pesquisa"]') !== null && document.querySelector('[aria-label="Query parameters name active"]') === null`,
+    );
+    await clickText(window, 'PutAnotacoes PUT');
+    await clickText(window, 'Body');
+    await ready(
+      window,
+      `(() => {
+        const body = document.querySelector('[aria-label="Request body"]');
+        const hint = document.getElementById(body?.getAttribute('aria-describedby') ?? '');
+        return hint?.textContent === 'Use angle brackets for dynamic parameters, for example: <title>.' && hint.getBoundingClientRect().height > 0;
+      })()`,
+    );
+    log('renderer API Client body parameter hint passed');
+    await ready(
+      window,
+      `(() => { const body = document.querySelector('[aria-label="Request body"]')?.value ?? ''; return body.includes('"caption"') && body.includes('"rgouserid"') && !body.includes('"active"'); })()`,
+    );
+    await capture(window, `${screenshotRoot}-synchronized.png`);
+    await clickText(window, 'Save API Client');
+    await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+    const syncDeadline = Date.now() + 10_000;
+    let synchronizedOnDisk = false;
+    while (Date.now() < syncDeadline) {
+      const savedPage: unknown = JSON.parse(await fs.readFile(pagePath, 'utf8'));
+      const text = JSON.stringify(savedPage);
+      if (text.includes('pesquisa') && text.includes('caption') && text.includes('user-42')) {
+        synchronizedOnDisk = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (!synchronizedOnDisk)
+      throw new Error('RestGo endpoint changes did not persist in the existing API Client.');
+    log(
+      'renderer RestGO API Client synchronization passed: edit and save GET/PUT SQL, reconcile existing query/JSON inputs, preserve request name and values, save project and reopen client',
+    );
     log(
       `renderer API Client designer passed: tabs, all methods, light/dark theme, 1080/740 viewport, custom HTTP test, delete final endpoint, save/reopen empty list, recreate endpoint, fixed RestGO URL, Bearer test, safe persistence; screenshots ${screenshotRoot}-custom.png, ${screenshotRoot}-custom-light.png, ${screenshotRoot}-custom-compact.png, ${screenshotRoot}-custom-narrow.png, ${screenshotRoot}-empty.png and ${screenshotRoot}-restgo.png`,
     );

@@ -130,6 +130,9 @@ import { canonicalMonacoResource } from './monaco-resource';
 import { editCommandTarget, executeTextEditingCommand } from './workbench-commands';
 import { DesignerController } from './state/designer-controller';
 import { ProjectController } from './state/project-controller';
+import { synchronizeProjectRestGoClients } from './state/restgo-api-sync';
+import { restGoCatalogToPublishedApis } from './components/restgo-workspace-model';
+import type { RestGoAdminCatalog } from '../../shared/restgo-admin';
 import { useDebugger } from './state/useDebugger';
 import { DebuggerPanel } from './components/DebuggerPanel';
 import type { DebugLocation } from '../../shared/debugger-contracts';
@@ -1261,6 +1264,27 @@ export function App(): ReactElement {
     [projectController, addOutput],
   );
 
+  const synchronizeRestGoClients = useCallback(
+    (catalog: RestGoAdminCatalog, projectId: string, baseUrl: string): string | undefined => {
+      const result = synchronizeProjectRestGoClients(
+        projectController,
+        designerController,
+        projectId,
+        baseUrl,
+        restGoCatalogToPublishedApis(catalog),
+      );
+      if (result.updated > 0)
+        addOutput(
+          'PROJECT',
+          `Updated ${String(result.updated)} RestGo API Client(s). Save the project to persist them.`,
+        );
+      return result.issues.length > 0
+        ? `Some API Clients could not be synchronized: ${result.issues.join(' ')}`
+        : undefined;
+    },
+    [projectController, designerController, addOutput],
+  );
+
   const saveColorPalette = useCallback(
     (colorPalette: readonly ProjectPaletteColor[]): void => {
       projectController.updateProjectSettings({ colorPalette });
@@ -2341,6 +2365,7 @@ export function App(): ReactElement {
               section={restGoSection}
               onSectionChange={setRestGoSection}
               onSaveSettings={saveRestGoSettings}
+              onCatalogChange={synchronizeRestGoClients}
             />
           </ErrorBoundary>
         </div>

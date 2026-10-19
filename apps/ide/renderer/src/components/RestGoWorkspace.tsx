@@ -36,6 +36,11 @@ interface RestGoWorkspaceProps {
   readonly section: RestGoSection;
   readonly onSectionChange?: (section: RestGoSection) => void;
   readonly onSaveSettings: (settings: RestGoProjectSettings) => void | Promise<void>;
+  readonly onCatalogChange?: (
+    catalog: RestGoAdminCatalog,
+    projectId: string,
+    baseUrl: string,
+  ) => string | undefined;
 }
 
 const EMPTY_CATALOG: RestGoAdminCatalog = {
@@ -76,7 +81,7 @@ export function RestGoWorkspace(props: RestGoWorkspaceProps): ReactElement {
 }
 
 function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
-  const { projectId, settings, section, onSaveSettings } = props;
+  const { projectId, settings, section, onSaveSettings, onCatalogChange } = props;
   const savedSettingsKey = JSON.stringify(settings);
   const [draftBaseSettings, setDraftBaseSettings] = useState(savedSettingsKey);
   const [draftSettings, setDraftSettings] = useState(settings);
@@ -157,6 +162,8 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
           if (!canceled) {
             catalogRef.current = next;
             setCatalog(next);
+            const issue = onCatalogChange?.(next, projectId, baseUrl);
+            if (issue) setError(issue);
           }
         }
       })
@@ -172,7 +179,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
     return () => {
       canceled = true;
     };
-  }, [scope, baseUrl]);
+  }, [scope, baseUrl, projectId, onCatalogChange]);
 
   const perform = useCallback(
     async <T,>(label: string, action: () => Promise<T>, success?: string): Promise<T> => {
@@ -204,9 +211,11 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
     if (currentScope.current === actionScope) {
       setCatalog(next);
       catalogRef.current = next;
+      const issue = onCatalogChange?.(next, projectId, baseUrl);
+      if (issue) setError(issue);
     }
     return next;
-  }, [baseUrl, scope]);
+  }, [baseUrl, scope, projectId, onCatalogChange]);
 
   const refresh = (): void => {
     void perform('Refreshing RestGO', reloadCatalog, 'RestGO catalog updated.').catch(

@@ -48,6 +48,8 @@ export interface ComponentPropertyDefinition {
   readonly readOnly?: boolean;
   /** Optional runtime-independent validation for a specialized public property. */
   readonly validateValue?: (value: unknown) => boolean;
+  /** Pure projection for generated runtime options, excluding design-time metadata. */
+  readonly runtimeValue?: (value: unknown) => unknown;
   /** Pure design-time rule evaluated against the component's saved property bag. */
   readonly readOnlyWhen?: (props: Readonly<Record<string, unknown>>) => boolean;
   /** Enables an explicit null value for structural numeric controls. */

@@ -238,6 +238,18 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
   const bridge = {
     updates: createUpdateTestBridge(),
     debugger: createDebugTestBridge(),
+    restgoDevelopment: {
+      status: vi.fn(async (request) => ({
+        baseUrl: request.baseUrl,
+        connected: false,
+        storage: 'none' as const,
+        encryptionAvailable: false,
+        email: null,
+      })),
+      login: vi.fn(),
+      logout: vi.fn(),
+      token: vi.fn(),
+    },
     restgoAdmin: {
       status: vi.fn(async (request) => ({
         baseUrl: request.baseUrl,

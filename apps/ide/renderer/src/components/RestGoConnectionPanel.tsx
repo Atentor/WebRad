@@ -5,6 +5,7 @@ import type { RestGoEndpointGroup } from './restgo-workspace-model';
 import type { RestGoSection } from './RestGoSidebar';
 import { Icon } from './Icon';
 import { RestGoSettingsSection } from './RestGoSettingsSection';
+import { RestGoDevelopmentLogin } from './RestGoDevelopmentLogin';
 interface Props {
   readonly section: RestGoSection;
   readonly busy: boolean;
@@ -54,43 +55,49 @@ export function RestGoConnectionPanel({
 }: Props): ReactElement {
   return (
     <div hidden={section !== 'connection'} className="wr-restgo-connection">
-      <form
-        className="wr-restgo-connection-section wr-restgo-runtime-settings"
-        onSubmit={(event) => {
-          void saveSettings(event);
-        }}
-      >
-        <div className="wr-restgo-connection-heading">
-          <div>
-            <h2>Application SDK</h2>
-            <p>Connection and session settings for your application.</p>
+      <div>
+        <form
+          className="wr-restgo-connection-section wr-restgo-runtime-settings"
+          onSubmit={(event) => {
+            void saveSettings(event);
+          }}
+        >
+          <div className="wr-restgo-connection-heading">
+            <div>
+              <h2>Application SDK</h2>
+              <p>Connection and session settings for your application.</p>
+            </div>
           </div>
-        </div>
-        <fieldset disabled={busy} className="wr-restgo-settings-content">
-          <RestGoSettingsSection
-            settings={draftSettings}
-            error={settingsError}
-            errorId="wr-restgo-workspace-settings-error"
-            onChange={(patch) => {
-              setDraftSettings((current) => ({ ...current, ...patch }));
-              setSettingsError(null);
-            }}
-          />
-        </fieldset>
-        <div className="wr-restgo-form-actions">
-          <span className="wr-restgo-muted">
-            {settingsDirty ? 'Unsaved changes' : 'Configuration saved'}
-          </span>
-          <button
-            className="wr-restgo-button is-primary"
-            type="submit"
-            disabled={busy || !settingsDirty}
-          >
-            <Icon name="save" />
-            Save configuration
-          </button>
-        </div>
-      </form>
+          <fieldset disabled={busy} className="wr-restgo-settings-content">
+            <RestGoSettingsSection
+              settings={draftSettings}
+              error={settingsError}
+              errorId="wr-restgo-workspace-settings-error"
+              onChange={(patch) => {
+                setDraftSettings((current) => ({ ...current, ...patch }));
+                setSettingsError(null);
+              }}
+            />
+          </fieldset>
+          <div className="wr-restgo-form-actions">
+            <span className="wr-restgo-muted">
+              {settingsDirty ? 'Unsaved changes' : 'Configuration saved'}
+            </span>
+            <button
+              className="wr-restgo-button is-primary"
+              type="submit"
+              disabled={busy || !settingsDirty}
+            >
+              <Icon name="save" />
+              Save configuration
+            </button>
+          </div>
+        </form>
+        <RestGoDevelopmentLogin
+          baseUrl={baseUrl}
+          disabled={settingsDirty || !draftSettings.enabled}
+        />
+      </div>
       <section
         className="wr-restgo-connection-section wr-restgo-admin-settings"
         aria-label="Administrative access"

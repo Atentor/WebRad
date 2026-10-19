@@ -2,6 +2,20 @@
 
 O API Client configurado no Designer é uma instância real no código da página ou do componente reutilizável. O Monaco completa requisições, parâmetros e campos da resposta com base no modelo salvo. Tanto `ApiClient1` quanto `this.ApiClient1` funcionam dentro da instância; variáveis locais com o mesmo nome continuam respeitando o escopo normal do TypeScript.
 
+## Atualização de APIs importadas do RestGO
+
+Salvar um endpoint ou atualizar o catálogo no workspace RestGO sincroniza os API Clients já importados em todas as páginas e reutilizáveis do projeto, inclusive documentos fechados. Reimportar uma API existente também atualiza sua operação, sem duplicá-la. São reconciliados rota, método, versão e parâmetros de query/JSON; nomes públicos, IDs, valores dos parâmetros mantidos, headers, timeouts e contratos de resposta são preservados. Salve o projeto para persistir o resultado. A alteração pode ser desfeita pelo histórico do Designer de cada documento.
+
+As operações importadas guardam `restGoSource: { apiId, parameterNames }`, um vínculo opcional com a publicação/método e a última lista de entradas. Esses metadados pertencem ao modelo de projeto e são removidos das opções geradas do runtime pelo Component Registry. Não contêm SQL ou credenciais. Clientes existentes sem esse vínculo são reconhecidos pelo ID estável produzido pelo importador; os parâmetros de query gerados anteriormente também permitem reconciliar remoções. Em corpos JSON antigos sem histórico, campos cuja origem não pode ser comprovada são preservados na primeira sincronização.
+
+Requisições manuais, novos métodos que não foram selecionados e operações ausentes/inativas no catálogo não são adicionados nem apagados automaticamente. Os campos de resposta continuam sendo inferidos somente por **Send test request**. Se uma mudança de autenticação exigir misturar modos no mesmo cliente, ou um corpo personalizado não puder ser reconciliado com segurança, o workspace informa quais clientes exigem ajuste. Uma falha de catálogo não apaga a configuração salva; resultados de outro projeto ou URL são descartados.
+
+## Login para testar endpoints JWT
+
+Em **RestGo integration → Connection → Development login**, autentique um usuário da aplicação. A opção **Remember development login on this device** salva a sessão criptografada no dispositivo; a senha nunca é salva. Sem armazenamento seguro, a sessão dura somente enquanto a janela do IDE estiver aberta.
+
+No editor do API Client, use **RestGo JWT Authentication** e deixe **Test JWT** vazio para validar/renovar e usar essa sessão em cada teste. Um JWT temporário preenchido tem prioridade. **Sign out and forget session** remove o login local. Esse login não usa o token administrativo e não é exportado com o projeto, Preview ou Build. Veja os detalhes em [SDK RestGO](restgo-sdk.md#login-de-desenvolvimento-no-api-client).
+
 ## ComboBox conectado ao API Client
 
 Para opções fixas, os botões **Edit Items…** e **Edit Values…** abrem um modal simples. Insira um texto por linha em **Items** e uma chave por linha em **Values**, na mesma ordem. Se **Values** ficar vazio, o texto do item será sua chave. **Save** salva as duas listas em uma única alteração; **Cancel** e Escape descartam o rascunho. A propriedade singular **Value** continua sendo a chave selecionada.

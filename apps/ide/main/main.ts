@@ -716,6 +716,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     platform: true,
     project: true,
     restgoAdmin: true,
+    restgoDevelopment: true,
     styles: true,
   } satisfies Record<keyof WebRadBridge, true>).sort();
   if (

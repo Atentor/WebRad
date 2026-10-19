@@ -1,6 +1,7 @@
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import { RestGoAdminCredentials } from './restgo-admin-credentials';
 import { RestGoAdminService } from './restgo-admin';
+import { RestGoDevelopmentService } from './restgo-development';
 
 /** Shares the existing trusted main-frame check; Preview can never invoke these operations. */
 export function registerRestGoAdminIpc(
@@ -9,6 +10,11 @@ export function registerRestGoAdminIpc(
 ): void {
   const credentials = new RestGoAdminCredentials(userDataPath);
   const service = new RestGoAdminService(credentials);
+  const developmentCredentials = new RestGoAdminCredentials(
+    userDataPath,
+    'restgo-development-credentials',
+  );
+  const development = new RestGoDevelopmentService(developmentCredentials);
   const trackedOwners = new Set<number>();
 
   function handle<Request, Response>(
@@ -24,6 +30,7 @@ export function registerRestGoAdminIpc(
         trackedOwners.add(ownerId);
         window.once('closed', () => {
           credentials.release(ownerId);
+          developmentCredentials.release(ownerId);
           trackedOwners.delete(ownerId);
         });
       }
@@ -33,6 +40,10 @@ export function registerRestGoAdminIpc(
   }
 
   handle('webrad:restgo-admin:status', service.status.bind(service));
+  handle('webrad:restgo-development:status', development.status.bind(development));
+  handle('webrad:restgo-development:login', development.login.bind(development));
+  handle('webrad:restgo-development:logout', development.logout.bind(development));
+  handle('webrad:restgo-development:token', development.token.bind(development));
   handle('webrad:restgo-admin:connect', service.connect.bind(service));
   handle('webrad:restgo-admin:disconnect', service.disconnect.bind(service));
   handle('webrad:restgo-admin:catalog', service.catalog.bind(service));

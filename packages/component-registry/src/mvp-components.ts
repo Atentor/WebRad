@@ -5,6 +5,7 @@ import { CURRENT_ROW_BINDINGS_PROPERTY } from './current-row-bindings.js';
 import { webVideoUpload } from './video-upload.js';
 import {
   createDefaultApiClientConfiguration,
+  parseApiClientConfiguration,
   createDefaultDataGridConfiguration,
   createDefaultRepeatingGroupConfiguration,
   REUSABLE_ELEMENT_HORIZONTAL_ANCHORS,
@@ -1690,6 +1691,17 @@ const webApiClient: ComponentDefinition = {
       name: 'apiClientConfig',
       label: 'Requests',
       type: 'api-client-config',
+      runtimeValue: (value) => {
+        const configuration = parseApiClientConfiguration(value);
+        return {
+          ...configuration,
+          operations: configuration.operations.map((operation) => {
+            const runtimeOperation = { ...operation };
+            delete runtimeOperation.restGoSource;
+            return runtimeOperation;
+          }),
+        };
+      },
       category: 'API Client',
       source: 'props',
       defaultValue: createDefaultApiClientConfiguration(),

@@ -362,6 +362,22 @@
   padding-left: 32px;
   border-left: 1px solid var(--wr-border);
 }
+.wr-restgo-development-login {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid var(--wr-border);
+}
+.wr-restgo-development-login > p {
+  font-size: 12px;
+  margin: 0 0 12px;
+}
+.wr-restgo-development-login > small {
+  display: block;
+  margin-bottom: 18px;
+}
+.wr-restgo-development-login [role='alert'] {
+  color: var(--wr-danger);
+}
 .wr-restgo-settings-content {
   margin: 0;
   border: 0;

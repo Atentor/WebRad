@@ -24,7 +24,6 @@ import {
   importRestGoPublishedApis,
   type RestGoPublishedApi,
 } from '@webrad/designer';
-import { RestGoError } from '@webrad/restgo-sdk';
 import {
   collectApiClientSchemaNodeIds as collectInferredNodeIds,
   inferApiClientResponseSchema,
@@ -456,17 +455,14 @@ export function ApiClientTesterDialog({
             { ...request.init, signal: controller.signal },
             {
               baseUrl: effectiveBaseUrl,
-              getSession: async () =>
-                testJwt.trim()
-                  ? { data: { token: testJwt.trim().replace(/^Bearer\s+/iu, '') }, error: null }
-                  : {
-                      data: null,
-                      error: new RestGoError(
-                        'Enter a temporary Test JWT, or test the authenticated application in Preview.',
-                        'AUTH_REQUIRED',
-                        401,
-                      ),
-                    },
+              getSession: async () => ({
+                data: {
+                  token: testJwt.trim()
+                    ? testJwt.trim().replace(/^Bearer\s+/iu, '')
+                    : await window.webrad.restgoDevelopment.token({ baseUrl: effectiveBaseUrl }),
+                },
+                error: null,
+              }),
             },
           );
         else

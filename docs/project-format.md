@@ -1,5 +1,7 @@
 # Project format
 
+Imported API Client operations may include optional `restGoSource: { apiId, parameterNames }`. The API ID identifies the RestGO publication/method; parameter names record the last imported input set so catalog updates can remove obsolete generated inputs without deleting unrelated fields. This contains no SQL, values or credentials. It is saved with the operation in pages and reusable definitions; project format 2 and API Client schema 1 remain unchanged. Older imports are matched by their stable `restgo-` IDs or exact published route. The Component Registry projects this metadata out of generated browser constructor options. See [API Client synchronization](api-client.md#atualizacao-de-apis-importadas-do-restgo).
+
 Visual style `fontFamily` values include `sans`, `serif`, `mono`, `roboto`,
 `open-sans`, `jetbrains-mono`, `inter`, `lato`, `montserrat`, `poppins` and `nunito`.
 These stable IDs are validated in every style state. Font bytes are compiler

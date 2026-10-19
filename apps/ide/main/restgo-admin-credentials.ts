@@ -29,7 +29,10 @@ export class RestGoAdminCredentials {
     }
   }
 
-  public constructor(private readonly userDataPath?: string) {}
+  public constructor(
+    private readonly userDataPath?: string,
+    private readonly directory = 'restgo-admin-credentials',
+  ) {}
 
   public encryptionAvailable(): boolean {
     return (
@@ -41,7 +44,7 @@ export class RestGoAdminCredentials {
   private credentialPath(baseUrl: string): string | undefined {
     if (this.userDataPath === undefined) return undefined;
     const key = createHash('sha256').update(baseUrl).digest('hex');
-    return path.join(this.userDataPath, 'restgo-admin-credentials', `${key}.bin`);
+    return path.join(this.userDataPath, this.directory, `${key}.bin`);
   }
 
   public async get(ownerId: number, baseUrl: string): Promise<Credential | undefined> {

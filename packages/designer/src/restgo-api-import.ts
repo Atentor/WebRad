@@ -8,6 +8,7 @@ import {
   type ApiClientOperation,
   type ApiClientParameter,
 } from '@webrad/project-model';
+import { synchronizeRestGoApiConfiguration } from './restgo-api-sync.js';
 
 /** A published browser API, deliberately excluding administration credentials and test data. */
 export interface RestGoPublishedApi {
@@ -240,15 +241,20 @@ export function importRestGoPublishedApis(
       });
   const names = new Set(operations.map((operation) => operation.name));
   const ids = new Set(operations.map((operation) => operation.id));
+  const existingIds = new Set(ids);
   for (const api of apis) {
     const path = publishedPath(api);
     const method = api.method.trim().toUpperCase();
     if (
       operations.some(
         (operation) =>
-          operation.path === path &&
-          operation.method.toUpperCase() === method &&
-          operation.apiVersion === api.apiVersion,
+          (existingIds.has(operation.id) &&
+            (operation.restGoSource?.apiId === api.id ||
+              operation.id ===
+                `restgo-${api.id.replace(/[^A-Za-z0-9_-]/gu, '-')}`.slice(0, 160))) ||
+          (operation.path === path &&
+            operation.method.toUpperCase() === method &&
+            operation.apiVersion === api.apiVersion),
       )
     )
       continue;
@@ -296,12 +302,17 @@ export function importRestGoPublishedApis(
       credentials: 'omit',
       timeoutMs: null,
       responseSchema: null,
+      restGoSource: {
+        apiId: api.id,
+        parameterNames: uniqueParameters.map((parameter) => parameter.name),
+      },
     });
   }
-  return parseApiClientConfiguration({
+  const imported = parseApiClientConfiguration({
     ...configuration,
     connection,
     defaultHeaders: withoutAuthorization(configuration.defaultHeaders),
     operations,
   });
+  return empty ? imported : synchronizeRestGoApiConfiguration(imported, apis);
 }

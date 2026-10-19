@@ -30,6 +30,7 @@ const apiClientComponent: ComponentNode = {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  Reflect.deleteProperty(window, 'webrad');
 });
 
 async function configureAndSend(): Promise<ReturnType<typeof userEvent.setup>> {
@@ -293,7 +294,60 @@ describe('ApiClientTesterDialog', () => {
     expect(JSON.stringify(onSave.mock.calls)).not.toContain('raw-token');
   });
 
+  it('uses the saved development session without persisting its JWT and requests a fresh token for each test', async () => {
+    const token = vi.fn().mockResolvedValueOnce('saved-jwt-1').mockResolvedValueOnce('saved-jwt-2');
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: { restgoDevelopment: { token } },
+    });
+    const fetcher = vi.fn().mockImplementation(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetcher);
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ApiClientTesterDialog
+        component={apiClientComponent}
+        restGoSettings={{
+          ...DEFAULT_REST_GO_PROJECT_SETTINGS,
+          enabled: true,
+          baseUrl: 'https://restgo.example.test/backend',
+        }}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+    await user.selectOptions(screen.getByLabelText('Connection'), 'restgo-session');
+    await user.type(screen.getByLabelText('Path'), '/customers');
+    await user.click(screen.getByRole('button', { name: 'Send test request' }));
+    await screen.findByText('204');
+    await user.click(screen.getByRole('button', { name: 'Send test request' }));
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(token).toHaveBeenCalledWith({ baseUrl: 'https://restgo.example.test/backend' });
+    expect(
+      new Headers((fetcher.mock.calls[0]?.[1] as RequestInit).headers).get('Authorization'),
+    ).toBe('Bearer saved-jwt-1');
+    expect(
+      new Headers((fetcher.mock.calls[1]?.[1] as RequestInit).headers).get('Authorization'),
+    ).toBe('Bearer saved-jwt-2');
+    await user.click(screen.getByRole('button', { name: 'Save API Client' }));
+    expect(JSON.stringify(onSave.mock.calls)).not.toContain('saved-jwt');
+  });
+
   it('rejects anonymous tests and endpoint escapes before making a RestGo request', async () => {
+    Object.defineProperty(window, 'webrad', {
+      configurable: true,
+      value: {
+        restgoDevelopment: {
+          token: vi
+            .fn()
+            .mockRejectedValue(
+              new Error(
+                'Sign in under RestGo connection > Development login, or enter a temporary Test JWT.',
+              ),
+            ),
+        },
+      },
+    });
     const fetcher = vi.fn();
     vi.stubGlobal('fetch', fetcher);
     const user = userEvent.setup();

@@ -270,13 +270,21 @@ export function ApiClientRequestEditor({
                         value={testJwt}
                         title="Temporary credential for this editor session"
                         placeholder={
-                          tokenConnection ? 'Temporary application token' : 'Temporary user JWT'
+                          tokenConnection
+                            ? 'Temporary application token'
+                            : 'Optional override for saved development login'
                         }
                         onChange={(event) => onTestJwtChange(event.currentTarget.value)}
                       />
                     </label>
                   </div>
                 </details>
+              )}
+              {!publicConnection && !tokenConnection && (
+                <p className="wr-api-empty">
+                  Uses the saved Development login from RestGo connection. A temporary Test JWT
+                  overrides it.
+                </p>
               )}
             </div>
           )}
@@ -381,6 +389,7 @@ export function ApiClientRequestEditor({
                     </span>
                     <textarea
                       aria-label="Request body"
+                      aria-describedby={tabsId + '-body-hint'}
                       value={operation.body.content}
                       placeholder={
                         operation.body.kind === 'json'
@@ -396,6 +405,10 @@ export function ApiClientRequestEditor({
                         })
                       }
                     />
+                    <span className="wr-api-hint" id={tabsId + '-body-hint'}>
+                      Use angle brackets for dynamic parameters, for example:{' '}
+                      <code>{'<title>'}</code>.
+                    </span>
                   </label>
                 )}
               </div>

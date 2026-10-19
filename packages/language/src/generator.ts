@@ -378,8 +378,16 @@ function componentConstruction(
     return `new ${apiClientTypes.get(component.id) ?? component.type}(this.requireComponentElement(${elementId}))`;
   }
   const typeName = apiClientTypes.get(component.id) ?? component.type;
+  const props = Object.fromEntries(
+    Object.entries(component.props).map(([name, value]) => {
+      const projection = definition.properties.find(
+        (property) => property.name === name,
+      )?.runtimeValue;
+      return [name, projection ? projection(value) : value];
+    }),
+  );
   return `new ${typeName}(${JSON.stringify({
-    ...component.props,
+    ...props,
     id: component.id,
     name: component.name,
   })})${component.type === 'WebApiClient' ? '.withRequests()' : ''}`;
