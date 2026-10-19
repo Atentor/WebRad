@@ -13,8 +13,10 @@ const ideIntegrationTestFiles = ['apps/ide/renderer/src/App.integration.test.tsx
 export default defineConfig({
   test: {
     environment: 'node',
+    setupFiles: ['./tests/setup/worker-event-loop.ts'],
+
     // Bound CPU/memory contention consistently in local tests, validation and releases.
-    maxWorkers: 4,
+    maxWorkers: 2,
     minWorkers: 1,
     projects: [
       {

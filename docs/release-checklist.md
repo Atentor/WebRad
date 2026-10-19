@@ -16,7 +16,9 @@ npm run smoke:packaged
 npm run smoke:packaged -- --webrad-smoke-updates
 ```
 
-`validate` inclui ícones, fontes incorporadas, TypeScript estrito, lint, testes com diretórios temporários ligados, formatação e empacotamento. Ele não executa os smokes Electron: execute-os separadamente. Os testes compartilham o limite definido em `vitest.config.ts`; não adicione um limite diferente no workflow.
+`validate` inclui ícones, fontes incorporadas, TypeScript estrito, lint, testes com diretórios temporários ligados, formatação e empacotamento. Ele não executa os smokes Electron: execute-os separadamente. Os testes compartilham o máximo de dois workers definido em `vitest.config.ts`; não adicione um limite diferente no workflow nem aumente a concorrência para acelerar uma validação local. A comunicação entre workers também deve terminar corretamente: asserções aprovadas com erro de infraestrutura e grupos não executados reprovam a suíte.
+
+Preserve também o setup de turnos reais do event loop entre os casos. Um arquivo com muitos testes TypeScript síncronos pode impedir o atendimento de mensagens RPC pendentes, mesmo com cada asserção aprovada. Não substitua esse limite de escalonamento por uma Promise já resolvida ou por timers simulados, nem amplie o timeout do transporte para contornar a falha.
 
 Os runners isolam o perfil Chromium e o projeto de cada execução. Em uma falha, consulte a mensagem original e `artifacts/smoke/`: são preservados o log bruto, os dados do erro e o projeto de teste, sem copiar o perfil Chromium. No GitHub, esses arquivos ficam no artifact de diagnóstico do job que falhou. Não repita um teste até obter verde sem investigar a falha anterior.
 
