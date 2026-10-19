@@ -36,7 +36,7 @@ Ao iniciar, o WebRAD reabre automaticamente o último projeto criado, aberto ou 
 
 O workspace segue a organização visual do designer do Bubble: barra superior compacta, navegação por ícones à esquerda, árvore de elementos e paleta no painel Builder, canvas central e Inspector à direita. A barra superior reúne os documentos abertos, o elemento selecionado, o zoom e as ações de salvar, desfazer, refazer e executar Preview.
 
-- Use **Design**, **Code** e **Preview** na barra lateral para alternar a visualização do documento; **F12** abre o código e **F9** compila e executa a aplicação.
+- Use **Design** e **Code**, no topo da área de edição, para alternar a visualização do documento; **F12** alterna entre o canvas e o código, inclusive com o Monaco em foco, e **F9** compila e executa a aplicação.
 - No **Builder**, selecione um elemento pela árvore ou pelo canvas. Ambos atualizam a mesma seleção e o Inspector. Pesquise os elementos ou os componentes da paleta e arraste um componente para inseri-lo.
 - Abra **Responsive** para escolher a largura do canvas: **Default** acompanha dinamicamente o espaço disponível no Designer, **Tablet** usa 768 px e **Mobile** usa 390 px. O zoom na barra superior altera a escala de visualização; no modo Default, o canvas continua ocupando a largura disponível. A seleção não altera as dimensões salvas da página.
 - No Inspector, **Visual** reúne as propriedades em seções recolhíveis e **Interaction** permite configurar os eventos existentes do componente.

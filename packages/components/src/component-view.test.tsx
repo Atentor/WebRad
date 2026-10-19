@@ -24,6 +24,16 @@ const button = {
 } as const;
 
 describe('ComponentView', () => {
+  it('projects saved TextArea spell checking and defaults legacy nodes to enabled', () => {
+    const node = { ...button, type: 'WebTextArea', props: { spellCheck: false } };
+    const view = render(<ComponentView node={node} designTime />);
+    expect(view.getByRole('textbox').getAttribute('spellcheck')).toBe('false');
+    view.rerender(<ComponentView node={{ ...node, props: { spellCheck: true } }} designTime />);
+    expect(view.getByRole('textbox').getAttribute('spellcheck')).toBe('true');
+    view.rerender(<ComponentView node={{ ...node, props: {} }} designTime />);
+    expect(view.getByRole('textbox').getAttribute('spellcheck')).toBe('true');
+    view.unmount();
+  });
   it('keeps File Upload outside the visual component renderer catalog', () => {
     expect(hasComponentRenderer('WebFileUpload')).toBe(false);
   });

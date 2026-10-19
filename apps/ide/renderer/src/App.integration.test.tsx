@@ -82,6 +82,7 @@ vi.mock('./components/CodeEditor', () => ({
       data-testid="mock-monaco"
       data-navigation-line={navigateTo?.line}
       data-navigation-column={navigateTo?.column}
+      className="monaco-editor"
     >
       <output data-testid="mock-monaco-page-components">{JSON.stringify(pageComponents)}</output>
       <textarea
@@ -805,6 +806,59 @@ describe('App MVP integration', () => {
     expect(screen.getByRole('tab', { name: 'Design' }).getAttribute('aria-selected')).toBe('true');
     fireEvent.keyDown(window, { key: 'F9' });
     await waitFor(() => expect(harness.build).toHaveBeenCalledOnce());
+  });
+
+  it('keeps document navigation above the canvas and toggles F12 with Monaco focused', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    fireEvent.keyDown(window, { key: 'F12' });
+    expect(screen.queryByRole('tablist', { name: 'Document view' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    const navigation = screen.getByRole('tablist', { name: 'Document view' });
+    expect(navigation.parentElement?.classList.contains('wr-editor-workspace')).toBe(true);
+    expect(navigation.nextElementSibling?.classList.contains('wr-editor-content')).toBe(true);
+    expect(
+      within(screen.getByRole('navigation', { name: 'Workspace navigation' })).queryByRole('tab'),
+    ).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Code' }).title).toBe('Code (F12)');
+    fireEvent.keyDown(window, { key: 'F12' });
+    const editor = await screen.findByRole('textbox', { name: 'Mock Monaco editor' });
+    await user.click(editor);
+    const source = (editor as HTMLTextAreaElement).value + '\n// Keep authored edits across F12';
+    fireEvent.change(editor, { target: { value: source } });
+    const monacoHandler = vi.fn((event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    editor.addEventListener('keydown', monacoHandler);
+    for (const modifier of [
+      { ctrlKey: true },
+      { metaKey: true },
+      { altKey: true },
+      { shiftKey: true },
+      { repeat: true },
+    ]) {
+      fireEvent.keyDown(editor, { key: 'F12', ...modifier });
+      expect(screen.getByRole('tab', { name: 'Code' }).getAttribute('aria-selected')).toBe('true');
+    }
+    monacoHandler.mockClear();
+    expect(fireEvent.keyDown(editor, { key: 'F12' })).toBe(false);
+    expect(monacoHandler).not.toHaveBeenCalled();
+    expect(screen.getByRole('tab', { name: 'Design' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByTestId('mock-monaco')).toBeNull();
+    fireEvent.keyDown(window, { key: 'F12' });
+    expect(await screen.findByRole('textbox', { name: 'Mock Monaco editor' })).toHaveProperty(
+      'value',
+      source,
+    );
+    await user.click(screen.getByRole('tab', { name: 'Design' }));
+    await user.click(screen.getByRole('tab', { name: 'Code' }));
+    expect(await screen.findByRole('textbox', { name: 'Mock Monaco editor' })).toHaveProperty(
+      'value',
+      source,
+    );
   });
 
   it('keeps F12 and native editing scoped to the visible workspace', async () => {
@@ -1841,7 +1895,14 @@ describe('App MVP integration', () => {
       await user.type(field, kind === 'model' ? 'Customer' : 'Helpers');
       await user.click(within(dialog).getByRole('button', { name: `Add ${kind}` }));
       const editor = await screen.findByRole('textbox', { name: 'Mock Monaco editor' });
-      fireEvent.change(editor, {
+      expect(screen.getByRole('tab', { name: 'Design' })).toHaveProperty('disabled', true);
+      fireEvent.keyDown(editor, { key: 'F12' });
+      expect(screen.getByRole('textbox', { name: 'Mock Monaco editor' })).toBe(editor);
+      await act(async () => harness.invokeCommand('view.preview'));
+      expect(screen.queryByRole('textbox', { name: 'Mock Monaco editor' })).toBeNull();
+      await user.click(screen.getByRole('tab', { name: 'Code' }));
+      await screen.findByRole('textbox', { name: 'Mock Monaco editor' });
+      fireEvent.change(screen.getByRole('textbox', { name: 'Mock Monaco editor' }), {
         target: {
           value:
             kind === 'model'

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
+import { appendComponentReferenceDeclarations } from '../src/component-references.js';
 
 import {
   defaultComponentRegistry,
@@ -424,6 +425,71 @@ ${memberExpressions}
       service.dispose();
     }
   });
+});
+
+it('completes and checks TextArea spellCheck on generated page and reusable instances', () => {
+  const page = testPage();
+  const reusable = createReusableElement('NotesCard');
+  const card = {
+    ...reusable,
+    components: page.components.map((node) =>
+      node.id === page.rootComponentId
+        ? { ...node, id: reusable.rootComponentId, name: reusable.name, type: 'WebPanel' }
+        : {
+            ...node,
+            parentId:
+              node.parentId === page.rootComponentId ? reusable.rootComponentId : node.parentId,
+          },
+    ),
+  };
+  for (const document of [page, card]) {
+    for (const invalid of [false, true]) {
+      const fileName = `/webrad-language-test/${document.name}.ts`;
+      const source = `import { ${document.name}Generated } from './${document.name}.generated';
+export class ${document.name} extends ${document.name}Generated {
+  run(): void {
+    MEMNotas.spellCheck = ${invalid ? "'false'" : 'false'};
+    this.MEMNotas.spellCheck = ${invalid ? '1' : 'true'};
+    const enabled: boolean = MEMNotas.spellCheck; void enabled;
+  }
+}`;
+      const augmented = appendComponentReferenceDeclarations(ts, fileName, source, {
+        className: document.name,
+        generatedClassName: `${document.name}Generated`,
+        componentNames: document.components
+          .filter((node) => node.id !== document.rootComponentId)
+          .map((node) => node.name),
+      });
+      const service = createLanguageService({
+        [fileName]: augmented,
+        [`/webrad-language-test/${document.name}.generated.d.ts`]:
+          document === page
+            ? generatePageTypings(document)
+            : generateReusableElementTypings(document),
+        '/webrad-language-test/runtime.d.ts': generateRuntimeTypings(),
+      });
+      try {
+        expect(service.getSemanticDiagnostics(fileName).map((item) => item.code)).toEqual(
+          invalid ? [2322, 2322] : [],
+        );
+        for (const expression of ['MEMNotas.spellCheck =', 'this.MEMNotas.spellCheck =']) {
+          const position = source.indexOf(expression) + expression.indexOf('spellCheck');
+          expect(
+            service
+              .getCompletionsAtPosition(fileName, position, {})
+              ?.entries.map((item) => item.name),
+          ).toContain('spellCheck');
+          expect(
+            ts.displayPartsToString(
+              service.getQuickInfoAtPosition(fileName, position + 2)?.displayParts,
+            ),
+          ).toContain('spellCheck: boolean');
+        }
+      } finally {
+        service.dispose();
+      }
+    }
+  }
 });
 
 describe('event handler AST editing', () => {

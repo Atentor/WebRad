@@ -396,6 +396,7 @@ runtimeComponentRegistry
       component.value = readStringProperty(node, 'value');
       component.placeholder = readStringProperty(node, 'placeholder');
       component.readOnly = readBooleanProperty(node, 'readOnly');
+      component.spellCheck = readBooleanProperty(node, 'spellCheck', true);
       const rows = readIntegerProperty(node, 'rows');
       if (rows !== undefined && rows > 0) {
         component.rows = rows;

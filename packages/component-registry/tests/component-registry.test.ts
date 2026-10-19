@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { addComponent, createPage, deserializePage, serializePage } from '@webrad/project-model';
 
 it('exposes Margin on every visual component, including tray visuals, and keeps services DOM-less', () => {
   for (const component of componentRegistry.list()) {
@@ -107,6 +108,20 @@ function defaultLayout() {
 }
 
 describe('MVP component metadata', () => {
+  it('defaults TextArea spell checking on and preserves saved false values', () => {
+    const node = componentRegistry.createComponent('WebTextArea', { id: 'notes', name: 'Notes' });
+    expect(node.props.spellCheck).toBe(true);
+    let page = createPage('NotesPage');
+    page = addComponent(
+      page,
+      { ...node, parentId: page.rootComponentId, props: { ...node.props, spellCheck: false } },
+      page.rootComponentId,
+    );
+    expect(
+      deserializePage(serializePage(page)).components.find((item) => item.id === node.id)?.props
+        .spellCheck,
+    ).toBe(false);
+  });
   it('registers the reusable visual wrapper, controls, Popup, and WebApiClient in a stable order', () => {
     expect(componentRegistry.list().map((item) => item.type)).toEqual(MVP_COMPONENT_TYPES);
     expect(componentRegistry.size).toBe(MVP_COMPONENT_TYPES.length);

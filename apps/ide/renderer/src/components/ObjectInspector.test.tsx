@@ -28,6 +28,28 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('edits TextArea spell checking with a true fallback for older projects', () => {
+    const onPropertyChange = vi.fn();
+    const node = defaultComponentRegistry.createComponent('WebTextArea', {
+      id: 'notes',
+      name: 'TextArea1',
+      props: { spellCheck: false },
+    });
+    const props = { onPropertyChange, onEventChange: vi.fn(), onEventDoubleClick: vi.fn() };
+    const view = render(<ObjectInspector {...props} selection={[node]} />);
+    const input = screen.getByLabelText('Spell Check') as HTMLInputElement;
+    expect(input.checked).toBe(false);
+    fireEvent.click(input);
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'spellCheck',
+      true,
+      expect.objectContaining({ type: 'boolean', source: 'props', category: 'Behavior' }),
+    );
+    view.rerender(<ObjectInspector {...props} selection={[{ ...node, props: {} }]} />);
+    expect((screen.getByLabelText('Spell Check') as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByLabelText('Spell Check'));
+    expect(onPropertyChange).toHaveBeenLastCalledWith('spellCheck', false, expect.anything());
+  });
   it('edits the Panel progress enable flag and percentage independently of Panel visibility', () => {
     const onPropertyChange = vi.fn();
     const node = defaultComponentRegistry.createComponent('WebPanel', {

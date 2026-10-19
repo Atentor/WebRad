@@ -456,6 +456,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       placeholder={readStringProperty(node, 'placeholder')}
       readOnly={readBooleanProperty(node, 'readOnly')}
       rows={Math.max(1, readIntegerProperty(node, 'rows', 4))}
+      spellCheck={readBooleanProperty(node, 'spellCheck', true)}
       onChange={() => onEvent?.('OnChange', node)}
     />
   ),

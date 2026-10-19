@@ -510,6 +510,28 @@ async function runDesignerArrangeSmoke(window: BrowserWindow): Promise<void> {
 
 async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
   await clickRendererControl(window, 'button[aria-label="Design"]', 'the Design activity');
+  await waitForRendererResult(
+    window,
+    `(() => {
+        const workspace = document.querySelector('.wr-editor-workspace');
+        const tabs = workspace?.querySelector(':scope > .wr-view-tabs');
+        const content = workspace?.querySelector(':scope > .wr-editor-content');
+        const buttons = tabs?.querySelectorAll('button');
+        if (!workspace || !tabs || !content || buttons?.length !== 2) return false;
+        const outer = workspace.getBoundingClientRect();
+        const bar = tabs.getBoundingClientRect();
+        const body = content.getBoundingClientRect();
+        const first = buttons[0].getBoundingClientRect();
+        const last = buttons[1].getBoundingClientRect();
+        return Math.abs(bar.top - outer.top) < 1 && Math.abs(bar.bottom - body.top) < 1 &&
+          Math.abs((first.left + last.right) / 2 - (bar.left + bar.right) / 2) < 1 &&
+          tabs.querySelector('[aria-label="Design"][aria-selected="true"]') !== null &&
+          document.querySelector('.wr-activity-bar [role="tab"]') === null;
+      })()`,
+    'Design/Code controls centered above the canvas',
+    (value) => value === true,
+  );
+  smokeLog('renderer document view navigation passed');
   await clickRendererControl(
     window,
     '[role="treeitem"][data-component-id="hello-webrad-component-label-name-v1"]',
@@ -708,8 +730,10 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
           const button = document.querySelector('.wr-toolbar button[aria-label="' + label + '"]');
           return button instanceof HTMLButtonElement ? !button.disabled : null;
         }),
-      workspaceNavigation: ['Design', 'Code', 'Preview', 'Project Explorer', 'Toggle output']
-        .every(label => document.querySelector('.wr-activity-bar button[aria-label="' + label + '"]') instanceof HTMLButtonElement),
+      workspaceNavigation: ['Project Explorer', 'Styles', 'Project Settings', 'RestGo integration', 'Toggle output']
+      .every(label => document.querySelector('.wr-activity-bar button[aria-label="' + label + '"]') instanceof HTMLButtonElement)
+      && document.querySelector('.wr-activity-bar [role="tablist"]') === null
+      && document.querySelector('.wr-view-tabs') === null,
       toolbarBrandIcon: Boolean(document.querySelector('img.wr-toolbar-mark')),
       toolbarThemeToggle: Boolean(document.querySelector('.wr-theme-toggle')),
       welcomeIcon: document.querySelector('img.wr-welcome-mark')?.src ?? '',

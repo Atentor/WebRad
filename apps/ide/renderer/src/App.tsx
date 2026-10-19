@@ -1896,20 +1896,7 @@ export function App(): ReactElement {
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent): void => {
       if (event.defaultPrevented || event.isComposing || event.repeat || modalOpen) return;
-      if (event.key === 'F12') {
-        if (activeWorkspace !== 'page' || activePage === null || activeSourceFile || activeAsset)
-          return;
-        const target = event.target;
-        if (
-          activeView === 'code' &&
-          target instanceof Element &&
-          target.closest('.monaco-editor') !== null
-        ) {
-          return;
-        }
-        event.preventDefault();
-        setActiveView((current) => (current === 'design' ? 'code' : 'design'));
-      } else if (event.key === 'F5') {
+      if (event.key === 'F5') {
         event.preventDefault();
         executeCommand(
           event.shiftKey
@@ -1932,8 +1919,35 @@ export function App(): ReactElement {
         executeCommand('run.run');
       }
     };
+    // Capture F12 before Monaco consumes it for definition navigation.
+    const viewKeyHandler = (event: KeyboardEvent): void => {
+      if (
+        event.key !== 'F12' ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.repeat ||
+        modalOpen ||
+        activeWorkspace !== 'page' ||
+        activePage === null ||
+        activeSourceFile ||
+        activeAsset
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveView((current) => (current === 'design' ? 'code' : 'design'));
+      if (activeView !== 'design') setSidebarMode('builder');
+    };
     window.addEventListener('keydown', keyHandler);
-    return () => window.removeEventListener('keydown', keyHandler);
+    window.addEventListener('keydown', viewKeyHandler, true);
+    return () => {
+      window.removeEventListener('keydown', keyHandler);
+      window.removeEventListener('keydown', viewKeyHandler, true);
+    };
   }, [
     activeView,
     activeWorkspace,
@@ -2551,19 +2565,11 @@ export function App(): ReactElement {
           }
           activity={
             <ActivityBar
-              activeView={activeView}
               stylesActive={stylesActive}
               restGoActive={restGoActive}
               projectActive={!restGoActive && sidebarMode === 'project'}
               hasProject={project !== null}
-              hasDocument={activePageId !== null}
               outputVisible={visiblePanels.output}
-              onSelectView={(view) => {
-                if (view === 'design' && (activeSourceFile || activeAsset)) return;
-                setActiveWorkspace('page');
-                setActiveView(view);
-                if (view === 'design') setSidebarMode('builder');
-              }}
               onShowProject={() => {
                 setActiveWorkspace('page');
                 setVisiblePanels((current) => ({ ...current, explorer: true }));
@@ -2586,6 +2592,13 @@ export function App(): ReactElement {
               activeDocumentId={
                 restGoActive ? RESTGO_DOCUMENT_ID : stylesActive ? STYLES_DOCUMENT_ID : activePageId
               }
+              activeView={activeView}
+              onSelectView={(view) => {
+                if (view === 'design' && (activeSourceFile || activeAsset)) return;
+                setActiveWorkspace('page');
+                setActiveView(view);
+                if (view === 'design') setSidebarMode('builder');
+              }}
             >
               {editorContent}
             </EditorWorkspace>

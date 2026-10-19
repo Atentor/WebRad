@@ -134,19 +134,18 @@ export async function runMonacoWorkspaceSmoke(
     throw new Error(`Monaco scroll state was unavailable: ${JSON.stringify(before)}`);
   }
 
-  await window.webContents.executeJavaScript(
-    'document.querySelector(\'button[aria-label="Design"]\')?.click()',
-    true,
+  await waitFor(
+    window,
+    "document.activeElement instanceof HTMLElement && document.activeElement.closest('.monaco-editor') !== null",
+    'editor focus before F12',
   );
+  sendKey('F12');
   await waitFor(
     window,
     "document.querySelector('.wr-page-surface') !== null && document.querySelector('.monaco-editor') === null",
     'the Designer view',
   );
-  await window.webContents.executeJavaScript(
-    'document.querySelector(\'button[aria-label="Code"]\')?.click()',
-    true,
-  );
+  sendKey('F12');
   await waitFor(
     window,
     `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(Reflect.get(before, 'position'))} && document.querySelector('.monaco-editor') !== null`,

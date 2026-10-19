@@ -279,6 +279,7 @@ const inspectorPropertyPageModel = withDefaultLayouts({
         placeholder: 'Notes',
         readOnly: false,
         rows: 6,
+        spellCheck: false,
         tabIndex: 3,
         visible: true,
         enabled: true,
@@ -813,6 +814,12 @@ describe('browser runtime', () => {
     textArea.rows = 7;
     expect(textArea.rows).toBe(7);
     expect(textArea.element.rows).toBe(7);
+    textArea.spellCheck = false;
+    expect(textArea.spellCheck).toBe(false);
+    expect(textArea.element.spellcheck).toBe(false);
+    textArea.spellCheck = true;
+    expect(textArea.spellCheck).toBe(true);
+    expect(textArea.element.spellcheck).toBe(true);
 
     const image = new WebImage(document.createElement('img'));
     expect(image.src).toBe('');
@@ -889,6 +896,7 @@ describe('browser runtime', () => {
       placeholder: 'Notes',
       readOnly: false,
       rows: 6,
+      spellCheck: false,
       tabIndex: 3,
     });
     expect(button).toMatchObject({ caption: 'Save', tabIndex: 4 });

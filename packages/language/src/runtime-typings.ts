@@ -406,6 +406,7 @@ ${repeatingGroupTypings.source}
     placeholder: string;
     readOnly: boolean;
     rows: number;
+    spellCheck: boolean;
     clear(): void;
     set onChange(handler: WebComponentEventHandler<this> | null);
     set onInput(handler: WebComponentEventHandler<this> | null);

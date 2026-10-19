@@ -201,6 +201,14 @@ export class WebTextArea extends WebComponent<HTMLTextAreaElement> {
     this.element.rows = value;
   }
 
+  public get spellCheck(): boolean {
+    return this.element.spellcheck;
+  }
+
+  public set spellCheck(value: boolean) {
+    this.element.spellcheck = value;
+  }
+
   public clear(): void {
     this.value = '';
   }

@@ -665,6 +665,7 @@ panel./*@panel*/caption;
         'placeholder',
         'readOnly',
         'rows',
+        'spellCheck',
         'tabIndex',
         'value',
       ]),

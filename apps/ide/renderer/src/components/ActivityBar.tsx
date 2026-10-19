@@ -1,16 +1,12 @@
 import type { ReactElement } from 'react';
-import { Icon, type IconName } from './Icon';
-import type { ViewMode } from './EditorWorkspace';
+import { Icon } from './Icon';
 
 interface ActivityBarProps {
-  activeView: ViewMode;
   stylesActive: boolean;
   restGoActive?: boolean;
   projectActive: boolean;
   hasProject: boolean;
-  hasDocument: boolean;
   outputVisible: boolean;
-  onSelectView: (view: ViewMode) => void;
   onShowProject: () => void;
   onOpenStyles: () => void;
   onOpenSettings: () => void;
@@ -18,37 +14,9 @@ interface ActivityBarProps {
   onToggleOutput: () => void;
 }
 
-const VIEWS: readonly { view: ViewMode; label: string; icon: IconName }[] = [
-  { view: 'design', label: 'Design', icon: 'layout' },
-  { view: 'code', label: 'Code', icon: 'code' },
-];
-
 export function ActivityBar(props: ActivityBarProps): ReactElement {
   return (
     <nav className="wr-activity-bar" aria-label="Workspace navigation">
-      {!props.stylesActive && !props.restGoActive && (
-        <div
-          className={props.stylesActive ? 'wr-activity-views' : 'wr-activity-views wr-view-tabs'}
-          role="tablist"
-          aria-label="Document view"
-        >
-          {VIEWS.map(({ view, label, icon }) => (
-            <button
-              key={view}
-              type="button"
-              role="tab"
-              aria-label={label}
-              title={label}
-              aria-selected={!props.stylesActive && props.activeView === view}
-              disabled={!props.hasDocument}
-              onClick={() => props.onSelectView(view)}
-            >
-              <Icon name={icon} />
-            </button>
-          ))}
-        </div>
-      )}
-      <span className="wr-activity-divider" />
       <button
         type="button"
         aria-label="Project Explorer"

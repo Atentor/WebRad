@@ -349,15 +349,6 @@
   background: var(--wr-activity-bg);
 }
 
-.wr-activity-bar .wr-activity-views {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
 .wr-activity-bar button {
   display: grid;
   place-items: center;
@@ -391,13 +382,6 @@
 
 .wr-activity-bar button:disabled {
   opacity: 0.35;
-}
-
-.wr-activity-divider {
-  width: 20px;
-  height: 1px;
-  margin: 5px 0;
-  background: var(--wr-border);
 }
 
 .wr-activity-spacer {
@@ -436,10 +420,18 @@
   grid-template-rows: minmax(0, 1fr);
 }
 
+.wr-editor-workspace-with-views {
+  grid-template-rows: 36px minmax(0, 1fr);
+}
+
 .wr-editor-content,
 .wr-editor-content-full,
 .wr-welcome {
   grid-row: 1;
+}
+
+.wr-editor-workspace-with-views > .wr-editor-content {
+  grid-row: 2;
 }
 
 .wr-designer-workspace {

@@ -965,6 +965,7 @@ const webTextArea: ComponentDefinition = {
     placeholder: '',
     readOnly: false,
     rows: 4,
+    spellCheck: true,
     visible: true,
     collapseWhenHidden: true,
     enabled: true,
@@ -1004,6 +1005,14 @@ const webTextArea: ComponentDefinition = {
       category: 'Layout',
       source: 'props',
       defaultValue: 4,
+    },
+    {
+      name: 'spellCheck',
+      label: 'Spell Check',
+      type: 'boolean',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: true,
     },
   ],
   events: [
