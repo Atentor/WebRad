@@ -13,6 +13,9 @@ interface SmokeProcessResult {
     readonly milliseconds: number;
     readonly lastProgress: string;
   };
+  readonly descendantClosed?: boolean;
+  readonly bystanderAlive?: boolean;
+  readonly descendantStopped?: boolean;
 }
 
 async function run(scenario: string): Promise<SmokeProcessResult> {
@@ -56,5 +59,19 @@ describe('development smoke process deadlines', () => {
     const result = await run('nonzero-exit');
     expect(result.exitCode).toBe(37);
     expect(result.timedOut).toBeUndefined();
+  });
+
+  it('terminates descendants holding output open and leaves unrelated processes alive', async () => {
+    const result = await run('descendant-stall');
+    expect(result.exitCode).not.toBe(0);
+    expect(result.timedOut).toEqual({
+      phase: 'functional',
+      milliseconds: 250,
+      lastProgress: 'renderer descendant fixture started',
+    });
+    expect(result.descendantClosed).toBe(true);
+    expect(result.descendantStopped).toBe(true);
+    expect(result.bystanderAlive).toBe(true);
+    expect(result.elapsedMilliseconds).toBeLessThan(8000);
   });
 });

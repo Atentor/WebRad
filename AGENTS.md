@@ -33,3 +33,12 @@ These rules apply to the entire repository.
 - Prefer platform-neutral Node APIs and `path` helpers. Never persist project state only in browser storage.
 - Keep logging categorized (`IDE`, `PROJECT`, `DESIGNER`, `COMPILER`, `PREVIEW`, `IPC`) and avoid stray `console.log` calls.
 - Preserve unrelated user changes in a dirty worktree.
+
+## Release reliability
+
+- Read [the release checklist](docs/release-checklist.md) before changing CI, packaging, smoke tests, editor navigation or controls exercised by a smoke. Follow it when preparing a release.
+- UI changes must update the real Electron smoke interactions and required evidence in the same change. Verify the current product contract; do not restore intentionally removed controls to satisfy an obsolete test, delete evidence for supported behavior, add retries or increase timeouts to hide a regression.
+- Run `npm run validate`, `npm run smoke:development`, `npm run smoke:packaged` and the packaged update smoke for a release candidate. Inspect failures and retain diagnostic artifacts. Uncaught renderer exceptions and crashes fail the smoke even when later interactions succeed. A scoped unit test or renderer-only build does not establish release readiness.
+- The `release` workflow verifies Windows x64, Linux x64 and both macOS architectures on `main` and pull requests without publishing. A tag requires a successful non-publishing verification of its exact commit. Do not bypass this gate or claim native platform success from local Windows results.
+- Keep `strict: true`, sandboxing, generated-source checks, integrity checks and publication permissions intact. Keep the test worker limit in `vitest.config.ts`; avoid a separate workflow override.
+- Official versions come from new stable lowercase `vMAJOR.MINOR.PATCH` tags. Local `npm run release` is only `npm run make`, uses the existing version and names the Windows installer `WebRAD-Dev Setup.exe`. Creating a tag, publishing a release, incrementing versions or generating local installers requires user authorization.

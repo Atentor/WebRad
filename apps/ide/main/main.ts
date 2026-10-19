@@ -31,6 +31,7 @@ import { runApiClientBrowserSmoke, runApiClientDesignerSmoke } from './api-clien
 import { runMonacoCaretSmoke } from './monaco-caret-smoke';
 import { captureDesignerButtonStyle, assertPreviewButtonStyle } from './component-style-smoke';
 import type { WebRadBridge } from '../shared/contracts';
+import { trackSmokeRendererHealth } from './smoke-renderer-health';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -463,51 +464,6 @@ async function runDesignerThemeSmoke(window: BrowserWindow): Promise<void> {
   }
 }
 
-async function runDesignerArrangeSmoke(window: BrowserWindow): Promise<void> {
-  await clickRendererControl(
-    window,
-    '[role="treeitem"][data-component-id="hello-webrad-component-button-show-v1"]',
-    'BTNMostrar before Arrange',
-  );
-  await waitForRendererResult(
-    window,
-    `document.querySelector('.wr-inspector-selection strong')?.textContent?.trim() === 'BTNMostrar'`,
-    'BTNMostrar selected for Arrange',
-    (value) => value === true,
-  );
-  await clickRendererControl(
-    window,
-    'summary[aria-label="Arrange selection"]',
-    'the Arrange selection menu',
-  );
-  const evidence = await waitForRendererResult(
-    window,
-    `(() => {
-      const details = document.querySelector('.wr-toolbar-arrange');
-      const actions = [...(details?.querySelectorAll('button') ?? [])];
-      return {
-        open: details instanceof HTMLDetailsElement && details.open,
-        actions: actions.map((action) => action.textContent?.trim()),
-        enabled: actions.length === 2 && actions.every((action) => !action.disabled && action.getBoundingClientRect().height > 0),
-      };
-    })()`,
-    'the visible enabled selection-order actions',
-    (value) =>
-      typeof value === 'object' &&
-      value !== null &&
-      Reflect.get(value, 'open') === true &&
-      Reflect.get(value, 'enabled') === true &&
-      JSON.stringify(Reflect.get(value, 'actions')) ===
-        JSON.stringify(['Bring to Front', 'Send to Back']),
-  );
-  await clickRendererControl(
-    window,
-    'summary[aria-label="Arrange selection"]',
-    'the closed Arrange selection menu',
-  );
-  smokeLog(`renderer Arrange selection passed: ${JSON.stringify(evidence)}`);
-}
-
 async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
   await clickRendererControl(window, 'button[aria-label="Design"]', 'the Design activity');
   await waitForRendererResult(
@@ -617,29 +573,31 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
   }
   viewportEvidence.push('Default:available width (window resize verified)');
   smokeLog(`renderer responsive viewport passed: ${viewportEvidence.join(', ')}`);
-  for (const zoom of [75, 100]) {
-    await waitForRendererResult(
-      window,
-      `(() => {
-        const select = document.querySelector('.wr-toolbar select[aria-label="Zoom"]');
-        if (!(select instanceof HTMLSelectElement)) return false;
-        select.value = ${JSON.stringify(String(zoom))};
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
-      })()`,
-      `the toolbar zoom control at ${String(zoom)}%`,
-      (value) => value === true,
-    );
-    await waitForRendererResult(
-      window,
-      `document.querySelector('.wr-page-surface')?.style.transform === ${JSON.stringify(`scale(${String(zoom / 100)})`)}`,
-      `the ${String(zoom)}% Designer scale`,
-      (value) => value === true,
-    );
-  }
+  const toolbarEvidence = await waitForRendererResult(
+    window,
+    `(() => {
+    const toolbar = document.querySelector('.wr-toolbar');
+    const tabs = toolbar?.querySelectorAll('[role="tab"]');
+    const currentTab = tabs?.[0];
+    const surface = document.querySelector('.wr-page-surface');
+    return {
+      currentDocument: currentTab?.textContent?.trim(),
+      singleDocument: tabs?.length === 1 && currentTab?.getAttribute('aria-selected') === 'true',
+      simplifiedControls: toolbar !== null && toolbar.querySelector('select, [aria-label="Arrange selection"], .wr-toolbar-selection') === null,
+      designerScale: surface instanceof HTMLElement ? surface.style.transform : '',
+    };
+  })()`,
+    'the current-document toolbar and default Designer scale',
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      Reflect.get(value, 'singleDocument') === true &&
+      Reflect.get(value, 'simplifiedControls') === true &&
+      Reflect.get(value, 'designerScale') === 'scale(1)',
+  );
   await clickRendererControl(window, 'button[aria-label="Design"]', 'the restored Builder sidebar');
-  smokeLog('renderer toolbar zoom passed: 75%, 100%');
-  await runDesignerArrangeSmoke(window);
+  smokeLog(`renderer Designer toolbar contract passed: ${JSON.stringify(toolbarEvidence)}`);
+
   await runDesignerThemeSmoke(window);
 }
 
@@ -670,24 +628,16 @@ async function captureDesignerSmokeScreenshot(window: BrowserWindow): Promise<vo
     '[role="treeitem"][data-component-id="hello-webrad-component-button-show-v1"]',
     'BTNMostrar before screenshot',
   );
-  await window.webContents.executeJavaScript(
-    `(() => {
-      const select = document.querySelector('.wr-toolbar select[aria-label="Zoom"]');
-      if (!(select instanceof HTMLSelectElement)) return;
-      select.value = '75';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    })()`,
-    true,
-  );
+
   await waitForRendererResult(
     window,
     `(() => {
-      const inspector = document.querySelector('.wr-inspector-selection strong')?.textContent?.trim();
-      const surface = document.querySelector('.wr-page-surface');
-      const output = document.querySelector('.wr-bottom-slot');
-      return inspector === 'BTNMostrar' && surface?.style.transform === 'scale(0.75)' && (output === null || output.getBoundingClientRect().height === 0);
-    })()`,
-    'the selected component and fitted Designer screenshot',
+    const inspector = document.querySelector('.wr-inspector-selection strong')?.textContent?.trim();
+    const surface = document.querySelector('.wr-page-surface');
+    const output = document.querySelector('.wr-bottom-slot');
+    return inspector === 'BTNMostrar' && surface?.style.transform === 'scale(1)' && (output === null || output.getBoundingClientRect().height === 0);
+  })()`,
+    'the selected component and default-scale Designer screenshot',
     (value) => value === true,
   );
   await window.webContents.executeJavaScript(
@@ -1186,6 +1136,9 @@ async function createWindow(): Promise<BrowserWindow> {
     },
   });
   let rendererSmokeStarted = false;
+  const assertRendererHealthy = smokeAutoExit
+    ? trackSmokeRendererHealth(window.webContents)
+    : undefined;
 
   installApplicationMenu(window);
   installDirtyGuard(window, rendererUrl);
@@ -1218,6 +1171,9 @@ async function createWindow(): Promise<BrowserWindow> {
     rendererSmokeStarted = true;
     void runRendererWorkflowSmoke(window)
       .then(() => {
+        assertRendererHealthy?.();
+        smokeLog('renderer workflow completed');
+
         app.exit(0);
       })
       .catch((error: unknown) => {

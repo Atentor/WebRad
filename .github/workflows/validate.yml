@@ -10,8 +10,9 @@ permissions:
 jobs:
   quality:
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -51,3 +52,11 @@ jobs:
           xauth_file="$(mktemp "$RUNNER_TEMP/webrad-xauth.XXXXXX")"
           trap 'rm -f -- "$xauth_file"' EXIT
           xvfb-run --auto-servernum --auth-file="$xauth_file" --error-file=/dev/stderr npm run smoke:packaged
+      - name: Preserve failed smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: validation-smoke-${{ matrix.os }}
+          path: artifacts/smoke/**
+          if-no-files-found: ignore
+          retention-days: 7

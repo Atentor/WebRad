@@ -52,6 +52,7 @@ function run(root: string, command: string, extra: Record<string, string> = {}):
         WEBRAD_RELEASE_ARCH: '',
         WEBRAD_MAC_SIGNED: 'false',
         GITHUB_REF_NAME: 'v0.2.0',
+        GITHUB_SHA: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         GITHUB_REPOSITORY: 'Atentor/WebRad',
         WEBRAD_RELEASE_REPOSITORY: '',
         GH_TOKEN: 'release-test-token',

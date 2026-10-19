@@ -124,7 +124,11 @@ export async function runMonacoCaretSmoke(
       await fs.writeFile(destination, (await window.webContents.capturePage()).toPNG());
       log(`renderer Monaco screenshot saved: ${destination}`);
     }
-    for (let index = 0; index < insertedLength; index += 1) sendKey('Backspace');
+    // Select exactly the appended ASCII text, preserving the original line on every OS.
+    // One native deletion avoids starving React with hundreds of synchronous source edits.
+    for (let index = 0; index < insertedLength; index += 1) sendKey('Left', ['shift']);
+    sendKey('Backspace');
+
     await window.webContents.executeJavaScript(
       'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
       true,

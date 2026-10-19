@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { clearTimeout, setTimeout } from 'node:timers';
+import { waitForSmokeProcess } from './smoke-process.mjs';
 
 const packageMetadata = JSON.parse(await fs.readFile(path.resolve('package.json'), 'utf8'));
 const productName = packageMetadata.productName;
@@ -32,6 +32,43 @@ const updateSmoke = process.argv.includes('--webrad-smoke-updates');
 const screenshotArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-screenshot='),
 );
+const smokeVariant = updateSmoke
+  ? 'updates'
+  : deploySmoke
+    ? 'deploy'
+    : resourceSmoke
+      ? 'resources'
+      : 'standard';
+
+async function preserveFailureDiagnostics(error) {
+  const artifactRoot = path.resolve('artifacts', 'smoke', 'packaged', smokeVariant);
+  await fs.mkdir(artifactRoot, { recursive: true });
+  const destination = await fs.mkdtemp(path.join(artifactRoot, 'failure-'));
+  await fs.writeFile(
+    path.join(destination, 'failure.json'),
+    `${JSON.stringify(
+      {
+        runner: 'packaged',
+        variant: smokeVariant,
+        platform: process.platform,
+        arch: process.arch,
+        executablePath,
+        error: error instanceof Error ? error.stack : String(error),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  for (const [source, target] of [
+    [logPath, path.join(destination, 'webrad-smoke.log')],
+    [projectDirectory, path.join(destination, 'hello-webrad')],
+  ]) {
+    await fs.cp(source, target, { recursive: true }).catch((copyError) => {
+      if (copyError.code !== 'ENOENT') throw copyError;
+    });
+  }
+  process.stderr.write(`[IDE] Packaged smoke diagnostics preserved: ${destination}\n`);
+}
 
 const outputEntries = await fs.readdir(path.resolve('out'));
 if (!outputEntries.includes(platformDirectory)) {
@@ -45,50 +82,46 @@ if (
   throw new Error(`Packaged executable must use the exact product name: ${executableName}.`);
 }
 
-await fs.access(executablePath);
-await fs.rm(logPath, { force: true });
-await fs.cp(fixtureDirectory, projectDirectory, { recursive: true });
-
 try {
+  await fs.access(executablePath);
+  await fs.cp(fixtureDirectory, projectDirectory, { recursive: true });
   const child = spawn(
     executablePath,
     [
       '--webrad-smoke',
       '--webrad-smoke-auto-exit',
       `--webrad-smoke-log=${logPath}`,
-      ...(updateSmoke
-        ? ['--webrad-smoke-updates', `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`]
-        : []),
+      `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
+      ...(updateSmoke ? ['--webrad-smoke-updates'] : []),
       ...(resourceSmoke || deploySmoke
-        ? [
-            deploySmoke ? '--webrad-smoke-deploy' : '--webrad-smoke-resources',
-            `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
-          ]
+        ? [deploySmoke ? '--webrad-smoke-deploy' : '--webrad-smoke-resources']
         : []),
       `--webrad-smoke-project=${projectPath}`,
       ...(screenshotArgument === undefined ? [] : [screenshotArgument]),
     ],
-    { cwd: packageDirectory, stdio: 'inherit' },
+    {
+      cwd: packageDirectory,
+      stdio: 'inherit',
+      windowsHide: true,
+      detached: process.platform !== 'win32',
+    },
   );
 
-  const timeoutMilliseconds = 240_000;
-  let timedOut = false;
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    child.kill();
-  }, timeoutMilliseconds);
-
-  const exitCode = await new Promise((resolve, reject) => {
-    child.once('error', reject);
-    child.once('exit', (code, signal) => {
-      resolve(code ?? (signal === null ? 1 : 2));
-    });
-  }).finally(() => clearTimeout(timeout));
+  const { exitCode, timedOut, terminationError } = await waitForSmokeProcess(child, {
+    logPath,
+    timeoutMilliseconds: 240_000,
+    processGroup: process.platform !== 'win32',
+  });
+  const timeoutDetails =
+    (timedOut === undefined
+      ? ''
+      : `; timed out after ${String(timedOut.milliseconds)}ms; last progress: ${timedOut.lastProgress}`) +
+    (terminationError === undefined ? '' : `; process cleanup failed: ${terminationError}`);
 
   const log = await fs.readFile(logPath, 'utf8').catch((error) => {
     if (error.code !== 'ENOENT') throw error;
     throw new Error(
-      `Packaged smoke failed before creating its log (exit ${String(exitCode)}; expected ${logPath}). Check the Electron startup output above. On Linux, chrome-sandbox must be owned by root and have mode 4755.`,
+      `Packaged smoke failed before creating its log (exit ${String(exitCode)}${timeoutDetails}; expected ${logPath}). Check the Electron startup output above. On Linux, chrome-sandbox must be owned by root and have mode 4755.`,
       { cause: error },
     );
   });
@@ -133,7 +166,7 @@ try {
             'renderer bottom dock passed',
             'renderer element tree selection passed:',
             'renderer responsive viewport passed:',
-            'renderer toolbar zoom passed:',
+            'renderer Designer toolbar contract passed:',
             'renderer Monaco passed',
             'renderer Monaco TypeScript highlight passed:',
             'renderer Monaco autocomplete passed:',
@@ -145,15 +178,29 @@ try {
             'renderer Designer/Preview button style parity passed',
             'renderer Preview isolation passed:',
           ];
-  const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));
+  const missingEvidence = [...requiredEvidence, 'renderer workflow completed'].filter(
+    (entry) => !log.includes(entry),
+  );
 
-  if (exitCode !== 0 || missingEvidence.length > 0) {
+  if (
+    exitCode !== 0 ||
+    timedOut !== undefined ||
+    terminationError !== undefined ||
+    missingEvidence.length > 0
+  ) {
     throw new Error(
-      `Packaged smoke failed (exit ${String(exitCode)}${timedOut ? `; timed out after ${String(timeoutMilliseconds)}ms` : ''}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
+      `Packaged smoke failed (exit ${String(exitCode)}${timeoutDetails}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
     );
   }
 
   process.stdout.write(log);
+} catch (error) {
+  await preserveFailureDiagnostics(error).catch((diagnosticError) => {
+    process.stderr.write(
+      `[IDE] Could not preserve packaged smoke diagnostics: ${diagnosticError}\n`,
+    );
+  });
+  throw error;
 } finally {
   await fs.rm(temporaryRoot, { recursive: true, force: true });
 }

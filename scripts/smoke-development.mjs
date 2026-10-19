@@ -26,11 +26,47 @@ const updateSmoke = process.argv.includes('--webrad-smoke-updates');
 const screenshotArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-screenshot='),
 );
+const smokeVariant = updateSmoke
+  ? 'updates'
+  : deploySmoke
+    ? 'deploy'
+    : debuggerSmoke
+      ? 'debugger'
+      : resourceSmoke
+        ? 'resources'
+        : 'standard';
 
-await fs.rm(logPath, { force: true });
-await fs.cp(fixtureDirectory, projectDirectory, { recursive: true });
+async function preserveFailureDiagnostics(error) {
+  const artifactRoot = path.resolve('artifacts', 'smoke', 'development', smokeVariant);
+  await fs.mkdir(artifactRoot, { recursive: true });
+  const destination = await fs.mkdtemp(path.join(artifactRoot, 'failure-'));
+  await fs.writeFile(
+    path.join(destination, 'failure.json'),
+    `${JSON.stringify(
+      {
+        runner: 'development',
+        variant: smokeVariant,
+        platform: process.platform,
+        arch: process.arch,
+        error: error instanceof Error ? error.stack : String(error),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  for (const [source, target] of [
+    [logPath, path.join(destination, 'webrad-smoke.log')],
+    [projectDirectory, path.join(destination, 'hello-webrad')],
+  ]) {
+    await fs.cp(source, target, { recursive: true }).catch((copyError) => {
+      if (copyError.code !== 'ENOENT') throw copyError;
+    });
+  }
+  process.stderr.write(`[IDE] Development smoke diagnostics preserved: ${destination}\n`);
+}
 
 try {
+  await fs.cp(fixtureDirectory, projectDirectory, { recursive: true });
   const child = spawn(
     process.execPath,
     [
@@ -42,9 +78,8 @@ try {
       '--webrad-smoke',
       '--webrad-smoke-auto-exit',
       `--webrad-smoke-log=${logPath}`,
-      ...(updateSmoke
-        ? ['--webrad-smoke-updates', `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`]
-        : []),
+      `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
+      ...(updateSmoke ? ['--webrad-smoke-updates'] : []),
       ...(resourceSmoke || debuggerSmoke || deploySmoke
         ? [
             debuggerSmoke
@@ -52,23 +87,24 @@ try {
               : deploySmoke
                 ? '--webrad-smoke-deploy'
                 : '--webrad-smoke-resources',
-            `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
           ]
         : []),
       `--webrad-smoke-project=${projectPath}`,
       ...(screenshotArgument === undefined ? [] : [screenshotArgument]),
     ],
-    { stdio: 'inherit' },
+    { stdio: 'inherit', windowsHide: true, detached: process.platform !== 'win32' },
   );
 
-  const { exitCode, timedOut } = await waitForDevelopmentSmoke(child, {
+  const { exitCode, timedOut, terminationError } = await waitForDevelopmentSmoke(child, {
     logPath,
     functionalTimeoutMilliseconds: debuggerSmoke ? 180_000 : 120_000,
+    processGroup: process.platform !== 'win32',
   });
   const timeoutDetails =
-    timedOut === undefined
+    (timedOut === undefined
       ? ''
-      : `; ${timedOut.phase} timeout after ${String(timedOut.milliseconds / 1000)}s; last progress: ${timedOut.lastProgress}`;
+      : `; ${timedOut.phase} timeout after ${String(timedOut.milliseconds / 1000)}s; last progress: ${timedOut.lastProgress}`) +
+    (terminationError === undefined ? '' : `; process cleanup failed: ${terminationError}`);
 
   const log = await fs.readFile(logPath, 'utf8').catch((error) => {
     if (error.code !== 'ENOENT') throw error;
@@ -116,7 +152,7 @@ try {
           'renderer bottom dock passed',
           'renderer element tree selection passed:',
           'renderer responsive viewport passed:',
-          'renderer toolbar zoom passed:',
+          'renderer Designer toolbar contract passed:',
           'renderer Monaco passed',
           'renderer Monaco TypeScript highlight passed:',
           'renderer Monaco autocomplete passed:',
@@ -142,15 +178,29 @@ try {
           'renderer Deploy hosting output passed:',
         ]
       : standardEvidence;
-  const missingEvidence = requiredEvidence.filter((entry) => !log.includes(entry));
+  const missingEvidence = [...requiredEvidence, 'renderer workflow completed'].filter(
+    (entry) => !log.includes(entry),
+  );
 
-  if (exitCode !== 0 || timedOut !== undefined || missingEvidence.length > 0) {
+  if (
+    exitCode !== 0 ||
+    timedOut !== undefined ||
+    terminationError !== undefined ||
+    missingEvidence.length > 0
+  ) {
     throw new Error(
       `Development smoke failed (exit ${String(exitCode)}${timeoutDetails}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
     );
   }
 
   process.stdout.write(log);
+} catch (error) {
+  await preserveFailureDiagnostics(error).catch((diagnosticError) => {
+    process.stderr.write(
+      `[IDE] Could not preserve development smoke diagnostics: ${diagnosticError}\n`,
+    );
+  });
+  throw error;
 } finally {
   await fs.rm(temporaryRoot, { recursive: true, force: true });
 }

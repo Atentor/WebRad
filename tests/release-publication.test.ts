@@ -7,6 +7,19 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const script = path.resolve('scripts/release-tools.mjs');
 const directories: string[] = [];
+const commit = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+function verificationRun(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 12345,
+    status: 'completed',
+    conclusion: 'success',
+    head_sha: commit,
+    event: 'push',
+    head_branch: 'main',
+    ...overrides,
+  };
+}
 
 async function directory(): Promise<string> {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-publish-test-')));
@@ -31,6 +44,7 @@ function run(root: string, command: string, extra: Record<string, string> = {}):
         WEBRAD_RELEASE_TAG: 'v0.2.0',
         WEBRAD_RELEASE_VERIFY_ONLY: 'false',
         GITHUB_REPOSITORY: 'Atentor/WebRad',
+        GITHUB_SHA: commit,
         WEBRAD_RELEASE_REPOSITORY: 'Atentor/WebRad',
         GH_TOKEN: 'release-test-token',
         WEBRAD_RELEASE_TEST_CALLS: path.join(root, 'github-cli.jsonl'),
@@ -107,6 +121,92 @@ describe('release publication boundaries', () => {
       WEBRAD_RELEASE_TEST_ANCESTRY: 'diverged',
     });
     expect(await calls(root)).toEqual([['api', 'repos/Atentor/WebRad']]);
+  });
+
+  it.each([
+    { event: 'push', head_branch: 'main' },
+    { event: 'push', head_branch: 'codex/verify-release-regression' },
+    { event: 'workflow_dispatch', head_branch: 'v0.2.0' },
+  ])(
+    'accepts a successful verification of this commit ($event/$head_branch)',
+    async (candidate) => {
+      const root = await directory();
+      expect(
+        run(root, 'preflight', {
+          WEBRAD_RELEASE_TEST_RUNS: JSON.stringify([
+            { workflow_runs: [verificationRun(candidate)] },
+          ]),
+        }),
+      ).toContain(`Release commit verified by workflow run 12345: ${commit}`);
+    },
+  );
+
+  it.each([
+    { head_sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+    { conclusion: 'failure' },
+    { status: 'in_progress' },
+    { event: 'push', head_branch: 'v0.2.0' },
+    { event: 'push', head_branch: 'feature/editor' },
+    { event: 'pull_request' },
+  ])('rejects a run that does not prove this commit was verified (%j)', async (candidate) => {
+    const root = await directory();
+    expect(() =>
+      run(root, 'preflight', {
+        WEBRAD_RELEASE_TEST_RUNS: JSON.stringify([{ workflow_runs: [verificationRun(candidate)] }]),
+      }),
+    ).toThrow('has no successful four-platform release verification');
+  });
+
+  it('checks all verification pages for the exact candidate SHA', async () => {
+    const root = await directory();
+    run(root, 'preflight', {
+      WEBRAD_RELEASE_TEST_RUNS: JSON.stringify([
+        { workflow_runs: [verificationRun({ head_sha: 'b'.repeat(40) })] },
+        { workflow_runs: [verificationRun()] },
+      ]),
+    });
+    expect((await calls(root))[2]).toEqual([
+      'api',
+      `repos/Atentor/WebRad/actions/workflows/release.yml/runs?head_sha=${commit}&status=success&per_page=100`,
+      '--paginate',
+      '--slurp',
+    ]);
+  });
+
+  it('rejects a tag resolving to another commit before consulting verification runs', async () => {
+    const root = await directory();
+    expect(() => run(root, 'preflight', { WEBRAD_RELEASE_TEST_TAG_SHA: 'b'.repeat(40) })).toThrow(
+      'release tag must resolve to the exact GITHUB_SHA',
+    );
+    expect(await calls(root)).toHaveLength(2);
+  });
+
+  it('requires an exact commit SHA and reports missing Actions permissions', async () => {
+    const root = await directory();
+    expect(() => run(root, 'preflight', { GITHUB_SHA: '' })).toThrow('Set GITHUB_SHA');
+    expect(() => run(root, 'preflight', { WEBRAD_RELEASE_TEST_RUNS_FAILURE: 'true' })).toThrow(
+      'Grant Actions read permission',
+    );
+  });
+
+  it('does not query release verification during non-publishing builds', async () => {
+    const root = await directory();
+    run(root, 'preflight', {
+      WEBRAD_RELEASE_VERIFY_ONLY: 'true',
+      GITHUB_SHA: '',
+      WEBRAD_RELEASE_TEST_RUNS_FAILURE: 'true',
+    });
+    expect(await calls(root)).toEqual([['api', 'repos/Atentor/WebRad']]);
+  });
+
+  it('keeps complete installers unpublished when this commit lacks verification', async () => {
+    const { root } = await assembledRelease();
+    expect(() =>
+      run(root, 'publish', {
+        WEBRAD_RELEASE_TEST_RUNS: JSON.stringify([{ workflow_runs: [] }]),
+      }),
+    ).toThrow('has no successful four-platform release verification');
+    expect((await calls(root)).some((call) => call[0] === 'release')).toBe(false);
   });
 
   it('rejects extra source files after artifact transfer before creating any release', async () => {

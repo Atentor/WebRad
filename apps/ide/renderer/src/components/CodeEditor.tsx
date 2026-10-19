@@ -335,6 +335,7 @@ export function CodeEditor({
   const pageComponentsRef = useRef(pageComponents);
   const onSourceChangeRef = useRef(onSourceChange);
   const onMarkersChangeRef = useRef(onMarkersChange);
+  const publishedMarkersSnapshotRef = useRef<string | null>(null);
   const onCursorChangeRef = useRef(onCursorChange);
   const onSaveRef = useRef(onSave);
   const navigateToRef = useRef<EditorNavigationTarget | null | undefined>(navigateTo);
@@ -466,10 +467,41 @@ export function CodeEditor({
         .getModelMarkers({ resource: monacoApi.Uri.parse(resource) })
         .filter((marker) => marker.owner !== BUILD_MARKER_OWNER),
     );
+    const snapshot = JSON.stringify(
+      markers.map((marker) => ({
+        owner: marker.owner,
+        resource: marker.resource.toString(),
+        severity: marker.severity,
+        code:
+          typeof marker.code === 'object'
+            ? { value: marker.code.value, target: marker.code.target.toString() }
+            : marker.code,
+        message: marker.message,
+        source: marker.source,
+        startLineNumber: marker.startLineNumber,
+        startColumn: marker.startColumn,
+        endLineNumber: marker.endLineNumber,
+        endColumn: marker.endColumn,
+        modelVersionId: marker.modelVersionId,
+        relatedInformation: marker.relatedInformation?.map((related) => ({
+          resource: related.resource.toString(),
+          message: related.message,
+          startLineNumber: related.startLineNumber,
+          startColumn: related.startColumn,
+          endLineNumber: related.endLineNumber,
+          endColumn: related.endColumn,
+        })),
+        tags: marker.tags,
+        origin: marker.origin,
+      })),
+    );
+    // Source acknowledgements must not enqueue unchanged Problems state on every key.
+    if (publishedMarkersSnapshotRef.current === snapshot) return;
+    publishedMarkersSnapshotRef.current = snapshot;
     onMarkersChangeRef.current(markers);
   }, []);
 
-  const synchronizeProjectModels = useCallback((): void => {
+  const synchronizeProjectModels = useCallback((): boolean => {
     const canonicalSources = new Map(
       Object.entries(projectSourcesRef.current).map(([resource, content]) => [
         canonicalResource(resource),
@@ -477,6 +509,9 @@ export function CodeEditor({
       ]),
     );
     const nextResources = new Set(canonicalSources.keys());
+    const resourcesChanged =
+      nextResources.size !== projectSourceUrisRef.current.size ||
+      [...nextResources].some((resource) => !projectSourceUrisRef.current.has(resource));
     projectSourceUrisRef.current = nextResources;
     projectSourceResourcesRef.current = new Map(
       [...canonicalSources].map(([resource, source]) => [resource, source.externalResource]),
@@ -555,6 +590,8 @@ export function CodeEditor({
         current.content = content;
       }
     }
+
+    return resourcesChanged;
   }, []);
 
   const publishCursor = useCallback((editor: monacoApi.editor.IStandaloneCodeEditor): void => {
@@ -785,10 +822,11 @@ export function CodeEditor({
   }, [debugBreakpoints, debugLocation, path, sourcePath, synchronizeDebuggerDecorations]);
 
   useEffect(() => {
-    synchronizeProjectModels();
+    const resourcesChanged = synchronizeProjectModels();
     const editor = editorRef.current;
     if (editor !== null) activateProjectModel(editor);
-    publishMarkers();
+    // Diagnostic changes are delivered by Monaco's marker events, not source commits.
+    if (resourcesChanged) publishMarkers();
   }, [activateProjectModel, path, projectSources, publishMarkers, synchronizeProjectModels]);
 
   useEffect(() => {

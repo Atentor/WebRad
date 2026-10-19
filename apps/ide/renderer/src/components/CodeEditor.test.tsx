@@ -37,7 +37,18 @@ const mocks = vi.hoisted(() => {
     readonly endLineNumber: number;
     readonly endColumn: number;
     readonly source?: string;
-    readonly code?: string;
+    readonly code?: string | { readonly value: string; readonly target: MockUri };
+    readonly modelVersionId?: number;
+    readonly tags?: readonly number[];
+    readonly origin?: string;
+    readonly relatedInformation?: readonly {
+      readonly resource: MockUri;
+      readonly message: string;
+      readonly startLineNumber: number;
+      readonly startColumn: number;
+      readonly endLineNumber: number;
+      readonly endColumn: number;
+    }[];
   }
 
   interface MockCompletionModel {
@@ -1187,6 +1198,150 @@ describe('CodeEditor professional Monaco workspace', () => {
       'webrad-build',
       [],
     );
+  });
+
+  it('publishes initial and changed diagnostics while keeping source acknowledgements silent', () => {
+    const props = codeEditorProps();
+    const { rerender, unmount } = render(<CodeEditor {...props} />);
+    expect(props.onMarkersChange).toHaveBeenCalledExactlyOnceWith([]);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    const source = props.value + '// typed';
+    act(() => mocks.models.get(CANONICAL_MAIN_RESOURCE)?.fireUserChange(source));
+    rerender(
+      <CodeEditor
+        {...props}
+        value={source}
+        projectSources={{ ...props.projectSources, [MAIN_RESOURCE]: source }}
+      />,
+    );
+    mocks.editorProps?.onValidate?.();
+    expect(props.onMarkersChange).toHaveBeenCalledOnce();
+    unmount();
+    render(<CodeEditor {...props} />);
+    expect(props.onMarkersChange).toHaveBeenCalledTimes(2);
+    expect(props.onMarkersChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('waits for native diagnostic events during source acknowledgements and clears removed resources', () => {
+    const props = codeEditorProps();
+    const { rerender } = render(<CodeEditor {...props} />);
+    mocks.editorProps?.onMount?.(mocks.createEditor(CANONICAL_MAIN_RESOURCE));
+    const resource = mocks.parseUri(CANONICAL_OTHER_RESOURCE);
+    const marker = {
+      owner: 'typescript',
+      severity: 8,
+      message: 'Deferred native diagnostic',
+      startLineNumber: 1,
+      startColumn: 1,
+      endLineNumber: 1,
+      endColumn: 2,
+      modelVersionId: 2,
+      resource,
+    };
+    // Monaco may update its marker store before delivering the corresponding event.
+    mocks.markers.set(CANONICAL_OTHER_RESOURCE, [marker]);
+    const source = props.value + '// typed';
+    act(() => mocks.models.get(CANONICAL_MAIN_RESOURCE)?.fireUserChange(source));
+    rerender(
+      <CodeEditor
+        {...props}
+        value={source}
+        projectSources={{ ...props.projectSources, [MAIN_RESOURCE]: source }}
+      />,
+    );
+    expect(props.onMarkersChange).toHaveBeenCalledExactlyOnceWith([]);
+    act(() => {
+      for (const listener of mocks.markerListeners) listener([resource]);
+    });
+    expect(props.onMarkersChange).toHaveBeenLastCalledWith([marker]);
+    expect(props.onMarkersChange).toHaveBeenCalledTimes(2);
+
+    rerender(<CodeEditor {...props} value={source} projectSources={{ [MAIN_RESOURCE]: source }} />);
+    expect(props.onMarkersChange).toHaveBeenLastCalledWith([]);
+    expect(props.onMarkersChange).toHaveBeenCalledTimes(3);
+  });
+
+  it('preserves complete diagnostic metadata and publishes every meaningful change and clear', () => {
+    const props = codeEditorProps();
+    render(<CodeEditor {...props} />);
+    mocks.editorProps?.onMount?.(mocks.createEditor(CANONICAL_MAIN_RESOURCE));
+    const uri = (value: string) => ({ value, toString: () => value });
+    let marker = {
+      owner: 'typescript',
+      resource: uri(CANONICAL_MAIN_RESOURCE),
+      severity: 8,
+      message: 'Diagnostic',
+      source: 'ts',
+      startLineNumber: 1,
+      startColumn: 1,
+      endLineNumber: 1,
+      endColumn: 2,
+      code: { value: '2322', target: uri('https://example.test/2322') },
+      modelVersionId: 1,
+      tags: [1],
+      origin: 'worker',
+      relatedInformation: [
+        {
+          resource: uri(CANONICAL_OTHER_RESOURCE),
+          message: 'Related',
+          startLineNumber: 2,
+          startColumn: 1,
+          endLineNumber: 2,
+          endColumn: 3,
+        },
+      ],
+    };
+    const publish = () => {
+      mocks.markers.set(CANONICAL_MAIN_RESOURCE, [marker]);
+      for (const listener of mocks.markerListeners) listener([uri(CANONICAL_MAIN_RESOURCE)]);
+    };
+    act(publish);
+    expect(props.onMarkersChange).toHaveBeenLastCalledWith([marker]);
+    vi.mocked(props.onMarkersChange).mockClear();
+    marker = {
+      ...marker,
+      resource: uri(CANONICAL_MAIN_RESOURCE),
+      code: { ...marker.code, target: uri('https://example.test/2322') },
+      relatedInformation: marker.relatedInformation.map((related) => ({
+        ...related,
+        resource: uri(CANONICAL_OTHER_RESOURCE),
+      })),
+    };
+    act(publish);
+    expect(props.onMarkersChange).not.toHaveBeenCalled();
+
+    const changes = [
+      { owner: 'another-worker' },
+      { resource: uri(CANONICAL_OTHER_RESOURCE) },
+      { severity: 4 },
+      { message: 'Changed' },
+      { source: 'other' },
+      { startLineNumber: 3 },
+      { startColumn: 4 },
+      { endLineNumber: 5 },
+      { endColumn: 6 },
+      { code: { value: '2552', target: uri('https://example.test/2322') } },
+      { code: { value: '2552', target: uri('https://example.test/2552') } },
+      { modelVersionId: 2 },
+      { tags: [2] },
+      { origin: 'new-worker' },
+      { relatedInformation: [{ ...marker.relatedInformation[0]!, message: 'Changed related' }] },
+      { relatedInformation: [{ ...marker.relatedInformation[0]!, resource: uri(MAIN_RESOURCE) }] },
+      { relatedInformation: [{ ...marker.relatedInformation[0]!, startLineNumber: 9 }] },
+    ];
+    for (const change of changes) {
+      marker = { ...marker, ...change };
+      act(publish);
+      expect(props.onMarkersChange).toHaveBeenLastCalledWith([marker]);
+    }
+    expect(props.onMarkersChange).toHaveBeenCalledTimes(changes.length);
+    act(() => {
+      mocks.markers.clear();
+      for (const listener of mocks.markerListeners) listener([uri(CANONICAL_MAIN_RESOURCE)]);
+    });
+    expect(props.onMarkersChange).toHaveBeenCalledTimes(changes.length + 1);
+    expect(props.onMarkersChange).toHaveBeenLastCalledWith([]);
   });
 
   it('releases all project-owned models and extra libraries on workspace close', () => {

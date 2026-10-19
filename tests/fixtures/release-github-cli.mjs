@@ -13,7 +13,32 @@ childProcess.execFileSync = (command, arguments_) => {
   appendFileSync(process.env.WEBRAD_RELEASE_TEST_CALLS, `${JSON.stringify(arguments_)}\n`, 'utf8');
   if (arguments_[0] === 'api') {
     if (arguments_[1].includes('/compare/'))
-      return JSON.stringify({ status: process.env.WEBRAD_RELEASE_TEST_ANCESTRY || 'identical' });
+      return JSON.stringify({
+        status: process.env.WEBRAD_RELEASE_TEST_ANCESTRY || 'identical',
+        base_commit: {
+          sha: process.env.WEBRAD_RELEASE_TEST_TAG_SHA || process.env.GITHUB_SHA,
+        },
+      });
+    if (arguments_[1].includes('/actions/workflows/release.yml/runs?')) {
+      if (process.env.WEBRAD_RELEASE_TEST_RUNS_FAILURE) throw new Error('Actions API failed.');
+      return (
+        process.env.WEBRAD_RELEASE_TEST_RUNS ||
+        JSON.stringify([
+          {
+            workflow_runs: [
+              {
+                id: 12345,
+                status: 'completed',
+                conclusion: 'success',
+                head_sha: process.env.GITHUB_SHA,
+                event: 'push',
+                head_branch: 'main',
+              },
+            ],
+          },
+        ])
+      );
+    }
     return arguments_[1].endsWith('/releases?per_page=100')
       ? process.env.WEBRAD_RELEASE_TEST_RELEASES || '[[]]'
       : JSON.stringify({ private: process.env.WEBRAD_RELEASE_TEST_PRIVATE === 'true' });

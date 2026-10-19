@@ -103,6 +103,47 @@ async function checksumsFor(directory, names) {
   return `${checksums.join('\n')}\n`;
 }
 
+function requireVerifiedCommit() {
+  const commit = process.env.GITHUB_SHA;
+  if (!/^[a-f0-9]{40}$/.test(commit ?? ''))
+    throw new Error('Set GITHUB_SHA to the exact release commit before checking its verification.');
+  let pages;
+  try {
+    pages = JSON.parse(
+      gh([
+        'api',
+        `repos/${repository}/actions/workflows/release.yml/runs?head_sha=${commit}&status=success&per_page=100`,
+        '--paginate',
+        '--slurp',
+      ]),
+    );
+    if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page.workflow_runs)))
+      throw new Error('Invalid workflow runs response.');
+  } catch {
+    throw new Error(
+      'Cannot read release verification runs. Grant Actions read permission to the workflow token.',
+    );
+  }
+  const verified = pages
+    .flatMap((page) => page.workflow_runs)
+    .find(
+      (run) =>
+        run.head_sha === commit &&
+        run.status === 'completed' &&
+        run.conclusion === 'success' &&
+        (run.event === 'workflow_dispatch' ||
+          (run.event === 'push' &&
+            (run.head_branch === 'main' || run.head_branch?.startsWith('codex/verify-release-')))),
+    );
+  if (!verified)
+    throw new Error(
+      `Commit ${commit} has no successful four-platform release verification. Wait for the release workflow on main or a codex/verify-release-* branch, or run it manually on this exact commit, then rerun this tag workflow. Pull-request runs and other tag releases do not satisfy this gate. See docs/releases.md.`,
+    );
+  process.stdout.write(
+    `Release commit verified by workflow run ${String(verified.id)}: ${commit}\n`,
+  );
+}
+
 async function preflight() {
   versionFromTag();
   validateRepository();
@@ -131,6 +172,9 @@ async function preflight() {
     }
     if (!['ahead', 'identical'].includes(comparison.status))
       throw new Error('Release tags must point to main or an ancestor of main.');
+    if (comparison.base_commit?.sha !== process.env.GITHUB_SHA)
+      throw new Error('The release tag must resolve to the exact GITHUB_SHA being verified.');
+    requireVerifiedCommit();
   }
   process.stdout.write(`Release destination ready: ${repository}\n`);
 }

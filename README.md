@@ -111,9 +111,9 @@ npm run smoke:development
 npm run smoke:packaged
 ```
 
-Execute toda a sequência com `npm run validate`. Formate o código-fonte com `npm run format` e verifique a formatação com `npm run format:check`. O comando `npm run runtime:sources:check` verifica se o runtime de navegador incorporado ao compilador corresponde ao pacote-fonte.
+Execute as verificações de código e o empacotamento com `npm run validate`; depois execute os dois smokes Electron acima e `npm run smoke:packaged -- --webrad-smoke-updates`. Formate o código-fonte com `npm run format` e verifique a formatação com `npm run format:check`. O comando `npm run runtime:sources:check` verifica se o runtime de navegador incorporado ao compilador corresponde ao pacote-fonte. O [checklist de release](docs/release-checklist.md) descreve as evidências exigidas antes de criar uma tag.
 
-A configuração raiz do Vitest limita a execução a dois workers, tanto localmente quanto nos workflows de validação e release. O projeto `unit` mantém o timeout de 5 segundos; `integration` usa 2 minutos (120 segundos) para os testes do compilador e de tipos do Monaco (`packages/language/tests/`), as interações React da IDE (`apps/ide/renderer/src/**/*.test.tsx`) e os cenários entre pacotes em `tests/`. O projeto `ide` executa `App.integration.test.tsx` depois dos demais arquivos, com limite de 2 minutos. Para reproduzir o comando do release com caminhos temporários portáveis, execute `npm run test:portable -- --maxWorkers=2 --minWorkers=1`.
+A configuração raiz do Vitest limita a execução a quatro workers, tanto localmente quanto nos workflows de validação e release. O projeto `unit` mantém o timeout de 5 segundos; `integration` usa 2 minutos (120 segundos) para os testes do compilador e de tipos do Monaco (`packages/language/tests/`), as interações React da IDE (`apps/ide/renderer/src/**/*.test.tsx`) e os cenários entre pacotes em `tests/`. O projeto `ide` executa `App.integration.test.tsx` depois dos demais arquivos, com limite de 2 minutos. Para reproduzir o comando do release com caminhos temporários portáveis, execute `npm run test:portable`.
 
 No PowerShell que bloqueia `npm.ps1`, substitua `npm` por `npm.cmd` nesses comandos. Por exemplo: `npm.cmd run validate`.
 
@@ -121,7 +121,7 @@ No PowerShell que bloqueia `npm.ps1`, substitua `npm` por `npm.cmd` nesses coman
 
 O comando `npm run smoke:development` inicia o Forge e o Vite reais, confirma que o shell React foi montado e percorre o fluxo completo da IDE sem reutilizar bundles obsoletos dos pacotes internos. O comando `npm run package` cria uma aplicação não instalada para a plataforma atual. O comando `npm run smoke:packaged` inicia exatamente esse artefato, abre pela IDE uma cópia temporária do projeto Hello, executa F9 pelo fluxo de compilação com IPC tipado, interage com o Preview isolado e verifica o resultado do evento gerado antes de encerrar. O comando `npm run make` aciona os geradores do Electron Forge para produzir os artefatos distribuíveis compatíveis com a plataforma atual.
 
-Os dois smokes também verificam a reabertura automática do último projeto com preferências temporárias isoladas, a seleção compartilhada entre árvore, canvas e Inspector, as larguras de visualização responsiva, o zoom e o painel Output. Para salvar uma captura real do Designer ao final do smoke, forneça um caminho absoluto:
+Os dois smokes também verificam a reabertura automática do último projeto com preferências e perfil Chromium temporários isolados, a seleção compartilhada entre árvore, canvas e Inspector, as larguras de visualização responsiva, a barra simplificada do documento atual e o painel Output. Falhas preservam log e projeto de teste em `artifacts/smoke/`. Para salvar uma captura real do Designer ao final do smoke, forneça um caminho absoluto:
 
 ```powershell
 npm.cmd run smoke:development -- --webrad-smoke-screenshot="$PWD\.tmp\designer.png"
