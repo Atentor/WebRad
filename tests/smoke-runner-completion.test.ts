@@ -25,16 +25,26 @@ const workspace = process.cwd();
 const mode = process.argv[3];
 const realSpawn = childProcess.spawn;
 const realSetTimeout = timers.setTimeout;
+let reportApplicationReady;
+const applicationReady = new Promise(resolve => { reportApplicationReady = resolve; });
 timers.setTimeout = (callback, milliseconds, ...args) => {
   if (mode === 'timeout' && milliseconds === 240_000) {
     appendFileSync(path.join(workspace, 'deadline-armed.txt'), milliseconds + '\\n');
-    return realSetTimeout(callback, 250, ...args);
+    // Start the synthetic expiry only after the child has installed its signal handler
+    // and written evidence. Cold native startup can exceed the shortened test deadline.
+    return realSetTimeout(async () => { await applicationReady; callback(...args); }, 250);
   }
   return realSetTimeout(callback, milliseconds, ...args);
 };
 childProcess.spawn = (executable, args, options) => {
-  const child = realSpawn(process.execPath, [path.join(workspace, 'fake-application.mjs'), mode, ...args], options);
+  const child = realSpawn(process.execPath, [path.join(workspace, 'fake-application.mjs'), mode, ...args], {
+    ...options,
+    ...(mode === 'timeout' ? { stdio: ['inherit', 'inherit', 'inherit', 'ipc'] } : {}),
+  });
   if (mode === 'timeout') {
+    child.once('message', message => {
+      if (message === 'ready') reportApplicationReady();
+    });
     // Exercise the boundary where a wrapper swallows a failing process exit code.
     const realEmit = child.emit;
     child.emit = function(event, ...values) {
@@ -50,6 +60,8 @@ await import(pathToFileURL(path.join(workspace, 'scripts', process.argv[2])).hre
 const fakeApplication = `
 import { promises as fs } from 'node:fs';
 const mode = process.argv[2];
+// Make the cold-start race deterministic without changing any production deadline.
+if (mode === 'timeout') await new Promise(resolve => setTimeout(resolve, 350));
 const logPath = process.argv.find(value => value.startsWith('--webrad-smoke-log='))?.slice('--webrad-smoke-log='.length);
 if (logPath === undefined) process.exit(99);
 const evidence = ${JSON.stringify(updateEvidence)};
@@ -59,6 +71,7 @@ await fs.writeFile(logPath, evidence.join('\\n') + '\\n');
 if (mode === 'timeout') {
   process.on('SIGTERM', () => {});
   setInterval(() => process.stdout.write('stubborn application heartbeat\\n'), 100);
+  process.send('ready');
 } else {
   process.exit(0);
 }

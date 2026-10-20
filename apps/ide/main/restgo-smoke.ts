@@ -218,6 +218,16 @@ export async function runRestGoPageEventsSmoke(
     await rendererReady(window, `document.querySelector('.monaco-editor') !== null`);
     if (name === 'OnUnauthenticated') {
       // This smoke verifies persistence of a working binding; empty stubs are pruned on Save.
+      // The editor DOM mounts before event navigation restores the model, caret and focus.
+      await rendererReady(
+        window,
+        `(() => {
+          const editor = document.querySelector('.monaco-editor');
+          return editor?.textContent?.includes('PageMainUnauthenticated') === true &&
+            editor.querySelector('textarea.inputarea') === document.activeElement &&
+            document.querySelector('.wr-status-position')?.getAttribute('aria-label')?.endsWith('column 5') === true;
+        })()`,
+      );
       await window.webContents.insertText('return;');
       await rendererReady(
         window,

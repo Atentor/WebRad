@@ -43,3 +43,11 @@ O preflight da tag confere a ancestralidade em `main` e consulta as verificaçõ
 Na tag `v0.0.7`, a compilação e os testes passaram, mas os smokes falharam procurando `.wr-toolbar select[aria-label="Zoom"]`. A simplificação anterior tinha removido Zoom e Arrange da barra e os testes Electron ainda exigiam ambos. O smoke passou a verificar uma única aba do documento atual, a ausência dos controles removidos e a escala padrão do Designer, mantendo navegação, seleção, responsividade, Monaco, Preview e demais fluxos.
 
 Falhas anteriores de restauração do Monaco, manipulação de texto no macOS e prazo do smoke foram corrigidas em commits anteriores, com releases `v0.0.5` e `v0.0.6` bem-sucedidos. O aprendizado persistente é verificar o caminho completo de release antes da tag, inclusive para mudanças pequenas de interface.
+
+## Diagnóstico da tentativa v0.0.9 de 19/10/2026
+
+A execução `39356337911` falhou no Windows ao aguardar `return;` no handler `PageMainUnauthenticated`: a existência do DOM do Monaco não garante que a navegação, o cursor e o foco nativo já estejam prontos para `insertText`. O smoke passa a aguardar também o handler esperado, o foco no textarea e o cursor do corpo antes de digitar, mantendo as verificações de texto e persistência.
+
+No macOS Intel, o teste de término do runner antecipava o deadline para 250ms e podia matar o processo simulado antes de ele escrever o log. A fixture agora sinaliza prontidão por IPC depois de escrever as evidências e instalar o tratamento de sinal; o teste inclui uma inicialização deliberadamente mais lenta que esse deadline simulado. O prazo de produção de 240 segundos permanece igual.
+
+Os logs e o diagnóstico Windows dessa execução foram examinados sem disparar outro workflow ou gerar/testar um novo release, conforme solicitado pelo usuário. A correção tem cobertura local focada; a confirmação nativa nos quatro ambientes permanece pendente.
