@@ -11,6 +11,7 @@ import {
 import { BrowserWindow, type WebFrameMain } from 'electron';
 
 import { publishPreviewHtml, revokePreview } from './preview-server';
+import { monacoHandlerInputReadyExpression } from './monaco-smoke-input';
 
 interface RestGoSettingsSmokeOptions {
   readonly projectPath: string;
@@ -219,15 +220,8 @@ export async function runRestGoPageEventsSmoke(
     if (name === 'OnUnauthenticated') {
       // This smoke verifies persistence of a working binding; empty stubs are pruned on Save.
       // The editor DOM mounts before event navigation restores the model, caret and focus.
-      await rendererReady(
-        window,
-        `(() => {
-          const editor = document.querySelector('.monaco-editor');
-          return editor?.textContent?.includes('PageMainUnauthenticated') === true &&
-            editor.querySelector('textarea.inputarea') === document.activeElement &&
-            document.querySelector('.wr-status-position')?.getAttribute('aria-label')?.endsWith('column 5') === true;
-        })()`,
-      );
+      await rendererReady(window, monacoHandlerInputReadyExpression('PageMainUnauthenticated'));
+      window.webContents.focus();
       await window.webContents.insertText('return;');
       await rendererReady(
         window,

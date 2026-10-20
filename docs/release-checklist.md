@@ -51,3 +51,11 @@ A execução `39356337911` falhou no Windows ao aguardar `return;` no handler `P
 No macOS Intel, o teste de término do runner antecipava o deadline para 250ms e podia matar o processo simulado antes de ele escrever o log. A fixture agora sinaliza prontidão por IPC depois de escrever as evidências e instalar o tratamento de sinal; o teste inclui uma inicialização deliberadamente mais lenta que esse deadline simulado. O prazo de produção de 240 segundos permanece igual.
 
 Os logs e o diagnóstico Windows dessa execução foram examinados sem disparar outro workflow ou gerar/testar um novo release, conforme solicitado pelo usuário. A correção tem cobertura local focada; a confirmação nativa nos quatro ambientes permanece pendente.
+
+## Correção complementar do commit b628fcb em 20/10/2026
+
+As execuções `39404320016` e `39404320095` mostraram que exigir somente `textarea.inputarea` impedia o smoke de continuar em todos os sistemas: o Monaco também usa `.native-edit-context`, habilitado por padrão nessa versão. A expressão compartilhada de prontidão deve aceitar ambos, preservando o handler, o cursor e o foco esperados. O teste Chromium instancia o Monaco real nos dois modos, insere texto pela entrada nativa e verifica o corpo do método pela AST. O teste simulado também deve cobrir ambos os modos; passar apenas com um textarea artificial não comprova compatibilidade com o editor real.
+
+Na validação Windows, as 1.553 asserções passaram, mas a limpeza da suíte Shaka encontrou `EBUSY`. O esbuild captura o cwd quando seu módulo é carregado; `stop()` solicita o encerramento sem aguardar a liberação nativa. Carregue essa dependência antes de simular o cwd do projeto, mantenha uma instância por suíte e confirme que a pasta temporária é removível enquanto o serviço ainda está ativo. Recarregar o módulo a cada caso e parar apenas a última instância não estabelece esse isolamento.
+
+A correção passou localmente pela suíte completa com caminhos temporários ligados (1.554 testes), regressão Chromium nos dois modos de entrada e fluxo Electron completo em desenvolvimento, incluindo persistência do handler e saúde do renderer. Não houve geração ou teste de novo release; a confirmação empacotada e nativa nos demais sistemas permanece pendente.

@@ -2,19 +2,21 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// Load esbuild before mocking cwd: its native service retains the cwd from module load.
+import { stop } from 'esbuild';
 
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { addComponent, createProject, updatePage } from '@webrad/project-model';
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repositoryRoot = fileURLToPath(new URL('../../../', import.meta.url));
-const temporaryDirectories: string[] = [];
 let directory: string;
 
-beforeEach(async () => {
+beforeAll(async () => {
   directory = await mkdtemp(path.join(os.tmpdir(), 'webrad-shaka-'));
-  temporaryDirectories.push(directory);
-  vi.resetModules();
+});
+
+beforeEach(() => {
   vi.spyOn(process, 'cwd').mockReturnValue(directory);
   vi.stubEnv('WEBRAD_TAILWIND_BASE_PATH', repositoryRoot);
   vi.stubEnv(
@@ -26,15 +28,16 @@ beforeEach(async () => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
-  vi.resetModules();
 });
 
 afterAll(async () => {
-  // esbuild retains its initial cwd and holds it open on Windows until stopped.
-  await (await import('esbuild')).stop();
-  await Promise.all(
-    temporaryDirectories.map((temporary) => rm(temporary, { recursive: true, force: true })),
-  );
+  // One compiler/service per suite. Its real cwd is outside the temporary project,
+  // so the project must be removable even while the native service is alive.
+  try {
+    await rm(directory, { recursive: true, force: true });
+  } finally {
+    await stop();
+  }
 });
 
 describe('Shaka compiler environment without project dependencies', () => {
