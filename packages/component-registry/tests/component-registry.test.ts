@@ -480,6 +480,7 @@ describe('MVP component metadata', () => {
     });
     expect(dataGrid.events).toContainEqual({
       name: 'OnCellClick',
+      eventType: 'Event',
       label: 'OnCellClick',
       category: 'Data',
       eventDetailType: 'WebDataGridCellEventDetail',

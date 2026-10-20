@@ -547,7 +547,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   ipcMain.handle('webrad:links:open', async (event, ...input: unknown[]) => {
     requireTrustedSender(event);
     if (input.length !== 1) throw new Error('External links require exactly one target.');
-    const target = z.enum(['atentor', 'restgo', 'webrad']).parse(input[0]);
+    const target = z.enum(['atentor', 'restgo', 'webrad', 'issues']).parse(input[0]);
     await shell.openExternal(EXTERNAL_LINKS[target]);
   });
 

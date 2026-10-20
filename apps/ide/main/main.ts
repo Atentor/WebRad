@@ -27,8 +27,14 @@ import {
 } from './restgo-smoke';
 import { runDataGridConfigurationSmoke } from './data-grid-smoke';
 import { runStylesWorkspaceSmoke } from './styles-smoke';
+import { runPopupLayoutSmoke } from './popup-smoke';
+import { runBugReportSmoke } from './bug-report-smoke';
 import { runApiClientBrowserSmoke, runApiClientDesignerSmoke } from './api-client-smoke';
 import { runMonacoCaretSmoke } from './monaco-caret-smoke';
+import {
+  runEmptyEventCleanupSmoke,
+  runTypedKeyboardInteractionSmoke,
+} from './monaco-workspace-smoke';
 import { captureDesignerButtonStyle, assertPreviewButtonStyle } from './component-style-smoke';
 import type { WebRadBridge } from '../shared/contracts';
 import { trackSmokeRendererHealth } from './smoke-renderer-health';
@@ -373,13 +379,60 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
     throw error;
   });
   smokeLog(`renderer Monaco component members passed: ${componentMembers}`);
-  sendRendererKey(window, 'Escape');
-  sendRendererKey(window, 'Z', [commandModifier]);
+  const memberPosition = await window.webContents.executeJavaScript(
+    "document.querySelector('.wr-status-position')?.getAttribute('aria-label')",
+    true,
+  );
+  sendRendererKey(window, 'Enter');
+  await waitForRendererResult(
+    window,
+    `(() => {
+      const position = document.querySelector('.wr-status-position')?.getAttribute('aria-label');
+      return position?.split(',')[0] === ${JSON.stringify(String(memberPosition).split(',')[0])} &&
+        [...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('EDTNome.value')) &&
+        document.querySelector('.monaco-editor .suggest-widget.visible') === null;
+    })()`,
+    'Enter accepting the member without inserting a line',
+    (value) => value === true,
+  );
+  // Reopen on an already complete member: native smart mode used to insert a newline here.
+  sendRendererKey(window, 'Space', ['control']);
+  await waitForRendererString(
+    window,
+    `(() => {
+      const widget = document.querySelector('.monaco-editor .suggest-widget.visible');
+      return widget?.querySelector('.monaco-list-row.focused .label-name')?.textContent === 'value' ? 'value' : '';
+    })()`,
+    'the selected already complete member',
+    10_000,
+  );
+  const completePosition = await window.webContents.executeJavaScript(
+    "document.querySelector('.wr-status-position')?.getAttribute('aria-label')",
+    true,
+  );
+  sendRendererKey(window, 'Enter');
+  await waitForRendererResult(
+    window,
+    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(completePosition)} && document.querySelector('.monaco-editor .suggest-widget.visible') === null`,
+    'Enter closing unchanged completion without inserting a line',
+    (value) => value === true,
+  );
+  smokeLog(
+    'renderer Monaco context Enter passed: accepted member and unchanged completion without newline',
+  );
+  for (let index = 0; index < 'EDTNome.value'.length; index += 1) {
+    sendRendererKey(window, 'Left', ['shift']);
+  }
+  sendRendererKey(window, 'Backspace');
   await runMonacoCaretSmoke(window, {
     log: smokeLog,
     sendKey: (keyCode, modifiers) => sendRendererKey(window, keyCode, modifiers),
     screenshotPath: smokeScreenshotPath,
   });
+  if (smokeProjectPath !== undefined) {
+    await runEmptyEventCleanupSmoke(window, smokeProjectPath, smokeLog);
+    await runTypedKeyboardInteractionSmoke(window, smokeLog);
+  }
 }
 
 function findFrame(frame: WebFrameMain, url: string): WebFrameMain | undefined {
@@ -735,6 +788,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     throw new Error(`Renderer shell smoke failed: ${JSON.stringify(shellResult)}`);
   }
   smokeLog('renderer shell passed');
+  await runBugReportSmoke(window);
+  smokeLog('renderer bug report browser link passed');
   const loadedIcon = await waitForRendererString(
     window,
     `(() => {
@@ -1040,6 +1095,25 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     throw new Error(`Renderer F9 Preview interaction failed: ${JSON.stringify(interaction)}`);
   }
   smokeLog('renderer F9 preview passed: Olá Ada; Tailwind style applied');
+  const keyboardInteraction = await previewFrame.executeJavaScript(
+    `(() => {
+    const edit = document.querySelector('[data-webrad-name="EDTNome"]');
+    if (!(edit instanceof HTMLInputElement)) return false;
+    const event = new KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true });
+    const dispatched = edit.dispatchEvent(event);
+    const passed = dispatched === false && event.defaultPrevented && edit.value === 'typed keyboard';
+    edit.value = 'Ada';
+    return passed;
+  })()`,
+    true,
+  );
+  if (keyboardInteraction !== true)
+    throw new Error(
+      'Compiled typed keyboard Interaction did not receive its native event and sender.',
+    );
+  smokeLog(
+    'renderer typed Interaction Preview passed: key, preventDefault and sender executed after F9',
+  );
   const isolation = (await previewFrame.executeJavaScript(
     `(() => {
       let parentBlocked = false;
@@ -1074,6 +1148,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     screenshotPath: smokeScreenshotPath,
   });
   await runApiClientBrowserSmoke(smokeLog);
+  await runPopupLayoutSmoke(smokeLog, smokeScreenshotPath);
 }
 try {
   synchronizeInstallationIcon({

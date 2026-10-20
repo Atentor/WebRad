@@ -543,10 +543,12 @@ describe('external link IPC', () => {
     await invoke('webrad:links:open', event, 'atentor');
     await invoke('webrad:links:open', event, 'restgo');
     await invoke('webrad:links:open', event, 'webrad');
+    await invoke('webrad:links:open', event, 'issues');
     expect(mocks.openExternal.mock.calls).toEqual([
       ['https://atentor.com'],
       ['https://restgo.atentor.com'],
       ['https://webrad.atentor.com'],
+      ['https://github.com/Atentor/WebRad/issues'],
     ]);
   });
   it('rejects arbitrary URLs, invalid targets, extra arguments, and untrusted senders', async () => {

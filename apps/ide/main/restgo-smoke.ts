@@ -216,6 +216,14 @@ export async function runRestGoPageEventsSmoke(
     })()`,
     );
     await rendererReady(window, `document.querySelector('.monaco-editor') !== null`);
+    if (name === 'OnUnauthenticated') {
+      // This smoke verifies persistence of a working binding; empty stubs are pruned on Save.
+      await window.webContents.insertText('return;');
+      await rendererReady(
+        window,
+        `document.querySelector('.monaco-editor')?.textContent?.includes('return;') === true`,
+      );
+    }
   }
   await click(window, 'button[aria-label="Save (Ctrl+S)"]');
   const pagePath = path.join(path.dirname(projectPath), 'pages', 'PageMain.wrpage');
@@ -234,7 +242,9 @@ export async function runRestGoPageEventsSmoke(
       root.events.OnUnauthenticated === 'PageMainUnauthenticated' &&
       source.includes('CustomEvent<WebPageLoginEventDetail>') &&
       source.includes('CustomEvent<WebPageLogoutEventDetail>') &&
-      source.includes('async PageMainUnauthenticated(sender: WebPage): Promise<void>') &&
+      source.includes(
+        'async PageMainUnauthenticated(sender: WebPage, event: Event): Promise<void>',
+      ) &&
       source.includes('const { user } = event.detail;')
     ) {
       log(

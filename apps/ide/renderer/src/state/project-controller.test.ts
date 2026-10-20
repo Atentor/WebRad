@@ -96,6 +96,114 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
 }
 
 describe('ProjectController', () => {
+  it('retains code typed into an empty handler while its cleaned save is in flight', async () => {
+    const seed = projectSession('CleanupRace');
+    const page = seed.project.pages[0]!;
+    const session = {
+      ...seed,
+      project: {
+        ...seed.project,
+        pages: [
+          {
+            ...page,
+            components: page.components.map((component) => ({
+              ...component,
+              events: { OnShow: 'Empty' },
+            })),
+          },
+        ],
+      },
+      userSources: { 'pages/PageMain.ts': 'export class PageMain { Empty() {} }' },
+    };
+    const first = deferred<ProjectSession>();
+    const bridge = fakeBridge(session);
+    bridge.project.save = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementation(async (request) => ({ ...session, ...request }));
+    const controller = new ProjectController(bridge);
+    controller.load(session);
+    const saving = controller.save();
+    const firstRequest = vi.mocked(bridge.project.save).mock.calls[0]![0];
+    expect(firstRequest.userSources['pages/PageMain.ts']).not.toContain('Empty()');
+    const authored = 'export class PageMain { Empty() { return; } }';
+    controller.setUserSource('pages/PageMain.ts', authored);
+    first.resolve({ ...session, ...firstRequest });
+    await saving;
+    expect(bridge.project.save).toHaveBeenCalledTimes(2);
+    expect(controller.getSnapshot().userSources['pages/PageMain.ts']).toBe(authored);
+    expect(controller.getSnapshot().project?.pages[0]?.components[0]?.events.OnShow).toBe('Empty');
+  });
+
+  it.each(['save', 'saveAs'] as const)(
+    'removes an empty event and its bindings together on %s and reload',
+    async (operation) => {
+      const seed = projectSession('Cleanup');
+      const page = seed.project.pages[0]!;
+      const project = {
+        ...seed.project,
+        pages: [
+          {
+            ...page,
+            components: page.components.map((component) => ({
+              ...component,
+              events: { OnShow: 'Empty', OnHide: 'Keep' },
+            })),
+          },
+        ],
+      };
+      const source = 'export class PageMain { async Empty() {} Keep() { return; } }';
+      const session = { ...seed, project, userSources: { 'pages/PageMain.ts': source } };
+      const bridge = fakeBridge(session);
+      const controller = new ProjectController(bridge);
+      controller.load(session);
+      const revision = controller.getSnapshot().revision;
+      const saved = await controller[operation]();
+      expect(saved?.userSources['pages/PageMain.ts']).not.toContain('Empty()');
+      expect(saved?.userSources['pages/PageMain.ts']).toContain('Keep() { return; }');
+      expect(saved?.project.pages[0]?.components[0]?.events).toEqual({
+        OnShow: null,
+        OnHide: 'Keep',
+      });
+      expect(controller.getSnapshot().revision).toBeGreaterThan(revision);
+      expect(controller.getSnapshot().dirty).toBe(false);
+      controller.load(saved!);
+      expect(controller.getSnapshot().project?.pages[0]?.components[0]?.events.OnShow).toBeNull();
+    },
+  );
+
+  it('preserves the authored source and bindings on save failure and save-as cancellation', async () => {
+    const seed = projectSession('Cleanup');
+    const page = seed.project.pages[0]!;
+    const session = {
+      ...seed,
+      project: {
+        ...seed.project,
+        pages: [
+          {
+            ...page,
+            components: page.components.map((component) => ({
+              ...component,
+              events: { OnShow: 'Empty' },
+            })),
+          },
+        ],
+      },
+      userSources: { 'pages/PageMain.ts': 'export class PageMain { Empty() {} }' },
+    };
+    const bridge = fakeBridge(session);
+    bridge.project.save = vi.fn().mockRejectedValue(new Error('Disk unavailable'));
+    bridge.project.saveAs = vi.fn().mockResolvedValue(null);
+    const controller = new ProjectController(bridge);
+    controller.load(session);
+    await expect(controller.save()).rejects.toThrow('Disk unavailable');
+    expect(controller.getSnapshot().userSources).toEqual(session.userSources);
+    expect(controller.getSnapshot().project).toEqual(session.project);
+    await controller.saveAs();
+    expect(controller.getSnapshot().userSources).toEqual(session.userSources);
+    expect(controller.getSnapshot().project).toEqual(session.project);
+  });
+
   it('synchronizes imported clients across pages and reusables, persists the inputs, and supports undo without touching authored sources', async () => {
     const seed = projectSession('RestGoSync');
     const api: RestGoPublishedApi = {

@@ -1036,7 +1036,7 @@ describe('App MVP integration', () => {
     await user.dblClick(screen.getByLabelText('OnClick'));
     const editor = (await screen.findByLabelText('Mock Monaco editor')) as HTMLTextAreaElement;
     expect(editor.value).toContain(
-      '  async BTNMostrarClick(sender: WebButton): Promise<void> {\n    \n  }',
+      '  async BTNMostrarClick(sender: WebButton, event: MouseEvent): Promise<void> {\n    \n  }',
     );
     const handlerLine =
       editor.value.split('\n').findIndex((line) => line.includes('BTNMostrarClick')) + 1;
@@ -1164,7 +1164,8 @@ describe('App MVP integration', () => {
     expect(
       saved.project.pages[0]?.components.find((component) => component.name === 'BTNMostrar')
         ?.events.OnClick,
-    ).toBe('BTNMostrarClick');
+    ).toBeNull();
+    expect(saved.userSources['pages/PageMain.ts']).not.toContain('async BTNMostrarClick');
     const defaultStyleIdByType = new Map(
       saved.project.styles
         .filter((style) => style.preset === 'default')
@@ -2119,7 +2120,7 @@ describe('App MVP integration', () => {
       'Mock Monaco editor',
     )) as HTMLTextAreaElement;
     expect(reusableEditor.value).toContain(
-      '  async Button1Click(sender: WebButton): Promise<void> {\n    \n  }',
+      '  async Button1Click(sender: WebButton, event: MouseEvent): Promise<void> {\n    \n  }',
     );
     const reusableNavigation = screen.getByTestId('mock-monaco');
     const reusableHandlerLine =
@@ -2178,9 +2179,9 @@ describe('App MVP integration', () => {
     expect(
       saved.reusableElements[0]?.components.find((component) => component.name === 'Button1')
         ?.events,
-    ).toMatchObject({ OnClick: 'Button1Click' });
-    expect(harness.persisted().userSources['reusables/CustomerCard.ts']).toContain(
-      'async Button1Click(sender: WebButton): Promise<void>',
+    ).toMatchObject({ OnClick: null });
+    expect(harness.persisted().userSources['reusables/CustomerCard.ts']).not.toContain(
+      'async Button1Click(sender: WebButton, event: MouseEvent): Promise<void>',
     );
   });
 

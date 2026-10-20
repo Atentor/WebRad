@@ -1114,6 +1114,45 @@ describe('browser runtime', () => {
     dynamicBinding.dispose();
   });
 
+  it('preserves fit-content dimensions while an ancestor is closed and measures after revealing it', () => {
+    const ancestor = document.createElement('div');
+    const target = document.createElement('div');
+    const child = document.createElement('div');
+    target.append(child);
+    ancestor.append(target);
+    document.body.append(ancestor);
+    ancestor.style.display = 'none';
+    target.style.width = 'max-content';
+    const layout = responsiveLayout({}, { width: 'fit-content' });
+    const binding = bindRuntimeFitContent(target, target, layout);
+    try {
+      expect(measureRuntimeFitContentSize(target, target, layout)).toEqual({});
+      expect(target.style.width).toBe('max-content');
+      ancestor.style.display = 'block';
+      vi.spyOn(child, 'getBoundingClientRect').mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 204,
+        bottom: 36,
+        width: 204,
+        height: 36,
+      } as DOMRect);
+      binding.refresh();
+      expect(target.style.width).toBe('204px');
+      ancestor.style.display = 'none';
+      binding.refresh();
+      expect(target.style.width).toBe('204px');
+      // Hidden children of a visible container still collapse normally.
+      ancestor.style.display = 'block';
+      child.remove();
+      binding.refresh();
+      expect(target.style.width).toBe('0px');
+    } finally {
+      binding.dispose();
+      ancestor.remove();
+    }
+  });
+
   it('uses the rendered content envelope across zoom, anchors, and empty container chrome', () => {
     const target = document.createElement('div');
     const child = document.createElement('div');

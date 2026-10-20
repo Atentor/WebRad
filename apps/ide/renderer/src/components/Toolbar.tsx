@@ -1,5 +1,6 @@
 import type { UpdateState } from '../../../shared/update-contracts';
 import { UpdateIndicator } from './UpdateIndicator';
+import { BugReportButton } from './BugReportButton';
 import { DocumentTabs, type DocumentTabsProps } from './DocumentTabs';
 import type { ReactElement } from 'react';
 import type { IdeCommand } from '../../../shared/contracts';
@@ -141,6 +142,7 @@ export function Toolbar(props: ToolbarProps): ReactElement {
         <Icon name="info" />
         <span>{props.issueCount} issues</span>
       </button>
+      <BugReportButton />
       <button
         className={
           debugActive ? 'wr-toolbar-run wr-toolbar-debug active' : 'wr-toolbar-run wr-toolbar-debug'

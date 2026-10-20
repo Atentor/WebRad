@@ -190,6 +190,14 @@ export function validateComponentDefinition(definition: ComponentDefinition): vo
     }
   }
   for (const event of definition.events) {
+    if (
+      event.eventType !== undefined &&
+      !['Event', 'KeyboardEvent', 'MouseEvent', 'FocusEvent', 'InputEvent'].includes(
+        event.eventType,
+      )
+    ) {
+      throw new InvalidComponentDefinitionError(`Invalid native event type for "${event.name}".`);
+    }
     if (event.eventDetailType !== undefined && !isSafeIdentifier(event.eventDetailType)) {
       throw new InvalidComponentDefinitionError(
         `Event detail type "${event.eventDetailType}" for "${event.name}" must be a TypeScript-safe identifier.`,

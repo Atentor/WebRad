@@ -1,4 +1,5 @@
 export * from './event-handler.js';
+export * from './empty-event-handlers.js';
 export * from './project-source.js';
 export * from './component-references.js';
 export * from './environment-typings.js';

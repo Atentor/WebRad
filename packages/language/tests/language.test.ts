@@ -493,6 +493,82 @@ export class ${document.name} extends ${document.name}Generated {
 });
 
 describe('event handler AST editing', () => {
+  it('provides a real typed event, native completions and invalid-member diagnostics for every registered Interaction', () => {
+    const events = defaultComponentRegistry
+      .list()
+      .flatMap((component) => component.events.map((event) => ({ component, event })));
+    let source = 'export class Audit {}\n';
+    for (const { component, event } of events) {
+      const edit = ensureEventHandler(source, {
+        className: 'Audit',
+        componentName: 'Component1',
+        componentType: component.type,
+        eventName: event.name,
+        handlerName: `Audit${component.type}${event.name}`,
+      });
+      source =
+        edit.sourceText.slice(0, edit.cursor.start) +
+        'event.preventDefault(); event.invalidInteractionMember;' +
+        edit.sourceText.slice(edit.cursor.start);
+    }
+    const fileName = '/webrad-language-test/Audit.ts';
+    const service = createLanguageService({
+      [fileName]: source,
+      '/webrad-language-test/runtime.d.ts': generateRuntimeTypings(),
+    });
+    try {
+      expect(service.getSyntacticDiagnostics(fileName)).toEqual([]);
+      const diagnostics = service.getSemanticDiagnostics(fileName);
+      expect(diagnostics.map((item) => item.code)).toEqual(events.map(() => 2339));
+      for (const { component, event } of events) {
+        const methodStart = source.indexOf(`async Audit${component.type}${event.name}(`);
+        const position = source.indexOf('event.preventDefault()', methodStart) + 'event.'.length;
+        const completions = service
+          .getCompletionsAtPosition(fileName, position, {})
+          ?.entries.map((item) => item.name);
+        const member = event.eventDetailType
+          ? 'detail'
+          : event.eventType === 'KeyboardEvent'
+            ? 'key'
+            : event.eventType === 'MouseEvent'
+              ? 'clientX'
+              : event.eventType === 'FocusEvent'
+                ? 'relatedTarget'
+                : event.eventType === 'InputEvent'
+                  ? 'data'
+                  : 'preventDefault';
+        expect(completions, `${component.type}.${event.name}`).toContain(member);
+        const hover = ts.displayPartsToString(
+          service.getQuickInfoAtPosition(fileName, position - 3)?.displayParts,
+        );
+        expect(hover, `${component.type}.${event.name}`).toContain('(parameter) event:');
+      }
+    } finally {
+      service.dispose();
+    }
+  });
+
+  it.each([
+    'async Edit1KeyDown(sender: WebEdit): Promise<void> { if (event.key === "Enter") event.preventDefault(); }',
+    'Edit1KeyDown(sender: WebEdit, event?: Event) { if (event.key === "Enter") event.preventDefault(); }',
+    'Edit1KeyDown = async (sender: WebEdit) => { if (event.key === "Enter") event.preventDefault(); };',
+    'Edit1KeyDown = sender => { if (event.key === "Enter") event.preventDefault(); };',
+    'Edit1KeyDown = function(sender: WebEdit) { if (event.key === "Enter") event.preventDefault(); };',
+  ])('repairs old keyboard signatures without replacing authored bodies: %s', (member) => {
+    const source = `import type { WebEdit } from '@webrad/runtime';\nexport class PageMain { ${member} }`;
+    const request = {
+      className: 'PageMain',
+      componentName: 'Edit1',
+      componentType: 'WebEdit',
+      eventName: 'OnKeyDown',
+    };
+    const edit = ensureEventHandler(source, request);
+    expect(edit.sourceText).toContain('event: KeyboardEvent');
+    expect(edit.sourceText).toContain('if (event.key === "Enter") event.preventDefault();');
+    expect(edit.changed).toBe(true);
+    expect(ensureEventHandler(edit.sourceText, request).changed).toBe(false);
+  });
+
   it('inserts a typed async method and returns its navigation position', () => {
     const original = `// user formatting is retained
 export class PageMain extends PageMainGenerated {
@@ -509,7 +585,7 @@ export class PageMain extends PageMainGenerated {
     expect(edit.changed).toBe(true);
     expect(edit.sourceText).toContain('import type { WebButton } from "@webrad/runtime";');
     expect(edit.sourceText).toContain(
-      '  async BTNMostrarClick(sender: WebButton): Promise<void> {\n    \n  }',
+      '  async BTNMostrarClick(sender: WebButton, event: MouseEvent): Promise<void> {\n    \n  }',
     );
     const sourceLines = edit.sourceText.split('\n');
     const handlerLine = sourceLines.findIndex((line) => line.includes('async BTNMostrarClick')) + 1;
@@ -555,8 +631,8 @@ export class PageMain extends PageMainGenerated {
     };
     const edit = ensureEventHandler(source, request);
     const signature = asynchronous
-      ? 'async Button1Click(sender: WebButton): Promise<void>'
-      : 'Button1Click(sender: WebButton): void';
+      ? 'async Button1Click(sender: WebButton, event: MouseEvent): Promise<void>'
+      : 'Button1Click(sender: WebButton, event: MouseEvent): void';
     expect(edit.sourceText).toContain(indent + signature + ' {\n' + indent + '  \n' + indent + '}');
     expect(edit.sourceText.split('\n')[edit.cursor.line - 1]).toBe(indent + '  ');
     expect(edit.cursor.column).toBe(indent.length + 3);
@@ -568,7 +644,7 @@ export class PageMain extends PageMainGenerated {
 
   it('returns the first statement inside an existing handler body as its cursor target', () => {
     const source = `export class PageMain {
-  async BTNMostrarClick(sender: WebButton): Promise<void> {
+  async BTNMostrarClick(sender: WebButton, event: MouseEvent): Promise<void> {
     const answer = sender;
   }
 }
@@ -631,7 +707,7 @@ export class PageMain {}
       eventDetailType: event?.eventDetailType,
     });
     expect(edit.sourceText).toContain(
-      'async PageMainUnauthenticated(sender: WebPage): Promise<void>',
+      'async PageMainUnauthenticated(sender: WebPage, event: Event): Promise<void>',
     );
     expect(edit.sourceText).not.toContain('event.detail');
   });
@@ -686,7 +762,7 @@ export class PageMain {}
         className: 'PageMain',
         componentName: 'DataGrid1',
         componentType: 'WebDataGrid',
-        eventName: 'OnCellClick',
+        eventName: 'OnUnregistered',
         eventDetailProperties: ['column'],
       }),
     ).toThrow('require an event detail type');
@@ -694,7 +770,7 @@ export class PageMain {}
 
   it('does not duplicate an existing property-style handler', () => {
     const source = `export class PageMain {
-  BTNMostrarClick = async (sender: WebButton): Promise<void> => {};
+  BTNMostrarClick = async (sender: WebButton, event: MouseEvent): Promise<void> => {};
 }
 `;
     const edit = ensureEventHandler(source, {

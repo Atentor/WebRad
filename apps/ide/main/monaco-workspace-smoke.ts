@@ -1,4 +1,5 @@
 import type { BrowserWindow, KeyboardInputEvent } from 'electron';
+import { loadProjectFiles } from './project-files';
 
 interface MonacoWorkspaceSmokeOptions {
   readonly log: (message: string) => void;
@@ -65,6 +66,89 @@ const viewSnapshotExpression = `(() => {
     ),
   };
 })()`;
+
+/** Exercise Save against an empty handler created through the actual Inspector. */
+export async function runEmptyEventCleanupSmoke(
+  window: BrowserWindow,
+  projectPath: string,
+  log: (message: string) => void,
+): Promise<void> {
+  const row = `[...document.querySelectorAll('.wr-inspector-event-row')].find(row => row.querySelector('label')?.textContent === 'OnFocus')`;
+  await waitFor(window, `${row} !== undefined`, 'the focus event row');
+  await window.webContents.executeJavaScript(
+    `${row}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
+    true,
+  );
+  await waitFor(
+    window,
+    `document.querySelector('.monaco-editor')?.textContent?.includes('BTNMostrarFocus') === true && ${row}?.querySelector('input')?.value === 'BTNMostrarFocus'`,
+    'the created empty focus handler and binding',
+  );
+  await window.webContents.executeJavaScript(
+    `document.querySelector('button[aria-label="Save (Ctrl+S)"]').click()`,
+    true,
+  );
+  await waitFor(
+    window,
+    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved' && !document.querySelector('.monaco-editor')?.textContent?.includes('BTNMostrarFocus') && ${row}?.querySelector('input')?.value === ''`,
+    'Save removing the empty method and Inspector binding',
+  );
+  const saved = await loadProjectFiles(projectPath);
+  const button = saved.project.pages
+    .flatMap((page) => page.components)
+    .find((component) => component.name === 'BTNMostrar');
+  const source = saved.userSources['pages/PageMain.ts'];
+  if (
+    !button ||
+    button.events.OnFocus !== null ||
+    button.events.OnClick !== 'BTNMostrarClick' ||
+    !source?.includes('Message(') ||
+    source.includes('BTNMostrarFocus')
+  ) {
+    throw new Error(
+      'Save cleanup did not persist the removed empty handler and preserve the working click handler.',
+    );
+  }
+  log(
+    'renderer empty event save cleanup passed: source, Inspector, persisted bindings and working handler',
+  );
+}
+
+/** Create the keyboard Interaction through the real Inspector for compiled Preview execution. */
+export async function runTypedKeyboardInteractionSmoke(
+  window: BrowserWindow,
+  log: (message: string) => void,
+): Promise<void> {
+  await window.webContents.executeJavaScript(
+    `
+    document.querySelector('[role="treeitem"][aria-label="EDTNome"]')?.click();
+    document.querySelector('button[role="tab"][aria-label="Events"]')?.click();
+  `,
+    true,
+  );
+  const row = `[...document.querySelectorAll('.wr-inspector-event-row')].find(row => row.querySelector('label')?.textContent === 'OnKeyDown')`;
+  await waitFor(window, `${row} !== undefined`, 'the keyboard Interaction');
+  await window.webContents.executeJavaScript(
+    `${row}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
+    true,
+  );
+  await waitFor(
+    window,
+    `document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ').includes('sender: WebEdit, event: KeyboardEvent') === true`,
+    'the typed keyboard event parameter',
+  );
+  await window.webContents.insertText(
+    `if (event.key === 'F2') { event.preventDefault(); sender.value = 'typed keyboard'; }`,
+  );
+  await waitFor(
+    window,
+    `document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ').includes('typed keyboard') === true`,
+    'the authored keyboard handler',
+  );
+  log(
+    'renderer typed Interaction authoring passed: sender and KeyboardEvent inserted through Inspector',
+  );
+}
 
 /** Exercise real editor state and undo across the Designer/Code lifecycle. */
 export async function runMonacoWorkspaceSmoke(

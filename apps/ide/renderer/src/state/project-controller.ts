@@ -31,6 +31,7 @@ import {
   createUserProjectSource,
   createUserReusableElementSource,
   renamePageUserSource,
+  pruneEmptyEventHandlers,
 } from '@webrad/language';
 import type { ProjectSession, WebRadBridge } from '../../../shared/contracts';
 
@@ -232,8 +233,7 @@ export class ProjectController {
     this.#publish({ saving: true, error: null });
     try {
       const session = await this.#bridge.project.saveAs({
-        project: this.#snapshot.project,
-        userSources: { ...this.#snapshot.userSources },
+        ...pruneEmptyEventHandlers(this.#snapshot.project, this.#snapshot.userSources),
       });
       destinationRoot = session?.rootPath ?? null;
       if (contextRevision !== this.#contextRevision) {
@@ -256,8 +256,7 @@ export class ProjectController {
         const editRevision = this.#editRevision;
         savedSession = await this.#bridge.project.save({
           rootPath: session.rootPath,
-          project: snapshot.project,
-          userSources: { ...snapshot.userSources },
+          ...pruneEmptyEventHandlers(snapshot.project, snapshot.userSources),
         });
         if (contextRevision !== this.#contextRevision) {
           void this.#bridge.project.release(session.rootPath);
@@ -532,8 +531,7 @@ export class ProjectController {
       this.#publish({ saving: true, error: null });
       lastSession = await this.#bridge.project.save({
         rootPath: snapshot.rootPath,
-        project: snapshot.project,
-        userSources: { ...snapshot.userSources },
+        ...pruneEmptyEventHandlers(snapshot.project, snapshot.userSources),
       });
       if (contextRevision !== this.#contextRevision) return null;
       if (editRevision === this.#editRevision) {
@@ -548,6 +546,13 @@ export class ProjectController {
   #acceptSavedSession(session: ProjectSession): ProjectSession {
     const project = parseProject(session.project);
     const userSources = { ...session.userSources };
+    if (
+      Object.entries(userSources).some(
+        ([path, source]) => this.#snapshot.userSources[path] !== source,
+      )
+    ) {
+      this.#editRevision += 1;
+    }
     const normalizedSession = { ...session, project, userSources };
     this.#snapshot = {
       session: normalizedSession,

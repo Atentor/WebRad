@@ -63,3 +63,9 @@ Containers own children and `WebPanel` is the first child-capable component. In 
 Registry `styleEditor.previewProps` supplies optional transient representative property values to the Styles preview, independently of component insertion defaults. Panel uses this to preview border progress enabled at 50 percent while new Panels still start with progress disabled at 0. Preview metadata is cloned/frozen with the definition and never saved as project state.
 
 Panel owns its optional progress overlay as part of the `WebPanel` runtime class. `progressEnabled`, `progressValue` and readonly `progressVisible` are typed in authored page/reusable code. Designer/runtime share pixel-based SVG border geometry and lifecycle observation through `@webrad/runtime/panel-progress`; the overlay is not a model child or an additional component identity. Its dedicated color/track/thickness style fields are scoped to Panel. See [Panel border progress](panel-progress.md).
+
+# Interaction handler arguments
+
+Double-clicking an Interaction generates `(sender, event)` for every registered component event. The sender is the concrete runtime class. Registry `eventType` metadata selects `KeyboardEvent`, `MouseEvent`, `FocusEvent`, `InputEvent` or the default `Event`; `eventDetailType` selects `CustomEvent<T>` instead, retaining registered detail-field constants. Native DOM types and the standard `Error` type require no runtime import. Repeating-row handlers retain their typed `CurrentRow` as the third argument.
+
+Reopening an older method or function property adds missing arguments and strengthens an untyped or generic `Event` parameter through TypeScript AST edits. The authored body, existing parameter names, explicit specialized event types and unrelated source remain intact. No project-format migration is required.

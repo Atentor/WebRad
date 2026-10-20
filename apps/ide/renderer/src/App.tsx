@@ -940,6 +940,7 @@ export function App(): ReactElement {
           componentName: component.name,
           componentType: component.type,
           eventName,
+          eventType: eventDefinition?.eventType,
           eventDetailType: eventDefinition?.eventDetailType,
           eventDetailProperties: eventDefinition?.eventDetailProperties,
           currentRowType: currentRowHandlerType(activePage, component.id),

@@ -63,6 +63,8 @@ export interface ComponentEventDefinition {
   readonly label?: string;
   readonly category?: string;
   readonly description?: string;
+  /** Native browser event supplied as the second handler argument. Defaults to Event. */
+  readonly eventType?: 'Event' | 'KeyboardEvent' | 'MouseEvent' | 'FocusEvent' | 'InputEvent';
   /** Runtime detail type supplied through the generated CustomEvent parameter. */
   readonly eventDetailType?: string;
   /** Detail fields introduced as local constants in a newly generated handler. */

@@ -431,7 +431,24 @@ function event(
   category = 'Behavior',
   codeGeneration: Pick<ComponentEventDefinition, 'eventDetailType' | 'eventDetailProperties'> = {},
 ): ComponentEventDefinition {
-  return { name, label: name, category, ...codeGeneration };
+  const nativeTypes: Readonly<Record<string, ComponentEventDefinition['eventType']>> = {
+    OnKeyDown: 'KeyboardEvent',
+    OnKeyUp: 'KeyboardEvent',
+    OnClick: 'MouseEvent',
+    OnDblClick: 'MouseEvent',
+    OnMouseEnter: 'MouseEvent',
+    OnMouseLeave: 'MouseEvent',
+    OnFocus: 'FocusEvent',
+    OnBlur: 'FocusEvent',
+    OnInput: 'InputEvent',
+  };
+  return {
+    name,
+    label: name,
+    category,
+    eventType: nativeTypes[name] ?? 'Event',
+    ...codeGeneration,
+  };
 }
 
 const pageBounds = { width: 800, height: 600 } as const;

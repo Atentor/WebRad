@@ -1,4 +1,8 @@
 import ts from 'typescript';
+import {
+  defaultComponentRegistry,
+  type ComponentEventDefinition,
+} from '@webrad/component-registry';
 
 export interface EventHandlerRequest {
   readonly className: string;
@@ -8,6 +12,7 @@ export interface EventHandlerRequest {
   readonly handlerName?: string;
   readonly fileName?: string;
   readonly senderName?: string;
+  readonly eventType?: ComponentEventDefinition['eventType'];
   /** Optional runtime detail type for the generated CustomEvent parameter. */
   readonly eventDetailType?: string;
   /** Optional event detail fields to destructure in the generated handler body. */
@@ -191,6 +196,7 @@ function createMethod(
   eventDetailProperties: readonly string[] | undefined,
   asynchronous: boolean,
   currentRowType: string | undefined,
+  nativeEventType: string,
 ): ts.MethodDeclaration {
   const eventDetailDestructuring =
     eventDetailProperties === undefined || eventDetailProperties.length === 0
@@ -237,18 +243,16 @@ function createMethod(
         undefined,
       ),
       ...(eventDetailTypeName === undefined
-        ? currentRowType === undefined
-          ? []
-          : [
-              ts.factory.createParameterDeclaration(
-                undefined,
-                undefined,
-                'event',
-                undefined,
-                ts.factory.createTypeReferenceNode('Event'),
-                undefined,
-              ),
-            ]
+        ? [
+            ts.factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              'event',
+              undefined,
+              ts.factory.createTypeReferenceNode(nativeEventType),
+              undefined,
+            ),
+          ]
         : [
             ts.factory.createParameterDeclaration(
               undefined,
@@ -383,10 +387,130 @@ export function findEventHandler(
 }
 
 /** Inserts one handler using TypeScript AST positions, or returns its existing navigation target. */
+function ensureHandlerEventParameter(
+  sourceText: string,
+  sourceFile: ts.SourceFile,
+  signature: ReturnType<typeof handlerSignature>,
+  request: EventHandlerRequest,
+  senderName: string,
+): string {
+  if (
+    signature === undefined ||
+    signature.parameters.some((parameter) => parameter.dotDotDotToken !== undefined)
+  )
+    return sourceText;
+
+  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+  const detailName = request.eventDetailType;
+  const detailType =
+    detailName === undefined
+      ? undefined
+      : detailName === 'Error'
+        ? ts.factory.createTypeReferenceNode('Error')
+        : importedLocalName(sourceFile, detailName) !== undefined
+          ? ts.factory.createTypeReferenceNode(importedLocalName(sourceFile, detailName)!)
+          : ts.factory.createImportTypeNode(
+              ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral('@webrad/runtime')),
+              undefined,
+              ts.factory.createIdentifier(detailName),
+            );
+  const eventType =
+    detailType === undefined
+      ? ts.factory.createTypeReferenceNode(request.eventType ?? 'Event')
+      : ts.factory.createTypeReferenceNode('CustomEvent', [detailType]);
+  const parameter = signature.parameters[1];
+  let updated = sourceText;
+  if (signature.parameters.length < 2) {
+    const additions: ts.ParameterDeclaration[] = [];
+    if (signature.parameters.length === 0)
+      additions.push(
+        ts.factory.createParameterDeclaration(
+          undefined,
+          undefined,
+          senderName,
+          undefined,
+          ts.factory.createImportTypeNode(
+            ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral('@webrad/runtime')),
+            undefined,
+            ts.factory.createIdentifier(request.componentType),
+          ),
+        ),
+      );
+    additions.push(
+      ts.factory.createParameterDeclaration(undefined, undefined, 'event', undefined, eventType),
+    );
+    const text = additions
+      .map((item) => printer.printNode(ts.EmitHint.Unspecified, item, sourceFile))
+      .join(', ');
+    if (
+      ts.isArrowFunction(signature) &&
+      !signature
+        .getChildren(sourceFile)
+        .some((child) => child.kind === ts.SyntaxKind.OpenParenToken)
+    ) {
+      const first = signature.parameters[0]!;
+      updated =
+        sourceText.slice(0, first.getStart(sourceFile)) +
+        '(' +
+        first.getText(sourceFile) +
+        ', ' +
+        text +
+        ')' +
+        sourceText.slice(first.end);
+    } else {
+      updated = applyEdits(sourceText, [
+        {
+          position: signature.parameters.end,
+          text:
+            (signature.parameters.length === 0
+              ? ''
+              : signature.parameters.hasTrailingComma
+                ? ' '
+                : ', ') + text,
+        },
+      ]);
+    }
+  } else if (
+    parameter !== undefined &&
+    (parameter.type === undefined ||
+      (ts.isTypeReferenceNode(parameter.type) &&
+        ts.isIdentifier(parameter.type.typeName) &&
+        parameter.type.typeName.text === 'Event' &&
+        (request.eventType !== 'Event' ||
+          detailType !== undefined ||
+          parameter.questionToken !== undefined)))
+  ) {
+    const replacement = ts.factory.updateParameterDeclaration(
+      parameter,
+      parameter.modifiers,
+      parameter.dotDotDotToken,
+      parameter.name,
+      undefined,
+      eventType,
+      parameter.initializer,
+    );
+    updated =
+      sourceText.slice(0, parameter.getStart(sourceFile)) +
+      printer.printNode(ts.EmitHint.Unspecified, replacement, sourceFile) +
+      sourceText.slice(parameter.end);
+  }
+
+  return updated;
+}
+
 export function ensureEventHandler(
   sourceText: string,
   request: EventHandlerRequest,
 ): EventHandlerEdit {
+  const metadata = defaultComponentRegistry
+    .get(request.componentType)
+    ?.events.find((event) => event.name === request.eventName);
+  request = {
+    ...request,
+    eventType: request.eventType ?? metadata?.eventType ?? 'Event',
+    eventDetailType: request.eventDetailType ?? metadata?.eventDetailType,
+    eventDetailProperties: request.eventDetailProperties ?? metadata?.eventDetailProperties,
+  };
   const methodName =
     request.handlerName ?? eventHandlerName(request.componentName, request.eventName);
   const senderName = request.senderName ?? 'sender';
@@ -431,6 +555,17 @@ export function ensureEventHandler(
   const existing = findHandlerMember(declaration, methodName);
   if (existing !== undefined) {
     const signature = handlerSignature(existing);
+    const repaired = ensureHandlerEventParameter(
+      sourceText,
+      sourceFile,
+      signature,
+      request,
+      senderName,
+    );
+    if (repaired !== sourceText) {
+      const target = ensureEventHandler(repaired, request);
+      return { ...target, changed: true };
+    }
     if (request.currentRowType !== undefined && signature !== undefined) {
       const current = signature.parameters[2];
       const generatedModule = `./${request.className}.generated`;
@@ -573,7 +708,7 @@ export function ensureEventHandler(
             undefined,
             'event',
             undefined,
-            ts.factory.createTypeReferenceNode('Event'),
+            ts.factory.createTypeReferenceNode(request.eventType ?? 'Event'),
             undefined,
           ),
         );
@@ -641,6 +776,7 @@ export function ensureEventHandler(
           request.currentRowType,
           `./${request.className}.generated`,
         ) ?? request.currentRowType),
+    request.eventType ?? 'Event',
   );
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
   const indent = insertionIndent(sourceText, declaration);
@@ -655,7 +791,9 @@ export function ensureEventHandler(
   ];
   const missingImports = [request.componentType, request.eventDetailType].filter(
     (typeName): typeName is string =>
-      typeName !== undefined && importedLocalName(sourceFile, typeName) === undefined,
+      typeName !== undefined &&
+      typeName !== 'Error' &&
+      importedLocalName(sourceFile, typeName) === undefined,
   );
   if (
     request.currentRowType !== undefined &&

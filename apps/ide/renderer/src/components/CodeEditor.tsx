@@ -4,6 +4,7 @@ import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 import tsWorker from '../typescript.worker?worker';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactElement } from 'react';
 import { observeMonacoFontMetrics } from '../monaco-font-metrics';
+import { registerMonacoContextEnter } from '../monaco-context-enter';
 import { synchronizeMonacoModel } from '../monaco-model-sync';
 import { restoreMonacoViewState } from '../monaco-view-state';
 import { createDebugHoverProvider, type DebugHoverContext } from '../debugger-hover';
@@ -180,7 +181,7 @@ function synchronizeBuildMarkers(problems: readonly EditorProblem[]): void {
 function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstructionOptions {
   return {
     acceptSuggestionOnCommitCharacter: true,
-    acceptSuggestionOnEnter: 'smart',
+    acceptSuggestionOnEnter: 'on',
     accessibilitySupport: 'auto',
     ariaLabel: `TypeScript editor — ${label}`,
     autoClosingBrackets: 'always',
@@ -679,6 +680,7 @@ export function CodeEditor({
     const completionSession = ++completionSessionRef.current;
     for (const disposable of editorDisposablesRef.current) disposable.dispose();
     editorDisposablesRef.current = [
+      registerMonacoContextEnter(editor),
       observeMonacoFontMetrics(editor),
       monacoApi.languages.registerHoverProvider(
         'typescript',

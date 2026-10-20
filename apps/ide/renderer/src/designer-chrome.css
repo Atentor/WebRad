@@ -40,6 +40,58 @@
   user-select: none;
 }
 
+.wr-bug-report {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.wr-toolbar-report-bug {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--wr-warning) 40%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--wr-warning) 9%, var(--wr-toolbar-bg));
+  color: var(--wr-warning);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.wr-toolbar-report-bug .wr-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.wr-toolbar-report-bug:hover {
+  background: color-mix(in srgb, var(--wr-warning) 20%, var(--wr-toolbar-bg));
+  border-color: var(--wr-warning);
+}
+
+.wr-toolbar-report-bug:focus-visible {
+  outline: 2px solid var(--wr-warning);
+  outline-offset: 2px;
+}
+
+.wr-bug-report-error {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  width: 240px;
+  padding: 10px;
+  border: 1px solid var(--wr-danger);
+  border-radius: 5px;
+  background: var(--wr-panel-bg);
+  color: var(--wr-text);
+  box-shadow: 0 4px 12px var(--wr-shadow);
+}
+
 .wr-toolbar-update {
   display: inline-flex;
   align-items: center;

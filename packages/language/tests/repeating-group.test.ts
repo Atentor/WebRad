@@ -133,7 +133,7 @@ export class PageMain extends PageMainGenerated {}`;
   };
   const edit = ensureEventHandler(source, request);
   expect(edit.text).toContain(
-    'sender: WebButton, event: Event, CurrentRow: RepeatingGroup0CurrentRow',
+    'sender: WebButton, event: MouseEvent, CurrentRow: RepeatingGroup0CurrentRow',
   );
   expect(edit.text).toContain(
     'import type { RepeatingGroup0CurrentRow } from "./PageMain.generated"',

@@ -448,7 +448,7 @@ vi.mock('monaco-editor/editor', () => ({
     setModelLanguage: mocks.setModelLanguage,
     setModelMarkers: mocks.setModelMarkers,
   },
-  KeyCode: { KeyS: 49, F9: 67 },
+  KeyCode: { Enter: 3, KeyS: 49, F9: 67 },
   KeyMod: { CtrlCmd: 2048 },
   languages: {
     registerHoverProvider: vi.fn(() => ({ dispose: vi.fn() })),
@@ -671,6 +671,7 @@ describe('CodeEditor professional Monaco workspace', () => {
       theme: 'webrad-dark',
     });
     expect(mocks.editorProps?.options).toMatchObject({
+      acceptSuggestionOnEnter: 'on',
       bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: true },
       cursorBlinking: 'blink',
       cursorSmoothCaretAnimation: 'off',

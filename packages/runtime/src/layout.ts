@@ -820,6 +820,18 @@ export function measureRuntimeFitContentSize(
   layout: RuntimeComponentLayout | undefined,
   options?: RuntimeFitContentMeasurementOptions,
 ): RuntimeFitContentSize {
+  // A closed dialog (or any display:none ancestor) has no measurable layout.
+  // Writing its zero child envelope back as an explicit size traps nested flex
+  // controls at their minimum widths when the popup subsequently opens.
+  // Preserve the intrinsic/last measured dimensions until it can be measured.
+  const view = target.ownerDocument.defaultView;
+  for (
+    let ancestor: HTMLElement | null = target;
+    ancestor !== null;
+    ancestor = ancestor.parentElement
+  ) {
+    if (view?.getComputedStyle(ancestor).display === 'none') return {};
+  }
   const item = normalizeItem(layout);
   const scale = measurementScale(options);
   const width =
