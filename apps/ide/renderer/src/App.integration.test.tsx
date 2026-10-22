@@ -37,6 +37,8 @@ import { comboBoxBinding, comboBoxProject } from '../../../../tests/fixtures/com
 import { reportBuilderProject } from '../../../../tests/fixtures/report-builder';
 import { createDebugTestBridge } from '../../shared/debugger-test-bridge';
 import type { DebugEvent } from '../../shared/debugger-contracts';
+import type { NativeBuildProgress, NativeBuildResponse } from '../../shared/native-build-contracts';
+import type { NativePrerequisiteReport } from '@webrad/native-build/contracts';
 
 interface MockCodeEditorProps {
   readonly path: string;
@@ -294,6 +296,46 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
       },
     },
     build: { run: build },
+    nativeBuild: {
+      chooseDirectory: vi.fn(async () => 'C:\\Native\\MvpProject'),
+      inspect: vi.fn(async (request): Promise<NativePrerequisiteReport> => ({
+        platform: request.settings.build.platform,
+        hostPlatform: 'win32',
+        ready: request.settings.build.platform === 'web',
+        checks:
+          request.settings.build.platform === 'web'
+            ? [
+                {
+                  id: 'webrad',
+                  name: 'WebRAD web compiler',
+                  status: 'available',
+                  instruction: 'The built-in browser compiler is ready.',
+                },
+              ]
+            : [
+                {
+                  id: 'webview2',
+                  name: 'WebView2 Runtime',
+                  status: 'available',
+                  version: '140.0.0.0',
+                  instruction: 'The WebView2 Runtime is installed.',
+                },
+                {
+                  id: 'rustc',
+                  name: 'Rust compiler',
+                  status: 'missing',
+                  minimumVersion: '1.77.2',
+                  instruction: 'Install Rust using rustup and restart WebRAD.',
+                },
+              ],
+      })),
+      run: vi.fn(),
+      exportCi: vi.fn(),
+      cancel: vi.fn(async () => undefined),
+      subscribe: vi.fn(() => () => undefined),
+      openOutput: vi.fn(async () => undefined),
+      copyArtifact: vi.fn(async () => undefined),
+    },
     deploy: {
       chooseDirectory: vi.fn(async () => 'C:\\Hosting\\MvpProject'),
       run: vi.fn(),
@@ -461,6 +503,504 @@ describe('App MVP integration', () => {
     expect(trash.getAttribute('title')).toContain('at least one page');
     await user.click(trash);
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('checks build requirements on opening and marks installed and missing tools before compiling', async () => {
+    const harness = createBridgeHarness(initialSession());
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    expect(harness.bridge.nativeBuild.inspect).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Build Application' }));
+    const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    await user.selectOptions(controls.getByLabelText('Target Platform'), 'windows');
+    const requirements = within(controls.getByRole('region', { name: 'Build Requirements' }));
+    const available = await requirements.findByText('WebView2 Runtime');
+    expect(available.closest('[data-status]')?.getAttribute('data-status')).toBe('available');
+    const missing = requirements.getByText('Rust compiler');
+    expect(missing.closest('[data-status]')?.getAttribute('data-status')).toBe('missing');
+    expect(requirements.getByText(/140\.0\.0\.0/)).toBeDefined();
+    expect(requirements.getByText(/Install Rust using rustup/)).toBeDefined();
+    expect(harness.bridge.nativeBuild.inspect).toHaveBeenCalledWith({
+      rootPath: initialSession().rootPath,
+      settings: expect.objectContaining({
+        build: expect.objectContaining({ platform: 'windows' }),
+      }),
+    });
+    expect(harness.bridge.nativeBuild.run).not.toHaveBeenCalled();
+    expect(harness.save).not.toHaveBeenCalled();
+  });
+
+  it('rechecks changed targets and ignores a stale dependency response before refreshing', async () => {
+    const harness = createBridgeHarness(initialSession());
+    const pending: {
+      readonly settings: Parameters<WebRadBridge['nativeBuild']['inspect']>[0]['settings'];
+      readonly finish: (report: NativePrerequisiteReport) => void;
+    }[] = [];
+    const inspect = vi.fn<WebRadBridge['nativeBuild']['inspect']>(
+      (request) =>
+        new Promise((finish) => {
+          pending.push({ settings: request.settings, finish });
+        }),
+    );
+    harness.bridge.nativeBuild.inspect = inspect;
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Build Application' }));
+    const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    await waitFor(() => expect(pending.length).toBeGreaterThan(0));
+    const initial = pending[0]!;
+    await user.selectOptions(controls.getByLabelText('Target Platform'), 'android');
+    await waitFor(() => expect(pending.at(-1)?.settings.build.platform).toBe('android'));
+    const android = pending.at(-1)!;
+    await act(async () =>
+      android.finish({
+        platform: 'android',
+        hostPlatform: 'win32',
+        ready: false,
+        checks: [
+          {
+            id: 'android-sdk',
+            name: 'Android SDK',
+            status: 'missing',
+            instruction: 'Select an installed Android SDK.',
+          },
+        ],
+      }),
+    );
+    const requirements = within(controls.getByRole('region', { name: 'Build Requirements' }));
+    expect(requirements.getByText('Android SDK')).toBeDefined();
+    await act(async () =>
+      initial.finish({
+        platform: initial.settings.build.platform,
+        hostPlatform: 'win32',
+        ready: false,
+        checks: [
+          {
+            id: 'old-target',
+            name: 'Obsolete target requirement',
+            status: 'unsupported',
+            instruction: 'This response belongs to the previous target.',
+          },
+        ],
+      }),
+    );
+    expect(requirements.queryByText('Obsolete target requirement')).toBeNull();
+    expect(requirements.getByText('Android SDK')).toBeDefined();
+    const previousCount = inspect.mock.calls.length;
+    await user.click(requirements.getByRole('button', { name: 'Check again' }));
+    await waitFor(() => expect(inspect).toHaveBeenCalledTimes(previousCount + 1));
+    await act(async () =>
+      pending.at(-1)!.finish({
+        platform: 'android',
+        hostPlatform: 'win32',
+        ready: true,
+        checks: [
+          {
+            id: 'android-sdk',
+            name: 'Android SDK',
+            status: 'available',
+            version: '36',
+            instruction: 'The selected Android SDK is ready.',
+          },
+        ],
+      }),
+    );
+    expect(
+      requirements.getByText('Android SDK').closest('[data-status]')?.getAttribute('data-status'),
+    ).toBe('available');
+    await user.selectOptions(controls.getByLabelText('Architecture'), 'x86');
+    await waitFor(() => expect(pending.at(-1)?.settings.build.architecture).toBe('x86'));
+    expect(requirements.queryByText('Android SDK')).toBeNull();
+    expect(harness.save).not.toHaveBeenCalled();
+    expect(harness.bridge.nativeBuild.run).not.toHaveBeenCalled();
+  });
+
+  it('shows an inspection failure and allows checking again without losing configuration', async () => {
+    const harness = createBridgeHarness(initialSession());
+    const inspect = vi
+      .fn<WebRadBridge['nativeBuild']['inspect']>()
+      .mockRejectedValueOnce(new Error('Dependency check could not start.'))
+      .mockResolvedValue({
+        platform: 'windows',
+        hostPlatform: 'win32',
+        ready: true,
+        checks: [
+          {
+            id: 'web',
+            name: 'WebRAD compiler',
+            status: 'available',
+            instruction: 'Included with WebRAD.',
+          },
+        ],
+      });
+    harness.bridge.nativeBuild.inspect = inspect;
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Build Application' }));
+    const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    const requirements = within(controls.getByRole('region', { name: 'Build Requirements' }));
+    await requirements.findByText('Dependency check could not start.');
+    await user.click(requirements.getByRole('button', { name: 'Check again' }));
+    expect(await requirements.findByText('WebRAD compiler')).toBeDefined();
+    expect(requirements.queryByText('Dependency check could not start.')).toBeNull();
+    expect((controls.getByLabelText('Application Name') as HTMLInputElement).value).toBe(
+      initialSession().project.settings.nativeApplication.applicationName,
+    );
+    expect(harness.save).not.toHaveBeenCalled();
+  });
+
+  it('saves Native Build settings and sources before compiling and exposes verified artifacts', async () => {
+    const harness = createBridgeHarness(initialSession());
+    let listener: ((progress: NativeBuildProgress) => void) | undefined;
+    let finish: ((response: NativeBuildResponse) => void) | undefined;
+    harness.bridge.nativeBuild.subscribe = (callback) => {
+      listener = callback;
+      return () => {
+        listener = undefined;
+      };
+    };
+    const run = vi.fn<WebRadBridge['nativeBuild']['run']>(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    harness.bridge.nativeBuild.run = run;
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Build Application' }));
+    const dialog = screen.getByRole('dialog', { name: 'Build Application' });
+    const controls = within(dialog);
+    await user.selectOptions(controls.getByLabelText('Target Platform'), 'windows');
+    await user.selectOptions(controls.getByLabelText('Bundle Format'), 'exe');
+    await user.selectOptions(controls.getByLabelText('Architecture'), 'x64');
+    const applicationName = controls.getByLabelText('Application Name');
+    await user.clear(applicationName);
+    await user.type(applicationName, 'Native Portal');
+    await user.click(controls.getByRole('button', { name: 'Choose folder' }));
+    await user.click(controls.getByRole('button', { name: 'Build' }));
+    await waitFor(() => expect(run).toHaveBeenCalledOnce());
+    const request = run.mock.calls[0]![0];
+    expect(request.project.settings.nativeApplication).toMatchObject({
+      applicationName: 'Native Portal',
+      build: {
+        platform: 'windows',
+        architecture: 'x64',
+        bundleFormat: 'exe',
+        outputDirectory: 'C:\\Native\\MvpProject',
+      },
+    });
+    expect(harness.persisted().project.settings.nativeApplication).toEqual(
+      request.project.settings.nativeApplication,
+    );
+    expect(request.userSources).toEqual(harness.persisted().userSources);
+    act(() =>
+      listener?.({
+        requestId: 'another-build',
+        stage: 'compiling-native',
+        message: 'unrelated output',
+      }),
+    );
+    expect(controls.getByRole('log').textContent).not.toContain('unrelated output');
+    act(() =>
+      listener?.({
+        requestId: request.requestId,
+        stage: 'compiling-native',
+        stream: 'stderr',
+        message: 'Rust compiler output',
+      }),
+    );
+    expect(controls.getByRole('status').textContent).toBe('Compiling Native Application');
+    expect(controls.getByRole('log').textContent).toContain('Rust compiler output');
+    const firstDisclosure = dialog.querySelector('summary');
+    if (!(firstDisclosure instanceof HTMLElement)) throw new Error('Missing build disclosure.');
+    firstDisclosure.focus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(controls.getByRole('button', { name: 'Cancel Build' }));
+    await user.tab();
+    expect(document.activeElement).toBe(firstDisclosure);
+    act(() => {
+      harness.invokeCommand('run.run');
+      harness.invokeCommand('debug.start');
+      harness.invokeCommand('project.deploy');
+      harness.invokeCommand('project.buildApplication');
+    });
+    expect(harness.build).not.toHaveBeenCalled();
+    expect(harness.bridge.deploy.run).not.toHaveBeenCalled();
+    expect(harness.bridge.debugger.start).not.toHaveBeenCalled();
+    expect(run).toHaveBeenCalledOnce();
+    await act(async () =>
+      finish?.({
+        requestId: request.requestId,
+        success: true,
+        artifacts: [{ path: 'C:\\Native\\MvpProject\\portal.exe', format: 'exe' }],
+        outputDirectory: 'C:\\Native\\MvpProject',
+        diagnostics: [],
+        prerequisites: {
+          platform: 'windows',
+          hostPlatform: 'win32',
+          ready: true,
+          checks: [
+            {
+              id: 'rustc',
+              name: 'Rust compiler',
+              status: 'available',
+              version: '1.90.0',
+              instruction: 'Rust is ready for native compilation.',
+            },
+          ],
+        },
+      }),
+    );
+    expect(controls.getByRole('status').textContent).toBe('Completed');
+    expect(
+      within(controls.getByRole('region', { name: 'Build Requirements' }))
+        .getByText('Rust compiler')
+        .closest('[data-status]')
+        ?.getAttribute('data-status'),
+    ).toBe('available');
+    await user.click(controls.getByRole('button', { name: 'Open Output Folder' }));
+    expect(harness.bridge.nativeBuild.openOutput).toHaveBeenCalledWith({
+      requestId: request.requestId,
+    });
+    await user.click(controls.getByRole('button', { name: 'Copy Artifact Path' }));
+    expect(harness.bridge.nativeBuild.copyArtifact).toHaveBeenCalledWith({
+      requestId: request.requestId,
+      artifactIndex: 0,
+    });
+    expect(controls.getByRole('button', { name: 'Build Again' })).toBeDefined();
+    await user.click(controls.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'Build Application' })).toBeNull();
+  });
+
+  it('exports an iOS CI project on Windows while keeping incompatible local builds disabled', async () => {
+    const harness = createBridgeHarness(initialSession());
+    const exportCi = vi.fn<WebRadBridge['nativeBuild']['exportCi']>(async (request) => ({
+      requestId: request.requestId,
+      success: true,
+      outputDirectory: 'C:\\Native\\ci',
+      artifacts: [{ path: 'C:\\Native\\ci\\.github\\workflows\\native-build.yml', format: 'ci' }],
+      diagnostics: [],
+    }));
+    harness.bridge.nativeBuild.exportCi = exportCi;
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    act(() => harness.invokeCommand('project.buildApplication'));
+    const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    await user.selectOptions(controls.getByLabelText('Target Platform'), 'android');
+    expect(controls.getByRole('option', { name: 'APK for installation' })).toBeDefined();
+    expect(controls.queryByRole('option', { name: 'Host architecture' })).toBeNull();
+    await user.selectOptions(controls.getByLabelText('Target Platform'), 'ios');
+    expect((controls.getByRole('button', { name: 'Build' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(controls.getByText(/Local builds for iOS require macOS/)).toBeDefined();
+    expect(controls.queryByRole('option', { name: 'APK for installation' })).toBeNull();
+    expect(controls.getByRole('option', { name: 'ARM64 iOS simulator' })).toBeDefined();
+    await user.click(controls.getByRole('button', { name: 'Export for GitHub Actions' }));
+    await waitFor(() => expect(exportCi).toHaveBeenCalledOnce());
+    expect(exportCi.mock.calls[0]![0].project.settings.nativeApplication.build).toMatchObject({
+      platform: 'ios',
+      architecture: 'arm64',
+      bundleFormat: 'ios-app',
+    });
+    expect(controls.getByRole('status').textContent).toBe('CI project exported');
+    expect(harness.bridge.nativeBuild.run).not.toHaveBeenCalled();
+    expect(harness.build).not.toHaveBeenCalled();
+  });
+
+  it('cancels the active native build and keeps the dialog open until cancellation is confirmed', async () => {
+    const harness = createBridgeHarness(initialSession());
+    let finish: ((response: NativeBuildResponse) => void) | undefined;
+    const run = vi.fn<WebRadBridge['nativeBuild']['run']>(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    harness.bridge.nativeBuild.run = run;
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    act(() => harness.invokeCommand('project.buildApplication'));
+    const dialog = screen.getByRole('dialog', { name: 'Build Application' });
+    const controls = within(dialog);
+    await user.click(controls.getByRole('button', { name: 'Build' }));
+    await waitFor(() => expect(run).toHaveBeenCalledOnce());
+    const requestId = run.mock.calls[0]![0].requestId;
+    await user.click(controls.getByRole('button', { name: 'Cancel Build' }));
+    expect(harness.bridge.nativeBuild.cancel).toHaveBeenCalledWith(requestId);
+    expect(controls.getByRole('status').textContent).toBe('Cancelling…');
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.getByRole('dialog', { name: 'Build Application' })).toBeDefined();
+    await act(async () =>
+      finish?.({ requestId, success: false, cancelled: true, artifacts: [], diagnostics: [] }),
+    );
+    expect(controls.getByRole('status').textContent).toBe('Cancelled');
+    expect(controls.queryByRole('button', { name: 'Open Output Folder' })).toBeNull();
+    await user.click(controls.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'Build Application' })).toBeNull();
+  });
+
+  it('rejects a successful native response without any artifact', async () => {
+    const harness = createBridgeHarness(initialSession());
+    harness.bridge.nativeBuild.run = vi.fn<WebRadBridge['nativeBuild']['run']>(async (request) => ({
+      requestId: request.requestId,
+      success: true,
+      artifacts: [],
+      diagnostics: [],
+    }));
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    act(() => harness.invokeCommand('project.buildApplication'));
+    const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    await user.click(controls.getByRole('button', { name: 'Build' }));
+    await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Failed'));
+    expect(controls.getByRole('alert').textContent).toContain('without producing a valid artifact');
+    expect(controls.queryByRole('button', { name: 'Open Output Folder' })).toBeNull();
+  });
+
+  it('honors Native Build cancellation while the project save is still pending', async () => {
+    const harness = createBridgeHarness(initialSession());
+    let finishSave: (() => void) | undefined;
+    const saved = harness.bridge.project.save;
+    const saveGate = new Promise<void>((resolve) => {
+      finishSave = resolve;
+    });
+    harness.bridge.project.save = vi.fn(async (request) => {
+      await saveGate;
+      return saved(request);
+    });
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    act(() => harness.invokeCommand('project.buildApplication'));
+    const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    await user.click(controls.getByRole('button', { name: 'Build' }));
+    await waitFor(() => expect(harness.bridge.project.save).toHaveBeenCalledOnce());
+    await user.click(controls.getByRole('button', { name: 'Cancel Build' }));
+    await act(async () => {
+      finishSave?.();
+    });
+    await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Cancelled'));
+    expect(harness.bridge.nativeBuild.run).not.toHaveBeenCalled();
+    expect(harness.bridge.nativeBuild.exportCi).not.toHaveBeenCalled();
+  });
+
+  it('persists an internally selected native output parent and reuses it in the draft and Build Again', async () => {
+    const harness = createBridgeHarness(initialSession());
+    const configuredOutputDirectory = 'C:\\Approved\\NativePortal';
+    const run = vi.fn<WebRadBridge['nativeBuild']['run']>(async (request) => ({
+      requestId: request.requestId,
+      success: true,
+      configuredOutputDirectory,
+      outputDirectory: `${configuredOutputDirectory}\\windows-result`,
+      artifacts: [
+        { path: `${configuredOutputDirectory}\\windows-result\\portal.exe`, format: 'exe' },
+      ],
+      diagnostics: [],
+    }));
+    harness.bridge.nativeBuild.run = run;
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    act(() => harness.invokeCommand('project.buildApplication'));
+    let controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    const output = controls.getByLabelText('Output Directory');
+    await user.clear(output);
+    await user.type(output, 'typed-output');
+    await user.click(controls.getByRole('button', { name: 'Build' }));
+    await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Completed'));
+    expect(run.mock.calls[0]![0].project.settings.nativeApplication.build.outputDirectory).toBe(
+      'typed-output',
+    );
+    expect((controls.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
+      configuredOutputDirectory,
+    );
+    expect(harness.persisted().project.settings.nativeApplication.build.outputDirectory).toBe(
+      configuredOutputDirectory,
+    );
+    await user.click(controls.getByRole('button', { name: 'Build Again' }));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2));
+    expect(run.mock.calls[1]![0].project.settings.nativeApplication.build.outputDirectory).toBe(
+      configuredOutputDirectory,
+    );
+    await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Completed'));
+    const nextOutput = controls.getByLabelText('Output Directory');
+    await user.clear(nextOutput);
+    await user.type(nextOutput, 'another-typed-output');
+    expect((nextOutput as HTMLInputElement).value).toBe('another-typed-output');
+    await user.click(controls.getByRole('button', { name: 'Build Again' }));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(3));
+    expect(run.mock.calls[2]![0].project.settings.nativeApplication.build.outputDirectory).toBe(
+      'another-typed-output',
+    );
+    await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Completed'));
+    expect((controls.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
+      configuredOutputDirectory,
+    );
+    await user.click(controls.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    act(() => harness.invokeCommand('project.buildApplication'));
+    controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    expect((controls.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
+      configuredOutputDirectory,
+    );
+  });
+
+  it('retains native artifacts and warns when the selected output parent cannot be saved', async () => {
+    const harness = createBridgeHarness(initialSession());
+    const save = harness.bridge.project.save;
+    harness.bridge.project.save = vi
+      .fn()
+      .mockImplementationOnce(save)
+      .mockRejectedValueOnce(new Error('Disk is read-only.'));
+    harness.bridge.nativeBuild.run = vi.fn<WebRadBridge['nativeBuild']['run']>(async (request) => ({
+      requestId: request.requestId,
+      success: true,
+      configuredOutputDirectory: 'C:\\Approved\\NativePortal',
+      outputDirectory: 'C:\\Approved\\NativePortal\\windows-result',
+      artifacts: [
+        { path: 'C:\\Approved\\NativePortal\\windows-result\\portal.exe', format: 'exe' },
+      ],
+      diagnostics: [],
+    }));
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    act(() => harness.invokeCommand('project.buildApplication'));
+    const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    await user.click(controls.getByRole('button', { name: 'Build' }));
+    await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Completed'));
+    expect(
+      controls
+        .getByText(/The output directory setting could not be saved: Disk is read-only/)
+        .closest('[data-category]')
+        ?.getAttribute('data-category'),
+    ).toBe('warning');
+    expect(controls.getByRole('button', { name: 'Open Output Folder' })).toBeDefined();
+    expect(controls.getByRole('button', { name: 'Copy Artifact Path' })).toBeDefined();
+    expect((controls.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
+      'C:\\Approved\\NativePortal',
+    );
+    await user.click(controls.getByRole('button', { name: 'Open Output Folder' }));
+    expect(harness.bridge.nativeBuild.openOutput).toHaveBeenCalledOnce();
   });
 
   it('configures Deploy first and reports correlated file progress without running on settings save', async () => {

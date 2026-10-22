@@ -4,6 +4,14 @@ ComboBox API bindings are validated against the local document's saved response 
 
 The compiler is an independent Node API and has no React or Electron dependency.
 
+## Native frontend target
+
+`CompileProjectOptions.target` accepts the additive `native` destination. Native Build calls the same model validation, generated instance declarations, authored TypeScript checking, browser bundler and asset/license emission as existing builds. The compiler produces ordinary local `index.html`, `assets/app.js`, `assets/app.css` and used resources in memory; it has no Tauri, Rust, Electron or device API dependency.
+
+The native target omits the PWA manifest, service worker and registration helper, including the worker-retirement script used by web deployment. It retains relative resource paths and the existing runtime. Web/PWA Deploy and F9/Preview continue their own target contracts. Native Application name/version/window/package preferences are applied by the Native Build orchestration/container, with the native application name/description projected into the compiled document by the caller.
+
+`packages/native-build` consumes this artifact and validates safe paths before generating a separate Tauri 2 project with `build.frontendDist: '../frontend'`. Its toolchain and artifact diagnostics belong to the main-process build operation; compiler diagnostics keep their existing locations, categories and source contracts. Native Build does not edit user TypeScript or introduce a second component/runtime compiler. See [Native Build](native-build.md) for CSP, network/CORS and WebView validation requirements.
+
 ```text
 load/receive project
   -> validate model and references
@@ -57,3 +65,7 @@ Models and Units are ordinary authored TypeScript inputs from `models/` and `uni
 # Debug source maps
 
 `compileProject` accepts `debug: true` to force an unminified bundle and composed source maps. Successful debug compilation returns `debug.sourceMap` and `debug.scriptUrl`, with original authored contents and portable project-relative source paths. Maps preserve columns across AST-selected component-reference edits. The dedicated debug Preview uses that script URL to resolve breakpoints before execution. See [the integrated debugger](debugger.md) for IDE behavior and security boundaries.
+
+## Browser routes
+
+The compiler validates unique page paths and embeds the selected History/Hash strategy. Generated HTML supports a deployment base directory, and isolated HTTP Preview permits only compiled routes under the live publication token. See [Browser routing](browser-routing.md).

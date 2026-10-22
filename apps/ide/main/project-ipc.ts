@@ -1,4 +1,9 @@
 import { readSelectedProjectAsset } from './project-asset';
+import {
+  cancelNativeBuildForOwner,
+  isNativeBuildRunning,
+  registerNativeBuildIpc,
+} from './native-build-ipc';
 import { EXTERNAL_LINKS } from '../shared/external-links';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -47,6 +52,7 @@ const allowedRoots = new Map<number, Set<string>>();
 const activeProjectRoots = new Map<number, string>();
 const openedProjectIds = new Map<number, Map<string, string>>();
 const deployingWindows = new Set<number>();
+const compilingWindows = new Set<number>();
 const projectSelectionRevisions = new Map<number, number>();
 const trustedRendererUrls = new Map<number, string>();
 const dirtyWindows = new Set<number>();
@@ -221,6 +227,7 @@ async function releaseProjectHandler(event: IpcMainInvokeEvent, input: unknown):
   allowedRoots.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
   openedProjectIds.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
   if (activeProjectRoots.get(window.webContents.id) === normalizedRoot(rootPath)) {
+    cancelNativeBuildForOwner(window.webContents.id);
     activeProjectRoots.delete(window.webContents.id);
     revokePreview(window.webContents.id);
     stopDebuggerForOwner(window.webContents.id);
@@ -250,32 +257,45 @@ async function buildHandler(
 ): Promise<BuildResponse> {
   const request = buildRequestSchema.parse(input);
   requireGrantedRoot(event, request.rootPath);
-  stopDebuggerForOwner(event.sender.id);
-  revokePreview(event.sender.id);
-  const project = parseProject(request.project);
-  await saveProjectFiles({
-    rootPath: request.rootPath,
-    project,
-    userSources: request.userSources,
+  return withCompilation(event.sender.id, async () => {
+    stopDebuggerForOwner(event.sender.id);
+    revokePreview(event.sender.id);
+    const project = parseProject(request.project);
+    await saveProjectFiles({
+      rootPath: request.rootPath,
+      project,
+      userSources: request.userSources,
+    });
+    const outputDirectory = await resolveInsideProjectSecure(
+      request.rootPath,
+      request.outputDirectory ?? project.settings.outputDirectory,
+    );
+    const result = await compileProject(project, {
+      outputDirectory,
+      userSources: request.userSources,
+    });
+    const previewUrl =
+      result.success && result.previewHtml
+        ? await publishPreviewHtml(event.sender.id, result.previewHtml, project.assets ?? [])
+        : undefined;
+    return {
+      success: result.success,
+      outputDirectory,
+      previewUrl,
+      diagnostics: result.diagnostics,
+    };
   });
-  const outputDirectory = await resolveInsideProjectSecure(
-    request.rootPath,
-    request.outputDirectory ?? project.settings.outputDirectory,
-  );
-  const result = await compileProject(project, {
-    outputDirectory,
-    userSources: request.userSources,
-  });
-  const previewUrl =
-    result.success && result.previewHtml
-      ? await publishPreviewHtml(event.sender.id, result.previewHtml, project.assets ?? [])
-      : undefined;
-  return {
-    success: result.success,
-    outputDirectory,
-    previewUrl,
-    diagnostics: result.diagnostics,
-  };
+}
+
+async function withCompilation<T>(owner: number, operation: () => Promise<T>): Promise<T> {
+  if (isNativeBuildRunning(owner) || compilingWindows.has(owner) || deployingWindows.has(owner))
+    throw new Error('Wait for the application build to finish.');
+  compilingWindows.add(owner);
+  try {
+    return await operation();
+  } finally {
+    compilingWindows.delete(owner);
+  }
 }
 
 async function chooseDeploymentDirectory(
@@ -308,6 +328,8 @@ async function deployHandler(
   requireGrantedRoot(event, request.rootPath);
   const project = parseProject(request.project);
   const id = event.sender.id;
+  if (isNativeBuildRunning(id) || compilingWindows.has(id))
+    throw new Error('Wait for the application build to finish.');
   if (openedProjectIds.get(id)?.get(normalizedRoot(request.rootPath)) !== project.id) {
     throw new Error('Deploy must belong to the opened project.');
   }
@@ -427,25 +449,31 @@ async function debugCompileHandler(
   request: DebugStartRequest,
 ): Promise<DebugCompilation> {
   requireGrantedRoot(event, request.rootPath);
-  const project = parseProject(request.project);
-  await saveProjectFiles({ rootPath: request.rootPath, project, userSources: request.userSources });
-  const outputDirectory = await resolveInsideProjectSecure(
-    request.rootPath,
-    request.outputDirectory ?? project.settings.outputDirectory,
-  );
-  const result = await compileProject(project, {
-    outputDirectory,
-    userSources: request.userSources,
-    debug: true,
-    write: false,
+  return withCompilation(event.sender.id, async () => {
+    const project = parseProject(request.project);
+    await saveProjectFiles({
+      rootPath: request.rootPath,
+      project,
+      userSources: request.userSources,
+    });
+    const outputDirectory = await resolveInsideProjectSecure(
+      request.rootPath,
+      request.outputDirectory ?? project.settings.outputDirectory,
+    );
+    const result = await compileProject(project, {
+      outputDirectory,
+      userSources: request.userSources,
+      debug: true,
+      write: false,
+    });
+    return {
+      build: { success: result.success, outputDirectory, diagnostics: result.diagnostics },
+      sourceMap: result.debug?.sourceMap,
+      scriptUrl: result.debug?.scriptUrl,
+      previewHtml: result.previewHtml,
+      assets: project.assets ?? [],
+    };
   });
-  return {
-    build: { success: result.success, outputDirectory, diagnostics: result.diagnostics },
-    sourceMap: result.debug?.sourceMap,
-    scriptUrl: result.debug?.scriptUrl,
-    previewHtml: result.previewHtml,
-    assets: project.assets ?? [],
-  };
 }
 
 async function compileStylesHandler(
@@ -488,12 +516,14 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
   });
   window.on('closed', () => {
     const id = windowId;
+    cancelNativeBuildForOwner(id);
     revokePreview(id);
     forgetDebuggerOwner(id);
     allowedRoots.delete(id);
     activeProjectRoots.delete(id);
     openedProjectIds.delete(id);
     deployingWindows.delete(id);
+    compilingWindows.delete(id);
     projectSelectionRevisions.delete(id);
     trustedRendererUrls.delete(id);
     dirtyWindows.delete(id);
@@ -512,6 +542,25 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   registered = true;
   registerRestGoAdminIpc(requireTrustedSender, options.userDataPath);
   registerDebuggerIpc({ requireTrustedSender, requireGrantedRoot, compile: debugCompileHandler });
+  registerNativeBuildIpc({
+    userDataPath: options.userDataPath,
+    requireTrustedSender,
+    beforeBuild: (event) => {
+      if (deployingWindows.has(event.sender.id) || compilingWindows.has(event.sender.id))
+        throw new Error('Wait for the application build to finish.');
+      stopDebuggerForOwner(event.sender.id);
+    },
+    requireProject: (event, rootPath, projectId) => {
+      requireGrantedRoot(event, rootPath);
+      if (activeProjectRoots.get(event.sender.id) !== normalizedRoot(rootPath))
+        throw new Error('Native Build requires the active opened project.');
+      if (
+        projectId !== undefined &&
+        openedProjectIds.get(event.sender.id)?.get(normalizedRoot(rootPath)) !== projectId
+      )
+        throw new Error('Native Build must belong to the opened project.');
+    },
+  });
   const lastProject =
     options.userDataPath === undefined ? undefined : new LastProjectStore(options.userDataPath);
   const deployGrants = new DeployDirectoryGrants(options.userDataPath);
@@ -538,6 +587,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
     const session = await loadSession();
     // A manual selection supersedes restoration or any earlier pending selection.
     if (session === null || projectSelectionRevisions.get(id) !== revision) return null;
+    cancelNativeBuildForOwner(id);
     stopDebuggerForOwner(id);
     revokePreview(id);
     grantRoot(event, session.rootPath, session.project.id);

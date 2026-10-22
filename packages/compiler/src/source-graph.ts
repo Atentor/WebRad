@@ -190,6 +190,7 @@ function createEntrySource(
       return `  {
     id: ${JSON.stringify(page.id)},
     name: ${JSON.stringify(page.name)},
+    path: ${JSON.stringify(page.components.find((node) => node.id === page.rootComponentId)?.props.routePath || (page.id === project.entryPage ? '/index' : `/${page.name.toLowerCase()}`))},
     model: ${model} as unknown as RuntimePageModel,
     createPage: (element: HTMLElement) => new ${page.name}(element),
     createReusableElements,
@@ -268,7 +269,7 @@ ${routes}
 ];
 const Env = Object.freeze(${JSON.stringify(environmentValues)});
 ${restGo ? `configureRestGo(${JSON.stringify(project.settings.restGo)});` : ''}
-const router = new WebPageRouter(routes, document.body);
+const router = new WebPageRouter(routes, document.body, { mode: ${JSON.stringify(project.settings.routingMode)} });
 const Navigate = (destination: string | URL, options: NavigateOptions = {}): void => {
   router.navigateBrowser(destination, options);
 };
@@ -287,6 +288,33 @@ export function createVirtualSourceGraph(
 ): VirtualSourceGraph {
   const sources = new Map<string, string>();
   const diagnostics: CompileDiagnostic[] = [];
+  const routePaths = new Set<string>();
+  for (const page of project.pages) {
+    const configured = page.components.find((node) => node.id === page.rootComponentId)?.props
+      .routePath;
+    const routePath =
+      configured || (page.id === project.entryPage ? '/index' : '/' + page.name.toLowerCase());
+    if (
+      typeof routePath !== 'string' ||
+      !/^\/(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?$/.test(routePath) ||
+      routePath.split('/').some((part) => part === 'assets')
+    ) {
+      diagnostics.push({
+        category: 'error',
+        source: 'model',
+        message:
+          'Invalid Route path for ' +
+          page.name +
+          ': use / followed by letters, digits, hyphens, underscores and optional path segments; assets is reserved.',
+      });
+    } else if (routePaths.has(routePath)) {
+      diagnostics.push({
+        category: 'error',
+        source: 'model',
+        message: 'Duplicate Route path: ' + routePath,
+      });
+    } else routePaths.add(routePath);
+  }
 
   sources.set(
     virtualAbsolutePath('__vendor/shaka/shaka-player.ui.d.ts'),

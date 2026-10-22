@@ -57,6 +57,10 @@ describe('ProjectSettingsDialog', () => {
         initialSectionId="build"
       />,
     );
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Browser routing' }), 'hash');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Application base path' }), {
+      target: { value: '/portal/' },
+    });
     await user.click(screen.getByRole('button', { name: 'Choose folder' }));
     await waitFor(() =>
       expect(
@@ -76,6 +80,8 @@ describe('ProjectSettingsDialog', () => {
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         environment: 'development',
+        routingMode: 'hash',
+        routingBasePath: '/portal/',
         build: {
           deployDirectory: 'C:\\Hosting\\Portal',
           environment: 'development',
@@ -409,6 +415,113 @@ describe('ProjectSettingsDialog', () => {
             dataUrl: expect.stringMatching(/^data:image\/png;base64,/),
           }),
         },
+      }),
+    );
+  });
+
+  it('edits and persists Native Application settings with compatible target choices', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const onChooseNativeDirectory = vi.fn().mockResolvedValue('C:\\Native\\Portal');
+    const onChooseDeployDirectory = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+        onChooseNativeDirectory={onChooseNativeDirectory}
+        onChooseDeployDirectory={onChooseDeployDirectory}
+      />,
+    );
+    await user.click(screen.getByRole('tab', { name: 'Native Application' }));
+    expect(screen.getByRole('heading', { name: 'Native Application' })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Application Name' })).toBeDefined();
+    expect(screen.getByRole('spinbutton', { name: 'Initial Width' })).toBeDefined();
+    expect(screen.getByRole('checkbox', { name: 'Safe Area' })).toBeDefined();
+    expect(screen.queryByLabelText('Splash Screen')).toBeNull();
+    expect(screen.getByText(/Custom splash images are not supported/)).toBeDefined();
+    await user.click(screen.getByRole('button', { name: 'Choose folder' }));
+    expect(onChooseNativeDirectory).toHaveBeenCalledOnce();
+    expect(onChooseDeployDirectory).not.toHaveBeenCalled();
+    await user.clear(screen.getByRole('textbox', { name: /^Application Identifier/ }));
+    await user.type(
+      screen.getByRole('textbox', { name: /^Application Identifier/ }),
+      'com.example.portal',
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Target Platform' }), 'android');
+    expect(
+      (screen.getByRole('combobox', { name: 'Target Architecture' }) as HTMLSelectElement).value,
+    ).toBe('arm64');
+    expect(screen.queryByRole('option', { name: 'MSI' })).toBeNull();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Bundle Format' }), 'aab');
+    await user.type(
+      screen.getByRole('textbox', { name: /^Allowed Network Origins/ }),
+      'https://api.example.test',
+    );
+    await user.type(
+      screen.getByRole('textbox', { name: 'Android Keystore Password Environment Variable' }),
+      'ANDROID_KEYSTORE_PASSWORD',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nativeApplication: expect.objectContaining({
+          identifier: 'com.example.portal',
+          build: expect.objectContaining({
+            platform: 'android',
+            architecture: 'arm64',
+            bundleFormat: 'aab',
+            outputDirectory: 'C:\\Native\\Portal',
+          }),
+          security: { networkOrigins: ['https://api.example.test'] },
+          signing: expect.objectContaining({
+            androidKeystorePasswordEnvironmentVariable: 'ANDROID_KEYSTORE_PASSWORD',
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('prevents saving invalid Native Application metadata and accepts a native icon', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <ProjectSettingsDialog
+        projectName="Portal"
+        settings={projectSettings()}
+        onClose={vi.fn()}
+        onSave={onSave}
+        initialSectionId="native"
+      />,
+    );
+    await user.clear(screen.getByRole('textbox', { name: /^Application Identifier/ }));
+    await user.type(
+      screen.getByRole('textbox', { name: /^Application Identifier/ }),
+      'invalid identifier',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByRole('alert').some((alert) => alert.textContent?.includes('reverse-DNS')),
+    ).toBe(true);
+    await user.clear(screen.getByRole('textbox', { name: /^Application Identifier/ }));
+    await user.type(
+      screen.getByRole('textbox', { name: /^Application Identifier/ }),
+      'com.example.portal',
+    );
+    fireEvent.change(screen.getByLabelText('Application Icon'), {
+      target: { files: [new File(['native icon'], 'native.png', { type: 'image/png' })] },
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('img', { name: 'Application Icon preview' })).toBeDefined(),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nativeApplication: expect.objectContaining({
+          icon: expect.objectContaining({ fileName: 'native.png', mediaType: 'image/png' }),
+        }),
       }),
     );
   });

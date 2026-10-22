@@ -7,6 +7,7 @@ export * from './repeating-group.js';
 export * from './errors.js';
 export * from './factories.js';
 export * from './naming.js';
+export * from './native-application.js';
 export * from './project-resources.js';
 export * from './schemas.js';
 export * from './serialization.js';

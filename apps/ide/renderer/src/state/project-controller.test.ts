@@ -82,6 +82,21 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
     },
     files: { read: vi.fn(), write: vi.fn() },
     build: { run: vi.fn() },
+    nativeBuild: {
+      chooseDirectory: vi.fn(async () => null),
+      inspect: vi.fn(async (request) => ({
+        platform: request.settings.build.platform,
+        hostPlatform: 'win32',
+        ready: true,
+        checks: [],
+      })),
+      run: vi.fn(),
+      exportCi: vi.fn(),
+      cancel: vi.fn(async () => undefined),
+      subscribe: vi.fn(() => () => undefined),
+      openOutput: vi.fn(async () => undefined),
+      copyArtifact: vi.fn(async () => undefined),
+    },
     deploy: {
       chooseDirectory: vi.fn(async () => null),
       run: vi.fn(),

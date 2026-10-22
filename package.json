@@ -37,6 +37,7 @@
     "smoke:report-builder": "node scripts/smoke-report-builder.mjs",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
     "smoke:viewport": "node scripts/smoke-native-viewport.mjs",
+    "validate:native-build": "node scripts/validate-native-build.mjs",
     "validate": "npm run icons:check && npm run runtime:sources:check && npm run typecheck && npm run lint && npm run test:portable && npm run format:check && npm run build"
   },
   "dependencies": {

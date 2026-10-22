@@ -8,7 +8,9 @@ de navegador e o SDK RestGo. As dependências e mídias de terceiros mantêm sua
 
 Releases automáticas por tags para Windows, Linux e macOS, publicação dos instaladores no próprio repositório Atentor/WebRad e atualização pelo IDE: veja [configuração e uso](docs/releases.md). A instalação automática no macOS exige Developer ID; sem assinatura, o IDE oferece o download para substituição manual.
 
-O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com páginas, componentes, propriedades, eventos, TypeScript e um fluxo real de compilação e visualização. A IDE desktop utiliza Electron e React; as aplicações geradas utilizam somente tecnologias do navegador.
+O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com páginas, componentes, propriedades, eventos, TypeScript e um fluxo real de compilação e visualização. A IDE desktop utiliza Electron e React; o runtime das aplicações geradas utiliza tecnologias do navegador.
+
+**Native Build / Tauri 2** integra configuração visual, geração do projeto nativo, verificação de ferramentas, logs, cancelamento e exportação para CI. O frontend vem do compilador WebRAD e pode ser empacotado pela toolchain do destino, sem Electron no aplicativo gerado. A validação de artefatos e WebViews nativas ainda depende dos hosts, SDKs e certificados apropriados; nenhum build nativo real foi certificado nesta implementação. Veja [Native Build](docs/native-build.md) para destinos, pré-requisitos, assinatura, RestGO e limitações.
 
 ## Pré-requisitos
 

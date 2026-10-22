@@ -136,6 +136,8 @@ export function createDefaultRoot(
     bounds: { x: 0, y: 0, width, height },
     props: {
       caption,
+      browserTitle: '',
+      routePath: '',
       visible: true,
       enabled: true,
       backgroundColor: '#ffffff',
@@ -258,6 +260,7 @@ export function createProject(
   const settings = {
     ...DEFAULT_PROJECT_SETTINGS,
     applicationName: name,
+    nativeApplication: { ...DEFAULT_PROJECT_SETTINGS.nativeApplication, applicationName: name },
     ...(typeof options === 'function' ? {} : options.settings),
   };
   const styles = createDefaultComponentStyles(projectId, settings.colorPalette);

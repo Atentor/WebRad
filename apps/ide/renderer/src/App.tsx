@@ -4,6 +4,9 @@ import { ProjectAssetPreview } from './components/ProjectAssetPreview';
 import { AboutDialog } from './components/AboutDialog';
 import { DeployDialog } from './components/DeployDialog';
 import { useDeploy } from './use-deploy';
+import { useBuildApplication } from './use-build-application';
+import { BuildApplicationDialog } from './components/BuildApplicationDialog';
+import type { NativeBuildResponse } from '../../shared/native-build-contracts';
 import { type DesignerViewportName } from '@webrad/designer';
 import { ActivityBar } from './components/ActivityBar';
 import { DesignerSidebar, type DesignerSidebarMode } from './components/DesignerSidebar';
@@ -1643,9 +1646,33 @@ export function App(): ReactElement {
     },
     [addOutput],
   );
+  const acceptNativeBuildResult = useCallback(
+    (result: NativeBuildResponse, exportingCi: boolean): void => {
+      setBuildDiagnostics(result.diagnostics);
+      addOutput(
+        'COMPILER',
+        result.cancelled
+          ? 'Build Application cancelled.'
+          : result.success
+            ? `${exportingCi ? 'CI project exported' : 'Build Application completed'}: ${result.outputDirectory ?? ''}.`
+            : 'Build Application failed. See Problems for details.',
+      );
+      if (!result.success && !result.cancelled) {
+        setBottomPanelTab('problems');
+        setVisiblePanels((current) => ({ ...current, output: true }));
+      }
+    },
+    [addOutput],
+  );
+  const nativeBuild = useBuildApplication({
+    controller: projectController,
+    isBlocked: (): boolean => building || debugBusy || debugActive || deploy.busy,
+    onResult: acceptNativeBuildResult,
+  });
+  const { open: openBuildApplication, busy: nativeBuildBusy } = nativeBuild;
   const deploy = useDeploy({
     controller: projectController,
-    blocked: building || debugBusy,
+    blocked: building || debugBusy || debugActive || nativeBuild.busy,
     onConfigure: configureDeploy,
     onResult: acceptDeployResult,
   });
@@ -1657,6 +1684,7 @@ export function App(): ReactElement {
     addDocumentDialogKind !== null ||
     iconPickerOpen ||
     projectSettingsDialogOpen ||
+    nativeBuild.state !== null ||
     deploy.state !== null ||
     apiClientTesterComponent !== null ||
     dataGridConfiguratorComponent !== null ||
@@ -1667,7 +1695,7 @@ export function App(): ReactElement {
 
   const runProject = useCallback(async (): Promise<void> => {
     if (!projectState.project || !projectState.rootPath) return;
-    if (building || debugBusy || deploy.busy) return;
+    if (building || debugBusy || deploy.busy || nativeBuild.busy) return;
     await debugCommand('stop');
     const requestId = (buildRequestRef.current += 1);
     setBuilding(true);
@@ -1721,6 +1749,7 @@ export function App(): ReactElement {
     building,
     debugBusy,
     deploy.busy,
+    nativeBuild.busy,
     debugCommand,
   ]);
 
@@ -1840,11 +1869,14 @@ export function App(): ReactElement {
         case 'project.deploy':
           void deployProject();
           break;
+        case 'project.buildApplication':
+          openBuildApplication();
+          break;
         case 'view.debugger':
           showDebugger();
           break;
         case 'debug.start':
-          if (!building && project) {
+          if (!building && !deploy.busy && !nativeBuildBusy && project) {
             setActiveWorkspace('page');
             setActiveView('code');
             void debugStart();
@@ -1899,6 +1931,9 @@ export function App(): ReactElement {
       redo,
       runProject,
       deployProject,
+      deploy.busy,
+      openBuildApplication,
+      nativeBuildBusy,
       saveProject,
       undo,
       dataGridConfiguratorComponent,
@@ -2407,7 +2442,22 @@ export function App(): ReactElement {
               }}
               onCommand={executeCommand}
               canSave={project !== null && !projectState.saving}
-              canRun={project !== null && projectState.rootPath !== null && !building}
+              canRun={
+                project !== null &&
+                projectState.rootPath !== null &&
+                !building &&
+                !deploy.busy &&
+                !nativeBuild.busy
+              }
+              canBuildApplication={
+                project !== null &&
+                projectState.rootPath !== null &&
+                !building &&
+                !deploy.busy &&
+                !nativeBuild.busy &&
+                !debugBusy &&
+                !debugActive
+              }
               documents={documents}
               activeDocumentId={
                 restGoActive ? RESTGO_DOCUMENT_ID : stylesActive ? STYLES_DOCUMENT_ID : activePageId
@@ -2778,11 +2828,26 @@ export function App(): ReactElement {
             const rootPath = projectController.getSnapshot().rootPath;
             return rootPath ? window.webrad.deploy.chooseDirectory(rootPath) : null;
           }}
+          onChooseNativeDirectory={async () => {
+            const rootPath = projectController.getSnapshot().rootPath;
+            return rootPath ? window.webrad.nativeBuild.chooseDirectory(rootPath) : null;
+          }}
           onClose={() => setProjectSettingsDialogOpen(false)}
           onSave={saveProjectSettings}
         />
       )}
       {deploy.state !== null && <DeployDialog state={deploy.state} onClose={deploy.close} />}
+      {nativeBuild.state !== null && project !== null && (
+        <BuildApplicationDialog
+          settings={project.settings.nativeApplication}
+          build={nativeBuild}
+          hostPlatform={window.webrad.platform}
+          onChooseDirectory={async () => {
+            const rootPath = projectController.getSnapshot().rootPath;
+            return rootPath ? window.webrad.nativeBuild.chooseDirectory(rootPath) : null;
+          }}
+        />
+      )}
       {apiClientTesterComponent !== null && (
         <ApiClientTesterDialog
           component={apiClientTesterComponent}

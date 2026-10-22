@@ -656,16 +656,27 @@ export async function compileProject(
   }
 
   const target = options.target ?? 'preview';
-  const project =
-    target === 'deploy'
-      ? {
-          ...validation.data,
-          settings: {
-            ...validation.data.settings,
-            environment: validation.data.settings.build.environment,
-          },
-        }
-      : validation.data;
+  const publishing = target === 'deploy' || target === 'native';
+  const project = publishing
+    ? {
+        ...validation.data,
+        settings: {
+          ...validation.data.settings,
+          ...(target === 'native'
+            ? {
+                applicationName: validation.data.settings.nativeApplication.applicationName,
+                applicationDescription:
+                  validation.data.settings.nativeApplication.description ||
+                  validation.data.settings.applicationDescription,
+                applicationIcon:
+                  validation.data.settings.nativeApplication.icon ??
+                  validation.data.settings.applicationIcon,
+              }
+            : {}),
+          environment: validation.data.settings.build.environment,
+        },
+      }
+    : validation.data;
   const registry = options.registry ?? defaultComponentRegistry;
   const registryDiagnostics = validateRegistry(project, registry);
   if (hasErrors(registryDiagnostics)) return failedResult(outputDirectory, registryDiagnostics);
@@ -719,10 +730,9 @@ export async function compileProject(
       outputDirectory,
       minify: options.debug
         ? false
-        : (options.minify ?? (target === 'deploy' ? project.settings.build.minify : false)),
+        : (options.minify ?? (publishing ? project.settings.build.minify : false)),
       sourcemap:
-        options.debug ||
-        (options.sourcemap ?? (target === 'deploy' && project.settings.build.sourceMaps)),
+        options.debug || (options.sourcemap ?? (publishing && project.settings.build.sourceMaps)),
       componentTypes: graph.componentTypes,
     };
     const bundle = await bundleSources(bundleOptions);
@@ -753,10 +763,9 @@ export async function compileProject(
         ? null
         : socialImageOutputPath(project.settings.seo.socialImage);
     const binaryFiles: Record<string, Uint8Array> = {};
-    const assets =
-      target === 'deploy'
-        ? selectProjectAssets(selected.project, selected.userSources, generatedAppCss)
-        : (project.assets ?? []);
+    const assets = publishing
+      ? selectProjectAssets(selected.project, selected.userSources, generatedAppCss)
+      : (project.assets ?? []);
     for (const asset of assets)
       binaryFiles[projectAssetPath(asset)] = Buffer.from(asset.base64, 'base64');
     if (project.settings.applicationIcon !== null && iconOutputPath !== null) {
@@ -765,10 +774,25 @@ export async function compileProject(
     if (project.settings.seo.socialImage !== null && socialImageOutputPathValue !== null) {
       binaryFiles[socialImageOutputPathValue] = decodeSocialImage(project.settings.seo.socialImage);
     }
+    const entryPage = project.pages.find((page) => page.id === project.entryPage);
+    const entryRoot = entryPage?.components.find(
+      (component) => component.id === entryPage.rootComponentId,
+    );
+    const documentMetadata = {
+      ...project.settings,
+      routePaths: project.pages.map((page) =>
+        String(
+          page.components.find((node) => node.id === page.rootComponentId)?.props.routePath ||
+            (page.id === project.entryPage ? '/index' : '/' + page.name.toLowerCase()),
+        ),
+      ),
+      browserTitle:
+        typeof entryRoot?.props.browserTitle === 'string' ? entryRoot.props.browserTitle : '',
+    };
     const files: Record<string, string> = {
       ...bundleFiles,
       'index.html': createIndexHtml(
-        project.settings,
+        documentMetadata,
         iconOutputPath === null ? null : `./${iconOutputPath}`,
         socialImageOutputPathValue === null ? null : `./${socialImageOutputPathValue}`,
         {
@@ -795,7 +819,7 @@ export async function compileProject(
       ...(target === 'preview'
         ? {
             previewHtml: createPreviewHtml(
-              project.settings,
+              documentMetadata,
               options.debug ? `${javaScript}\n//# sourceURL=${DEBUG_SCRIPT_URL}\n` : javaScript,
               css,
             ),

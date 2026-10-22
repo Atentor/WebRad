@@ -2922,6 +2922,577 @@ kbd {
   margin-top: 20px;
 }
 
+.wr-build-application-dialog {
+  width: min(1060px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  max-height: min(900px, calc(100vh - 40px));
+  border-radius: 12px;
+  outline: none;
+}
+
+.wr-build-application-dialog .wr-modal-header {
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.wr-build-header-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--wr-accent) 28%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--wr-accent) 11%, transparent);
+  color: var(--wr-accent);
+}
+
+.wr-build-header-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.wr-build-header-title {
+  min-width: 0;
+  flex: 1;
+}
+.wr-build-header-title p {
+  margin: 5px 0 0;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.wr-build-application-dialog .wr-build-header-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  align-self: flex-start;
+}
+.wr-build-header-close:hover:not(:disabled) {
+  background: var(--wr-surface-hover);
+  color: var(--wr-text);
+}
+
+.wr-build-application-content {
+  min-height: 0;
+  padding: 22px 24px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.wr-build-application-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-rows: max-content 1fr;
+  grid-template-areas:
+    'configuration requirements'
+    'status requirements';
+  align-items: start;
+  gap: 18px;
+}
+
+.wr-build-requirements {
+  grid-area: requirements;
+}
+
+.wr-build-card {
+  min-width: 0;
+  border: 1px solid var(--wr-border);
+  border-radius: 9px;
+  background: var(--wr-surface);
+  padding: 18px;
+}
+
+.wr-build-application-configuration {
+  grid-area: configuration;
+  margin: 0;
+  padding-top: 14px;
+  min-inline-size: 0;
+}
+
+.wr-build-application-configuration .wr-project-settings-fields {
+  max-width: none;
+  width: 100%;
+  gap: 16px 14px;
+}
+
+.wr-build-application-dialog .wr-project-settings-field {
+  min-width: 0;
+  gap: 7px;
+}
+.wr-build-application-dialog .wr-project-settings-field > span:first-child {
+  font-size: 11px;
+  font-weight: 600;
+}
+.wr-build-application-dialog .wr-project-settings-field input,
+.wr-build-application-dialog .wr-project-settings-field select {
+  width: 100%;
+  min-width: 0;
+  height: 33px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+.wr-build-application-dialog .wr-project-settings-directory {
+  min-width: 0;
+  gap: 8px;
+}
+.wr-build-application-dialog .wr-project-settings-directory button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 33px;
+  padding-inline: 10px;
+  font-size: 11px;
+}
+.wr-build-application-dialog .wr-project-settings-directory button svg {
+  width: 14px;
+  height: 14px;
+}
+.wr-build-configuration-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--wr-border);
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.65;
+}
+.wr-build-configuration-help svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.wr-build-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.wr-build-card-heading > div {
+  min-width: 0;
+}
+.wr-build-card-heading p {
+  margin: 5px 0 0;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.wr-build-card-heading h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+.wr-build-application-dialog .wr-build-refresh {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 5px;
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  font-size: 10px;
+}
+.wr-build-refresh svg {
+  width: 12px;
+  height: 12px;
+}
+.wr-build-refresh:hover:not(:disabled) {
+  background: var(--wr-surface-hover);
+}
+.wr-build-refresh:disabled {
+  opacity: 0.55;
+}
+.wr-build-requirements-summary {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 0 15px;
+  margin-top: 4px;
+  border-bottom: 1px solid var(--wr-border);
+}
+.wr-build-requirements-count {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  height: 38px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wr-warning) 11%, transparent);
+  color: var(--wr-warning);
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.wr-build-requirements-summary[data-ready='true'] .wr-build-requirements-count {
+  background: color-mix(in srgb, var(--wr-success) 12%, transparent);
+  color: var(--wr-success);
+}
+.wr-build-requirements-summary > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.wr-build-requirements-summary strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+.wr-build-requirements-summary > div > span {
+  color: var(--wr-muted-text);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.wr-build-requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.wr-build-requirements-list > li {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--wr-border);
+}
+.wr-build-requirements-list > li:last-child {
+  border-bottom: 0;
+}
+.wr-build-requirement-mark {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  margin-top: 1px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--wr-warning) 45%, transparent);
+  border-radius: 50%;
+  color: var(--wr-warning);
+  background: color-mix(in srgb, var(--wr-warning) 7%, transparent);
+}
+.wr-build-requirement-mark svg {
+  width: 12px;
+  height: 12px;
+}
+.wr-build-requirements-list [data-status='available'] .wr-build-requirement-mark {
+  color: var(--wr-success);
+  background: color-mix(in srgb, var(--wr-success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--wr-success) 40%, transparent);
+}
+.wr-build-requirement-body {
+  min-width: 0;
+  flex: 1;
+}
+.wr-build-requirement-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+.wr-build-requirement-title strong {
+  font-size: 11px;
+  line-height: 1.65;
+  font-weight: 600;
+}
+.wr-build-requirement-ready {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--wr-success);
+  line-height: 1.85;
+}
+.wr-build-requirement-body > p {
+  margin: 3px 0 0;
+  color: var(--wr-muted-text);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.wr-build-requirement-body details {
+  margin-top: 5px;
+  color: var(--wr-muted-text);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.wr-build-requirement-body summary {
+  color: var(--wr-accent);
+  cursor: pointer;
+  width: fit-content;
+}
+.wr-build-requirement-body details p {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 5px;
+  background: var(--wr-control-surface);
+  overflow-wrap: anywhere;
+}
+.wr-build-requirements-footnote {
+  display: flex;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--wr-border);
+  color: var(--wr-muted-text);
+  font-size: 10px;
+  line-height: 1.65;
+}
+.wr-build-requirements-footnote svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.wr-build-check-error {
+  font-size: 11px;
+  color: var(--wr-danger);
+  overflow-wrap: anywhere;
+}
+
+.wr-build-application-dialog button:focus-visible,
+.wr-build-application-dialog summary:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 3px;
+}
+
+.wr-build-application-configuration legend,
+.wr-build-application-status h3 {
+  margin: 0;
+  padding: 0 5px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.wr-build-application-status h3 {
+  padding: 0;
+}
+
+.wr-build-application-status {
+  grid-area: status;
+}
+.wr-build-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 20px;
+  background: var(--wr-control-surface);
+  color: var(--wr-muted-text);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.wr-build-status-badge svg {
+  width: 13px;
+  height: 13px;
+}
+.wr-build-application-status[data-stage='failed'] .wr-build-status-badge {
+  color: var(--wr-danger);
+  background: color-mix(in srgb, var(--wr-danger) 8%, transparent);
+  border-color: color-mix(in srgb, var(--wr-danger) 26%, transparent);
+}
+.wr-build-application-status[data-stage='completed'] .wr-build-status-badge {
+  color: var(--wr-success);
+  background: color-mix(in srgb, var(--wr-success) 8%, transparent);
+  border-color: color-mix(in srgb, var(--wr-success) 26%, transparent);
+}
+.wr-build-log-disclosure,
+.wr-build-diagnostic-disclosure {
+  margin-top: 14px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.wr-build-log-disclosure > summary,
+.wr-build-diagnostic-disclosure > summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  color: var(--wr-muted-text);
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+}
+.wr-build-log-disclosure > summary::-webkit-details-marker,
+.wr-build-diagnostic-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.wr-build-log-disclosure > summary:hover,
+.wr-build-diagnostic-disclosure > summary:hover {
+  background: var(--wr-surface-hover);
+}
+.wr-build-log-disclosure > summary svg,
+.wr-build-diagnostic-disclosure > summary svg {
+  width: 13px;
+  height: 13px;
+}
+.wr-build-log-disclosure > summary svg:last-child,
+.wr-build-diagnostic-disclosure > summary svg:last-child {
+  margin-left: auto;
+}
+.wr-build-log-disclosure[open] > summary svg:last-child,
+.wr-build-diagnostic-disclosure[open] > summary svg:last-child {
+  transform: rotate(180deg);
+}
+.wr-build-log-count {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--wr-control-surface);
+  color: var(--wr-muted-text);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wr-build-application-status progress {
+  width: 100%;
+}
+
+.wr-build-application-logs {
+  min-height: 100px;
+  max-height: 210px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 0;
+  border-top: 1px solid var(--wr-border);
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wr-build-application-artifacts {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.wr-build-application-artifacts > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--wr-control-surface);
+}
+.wr-build-artifact-icon {
+  color: var(--wr-success);
+}
+.wr-build-artifact-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.wr-build-application-artifacts code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+.wr-build-application-artifacts button {
+  flex-shrink: 0;
+}
+
+.wr-build-application-dialog .wr-modal-actions {
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 16px 24px;
+  background: var(--wr-surface);
+}
+.wr-build-footer-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+.wr-build-footer-target svg {
+  width: 14px;
+  height: 14px;
+}
+.wr-build-application-dialog .wr-modal-actions button {
+  min-height: 33px;
+  font-size: 11px;
+  border-radius: 5px;
+}
+
+.wr-build-application-diagnostics {
+  margin: 0;
+  padding: 10px 14px 10px 30px;
+  border-top: 1px solid var(--wr-border);
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 980px) {
+  .wr-build-application-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas: 'configuration' 'requirements' 'status';
+  }
+  .wr-build-requirements-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 22px;
+  }
+  .wr-build-requirements-list > li:last-child {
+    border-bottom: 1px solid var(--wr-border);
+  }
+}
+
+@media (max-width: 600px) {
+  .wr-build-application-dialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+  .wr-build-application-dialog .wr-modal-header {
+    padding: 16px;
+    gap: 10px;
+  }
+  .wr-build-header-title p {
+    font-size: 11px;
+  }
+  .wr-build-application-content {
+    padding: 16px;
+  }
+  .wr-build-application-configuration .wr-project-settings-fields,
+  .wr-build-requirements-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wr-build-card {
+    padding: 14px;
+  }
+  .wr-build-application-dialog .wr-modal-actions {
+    padding: 12px 16px;
+  }
+  .wr-build-footer-target {
+    width: 100%;
+  }
+  .wr-build-status-badge {
+    max-width: 45%;
+  }
+}
+
+.wr-build-application-diagnostics [data-category='error'] {
+  color: var(--wr-danger);
+}
+
 .wr-deploy-dialog {
   width: min(480px, calc(100vw - 32px));
   outline: none;

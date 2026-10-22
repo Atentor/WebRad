@@ -449,6 +449,93 @@ export interface ProjectPaletteColor {
   readonly color: string;
 }
 
+export const NATIVE_TARGET_PLATFORMS = [
+  'web',
+  'windows',
+  'linux',
+  'macos',
+  'android',
+  'ios',
+] as const;
+export type NativeTargetPlatform = (typeof NATIVE_TARGET_PLATFORMS)[number];
+export const NATIVE_TARGET_ARCHITECTURES = [
+  'host',
+  'x64',
+  'arm64',
+  'x86',
+  'armv7',
+  'universal',
+  'arm64-simulator',
+] as const;
+export type NativeTargetArchitecture = (typeof NATIVE_TARGET_ARCHITECTURES)[number];
+export const NATIVE_BUNDLE_FORMATS = [
+  'web',
+  'exe',
+  'nsis',
+  'msi',
+  'deb',
+  'rpm',
+  'appimage',
+  'app',
+  'dmg',
+  'apk',
+  'aab',
+  'ios-app',
+  'ipa',
+] as const;
+export type NativeBundleFormat = (typeof NATIVE_BUNDLE_FORMATS)[number];
+export const NATIVE_BUILD_CONFIGURATIONS = ['debug', 'release'] as const;
+export type NativeBuildConfiguration = (typeof NATIVE_BUILD_CONFIGURATIONS)[number];
+
+/** Portable Tauri application metadata. Private signing material is never persisted here. */
+export interface NativeApplicationSettings {
+  readonly applicationName: string;
+  readonly identifier: string;
+  readonly version: string;
+  readonly description: string;
+  readonly publisher: string;
+  readonly icon: ProjectApplicationIcon | null;
+  readonly desktop: {
+    readonly width: number;
+    readonly height: number;
+    readonly minWidth: number;
+    readonly minHeight: number;
+    readonly resizable: boolean;
+    readonly fullscreen: boolean;
+    readonly maximizable: boolean;
+  };
+  readonly mobile: {
+    readonly orientation: 'portrait' | 'landscape' | 'auto';
+    readonly fullscreen: boolean;
+    readonly statusBar: boolean;
+    readonly safeArea: boolean;
+    readonly icon: ProjectApplicationIcon | null;
+    readonly splashScreen: ProjectApplicationIcon | null;
+  };
+  readonly build: {
+    readonly platform: NativeTargetPlatform;
+    readonly architecture: NativeTargetArchitecture;
+    readonly outputDirectory: string;
+    readonly configuration: NativeBuildConfiguration;
+    readonly bundleFormat: NativeBundleFormat;
+  };
+  readonly security: {
+    /** Exact allowed origins for authored fetch, media and other network resources. */
+    readonly networkOrigins: readonly string[];
+  };
+  readonly signing: {
+    readonly windowsCertificateThumbprint: string;
+    readonly appleSigningIdentity: string;
+    readonly appleTeamId: string;
+    readonly appleNotarizationProfile: string;
+    readonly androidKeystorePathEnvironmentVariable: string;
+    readonly androidKeystorePasswordEnvironmentVariable: string;
+    readonly androidKeyAliasEnvironmentVariable: string;
+    readonly androidKeyPasswordEnvironmentVariable: string;
+    readonly iosExportMethod: 'debugging' | 'release-testing' | 'app-store-connect';
+  };
+}
+
 /** Aurora's primary, accent and neutral colors, with stable project identities. */
 export const DEFAULT_PROJECT_COLOR_PALETTE: readonly ProjectPaletteColor[] = Object.freeze(
   [
@@ -466,6 +553,10 @@ export const DEFAULT_PROJECT_COLOR_PALETTE: readonly ProjectPaletteColor[] = Obj
 );
 
 export interface ProjectSettings {
+  /** Browser route strategy; file URLs always use hash routing. */
+  readonly routingMode: 'history' | 'hash';
+  /** Deployment directory in the public URL, with leading and trailing slashes. */
+  readonly routingBasePath: string;
   /** Up to ten named colors with stable identities shared by all color fields. */
   readonly colorPalette: readonly ProjectPaletteColor[];
   /** Human-facing application title. It may differ from the project file name. */
@@ -493,6 +584,8 @@ export interface ProjectSettings {
   readonly showGrid: boolean;
   readonly build: ProjectBuildSettings;
   readonly pwa: ProjectPwaSettings;
+  /** Additive format-v2 settings for generated Tauri applications; web output stays independent. */
+  readonly nativeApplication: NativeApplicationSettings;
   /** POSIX-style relative path persisted in the project, independent of the host OS. */
   readonly outputDirectory: string;
 }
@@ -602,8 +695,56 @@ export const DEFAULT_REST_GO_PROJECT_SETTINGS: Readonly<RestGoProjectSettings> =
   storageKey: 'webrad-restgo-session',
 });
 
+export const DEFAULT_NATIVE_APPLICATION_SETTINGS: Readonly<NativeApplicationSettings> =
+  Object.freeze({
+    applicationName: 'WebRAD Application',
+    identifier: 'com.webrad.application',
+    version: '0.1.0',
+    description: '',
+    publisher: '',
+    icon: null,
+    desktop: Object.freeze({
+      width: 1024,
+      height: 768,
+      minWidth: 320,
+      minHeight: 240,
+      resizable: true,
+      fullscreen: false,
+      maximizable: true,
+    }),
+    mobile: Object.freeze({
+      orientation: 'auto',
+      fullscreen: false,
+      statusBar: true,
+      safeArea: true,
+      icon: null,
+      splashScreen: null,
+    }),
+    build: Object.freeze({
+      platform: 'windows',
+      architecture: 'host',
+      outputDirectory: 'native-dist',
+      configuration: 'release',
+      bundleFormat: 'nsis',
+    }),
+    security: Object.freeze({ networkOrigins: Object.freeze([]) }),
+    signing: Object.freeze({
+      windowsCertificateThumbprint: '',
+      appleSigningIdentity: '',
+      appleTeamId: '',
+      appleNotarizationProfile: '',
+      androidKeystorePathEnvironmentVariable: '',
+      androidKeystorePasswordEnvironmentVariable: '',
+      androidKeyAliasEnvironmentVariable: '',
+      androidKeyPasswordEnvironmentVariable: '',
+      iosExportMethod: 'debugging',
+    }),
+  });
+
 export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze({
   colorPalette: DEFAULT_PROJECT_COLOR_PALETTE,
+  routingMode: 'history',
+  routingBasePath: '/',
   applicationName: 'WebRAD Application',
   applicationDescription: '',
   locale: 'pt-BR',
@@ -613,6 +754,7 @@ export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze
   environment: 'development',
   environmentVariables: [],
   restGo: DEFAULT_REST_GO_PROJECT_SETTINGS,
+  nativeApplication: DEFAULT_NATIVE_APPLICATION_SETTINGS,
   scrollbar: DEFAULT_PROJECT_SCROLLBAR_STYLE,
   gridSize: 8,
   snapToGrid: true,

@@ -376,6 +376,9 @@ ${repeatingGroupTypings.source}
 
   /** Base class for generated and user-authored pages. */
   export class WebPage extends WebComponentScope {
+    /** Browser tab title; blank values retain the application's original title. */
+    browserTitle: string;
+    readonly routePath: string;
     layoutMode: WebPageLayoutMode;
     show(): void;
     close(options?: ClosePageOptions): void;
@@ -685,13 +688,14 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly id: string;
     readonly name: string;
     readonly model: RuntimePageModel;
+    readonly path?: string;
     readonly createPage: RuntimePageFactory;
     readonly createReusableElements?: RuntimeReusableElementFactory;
   }
 
   /** Mounts one authored project page at a time and resolves IDs or page names. */
   export class WebPageRouter {
-    constructor(routes: readonly RuntimePageRoute[], host?: HTMLElement);
+    constructor(routes: readonly RuntimePageRoute[], host?: HTMLElement, options?: { readonly mode?: 'history' | 'hash'; readonly basePath?: string });
     readonly activePage: WebPage | null;
     readonly activeRoute: RuntimePageRoute | null;
     findRoute(destination: string): RuntimePageRoute | undefined;

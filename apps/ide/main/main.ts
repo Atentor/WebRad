@@ -5,6 +5,8 @@ import { requireTrustedSender, hasUnsavedProjectChanges } from './project-ipc';
 import { runProjectResourcesSmoke } from './project-resources-smoke';
 import { runDebuggerSmoke } from './debugger-smoke';
 import { runDeploySmoke } from './deploy-smoke';
+import { runNativeBuildSmoke } from './native-build-smoke';
+import { runPageTitleSmoke } from './page-title-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
@@ -125,7 +127,11 @@ async function runPreviewServerSmoke(previewHtml: string | undefined): Promise<v
     const contentSecurityPolicy = previewResponse.headers.get('content-security-policy') ?? '';
     if (
       !previewResponse.ok ||
-      responseHtml !== previewHtml ||
+      responseHtml !==
+        previewHtml.replace(
+          '<head>',
+          '<head><base href="' + new URL('./', previewUrl).pathname + '">',
+        ) ||
       !contentSecurityPolicy.includes("script-src 'unsafe-inline'")
     ) {
       throw new Error(
@@ -724,6 +730,25 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     await runProjectResourcesSmoke(window, smokeProjectPath, smokeLog, smokeScreenshotPath);
     return;
   }
+  if (process.argv.includes('--webrad-smoke-native-build') && smokeProjectPath !== undefined) {
+    await clickRendererControl(
+      window,
+      'button[aria-label="Open project (Ctrl+O)"]',
+      'Open project',
+    );
+    await waitForRendererResult(
+      window,
+      'document.querySelector(\'button[aria-label="Build Application"]\')?.disabled === false',
+      'the opened project Native Build action',
+      (value) => value === true,
+    );
+    await runNativeBuildSmoke(window, {
+      projectPath: smokeProjectPath,
+      log: smokeLog,
+      ...(smokeScreenshotPath === undefined ? {} : { screenshotPath: smokeScreenshotPath }),
+    });
+    return;
+  }
   const shellResult = (await window.webContents.executeJavaScript(
     `(() => ({
       shell: Boolean(document.querySelector('.wr-ide-shell')) && Boolean(document.querySelector('.wr-activity-bar')),
@@ -758,6 +783,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const favicon = Reflect.get(shellResult, 'favicon');
   const bridge = Reflect.get(shellResult, 'bridge');
   const expectedBridge = Object.keys({
+    nativeBuild: true,
     updates: true,
     debugger: true,
     deploy: true,
@@ -1010,6 +1036,10 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   smokeLog('renderer Styles workspace passed');
   smokeLog('renderer project open passed');
   await runDesignerWorkspaceSmoke(window);
+
+  await runNativeBuildSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+
+  await runPageTitleSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
 
   await runRestGoSettingsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   const designerButtonStyle = await captureDesignerButtonStyle(window);

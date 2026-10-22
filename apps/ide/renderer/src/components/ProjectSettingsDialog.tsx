@@ -26,6 +26,7 @@ import { ProjectSettingsSchema } from '@webrad/project-model';
 import { useContext } from 'react';
 import { ProjectBuildSettings } from './ProjectBuildSettings';
 import { ProjectPwaSettings } from './ProjectPwaSettings';
+import { ProjectNativeSettings } from './ProjectNativeSettings';
 
 interface ProjectSettingsDialogProps {
   readonly projectName: string;
@@ -33,10 +34,12 @@ interface ProjectSettingsDialogProps {
   readonly onClose: () => void;
   readonly onSave: (settings: ProjectSettings) => void;
   readonly onChooseDeployDirectory?: () => Promise<string | null>;
+  readonly onChooseNativeDirectory?: () => Promise<string | null>;
   readonly initialSectionId?: ProjectSettingsSectionId;
 }
 
-type ProjectSettingsSectionId = 'general' | 'environment' | 'icons' | 'seo' | 'build' | 'pwa';
+type ProjectSettingsSectionId =
+  'general' | 'environment' | 'icons' | 'seo' | 'build' | 'pwa' | 'native';
 
 interface ProjectSettingsSection {
   readonly id: ProjectSettingsSectionId;
@@ -87,6 +90,15 @@ const SETTINGS_SECTIONS = [
     icon: 'upload-cloud',
     title: 'Build and publishing',
     description: 'Options for browser output and application delivery.',
+  },
+  {
+    id: 'native',
+    group: 'Platform',
+    label: 'Native Application',
+    icon: 'smartphone',
+    title: 'Native Application',
+    description:
+      'Application identity, windows, mobile behavior, packaging and signing references for Tauri 2.',
   },
   {
     id: 'pwa',
@@ -241,6 +253,7 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
     left.pwa.themeColor !== right.pwa.themeColor ||
     left.pwa.backgroundColor !== right.pwa.backgroundColor ||
     left.pwa.offline !== right.pwa.offline ||
+    JSON.stringify(left.nativeApplication) !== JSON.stringify(right.nativeApplication) ||
     left.scrollbar.width !== right.scrollbar.width ||
     left.scrollbar.height !== right.scrollbar.height ||
     left.scrollbar.trackColor !== right.scrollbar.trackColor ||
@@ -273,6 +286,7 @@ export function ProjectSettingsDialog({
   onClose,
   onSave,
   onChooseDeployDirectory,
+  onChooseNativeDirectory,
   initialSectionId = 'general',
 }: ProjectSettingsDialogProps): ReactElement {
   const titleId = useId();
@@ -534,8 +548,8 @@ export function ProjectSettingsDialog({
         </header>
         <div className="wr-project-settings-content">
           <p id={descriptionId} className="wr-modal-description">
-            Application settings, environment variables, icons, SEO, publishing, and PWA options are
-            saved in the project and applied to the generated output.
+            Application settings, environment variables, icons, SEO, publishing, native and PWA
+            options are saved in the project and applied to the generated output.
           </p>
           <div className="wr-project-settings-layout">
             <nav
@@ -1217,14 +1231,58 @@ export function ProjectSettingsDialog({
                     </div>
                   )}
                 </>
-              ) : isBuildSection ? (
-                <ProjectBuildSettings
-                  value={draft.build}
-                  onChange={(build) => updateDraft({ build })}
-                  {...(onChooseDeployDirectory === undefined
+              ) : activeSection.id === 'native' ? (
+                <ProjectNativeSettings
+                  value={draft.nativeApplication}
+                  onChange={(nativeApplication) => updateDraft({ nativeApplication })}
+                  {...(onChooseNativeDirectory === undefined
                     ? {}
-                    : { onChooseDirectory: onChooseDeployDirectory })}
+                    : { onChooseDirectory: onChooseNativeDirectory })}
                 />
+              ) : isBuildSection ? (
+                <>
+                  <label className="wr-project-settings-field full-width">
+                    <span>Browser routing</span>
+                    <select
+                      aria-label="Browser routing"
+                      value={draft.routingMode}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          routingMode: event.currentTarget.value === 'hash' ? 'hash' : 'history',
+                        })
+                      }
+                    >
+                      <option value="history">History (clean URLs)</option>
+                      <option value="hash">Hash (static hosting compatibility)</option>
+                    </select>
+                    <small>
+                      History requires the host to serve index.html for application routes. File
+                      URLs use Hash automatically.
+                    </small>
+                  </label>
+                  <label className="wr-project-settings-field full-width">
+                    <span>Application base path</span>
+                    <input
+                      aria-label="Application base path"
+                      value={draft.routingBasePath}
+                      onChange={(event) =>
+                        updateDraft({ routingBasePath: event.currentTarget.value })
+                      }
+                    />
+                    <small>
+                      Use / for the domain root, or /myapp/ when publishing in a subdirectory.
+                    </small>
+                  </label>
+
+                  <ProjectBuildSettings
+                    value={draft.build}
+                    onChange={(build) => updateDraft({ build })}
+                    {...(onChooseDeployDirectory === undefined
+                      ? {}
+                      : { onChooseDirectory: onChooseDeployDirectory })}
+                  />
+                </>
               ) : (
                 <ProjectPwaSettings
                   value={draft.pwa}
@@ -1232,15 +1290,16 @@ export function ProjectSettingsDialog({
                   onChange={(pwa) => updateDraft({ pwa })}
                 />
               )}
-              {(isBuildSection || activeSection.id === 'pwa') && saveError !== null && (
-                <div
-                  className="wr-project-settings-error"
-                  id={`${descriptionId}-error`}
-                  role="alert"
-                >
-                  {saveError}
-                </div>
-              )}
+              {(isBuildSection || activeSection.id === 'pwa' || activeSection.id === 'native') &&
+                saveError !== null && (
+                  <div
+                    className="wr-project-settings-error"
+                    id={`${descriptionId}-error`}
+                    role="alert"
+                  >
+                    {saveError}
+                  </div>
+                )}
             </section>
           </div>
         </div>

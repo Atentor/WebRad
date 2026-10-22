@@ -24,7 +24,7 @@ const contentSecurityPolicy = [
   "media-src 'self' data: blob: https: http:",
   'frame-src blob:',
   'connect-src https: http: data: blob:',
-  "base-uri 'none'",
+  "base-uri 'self'",
   "form-action 'none'",
 ].join('; ');
 
@@ -89,7 +89,23 @@ function startPreviewServer(): Promise<PreviewServer> {
       /^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/index\.html$/.exec(
         request.url ?? '',
       )?.[1];
-    const html = token === undefined ? undefined : previewByToken.get(token);
+    let html = token === undefined ? undefined : previewByToken.get(token);
+    if (html === undefined) {
+      const match =
+        /^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\/(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?)(?:\?[^#]*)?$/.exec(
+          request.url ?? '',
+        );
+      const candidate = match?.[1] === undefined ? undefined : previewByToken.get(match[1]);
+      const encoded = candidate?.match(/<meta name="webrad-route-paths" content="([^"]*)"/u)?.[1];
+      if (candidate !== undefined && encoded !== undefined) {
+        try {
+          const paths: unknown = JSON.parse(decodeURIComponent(encoded));
+          if (Array.isArray(paths) && paths.includes(match?.[2])) html = candidate;
+        } catch {
+          /* Malformed compiler metadata never enables additional routes. */
+        }
+      }
+    }
     respond(
       request,
       response,
@@ -137,7 +153,7 @@ export async function publishPreviewHtml(
   }
   revokePreview(ownerId);
   const token = randomUUID();
-  previewByToken.set(token, html);
+  previewByToken.set(token, html.replace('<head>', '<head><base href="/' + token + '/">'));
   assetsByToken.set(token, assets);
   tokenByOwner.set(ownerId, token);
   const url = `${origin}/${token}/index.html`;
@@ -147,7 +163,23 @@ export async function publishPreviewHtml(
 
 /** Exact live publication check; revoked URLs cannot authorize report windows. */
 export function isPublishedPreviewUrl(url: string): boolean {
-  return [...urlByOwner.values()].includes(url);
+  try {
+    const candidate = new URL(url);
+    return [...urlByOwner.values()].some((published) => {
+      const entry = new URL(published);
+      if (entry.origin !== candidate.origin) return false;
+      if (entry.pathname === candidate.pathname) return true;
+      const prefix = entry.pathname.slice(0, -'index.html'.length);
+      if (!candidate.pathname.startsWith(prefix)) return false;
+      const html = previewByToken.get(prefix.split('/')[1] ?? '');
+      const encoded = html?.match(/<meta name="webrad-route-paths" content="([^"]*)"/u)?.[1];
+      if (encoded === undefined) return false;
+      const paths: unknown = JSON.parse(decodeURIComponent(encoded));
+      return Array.isArray(paths) && paths.includes('/' + candidate.pathname.slice(prefix.length));
+    });
+  } catch {
+    return false;
+  }
 }
 
 export function revokePreview(ownerId: number): void {

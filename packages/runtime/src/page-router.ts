@@ -16,6 +16,8 @@ export interface RuntimePageRoute {
   readonly id: string;
   /** User-facing, unique page name. */
   readonly name: string;
+  /** Absolute application-relative path; blank defaults to the lowercase page name. */
+  readonly path?: string;
   /** Runtime projection of the page's visual model. */
   readonly model: RuntimePageModel;
   /** Instantiates the user-authored wrapper after its visual DOM is mounted. */
@@ -48,6 +50,10 @@ function requireRouteField(value: string, field: 'id' | 'name'): void {
 export class WebPageRouter {
   readonly #routesById = new Map<string, RuntimePageRoute>();
   readonly #routesByName = new Map<string, RuntimePageRoute>();
+  readonly #paths = new Map<string, RuntimePageRoute>();
+  readonly #routePaths = new Map<string, string>();
+  readonly #mode: 'history' | 'hash';
+  readonly #basePath: string;
   readonly #host: HTMLElement;
   readonly #window: Window;
   readonly #onHashChange = (): void => {
@@ -57,13 +63,30 @@ export class WebPageRouter {
   #entryRoute: RuntimePageRoute | null = null;
   #listeningForHashChanges = false;
 
-  public constructor(routes: readonly RuntimePageRoute[], host: HTMLElement = document.body) {
+  public constructor(
+    routes: readonly RuntimePageRoute[],
+    host: HTMLElement = document.body,
+    options: { readonly mode?: 'history' | 'hash'; readonly basePath?: string } = {},
+  ) {
     if (routes.length === 0) throw new Error('WebPageRouter requires at least one page route.');
     this.#host = host;
     const ownerWindow = host.ownerDocument.defaultView;
     if (ownerWindow === null)
       throw new Error('WebPageRouter host must belong to a browser document.');
     this.#window = ownerWindow;
+    this.#mode = ['http:', 'https:'].includes(ownerWindow.location.protocol)
+      ? (options.mode ?? 'history')
+      : 'hash';
+    const base =
+      this.#mode === 'hash'
+        ? null
+        : new URL(
+            host.ownerDocument.querySelector('base')?.href ?? './',
+            ownerWindow.location.href,
+          );
+    this.#basePath = options.basePath ?? base?.pathname ?? '/';
+    if (!/^\/(?:[a-zA-Z0-9_-]+\/)*$/.test(this.#basePath))
+      throw new Error('Router basePath must start and end with /.');
     for (const route of routes) {
       requireRouteField(route.id, 'id');
       requireRouteField(route.name, 'name');
@@ -79,6 +102,15 @@ export class WebPageRouter {
       if (this.#routesByName.has(route.name)) {
         throw new Error(`A runtime page route already uses name "${route.name}".`);
       }
+      const routePath = route.path || '/' + route.name.toLowerCase();
+      if (
+        !/^\/(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?$/.test(routePath) ||
+        routePath.split('/').some((part) => ['assets', 'index.html'].includes(part))
+      )
+        throw new Error('Invalid page route path: ' + routePath);
+      if (this.#paths.has(routePath)) throw new Error('Duplicate page route path: ' + routePath);
+      this.#paths.set(routePath, route);
+      this.#routePaths.set(route.id, routePath);
       this.#routesById.set(route.id, route);
       this.#routesByName.set(route.name, route);
     }
@@ -110,11 +142,15 @@ export class WebPageRouter {
 
   /** Finds a route by stable page ID or the user-facing page name. */
   public findRoute(destination: string): RuntimePageRoute | undefined {
-    return this.#routesById.get(destination) ?? this.#routesByName.get(destination);
+    return (
+      this.#routesById.get(destination) ??
+      this.#routesByName.get(destination) ??
+      this.#paths.get(destination)
+    );
   }
 
   /**
-   * Starts hash-based application routing at the entry page. Direct links and
+   * Starts application routing at the entry page (History over HTTP, Hash for files). Direct links and
    * browser history resolve through the same route table.
    */
   public start(entryDestination: string): WebPage {
@@ -124,7 +160,10 @@ export class WebPageRouter {
     }
     this.#entryRoute = entryRoute;
     if (!this.#listeningForHashChanges) {
-      this.#window.addEventListener('hashchange', this.#onHashChange);
+      this.#window.addEventListener(
+        this.#mode === 'hash' ? 'hashchange' : 'popstate',
+        this.#onHashChange,
+      );
       this.#listeningForHashChanges = true;
     }
     return this.#navigateFromHash();
@@ -142,15 +181,28 @@ export class WebPageRouter {
     }
     if (options.newWindow === true || options.target !== undefined) {
       const url = new URL(this.#window.location.href);
-      url.hash = this.#routeHash(route);
+      if (this.#mode === 'hash') url.hash = this.#routeHash(route);
+      else {
+        url.pathname = this.#routeUrl(route);
+        url.hash = '';
+      }
       Navigate(url, options);
       return;
     }
 
-    const hash = this.#routeHash(route);
-    if (this.#window.location.hash !== hash) {
-      if (options.replace === true) this.#window.history.replaceState(null, '', hash);
-      else this.#window.location.hash = hash;
+    const url =
+      this.#mode === 'hash'
+        ? this.#routeHash(route)
+        : this.#routeUrl(route) + this.#window.location.search;
+    const current =
+      this.#mode === 'hash'
+        ? this.#window.location.hash
+        : this.#window.location.pathname + this.#window.location.search;
+    if (current !== url) {
+      if (options.replace === true)
+        this.#window.history.replaceState(null, '', new URL(url, this.#window.location.href));
+      else if (this.#mode === 'hash') this.#window.location.hash = url;
+      else this.#window.history.pushState(null, '', url);
     }
     this.navigate(route.id);
   }
@@ -169,6 +221,7 @@ export class WebPageRouter {
 
     this.#disposeActivePage();
     const mounted = mountPage(route.model, this.#host);
+    mounted.element.dataset.webradRoutePath = this.#routePaths.get(route.id) ?? '';
     let page: WebPage;
     let reusableElements: readonly WebReusableElementInstance[] = [];
     try {
@@ -194,7 +247,10 @@ export class WebPageRouter {
   /** Removes the active page and releases all generated event bindings. */
   public dispose(): void {
     if (this.#listeningForHashChanges) {
-      this.#window.removeEventListener('hashchange', this.#onHashChange);
+      this.#window.removeEventListener(
+        this.#mode === 'hash' ? 'hashchange' : 'popstate',
+        this.#onHashChange,
+      );
       this.#listeningForHashChanges = false;
     }
     this.#entryRoute = null;
@@ -202,13 +258,24 @@ export class WebPageRouter {
   }
 
   #routeHash(route: RuntimePageRoute): string {
-    return `#/${encodeURIComponent(route.name)}`;
+    return '#' + this.#routePaths.get(route.id);
+  }
+
+  #routeUrl(route: RuntimePageRoute): string {
+    return this.#basePath + (this.#routePaths.get(route.id) ?? '/').slice(1);
   }
 
   #routeFromHash(): RuntimePageRoute | undefined {
+    if (this.#mode === 'history') {
+      const pathname = this.#window.location.pathname;
+      if (!pathname.startsWith(this.#basePath)) return undefined;
+      const relative = '/' + pathname.slice(this.#basePath.length).replace(/\/$/, '');
+      return this.#paths.get(relative);
+    }
     if (!this.#window.location.hash.startsWith('#/')) return undefined;
     try {
-      return this.findRoute(decodeURIComponent(this.#window.location.hash.slice(2)));
+      const destination = decodeURIComponent(this.#window.location.hash.slice(1));
+      return this.findRoute(destination) ?? this.findRoute(destination.slice(1));
     } catch {
       return undefined;
     }

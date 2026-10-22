@@ -10,6 +10,7 @@ const workspacePackages = [
   '@webrad/components',
   '@webrad/designer',
   '@webrad/language',
+  '@webrad/native-build',
   '@webrad/project-model',
   '@webrad/restgo-sdk',
   '@webrad/runtime',

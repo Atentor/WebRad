@@ -15,6 +15,7 @@ import { VideoUploadPropertiesSchema } from './video-upload.js';
 import { VideoPlayerPropertiesSchema } from './video-player.js';
 import { defaultComponentStyleId, DEFAULT_COMPONENT_STYLE_DEFINITIONS } from './default-styles.js';
 import { ProjectValidationError } from './errors.js';
+import { getNativeArchitectures, getNativeBundleFormats } from './native-application.js';
 import {
   COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME,
   COMPONENT_STYLE_PROPERTY_EXCLUSIVE_PAIRS,
@@ -33,6 +34,12 @@ import {
   CURRENT_PROJECT_FORMAT_VERSION,
   DEFAULT_PROJECT_SCROLLBAR_STYLE,
   DEFAULT_PROJECT_SETTINGS,
+  DEFAULT_NATIVE_APPLICATION_SETTINGS,
+  NATIVE_TARGET_PLATFORMS,
+  NATIVE_TARGET_ARCHITECTURES,
+  NATIVE_BUNDLE_FORMATS,
+  NATIVE_BUILD_CONFIGURATIONS,
+  type NativeApplicationSettings,
   COMPONENT_STYLE_PROPERTY_NAMES,
   COMPONENT_STYLE_STATE_NAMES,
   LINEAR_GRADIENT_DIRECTIONS,
@@ -285,6 +292,13 @@ function materializeProjectDefaults(input: unknown): unknown {
           settings: materializeProjectSettings({
             ...DEFAULT_PROJECT_SETTINGS,
             applicationName,
+            nativeApplication: {
+              ...DEFAULT_NATIVE_APPLICATION_SETTINGS,
+              applicationName:
+                isRecord(settings) && typeof settings.applicationName === 'string'
+                  ? settings.applicationName
+                  : applicationName,
+            },
             ...settings,
           }),
         }
@@ -344,6 +358,23 @@ function materializeProjectSettings(settings: Readonly<Record<string, unknown>>)
   const normalizedRestGo = isRecord(restGo)
     ? { ...DEFAULT_PROJECT_SETTINGS.restGo, ...restGo }
     : restGo;
+  const nativeApplication = settings.nativeApplication;
+  const normalizedNativeApplication = isRecord(nativeApplication)
+    ? {
+        ...DEFAULT_NATIVE_APPLICATION_SETTINGS,
+        ...nativeApplication,
+        ...Object.fromEntries(
+          (['desktop', 'mobile', 'build', 'security', 'signing'] as const).map((key) => [
+            key,
+            isRecord(nativeApplication[key])
+              ? { ...DEFAULT_NATIVE_APPLICATION_SETTINGS[key], ...nativeApplication[key] }
+              : Object.hasOwn(nativeApplication, key)
+                ? nativeApplication[key]
+                : DEFAULT_NATIVE_APPLICATION_SETTINGS[key],
+          ]),
+        ),
+      }
+    : nativeApplication;
   return {
     ...settings,
     ...(settings.environment === 'staging' ? { environment: 'production' } : {}),
@@ -355,6 +386,7 @@ function materializeProjectSettings(settings: Readonly<Record<string, unknown>>)
       ? { scrollbar: normalizedScrollbar }
       : {}),
     ...(isRecord(restGo) ? { restGo: normalizedRestGo } : {}),
+    ...(isRecord(nativeApplication) ? { nativeApplication: normalizedNativeApplication } : {}),
   };
 }
 
@@ -1014,8 +1046,171 @@ export const ProjectPwaSettingsSchema: z.ZodType<ProjectPwaSettings> = z
   })
   .strict();
 
+const nativeEnvironmentReferenceSchema = z
+  .string()
+  .trim()
+  .max(128)
+  .regex(
+    /^(?:[A-Z_][A-Z0-9_]*)?$/,
+    'Use an environment variable name; private values must stay outside the project.',
+  );
+
+const nativeNetworkOriginSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return (
+        ['http:', 'https:', 'ws:', 'wss:'].includes(url.protocol) &&
+        !url.username &&
+        !url.password &&
+        !url.search &&
+        !url.hash &&
+        (url.pathname === '' || url.pathname === '/') &&
+        !value.includes('*') &&
+        !value.includes('\\') &&
+        !/[?#\s]/.test(value) &&
+        url.hostname.length > 0
+      );
+    } catch {
+      return false;
+    }
+  }, 'Enter an exact HTTP(S) or WS(S) origin without credentials, paths or wildcards.')
+  .transform((value) => new URL(value).origin);
+
+export const NativeApplicationSettingsSchema: z.ZodType<NativeApplicationSettings> = z
+  .object({
+    applicationName: z.string().trim().min(1).max(120),
+    identifier: z
+      .string()
+      .trim()
+      .max(255)
+      .regex(
+        /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/,
+        'Use a portable reverse-DNS identifier such as com.example.application.',
+      ),
+    version: z
+      .string()
+      .trim()
+      .max(32)
+      .regex(
+        /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/,
+        'Use a numeric application version such as 1.0.0.',
+      ),
+    description: z.string().trim().max(500),
+    publisher: z.string().trim().max(120),
+    icon: ProjectApplicationIconSchema.nullable(),
+    desktop: z
+      .object({
+        width: z.number().int().min(1).max(32768),
+        height: z.number().int().min(1).max(32768),
+        minWidth: z.number().int().min(1).max(32768),
+        minHeight: z.number().int().min(1).max(32768),
+        resizable: z.boolean(),
+        fullscreen: z.boolean(),
+        maximizable: z.boolean(),
+      })
+      .strict()
+      .superRefine((desktop, context) => {
+        if (desktop.minWidth > desktop.width)
+          context.addIssue({
+            code: 'custom',
+            path: ['minWidth'],
+            message: 'Minimum Width cannot exceed Initial Width.',
+          });
+        if (desktop.minHeight > desktop.height)
+          context.addIssue({
+            code: 'custom',
+            path: ['minHeight'],
+            message: 'Minimum Height cannot exceed Initial Height.',
+          });
+      }),
+    mobile: z
+      .object({
+        orientation: z.enum(['portrait', 'landscape', 'auto']),
+        fullscreen: z.boolean(),
+        statusBar: z.boolean(),
+        safeArea: z.boolean(),
+        icon: ProjectApplicationIconSchema.nullable(),
+        splashScreen: ProjectApplicationIconSchema.nullable(),
+      })
+      .strict(),
+    build: z
+      .object({
+        platform: z.enum(NATIVE_TARGET_PLATFORMS),
+        architecture: z.enum(NATIVE_TARGET_ARCHITECTURES),
+        outputDirectory: z
+          .string()
+          .trim()
+          .min(1)
+          .max(4096)
+          .refine(
+            (value) => ![...value].some((character) => character.charCodeAt(0) < 32),
+            'Output Directory must be a filesystem path.',
+          ),
+        configuration: z.enum(NATIVE_BUILD_CONFIGURATIONS),
+        bundleFormat: z.enum(NATIVE_BUNDLE_FORMATS),
+      })
+      .strict()
+      .superRefine((build, context) => {
+        if (!getNativeBundleFormats(build.platform).includes(build.bundleFormat))
+          context.addIssue({
+            code: 'custom',
+            path: ['bundleFormat'],
+            message: `Bundle Format is incompatible with ${build.platform}.`,
+          });
+        if (!getNativeArchitectures(build.platform).includes(build.architecture))
+          context.addIssue({
+            code: 'custom',
+            path: ['architecture'],
+            message: `Architecture is incompatible with ${build.platform}.`,
+          });
+        if (
+          build.platform === 'ios' &&
+          build.bundleFormat === 'ipa' &&
+          build.architecture !== 'arm64'
+        )
+          context.addIssue({
+            code: 'custom',
+            path: ['bundleFormat'],
+            message: 'IPA export requires the arm64 device architecture.',
+          });
+      }),
+    security: z.object({ networkOrigins: z.array(nativeNetworkOriginSchema).max(100) }).strict(),
+    signing: z
+      .object({
+        windowsCertificateThumbprint: z
+          .string()
+          .trim()
+          .regex(
+            /^(?:[A-Fa-f0-9]{40,64})?$/,
+            'Use a certificate thumbprint from the Windows certificate store.',
+          ),
+        appleSigningIdentity: z.string().trim().max(255),
+        appleTeamId: z
+          .string()
+          .trim()
+          .regex(/^(?:[A-Z0-9]{10})?$/, 'Use the ten-character Apple Team ID.'),
+        appleNotarizationProfile: z.string().trim().max(255),
+        androidKeystorePathEnvironmentVariable: nativeEnvironmentReferenceSchema,
+        androidKeystorePasswordEnvironmentVariable: nativeEnvironmentReferenceSchema,
+        androidKeyAliasEnvironmentVariable: nativeEnvironmentReferenceSchema,
+        androidKeyPasswordEnvironmentVariable: nativeEnvironmentReferenceSchema,
+        iosExportMethod: z.enum(['debugging', 'release-testing', 'app-store-connect']),
+      })
+      .strict(),
+  })
+  .strict();
+
 export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
   .object({
+    routingMode: z.enum(['history', 'hash']).default('history'),
+    routingBasePath: z
+      .string()
+      .regex(/^\/(?:[a-zA-Z0-9_-]+\/)*$/)
+      .default('/'),
     colorPalette: ProjectColorPaletteSchema,
     applicationName: z.string().trim().min(1).max(120),
     applicationDescription: z.string().trim().max(500),
@@ -1032,6 +1227,7 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
     environment: z.enum(PROJECT_ENVIRONMENTS),
     environmentVariables: z.array(ProjectEnvironmentVariableSchema).max(100),
     restGo: RestGoProjectSettingsSchema,
+    nativeApplication: NativeApplicationSettingsSchema,
     scrollbar: ProjectScrollbarStyleSchema,
     gridSize: z.number().int().positive(),
     snapToGrid: z.boolean(),

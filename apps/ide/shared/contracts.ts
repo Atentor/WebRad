@@ -1,4 +1,5 @@
 import type { UpdateBridge } from './update-contracts';
+import type { NativeBuildBridge } from './native-build-contracts';
 import type { ExternalLinkTarget } from './external-links';
 import type { RestGoAdminBridge } from './restgo-admin';
 import type { RestGoDevelopmentBridge } from './restgo-development';
@@ -32,6 +33,7 @@ export const IDE_COMMANDS = [
   'project.addUnit',
   'project.importAsset',
   'project.build',
+  'project.buildApplication',
   'project.deploy',
   'run.run',
   'debug.start',
@@ -129,6 +131,7 @@ export interface CompileStylesResponse {
 }
 
 export interface WebRadBridge {
+  readonly nativeBuild: NativeBuildBridge;
   readonly updates: UpdateBridge;
   readonly debugger: DebugBridge;
   readonly restgoAdmin: RestGoAdminBridge;

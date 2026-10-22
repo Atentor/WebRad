@@ -21,8 +21,8 @@ export interface CompileProjectOptions {
   readonly write?: boolean;
   readonly minify?: boolean;
   readonly sourcemap?: boolean;
-  /** Deploy applies publishing settings/PWA; both targets use the same browser bundle. */
-  readonly target?: 'preview' | 'deploy';
+  /** Native reuses publishing output without a PWA manifest or service worker. */
+  readonly target?: 'preview' | 'deploy' | 'native';
   /** Emit the original TypeScript mappings and an unminified Debug Preview. */
   readonly debug?: boolean;
   readonly registry?: ComponentRegistry;

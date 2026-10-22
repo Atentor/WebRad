@@ -360,6 +360,7 @@ it('keeps repeating groups inside separate authored reusable placements isolated
               id: reusable.rootComponentId,
               name: reusable.name,
               type: 'WebPanel',
+              props: reusable.components[0]!.props,
               bounds: { ...node.bounds, width: 960, height: 700 },
               events: {},
               children: node.children.filter((id) => kept.has(id)),

@@ -525,7 +525,7 @@ export class PageMain extends PageMainGenerated {
     );
   });
 
-  it('compiles in-app page navigation for button handlers and hash links', async () => {
+  it('compiles in-app page navigation for button handlers and History links', async () => {
     const project = internallyNavigableProject();
     const mainPage = project.pages.find((page) => page.name === 'PageMain');
     const detailsPage = project.pages.find((page) => page.name === 'PageDetails');
@@ -581,15 +581,16 @@ export class PageDetails extends PageDetailsGenerated {
       throw new TypeError('Compiled navigation button did not render.');
     }
     button.click();
-    expect(dom.window.location.hash).toBe('#/PageDetails');
+    expect(dom.window.location.pathname).toBe('/pagedetails');
+    expect(dom.window.location.hash).toBe('');
     expect(dom.window.document.querySelector(`[data-webrad-page-id="${mainPage.id}"]`)).toBeNull();
     const detailsElement = dom.window.document.querySelector<HTMLElement>(
       `[data-webrad-page-id="${detailsPage.id}"]`,
     );
     expect(detailsElement?.dataset.pageDetailsCreated).toBe('true');
     await new Promise<void>((resolve) => {
-      dom.window.addEventListener('hashchange', () => resolve(), { once: true });
-      dom.window.location.hash = '';
+      dom.window.addEventListener('popstate', () => resolve(), { once: true });
+      dom.window.history.back();
     });
     expect(
       dom.window.document.querySelector(`[data-webrad-page-id="${mainPage.id}"]`),
@@ -598,7 +599,7 @@ export class PageDetails extends PageDetailsGenerated {
 
     const linkedDom = new JSDOM('<!doctype html><html><body></body></html>', {
       runScripts: 'outside-only',
-      url: 'https://preview.webrad.test/#/PageDetails',
+      url: 'https://preview.webrad.test/pagedetails',
     });
     Object.defineProperties(linkedDom.window, {
       fetch: { value: globalThis.fetch },
@@ -879,7 +880,7 @@ export class PageMain extends PageMainGenerated {
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['index.html']).toContain('./assets/app.js');
     expect(result.files['index.html']).toContain(
-      '<html lang="en-US" data-webrad-time-zone="America/Sao_Paulo">',
+      '<html lang="en-US" data-webrad-time-zone="America/Sao_Paulo" data-webrad-application-name="Hello &amp; &lt;WebRAD&gt;">',
     );
     expect(result.files['index.html']).toContain('<title>Hello &amp; &lt;WebRAD&gt;</title>');
     expect(result.files['index.html']).toContain(
@@ -927,7 +928,7 @@ export class PageMain extends PageMainGenerated {
       '<meta property="og:title" content="Portal &amp; &lt;Share&gt;" />',
     );
     expect(result.previewHtml).toContain(
-      '<html lang="en-US" data-webrad-time-zone="America/Sao_Paulo">',
+      '<html lang="en-US" data-webrad-time-zone="America/Sao_Paulo" data-webrad-application-name="Hello &amp; &lt;WebRAD&gt;">',
     );
     await expect(fs.readFile(path.join(outputDirectory, 'index.html'), 'utf8')).resolves.toContain(
       '<!doctype html>',

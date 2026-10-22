@@ -10,6 +10,25 @@ export interface ClosePageOptions {
   readonly remove?: boolean;
 }
 
+interface DocumentPageTitle {
+  readonly applicationName: string;
+  activePage: HTMLElement | null;
+}
+
+const documentPageTitles = new WeakMap<Document, DocumentPageTitle>();
+
+function documentPageTitle(document: Document): DocumentPageTitle {
+  let title = documentPageTitles.get(document);
+  if (title === undefined) {
+    title = {
+      applicationName: document.documentElement.dataset.webradApplicationName ?? document.title,
+      activePage: null,
+    };
+    documentPageTitles.set(document, title);
+  }
+  return title;
+}
+
 function floatingLayersForPage(element: HTMLElement): readonly HTMLElement[] {
   const pageId = element.dataset.webradPageId;
   if (pageId === undefined) return [];
@@ -153,8 +172,45 @@ export class WebReusableElementInstance extends WebComponentScope {
 }
 
 export class WebPage extends WebComponentScope {
+  readonly #documentTitle: DocumentPageTitle;
   #created = false;
   #restGoEvents: (() => void) | undefined;
+
+  public constructor(element: HTMLElement, components?: ReadonlyMap<string, WebComponent>) {
+    super(element, components);
+    this.#documentTitle = documentPageTitle(element.ownerDocument);
+  }
+
+  /** Compiled application-relative route path, configured before publication. */
+  public get routePath(): string {
+    return this.element.dataset.webradRoutePath ?? '';
+  }
+
+  /** Browser tab title; blank values retain the application's original title. */
+  public get browserTitle(): string {
+    return this.element.dataset.webradBrowserTitle ?? '';
+  }
+
+  public set browserTitle(value: string) {
+    // The renderer and authored page class wrap the same root element.
+    this.element.dataset.webradBrowserTitle = value;
+    this.#applyBrowserTitle();
+  }
+
+  #applyBrowserTitle(): void {
+    if (
+      this.#documentTitle.activePage === this.element &&
+      this.visible &&
+      this.element.isConnected
+    ) {
+      this.element.ownerDocument.title =
+        this.browserTitle.trim() || this.#documentTitle.applicationName;
+    }
+  }
+
+  #deactivateBrowserTitle(): void {
+    if (this.#documentTitle.activePage === this.element) this.#documentTitle.activePage = null;
+  }
 
   #stopRestGoEvents(): void {
     this.#restGoEvents?.();
@@ -183,6 +239,8 @@ export class WebPage extends WebComponentScope {
 
   public override show(): void {
     super.show();
+    this.#documentTitle.activePage = this.element;
+    this.#applyBrowserTitle();
     this.#restGoEvents ??= bindPageIntegrationEvents(this);
     for (const layer of floatingLayersForPage(this.element)) layer.hidden = false;
     if (!this.#created) {
@@ -193,6 +251,7 @@ export class WebPage extends WebComponentScope {
   }
 
   public close(options: ClosePageOptions = {}): void {
+    this.#deactivateBrowserTitle();
     this.#stopRestGoEvents();
     this.emit('OnHide');
     if (options.remove === true) {
@@ -205,6 +264,7 @@ export class WebPage extends WebComponentScope {
   }
 
   public override hide(): void {
+    this.#deactivateBrowserTitle();
     this.#stopRestGoEvents();
     super.hide();
     for (const layer of floatingLayersForPage(this.element)) layer.hidden = true;
@@ -222,6 +282,7 @@ export class WebPage extends WebComponentScope {
   }
 
   public override dispose(): void {
+    this.#deactivateBrowserTitle();
     this.#stopRestGoEvents();
     for (const layer of floatingLayersForPage(this.element)) layer.remove();
     super.dispose();

@@ -1,4 +1,6 @@
 import type { UpdateState } from '../shared/update-contracts';
+import type { NativeBuildProgress, NativeBuildResponse } from '../shared/native-build-contracts';
+import type { NativePrerequisiteReport } from '@webrad/native-build/contracts';
 import type { RestGoDevelopmentStatus } from '../shared/restgo-development';
 import type { ProjectAsset } from '@webrad/project-model';
 import type { ExternalLinkTarget } from '../shared/external-links';
@@ -34,6 +36,33 @@ import type {
 } from '../shared/contracts';
 
 const bridge: WebRadBridge = {
+  nativeBuild: {
+    inspect: (request) =>
+      ipcRenderer.invoke(
+        'webrad:native-build:inspect',
+        request,
+      ) as Promise<NativePrerequisiteReport>,
+    chooseDirectory: (rootPath) =>
+      ipcRenderer.invoke('webrad:native-build:choose-directory', rootPath) as Promise<
+        string | null
+      >,
+    run: (request) =>
+      ipcRenderer.invoke('webrad:native-build:run', request) as Promise<NativeBuildResponse>,
+    exportCi: (request) =>
+      ipcRenderer.invoke('webrad:native-build:export-ci', request) as Promise<NativeBuildResponse>,
+    cancel: (requestId) =>
+      ipcRenderer.invoke('webrad:native-build:cancel', requestId) as Promise<void>,
+    openOutput: (request) =>
+      ipcRenderer.invoke('webrad:native-build:open-output', request) as Promise<void>,
+    copyArtifact: (request) =>
+      ipcRenderer.invoke('webrad:native-build:copy-artifact', request) as Promise<void>,
+    subscribe: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: NativeBuildProgress): void =>
+        listener(progress);
+      ipcRenderer.on('webrad:native-build:progress', handler);
+      return () => ipcRenderer.removeListener('webrad:native-build:progress', handler);
+    },
+  },
   restgoDevelopment: {
     status: (request) =>
       ipcRenderer.invoke(

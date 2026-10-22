@@ -53,7 +53,9 @@ The `.wrproj` manifest contains the project ID, display name, entry page ID, pag
 
 ## General project settings
 
-`settings` stores the application-facing `applicationName`, `applicationDescription`, `locale`, and `timeZone`, alongside the existing Designer grid settings and `outputDirectory`. The application name, description, and locale are emitted to both compiled and Preview HTML as the document title, optional description metadata, and `lang` attribute. The configured IANA time zone is emitted as `data-webrad-time-zone` on the root HTML element so generated application code can use the same project default without reading IDE state.
+`settings` stores the application-facing `applicationName`, `applicationDescription`, `locale`, and `timeZone`, alongside the existing Designer grid settings and `outputDirectory`. The application name is the default document title; the description and locale are emitted to both compiled and Preview HTML as optional description metadata and the `lang` attribute. The configured IANA time zone is emitted as `data-webrad-time-zone` on the root HTML element so generated application code can use the same project default without reading IDE state.
+
+The page root's optional `props.browserTitle` string overrides the browser tab title. Select the page in the Object Inspector and edit **Identity > Browser title**. New pages default to an empty string; older pages may omit the property. Empty or whitespace-only values use `settings.applicationName`, preserving the existing title. The value is independent from the page name, caption, and stable ID, is saved in `.wrpage`, and supports ordinary property undo/redo. Compiled HTML and Preview start with the entry page's title; navigation applies the destination page's title and restores the application name for blank pages. Page code can read or write the typed `this.browserTitle: string` property, including during `OnCreate`/`OnShow`; changing an inactive page does not replace the active page's browser title. This additive property does not change the page or project format version or social/PWA metadata.
 
 `applicationName` defaults to the project display name for new projects. Existing valid v2 aggregates and manifests receive deterministic defaults for all general settings during parsing, then write their canonical values on the next serialization; this additive compatibility rule does not change `formatVersion`. The grid size, visibility, and snapping values are consumed directly by the Designer projection.
 
@@ -76,6 +78,69 @@ The format-v2 `settings.pwa` record contains `enabled` (`false`), `shortName` (e
 **Project > Deploy** uses the Preview's output structure: `index.html`, `assets/app.js`, and `assets/app.css`. Pages, reusable elements, Models, Units and used libraries are compiled into the single classic JavaScript bundle, with unused code removed. Their authoring folders and JavaScript chunks are not exported. Imported assets, icons, sharing images and licenses remain below `assets/`; source maps are optional. No `.wrproj`, `.wrpage`, or authored TypeScript is published. All pages stay available to dynamic navigation. A scoped `.webrad-deploy.json` file tracks generated files and hashes so subsequent deployments can replace generated output and remove obsolete generated folders while preserving unrelated files.
 
 With PWA enabled, Deploy also generates `manifest.webmanifest`, installation icons, and `service-worker.js`. Application-relative URLs work at the host root or inside a subfolder. Serve the folder over HTTPS (localhost also works for development), with JavaScript, CSS, PNG and manifest MIME types. Offline mode caches only the generated application shell, including root/index navigation with query parameters; authentication, API responses and external media remain online operations. Disabling PWA emits a small retirement worker that removes this application's previous registration and cache. Preview does not register a service worker. Installation controls remain browser-owned.
+
+## Native Application settings
+
+`settings.nativeApplication` is additive to project format version 2. Aggregate and `.wrproj` parsing materialize independent defaults for omitted records and nested fields; invalid types, unknown fields and private signing fields are rejected. Existing project/page/component IDs and authored files remain unchanged. New projects and legacy projects without this record inherit the application name from General settings. Subsequent edits to the native name are independent of the web title.
+
+The canonical record has this shape (the displayed name is an example):
+
+```json
+{
+  "applicationName": "Portal",
+  "identifier": "com.webrad.application",
+  "version": "0.1.0",
+  "description": "",
+  "publisher": "",
+  "icon": null,
+  "desktop": {
+    "width": 1024,
+    "height": 768,
+    "minWidth": 320,
+    "minHeight": 240,
+    "resizable": true,
+    "fullscreen": false,
+    "maximizable": true
+  },
+  "mobile": {
+    "orientation": "auto",
+    "fullscreen": false,
+    "statusBar": true,
+    "safeArea": true,
+    "icon": null,
+    "splashScreen": null
+  },
+  "build": {
+    "platform": "windows",
+    "architecture": "host",
+    "outputDirectory": "native-dist",
+    "configuration": "release",
+    "bundleFormat": "nsis"
+  },
+  "security": { "networkOrigins": [] },
+  "signing": {
+    "windowsCertificateThumbprint": "",
+    "appleSigningIdentity": "",
+    "appleTeamId": "",
+    "appleNotarizationProfile": "",
+    "androidKeystorePathEnvironmentVariable": "",
+    "androidKeystorePasswordEnvironmentVariable": "",
+    "androidKeyAliasEnvironmentVariable": "",
+    "androidKeyPasswordEnvironmentVariable": "",
+    "iosExportMethod": "debugging"
+  }
+}
+```
+
+`identifier` is a portable reverse-DNS value such as `com.example.portal`, with letter-led alphanumeric segments. `version` is numeric `major.minor.patch`. `icon`, `mobile.icon` and `mobile.splashScreen` use the same bounded SVG/PNG snapshot shape as `settings.applicationIcon`. Desktop dimensions are positive integers no larger than 32768; minimums cannot exceed initial dimensions. Mobile orientation is `portrait`, `landscape` or `auto`. Persisting a platform preference does not establish native support for every visual option; unsupported generation options receive an explicit build diagnostic.
+
+Build platforms are `web`, `windows`, `linux`, `macos`, `android` and `ios`; configurations are `debug` and `release`. Formats are platform-specific: `web`; Windows `exe` (raw executable), `nsis` (EXE installer), `msi`; Linux `deb`, `rpm`, `appimage`; macOS `app`, `dmg`; Android `apk`, `aab`; iOS `ios-app`, `ipa`. Architecture selection uses the exported compatibility helpers: host/x64/x86/arm64 on Windows, host/x64/arm64 on Linux, host/x64/arm64/universal on macOS, arm64/armv7/x64/x86 on Android, and arm64/arm64-simulator/x64 on iOS. Web uses `host`; IPA requires arm64 device. Host/toolchain restrictions are checked separately from this portable model.
+
+`outputDirectory` is an absolute or project-relative filesystem path, bounded to 4096 characters and excluding control characters. It does not grant filesystem access: Electron main still requires its own native directory capability, verifies paths and creates a new result folder. Intermediate/cache paths are not persisted here.
+
+`security.networkOrigins` contains up to 100 exact HTTP(S)/WS(S) origins, without credentials, resource paths, queries, fragments, backslashes or wildcard hosts. A trailing slash normalizes to the URL origin. The main process may add origins from saved static API/RestGO endpoints; dynamically authored endpoints require explicit configuration. This CSP setting does not bypass server CORS.
+
+Signing fields identify certificates already present in the OS store/keychain or uppercase environment-variable names. The Windows thumbprint is hexadecimal and Apple Team ID has ten uppercase letters/digits. Android passwords and keystore values are resolved only by the build host. `iosExportMethod` is `debugging`, `release-testing` or `app-store-connect`. Never add certificates, private keys, passwords or administrative RestGO tokens to this record, browser environment variables or frontend assets. See [Native Build](native-build.md).
 
 ## RestGO project settings
 
@@ -210,3 +275,7 @@ Methods containing statements or comments, unbound helpers, decorated/static met
 # ProgressBar
 
 `WebProgressBar.props` persists `format` (`bars`, `dunnet`, or `circus`), finite `min`, `max` and `value`, and boolean `showValue`, alongside shared visual/layout properties. Display values are clamped to valid ranges; invalid saved ranges project to 0–100 without rewriting the model. Geometry and computed percentages are derived values. Styles persist `progressColor`, `progressTrackColor` and `progressThickness` (1–20 SVG units), with the regular visual states. Format-v2 projects and manifests restore the protected, palette-linked `Default ProgressBar` style using collision-safe identities while preserving custom styles and component bindings. See [ProgressBar](progress-bar.md) for the public runtime API.
+
+## Browser routes
+
+Format v2 settings add `routingMode` (`history` by default, or `hash`) and `routingBasePath` (`/` by default). Page roots persist the optional `props.routePath` independently of component IDs and class names. See [Browser routing](browser-routing.md) for path validation, compatibility and hosting requirements.

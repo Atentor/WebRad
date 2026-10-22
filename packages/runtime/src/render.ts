@@ -289,6 +289,9 @@ runtimeComponentRegistry
       applyCommon(component, node);
       component.element.setAttribute('role', 'application');
       component.caption = readStringProperty(node, 'caption', node.name);
+      component.browserTitle = readStringProperty(node, 'browserTitle');
+      component.element.dataset.webradRoutePath =
+        readStringProperty(node, 'routePath') || '/' + node.name.toLowerCase();
     },
   })
   .register<WebPanel>('WebPanel', {

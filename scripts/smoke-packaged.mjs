@@ -29,16 +29,19 @@ const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');
 const resourceSmoke = process.argv.includes('--webrad-smoke-resources');
 const deploySmoke = process.argv.includes('--webrad-smoke-deploy');
 const updateSmoke = process.argv.includes('--webrad-smoke-updates');
+const nativeBuildSmoke = process.argv.includes('--webrad-smoke-native-build');
 const screenshotArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-screenshot='),
 );
 const smokeVariant = updateSmoke
   ? 'updates'
-  : deploySmoke
-    ? 'deploy'
-    : resourceSmoke
-      ? 'resources'
-      : 'standard';
+  : nativeBuildSmoke
+    ? 'native-build'
+    : deploySmoke
+      ? 'deploy'
+      : resourceSmoke
+        ? 'resources'
+        : 'standard';
 
 async function preserveFailureDiagnostics(error) {
   const artifactRoot = path.resolve('artifacts', 'smoke', 'packaged', smokeVariant);
@@ -93,6 +96,7 @@ try {
       `--webrad-smoke-log=${logPath}`,
       `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
       ...(updateSmoke ? ['--webrad-smoke-updates'] : []),
+      ...(nativeBuildSmoke ? ['--webrad-smoke-native-build'] : []),
       ...(resourceSmoke || deploySmoke
         ? [deploySmoke ? '--webrad-smoke-deploy' : '--webrad-smoke-resources']
         : []),
@@ -131,62 +135,81 @@ try {
         'renderer update download and unsaved changes guard passed',
         'renderer update install action and restart feedback passed',
       ]
-    : deploySmoke
+    : nativeBuildSmoke
       ? [
-          'renderer Deploy menu and directory settings passed',
-          'renderer PWA project settings passed',
-          'renderer Deploy file progress passed:',
-          'renderer Deploy hosting output passed:',
+          'renderer Native Application settings passed',
+          'renderer Native Build platform options passed:',
+          'renderer Native Build requirements checklist passed:',
+          'renderer Native Build CI export passed:',
+          ...(screenshotArgument === undefined
+            ? []
+            : [
+                'renderer Native Build responsive screenshots passed:',
+                'renderer Native Build incompatible host screenshot passed:',
+              ]),
         ]
-      : resourceSmoke
+      : deploySmoke
         ? [
-            'renderer project Models and Units passed',
-            'renderer project asset import passed',
-            'renderer project resources restore and F9 passed',
+            'renderer Deploy menu and directory settings passed',
+            'renderer PWA project settings passed',
+            'renderer Deploy file progress passed:',
+            'renderer Deploy hosting output passed:',
           ]
-        : [
-            'compiler passed:',
-            'preview HTTP server passed',
-            'preview renderer passed',
-            'application icon resource passed:',
-            'renderer loaded:',
-            'renderer shell passed',
-            'renderer About WebRAD modal passed',
-            'renderer application icon passed',
-            'renderer project open passed',
-            'renderer RestGO workspace passed:',
-            'renderer RestGO browser passed:',
-            'renderer CORS origin passed:',
-            'renderer RestGO iframe CORS passed:',
-            'renderer RestGO page Interaction passed:',
-            'renderer Data Grid configuration passed:',
-            'renderer API Client designer passed:',
-            'renderer API Client body parameter hint passed',
-            'renderer RestGO development login passed:',
-            'renderer RestGO API Client synchronization passed:',
-            'renderer API Client browser passed:',
-            'renderer Popup responsive layout passed:',
-            'renderer last project restore passed',
-            'renderer bottom dock passed',
-            'renderer element tree selection passed:',
-            'renderer responsive viewport passed:',
-            'renderer Designer toolbar contract passed:',
-            'renderer bug report browser link passed',
-            'renderer Monaco passed',
-            'renderer Monaco TypeScript highlight passed:',
-            'renderer Monaco autocomplete passed:',
-            'renderer Monaco component members passed:',
-            'renderer Monaco caret alignment passed:',
-            'renderer Monaco context Enter passed:',
-            'renderer empty event save cleanup passed:',
-            'renderer typed Interaction authoring passed:',
-            'renderer typed Interaction Preview passed:',
-            'renderer Monaco workspace state passed:',
-            'renderer Monaco event navigation passed:',
-            'renderer F9 preview passed: Olá Ada',
-            'renderer Designer/Preview button style parity passed',
-            'renderer Preview isolation passed:',
-          ];
+        : resourceSmoke
+          ? [
+              'renderer project Models and Units passed',
+              'renderer project asset import passed',
+              'renderer project resources restore and F9 passed',
+            ]
+          : [
+              'compiler passed:',
+              'preview HTTP server passed',
+              'preview renderer passed',
+              'application icon resource passed:',
+              'renderer loaded:',
+              'renderer shell passed',
+              'renderer About WebRAD modal passed',
+              'renderer application icon passed',
+              'renderer project open passed',
+              'renderer Native Application settings passed',
+              'renderer Native Build platform options passed:',
+              'renderer Native Build requirements checklist passed:',
+              'renderer Native Build CI export passed:',
+              'renderer Page browser title Inspector and F9 passed:',
+              'renderer History routing F9 passed:',
+              'renderer RestGO workspace passed:',
+              'renderer RestGO browser passed:',
+              'renderer CORS origin passed:',
+              'renderer RestGO iframe CORS passed:',
+              'renderer RestGO page Interaction passed:',
+              'renderer Data Grid configuration passed:',
+              'renderer API Client designer passed:',
+              'renderer API Client body parameter hint passed',
+              'renderer RestGO development login passed:',
+              'renderer RestGO API Client synchronization passed:',
+              'renderer API Client browser passed:',
+              'renderer Popup responsive layout passed:',
+              'renderer last project restore passed',
+              'renderer bottom dock passed',
+              'renderer element tree selection passed:',
+              'renderer responsive viewport passed:',
+              'renderer Designer toolbar contract passed:',
+              'renderer bug report browser link passed',
+              'renderer Monaco passed',
+              'renderer Monaco TypeScript highlight passed:',
+              'renderer Monaco autocomplete passed:',
+              'renderer Monaco component members passed:',
+              'renderer Monaco caret alignment passed:',
+              'renderer Monaco context Enter passed:',
+              'renderer empty event save cleanup passed:',
+              'renderer typed Interaction authoring passed:',
+              'renderer typed Interaction Preview passed:',
+              'renderer Monaco workspace state passed:',
+              'renderer Monaco event navigation passed:',
+              'renderer F9 preview passed: Olá Ada',
+              'renderer Designer/Preview button style parity passed',
+              'renderer Preview isolation passed:',
+            ];
   const missingEvidence = [...requiredEvidence, 'renderer workflow completed'].filter(
     (entry) => !log.includes(entry),
   );

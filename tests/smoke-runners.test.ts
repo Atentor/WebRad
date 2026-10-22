@@ -54,6 +54,7 @@ describe.each(['development', 'packaged'] as const)(
       'updates',
       'resources',
       'deploy',
+      'native-build',
       ...(runner === 'development' ? ['debugger'] : []),
     ];
 
@@ -114,6 +115,11 @@ describe.each(['development', 'packaged'] as const)(
           }
           expect(failure).toMatchObject({ code: 1 });
           expect(failure).toHaveProperty('stderr', expect.stringContaining('exit 37'));
+          if (variant === 'standard')
+            expect(failure).toHaveProperty(
+              'stderr',
+              expect.stringContaining('renderer Page browser title Inspector and F9 passed:'),
+            );
           expect(failure).toHaveProperty(
             'stderr',
             expect.stringContaining('diagnostics preserved:'),
@@ -122,6 +128,8 @@ describe.each(['development', 'packaged'] as const)(
           const launch = JSON.parse(
             await fs.readFile(path.join(workspace, 'launch-record.json'), 'utf8'),
           ) as LaunchRecord;
+          if (variant === 'native-build')
+            expect(launch.args).toContain('--webrad-smoke-native-build');
           const logPath = launch.args
             .find((value) => value.startsWith('--webrad-smoke-log='))
             ?.slice('--webrad-smoke-log='.length);

@@ -23,18 +23,21 @@ const resourceSmoke = process.argv.includes('--webrad-smoke-resources');
 const debuggerSmoke = process.argv.includes('--webrad-smoke-debugger');
 const deploySmoke = process.argv.includes('--webrad-smoke-deploy');
 const updateSmoke = process.argv.includes('--webrad-smoke-updates');
+const nativeBuildSmoke = process.argv.includes('--webrad-smoke-native-build');
 const screenshotArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-screenshot='),
 );
 const smokeVariant = updateSmoke
   ? 'updates'
-  : deploySmoke
-    ? 'deploy'
-    : debuggerSmoke
-      ? 'debugger'
-      : resourceSmoke
-        ? 'resources'
-        : 'standard';
+  : nativeBuildSmoke
+    ? 'native-build'
+    : deploySmoke
+      ? 'deploy'
+      : debuggerSmoke
+        ? 'debugger'
+        : resourceSmoke
+          ? 'resources'
+          : 'standard';
 
 async function preserveFailureDiagnostics(error) {
   const artifactRoot = path.resolve('artifacts', 'smoke', 'development', smokeVariant);
@@ -80,6 +83,7 @@ try {
       `--webrad-smoke-log=${logPath}`,
       `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
       ...(updateSmoke ? ['--webrad-smoke-updates'] : []),
+      ...(nativeBuildSmoke ? ['--webrad-smoke-native-build'] : []),
       ...(resourceSmoke || debuggerSmoke || deploySmoke
         ? [
             debuggerSmoke
@@ -140,6 +144,12 @@ try {
           'renderer About WebRAD modal passed',
           'renderer application icon passed',
           'renderer project open passed',
+          'renderer Native Application settings passed',
+          'renderer Native Build platform options passed:',
+          'renderer Native Build requirements checklist passed:',
+          'renderer Native Build CI export passed:',
+          'renderer Page browser title Inspector and F9 passed:',
+          'renderer History routing F9 passed:',
           'renderer RestGO workspace passed:',
           'renderer RestGO browser passed:',
           'renderer CORS origin passed:',
@@ -179,14 +189,27 @@ try {
         'renderer update download and unsaved changes guard passed',
         'renderer update install action and restart feedback passed',
       ]
-    : deploySmoke
+    : nativeBuildSmoke
       ? [
-          'renderer Deploy menu and directory settings passed',
-          'renderer PWA project settings passed',
-          'renderer Deploy file progress passed:',
-          'renderer Deploy hosting output passed:',
+          'renderer Native Application settings passed',
+          'renderer Native Build platform options passed:',
+          'renderer Native Build requirements checklist passed:',
+          'renderer Native Build CI export passed:',
+          ...(screenshotArgument === undefined
+            ? []
+            : [
+                'renderer Native Build responsive screenshots passed:',
+                'renderer Native Build incompatible host screenshot passed:',
+              ]),
         ]
-      : standardEvidence;
+      : deploySmoke
+        ? [
+            'renderer Deploy menu and directory settings passed',
+            'renderer PWA project settings passed',
+            'renderer Deploy file progress passed:',
+            'renderer Deploy hosting output passed:',
+          ]
+        : standardEvidence;
   const missingEvidence = [...requiredEvidence, 'renderer workflow completed'].filter(
     (entry) => !log.includes(entry),
   );

@@ -11,11 +11,18 @@ function escapeHtml(value: string): string {
 
 export interface HtmlDocumentMetadata {
   readonly applicationName: string;
+  readonly browserTitle?: string;
+  readonly routingBasePath?: string;
+  readonly routePaths?: readonly string[];
   readonly applicationDescription: string;
   readonly locale: string;
   readonly timeZone: string;
   readonly applicationIcon: ProjectApplicationIcon | null;
   readonly seo: ProjectSeoSettings;
+}
+
+function documentTitle(metadata: HtmlDocumentMetadata): string {
+  return metadata.browserTitle?.trim() || metadata.applicationName;
 }
 
 function descriptionTag(description: string): string {
@@ -76,12 +83,18 @@ export function createIndexHtml(
   socialImageHref: string | null,
   options: { readonly pwa?: ProjectPwaSettings } = {},
 ): string {
+  const basePath = scriptSafe(JSON.stringify(metadata.routingBasePath ?? '/'));
+  const baseScript =
+    '<script>if(location.protocol!=="file:"){const base=document.createElement("base");base.href=' +
+    basePath +
+    ';document.head.append(base);}</script>';
   return `<!doctype html>
-<html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}">
+<html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}" data-webrad-application-name="${escapeHtml(metadata.applicationName)}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(metadata.applicationName)}</title>
+${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(documentTitle(metadata))}</title>
+${baseScript}
 ${applicationIconTag(metadata.applicationIcon, applicationIconHref)}
 ${seoTags(metadata.applicationName, metadata.applicationDescription, metadata.seo, socialImageHref)}
 ${options.pwa?.enabled === true ? `    <meta name="theme-color" content="${escapeHtml(options.pwa.themeColor)}" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="${escapeHtml(options.pwa.shortName || metadata.applicationName)}" />\n    <link rel="manifest" href="./manifest.webmanifest" />\n    <link rel="apple-touch-icon" href="./assets/icons/pwa-192.png" />\n` : ''}
@@ -115,11 +128,12 @@ export function createPreviewHtml(
   css: string,
 ): string {
   return `<!doctype html>
-<html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}">
+<html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}" data-webrad-application-name="${escapeHtml(metadata.applicationName)}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(metadata.applicationName)}</title>
+${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(documentTitle(metadata))}</title>
+<meta name="webrad-route-paths" content="${encodeURIComponent(JSON.stringify(metadata.routePaths ?? []))}" />
 ${applicationIconTag(metadata.applicationIcon, metadata.applicationIcon?.dataUrl ?? null)}
 ${seoTags(
   metadata.applicationName,

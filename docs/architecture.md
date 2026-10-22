@@ -49,9 +49,24 @@ project model -> generated source -> esbuild -> browser-only output
 - `packages/language`: generated declarations and TypeScript AST transformations. User source is preserved.
 - `packages/runtime`: browser-only component API, shared visual projection/CSS (including the browser-dialog `WebPopup`), DOM-less nonvisual services, and global working helpers.
 - `packages/compiler`: UI-independent validation/generation/build pipeline.
+- `packages/native-build`: Node-side Tauri 2 project generation, prerequisite checks, explicit process execution/cancellation and artifact validation, consuming compiler files without importing the compiler. Its contracts are browser-safe; the implementation runs only in Electron main or a suitable build host.
 - `apps/ide`: Electron main/preload/renderer. Main owns filesystem, dialogs, processes, and project operations; renderer has no Node access.
 
 Packages are created only when they contain working behavior.
+
+## Native application builds
+
+The IDE remains Electron. `settings.nativeApplication` is an additive format-v2 Project Model record for application metadata, desktop/mobile preferences, build selection, exact network origins and signing references. The Project Settings and Build Application interfaces project this record; they do not persist an independent renderer configuration. Existing projects materialize defaults during normal model parsing.
+
+Native Build reuses `compileProject(..., { target: 'native', write: false })`, preserving the ordinary browser runtime, typed instances, authored events, navigation and assets. This target omits PWA registration and workers. The Tauri frontend is local compiler output; no Electron dependency, Designer code or administrative IDE bridge is exported. The compiler never imports Tauri.
+
+The main process validates the trusted IDE frame, opened project, full model/settings and output-directory capability. It saves and compiles the current sources, forwards request-correlated progress and cancellation, and runs the official Tauri CLI in an isolated intermediate workspace. Processes use explicit arguments rather than a renderer-supplied shell command. Native caches belong to the main process; final results use new output subdirectories and require valid artifacts. Open/copy-result IPC accepts only artifacts from that project's completed request.
+
+The separate `nativeBuild.inspect` preload method accepts validated settings for the active project and returns a prerequisite report without saving or compiling. Main cancels superseded inspections and revalidates the sender/project after tool discovery. Renderer discards stale reports when the target changes; manual refresh and the build's own preflight update the same checklist. Tool availability is distinct from native artifact or execution validation.
+
+Generated Tauri capabilities grant no native command permissions by default, disable the global Tauri object and unrestricted filesystem asset protocol, and apply a restrictive CSP. Explicit HTTP(S)/WS(S) origins plus statically discovered RestGO/API Client origins control network resources. Server CORS remains independently enforced by the WebView. Signing settings contain certificate-store/keychain identities and environment variable names, never private credentials. The standalone CI export belongs to the user's application repository and is unrelated to the IDE release/updater workflow.
+
+Native WebView, installation, signing and store behavior require native-platform evidence; passing the compiler/process tests alone does not establish compatibility. See [Native Build](native-build.md) for the implementation, prerequisites and validation limits.
 
 The main process configures `WEBRAD_TAILWIND_BASE_PATH` to the repository root in development and `resources/app.asar` in packaged applications. Both Designer CSS and generated application CSS resolve Tailwind imports from this base, independently of the executable's working directory. Forge copies the PostCSS/Tailwind dependency tree into the archive and unpacks native modules. The packaged smoke launches with the executable directory as its working directory to cover installed-app resolution.
 

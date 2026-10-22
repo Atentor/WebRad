@@ -16,6 +16,7 @@ interface ToolbarProps extends DocumentTabsProps {
   onCommand: (command: IdeCommand) => void;
   canSave: boolean;
   canRun: boolean;
+  canBuildApplication: boolean;
   canUndo: boolean;
   canRedo: boolean;
   projectName?: string;
@@ -141,6 +142,16 @@ export function Toolbar(props: ToolbarProps): ReactElement {
       >
         <Icon name="info" />
         <span>{props.issueCount} issues</span>
+      </button>
+      <button
+        className="wr-tool-button"
+        type="button"
+        title="Build Application"
+        aria-label="Build Application"
+        disabled={!props.canBuildApplication}
+        onClick={() => props.onCommand('project.buildApplication')}
+      >
+        <Icon name="layers" />
       </button>
       <BugReportButton />
       <button

@@ -598,6 +598,8 @@ const webPage: ComponentDefinition = {
   defaultBounds: pageBounds,
   defaults: {
     caption: 'Page',
+    browserTitle: '',
+    routePath: '',
     visible: true,
     collapseWhenHidden: true,
     enabled: true,
@@ -607,6 +609,25 @@ const webPage: ComponentDefinition = {
     ...geometryProperties(pageBounds),
     ...containerLayoutProperties(),
     captionProperty('Page'),
+    {
+      name: 'routePath',
+      label: 'Route path',
+      description:
+        'URL path, such as /clientes or /admin/clientes. Blank uses /index for the initial page, otherwise the page name in lowercase. Set before publishing; routes are fixed at compilation.',
+      type: 'string',
+      category: 'Identity',
+      source: 'props',
+      defaultValue: '',
+    },
+    {
+      name: 'browserTitle',
+      label: 'Browser title',
+      description: 'Title shown in the browser tab. Leave blank to use the application name.',
+      type: 'string',
+      category: 'Identity',
+      source: 'props',
+      defaultValue: '',
+    },
     {
       name: 'backgroundColor',
       label: 'Background Color',

@@ -151,6 +151,45 @@ function completionNames(
 }
 
 describe('Monaco runtime typings', () => {
+  it('completes the root browser title as a string and rejects invalid assignments', () => {
+    const marked = extractMarkers(`import { WebPage } from '@webrad/runtime';
+class EditorPage extends WebPage {
+  configure(): string {
+    this./*@page*/browserTitle = 'Customers';
+    this.browserTitle = '';
+    const route: string = this.routePath;
+    return this.browserTitle + route;
+  }
+}`);
+    const valid = createLanguageService(marked.text);
+    const invalid = createLanguageService(`import { WebPage } from '@webrad/runtime';
+class EditorPage extends WebPage {
+  configure(): void {
+    this.browserTitle = 42;
+    this.browserTitle = null;
+    this.routePath = '/changed';
+  }
+}`);
+    try {
+      expect(valid.service.getSemanticDiagnostics(valid.fileName)).toEqual([]);
+      expect(
+        completionNames(valid.service, valid.fileName, marked.positions.get('page') ?? 0),
+      ).toEqual(expect.arrayContaining(['browserTitle', 'routePath']));
+      const hoverPosition = marked.text.indexOf('browserTitle') + 1;
+      expect(
+        ts.displayPartsToString(
+          valid.service.getQuickInfoAtPosition(valid.fileName, hoverPosition)?.displayParts,
+        ),
+      ).toContain('browserTitle: string');
+      expect(
+        invalid.service.getSemanticDiagnostics(invalid.fileName).map(({ code }) => code),
+      ).toEqual([2322, 2322, 2540]);
+    } finally {
+      valid.service.dispose();
+      invalid.service.dispose();
+    }
+  });
+
   it('completes the typed empty-image choice and accepts a nullable source', () => {
     const marked = extractMarkers(`import { WebImage } from '@webrad/runtime';
 declare const image: WebImage;
@@ -741,6 +780,7 @@ panel./*@panel*/caption;
       expect.arrayContaining([
         ...commonVisualProperties,
         'bindGeneratedEvent',
+        'browserTitle',
         'caption',
         'close',
         'layoutMode',

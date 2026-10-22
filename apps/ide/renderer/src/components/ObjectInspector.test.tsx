@@ -28,6 +28,33 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('edits and clears the page browser title, including pages saved before it existed', () => {
+    const onPropertyChange = vi.fn();
+    const page = createPage();
+    const root = page.components.find((node) => node.id === page.rootComponentId)!;
+    const props = { onPropertyChange, onEventChange: vi.fn(), onEventDoubleClick: vi.fn() };
+    const view = render(<ObjectInspector {...props} selection={[root]} />);
+    expect((screen.getByLabelText('Browser title') as HTMLInputElement).value).toBe('');
+    fireEvent.change(screen.getByLabelText('Browser title'), {
+      target: { value: 'Customer portal' },
+    });
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'browserTitle',
+      'Customer portal',
+      expect.objectContaining({ type: 'string', source: 'props', category: 'Identity' }),
+    );
+    view.rerender(
+      <ObjectInspector
+        {...props}
+        selection={[{ ...root, props: { browserTitle: 'Customer portal' } }]}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Browser title'), { target: { value: '' } });
+    expect(onPropertyChange).toHaveBeenLastCalledWith('browserTitle', '', expect.anything());
+    view.rerender(<ObjectInspector {...props} selection={[{ ...root, props: {} }]} />);
+    expect((screen.getByLabelText('Browser title') as HTMLInputElement).value).toBe('');
+  });
+
   it('edits TextArea spell checking with a true fallback for older projects', () => {
     const onPropertyChange = vi.fn();
     const node = defaultComponentRegistry.createComponent('WebTextArea', {

@@ -158,6 +158,49 @@ async function deploymentSession(): Promise<{
 }
 
 describe('deploy IPC', () => {
+  it('blocks native and Deploy requests while an F9 compilation is pending in main', async () => {
+    const { opened } = await deploymentSession();
+    await register();
+    await invoke('webrad:project:open');
+    let finish: (value: unknown) => void = () => undefined;
+    let started: () => void = () => undefined;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    mocks.compileProject.mockImplementationOnce(() => {
+      started();
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    });
+    const building = invoke('webrad:build:run', event, saveRequest(opened));
+    await ready;
+    try {
+      await expect(
+        invoke('webrad:native-build:run', event, {
+          ...saveRequest(opened),
+          requestId: 'native-during-f9',
+        }),
+      ).rejects.toThrow('Wait for the application build');
+      await expect(
+        invoke('webrad:deploy:run', event, {
+          ...saveRequest(opened),
+          requestId: 'deploy-during-f9',
+        }),
+      ).rejects.toThrow('Wait for the application build');
+      await expect(invoke('webrad:build:run', event, saveRequest(opened))).rejects.toThrow(
+        'Wait for the application build',
+      );
+    } finally {
+      finish({ success: true, diagnostics: [], files: {} });
+      await building;
+    }
+    mocks.compileProject.mockResolvedValue({ success: true, diagnostics: [], files: {} });
+    await expect(invoke('webrad:build:run', event, saveRequest(opened))).resolves.toMatchObject({
+      success: true,
+    });
+  });
+
   it('requires a trusted opened project, validates argument counts, and rejects renderer output overrides', async () => {
     await register();
     const unopened = session('UnopenedDeploy');
