@@ -1,5 +1,12 @@
 # WebRAD architecture
 
+Responsive Menu uses Registry metadata, a browser-only configuration parser and
+runtime class, shared DOM/CSS, and a Designer-owned transactional editor. The
+router handles navigation and announces active routes; each placement disposes
+its own listeners, drawer and transient state. Reusable templates live in the
+Registry and create ordinary definitions with optional initial TypeScript source,
+preserving authored files and instance-scoped Monaco contracts. See [Menu](menu.md).
+
 Component Registry property metadata may provide a pure `runtimeValue(value)` projection. The language generator applies it when emitting nonvisual constructor options, preserving the authoritative saved value. API Client uses this hook to remove `restGoSource` bookkeeping from browser runtime options. Catalog synchronization runs in the Designer: it reconciles imported requests, executes property commands through each document's history, and commits the resulting pages/reusables to the Project Model without editing authored TypeScript. Endpoint save/catalog refresh callbacks carry project and instance context so late results cannot update another project or connection.
 
 Desktop updates are isolated in main-process release metadata, network, installer adapters and a serialized update service, with a narrow trusted-frame IPC/preload contract and a renderer state projection. The updater reads public release assets from the source repository, Atentor/WebRad; no release token is shipped. The workflow takes its destination from github.repository and publishes with the built-in GITHUB_TOKEN, granting Contents write only to the publish job. Windows preserves Squirrel, signed macOS uses architecture-specific static Squirrel feeds, and package-owned Linux installs use the system package manager through polkit. Unsigned macOS builds explicitly offer manual download. Project saving and a main-process unsaved-window guard precede installation. The tag workflow publishes only after all four platform/architecture jobs pass and artifact integrity is checked. See [releases.md](releases.md) for configuration, versioned update-manifest format and external prerequisites. Exported browser applications never include this desktop capability.

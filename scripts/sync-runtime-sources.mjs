@@ -116,6 +116,10 @@ const timerTypings =
   ) + '\n';
 
 const sourceFiles = [
+  'menu.ts',
+  'menu-model.ts',
+  'menu-dom.ts',
+  'menu-css.ts',
   'api-client.ts',
   'api-client-inputs.ts',
   'api-client-accessors.ts',
@@ -327,6 +331,16 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [
+    path.join(repositoryRoot, 'packages', 'language', 'src', 'menu-typings.generated.json'),
+    JSON.stringify(
+      createApiClientDeclarations(repositoryRoot, ['menu-model.ts', 'menu.ts'], (name) =>
+        name.startsWith('WebMenu'),
+      ),
+      null,
+      2,
+    ) + '\n',
+  ],
   [path.join(runtimeRoot, 'lucide-icons.generated.ts'), lucide.source],
   [path.join(repositoryRoot, 'licenses', 'Lucide.txt'), lucide.license],
   [

@@ -59,6 +59,27 @@ export class WebPageRouter {
   readonly #onHashChange = (): void => {
     if (this.#entryRoute !== null) this.#navigateFromHash();
   };
+  readonly #onMenuNavigate = (event: Event): void => {
+    if (event.defaultPrevented) return;
+    if (
+      !(event instanceof CustomEvent) ||
+      typeof event.detail !== 'object' ||
+      event.detail === null
+    )
+      return;
+    const detail: unknown = event.detail;
+    const destination: unknown = Reflect.get(detail as object, 'destination');
+    const target: unknown = Reflect.get(detail as object, 'target');
+    if (
+      typeof destination !== 'string' ||
+      (target !== undefined && target !== '_self' && target !== '_blank')
+    )
+      return;
+    event.preventDefault();
+    if (Reflect.get(detail as object, 'page') === true && !this.findRoute(destination))
+      throw new Error(`Menu references unknown page "${destination}".`);
+    this.navigateBrowser(destination, target === '_blank' ? { newWindow: true } : {});
+  };
   #active: ActiveRuntimePage | null = null;
   #entryRoute: RuntimePageRoute | null = null;
   #listeningForHashChanges = false;
@@ -160,6 +181,7 @@ export class WebPageRouter {
     }
     this.#entryRoute = entryRoute;
     if (!this.#listeningForHashChanges) {
+      this.#host.addEventListener('webrad:menu-navigate', this.#onMenuNavigate);
       this.#window.addEventListener(
         this.#mode === 'hash' ? 'hashchange' : 'popstate',
         this.#onHashChange,
@@ -237,6 +259,8 @@ export class WebPageRouter {
     this.#active = { mounted, page, reusableElements, route };
     try {
       page.show();
+      if (this.#active?.page === page)
+        this.#window.dispatchEvent(new CustomEvent('webrad:route-change', { detail: route.id }));
     } catch (error) {
       this.#disposeActivePage();
       throw error;
@@ -246,6 +270,7 @@ export class WebPageRouter {
 
   /** Removes the active page and releases all generated event bindings. */
   public dispose(): void {
+    this.#host.removeEventListener('webrad:menu-navigate', this.#onMenuNavigate);
     if (this.#listeningForHashChanges) {
       this.#window.removeEventListener(
         this.#mode === 'hash' ? 'hashchange' : 'popstate',

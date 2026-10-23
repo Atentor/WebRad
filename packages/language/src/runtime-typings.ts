@@ -1,4 +1,5 @@
 import timerTypings from './timer-typings.generated.json';
+import menuTypings from './menu-typings.generated.json';
 import reportBuilderTypings from './report-builder-typings.generated.json';
 import apiClientTypings from './api-client-typings.generated.json';
 import videoUploadTypings from './video-upload-typings.generated.json';
@@ -24,6 +25,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     set onClick(handler: WebComponentEventHandler<this> | null);
   }
 ${timerTypings.source}
+${menuTypings.source}
 ${reportBuilderTypings.source}
 ${repeatingGroupTypings.source}
   export interface RestGoRuntimeConfiguration {

@@ -1,3 +1,4 @@
+import { WEB_MENU_CSS } from './menu-css.js';
 /**
  * Browser-safe visual contract shared by the generated runtime and design-time
  * projections. Layout positioning and designer interaction intentionally stay
@@ -1236,10 +1237,9 @@ export function projectComponentVisual(
     ...(tabIndex === undefined ? {} : { tabIndex }),
   };
 }
-
 /** Project defaults shared by Designer surfaces and generated browser pages. */
 export const WEBRAD_PROJECT_CSS = /* @__PURE__ */ `
-.wr-project-surface, .wr-webpage {
+.wr-project-surface, .wr-webpage, .wr-panel-floating-layer {
   color-scheme: light dark;
   font: 400 16px/normal Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: normal;
@@ -1257,17 +1257,17 @@ export const WEBRAD_PROJECT_CSS = /* @__PURE__ */ `
   --wr-button-bg: #edf1f6;
   --wr-button-hover: #dfe6ef;
 }
-:where(.wr-project-surface, .wr-webpage) :is(button, input, select, textarea) {
+:where(.wr-project-surface, .wr-webpage, .wr-panel-floating-layer) :is(button, input, select, textarea) {
   font: inherit;
 }
-:where(.wr-project-surface, .wr-webpage) :is(button, input, select, textarea):focus-visible {
+:where(.wr-project-surface, .wr-webpage, .wr-panel-floating-layer) :is(button, input, select, textarea):focus-visible {
   outline: 2px solid var(--wr-accent);
   outline-offset: -1px;
 }
 `.trim();
-
 /** Shared component styling. Hosts may override the custom properties to theme it. */
 export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
+${WEB_MENU_CSS}
 .wr-component { --webrad-border-gradient-surface: transparent; box-sizing: border-box; font: inherit; }
 .wr-component[hidden] { display: none !important; }
 [data-webrad-clickable]:not(:disabled):not([aria-disabled="true"]),

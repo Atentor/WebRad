@@ -1,0 +1,445 @@
+﻿/* Override shared modal sizing regardless of stylesheet load order. */
+.wr-modal.wr-menu-configuration-dialog {
+  container: wr-menu-configuration / inline-size;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(1240px, calc(100vw - 48px));
+  max-width: 100%;
+  height: min(820px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.wr-menu-configuration-dialog > .wr-modal-header {
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 20px 24px;
+}
+.wr-menu-configuration-dialog > form.wr-menu-editor-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.wr-menu-editor-body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.wr-menu-editor-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.wr-menu-editor-tabs {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--wr-border);
+}
+.wr-menu-editor-tabs > button,
+.wr-menu-editor-actions > button,
+.wr-menu-editor-preview > header button,
+.wr-menu-editor-icon-picker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 6px;
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+}
+.wr-menu-editor-tabs > button {
+  min-width: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--wr-muted-text);
+  white-space: nowrap;
+}
+.wr-menu-editor-tabs > button[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--wr-accent) 45%, transparent);
+  background: var(--wr-accent-soft);
+  color: var(--wr-text);
+}
+.wr-menu-editor-tabs > button:hover:not(:disabled),
+.wr-menu-editor-actions > button:hover:not(:disabled),
+.wr-menu-editor-preview > header button:hover:not(:disabled),
+.wr-menu-editor-icon-picker:hover:not(:disabled) {
+  border-color: var(--wr-control-border);
+  background: var(--wr-surface-hover);
+  color: var(--wr-text);
+}
+.wr-menu-editor-main :is(button, input, select):focus-visible,
+.wr-menu-editor-preview > header button:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+.wr-menu-editor-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.wr-menu-editor-items {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+  min-width: 0;
+}
+.wr-menu-editor-tree-panel {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+.wr-menu-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.wr-menu-editor-actions > button {
+  flex: 0 0 auto;
+}
+.wr-menu-editor-tree {
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  max-height: min(440px, 45dvh);
+  margin-bottom: 12px;
+  padding: 5px;
+  overflow: auto;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 8px;
+  background: var(--wr-bg);
+  scrollbar-width: thin;
+}
+.wr-menu-editor-tree > button {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: start;
+  cursor: pointer;
+}
+.wr-menu-editor-tree > button:hover {
+  background: var(--wr-surface-hover);
+}
+.wr-menu-editor-tree > button.is-selected {
+  border-color: color-mix(in srgb, var(--wr-accent) 40%, transparent);
+  background: var(--wr-accent-soft);
+}
+.wr-menu-editor-tree > button > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wr-menu-editor-tree .wr-icon-graphic,
+.wr-menu-editor-icon-picker .wr-icon-graphic {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+.wr-menu-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+.wr-menu-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  color: var(--wr-text);
+  font-size: 12px;
+}
+.wr-menu-editor-field > span {
+  font-weight: 600;
+  line-height: 1.4;
+}
+.wr-menu-editor-field > :is(input, select, button) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 6px;
+  background-color: var(--wr-input-bg);
+  color: var(--wr-text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.wr-menu-editor-field > select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23949da9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+.wr-menu-editor-field > select option {
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+}
+.wr-menu-editor-field > input[readonly] {
+  background-color: var(--wr-panel-alt);
+  color: var(--wr-muted-text);
+}
+.wr-menu-editor-field > :is(input, select, button):hover:not(:disabled) {
+  border-color: var(--wr-accent);
+}
+.wr-menu-editor-fields > h3,
+.wr-menu-editor-fields > p,
+.wr-menu-editor-fields > .wr-menu-editor-actions,
+.wr-menu-editor-toggles {
+  grid-column: 1 / -1;
+}
+.wr-menu-editor-fields > h3 {
+  margin: 4px 0 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--wr-border);
+  color: var(--wr-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.wr-menu-editor-fields > .wr-modal-description {
+  color: var(--wr-muted-text);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+.wr-menu-editor-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 12px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-panel-alt);
+}
+.wr-menu-editor-toggles > label,
+.wr-menu-editor-fields > label:not(.wr-menu-editor-field) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 24px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.wr-menu-editor-toggles input[type='checkbox'],
+.wr-menu-editor-fields > label > input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--wr-accent);
+}
+.wr-menu-editor-field > .wr-menu-editor-icon-picker {
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: start;
+}
+.wr-menu-editor-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+  padding: 20px 16px;
+  overflow: auto;
+  border-inline-start: 1px solid var(--wr-border);
+  background: var(--wr-panel-alt);
+  scrollbar-width: thin;
+}
+.wr-menu-editor-preview > header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  color: var(--wr-text);
+  font-size: 12px;
+}
+.wr-menu-editor-preview > header > div {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 7px;
+  background: var(--wr-bg);
+}
+.wr-menu-editor-preview > header button {
+  min-height: 26px;
+  padding: 3px 8px;
+  border-color: transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+.wr-menu-editor-preview > header button[aria-pressed='true'] {
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  box-shadow: 0 1px 3px var(--wr-shadow);
+}
+.wr-menu-editor-preview-surface {
+  flex: 1 0 auto;
+  min-width: 0;
+  min-height: 300px;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 12px;
+  background: var(--wr-bg);
+  scrollbar-width: thin;
+}
+.wr-menu-editor-preview-surface > .wr-webmenu {
+  width: 100%;
+  height: 520px;
+  border-radius: 10px;
+}
+.wr-menu-editor-preview-surface[data-mobile='true'] > .wr-webmenu {
+  height: auto;
+}
+.wr-menu-editor-preview-surface[data-orientation='horizontal'][data-mobile='false'] > .wr-webmenu {
+  width: 760px;
+  height: auto;
+}
+.wr-menu-editor-error {
+  flex: 0 0 auto;
+  max-height: 80px;
+  margin: 0;
+  padding: 12px 24px;
+  overflow: auto;
+  border-top: 1px solid var(--wr-border);
+  background: color-mix(in srgb, var(--wr-danger) 8%, var(--wr-panel-bg));
+  color: var(--wr-danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.wr-menu-editor-form > .wr-modal-actions {
+  flex: 0 0 auto;
+  gap: 10px;
+  margin: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--wr-border);
+  background: var(--wr-panel-bg);
+}
+.wr-menu-editor-form > .wr-modal-actions button {
+  height: 36px;
+  border-radius: 6px;
+}
+
+/* Respond to the actual dialog width, including constrained IDE windows. */
+@container wr-menu-configuration (max-width: 1040px) {
+  .wr-menu-editor-body {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .wr-menu-editor-main {
+    flex: 0 0 auto;
+  }
+  .wr-menu-editor-content {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+  .wr-menu-editor-tree-panel {
+    position: static;
+  }
+  .wr-menu-editor-preview {
+    flex: 0 0 auto;
+    padding: 20px;
+    overflow: visible;
+    border-inline-start: 0;
+    border-top: 1px solid var(--wr-border);
+  }
+  .wr-menu-editor-preview-surface {
+    flex: 0 0 auto;
+    min-height: 220px;
+  }
+  .wr-menu-editor-preview-surface > .wr-webmenu {
+    max-width: 360px;
+    height: 380px;
+    margin-inline: auto;
+  }
+  .wr-menu-editor-preview-surface[data-orientation='horizontal'][data-mobile='false']
+    > .wr-webmenu {
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+@container wr-menu-configuration (max-width: 720px) {
+  .wr-menu-editor-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .wr-menu-editor-items {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .wr-menu-editor-tree {
+    min-height: 140px;
+    max-height: 200px;
+  }
+}
+@container wr-menu-configuration (max-width: 480px) {
+  .wr-menu-editor-tabs,
+  .wr-menu-editor-content,
+  .wr-menu-editor-preview {
+    padding: 16px;
+  }
+  .wr-menu-editor-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wr-menu-editor-form > .wr-modal-actions {
+    flex-wrap: wrap;
+    padding: 14px 16px;
+  }
+  .wr-menu-editor-form > .wr-modal-actions button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

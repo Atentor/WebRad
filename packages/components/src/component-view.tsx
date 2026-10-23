@@ -1,6 +1,7 @@
 import { projectProgressBar } from '@webrad/runtime/progress-bar';
 import { projectIcon } from '@webrad/runtime/icon';
 import { LucideGraphic } from './lucide-graphic.js';
+import { MenuView } from './menu-view.js';
 import { ProgressBarGraphic } from './progress-bar-graphic.js';
 import { PanelProgressGraphic } from './panel-progress-graphic.js';
 import { ProjectAssetsContext, resolveProjectImageSource } from './project-assets.js';
@@ -85,15 +86,15 @@ function PanelView({
     </section>
   );
 }
-
 function ImageView({ node, designTime, styleClassName }: ComponentViewProps): ReactElement {
+  const assets = useContext(ProjectAssetsContext);
   const authoredSource = readStringProperty(node, 'src');
   const source =
     authoredSource.trim() === ''
       ? imagePlaceholderSource(
           readStringProperty(node, 'placeholder') === 'user' ? 'user' : 'image',
         )
-      : authoredSource;
+      : resolveProjectImageSource(authoredSource, assets);
   const ref = useRef<HTMLImageElement>(null);
   useEffect(() => {
     if (ref.current !== null) return bindImageResampling(ref.current);
@@ -280,7 +281,6 @@ function dataGridLayoutStyle(
     '--wr-data-grid-config-vertical-line-width': configuration.showVerticalLines ? '1px' : '0px',
   } as CSSProperties;
 }
-
 function RepeatingGroupView({
   node,
   designTime,
@@ -317,8 +317,11 @@ function RepeatingGroupView({
       </span>
     ) : null;
   const row =
-    isValidElement<{ className?: string; style?: CSSProperties; children?: ReactNode }>(child) &&
-    child.props.className?.split(/\s+/u).includes('wr-runtime-children') === true ? (
+    isValidElement<{
+      className?: string;
+      style?: CSSProperties;
+      children?: ReactNode;
+    }>(child) && child.props.className?.split(/\s+/u).includes('wr-runtime-children') === true ? (
       cloneElement(
         child,
         {
@@ -386,8 +389,14 @@ function ProgressBarView({
     </div>
   );
 }
-
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
+  WebMenu: ({ node, designTime, styleClassName }) => (
+    <MenuView
+      node={node}
+      designTime={designTime}
+      attributes={sharedAttributes(node, designTime, styleClassName)}
+    />
+  ),
   WebIcon: ({ node, designTime, styleClassName, onEvent }) => {
     const state = projectIcon(node.props);
     return (

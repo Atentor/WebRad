@@ -10,6 +10,8 @@ const URL_PROPERTIES = new Set([
   'source',
   'srcset',
   'backgroundimage',
+  'logo',
+  'avatar',
 ]);
 const URL_METHODS = new Set(['fetch', 'loadsource', 'setsource', 'setsrc', 'open', 'loadtemplate']);
 

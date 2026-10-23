@@ -624,6 +624,7 @@ function PropertyEditor({
       );
     }
     case 'combo-box-config':
+    case 'menu-config':
     case 'report-template':
     case 'repeating-group-config':
     case 'current-row-bindings':
@@ -631,6 +632,7 @@ function PropertyEditor({
       const action = property.designerAction;
       const label = {
         'combo-box-config': 'Configure ComboBox',
+        'menu-config': 'Configure Menu',
         'report-template': 'Open Report Builder',
         'data-grid-config': 'Configure Data Grid',
         'repeating-group-config': 'Configure Repeating Group',

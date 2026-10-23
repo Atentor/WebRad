@@ -26,6 +26,7 @@ import {
 } from '@webrad/designer';
 import {
   componentRegistry,
+  REUSABLE_COMPONENT_TEMPLATES,
   getCurrentRowBindableProperties,
   requireComponentDefinition,
   resolveComponentDesignerPresentation,
@@ -92,6 +93,8 @@ import {
 import { DesignerSurface } from './components/DesignerSurface';
 import { AddPageDialog, type AddDocumentKind } from './components/AddPageDialog';
 import { DataGridConfigurationDialog } from './components/DataGridConfigurationDialog';
+import { MenuConfigurationDialog } from './components/MenuConfigurationDialog';
+import type { WebMenuConfiguration } from '@webrad/runtime/menu-model';
 import { ComboBoxConfigurationDialog } from './components/ComboBoxConfigurationDialog';
 import { ComboBoxItemsDialog } from './components/ComboBoxItemsDialog';
 import { RepeatingGroupConfigurationDialog } from './components/RepeatingGroupConfigurationDialog';
@@ -244,6 +247,9 @@ export function App(): ReactElement {
     'general' | 'build'
   >('general');
   const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
+  const [menuConfiguratorComponentId, setMenuConfiguratorComponentId] = useState<string | null>(
+    null,
+  );
   const [comboBoxEditorMode, setComboBoxEditorMode] = useState<'api' | 'items' | 'values'>('api');
   const [comboBoxConfiguratorComponentId, setComboBoxConfiguratorComponentId] = useState<
     string | null
@@ -319,6 +325,9 @@ export function App(): ReactElement {
       null
     );
   }, [activePage, dataGridConfiguratorComponentId]);
+  const menuConfiguratorComponent =
+    activePage?.components.find((component) => component.id === menuConfiguratorComponentId) ??
+    null;
   const comboBoxConfiguratorComponent = useMemo(
     () =>
       activePage?.components.find(
@@ -400,6 +409,7 @@ export function App(): ReactElement {
       setMonacoMarkers([]);
       setBottomPanelTab('output');
       setApiClientTesterComponentId(null);
+      setMenuConfiguratorComponentId(null);
       setDataGridConfiguratorComponentId(null);
       setRepeatingGroupConfiguratorComponentId(null);
       setReportBuilderComponentId(null);
@@ -586,14 +596,15 @@ export function App(): ReactElement {
       point: { x: number; y: number },
       requestedParentId: string,
     ): void => {
-      if (!activePage || !project?.reusableElements.some((item) => item.id === reusableElementId)) {
+      const reusable = project?.reusableElements.find((item) => item.id === reusableElementId);
+      if (!activePage || !reusable) {
         return;
       }
       try {
         if (activeDocumentKind === 'reusable' && reusableElementId === activePage.id) {
           throw new Error('A reusable component cannot contain an instance of itself.');
         }
-        const definition = requireComponentDefinition('WebReusableElement');
+        const reusableRoot = getComponent(reusable, reusable.rootComponentId);
         const parent = getComponent(activePage, requestedParentId);
         const parentBounds = designerInsertionBounds(
           parent,
@@ -604,22 +615,29 @@ export function App(): ReactElement {
         const snapped = project.settings.snapToGrid
           ? snapPoint(point, project.settings.gridSize)
           : point;
-        const x = Math.max(
-          0,
-          Math.min(snapped.x, parentBounds.width - definition.defaultBounds.width),
-        );
-        const y = Math.max(
-          0,
-          Math.min(snapped.y, parentBounds.height - definition.defaultBounds.height),
-        );
+        const x = Math.max(0, Math.min(snapped.x, parentBounds.width - reusable.width));
+        const y = Math.max(0, Math.min(snapped.y, parentBounds.height - reusable.height));
         const node = componentRegistry.createComponent('WebReusableElement', {
           existingNames: activePage.components,
           parentId: requestedParentId,
           x,
           y,
+          width: reusable.width,
+          height: reusable.height,
           props: { reusableElementId },
         }) as ComponentNode;
-        commitDesignerCommand(new AddComponentCommand(node, { parentId: requestedParentId }));
+        const placement = {
+          ...node,
+          layout: {
+            ...node.layout,
+            item: {
+              ...node.layout.item,
+              width: reusableRoot.layout.item.width,
+              height: reusableRoot.layout.item.height,
+            },
+          },
+        };
+        commitDesignerCommand(new AddComponentCommand(placement, { parentId: requestedParentId }));
         selectionManager.selectSingle(node.id);
         addOutput('DESIGNER', `Added reusable component ${node.name}.`);
       } catch (error) {
@@ -997,6 +1015,8 @@ export function App(): ReactElement {
       selectionManager.selectSingle(component.id);
       if (action === 'api-client-tester') {
         setApiClientTesterComponentId(component.id);
+      } else if (action === 'menu-configurator') {
+        setMenuConfiguratorComponentId(component.id);
       } else if (action === 'data-grid-configurator') {
         setDataGridConfiguratorComponentId(component.id);
       } else if (action === 'repeating-group-configurator') {
@@ -1247,6 +1267,22 @@ export function App(): ReactElement {
     [activePage, comboBoxConfiguratorComponent, designerController, updateActivePage, reportError],
   );
 
+  const saveMenuConfiguration = useCallback(
+    (configuration: WebMenuConfiguration): void => {
+      if (!activePage || !menuConfiguratorComponent) return;
+      try {
+        const next = designerController.executeMany(activePage, 'Configure Menu', [
+          new ChangePropertyCommand(menuConfiguratorComponent.id, 'configuration', configuration),
+        ]);
+        updateActivePage(next);
+        setMenuConfiguratorComponentId(null);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [activePage, menuConfiguratorComponent, designerController, updateActivePage, reportError],
+  );
+
   const saveProjectSettings = useCallback(
     (settings: ProjectSettings): void => {
       try {
@@ -1361,6 +1397,7 @@ export function App(): ReactElement {
     try {
       if (!(await prepareToReplaceProject())) return;
       projectController.close();
+      setMenuConfiguratorComponentId(null);
       releaseMonacoWorkspace();
       setOpenPageIds([]);
       setActivePageId(null);
@@ -1412,7 +1449,7 @@ export function App(): ReactElement {
   }, [openAddDocumentDialog]);
 
   const submitAddDocument = useCallback(
-    (name: string): void => {
+    (name: string, templateId?: string): void => {
       const kind = addDocumentDialogKind;
       if (!project || kind === null) return;
       try {
@@ -1427,9 +1464,21 @@ export function App(): ReactElement {
           addOutput('PROJECT', `Added ${kind} ${name}.`);
           return;
         }
-        const document = kind === 'page' ? createPage(name) : createReusableElement(name);
+        const template = REUSABLE_COMPONENT_TEMPLATES.find(
+          (entry) => entry.id === (templateId ?? 'blank'),
+        );
+        const created =
+          kind === 'page'
+            ? createPage(name)
+            : (template?.create(name) ?? createReusableElement(name));
+        const document = {
+          ...created,
+          components: created.components.map((node) =>
+            applyDefaultComponentStyle(node, project.styles),
+          ),
+        };
         if (kind === 'page') projectController.addPage(document);
-        else projectController.addReusableElement(document);
+        else projectController.addReusableElement(document, template?.createSource?.(document));
         setOpenPageIds((current) =>
           current.includes(document.id) ? current : [...current, document.id],
         );
@@ -1687,6 +1736,7 @@ export function App(): ReactElement {
     nativeBuild.state !== null ||
     deploy.state !== null ||
     apiClientTesterComponent !== null ||
+    menuConfiguratorComponent !== null ||
     dataGridConfiguratorComponent !== null ||
     repeatingGroupConfiguratorComponent !== null ||
     reportBuilderComponent !== null ||
@@ -2842,6 +2892,16 @@ export function App(): ReactElement {
           component={dataGridConfiguratorComponent}
           onClose={() => setDataGridConfiguratorComponentId(null)}
           onSave={saveDataGridConfiguration}
+        />
+      )}
+      {menuConfiguratorComponent !== null && (
+        <MenuConfigurationDialog
+          key={menuConfiguratorComponent.id}
+          component={menuConfiguratorComponent}
+          pages={project?.pages ?? []}
+          assets={project?.assets ?? []}
+          onSave={saveMenuConfiguration}
+          onClose={() => setMenuConfiguratorComponentId(null)}
         />
       )}
       {repeatingGroupConfiguratorComponent !== null && (

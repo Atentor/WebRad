@@ -18,3 +18,4 @@ export * from './video-upload.js';
 export * from './video-player.js';
 
 export * from './report-builder.js';
+export * from './menu.js';

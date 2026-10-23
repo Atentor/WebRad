@@ -1,5 +1,10 @@
 import { ReportBuilderPropertiesSchema } from './report-builder.js';
 import {
+  MenuConfigurationSchema,
+  validateMenuPageReferences,
+  materializeLegacyMenuTemplate,
+} from './menu.js';
+import {
   ProjectSourceFilesSchema,
   ProjectAssetsSchema,
   validateProjectResourceIds,
@@ -257,7 +262,6 @@ function materializeComponentDefaultStyle(
     styles: [...styles.slice(0, insertionIndex), defaultStyle, ...styles.slice(insertionIndex)],
   };
 }
-
 /**
  * Some additive v2 fields were introduced after projects using the same
  * format version already existed. Materialize their deterministic defaults
@@ -292,7 +296,6 @@ function materializeProjectDefaults(input: unknown): unknown {
       ['WebPanel'],
       palette.success ? palette.data : [],
     ).styles;
-
     const toggleStyles = materializeComponentDefaultStyle(
       candidate.id,
       repeatingStyles,
@@ -300,7 +303,6 @@ function materializeProjectDefaults(input: unknown): unknown {
       ['WebCheckBox'],
       palette.success ? palette.data : [],
     ).styles;
-
     const progressStyles = materializeComponentDefaultStyle(
       candidate.id,
       toggleStyles,
@@ -318,6 +320,13 @@ function materializeProjectDefaults(input: unknown): unknown {
       ).styles,
       palette.success ? palette.data : [],
     );
+    styles = materializeComponentDefaultStyle(
+      candidate.id,
+      styles,
+      'WebMenu',
+      ['WebIcon'],
+      palette.success ? palette.data : [],
+    ).styles;
   }
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;
@@ -551,7 +560,6 @@ function materializeComponentProperties(input: unknown): unknown {
     },
   };
 }
-
 export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
   materializeComponentProperties,
   z
@@ -569,6 +577,16 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
     })
     .strict()
     .superRefine((component, context) => {
+      if (component.type === 'WebMenu' && component.props.configuration !== undefined) {
+        const result = MenuConfigurationSchema.safeParse(component.props.configuration);
+        if (!result.success)
+          for (const issue of result.error.issues)
+            context.addIssue({
+              code: 'custom',
+              message: issue.message,
+              path: ['props', 'configuration', ...issue.path],
+            });
+      }
       if (component.props.currentRowBindings !== undefined) {
         const result = CurrentRowBindingsSchema.safeParse(component.props.currentRowBindings);
         if (!result.success)
@@ -1461,19 +1479,21 @@ function validateReusableElementRelationships(
 function validateVisualDocumentRelationships(page: PageModel, context: z.RefinementCtx): void {
   validateDocumentRelationships(page, context, ['WebPage', 'WebPanel']);
 }
-
-const DocumentModelSchema = z
-  .object({
-    formatVersion: z.literal(CURRENT_PAGE_FORMAT_VERSION),
-    id: nonEmptyStringSchema,
-    name: pageNameSchema,
-    caption: z.string(),
-    width: positiveDimensionSchema,
-    height: positiveDimensionSchema,
-    components: z.array(ComponentNodeSchema).min(1),
-    rootComponentId: nonEmptyStringSchema,
-  })
-  .strict();
+const DocumentModelSchema = z.preprocess(
+  materializeLegacyMenuTemplate,
+  z
+    .object({
+      formatVersion: z.literal(CURRENT_PAGE_FORMAT_VERSION),
+      id: nonEmptyStringSchema,
+      name: pageNameSchema,
+      caption: z.string(),
+      width: positiveDimensionSchema,
+      height: positiveDimensionSchema,
+      components: z.array(ComponentNodeSchema).min(1),
+      rootComponentId: nonEmptyStringSchema,
+    })
+    .strict(),
+);
 
 export const PageModelSchema: z.ZodType<PageModel> =
   DocumentModelSchema.superRefine(validatePageRelationships);
@@ -1561,14 +1581,13 @@ function validatePaletteReferences(
       });
     });
 }
-
 function validateProjectRelationships(project: WebRadProject, context: z.RefinementCtx): void {
+  validateMenuPageReferences(project, context);
   validateProjectResourceIds(project, context);
   validatePaletteReferences(project, context);
   const ids = new Set<string>();
   const names = new Set<string>();
   const stylesById = indexComponentStyles(project.styles, context);
-
   project.pages.forEach((page, index) => {
     if (ids.has(page.id)) {
       context.addIssue({
@@ -1578,7 +1597,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       });
     }
     ids.add(page.id);
-
     const nameKey = portableFileNameKey(page.name);
     if (names.has(nameKey)) {
       context.addIssue({
@@ -1588,7 +1606,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       });
     }
     names.add(nameKey);
-
     page.components.forEach((component, componentIndex) => {
       if (component.styleId === undefined) return;
       const style = stylesById.get(component.styleId);
@@ -1607,7 +1624,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       }
     });
   });
-
   const reusableById = new Map<string, ReusableElementModel>();
   project.reusableElements.forEach((reusableElement, index) => {
     if (ids.has(reusableElement.id)) {
@@ -1619,7 +1635,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     }
     ids.add(reusableElement.id);
     reusableById.set(reusableElement.id, reusableElement);
-
     const nameKey = portableFileNameKey(reusableElement.name);
     if (names.has(nameKey)) {
       context.addIssue({
@@ -1629,7 +1644,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       });
     }
     names.add(nameKey);
-
     const root = reusableElement.components.find(
       (component) => component.id === reusableElement.rootComponentId,
     );
@@ -1640,7 +1654,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
         path: ['reusableElements', index, 'rootComponentId'],
       });
     }
-
     reusableElement.components.forEach((component, componentIndex) => {
       if (component.styleId === undefined) return;
       const style = stylesById.get(component.styleId);
@@ -1659,7 +1672,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       }
     });
   });
-
   const reusableReferences = new Map<string, readonly string[]>();
   const validateReusableInstanceProperties = (
     component: ComponentNode,
@@ -1679,7 +1691,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
         path: [...path, 'placement'],
       });
     }
-
     const horizontalAnchor = component.props.floatingHorizontalAnchor;
     if (
       typeof horizontalAnchor !== 'string' ||
@@ -1693,7 +1704,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
         path: [...path, 'floatingHorizontalAnchor'],
       });
     }
-
     const verticalAnchor = component.props.floatingVerticalAnchor;
     if (
       typeof verticalAnchor !== 'string' ||
@@ -1707,7 +1717,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
         path: [...path, 'floatingVerticalAnchor'],
       });
     }
-
     const layer = component.props.floatingZIndex;
     if (typeof layer !== 'number' || !Number.isFinite(layer) || !Number.isInteger(layer)) {
       context.addIssue({
@@ -1788,7 +1797,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     });
     return references;
   };
-
   project.pages.forEach((page, index) => {
     validateReusableReferences(page, 'pages', index);
   });
@@ -1798,7 +1806,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       validateReusableReferences(reusableElement, 'reusableElements', index),
     );
   });
-
   const active = new Set<string>();
   const completed = new Set<string>();
   const cyclicIds = new Set<string>();
@@ -1842,7 +1849,6 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       });
     });
   }
-
   if (!ids.has(project.entryPage)) {
     context.addIssue({
       code: 'custom',

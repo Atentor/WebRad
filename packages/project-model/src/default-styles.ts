@@ -358,6 +358,14 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Menu',
+    componentType: 'WebMenu',
+    states: {
+      base: { borderWidth: px(0), borderRadius: px(16), boxShadow: 'md' },
+      disabled: { opacity: 60 },
+    },
+  },
+  {
     name: 'Default ProgressBar',
     componentType: 'WebProgressBar',
     states: {

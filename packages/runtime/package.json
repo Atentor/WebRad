@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./menu": {
+      "types": "./src/menu.ts",
+      "default": "./src/menu.ts"
+    },
+    "./menu-model": {
+      "types": "./src/menu-model.ts",
+      "default": "./src/menu-model.ts"
+    },
     "./icon": {
       "types": "./src/icon.ts",
       "default": "./src/icon.ts"

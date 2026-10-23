@@ -178,7 +178,7 @@ da publicação. Siga o [checklist de release](docs/release-checklist.md) e o
 
 Comece pela [arquitetura](docs/architecture.md), pelo [formato do projeto](docs/project-format.md)
 e pelo [compilador](docs/compiler.md). Os componentes têm guias próprios, incluindo
-[Icons](docs/icons.md), [Timer](docs/timer.md), [Repeating Group](docs/repeating-group.md),
+[Icons](docs/icons.md), [Menu](docs/menu.md), [Timer](docs/timer.md), [Repeating Group](docs/repeating-group.md),
 [Report Builder](docs/report-builder.md), [File Upload](docs/file-upload.md),
 [Video Upload](docs/video-upload.md) e [Video Player](docs/video-player.md).
 

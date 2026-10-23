@@ -10,6 +10,7 @@ export type ComponentPropertyType =
   | 'reusable-element'
   | 'api-client-config'
   | 'combo-box-config'
+  | 'menu-config'
   | 'data-grid-config'
   | 'repeating-group-config'
   | 'current-row-bindings'
@@ -23,6 +24,7 @@ export type ComponentDesignerAction =
   | 'repeating-group-configurator'
   | 'current-row-bindings'
   | 'combo-box-configurator'
+  | 'menu-configurator'
   | 'combo-box-items'
   | 'combo-box-values'
   | 'report-builder';

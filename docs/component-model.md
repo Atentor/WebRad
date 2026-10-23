@@ -1,5 +1,11 @@
 # Component model
 
+`WebMenu` is a registered visual navigation component with a transactional
+tree/appearance/profile/mobile editor and a typed browser runtime. Its saved
+`configuration` is shared by Designer, Preview and export. Reusable project
+templates compose registered components and supply initial TypeScript source for
+a new definition, preserving existing authored files. See [Menu](menu.md).
+
 `WebTextArea` exposes **Behavior → Spell Check** in the Inspector (`props.spellCheck`, boolean, default `true`). Disabling it sets the native textarea's `spellcheck` to `false` in Designer and generated browser applications, suppressing the browser's spelling marks. Existing projects that omit the property retain spell checking. The public runtime property `TextArea1.spellCheck` (also `this.TextArea1.spellCheck`) reads or updates the setting as a boolean; for example, `this.TextArea1.spellCheck = false;`. Runtime assignments are transient and do not change the saved Project Model.
 
 Static ComboBox options use paired `items` labels and `values` keys. The Registry declares separate Items and Values actions which open the same simple multiline modal, focusing the requested field. Each value corresponds to the label on the same line, while an empty Values list uses the labels as keys. Both arrays are saved in one undoable Designer transaction; cancelled drafts never enter the Project Model. The public `values` getter/setter is typed in the browser runtime and Monaco, and the native select carries the same keys in Designer and Preview.

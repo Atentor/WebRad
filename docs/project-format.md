@@ -1,5 +1,13 @@
 # Project format
 
+`WebMenu.props.configuration` stores a `schemaVersion: 1` menu with stable-ID
+recursive items, brand/profile data, appearance and responsive behavior. Pages
+use stable IDs. Project format 2 is unchanged; a shared parser validates menus
+and the project parser verifies page references. Custom styles remain intact
+when the protected Menu style is materialized. Reusable templates create ordinary
+definitions and separate `reusables/Name.ts` files. New placements inherit the
+definition dimensions and root item sizing modes. See [Menu](menu.md).
+
 Imported API Client operations may include optional `restGoSource: { apiId, parameterNames }`. The API ID identifies the RestGO publication/method; parameter names record the last imported input set so catalog updates can remove obsolete generated inputs without deleting unrelated fields. This contains no SQL, values or credentials. It is saved with the operation in pages and reusable definitions; project format 2 and API Client schema 1 remain unchanged. Older imports are matched by their stable `restgo-` IDs or exact published route. The Component Registry projects this metadata out of generated browser constructor options. See [API Client synchronization](api-client.md#atualizacao-de-apis-importadas-do-restgo).
 
 Visual style `fontFamily` values include `sans`, `serif`, `mono`, `roboto`,

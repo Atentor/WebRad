@@ -54,6 +54,7 @@ const CONTROL_CLASS_PREFIXES: Readonly<Record<string, string>> = {
   'wr-icon-graphic': 'WebIcon',
   'wr-button-': 'WebButton',
   'wr-popup-': 'WebPopup',
+  'wr-menu-': 'WebMenu',
   'wr-data-grid-': 'WebDataGrid',
   'wr-video-': 'WebVideoPlayer',
   'wr-toggle-': 'WebToggle',

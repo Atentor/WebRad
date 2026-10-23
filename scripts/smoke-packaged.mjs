@@ -182,6 +182,8 @@ try {
               'renderer Panel floating Inspector and F9 passed:',
               'renderer Timer Inspector and Interact passed:',
               'renderer Lucide Icons Inspector and F9 passed:',
+              'renderer Menu Inspector and F9 passed:',
+              'renderer Menu configurator layout passed:',
               'renderer icon gallery canonical names passed:',
               'renderer IDE Lucide icons passed:',
               'renderer History routing F9 passed:',

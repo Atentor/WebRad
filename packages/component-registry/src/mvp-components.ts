@@ -1,4 +1,5 @@
 import { webReportBuilder } from './report-builder.js';
+import { createWebMenuDefinition } from './menu.js';
 import { componentRegistry, ComponentRegistry } from './registry.js';
 import { organizeInspectorProperty } from './inspector-properties.js';
 import { CURRENT_ROW_BINDINGS_PROPERTY } from './current-row-bindings.js';
@@ -2026,6 +2027,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebToggle',
   'WebProgressBar',
   'WebIcon',
+  'WebMenu',
   'WebComboBox',
   'WebImage',
   'WebListBox',
@@ -2055,6 +2057,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webToggle,
   webProgressBar,
   webIcon,
+  createWebMenuDefinition(geometryProperties({ width: 288, height: 640 })),
   webComboBox,
   webImage,
   webListBox,

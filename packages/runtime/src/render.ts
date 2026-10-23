@@ -1,5 +1,7 @@
 import { WebProgressBar, projectProgressBar } from './progress-bar.js';
 import { WebIcon, projectIcon } from './icon.js';
+import { WebMenu } from './menu.js';
+import { createDefaultWebMenuConfiguration, parseWebMenuConfiguration } from './menu-model.js';
 import type { WebComponent } from './component.js';
 import {
   WebToggle,
@@ -299,6 +301,17 @@ function popupChildrenHost(component: WebPopup): HTMLElement {
 export const runtimeComponentRegistry = new RuntimeComponentRegistry();
 
 runtimeComponentRegistry
+  .register<WebMenu>('WebMenu', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebMenu(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.configuration =
+        node.props.configuration === undefined
+          ? createDefaultWebMenuConfiguration()
+          : parseWebMenuConfiguration(node.props.configuration);
+    },
+  })
   .register<WebIcon>('WebIcon', {
     createElement: elementFactory('button'),
     createComponent: (element) => new WebIcon(element),

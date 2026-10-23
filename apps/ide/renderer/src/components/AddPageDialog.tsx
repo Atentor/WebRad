@@ -1,5 +1,6 @@
 import { Icon } from './Icon';
 import { getPageNameError, portableFileNameKey } from '@webrad/project-model';
+import { REUSABLE_COMPONENT_TEMPLATES } from '@webrad/component-registry';
 import {
   useEffect,
   useId,
@@ -17,7 +18,7 @@ interface AddPageDialogProps {
   readonly suggestedName: string;
   readonly occupiedNames: readonly string[];
   readonly onCancel: () => void;
-  readonly onCreate: (name: string) => void;
+  readonly onCreate: (name: string, templateId?: string) => void;
 }
 
 function documentLabel(kind: AddDocumentKind): string {
@@ -49,6 +50,7 @@ export function AddPageDialog({
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
   const [name, setName] = useState(suggestedName);
+  const [templateId, setTemplateId] = useState('blank');
   const [error, setError] = useState<string | null>(null);
   const label = documentLabel(kind);
 
@@ -74,7 +76,7 @@ export function AddPageDialog({
       return;
     }
     setError(null);
-    onCreate(normalizedName);
+    onCreate(normalizedName, kind === 'reusable' ? templateId : undefined);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -86,7 +88,7 @@ export function AddPageDialog({
     }
     if (event.key !== 'Tab') return;
     const focusable = [
-      ...(dialogRef.current?.querySelectorAll<HTMLElement>('button, input') ?? []),
+      ...(dialogRef.current?.querySelectorAll<HTMLElement>('button, input, select') ?? []),
     ];
     const first = focusable[0];
     const last = focusable.at(-1);
@@ -134,6 +136,27 @@ export function AddPageDialog({
                   ? 'Create a TypeScript class for application data.'
                   : 'Create a TypeScript module for shared functions and logic.'}
           </p>
+          {kind === 'reusable' && (
+            <label className="wr-modal-field">
+              <span>Template</span>
+              <select
+                value={templateId}
+                onChange={(event) => setTemplateId(event.currentTarget.value)}
+              >
+                {REUSABLE_COMPONENT_TEMPLATES.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.label}
+                  </option>
+                ))}
+              </select>
+              <small>
+                {
+                  REUSABLE_COMPONENT_TEMPLATES.find((template) => template.id === templateId)
+                    ?.description
+                }
+              </small>
+            </label>
+          )}
           <label className="wr-modal-field">
             <span>{`${label.slice(0, 1).toUpperCase()}${label.slice(1)} name`}</span>
             <input

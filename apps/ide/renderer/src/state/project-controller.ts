@@ -423,12 +423,15 @@ export class ProjectController {
     this.#commitEdit(project, userSources);
   }
 
-  public addReusableElement(reusableElement: ReusableElementModel): void {
+  public addReusableElement(reusableElement: ReusableElementModel, initialSource?: string): void {
     const project = addReusableElementToProject(this.#requireProject(), reusableElement);
     const key = reusableSourcePath(reusableElement.name);
     const userSources = {
       ...this.#snapshot.userSources,
-      [key]: this.#snapshot.userSources[key] ?? createUserReusableElementSource(reusableElement),
+      [key]:
+        this.#snapshot.userSources[key] ??
+        initialSource ??
+        createUserReusableElementSource(reusableElement),
     };
     this.#commitEdit(project, userSources);
   }
