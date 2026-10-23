@@ -37,7 +37,7 @@ it.runIf(browser !== undefined)(
                 .find(line => line.getBoundingClientRect().top >= bounds.top)?.textContent,
             };
           };
-          window.runRestoreCase = async width => {
+          window.runRestoreCase = async (width, wideLine) => {
             const host = document.getElementById('root');
             host.style.width = width + 'px';
             const model = monaco.editor.createModel(source, 'typescript');
@@ -45,11 +45,12 @@ it.runIf(browser !== undefined)(
               model, automaticLayout: true,
               fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: '300',
               fontLigatures: false, fontVariations: false,
-              lineHeight: 20, padding: { top: 8, bottom: 8 },
+              lineHeight: 20, padding: { top: 8, bottom: 20 },
               glyphMargin: true, lineNumbersMinChars: 3, lineDecorationsWidth: 12,
               minimap: { enabled: true, maxColumn: 100, renderCharacters: false,
                 showSlider: 'mouseover', size: 'proportional' },
               scrollBeyondLastLine: false, smoothScrolling: false,
+              scrollbar: { ignoreHorizontalScrollbarInContentHeight: true },
             };
             let editor = monaco.editor.create(host, options);
             let fontObserver = observeMonacoFontMetrics(editor);
@@ -59,6 +60,16 @@ it.runIf(browser !== undefined)(
               monaco.editor.remeasureFonts();
               editor.render(true);
               await frame(); await frame();
+              // Native caret checks can leave a cached wide line after restoring its text.
+              // The recreated editor computes a fresh width; neither state may move vertically.
+              if (wideLine) {
+                const line = model.getLineContent(4);
+                editor.executeEdits('wide-line', [{ range: new monaco.Range(4, 1, 4, model.getLineMaxColumn(4)),
+                  text: line + 'W'.repeat(160) }]);
+                editor.render(true);
+                await frame(); await frame();
+                editor.executeEdits('restore-line', [{ range: new monaco.Range(4, 1, 4, model.getLineMaxColumn(4)), text: line }]);
+              }
               editor.executeEdits('fixture', [{ range: new monaco.Range(7, 1, 7, 1),
                 text: '\\n' + Array.from({ length: 40 }, (_, index) => '// workspaceSmoke_' + index).join('\\n') }]);
               editor.setPosition({ lineNumber: 47, column: model.getLineMaxColumn(47) });
@@ -129,7 +140,9 @@ it.runIf(browser !== undefined)(
             timeout: 15_000,
           })
           .toBe(true);
-        for (const width of [500, 628, 900]) {
+        for (const { width, wideLine } of [500, 628, 900].flatMap((width) =>
+          [false, true].map((wideLine) => ({ width, wideLine })),
+        )) {
           interface Viewport {
             readonly position: { readonly lineNumber: number; readonly column: number };
             readonly scrollTop: number;
@@ -140,15 +153,15 @@ it.runIf(browser !== undefined)(
             readonly firstLine: string;
           }
           const { before, after } = await evaluate<{ before: Viewport; after: Viewport }>(
-            `window.runRestoreCase(${width})`,
+            `window.runRestoreCase(${width}, ${wideLine})`,
           );
           expect(before.position).toEqual({ lineNumber: 39, column: 6 });
           expect(before.scrollTop).toBeGreaterThan(0);
-          expect(before.scrollWidth > before.contentWidth).toBe(width !== 900);
+          expect(before.scrollWidth > before.contentWidth).toBe(wideLine || width !== 900);
           expect(after.position).toEqual(before.position);
           expect(after.scrollTop).toBe(before.scrollTop);
           expect(after.scrollHeight).toBe(before.scrollHeight);
-          expect(after.scrollWidth).toBe(before.scrollWidth);
+          if (!wideLine) expect(after.scrollWidth).toBe(before.scrollWidth);
           expect(after.firstLine).toBe(before.firstLine);
           expect(Math.abs(after.caretTop - before.caretTop)).toBeLessThanOrEqual(1.5);
         }

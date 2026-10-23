@@ -242,6 +242,7 @@ export async function runMonacoWorkspaceSmoke(
     after === null ||
     Reflect.get(after, 'position') !== Reflect.get(before, 'position') ||
     Reflect.get(after, 'firstLine') !== Reflect.get(before, 'firstLine') ||
+    Reflect.get(after, 'scrollHeight') !== Reflect.get(before, 'scrollHeight') ||
     Math.abs(Number(Reflect.get(after, 'caretTop')) - Number(Reflect.get(before, 'caretTop'))) >
       1.5 ||
     Math.abs(Number(Reflect.get(after, 'scrollTop')) - Number(Reflect.get(before, 'scrollTop'))) >

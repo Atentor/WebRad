@@ -679,6 +679,8 @@ describe('CodeEditor professional Monaco workspace', () => {
       fontVariations: false,
       letterSpacing: 0,
       smoothScrolling: false,
+      padding: { top: 8, bottom: 20 },
+      scrollbar: { ignoreHorizontalScrollbarInContentHeight: true },
       fontWeight: '300',
       formatOnPaste: true,
       formatOnType: true,

@@ -251,7 +251,7 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
     mouseWheelZoom: true,
     occurrencesHighlight: 'multiFile',
     overviewRulerBorder: false,
-    padding: { bottom: 8, top: 8 },
+    padding: { bottom: 20, top: 8 },
     parameterHints: { cycle: true, enabled: true },
     quickSuggestions: { comments: 'off', other: 'on', strings: 'on' },
     quickSuggestionsDelay: 100,
@@ -262,6 +262,8 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
     rulers: [100],
     screenReaderAnnounceInlineSuggestion: true,
     scrollBeyondLastLine: false,
+    // Cached line widths can change on remount; keep vertical geometry independent of them.
+    scrollbar: { ignoreHorizontalScrollbarInContentHeight: true },
     selectionHighlight: true,
     'semanticHighlighting.enabled': true,
     showDeprecated: true,

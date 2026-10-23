@@ -443,14 +443,18 @@ describe('real native process execution and failures', () => {
   });
   it('reports missing tools objectively without installation or fake native artifacts', async () => {
     const directory = await temp();
-    const env = { PATH: '', Path: '', CARGO_HOME: path.join(directory, 'missing-cargo') };
+    const env = {
+      PATH: '',
+      Path: '',
+      CARGO_HOME: path.join(directory, 'missing-cargo'),
+      'ProgramFiles(x86)': path.join(directory, 'missing-program-files'),
+      WindowsSdkDir: path.join(directory, 'missing-sdk'),
+    };
     const report = await checkNativePrerequisites(settings('android', 'arm64', 'apk'), { env });
     expect(report.ready).toBe(false);
     expect(report.checks.find((item) => item.id === 'cargo')?.status).toBe('missing');
     expect(report.checks.find((item) => item.id === 'java')?.instruction).toContain('JAVA_HOME');
-    vi.stubEnv('PATH', '');
-    vi.stubEnv('Path', '');
-    vi.stubEnv('CARGO_HOME', path.join(directory, 'missing-cargo'));
+    for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value);
     const result = await buildNativeApplication({
       buildId: 'missing-toolchain',
       settings: settings(),
@@ -461,6 +465,10 @@ describe('real native process execution and failures', () => {
     expect(result.status).toBe('failed');
     expect(result.artifacts).toEqual([]);
     expect(result.prerequisites?.ready).toBe(false);
+    if (process.platform === 'win32')
+      expect(result.prerequisites?.checks.find((item) => item.id === 'msvc')?.status).toBe(
+        'missing',
+      );
     expect(
       await readFile(path.join(result.workspaceDirectory, 'native-build.log'), 'utf8'),
     ).toContain('No system tools are installed automatically');

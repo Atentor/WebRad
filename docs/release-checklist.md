@@ -30,6 +30,8 @@ A correção local de 22/10/2026 concluiu o smoke de desenvolvimento completo em
 
 ## Antes de criar uma tag
 
+O smoke de restauração Design/Code também deve preservar a altura rolável depois de inserir e remover uma linha longa. O Monaco pode manter a largura anterior em cache até recriar o editor; não deixe a barra horizontal alterar a geometria vertical. A regressão Chromium cobre esse histórico em três larguras, mantendo as verificações de cursor, primeira linha e rolagem. Fixtures de ferramentas ausentes devem isolar também os diretórios do Visual Studio e Windows SDK, para não consultar instalações reais do runner.
+
 1. Envie o commit para `main`, uma branch `codex/verify-release-*` ou abra um pull request. O workflow `release` executa os quatro builds, smokes do aplicativo e atualizador, geração de instaladores e montagem sem publicar. `workflow_dispatch` também permite verificar uma branch existente.
 2. Espere os quatro builds e `assemble` terminarem com sucesso. O job `publish` deve estar ignorado nesse modo. Confira também `validate` e `security` e registre o SHA e os links das execuções.
 3. A verificação que libera uma tag deve ser um push de `main`/`codex/verify-release-*` ou uma execução manual no **mesmo SHA**. Um pull request detecta falhas antecipadamente, mas seu commit de merge temporário não certifica o SHA final. Após merge/rebase ou qualquer edição, aguarde uma nova verificação do commit final.
