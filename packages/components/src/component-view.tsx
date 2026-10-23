@@ -1,4 +1,6 @@
 import { projectProgressBar } from '@webrad/runtime/progress-bar';
+import { projectIcon } from '@webrad/runtime/icon';
+import { LucideGraphic } from './lucide-graphic.js';
 import { ProgressBarGraphic } from './progress-bar-graphic.js';
 import { PanelProgressGraphic } from './panel-progress-graphic.js';
 import { ProjectAssetsContext, resolveProjectImageSource } from './project-assets.js';
@@ -386,6 +388,32 @@ function ProgressBarView({
 }
 
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
+  WebIcon: ({ node, designTime, styleClassName, onEvent }) => {
+    const state = projectIcon(node.props);
+    return (
+      <button
+        {...sharedAttributes(node, designTime, styleClassName)}
+        type="button"
+        role={state.mode === 'button' ? 'button' : 'img'}
+        aria-label={state.accessibleLabel || node.name}
+        tabIndex={
+          designTime || state.mode === 'icon' ? -1 : readIntegerProperty(node, 'tabIndex', 0)
+        }
+        disabled={!readBooleanProperty(node, 'enabled', true)}
+        data-webrad-icon={state.icon}
+        data-webrad-icon-mode={state.mode}
+        onClick={() => {
+          if (state.mode === 'button') onEvent?.('OnClick', node);
+        }}
+        onFocus={() => onEvent?.('OnFocus', node)}
+        onBlur={() => onEvent?.('OnBlur', node)}
+        onMouseEnter={() => onEvent?.('OnMouseEnter', node)}
+        onMouseLeave={() => onEvent?.('OnMouseLeave', node)}
+      >
+        <LucideGraphic icon={state.icon} strokeWidth={state.strokeWidth} />
+      </button>
+    );
+  },
   WebProgressBar: ProgressBarView,
   WebRepeatingGroup: RepeatingGroupView,
   WebPage: ({ node, designTime, styleClassName, children }) => (

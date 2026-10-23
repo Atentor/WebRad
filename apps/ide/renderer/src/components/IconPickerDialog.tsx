@@ -1,5 +1,6 @@
 import {
   type WebRadIconName,
+  isWebRadIconName,
   webRadIconLabel,
   webRadIconMatchesSearch,
 } from '@webrad/runtime/icons';
@@ -11,17 +12,20 @@ import {
   useState,
   type KeyboardEvent,
   type ReactElement,
+  type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 
-interface IconPickerDialogProps {
-  readonly icons: readonly WebRadIconName[];
-  readonly selected?: WebRadIconName;
+interface IconPickerDialogProps<T extends string> {
+  readonly icons: readonly T[];
+  readonly selected?: T;
+  readonly renderIcon?: (icon: T) => ReactNode;
+  readonly libraryLabel?: string;
   readonly onClose: () => void;
   /** Enables consumers whose icon is optional to clear the current selection. */
   readonly onClear?: () => void;
-  readonly onSelect: (icon: WebRadIconName) => void;
+  readonly onSelect: (icon: T) => void;
 }
 
 /**
@@ -29,19 +33,21 @@ interface IconPickerDialogProps {
  * applies it immediately; this keeps the property's single source of truth in
  * the Project Model rather than holding a separate draft selection in the UI.
  */
-export function IconPickerDialog({
+export function IconPickerDialog<T extends string = WebRadIconName>({
   icons,
   selected,
   onClose,
   onClear,
   onSelect,
-}: IconPickerDialogProps): ReactElement {
+  renderIcon,
+  libraryLabel = 'Button / Icon',
+}: IconPickerDialogProps<T>): ReactElement {
   const titleId = useId();
   const descriptionId = useId();
   const searchId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const iconButtonRefs = useRef(new Map<WebRadIconName, HTMLButtonElement>());
+  const iconButtonRefs = useRef(new Map<T, HTMLButtonElement>());
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
@@ -51,7 +57,11 @@ export function IconPickerDialog({
     () =>
       searchQuery.length === 0
         ? icons
-        : icons.filter((icon) => webRadIconMatchesSearch(icon, searchQuery)),
+        : icons.filter((icon) =>
+            isWebRadIconName(icon)
+              ? webRadIconMatchesSearch(icon, searchQuery)
+              : icon.replaceAll('-', ' ').includes(searchQuery.toLowerCase().replaceAll('-', ' ')),
+          ),
     [icons, searchQuery],
   );
   const focusedIcon =
@@ -114,7 +124,7 @@ export function IconPickerDialog({
       >
         <header className="wr-modal-header">
           <div>
-            <span className="wr-modal-eyebrow">Button / Icon</span>
+            <span className="wr-modal-eyebrow">{libraryLabel}</span>
             <h2 id={titleId}>Choose an icon</h2>
           </div>
           <button
@@ -128,7 +138,7 @@ export function IconPickerDialog({
         </header>
         <div className="wr-icon-picker-content">
           <p id={descriptionId} className="wr-modal-description">
-            Select an icon to apply it to the selected button.
+            Select an icon to apply it to the selected component.
           </p>
           <label className="wr-icon-picker-search" htmlFor={searchId}>
             <span>Search icons</span>
@@ -145,7 +155,9 @@ export function IconPickerDialog({
           {matchingIcons.length > 0 ? (
             <div className="wr-icon-picker-grid" aria-label="Available icons">
               {matchingIcons.map((icon) => {
-                const label = webRadIconLabel(icon);
+                const label = isWebRadIconName(icon)
+                  ? webRadIconLabel(icon)
+                  : icon.replaceAll('-', ' ');
                 return (
                   <button
                     ref={(element) => {
@@ -160,7 +172,11 @@ export function IconPickerDialog({
                     data-icon-picker-option={icon}
                     onClick={() => onSelect(icon)}
                   >
-                    <Icon name={icon} />
+                    {renderIcon ? (
+                      renderIcon(icon)
+                    ) : isWebRadIconName(icon) ? (
+                      <Icon name={icon} />
+                    ) : null}
                     <span>{label}</span>
                   </button>
                 );

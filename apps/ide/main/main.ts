@@ -28,6 +28,7 @@ import {
   runRestGoSettingsSmoke,
 } from './restgo-smoke';
 import { runDataGridConfigurationSmoke } from './data-grid-smoke';
+import { runIconSmoke } from './icon-smoke';
 import { runStylesWorkspaceSmoke } from './styles-smoke';
 import { runPopupLayoutSmoke } from './popup-smoke';
 import { runBugReportSmoke } from './bug-report-smoke';
@@ -1172,6 +1173,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await captureDesignerSmokeScreenshot(window);
   await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runDataGridConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runIconSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runApiClientDesignerSmoke(window, {
     projectPath: smokeProjectPath,
     log: smokeLog,

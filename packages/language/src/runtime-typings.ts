@@ -4,12 +4,24 @@ import videoUploadTypings from './video-upload-typings.generated.json';
 import videoPlayerTypings from './video-player-typings.generated.json';
 import repeatingGroupTypings from './repeating-group-typings.generated.json';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
+import { LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
 
 import restGoTypings from './restgo-typings.generated.json';
 
 const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'`).join('\n');
 
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
+  export type LucideIconName = ${LUCIDE_ICON_NAMES.map((name) => `'${name}'`).join(' | ')};
+  export type WebIconMode = 'icon' | 'button';
+  export class WebIcon extends WebComponent<HTMLButtonElement> {
+    constructor(element: HTMLElement);
+    icon: LucideIconName;
+    mode: WebIconMode;
+    accessibleLabel: string;
+    strokeWidth: number;
+    click(): void;
+    set onClick(handler: WebComponentEventHandler<this> | null);
+  }
 ${reportBuilderTypings.source}
 ${repeatingGroupTypings.source}
   export interface RestGoRuntimeConfiguration {

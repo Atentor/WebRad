@@ -1293,6 +1293,12 @@ export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
 .wr-webbutton { --webrad-border-gradient-surface: var(--wr-button-bg, #343b49); display: inline-flex; align-items: center; justify-content: center; gap: .45em; border: 1px solid var(--wr-control-border, #677184); border-radius: 4px; background: var(--wr-button-bg, #343b49); color: inherit; padding: 4px 12px; }
 .wr-webbutton:hover:not(:disabled) { --webrad-border-gradient-surface: var(--wr-button-hover, #414a5a); background: var(--wr-button-hover, #414a5a); }
 .wr-button-icon { display: block; width: 1em; height: 1em; flex: none; }
+.wr-webicon { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; padding: 0; border: 0; background: transparent; color: inherit; overflow: hidden; }
+.wr-webicon > .wr-icon-graphic { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; pointer-events: none; }
+.wr-webicon[data-webrad-icon-mode='icon'], .wr-webicon[data-webrad-icon-mode='icon'] * { cursor: inherit !important; }
+.wr-webicon[data-webrad-icon-mode='button']:not(:disabled) { cursor: pointer; }
+.wr-webicon:focus, .wr-webicon:focus-visible { outline: none; }
+.wr-webicon:disabled { cursor: not-allowed; }
 .wr-button-content-text .wr-button-icon { display: none; }
 .wr-button-icon-left { flex-direction: row; }
 .wr-webcheckbox { display: flex; align-items: center; gap: 7px; }

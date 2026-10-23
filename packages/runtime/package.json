@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./icon": {
+      "types": "./src/icon.ts",
+      "default": "./src/icon.ts"
+    },
     "./fonts": {
       "types": "./src/fonts.ts",
       "default": "./src/fonts.ts"
@@ -40,6 +44,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@webrad/restgo-sdk": "0.1.0",
+    "lucide": "1.61.0",
     "pdf-lib": "1.17.1",
     "shaka-player": "5.3.2"
   },

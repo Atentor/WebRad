@@ -13,6 +13,7 @@ import {
   REUSABLE_ELEMENT_VERTICAL_ANCHORS,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
+import { LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
 import {
   PANEL_BACKGROUND_SIZES,
   PANEL_BACKGROUND_POSITIONS,
@@ -1249,6 +1250,97 @@ const webToggle: ComponentDefinition = {
   events: [event('OnChange'), event('OnClick'), event('OnFocus'), event('OnBlur')],
 };
 
+const webIcon: ComponentDefinition = {
+  type: 'WebIcon',
+  displayName: 'Icons',
+  namePrefix: 'Icon',
+  palette: { category: standardCategory, caption: 'Icons' },
+  icon: 'star',
+  visual: true,
+  canHaveChildren: false,
+  defaultEvent: 'OnClick',
+  defaultBounds: { width: 32, height: 32 },
+  defaults: {
+    icon: 'star',
+    mode: 'icon',
+    accessibleLabel: '',
+    strokeWidth: 2,
+    visible: true,
+    collapseWhenHidden: true,
+    enabled: true,
+    tabIndex: 0,
+  },
+  styleEditor: {
+    essentialProperties: [
+      'textColor',
+      'backgroundColor',
+      'borderWidth',
+      'borderStyle',
+      'borderColor',
+      'borderRadius',
+      'boxShadow',
+      'ringWidth',
+      'ringColor',
+      'opacity',
+    ],
+  },
+  properties: [
+    ...geometryProperties({ width: 32, height: 32 }),
+    tabIndexProperty(),
+    {
+      name: 'icon',
+      label: 'Icon',
+      type: 'icon',
+      iconLibrary: 'lucide',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'star',
+      options: LUCIDE_ICON_NAMES,
+    },
+    {
+      name: 'mode',
+      label: 'Mode',
+      type: 'enum',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: 'icon',
+      options: ['icon', 'button'],
+      description:
+        'Icon displays a Lucide graphic. Button enables click and keyboard activation without a caption.',
+    },
+    {
+      name: 'accessibleLabel',
+      label: 'Accessible label',
+      type: 'string',
+      category: 'Accessibility',
+      source: 'props',
+      defaultValue: '',
+      description:
+        'Name announced by assistive technology. Never displayed as a caption; falls back to the component name.',
+    },
+    {
+      name: 'strokeWidth',
+      label: 'Stroke width',
+      type: 'number',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 2,
+      validateValue: (value) =>
+        typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 24,
+    },
+  ],
+  events: [
+    event('OnClick'),
+    event('OnDblClick'),
+    event('OnFocus'),
+    event('OnBlur'),
+    event('OnKeyDown'),
+    event('OnKeyUp'),
+    event('OnMouseEnter'),
+    event('OnMouseLeave'),
+  ],
+};
+
 const webProgressBar: ComponentDefinition = {
   type: 'WebProgressBar',
   displayName: 'ProgressBar',
@@ -1846,6 +1938,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebCheckBox',
   'WebToggle',
   'WebProgressBar',
+  'WebIcon',
   'WebComboBox',
   'WebImage',
   'WebListBox',
@@ -1873,6 +1966,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webCheckBox,
   webToggle,
   webProgressBar,
+  webIcon,
   webComboBox,
   webImage,
   webListBox,

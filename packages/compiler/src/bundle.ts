@@ -1,4 +1,5 @@
 import pdfSources from './pdf-lib-sources.generated.json';
+import lucideSources from './lucide-sources.generated.json';
 import webRadLicense from './license-sources.generated.json';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -236,6 +237,16 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
         .map(([input]) => input),
     ),
   );
+  if (
+    [...usedInputs].some(
+      (input) =>
+        input.endsWith('/lucide-icons.generated.ts') ||
+        input.endsWith(':lucide-icons.generated.ts'),
+    )
+  ) {
+    files['assets/licenses/Lucide.txt'] =
+      `Lucide ${lucideSources.version}\n\n${lucideSources.license}`;
+  }
   if ([...usedInputs].some((input) => input.startsWith('webrad-shaka:'))) {
     files['assets/licenses/Shaka-Player-Apache-2.0.txt'] =
       `Shaka Player ${shakaSources.version}\nCopyright 2016 Google LLC\n\n${shakaSources.license}`;

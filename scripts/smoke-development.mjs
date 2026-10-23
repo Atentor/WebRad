@@ -157,6 +157,7 @@ try {
           'renderer RestGO iframe CORS passed:',
           'renderer RestGO page Interaction passed:',
           'renderer Data Grid configuration passed:',
+          'renderer Lucide Icons Inspector and F9 passed:',
           'renderer API Client designer passed:',
           'renderer API Client body parameter hint passed',
           'renderer RestGO development login passed:',

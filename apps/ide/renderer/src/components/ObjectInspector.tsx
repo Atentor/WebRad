@@ -14,12 +14,7 @@ import type {
   PageModel,
   ReusableElementModel,
 } from '@webrad/project-model';
-import {
-  WEBRAD_ICON_NAMES,
-  isWebRadIconName,
-  type WebRadIconName,
-  webRadIconLabel,
-} from '@webrad/runtime/icons';
+import { WEBRAD_ICON_NAMES, isWebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
 import { useContext, useEffect, useId, useMemo, useState, type ReactElement } from 'react';
 import { resolvePaletteColor } from '@webrad/project-model';
 import { ProjectColorPaletteContext } from '../project-color-palette';
@@ -283,7 +278,9 @@ interface IconPropertyEditorProps {
   readonly onPickerOpenChange?: (open: boolean) => void;
 }
 
-function availableIconNames(property: ComponentPropertyDefinition): readonly WebRadIconName[] {
+function availableIconNames(property: ComponentPropertyDefinition): readonly string[] {
+  if (property.iconLibrary === 'lucide')
+    return (property.options ?? LUCIDE_ICON_NAMES).filter(isLucideIconName);
   const configured = (property.options ?? WEBRAD_ICON_NAMES).filter(isWebRadIconName);
   return configured.length > 0 ? configured : WEBRAD_ICON_NAMES;
 }
@@ -299,12 +296,21 @@ function IconPropertyEditor({
 }: IconPropertyEditorProps): ReactElement {
   const [open, setOpen] = useState(false);
   const icons = useMemo(() => availableIconNames(property), [property]);
-  const iconName = !multiple && isWebRadIconName(value) ? value : undefined;
+  const iconName =
+    !multiple && typeof value === 'string' && icons.includes(value) ? value : undefined;
+  const renderIcon = (icon: string): ReactElement =>
+    property.iconLibrary === 'lucide' ? (
+      <LucideGraphic icon={icon} className="wr-icon" />
+    ) : (
+      <Icon name={isWebRadIconName(icon) ? icon : 'star'} />
+    );
   const label = multiple
     ? MULTIPLE_VALUES_LABEL
     : iconName === undefined
       ? 'Choose icon'
-      : webRadIconLabel(iconName);
+      : isWebRadIconName(iconName)
+        ? webRadIconLabel(iconName)
+        : iconName.replaceAll('-', ' ');
 
   useEffect(
     () => () => {
@@ -335,13 +341,15 @@ function IconPropertyEditor({
         onClick={openPicker}
       >
         <span className="wr-inspector-icon-picker-preview" aria-hidden="true">
-          {iconName === undefined ? <span>—</span> : <Icon name={iconName} />}
+          {iconName === undefined ? <span>—</span> : renderIcon(iconName)}
         </span>
         <span>{label}</span>
       </button>
       {open && (
         <IconPickerDialog
           icons={icons}
+          renderIcon={renderIcon}
+          libraryLabel={property.iconLibrary === 'lucide' ? 'Lucide / Icons' : undefined}
           selected={iconName}
           onClose={closePicker}
           onSelect={(icon) => {
@@ -1065,3 +1073,5 @@ export function ObjectInspector({
   );
 }
 import { VideoPlayerSourceEditor } from './VideoPlayerSourceEditor';
+import { LUCIDE_ICON_NAMES, isLucideIconName } from '@webrad/runtime/icon';
+import { LucideGraphic } from '@webrad/components';

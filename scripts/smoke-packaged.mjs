@@ -179,6 +179,7 @@ try {
               'renderer Native Build requirements checklist passed:',
               'renderer Native Build CI export passed:',
               'renderer Page browser title Inspector and F9 passed:',
+              'renderer Lucide Icons Inspector and F9 passed:',
               'renderer History routing F9 passed:',
               'renderer RestGO workspace passed:',
               'renderer RestGO browser passed:',

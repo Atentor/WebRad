@@ -350,6 +350,14 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Icons',
+    componentType: 'WebIcon',
+    states: {
+      base: { textColor: '#2563eb', borderWidth: px(0), borderRadius: px(4) },
+      disabled: { opacity: 60, cursor: 'not-allowed' },
+    },
+  },
+  {
     name: 'Default ProgressBar',
     componentType: 'WebProgressBar',
     states: {

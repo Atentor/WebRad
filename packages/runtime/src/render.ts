@@ -1,4 +1,5 @@
 import { WebProgressBar, projectProgressBar } from './progress-bar.js';
+import { WebIcon, projectIcon } from './icon.js';
 import type { WebComponent } from './component.js';
 import {
   WebToggle,
@@ -282,6 +283,18 @@ function popupChildrenHost(component: WebPopup): HTMLElement {
 export const runtimeComponentRegistry = new RuntimeComponentRegistry();
 
 runtimeComponentRegistry
+  .register<WebIcon>('WebIcon', {
+    createElement: elementFactory('button'),
+    createComponent: (element) => new WebIcon(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      const state = projectIcon(node.props);
+      component.icon = state.icon;
+      component.mode = state.mode;
+      component.accessibleLabel = state.accessibleLabel;
+      component.strokeWidth = state.strokeWidth;
+    },
+  })
   .register<WebPage>('WebPage', {
     createElement: elementFactory('section'),
     createComponent: (element) => new WebPage(element),

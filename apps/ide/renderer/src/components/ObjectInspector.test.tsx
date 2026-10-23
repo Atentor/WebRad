@@ -28,6 +28,43 @@ const button: ComponentNode = {
 };
 
 describe('ObjectInspector', () => {
+  it('edits Lucide selection, mode, stroke and accessible label without a caption', () => {
+    const onPropertyChange = vi.fn();
+    const node = defaultComponentRegistry.createComponent('WebIcon', { id: 'icon', name: 'Icon1' });
+    render(
+      <ObjectInspector
+        selection={[node]}
+        onPropertyChange={onPropertyChange}
+        onEventChange={vi.fn()}
+        onEventDoubleClick={vi.fn()}
+      />,
+    );
+    expect(screen.queryByLabelText('Caption')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'button' } });
+    expect(onPropertyChange).toHaveBeenLastCalledWith('mode', 'button', expect.anything());
+    fireEvent.change(screen.getByLabelText('Stroke width'), { target: { value: '3' } });
+    expect(onPropertyChange).toHaveBeenLastCalledWith('strokeWidth', 3, expect.anything());
+    fireEvent.change(screen.getByLabelText('Accessible label'), {
+      target: { value: 'Take photo' },
+    });
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'accessibleLabel',
+      'Take photo',
+      expect.anything(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Icon' }));
+    const search = screen.getByRole('searchbox', { name: 'Search icons' });
+    fireEvent.change(search, { target: { value: 'camera' } });
+    const option = document.querySelector<HTMLButtonElement>('[data-icon-picker-option="camera"]')!;
+    expect(option.querySelector('svg path')?.getAttribute('d')).toContain('M13.997');
+    fireEvent.click(option);
+    expect(onPropertyChange).toHaveBeenLastCalledWith(
+      'icon',
+      'camera',
+      expect.objectContaining({ iconLibrary: 'lucide' }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
   it('edits and clears the page browser title, including pages saved before it existed', () => {
     const onPropertyChange = vi.fn();
     const page = createPage();

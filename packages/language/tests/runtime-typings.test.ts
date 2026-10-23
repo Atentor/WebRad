@@ -582,6 +582,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebCheckBox,
   WebToggle,
   WebProgressBar,
+  WebIcon,
   WebComboBox,
   WebDataGrid,
   WebRepeatingGroup,
@@ -614,6 +615,7 @@ class EditorPage extends WebPage {
     checkBox: WebCheckBox,
     toggle: WebToggle,
     progressBar: WebProgressBar,
+    icon: WebIcon,
     combo: WebComboBox,
     image: WebImage,
     list: WebListBox,
@@ -636,6 +638,7 @@ panel./*@panel*/caption;
     button./*@button*/caption;
     toggle./*@toggle*/checked;
     progressBar./*@progressBar*/value;
+    icon./*@icon*/mode;
     checkBox./*@checkBox*/checked;
     combo./*@combo*/items;
     image./*@image*/objectFit;
@@ -791,6 +794,7 @@ panel./*@panel*/caption;
 
     const completionMarkerByType: Readonly<Record<string, string>> = {
       WebProgressBar: 'progressBar',
+      WebIcon: 'icon',
       WebApiClient: 'api',
       WebButton: 'button',
       WebCheckBox: 'checkBox',

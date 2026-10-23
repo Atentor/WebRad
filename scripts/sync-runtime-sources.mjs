@@ -1,5 +1,6 @@
 import { createApiClientDeclarations } from './api-client-declarations.mjs';
 import { createFontSources } from './font-sources.mjs';
+import { createLucideSources } from './lucide-sources.mjs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +9,7 @@ import ts from 'typescript';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimeRoot = path.join(repositoryRoot, 'packages', 'runtime', 'src');
+const lucide = await createLucideSources(repositoryRoot);
 const outputPath = path.join(repositoryRoot, 'packages', 'compiler', 'src', 'runtime-sources.json');
 const sdkRoot = path.join(repositoryRoot, 'packages', 'restgo-sdk', 'src');
 const sdkOutputPath = path.join(
@@ -119,6 +121,8 @@ const sourceFiles = [
   'video-player.ts',
   'controls.ts',
   'progress-bar.ts',
+  'icon.ts',
+  'lucide-icons.generated.ts',
   'panel-progress.ts',
   'page.ts',
   'page-event-hooks.ts',
@@ -139,7 +143,9 @@ const sources = Object.fromEntries(
   await Promise.all(
     sourceFiles.map(async (fileName) => [
       fileName,
-      await fs.readFile(path.join(runtimeRoot, fileName), 'utf8'),
+      fileName === 'lucide-icons.generated.ts'
+        ? lucide.source
+        : await fs.readFile(path.join(runtimeRoot, fileName), 'utf8'),
     ]),
   ),
 );
@@ -306,6 +312,12 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [path.join(runtimeRoot, 'lucide-icons.generated.ts'), lucide.source],
+  [path.join(repositoryRoot, 'licenses', 'Lucide.txt'), lucide.license],
+  [
+    path.join(repositoryRoot, 'packages', 'compiler', 'src', 'lucide-sources.generated.json'),
+    lucide.metadata,
+  ],
   [
     path.join(repositoryRoot, 'packages', 'compiler', 'src', 'font-sources.generated.json'),
     await createFontSources(repositoryRoot),

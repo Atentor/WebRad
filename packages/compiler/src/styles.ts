@@ -51,6 +51,7 @@ export const GENERATED_APP_CSS = `${APP_BASE_CSS}\n${WEBRAD_COMPONENT_CSS}\n${WE
 const CONTROL_CLASS_PREFIXES: Readonly<Record<string, string>> = {
   'wr-panel-progress': 'WebPanel',
   'wr-progress-': 'WebProgressBar',
+  'wr-icon-graphic': 'WebIcon',
   'wr-button-': 'WebButton',
   'wr-popup-': 'WebPopup',
   'wr-data-grid-': 'WebDataGrid',

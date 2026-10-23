@@ -173,6 +173,34 @@ interface DefaultStyleMaterialization {
   readonly styles: readonly unknown[];
 }
 
+/** Remove only the original seeded Icons focus ring; retain authored effects. */
+function normalizeIconDefaultFocus(
+  styles: readonly unknown[],
+  colors: readonly ProjectPaletteColor[],
+): readonly unknown[] {
+  const seededColor = bindStyleColorsToPalette({ ringColor: '#93c5fd' }, colors).ringColor;
+  return styles.map((style) => {
+    if (
+      !isDefaultStyleForComponent(style, 'WebIcon') ||
+      !isRecord(style) ||
+      !isRecord(style.states)
+    )
+      return style;
+    const focus = style.states.focus;
+    if (
+      !isRecord(focus) ||
+      Object.keys(focus).length !== 2 ||
+      !isRecord(focus.ringWidth) ||
+      Object.keys(focus.ringWidth).length !== 2 ||
+      focus.ringWidth.value !== 2 ||
+      focus.ringWidth.unit !== 'px' ||
+      (focus.ringColor !== '#93c5fd' && focus.ringColor !== seededColor)
+    )
+      return style;
+    return { ...style, states: { ...style.states, focus: {} } };
+  });
+}
+
 /**
  * Add a newly introduced Aurora visual's protected style deterministically
  * without disturbing a project's other saved styles or component bindings.
@@ -273,13 +301,23 @@ function materializeProjectDefaults(input: unknown): unknown {
       palette.success ? palette.data : [],
     ).styles;
 
-    styles = materializeComponentDefaultStyle(
+    const progressStyles = materializeComponentDefaultStyle(
       candidate.id,
       toggleStyles,
       'WebProgressBar',
       ['WebToggle'],
       palette.success ? palette.data : [],
     ).styles;
+    styles = normalizeIconDefaultFocus(
+      materializeComponentDefaultStyle(
+        candidate.id,
+        progressStyles,
+        'WebIcon',
+        ['WebProgressBar'],
+        palette.success ? palette.data : [],
+      ).styles,
+      palette.success ? palette.data : [],
+    );
   }
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;

@@ -35,6 +35,9 @@ When used by the application, it also includes:
 
 - Shaka Player: Apache-2.0, in `assets/licenses/Shaka-Player-Apache-2.0.txt`.
 - pdf-lib: MIT, in `assets/licenses/pdf-lib-MIT.txt`.
+- Lucide SVG icons: ISC, with upstream Feather attribution retained, in
+  `assets/licenses/Lucide.txt` when Icons is included. The desktop catalogue
+  notice is also preserved in [licenses/Lucide.txt](licenses/Lucide.txt).
 - pdf-lib dependencies: notices in `assets/licenses/pdf-lib/`, including
   standard-fonts, UPNG, pako and tslib.
 - Bundled font families used by the application: upstream SIL Open Font License

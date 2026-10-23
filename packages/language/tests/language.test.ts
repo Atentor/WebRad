@@ -48,6 +48,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-check-box-active', type: 'WebCheckBox', name: 'CHKAtivo' },
   { id: 'stable-toggle', type: 'WebToggle', name: 'Toggle1' },
   { id: 'stable-progress-bar', type: 'WebProgressBar', name: 'ProgressBar1' },
+  { id: 'stable-icon', type: 'WebIcon', name: 'Icon1' },
   { id: 'stable-combo-box-kind', type: 'WebComboBox', name: 'CBOTipo' },
   { id: 'stable-image-logo', type: 'WebImage', name: 'IMGLogo' },
   { id: 'stable-list-box-results', type: 'WebListBox', name: 'LSTResultados' },

@@ -152,7 +152,7 @@ describe('project factories', () => {
     });
     expect(project.settings.scrollbar).toEqual(DEFAULT_PROJECT_SCROLLBAR_STYLE);
     expect(project.pages).toHaveLength(1);
-    expect(project.styles).toHaveLength(16);
+    expect(project.styles).toHaveLength(17);
     expect(project.styles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ componentType: 'WebPage', preset: 'default' }),
@@ -162,6 +162,7 @@ describe('project factories', () => {
         expect.objectContaining({ componentType: 'WebEdit', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebTextArea', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebButton', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebIcon', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebCheckBox', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebComboBox', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebImage', preset: 'default' }),

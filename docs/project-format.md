@@ -276,6 +276,19 @@ Methods containing statements or comments, unbound helpers, decorated/static met
 
 `WebProgressBar.props` persists `format` (`bars`, `dunnet`, or `circus`), finite `min`, `max` and `value`, and boolean `showValue`, alongside shared visual/layout properties. Display values are clamped to valid ranges; invalid saved ranges project to 0–100 without rewriting the model. Geometry and computed percentages are derived values. Styles persist `progressColor`, `progressTrackColor` and `progressThickness` (1–20 SVG units), with the regular visual states. Format-v2 projects and manifests restore the protected, palette-linked `Default ProgressBar` style using collision-safe identities while preserving custom styles and component bindings. See [ProgressBar](progress-bar.md) for the public runtime API.
 
+## Icons (Lucide)
+
+`WebIcon.props` persists `icon` (canonical Lucide name), `mode` (`icon` or
+`button`), `accessibleLabel` (string), `strokeWidth` (finite, greater than 0 and
+at most 24), and the shared visual/layout properties. There is no `caption`.
+SVG nodes and catalogue data are generated from the pinned Lucide dependency,
+not stored in individual projects. This is an additive format-v2 component;
+missing protected `Default Icons` styles are restored with collision-safe IDs
+and names, preserving custom styles and component bindings. See
+[Icons](icons.md) for the runtime API, events and accessibility contract.
+The original seeded focus ring in a protected Default Icons style is cleared
+when loading projects/manifests; custom styles and authored effects are retained.
+
 ## Browser routes
 
 Format v2 settings add `routingMode` (`history` by default, or `hash`) and `routingBasePath` (`/` by default). Page roots persist the optional `props.routePath` independently of component IDs and class names. See [Browser routing](browser-routing.md) for path validation, compatibility and hosting requirements.

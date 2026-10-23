@@ -44,6 +44,8 @@ export interface ComponentPropertyDefinition {
   /** Fallback derived from saved properties without materializing it in the model. */
   readonly defaultValueWhen?: (props: Readonly<Record<string, unknown>>) => unknown;
   readonly options?: readonly string[];
+  /** SVG catalogue used by the shared Inspector icon picker. */
+  readonly iconLibrary?: 'lucide';
   readonly description?: string;
   readonly readOnly?: boolean;
   /** Optional runtime-independent validation for a specialized public property. */
