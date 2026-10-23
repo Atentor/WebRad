@@ -436,7 +436,9 @@ export function instanceInitializationDiagnostics(
   for (const name of files.keys()) {
     let index = name.lastIndexOf('/');
     while (index >= 0) {
-      directories.add(name.slice(0, index));
+      directories.add(index === 0 ? '/' : name.slice(0, index));
+      // lastIndexOf clamps a negative offset to zero, so a POSIX root must stop here.
+      if (index === 0) break;
       index = name.lastIndexOf('/', index - 1);
     }
   }
