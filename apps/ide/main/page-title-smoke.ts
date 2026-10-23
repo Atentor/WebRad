@@ -16,13 +16,24 @@ const browserTitleField = `(() => {
 async function ready(window: BrowserWindow, expression: string): Promise<void> {
   const deadline = Date.now() + 20_000;
   let lastResult: unknown;
-  while (Date.now() < deadline) {
+  // An executeJavaScript round trip can span synchronous main-process compilation.
+  // Always sample the renderer after that work, even when the timer expired while
+  // the event loop was blocked, instead of reporting the pre-build false result.
+  for (;;) {
     lastResult = await window.webContents.executeJavaScript(expression, true);
     if (lastResult === true) return;
+    if (Date.now() >= deadline) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
+  const evidence: unknown = await window.webContents.executeJavaScript(`({
+    preview: document.querySelector('.wr-preview-state')?.textContent,
+    runDisabled: document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled,
+    saveState: document.querySelector('.wr-toolbar-save-state')?.textContent,
+    output: document.querySelector('.wr-bottom-panel')?.textContent,
+    dialogs: [...document.querySelectorAll('[role="dialog"]')].map(dialog => dialog.textContent),
+  })`);
   throw new Error(
-    `Page browser title smoke timed out: ${expression}; last result: ${JSON.stringify(lastResult)}`,
+    `Page browser title smoke timed out: ${expression}; last result: ${JSON.stringify(lastResult)}; evidence: ${JSON.stringify(evidence)}`,
   );
 }
 
@@ -65,11 +76,20 @@ function findFrame(frame: WebFrameMain, url: string): WebFrameMain | undefined {
   return undefined;
 }
 
-async function assertPreviewTitle(
+export async function assertPreviewTitle(
   window: BrowserWindow,
   title: string,
   rootId: string,
 ): Promise<void> {
+  await ready(
+    window,
+    `(() => {
+    const run = document.querySelector('button[aria-label="Build and run (F9)"]');
+    return run instanceof HTMLButtonElement && !run.disabled
+      && document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'
+      && document.querySelector('[role="dialog"]') === null;
+  })()`,
+  );
   const previousUrl: unknown = await window.webContents.executeJavaScript(
     `document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src') ?? ''`,
     true,
