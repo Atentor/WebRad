@@ -137,6 +137,7 @@ try {
       ]
     : nativeBuildSmoke
       ? [
+          'renderer Project build menu contract passed',
           'renderer Native Application settings passed',
           'renderer Native Build settings separation passed',
           'renderer Native Build platform options passed:',
@@ -146,12 +147,13 @@ try {
             ? []
             : [
                 'renderer Native Build responsive screenshots passed:',
+                'renderer Native Application visual layout passed:',
                 'renderer Native Build incompatible host screenshot passed:',
               ]),
         ]
       : deploySmoke
         ? [
-            'renderer Deploy menu and directory settings passed',
+            'renderer Deploy directory settings passed',
             'renderer PWA project settings passed',
             'renderer Deploy file progress passed:',
             'renderer Deploy hosting output passed:',
@@ -190,6 +192,7 @@ try {
               'renderer RestGO API Client synchronization passed:',
               'renderer API Client browser passed:',
               'renderer Popup responsive layout passed:',
+              'renderer bare page members passed:',
               'renderer last project restore passed',
               'renderer bottom dock passed',
               'renderer element tree selection passed:',

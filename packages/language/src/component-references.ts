@@ -26,6 +26,109 @@ export interface ComponentReferenceEdit {
 
 export const COMPONENT_SCOPE_PREFIX = '// @webrad-component-scope ';
 
+/** Discover authored instance members from the AST, without changing the saved model. */
+export function authoredInstanceMembers(
+  api: typeof ts,
+  sourceFile: ts.SourceFile,
+  scope: ComponentReferenceScope,
+): ReadonlyMap<string, ts.ClassElement & { readonly name: ts.Identifier }> {
+  const members = new Map<string, ts.ClassElement & { readonly name: ts.Identifier }>();
+  for (const statement of sourceFile.statements) {
+    if (
+      !api.isClassDeclaration(statement) ||
+      statement.name?.text !== scope.className ||
+      !statement.heritageClauses?.some(
+        (clause) =>
+          clause.token === api.SyntaxKind.ExtendsKeyword &&
+          clause.types.some(
+            (type) =>
+              api.isIdentifier(type.expression) &&
+              type.expression.text === scope.generatedClassName,
+          ),
+      )
+    )
+      continue;
+    for (const member of statement.members) {
+      if (
+        !(
+          api.isPropertyDeclaration(member) ||
+          api.isMethodDeclaration(member) ||
+          api.isGetAccessorDeclaration(member) ||
+          api.isSetAccessorDeclaration(member)
+        ) ||
+        !api.isIdentifier(member.name) ||
+        api.getModifiers(member)?.some((modifier) => modifier.kind === api.SyntaxKind.StaticKeyword)
+      )
+        continue;
+      members.set(member.name.text, member as ts.ClassElement & { readonly name: ts.Identifier });
+    }
+  }
+  return members;
+}
+
+function referenceNames(api: typeof ts, sourceFile: ts.SourceFile, scope: ComponentReferenceScope) {
+  return new Set([
+    ...scope.componentNames,
+    ...authoredInstanceMembers(api, sourceFile, scope).keys(),
+  ]);
+}
+
+function isReadonlyMemberWrite(
+  api: typeof ts,
+  node: ts.Identifier,
+  member: ts.ClassElement,
+): boolean {
+  const readonly =
+    api.canHaveModifiers(member) &&
+    api.getModifiers(member)?.some((modifier) => modifier.kind === api.SyntaxKind.ReadonlyKeyword);
+  const getterOnly =
+    api.isGetAccessorDeclaration(member) &&
+    !(member.parent as ts.ClassDeclaration).members.some(
+      (candidate) =>
+        api.isSetAccessorDeclaration(candidate) &&
+        api.isIdentifier(candidate.name) &&
+        candidate.name.text === node.text,
+    );
+  if (!readonly && !getterOnly) return false;
+  let target: ts.Node = node;
+  if (api.isShorthandPropertyAssignment(target.parent)) target = target.parent;
+  while (target.parent) {
+    const parent = target.parent;
+    if (
+      api.isParenthesizedExpression(parent) ||
+      api.isArrayLiteralExpression(parent) ||
+      api.isObjectLiteralExpression(parent) ||
+      api.isSpreadElement(parent) ||
+      api.isSpreadAssignment(parent) ||
+      (api.isPropertyAssignment(parent) && parent.initializer === target)
+    ) {
+      target = parent;
+      continue;
+    }
+    const writes =
+      (api.isBinaryExpression(parent) &&
+        parent.left === target &&
+        parent.operatorToken.kind >= api.SyntaxKind.FirstAssignment &&
+        parent.operatorToken.kind <= api.SyntaxKind.LastAssignment) ||
+      ((api.isPrefixUnaryExpression(parent) || api.isPostfixUnaryExpression(parent)) &&
+        (parent.operator === api.SyntaxKind.PlusPlusToken ||
+          parent.operator === api.SyntaxKind.MinusMinusToken)) ||
+      ((api.isForOfStatement(parent) || api.isForInStatement(parent)) &&
+        parent.initializer === target);
+    if (!writes) return false;
+    // TypeScript permits readonly field assignment directly in the owning constructor.
+    let context: ts.Node | undefined = node.parent;
+    while (context && !api.isFunctionLike(context)) context = context.parent;
+    return (
+      getterOnly ||
+      context === undefined ||
+      !api.isConstructorDeclaration(context) ||
+      context.parent !== member.parent
+    );
+  }
+  return false;
+}
+
 export function componentReferenceScope(document: PageModel): ComponentReferenceScope {
   const repeatingHandlers: Record<
     string,
@@ -141,6 +244,10 @@ export function appendComponentReferenceDeclarations(
       (name) =>
         `declare const ${name}: import(${moduleName}).${scope.generatedClassName}[${JSON.stringify(name)}];`,
     );
+  for (const [name] of authoredInstanceMembers(api, sourceFile, scope)) {
+    if (!declared.has(name) && !scope.componentNames.includes(name))
+      declarations.push(`declare let ${name}: ${scope.className}[${JSON.stringify(name)}];`);
+  }
   return declarations.length === 0 ? source : `${source}\n${declarations.join('\n')}\nexport {};\n`;
 }
 
@@ -274,7 +381,7 @@ export function componentReferenceNamesAtPosition(
   offset: number,
   scope: ComponentReferenceScope,
 ): readonly string[] {
-  const names = new Set(scope.componentNames);
+  const names = referenceNames(api, sourceFile, scope);
   return checker
     .getSymbolsInScope(nodeAtOffset(api, sourceFile, offset), api.SymbolFlags.Value)
     .filter(
@@ -294,6 +401,90 @@ export interface ComponentReferenceAnalysis {
   readonly diagnostics: readonly ts.DiagnosticWithLocation[];
 }
 
+export function isInstanceInitializationDiagnostic(diagnostic: { readonly code: number }): boolean {
+  return diagnostic.code === 2564 || diagnostic.code === 2565 || diagnostic.code === 2729;
+}
+
+/** Recheck native initialization flow after lowering bare reads and writes. */
+export function instanceInitializationDiagnostics(
+  api: typeof ts,
+  program: ts.Program,
+  sourceFile: ts.SourceFile,
+  edits: readonly ComponentReferenceEdit[],
+  diagnostics: readonly { readonly code: number }[],
+): readonly ts.DiagnosticWithLocation[] | undefined {
+  const initializationEdit = sourceFile.statements.some(
+    (statement) =>
+      api.isClassDeclaration(statement) &&
+      statement.members.some(
+        (member) =>
+          (api.isConstructorDeclaration(member) || api.isPropertyDeclaration(member)) &&
+          edits.some(
+            (edit) => edit.start >= member.getStart(sourceFile) && edit.start < member.end,
+          ),
+      ),
+  );
+  if (
+    !edits.length ||
+    (!initializationEdit && !diagnostics.some(isInstanceInitializationDiagnostic))
+  )
+    return undefined;
+  const updated = applyComponentReferenceEdits(sourceFile.text, edits);
+  const files = new Map(program.getSourceFiles().map((file) => [file.fileName, file.text]));
+  files.set(sourceFile.fileName, updated);
+  const directories = new Set<string>();
+  for (const name of files.keys()) {
+    let index = name.lastIndexOf('/');
+    while (index >= 0) {
+      directories.add(name.slice(0, index));
+      index = name.lastIndexOf('/', index - 1);
+    }
+  }
+  const host: ts.CompilerHost = {
+    getSourceFile: (name, version) => {
+      const text = files.get(name);
+      return text === undefined ? undefined : api.createSourceFile(name, text, version, true);
+    },
+    readFile: (name) => files.get(name),
+    fileExists: (name) => files.has(name),
+    directoryExists: (name) => directories.has(name),
+    getCurrentDirectory: () => program.getCurrentDirectory(),
+    getCanonicalFileName: (name) => name,
+    useCaseSensitiveFileNames: () => true,
+    getNewLine: () => '\n',
+    writeFile: () => {},
+    getDefaultLibFileName: () =>
+      program.getSourceFiles().find((file) => file.hasNoDefaultLib)?.fileName ?? 'lib.d.ts',
+  };
+  const checked = api.createProgram([...files.keys()], program.getCompilerOptions(), host);
+  const file = checked.getSourceFile(sourceFile.fileName)!;
+  const remaining = checked.getSemanticDiagnostics(file).filter(isInstanceInitializationDiagnostic);
+  const originalOffset = (position: number): number => {
+    let delta = 0;
+    for (const edit of [...edits].sort((left, right) => left.start - right.start)) {
+      const start = edit.start + delta;
+      if (position < start) break;
+      if (position < start + edit.text.length) return edit.start;
+      delta += edit.text.length - (edit.end - edit.start);
+    }
+    return position - delta;
+  };
+  return remaining.flatMap((diagnostic) => {
+    if (diagnostic.start === undefined || diagnostic.length === undefined) return [];
+    const start = originalOffset(diagnostic.start);
+    const end = originalOffset(diagnostic.start + diagnostic.length);
+    return [
+      {
+        ...diagnostic,
+        file: sourceFile,
+        start,
+        length: Math.max(1, end - start),
+        relatedInformation: undefined,
+      },
+    ];
+  });
+}
+
 /** Resolve symbols, rather than matching identifier text, so lexical bindings always win. */
 export function analyzeComponentReferences(
   api: typeof ts,
@@ -304,7 +495,8 @@ export function analyzeComponentReferences(
 ): ComponentReferenceAnalysis {
   const edits: ComponentReferenceEdit[] = [];
   const diagnostics: ts.DiagnosticWithLocation[] = [];
-  const names = new Set(scope.componentNames);
+  const names = referenceNames(api, sourceFile, scope);
+  const members = authoredInstanceMembers(api, sourceFile, scope);
   const identifiers = new Set<string>();
   const collectIdentifiers = (node: ts.Node): void => {
     if (api.isIdentifier(node)) identifiers.add(node.text);
@@ -390,7 +582,7 @@ export function analyzeComponentReferences(
     if (
       api.isPropertyAccessExpression(node) &&
       node.expression.kind === api.SyntaxKind.ThisKeyword &&
-      names.has(node.name.text)
+      scope.componentNames.includes(node.name.text)
     ) {
       const row = rowContext(node);
       const componentId = row?.componentIds[node.name.text];
@@ -433,10 +625,21 @@ export function analyzeComponentReferences(
             length: node.getWidth(sourceFile),
             category: api.DiagnosticCategory.Error,
             code: 95001,
-            messageText: `Component '${node.text}' is available only in instance code of '${scope.className}'. Use an arrow function for callbacks.`,
+            messageText: `Instance member '${node.text}' is available only in instance code of '${scope.className}'. Use an arrow function for callbacks.`,
           });
         } else {
-          const row = rowContext(node);
+          const member = members.get(node.text);
+          if (member && isReadonlyMemberWrite(api, node, member)) {
+            diagnostics.push({
+              file: sourceFile,
+              start: node.getStart(sourceFile),
+              length: node.getWidth(sourceFile),
+              category: api.DiagnosticCategory.Error,
+              code: 2540,
+              messageText: `Cannot assign to '${node.text}' because it is a read-only property.`,
+            });
+          }
+          const row = scope.componentNames.includes(node.text) ? rowContext(node) : undefined;
           const componentId = row?.componentIds[node.text];
           const reference =
             row !== undefined && componentId !== undefined

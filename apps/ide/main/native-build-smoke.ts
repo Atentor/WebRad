@@ -69,6 +69,67 @@ export async function runNativeBuildSmoke(
     await waitFor(`${fieldExpression(scope, label)}?.value === ${JSON.stringify(value)}`);
   }
 
+  async function capturePresentedPage(): Promise<NativeImage> {
+    // A DOM frame can finish before Chromium presents it, and invalidate() may
+    // deliver a previously queued frame or no new frame for an unchanged page.
+    // A temporary pixel provides a real paint fence: first observe its frame,
+    // then remove it and deliver only the next frame with the pixel absent.
+    const markerId = 'webrad-smoke-paint-marker';
+    const removeMarker = `document.getElementById('${markerId}')?.remove()`;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let stopFrames: (() => void) | undefined;
+    try {
+      return await new Promise<NativeImage>((resolve, reject) => {
+        let markerPresented = false;
+        timeout = setTimeout(
+          () => reject(new Error('Native Build screenshot did not receive its paint fence.')),
+          Math.max(1, Math.min(15_000, deadline - Date.now())),
+        );
+        const onFrame = (frame: NativeImage) => {
+          if (frame.isEmpty()) {
+            reject(new Error('Native Build screenshot was empty.'));
+            return;
+          }
+          const pixel = frame.crop({ x: 0, y: 0, width: 1, height: 1 }).toBitmap();
+          // Pure green has the same byte order in both RGBA and BGRA bitmaps.
+          const hasMarker =
+            pixel[0] === 0 && pixel[1] === 255 && pixel[2] === 0 && pixel[3] === 255;
+          if (!markerPresented) {
+            if (hasMarker) {
+              markerPresented = true;
+              void window.webContents.executeJavaScript(removeMarker).catch(reject);
+            }
+            return;
+          }
+          if (!hasMarker) resolve(frame);
+        };
+        const onPaint = (
+          _event: Electron.Event,
+          _dirty: Electron.Rectangle,
+          frame: NativeImage,
+        ): void => onFrame(frame);
+        stopFrames = window.webContents.isOffscreen()
+          ? () => window.webContents.off('paint', onPaint)
+          : () => window.webContents.endFrameSubscription();
+        if (window.webContents.isOffscreen()) window.webContents.on('paint', onPaint);
+        else window.webContents.beginFrameSubscription(false, onFrame);
+        void window.webContents
+          .executeJavaScript(
+            `(() => {
+              const marker = document.createElement('div');
+              marker.id = '${markerId}';
+              marker.style.cssText = 'all: initial; position: fixed; left: 0; top: 0; width: 2px; height: 2px; background: #00ff00; z-index: 2147483647; pointer-events: none;';
+              document.body.append(marker);
+            })()`,
+          )
+          .catch(reject);
+      });
+    } finally {
+      clearTimeout(timeout);
+      stopFrames?.();
+      await window.webContents.executeJavaScript(removeMarker).catch(() => undefined);
+    }
+  }
   const original = await loadProjectFiles(projectPath);
   const matrix = [
     { platform: 'web', formats: ['web'], host: null },
@@ -81,6 +142,80 @@ export async function runNativeBuildSmoke(
   const nativeScope = '#project-settings-panel-native';
   await click('button[aria-label="Project Settings"]');
   await click('#project-settings-tab-native');
+  if (screenshotPath !== undefined) {
+    if (!path.isAbsolute(screenshotPath))
+      throw new Error('Native settings screenshots require an absolute output path.');
+    const output = path.join(path.dirname(screenshotPath), 'native-settings');
+    await fs.mkdir(output, { recursive: true });
+    const bounds = window.getBounds();
+    const minimum = window.getMinimumSize();
+    const theme: unknown = await window.webContents.executeJavaScript(
+      'document.documentElement.dataset.theme',
+    );
+    const layouts: unknown[] = [];
+    try {
+      window.setMinimumSize(600, 600);
+      for (const width of [1000, 740]) {
+        window.setContentSize(width, 760);
+        for (const selectedTheme of ['dark', 'light']) {
+          const current: unknown = await window.webContents.executeJavaScript(
+            'document.documentElement.dataset.theme',
+          );
+          if (current !== selectedTheme) {
+            await clickButton('Cancel', '.wr-project-settings-dialog');
+            window.webContents.send('webrad:menu-command', 'view.toggleTheme');
+            await waitFor(`document.documentElement.dataset.theme === '${selectedTheme}'`);
+            await click('button[aria-label="Project Settings"]');
+            await click('#project-settings-tab-native');
+          }
+          await waitFor(`innerWidth === ${String(width)}`);
+          for (const [index, section] of [
+            [0, 'identity'],
+            [1, 'build'],
+            [3, 'mobile'],
+            [5, 'signing'],
+          ] as const) {
+            await window.webContents.executeJavaScript(
+              `document.querySelectorAll('${nativeScope} fieldset')[${String(index)}].scrollIntoView({block:'start'})`,
+            );
+            const layout = (await window.webContents.executeJavaScript(`(() => {
+              const panel = document.querySelector('${nativeScope}');
+              const dialog = document.querySelector('.wr-project-settings-dialog');
+              const footer = dialog.querySelector('.wr-project-settings-actions').getBoundingClientRect();
+              const cards = [...panel.querySelectorAll('fieldset, .wr-native-image-card')];
+              return {width:innerWidth, theme:document.documentElement.dataset.theme, section:'${section}',
+                overflow: panel.scrollWidth > panel.clientWidth + 1 || dialog.scrollWidth > dialog.clientWidth + 1 || cards.some(card => card.scrollWidth > card.clientWidth + 1),
+                footerVisible: footer.bottom <= innerHeight && footer.top >= 0,
+                imageCards: panel.querySelectorAll('.wr-native-image-card').length};
+            })()`)) as { overflow: boolean; footerVisible: boolean; imageCards: number };
+            if (layout.overflow || !layout.footerVisible || layout.imageCards !== 2)
+              throw new Error('Native settings layout failed: ' + JSON.stringify(layout));
+            layouts.push(layout);
+            await fs.writeFile(
+              path.join(output, selectedTheme + '-' + String(width) + '-' + section + '.png'),
+              (await capturePresentedPage()).toPNG(),
+            );
+          }
+        }
+      }
+      await fs.writeFile(path.join(output, 'layout.json'), JSON.stringify(layouts, null, 2) + '\n');
+      log('renderer Native Application visual layout passed: ' + JSON.stringify(layouts));
+    } finally {
+      await clickButton('Cancel', '.wr-project-settings-dialog');
+      const current: unknown = await window.webContents.executeJavaScript(
+        'document.documentElement.dataset.theme',
+      );
+      if (current !== theme) {
+        window.webContents.send('webrad:menu-command', 'view.toggleTheme');
+        await waitFor(`document.documentElement.dataset.theme === ${JSON.stringify(theme)}`);
+      }
+      window.setMinimumSize(minimum[0] ?? 1000, minimum[1] ?? 680);
+      window.setBounds(bounds);
+      await click('button[aria-label="Project Settings"]');
+      await click('#project-settings-tab-native');
+    }
+  }
+
   await setField(nativeScope, 'Application Identifier', 'com.webrad.smokeapplication');
   await setField(nativeScope, 'Initial Width', '1100');
   for (const target of matrix) {
@@ -149,7 +284,11 @@ export async function runNativeBuildSmoke(
   if (!projectMenu?.items.some((item) => item.label === 'Build Application\u2026')) {
     throw new Error('Missing Project / Build Application menu item.');
   }
-  await click('button[aria-label="Build Application"]');
+  if (projectMenu.items.some((item) => item.label === 'Build' || item.label === 'Deploy')) {
+    throw new Error('Project menu still exposes redundant Build or Deploy items.');
+  }
+  log('renderer Project build menu contract passed');
+  projectMenu.items.find((item) => item.label === 'Build Application\u2026')?.click();
   const buildScope = '.wr-build-application-dialog';
   await waitFor(`document.querySelector('${buildScope} h2')?.textContent === 'Build Application'`);
   await waitFor(
@@ -213,67 +352,7 @@ export async function runNativeBuildSmoke(
     const outputDirectory = path.dirname(screenshotPath);
     await fs.mkdir(outputDirectory, { recursive: true });
     const layouts: unknown[] = [];
-    async function capturePresentedPage(): Promise<NativeImage> {
-      // A DOM frame can finish before Chromium presents it, and invalidate() may
-      // deliver a previously queued frame or no new frame for an unchanged page.
-      // A temporary pixel provides a real paint fence: first observe its frame,
-      // then remove it and deliver only the next frame with the pixel absent.
-      const markerId = 'webrad-smoke-paint-marker';
-      const removeMarker = `document.getElementById('${markerId}')?.remove()`;
-      let timeout: ReturnType<typeof setTimeout> | undefined;
-      let stopFrames: (() => void) | undefined;
-      try {
-        return await new Promise<NativeImage>((resolve, reject) => {
-          let markerPresented = false;
-          timeout = setTimeout(
-            () => reject(new Error('Native Build screenshot did not receive its paint fence.')),
-            Math.max(1, Math.min(15_000, deadline - Date.now())),
-          );
-          const onFrame = (frame: NativeImage) => {
-            if (frame.isEmpty()) {
-              reject(new Error('Native Build screenshot was empty.'));
-              return;
-            }
-            const pixel = frame.crop({ x: 0, y: 0, width: 1, height: 1 }).toBitmap();
-            // Pure green has the same byte order in both RGBA and BGRA bitmaps.
-            const hasMarker =
-              pixel[0] === 0 && pixel[1] === 255 && pixel[2] === 0 && pixel[3] === 255;
-            if (!markerPresented) {
-              if (hasMarker) {
-                markerPresented = true;
-                void window.webContents.executeJavaScript(removeMarker).catch(reject);
-              }
-              return;
-            }
-            if (!hasMarker) resolve(frame);
-          };
-          const onPaint = (
-            _event: Electron.Event,
-            _dirty: Electron.Rectangle,
-            frame: NativeImage,
-          ): void => onFrame(frame);
-          stopFrames = window.webContents.isOffscreen()
-            ? () => window.webContents.off('paint', onPaint)
-            : () => window.webContents.endFrameSubscription();
-          if (window.webContents.isOffscreen()) window.webContents.on('paint', onPaint);
-          else window.webContents.beginFrameSubscription(false, onFrame);
-          void window.webContents
-            .executeJavaScript(
-              `(() => {
-              const marker = document.createElement('div');
-              marker.id = '${markerId}';
-              marker.style.cssText = 'all: initial; position: fixed; left: 0; top: 0; width: 2px; height: 2px; background: #00ff00; z-index: 2147483647; pointer-events: none;';
-              document.body.append(marker);
-            })()`,
-            )
-            .catch(reject);
-        });
-      } finally {
-        clearTimeout(timeout);
-        stopFrames?.();
-        await window.webContents.executeJavaScript(removeMarker).catch(() => undefined);
-      }
-    }
+
     async function selectScreenshotTheme(theme: string): Promise<void> {
       const currentTheme: unknown = await window.webContents.executeJavaScript(
         'document.documentElement.dataset.theme',

@@ -90,11 +90,14 @@ export async function runDeploySmoke(
   }
 
   const menu = Menu.getApplicationMenu()?.items.find((item) => item.label === 'Project')?.submenu;
-  if (!menu?.items.some((item) => item.label === 'Deploy'))
-    throw new Error('Missing Project / Deploy menu item.');
+  if (!menu?.items.some((item) => item.label === 'Build Application\u2026'))
+    throw new Error('Missing Project / Build Application menu item.');
+  if (menu.items.some((item) => item.label === 'Build' || item.label === 'Deploy'))
+    throw new Error('Project menu still exposes redundant Build or Deploy items.');
   window.webContents.send('webrad:menu-command', 'file.openProject');
   await waitFor("document.querySelector('.wr-page-surface') !== null");
-  window.webContents.send('webrad:menu-command', 'project.deploy');
+  await click('button[aria-label="Project Settings"]');
+  await click('#project-settings-tab-build');
   await waitFor(
     "document.querySelector('#project-settings-panel-build input[type=text]') !== null",
   );
@@ -113,7 +116,7 @@ export async function runDeploySmoke(
     dialog.showOpenDialog = originalPicker;
   }
   await screenshot('build');
-  log('renderer Deploy menu and directory settings passed');
+  log('renderer Deploy directory settings passed');
 
   await click('#project-settings-tab-pwa');
   await click('#project-settings-panel-pwa input[type=checkbox]');

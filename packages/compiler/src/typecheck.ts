@@ -5,6 +5,8 @@ import {
   analyzeComponentReferences,
   appendComponentReferenceDeclarations,
   applyComponentReferenceEdits,
+  instanceInitializationDiagnostics,
+  isInstanceInitializationDiagnostic,
   type ComponentReferenceEdit,
   type ComponentReferenceScope,
 } from '@webrad/language';
@@ -116,7 +118,7 @@ export function typecheckSources(
     options: compilerOptions,
     host,
   });
-  const diagnostics = [...ts.getPreEmitDiagnostics(program)];
+  let diagnostics = [...ts.getPreEmitDiagnostics(program)];
   const bundleSources = new Map(sources);
   const sourceEdits = new Map<string, readonly ComponentReferenceEdit[]>();
   for (const [fileName, scope] of componentScopes) {
@@ -130,6 +132,21 @@ export function typecheckSources(
       authored.length,
       scope,
     );
+    const own = diagnostics.filter((diagnostic) => diagnostic.file === sourceFile);
+    const initialization = instanceInitializationDiagnostics(
+      ts,
+      program,
+      sourceFile,
+      analysis.edits,
+      own,
+    );
+    if (initialization !== undefined) {
+      diagnostics = diagnostics.filter(
+        (diagnostic) =>
+          diagnostic.file !== sourceFile || !isInstanceInitializationDiagnostic(diagnostic),
+      );
+      diagnostics.push(...initialization);
+    }
     diagnostics.push(...analysis.diagnostics);
     bundleSources.set(fileName, applyComponentReferenceEdits(authored, analysis.edits));
     if (analysis.edits.length > 0) sourceEdits.set(fileName, analysis.edits);

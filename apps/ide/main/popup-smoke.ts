@@ -28,7 +28,9 @@ export async function runPopupLayoutSmoke(
     await browser.webContents.executeJavaScript(
       `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
     );
+    let expectedOpens = 0;
     for (const width of [363, 768, 320]) {
+      expectedOpens += 1;
       browser.setContentSize(width, 500);
       const evidence: unknown = await browser.webContents.executeJavaScript(
         `(async () => {
@@ -52,7 +54,8 @@ export async function runPopupLayoutSmoke(
           (button: unknown) =>
             typeof button !== 'object' || button === null || Reflect.get(button, 'width') !== 96,
         ) ||
-        Reflect.get(evidence as object, 'overflow') !== false
+        Reflect.get(evidence as object, 'overflow') !== false ||
+        Reflect.get(evidence as object, 'barePageOpens') !== String(expectedOpens)
       ) {
         throw new Error(`Popup layout failed at ${String(width)}px: ${JSON.stringify(evidence)}`);
       }
@@ -63,6 +66,9 @@ export async function runPopupLayoutSmoke(
     }
     assertHealthy();
     log('renderer Popup responsive layout passed: 363, 768, 320px; open/reopen; buttons 96px');
+    log(
+      'renderer bare page members passed: private field, getter, method and arrow; compiled Preview',
+    );
   } finally {
     browser.destroy();
     revokePreview(ownerId);

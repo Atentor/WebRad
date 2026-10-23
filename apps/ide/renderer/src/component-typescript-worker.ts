@@ -7,6 +7,9 @@ import {
 import {
   analyzeComponentReferences,
   appendComponentReferenceDeclarations,
+  authoredInstanceMembers,
+  instanceInitializationDiagnostics,
+  isInstanceInitializationDiagnostic,
   componentReferenceNamesAtPosition,
   isComponentReferencePosition,
   readComponentReferenceScope,
@@ -88,6 +91,36 @@ export class ComponentTypeScriptWorker extends TypeScriptWorker {
       : undefined;
   }
 
+  private authoredMember(fileName: string, name: string) {
+    const scope = this.scope(fileName);
+    const sourceFile = this.getLanguageService().getProgram()?.getSourceFile(fileName);
+    const member = scope && sourceFile && authoredInstanceMembers(ts, sourceFile, scope).get(name);
+    return member && sourceFile ? { member, sourceFile } : undefined;
+  }
+
+  /** Connect the native member symbol and its editor-only bare alias for references/rename. */
+  private async memberPositions(fileName: string, position: number): Promise<readonly number[]> {
+    const definitions = await super.getDefinitionAtPosition(fileName, position);
+    const length = super.getScriptSnapshot(fileName)?.getLength();
+    if (length === undefined) return [position];
+    for (const definition of definitions ?? []) {
+      if (definition.fileName !== fileName) continue;
+      const field = this.authoredMember(fileName, definition.name);
+      if (!field) continue;
+      const start = field.member.name.getStart(field.sourceFile);
+      if (definition.textSpan.start !== start && definition.textSpan.start < length) continue;
+      const positions = [start];
+      for (const statement of field.sourceFile.statements) {
+        if (statement.getStart() < length || !ts.isVariableStatement(statement)) continue;
+        for (const declaration of statement.declarationList.declarations)
+          if (ts.isIdentifier(declaration.name) && declaration.name.text === definition.name)
+            positions.push(declaration.name.getStart());
+      }
+      return positions;
+    }
+    return [position];
+  }
+
   public override getScriptVersion(fileName: string): string {
     const version = this.getExtraLibs()[`${fileName.slice(0, -3)}.generated.d.ts`]?.version ?? '';
     const model = this.context
@@ -138,11 +171,20 @@ export class ComponentTypeScriptWorker extends TypeScriptWorker {
       original.getLength(),
       scope,
     );
+    const initialization = instanceInitializationDiagnostics(
+      ts,
+      program,
+      sourceFile,
+      analysis.edits,
+      diagnostics,
+    );
     return [
       ...diagnostics.filter(
-        (diagnostic) => diagnostic.start === undefined || diagnostic.start < original.getLength(),
+        (diagnostic) =>
+          (diagnostic.start === undefined || diagnostic.start < original.getLength()) &&
+          (initialization === undefined || !isInstanceInitializationDiagnostic(diagnostic)),
       ),
-      ...analysis.diagnostics.map((diagnostic) => ({
+      ...[...analysis.diagnostics, ...(initialization ?? [])].map((diagnostic) => ({
         ...diagnostic,
         file: { fileName },
         relatedInformation: undefined,
@@ -194,6 +236,17 @@ export class ComponentTypeScriptWorker extends TypeScriptWorker {
     return definitions?.flatMap((definition) => {
       if (definition.fileName !== fileName || definition.textSpan.start < length)
         return [definition];
+      const authored = this.authoredMember(fileName, definition.name);
+      if (authored)
+        return [
+          {
+            ...definition,
+            textSpan: {
+              start: authored.member.name.getStart(authored.sourceFile),
+              length: authored.member.name.getWidth(authored.sourceFile),
+            },
+          },
+        ];
       const declarationPath = `${fileName.slice(0, -3)}.generated.d.ts`;
       const field = this.generatedComponentField(declarationPath, scope, definition.name);
       if (!field) return [];
@@ -249,10 +302,52 @@ export class ComponentTypeScriptWorker extends TypeScriptWorker {
   }
 
   public override async getReferencesAtPosition(fileName: string, position: number) {
-    const references = await super.getReferencesAtPosition(fileName, position);
+    const references = (
+      await Promise.all(
+        (await this.memberPositions(fileName, position)).map((offset) =>
+          super.getReferencesAtPosition(fileName, offset),
+        ),
+      )
+    ).flatMap((items) => items ?? []);
+    const seen = new Set<string>();
     return references?.filter((reference) => {
       const length = super.getScriptSnapshot(reference.fileName)?.getLength();
-      return length === undefined || reference.textSpan.start < length;
+      const key = `${reference.fileName}:${reference.textSpan.start}`;
+      if (seen.has(key) || (length !== undefined && reference.textSpan.start >= length))
+        return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  public override async findRenameLocations(
+    fileName: string,
+    position: number,
+    findInStrings: boolean,
+    findInComments: boolean,
+    providePrefixAndSuffixTextForRename: boolean,
+  ) {
+    const locations = (
+      await Promise.all(
+        (await this.memberPositions(fileName, position)).map((offset) =>
+          super.findRenameLocations(
+            fileName,
+            offset,
+            findInStrings,
+            findInComments,
+            providePrefixAndSuffixTextForRename,
+          ),
+        ),
+      )
+    ).flatMap((items) => items ?? []);
+    const seen = new Set<string>();
+    return locations.filter((location) => {
+      const length = super.getScriptSnapshot(location.fileName)?.getLength();
+      const key = `${location.fileName}:${location.textSpan.start}`;
+      if (seen.has(key) || (length !== undefined && location.textSpan.start >= length))
+        return false;
+      seen.add(key);
+      return true;
     });
   }
 
@@ -263,6 +358,8 @@ export class ComponentTypeScriptWorker extends TypeScriptWorker {
   ) {
     const definitions = await super.getDefinitionAtPosition(fileName, position);
     const length = super.getScriptSnapshot(fileName)?.getLength();
+    const positions = await this.memberPositions(fileName, position);
+    if (positions.length > 1) return super.getRenameInfo(fileName, positions[0]!, options);
     const componentDefinition = definitions?.some((definition) => {
       if (
         length !== undefined &&

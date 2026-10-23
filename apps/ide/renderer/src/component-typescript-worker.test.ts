@@ -42,6 +42,132 @@ ${body}
 }
 
 describe('Monaco component TypeScript worker', () => {
+  it('types authored fields, private methods, accessors, arrows, overloads and defaults without this', async () => {
+    const fixture = workerFor(`
+      private idselecionado: number = 0;
+      readonly fixed = 1;
+      get selected(): number { return idselecionado; }
+      set selected(value: number) { idselecionado = value; }
+      private FormatarDataHora(value: string): string { return value; }
+      convert(value: string): string;
+      convert(value: number): number;
+      convert(value: string | number): string | number { return value; }
+      handler(value = selected): string {
+        idselecionado += 1;
+        selected = value;
+        const run = () => FormatarDataHora('ok');
+        return run() + convert('ok');
+      }`);
+    expect(await fixture.worker.getSemanticDiagnostics(fileName)).toEqual([]);
+    const names = (
+      await fixture.worker.getCompletionsAtPosition(
+        fileName,
+        fixture.source.indexOf('idselecionado +='),
+      )
+    )?.entries.map((entry) => entry.name);
+    expect(names).toEqual(
+      expect.arrayContaining(['idselecionado', 'FormatarDataHora', 'selected']),
+    );
+    const hover = await fixture.worker.getQuickInfoAtPosition(
+      fileName,
+      fixture.source.indexOf('idselecionado +='),
+    );
+    expect(hover?.displayParts?.map((part) => part.text).join('')).toContain('number');
+    const signatures = await fixture.worker.getSignatureHelpItems(
+      fileName,
+      fixture.source.indexOf("FormatarDataHora('ok')") + 'FormatarDataHora('.length,
+      {},
+    );
+    expect(
+      signatures?.items[0]?.parameters[0]?.displayParts.map((part) => part.text).join(''),
+    ).toContain('value: string');
+  });
+
+  it('rejects invalid authored member uses and preserves readonly constructor assignment', async () => {
+    const valid = workerFor(`readonly fixed: number;
+      constructor() { super(); fixed = 1; }
+      handler(idselecionado: string) { return idselecionado; }
+      idselecionado = 0;`);
+    expect(await valid.worker.getSemanticDiagnostics(fileName)).toEqual([]);
+    for (const constructorBody of [
+      'if (false) fixed = 1;',
+      'const callback = () => { fixed = 1; }; callback();',
+    ]) {
+      const missing = workerFor(
+        `readonly fixed: number; constructor() { super(); ${constructorBody} }`,
+      );
+      expect(
+        (await missing.worker.getSemanticDiagnostics(fileName)).some(
+          (diagnostic) => diagnostic.code === 2564,
+        ),
+      ).toBe(true);
+    }
+    const invalid = workerFor(`idselecionado = 0;
+      readonly fixed = 1;
+      get selected(): number { return idselecionado; }
+      format(value: string): string { return value; }
+      handler() { idselecionado = 'bad'; format(42); fixed++; selected = 2; }
+      static other() { return idselecionado; }
+      nested() { return function () { return idselecionado; }; }`);
+    const diagnostics = await invalid.worker.getSemanticDiagnostics(fileName);
+    expect(diagnostics.map((diagnostic) => diagnostic.code).sort()).toEqual(
+      [2322, 2345, 2540, 2540, 95001, 95001].sort(),
+    );
+    expect(diagnostics.every((diagnostic) => (diagnostic.start ?? 0) < invalid.source.length)).toBe(
+      true,
+    );
+  });
+
+  it('links bare and explicit authored references for definition, references and rename', async () => {
+    const fixture = workerFor(`idselecionado = 0;
+      handler() { idselecionado++; this.idselecionado++; const item = { idselecionado }; }
+      local(idselecionado: string) { return idselecionado; }`);
+    const bare = fixture.source.indexOf('idselecionado++');
+    expect(
+      (await fixture.worker.getDefinitionAtPosition(fileName, bare))?.[0]?.textSpan.start,
+    ).toBe(fixture.source.indexOf('idselecionado'));
+    expect(await fixture.worker.getRenameInfo(fileName, bare, {})).toMatchObject({
+      canRename: true,
+    });
+    for (const position of [bare, fixture.source.indexOf('idselecionado')]) {
+      const references = await fixture.worker.getReferencesAtPosition(fileName, position);
+      expect(references).toHaveLength(4);
+      const renames = await fixture.worker.findRenameLocations(
+        fileName,
+        position,
+        false,
+        false,
+        true,
+      );
+      expect(renames).toHaveLength(4);
+      expect(
+        renames.every((entry) => entry.textSpan.start < fixture.source.indexOf('local(')),
+      ).toBe(true);
+    }
+  });
+
+  it('preserves native errors for bare reads before field initialization', async () => {
+    for (const body of [
+      'value: number; constructor() { super(); const early = value; value = 1; }',
+      'early = value; value = 1;',
+    ]) {
+      const fixture = workerFor(body);
+      const diagnostics = await fixture.worker.getSemanticDiagnostics(fileName);
+      expect(
+        diagnostics.some((diagnostic) => diagnostic.code === 2565 || diagnostic.code === 2729),
+      ).toBe(true);
+      for (const diagnostic of diagnostics) {
+        if (diagnostic.code === 2565 || diagnostic.code === 2729)
+          expect(
+            fixture.source.slice(
+              diagnostic.start,
+              (diagnostic.start ?? 0) + (diagnostic.length ?? 0),
+            ),
+          ).toBe('value');
+      }
+    }
+  });
+
   it('offers canonical native members and diagnoses removed request aliases', async () => {
     const typedDeclaration = `export declare class PageMainGenerated {
       readonly ApiClient1: { GetKey: {

@@ -401,16 +401,16 @@ import { CustomerCardGenerated } from './CustomerCard.generated';
 for (const CustomerCardButton of ['module-local']) { void CustomerCardButton; }
 
 export class CustomerCard extends CustomerCardGenerated {
-  #clicks = 0;
+  private clicks = 0;
 
   private readCaption(value = ${access}CustomerCardButton.caption): string { return value; }
 
   public CustomerCardButtonClick(sender: WebButton): void {
-    this.#clicks += 1;
-    ${access}CustomerCardButton.caption = String(this.#clicks);
-    sender.element.dataset.reusableClicks = String(this.#clicks);
+    ${access}clicks += 1;
+    ${access}CustomerCardButton.caption = String(${access}clicks);
+    sender.element.dataset.reusableClicks = String(${access}clicks);
     sender.element.dataset.hostPageName = this.pageName;
-    sender.element.dataset.defaultCaption = this.readCaption();
+    sender.element.dataset.defaultCaption = ${access}readCaption();
   }
 }
 `,
@@ -462,6 +462,8 @@ export class CustomerCard extends CustomerCardGenerated {
 for (const EDTNome of [{ value: 'module-local' }]) { void EDTNome.value; }
 for (let BTNMostrar of ['module-local']) { void BTNMostrar; }
 export class PageMain extends PageMainGenerated {
+  private idselecionado: number = 0;
+  private describe(value: number): string { return 'selected:' + value; }
   private readDefaults(value = EDTNome.value, { caption = BTNMostrar.caption } = {}): string {
     return value + ':' + caption;
   }
@@ -472,7 +474,9 @@ export class PageMain extends PageMainGenerated {
     const fields = { EDTNome };
     this.element.dataset.fieldName = fields.EDTNome.name;
     this.element.dataset.apiUrl = ApiClient1.baseUrl;
-    this.element.dataset.defaults = this.readDefaults();
+    this.element.dataset.defaults = readDefaults();
+    idselecionado = 7;
+    this.element.dataset.selected = describe(idselecionado);
   }
   public BTNMostrarClick(): void {
     const EDTNome = { value: 'local' };
@@ -504,6 +508,7 @@ export class PageMain extends PageMainGenerated {
     expect(root?.dataset.fieldName).toBe('EDTNome');
     expect(root?.dataset.apiUrl).toBe('https://api.changed.test');
     expect(root?.dataset.defaults).toBe('Ada:Ready');
+    expect(root?.dataset.selected).toBe('selected:7');
     button?.click();
     expect(button?.textContent).toBe('local');
     dom.window.close();
@@ -524,6 +529,29 @@ export class PageMain extends PageMainGenerated {
       ]),
     );
   });
+
+  it.each([
+    ['idselecionado = 7;', true],
+    ['if (false) idselecionado = 7;', false],
+  ] as const)(
+    'retains strict constructor definite-assignment checks after lowering %s',
+    async (assignment, success) => {
+      const source = `import { PageMainGenerated } from './PageMain.generated';
+export class PageMain extends PageMainGenerated {
+  readonly idselecionado: number;
+  constructor(element: HTMLElement) { super(element); ${assignment} }
+  PageMainCreate(): void { this.element.dataset.selected = String(idselecionado); }
+}`;
+      const result = await compileProjectToMemory(executableProject(), {
+        userSources: { 'pages/PageMain.ts': source },
+      });
+      expect(result.success, JSON.stringify(result.diagnostics)).toBe(success);
+      if (!success)
+        expect(result.diagnostics).toEqual(
+          expect.arrayContaining([expect.objectContaining({ code: 2564, line: 3 })]),
+        );
+    },
+  );
 
   it('compiles in-app page navigation for button handlers and History links', async () => {
     const project = internallyNavigableProject();

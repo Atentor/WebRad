@@ -1,0 +1,213 @@
+.wr-native-settings {
+  container-type: inline-size;
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.wr-native-settings-intro {
+  margin: 0;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.wr-native-settings .wr-project-settings-seo-options {
+  min-width: 0;
+  max-width: none;
+  gap: 16px;
+  margin: 0;
+  padding: 18px;
+  border-color: var(--wr-border-strong);
+  border-radius: 8px;
+  background: var(--wr-panel-bg);
+}
+
+.wr-native-settings legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wr-native-settings .wr-project-settings-seo-options legend {
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.wr-native-settings legend .wr-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--wr-accent);
+}
+
+.wr-native-settings .wr-project-settings-seo-options > p {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.wr-native-settings .wr-project-settings-fields {
+  max-width: none;
+  gap: 16px;
+  align-items: start;
+}
+
+.wr-native-settings .wr-project-settings-field {
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.wr-native-settings .wr-project-settings-field small {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.wr-native-settings .wr-project-settings-toggles {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 10px;
+}
+
+.wr-native-settings .wr-project-settings-toggles label {
+  min-height: 38px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.wr-native-settings .wr-project-settings-toggles label:has(input:checked) {
+  border-color: color-mix(in srgb, var(--wr-accent) 45%, var(--wr-border));
+  background: color-mix(in srgb, var(--wr-accent) 8%, var(--wr-control-surface));
+}
+
+.wr-native-settings .wr-project-settings-toggles label:hover {
+  border-color: var(--wr-control-border);
+}
+
+.wr-native-settings .wr-project-settings-directory {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wr-native-settings .wr-project-settings-directory input {
+  flex-basis: 180px;
+}
+
+.wr-native-image-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--wr-border);
+  border-radius: 7px;
+  background: var(--wr-surface);
+}
+
+.wr-native-image-preview {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  flex: 0 0 68px;
+  place-items: center;
+  border: 1px solid var(--wr-border);
+  border-radius: 12px;
+  background: var(--wr-control-surface);
+}
+
+.wr-native-image-preview > .wr-icon {
+  width: 26px;
+  height: 26px;
+  color: var(--wr-muted-text);
+}
+
+.wr-native-image-preview img {
+  display: block;
+  object-fit: contain;
+}
+
+.wr-native-image-content {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.wr-native-image-name {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.wr-native-image-actions {
+  display: flex;
+  position: relative;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.wr-native-settings .wr-native-image-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  padding: 0;
+  border: 0;
+}
+
+.wr-native-image-choose,
+.wr-native-image-actions button {
+  display: inline-flex;
+  min-height: 31px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 4px;
+  background: var(--wr-button-bg);
+  color: var(--wr-text);
+  font-size: 11px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.wr-native-image-choose .wr-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.wr-native-image-choose:hover,
+.wr-native-image-actions button:hover {
+  background: var(--wr-button-hover);
+}
+
+.wr-native-image-input:focus-visible + .wr-native-image-choose,
+.wr-native-image-actions button:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+
+@container (max-width: 480px) {
+  .wr-native-settings .wr-project-settings-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .wr-native-image-card {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .wr-native-image-preview {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
+
+  .wr-native-settings .wr-project-settings-seo-options {
+    padding: 14px;
+  }
+}

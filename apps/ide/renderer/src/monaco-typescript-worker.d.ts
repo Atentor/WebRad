@@ -19,6 +19,22 @@ declare module 'monaco-editor/languages/features/typescript/ts.worker.js' {
     getScriptVersion(fileName: string): string;
     getExtraLibs(): Record<string, { readonly content: string; readonly version: number }>;
     getLanguageService(): tsApi.LanguageService;
+    getQuickInfoAtPosition(
+      fileName: string,
+      position: number,
+    ): Promise<tsApi.QuickInfo | undefined>;
+    getSignatureHelpItems(
+      fileName: string,
+      position: number,
+      options: tsApi.SignatureHelpItemsOptions,
+    ): Promise<tsApi.SignatureHelpItems | undefined>;
+    findRenameLocations(
+      fileName: string,
+      position: number,
+      findInStrings: boolean,
+      findInComments: boolean,
+      providePrefixAndSuffixTextForRename: boolean,
+    ): Promise<readonly tsApi.RenameLocation[] | undefined>;
     getSemanticDiagnostics(fileName: string): Promise<SerializedDiagnostic[]>;
     getCompletionsAtPosition(
       fileName: string,

@@ -9,6 +9,8 @@ import {
   type ProjectApplicationIcon,
 } from '@webrad/project-model';
 import { useId, useState, type ReactElement } from 'react';
+import { Icon } from './Icon';
+import './native-settings.css';
 
 interface ProjectNativeSettingsProps {
   readonly value: NativeApplicationSettings;
@@ -102,30 +104,46 @@ function NativeImage({
     }
   };
   return (
-    <div className="wr-project-settings-field full-width">
-      <label htmlFor={id}>{label}</label>
-      {value !== null && (
-        <>
-          <img src={value.dataUrl} alt={`${label} preview`} width={48} height={48} />
-          <small>{value.fileName}</small>
-        </>
-      )}
-      <input
-        id={id}
-        type="file"
-        accept="image/png,image/svg+xml,.png,.svg"
-        onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
-          event.currentTarget.value = '';
-          void select(file);
-        }}
-      />
-      <small>SVG or PNG, up to 1 MB. Tauri generates platform icon sizes.</small>
-      {value !== null && (
-        <button type="button" onClick={() => onChange(null)}>
-          Remove {label}
-        </button>
-      )}
+    <div className="wr-project-settings-field full-width wr-native-image">
+      <span>{label}</span>
+      <div className="wr-native-image-card">
+        <div className="wr-native-image-preview">
+          {value === null ? (
+            <Icon name="image" />
+          ) : (
+            <img src={value.dataUrl} alt={`${label} preview`} width={48} height={48} />
+          )}
+        </div>
+        <div className="wr-native-image-content">
+          <span className="wr-native-image-name">
+            {value?.fileName ?? 'Default application icon'}
+          </span>
+          <small>SVG or PNG, up to 1 MB. Platform sizes are generated automatically.</small>
+          <div className="wr-native-image-actions">
+            <input
+              id={id}
+              type="file"
+              accept="image/png,image/svg+xml,.png,.svg"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = '';
+                void select(file);
+              }}
+              aria-label={label}
+              className="wr-native-image-input"
+            />
+            <label className="wr-native-image-choose" htmlFor={id}>
+              <Icon name="upload-cloud" />
+              Choose image
+            </label>
+            {value !== null && (
+              <button type="button" aria-label={`Remove ${label}`} onClick={() => onChange(null)}>
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
       {error !== null && (
         <div className="wr-project-settings-error" role="alert">
           {error}
@@ -200,13 +218,17 @@ export function ProjectNativeSettings({
   const validation = NativeApplicationSettingsSchema.safeParse(value);
 
   return (
-    <>
-      <p>
-        Configure generated Tauri 2 applications. Each target requires its supported host and native
-        toolchain.
+    <div className="wr-native-settings">
+      <p className="wr-native-settings-intro">
+        Configure application identity, packaging and platform preferences. Choose the export
+        platform in Build Application.
       </p>
       <fieldset className="wr-project-settings-seo-options">
-        <legend>Identification</legend>
+        <legend>
+          <Icon name="layers" />
+          <span>Identification</span>
+        </legend>
+        <p>Application details shown in the installed app and its package.</p>
         <div className="wr-project-settings-fields">
           <TextField
             label="Application Name"
@@ -247,117 +269,11 @@ export function ProjectNativeSettings({
         </div>
       </fieldset>
       <fieldset className="wr-project-settings-seo-options">
-        <legend>Desktop</legend>
-        <div className="wr-project-settings-fields">
-          {(
-            [
-              ['width', 'Initial Width'],
-              ['height', 'Initial Height'],
-              ['minWidth', 'Minimum Width'],
-              ['minHeight', 'Minimum Height'],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="wr-project-settings-field">
-              <span>{label}</span>
-              <input
-                type="number"
-                min={1}
-                max={32768}
-                step={1}
-                value={value.desktop[key]}
-                onChange={(event) =>
-                  patch({ desktop: { ...value.desktop, [key]: Number(event.currentTarget.value) } })
-                }
-              />
-            </label>
-          ))}
-        </div>
-        <div className="wr-project-settings-toggles">
-          {(
-            [
-              ['resizable', 'Resizable'],
-              ['fullscreen', 'Fullscreen'],
-              ['maximizable', 'Maximizable'],
-            ] as const
-          ).map(([key, label]) => (
-            <Toggle
-              key={key}
-              label={label}
-              value={value.desktop[key]}
-              onChange={(checked) => patch({ desktop: { ...value.desktop, [key]: checked } })}
-            />
-          ))}
-        </div>
-      </fieldset>
-      <fieldset className="wr-project-settings-seo-options">
-        <legend>Mobile</legend>
-        <div className="wr-project-settings-fields">
-          <label className="wr-project-settings-field">
-            <span>Orientation</span>
-            <select
-              value={value.mobile.orientation}
-              onChange={(event) => {
-                const orientation = event.currentTarget.value;
-                if (
-                  orientation === 'portrait' ||
-                  orientation === 'landscape' ||
-                  orientation === 'auto'
-                )
-                  patch({ mobile: { ...value.mobile, orientation } });
-              }}
-            >
-              <option value="portrait">Portrait</option>
-              <option value="landscape">Landscape</option>
-              <option value="auto">Auto</option>
-            </select>
-          </label>
-        </div>
-        <div className="wr-project-settings-toggles">
-          {(
-            [
-              ['fullscreen', 'Mobile Fullscreen'],
-              ['statusBar', 'Status Bar'],
-              ['safeArea', 'Safe Area'],
-            ] as const
-          ).map(([key, label]) => (
-            <Toggle
-              key={key}
-              label={label}
-              value={value.mobile[key]}
-              onChange={(checked) => patch({ mobile: { ...value.mobile, [key]: checked } })}
-            />
-          ))}
-        </div>
-        <div className="wr-project-settings-fields">
-          <NativeImage
-            label="Mobile Application Icon"
-            value={value.mobile.icon}
-            onChange={(icon) => patch({ mobile: { ...value.mobile, icon } })}
-          />
-          <div className="wr-project-settings-field full-width">
-            <span>Splash Screen</span>
-            <small>
-              Uses the platform's default launch screen and generated application icon. Custom
-              splash images are not supported.
-            </small>
-            {value.mobile.splashScreen !== null && (
-              <>
-                <div className="wr-project-settings-error" role="alert">
-                  Remove the unsupported custom splash image before building.
-                </div>
-                <button
-                  type="button"
-                  onClick={() => patch({ mobile: { ...value.mobile, splashScreen: null } })}
-                >
-                  Remove custom splash image
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </fieldset>
-      <fieldset className="wr-project-settings-seo-options">
-        <legend>Build</legend>
+        <legend>
+          <Icon name="settings" />
+          <span>Build</span>
+        </legend>
+        <p>Packaging preferences used when exporting from Build Application.</p>
         <div className="wr-project-settings-fields">
           <label className="wr-project-settings-field">
             <span>Target Platform</span>
@@ -481,7 +397,129 @@ export function ProjectNativeSettings({
         )}
       </fieldset>
       <fieldset className="wr-project-settings-seo-options">
-        <legend>Network</legend>
+        <legend>
+          <Icon name="monitor" />
+          <span>Desktop</span>
+        </legend>
+        <p>Initial window size and behavior for desktop applications.</p>
+        <div className="wr-project-settings-fields">
+          {(
+            [
+              ['width', 'Initial Width'],
+              ['height', 'Initial Height'],
+              ['minWidth', 'Minimum Width'],
+              ['minHeight', 'Minimum Height'],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="wr-project-settings-field">
+              <span>{label}</span>
+              <input
+                type="number"
+                min={1}
+                max={32768}
+                step={1}
+                value={value.desktop[key]}
+                onChange={(event) =>
+                  patch({ desktop: { ...value.desktop, [key]: Number(event.currentTarget.value) } })
+                }
+              />
+            </label>
+          ))}
+        </div>
+        <div className="wr-project-settings-toggles">
+          {(
+            [
+              ['resizable', 'Resizable'],
+              ['fullscreen', 'Fullscreen'],
+              ['maximizable', 'Maximizable'],
+            ] as const
+          ).map(([key, label]) => (
+            <Toggle
+              key={key}
+              label={label}
+              value={value.desktop[key]}
+              onChange={(checked) => patch({ desktop: { ...value.desktop, [key]: checked } })}
+            />
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="wr-project-settings-seo-options">
+        <legend>
+          <Icon name="smartphone" />
+          <span>Mobile</span>
+        </legend>
+        <p>Display preferences and application icon for Android and iOS.</p>
+        <div className="wr-project-settings-fields">
+          <label className="wr-project-settings-field">
+            <span>Orientation</span>
+            <select
+              value={value.mobile.orientation}
+              onChange={(event) => {
+                const orientation = event.currentTarget.value;
+                if (
+                  orientation === 'portrait' ||
+                  orientation === 'landscape' ||
+                  orientation === 'auto'
+                )
+                  patch({ mobile: { ...value.mobile, orientation } });
+              }}
+            >
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+              <option value="auto">Auto</option>
+            </select>
+          </label>
+        </div>
+        <div className="wr-project-settings-toggles">
+          {(
+            [
+              ['fullscreen', 'Mobile Fullscreen'],
+              ['statusBar', 'Status Bar'],
+              ['safeArea', 'Safe Area'],
+            ] as const
+          ).map(([key, label]) => (
+            <Toggle
+              key={key}
+              label={label}
+              value={value.mobile[key]}
+              onChange={(checked) => patch({ mobile: { ...value.mobile, [key]: checked } })}
+            />
+          ))}
+        </div>
+        <div className="wr-project-settings-fields">
+          <NativeImage
+            label="Mobile Application Icon"
+            value={value.mobile.icon}
+            onChange={(icon) => patch({ mobile: { ...value.mobile, icon } })}
+          />
+          <div className="wr-project-settings-field full-width">
+            <span>Splash Screen</span>
+            <small>
+              Uses the platform's default launch screen and generated application icon. Custom
+              splash images are not supported.
+            </small>
+            {value.mobile.splashScreen !== null && (
+              <>
+                <div className="wr-project-settings-error" role="alert">
+                  Remove the unsupported custom splash image before building.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => patch({ mobile: { ...value.mobile, splashScreen: null } })}
+                >
+                  Remove custom splash image
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </fieldset>
+      <fieldset className="wr-project-settings-seo-options">
+        <legend>
+          <Icon name="globe" />
+          <span>Network</span>
+        </legend>
+        <p>Allow the services your application connects to.</p>
         <label className="wr-project-settings-field full-width">
           <span>Allowed Network Origins</span>
           <textarea
@@ -509,7 +547,10 @@ export function ProjectNativeSettings({
         </label>
       </fieldset>
       <fieldset className="wr-project-settings-seo-options">
-        <legend>Signing references</legend>
+        <legend>
+          <Icon name="lock" />
+          <span>Signing references</span>
+        </legend>
         <p>
           Optional development builds can be unsigned. Certificates and passwords stay in the host
           certificate store, keychain or environment.
@@ -569,6 +610,6 @@ export function ProjectNativeSettings({
           {validation.error.issues[0]?.message ?? 'Review Native Application settings.'}
         </div>
       )}
-    </>
+    </div>
   );
 }

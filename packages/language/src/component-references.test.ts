@@ -14,10 +14,10 @@ const scope: ComponentReferenceScope = {
   componentNames: ['Button1', 'Edit1'],
 };
 
-function analyze(source: string) {
+function analyze(source: string, referenceScope = scope) {
   const fileName = '/pages/PageMain.ts';
   const authored = `import { PageMainGenerated } from './PageMain.generated';\n${source}`;
-  const snapshot = appendComponentReferenceDeclarations(ts, fileName, authored, scope);
+  const snapshot = appendComponentReferenceDeclarations(ts, fileName, authored, referenceScope);
   const host = ts.createCompilerHost({ noLib: true, strict: true });
   host.getSourceFile = (name) =>
     name === fileName
@@ -30,7 +30,7 @@ function analyze(source: string) {
     file,
     program.getTypeChecker(),
     authored.length,
-    scope,
+    referenceScope,
   );
   return {
     ...result,
@@ -41,6 +41,44 @@ function analyze(source: string) {
 }
 
 describe('instance component references', () => {
+  it('does not require row context for authored members in repeating event arrows', () => {
+    const result = analyze(
+      `export class PageMain extends PageMainGenerated {
+      idselecionado = 0;
+      handler = () => { idselecionado++; this.idselecionado++; };
+    }`,
+      {
+        ...scope,
+        repeatingHandlers: {
+          handler: { currentRowType: 'Row', componentIds: { Button1: 'button' } },
+        },
+      },
+    );
+    expect(result.diagnostics.map(({ code, messageText }) => ({ code, messageText }))).toEqual([]);
+    expect(result.edits).toHaveLength(1);
+    expect(result.output).not.toContain('__wrCurrentRow');
+  });
+  it('resolves authored fields, methods, shorthand and local bindings through the instance', () => {
+    const result = analyze(`export class PageMain extends PageMainGenerated {
+      private idselecionado = 0;
+      private format(value: number): string { return String(value); }
+      handler() {
+        idselecionado += 1;
+        const record = { idselecionado };
+        const run = () => format(record.idselecionado);
+        { const idselecionado = 'local'; send(idselecionado); }
+        this.idselecionado = 2;
+        return run();
+      }
+    }`);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.edits).toHaveLength(3);
+    expect(result.output).toContain('this.idselecionado += 1');
+    expect(result.output).toContain('{ idselecionado: this.idselecionado }');
+    expect(result.output).toContain('() => this.format(record.idselecionado)');
+    expect(result.output).toContain("const idselecionado = 'local'; send(idselecionado)");
+  });
+
   it('resolves members, arguments, shorthand properties, templates, fields, getters and arrows', () => {
     const result = analyze(`export class PageMain extends PageMainGenerated {
       value = Edit1.value;

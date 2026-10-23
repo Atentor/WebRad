@@ -48,8 +48,14 @@ export function popupSmokeProject() {
 export const popupSmokeSources = {
   'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
 export class PageMain extends PageMainGenerated {
+  private popupOpens = 0;
+  private get opened(): number { return popupOpens; }
+  private showPopup(): void {
+    Popup1.show();
+    this.element.dataset.barePageOpens = String(opened);
+  }
   created(): void {
-    document.body.addEventListener('click', () => this.Popup1.show());
+    document.body.addEventListener('click', () => { popupOpens += 1; showPopup(); });
   }
 }`,
 };
@@ -62,5 +68,6 @@ export const popupLayoutEvidence = `(() => {
   const box = e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right }; };
   return { dialog: box(dialog), actions: box(actions), buttons: buttons.map(box),
     overflow: buttons.some(b => b.scrollWidth > b.clientWidth),
-    viewport: innerWidth };
+    viewport: innerWidth,
+    barePageOpens: document.querySelector('[data-bare-page-opens]')?.dataset.barePageOpens };
 })()`;
