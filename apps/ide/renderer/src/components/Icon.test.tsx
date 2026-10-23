@@ -2,6 +2,9 @@ import { getWebRadIconShapes, type WebRadIconName, WEBRAD_ICON_NAMES } from '@we
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { Icon } from './Icon';
+import { JSDOM } from 'jsdom';
+import { createLucideIconElement, LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
+import { resolveIdeIcon } from '../ide-icons';
 
 const AUTH_AND_DOOR_ICON_NAMES = [
   'login',
@@ -53,11 +56,24 @@ describe('Icon', () => {
   });
 
   it('renders every IDE icon as local SVG without font ligature text', () => {
-    for (const name of WEBRAD_ICON_NAMES) {
-      const markup = renderToStaticMarkup(<Icon name={name} />);
-      expect(markup).toContain('<svg');
-      expect(markup).toContain('class="wr-icon"');
-      expect(markup).not.toContain(`>${name}<`);
+    const dom = new JSDOM('<!doctype html><div></div>');
+    try {
+      for (const name of [...WEBRAD_ICON_NAMES, ...LUCIDE_ICON_NAMES]) {
+        const markup = renderToStaticMarkup(<Icon name={name} />);
+        expect(markup).toContain('<svg');
+        expect(markup).toContain('class="wr-icon"');
+        expect(markup).not.toContain(`>${name}<`);
+        const expected = createLucideIconElement(dom.window.document, resolveIdeIcon(name));
+        const host = dom.window.document.querySelector('div')!;
+        host.innerHTML = markup;
+        const actual = host.querySelector('svg')!;
+        expect(actual.dataset.lucideIcon).toBe(resolveIdeIcon(name));
+        expect(actual.getAttribute('stroke-width')).toBe('2');
+        expect(actual.innerHTML, name).toBe(expected.innerHTML);
+        expect(actual.getAttribute('aria-hidden')).toBe('true');
+      }
+    } finally {
+      dom.window.close();
     }
   });
 });

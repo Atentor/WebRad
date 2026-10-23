@@ -70,6 +70,32 @@ export async function runIconSmoke(
     window,
     `document.querySelector('.wr-icon-picker-dialog input[type=search]') instanceof HTMLInputElement`,
   );
+  const galleryNames: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+      const options = [...document.querySelectorAll('[data-icon-picker-option]')];
+      return options.length > 1500 && options.every(option => {
+        const name = option.querySelector('.wr-icon-picker-name');
+        const bounds = name?.getBoundingClientRect();
+        return name?.textContent === option.getAttribute('data-icon-picker-option') &&
+          bounds?.width > 0 && bounds?.height > 0 &&
+          name.scrollWidth <= name.clientWidth + 1 && name.scrollHeight <= name.clientHeight + 1;
+      });
+    })()`,
+    true,
+  );
+  if (galleryNames !== true) throw new Error('Icon gallery hides or clips canonical icon names.');
+  const galleryScreenshotPath = path.resolve('node_modules', '.cache', 'webrad-icons-gallery.png');
+  await fs.mkdir(path.dirname(galleryScreenshotPath), { recursive: true });
+  window.webContents.invalidate();
+  const galleryCapture = await window.webContents.capturePage(undefined, {
+    stayHidden: true,
+    stayAwake: true,
+  });
+  if (galleryCapture.isEmpty()) throw new Error('Icon gallery screenshot was empty.');
+  await fs.writeFile(galleryScreenshotPath, galleryCapture.toPNG());
+  log(
+    `renderer icon gallery canonical names passed: visible, unclipped catalogue; screenshot ${galleryScreenshotPath}`,
+  );
   await window.webContents.executeJavaScript(
     `(() => { const input = document.querySelector('.wr-icon-picker-dialog input[type=search]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'camera'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`,
     true,

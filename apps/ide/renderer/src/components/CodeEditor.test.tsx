@@ -643,7 +643,10 @@ describe('CodeEditor professional Monaco workspace', () => {
     const { container } = render(<CodeEditor {...props} />);
 
     expect(screen.getByLabelText('PageMain.ts code workspace')).toBeTruthy();
-    expect(screen.getByLabelText('Source path').textContent).toBe('Demo›Pages›PageMain.ts');
+    expect(screen.getByLabelText('Source path').textContent).toBe('DemoPagesPageMain.ts');
+    expect(
+      screen.getByLabelText('Source path').querySelectorAll('[data-lucide-icon="chevron-right"]'),
+    ).toHaveLength(2);
     expect(screen.getByLabelText('Editor shortcuts').textContent).toContain(
       'Ctrl+Space IntelliSense',
     );

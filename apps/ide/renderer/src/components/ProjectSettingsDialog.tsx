@@ -543,7 +543,7 @@ export function ProjectSettingsDialog({
             aria-label="Close project settings"
             onClick={onClose}
           >
-            ×
+            <Icon name="close" />
           </button>
         </header>
         <div className="wr-project-settings-content">

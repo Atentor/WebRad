@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { REPORT_BAND_LABELS, reportOrderedBands, type ReportSelection } from '@webrad/designer';
 import type { WebReportElement, WebReportTemplate } from '@webrad/runtime/report-template';
 import type { ReactElement } from 'react';
@@ -32,15 +33,19 @@ export function ReportOutline({ template, selection, onSelect }: Props): ReactEl
             }
           >
             <span>
-              {element.type === 'group'
-                ? '□'
-                : element.type === 'repeater'
-                  ? '↻'
-                  : element.type === 'text'
-                    ? 'T'
-                    : element.type === 'image'
-                      ? '▧'
-                      : '—'}
+              <Icon
+                name={
+                  element.type === 'group'
+                    ? 'group'
+                    : element.type === 'repeater'
+                      ? 'repeat'
+                      : element.type === 'text'
+                        ? 'type'
+                        : element.type === 'image'
+                          ? 'image'
+                          : 'minus'
+                }
+              />
             </span>
             {element.name}
           </button>

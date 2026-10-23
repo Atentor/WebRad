@@ -1,5 +1,7 @@
 # WebRAD delivery plan
 
+- DONE locally (2026-10-23): Add nonvisual Timer with Inspector Time (ms), Loop and Enabled; Interact OnTimer/OnStart/OnStop; browser WebTimer Start/Stop/Restart, tickCount and automatic disposal; concrete page/reusable Monaco API, generated-source parity and persistence. Strict typecheck, lint, repository formatting, generated-source checks, the full linked-path suite (1,714 passed, 40 optional skips), real Chromium compiled Preview execution, Windows x64 production package build and complete development/packaged Electron smokes passed. Coverage includes interval rescheduling, idempotent start, single-run completion, handler reentrancy, initial OnStart binding, disposal, invalid times, Inspector persistence and undo. See docs/timer.md. No installer, version or release change.
+
 - DONE locally (2026-10-23): Keep enabled Default Icons visually static on hover, press and focus, including button mode. Remove the seeded focus ring and runtime outline; normalize only the original 2px blue ring in existing protected defaults while retaining authored effects and stable style/component IDs. Strict typecheck, lint, repository formatting, generated-source integrity, 77 focused tests including real Chrome hover/press/focus paint parity, Windows x64 packaging and complete development/packaged Electron smokes passed. Native click/Enter/Space behavior remains working; the F9 smoke now asserts unchanged appearance after focus and activation. Evidence: out/icons-review/static-development-smoke.log, static-build.log and static-packaged-smoke.log. No installer, version or release change.
 
 - DONE locally (2026-10-23): Add Standard Icons (`WebIcon`) with Lucide 1.61.0 and an offline generated catalogue. Support icon and captionless native button modes, accessible labels, stroke width, protected Aurora styles with collision-safe restoration in existing projects, concrete typed page/reusable instances and Monaco completion, shared Designer/runtime SVGs and compiled Preview. Preserve upstream Lucide/Feather notices in desktop and generated applications. Full validate passed: strict typecheck, lint, generated-source integrity, formatting, 1,694 tests (39 optional skips) and Windows x64 production packaging. All 10 focused icon tests passed with real Chrome Designer/Preview geometry and style parity, native Enter/Space, disabled activation and reusable isolation. Complete development and packaged Electron smokes passed palette/gallery selection, Inspector/model persistence and native keyboard activation in isolated F9. The new smoke initially exposed its incorrect Designer overlay selector and Electron's offscreen input routing to a cross-site iframe; reproduce the latter separately and use Chromium native input without synthetic DOM key events, retries or extended deadlines. Original failures remain under artifacts/smoke/development/standard/; screenshots, the input probe and packaged smoke log are under out/icons-review/. No installer, version bump, tag or public release was created.
@@ -618,6 +620,37 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 - Diagnosed hosted run `39963098127` for `b6e1ba4`: validation/security and Linux/macOS builds passed; the Windows packaged smoke stopped at the requirements checklist with a pending rustc version probe. The individual 20-second probe limit exceeded the checklist's unchanged 15-second readiness deadline.
 - Bound tool queries to a shared 10-second inspection budget and at most 5 seconds per process. Preserve native process-tree termination, cancellation, strict checks and the existing smoke deadlines. Report timed-out/unqueried Rust tools explicitly, retain successful versions and continue filesystem checks.
 - DONE for local Windows scope: full validation passed (1,697 tests, 39 optional skips, strict typecheck, lint, formatting, integrity checks and production packaging), plus the development, packaged and packaged updater Electron smokes. Final focused coverage passed all 69 tests. A real stalled-process regression fails against the original source after 20.1 seconds and passes with the correction in approximately 5 seconds, preserving the 15-second readiness limit. Evidence: `artifacts/ci-b6e1ba4-{github-windows,timeout-baseline,focused-final,validate,development-final,packaged-final,updates-final}.log`. Hosted confirmation of this uncommitted correction remains pending. No commit, installer, tag or release was created.
+
+## Icon gallery identifiers and typed updates (2026-10-23)
+
+- Project Explorer sizing follow-up: keep resource SVGs at 16 by 16px inside
+  their wrappers, matching page icons and header actions; prevent icon slots
+  from shrinking. The Electron icon audit now checks the nested resource layout.
+
+- IDE Lucide unification: replace shared chrome artwork, modal close glyphs,
+  diagnostics, debugger/report outline and Monaco controls with upstream Lucide.
+  Preserve application icon preview/runtime parity and saved project identifiers.
+  Add a required native Electron audit and screenshot for actual chrome and open
+  Monaco suggestions. DONE for local Windows scope: `validate` passed with 1,699
+  tests and 39 optional skips, strict typecheck, lint, formatting, source integrity
+  and production packaging. Development and packaged workflows confirmed 80
+  Lucide chrome icons and 14 Monaco masks, with no unmapped visible icons; native
+  F9, Inspector and gallery interactions passed. The development debugger smoke
+  also passed all stepping, inspection, hover and persistence checks after opening
+  its fixture through the mounted Open Project control (its initial IPC could
+  precede React's command subscription). Screenshot: `artifacts/ide-lucide.png`.
+  Logs: `artifacts/ide-lucide-{validate-complete,development-final,packaged,debugger-development-final}.log`.
+
+- Icon gallery follow-up (2026-10-23): display canonical identifiers with wrapping
+  and tooltips. Extend existing typed `icon` coverage for Button and Icons through
+  bare/this Monaco semantics, compiled Preview and reusable placement isolation.
+  Require visible, unclipped gallery names in both Electron smoke runners.
+  DONE for local Windows scope: `validate` passed with 1,698 tests and 39 optional
+  skips, strict typecheck, lint, formatting, source integrity and production
+  packaging. All 15 focused tests passed with real Chromium Preview, including
+  SVG changes for both components. Development and packaged Electron workflows
+  completed with visible, unclipped gallery names, screenshots and F9 evidence.
+  Logs: `artifacts/icon-gallery-{validate,development,packaged}.log`.
 
 ## Stable dependency upgrade (2026-10-23)
 

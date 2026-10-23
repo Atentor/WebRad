@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { componentRegistry, getCurrentRowBindableProperties } from '@webrad/component-registry';
 import {
   normalizeCurrentRowBindings,
@@ -81,7 +82,7 @@ export function CurrentRowBindingsDialog({
             aria-label="Close current row bindings"
             onClick={onClose}
           >
-            &times;
+            <Icon name="close" />
           </button>
         </header>
         <form

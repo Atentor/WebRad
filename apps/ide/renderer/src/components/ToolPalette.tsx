@@ -110,7 +110,7 @@ export function ToolPalette({
             aria-label="Clear component search"
             title="Clear search"
           >
-            &times;
+            <Icon name="close" />
           </button>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { isWebRadIconName, type WebRadIconName } from '@webrad/runtime/icons';
+import { isLucideIconName } from '@webrad/runtime/icon';
 import type { ReactElement } from 'react';
 import { Icon } from './Icon';
 
@@ -27,7 +28,7 @@ interface ComponentIconProps {
 
 export function ComponentIcon({ icon }: ComponentIconProps): ReactElement {
   const name =
-    icon !== undefined && isWebRadIconName(icon)
+    icon !== undefined && (isLucideIconName(icon) || isWebRadIconName(icon))
       ? icon
       : (COMPONENT_ICON_ALIASES[icon ?? ''] ?? 'layers');
   return <Icon name={name} />;

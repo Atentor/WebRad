@@ -190,7 +190,9 @@ describe('ElementTree hierarchy and selection', () => {
       screen.getByRole('treeitem', { name: 'HeroImage' }).querySelector('svg path'),
     ).toBeTruthy();
     const pluginItem = screen.getByRole('treeitem', { name: 'BuyButton' });
-    expect(pluginItem.querySelectorAll('.wr-element-icon svg path').length).toBe(3);
+    expect(pluginItem.querySelector('.wr-element-icon svg')?.getAttribute('data-lucide-icon')).toBe(
+      'database',
+    );
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search elements' }), {
       target: { value: 'catalog' },
     });

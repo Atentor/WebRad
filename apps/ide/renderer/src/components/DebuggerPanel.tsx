@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import {
   useEffect,
   useLayoutEffect,
@@ -123,7 +124,7 @@ function BreakpointRow({
           aria-label={`Remove breakpoint ${breakpoint.path}:${String(breakpoint.line)}`}
           onClick={() => onRemove(breakpoint.path, breakpoint.line)}
         >
-          ×
+          <Icon name="close" />
         </button>
       </div>
       <input
@@ -265,7 +266,7 @@ function PausedInspector({
                 aria-label={`Remove watch ${expression}`}
                 onClick={() => onWatchesChange(watches.filter((item) => item !== expression))}
               >
-                ×
+                <Icon name="close" />
               </button>
             </div>
           );
@@ -435,7 +436,8 @@ export function DebuggerPanel({
             onClick={() => onAction(paused ? 'resume' : 'pause')}
             title={paused ? 'Continue (F5)' : 'Pause'}
           >
-            {paused ? '▶ Continue' : 'Ⅱ Pause'}
+            <Icon name={paused ? 'play' : 'pause'} />
+            {paused ? 'Continue' : 'Pause'}
           </button>
         ) : (
           <button
@@ -444,7 +446,7 @@ export function DebuggerPanel({
             onClick={onStart}
             title="Start debugging (F5)"
           >
-            ▶ Start
+            <Icon name="play" /> Start
           </button>
         )}
         <button
@@ -477,7 +479,7 @@ export function DebuggerPanel({
           onClick={() => onAction('restart')}
           title="Restart (Ctrl+Shift+F5)"
         >
-          ↻ Restart
+          <Icon name="refresh-cw" /> Restart
         </button>
         <button
           type="button"
@@ -485,7 +487,7 @@ export function DebuggerPanel({
           onClick={() => onAction('stop')}
           title="Stop (Shift+F5)"
         >
-          ■ Stop
+          <Icon name="square" /> Stop
         </button>
         <span className={`wr-debug-status wr-debug-status-${state.status}`} role="status">
           {busy
@@ -597,7 +599,7 @@ export function DebuggerPanel({
                     aria-label={`Remove watch ${expression}`}
                     onClick={() => onWatchesChange(watches.filter((item) => item !== expression))}
                   >
-                    ×
+                    <Icon name="close" />
                   </button>
                 </div>
               ))}
@@ -660,7 +662,10 @@ export function DebuggerPanel({
               className={`wr-debug-console-entry wr-debug-console-${entry.level ?? 'result'}`}
             >
               {entry.expression !== undefined && (
-                <div className="wr-debug-muted">› {entry.expression}</div>
+                <div className="wr-debug-muted">
+                  <Icon name="chevron-right" />
+                  {entry.expression}
+                </div>
               )}
               {entry.pending && <span className="wr-debug-muted">Evaluating…</span>}
               {entry.error ? (
@@ -682,7 +687,9 @@ export function DebuggerPanel({
           </div>
         )}
         <form className="wr-debug-console-form" onSubmit={evaluate}>
-          <span aria-hidden="true">›</span>
+          <span aria-hidden="true">
+            <Icon name="chevron-right" />
+          </span>
           <input
             aria-label="Debug console expression"
             placeholder={

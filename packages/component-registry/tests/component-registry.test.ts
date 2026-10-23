@@ -133,7 +133,13 @@ describe('MVP component metadata', () => {
     ).toEqual(
       MVP_COMPONENT_TYPES.filter(
         (type) =>
-          !['WebApiClient', 'WebFileUpload', 'WebVideoUpload', 'WebReportBuilder'].includes(type),
+          ![
+            'WebTimer',
+            'WebApiClient',
+            'WebFileUpload',
+            'WebVideoUpload',
+            'WebReportBuilder',
+          ].includes(type),
       ),
     );
   });
@@ -258,6 +264,7 @@ describe('MVP component metadata', () => {
     expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual([
       'WebPopup',
       'WebApiClient',
+      'WebTimer',
       'WebFileUpload',
       'WebVideoUpload',
       'WebReportBuilder',

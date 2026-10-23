@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import {
   ComboBoxConfigurationSchema,
   comboBoxSchemaChoices,
@@ -104,7 +105,7 @@ export function ComboBoxConfigurationDialog({
             aria-label="Close ComboBox configuration"
             onClick={onClose}
           >
-            &times;
+            <Icon name="close" />
           </button>
         </header>
         <form

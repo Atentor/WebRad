@@ -1,4 +1,5 @@
 import { defaultComponentRegistry, type ComponentRegistry } from '@webrad/component-registry';
+import { Icon } from './Icon';
 import {
   createStylePropertyGroups,
   type StylePropertyGroup,
@@ -120,7 +121,10 @@ function CollapsiblePropertyCategory({
         aria-controls={contentId}
         onClick={onToggle}
       >
-        <span>{category.name}</span>
+        <span>
+          <Icon name={expanded ? 'chevron-down' : 'chevron-right'} />
+          {category.name}
+        </span>
         {category.configuredCount > 0 && (
           <span>
             <strong>{category.configuredCount} set</strong>

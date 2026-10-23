@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { getProjectNameError } from '@webrad/project-model';
 import {
   useEffect,
@@ -113,7 +114,7 @@ export function NewProjectDialog({
             disabled={busy}
             onClick={onCancel}
           >
-            ×
+            <Icon name="close" />
           </button>
         </header>
         <form onSubmit={submit}>

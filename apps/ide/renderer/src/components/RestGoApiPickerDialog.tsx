@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import {
   getRestGoPublishedApiConnection,
   isEmptyApiClientConfiguration,
@@ -204,7 +205,7 @@ export function RestGoApiPickerDialog({
             aria-label="Close RestGo API picker"
             onClick={onClose}
           >
-            &times;
+            <Icon name="close" />
           </button>
         </header>
         <div className="wr-api-client-content">

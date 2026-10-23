@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import {
   getApiClientTemplateParameters,
   parseApiClientTemplateTestValue,
@@ -653,7 +654,7 @@ export function ApiClientTesterDialog({
               disabled={sending}
               onClick={onClose}
             >
-              &times;
+              <Icon name="close" />
             </button>
           </header>
           <div className="wr-api-client-content">

@@ -1,3 +1,4 @@
+import { ProjectIconGraphic } from './ProjectIconGraphic';
 import {
   createDefaultDataGridConfiguration,
   normalizeApiClientConfiguration,
@@ -349,7 +350,7 @@ export function DataGridConfigurationDialog({
             aria-label="Close Data Grid configuration"
             onClick={onClose}
           >
-            &times;
+            <Icon name="close" />
           </button>
         </header>
         <form className="wr-data-grid-configuration-form" onSubmit={save}>
@@ -877,7 +878,7 @@ export function DataGridConfigurationDialog({
                               {column.buttonIcon === null ? (
                                 <span>—</span>
                               ) : (
-                                <Icon name={column.buttonIcon} />
+                                <ProjectIconGraphic name={column.buttonIcon} />
                               )}
                             </span>
                             <span>

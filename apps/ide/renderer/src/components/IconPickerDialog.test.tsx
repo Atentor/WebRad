@@ -26,7 +26,8 @@ describe('IconPickerDialog', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Choose an icon' });
     expect(screen.queryByRole('combobox')).toBeNull();
-    expect(dialog.querySelectorAll('.wr-icon')).toHaveLength(2);
+    expect(dialog.querySelectorAll('.wr-icon-picker-option .wr-icon')).toHaveLength(2);
+    expect(dialog.querySelector('.wr-modal-close [data-lucide-icon="x"]')).not.toBeNull();
     expect(document.activeElement).toBe(screen.getByRole('searchbox', { name: 'Search icons' }));
 
     await user.click(screen.getByRole('button', { name: 'Select Save icon' }));
@@ -55,6 +56,12 @@ describe('IconPickerDialog', () => {
     await user.type(search, 'chevron down');
     expect(screen.queryByRole('button', { name: 'Select Add icon' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Select Chevron Down icon' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Select Chevron Down icon' }).textContent).toBe(
+      'chevron-down',
+    );
+    expect(screen.getByRole('button', { name: 'Select Chevron Down icon' }).title).toBe(
+      'chevron-down',
+    );
     expect(onSelect).not.toHaveBeenCalled();
 
     await user.keyboard('{ArrowDown}');

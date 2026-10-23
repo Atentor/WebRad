@@ -19,7 +19,7 @@ describe('ToolPalette compact registry presentation', () => {
     const onInsert = vi.fn();
     render(<ToolPalette compact registry={registry} onSelect={onSelect} onInsert={onInsert} />);
     const item = screen.getByRole('button', { name: 'Catalog' });
-    expect(item.querySelectorAll('svg path').length).toBe(3);
+    expect(item.querySelector('svg')?.getAttribute('data-lucide-icon')).toBe('database');
     expect(item.querySelector('.wr-palette-item-icon')?.textContent).toBe('');
     fireEvent.doubleClick(item);
     expect(onSelect).toHaveBeenLastCalledWith('WebProductCatalog');

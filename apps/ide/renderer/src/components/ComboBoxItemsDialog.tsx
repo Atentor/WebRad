@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import type { ComponentNode } from '@webrad/project-model';
@@ -96,7 +97,7 @@ export function ComboBoxItemsDialog({
             aria-label="Close ComboBox items"
             onClick={onClose}
           >
-            &times;
+            <Icon name="close" />
           </button>
         </header>
         <form

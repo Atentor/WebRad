@@ -588,6 +588,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebRepeatingGroup,
   WebEdit,
   WebFileUpload,
+  WebTimer,
   WebVideoUpload,
   WebVideoPlayer,
   WebPage,
@@ -607,6 +608,7 @@ class EditorPage extends WebPage {
     reusable: WebReusableElement,
     label: WebLabel,
     edit: WebEdit,
+    timer: WebTimer,
     fileUpload: WebFileUpload,
     videoUpload: WebVideoUpload,
     videoPlayer: WebVideoPlayer,
@@ -631,6 +633,7 @@ panel./*@panel*/caption;
     reusable./*@reusable*/placement;
     label./*@label*/autoSize;
     edit./*@edit*/inputType;
+    timer./*@timer*/Start;
     fileUpload./*@fileUpload*/upload;
     videoUpload./*@videoUpload*/SendToRestGO;
     videoPlayer./*@videoPlayer*/LoadRestGo;
@@ -800,6 +803,7 @@ panel./*@panel*/caption;
       WebCheckBox: 'checkBox',
       WebComboBox: 'combo',
       WebEdit: 'edit',
+      WebTimer: 'timer',
       WebFileUpload: 'fileUpload',
       WebVideoUpload: 'videoUpload',
       WebVideoPlayer: 'videoPlayer',

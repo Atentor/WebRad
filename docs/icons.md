@@ -1,10 +1,42 @@
 # Icons (Lucide)
 
+## IDE interface
+
+The IDE's shared `Icon` renderer uses the installed upstream Lucide SVG nodes,
+with a 24 by 24 viewBox, 2-unit strokes and `currentColor`. Registry metadata and
+existing action identifiers resolve through the typed `ide-icons.ts` aliases.
+Modals, toolbar/sidebar controls, diagnostics, report outline and debugger controls
+share this renderer. Monaco completions, find/navigation controls and debugger
+markers use local Lucide SVG masks from `monaco-icons.ts`.
+
+Application artwork previews use `ProjectIconGraphic` for the saved WebRAD
+Button/Data Grid catalogue and `LucideGraphic` for Icons. These previews retain
+Designer/Preview/export parity; choosing interface artwork does not change saved
+project icon IDs. The WebRAD brand/application logo remains a brand asset.
+
+## Application icons
+
 The Standard palette's **Icons** component (`WebIcon`, generated names `Icon1`,
 `Icon2`, etc.) renders SVGs from the pinned `lucide` dependency. The searchable
 Inspector gallery displays actual upstream icons. Its selection is saved in the
 Project Model; the Designer, compiled F9 Preview and exported browser application
 use the same catalogue, without a CDN or network request.
+
+Each gallery tile displays the exact icon identifier, including hyphens (for
+example, `arrow-right`). Long names wrap and the tooltip repeats the identifier.
+Use that identifier with the typed `icon` property in Monaco:
+
+```typescript
+Button1.icon = 'save';
+this.Button1.icon = 'check';
+Icon1.icon = 'camera';
+this.Icon1.icon = 'arrow-right';
+```
+
+Both properties update their SVG immediately in Preview and exported applications,
+with completion and diagnostics for their respective catalogues. Button uses the
+WebRAD catalogue (`WebButtonIcon`); Icons uses Lucide (`LucideIconName`). A Button's
+style must display icons (`Text and icon` or `Icon only` in Button content).
 
 The initial size is 32 × 32 pixels. SVGs retain their 24 × 24 viewBox and aspect
 ratio in rectangular, responsive or reusable layouts. Color comes from the

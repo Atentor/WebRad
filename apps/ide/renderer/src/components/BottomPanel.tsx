@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import type { ReactElement, ReactNode } from 'react';
 import {
   countEditorProblems,
@@ -52,7 +53,11 @@ function ProblemCount({
   return (
     <span className={`wr-problem-count wr-problem-count-${category}`} aria-label={label}>
       <span aria-hidden="true">
-        {category === 'error' ? '●' : category === 'warning' ? '▲' : '◆'}
+        <Icon
+          name={
+            category === 'error' ? 'circle-x' : category === 'warning' ? 'triangle-alert' : 'info'
+          }
+        />
       </span>
       {count}
     </span>
@@ -90,7 +95,15 @@ function ProblemRow({
   const contents = (
     <>
       <span className="wr-problem-icon" aria-hidden="true">
-        {problem.category === 'error' ? '●' : problem.category === 'warning' ? '▲' : '◆'}
+        <Icon
+          name={
+            problem.category === 'error'
+              ? 'circle-x'
+              : problem.category === 'warning'
+                ? 'triangle-alert'
+                : 'info'
+          }
+        />
       </span>
       <span className="wr-problem-message">{problem.message}</span>
       <small className="wr-problem-source">{problemMetadata(problem)}</small>

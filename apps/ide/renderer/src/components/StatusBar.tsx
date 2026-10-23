@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import type { Bounds } from '@webrad/project-model';
 import type { ReactElement } from 'react';
 import type { ProblemCounts } from '../editor-problems';
@@ -55,11 +56,15 @@ export function StatusBar({
         onClick={onShowProblems}
       >
         <span className="wr-status-problem wr-status-problem-error" aria-hidden="true">
-          <span className="wr-status-problem-glyph">&times;</span>
+          <span className="wr-status-problem-glyph">
+            <Icon name="circle-x" />
+          </span>
           {problemCounts.error}
         </span>
         <span className="wr-status-problem wr-status-problem-warning" aria-hidden="true">
-          <span className="wr-status-problem-glyph">!</span>
+          <span className="wr-status-problem-glyph">
+            <Icon name="triangle-alert" />
+          </span>
           {problemCounts.warning}
         </span>
       </button>

@@ -101,6 +101,20 @@ const reportBuilderTypings =
     2,
   ) + '\n';
 
+const timerTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'timer-typings.generated.json',
+);
+const timerTypings =
+  JSON.stringify(
+    { source: createApiClientDeclarations(repositoryRoot, ['timer.ts']).source },
+    null,
+    2,
+  ) + '\n';
+
 const sourceFiles = [
   'api-client.ts',
   'api-client-inputs.ts',
@@ -113,6 +127,7 @@ const sourceFiles = [
   'data-grid.ts',
   'repeating-group.ts',
   ...reportSourceNames,
+  'timer.ts',
   'file-upload.ts',
   'video-file-selection.ts',
   'video-upload.ts',
@@ -356,6 +371,7 @@ const outputs = [
       2,
     ) + '\n',
   ],
+  [timerTypingsPath, timerTypings],
   [videoTypingsPath, videoTypings],
   [outputPath, expected],
   [apiClientTypingsPath, apiClientTypings],

@@ -16,6 +16,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import { ProjectIconGraphic } from './ProjectIconGraphic';
 
 interface IconPickerDialogProps<T extends string> {
   readonly icons: readonly T[];
@@ -133,7 +134,7 @@ export function IconPickerDialog<T extends string = WebRadIconName>({
             aria-label="Close icon picker"
             onClick={onClose}
           >
-            &times;
+            <Icon name="close" />
           </button>
         </header>
         <div className="wr-icon-picker-content">
@@ -168,6 +169,7 @@ export function IconPickerDialog<T extends string = WebRadIconName>({
                     className={`wr-icon-picker-option${icon === selected ? ' selected' : ''}`}
                     key={icon}
                     aria-label={`Select ${label} icon`}
+                    title={icon}
                     aria-pressed={icon === selected}
                     data-icon-picker-option={icon}
                     onClick={() => onSelect(icon)}
@@ -175,9 +177,9 @@ export function IconPickerDialog<T extends string = WebRadIconName>({
                     {renderIcon ? (
                       renderIcon(icon)
                     ) : isWebRadIconName(icon) ? (
-                      <Icon name={icon} />
+                      <ProjectIconGraphic name={icon} />
                     ) : null}
-                    <span>{label}</span>
+                    <span className="wr-icon-picker-name">{icon}</span>
                   </button>
                 );
               })}

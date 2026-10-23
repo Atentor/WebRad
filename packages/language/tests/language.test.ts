@@ -56,6 +56,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'repeating-group', type: 'WebRepeatingGroup', name: 'RepeatingGroup1' },
   { id: 'popup-dialog', type: 'WebPopup', name: 'Popup1' },
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
+  { id: 'stable-timer', type: 'WebTimer', name: 'Timer1' },
   { id: 'stable-file-upload', type: 'WebFileUpload', name: 'FileUpload1' },
   { id: 'stable-video-upload', type: 'WebVideoUpload', name: 'VideoUpload1' },
   { id: 'stable-video-player', type: 'WebVideoPlayer', name: 'VideoPlayer1' },
@@ -162,6 +163,7 @@ function testPage(): PageModel {
           'stable-panel-main',
           'popup-dialog',
           'api-client',
+          'stable-timer',
           'stable-file-upload',
           'stable-video-upload',
           'stable-report-builder',
@@ -258,6 +260,9 @@ describe('page language generation', () => {
     expect(source).not.toContain('requireComponentElement("stable-file-upload")');
     expect(source).toContain('this.FileUpload1 = new WebFileUpload(');
     expect(source).toContain('this.FileUpload1.dispose();');
+    expect(source).toContain('this.Timer1 = new WebTimer(');
+    expect(source).toContain('this.Timer1.dispose();');
+    expect(source).not.toContain('requireComponentElement("stable-timer")');
     expect(source).toContain('this.ApiClient1.dispose();');
     expect(source).not.toContain('public readonly PageMain: WebPage;');
     expect(typings).not.toContain('public readonly PageMain: WebPage;');

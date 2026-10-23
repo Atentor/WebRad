@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { useState } from 'react';
 import { EXTERNAL_LINKS, type ExternalLinkTarget } from '../../../shared/external-links';
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactElement } from 'react';
@@ -71,7 +72,7 @@ export function AboutDialog({ onClose }: { readonly onClose: () => void }): Reac
             aria-label="Close About WebRAD"
             onClick={onClose}
           >
-            ×
+            <Icon name="close" />
           </button>
         </header>
         <div className="wr-modal-description">
@@ -100,7 +101,9 @@ export function AboutDialog({ onClose }: { readonly onClose: () => void }): Reac
             }}
           >
             <strong>WebRAD website &amp; documentation</strong>
-            <span>webrad.atentor.com ↗</span>
+            <span>
+              webrad.atentor.com <Icon name="external-link" />
+            </span>
           </a>
           {linkError !== null && (
             <p className="wr-modal-error" role="alert">

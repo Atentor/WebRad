@@ -28,7 +28,9 @@ import {
   runRestGoSettingsSmoke,
 } from './restgo-smoke';
 import { runDataGridConfigurationSmoke } from './data-grid-smoke';
+import { runTimerSmoke } from './timer-smoke';
 import { runIconSmoke } from './icon-smoke';
+import { runIdeIconsSmoke } from './ide-icons-smoke';
 import { runStylesWorkspaceSmoke } from './styles-smoke';
 import { runPopupLayoutSmoke } from './popup-smoke';
 import { runBugReportSmoke } from './bug-report-smoke';
@@ -354,6 +356,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
     10_000,
   );
   smokeLog(`renderer Monaco autocomplete passed: ${suggestions}`);
+  await runIdeIconsSmoke(window, smokeLog);
   sendRendererKey(window, 'Escape');
 
   // Exercise the native TypeScript member provider on a bare component name.
@@ -1173,6 +1176,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await captureDesignerSmokeScreenshot(window);
   await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runDataGridConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runTimerSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runIconSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runApiClientDesignerSmoke(window, {
     projectPath: smokeProjectPath,

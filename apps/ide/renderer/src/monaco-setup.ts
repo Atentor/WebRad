@@ -41,6 +41,9 @@ import 'monaco-editor/languages/definitions/typescript/register';
 import * as typescriptApi from 'monaco-editor/languages/features/typescript/register';
 import { supportsTypeScriptThisExpression } from './page-component-completions';
 import { canonicalMonacoResource } from './monaco-resource';
+import { installMonacoLucideIcons } from './monaco-icons';
+
+installMonacoLucideIcons(document);
 
 export const WEBRAD_MONACO_DARK_THEME = 'webrad-dark';
 export const WEBRAD_MONACO_LIGHT_THEME = 'webrad-light';

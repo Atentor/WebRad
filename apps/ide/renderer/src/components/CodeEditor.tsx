@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import Editor, { loader } from '@monaco-editor/react';
 import * as monacoApi from 'monaco-editor/editor';
 import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
@@ -908,7 +909,11 @@ export function CodeEditor({
         <nav aria-label="Source path">
           {breadcrumb.map((segment, index) => (
             <span key={`${segment}-${String(index)}`}>
-              {index > 0 && <span aria-hidden="true">›</span>}
+              {index > 0 && (
+                <span aria-hidden="true">
+                  <Icon name="chevron-right" />
+                </span>
+              )}
               {segment}
             </span>
           ))}

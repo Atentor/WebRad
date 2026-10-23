@@ -38,6 +38,22 @@ export function iconProject(reusable = false) {
     );
     document = bindComponentEvent(document, mode!, 'OnClick', 'activate');
   }
+  document = addComponent(
+    document,
+    applyDefaultComponentStyle(
+      defaultComponentRegistry.createComponent('WebButton', {
+        id: 'text-button',
+        name: 'Button1',
+        parentId: document.rootComponentId,
+        x: 20,
+        y: 90,
+        props: { caption: 'Save changes', icon: 'save' },
+      }),
+      project.styles,
+    ),
+    document.rootComponentId,
+  );
+  document = bindComponentEvent(document, 'text-button', 'OnClick', 'activateButton');
   if (!reusable) return updatePage(project, page.id, document);
   project = addReusableElement(project, document);
   for (const [index, name] of ['FirstCard', 'SecondCard'].entries()) {
@@ -61,9 +77,14 @@ export function iconProject(reusable = false) {
 
 const methods = `activate(sender: WebIcon): void {
   Icon1.icon = 'check';
+  this.Button1.icon = 'check';
   this.Icon1.strokeWidth = 3;
   this.element.dataset.activations = String(Number(this.element.dataset.activations ?? '0') + 1);
   sender.accessibleLabel = 'Saved';
+}
+activateButton(): void {
+  Button1.icon = 'save';
+  this.Icon1.icon = 'camera';
 }`;
 export function iconUserSources(reusable = false): Record<string, string> {
   return {

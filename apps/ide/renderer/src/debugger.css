@@ -37,6 +37,11 @@
   opacity: 0.45;
   cursor: default;
 }
+.wr-debug-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .wr-debugger input,
 .wr-debugger select {
   background: var(--wr-input-bg);
@@ -258,6 +263,11 @@
   align-items: center;
   gap: 5px;
   margin-top: 4px;
+}
+.wr-debug-console-entry > .wr-debug-muted {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .wr-debug-console-form input {
   flex: 1;

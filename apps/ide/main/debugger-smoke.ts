@@ -52,7 +52,6 @@ export async function runDebuggerSmoke(
   const userSources = { ...original.userSources, [sourcePath]: source };
   await saveProjectFiles({ rootPath: original.rootPath, project: original.project, userSources });
   log('renderer debugger fixture saved');
-  window.webContents.send('webrad:menu-command', 'file.openProject');
 
   async function bridge<T>(expression: string): Promise<T> {
     const result: unknown = await window.webContents.executeJavaScript(expression, true);
@@ -132,6 +131,15 @@ export async function runDebuggerSmoke(
       throw error;
     }
   }
+  // did-finish-load can precede React's command subscription. Open the fixture
+  // through its real control once mounted, rather than sending an unobserved IPC.
+  await waitFor(
+    'document.querySelector(\'button[aria-label="Open project (Ctrl+O)"]\') instanceof HTMLButtonElement',
+    'the mounted Open Project control',
+  );
+  await bridge(
+    'document.querySelector(\'button[aria-label="Open project (Ctrl+O)"]\').click(); true',
+  );
   await waitFor(
     "document.querySelector('.wr-page-surface') !== null",
     'the opened fixture project',

@@ -171,6 +171,19 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           expect(await evaluate(`${runtime('icon')}.parentElement.dataset.activations`)).toBe('2');
           expect(await paint(runtime('button'))).toEqual(idlePaint);
           expect(await evaluate(`${runtime('icon')}.dataset.webradIcon`)).toBe('check');
+          expect(await evaluate(`${runtime('text-button')}.dataset.webradButtonIcon`)).toBe(
+            'check',
+          );
+          const buttonGraphic = await evaluate(
+            `${runtime('text-button')}.querySelector('svg').innerHTML`,
+          );
+          await evaluate(`${runtime('text-button')}.click()`);
+          expect(await evaluate(`${runtime('text-button')}.dataset.webradButtonIcon`)).toBe('save');
+          expect(
+            await evaluate(`${runtime('text-button')}.querySelector('svg').innerHTML`),
+          ).not.toBe(buttonGraphic);
+          expect(await evaluate(`${runtime('text-button')}.textContent`)).toBe('Save changes');
+          expect(await evaluate(`${runtime('icon')}.dataset.webradIcon`)).toBe('camera');
           await evaluate(`${runtime('button')}.disabled = true; ${runtime('button')}.click()`);
           await send('Input.dispatchKeyEvent', {
             type: 'keyDown',

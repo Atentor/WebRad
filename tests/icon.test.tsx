@@ -213,13 +213,13 @@ it.each([false, true])(
     const filename = `/virtual/${document.name}.ts`;
     const source = `import { ${document.name}Generated } from './${document.name}.generated';
 export class ${document.name} extends ${document.name}Generated {
-  run(): void { Icon1.icon = 'missing-icon'; this.Action1.mode = 'invalid'; Action1.strokeWidth = 'bad'; Action1.click(); }
+  run(): void { Icon1.icon = 'missing-icon'; this.Action1.mode = 'invalid'; Action1.strokeWidth = 'bad'; Action1.click(); Button1.icon = 'missing-icon'; this.Button1.icon = 'save'; }
   shadow(): void { const Icon1 = { icon: 12 }; const value: number = Icon1.icon; void value; }
 }`;
     const augmented = appendComponentReferenceDeclarations(ts, filename, source, {
       className: document.name,
       generatedClassName: `${document.name}Generated`,
-      componentNames: ['Icon1', 'Action1'],
+      componentNames: ['Icon1', 'Action1', 'Button1'],
     });
     const files = new Map([
       [filename, augmented],
@@ -277,8 +277,15 @@ export class ${document.name} extends ${document.name}Generated {
           {},
         )?.items[0]?.parameters,
       ).toEqual([]);
+      for (const marker of ['Button1.icon', 'this.Button1.icon']) {
+        const position = source.indexOf(marker) + marker.lastIndexOf('.') + 1;
+        expect(
+          service.getCompletionsAtPosition(filename, position, {})?.entries.map((e) => e.name),
+        ).toEqual(expect.arrayContaining(['icon', 'caption', 'click', 'onClick']));
+        expect(service.getQuickInfoAtPosition(filename, position)?.displayParts).toBeDefined();
+      }
       expect(service.getSemanticDiagnostics(filename).map((d) => d.code)).toEqual([
-        2322, 2322, 2322,
+        2322, 2322, 2322, 2322,
       ]);
     } finally {
       service.dispose();
@@ -308,6 +315,11 @@ it.each([false, true])(
       expect(icons[0]!.dataset.webradIcon).toBe('camera');
       icons[1]!.click();
       expect(icons[0]!.dataset.webradIcon).toBe('check');
+      const buttons = [
+        ...dom.window.document.querySelectorAll<HTMLButtonElement>('[data-webrad-type=WebButton]'),
+      ];
+      expect(buttons[0]!.dataset.webradButtonIcon).toBe('check');
+      expect(buttons[0]!.textContent).toBe('Save changes');
       expect(icons[0]!.querySelector('svg')?.getAttribute('stroke-width')).toBe('3');
       expect(icons[1]!.getAttribute('aria-label')).toBe('Saved');
       expect(icons[0]!.parentElement!.dataset.activations).toBe('1');
@@ -319,6 +331,14 @@ it.each([false, true])(
         expect(icons[2]!.dataset.webradIcon).toBe('camera');
         expect(icons[0]!.dataset.webradId).not.toBe(icons[2]!.dataset.webradId);
         icons[3]!.click();
+        expect(icons[2]!.dataset.webradIcon).toBe('check');
+        expect(buttons[1]!.dataset.webradButtonIcon).toBe('check');
+      }
+      buttons[0]!.click();
+      expect(buttons[0]!.dataset.webradButtonIcon).toBe('save');
+      expect(icons[0]!.dataset.webradIcon).toBe('camera');
+      if (reusable) {
+        expect(buttons[1]!.dataset.webradButtonIcon).toBe('check');
         expect(icons[2]!.dataset.webradIcon).toBe('check');
       }
     } finally {

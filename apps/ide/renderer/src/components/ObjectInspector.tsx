@@ -302,7 +302,7 @@ function IconPropertyEditor({
     property.iconLibrary === 'lucide' ? (
       <LucideGraphic icon={icon} className="wr-icon" />
     ) : (
-      <Icon name={isWebRadIconName(icon) ? icon : 'star'} />
+      <ProjectIconGraphic name={isWebRadIconName(icon) ? icon : 'star'} />
     );
   const label = multiple
     ? MULTIPLE_VALUES_LABEL
@@ -1075,3 +1075,4 @@ export function ObjectInspector({
 import { VideoPlayerSourceEditor } from './VideoPlayerSourceEditor';
 import { LUCIDE_ICON_NAMES, isLucideIconName } from '@webrad/runtime/icon';
 import { LucideGraphic } from '@webrad/components';
+import { ProjectIconGraphic } from './ProjectIconGraphic';

@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import type { DebugBridge, DebugValue, DebugVariable } from '../../../shared/debugger-contracts';
 
@@ -58,7 +59,7 @@ export function DebuggerValue({
             aria-expanded={expanded}
             onClick={toggle}
           >
-            {expanded ? '▾' : '▸'}
+            <Icon name={expanded ? 'chevron-down' : 'chevron-right'} />
           </button>
         ) : (
           <span className="wr-debug-disclosure" />

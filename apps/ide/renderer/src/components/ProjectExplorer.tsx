@@ -118,7 +118,7 @@ export function ProjectExplorer({
             aria-label="Add reusable component"
             onClick={onAddReusableElement}
           >
-            <span aria-hidden="true">R</span>
+            <Icon name="component" />
           </button>
           <button
             type="button"
@@ -237,9 +237,7 @@ export function ProjectExplorer({
                     tabIndex={0}
                     title="Drag onto a page to insert an instance"
                   >
-                    <span className="wr-page-icon" aria-hidden="true">
-                      R
-                    </span>
+                    <Icon name="component" className="wr-page-icon" />
                     {editingPageId === reusableElement.id ? (
                       <input
                         autoFocus

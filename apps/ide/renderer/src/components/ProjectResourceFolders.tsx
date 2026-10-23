@@ -86,7 +86,7 @@ export function ProjectResourceFolders({
                     }}
                   >
                     <span className="wr-page-icon" aria-hidden="true">
-                      {label === 'Assets' ? 'A' : 'TS'}
+                      <Icon name={label === 'Assets' ? 'file-image' : 'file-code'} />
                     </span>
                     <span>{entry.label}</span>
                   </div>

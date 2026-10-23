@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import {
   RepeatingGroupConfigurationSchema,
   comboBoxSchemaChoices,
@@ -94,7 +95,7 @@ export function RepeatingGroupConfigurationDialog({
             aria-label="Close Repeating Group configuration"
             onClick={onClose}
           >
-            &times;
+            <Icon name="close" />
           </button>
         </header>
         <form

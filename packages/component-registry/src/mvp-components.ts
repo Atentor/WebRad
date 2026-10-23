@@ -1108,6 +1108,58 @@ const webButton: ComponentDefinition = {
   ],
 };
 
+const webTimer: ComponentDefinition = {
+  type: 'WebTimer',
+  displayName: 'Timer',
+  namePrefix: 'Timer',
+  palette: { category: nonvisualCategory, caption: 'Timer' },
+  icon: 'timer',
+  visual: false,
+  canHaveChildren: false,
+  defaultEvent: 'OnTimer',
+  defaultBounds: fileUploadBounds,
+  defaults: { time: 1000, loop: true, enabled: false },
+  properties: [
+    { name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' },
+    {
+      name: 'time',
+      label: 'Time (ms)',
+      type: 'number',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: 1000,
+      description:
+        'Interval in milliseconds (1 to 2147483647). Changing it restarts the current interval.',
+      validateValue: (value) =>
+        typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 2147483647,
+    },
+    {
+      name: 'loop',
+      label: 'Loop',
+      type: 'boolean',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: true,
+    },
+    {
+      name: 'enabled',
+      label: 'Enabled',
+      type: 'boolean',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: false,
+    },
+  ],
+  events: [
+    event('OnTimer', 'Timer', {
+      eventDetailType: 'WebTimerEventDetail',
+      eventDetailProperties: ['tick'],
+    }),
+    event('OnStart', 'Timer'),
+    event('OnStop', 'Timer'),
+  ],
+};
+
 const webFileUpload: ComponentDefinition = {
   type: 'WebFileUpload',
   displayName: 'File Upload',
@@ -1946,6 +1998,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebRepeatingGroup',
   'WebPopup',
   'WebApiClient',
+  'WebTimer',
   'WebFileUpload',
   'WebVideoUpload',
   'WebVideoPlayer',
@@ -1974,6 +2027,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webRepeatingGroup,
   webPopup,
   webApiClient,
+  webTimer,
   webFileUpload,
   webVideoUpload,
   webVideoPlayer,

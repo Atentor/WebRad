@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { getPageNameError, portableFileNameKey } from '@webrad/project-model';
 import {
   useEffect,
@@ -120,7 +121,7 @@ export function AddPageDialog({
             aria-label={`Close add ${label} dialog`}
             onClick={onCancel}
           >
-            ×
+            <Icon name="close" />
           </button>
         </header>
         <form onSubmit={submit}>
