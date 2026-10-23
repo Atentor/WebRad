@@ -11,12 +11,12 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "node ../../node_modules/typescript-native/bin/tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
     "@webrad/runtime": "0.1.0",
-    "zod": "4.4.3"
+    "zod": "4.6.7"
   },
   "license": "MIT"
 }

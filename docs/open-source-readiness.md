@@ -1,5 +1,7 @@
 # Preparação para código aberto
 
+> Atualizacao de 23/10/2026: as migracoes de Forge, Vite e Vitest foram aplicadas; a auditoria completa agora reporta zero vulnerabilidades. Os numeros abaixo sao historicos. Veja [a atualizacao de dependencias](dependency-upgrade.md) para versoes e evidencias atuais.
+
 Revisão de 17 de outubro de 2026. Preparação do código e das contribuições
 públicas, sem alterar funcionalidades, versões ou releases.
 

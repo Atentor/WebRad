@@ -9,7 +9,7 @@ export default defineConfig({
   build: {
     // Tailwind's PostCSS plugin loads a platform-native Oxide binary. Keep the
     // Node packages external so Electron can load the packaged native module.
-    rollupOptions: {
+    rolldownOptions: {
       external: ['@tailwindcss/postcss', 'postcss', 'sharp'],
     },
     sourcemap: true,

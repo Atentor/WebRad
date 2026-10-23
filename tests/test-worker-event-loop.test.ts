@@ -30,6 +30,7 @@ interface FixtureResult {
 }
 async function runFixture(root: string, enabled: boolean): Promise<FixtureResult> {
   const config = path.join(root, enabled ? 'enabled.config.mjs' : 'control.config.mjs');
+  const report = path.join(root, enabled ? 'enabled-report.json' : 'control-report.json');
   await fs.writeFile(
     config,
     'export default ' +
@@ -42,7 +43,6 @@ async function runFixture(root: string, enabled: boolean): Promise<FixtureResult
           include: ['suite.test.mjs'],
           setupFiles: enabled ? [setup] : [],
           pool: 'forks',
-          minWorkers: 1,
           maxWorkers: 1,
           testTimeout: 5000,
         },
@@ -56,7 +56,7 @@ async function runFixture(root: string, enabled: boolean): Promise<FixtureResult
   try {
     const output = await execute(
       process.execPath,
-      [vitest, 'run', '--config', config, '--reporter=json'],
+      [vitest, 'run', '--config', config, '--reporter=json', '--outputFile', report],
       { timeout: 30000, windowsHide: true },
     );
     result = { code: 0, stdout: output.stdout };
@@ -71,7 +71,10 @@ async function runFixture(root: string, enabled: boolean): Promise<FixtureResult
       throw error;
     result = { code: error.code, stdout: error.stdout };
   }
-  return { ...(JSON.parse(result.stdout) as Omit<FixtureResult, 'code'>), code: result.code };
+  return {
+    ...(JSON.parse(await fs.readFile(report, 'utf8')) as Omit<FixtureResult, 'code'>),
+    code: result.code,
+  };
 }
 describe('Vitest worker event-loop scheduling', () => {
   it('drains real transport callbacks between synchronous tests even when fake timers are enabled', async () => {

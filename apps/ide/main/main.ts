@@ -1231,7 +1231,7 @@ async function createWindow(): Promise<BrowserWindow> {
     icon: applicationWindowIconPath(),
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       // Smoke windows stay hidden, so keep renderer timers alive for debounced
       // live style compilation while preserving normal Electron throttling.
       backgroundThrottling: !smokeMode,

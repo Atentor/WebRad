@@ -17,7 +17,6 @@ export default defineConfig({
 
     // Bound CPU/memory contention consistently in local tests, validation and releases.
     maxWorkers: 2,
-    minWorkers: 1,
     projects: [
       {
         extends: true,
