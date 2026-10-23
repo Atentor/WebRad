@@ -13,6 +13,8 @@ export function restoreMonacoViewState(
     target.layout();
     target.render(true);
     target.restoreViewState(state);
+    // Flush the paint queued by restoration as well as the initial layout.
+    target.render(true);
   };
 
   restore();

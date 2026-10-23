@@ -232,10 +232,16 @@ export async function runMonacoWorkspaceSmoke(
   sendKey('F12');
   await waitFor(
     window,
-    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(Reflect.get(before, 'position'))} && document.querySelector('.monaco-editor') !== null`,
-    'the restored cursor',
+    `(() => {
+      const view = ${viewSnapshotExpression};
+      return view !== null &&
+        view.position === ${JSON.stringify(Reflect.get(before, 'position'))} &&
+        view.firstLine === ${JSON.stringify(Reflect.get(before, 'firstLine'))} &&
+        Math.abs(view.caretTop - ${JSON.stringify(Reflect.get(before, 'caretTop'))}) <= 1.5;
+    })()`,
+    'the restored cursor and painted viewport',
   );
-  await settle(window);
+  // A logical cursor notification can precede Monaco's remount paint.
   const after: unknown = await window.webContents.executeJavaScript(viewSnapshotExpression, true);
   if (
     typeof after !== 'object' ||

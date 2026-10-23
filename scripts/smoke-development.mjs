@@ -180,6 +180,7 @@ try {
           'renderer typed Interaction authoring passed:',
           'renderer typed Interaction Preview passed:',
           'renderer Monaco workspace state passed:',
+          'renderer Monaco workspace restored view:',
           'renderer Monaco event navigation passed:',
           'renderer F9 preview passed: Olá Ada',
           'renderer Designer/Preview button style parity passed',

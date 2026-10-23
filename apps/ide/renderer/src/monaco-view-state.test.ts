@@ -35,12 +35,17 @@ describe('deferred Monaco viewport restoration', () => {
       };
       const restoration = restoreMonacoViewState(target, state);
       expect(target.restoreViewState).toHaveBeenCalledExactlyOnceWith(state);
+      expect(target.render).toHaveBeenCalledTimes(2);
+      expect(target.render.mock.invocationCallOrder[1]).toBeGreaterThan(
+        target.restoreViewState.mock.invocationCallOrder[0]!,
+      );
       if (scenario === 'fonts pending') restoration.dispose();
       resolveFonts();
       await ready;
       if (scenario === 'frame queued') restoration.dispose();
       frame?.(0);
       expect(target.restoreViewState).toHaveBeenCalledTimes(scenario === 'unchanged' ? 2 : 1);
+      expect(target.render).toHaveBeenCalledTimes(scenario === 'unchanged' ? 4 : 2);
       restoration.dispose();
     },
   );

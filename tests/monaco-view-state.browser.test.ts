@@ -91,9 +91,9 @@ it.runIf(browser !== undefined)(
               fontObserver = observeMonacoFontMetrics(editor);
               restoreMonacoViewState(editor, state);
               editor.focus();
-              editor.render(true);
+              const immediate = snapshot(editor);
               await frame(); await frame();
-              return { before, after: snapshot(editor) };
+              return { before, immediate, after: snapshot(editor) };
             } finally { fontObserver.dispose(); editor.dispose(); model.dispose(); host.style.display = ''; }
           };
         `,
@@ -140,7 +140,7 @@ it.runIf(browser !== undefined)(
             timeout: 15_000,
           })
           .toBe(true);
-        for (const { width, wideLine } of [500, 628, 900].flatMap((width) =>
+        for (const { width, wideLine } of [500, 628, 900, 948].flatMap((width) =>
           [false, true].map((wideLine) => ({ width, wideLine })),
         )) {
           interface Viewport {
@@ -152,12 +152,16 @@ it.runIf(browser !== undefined)(
             readonly caretTop: number;
             readonly firstLine: string;
           }
-          const { before, after } = await evaluate<{ before: Viewport; after: Viewport }>(
-            `window.runRestoreCase(${width}, ${wideLine})`,
-          );
+          const { before, immediate, after } = await evaluate<{
+            before: Viewport;
+            immediate: Viewport;
+            after: Viewport;
+          }>(`window.runRestoreCase(${width}, ${wideLine})`);
           expect(before.position).toEqual({ lineNumber: 39, column: 6 });
           expect(before.scrollTop).toBeGreaterThan(0);
-          expect(before.scrollWidth > before.contentWidth).toBe(wideLine || width !== 900);
+          expect(before.scrollWidth > before.contentWidth).toBe(wideLine || width < 900);
+          expect(immediate.firstLine).toBe(before.firstLine);
+          expect(Math.abs(immediate.caretTop - before.caretTop)).toBeLessThanOrEqual(1.5);
           expect(after.position).toEqual(before.position);
           expect(after.scrollTop).toBe(before.scrollTop);
           expect(after.scrollHeight).toBe(before.scrollHeight);
