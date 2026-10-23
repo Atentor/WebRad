@@ -1235,7 +1235,10 @@ async function createWindow(): Promise<BrowserWindow> {
       // Smoke windows stay hidden, so keep renderer timers alive for debounced
       // live style compilation while preserving normal Electron throttling.
       backgroundThrottling: !smokeMode,
-      offscreen: smokeMode && process.argv.includes('--webrad-smoke-deploy'),
+      // Hidden smoke windows still need a compositor surface. Without offscreen
+      // rendering Chromium can reduce Monaco's animation frames to 1 Hz even
+      // with backgroundThrottling disabled, exhausting the functional deadline.
+      offscreen: smokeMode,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,

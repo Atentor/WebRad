@@ -22,6 +22,12 @@ Preserve também o setup de turnos reais do event loop entre os casos. Um arquiv
 
 Os runners isolam o perfil Chromium e o projeto de cada execução. Em uma falha, consulte a mensagem original e `artifacts/smoke/`: são preservados o log bruto, os dados do erro e o projeto de teste, sem copiar o perfil Chromium. No GitHub, esses arquivos ficam no artifact de diagnóstico do job que falhou. Não repita um teste até obter verde sem investigar a falha anterior.
 
+## Renderização das janelas ocultas de smoke
+
+Mantenha a renderização offscreen nas janelas ocultas dos smokes da IDE, tanto em desenvolvimento quanto no aplicativo empacotado. Desativar `backgroundThrottling` não garante a entrega normal de animation frames: a falha de qualidade do commit `8080ca5` foi reproduzida com esperas de aproximadamente um segundo por frame, enquanto a entrada nativa de texto levou apenas dezenas de milissegundos. O smoke de Deploy já utilizava offscreen. Preserve entrada nativa real, geometria do cursor e dos caracteres renderizados, restauração do código, screenshots e verificações de saúde do renderer ao alterar essa configuração. A evidência do cursor registra duração total, tempo de entrada, tempo de frames e maior espera por frame para distinguir atraso de renderização de entrada lenta. Não compense o problema aumentando prazos ou removendo evidências.
+
+A correção local de 22/10/2026 concluiu o smoke de desenvolvimento completo em aproximadamente 35 segundos, dentro dos mesmos 120 segundos. As 24 amostras do cursor passaram de cerca de 32 para 2,6 segundos, mantendo a tolerância de 1,5px e a restauração do código; a maior espera por frame foi de 18ms. `validate` passou com 1.673 testes e 38 skips opcionais, assim como os smokes empacotado e do atualizador no Windows. Esses resultados não substituem a confirmação nativa em Linux/macOS no commit final.
+
 ## Antes de criar uma tag
 
 1. Envie o commit para `main`, uma branch `codex/verify-release-*` ou abra um pull request. O workflow `release` executa os quatro builds, smokes do aplicativo e atualizador, geração de instaladores e montagem sem publicar. `workflow_dispatch` também permite verificar uma branch existente.

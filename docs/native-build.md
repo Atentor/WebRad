@@ -44,7 +44,7 @@ Quando o ícone nativo está vazio, a integração da IDE usa o ícone de Genera
 
 ## Build Application
 
-Abra **Build Application** pelo menu Project. Selecione o destino e revise nome, versão, arquitetura, formato, configuração e saída. **Web/PWA** reutiliza o fluxo de exportação web. **Export for GitHub Actions** prepara um projeto independente para outro computador ou runner, sem executar uma compilação nativa local.
+Abra **Build Application** pelo menu Project e escolha apenas a plataforma de exportação, incluindo **Web/PWA**. Nome, versão, arquitetura, formato, configuração e pasta de saída ficam em **Project Settings → Native Application**; as opções de compilação web ficam em **Build and publishing**, e as opções de instalação web em **PWA and metadata**. O build utiliza as configurações salvas no projeto e ajusta arquitetura/formato incompatíveis para os padrões da plataforma escolhida. **Web/PWA** reutiliza o fluxo de exportação web. **Export for GitHub Actions** prepara um projeto independente para outro computador ou runner, sem executar uma compilação nativa local.
 
 O painel **Build Requirements** verifica as ferramentas deste computador ao abrir o diálogo e ao mudar plataforma, arquitetura, formato ou configuração. Cada requisito atendido recebe um check verde; os demais mostram a versão mínima aplicável e **How to resolve**, com instruções de configuração. O resumo informa quantos requisitos estão atendidos. **Check again** refaz a consulta, por exemplo após instalar uma ferramenta e reiniciar a IDE para atualizar seu ambiente. A consulta não salva o projeto, não compila e não instala ferramentas. Respostas de seleções anteriores são descartadas. O resultado da verificação executada durante o build também atualiza a lista.
 
@@ -52,11 +52,11 @@ Para **Web/PWA**, o checklist verifica o compilador incluído no WebRAD, sem exi
 
 O modal apresenta Preparing, Compiling WebRAD, Generating Tauri Project, Checking Dependencies, Compiling Native Application, Packaging e Completed/Failed/Cancelled conforme as etapas realmente executadas. stdout/stderr das ferramentas são apresentados nos logs. **Cancel Build** solicita o encerramento do processo e de seus descendentes; uma saída parcial não representa um build concluído.
 
-Configuração, requisitos e status têm áreas próprias. **Build logs** e **Diagnostics** podem ser expandidos para consultar a saída completa sem repetir todos os erros no corpo do diálogo. O rodapé permanece acessível enquanto o conteúdo rola; em janelas menores, os painéis se organizam verticalmente.
+Seleção de plataforma, requisitos e status têm áreas próprias. **Build logs** e **Diagnostics** podem ser expandidos para consultar a saída completa sem repetir todos os erros no corpo do diálogo. O rodapé permanece acessível enquanto o conteúdo rola; em janelas menores, os painéis se organizam verticalmente.
 
 Após um build válido, **Open Output Folder**, **Copy Artifact Path** e **Build Again** usam os resultados dessa solicitação. Encerramento com código zero sem o artefato esperado continua sendo falha. Exportar o projeto para CI conclui a exportação, sem afirmar que um instalador foi produzido.
 
-**Output Directory** guarda a pasta de destino escolhida pelo usuário. Cada execução cria sua própria subpasta e apresenta o caminho efetivo dos artefatos. Se o seletor aberto durante o build autorizar outro destino, a IDE atualiza essa preferência no modelo e no formulário, preservando-a em Save, Build Again e na próxima abertura do projeto. Uma falha ao salvar essa preferência gera um aviso e mantém disponíveis os artefatos produzidos.
+**Output Directory**, em **Project Settings → Native Application**, guarda a pasta de destino escolhida pelo usuário. Cada execução cria sua própria subpasta e apresenta o caminho efetivo dos artefatos. Se o seletor aberto durante o build autorizar outro destino, a IDE atualiza essa preferência no modelo, preservando-a em Project Settings, Save, Build Again e na próxima abertura do projeto. Uma falha ao salvar essa preferência gera um aviso e mantém disponíveis os artefatos produzidos.
 
 ## Ferramentas e hosts
 

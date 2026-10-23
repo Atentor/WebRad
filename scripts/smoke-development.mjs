@@ -145,6 +145,7 @@ try {
           'renderer application icon passed',
           'renderer project open passed',
           'renderer Native Application settings passed',
+          'renderer Native Build settings separation passed',
           'renderer Native Build platform options passed:',
           'renderer Native Build requirements checklist passed:',
           'renderer Native Build CI export passed:',

@@ -70,11 +70,61 @@ export async function runNativeBuildSmoke(
   }
 
   const original = await loadProjectFiles(projectPath);
+  const matrix = [
+    { platform: 'web', formats: ['web'], host: null },
+    { platform: 'windows', formats: ['nsis', 'msi', 'exe'], host: 'win32' },
+    { platform: 'linux', formats: ['deb', 'rpm', 'appimage'], host: 'linux' },
+    { platform: 'macos', formats: ['app', 'dmg'], host: 'darwin' },
+    { platform: 'android', formats: ['apk', 'aab'], host: null },
+    { platform: 'ios', formats: ['ios-app', 'ipa'], host: 'darwin' },
+  ];
   const nativeScope = '#project-settings-panel-native';
   await click('button[aria-label="Project Settings"]');
   await click('#project-settings-tab-native');
   await setField(nativeScope, 'Application Identifier', 'com.webrad.smokeapplication');
   await setField(nativeScope, 'Initial Width', '1100');
+  for (const target of matrix) {
+    await setField(nativeScope, 'Target Platform', target.platform);
+    const formats: unknown = await window.webContents.executeJavaScript(
+      `[...(${fieldExpression(nativeScope, 'Bundle Format')}).options].map(option => option.value)`,
+    );
+    if (JSON.stringify(formats) !== JSON.stringify(target.formats))
+      throw new Error('Project Settings bundle formats mismatch for ' + target.platform);
+  }
+  await setField(nativeScope, 'Target Platform', 'windows');
+  await setField(nativeScope, 'Target Architecture', 'x64');
+  await setField(nativeScope, 'Bundle Format', 'exe');
+  const destination = path.join(path.dirname(projectPath), 'native-smoke-output');
+  await fs.mkdir(destination);
+  const originalPicker = dialog.showOpenDialog;
+  try {
+    const previousDirectory: unknown = await window.webContents.executeJavaScript(
+      `${fieldExpression(nativeScope, 'Output Directory')}?.value`,
+    );
+    dialog.showOpenDialog = (async () => ({
+      canceled: true,
+      filePaths: [],
+    })) as typeof dialog.showOpenDialog;
+    await click(`${nativeScope} .wr-project-settings-directory button`);
+    await waitFor(
+      `document.querySelector('${nativeScope} .wr-project-settings-directory button')?.disabled === false`,
+    );
+    const afterCancellation: unknown = await window.webContents.executeJavaScript(
+      `${fieldExpression(nativeScope, 'Output Directory')}?.value`,
+    );
+    if (previousDirectory !== afterCancellation)
+      throw new Error('Cancelling the Native Build folder picker changed its destination.');
+    dialog.showOpenDialog = (async () => ({
+      canceled: false,
+      filePaths: [destination],
+    })) as typeof dialog.showOpenDialog;
+    await click(`${nativeScope} .wr-project-settings-directory button`);
+    await waitFor(
+      `${fieldExpression(nativeScope, 'Output Directory')}?.value === ${JSON.stringify(destination)}`,
+    );
+  } finally {
+    dialog.showOpenDialog = originalPicker;
+  }
   // Exercise the native compiler target with a project that also has PWA enabled.
   await click('#project-settings-tab-pwa');
   if (!original.project.settings.pwa.enabled) {
@@ -102,6 +152,10 @@ export async function runNativeBuildSmoke(
   await click('button[aria-label="Build Application"]');
   const buildScope = '.wr-build-application-dialog';
   await waitFor(`document.querySelector('${buildScope} h2')?.textContent === 'Build Application'`);
+  await waitFor(
+    `document.querySelectorAll('${buildScope} input').length === 0 && document.querySelectorAll('${buildScope} select').length === 1`,
+  );
+  log('renderer Native Build settings separation passed');
   const requirementsScope = `${buildScope} [aria-label="Build Requirements"]`;
   await setField(buildScope, 'Target Platform', 'web');
   await waitFor(`(() => {
@@ -109,27 +163,17 @@ export async function runNativeBuildSmoke(
     return rows.length > 0 && rows.every((row) => row.dataset.status === 'available')
       && rows.some((row) => row.textContent.includes('WebRAD'));
   })()`);
-  const matrix = [
-    { platform: 'web', formats: ['web'], host: null },
-    { platform: 'windows', formats: ['nsis', 'msi', 'exe'], host: 'win32' },
-    { platform: 'linux', formats: ['deb', 'rpm', 'appimage'], host: 'linux' },
-    { platform: 'macos', formats: ['app', 'dmg'], host: 'darwin' },
-    { platform: 'android', formats: ['apk', 'aab'], host: null },
-    { platform: 'ios', formats: ['ios-app', 'ipa'], host: 'darwin' },
-  ];
+
   for (const target of matrix) {
     await setField(buildScope, 'Target Platform', target.platform);
     const evidence = (await window.webContents.executeJavaScript(`(() => {
-      const format = ${fieldExpression(buildScope, 'Bundle Format')};
-      const buttons = [...document.querySelectorAll('${buildScope} .wr-modal-actions button')];
-      return {
-        formats: [...format.options].map((option) => option.value),
-        buildDisabled: buttons.find((button) => button.textContent.trim() === 'Build')?.disabled,
-        exportDisabled: buttons.find((button) => button.textContent.trim() === 'Export for GitHub Actions')?.disabled,
-      };
-    })()`)) as { formats: string[]; buildDisabled: boolean; exportDisabled: boolean };
+ const buttons = [...document.querySelectorAll('${buildScope} .wr-modal-actions button')];
+ return { settingsHidden: document.querySelectorAll('${buildScope} input').length === 0 && document.querySelectorAll('${buildScope} select').length === 1,
+ buildDisabled: buttons.find(button => button.textContent.trim() === 'Build')?.disabled,
+ exportDisabled: buttons.find(button => button.textContent.trim() === 'Export for GitHub Actions')?.disabled };
+ })()`)) as { settingsHidden: boolean; buildDisabled: boolean; exportDisabled: boolean };
     if (
-      JSON.stringify(evidence.formats) !== JSON.stringify(target.formats) ||
+      !evidence.settingsHidden ||
       evidence.buildDisabled !== (target.host !== null && target.host !== process.platform) ||
       evidence.exportDisabled !== (target.platform === 'web')
     )
@@ -143,8 +187,7 @@ export async function runNativeBuildSmoke(
 
   // CI generation must work without Rust, Java, Xcode or any native build process.
   await setField(buildScope, 'Target Platform', 'windows');
-  await setField(buildScope, 'Architecture', 'x64');
-  await setField(buildScope, 'Bundle Format', 'exe');
+
   await waitFor(`(() => {
     const rows = [...document.querySelectorAll('${requirementsScope} [data-status]')];
     return rows.length > 1 && rows.every((row) => ['available', 'missing', 'unsupported'].includes(row.dataset.status));
@@ -178,6 +221,7 @@ export async function runNativeBuildSmoke(
       const markerId = 'webrad-smoke-paint-marker';
       const removeMarker = `document.getElementById('${markerId}')?.remove()`;
       let timeout: ReturnType<typeof setTimeout> | undefined;
+      let stopFrames: (() => void) | undefined;
       try {
         return await new Promise<NativeImage>((resolve, reject) => {
           let markerPresented = false;
@@ -185,7 +229,7 @@ export async function runNativeBuildSmoke(
             () => reject(new Error('Native Build screenshot did not receive its paint fence.')),
             Math.max(1, Math.min(15_000, deadline - Date.now())),
           );
-          window.webContents.beginFrameSubscription(false, (frame) => {
+          const onFrame = (frame: NativeImage) => {
             if (frame.isEmpty()) {
               reject(new Error('Native Build screenshot was empty.'));
               return;
@@ -202,7 +246,17 @@ export async function runNativeBuildSmoke(
               return;
             }
             if (!hasMarker) resolve(frame);
-          });
+          };
+          const onPaint = (
+            _event: Electron.Event,
+            _dirty: Electron.Rectangle,
+            frame: NativeImage,
+          ): void => onFrame(frame);
+          stopFrames = window.webContents.isOffscreen()
+            ? () => window.webContents.off('paint', onPaint)
+            : () => window.webContents.endFrameSubscription();
+          if (window.webContents.isOffscreen()) window.webContents.on('paint', onPaint);
+          else window.webContents.beginFrameSubscription(false, onFrame);
           void window.webContents
             .executeJavaScript(
               `(() => {
@@ -216,7 +270,7 @@ export async function runNativeBuildSmoke(
         });
       } finally {
         clearTimeout(timeout);
-        window.webContents.endFrameSubscription();
+        stopFrames?.();
         await window.webContents.executeJavaScript(removeMarker).catch(() => undefined);
       }
     }
@@ -232,8 +286,7 @@ export async function runNativeBuildSmoke(
       await waitFor(`document.documentElement.dataset.theme === '${theme}'`);
       await click('button[aria-label="Build Application"]');
       await setField(buildScope, 'Target Platform', 'windows');
-      await setField(buildScope, 'Architecture', 'x64');
-      await setField(buildScope, 'Bundle Format', 'exe');
+
       await waitFor(`(() => {
         const button = [...document.querySelectorAll('${requirementsScope} button')]
           .find((element) => element.textContent.trim() === 'Check again');
@@ -310,8 +363,7 @@ export async function runNativeBuildSmoke(
       );
       log(`renderer Native Build incompatible host screenshot passed: ${incompatibleTarget}`);
       await setField(buildScope, 'Target Platform', 'windows');
-      await setField(buildScope, 'Architecture', 'x64');
-      await setField(buildScope, 'Bundle Format', 'exe');
+
       await fs.writeFile(
         path.join(outputDirectory, 'layout.json'),
         `${JSON.stringify(layouts, null, 2)}\n`,
@@ -323,37 +375,7 @@ export async function runNativeBuildSmoke(
       window.setBounds(originalBounds);
     }
   }
-  const destination = path.join(path.dirname(projectPath), 'native-smoke-output');
-  await fs.mkdir(destination);
-  const originalPicker = dialog.showOpenDialog;
-  try {
-    const previousDirectory: unknown = await window.webContents.executeJavaScript(
-      `${fieldExpression(buildScope, 'Output Directory')}?.value`,
-    );
-    dialog.showOpenDialog = (async () => ({
-      canceled: true,
-      filePaths: [],
-    })) as typeof dialog.showOpenDialog;
-    await click(`${buildScope} .wr-project-settings-directory button`);
-    await waitFor(
-      `document.querySelector('${buildScope} .wr-project-settings-directory button')?.disabled === false`,
-    );
-    const afterCancellation: unknown = await window.webContents.executeJavaScript(
-      `${fieldExpression(buildScope, 'Output Directory')}?.value`,
-    );
-    if (previousDirectory !== afterCancellation)
-      throw new Error('Cancelling the Native Build folder picker changed its destination.');
-    dialog.showOpenDialog = (async () => ({
-      canceled: false,
-      filePaths: [destination],
-    })) as typeof dialog.showOpenDialog;
-    await click(`${buildScope} .wr-project-settings-directory button`);
-    await waitFor(
-      `${fieldExpression(buildScope, 'Output Directory')}?.value === ${JSON.stringify(destination)}`,
-    );
-  } finally {
-    dialog.showOpenDialog = originalPicker;
-  }
+
   await clickButton('Export for GitHub Actions');
   await waitFor(
     `document.querySelector('${buildScope} [role=status]')?.textContent === 'CI project exported'`,

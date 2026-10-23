@@ -2842,10 +2842,6 @@ export function App(): ReactElement {
           settings={project.settings.nativeApplication}
           build={nativeBuild}
           hostPlatform={window.webrad.platform}
-          onChooseDirectory={async () => {
-            const rootPath = projectController.getSnapshot().rootPath;
-            return rootPath ? window.webrad.nativeBuild.chooseDirectory(rootPath) : null;
-          }}
         />
       )}
       {apiClientTesterComponent !== null && (

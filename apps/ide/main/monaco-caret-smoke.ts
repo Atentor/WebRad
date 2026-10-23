@@ -46,6 +46,10 @@ export async function runMonacoCaretSmoke(
 
   let samples = 0;
   let maxDelta = 0;
+  const started = Date.now();
+  let inputMilliseconds = 0;
+  let frameMilliseconds = 0;
+  let maxFrameMilliseconds = 0;
   for (const prefix of ['caretSmoke_', '// caretSmoke_']) {
     await window.webContents.insertText(prefix);
     let insertedLength = prefix.length;
@@ -55,7 +59,9 @@ export async function runMonacoCaretSmoke(
       'WiIlm0123456789_'.repeat(4),
       'WiIlm0123456789_'.repeat(4),
     ]) {
+      const sampleStarted = Date.now();
       await window.webContents.insertText(fragment);
+      const insertedAt = Date.now();
       insertedLength += fragment.length;
       expectedSource += fragment;
       const evidence: unknown = await window.webContents.executeJavaScript(
@@ -92,6 +98,10 @@ export async function runMonacoCaretSmoke(
       })`,
         true,
       );
+      const frameElapsed = Date.now() - insertedAt;
+      inputMilliseconds += insertedAt - sampleStarted;
+      frameMilliseconds += frameElapsed;
+      maxFrameMilliseconds = Math.max(maxFrameMilliseconds, frameElapsed);
       if (
         typeof evidence !== 'object' ||
         evidence === null ||
@@ -140,6 +150,8 @@ export async function runMonacoCaretSmoke(
       );
     }
   }
-  log(`renderer Monaco caret alignment passed: ${JSON.stringify({ samples, maxDelta })}`);
+  log(
+    `renderer Monaco caret alignment passed: ${JSON.stringify({ samples, maxDelta, elapsedMilliseconds: Date.now() - started, inputMilliseconds, frameMilliseconds, maxFrameMilliseconds })}`,
+  );
   await runMonacoWorkspaceSmoke(window, { log, sendKey });
 }

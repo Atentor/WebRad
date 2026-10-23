@@ -505,6 +505,42 @@ describe('App MVP integration', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
+  it('exports Web/PWA using saved project settings with only a platform selector', async () => {
+    const harness = createBridgeHarness(initialSession());
+    const run = vi.fn<WebRadBridge['nativeBuild']['run']>(async (request) => ({
+      requestId: request.requestId,
+      success: true,
+      outputDirectory: 'web-output',
+      artifacts: [{ path: 'web-output/index.html', format: 'web' }],
+      diagnostics: [],
+    }));
+    harness.bridge.nativeBuild.run = run;
+    Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Build Application' }));
+    const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
+    await user.selectOptions(controls.getByLabelText('Target Platform'), 'web');
+    expect(controls.getAllByRole('combobox')).toHaveLength(1);
+    expect(controls.queryByRole('textbox')).toBeNull();
+    expect(
+      (controls.getByRole('button', { name: 'Export for GitHub Actions' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    await user.click(controls.getByRole('button', { name: 'Build' }));
+    await waitFor(() => expect(run).toHaveBeenCalledOnce());
+    const request = run.mock.calls[0]![0];
+    expect(request.project.settings.build).toEqual(initialSession().project.settings.build);
+    expect(request.project.settings.pwa).toEqual(initialSession().project.settings.pwa);
+    expect(request.project.settings.nativeApplication.build).toMatchObject({
+      platform: 'web',
+      architecture: 'host',
+      bundleFormat: 'web',
+    });
+    await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Completed'));
+  });
+
   it('checks build requirements on opening and marks installed and missing tools before compiling', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
@@ -612,8 +648,8 @@ describe('App MVP integration', () => {
     expect(
       requirements.getByText('Android SDK').closest('[data-status]')?.getAttribute('data-status'),
     ).toBe('available');
-    await user.selectOptions(controls.getByLabelText('Architecture'), 'x86');
-    await waitFor(() => expect(pending.at(-1)?.settings.build.architecture).toBe('x86'));
+    await user.selectOptions(controls.getByLabelText('Target Platform'), 'linux');
+    await waitFor(() => expect(pending.at(-1)?.settings.build.platform).toBe('linux'));
     expect(requirements.queryByText('Android SDK')).toBeNull();
     expect(harness.save).not.toHaveBeenCalled();
     expect(harness.bridge.nativeBuild.run).not.toHaveBeenCalled();
@@ -649,9 +685,9 @@ describe('App MVP integration', () => {
     await user.click(requirements.getByRole('button', { name: 'Check again' }));
     expect(await requirements.findByText('WebRAD compiler')).toBeDefined();
     expect(requirements.queryByText('Dependency check could not start.')).toBeNull();
-    expect((controls.getByLabelText('Application Name') as HTMLInputElement).value).toBe(
-      initialSession().project.settings.nativeApplication.applicationName,
-    );
+    expect(controls.queryByLabelText('Application Name')).toBeNull();
+    expect(controls.getAllByRole('combobox')).toHaveLength(1);
+    expect(controls.queryByRole('textbox')).toBeNull();
     expect(harness.save).not.toHaveBeenCalled();
   });
 
@@ -676,16 +712,21 @@ describe('App MVP integration', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.click(screen.getByRole('button', { name: 'Project Settings' }));
+    await user.click(screen.getByRole('tab', { name: 'Native Application' }));
+    const settings = within(screen.getByRole('dialog', { name: 'Settings for MvpProject' }));
+    await user.selectOptions(settings.getByLabelText('Target Platform'), 'windows');
+    await user.selectOptions(settings.getByLabelText('Target Architecture'), 'x64');
+    await user.selectOptions(settings.getByLabelText('Bundle Format'), 'exe');
+    await user.clear(settings.getByLabelText('Application Name'));
+    await user.type(settings.getByLabelText('Application Name'), 'Native Portal');
+    await user.click(settings.getByRole('button', { name: 'Choose folder' }));
+    await user.click(settings.getByRole('button', { name: 'Save changes' }));
     await user.click(screen.getByRole('button', { name: 'Build Application' }));
     const dialog = screen.getByRole('dialog', { name: 'Build Application' });
     const controls = within(dialog);
     await user.selectOptions(controls.getByLabelText('Target Platform'), 'windows');
-    await user.selectOptions(controls.getByLabelText('Bundle Format'), 'exe');
-    await user.selectOptions(controls.getByLabelText('Architecture'), 'x64');
-    const applicationName = controls.getByLabelText('Application Name');
-    await user.clear(applicationName);
-    await user.type(applicationName, 'Native Portal');
-    await user.click(controls.getByRole('button', { name: 'Choose folder' }));
+
     await user.click(controls.getByRole('button', { name: 'Build' }));
     await waitFor(() => expect(run).toHaveBeenCalledOnce());
     const request = run.mock.calls[0]![0];
@@ -798,7 +839,8 @@ describe('App MVP integration', () => {
     act(() => harness.invokeCommand('project.buildApplication'));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     await user.selectOptions(controls.getByLabelText('Target Platform'), 'android');
-    expect(controls.getByRole('option', { name: 'APK for installation' })).toBeDefined();
+    expect(controls.queryByLabelText('Bundle Format')).toBeNull();
+    expect(controls.queryByLabelText('Architecture')).toBeNull();
     expect(controls.queryByRole('option', { name: 'Host architecture' })).toBeNull();
     await user.selectOptions(controls.getByLabelText('Target Platform'), 'ios');
     expect((controls.getByRole('button', { name: 'Build' }) as HTMLButtonElement).disabled).toBe(
@@ -806,7 +848,8 @@ describe('App MVP integration', () => {
     );
     expect(controls.getByText(/Local builds for iOS require macOS/)).toBeDefined();
     expect(controls.queryByRole('option', { name: 'APK for installation' })).toBeNull();
-    expect(controls.getByRole('option', { name: 'ARM64 iOS simulator' })).toBeDefined();
+    expect(controls.queryByLabelText('Bundle Format')).toBeNull();
+    expect(controls.queryByLabelText('Architecture')).toBeNull();
     await user.click(controls.getByRole('button', { name: 'Export for GitHub Actions' }));
     await waitFor(() => expect(exportCi).toHaveBeenCalledOnce());
     expect(exportCi.mock.calls[0]![0].project.settings.nativeApplication.build).toMatchObject({
@@ -901,17 +944,15 @@ describe('App MVP integration', () => {
     expect(harness.bridge.nativeBuild.exportCi).not.toHaveBeenCalled();
   });
 
-  it('persists an internally selected native output parent and reuses it in the draft and Build Again', async () => {
+  it('persists a selected output parent in Project Settings and reuses it for Build Again and reopening', async () => {
     const harness = createBridgeHarness(initialSession());
     const configuredOutputDirectory = 'C:\\Approved\\NativePortal';
     const run = vi.fn<WebRadBridge['nativeBuild']['run']>(async (request) => ({
       requestId: request.requestId,
       success: true,
       configuredOutputDirectory,
-      outputDirectory: `${configuredOutputDirectory}\\windows-result`,
-      artifacts: [
-        { path: `${configuredOutputDirectory}\\windows-result\\portal.exe`, format: 'exe' },
-      ],
+      outputDirectory: configuredOutputDirectory,
+      artifacts: [{ path: configuredOutputDirectory + '\\portal.exe', format: 'exe' }],
       diagnostics: [],
     }));
     harness.bridge.nativeBuild.run = run;
@@ -919,19 +960,11 @@ describe('App MVP integration', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
-    act(() => harness.invokeCommand('project.buildApplication'));
+    await user.click(screen.getByRole('button', { name: 'Build Application' }));
     let controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
-    const output = controls.getByLabelText('Output Directory');
-    await user.clear(output);
-    await user.type(output, 'typed-output');
+    expect(controls.queryByLabelText('Output Directory')).toBeNull();
     await user.click(controls.getByRole('button', { name: 'Build' }));
     await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Completed'));
-    expect(run.mock.calls[0]![0].project.settings.nativeApplication.build.outputDirectory).toBe(
-      'typed-output',
-    );
-    expect((controls.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
-      configuredOutputDirectory,
-    );
     expect(harness.persisted().project.settings.nativeApplication.build.outputDirectory).toBe(
       configuredOutputDirectory,
     );
@@ -941,24 +974,20 @@ describe('App MVP integration', () => {
       configuredOutputDirectory,
     );
     await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Completed'));
-    const nextOutput = controls.getByLabelText('Output Directory');
-    await user.clear(nextOutput);
-    await user.type(nextOutput, 'another-typed-output');
-    expect((nextOutput as HTMLInputElement).value).toBe('another-typed-output');
-    await user.click(controls.getByRole('button', { name: 'Build Again' }));
-    await waitFor(() => expect(run).toHaveBeenCalledTimes(3));
-    expect(run.mock.calls[2]![0].project.settings.nativeApplication.build.outputDirectory).toBe(
-      'another-typed-output',
-    );
-    await waitFor(() => expect(controls.getByRole('status').textContent).toBe('Completed'));
-    expect((controls.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
+    await user.click(controls.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'Project Settings' }));
+    await user.click(screen.getByRole('tab', { name: 'Native Application' }));
+    const settings = within(screen.getByRole('dialog', { name: 'Settings for MvpProject' }));
+    expect((settings.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
       configuredOutputDirectory,
     );
-    await user.click(controls.getByRole('button', { name: 'Close' }));
+    await user.click(settings.getByRole('button', { name: 'Cancel' }));
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
-    act(() => harness.invokeCommand('project.buildApplication'));
+    await user.click(screen.getByRole('button', { name: 'Build Application' }));
     controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
-    expect((controls.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
+    await user.click(controls.getByRole('button', { name: 'Build' }));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(3));
+    expect(run.mock.calls[2]![0].project.settings.nativeApplication.build.outputDirectory).toBe(
       configuredOutputDirectory,
     );
   });
@@ -996,9 +1025,7 @@ describe('App MVP integration', () => {
     ).toBe('warning');
     expect(controls.getByRole('button', { name: 'Open Output Folder' })).toBeDefined();
     expect(controls.getByRole('button', { name: 'Copy Artifact Path' })).toBeDefined();
-    expect((controls.getByLabelText('Output Directory') as HTMLInputElement).value).toBe(
-      'C:\\Approved\\NativePortal',
-    );
+    expect(controls.queryByLabelText('Output Directory')).toBeNull();
     await user.click(controls.getByRole('button', { name: 'Open Output Folder' }));
     expect(harness.bridge.nativeBuild.openOutput).toHaveBeenCalledOnce();
   });

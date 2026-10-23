@@ -56,7 +56,7 @@ Packages are created only when they contain working behavior.
 
 ## Native application builds
 
-The IDE remains Electron. `settings.nativeApplication` is an additive format-v2 Project Model record for application metadata, desktop/mobile preferences, build selection, exact network origins and signing references. The Project Settings and Build Application interfaces project this record; they do not persist an independent renderer configuration. Existing projects materialize defaults during normal model parsing.
+The IDE remains Electron. `settings.nativeApplication` is an additive format-v2 Project Model record for application metadata, desktop/mobile preferences, build selection, exact network origins and signing references. Project Settings owns configuration editing. Build Application only selects the export platform (including Web/PWA), projects saved settings and displays requirements and execution status; it does not persist an independent renderer configuration. Existing projects materialize defaults during normal model parsing.
 
 Native Build reuses `compileProject(..., { target: 'native', write: false })`, preserving the ordinary browser runtime, typed instances, authored events, navigation and assets. This target omits PWA registration and workers. The Tauri frontend is local compiler output; no Electron dependency, Designer code or administrative IDE bridge is exported. The compiler never imports Tauri.
 

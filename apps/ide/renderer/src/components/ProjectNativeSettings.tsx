@@ -450,6 +450,7 @@ export function ProjectNativeSettings({
             <span>Output Directory</span>
             <span className="wr-project-settings-directory">
               <input
+                aria-label="Output Directory"
                 type="text"
                 value={value.build.outputDirectory}
                 maxLength={4096}

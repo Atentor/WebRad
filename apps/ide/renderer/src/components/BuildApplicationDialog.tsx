@@ -2,11 +2,8 @@ import {
   getDefaultNativeBundleFormat,
   getNativeArchitectures,
   getNativeBundleFormats,
-  DEFAULT_NATIVE_APPLICATION_SETTINGS,
   NativeApplicationSettingsSchema,
   type NativeApplicationSettings,
-  type NativeBundleFormat,
-  type NativeTargetArchitecture,
   type NativeTargetPlatform,
 } from '@webrad/project-model';
 import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react';
@@ -25,49 +22,38 @@ const PLATFORMS: readonly (readonly [NativeTargetPlatform, string])[] = [
   ['ios', 'iOS'],
 ];
 
-const FORMAT_LABELS: Record<NativeBundleFormat, string> = {
-  web: 'Web/PWA files',
-  exe: 'EXE application executable',
-  nsis: 'NSIS / EXE installer',
-  msi: 'MSI installer',
-  deb: 'DEB package',
-  rpm: 'RPM package',
-  appimage: 'AppImage',
-  app: 'APP application bundle',
-  dmg: 'DMG disk image',
-  apk: 'APK for installation',
-  aab: 'AAB for distribution',
-  'ios-app': 'iOS application bundle',
-  ipa: 'IPA export (requires signing)',
-};
-
-const ARCHITECTURE_LABELS: Record<NativeTargetArchitecture, string> = {
-  host: 'Host architecture',
-  x64: 'x64',
-  arm64: 'ARM64',
-  x86: 'x86',
-  armv7: 'ARMv7',
-  universal: 'Universal (Intel + Apple Silicon)',
-  'arm64-simulator': 'ARM64 iOS simulator',
-};
-
 interface BuildApplicationDialogProps {
   readonly settings: NativeApplicationSettings;
   readonly build: BuildApplicationController;
   readonly hostPlatform: string;
-  readonly onChooseDirectory: () => Promise<string | null>;
 }
 
 export function BuildApplicationDialog({
   settings,
   build,
   hostPlatform,
-  onChooseDirectory,
 }: BuildApplicationDialogProps): ReactElement {
-  const [draft, setDraft] = useState(settings);
-  const [appliedOutputRequestId, setAppliedOutputRequestId] = useState<string | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState(settings.build.platform);
+  const draft = useMemo(() => {
+    const architectures = getNativeArchitectures(selectedPlatform);
+    const formats = getNativeBundleFormats(selectedPlatform);
+    return {
+      ...settings,
+      build: {
+        ...settings.build,
+        platform: selectedPlatform,
+        architecture: architectures.includes(settings.build.architecture)
+          ? settings.build.architecture
+          : (architectures[0] ?? 'host'),
+        bundleFormat: formats.includes(settings.build.bundleFormat)
+          ? settings.build.bundleFormat
+          : getDefaultNativeBundleFormat(selectedPlatform),
+      },
+    };
+  }, [settings, selectedPlatform]);
+
   const [error, setError] = useState<string | null>(null);
-  const [choosingDirectory, setChoosingDirectory] = useState(false);
+
   const [submittedRequirementsKey, setSubmittedRequirementsKey] = useState<string | null>(null);
   const titleId = useId();
   const dialogRef = useRef<HTMLElement>(null);
@@ -75,23 +61,9 @@ export function BuildApplicationDialog({
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
   const state = build.state;
-  const { platform, architecture, bundleFormat, configuration } = draft.build;
-  const signing = draft.signing;
-  // Tool detection is independent from incomplete identity/output edits in this form.
-  const inspectionSettings = useMemo(
-    () => ({
-      ...DEFAULT_NATIVE_APPLICATION_SETTINGS,
-      build: {
-        ...DEFAULT_NATIVE_APPLICATION_SETTINGS.build,
-        platform,
-        architecture,
-        bundleFormat,
-        configuration,
-      },
-      signing,
-    }),
-    [platform, architecture, bundleFormat, configuration, signing],
-  );
+  const { platform, configuration } = draft.build;
+
+  const inspectionSettings = draft;
   const requirements = useBuildRequirements({
     settings: inspectionSettings,
     inspect: build.inspect,
@@ -106,22 +78,6 @@ export function BuildApplicationDialog({
     };
   }, []);
 
-  const configuredDirectory = state?.result?.configuredOutputDirectory;
-  const resultRequestId = state?.result?.requestId;
-  if (
-    configuredDirectory !== undefined &&
-    resultRequestId !== undefined &&
-    appliedOutputRequestId !== resultRequestId
-  ) {
-    // Apply each response once so later edits remain intact, including when a new
-    // build selects the same parent directory as the preceding response.
-    setAppliedOutputRequestId(resultRequestId);
-    setDraft((current) => ({
-      ...current,
-      build: { ...current.build, outputDirectory: configuredDirectory },
-    }));
-  }
-
   if (!state) return <></>;
   const requiredHost =
     platform === 'windows'
@@ -134,36 +90,10 @@ export function BuildApplicationDialog({
   const incompatibleHost = requiredHost !== null && requiredHost !== hostPlatform;
   const hostName =
     requiredHost === 'darwin' ? 'macOS' : requiredHost === 'win32' ? 'Windows' : 'Linux';
-  const updateBuild = (update: Partial<NativeApplicationSettings['build']>): void => {
-    setDraft((current) => ({ ...current, build: { ...current.build, ...update } }));
+
+  const selectPlatform = (platform: NativeTargetPlatform): void => {
+    setSelectedPlatform(platform);
     setError(null);
-  };
-  const selectArchitecture = (architecture: NativeTargetArchitecture): void => {
-    updateBuild({
-      architecture,
-      ...(platform === 'ios' && architecture !== 'arm64' && draft.build.bundleFormat === 'ipa'
-        ? { bundleFormat: 'ios-app' }
-        : {}),
-    });
-  };
-  const selectFormat = (bundleFormat: NativeBundleFormat): void => {
-    updateBuild({
-      bundleFormat,
-      ...(platform === 'ios' && bundleFormat === 'ipa' ? { architecture: 'arm64' } : {}),
-    });
-  };
-  const selectPlatform = (nextPlatform: NativeTargetPlatform): void => {
-    const architectures = getNativeArchitectures(nextPlatform);
-    const formats = getNativeBundleFormats(nextPlatform);
-    updateBuild({
-      platform: nextPlatform,
-      architecture: architectures.includes(draft.build.architecture)
-        ? draft.build.architecture
-        : (architectures[0] ?? 'host'),
-      bundleFormat: formats.includes(draft.build.bundleFormat)
-        ? draft.build.bundleFormat
-        : getDefaultNativeBundleFormat(nextPlatform),
-    });
   };
   const run = (exportingCi = false): void => {
     const parsed = NativeApplicationSettingsSchema.safeParse(draft);
@@ -175,7 +105,7 @@ export function BuildApplicationDialog({
     setSubmittedRequirementsKey(buildRequirementsKey(parsed.data));
     void build.run(parsed.data, exportingCi);
   };
-  const disabled = build.busy || choosingDirectory;
+  const disabled = build.busy;
   return (
     <div
       className="wr-modal-backdrop"
@@ -250,7 +180,7 @@ export function BuildApplicationDialog({
               disabled={disabled}
               className="wr-build-application-configuration wr-build-card"
             >
-              <legend>Build Configuration</legend>
+              <legend>Export Platform</legend>
               <div className="wr-project-settings-fields">
                 <label className="wr-project-settings-field">
                   <span>Target Platform</span>
@@ -267,104 +197,10 @@ export function BuildApplicationDialog({
                     ))}
                   </select>
                 </label>
-                <label className="wr-project-settings-field">
-                  <span>Application Name</span>
-                  <input
-                    value={draft.applicationName}
-                    onChange={(event) =>
-                      setDraft({ ...draft, applicationName: event.currentTarget.value })
-                    }
-                  />
-                </label>
-                <label className="wr-project-settings-field">
-                  <span>Version</span>
-                  <input
-                    value={draft.version}
-                    onChange={(event) => setDraft({ ...draft, version: event.currentTarget.value })}
-                  />
-                </label>
-                <label className="wr-project-settings-field">
-                  <span>Bundle Format</span>
-                  <select
-                    value={draft.build.bundleFormat}
-                    onChange={(event) =>
-                      selectFormat(event.currentTarget.value as NativeBundleFormat)
-                    }
-                  >
-                    {getNativeBundleFormats(platform).map((value) => (
-                      <option key={value} value={value}>
-                        {FORMAT_LABELS[value]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="wr-project-settings-field">
-                  <span>Architecture</span>
-                  <select
-                    value={draft.build.architecture}
-                    onChange={(event) =>
-                      selectArchitecture(event.currentTarget.value as NativeTargetArchitecture)
-                    }
-                  >
-                    {getNativeArchitectures(platform).map((value) => (
-                      <option key={value} value={value}>
-                        {platform === 'macos' && value === 'arm64'
-                          ? 'ARM64 / Apple Silicon'
-                          : platform === 'macos' && value === 'x64'
-                            ? 'x64 / Intel'
-                            : ARCHITECTURE_LABELS[value]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="wr-project-settings-field">
-                  <span>Build Configuration</span>
-                  <select
-                    value={draft.build.configuration}
-                    onChange={(event) =>
-                      updateBuild({
-                        configuration: event.currentTarget.value as 'debug' | 'release',
-                      })
-                    }
-                  >
-                    <option value="debug">Debug</option>
-                    <option value="release">Release</option>
-                  </select>
-                </label>
-                <label className="wr-project-settings-field full-width">
-                  <span>Output Directory</span>
-                  <span className="wr-project-settings-directory">
-                    <input
-                      aria-label="Output Directory"
-                      value={draft.build.outputDirectory}
-                      onChange={(event) =>
-                        updateBuild({ outputDirectory: event.currentTarget.value })
-                      }
-                    />
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={async () => {
-                        setChoosingDirectory(true);
-                        try {
-                          const directory = await onChooseDirectory();
-                          if (directory !== null) updateBuild({ outputDirectory: directory });
-                        } catch (cause) {
-                          setError(cause instanceof Error ? cause.message : String(cause));
-                        } finally {
-                          setChoosingDirectory(false);
-                        }
-                      }}
-                    >
-                      <Icon name="folder-open" />
-                      Choose folder
-                    </button>
-                  </span>
-                </label>
               </div>
               <p className="wr-build-configuration-help">
                 <Icon name="settings" />
-                Identity, icons and signing: Project Settings → Native Application
+                All build settings are managed in Project Settings.
               </p>
             </fieldset>
             <BuildRequirements
