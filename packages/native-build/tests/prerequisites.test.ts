@@ -86,6 +86,7 @@ async function installSdkFixture(
 }
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
   for (const directory of temporary.splice(0)) {
@@ -96,6 +97,79 @@ afterEach(async () => {
 });
 
 describe('native prerequisite inspection', () => {
+  it('bounds the whole inspection when version probes stall and explains unverified tools', async () => {
+    const fixture = await windowsFixture();
+    const bin = path.join(fixture.root, 'bin');
+    for (const name of ['rustc', 'cargo', 'rustup']) await file(path.join(bin, `${name}.exe`));
+    let now = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const log = vi.fn();
+    vi.mocked(runNativeProcess).mockImplementation(async (options) => {
+      // Model a tool which stays alive until the real process runner terminates
+      // it at its supplied deadline. No wall-clock sleeps or toolchain installs.
+      now += options.timeoutMs ?? 0;
+      throw new NativeProcessError('Tool did not exit', 'timeout');
+    });
+    const report = await checkNativePrerequisites(fixture.settings, {
+      env: { ...fixture.env, PATH: bin },
+      onLog: log,
+    });
+    expect(now).toBe(10_000);
+    expect(vi.mocked(runNativeProcess).mock.calls.map(([options]) => options.args)).toEqual([
+      ['--version'],
+      ['--version'],
+    ]);
+    expect(report.ready).toBe(false);
+    for (const id of ['rustc', 'cargo'])
+      expect(report.checks.find((check) => check.id === id)).toMatchObject({
+        status: 'missing',
+        instruction: expect.stringContaining('did not respond within the inspection time limit'),
+      });
+    expect(report.checks.find((check) => check.id.startsWith('rust-target:'))).toMatchObject({
+      status: 'missing',
+      instruction: expect.stringContaining('was not checked'),
+    });
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('rustc.exe --version did not respond'),
+      'stderr',
+    );
+  });
+
+  it('gives later probes only the remaining inspection budget and keeps successful versions', async () => {
+    const fixture = await windowsFixture();
+    const bin = path.join(fixture.root, 'bin');
+    for (const name of ['rustc', 'cargo', 'rustup']) await file(path.join(bin, `${name}.exe`));
+    let now = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    vi.mocked(runNativeProcess).mockImplementation(async (options) => {
+      expect(options.env?.RUSTUP_AUTO_INSTALL).toBe('0');
+      if (path.basename(options.command) === 'rustc.exe') {
+        now += 4_000;
+        return { exitCode: 0, stdout: 'rustc 1.99.1', stderr: '' };
+      }
+      if (path.basename(options.command) === 'cargo.exe') {
+        now += 4_000;
+        return { exitCode: 0, stdout: 'cargo 1.99.1', stderr: '' };
+      }
+      expect(options.timeoutMs).toBe(2_000);
+      now += options.timeoutMs ?? 0;
+      throw new NativeProcessError('Tool did not exit', 'timeout');
+    });
+    const report = await checkNativePrerequisites(fixture.settings, {
+      env: { ...fixture.env, PATH: bin },
+    });
+    expect(now).toBe(10_000);
+    expect(vi.mocked(runNativeProcess).mock.calls).toHaveLength(3);
+    for (const id of ['rustc', 'cargo'])
+      expect(report.checks.find((check) => check.id === id)).toMatchObject({
+        status: 'available',
+        version: '1.99.1',
+      });
+    expect(
+      report.checks.find((check) => check.id.startsWith('rust-target:'))?.instruction,
+    ).toContain('rustup.exe target list --installed did not respond');
+  });
+
   it('reports the included Web compiler without native toolchain requirements or invented versions', async () => {
     const original = createProject('WebPrerequisites').settings.nativeApplication;
     const report = await checkNativePrerequisites(

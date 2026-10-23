@@ -138,6 +138,12 @@ export async function checkNativePrerequisites(
       ],
     };
   const checks: NativePrerequisite[] = [];
+  // A version probe must not keep the interactive checklist pending indefinitely.
+  // Share one budget across probes instead of allowing 20 seconds for each tool.
+  const inspectionDeadline = Date.now() + 10_000;
+  const probeFailures = new Map<string, string>();
+  const diagnosticInstruction = (command: string | undefined, instruction: string): string =>
+    [command ? probeFailures.get(command) : undefined, instruction].filter(Boolean).join(' ');
   // Rustup proxies may install an absent active toolchain even for --version
   // and target list. Inspection must remain read-only, including on CI images.
   const env = options.env ?? process.env;
@@ -169,8 +175,17 @@ export async function checkNativePrerequisites(
     });
   }
   const run = async (command: string, args: readonly string[]) => {
+    options.signal?.throwIfAborted();
     const started = Date.now();
-    options.onLog?.(`[COMPILER] Inspecting ${path.basename(command)} ${args.join(' ')}`, 'stdout');
+    const remaining = inspectionDeadline - started;
+    const label = `${path.basename(command)} ${args.join(' ')}`;
+    if (remaining <= 0) {
+      const message = `${label} was not checked because the inspection time limit was reached.`;
+      probeFailures.set(command, message);
+      options.onLog?.(`[COMPILER] ${message}`, 'stderr');
+      throw new NativeProcessError(message, 'timeout');
+    }
+    options.onLog?.(`[COMPILER] Inspecting ${label}`, 'stdout');
     try {
       return await runNativeProcess({
         command,
@@ -178,9 +193,16 @@ export async function checkNativePrerequisites(
         cwd: os.tmpdir(),
         env: { ...env, RUSTUP_AUTO_INSTALL: '0' },
         signal: options.signal,
-        timeoutMs: 20_000,
+        timeoutMs: Math.min(5_000, remaining),
         onLog: options.onLog,
       });
+    } catch (error) {
+      if (error instanceof NativeProcessError && error.reason === 'timeout') {
+        const message = `${label} did not respond within the inspection time limit. Run the command in a terminal to diagnose the tool, then check again.`;
+        probeFailures.set(command, message);
+        options.onLog?.(`[COMPILER] ${message}`, 'stderr');
+      }
+      throw error;
     } finally {
       options.onLog?.(
         `[COMPILER] Inspection of ${path.basename(command)} ended after ${Date.now() - started}ms`,
@@ -215,7 +237,11 @@ export async function checkNativePrerequisites(
             ? 'Cargo (Rust package manager)'
             : name,
       available,
-      instruction ?? `Install/configure ${name}${minimum ? ` >= ${minimum}` : ''}. ${instructions}`,
+      diagnosticInstruction(
+        command,
+        instruction ??
+          `Install/configure ${name}${minimum ? ` >= ${minimum}` : ''}. ${instructions}`,
+      ),
       detected,
       minimum,
     );
@@ -254,7 +280,7 @@ export async function checkNativePrerequisites(
       `rust-target:${target}`,
       `Rust target ${target}`,
       installed.includes(target),
-      `Install explicitly: rustup target add ${target}.`,
+      diagnosticInstruction(rustup, `Install explicitly: rustup target add ${target}.`),
     );
   if (plan?.platform === 'windows') {
     const architecture = plan.rustTargets[0]?.startsWith('aarch64-')
@@ -322,7 +348,10 @@ export async function checkNativePrerequisites(
       'msvc',
       `MSVC C++ Build Tools (${architecture === 'arm64' ? 'ARM64' : architecture})`,
       toolVersion !== undefined,
-      `Install Visual Studio Build Tools with Desktop development with C++ and the ${architecture === 'arm64' ? 'ARM64' : 'x64/x86'} MSVC build tools, including the compiler, linker and runtime libraries. ${instructions}`,
+      diagnosticInstruction(
+        vswhere,
+        `Install Visual Studio Build Tools with Desktop development with C++ and the ${architecture === 'arm64' ? 'ARM64' : 'x64/x86'} MSVC build tools, including the compiler, linker and runtime libraries. ${instructions}`,
+      ),
       toolVersion,
     );
     const sdkVersion = await windowsSdkVersion(env, architecture);
@@ -380,7 +409,10 @@ export async function checkNativePrerequisites(
         dependency,
         `${dependency} development libraries`,
         Boolean(detected),
-        `Install the ${dependency} development package for your distribution. Debian/Ubuntu: build-essential libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev. ${instructions}`,
+        diagnosticInstruction(
+          pkgConfig.command,
+          `Install the ${dependency} development package for your distribution. Debian/Ubuntu: build-essential libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev. ${instructions}`,
+        ),
         detected,
       );
     }
@@ -413,7 +445,10 @@ export async function checkNativePrerequisites(
       'xcode',
       plan.platform === 'ios' ? 'Full Xcode and iOS SDK' : 'Xcode Command Line Tools',
       xcode,
-      `Install ${plan.platform === 'ios' ? 'full Xcode, launch it and accept its license' : 'Xcode Command Line Tools'}, then configure xcode-select. ${instructions}`,
+      diagnosticInstruction(
+        xcrun,
+        `Install ${plan.platform === 'ios' ? 'full Xcode, launch it and accept its license' : 'Xcode Command Line Tools'}, then configure xcode-select. ${instructions}`,
+      ),
     );
     if (plan.platform === 'ios') {
       await versionCheck(

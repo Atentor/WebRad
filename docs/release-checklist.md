@@ -45,6 +45,10 @@ O preflight da tag confere a ancestralidade em `main` e consulta as verificaçõ
 
 ## Ao investigar uma falha
 
+Na verificação `39963098127` do commit `b6e1ba4`, somente o Windows falhou: o smoke empacotado aguardou 15 segundos pelo checklist enquanto a consulta final de `rustc.exe --version` ainda estava pendente. Cada processo podia consumir 20 segundos e as consultas eram sequenciais. O log não determina por que esse executável deixou de responder. Preserve o orçamento compartilhado de 10 segundos da inspeção e o limite de 5 segundos por processo, os diagnósticos de ferramentas não verificadas e o cancelamento de descendentes. Não amplie o prazo do smoke nem marque consultas expiradas como ferramentas disponíveis. A regressão cobre processos sem resposta, esgotamento do orçamento e preservação das versões já consultadas.
+
+A regressão com um processo real sem resposta falha no código original após 20,1 segundos e passa com a correção em aproximadamente 5 segundos. A validação local Windows passou com 1.697 testes e 39 skips opcionais, assim como os smokes de desenvolvimento, empacotado e do atualizador. A confirmação do código corrigido nos runners do GitHub permanece pendente do envio do commit.
+
 - Leia o primeiro passo que falhou, o erro funcional no log e o projeto/diagnóstico preservados. Uma lista de evidências ausentes depois do primeiro erro normalmente representa verificações que não chegaram a executar.
 - Diferencie falha funcional, seletor desatualizado, corrida assíncrona, limite nativo de janela, falta de dependência e problema externo de rede. Corrija a causa observada; não aumente tolerâncias, workers ou prazos sem evidência.
 - Reproduza a causa quando possível e acrescente uma regressão significativa. Preserve as validações de cursor, código, Preview, tipagem, segurança e artefatos que continuam fazendo parte do produto.
