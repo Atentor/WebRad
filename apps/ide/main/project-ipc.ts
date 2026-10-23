@@ -533,6 +533,7 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
 }
 
 export interface RegisterIpcHandlersOptions {
+  readonly nativeInspectionLog?: (message: string) => void;
   readonly automatedOpenProjectPath?: string;
   readonly userDataPath?: string;
 }
@@ -543,6 +544,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   registerRestGoAdminIpc(requireTrustedSender, options.userDataPath);
   registerDebuggerIpc({ requireTrustedSender, requireGrantedRoot, compile: debugCompileHandler });
   registerNativeBuildIpc({
+    inspectionLog: options.nativeInspectionLog,
     userDataPath: options.userDataPath,
     requireTrustedSender,
     beforeBuild: (event) => {

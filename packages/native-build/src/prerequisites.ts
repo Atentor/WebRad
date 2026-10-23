@@ -138,6 +138,8 @@ export async function checkNativePrerequisites(
       ],
     };
   const checks: NativePrerequisite[] = [];
+  // Rustup proxies may install an absent active toolchain even for --version
+  // and target list. Inspection must remain read-only, including on CI images.
   const env = options.env ?? process.env;
   const add = (
     id: string,
@@ -166,16 +168,26 @@ export async function checkNativePrerequisites(
       instruction: error instanceof Error ? error.message : String(error),
     });
   }
-  const run = async (command: string, args: readonly string[]) =>
-    runNativeProcess({
-      command,
-      args,
-      cwd: os.tmpdir(),
-      env,
-      signal: options.signal,
-      timeoutMs: 20_000,
-      onLog: options.onLog,
-    });
+  const run = async (command: string, args: readonly string[]) => {
+    const started = Date.now();
+    options.onLog?.(`[COMPILER] Inspecting ${path.basename(command)} ${args.join(' ')}`, 'stdout');
+    try {
+      return await runNativeProcess({
+        command,
+        args,
+        cwd: os.tmpdir(),
+        env: { ...env, RUSTUP_AUTO_INSTALL: '0' },
+        signal: options.signal,
+        timeoutMs: 20_000,
+        onLog: options.onLog,
+      });
+    } finally {
+      options.onLog?.(
+        `[COMPILER] Inspection of ${path.basename(command)} ended after ${Date.now() - started}ms`,
+        'stdout',
+      );
+    }
+  };
   const versionCheck = async (
     name: string,
     args: readonly string[],

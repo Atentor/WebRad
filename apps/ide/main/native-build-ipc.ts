@@ -44,6 +44,7 @@ const inspectSchema = z
   .strict();
 
 export interface NativeBuildIpcOptions {
+  readonly inspectionLog?: (message: string) => void;
   readonly userDataPath?: string;
   readonly requireTrustedSender: (event: IpcMainInvokeEvent) => BrowserWindow;
   readonly requireProject: (
@@ -147,6 +148,7 @@ export function registerNativeBuildIpc(options: NativeBuildIpcOptions): void {
     try {
       const report = await checkNativePrerequisites(request.settings, {
         signal: controller.signal,
+        onLog: options.inspectionLog,
       });
       controller.signal.throwIfAborted();
       options.requireTrustedSender(event);
