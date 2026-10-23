@@ -372,28 +372,173 @@ function floatingVerticalAnchor(
   return value === 'top' || value === 'center' || value === 'bottom' ? value : fallback;
 }
 
-function isFloatingReusableElement(node: RuntimeLayoutNode): boolean {
-  return node.type === 'WebReusableElement' && node.props?.placement === 'floating';
+export function isFloatingLayoutNode(node: RuntimeLayoutNode): boolean {
+  return (
+    (node.type === 'WebReusableElement' || node.type === 'WebPanel') &&
+    node.props?.placement === 'floating'
+  );
+}
+
+export type WebPanelFloatingAlignment = 'none' | 'top' | 'bottom' | 'left' | 'right' | 'client';
+
+export function getFloatingPanelAlignment(
+  node: Pick<RuntimeLayoutNode, 'type' | 'props'>,
+): WebPanelFloatingAlignment {
+  if (node.type !== 'WebPanel') return 'none';
+  const value = node.props?.floatingAlignment;
+  return value === 'top' ||
+    value === 'bottom' ||
+    value === 'left' ||
+    value === 'right' ||
+    value === 'client'
+    ? value
+    : 'none';
+}
+
+interface FloatingPanelAxis {
+  readonly anchor: 'start' | 'center' | 'end';
+  readonly sizing: RuntimeLayoutItemSizingMode;
+  readonly before: number;
+  readonly after: number;
+  readonly marginBefore: number;
+  readonly marginAfter: number;
+  readonly centerOffset: number;
+  readonly fixedSize: number;
+  readonly minimum: number;
+  readonly maximum: number | null;
+}
+
+function floatingPanelAxis(node: RuntimeLayoutNode, horizontal: boolean): FloatingPanelAxis {
+  const item = normalizeItem(node.layout);
+  const alignment = getFloatingPanelAlignment(node);
+  const freeAnchor = horizontal
+    ? floatingAnchor(node.props?.floatingHorizontalAnchor, 'left')
+    : floatingVerticalAnchor(node.props?.floatingVerticalAnchor, 'top');
+  const edge = horizontal
+    ? alignment === 'left' || alignment === 'right'
+      ? alignment
+      : undefined
+    : alignment === 'top' || alignment === 'bottom'
+      ? alignment
+      : undefined;
+  const anchor = edge ?? (alignment === 'client' ? (horizontal ? 'left' : 'top') : freeAnchor);
+  const atEnd = anchor === 'right' || anchor === 'bottom';
+  const before = horizontal ? item.left : item.top;
+  const after = horizontal ? item.right : item.bottom;
+  const offset = horizontal ? node.bounds.x : node.bounds.y;
+  const margin = finite(node.props?.margin, 0);
+  return {
+    anchor: anchor === 'center' ? 'center' : atEnd ? 'end' : 'start',
+    sizing: horizontal ? item.width : item.height,
+    before: alignment === 'none' && anchor !== 'center' && !atEnd ? offset : before,
+    after: alignment === 'none' && atEnd ? offset : after,
+    centerOffset: alignment === 'none' && anchor === 'center' ? offset : 0,
+    marginBefore: finite(node.props?.[horizontal ? 'marginLeft' : 'marginTop'], margin),
+    marginAfter: finite(node.props?.[horizontal ? 'marginRight' : 'marginBottom'], margin),
+    fixedSize: horizontal ? node.bounds.width : node.bounds.height,
+    minimum: horizontal ? item.minWidth : item.minHeight,
+    maximum: horizontal ? item.maxWidth : item.maxHeight,
+  };
+}
+
+function floatingPanelAxisStyles(
+  axis: FloatingPanelAxis,
+  horizontal: boolean,
+): Readonly<Record<string, string>> {
+  const start = horizontal ? 'left' : 'top';
+  const end = horizontal ? 'right' : 'bottom';
+  const dimension = horizontal ? 'width' : 'height';
+  const insets = axis.before + axis.after + axis.marginBefore + axis.marginAfter;
+  const size =
+    axis.sizing === 'fixed'
+      ? pixels(axis.fixedSize)
+      : axis.sizing === 'fit-content'
+        ? INTRINSIC_CONTENT_SIZE
+        : `max(0px, calc(100% - ${coordinatePixels(insets)}))`;
+  return {
+    [dimension]: size,
+    ...(axis.anchor === 'end'
+      ? { [end]: coordinatePixels(axis.after) }
+      : axis.anchor === 'center'
+        ? {
+            [start]: `calc(50% + ${coordinatePixels(axis.centerOffset + (axis.before - axis.after - axis.marginBefore - axis.marginAfter) / 2)})`,
+          }
+        : { [start]: coordinatePixels(axis.before) }),
+  };
+}
+
+function floatingPanelAxisBounds(
+  axis: FloatingPanelAxis,
+  available: number,
+): { position: number; size: number } {
+  const remaining = Math.max(
+    0,
+    available - axis.before - axis.after - axis.marginBefore - axis.marginAfter,
+  );
+  const size = Math.max(
+    axis.minimum,
+    Math.min(axis.sizing === 'stretch' ? remaining : axis.fixedSize, axis.maximum ?? Infinity),
+  );
+  const position =
+    axis.anchor === 'end'
+      ? available - axis.after - axis.marginAfter - size
+      : axis.anchor === 'center'
+        ? (available + axis.before - axis.after + axis.marginBefore - axis.marginAfter - size) / 2 +
+          axis.centerOffset
+        : axis.before + axis.marginBefore;
+  return { position, size };
+}
+
+/** Fallback geometry; callers can supply measured fit-content dimensions in bounds. */
+export function projectFloatingPanelBounds(
+  node: RuntimeLayoutNode,
+  pageSize: Pick<RuntimeLayoutBounds, 'width' | 'height'>,
+): RuntimeLayoutBounds | undefined {
+  if (node.type !== 'WebPanel' || !isFloatingLayoutNode(node)) return undefined;
+  const horizontal = floatingPanelAxisBounds(floatingPanelAxis(node, true), pageSize.width);
+  const vertical = floatingPanelAxisBounds(floatingPanelAxis(node, false), pageSize.height);
+  return {
+    x: horizontal.position,
+    y: vertical.position,
+    width: horizontal.size,
+    height: vertical.size,
+  };
 }
 
 /**
- * Floating reusable instances are viewport-owned overlays. Their persisted
- * bounds remain the instance's responsive design-time dimensions; anchors
- * only choose the viewport edge from which x/y offsets are measured.
+ * Floating Panels belong to the scrollable page; reusable placements belong
+ * to the viewport. Bounds preserve saved dimensions and anchor offsets.
  */
-function floatingReusableItemStyles(
+function floatingItemStyles(
   node: RuntimeLayoutNode,
   item: RuntimeLayoutItem,
 ): Readonly<Record<string, string>> {
   const horizontal = floatingAnchor(node.props?.floatingHorizontalAnchor, 'left');
   const vertical = floatingVerticalAnchor(node.props?.floatingVerticalAnchor, 'top');
   const zIndex = finite(node.props?.floatingZIndex, 100);
+  const pageOwned = node.type === 'WebPanel';
+  if (pageOwned) {
+    const horizontalAxis = floatingPanelAxis(node, true);
+    const verticalAxis = floatingPanelAxis(node, false);
+    return {
+      position: 'absolute',
+      ...floatingPanelAxisStyles(horizontalAxis, true),
+      ...floatingPanelAxisStyles(verticalAxis, false),
+      ...(horizontalAxis.anchor === 'center' || verticalAxis.anchor === 'center'
+        ? {
+            translate: `${horizontalAxis.anchor === 'center' ? '-50%' : '0'} ${verticalAxis.anchor === 'center' ? '-50%' : '0'}`,
+          }
+        : {}),
+      ...minMaxStyles(item),
+      'z-index': String(Math.trunc(zIndex)),
+    };
+  }
   const horizontalStyles: Readonly<Record<string, string>> =
     horizontal === 'right'
       ? { right: coordinatePixels(node.bounds.x) }
       : horizontal === 'center'
         ? {
-            left: `calc(50vw + ${coordinatePixels(node.bounds.x)} - ${pixels(node.bounds.width / 2)})`,
+            left: `calc(${pageOwned ? '50%' : '50vw'} + ${coordinatePixels(node.bounds.x)} - ${pixels(node.bounds.width / 2)})`,
           }
         : { left: coordinatePixels(node.bounds.x) };
   const verticalStyles: Readonly<Record<string, string>> =
@@ -401,11 +546,11 @@ function floatingReusableItemStyles(
       ? { bottom: coordinatePixels(node.bounds.y) }
       : vertical === 'center'
         ? {
-            top: `calc(50dvh + ${coordinatePixels(node.bounds.y)} - ${pixels(node.bounds.height / 2)})`,
+            top: `calc(${pageOwned ? '50%' : '50dvh'} + ${coordinatePixels(node.bounds.y)} - ${pixels(node.bounds.height / 2)})`,
           }
         : { top: coordinatePixels(node.bounds.y) };
   return {
-    position: 'fixed',
+    position: pageOwned ? 'absolute' : 'fixed',
     ...horizontalStyles,
     ...verticalStyles,
     width: pixels(node.bounds.width),
@@ -554,7 +699,7 @@ function projectItem(
   parent: RuntimeContainerLayout | undefined,
 ): Readonly<Record<string, string>> {
   const item = normalizeItem(node.layout);
-  if (isFloatingReusableElement(node)) return floatingReusableItemStyles(node, item);
+  if (isFloatingLayoutNode(node)) return floatingItemStyles(node, item);
   const mode = parent?.mode ?? 'fixed';
   switch (mode) {
     case 'align-to-parent':

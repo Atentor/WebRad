@@ -1665,6 +1665,7 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     component: ComponentNode,
     path: readonly (string | number)[],
   ): void => {
+    const owner = component.type === 'WebPanel' ? 'Panel' : 'reusable component';
     const placement = component.props.placement;
     if (
       typeof placement !== 'string' ||
@@ -1674,7 +1675,7 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     ) {
       context.addIssue({
         code: 'custom',
-        message: 'A reusable component placement must be in-flow or floating.',
+        message: `A ${owner} placement must be in-flow or floating.`,
         path: [...path, 'placement'],
       });
     }
@@ -1688,7 +1689,7 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     ) {
       context.addIssue({
         code: 'custom',
-        message: 'A reusable component floating horizontal anchor is invalid.',
+        message: `A ${owner} floating horizontal anchor is invalid.`,
         path: [...path, 'floatingHorizontalAnchor'],
       });
     }
@@ -1702,7 +1703,7 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     ) {
       context.addIssue({
         code: 'custom',
-        message: 'A reusable component floating vertical anchor is invalid.',
+        message: `A ${owner} floating vertical anchor is invalid.`,
         path: [...path, 'floatingVerticalAnchor'],
       });
     }
@@ -1711,7 +1712,7 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     if (typeof layer !== 'number' || !Number.isFinite(layer) || !Number.isInteger(layer)) {
       context.addIssue({
         code: 'custom',
-        message: 'A reusable component floating layer must be a finite integer.',
+        message: `A ${owner} floating layer must be a finite integer.`,
         path: [...path, 'floatingZIndex'],
       });
     }
@@ -1723,6 +1724,40 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
   ): readonly string[] => {
     const references: string[] = [];
     document.components.forEach((component, componentIndex) => {
+      if (component.type === 'WebPanel') {
+        const alignment = component.props.floatingAlignment;
+        if (
+          alignment !== undefined &&
+          (typeof alignment !== 'string' ||
+            !['none', 'top', 'bottom', 'left', 'right', 'client'].includes(alignment))
+        ) {
+          context.addIssue({
+            code: 'custom',
+            message: 'A Panel floating alignment must be none, top, bottom, left, right or client.',
+            path: [
+              documentPath,
+              documentIndex,
+              'components',
+              componentIndex,
+              'props',
+              'floatingAlignment',
+            ],
+          });
+        }
+        validateReusableInstanceProperties(
+          {
+            ...component,
+            props: {
+              placement: 'in-flow',
+              floatingHorizontalAnchor: 'left',
+              floatingVerticalAnchor: 'top',
+              floatingZIndex: 100,
+              ...component.props,
+            },
+          },
+          [documentPath, documentIndex, 'components', componentIndex, 'props'],
+        );
+      }
       if (component.type !== 'WebReusableElement') return;
       const componentPropsPath = [
         documentPath,

@@ -1275,6 +1275,8 @@ export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
 .wr-webpage { --webrad-border-gradient-surface: var(--wr-page-surface, #ffffff); overflow: hidden; }
 .wr-webreusableelement { border: 0; background: transparent; overflow: visible; }
 .wr-floating-layer { position: static; width: 0; height: 0; overflow: visible; }
+.wr-panel-floating-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.wr-panel-floating-layer > .wr-component { pointer-events: auto; }
 .wr-reusable-definition-root { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .wr-reusable-definition-root > .wr-component { position: relative !important; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }

@@ -6,7 +6,8 @@ fonte de verdade; Designer e runtime devem permanecer separados.
 
 ## Preparar o ambiente
 
-Use Node.js 24 ou mais recente e npm 11 ou mais recente:
+Use Node.js 26.12.1 ou mais recente e npm 12.2.1 ou mais recente, conforme
+`engines` e `packageManager` do [package.json](package.json):
 
 ```sh
 npm ci
@@ -47,6 +48,10 @@ um navegador ou serviço externo informam os seus requisitos no próprio teste.
 Não envie credenciais, dados de clientes, arquivos `.env`, preferências locais,
 capturas temporárias ou artefatos de build. Use exemplos fictícios. Relate
 vulnerabilidades conforme a [política de segurança](SECURITY.md).
+
+A proteção de branches, os checks obrigatórios e o relato privado de
+vulnerabilidades são configurações do GitHub que o mantenedor precisa revisar.
+Os workflows versionados não habilitam essas opções automaticamente.
 
 ## Licença
 

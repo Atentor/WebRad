@@ -132,6 +132,10 @@ export interface ComponentStyleEditorMetadata {
 }
 
 export interface ComponentDefinition {
+  /** Supports viewport-owned placement outside the normal container flow. */
+  readonly supportsFloatingPlacement?: boolean;
+  /** Responsive item sizing remains active when projected into an overlay. */
+  readonly floatingSizing?: 'responsive';
   /** Component styles reused by embedded controls, retained in browser builds. */
   readonly styleDependencies?: readonly string[];
   readonly type: string;

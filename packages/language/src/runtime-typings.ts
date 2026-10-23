@@ -184,6 +184,11 @@ ${repeatingGroupTypings.source}
   export const PANEL_BACKGROUND_POSITIONS: readonly ['center', 'top', 'bottom', 'left', 'right', 'left top', 'right top', 'left bottom', 'right bottom'];
   export const PANEL_BACKGROUND_REPEATS: readonly ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'];
   export class WebPanel extends WebComponent<HTMLElement> {
+    floatingAlignment: WebPanelFloatingAlignment;
+    placement: 'in-flow' | 'floating';
+    floatingHorizontalAnchor: 'left' | 'center' | 'right';
+    floatingVerticalAnchor: 'top' | 'center' | 'bottom';
+    floatingZIndex: number;
     caption: string;
     progressEnabled: boolean;
     progressValue: number;
@@ -210,10 +215,6 @@ ${repeatingGroupTypings.source}
   /** One instance of a shared reusable component definition. */
   export class WebReusableElement extends WebPanel {
     reusableElementId: string;
-    placement: 'in-flow' | 'floating';
-    floatingHorizontalAnchor: 'left' | 'center' | 'right';
-    floatingVerticalAnchor: 'top' | 'center' | 'bottom';
-    floatingZIndex: number;
   }
 
   export interface ClosePageOptions {
@@ -318,6 +319,10 @@ ${repeatingGroupTypings.source}
   export function resolveRuntimeContainerLayout(
     layout: RuntimeComponentLayout | undefined,
   ): RuntimeContainerLayout;
+  export function isFloatingLayoutNode(node: RuntimeLayoutNode): boolean;
+  export type WebPanelFloatingAlignment = 'none' | 'top' | 'bottom' | 'left' | 'right' | 'client';
+  export function getFloatingPanelAlignment(node: Pick<RuntimeLayoutNode, 'type' | 'props'>): WebPanelFloatingAlignment;
+  export function projectFloatingPanelBounds(node: RuntimeLayoutNode, pageSize: Pick<RuntimeLayoutBounds, 'width' | 'height'>): RuntimeLayoutBounds | undefined;
   export function projectRuntimeLayout(
     node: RuntimeLayoutNode,
     parentContainer?: RuntimeContainerLayout,

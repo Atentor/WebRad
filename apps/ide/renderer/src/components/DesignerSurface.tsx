@@ -31,6 +31,8 @@ import type {
 import type { ComponentStyleModel } from '@webrad/project-model';
 import {
   projectRuntimeLayout,
+  getFloatingPanelAlignment,
+  projectFloatingPanelBounds,
   type RuntimeContainerLayout,
   type RuntimeFitContentSize,
 } from '@webrad/runtime';
@@ -204,8 +206,17 @@ function sameFitContentSizeMap(
   return true;
 }
 
-function isFloatingReusableElement(node: ComponentNode): boolean {
-  return node.type === 'WebReusableElement' && node.props.placement === 'floating';
+function isFloatingComponent(node: ComponentNode): boolean {
+  return (
+    componentRegistry.get(node.type)?.supportsFloatingPlacement === true &&
+    node.props.placement === 'floating'
+  );
+}
+
+function usesResponsiveFloatingSize(node: ComponentNode): boolean {
+  return (
+    isFloatingComponent(node) && componentRegistry.get(node.type)?.floatingSizing === 'responsive'
+  );
 }
 
 function appearsOnDesignerCanvas(type: string): boolean {
@@ -277,7 +288,8 @@ function floatingLayer(node: ComponentNode): number {
 
 /** Converts a visual drag to the stored edge-offset axes of a floating item. */
 function movementDeltaForNode(node: ComponentNode, delta: Point): Point {
-  if (!isFloatingReusableElement(node)) return delta;
+  if (!isFloatingComponent(node)) return delta;
+  if (getFloatingPanelAlignment(node) !== 'none') return { x: 0, y: 0 };
   return {
     x: floatingHorizontalAnchor(node) === 'right' ? -delta.x : delta.x,
     y: floatingVerticalAnchor(node) === 'bottom' ? -delta.y : delta.y,
@@ -286,16 +298,47 @@ function movementDeltaForNode(node: ComponentNode, delta: Point): Point {
 
 function movementSignature(node: ComponentNode): string {
   const delta = movementDeltaForNode(node, { x: 1, y: 1 });
-  return `${isFloatingReusableElement(node) ? 'floating' : 'in-flow'}:${String(delta.x)}:${String(delta.y)}`;
+  return `${isFloatingComponent(node) ? 'floating' : 'in-flow'}:${String(delta.x)}:${String(delta.y)}`;
 }
 
 function boundsResizeHandles(
   node: ComponentNode,
   parentMode: ContainerLayoutMode,
 ): readonly ResizeHandle[] {
+  if (usesResponsiveFloatingSize(node)) {
+    const handles = getBoundsResizeHandles(node.layout.item, 'fixed');
+    switch (getFloatingPanelAlignment(node)) {
+      case 'top':
+        return handles.filter((handle) => !handle.includes('n'));
+      case 'bottom':
+        return handles.filter((handle) => !handle.includes('s'));
+      case 'left':
+        return handles.filter((handle) => !handle.includes('w'));
+      case 'right':
+        return handles.filter((handle) => !handle.includes('e'));
+      case 'client':
+        return handles.filter((handle) => !handle.includes('n') && !handle.includes('w'));
+      case 'none':
+        return handles;
+    }
+  }
+  if (isFloatingComponent(node)) {
+    switch (getFloatingPanelAlignment(node)) {
+      case 'top':
+        return ['s'];
+      case 'bottom':
+        return ['n'];
+      case 'left':
+        return ['e'];
+      case 'right':
+        return ['w'];
+      case 'client':
+        return [];
+    }
+  }
   // Floating surfaces own their dimensions independently of item sizing and
   // the parent flow. The ordinary layout contract governs every other item.
-  return isDesignerFloatingContainer(node) || isFloatingReusableElement(node)
+  return isDesignerFloatingContainer(node) || isFloatingComponent(node)
     ? RESIZE_HANDLES
     : getBoundsResizeHandles(node.layout.item, parentMode);
 }
@@ -311,7 +354,7 @@ function movementConstraintsForIds(
   const groups = new Map<string, ComponentNode[]>();
   for (const id of ids) {
     const selected = byId.get(id);
-    if (selected?.parentId == null || isFloatingReusableElement(selected)) continue;
+    if (selected?.parentId == null || isFloatingComponent(selected)) continue;
     const group = groups.get(selected.parentId) ?? [];
     group.push(selected);
     groups.set(selected.parentId, group);
@@ -416,7 +459,8 @@ function projectItemStyle(
 ): CSSProperties {
   const bounds = localBoundsWithPreview(node, interaction);
   const item = projectRuntimeLayout({ ...node, bounds }, parentContainer).item;
-  const supportsDynamicFitMeasurement = !isFloatingReusableElement(node);
+  const supportsDynamicFitMeasurement =
+    !isFloatingComponent(node) || usesResponsiveFloatingSize(node);
   const measuredFitContent =
     interaction?.kind === 'resize' && interaction.id === node.id ? undefined : fitContentSize;
   const useMeasuredWidth =
@@ -431,7 +475,7 @@ function projectItemStyle(
     ...(useMeasuredWidth ? { width: `${String(measuredFitContent.width)}px` } : {}),
     ...(useMeasuredHeight ? { height: `${String(measuredFitContent.height)}px` } : {}),
   };
-  if (!isFloatingReusableElement(node)) {
+  if (!isFloatingComponent(node) || usesResponsiveFloatingSize(node)) {
     return reactStyle(
       { ...item, ...fitContentStyles },
       {
@@ -452,6 +496,8 @@ function projectItemStyle(
       position: 'absolute',
       left: `${String(visualBounds.x)}px`,
       top: `${String(visualBounds.y)}px`,
+      width: `${String(visualBounds.width)}px`,
+      height: `${String(visualBounds.height)}px`,
       ...fitContentStyles,
     },
     {
@@ -516,6 +562,8 @@ function floatingVisualBounds(
   bounds: Bounds,
   designViewport: DesignViewport,
 ): Bounds {
+  const dockedBounds = projectFloatingPanelBounds({ ...node, bounds }, designViewport);
+  if (dockedBounds !== undefined) return dockedBounds;
   const x =
     floatingHorizontalAnchor(node) === 'right'
       ? designViewport.width - bounds.x - bounds.width
@@ -537,6 +585,58 @@ function floatingPersistedBounds(
   visualBounds: Bounds,
   designViewport: DesignViewport,
 ): Bounds {
+  if (usesResponsiveFloatingSize(node)) {
+    const original = projectFloatingPanelBounds(node, designViewport) ?? node.bounds;
+    const free = getFloatingPanelAlignment(node) === 'none';
+    return {
+      ...node.bounds,
+      ...(node.layout.item.width === 'fixed'
+        ? {
+            width: visualBounds.width,
+            ...(free
+              ? {
+                  x:
+                    node.bounds.x +
+                    (floatingHorizontalAnchor(node) === 'right'
+                      ? original.x + original.width - visualBounds.x - visualBounds.width
+                      : floatingHorizontalAnchor(node) === 'center'
+                        ? visualBounds.x + visualBounds.width / 2 - original.x - original.width / 2
+                        : visualBounds.x - original.x),
+                }
+              : {}),
+          }
+        : {}),
+      ...(node.layout.item.height === 'fixed'
+        ? {
+            height: visualBounds.height,
+            ...(free
+              ? {
+                  y:
+                    node.bounds.y +
+                    (floatingVerticalAnchor(node) === 'bottom'
+                      ? original.y + original.height - visualBounds.y - visualBounds.height
+                      : floatingVerticalAnchor(node) === 'center'
+                        ? visualBounds.y +
+                          visualBounds.height / 2 -
+                          original.y -
+                          original.height / 2
+                        : visualBounds.y - original.y),
+                }
+              : {}),
+          }
+        : {}),
+    };
+  }
+  switch (getFloatingPanelAlignment(node)) {
+    case 'top':
+    case 'bottom':
+      return { ...node.bounds, height: visualBounds.height };
+    case 'left':
+    case 'right':
+      return { ...node.bounds, width: visualBounds.width };
+    case 'client':
+      return node.bounds;
+  }
   const x =
     floatingHorizontalAnchor(node) === 'right'
       ? designViewport.width - visualBounds.x - visualBounds.width
@@ -553,7 +653,7 @@ function floatingPersistedBounds(
 }
 
 function designHitZIndex(node: ComponentNode, order: number): number {
-  return isFloatingReusableElement(node) ? 10_000 + floatingLayer(node) : order + 1;
+  return isFloatingComponent(node) ? 10_000 + floatingLayer(node) : order + 1;
 }
 
 function projectChildrenStyle(node: ComponentNode): CSSProperties {
@@ -619,7 +719,7 @@ function fitContentHost(component: HTMLElement, node: ComponentNode): HTMLElemen
 
 function shouldMeasureDesignerFitContent(node: ComponentNode, isRoot = false): boolean {
   return (
-    !isFloatingReusableElement(node) &&
+    (!isFloatingComponent(node) || usesResponsiveFloatingSize(node)) &&
     (isRoot || node.type === 'WebReusableElement' || node.children.length > 0) &&
     (node.layout.item.width === 'fit-content' || node.layout.item.height === 'fit-content')
   );
@@ -727,7 +827,7 @@ function parentModeOf(
   node: ComponentNode,
   byId: ReadonlyMap<string, ComponentNode>,
 ): ContainerLayoutMode {
-  if (isFloatingReusableElement(node) || isDesignerFloatingContainer(node)) return 'fixed';
+  if (isFloatingComponent(node) || isDesignerFloatingContainer(node)) return 'fixed';
   return node.parentId === null
     ? 'fixed'
     : (byId.get(node.parentId)?.layout.container.mode ?? 'fixed');
@@ -773,7 +873,7 @@ function renderDesignerNode(
   element: ReactElement,
   useFloatingHost = false,
 ): ReactElement {
-  return (isFloatingReusableElement(node) || useFloatingHost) && floatingHost !== null
+  return (isFloatingComponent(node) || useFloatingHost) && floatingHost !== null
     ? createPortal(element, floatingHost)
     : element;
 }
@@ -1628,10 +1728,10 @@ export function DesignerSurface({
     const useParentHost =
       parentHost !== undefined &&
       visualBounds !== undefined &&
-      !isFloatingReusableElement(node) &&
+      !isFloatingComponent(node) &&
       !isFloatingContainerEditor;
     const margins = measureDesignerNodeMargins(surfaceRef.current, node.id);
-    const viewportOwned = isFloatingReusableElement(node) || isFloatingContainerEditor;
+    const viewportOwned = isFloatingComponent(node) || isFloatingContainerEditor;
     const containerBounds: Bounds = useParentHost
       ? {
           x: editorBounds.x - (visualBounds.x - parentHost.origin.x) + margins.left,
@@ -1736,7 +1836,7 @@ export function DesignerSurface({
         containerBounds: interaction.containerBounds,
       };
       const currentBounds =
-        node !== undefined && isFloatingReusableElement(node)
+        node !== undefined && isFloatingComponent(node)
           ? floatingPersistedBounds(
               node,
               resizeBounds(

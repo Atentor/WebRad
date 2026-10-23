@@ -655,7 +655,58 @@ const webPage: ComponentDefinition = {
   ],
 };
 
+function floatingPlacementProperties(pageOwned = false): ComponentPropertyDefinition[] {
+  return [
+    {
+      name: 'placement',
+      label: 'Placement',
+      type: 'enum',
+      category: pageOwned ? 'Floating placement' : 'Reusable component',
+      source: 'props',
+      defaultValue: 'in-flow',
+      options: REUSABLE_ELEMENT_PLACEMENTS,
+      description: pageOwned
+        ? 'Floating Panels overlay page content and move with page scrolling without consuming layout space.'
+        : 'Floating instances are fixed to the viewport and do not consume page flow.',
+    },
+    {
+      name: 'floatingHorizontalAnchor',
+      label: 'Floating horizontal anchor',
+      type: 'enum',
+      category: 'Floating placement',
+      source: 'props',
+      defaultValue: 'left',
+      options: REUSABLE_ELEMENT_HORIZONTAL_ANCHORS,
+      readOnlyWhen: (props) =>
+        props.placement === 'floating' &&
+        ['left', 'right', 'client'].includes(String(props.floatingAlignment)),
+    },
+    {
+      name: 'floatingVerticalAnchor',
+      label: 'Floating vertical anchor',
+      type: 'enum',
+      category: 'Floating placement',
+      source: 'props',
+      defaultValue: 'top',
+      options: REUSABLE_ELEMENT_VERTICAL_ANCHORS,
+      readOnlyWhen: (props) =>
+        props.placement === 'floating' &&
+        ['top', 'bottom', 'client'].includes(String(props.floatingAlignment)),
+    },
+    {
+      name: 'floatingZIndex',
+      label: 'Floating layer',
+      type: 'number',
+      category: 'Floating placement',
+      source: 'props',
+      defaultValue: 100,
+    },
+  ];
+}
+
 const webPanel: ComponentDefinition = {
+  supportsFloatingPlacement: true,
+  floatingSizing: 'responsive',
   type: 'WebPanel',
   displayName: 'Panel',
   namePrefix: 'Panel',
@@ -687,11 +738,29 @@ const webPanel: ComponentDefinition = {
     backgroundRepeat: 'no-repeat',
     progressEnabled: false,
     progressValue: 0,
+    floatingAlignment: 'none',
+    placement: 'in-flow',
+    floatingHorizontalAnchor: 'left',
+    floatingVerticalAnchor: 'top',
+    floatingZIndex: 100,
   },
   properties: [
     ...geometryProperties(panelBounds),
     ...containerLayoutProperties(),
     captionProperty(''),
+    ...floatingPlacementProperties(true),
+    {
+      name: 'floatingAlignment',
+      label: 'Floating alignment',
+      type: 'enum',
+      category: 'Floating placement',
+      source: 'props',
+      defaultValue: 'none',
+      options: ['none', 'top', 'bottom', 'left', 'right', 'client'],
+      readOnlyWhen: (props) => props.placement !== 'floating',
+      description:
+        'Choose the page edge or client origin. Responsive width/height, content sizing, limits, margins and offsets remain active. Use Stretch on both axes to fill the client area.',
+    },
     {
       name: 'progressEnabled',
       label: 'Enable border progress',
@@ -799,6 +868,7 @@ const webGroup: ComponentDefinition = {
  * own ordinary component children.
  */
 const webReusableElement: ComponentDefinition = {
+  supportsFloatingPlacement: true,
   type: 'WebReusableElement',
   displayName: 'Reusable Component',
   namePrefix: 'Reusable',
@@ -830,42 +900,7 @@ const webReusableElement: ComponentDefinition = {
       defaultValue: '',
       description: 'The shared component definition rendered by this instance.',
     },
-    {
-      name: 'placement',
-      label: 'Placement',
-      type: 'enum',
-      category: 'Reusable component',
-      source: 'props',
-      defaultValue: 'in-flow',
-      options: REUSABLE_ELEMENT_PLACEMENTS,
-      description: 'Floating instances are fixed to the viewport and do not consume page flow.',
-    },
-    {
-      name: 'floatingHorizontalAnchor',
-      label: 'Floating horizontal anchor',
-      type: 'enum',
-      category: 'Floating placement',
-      source: 'props',
-      defaultValue: 'left',
-      options: REUSABLE_ELEMENT_HORIZONTAL_ANCHORS,
-    },
-    {
-      name: 'floatingVerticalAnchor',
-      label: 'Floating vertical anchor',
-      type: 'enum',
-      category: 'Floating placement',
-      source: 'props',
-      defaultValue: 'top',
-      options: REUSABLE_ELEMENT_VERTICAL_ANCHORS,
-    },
-    {
-      name: 'floatingZIndex',
-      label: 'Floating layer',
-      type: 'number',
-      category: 'Floating placement',
-      source: 'props',
-      defaultValue: 100,
-    },
+    ...floatingPlacementProperties(),
   ],
   events: [],
 };

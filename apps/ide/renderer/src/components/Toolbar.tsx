@@ -10,9 +10,6 @@ import { Icon, type IconName } from './Icon';
 interface ToolbarProps extends DocumentTabsProps {
   updateState: UpdateState;
   onUpdate: () => void;
-  canArrange: boolean;
-  onBringToFront: () => void;
-  onSendToBack: () => void;
   onCommand: (command: IdeCommand) => void;
   canSave: boolean;
   canRun: boolean;
@@ -25,12 +22,6 @@ interface ToolbarProps extends DocumentTabsProps {
   building: boolean;
   debugStatus: DebugState['status'];
   debugBusy: boolean;
-  selectedName?: string;
-  selectedIcon?: string;
-  onClearSelection: () => void;
-  zoom: number;
-  zoomEnabled: boolean;
-  onZoomChange: (zoom: number) => void;
   issueCount: number;
   onShowProblems: () => void;
 }

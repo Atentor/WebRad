@@ -1,4 +1,5 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
+import { getFloatingPanelAlignment, type WebPanelFloatingAlignment } from './layout.js';
 import {
   disposePanelProgress,
   projectPanelProgress,
@@ -648,6 +649,65 @@ export class WebListBox extends WebComponent<HTMLSelectElement> {
 }
 
 export class WebPanel extends WebComponent<HTMLElement> {
+  public get floatingAlignment(): WebPanelFloatingAlignment {
+    return getFloatingPanelAlignment({
+      type: 'WebPanel',
+      props: { floatingAlignment: this.element.dataset.webradFloatingAlignment },
+    });
+  }
+
+  public set floatingAlignment(value: WebPanelFloatingAlignment) {
+    if (!['none', 'top', 'bottom', 'left', 'right', 'client'].includes(value)) {
+      throw new TypeError('floatingAlignment must be none, top, bottom, left, right or client.');
+    }
+    this.element.dataset.webradFloatingAlignment = value;
+    this.notifyPlacementChanged();
+  }
+
+  public get placement(): 'in-flow' | 'floating' {
+    return this.element.dataset.webradPlacement === 'floating' ? 'floating' : 'in-flow';
+  }
+
+  public set placement(value: 'in-flow' | 'floating') {
+    this.element.dataset.webradPlacement = value;
+    this.notifyPlacementChanged();
+  }
+
+  public get floatingHorizontalAnchor(): 'left' | 'center' | 'right' {
+    const value = this.element.dataset.webradFloatingHorizontalAnchor;
+    return value === 'center' || value === 'right' ? value : 'left';
+  }
+
+  public set floatingHorizontalAnchor(value: 'left' | 'center' | 'right') {
+    this.element.dataset.webradFloatingHorizontalAnchor = value;
+    this.notifyPlacementChanged();
+  }
+
+  public get floatingVerticalAnchor(): 'top' | 'center' | 'bottom' {
+    const value = this.element.dataset.webradFloatingVerticalAnchor;
+    return value === 'center' || value === 'bottom' ? value : 'top';
+  }
+
+  public set floatingVerticalAnchor(value: 'top' | 'center' | 'bottom') {
+    this.element.dataset.webradFloatingVerticalAnchor = value;
+    this.notifyPlacementChanged();
+  }
+
+  public get floatingZIndex(): number {
+    const value = Number(this.element.dataset.webradFloatingZIndex);
+    return Number.isFinite(value) ? value : 100;
+  }
+
+  public set floatingZIndex(value: number) {
+    if (!Number.isFinite(value)) throw new TypeError('floatingZIndex must be finite.');
+    this.element.dataset.webradFloatingZIndex = String(Math.trunc(value));
+    this.notifyPlacementChanged();
+  }
+
+  private notifyPlacementChanged(): void {
+    const EventClass = this.element.ownerDocument.defaultView?.Event;
+    if (EventClass) this.element.dispatchEvent(new EventClass('webrad-placement-change'));
+  }
   #progressDisposed = false;
 
   public get progressEnabled(): boolean {
@@ -992,41 +1052,5 @@ export class WebReusableElement extends WebPanel {
 
   public set reusableElementId(value: string) {
     this.element.dataset.webradReusableElementId = value;
-  }
-
-  public get placement(): 'in-flow' | 'floating' {
-    return this.element.dataset.webradReusablePlacement === 'floating' ? 'floating' : 'in-flow';
-  }
-
-  public set placement(value: 'in-flow' | 'floating') {
-    this.element.dataset.webradReusablePlacement = value;
-  }
-
-  public get floatingHorizontalAnchor(): 'left' | 'center' | 'right' {
-    const value = this.element.dataset.webradFloatingHorizontalAnchor;
-    return value === 'center' || value === 'right' ? value : 'left';
-  }
-
-  public set floatingHorizontalAnchor(value: 'left' | 'center' | 'right') {
-    this.element.dataset.webradFloatingHorizontalAnchor = value;
-  }
-
-  public get floatingVerticalAnchor(): 'top' | 'center' | 'bottom' {
-    const value = this.element.dataset.webradFloatingVerticalAnchor;
-    return value === 'center' || value === 'bottom' ? value : 'top';
-  }
-
-  public set floatingVerticalAnchor(value: 'top' | 'center' | 'bottom') {
-    this.element.dataset.webradFloatingVerticalAnchor = value;
-  }
-
-  public get floatingZIndex(): number {
-    const value = Number(this.element.dataset.webradFloatingZIndex);
-    return Number.isFinite(value) ? value : 100;
-  }
-
-  public set floatingZIndex(value: number) {
-    if (!Number.isFinite(value)) throw new TypeError('floatingZIndex must be finite.');
-    this.element.dataset.webradFloatingZIndex = String(Math.trunc(value));
   }
 }

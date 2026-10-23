@@ -179,6 +179,7 @@ try {
               'renderer Native Build requirements checklist passed:',
               'renderer Native Build CI export passed:',
               'renderer Page browser title Inspector and F9 passed:',
+              'renderer Panel floating Inspector and F9 passed:',
               'renderer Timer Inspector and Interact passed:',
               'renderer Lucide Icons Inspector and F9 passed:',
               'renderer icon gallery canonical names passed:',

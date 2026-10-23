@@ -7,6 +7,7 @@ import { runDebuggerSmoke } from './debugger-smoke';
 import { runDeploySmoke } from './deploy-smoke';
 import { runNativeBuildSmoke } from './native-build-smoke';
 import { runPageTitleSmoke } from './page-title-smoke';
+import { runPanelFloatingSmoke } from './panel-floating-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
@@ -1044,6 +1045,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await runNativeBuildSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
 
   await runPageTitleSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runPanelFloatingSmoke(window, smokeProjectPath, smokeLog);
 
   await runRestGoSettingsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   const designerButtonStyle = await captureDesignerButtonStyle(window);

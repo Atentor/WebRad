@@ -2,12 +2,26 @@
 
 Uma alteração só está pronta para release quando o commit que será marcado passou pelo fluxo real de distribuição nos quatro ambientes. Testes locais não substituem essa evidência. As regras desta página complementam [AGENTS.md](../AGENTS.md) e [a documentação de releases](releases.md).
 
+## Execução por agentes
+
+Testes e comandos de validação local só devem ser executados quando o usuário
+pedir explicitamente, conforme a [política do AGENTS.md](../AGENTS.md#agent-validation-policy).
+Uma solicitação comum de implementação, correção ou documentação não autoriza
+testes, smokes, `validate`, typecheck, lint, verificações de formatação, builds ou
+empacotamento. Não peça confirmação para executá-los como etapa automática:
+entregue as alterações e informe brevemente que a validação não foi solicitada.
+
+Quando o usuário solicitar validação, respeite o escopo pedido. Os comandos
+completos abaixo se aplicam a uma solicitação explícita de validação completa
+de um candidato a release. As exigências de evidência e os gates de CI/release
+continuam obrigatórios para declarar uma versão pronta e publicar uma tag.
+
 ## Ao alterar código ou interface
 
 1. Preserve o contrato de produto solicitado. Mudanças em controles, rótulos, navegação, atalhos ou layout exigem revisar também as interações em `apps/ide/main/*smoke*.ts`, o smoke em `main.ts` e as evidências exigidas pelos dois runners em `scripts/smoke-development.mjs` e `scripts/smoke-packaged.mjs`.
 2. Atualize o teste para o comportamento atual. Controles removidos de propósito devem ter sua ausência verificada; mantenha as verificações de funcionalidades que continuam disponíveis. Não restaure interface antiga para fazer um teste passar.
 3. Se alterar APIs do runtime ou fontes incorporadas, execute `npm run runtime:sources` e versione as fontes geradas correspondentes. Nunca enfraqueça o typecheck, o isolamento do Electron ou as verificações de integridade para liberar um build.
-4. Execute os comandos abaixo no checkout final. No PowerShell, use `npm.cmd` no lugar de `npm`.
+4. Somente quando o usuário solicitar validação completa de um candidato a release, execute os comandos abaixo no checkout final. No PowerShell, use `npm.cmd` no lugar de `npm`.
 
 ```sh
 npm run validate
@@ -16,7 +30,7 @@ npm run smoke:packaged
 npm run smoke:packaged -- --webrad-smoke-updates
 ```
 
-`validate` inclui ícones, fontes incorporadas, TypeScript estrito, lint, testes com diretórios temporários ligados, formatação e empacotamento. Ele não executa os smokes Electron: execute-os separadamente. Os testes compartilham o máximo de dois workers definido em `vitest.config.ts`; não adicione um limite diferente no workflow nem aumente a concorrência para acelerar uma validação local. A comunicação entre workers também deve terminar corretamente: asserções aprovadas com erro de infraestrutura e grupos não executados reprovam a suíte.
+`validate` inclui ícones, fontes incorporadas, TypeScript estrito, lint, testes com diretórios temporários ligados, formatação e empacotamento. Ele não executa os smokes Electron; quando incluídos no escopo solicitado, execute-os separadamente. Os testes compartilham o máximo de dois workers definido em `vitest.config.ts`; não adicione um limite diferente no workflow nem aumente a concorrência para acelerar uma validação local. A comunicação entre workers também deve terminar corretamente: asserções aprovadas com erro de infraestrutura e grupos não executados reprovam a suíte.
 
 Preserve também o setup de turnos reais do event loop entre os casos. Um arquivo com muitos testes TypeScript síncronos pode impedir o atendimento de mensagens RPC pendentes, mesmo com cada asserção aprovada. Não substitua esse limite de escalonamento por uma Promise já resolvida ou por timers simulados, nem amplie o timeout do transporte para contornar a falha.
 

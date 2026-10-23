@@ -2502,27 +2502,11 @@ export function App(): ReactElement {
               building={building}
               debugStatus={debugState.status}
               debugBusy={debugBusy}
-              selectedName={primaryComponent?.name}
-              selectedIcon={primaryComponentDefinition?.icon}
-              onClearSelection={() => selectionManager.clear()}
-              zoom={zoom}
-              zoomEnabled={activePage !== null && activeView === 'design'}
-              onZoomChange={setZoom}
               issueCount={problemCounts.total}
               onShowProblems={() => {
                 setVisiblePanels((current) => ({ ...current, output: true }));
                 setBottomPanelTab('problems');
               }}
-              canArrange={
-                activeView === 'design' &&
-                selectedComponents.some(
-                  (node) =>
-                    node.id !== activePage?.rootComponentId &&
-                    componentRegistry.get(node.type)?.visual === true,
-                )
-              }
-              onBringToFront={() => changeZOrder('front')}
-              onSendToBack={() => changeZOrder('back')}
             />
           }
           explorer={

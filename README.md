@@ -1,168 +1,187 @@
 # WebRAD
 
-Código original disponível sob a [licença MIT](LICENSE), incluindo o runtime
-de navegador e o SDK RestGo. As dependências e mídias de terceiros mantêm suas
-[próprias licenças](THIRD_PARTY_NOTICES.md). Veja também como
-[contribuir](CONTRIBUTING.md), a [política de segurança](SECURITY.md) e a
-[revisão de preparação para código aberto](docs/open-source-readiness.md).
+IDE visual para criar aplicações Web/PWA com páginas, componentes reutilizáveis,
+layout responsivo, eventos e TypeScript. O Designer, o código tipado e o Preview
+compilado trabalham sobre o mesmo modelo de projeto. A IDE desktop usa Electron;
+as aplicações web geradas executam no navegador.
 
-Releases automáticas por tags para Windows, Linux e macOS, publicação dos instaladores no próprio repositório Atentor/WebRad e atualização pelo IDE: veja [configuração e uso](docs/releases.md). A instalação automática no macOS exige Developer ID; sem assinatura, o IDE oferece o download para substituição manual.
+O código original, incluindo o runtime e o SDK RestGo, está disponível sob a
+[licença MIT](LICENSE). Bibliotecas, fontes, ícones e mídias de terceiros mantêm
+suas [próprias licenças](THIRD_PARTY_NOTICES.md).
 
-O WebRAD é uma IDE visual RAD multiplataforma para criar aplicações web com páginas, componentes, propriedades, eventos, TypeScript e um fluxo real de compilação e visualização. A IDE desktop utiliza Electron e React; o runtime das aplicações geradas utiliza tecnologias do navegador.
+## Instalar a IDE
 
-**Native Build / Tauri 2** integra configuração visual, geração do projeto nativo, verificação de ferramentas, logs, cancelamento e exportação para CI. O frontend vem do compilador WebRAD e pode ser empacotado pela toolchain do destino, sem Electron no aplicativo gerado. A validação de artefatos e WebViews nativas ainda depende dos hosts, SDKs e certificados apropriados; nenhum build nativo real foi certificado nesta implementação. Veja [Native Build](docs/native-build.md) para destinos, pré-requisitos, assinatura, RestGO e limitações.
+Baixe o instalador na [última release](https://github.com/Atentor/WebRad/releases/latest):
 
-## Pré-requisitos
+| Sistema             | Distribuição                             |
+| ------------------- | ---------------------------------------- |
+| Windows x64         | `WebRad-<versão>-win32-x64-Setup.exe`    |
+| Linux x64           | Pacote `.deb` ou `.rpm`                  |
+| macOS Intel         | ZIP `darwin-x64` contendo `WebRad.app`   |
+| macOS Apple Silicon | ZIP `darwin-arm64` contendo `WebRad.app` |
 
-- Node.js 24 ou mais recente
-- npm 11 ou mais recente
-- Windows, Linux ou macOS; o empacotamento deve ocorrer no sistema de destino.
+Os instaladores incluem as dependências para criar aplicações Web/PWA na IDE.
+O desenvolvimento do WebRAD a partir das fontes e os builds nativos têm seus
+próprios pré-requisitos, descritos abaixo. Builds macOS sem Developer ID podem
+ser bloqueados pelo sistema e usam substituição manual do aplicativo.
+Consulte [releases e atualizações](docs/releases.md) para os detalhes por plataforma.
 
-## Instalação e desenvolvimento
+## Primeira aplicação
+
+1. Abra **New Project**, informe o nome e selecione a pasta que receberá a subpasta
+   do projeto. Para explorar um exemplo, abra
+   [HelloWebRad.wrproj](examples/hello-webrad/HelloWebRad.wrproj) pela IDE.
+2. No **Builder**, arraste componentes para o canvas. Selecione-os pela árvore ou
+   pelo canvas e edite suas propriedades em **Visual**, no Inspector.
+3. Em **Interaction**, dê dois cliques em um evento para abrir seu método no Monaco.
+   Use **Design** e **Code**, acima da área de edição, ou **F12**, para alternar as vistas.
+4. Salve com **Ctrl+S** (**Cmd+S** no macOS) e pressione **F9** para executar o Preview.
+   Os diagnósticos aparecem no painel **Output / Problems**.
+5. Em **Project Settings**, ajuste a compilação em **Build and publishing** e as
+   opções PWA em **PWA and metadata**. Defina **Output Directory** em
+   **Native Application → Build**.
+6. Abra **Project → Build Application…** e selecione **Web/PWA**. Os arquivos de
+   hospedagem são gerados em uma subpasta com o nome do projeto no destino escolhido.
+
+Sirva os arquivos exportados por HTTP/HTTPS. O roteamento History usa URLs limpas
+e exige que o servidor encaminhe as rotas de páginas para `index.html`; a opção
+Hash atende hospedagens sem esse recurso. Veja [rotas e hospedagem](docs/browser-routing.md).
+
+Ao iniciar, a IDE tenta reabrir a versão salva do último projeto. Se os arquivos
+não estiverem disponíveis ou forem inválidos, a tela inicial permite abrir ou criar outro.
+
+## Designer e programação
+
+- **Builder** reúne a árvore dos elementos e a paleta de componentes. Os componentes
+  não visuais ficam na bandeja abaixo do canvas.
+- **Responsive** oferece **Default**, que acompanha a largura disponível, **Tablet**
+  (768 px) e **Mobile** (390 px). Essas vistas não alteram as dimensões salvas da página.
+- **Visual** edita propriedades e **Interaction** configura eventos. **Styles**
+  gerencia estilos reutilizáveis; **Project Explorer** organiza páginas, componentes
+  reutilizáveis, Models, Units e recursos.
+- A barra superior mostra o documento atual, o estado de salvamento e as ações de
+  projeto, histórico, Build Application, Debug e Preview. **F5** inicia o debugger;
+  veja [depuração integrada](docs/debugger.md).
+
+Os componentes são instâncias tipadas, com autocomplete, hover e diagnósticos:
+
+```ts
+public async BTNMostrarClick(): Promise<void> {
+  Message(`Olá ${EDTNome.value}`);
+}
+```
+
+`EDTNome.value` e `this.EDTNome.value` usam a mesma instância. Variáveis, parâmetros
+e imports com o mesmo nome seguem o escopo normal do TypeScript. Use funções de
+seta em callbacks para manter a instância. O compilador resolve os acessos sem
+reescrever o TypeScript salvo. Consulte o [modelo de componentes](docs/component-model.md).
+
+## APIs e RestGo
+
+O **API Client** configura e testa operações REST, parâmetros, headers, corpos e
+contratos tipados de resposta. Dê dois cliques no componente da bandeja para abrir
+o editor. Requisições configuradas ficam disponíveis pelo nome:
+
+```ts
+ApiClient1.PutKey.parameter.idinstancia = 42;
+ApiClient1.PutKey.parameter.chave = 'valor';
+await ApiClient1.PutKey.execute();
+```
+
+O exemplo pressupõe uma operação `PutKey` com esses parâmetros. Veja o
+[guia do API Client](docs/api-client.md) para configuração, autenticação e respostas.
+
+**RestGo integration** reúne a conexão, o editor de endpoints e o catálogo para
+importação de APIs. O SDK compartilhado `RestGO` oferece login, sessão, renovação
+de JWT, recuperação de conta, avatar, Storage e APIs dinâmicas. Chamadas do tester,
+Preview e aplicação gerada usam o navegador e respeitam o CORS do servidor.
+
+Credenciais administrativas e a sessão de desenvolvimento permanecem na IDE.
+Tokens de aplicação incluídos no projeto ficam acessíveis no navegador e devem
+ter permissões apropriadas. Consulte o [guia do SDK RestGo](docs/restgo-sdk.md).
+
+## Aplicações nativas — experimental
+
+**Native Build / Tauri 2** oferece configurações em **Project Settings → Native
+Application**, geração do projeto nativo, inspeção de ferramentas, logs,
+cancelamento e exportação para CI. **Build Application** seleciona o destino de
+exportação. A IDE permanece em Electron e o aplicativo Tauri usa o frontend
+compilado pelo WebRAD.
+
+A integração ainda não tem evidência de artefatos nativos reais e execução em
+WebViews certificadas. Verificações de pré-requisitos e smokes da IDE não
+certificam o aplicativo Tauri. Builds exigem a toolchain e o host do destino;
+consulte [Native Build](docs/native-build.md) para a matriz de validação e limitações.
+
+## Desenvolver a partir das fontes
+
+Use **Node.js 26.12.1 ou mais recente** e **npm 12.2.1 ou mais recente**, conforme
+`engines` e `packageManager` do [package.json](package.json). Execute na raiz:
 
 ```sh
 npm ci
 npm start
 ```
 
-Se o PowerShell do Windows bloquear a execução de `npm.ps1`, utilize o executável `npm.cmd` sem precisar alterar a política de execução do sistema:
-
-```powershell
-npm.cmd ci
-npm.cmd start
-```
-
-Ao iniciar, o WebRAD reabre automaticamente o último projeto criado, aberto ou salvo, se os arquivos ainda estiverem disponíveis e válidos. Se não for possível reabri-lo, a tela inicial permite abrir ou criar outro projeto. A reabertura carrega a versão salva em disco.
-
-## Designer
-
-O workspace segue a organização visual do designer do Bubble: barra superior compacta, navegação por ícones à esquerda, árvore de elementos e paleta no painel Builder, canvas central e Inspector à direita. A barra superior reúne os documentos abertos, o elemento selecionado, o zoom e as ações de salvar, desfazer, refazer e executar Preview.
-
-- Use **Design** e **Code**, no topo da área de edição, para alternar a visualização do documento; **F12** alterna entre o canvas e o código, inclusive com o Monaco em foco, e **F9** compila e executa a aplicação.
-- No **Builder**, selecione um elemento pela árvore ou pelo canvas. Ambos atualizam a mesma seleção e o Inspector. Pesquise os elementos ou os componentes da paleta e arraste um componente para inseri-lo.
-- Abra **Responsive** para escolher a largura do canvas: **Default** acompanha dinamicamente o espaço disponível no Designer, **Tablet** usa 768 px e **Mobile** usa 390 px. O zoom na barra superior altera a escala de visualização; no modo Default, o canvas continua ocupando a largura disponível. A seleção não altera as dimensões salvas da página.
-- No Inspector, **Visual** reúne as propriedades em seções recolhíveis e **Interaction** permite configurar os eventos existentes do componente.
-- Use **Project Explorer** para gerenciar páginas e componentes reutilizáveis, **Styles** para editar estilos e **Project Settings** para configurar o projeto. O botão **Output** abre o painel de Problems, Output e Build, inicialmente recolhido; a compilação e os diagnósticos também o abrem.
-
-Os componentes não visuais continuam disponíveis na bandeja abaixo do canvas. A organização do workspace preserva o modelo versionado do projeto, os IDs dos componentes e o histórico de comandos.
-
-## Código dos componentes
-
-Nos métodos da página ou do componente reutilizável, você pode acessar os componentes diretamente pelo nome, com autocomplete e verificação de tipos:
-
-```ts
-public BTNMostrarClick(): void {
-  BTNMostrar.caption = EDTNome.value;
-}
-```
-
-`this.BTNMostrar` continua disponível. Variáveis, parâmetros e imports com o mesmo nome seguem o escopo normal do TypeScript. Em callbacks, use funções de seta (`() => { ... }`) para manter a instância. O acesso direto também funciona em propriedades e accessors da instância e no construtor após `super(...)`; código estático e fora da classe não recebe componentes. O WebRAD resolve as referências na compilação sem reescrever o arquivo salvo.
-
-## API Client REST
-
-O ícone **RestGo integration** no menu vertical abre a configuração da conexão, o editor de endpoints e o catálogo de APIs publicadas. Informe um API Token administrativo separado para gerenciar endpoints e publicações na instância; essa credencial fica no IDE, fora do projeto e da aplicação gerada. Para usar uma API pronta, abra um componente API Client na página ou componente reutilizável e selecione **Import from RestGo**; método, versão e parâmetros são preenchidos automaticamente. JWT, token da aplicação e acesso público usam modos de conexão distintos. Consulte [a configuração e o fluxo de publicação](docs/restgo-sdk.md).
-
-Em **Requests**, use **New** para criar uma requisição, **Import from RestGo** para carregar APIs prontas e **Delete request** para excluir a selecionada. Método, endpoint e **Send** ficam juntos no editor. A lista vazia pode ser salva e reaberta; a URL base e as demais configurações do cliente são preservadas.
-
-Dê dois cliques no **API Client** da bandeja para configurar operações REST. O editor organiza **Query parameters**, **Headers**, **Body** e **Options** em abas. A lista inclui GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, CONNECT e TRACE, além de método personalizado. CONNECT, TRACE e TRACK são proibidos pelo navegador e não podem ser testados ou executados por `fetch`; GET e HEAD não enviam corpo.
-
-Configure headers padrão e por operação, parâmetros de query repetidos, timeout, credenciais e corpo JSON, texto, URL encoded ou multipart. **API version** pertence a cada operação: `2` e o endpoint `/clientes/listar` geram `/v2/clientes/listar`; vazio preserva o endpoint informado. O teste mostra status, duração, headers e resposta; apenas o contrato dos campos é salvo. Arquivos selecionados no editor servem somente ao teste. Na aplicação, envie arquivos com um `FormData` em `execute('Operacao', { body: form })`.
-
-No corpo, escreva parâmetros como `{"idinstancia": <idinstancia>, "chave": <chave>}`. O editor mostra automaticamente cada nome, seu tipo e um valor somente para teste. Os tipos e o template são salvos; os valores de teste não entram no projeto. Na aplicação, informe os valores com `ApiClient1.execute('PutKey', { parameters: { idinstancia: 42, chave: 'valor' } })`. JSON é escapado conforme o tipo escolhido; valores ausentes ou incompatíveis impedem o envio.
-
-No Monaco, acesse a requisição pelo nome: atribua `ApiClient1.PutKey.parameter.idinstancia = 42` e `ApiClient1.PutKey.parameter.chave = 'valor'`, então execute `await ApiClient1.PutKey.execute()`. Cada requisição expõe seus parâmetros, corpo, query, headers, opções e resposta. Os nomes e tipos configurados recebem autocomplete, hover e diagnósticos; `this.ApiClient1` oferece o mesmo contrato. `parameter` e `execute()` são os nomes únicos para esses acessos. Consulte [o uso completo no código](docs/api-client.md).
-
-Em **Connection > RestGo JWT Authentication**, a URL base vem de **RestGo integration > Connection** e fica fixa. Edite o endpoint relativo, como `/v1/clientes/listar`, e os demais parâmetros. O Preview e a aplicação enviam automaticamente `Authorization: Bearer <JWT>` da sessão atual de `RestGO`, incluindo renovação pelo SDK. Sem usuário autenticado, a chamada falha; o token de API configurado não substitui a sessão. O editor oferece **Test authentication > Test JWT** para testar com um JWT temporário, mantido somente em memória.
-
-## Integração nativa com RestGO
-
-Em **RestGo integration > Connection**, configure a URL da instância, o banco padrão e a persistência da sessão. A versão das requisições é configurada por operação no **API Client**. **Cadastro e login não enviam `Authorization`**, mesmo quando existe uma sessão ou token configurado. Para esse fluxo, deixe **Application API token** vazio. O cadastro depende de o RestGO permitir acesso público a `POST /auth/users`; o login usa `POST /auth/token`.
-
-O **Authorization token** é opcional para APIs dinâmicas que precisam de um token de aplicação antes do login. Essas chamadas automáticas enviam `Authorization: <token>`, sem `Bearer`, quando não existe sessão, e `Authorization: Bearer <JWT>` quando o usuário está autenticado. Após logout, voltam ao token configurado.
-
-A configuração é salva no arquivo do projeto e aplicada ao Preview e à aplicação web gerada. O token informado fica acessível no navegador: use um token de API da aplicação com as permissões apropriadas, mantendo credenciais administrativas no servidor. Refresh e operações explicitamente públicas continuam sem `Authorization`.
-
-O Preview e a IDE empacotada usam servidores HTTP locais em `127.0.0.1`, com portas separadas, para enviar uma origem HTTP válida nas chamadas à API. Isso evita o `NETWORK_ERROR` causado pelo CORS quando a origem era `null` ou `webrad-preview:`. As requisições continuam sendo feitas pelo navegador; a API precisa permitir a origem, o método e os headers utilizados. Sirva a aplicação gerada por HTTP/HTTPS também.
-
-O SDK TypeScript `@webrad/restgo-sdk` oferece autenticação de usuários, validação de sessão, recuperação de senha, confirmação de e-mail, avatar, Storage e chamadas aos endpoints dinâmicos publicados. O cliente nativo `RestGO` fica disponível nos eventos TypeScript, com tipos e autocompletar no editor. A aplicação gerada executa esse mesmo SDK diretamente no navegador.
-
-O componente não visual [File Upload](docs/file-upload.md) oferece `OpenFile()` para selecionar e obter nome, caminho relativo disponível, tamanho e extensão; `SendToRestGO()` envia com acesso público ou privado e retorna todos os metadados da API. O evento `OnProgress` permite atualizar outros componentes pelo código tipado no Monaco.
-
-O componente não visual [Video Upload](docs/video-upload.md) envia vídeos para o módulo nativo do RestGo com limites opcionais de tamanho do arquivo e duração, progresso confirmado, pausa, retomada e acompanhamento explícito da conversão. Ele usa `RestGO.videos`, mantém seleção e envio separados e oferece a mesma API tipada em páginas e reutilizáveis.
-
-O componente não visual [Report Builder](docs/report-builder.md) oferece um construtor maximizado de relatórios com bandas, textos, imagens, linhas e repetidores. Os templates JSON usam parâmetros preenchidos pelo código e respostas já carregadas dos ApiClients; a geração produz PDF paginado em modal, nova aba ou download, com troca de modelos externos em execução.
-
-O componente visual [Video Player](docs/video-player.md) usa Shaka Player 5.2.13 para reproduzir vídeos RestGo públicos/privados e manifestos HLS/DASH, com controles, Auto/manual, seek e API tipada no Monaco. JavaScript, CSS e licença acompanham o Preview e a exportação; o Designer não inicia playback.
-
-Use atalhos com parâmetros diretos, como `await RestGO.login(email, senha)`, `await RestGO.getUser()` e `await RestGO.logout()`. As operações retornam `{ data, error }` e compartilham a sessão em todas as páginas. O `login()` também retorna `sucess: true | false`: use `if (log.sucess)` para acessar `log.data.user` ou, no ramo de falha, `log.error.message`.
-
-Na página, **Interaction > RestGO** oferece **OnLogin**, **OnLogout** e **OnUnauthenticated**. Dê dois cliques para criar o método. Nos dois primeiros, obtenha a identidade por `event.detail.user`; por exemplo, `this.usuarioId = user.id` guarda o ID em um campo declarado na classe. `OnLogin` também entrega uma sessão restaurada à página exibida. `OnUnauthenticated` detecta entrada sem sessão e encerramento da sessão, permitindo usar `Navigate('PageLogin')` no evento. O runtime verifica a sessão a cada 30 segundos na aba visível e ao retornar à aba; falhas de rede não disparam desconexão. Consulte os [exemplos de eventos e variáveis](docs/restgo-sdk.md#eventos-de-autenticação-em-interaction).
-
-Consulte o [guia do SDK RestGO](docs/restgo-sdk.md) para exemplos e detalhes dos contratos. O SDK renova o JWT automaticamente por `POST /auth/refresh`, persiste o par de credenciais rotacionado e coordena renovações simultâneas. Novo login é necessário quando o refresh token expira ou é revogado. As sessões continuam sendo validadas pelo servidor; cadastrar uma conta não inicia uma sessão automaticamente.
-
-Para ler o usuário sem `await`, use `RestGO.CurrentUser?.nome`, `.email`, `.id`, `.emailconfirmed` e `.ativo`. `CurrentUser` é somente leitura e retorna `null` sem sessão ou durante a restauração inicial. Os dados acompanham a última identidade confirmada pelo SDK; a leitura não faz requisições. Use `await RestGO.getUser()` quando precisar validar a sessão e atualizar os dados no servidor.
-
-## Validação
+No PowerShell, use `npm.cmd ci` e `npm.cmd start` se a política de execução bloquear
+`npm.ps1`; não é necessário alterar a política do sistema. As responsabilidades
+do TypeScript 7 CLI e do TypeScript 6 embarcado estão descritas na
+[documentação das dependências](docs/dependency-upgrade.md).
 
 ```sh
-npm run typecheck
-npm run lint
-npm test
-npm run build
+npm run validate
 npm run smoke:development
 npm run smoke:packaged
+npm run smoke:packaged -- --webrad-smoke-updates
 ```
 
-Execute as verificações de código e o empacotamento com `npm run validate`; depois execute os dois smokes Electron acima e `npm run smoke:packaged -- --webrad-smoke-updates`. Formate o código-fonte com `npm run format` e verifique a formatação com `npm run format:check`. O comando `npm run runtime:sources:check` verifica se o runtime de navegador incorporado ao compilador corresponde ao pacote-fonte. O [checklist de release](docs/release-checklist.md) descreve as evidências exigidas antes de criar uma tag.
+`validate` verifica ícones, paridade das fontes geradas, tipos estritos, lint,
+testes com caminhos temporários portáveis, formatação e empacotamento para o host.
+Os testes compartilham o limite de dois workers da configuração raiz. Após alterar
+o runtime ou o SDK, regenere os snapshots com `npm run runtime:sources`.
 
-A configuração raiz do Vitest limita a execução a dois workers, tanto localmente quanto nos workflows de validação e release. Isso limita a concorrência de compilação e a pressão sobre a comunicação com os workers em runners compartilhados. O projeto `unit` mantém o timeout de 5 segundos; `integration` usa 2 minutos (120 segundos) para os testes do compilador e de tipos do Monaco (`packages/language/tests/`), as interações React da IDE (`apps/ide/renderer/src/**/*.test.tsx`) e os cenários entre pacotes em `tests/`. O projeto `ide` executa `App.integration.test.tsx` depois dos demais arquivos, com limite de 2 minutos. Para reproduzir o comando do release com caminhos temporários portáveis, execute `npm run test:portable`.
-
-O setup compartilhado cede ao event loop real entre casos, inclusive quando um teste usa relógios simulados. Isso permite atender mensagens pendentes de reporting/RPC durante arquivos longos de testes síncronos, preservando as verificações e os prazos do Vitest.
-
-No PowerShell que bloqueia `npm.ps1`, substitua `npm` por `npm.cmd` nesses comandos. Por exemplo: `npm.cmd run validate`.
-
-## Empacotamento e distribuição
-
-O comando `npm run smoke:development` inicia o Forge e o Vite reais, confirma que o shell React foi montado e percorre o fluxo completo da IDE sem reutilizar bundles obsoletos dos pacotes internos. O comando `npm run package` cria uma aplicação não instalada para a plataforma atual. O comando `npm run smoke:packaged` inicia exatamente esse artefato, abre pela IDE uma cópia temporária do projeto Hello, executa F9 pelo fluxo de compilação com IPC tipado, interage com o Preview isolado e verifica o resultado do evento gerado antes de encerrar. O comando `npm run make` aciona os geradores do Electron Forge para produzir os artefatos distribuíveis compatíveis com a plataforma atual.
-
-Os dois smokes também verificam a reabertura automática do último projeto com preferências e perfil Chromium temporários isolados, a seleção compartilhada entre árvore, canvas e Inspector, as larguras de visualização responsiva, a barra simplificada do documento atual e o painel Output. Falhas preservam log e projeto de teste em `artifacts/smoke/`. Para salvar uma captura real do Designer ao final do smoke, forneça um caminho absoluto:
+Os smokes executam o Electron real com perfis e projetos temporários isolados.
+Falhas preservam logs e projetos em `artifacts/smoke/`. Para capturar o Designer,
+informe um caminho absoluto:
 
 ```powershell
-npm.cmd run smoke:development -- --webrad-smoke-screenshot="$PWD\.tmp\designer.png"
+npm.cmd run smoke:development -- --webrad-smoke-screenshot="$PWD\artifacts\designer.png"
 ```
 
-Para gerar o instalador destinado a outro computador Windows x64, execute no PowerShell:
+## Empacotamento e releases
 
-```powershell
-npm.cmd run make
-```
+`npm run build` ou `npm run package` produz a aplicação não instalada em
+`out/WebRad-<plataforma>-<arquitetura>`. Para compartilhar uma versão portátil,
+transfira o diretório inteiro; o executável depende dos recursos que o acompanham.
 
-Para gerar um instalador local com a versão de desenvolvimento atual, execute:
+Quando a geração de instaladores for desejada, `npm run make` cria os
+distribuíveis do host. `npm run release` é um alias desse comando: usa a versão
+local existente, sem criar commits, tags ou publicação. No Windows, o Setup local
+é `out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`; arquivos `.nupkg` pertencem
+ao atualizador e não são o instalador para o usuário final.
 
-```powershell
-npm.cmd run release
-```
+As versões oficiais vêm de tags estáveis `vMAJOR.MINOR.PATCH`. O workflow exige
+verificação do mesmo commit para Windows x64, Linux x64 e macOS Intel/ARM64 antes
+da publicação. Siga o [checklist de release](docs/release-checklist.md) e o
+[guia de distribuição e atualização](docs/releases.md).
 
-O comando `release` é um atalho para `npm run make`: executa o empacotamento completo sem incrementar a versão, alterar `package.json` ou `package-lock.json`, criar commits ou tags Git, ou publicar no GitHub. A versão local pode permanecer fixa durante o desenvolvimento. Em Linux, utilize `npm run release`.
+## Documentação e repositório
 
-O Setup local fica em `out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`. Gerar o arquivo não atualiza a instalação automaticamente. Para publicações oficiais, a tag `vMAJOR.MINOR.PATCH` define a versão no GitHub Actions, que a aplica somente ao checkout temporário do build e publica o instalador com o nome versionado `WebRad-<versão>-win32-x64-Setup.exe`. Consulte [Releases e atualizações](docs/releases.md).
+| Caminho                 | Conteúdo                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `apps/ide`              | Processo principal, preload e renderer React da IDE                            |
+| `packages`              | Modelo, Registry, Designer, linguagem, runtime, compilador, SDK e Native Build |
+| `examples/hello-webrad` | Exemplo executável usado no fluxo de validação                                 |
+| `tests` e `scripts`     | Integração, testes de navegador, geração e validação                           |
+| `docs`                  | Guias técnicos e contratos persistentes                                        |
+| [PLANS.md](PLANS.md)    | Marcos e evidências de implementação                                           |
 
-No Windows, o instalador usa o ícone do WebRAD também no arquivo `app.ico` da pasta instalada e na lista de aplicativos do sistema. Esse ícone vem do `Icon.ico` incluído no pacote, sem download durante a instalação. Ao abrir a versão atualizada, instalações antigas substituem o ícone padrão do Electron pelo ícone do WebRAD.
+Comece pela [arquitetura](docs/architecture.md), pelo [formato do projeto](docs/project-format.md)
+e pelo [compilador](docs/compiler.md). Os componentes têm guias próprios, incluindo
+[Icons](docs/icons.md), [Timer](docs/timer.md), [Repeating Group](docs/repeating-group.md),
+[Report Builder](docs/report-builder.md), [File Upload](docs/file-upload.md),
+[Video Upload](docs/video-upload.md) e [Video Player](docs/video-player.md).
 
-O uso de `npm.cmd` evita o erro de segurança que informa que `npm.ps1` não pode ser carregado porque a execução de scripts está desabilitada. Não é necessário alterar a política de execução do Windows.
-
-Para compartilhar o build local de desenvolvimento, utilize `out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`. Esse é o instalador. Para versões oficiais, utilize os instaladores publicados no GitHub Releases. O arquivo `.nupkg` presente na pasta local não deve ser aberto diretamente pelo usuário final.
-
-Para distribuir uma versão portátil, sem instalação, compacte e transfira o diretório completo `out/WebRad-win32-x64`. No outro computador, execute `WebRad.exe` dentro dessa pasta. Não transfira apenas o arquivo `WebRad.exe`, pois ele depende dos demais arquivos e diretórios de recursos que ficam ao lado dele.
-
-Os artefatos de distribuição são específicos de cada plataforma e devem ser gerados no sistema operacional de destino.
-
-## Guia do repositório
-
-- `apps/ide`: processo principal e preload do Electron, além do renderer em React.
-- `packages`: módulos independentes de modelo de projeto, registro de componentes, designer, linguagem, runtime e compilador.
-- `examples/hello-webrad`: projeto de exemplo utilizado pelo fluxo vertical.
-- `docs`: documentação da arquitetura, do formato, do modelo de componentes e do compilador.
-- `PLANS.md`: estado atual dos marcos do projeto.
-
-Consulte o [guia de arquitetura](docs/architecture.md) antes de alterar os limites entre os pacotes.
+Para contribuir, consulte [CONTRIBUTING.md](CONTRIBUTING.md) e as
+[regras de engenharia](AGENTS.md). Relate vulnerabilidades conforme a
+[política de segurança](SECURITY.md).

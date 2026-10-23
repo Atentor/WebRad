@@ -168,62 +168,6 @@
   scrollbar-width: none;
 }
 
-.wr-toolbar-arrange {
-  position: relative;
-  flex: none;
-}
-
-.wr-toolbar-arrange summary {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 30px;
-  border-radius: 4px;
-  color: var(--wr-muted-text);
-  cursor: pointer;
-  list-style: none;
-}
-
-.wr-toolbar-arrange summary:hover {
-  background: var(--wr-surface-hover);
-  color: var(--wr-text);
-}
-
-.wr-toolbar-arrange summary .wr-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.wr-toolbar-arrange-menu {
-  display: grid;
-  position: absolute;
-  top: 36px;
-  left: 0;
-  width: 170px;
-  padding: 5px;
-  border: 1px solid var(--wr-border-strong);
-  border-radius: 4px;
-  background: var(--wr-panel-bg);
-  box-shadow: 0 8px 24px var(--wr-shadow);
-}
-
-.wr-toolbar-arrange-menu button {
-  height: 30px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  text-align: left;
-}
-
-.wr-toolbar-arrange-menu button:hover:not(:disabled) {
-  background: var(--wr-surface-hover);
-}
-
-.wr-toolbar-arrange-menu button:disabled {
-  opacity: 0.4;
-}
-
 .wr-toolbar .wr-document-tab {
   min-width: 105px;
   max-width: 180px;
@@ -258,57 +202,6 @@
 .wr-toolbar .wr-document-close {
   width: 24px;
   opacity: 1;
-}
-
-.wr-toolbar-selection {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 220px;
-  min-width: 85px;
-  height: 32px;
-  padding-left: 8px;
-  flex: 0 1 220px;
-  border: 1px solid var(--wr-border);
-  border-radius: 4px;
-  background: var(--wr-panel-alt);
-}
-
-.wr-toolbar-selection > .wr-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.wr-toolbar-selection > span {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wr-toolbar-selection button {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  background: transparent;
-}
-
-.wr-toolbar-selection button:hover {
-  background: var(--wr-surface-hover);
-}
-
-.wr-toolbar-zoom {
-  width: 70px;
-  height: 32px;
-  padding: 0 7px;
-  flex: none;
-  border: 1px solid var(--wr-border);
-  border-radius: 4px;
-  background: var(--wr-panel-alt);
-  color: var(--wr-text);
 }
 
 .wr-toolbar-spacer {
@@ -1194,10 +1087,6 @@
     display: none;
   }
 
-  .wr-toolbar-selection {
-    flex-basis: 150px;
-  }
-
   .wr-toolbar {
     gap: 5px;
   }
@@ -1207,9 +1096,5 @@
   .wr-toolbar-issues span,
   .wr-toolbar-run span {
     display: none;
-  }
-
-  .wr-toolbar-selection {
-    flex-basis: 100px;
   }
 }

@@ -41,6 +41,8 @@ import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
   applyRuntimeContainerLayout,
   applyRuntimeLayout,
+  isFloatingLayoutNode,
+  getFloatingPanelAlignment,
   bindRuntimeFitContent,
   resolveRuntimeContainerLayout,
   type RuntimeFitContentBinding,
@@ -58,6 +60,20 @@ import {
   PANEL_BACKGROUND_POSITIONS,
   PANEL_BACKGROUND_REPEATS,
 } from './visual.js';
+
+function applyFloatingProperties(component: WebPanel, node: RuntimeComponentNode): void {
+  component.floatingAlignment = getFloatingPanelAlignment(node);
+  component.placement =
+    readStringProperty(node, 'placement') === 'floating' ? 'floating' : 'in-flow';
+  const horizontalAnchor = readStringProperty(node, 'floatingHorizontalAnchor');
+  component.floatingHorizontalAnchor =
+    horizontalAnchor === 'center' || horizontalAnchor === 'right' ? horizontalAnchor : 'left';
+  const verticalAnchor = readStringProperty(node, 'floatingVerticalAnchor');
+  component.floatingVerticalAnchor =
+    verticalAnchor === 'center' || verticalAnchor === 'bottom' ? verticalAnchor : 'top';
+  const zIndex = node.props.floatingZIndex;
+  component.floatingZIndex = typeof zIndex === 'number' && Number.isFinite(zIndex) ? zIndex : 100;
+}
 
 export interface RuntimeBounds {
   readonly x: number;
@@ -312,6 +328,7 @@ runtimeComponentRegistry
     createComponent: (element) => new WebPanel(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
+      applyFloatingProperties(component, node);
       component.element.dataset.webradPanelStyled = String(node.styleClassName !== undefined);
       component.caption = readStringProperty(node, 'caption');
       component.backgroundSize =
@@ -356,17 +373,7 @@ runtimeComponentRegistry
       applyCommon(component, node);
       component.caption = readStringProperty(node, 'caption');
       component.reusableElementId = readStringProperty(node, 'reusableElementId');
-      component.placement =
-        readStringProperty(node, 'placement') === 'floating' ? 'floating' : 'in-flow';
-      const horizontalAnchor = readStringProperty(node, 'floatingHorizontalAnchor');
-      component.floatingHorizontalAnchor =
-        horizontalAnchor === 'center' || horizontalAnchor === 'right' ? horizontalAnchor : 'left';
-      const verticalAnchor = readStringProperty(node, 'floatingVerticalAnchor');
-      component.floatingVerticalAnchor =
-        verticalAnchor === 'center' || verticalAnchor === 'bottom' ? verticalAnchor : 'top';
-      const zIndex = node.props.floatingZIndex;
-      component.floatingZIndex =
-        typeof zIndex === 'number' && Number.isFinite(zIndex) ? zIndex : 100;
+      applyFloatingProperties(component, node);
       component.element.dataset.webradReusableInstance = 'true';
     },
   })
@@ -637,10 +644,6 @@ function scopedReusableComponentId(
   return candidate;
 }
 
-function isFloatingReusableElement(node: RuntimeComponentNode): boolean {
-  return node.type === 'WebReusableElement' && node.props.placement === 'floating';
-}
-
 function isReusableElement(node: RuntimeComponentNode): boolean {
   return node.type === 'WebReusableElement';
 }
@@ -679,7 +682,11 @@ function isRuntimeLayoutChild(
 ): boolean {
   const childId = child.dataset.webradId;
   const node = childId === undefined ? undefined : nodes.get(childId);
-  return node === undefined || registry.require(node.type).participatesInLayout !== false;
+  if (child.classList.contains('wr-panel-floating-layer')) return false;
+  return (
+    node === undefined ||
+    (!isFloatingLayoutNode(node) && registry.require(node.type).participatesInLayout !== false)
+  );
 }
 
 /**
@@ -1033,6 +1040,9 @@ export function mountPage(
   const floatingLayer = host.ownerDocument.createElement('div');
   floatingLayer.className = 'wr-floating-layer';
   floatingLayer.dataset.webradFloatingOwner = expandedModel.id;
+  const panelLayer = host.ownerDocument.createElement('div');
+  panelLayer.className = 'wr-panel-floating-layer';
+  const placementOrigins = new Map<string, Comment>();
 
   const createBranch = (nodeId: string): HTMLElement => {
     const node = nodes.get(nodeId);
@@ -1065,8 +1075,13 @@ export function mountPage(
     for (const childId of node.children) {
       const child = nodes.get(childId);
       const childElement = createBranch(childId);
-      if (child !== undefined && isFloatingReusableElement(child)) {
-        floatingLayer.append(childElement);
+      if (child?.type === 'WebPanel') {
+        const origin = host.ownerDocument.createComment('Panel placement');
+        (childrenHost ?? component.element).append(origin);
+        placementOrigins.set(child.id, origin);
+      }
+      if (child !== undefined && isFloatingLayoutNode(child)) {
+        (child.type === 'WebPanel' ? panelLayer : floatingLayer).append(childElement);
       } else {
         (childrenHost ?? component.element).append(childElement);
       }
@@ -1075,6 +1090,7 @@ export function mountPage(
   };
 
   const rootElement = createBranch(expandedModel.rootComponentId);
+  rootElement.append(panelLayer);
   const rootComponent = components.get(expandedModel.rootComponentId);
   if (!(rootComponent instanceof WebPage))
     throw new Error('The runtime root component must be WebPage.');
@@ -1097,7 +1113,7 @@ export function mountPage(
     const reusableRootFitContent =
       node.reusableRoot === true &&
       reusablePlacement !== undefined &&
-      !isFloatingReusableElement(reusablePlacement)
+      !isFloatingLayoutNode(reusablePlacement)
         ? {
             width: reusablePlacement.layout.item.width === 'fit-content',
             height: reusablePlacement.layout.item.height === 'fit-content',
@@ -1129,6 +1145,41 @@ export function mountPage(
     for (const childId of node.children) applyBranchLayout(childId, container);
   };
   applyBranchLayout(expandedModel.rootComponentId, undefined, true);
+  const placementDisposers: (() => void)[] = [];
+  for (const [id, origin] of placementOrigins) {
+    const component = components.get(id);
+    const initialNode = nodes.get(id);
+    if (!(component instanceof WebPanel) || initialNode === undefined) continue;
+    const updatePlacement = (): void => {
+      const node = {
+        ...initialNode,
+        props: {
+          ...initialNode.props,
+          placement: component.placement,
+          floatingAlignment: component.floatingAlignment,
+          floatingHorizontalAnchor: component.floatingHorizontalAnchor,
+          floatingVerticalAnchor: component.floatingVerticalAnchor,
+          floatingZIndex: component.floatingZIndex,
+        },
+      };
+      nodes.set(id, node);
+      if (isFloatingLayoutNode(node)) {
+        if (component.element.parentElement !== panelLayer) panelLayer.append(component.element);
+      } else if (origin.nextSibling !== component.element) {
+        origin.after(component.element);
+      }
+      const parent = node.parentId === null ? undefined : nodes.get(node.parentId);
+      applyBranchLayout(
+        id,
+        parent === undefined ? undefined : resolveRuntimeContainerLayout(parent.layout),
+      );
+      bindBranchFitContent(id);
+    };
+    component.element.addEventListener('webrad-placement-change', updatePlacement);
+    placementDisposers.push(() =>
+      component.element.removeEventListener('webrad-placement-change', updatePlacement),
+    );
+  }
 
   rootElement.dataset.webradLayout = resolveRuntimeContainerLayout(
     nodes.get(expandedModel.rootComponentId)?.layout,
@@ -1143,8 +1194,10 @@ export function mountPage(
   // fixed children, however, are out of CSS normal flow and therefore do not
   // contribute to an ancestor's intrinsic dimensions. Bind observers only
   // after every branch has its final structural styles.
-  const fitContentBindings: RuntimeFitContentBinding[] = [];
+  const fitContentBindings = new Map<string, RuntimeFitContentBinding>();
   const bindBranchFitContent = (nodeId: string): void => {
+    fitContentBindings.get(nodeId)?.dispose();
+    fitContentBindings.delete(nodeId);
     const node = nodes.get(nodeId);
     const component = components.get(nodeId);
     if (node === undefined || component === undefined) {
@@ -1155,17 +1208,18 @@ export function mountPage(
     const item = node.layout.item;
     // Bind structural containers only. Leaf controls retain the browser's own
     // intrinsic sizing (for example native inputs), while a container needs
-    // observation for its fixed or anchored visual child branches. Floating
-    // reusable instances keep their persisted viewport geometry and center
-    // offsets; a content-derived override would invalidate those anchors.
+    // observation for its fixed or anchored visual child branches. Panels
+    // retain responsive sizing in their overlay; reusable wrappers retain
+    // their existing fixed viewport geometry.
     if (
       adapter.participatesInLayout !== false &&
-      !isFloatingReusableElement(node) &&
+      (!isFloatingLayoutNode(node) || node.type === 'WebPanel') &&
       node.children.length > 0 &&
       (item.width === 'fit-content' || item.height === 'fit-content')
     ) {
       const childrenHost = fitContentMeasurementHost(node, component, nodes, components, registry);
-      fitContentBindings.push(
+      fitContentBindings.set(
+        nodeId,
         bindRuntimeFitContent(component.element, childrenHost, node.layout, {
           isLayoutChild: (child) => isRuntimeLayoutChild(child, nodes, registry),
         }),
@@ -1181,7 +1235,8 @@ export function mountPage(
     components,
     reusableInstances,
     dispose: () => {
-      for (const binding of fitContentBindings) binding.dispose();
+      for (const dispose of placementDisposers) dispose();
+      for (const binding of fitContentBindings.values()) binding.dispose();
       for (const component of components.values())
         if (component instanceof WebRepeatingGroup) component.dispose();
     },

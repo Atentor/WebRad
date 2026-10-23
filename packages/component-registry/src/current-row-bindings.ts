@@ -30,6 +30,7 @@ export function getCurrentRowBindableProperties(
         'marginLeft',
         'reusableElementId',
         'placement',
+        'floatingAlignment',
         'floatingHorizontalAnchor',
         'floatingVerticalAnchor',
         'floatingZIndex',
