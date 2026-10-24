@@ -3,13 +3,41 @@ import path from 'node:path';
 import type { BrowserWindow, WebFrameMain } from 'electron';
 import { parseWebMenuConfiguration } from '@webrad/runtime/menu-model';
 import { loadProjectFiles } from './project-files';
+
+interface MenuSmokeOptions {
+  readonly projectPath: string;
+  readonly log: (message: string) => void;
+}
+
+async function setDesktopViewport(window: BrowserWindow): Promise<void> {
+  await window.webContents.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
+    width: 1920,
+    height: 1080,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+}
+
 /** Registry palette -> transactional editor -> saved model -> desktop and mobile compiled F9. */
 export async function runMenuSmoke(
   window: BrowserWindow,
-  options: {
-    readonly projectPath: string;
-    readonly log: (message: string) => void;
-  },
+  options: MenuSmokeOptions,
+): Promise<void> {
+  window.webContents.debugger.attach('1.3');
+  try {
+    await runMenuSmokeWorkflow(window, options);
+  } finally {
+    try {
+      await window.webContents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
+    } finally {
+      window.webContents.debugger.detach();
+    }
+  }
+}
+
+async function runMenuSmokeWorkflow(
+  window: BrowserWindow,
+  options: MenuSmokeOptions,
 ): Promise<void> {
   const evaluate = (source: string): Promise<unknown> =>
     window.webContents.executeJavaScript(source, true);
@@ -205,11 +233,14 @@ export async function runMenuSmoke(
   });
   if (capture.isEmpty()) throw new Error('Menu Designer screenshot is empty.');
   await fs.writeFile(screenshot, capture.toPNG());
+  // Preview has its own viewport; a desktop Designer preset does not resize it.
+  // Keep the compiled desktop checks independent of the runner's window size.
+  await setDesktopViewport(window);
   const previous = await evaluate(
     `document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src') ?? ''`,
   );
   await ready(
-    `document.querySelector('button[aria-label="Save (Ctrl+S)"]')?.disabled !== undefined && document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled === false && document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved' && document.querySelector('[role="dialog"]') === null`,
   );
   await evaluate(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F9', bubbles: true, cancelable: true }))`,
@@ -225,20 +256,37 @@ export async function runMenuSmoke(
       ? frame
       : frame.frames.map(findFrame).find((candidate) => candidate !== undefined);
   let frame: WebFrameMain | undefined;
+  let desktopReady = false;
   const deadline = Date.now() + 10000;
-  while (Date.now() < deadline) {
+  for (;;) {
     frame = findFrame(window.webContents.mainFrame);
     if (
       frame &&
       (await frame.executeJavaScript(
-        `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); return menu?.dataset.menuMobile === 'false' && menu.dataset.menuOrientation === 'vertical' && menu.querySelector('.wr-menu-search-input') !== null && menu.querySelector('.wr-menu-item') !== null; })()`,
+        `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); return innerWidth >= 768 && menu?.dataset.menuMobile === 'false' && menu.dataset.menuOrientation === 'vertical' && menu.querySelector('.wr-menu-search-input') !== null && menu.querySelector('.wr-menu-item') !== null; })()`,
         true,
       )) === true
-    )
+    ) {
+      desktopReady = true;
       break;
+    }
+    if (Date.now() >= deadline) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  if (!frame) throw new Error('Compiled Menu Preview frame is missing.');
+  if (!frame || !desktopReady) {
+    const evidence = frame
+      ? await frame.executeJavaScript(
+          `({ width: innerWidth, height: innerHeight,
+          mobile: document.querySelector('[data-webrad-id="${id}"]')?.dataset.menuMobile })`,
+          true,
+        )
+      : { frame: 'missing' };
+    throw new Error('Compiled Menu desktop Preview is not ready: ' + JSON.stringify(evidence));
+  }
+  const desktopViewport = await frame.executeJavaScript(
+    '({ width: innerWidth, height: innerHeight })',
+    true,
+  );
   const desktop = await frame.executeJavaScript(
     `(() => {
     const menu = document.querySelector('[data-webrad-id="${id}"]');
@@ -279,7 +327,6 @@ export async function runMenuSmoke(
       'Menu desktop project scrollbar, collapse, selection or submenu projection failed: ' +
         JSON.stringify(desktop),
     );
-  window.webContents.debugger.attach('1.3');
   try {
     window.webContents.focus();
     await evaluate(`document.querySelector('iframe[title="WebRAD application preview"]').focus()`);
@@ -291,19 +338,24 @@ export async function runMenuSmoke(
     });
     const mobileDeadline = Date.now() + 10000;
     let mobile = false;
-    while (Date.now() < mobileDeadline) {
+    for (;;) {
       if (
         (await frame.executeJavaScript(
-          `document.querySelector('[data-webrad-id="${id}"]')?.dataset.menuMobile === 'true'`,
+          `innerWidth < 768 && document.querySelector('[data-webrad-id="${id}"]')?.dataset.menuMobile === 'true'`,
           true,
         )) === true
       ) {
         mobile = true;
         break;
       }
+      if (Date.now() >= mobileDeadline) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     if (!mobile) throw new Error('Menu did not respond to the real mobile viewport.');
+    const mobileViewport = await frame.executeJavaScript(
+      '({ width: innerWidth, height: innerHeight })',
+      true,
+    );
     const drawer = await frame.executeJavaScript(
       `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); menu.querySelector('[data-menu-action="open"]').click(); const dialog = menu.querySelector('dialog'); return (${matchesProjectScrollbar})(dialog.querySelector('.wr-menu-navigation')) && Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
       true,
@@ -330,9 +382,12 @@ export async function runMenuSmoke(
     );
     if (closed !== true)
       throw new Error('Menu Escape did not close the drawer and restore scrolling.');
+    options.log(
+      'renderer Menu compiled viewports passed: ' +
+        JSON.stringify({ desktop: desktopViewport, mobile: mobileViewport }),
+    );
   } finally {
-    await window.webContents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
-    window.webContents.debugger.detach();
+    await setDesktopViewport(window);
   }
   await click('button[aria-label="Design"]');
   const tree = `[role="treeitem"][data-component-id=${JSON.stringify(id)}]`;
@@ -389,18 +444,19 @@ export async function runMenuSmoke(
   const horizontalDeadline = Date.now() + 10000;
   let horizontal: WebFrameMain | undefined;
   let horizontalReady = false;
-  while (Date.now() < horizontalDeadline) {
+  for (;;) {
     horizontal = horizontalFrame(window.webContents.mainFrame);
     if (
       horizontal &&
       (await horizontal.executeJavaScript(
-        `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); return menu?.dataset.menuOrientation === 'horizontal' && menu.querySelector('[data-menu-item="workspace"]') !== null && Math.abs(menu.getBoundingClientRect().height - 80) <= 1; })()`,
+        `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); return innerWidth >= 768 && menu?.dataset.menuMobile === 'false' && menu.dataset.menuOrientation === 'horizontal' && menu.querySelector('[data-menu-item="workspace"]') !== null && Math.abs(menu.getBoundingClientRect().height - 80) <= 1; })()`,
         true,
       )) === true
     ) {
       horizontalReady = true;
       break;
     }
+    if (Date.now() >= horizontalDeadline) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   if (!horizontal || !horizontalReady)

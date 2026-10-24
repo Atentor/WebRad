@@ -38,6 +38,10 @@ import 'monaco-editor/features/tokenization/register';
 import 'monaco-editor/features/unicodeHighlighter/register';
 import 'monaco-editor/features/wordHighlighter/register';
 import 'monaco-editor/languages/definitions/typescript/register';
+import {
+  conf as typeScriptLanguageConfiguration,
+  language as typeScriptLanguage,
+} from 'monaco-editor/languages/definitions/typescript/typescript';
 import * as typescriptApi from 'monaco-editor/languages/features/typescript/register';
 import { supportsTypeScriptThisExpression } from './page-component-completions';
 import { canonicalMonacoResource } from './monaco-resource';
@@ -219,6 +223,11 @@ export function configureMonaco(): void {
 
   monacoApi.editor.defineTheme(WEBRAD_MONACO_DARK_THEME, DARK_THEME);
   monacoApi.editor.defineTheme(WEBRAD_MONACO_LIGHT_THEME, LIGHT_THEME);
+
+  // The editor's first model must have syntax tokens immediately. Keep Monaco's
+  // official Monarch grammar eager; only the semantic TypeScript service is lazy.
+  monacoApi.languages.setLanguageConfiguration('typescript', typeScriptLanguageConfiguration);
+  monacoApi.languages.setMonarchTokensProvider('typescript', typeScriptLanguage);
 
   typescriptApi.typescriptDefaults.setCompilerOptions({
     allowNonTsExtensions: true,

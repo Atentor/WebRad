@@ -68,6 +68,21 @@ esse estado pela largura simulada, verificar também Tablet (768px, não mobile)
 e Mobile (390px) e restaurar Default, preservando geometria visual, hitbox e
 altura de 48px no modo mobile. Não presuma desktop pelo nome interno do preset.
 
+A execução seguinte, `40120762152` (`8d95388`), passou essa geometria, mas o
+Preview compilado continuou mobile em Windows/Linux: seu iframe tem largura
+própria, independente do preset do Designer. O smoke controla o viewport da IDE
+em 1920x1080 para os cenários desktop vertical/horizontal e em 390x844 para o
+drawer mobile. Confira a largura real e o estado responsivo dentro do iframe,
+exija a evidência `renderer Menu compiled viewports passed:` nos dois runners e
+restaure as métricas em `finally`, inclusive ao falhar. Encontrar o frame não
+substitui a aprovação da sua condição de prontidão.
+
+No job Linux de desenvolvimento de `40120762132`, o Monaco exibiu apenas a
+classe neutra `mtk1` em todos os tokens de sintaxe durante o prazo existente.
+A gramática oficial TypeScript/Monarch deve estar registrada antes de criar os
+modelos; mantenha somente o serviço semântico carregado de forma assíncrona.
+Preserve as exigências de classes de tokens, cores e palavras-chave do smoke.
+
 O macOS Intel parou antes, esperando o iframe F9 dos ícones. Assim como no smoke
 de título, a espera deve ler o renderer novamente após uma compilação síncrona
 antes de avaliar o prazo. Aguarde Saved, Run habilitado e ausência de diálogo,

@@ -27,6 +27,10 @@ const mocks = vi.hoisted(() => {
     setEagerModelSync: vi.fn(),
     setInlayHintsOptions: vi.fn(),
     setModeConfiguration: vi.fn(),
+    setLanguageConfiguration: vi.fn(),
+    setMonarchTokensProvider: vi.fn(),
+    typeScriptLanguageConfiguration: { brackets: [['{', '}']] },
+    typeScriptLanguage: { tokenizer: { root: [] } },
     canonicalResource: (resource: string): string => {
       const windowsFileUri = /^file:\/\/\/([A-Za-z]):(\/.*)$/.exec(resource);
       if (windowsFileUri === null) return resource;
@@ -37,6 +41,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('monaco-editor/editor', () => ({
   editor: { defineTheme: mocks.defineTheme },
+  languages: {
+    setLanguageConfiguration: mocks.setLanguageConfiguration,
+    setMonarchTokensProvider: mocks.setMonarchTokensProvider,
+  },
   Uri: {
     parse: (resource: string) => ({ toString: () => mocks.canonicalResource(resource) }),
   },
@@ -74,6 +82,10 @@ vi.mock('monaco-editor/features/tokenization/register', () => ({}));
 vi.mock('monaco-editor/features/unicodeHighlighter/register', () => ({}));
 vi.mock('monaco-editor/features/wordHighlighter/register', () => ({}));
 vi.mock('monaco-editor/languages/definitions/typescript/register', () => ({}));
+vi.mock('monaco-editor/languages/definitions/typescript/typescript', () => ({
+  conf: mocks.typeScriptLanguageConfiguration,
+  language: mocks.typeScriptLanguage,
+}));
 
 vi.mock('monaco-editor/languages/features/typescript/register', () => ({
   getTypeScriptWorker: mocks.getTypeScriptWorker,
@@ -115,6 +127,14 @@ describe('Monaco setup', () => {
     expect(webradMonacoTheme('dark')).toBe(WEBRAD_MONACO_DARK_THEME);
     expect(webradMonacoTheme('light')).toBe(WEBRAD_MONACO_LIGHT_THEME);
     expect(mocks.defineTheme).toHaveBeenCalledTimes(2);
+    expect(mocks.setLanguageConfiguration).toHaveBeenCalledExactlyOnceWith(
+      'typescript',
+      mocks.typeScriptLanguageConfiguration,
+    );
+    expect(mocks.setMonarchTokensProvider).toHaveBeenCalledExactlyOnceWith(
+      'typescript',
+      mocks.typeScriptLanguage,
+    );
     expect(mocks.defineTheme).toHaveBeenNthCalledWith(
       1,
       WEBRAD_MONACO_DARK_THEME,

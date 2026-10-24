@@ -188,6 +188,7 @@ try {
               'renderer Menu Inspector and F9 passed: project scrollbar,',
               'renderer Menu configurator layout passed:',
               'renderer Menu canvas geometry passed:',
+              'renderer Menu compiled viewports passed:',
               'renderer Menu horizontal flyouts passed:',
               'renderer icon gallery canonical names passed:',
               'renderer IDE Lucide icons passed:',
