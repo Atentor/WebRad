@@ -1,6 +1,5 @@
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { addComponent, bindComponentEvent, createProject, updatePage } from '@webrad/project-model';
-
 export function groupProject() {
   const project = createProject('GroupExample');
   let page = project.pages[0]!;
@@ -30,10 +29,9 @@ export function groupProject() {
   page = bindComponentEvent(page, 'group', 'OnClick', 'clicked');
   return updatePage(project, page.id, page);
 }
-
 export const groupUserSources = {
-  'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+  'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   created(): void { Group1.caption = 'Ready'; this.Group1.width = 280; }
   clicked(): void { this.Button1.caption = Group1.caption; }
 }`,

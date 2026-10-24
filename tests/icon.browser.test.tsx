@@ -8,7 +8,6 @@ import { findDefaultComponentStyle } from '@webrad/project-model';
 import { resolveComponentStyleClassName } from '@webrad/runtime';
 import { withChromium } from './chromium';
 import { iconProject, iconUserSources } from './fixtures/icon';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'matches Lucide Designer/Preview styles and SVG geometry, and activates captionless buttons by native keyboard',
   async () => {
@@ -31,9 +30,9 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
     const server = createServer((request, response) => {
       response.setHeader('Content-Type', 'text/html');
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? compiled.previewHtml
-          : `<!doctype html><style>${css}</style><main style="display:flex;align-items:start"><section>${markup}</section><iframe src="/preview" style="width:850px;height:450px;border:0"></iframe></main>`,
+          : `<!doctype html><style>${css}</style><main style="display:flex;align-items:start"><section>${markup}</section><iframe src="/index.html" style="width:850px;height:450px;border:0"></iframe></main>`,
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -47,7 +46,11 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           const evaluate = async (expression: string): Promise<unknown> => {
             const result = await send('Runtime.evaluate', { expression, returnByValue: true });
             if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-            return (result.result as { value?: unknown }).value;
+            return (
+              result.result as {
+                value?: unknown;
+              }
+            ).value;
           };
           const runtime = (mode: string) =>
             `document.querySelector('iframe').contentDocument.querySelector('[data-webrad-id=${mode}]')`;
@@ -59,7 +62,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
             return { color: s.color, background: s.backgroundColor, border: s.border, shadow: s.boxShadow, outline: s.outlineStyle, transform: s.transform, opacity: s.opacity, width: b.width, height: b.height };
           })()`);
           await expect
-            .poll(() => evaluate(`Boolean(${runtime('button')})`), { timeout: 15_000 })
+            .poll(() => evaluate(`Boolean(${runtime('button')})`), { timeout: 15000 })
             .toBe(true);
           const read = (expression: string) =>
             evaluate(`(() => {
@@ -87,7 +90,10 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
             const baseline = await paint(expression);
             const position = (await evaluate(
               `(() => { const e = ${expression}, b = e.getBoundingClientRect(), iframe = e.ownerDocument === document ? null : document.querySelector('iframe'), f = iframe?.getBoundingClientRect(); return { x: b.x + b.width / 2 + (f?.x ?? 0), y: b.y + b.height / 2 + (f?.y ?? 0) }; })()`,
-            )) as { x: number; y: number };
+            )) as {
+              x: number;
+              y: number;
+            };
             await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...position });
             expect(await paint(expression)).toEqual(baseline);
             await send('Input.dispatchMouseEvent', {
@@ -205,5 +211,5 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   },
-  60_000,
+  60000,
 );

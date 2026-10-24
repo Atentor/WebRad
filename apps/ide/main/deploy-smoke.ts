@@ -94,7 +94,8 @@ export async function runDeploySmoke(
     throw new Error('Missing Project / Build Application menu item.');
   if (menu.items.some((item) => item.label === 'Build' || item.label === 'Deploy'))
     throw new Error('Project menu still exposes redundant Build or Deploy items.');
-  window.webContents.send('webrad:menu-command', 'file.openProject');
+  await waitFor('document.querySelector(\'button[aria-label="Open project (Ctrl+O)"]\') !== null');
+  await click('button[aria-label="Open project (Ctrl+O)"]');
   await waitFor("document.querySelector('.wr-page-surface') !== null");
   await click('button[aria-label="Project Settings"]');
   await click('#project-settings-tab-build');

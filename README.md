@@ -28,8 +28,16 @@ Consulte [releases e atualizações](docs/releases.md) para os detalhes por plat
 
 ## Primeira aplicação
 
-1. Abra **New Project**, informe o nome e selecione a pasta que receberá a subpasta
-   do projeto. Para explorar um exemplo, abra
+1. Abra **New Project**, escolha **Blank project** ou **Examples & Tutorial**, informe
+   o nome e selecione a pasta que receberá a subpasta do projeto. O template Aurora
+   demonstra os componentes visuais e não visuais usando apenas os styles Default,
+   com formulário, Popup, dados e mídia locais, Menu e componentes reutilizáveis.
+   Edite a navegação compartilhada em **Reusable Components > AuroraMenu**.
+   A seção **Nonvisual** inclui PokéAPI, Timer, File/Video Upload e Report Builder.
+   A seção **RestGO** demonstra cadastro, login, confirmação de e-mail,
+   recuperação de senha, perfil/avatar, sessão e logout.
+   A PokéAPI requer internet; envios exigem sua conexão e conta RestGO.
+   Tudo pode ser editado no Designer e no código. Para explorar outro exemplo, abra
    [HelloWebRad.wrproj](examples/hello-webrad/HelloWebRad.wrproj) pela IDE.
 2. No **Builder**, arraste componentes para o canvas. Selecione-os pela árvore ou
    pelo canvas e edite suas propriedades em **Visual**, no Inspector.
@@ -49,6 +57,10 @@ Hash atende hospedagens sem esse recurso. Veja [rotas e hospedagem](docs/browser
 
 Ao iniciar, a IDE tenta reabrir a versão salva do último projeto. Se os arquivos
 não estiverem disponíveis ou forem inválidos, a tela inicial permite abrir ou criar outro.
+
+O projeto completo de demonstração também está pronto para abrir em
+[AuroraWorkspace.wrproj](examples/aurora-workspace/AuroraWorkspace.wrproj).
+Veja [as páginas e interações do exemplo](examples/aurora-workspace/README.md).
 
 ## Designer e programação
 

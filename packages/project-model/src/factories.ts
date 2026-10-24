@@ -10,7 +10,11 @@ import {
   defaultComponentStyleId,
   DEFAULT_COMPONENT_STYLE_DEFINITIONS,
 } from './default-styles.js';
-import { assertValidPageName, assertValidProjectName, assertValidTypeScriptIdentifier } from './naming.js';
+import {
+  assertValidPageName,
+  assertValidProjectName,
+  assertValidTypeScriptIdentifier,
+} from './naming.js';
 import {
   parseComponentStyle,
   parsePage,

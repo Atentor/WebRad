@@ -194,7 +194,13 @@ function record(value: unknown): value is Record<string, unknown> {
 
 /** Accepts relative, HTTP(S), mail and telephone links; rejects executable schemes. */
 export function isWebMenuLink(value: string, image = false): boolean {
-  if (/[\u0000-\u001f\u007f]/u.test(value) || value !== value.trim()) return false;
+  if (
+    [...value].some(
+      (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+    ) ||
+    value !== value.trim()
+  )
+    return false;
   if (image && /^data:image\/(?:png|jpeg|gif|webp|avif|svg\+xml);/iu.test(value)) return true;
   if (value.startsWith('//') || value.includes('\\')) return false;
   const scheme = /^([a-z][a-z\d+.-]*):/iu.exec(value)?.[1]?.toLowerCase();

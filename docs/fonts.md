@@ -1,5 +1,16 @@
 # Project fonts
 
+Every built-in Aurora Default style uses Roboto in its base state. When opening
+an existing project, protected Default styles with an omitted or generic `sans`
+base font adopt `roboto`; explicit alternative families, interaction-state
+overrides, custom styles and component bindings are preserved. The normalized
+font is persisted on the next save, without changing format version 2.
+
+The Electron style smoke checks the font selected by the saved component style
+and compares its rendered appearance between Designer and Preview. A custom
+style without a font override retains the generic Inter fallback; the Roboto
+default applies to the protected Aurora Default styles.
+
 In **Styles**, select a visual component style, expand **Text**, enable **Font
 family** when necessary, and choose a family. Assign that style to components
 through the Inspector's **Style** selector. The saved choice applies to the

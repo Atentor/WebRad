@@ -1,7 +1,6 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-
 import {
   addPage,
   addComponent,
@@ -32,7 +31,6 @@ import {
 } from '@webrad/runtime/visual';
 import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it } from 'vitest';
-
 import { compileProject, compileProjectToMemory } from '../src/index.js';
 import { createVirtualSourceGraph } from '../src/source-graph.js';
 import {
@@ -41,15 +39,12 @@ import {
   compileTailwindStyles,
   GENERATED_APP_CSS,
 } from '../src/styles.js';
-
 const temporaryDirectories: string[] = [];
-
 async function temporaryDirectory(): Promise<string> {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-compiler-'));
   temporaryDirectories.push(directory);
   return directory;
 }
-
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories
@@ -57,7 +52,6 @@ afterEach(async () => {
       .map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
-
 function executableProject(): WebRadProject {
   let sequence = 0;
   const idFactory = (): string => `stable-${String((sequence += 1))}`;
@@ -100,18 +94,16 @@ function executableProject(): WebRadProject {
   page = bindComponentEvent(page, 'button-show', 'OnClick', 'BTNMostrarClick');
   return updatePage(project, page.id, page);
 }
-
 function customersApiClientConfiguration(): ApiClientConfiguration {
   const defaults = createDefaultApiClientConfiguration();
   const request = defaults.operations[0];
   if (request === undefined) throw new Error('Expected an API Client default operation.');
-
   return {
     ...defaults,
     defaultHeaders: [
       { id: 'accept-header', name: 'Accept', value: 'application/json', enabled: true },
     ],
-    timeoutMs: 15_000,
+    timeoutMs: 15000,
     operations: [
       {
         ...request,
@@ -154,7 +146,6 @@ function customersApiClientConfiguration(): ApiClientConfiguration {
     ],
   };
 }
-
 function dataGridExecutableProject(): WebRadProject {
   const project = executableProject();
   const page = project.pages[0];
@@ -213,7 +204,6 @@ function dataGridExecutableProject(): WebRadProject {
   );
   return updatePage(project, withGrid.id, withGrid);
 }
-
 function styledExecutableProject(): WebRadProject {
   const project = executableProject();
   const style = createComponentStyle('Primary Button', 'WebButton', {
@@ -273,7 +263,6 @@ function styledExecutableProject(): WebRadProject {
   const withStyle = addComponentStyle(project, style);
   return setComponentStyle(withStyle, withStyle.pages[0]!.id, 'button-show', style.id);
 }
-
 function reusableElementExecutableProject(): WebRadProject {
   let sequence = 0;
   const idFactory = (): string => `reusable-${String((sequence += 1))}`;
@@ -311,7 +300,6 @@ function reusableElementExecutableProject(): WebRadProject {
   const withReusableDefinition = addReusableElement(project, reusableDefinition);
   const page = withReusableDefinition.pages[0];
   if (page === undefined) throw new Error('Expected the initial page.');
-
   const reusableInstance = defaultComponentRegistry.createComponent('WebReusableElement', {
     id: 'customer-card-instance',
     name: 'CustomerCardInstance',
@@ -341,7 +329,6 @@ function reusableElementExecutableProject(): WebRadProject {
   );
   return updatePage(withReusableDefinition, page.id, pageWithReusableInstances);
 }
-
 function internallyNavigableProject(): WebRadProject {
   const project = executableProject();
   const detailsPage = bindComponentEvent(
@@ -357,13 +344,11 @@ function internallyNavigableProject(): WebRadProject {
   );
   return addPage(project, detailsPage);
 }
-
 describe('compileProject', () => {
   it('serializes reusable definitions into the runtime model and compiles without diagnostics', async () => {
     const project = reusableElementExecutableProject();
     const reusableDefinition = project.reusableElements[0];
     if (reusableDefinition === undefined) throw new Error('Expected a reusable definition.');
-
     const graph = createVirtualSourceGraph(
       project,
       {},
@@ -372,14 +357,11 @@ describe('compileProject', () => {
     );
     const entrySource = graph.sources.get(graph.entryPath);
     if (entrySource === undefined) throw new Error('Expected the compiler entry source.');
-
     expect(graph.diagnostics).toEqual([]);
     expect(entrySource).toContain('"reusableElements":[');
     expect(entrySource).toContain(`"id":"${reusableDefinition.id}"`);
     expect(entrySource).toContain(`"reusableElementId":"${reusableDefinition.id}"`);
-
     const result = await compileProjectToMemory(project, { userSources: {} });
-
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.diagnostics).toEqual([]);
     expect(result.files['assets/licenses/WebRAD-MIT.txt']).toBe(
@@ -389,7 +371,6 @@ describe('compileProject', () => {
     expect(result.files['assets/app.js']).toContain(reusableDefinition.id);
     expect(result.files['assets/app.js']).toContain('CustomerCardApiClient');
   });
-
   it.each(['this.', ''])(
     'binds reusable component events with %s access inside an isolated authored instance per placement',
     async (access) => {
@@ -416,7 +397,6 @@ export class CustomerCard extends CustomerCardGenerated {
 `,
       };
       const result = await compileProjectToMemory(project, { userSources });
-
       expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
       const application = result.files['assets/app.js'] ?? '';
       const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -428,7 +408,6 @@ export class CustomerCard extends CustomerCardGenerated {
         Headers: { value: globalThis.Headers },
       });
       dom.window.eval(application);
-
       const firstButton = dom.window.document.querySelector<HTMLButtonElement>(
         '[data-webrad-id="customer-card-instance:customer-card-button"]',
       );
@@ -440,7 +419,6 @@ export class CustomerCard extends CustomerCardGenerated {
       if (firstButton === null || secondButton === null) {
         throw new Error('Compiled reusable buttons did not render.');
       }
-
       firstButton.click();
       firstButton.click();
       secondButton.click();
@@ -448,20 +426,19 @@ export class CustomerCard extends CustomerCardGenerated {
       expect(secondButton.dataset.reusableClicks).toBe('1');
       expect(firstButton.textContent).toBe('2');
       expect(secondButton.textContent).toBe('1');
-      expect(firstButton.dataset.hostPageName).toBe('PageMain');
-      expect(secondButton.dataset.hostPageName).toBe('PageMain');
+      expect(firstButton.dataset.hostPageName).toBe('index');
+      expect(secondButton.dataset.hostPageName).toBe('index');
       expect(firstButton.dataset.defaultCaption).toBe('2');
       expect(secondButton.dataset.defaultCaption).toBe('1');
       dom.window.close();
     },
   );
-
   it('executes bare component references, method defaults, lexical bindings and arrows without modifying authored source', async () => {
     const project = executableProject();
-    const source = `import { PageMainGenerated } from './PageMain.generated';
+    const source = `import { indexGenerated } from "./index.generated";
 for (const EDTNome of [{ value: 'module-local' }]) { void EDTNome.value; }
 for (let BTNMostrar of ['module-local']) { void BTNMostrar; }
-export class PageMain extends PageMainGenerated {
+export class index extends indexGenerated {
   private idselecionado: number = 0;
   private describe(value: number): string { return 'selected:' + value; }
   private readDefaults(value = EDTNome.value, { caption = BTNMostrar.caption } = {}): string {
@@ -484,10 +461,10 @@ export class PageMain extends PageMainGenerated {
     run();
   }
 }`;
-    const userSources = { 'pages/PageMain.ts': source };
+    const userSources = { 'pages/index.ts': source };
     const result = await compileProjectToMemory(project, { userSources });
     expect(result.success, JSON.stringify(result.diagnostics)).toBe(true);
-    expect(userSources['pages/PageMain.ts']).toBe(source);
+    expect(userSources['pages/index.ts']).toBe(source);
     const dom = new JSDOM('<!doctype html><body></body>', {
       runScripts: 'outside-only',
       url: 'https://preview.webrad.test/',
@@ -513,37 +490,35 @@ export class PageMain extends PageMainGenerated {
     expect(button?.textContent).toBe('local');
     dom.window.close();
   });
-
   it('preserves authored diagnostic positions for invalid bare component properties', async () => {
-    const source = `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+    const source = `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   public PageMainCreate(): void { EDTNome.value = 42; }
 }`;
     const result = await compileProjectToMemory(executableProject(), {
-      userSources: { 'pages/PageMain.ts': source },
+      userSources: { 'pages/index.ts': source },
     });
     expect(result.success).toBe(false);
     expect(result.diagnostics).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: 2322, file: 'pages/PageMain.ts', line: 3, column: 35 }),
+        expect.objectContaining({ code: 2322, file: 'pages/index.ts', line: 3, column: 35 }),
       ]),
     );
   });
-
   it.each([
     ['idselecionado = 7;', true],
     ['if (false) idselecionado = 7;', false],
   ] as const)(
     'retains strict constructor definite-assignment checks after lowering %s',
     async (assignment, success) => {
-      const source = `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+      const source = `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   readonly idselecionado: number;
   constructor(element: HTMLElement) { super(element); ${assignment} }
   PageMainCreate(): void { this.element.dataset.selected = String(idselecionado); }
 }`;
       const result = await compileProjectToMemory(executableProject(), {
-        userSources: { 'pages/PageMain.ts': source },
+        userSources: { 'pages/index.ts': source },
       });
       expect(result.success, JSON.stringify(result.diagnostics)).toBe(success);
       if (!success)
@@ -552,17 +527,16 @@ export class PageMain extends PageMainGenerated {
         );
     },
   );
-
   it('compiles in-app page navigation for button handlers and History links', async () => {
     const project = internallyNavigableProject();
-    const mainPage = project.pages.find((page) => page.name === 'PageMain');
+    const mainPage = project.pages.find((page) => page.name === 'index');
     const detailsPage = project.pages.find((page) => page.name === 'PageDetails');
     if (mainPage === undefined || detailsPage === undefined)
       throw new Error('Expected the compiled page routes.');
     const userSources = {
-      'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
+      'pages/index.ts': `import { indexGenerated } from "./index.generated";
 
-export class PageMain extends PageMainGenerated {
+export class index extends indexGenerated {
   public BTNMostrarClick(): void {
     Navigate('PageDetails');
   }
@@ -585,13 +559,12 @@ export class PageDetails extends PageDetailsGenerated {
     );
     const entrySource = graph.sources.get(graph.entryPath);
     if (entrySource === undefined) throw new Error('Expected the compiler entry source.');
-
-    expect(entrySource).toContain("import { PageDetails } from './pages/PageDetails';");
+    expect(entrySource).toContain(
+      "import { PageDetails as WebRadPage2 } from './pages/PageDetails';",
+    );
     expect(entrySource).toContain('WebPageRouter');
     expect(entrySource).toContain(`id: ${JSON.stringify(detailsPage.id)}`);
-
     const result = await compileProjectToMemory(project, { userSources });
-
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     const application = result.files['assets/app.js'] ?? '';
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -624,7 +597,6 @@ export class PageDetails extends PageDetailsGenerated {
       dom.window.document.querySelector(`[data-webrad-page-id="${mainPage.id}"]`),
     ).not.toBeNull();
     dom.window.close();
-
     const linkedDom = new JSDOM('<!doctype html><html><body></body></html>', {
       runScripts: 'outside-only',
       url: 'https://preview.webrad.test/pagedetails',
@@ -641,7 +613,6 @@ export class PageDetails extends PageDetailsGenerated {
     ).toBe('true');
     linkedDom.window.close();
   });
-
   it('compiles an API Client without configured endpoints', async () => {
     const project = executableProject();
     const configuration: ApiClientConfiguration = {
@@ -662,7 +633,6 @@ export class PageDetails extends PageDetailsGenerated {
     const result = await compileProjectToMemory(configuredProject, { userSources: {} });
     expect(result.success, JSON.stringify(result.diagnostics)).toBe(true);
   });
-
   it('accepts a registered, typed API Client response contract', async () => {
     const project = executableProject();
     const configuration = customersApiClientConfiguration();
@@ -680,14 +650,11 @@ export class PageDetails extends PageDetailsGenerated {
         ),
       })),
     };
-
     const result = await compileProjectToMemory(configuredProject, { userSources: {} });
-
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['assets/app.js']).toContain('LoadCustomers');
     expect(result.files['assets/app.js']).toContain('customer-name');
   });
-
   it('requires enabled RestGo integration for a session-bound API Client', async () => {
     const project = executableProject();
     const configuration: ApiClientConfiguration = {
@@ -705,7 +672,6 @@ export class PageDetails extends PageDetailsGenerated {
         ),
       })),
     };
-
     const disabledResult = await compileProjectToMemory(boundProject, { userSources: {} });
     expect(disabledResult.success).toBe(false);
     expect(disabledResult.diagnostics).toEqual(
@@ -718,7 +684,6 @@ export class PageDetails extends PageDetailsGenerated {
         }),
       ]),
     );
-
     const invalidBaseResult = await compileProjectToMemory(
       {
         ...boundProject,
@@ -739,7 +704,6 @@ export class PageDetails extends PageDetailsGenerated {
         }),
       ]),
     );
-
     const enabledProject = updateProjectSettings(boundProject, {
       restGo: {
         ...project.settings.restGo,
@@ -754,7 +718,6 @@ export class PageDetails extends PageDetailsGenerated {
       'https://restgo.example.test/proxy/restgo',
     );
   });
-
   it('checks a RestGo-bound service inside a reusable definition', async () => {
     let project = createProject('RestGoReusable');
     let reusable = createReusableElement('CustomerService');
@@ -773,7 +736,6 @@ export class PageDetails extends PageDetailsGenerated {
       reusable.rootComponentId,
     );
     project = addReusableElement(project, reusable);
-
     const result = await compileProjectToMemory(project, { userSources: {} });
     expect(result.success).toBe(false);
     expect(result.diagnostics).toEqual(
@@ -785,15 +747,12 @@ export class PageDetails extends PageDetailsGenerated {
       ]),
     );
   });
-
   it('generates a Data Grid bound to a selected API operation and response list', async () => {
     const result = await compileProjectToMemory(dataGridExecutableProject(), { userSources: {} });
-
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['assets/app.js']).toContain('bindApiClient');
     expect(result.files['assets/app.js']).toContain('wr-data-grid-content');
   });
-
   it('rejects a Data Grid list binding that is not present in the selected API contract', async () => {
     const project = dataGridExecutableProject();
     const invalidProject: WebRadProject = {
@@ -816,7 +775,6 @@ export class PageDetails extends PageDetailsGenerated {
         ),
       })),
     };
-
     const result = await compileProjectToMemory(invalidProject, { userSources: {} });
     expect(result.success).toBe(false);
     expect(result.diagnostics).toEqual(
@@ -827,7 +785,6 @@ export class PageDetails extends PageDetailsGenerated {
       ]),
     );
   });
-
   it('validates, typechecks and writes an ordinary browser application', async () => {
     const outputDirectory = await temporaryDirectory();
     const sourceProject = executableProject();
@@ -874,9 +831,9 @@ export class PageDetails extends PageDetailsGenerated {
         thumbActiveColor: '#059669',
       },
     });
-    const originalUserSource = `import { PageMainGenerated } from './PageMain.generated';
+    const originalUserSource = `import { indexGenerated } from "./index.generated";
 
-export class PageMain extends PageMainGenerated {
+export class index extends indexGenerated {
   public PageMainCreate(): void {
     this.EDTNome.value = 'Ada';
     this.EDTNome.x = 36;
@@ -897,14 +854,12 @@ export class PageMain extends PageMainGenerated {
   }
 
   public async BTNMostrarClick(): Promise<void> {
-    Message(\`Olá \${this.EDTNome.value}\`);
+    Message(\`Ol\u00E1 \${this.EDTNome.value}\`);
   }
 }
 `;
-    const userSources = { 'pages/PageMain.ts': originalUserSource };
-
+    const userSources = { 'pages/index.ts': originalUserSource };
     const result = await compileProject(project, { outputDirectory, userSources });
-
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['index.html']).toContain('./assets/app.js');
     expect(result.files['index.html']).toContain(
@@ -970,13 +925,10 @@ export class PageMain extends PageMainGenerated {
     await expect(
       fs.stat(path.join(outputDirectory, 'assets', 'images', 'social-share.png')),
     ).resolves.toMatchObject({ isFile: expect.any(Function) });
-    await expect(fs.stat(path.join(outputDirectory, 'pages', 'PageMain.ts'))).rejects.toMatchObject(
-      {
-        code: 'ENOENT',
-      },
-    );
-    expect(userSources['pages/PageMain.ts']).toBe(originalUserSource);
-
+    await expect(fs.stat(path.join(outputDirectory, 'pages', 'index.ts'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    expect(userSources['pages/index.ts']).toBe(originalUserSource);
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
       runScripts: 'outside-only',
       url: 'https://preview.webrad.test/',
@@ -1012,7 +964,6 @@ export class PageMain extends PageMainGenerated {
     expect(editElement.style.left).toBe('36px');
     dom.window.close();
   });
-
   it('embeds the same browser-safe component stylesheet used by the designer projection', async () => {
     expect(GENERATED_APP_CSS).toContain(WEBRAD_COMPONENT_CSS);
     expect(GENERATED_APP_CSS).toContain('--wr-control-surface: #f5f7fa');
@@ -1022,12 +973,10 @@ export class PageMain extends PageMainGenerated {
     );
     expect(css).toContain('--wr-scrollbar-width: 10px');
   });
-
   it('compiles structured states, animations and safe arbitrary values', async () => {
     const project = styledExecutableProject();
     const css = await compileTailwindStyles(project.styles);
     const candidates = collectTailwindCandidates(project.styles);
-
     expect(candidates).toEqual(
       expect.arrayContaining([
         '[&_[data-webrad-text-content]]:bg-[linear-gradient(to_right,#f59e0b,#ef4444)]',
@@ -1067,7 +1016,6 @@ export class PageMain extends PageMainGenerated {
     expect(css).not.toContain('.m-96');
     expect(css).not.toContain('::file-selector-button');
   });
-
   it('generates and compiles a real Tailwind rule for every metadata default', async () => {
     const styles = COMPONENT_STYLE_PROPERTY_DEFINITIONS.map((definition) =>
       createComponentStyle(
@@ -1090,12 +1038,10 @@ export class PageMain extends PageMainGenerated {
     const css = await compileTailwindStyles(styles);
     const escapeClassName = (candidate: string): string =>
       candidate.replace(/([^a-zA-Z0-9_-])/gu, '\\$1');
-
     for (const candidate of candidates) {
       expect(css, candidate).toContain(`.${escapeClassName(candidate)}`);
     }
   });
-
   it('generates a real Tailwind rule for every value offered by the visual editor', async () => {
     const valuesFor = (
       definition: (typeof COMPONENT_STYLE_PROPERTY_DEFINITIONS)[number],
@@ -1148,15 +1094,12 @@ export class PageMain extends PageMainGenerated {
     const css = await compileTailwindStyles(styles);
     const escapeClassName = (candidate: string): string =>
       candidate.replace(/([^a-zA-Z0-9_-])/gu, '\\$1');
-
     for (const candidate of candidates) {
       expect(css, candidate).toContain(`.${escapeClassName(candidate)}`);
     }
   });
-
   it('ships static Tailwind CSS and applies the selected style in the compiled browser app', async () => {
     const result = await compileProjectToMemory(styledExecutableProject(), { userSources: {} });
-
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     const css = result.files['assets/app.css'] ?? '';
     expect(css).toContain('@layer theme, base, components, utilities');
@@ -1167,7 +1110,6 @@ export class PageMain extends PageMainGenerated {
       '.\\[background\\:linear-gradient\\(to_bottom_right\\,\\#2563eb\\,\\#7c3aed\\)_padding-box\\,linear-gradient\\(to_bottom\\,\\#22c55e\\,\\#06b6d4\\)_border-box\\]',
     );
     expect(result.files['assets/app.js']).not.toContain('@tailwindcss');
-
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
       runScripts: 'outside-only',
       url: 'https://preview.webrad.test/',
@@ -1192,7 +1134,6 @@ export class PageMain extends PageMainGenerated {
     );
     dom.window.close();
   });
-
   it('preserves an empty style binding and lets it own paint properties', async () => {
     const project = executableProject();
     const emptyStyle = createComponentStyle('Empty Page', 'WebPage', {
@@ -1219,11 +1160,9 @@ export class PageMain extends PageMainGenerated {
         ),
       })),
     };
-
     const result = await compileProjectToMemory(painted, { userSources: {} });
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.files['assets/app.js']).toMatch(/"styleClassName":\s*""/u);
-
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
       runScripts: 'outside-only',
       url: 'https://preview.webrad.test/',
@@ -1237,45 +1176,40 @@ export class PageMain extends PageMainGenerated {
     expect(page?.style.backgroundColor).toBe('');
     dom.window.close();
   });
-
   it('returns structured TypeScript diagnostics without writing a broken build', async () => {
     const outputDirectory = await temporaryDirectory();
     const result = await compileProject(executableProject(), {
       outputDirectory,
       userSources: {
-        'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+        'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   broken: MissingType;
 }
 `,
       },
     });
-
     expect(result.success).toBe(false);
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({
         category: 'error',
         source: 'typescript',
-        file: 'pages/PageMain.ts',
+        file: 'pages/index.ts',
       }),
     );
     await expect(fs.stat(path.join(outputDirectory, 'index.html'))).rejects.toMatchObject({
       code: 'ENOENT',
     });
   });
-
   it('supports a no-write memory build for Preview', async () => {
     const outputDirectory = path.join(await temporaryDirectory(), 'memory-output');
     const result = await compileProjectToMemory(executableProject(), {
       outputDirectory,
       userSources: {},
     });
-
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     expect(result.previewHtml).toContain('webradPageId');
     await expect(fs.stat(outputDirectory)).rejects.toMatchObject({ code: 'ENOENT' });
   });
-
   it('rejects component names that collide with the generated page runtime API', async () => {
     const project = executableProject();
     const invalidProject = {
@@ -1287,9 +1221,7 @@ export class PageMain extends PageMainGenerated {
         ),
       })),
     };
-
     const result = await compileProjectToMemory(invalidProject, { userSources: {} });
-
     expect(result.success).toBe(false);
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({
@@ -1298,7 +1230,6 @@ export class PageMain extends PageMainGenerated {
       }),
     );
   });
-
   it('rejects unknown or incorrectly typed component properties', async () => {
     let sequence = 0;
     const project = createProject('BrokenProps', () => `broken-${String((sequence += 1))}`);
@@ -1318,9 +1249,7 @@ export class PageMain extends PageMainGenerated {
         },
       ],
     };
-
     const result = await compileProjectToMemory(invalidProject, { userSources: {} });
-
     expect(result.success).toBe(false);
     expect(result.diagnostics.some((diagnostic) => diagnostic.message.includes('visible'))).toBe(
       true,
@@ -1329,7 +1258,6 @@ export class PageMain extends PageMainGenerated {
       result.diagnostics.some((diagnostic) => diagnostic.message.includes('mysteryProperty')),
     ).toBe(true);
   });
-
   it('accepts a styled Popup container and serializes its visual children into the runtime document model', async () => {
     const project = executableProject();
     const page = project.pages[0];
@@ -1361,7 +1289,6 @@ export class PageMain extends PageMainGenerated {
     });
     const withStyle = addComponentStyle(withPopupChild, popupStyle);
     const assigned = setComponentStyle(withStyle, page.id, popup.id, popupStyle.id);
-
     const graph = createVirtualSourceGraph(
       assigned,
       {},
@@ -1370,9 +1297,7 @@ export class PageMain extends PageMainGenerated {
     );
     const entrySource = graph.sources.get(graph.entryPath);
     if (entrySource === undefined) throw new Error('Expected the compiler entry source.');
-
     const result = await compileProjectToMemory(assigned, { userSources: {} });
-
     expect(graph.diagnostics).toEqual([]);
     expect(entrySource).toContain('"id":"popup-dialog"');
     expect(entrySource).toContain('"children":["popup-confirm-button"]');
@@ -1381,7 +1306,6 @@ export class PageMain extends PageMainGenerated {
     expect(result.files['assets/app.js']).toContain('"type": "WebPopup"');
     expect(result.files['assets/app.js']).toContain('bg-[#0f172a]');
   });
-
   it('rejects styles that target unknown or nonvisual registry entries', async () => {
     const project = executableProject();
     const unknown = createComponentStyle('Unknown Style', 'MissingControl', {
@@ -1391,9 +1315,7 @@ export class PageMain extends PageMainGenerated {
       idFactory: () => 'style-api',
     });
     const invalidProject = addComponentStyle(addComponentStyle(project, unknown), nonvisual);
-
     const result = await compileProjectToMemory(invalidProject, { userSources: {} });
-
     expect(result.success).toBe(false);
     expect(result.diagnostics).toEqual(
       expect.arrayContaining([

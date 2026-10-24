@@ -8,7 +8,6 @@ import { compileProject, compileProjectToMemory } from '@webrad/compiler';
 import { parseProject, updateProjectSettings } from '@webrad/project-model';
 import { withChromium } from './chromium';
 import { groupProject, groupUserSources } from './fixtures/group';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'renders the exported classic bundle through file URLs with working component events',
   async () => {
@@ -37,7 +36,11 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           const evaluate = async (expression: string) => {
             const result = await send('Runtime.evaluate', { expression, returnByValue: true });
             if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-            return (result.result as { value?: unknown })?.value;
+            return (
+              result.result as {
+                value?: unknown;
+              }
+            )?.value;
           };
           await expect
             .poll(
@@ -45,7 +48,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
                 evaluate(
                   `document.querySelector('[data-webrad-id="group"]')?.getAttribute('aria-label')`,
                 ),
-              { timeout: 15_000 },
+              { timeout: 15000 },
             )
             .toBe('Ready');
           expect(await evaluate('location.protocol')).toBe('file:');
@@ -65,9 +68,8 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       await fs.rm(resolved, { recursive: true, force: true });
     }
   },
-  40_000,
+  40000,
 );
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'executes the deployed Preview bundle in a subfolder and keeps scoped PWA behavior',
   async () => {
@@ -82,6 +84,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       }),
       {
         applicationName: 'Hosted Group',
+        routingBasePath: '/app/',
         pwa: { ...original.settings.pwa, enabled: true, shortName: 'Hosted' },
       },
     );
@@ -89,10 +92,10 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       'models/Customer.ts': 'export class Customer { name = "Hosted"; }',
       'units/Greeting.ts':
         'import type { Customer } from "../models/Customer"; export function greeting(customer: Customer): string { return customer.name + " ready"; }',
-      'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
+      'pages/index.ts': `import { indexGenerated } from "./index.generated";
 import { Customer } from '../models/Customer';
 import { greeting } from '../units/Greeting';
-export class PageMain extends PageMainGenerated {
+export class index extends indexGenerated {
   created(): void { Group1.caption = greeting(new Customer()); }
   clicked(): void { this.Button1.caption = Group1.caption; }
 }`,
@@ -150,7 +153,11 @@ export class PageMain extends PageMainGenerated {
             awaitPromise: true,
           });
           if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-          return (result.result as { value?: unknown })?.value;
+          return (
+            result.result as {
+              value?: unknown;
+            }
+          )?.value;
         };
         await expect
           .poll(
@@ -158,7 +165,7 @@ export class PageMain extends PageMainGenerated {
               evaluate(
                 `document.querySelector('[data-webrad-id="group"]')?.getAttribute('aria-label')`,
               ),
-            { timeout: 15_000 },
+            { timeout: 15000 },
           )
           .toBe('Hosted ready');
         expect(requests).toEqual(
@@ -171,7 +178,7 @@ export class PageMain extends PageMainGenerated {
           ),
         ).toBe(false);
         await expect
-          .poll(() => evaluate('Boolean(navigator.serviceWorker.controller)'), { timeout: 15_000 })
+          .poll(() => evaluate('Boolean(navigator.serviceWorker.controller)'), { timeout: 15000 })
           .toBe(true);
         const manifest = await evaluate(
           `fetch(document.querySelector('link[rel="manifest"]').href).then(r => r.json())`,
@@ -207,7 +214,7 @@ export class PageMain extends PageMainGenerated {
               evaluate(
                 `document.querySelector('[data-webrad-id="group"]')?.getAttribute('aria-label')`,
               ),
-            { timeout: 15_000 },
+            { timeout: 15000 },
           )
           .toBe('Hosted ready');
         expect(
@@ -227,7 +234,7 @@ export class PageMain extends PageMainGenerated {
               evaluate(
                 `document.querySelector('[data-webrad-id="group"]')?.getAttribute('aria-label')`,
               ),
-            { timeout: 15_000 },
+            { timeout: 15000 },
           )
           .toBe('Hosted ready');
         await send('Network.emulateNetworkConditions', {
@@ -246,7 +253,7 @@ export class PageMain extends PageMainGenerated {
         await expect
           .poll(
             () => evaluate(`navigator.serviceWorker.getRegistrations().then(rs => rs.length)`),
-            { timeout: 15_000 },
+            { timeout: 15000 },
           )
           .toBe(0);
         await send('Page.reload', { ignoreCache: true });
@@ -256,7 +263,7 @@ export class PageMain extends PageMainGenerated {
               evaluate(
                 `document.querySelector('[data-webrad-id="group"]')?.getAttribute('aria-label')`,
               ),
-            { timeout: 15_000 },
+            { timeout: 15000 },
           )
           .toBe('Hosted ready');
         expect(await evaluate('Boolean(document.querySelector(\'link[rel="manifest"]\'))')).toBe(
@@ -270,5 +277,5 @@ export class PageMain extends PageMainGenerated {
       );
     }
   },
-  90_000,
+  90000,
 );

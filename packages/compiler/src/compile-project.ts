@@ -17,6 +17,7 @@ import {
   CurrentRowBindingsSchema,
   RepeatingGroupConfigurationSchema,
   VideoPlayerSourceSchema,
+  MenuConfigurationSchema,
   comboBoxSchemaChoices,
   safeParseProject,
   type ProjectApplicationIcon,
@@ -549,6 +550,8 @@ function isValidPropertyValue(
       return RepeatingGroupConfigurationSchema.safeParse(value).success;
     case 'current-row-bindings':
       return CurrentRowBindingsSchema.safeParse(value).success;
+    case 'menu-config':
+      return MenuConfigurationSchema.safeParse(value).success;
   }
 }
 

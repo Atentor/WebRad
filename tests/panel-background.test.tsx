@@ -19,9 +19,7 @@ import {
   panelAsset,
   panelImage,
 } from './fixtures/panel-background';
-
 afterEach(() => vi.unstubAllGlobals());
-
 it('persists Panel configuration and projects imported assets without modifying authored paths', () => {
   const project = panelBackgroundProject();
   const panel = project.pages[0]!.components.find((node) => node.id === 'panel')!;
@@ -66,7 +64,6 @@ it('persists Panel configuration and projects imported assets without modifying 
   ).toBe('');
   dom.window.close();
 });
-
 it('quotes URLs as CSS data and normalizes invalid stored options', () => {
   const projected = projectPanelBackground({
     backgroundImage: 'image"\\\n.png',
@@ -82,14 +79,13 @@ it('quotes URLs as CSS data and normalizes invalid stored options', () => {
   expect(projected.backgroundImage).toBe('url("image\\22 \\5c \\a .png")');
   expect(projectPanelBackground({ backgroundImage: '   ' }).backgroundImage).toBe('');
 });
-
 it.each([false, true])(
   'provides typed Panel background completion and invalid-use diagnostics in reusable=%s',
   (reusable) => {
     const page = panelBackgroundProject().pages[0]!;
-    const filename = '/virtual/PageMain.ts';
-    const source = `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+    const filename = '/virtual/index.ts';
+    const source = `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   run(): void { Panel1.backgroundImage = 5; this.Panel1.backgroundSize = 'bad'; Panel1.backgroundRepeat = 'bad'; this.Panel1.backgroundPosition = 'bad'; }
   shadow(): void { const Panel1 = { backgroundImage: 5 }; const value: number = Panel1.backgroundImage; void value; }
 }`;
@@ -103,10 +99,10 @@ export class PageMain extends PageMainGenerated {
         }),
       ],
       [
-        '/virtual/PageMain.generated.d.ts',
+        '/virtual/index.generated.d.ts',
         reusable
           ? generateReusableElementTypings({
-              ...createReusableElement('PageMain'),
+              ...createReusableElement('index'),
               rootComponentId: page.rootComponentId,
               components: page.components.map((node) =>
                 node.id === page.rootComponentId ? { ...node, type: 'WebPanel' } : node,
@@ -159,7 +155,6 @@ export class PageMain extends PageMainGenerated {
     service.dispose();
   },
 );
-
 it('exports referenced assets and executes Panel background updates in compiled Preview', async () => {
   const compiled = await compileProjectToMemory(panelBackgroundProject(), {
     userSources: panelBackgroundUserSources,
@@ -186,4 +181,4 @@ it('exports referenced assets and executes Panel background updates in compiled 
   } finally {
     dom.window.close();
   }
-}, 120_000);
+}, 120000);

@@ -28,58 +28,57 @@ import {
   resolveNewProjectRoot,
   saveProjectFiles,
 } from './project-files';
-
 const temporaryRoots: string[] = [];
 const PROJECT_FILE_SUFFIX = '.wrproj';
-
-function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+function deferred(): {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+} {
   let resolve!: () => void;
   const promise = new Promise<void>((resolvePromise) => {
     resolve = resolvePromise;
   });
   return { promise, resolve };
 }
-
 afterEach(async () => {
   await Promise.all(
     temporaryRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })),
   );
 });
-
 describe('project files', () => {
   it('creates a project in a named child of a non-empty selected parent folder', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-project-parent-'));
     temporaryRoots.push(parent);
     await fs.writeFile(path.join(parent, 'existing-download.txt'), 'keep', 'utf8');
-
     const rootPath = resolveNewProjectRoot(parent, 'CustomerPortal');
     const session = await createProjectFiles(rootPath, 'CustomerPortal');
-
     expect(session.rootPath).toBe(path.join(parent, 'CustomerPortal'));
     await expect(fs.stat(path.join(parent, 'existing-download.txt'))).resolves.toBeDefined();
     await expect(fs.stat(session.projectFilePath)).resolves.toBeDefined();
   });
-
   it('does not permit a project name to escape the selected parent folder', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-project-parent-'));
     temporaryRoots.push(parent);
-
     expect(() => resolveNewProjectRoot(parent, '../outside')).toThrow(
       'not portable in a file name',
     );
   });
-
   it('creates and loads the versioned aggregate without losing user code', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-project-'));
     temporaryRoots.push(parent);
     const session = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
-    const userPath = 'pages/PageMain.ts';
+    const userPath = 'pages/index.ts';
     await fs.writeFile(path.join(session.rootPath, userPath), '// preserved user code\n', 'utf8');
-
     const manifest = JSON.parse(await fs.readFile(session.projectFilePath, 'utf8')) as {
       formatVersion: number;
-      pages: { pageFile: string }[];
-      styles: { id: string; componentType: string; preset?: string }[];
+      pages: {
+        pageFile: string;
+      }[];
+      styles: {
+        id: string;
+        componentType: string;
+        preset?: string;
+      }[];
     };
     expect(manifest.formatVersion).toBe(CURRENT_PROJECT_FORMAT_VERSION);
     expect(manifest.styles).toHaveLength(DEFAULT_COMPONENT_STYLE_DEFINITIONS.length);
@@ -94,23 +93,32 @@ describe('project files', () => {
     if (pageFile === undefined) return;
     const pageDocument = JSON.parse(
       await fs.readFile(path.join(session.rootPath, ...pageFile.split('/')), 'utf8'),
-    ) as { formatVersion: number; components: { id: string; styleId?: string }[] };
+    ) as {
+      formatVersion: number;
+      components: {
+        id: string;
+        styleId?: string;
+      }[];
+    };
     expect(pageDocument.formatVersion).toBe(CURRENT_PAGE_FORMAT_VERSION);
     expect(pageDocument.components[0]?.styleId).toBe(defaultPageStyle?.id);
-
     const loaded = await loadProjectFiles(session.projectFilePath);
     expect(loaded.project.name).toBe('Project1');
-    expect(loaded.project.pages[0]?.name).toBe('PageMain');
+    expect(loaded.project.pages[0]?.name).toBe('index');
     expect(loaded.userSources[userPath]).toBe('// preserved user code\n');
   });
-
   it('restores Default Popup when loading a project created before its Aurora style existed', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-legacy-popup-style-'));
     temporaryRoots.push(parent);
     const session = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
     const manifest = JSON.parse(await fs.readFile(session.projectFilePath, 'utf8')) as {
-      pages: { pageFile: string }[];
-      styles: { componentType: string; preset?: string }[];
+      pages: {
+        pageFile: string;
+      }[];
+      styles: {
+        componentType: string;
+        preset?: string;
+      }[];
     };
     manifest.styles = manifest.styles.filter(
       (style) => !(style.componentType === 'WebPopup' && style.preset === 'default'),
@@ -141,7 +149,6 @@ describe('project files', () => {
     });
     await fs.writeFile(session.projectFilePath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
     await fs.writeFile(pagePath, `${JSON.stringify(page, null, 2)}\n`, 'utf8');
-
     const loaded = await loadProjectFiles(session.projectFilePath);
     const defaultPopupStyle = loaded.project.styles.find(
       (style) => style.componentType === 'WebPopup' && style.preset === 'default',
@@ -152,7 +159,6 @@ describe('project files', () => {
     const popupIndex = loaded.project.styles.findIndex(
       (style) => style.id === defaultPopupStyle?.id,
     );
-
     expect(defaultPopupStyle).toMatchObject({
       name: 'Default Popup',
       id: `${loaded.project.id}:default-style:WebPopup`,
@@ -162,14 +168,16 @@ describe('project files', () => {
       loaded.project.pages[0]?.components.find((component) => component.id === 'legacy-popup-id')
         ?.styleId,
     ).toBeUndefined();
-
     await saveProjectFiles({
       rootPath: loaded.rootPath,
       project: loaded.project,
       userSources: loaded.userSources,
     });
     const persistedManifest = JSON.parse(await fs.readFile(session.projectFilePath, 'utf8')) as {
-      styles: { componentType: string; preset?: string }[];
+      styles: {
+        componentType: string;
+        preset?: string;
+      }[];
     };
     expect(
       persistedManifest.styles.filter(
@@ -177,7 +185,6 @@ describe('project files', () => {
       ),
     ).toHaveLength(1);
   });
-
   it('persists reusable styles inline and component references in page documents', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-styles-'));
     temporaryRoots.push(parent);
@@ -185,7 +192,6 @@ describe('project files', () => {
     const page = initial.project.pages[0];
     expect(page).toBeDefined();
     if (page === undefined) return;
-
     const withButtonPage = addComponent(page, {
       id: 'button-id',
       type: 'WebButton',
@@ -215,7 +221,6 @@ describe('project files', () => {
     const withButton = updatePage(initial.project, page.id, withButtonPage);
     const withStyle = addComponentStyle(withButton, style);
     const project = setComponentStyle(withStyle, page.id, 'button-id', style.id);
-
     const saved = await saveProjectFiles({
       rootPath: initial.rootPath,
       project,
@@ -223,7 +228,9 @@ describe('project files', () => {
     });
     const manifest = JSON.parse(await fs.readFile(saved.projectFilePath, 'utf8')) as {
       styles: unknown[];
-      pages: { pageFile: string }[];
+      pages: {
+        pageFile: string;
+      }[];
     };
     expect(manifest.styles).toEqual(expect.arrayContaining([style]));
     expect(manifest.styles).toHaveLength(initial.project.styles.length + 1);
@@ -232,15 +239,18 @@ describe('project files', () => {
     if (pageFile === undefined) return;
     const persistedPage = JSON.parse(
       await fs.readFile(path.join(saved.rootPath, ...pageFile.split('/')), 'utf8'),
-    ) as { components: { id: string; styleId?: string }[] };
+    ) as {
+      components: {
+        id: string;
+        styleId?: string;
+      }[];
+    };
     expect(
       persistedPage.components.find((component) => component.id === 'button-id')?.styleId,
     ).toBe(style.id);
-
     const loaded = await loadProjectFiles(saved.projectFilePath);
     expect(loaded.project).toEqual(project);
   });
-
   it('persists reusable definitions in the manifest and restores instance references', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-reusable-elements-'));
     temporaryRoots.push(parent);
@@ -257,7 +267,6 @@ describe('project files', () => {
     const page = withReusableDefinition.pages[0];
     expect(page).toBeDefined();
     if (page === undefined) return;
-
     const reusableInstance = defaultComponentRegistry.createComponent('WebReusableElement', {
       id: 'customer-card-instance',
       name: 'CustomerCardInstance',
@@ -277,7 +286,6 @@ describe('project files', () => {
       page.id,
       addComponent(page, reusableInstance, page.rootComponentId),
     );
-
     const saved = await saveProjectFiles({
       rootPath: initial.rootPath,
       project,
@@ -288,10 +296,11 @@ describe('project files', () => {
         id: string;
         name: string;
         rootComponentId: string;
-        components: { id: string }[];
+        components: {
+          id: string;
+        }[];
       }[];
     };
-
     expect(manifest.reusableElements).toHaveLength(1);
     expect(manifest.reusableElements[0]).toMatchObject({
       id: reusableDefinition.id,
@@ -307,7 +316,6 @@ describe('project files', () => {
     await expect(
       fs.readFile(path.join(saved.rootPath, 'reusables', 'CustomerCard.generated.ts'), 'utf8'),
     ).resolves.toContain('extends WebReusableElementInstance');
-
     const loaded = await loadProjectFiles(saved.projectFilePath);
     expect(loaded.project.reusableElements).toEqual(project.reusableElements);
     expect(loaded.userSources['reusables/CustomerCard.ts']).toContain(
@@ -318,29 +326,24 @@ describe('project files', () => {
         ?.props.reusableElementId,
     ).toBe(reusableDefinition.id);
   });
-
   it('preserves an owned authored source when the request source map omits it', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-owned-source-'));
     temporaryRoots.push(parent);
     const initial = await createProjectFiles(path.join(parent, 'Project1'), 'Project1');
-    const sourcePath = path.join(initial.rootPath, 'pages', 'PageMain.ts');
+    const sourcePath = path.join(initial.rootPath, 'pages', 'index.ts');
     const source = '// irreplaceable authored source\r\n';
     await fs.writeFile(sourcePath, source, 'utf8');
-
     const saved = await saveProjectFiles({
       rootPath: initial.rootPath,
       project: initial.project,
       userSources: {},
     });
-
     await expect(fs.readFile(sourcePath, 'utf8')).resolves.toBe(source);
-    expect(saved.userSources).toEqual({ 'pages/PageMain.ts': source });
+    expect(saved.userSources).toEqual({ ...initial.userSources, 'pages/index.ts': source });
   });
-
   it('rejects traversal outside the project root', () => {
     expect(() => resolveInsideProject('C:/safe/project', '../outside.txt')).toThrow(/outside/);
   });
-
   it('rejects an internal symbolic link that resolves outside the granted root', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-links-'));
     temporaryRoots.push(parent);
@@ -354,10 +357,8 @@ describe('project files', () => {
       if (error instanceof Error && 'code' in error && error.code === 'EPERM') return;
       throw error;
     }
-
     await expect(resolveInsideProjectSecure(root, 'linked/secret.txt')).rejects.toThrow(/outside/);
   });
-
   it('moves files retired by page deletion into the recoverable project trash', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-retired-'));
     temporaryRoots.push(parent);
@@ -369,14 +370,12 @@ describe('project files', () => {
       project: withOther,
       userSources: defaultUserSources(withOther),
     });
-
     const withoutOther = removePage(withOther, otherPage.id);
     await saveProjectFiles({
       rootPath: initial.rootPath,
       project: withoutOther,
       userSources: defaultUserSources(withoutOther),
     });
-
     await expect(
       fs.stat(path.join(initial.rootPath, 'pages', 'PageOther.wrpage')),
     ).rejects.toThrow();
@@ -386,7 +385,6 @@ describe('project files', () => {
     expect(archived.some((entry) => String(entry).endsWith('PageOther.wrpage'))).toBe(true);
     expect(archived.some((entry) => String(entry).endsWith('PageOther.ts'))).toBe(true);
   });
-
   it('archives old ownership before a deleted page name is reused', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-reused-'));
     temporaryRoots.push(parent);
@@ -401,7 +399,6 @@ describe('project files', () => {
         'pages/PageOther.ts': '// irreplaceable old source\n',
       },
     });
-
     const newPage = createPage('PageOther');
     const withReusedName = addPage(removePage(withOldPage, oldPage.id), newPage);
     await saveProjectFiles({
@@ -409,7 +406,6 @@ describe('project files', () => {
       project: withReusedName,
       userSources: defaultUserSources(withReusedName),
     });
-
     const trashRoot = path.join(initial.rootPath, '.webrad', 'trash');
     const archived = await fs.readdir(trashRoot, { recursive: true });
     const oldSourcePath = archived.find((entry) => String(entry).endsWith('PageOther.ts'));
@@ -421,7 +417,6 @@ describe('project files', () => {
       fs.readFile(path.join(initial.rootPath, 'pages', 'PageOther.ts'), 'utf8'),
     ).resolves.not.toBe('// irreplaceable old source\n');
   });
-
   it('refuses to overwrite an unowned TypeScript file', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-collision-'));
     temporaryRoots.push(parent);
@@ -430,7 +425,6 @@ describe('project files', () => {
     const withOther = addPage(initial.project, otherPage);
     const collisionPath = path.join(initial.rootPath, 'pages', 'PageOther.ts');
     await fs.writeFile(collisionPath, '// user-owned file\n', 'utf8');
-
     await expect(
       saveProjectFiles({
         rootPath: initial.rootPath,
@@ -440,7 +434,6 @@ describe('project files', () => {
     ).rejects.toThrow('unowned');
     await expect(fs.readFile(collisionPath, 'utf8')).resolves.toBe('// user-owned file\n');
   });
-
   it('serializes concurrent saves for the same project root', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-concurrent-'));
     temporaryRoots.push(parent);
@@ -465,7 +458,6 @@ describe('project files', () => {
       }
       return rename(source, destination);
     });
-
     try {
       const deleting = saveProjectFiles({
         rootPath: initial.rootPath,
@@ -484,13 +476,11 @@ describe('project files', () => {
       renameSpy.mockRestore();
       releaseManifest.resolve();
     }
-
     const loaded = await loadProjectFiles(initial.projectFilePath);
     expect(loaded.project.pages.map((page) => page.id)).toEqual(
       withOther.pages.map((page) => page.id),
     );
   });
-
   it('rolls back already-written artifacts when a pre-commit write fails', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-rollback-'));
     temporaryRoots.push(parent);
@@ -500,13 +490,12 @@ describe('project files', () => {
     const rename = fs.rename.bind(fs);
     let injectedFailure = false;
     const renameSpy = vi.spyOn(fs, 'rename').mockImplementation(async (source, destination) => {
-      if (!injectedFailure && String(destination).endsWith('PageMain.generated.ts')) {
+      if (!injectedFailure && String(destination).endsWith('index.generated.ts')) {
         injectedFailure = true;
         throw new Error('injected generated-file failure');
       }
       return rename(source, destination);
     });
-
     try {
       await expect(
         saveProjectFiles({
@@ -518,11 +507,9 @@ describe('project files', () => {
     } finally {
       renameSpy.mockRestore();
     }
-
     const loaded = await loadProjectFiles(initial.projectFilePath);
     expect(loaded.project.pages[0]?.caption).toBe(page.caption);
   });
-
   it('rejects noncanonical manifest names and descriptor paths', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-canonical-'));
     temporaryRoots.push(parent);
@@ -531,23 +518,24 @@ describe('project files', () => {
     const copyPath = path.join(initial.rootPath, 'Copy.wrproj');
     await fs.writeFile(copyPath, manifestSource, 'utf8');
     await expect(loadProjectFiles(copyPath)).rejects.toThrow('must be named');
-
     const manifest = JSON.parse(manifestSource) as {
-      pages: { pageFile: string; generatedFile: string; codeFile: string }[];
+      pages: {
+        pageFile: string;
+        generatedFile: string;
+        codeFile: string;
+      }[];
     };
     manifest.pages[0]!.codeFile = 'pages/custom.ts';
     await fs.writeFile(initial.projectFilePath, JSON.stringify(manifest), 'utf8');
     await expect(loadProjectFiles(initial.projectFilePath)).rejects.toThrow('codeFile');
-
     const formerPaths = JSON.parse(manifestSource) as typeof manifest;
     formerPaths.pages[0]!.pageFile = 'forms/PageMain.wrform';
-    formerPaths.pages[0]!.generatedFile = 'forms/PageMain.generated.ts';
-    formerPaths.pages[0]!.codeFile = 'forms/PageMain.ts';
+    formerPaths.pages[0]!.generatedFile = 'forms/index.generated.ts';
+    formerPaths.pages[0]!.codeFile = 'forms/index.ts';
     await fs.writeFile(initial.projectFilePath, JSON.stringify(formerPaths), 'utf8');
     await expect(loadProjectFiles(initial.projectFilePath)).rejects.toThrow('pageFile');
   });
 });
-
 describe('source files and assets', () => {
   it('archives deleted resources on save and excludes them when reopening', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-resource-delete-'));
@@ -601,7 +589,6 @@ describe('source files and assets', () => {
       expect(await fs.readFile(path.join(trashRoot, String(archivedPath)))).toEqual(content);
     }
   });
-
   it('preserves authored modules, binary bytes and identities across save, reopen and Save As', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-resource-files-'));
     temporaryRoots.push(parent);
@@ -639,7 +626,6 @@ describe('source files and assets', () => {
       Buffer.from([0, 255, 1]),
     );
   });
-
   it('refuses to overwrite an unowned module or asset', async () => {
     const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-resource-collision-'));
     temporaryRoots.push(parent);

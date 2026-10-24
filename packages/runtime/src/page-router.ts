@@ -200,17 +200,24 @@ export class WebPageRouter {
     if (route === undefined) {
       const url = new URL(destination, this.#window.location.href);
       const current = this.#window.location;
-      const internal = url.origin === current.origin &&
-        url.protocol === current.protocol && url.pathname.startsWith(this.#basePath) &&
+      const internal =
+        url.origin === current.origin &&
+        url.protocol === current.protocol &&
+        url.pathname.startsWith(this.#basePath) &&
         (url.protocol !== 'file:' || url.pathname === current.pathname);
       if (internal) {
-        const path = this.#mode === 'hash' && url.hash !== ''
-          ? url.hash.slice(1)
-          : '/' + url.pathname.slice(this.#basePath.length).replace(/\/$/, '');
-        const entryLocation = this.#mode === 'hash'
-          ? url.hash === '' && (url.pathname === current.pathname || path === '/' || path === '/index.html')
-          : path === '/' || path === '/index.html';
-        route = this.#paths.get(path) ?? (entryLocation ? this.#entryRoute ?? undefined : this.#paths.get('/404'));
+        const path =
+          this.#mode === 'hash' && url.hash !== ''
+            ? url.hash.slice(1)
+            : '/' + url.pathname.slice(this.#basePath.length).replace(/\/$/, '');
+        const entryLocation =
+          this.#mode === 'hash'
+            ? url.hash === '' &&
+              (url.pathname === current.pathname || path === '/' || path === '/index.html')
+            : path === '/' || path === '/index.html';
+        route =
+          this.#paths.get(path) ??
+          (entryLocation ? (this.#entryRoute ?? undefined) : this.#paths.get('/404'));
       }
     }
     if (route === undefined) {
@@ -328,15 +335,18 @@ export class WebPageRouter {
     const matched = this.#routeFromHash();
     if (matched !== undefined) return this.navigate(matched.id);
     const location = this.#window.location;
-    const entryLocation = this.#mode === 'hash'
-      ? location.hash === '' || location.hash === '#'
-      : location.pathname === this.#basePath || location.pathname === this.#basePath + 'index.html';
+    const entryLocation =
+      this.#mode === 'hash'
+        ? location.hash === '' || location.hash === '#'
+        : location.pathname === this.#basePath ||
+          location.pathname === this.#basePath + 'index.html';
     if (entryLocation) return this.navigate(entryRoute.id);
     const notFound = this.#paths.get('/404');
     if (notFound === undefined) throw new Error('No WebRAD 404 page route is registered.');
-    const url = this.#mode === 'hash'
-      ? this.#routeHash(notFound)
-      : this.#routeUrl(notFound) + location.search;
+    const url =
+      this.#mode === 'hash'
+        ? this.#routeHash(notFound)
+        : this.#routeUrl(notFound) + location.search;
     // Replace an unmatched address so Back does not re-enter a redirect loop.
     this.#window.history.replaceState(null, '', url);
     return this.navigate(notFound.id);

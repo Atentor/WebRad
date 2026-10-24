@@ -20,6 +20,7 @@ import {
 } from '@webrad/project-model';
 import type { ComponentPropertyDefinition } from '@webrad/component-registry';
 import { responsiveLayoutPropertyReference } from '../layout-property';
+import { CanonicalDesignerCommand } from './canonical-designer-command';
 
 class BindEventCommand implements Command<PageModel> {
   public readonly label = 'Bind event';
@@ -167,6 +168,8 @@ export class DesignerController {
   readonly #histories = new Map<string, DesignerHistory>();
   #clipboard: DesignerClipboardData | null = null;
 
+  public constructor(private readonly normalizeDocument?: (page: PageModel) => PageModel) {}
+
   public synchronize(page: PageModel): CommandHistory<PageModel> {
     const current = this.#histories.get(page.id);
     if (!current) {
@@ -190,7 +193,13 @@ export class DesignerController {
   }
 
   public execute(page: PageModel, command: Command<PageModel>): PageModel {
-    return this.synchronize(page).execute(command);
+    return this.synchronize(page).execute(this.canonicalCommand(command));
+  }
+
+  private canonicalCommand(command: Command<PageModel>): Command<PageModel> {
+    return this.normalizeDocument
+      ? new CanonicalDesignerCommand(command, this.normalizeDocument)
+      : command;
   }
 
   public executeMany(
@@ -200,7 +209,7 @@ export class DesignerController {
   ): PageModel {
     const history = this.synchronize(page);
     history.runTransaction(label, () => {
-      commands.forEach((command) => history.execute(command));
+      commands.forEach((command) => history.execute(this.canonicalCommand(command)));
     });
     return history.state;
   }

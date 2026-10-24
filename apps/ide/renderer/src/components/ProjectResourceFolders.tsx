@@ -1,19 +1,24 @@
 import { projectAssetPath, type WebRadProject } from '@webrad/project-model';
-import { useState, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { Icon } from './Icon';
 
 export function ProjectResourceFolders({
   project,
+  query,
+  collapsed,
+  onToggle,
   activeId,
   onOpen,
   onDelete,
 }: {
   project: WebRadProject;
+  query: string;
+  collapsed: ReadonlySet<string>;
+  onToggle: (label: string) => void;
   activeId?: string | null;
   onOpen?: (id: string) => void;
   onDelete?: (id: string) => void;
 }): ReactElement {
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const groups = [
     {
       label: 'Models',
@@ -39,7 +44,10 @@ export function ProjectResourceFolders({
   return (
     <>
       {groups.map(({ label, entries }) => {
-        const expanded = !collapsed.has(label);
+        const expanded = query.length > 0 || !collapsed.has(label);
+        const visibleEntries = entries.filter((entry) =>
+          entry.label.toLocaleLowerCase().includes(query),
+        );
         return (
           <div key={label}>
             <div className="wr-tree-row wr-folder-row" role="treeitem" aria-expanded={expanded}>
@@ -48,14 +56,7 @@ export function ProjectResourceFolders({
                 className="wr-tree-toggle"
                 aria-label={`${expanded ? 'Collapse' : 'Expand'} ${label}`}
                 aria-expanded={expanded}
-                onClick={() =>
-                  setCollapsed((current) => {
-                    const next = new Set(current);
-                    if (next.has(label)) next.delete(label);
-                    else next.add(label);
-                    return next;
-                  })
-                }
+                onClick={() => onToggle(label)}
               >
                 <Icon
                   name={expanded ? 'chevron-down' : 'chevron-right'}
@@ -67,7 +68,7 @@ export function ProjectResourceFolders({
             </div>
             {expanded && (
               <div role="group" className="wr-tree-group nested">
-                {entries.map((entry) => (
+                {visibleEntries.map((entry) => (
                   <div
                     key={entry.id}
                     role="treeitem"

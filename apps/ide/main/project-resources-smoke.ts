@@ -35,7 +35,8 @@ export async function runProjectResourcesSmoke(
     if (!projectMenu?.items.some((item) => item.label === label))
       throw new Error(`Missing Project menu item: ${label}`);
   }
-  window.webContents.send('webrad:menu-command', 'file.openProject');
+  await waitFor('document.querySelector(\'button[aria-label="Open project (Ctrl+O)"]\') !== null');
+  await click('button[aria-label="Open project (Ctrl+O)"]');
   await waitFor("document.querySelector('.wr-page-surface') !== null");
   await click('[aria-label="Project Explorer"]');
   await waitFor("document.querySelector('[role=tree]') !== null");
@@ -163,7 +164,75 @@ export async function runProjectResourcesSmoke(
   await click('[aria-label="Design"]');
   await click('[aria-label="Project Explorer"]');
   await waitFor("document.querySelector('[role=tree]') !== null");
-  for (const name of ['ResourceHelpers', 'ResourceModel', 'resource-image.png']) {
+  await click('[aria-label="Collapse all project folders"]');
+  await waitFor(
+    "document.querySelectorAll('[role=tree] [aria-expanded=true]').length === 0 && document.querySelectorAll('[role=tree] .wr-page-row').length === 0",
+  );
+  await click('[aria-label="Search project items"]');
+  await waitFor("document.activeElement?.getAttribute('aria-label') === 'Filter project items'");
+  window.webContents.focus();
+  await waitFor(`(() => {
+    const field = document.querySelector('[aria-label="Filter project items"]');
+    const close = document.querySelector('[aria-label="Close project search"]');
+    const search = document.querySelector('[aria-label="Search project items"]');
+    if (!field || !close || search?.getAttribute('aria-pressed') !== 'true') return false;
+    const inputBounds = field.getBoundingClientRect();
+    const closeBounds = close.getBoundingClientRect();
+    return inputBounds.height === 30 && closeBounds.left >= inputBounds.left &&
+      closeBounds.right <= inputBounds.right && closeBounds.top >= inputBounds.top &&
+      closeBounds.bottom <= inputBounds.bottom;
+  })()`);
+  window.webContents.insertText('ResourceModel');
+  await waitFor(
+    "document.querySelectorAll('[role=tree] .wr-page-row').length === 1 && document.querySelector('[role=tree] .wr-page-row')?.textContent?.includes('ResourceModel') === true",
+  );
+  await click('[aria-label="Close project search"]');
+  await waitFor(
+    "document.querySelector('[aria-label=\"Filter project items\"]') === null && document.querySelectorAll('[role=tree] .wr-page-row').length === 0",
+  );
+  for (const label of ['Pages', 'Reusable Components', 'Models', 'Units', 'Assets']) {
+    await click('[aria-label="Expand ' + label + '"]');
+  }
+  await waitFor(
+    "document.querySelector('[role=tree]')?.textContent?.includes('ResourceHelpers') === true",
+  );
+  log('renderer project Explorer collapse and search passed');
+  await window.webContents.executeJavaScript(
+    `Array.from(document.querySelectorAll('[role=treeitem]')).find(item => item.querySelector('span:last-child')?.textContent === 'ResourceHelpers')?.click()`,
+    true,
+  );
+  await waitFor(
+    `document.querySelector('[aria-label="Duplicate selected project item"]')?.title === 'Duplicate ResourceHelpers'`,
+  );
+  await click('[aria-label="Duplicate selected project item"]');
+  await waitFor(
+    `document.querySelector('[aria-label="Delete selected project item"]')?.title === 'Delete ResourceHelpersCopy'`,
+  );
+  window.webContents.send('webrad:menu-command', 'file.save');
+  await waitFor("document.querySelector('.wr-toolbar')?.textContent?.includes('*') === false");
+  const copied = await loadProjectFiles(projectPath);
+  const originalUnit = copied.project.sourceFiles?.find((file) => file.name === 'ResourceHelpers');
+  const copiedUnit = copied.project.sourceFiles?.find(
+    (file) => file.name === 'ResourceHelpersCopy',
+  );
+  if (
+    !originalUnit ||
+    !copiedUnit ||
+    originalUnit.id === copiedUnit.id ||
+    copied.userSources['units/ResourceHelpers.ts'] !==
+      copied.userSources['units/ResourceHelpersCopy.ts']
+  ) {
+    throw new Error(
+      'Explorer duplication did not preserve independent identity and authored source.',
+    );
+  }
+  log('renderer project Explorer duplication and persistence passed');
+  for (const name of [
+    'ResourceHelpersCopy',
+    'ResourceHelpers',
+    'ResourceModel',
+    'resource-image.png',
+  ]) {
     await window.webContents.executeJavaScript(
       `Array.from(document.querySelectorAll('[role=treeitem]')).find(item => item.querySelector('span:last-child')?.textContent === ${JSON.stringify(name)})?.click()`,
       true,

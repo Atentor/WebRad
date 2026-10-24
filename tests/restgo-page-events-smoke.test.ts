@@ -4,12 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import type { BrowserWindow } from 'electron';
 import { expect, it, vi } from 'vitest';
-
 vi.mock('electron', () => ({ BrowserWindow: vi.fn() }));
 vi.mock('../apps/ide/main/preview-server', () => ({}));
-
 import { runRestGoPageEventsSmoke } from '../apps/ide/main/restgo-smoke';
-
 it.each(['textarea', 'edit-context'])(
   'waits for event navigation and native %s focus before typing into a mounted Monaco',
   async (inputMode) => {
@@ -21,7 +18,7 @@ it.each(['textarea', 'edit-context'])(
       await writeFile(...args);
     });
     const timers: ReturnType<typeof setTimeout>[] = [];
-    const handlers = ['PageMainLogin', 'PageMainLogout', 'PageMainUnauthenticated'];
+    const handlers = ['indexLogin', 'indexLogout', 'indexUnauthenticated'];
     let currentHandler = '';
     let authoredHandler = '';
     document.body.innerHTML = `
@@ -57,7 +54,7 @@ it.each(['textarea', 'edit-context'])(
     try {
       await fs.mkdir(path.join(workspace, 'pages'));
       await fs.writeFile(
-        path.join(workspace, 'pages', 'PageMain.wrpage'),
+        path.join(workspace, 'pages', 'index.wrpage'),
         JSON.stringify({
           rootComponentId: 'root',
           components: [
@@ -73,18 +70,18 @@ it.each(['textarea', 'edit-context'])(
         }),
       );
       await fs.writeFile(
-        path.join(workspace, 'pages', 'PageMain.ts'),
+        path.join(workspace, 'pages', 'index.ts'),
         [
           'CustomEvent<WebPageLoginEventDetail>',
           'CustomEvent<WebPageLogoutEventDetail>',
-          'async PageMainUnauthenticated(sender: WebPage, event: Event): Promise<void>',
+          'async indexUnauthenticated(sender: WebPage, event: Event): Promise<void>',
           'const { user } = event.detail;',
         ].join('\n'),
       );
       const log = vi.fn();
       const insertText = vi.fn(async (value: string) => {
         expect(document.activeElement).toBe(textarea);
-        expect(currentHandler).toBe('PageMainUnauthenticated');
+        expect(currentHandler).toBe('indexUnauthenticated');
         authoredHandler = currentHandler;
         text.textContent += value;
       });
@@ -100,7 +97,7 @@ it.each(['textarea', 'edit-context'])(
         projectPath: path.join(workspace, 'Fixture.wrproj'),
         log,
       });
-      expect(authoredHandler).toBe('PageMainUnauthenticated');
+      expect(authoredHandler).toBe('indexUnauthenticated');
       expect(insertText).toHaveBeenCalledExactlyOnceWith('return;');
       expect(log).toHaveBeenCalledWith(
         expect.stringContaining('renderer RestGO page Interaction passed:'),

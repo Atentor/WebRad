@@ -328,10 +328,13 @@ export function MenuConfigurationDialog({
                                 {
                                   up: 'arrow-up',
                                   down: 'arrow-down',
-                                  indent: 'indent-increase',
-                                  outdent: 'indent-decrease',
+                                  indent: 'list-indent-increase',
+                                  outdent: 'list-indent-decrease',
                                 }[direction] as
-                                  'arrow-up' | 'arrow-down' | 'indent-increase' | 'indent-decrease'
+                                  | 'arrow-up'
+                                  | 'arrow-down'
+                                  | 'list-indent-increase'
+                                  | 'list-indent-decrease'
                               }
                             />
                           </button>

@@ -1,6 +1,6 @@
 import { ProjectResourceFolders } from './ProjectResourceFolders';
 import type { WebRadProject } from '@webrad/project-model';
-import { useState, type DragEvent, type ReactElement } from 'react';
+import { useRef, useState, type DragEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
 import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
@@ -10,6 +10,7 @@ interface ProjectExplorerProps {
   activeResourceId?: string | null;
   onOpenResource?: (id: string) => void;
   onDeleteResource?: (id: string) => void;
+  onDuplicateItem?: (id: string) => void;
   activePageId: string | null;
   onOpenPage: (pageId: string) => void;
   onAddPage: () => void;
@@ -51,6 +52,7 @@ export function ProjectExplorer({
   activeResourceId,
   onOpenResource,
   onDeleteResource,
+  onDuplicateItem,
   activePageId,
   onOpenPage,
   onAddPage,
@@ -64,8 +66,25 @@ export function ProjectExplorer({
 }: ProjectExplorerProps): ReactElement {
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
-  const [pagesExpanded, setPagesExpanded] = useState(true);
-  const [reusableElementsExpanded, setReusableElementsExpanded] = useState(true);
+  const [collapsedFolders, setCollapsedFolders] = useState<ReadonlySet<string>>(new Set());
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [search, setSearch] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
+  const query = search.trim().toLocaleLowerCase();
+  const matches = (name: string): boolean => name.toLocaleLowerCase().includes(query);
+  const pages = project?.pages.filter((page) => matches(page.name)) ?? [];
+  const reusableElements =
+    project?.reusableElements.filter((element) => matches(element.name)) ?? [];
+  const pagesExpanded = query.length > 0 || !collapsedFolders.has('Pages');
+  const reusableElementsExpanded = query.length > 0 || !collapsedFolders.has('Reusable Components');
+  const toggleFolder = (label: string): void => {
+    setCollapsedFolders((current) => {
+      const next = new Set(current);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
   const selectedPage = project?.pages.find((page) => page.id === activePageId);
   const selectedReusable = project?.reusableElements.find(
     (element) => element.id === activeReusableElementId,
@@ -95,7 +114,8 @@ export function ProjectExplorer({
     if (
       pageId === project?.entryPage ||
       project?.pages.some((page) => page.id === pageId && page.name === '404')
-    ) return;
+    )
+      return;
     setEditingPageId(pageId);
     setDraftName(name);
   };
@@ -114,8 +134,38 @@ export function ProjectExplorer({
   return (
     <Panel
       title="Project Explorer"
+      className="wr-project-explorer"
       actions={
         <>
+          <button
+            type="button"
+            title="Collapse all"
+            aria-label="Collapse all project folders"
+            disabled={!project}
+            onClick={() => {
+              setSearch('');
+              setCollapsedFolders(
+                new Set(['Pages', 'Reusable Components', 'Models', 'Units', 'Assets']),
+              );
+            }}
+          >
+            <Icon name="fold-vertical" />
+          </button>
+          <button
+            type="button"
+            title="Search project items"
+            aria-label="Search project items"
+            aria-expanded={searchVisible}
+            aria-pressed={searchVisible}
+            aria-controls="wr-project-search"
+            disabled={!project}
+            onClick={() => {
+              setSearchVisible(true);
+              searchInput.current?.focus();
+            }}
+          >
+            <Icon name="search" />
+          </button>
           <button type="button" title="Add page" aria-label="Add page" onClick={onAddPage}>
             <Icon name="add" />
           </button>
@@ -126,6 +176,18 @@ export function ProjectExplorer({
             onClick={onAddReusableElement}
           >
             <Icon name="component" />
+          </button>
+          <button
+            type="button"
+            title={selectedName ? `Duplicate ${selectedName}` : 'Select an item to duplicate'}
+            aria-label="Duplicate selected project item"
+            disabled={!onDuplicateItem || !selectedName}
+            onClick={() => {
+              const selected = selectedResource ?? selectedReusable ?? selectedPage;
+              if (selected) onDuplicateItem?.(selected.id);
+            }}
+          >
+            <Icon name="file-copy" />
           </button>
           <button
             type="button"
@@ -145,6 +207,41 @@ export function ProjectExplorer({
         </>
       }
     >
+      {searchVisible && project && (
+        <div className="wr-project-search wr-palette-search" id="wr-project-search">
+          <span className="wr-palette-search-icon" aria-hidden="true">
+            <Icon name="search" />
+          </span>
+          <input
+            ref={searchInput}
+            autoFocus
+            type="search"
+            aria-label="Filter project items"
+            placeholder="Search project items..."
+            spellCheck={false}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setSearch('');
+                setSearchVisible(false);
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="wr-palette-clear"
+            title="Close search"
+            aria-label="Close project search"
+            onClick={() => {
+              setSearch('');
+              setSearchVisible(false);
+            }}
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+      )}
       {!project ? (
         <div className="wr-empty-state">Create or open a project to begin.</div>
       ) : (
@@ -158,14 +255,14 @@ export function ProjectExplorer({
               <FolderGlyph
                 open={pagesExpanded}
                 label="Pages"
-                onToggle={() => setPagesExpanded((current) => !current)}
+                onToggle={() => toggleFolder('Pages')}
               />
               <span>Pages</span>
               <small>{project.pages.length}</small>
             </div>
             {pagesExpanded && (
               <div role="group" className="wr-tree-group nested">
-                {project.pages.map((page) => (
+                {pages.map((page) => (
                   <div
                     key={page.id}
                     className={`wr-tree-row wr-page-row ${activePageId === page.id ? 'active' : ''}`}
@@ -176,7 +273,11 @@ export function ProjectExplorer({
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') onOpenPage(page.id);
                       if (event.key === 'F2') beginRename(page.id, page.name);
-                      if (event.key === 'Delete' && page.id !== project.entryPage && page.name !== '404')
+                      if (
+                        event.key === 'Delete' &&
+                        page.id !== project.entryPage &&
+                        page.name !== '404'
+                      )
                         onDeletePage(page.id);
                     }}
                     tabIndex={0}
@@ -211,14 +312,14 @@ export function ProjectExplorer({
               <FolderGlyph
                 open={reusableElementsExpanded}
                 label="Reusable Components"
-                onToggle={() => setReusableElementsExpanded((current) => !current)}
+                onToggle={() => toggleFolder('Reusable Components')}
               />
               <span>Reusable Components</span>
               <small>{project.reusableElements.length}</small>
             </div>
             {reusableElementsExpanded && (
               <div role="group" className="wr-tree-group nested">
-                {project.reusableElements.map((reusableElement) => (
+                {reusableElements.map((reusableElement) => (
                   <div
                     key={reusableElement.id}
                     className={`wr-tree-row wr-page-row ${
@@ -268,6 +369,9 @@ export function ProjectExplorer({
             )}
             <ProjectResourceFolders
               project={project}
+              query={query}
+              collapsed={collapsedFolders}
+              onToggle={toggleFolder}
               activeId={activeResourceId}
               onOpen={onOpenResource}
               onDelete={onDeleteResource}

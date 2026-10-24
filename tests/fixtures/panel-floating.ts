@@ -1,6 +1,5 @@
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { addComponent, bindComponentEvent, createProject, updatePage } from '@webrad/project-model';
-
 export function panelFloatingProject() {
   const project = createProject('PanelFloatingExample');
   let page = project.pages[0]!;
@@ -63,10 +62,9 @@ export function panelFloatingProject() {
   page = bindComponentEvent(page, 'toggle', 'OnClick', 'toggleFloating');
   return updatePage(project, page.id, page);
 }
-
 export const panelFloatingUserSources = {
-  'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+  'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   anchorRight(): void {
     FloatingPanel.floatingHorizontalAnchor = 'right';
     this.FloatingPanel.floatingVerticalAnchor = 'bottom';

@@ -22,9 +22,9 @@ describe('Tailwind compiler environment', () => {
       const project = createProject('TailwindEnvironment');
       const designerCss = await compileTailwindStyles(project.styles);
       const generatedCss = await compileGeneratedAppStyles(project.styles);
-      expect(designerCss).toContain('--font-sans');
+      expect(designerCss).toContain('--font-roboto');
       expect(generatedCss).toContain('.wr-component');
-      expect(generatedCss).toContain('--font-sans');
+      expect(generatedCss).toContain('--font-roboto');
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

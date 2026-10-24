@@ -236,6 +236,28 @@ function normalizeMenuDefaultShadow(styles: readonly unknown[]): readonly unknow
   });
 }
 
+/** Adopt Roboto for generic default fonts while retaining explicit font choices. */
+function normalizeDefaultStyleFonts(styles: readonly unknown[]): readonly unknown[] {
+  return styles.map((style) => {
+    if (
+      !isRecord(style) ||
+      style.preset !== 'default' ||
+      !DEFAULT_COMPONENT_STYLE_DEFINITIONS.some(
+        (definition) => definition.componentType === style.componentType,
+      ) ||
+      !isRecord(style.states) ||
+      !isRecord(style.states.base)
+    )
+      return style;
+    const base = style.states.base;
+    if (base.fontFamily !== undefined && base.fontFamily !== 'sans') return style;
+    return {
+      ...style,
+      states: { ...style.states, base: { ...base, fontFamily: 'roboto' } },
+    };
+  });
+}
+
 /**
  * Add a newly introduced Aurora visual's protected style deterministically
  * without disturbing a project's other saved styles or component bindings.
@@ -340,7 +362,7 @@ function materializeProjectDefaults(input: unknown): unknown {
       ['WebToggle'],
       palette.success ? palette.data : [],
     ).styles;
-    styles = normalizeIconDefaultFocus(
+    const iconStyles = normalizeIconDefaultFocus(
       materializeComponentDefaultStyle(
         candidate.id,
         progressStyles,
@@ -350,15 +372,16 @@ function materializeProjectDefaults(input: unknown): unknown {
       ).styles,
       palette.success ? palette.data : [],
     );
-    styles = normalizeMenuDefaultShadow(
+    const menuStyles = normalizeMenuDefaultShadow(
       materializeComponentDefaultStyle(
         candidate.id,
-        styles,
+        iconStyles,
         'WebMenu',
         ['WebIcon'],
         palette.success ? palette.data : [],
       ).styles,
     );
+    styles = normalizeDefaultStyleFonts(menuStyles);
   }
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;
@@ -609,8 +632,10 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
     })
     .strict()
     .superRefine((component, context) => {
-      const nameError = component.name === '404' && component.type === 'WebPage' && component.parentId === null
-        ? undefined : getTypeScriptIdentifierError(component.name);
+      const nameError =
+        component.name === '404' && component.type === 'WebPage' && component.parentId === null
+          ? undefined
+          : getTypeScriptIdentifierError(component.name);
       if (nameError !== undefined)
         context.addIssue({ code: 'custom', message: nameError, path: ['name'] });
       if (component.type === 'WebMenu' && component.props.configuration !== undefined) {
@@ -1511,7 +1536,11 @@ function validateReusableElementRelationships(
 ): void {
   validateDocumentRelationships(reusableElement, context, ['WebPanel']);
   if (reusableElement.name === '404')
-    context.addIssue({ code: 'custom', message: '404 is reserved for the mandatory page.', path: ['name'] });
+    context.addIssue({
+      code: 'custom',
+      message: '404 is reserved for the mandatory page.',
+      path: ['name'],
+    });
 }
 
 function validateVisualDocumentRelationships(page: PageModel, context: z.RefinementCtx): void {
@@ -1621,7 +1650,11 @@ function validatePaletteReferences(
 }
 function validateProjectRelationships(project: WebRadProject, context: z.RefinementCtx): void {
   if (project.pages.find((page) => page.id === project.entryPage)?.name !== 'index')
-    context.addIssue({ code: 'custom', message: 'The entry page must be index.', path: ['entryPage'] });
+    context.addIssue({
+      code: 'custom',
+      message: 'The entry page must be index.',
+      path: ['entryPage'],
+    });
   validateMenuPageReferences(project, context);
   validateProjectResourceIds(project, context);
   validatePaletteReferences(project, context);

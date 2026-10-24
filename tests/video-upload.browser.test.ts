@@ -4,7 +4,6 @@ import { compileProjectToMemory } from '@webrad/compiler';
 import { updatePage, updateProjectSettings } from '@webrad/project-model';
 import { videoBackend, videoUploadProject, videoUploadUserSources } from './fixtures/video-upload';
 import { withChromium } from './chromium';
-
 const browser = process.env.WEBRAD_BROWSER_PATH;
 it.runIf(browser !== undefined)(
   'runs real video metadata/limits and resumable binary upload in Chromium compiled Preview',
@@ -55,9 +54,9 @@ it.runIf(browser !== undefined)(
     const app = createServer((_request, response) => {
       response.writeHead(200, { 'Content-Type': 'text/html' });
       response.end(
-        _request.url === '/preview'
+        _request.url === '/index.html'
           ? preview
-          : '<!doctype html><iframe style="width:100%;height:600px;border:0" src="/preview"></iframe>',
+          : '<!doctype html><iframe style="width:100%;height:600px;border:0" src="/index.html"></iframe>',
       );
     });
     await Promise.all([
@@ -102,11 +101,17 @@ it.runIf(browser !== undefined)(
             returnByValue: true,
           });
           if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-          return (result.result as { value?: unknown } | undefined)?.value;
+          return (
+            result.result as
+              | {
+                  value?: unknown;
+                }
+              | undefined
+          )?.value;
         };
         const frame = 'document.querySelector("iframe").contentWindow';
         const root = `${frame}.document.querySelector('[data-webrad-page-id]')`;
-        await expect.poll(() => evaluate(`Boolean(${root})`), { timeout: 10_000 }).toBe(true);
+        await expect.poll(() => evaluate(`Boolean(${root})`), { timeout: 10000 }).toBe(true);
         // A real VP8 WebM produced by Chromium. Add its finite Duration metadata
         // because MediaRecorder emits a streaming segment without that field.
         const size = await evaluate(`(async () => {
@@ -170,13 +175,13 @@ it.runIf(browser !== undefined)(
         expect(backend.uploads.size).toBe(0);
         await evaluate(`${root}.querySelector('[data-webrad-name="SendVideo"]').click()`);
         await expect
-          .poll(() => evaluate(`${root}.dataset.uploadError`), { timeout: 10_000 })
+          .poll(() => evaluate(`${root}.dataset.uploadError`), { timeout: 10000 })
           .toContain('aborted');
         expect(backend.uploads.get('upload-1')?.session.offset).toBe(1024);
         expect(backend.calls.some((entry) => entry.method === 'DELETE')).toBe(false);
         await evaluate(`${root}.querySelector('[data-webrad-name="ResumeVideo"]').click()`);
         await expect
-          .poll(() => evaluate(`${root}.dataset.video`), { timeout: 15_000 })
+          .poll(() => evaluate(`${root}.dataset.video`), { timeout: 15000 })
           .toBeDefined();
         expect(backend.uploads.size).toBe(1);
         expect(backend.uploads.get('upload-1')?.content.length).toBe(size);
@@ -197,5 +202,5 @@ it.runIf(browser !== undefined)(
       ]);
     }
   },
-  45_000,
+  45000,
 );

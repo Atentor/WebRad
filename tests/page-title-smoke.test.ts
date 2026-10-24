@@ -26,7 +26,7 @@ it('checks the completed F9 frame after compilation blocks the next polling turn
     frames: [],
     executeJavaScript: vi.fn(async (expression: string) =>
       expression.includes('Navigate(')
-        ? { hash: '', path: '/index' }
+        ? { hash: '', path: '/index', directFallback: true, notFound: true, internalNotFound: true }
         : { title: 'Expected title', mounted: true },
     ),
   };

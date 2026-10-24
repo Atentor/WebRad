@@ -9,13 +9,11 @@ import {
   type DataGridConfiguration,
 } from '@webrad/project-model';
 import { comboBoxApiConfiguration } from './combo-box';
-
 export const dataGridToggleRows = [
   { id: 1, name: 'Ada', active: true },
   { id: 2, name: 'Linus', active: false },
   { id: 3, name: 'Grace', active: null },
 ];
-
 export function dataGridToggleApiConfiguration() {
   const configuration = comboBoxApiConfiguration();
   const operation = configuration.operations[0]!;
@@ -52,7 +50,6 @@ export function dataGridToggleApiConfiguration() {
     ],
   };
 }
-
 export function dataGridToggleConfiguration(): DataGridConfiguration {
   const defaults = createDefaultDataGridConfiguration();
   return {
@@ -71,7 +68,6 @@ export function dataGridToggleConfiguration(): DataGridConfiguration {
     })),
   };
 }
-
 export function dataGridToggleProject(baseUrl = 'https://api.example.test') {
   let project = createProject('GridToggle');
   let page = project.pages[0]!;
@@ -101,11 +97,10 @@ export function dataGridToggleProject(baseUrl = 'https://api.example.test') {
   project = updatePage(project, page.id, page);
   return project;
 }
-
 export const dataGridToggleSources = {
-  'pages/PageMain.ts': `import type { WebDataGridCellEventDetail } from '@webrad/runtime';
-import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+  'pages/index.ts': `import type { WebDataGridCellEventDetail } from '@webrad/runtime';
+import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   async load(): Promise<void> { await ApiClient1.Load.execute(); }
   clicked(_sender: unknown, event: CustomEvent<WebDataGridCellEventDetail>): void {
     this.element.dataset.clicked = JSON.stringify({ row: event.detail.rowIndex, kind: event.detail.column.cellKind, value: event.detail.value });

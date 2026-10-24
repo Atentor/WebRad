@@ -1,3 +1,4 @@
+import { PROJECT_TEMPLATE_IDS } from '@webrad/component-registry';
 import { readSelectedProjectAsset } from './project-asset';
 import {
   cancelNativeBuildForOwner,
@@ -63,6 +64,7 @@ let registered = false;
 const createProjectSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
+    templateId: z.enum(PROJECT_TEMPLATE_IDS).default('blank'),
   })
   .strict();
 
@@ -161,7 +163,7 @@ async function createProjectHandler(
   if (!parentPath) return null;
   const rootPath = resolveNewProjectRoot(parentPath, request.name);
   await ensureNewDestination(rootPath);
-  const session = await createProjectFiles(rootPath, request.name);
+  const session = await createProjectFiles(rootPath, request.name, request.templateId);
 
   return session;
 }

@@ -12,9 +12,7 @@ import type {
 import { createDebugTestBridge } from '../../../shared/debugger-test-bridge';
 import { ProjectController } from './project-controller';
 import { useDebugger } from './useDebugger';
-
 afterEach(cleanup);
-
 function harness() {
   const debuggerBridge = createDebugTestBridge();
   let listener: (event: DebugEvent) => void = () => undefined;
@@ -51,25 +49,24 @@ function harness() {
   });
   return { ...hook, controller, bridge, callbacks, emit: (event: DebugEvent) => listener(event) };
 }
-
 describe('integrated debugger controller', () => {
   it('persists only authored breakpoint preferences and merges locations collapsed by an edit', () => {
     const test = harness();
     act(() =>
       test.result.current.moveBreakpoints([
         {
-          path: 'pages/PageMain.ts',
+          path: 'pages/index.ts',
           line: 3,
           enabled: true,
           verified: true,
           actualLine: 4,
         } as DebugBreakpoint,
-        { path: 'pages/PageMain.ts', line: 3, enabled: true },
+        { path: 'pages/index.ts', line: 3, enabled: true },
       ]),
     );
     expect(test.controller.getSnapshot().project?.debugger?.breakpoints).toEqual([
       {
-        path: 'pages/PageMain.ts',
+        path: 'pages/index.ts',
         line: 3,
         column: undefined,
         condition: undefined,
@@ -81,7 +78,7 @@ describe('integrated debugger controller', () => {
     const test = harness();
     await waitFor(() => expect(test.bridge.debugger.getState).toHaveBeenCalled());
     act(() => {
-      test.result.current.toggleBreakpoint('pages/PageMain.ts', 7);
+      test.result.current.toggleBreakpoint('pages/index.ts', 7);
       test.result.current.setWatches(['this.name']);
     });
     await act(() => test.result.current.start());
@@ -89,23 +86,22 @@ describe('integrated debugger controller', () => {
     expect(test.bridge.debugger.start).toHaveBeenCalledWith(
       expect.objectContaining({
         rootPath: 'C:/projects/Debug',
-        breakpoints: [{ path: 'pages/PageMain.ts', line: 7, enabled: true }],
+        breakpoints: [{ path: 'pages/index.ts', line: 7, enabled: true }],
         pauseOnExceptions: 'uncaught',
       }),
     );
     expect(test.controller.getSnapshot().project?.debugger?.watches).toEqual(['this.name']);
     expect(test.result.current.active).toBe(true);
   });
-
   it('navigates to a paused authored frame, synchronizes breakpoints, and keeps preference edits running', async () => {
     const test = harness();
     await act(() => test.result.current.start());
     const frame = {
       id: 'frame',
       name: 'onClick',
-      location: { path: 'pages/PageMain.ts', line: 9, column: 5 },
+      location: { path: 'pages/index.ts', line: 9, column: 5 },
       scopes: [],
-      thisValue: { type: 'object', description: 'PageMain' },
+      thisValue: { type: 'object', description: 'index' },
     };
     act(() =>
       test.emit({
@@ -123,18 +119,16 @@ describe('integrated debugger controller', () => {
     expect(test.result.current.selectedFrameId).toBe('frame');
     act(() => test.result.current.setWatches(['this.name']));
     expect(test.bridge.debugger.command).not.toHaveBeenCalledWith('stop');
-    act(() => test.result.current.toggleBreakpoint('pages/PageMain.ts', 10));
+    act(() => test.result.current.toggleBreakpoint('pages/index.ts', 10));
     await waitFor(() => expect(test.bridge.debugger.setBreakpoints).toHaveBeenCalled());
   });
-
   it('stops a session when authored code changes so stale maps cannot drive the editor', async () => {
     const test = harness();
     await act(() => test.result.current.start());
-    act(() => test.controller.setUserSource('pages/PageMain.ts', '// changed source'));
+    act(() => test.controller.setUserSource('pages/index.ts', '// changed source'));
     await waitFor(() => expect(test.bridge.debugger.command).toHaveBeenCalledWith('stop'));
     expect(test.callbacks.onNavigate).not.toHaveBeenCalled();
   });
-
   it('synchronizes preference changes while the debug target is starting', async () => {
     const test = harness();
     await act(async () => {
@@ -147,13 +141,13 @@ describe('integrated debugger controller', () => {
       }),
     );
     act(() => {
-      test.result.current.toggleBreakpoint('pages/PageMain.ts', 8);
+      test.result.current.toggleBreakpoint('pages/index.ts', 8);
       test.result.current.setExceptionMode('all');
     });
     await waitFor(() =>
       expect(test.bridge.debugger.setBreakpoints).toHaveBeenCalledWith([
         {
-          path: 'pages/PageMain.ts',
+          path: 'pages/index.ts',
           line: 8,
           column: undefined,
           condition: undefined,
@@ -163,7 +157,6 @@ describe('integrated debugger controller', () => {
     );
     expect(test.bridge.debugger.setPauseOnExceptions).toHaveBeenCalledWith('all');
   });
-
   it('rejects an obsolete start response after the project changes', async () => {
     const test = harness();
     let resolve!: (value: DebugStartResponse) => void;
@@ -178,7 +171,7 @@ describe('integrated debugger controller', () => {
       running = test.result.current.start();
     });
     await waitFor(() => expect(test.bridge.debugger.start).toHaveBeenCalled());
-    act(() => test.controller.setUserSource('pages/PageMain.ts', '// newer code'));
+    act(() => test.controller.setUserSource('pages/index.ts', '// newer code'));
     await act(async () => {
       resolve({
         build: { success: true, diagnostics: [] },

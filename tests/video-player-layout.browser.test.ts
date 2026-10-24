@@ -13,7 +13,6 @@ import {
   updatePage,
 } from '@webrad/project-model';
 import { withChromium } from './chromium';
-
 const browser = process.env.WEBRAD_BROWSER_PATH;
 it.runIf(browser !== undefined)(
   'keeps video ratios in real Designer and compiled Preview at responsive widths',
@@ -113,8 +112,8 @@ it.runIf(browser !== undefined)(
     project = deserializeProject(serializeProject(updatePage(project, page.id, page)));
     const compiled = await compileProjectToMemory(project, {
       userSources: {
-        'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+        'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   public Portrait(): void { Video02.aspectRatio = '9:16'; }
   public Landscape(): void { this.Video02.aspectRatio = '16:9'; }
   public Free(): void { Video02.aspectRatio = 'none'; }
@@ -142,12 +141,12 @@ export class PageMain extends PageMainGenerated {
       '/app.css': ['text/css', bundle.outputFiles.find((file) => file.path.endsWith('.css'))!.text],
       '/project.css': ['text/css', projectCss],
       '/project': ['application/json', JSON.stringify(project)],
-      '/preview': ['text/html', compiled.previewHtml!],
+      '/index.html': ['text/html', compiled.previewHtml!],
     };
     const server = createServer((request, response) => {
       const [type, body] = routes[request.url ?? ''] ?? [
         'text/html',
-        '<!doctype html><html><head><link rel="stylesheet" href="/app.css"><style>body{margin:0}#root{width:1000px;height:7000px}iframe{border:0;width:960px;height:7000px}</style></head><body><div id="root"></div><iframe title="Preview" src="/preview"></iframe><script type="module" src="/app.js"></script></body></html>',
+        '<!doctype html><html><head><link rel="stylesheet" href="/app.css"><style>body{margin:0}#root{width:1000px;height:7000px}iframe{border:0;width:960px;height:7000px}</style></head><body><div id="root"></div><iframe title="Preview" src="/index.html"></iframe><script type="module" src="/app.js"></script></body></html>',
       ];
       response.writeHead(200, { 'Content-Type': type });
       response.end(body);
@@ -158,7 +157,13 @@ export class PageMain extends PageMainGenerated {
       throw new Error('Missing browser test port.');
     try {
       await withChromium(browser!, `http://127.0.0.1:${address.port}/`, async (send) => {
-        let evidence: { passed: boolean; cases: number; error?: string } | undefined;
+        let evidence:
+          | {
+              passed: boolean;
+              cases: number;
+              error?: string;
+            }
+          | undefined;
         await expect
           .poll(
             async () => {
@@ -166,7 +171,11 @@ export class PageMain extends PageMainGenerated {
                 expression: 'document.body.dataset.evidence',
                 returnByValue: true,
               });
-              const value = (result.result as { value?: string })?.value;
+              const value = (
+                result.result as {
+                  value?: string;
+                }
+              )?.value;
               if (value) evidence = JSON.parse(value) as typeof evidence;
               return evidence !== undefined;
             },

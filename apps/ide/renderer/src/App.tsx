@@ -1,4 +1,4 @@
-import { menuInspectorTarget } from '@webrad/component-registry';
+import { menuInspectorTarget, type ProjectTemplateId } from '@webrad/component-registry';
 import { useUpdates } from './use-updates';
 import { UpdateInstallingDialog } from './components/UpdateIndicator';
 import { ProjectAssetPreview } from './components/ProjectAssetPreview';
@@ -116,6 +116,7 @@ import { NewProjectDialog } from './components/NewProjectDialog';
 import { ObjectInspector } from './components/ObjectInspector';
 import { PreviewPane } from './components/PreviewPane';
 import { ProjectExplorer } from './components/ProjectExplorer';
+import { normalizeHistoryDocument } from './state/project-history';
 import { ProjectSettingsDialog } from './components/ProjectSettingsDialog';
 import { RestGoWorkspace } from './components/RestGoWorkspace';
 import { RestGoSidebar, type RestGoSection } from './components/RestGoSidebar';
@@ -210,7 +211,13 @@ export function App(): ReactElement {
   const projectController = useMemo(() => new ProjectController(window.webrad), []);
   const updates = useUpdates(projectController);
   const checkForUpdates = updates.check;
-  const designerController = useMemo(() => new DesignerController(), []);
+  const designerController = useMemo(
+    () =>
+      new DesignerController((page) =>
+        normalizeHistoryDocument(page, projectController.getSnapshot().project),
+      ),
+    [projectController],
+  );
   const selectionManager = useMemo(() => new SelectionManager(), []);
   const projectState = useSyncExternalStore(
     projectController.subscribe,
@@ -606,7 +613,7 @@ export function App(): ReactElement {
       requestedParentId: string,
     ): void => {
       const reusable = project?.reusableElements.find((item) => item.id === reusableElementId);
-      if (!activePage || !reusable) {
+      if (!project || !activePage || !reusable) {
         return;
       }
       try {
@@ -1374,11 +1381,11 @@ export function App(): ReactElement {
   }, [prepareToReplaceProject, reportError]);
 
   const submitNewProject = useCallback(
-    async (name: string): Promise<void> => {
+    async (name: string, templateId: ProjectTemplateId): Promise<void> => {
       setCreatingProject(true);
       setNewProjectError(null);
       try {
-        const session = await projectController.create(name);
+        const session = await projectController.create(name, templateId);
         if (session) {
           activateProjectSession(session);
           addOutput('PROJECT', `Created ${session.project.name}.`);
@@ -2631,6 +2638,23 @@ export function App(): ReactElement {
                         activeResourceId={stylesActive || restGoActive ? null : activePageId}
                         onOpenResource={openPage}
                         onDeleteResource={deleteProjectResource}
+                        onDuplicateItem={(id) => {
+                          try {
+                            const copyId = projectController.duplicateProjectItem(id);
+                            const currentProject = projectController.getSnapshot().project;
+                            setOpenPageIds((current) => [...current, copyId]);
+                            setActivePageId(copyId);
+                            setActiveWorkspace('page');
+                            setActiveView(
+                              currentProject?.sourceFiles?.some((file) => file.id === copyId)
+                                ? 'code'
+                                : 'design',
+                            );
+                            selectionManager.clear();
+                          } catch (error) {
+                            reportError(error, 'PROJECT');
+                          }
+                        }}
                         activePageId={
                           stylesActive || restGoActive || activeDocumentKind === 'reusable'
                             ? null
@@ -2837,7 +2861,7 @@ export function App(): ReactElement {
             setNewProjectDialogOpen(false);
             setNewProjectError(null);
           }}
-          onCreate={(name) => void submitNewProject(name)}
+          onCreate={(name, templateId) => void submitNewProject(name, templateId)}
         />
       )}
       {addDocumentDialogKind !== null && project !== null && (

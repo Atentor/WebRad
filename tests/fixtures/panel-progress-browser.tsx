@@ -3,7 +3,6 @@ import { useState, type ReactElement } from 'react';
 import { ComponentView } from '@webrad/components';
 import { resolveComponentStyleClassName } from '@webrad/runtime';
 import { panelProgressProject } from './panel-progress';
-
 export function Harness(): ReactElement {
   const project = panelProgressProject(false, 50);
   const panel = project.pages[0]!.components.find((node) => node.id === 'panel')!;
@@ -34,9 +33,8 @@ export function Harness(): ReactElement {
       <button id="designer-disable" onClick={() => setEnabled((current) => !current)}>
         Toggle progress
       </button>
-      <iframe src="/preview" style={{ width: 850, height: 400, border: 0 }} />
+      <iframe src="/index.html" style={{ width: 850, height: 400, border: 0 }} />
     </>
   );
 }
-
 createRoot(document.getElementById('root')!).render(<Harness />);

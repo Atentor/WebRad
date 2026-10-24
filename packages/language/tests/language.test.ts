@@ -355,7 +355,7 @@ describe('page language generation', () => {
     const userSource = createUserReusableElementSource(reusableElement);
 
     expect(source).toContain(
-      'import { WebButton, WebComponent, WebPanel, WebReusableElementInstance } from "@webrad/runtime";',
+      'import { WebButton, type WebComponent, WebReusableElementInstance } from "@webrad/runtime";',
     );
     expect(source).toContain(
       'export abstract class CustomerCardGenerated extends WebReusableElementInstance',

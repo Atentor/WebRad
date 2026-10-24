@@ -11,7 +11,6 @@ import {
   dataGridToggleRows,
   dataGridToggleSources,
 } from './fixtures/data-grid-toggle';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'matches Toggle cell styling in Designer and compiled Preview and preserves readonly grid interaction',
   async () => {
@@ -23,7 +22,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
         response.end(JSON.stringify({ customers: dataGridToggleRows }));
       } else {
         response.setHeader('Content-Type', 'text/html');
-        response.end(request.url === '/preview' ? preview : designer);
+        response.end(request.url === '/index.html' ? preview : designer);
       }
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -51,7 +50,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           styleClassName={resolveComponentStyleClassName(style)}
         />,
       );
-      designer = `<!doctype html><style>${css}</style><div style="width:600px;height:200px;margin:20px">${markup}</div><iframe src="/preview" style="width:900px;height:360px;border:0"></iframe>`;
+      designer = `<!doctype html><style>${css}</style><div style="width:600px;height:200px;margin:20px">${markup}</div><iframe src="/index.html" style="width:900px;height:360px;border:0"></iframe>`;
       await withChromium(process.env.WEBRAD_BROWSER_PATH!, url, async (send) => {
         const expressions = [
           'document.querySelector("[data-component-id=grid]")',
@@ -60,11 +59,15 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
         const evaluate = async (expression: string): Promise<unknown> => {
           const result = await send('Runtime.evaluate', { expression, returnByValue: true });
           if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-          return (result.result as { value?: unknown })?.value;
+          return (
+            result.result as {
+              value?: unknown;
+            }
+          )?.value;
         };
         await expect
           .poll(() => evaluate(`${expressions[1]}?.querySelectorAll('[role=switch]').length`), {
-            timeout: 15_000,
+            timeout: 15000,
           })
           .toBe(6);
         const read = (expression: string) =>
@@ -96,7 +99,10 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
         const point = (await evaluate(`(() => {
           const frame = document.querySelector('iframe').getBoundingClientRect(), toggle = ${expressions[1]}.querySelector('[role=switch]').getBoundingClientRect();
           return { x: frame.x + toggle.x + 10, y: frame.y + toggle.y + 10 };
-        })()`)) as { x: number; y: number };
+        })()`)) as {
+          x: number;
+          y: number;
+        };
         await send('Input.dispatchMouseEvent', {
           type: 'mousePressed',
           button: 'left',
@@ -134,5 +140,5 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   },
-  60_000,
+  60000,
 );

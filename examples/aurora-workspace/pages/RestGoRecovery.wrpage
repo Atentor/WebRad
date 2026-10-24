@@ -1,0 +1,3281 @@
+{
+  "formatVersion": 2,
+  "id": "7b678fa4-c071-42b0-a4ea-6c6a308b7125",
+  "name": "RestGoRecovery",
+  "caption": "RestGoRecovery",
+  "width": 1120,
+  "height": 1200,
+  "rootComponentId": "016a01b0-2351-48cc-b380-d6662c65ca06",
+  "components": [
+    {
+      "id": "016a01b0-2351-48cc-b380-d6662c65ca06",
+      "type": "WebPage",
+      "name": "RestGoRecovery",
+      "parentId": null,
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 24,
+          "paddingRight": 24,
+          "paddingBottom": 24,
+          "paddingLeft": 24,
+          "gap": 20,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "stretch"
+        },
+        "item": {
+          "width": "fixed",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 600,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 1120,
+        "height": 1200,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "RestGoRecovery",
+        "enabled": true,
+        "backgroundColor": "#ffffff",
+        "browserTitle": "",
+        "routePath": "",
+        "visible": true
+      },
+      "events": {
+        "OnCreate": null,
+        "OnHide": "ReleaseSidebar",
+        "OnLogin": "RestGoPageLogin",
+        "OnLogout": "RestGoPageLogout",
+        "OnResize": null,
+        "OnShow": "InitializeSidebar",
+        "OnUnauthenticated": "RestGoPageUnauthenticated"
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebPage",
+      "children": [
+        "78accba4-55f0-4d25-87a6-2c58e381574b",
+        "2afdf059-85c8-4831-ad34-3f5466b9626a"
+      ]
+    },
+    {
+      "id": "78accba4-55f0-4d25-87a6-2c58e381574b",
+      "type": "WebReusableElement",
+      "name": "Navigation",
+      "parentId": "016a01b0-2351-48cc-b380-d6662c65ca06",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "fixed",
+          "height": "stretch",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 264,
+        "height": 640,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "reusableElementId": "f4ca7581-bd30-43e4-bc85-9a081b1d8b4c",
+        "placement": "floating",
+        "floatingHorizontalAnchor": "left",
+        "floatingVerticalAnchor": "top",
+        "floatingZIndex": 100,
+        "visible": true,
+        "collapseWhenHidden": true,
+        "enabled": true,
+        "margin": 0,
+        "marginBottom": 0,
+        "marginLeft": 0,
+        "marginRight": 0,
+        "marginTop": 0
+      },
+      "events": {},
+      "children": []
+    },
+    {
+      "id": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "type": "WebGroup",
+      "name": "PageContent",
+      "parentId": "016a01b0-2351-48cc-b380-d6662c65ca06",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 20,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "marginLeft": 264,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "children": [
+        "ad37ae19-43d3-4bd1-84c4-135169526457",
+        "b916743a-a075-47f0-90fa-f4500dea96d3",
+        "773702c2-0538-4243-b1bc-88c61390e008",
+        "eaff87d3-0635-4b7a-b350-0b52b99a1add",
+        "01dafddb-6460-458e-99bb-b504d4d54d7c",
+        "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+        "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+        "2300fac1-7d40-4378-ae28-d69df67dd075",
+        "caa3f082-968d-41f5-bc1a-ab1b8ad370db"
+      ]
+    },
+    {
+      "id": "ad37ae19-43d3-4bd1-84c4-135169526457",
+      "type": "WebLabel",
+      "name": "AccountHeading",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 32,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "RESTGO / EMAIL AND PASSWORD",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "type": "WebGroup",
+      "name": "AccountIntroduction",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "children": [
+        "b6d778c6-f9d1-4925-95ba-ab3b83545752",
+        "98d2f344-6c0c-4115-b09e-c922aaec8aba",
+        "a72e045e-28d0-4038-8503-88b9ad69d27d",
+        "a26a6290-2a0f-4e14-8dbd-5d29e6ae3628",
+        "8b0cccbf-e584-4193-ae41-c72209dba924",
+        "38f4941a-db33-4c20-a340-0dd9518dbea0",
+        "131c0e59-37c5-4a73-8a65-5c3a4c942b30",
+        "199d6baf-4341-4149-b276-4c8ee5c1e5fb"
+      ]
+    },
+    {
+      "id": "b6d778c6-f9d1-4925-95ba-ab3b83545752",
+      "type": "WebLabel",
+      "name": "AccountIntroductionLine1",
+      "parentId": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Use the token received in",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "98d2f344-6c0c-4115-b09e-c922aaec8aba",
+      "type": "WebLabel",
+      "name": "AccountIntroductionLine2",
+      "parentId": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "your account email to",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "a72e045e-28d0-4038-8503-88b9ad69d27d",
+      "type": "WebLabel",
+      "name": "AccountIntroductionLine3",
+      "parentId": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "confirm your address or",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "a26a6290-2a0f-4e14-8dbd-5d29e6ae3628",
+      "type": "WebLabel",
+      "name": "AccountIntroductionLine4",
+      "parentId": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "finish password recovery.",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "8b0cccbf-e584-4193-ae41-c72209dba924",
+      "type": "WebLabel",
+      "name": "AccountIntroductionLine5",
+      "parentId": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "These actions work without a",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "38f4941a-db33-4c20-a340-0dd9518dbea0",
+      "type": "WebLabel",
+      "name": "AccountIntroductionLine6",
+      "parentId": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "signed-in session. Account",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "131c0e59-37c5-4a73-8a65-5c3a4c942b30",
+      "type": "WebLabel",
+      "name": "AccountIntroductionLine7",
+      "parentId": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "email delivery depends on",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "199d6baf-4341-4149-b276-4c8ee5c1e5fb",
+      "type": "WebLabel",
+      "name": "AccountIntroductionLine8",
+      "parentId": "b916743a-a075-47f0-90fa-f4500dea96d3",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "your RestGO server.",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "773702c2-0538-4243-b1bc-88c61390e008",
+      "type": "WebGroup",
+      "name": "AccountConnectionHint",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "children": [
+        "2f1783b5-0c98-43b1-a75f-70303962f644",
+        "a7e2fcef-e22b-4316-9c60-e0491811b9d5",
+        "452e497c-7fd1-4e48-89fc-492924e309f9",
+        "03b53bcb-80c3-4b3f-912d-61fbe4554193",
+        "15bd6282-e1b2-4f7b-9a4b-46215b983693",
+        "22c5a7bd-a81e-4386-80ab-9a2bec3c8b74"
+      ]
+    },
+    {
+      "id": "2f1783b5-0c98-43b1-a75f-70303962f644",
+      "type": "WebLabel",
+      "name": "AccountConnectionHintLine1",
+      "parentId": "773702c2-0538-4243-b1bc-88c61390e008",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Use your own RestGO server.",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "a7e2fcef-e22b-4316-9c60-e0491811b9d5",
+      "type": "WebLabel",
+      "name": "AccountConnectionHintLine2",
+      "parentId": "773702c2-0538-4243-b1bc-88c61390e008",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Enable RestGo integration",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "452e497c-7fd1-4e48-89fc-492924e309f9",
+      "type": "WebLabel",
+      "name": "AccountConnectionHintLine3",
+      "parentId": "773702c2-0538-4243-b1bc-88c61390e008",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "and configure Connection in",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "03b53bcb-80c3-4b3f-912d-61fbe4554193",
+      "type": "WebLabel",
+      "name": "AccountConnectionHintLine4",
+      "parentId": "773702c2-0538-4243-b1bc-88c61390e008",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "the IDE. Public registration",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "15bd6282-e1b2-4f7b-9a4b-46215b983693",
+      "type": "WebLabel",
+      "name": "AccountConnectionHintLine5",
+      "parentId": "773702c2-0538-4243-b1bc-88c61390e008",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "and account emails follow",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "22c5a7bd-a81e-4386-80ab-9a2bec3c8b74",
+      "type": "WebLabel",
+      "name": "AccountConnectionHintLine6",
+      "parentId": "773702c2-0538-4243-b1bc-88c61390e008",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "your server configuration.",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "eaff87d3-0635-4b7a-b350-0b52b99a1add",
+      "type": "WebTextArea",
+      "name": "AccountStatus",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 100,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "Open Preview with a configured RestGO Connection to use this example.",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "placeholder": "",
+        "readOnly": true,
+        "rows": 3,
+        "spellCheck": true,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebTextArea",
+      "children": []
+    },
+    {
+      "id": "01dafddb-6460-458e-99bb-b504d4d54d7c",
+      "type": "WebPanel",
+      "name": "ConfirmEmailPanel",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 20,
+          "paddingRight": 20,
+          "paddingBottom": 20,
+          "paddingLeft": 20,
+          "gap": 14,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 440,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "",
+        "enabled": true,
+        "backgroundColor": "transparent",
+        "backgroundImage": "",
+        "backgroundPosition": "center",
+        "backgroundRepeat": "no-repeat",
+        "backgroundSize": "cover",
+        "borderColor": "#808080",
+        "collapseWhenHidden": true,
+        "floatingAlignment": "none",
+        "floatingHorizontalAnchor": "left",
+        "floatingVerticalAnchor": "top",
+        "floatingZIndex": 100,
+        "placement": "in-flow",
+        "progressEnabled": false,
+        "progressValue": 0,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebPanel",
+      "children": [
+        "ff31f5e6-1c86-49bd-b770-6b677f893a97",
+        "bb909506-ab02-4e5f-bfc3-fbe2381c1ebf",
+        "70abfc2c-0a2a-4643-8f97-f6babfb4d33b",
+        "33a99bec-4e2d-41e5-9cff-1cfc604fd6dd"
+      ]
+    },
+    {
+      "id": "ff31f5e6-1c86-49bd-b770-6b677f893a97",
+      "type": "WebLabel",
+      "name": "ConfirmEmailHeading",
+      "parentId": "01dafddb-6460-458e-99bb-b504d4d54d7c",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 28,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "CONFIRM EMAIL",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "bb909506-ab02-4e5f-bfc3-fbe2381c1ebf",
+      "type": "WebLabel",
+      "name": "ConfirmationTokenLabel",
+      "parentId": "01dafddb-6460-458e-99bb-b504d4d54d7c",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 26,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Email confirmation token",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "70abfc2c-0a2a-4643-8f97-f6babfb4d33b",
+      "type": "WebEdit",
+      "name": "ConfirmationToken",
+      "parentId": "01dafddb-6460-458e-99bb-b504d4d54d7c",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 160,
+        "height": 40,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "inputType": "password",
+        "placeholder": "",
+        "readOnly": false,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebEdit",
+      "children": []
+    },
+    {
+      "id": "33a99bec-4e2d-41e5-9cff-1cfc604fd6dd",
+      "type": "WebButton",
+      "name": "ConfirmEmailButton",
+      "parentId": "01dafddb-6460-458e-99bb-b504d4d54d7c",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 180,
+          "maxWidth": 260,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 44,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Confirm email",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "icon": "check",
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnClick": "ConfirmAccountEmail",
+        "OnFocus": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebButton",
+      "children": []
+    },
+    {
+      "id": "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+      "type": "WebPanel",
+      "name": "RequestResetPanel",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 20,
+          "paddingRight": 20,
+          "paddingBottom": 20,
+          "paddingLeft": 20,
+          "gap": 14,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 440,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "",
+        "enabled": true,
+        "backgroundColor": "transparent",
+        "backgroundImage": "",
+        "backgroundPosition": "center",
+        "backgroundRepeat": "no-repeat",
+        "backgroundSize": "cover",
+        "borderColor": "#808080",
+        "collapseWhenHidden": true,
+        "floatingAlignment": "none",
+        "floatingHorizontalAnchor": "left",
+        "floatingVerticalAnchor": "top",
+        "floatingZIndex": 100,
+        "placement": "in-flow",
+        "progressEnabled": false,
+        "progressValue": 0,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebPanel",
+      "children": [
+        "84866c03-ccce-424c-b911-3f8106eba3e5",
+        "a5a89d2b-f19e-4828-8491-9c26df7b49e7",
+        "580c5e67-6ab4-4978-b6e4-757e8ad4cf8f",
+        "e517ff9b-4ba0-4e93-9183-5419ef9cff2f",
+        "e5386135-7f38-4dc6-a0c1-ae6f4975725d",
+        "ae7e20a8-253d-42e6-8a18-84f3f88bbdc1",
+        "33c58119-a8b1-45e8-948c-d0a115b4d8e1"
+      ]
+    },
+    {
+      "id": "84866c03-ccce-424c-b911-3f8106eba3e5",
+      "type": "WebLabel",
+      "name": "RequestResetHeading",
+      "parentId": "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 28,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "REQUEST PASSWORD RECOVERY",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "a5a89d2b-f19e-4828-8491-9c26df7b49e7",
+      "type": "WebLabel",
+      "name": "RecoveryEmailLabel",
+      "parentId": "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 26,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Account email",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "580c5e67-6ab4-4978-b6e4-757e8ad4cf8f",
+      "type": "WebEdit",
+      "name": "RecoveryEmail",
+      "parentId": "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 160,
+        "height": 40,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "inputType": "email",
+        "placeholder": "",
+        "readOnly": false,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebEdit",
+      "children": []
+    },
+    {
+      "id": "e517ff9b-4ba0-4e93-9183-5419ef9cff2f",
+      "type": "WebLabel",
+      "name": "RecoveryUrlLabel",
+      "parentId": "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 26,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Return URL (optional)",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "e5386135-7f38-4dc6-a0c1-ae6f4975725d",
+      "type": "WebEdit",
+      "name": "RecoveryReturnUrl",
+      "parentId": "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 160,
+        "height": 40,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "inputType": "url",
+        "placeholder": "",
+        "readOnly": false,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebEdit",
+      "children": []
+    },
+    {
+      "id": "ae7e20a8-253d-42e6-8a18-84f3f88bbdc1",
+      "type": "WebGroup",
+      "name": "RecoveryUrlHint",
+      "parentId": "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "children": [
+        "8604942d-074b-4c56-b3bc-c03a0a79831a",
+        "219821cc-64c2-4a64-9f0f-aecbb265cf49",
+        "9851cd5a-50cf-4af9-9e95-a8b8735db875",
+        "c72e0909-ae96-4ca6-a801-646cd26eff2a",
+        "8520000e-49e5-4ae5-9341-c5b38250f66f"
+      ]
+    },
+    {
+      "id": "8604942d-074b-4c56-b3bc-c03a0a79831a",
+      "type": "WebLabel",
+      "name": "RecoveryUrlHintLine1",
+      "parentId": "ae7e20a8-253d-42e6-8a18-84f3f88bbdc1",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Leave the return URL empty",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "219821cc-64c2-4a64-9f0f-aecbb265cf49",
+      "type": "WebLabel",
+      "name": "RecoveryUrlHintLine2",
+      "parentId": "ae7e20a8-253d-42e6-8a18-84f3f88bbdc1",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "to use the server default.",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "9851cd5a-50cf-4af9-9e95-a8b8735db875",
+      "type": "WebLabel",
+      "name": "RecoveryUrlHintLine3",
+      "parentId": "ae7e20a8-253d-42e6-8a18-84f3f88bbdc1",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Copy the reset token from",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "c72e0909-ae96-4ca6-a801-646cd26eff2a",
+      "type": "WebLabel",
+      "name": "RecoveryUrlHintLine4",
+      "parentId": "ae7e20a8-253d-42e6-8a18-84f3f88bbdc1",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "the received email into the",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "8520000e-49e5-4ae5-9341-c5b38250f66f",
+      "type": "WebLabel",
+      "name": "RecoveryUrlHintLine5",
+      "parentId": "ae7e20a8-253d-42e6-8a18-84f3f88bbdc1",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "form below.",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "33c58119-a8b1-45e8-948c-d0a115b4d8e1",
+      "type": "WebButton",
+      "name": "RequestResetButton",
+      "parentId": "41cfd4e0-3fcf-4d6c-b9e3-dfe7dbf1beff",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 180,
+          "maxWidth": 260,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 44,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Send recovery email",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "icon": "mail",
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnClick": "RequestPasswordRecovery",
+        "OnFocus": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebButton",
+      "children": []
+    },
+    {
+      "id": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "type": "WebPanel",
+      "name": "ConfirmResetPanel",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 20,
+          "paddingRight": 20,
+          "paddingBottom": 20,
+          "paddingLeft": 20,
+          "gap": 14,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 440,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "",
+        "enabled": true,
+        "backgroundColor": "transparent",
+        "backgroundImage": "",
+        "backgroundPosition": "center",
+        "backgroundRepeat": "no-repeat",
+        "backgroundSize": "cover",
+        "borderColor": "#808080",
+        "collapseWhenHidden": true,
+        "floatingAlignment": "none",
+        "floatingHorizontalAnchor": "left",
+        "floatingVerticalAnchor": "top",
+        "floatingZIndex": 100,
+        "placement": "in-flow",
+        "progressEnabled": false,
+        "progressValue": 0,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebPanel",
+      "children": [
+        "ffcfce6c-5184-4880-a8ef-e2809a2f28f5",
+        "a044a3de-ba73-4f13-b753-62fe9f9e6823",
+        "ac0b01fb-066f-4fa3-8630-cfd262c55180",
+        "a7e15da5-3f55-4ae0-990f-bab2e86cc1a0",
+        "38eb252e-b7ae-4bc2-b027-728fd708bbdf",
+        "ee839135-a3c1-4521-a9c4-0f25ae8fb719",
+        "b638a638-0135-41ea-af28-78fb8ebf91fb",
+        "3913ceee-5db4-4072-ab72-369a833efab7"
+      ]
+    },
+    {
+      "id": "ffcfce6c-5184-4880-a8ef-e2809a2f28f5",
+      "type": "WebLabel",
+      "name": "ConfirmResetHeading",
+      "parentId": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 28,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "SET A NEW PASSWORD",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "a044a3de-ba73-4f13-b753-62fe9f9e6823",
+      "type": "WebLabel",
+      "name": "ResetTokenLabel",
+      "parentId": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 26,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Password recovery token",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "ac0b01fb-066f-4fa3-8630-cfd262c55180",
+      "type": "WebEdit",
+      "name": "ResetToken",
+      "parentId": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 160,
+        "height": 40,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "inputType": "password",
+        "placeholder": "",
+        "readOnly": false,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebEdit",
+      "children": []
+    },
+    {
+      "id": "a7e15da5-3f55-4ae0-990f-bab2e86cc1a0",
+      "type": "WebLabel",
+      "name": "ResetPasswordLabel",
+      "parentId": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 26,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "New password",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "38eb252e-b7ae-4bc2-b027-728fd708bbdf",
+      "type": "WebEdit",
+      "name": "ResetPassword",
+      "parentId": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 160,
+        "height": 40,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "inputType": "password",
+        "placeholder": "",
+        "readOnly": false,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebEdit",
+      "children": []
+    },
+    {
+      "id": "ee839135-a3c1-4521-a9c4-0f25ae8fb719",
+      "type": "WebLabel",
+      "name": "ResetConfirmationLabel",
+      "parentId": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 26,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Confirm new password",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "b638a638-0135-41ea-af28-78fb8ebf91fb",
+      "type": "WebEdit",
+      "name": "ResetConfirmation",
+      "parentId": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 160,
+        "height": 40,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "inputType": "password",
+        "placeholder": "",
+        "readOnly": false,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebEdit",
+      "children": []
+    },
+    {
+      "id": "3913ceee-5db4-4072-ab72-369a833efab7",
+      "type": "WebButton",
+      "name": "ConfirmResetButton",
+      "parentId": "394e4644-fd51-4a31-8aaa-db3731ff7b42",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 180,
+          "maxWidth": 260,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 44,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Reset password",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "icon": "check",
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnClick": "ConfirmPasswordRecovery",
+        "OnFocus": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebButton",
+      "children": []
+    },
+    {
+      "id": "2300fac1-7d40-4378-ae28-d69df67dd075",
+      "type": "WebButton",
+      "name": "RecoveryLoginButton",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 180,
+          "maxWidth": 260,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 44,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Return to sign in",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "icon": "user",
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnClick": "OpenRestGoAccount",
+        "OnFocus": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebButton",
+      "children": []
+    },
+    {
+      "id": "caa3f082-968d-41f5-bc1a-ab1b8ad370db",
+      "type": "WebPanel",
+      "name": "AccountSessionPanel",
+      "parentId": "2afdf059-85c8-4831-ad34-3f5466b9626a",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 20,
+          "paddingRight": 20,
+          "paddingBottom": 20,
+          "paddingLeft": 20,
+          "gap": 14,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 440,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "",
+        "enabled": true,
+        "backgroundColor": "transparent",
+        "backgroundImage": "",
+        "backgroundPosition": "center",
+        "backgroundRepeat": "no-repeat",
+        "backgroundSize": "cover",
+        "borderColor": "#808080",
+        "collapseWhenHidden": true,
+        "floatingAlignment": "none",
+        "floatingHorizontalAnchor": "left",
+        "floatingVerticalAnchor": "top",
+        "floatingZIndex": 100,
+        "placement": "in-flow",
+        "progressEnabled": false,
+        "progressValue": 0,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebPanel",
+      "children": [
+        "f887ac2b-6eec-4a0e-be79-0a0b12ff5347",
+        "a6f3823a-5e1c-4e8c-8e16-132ccbd198f6",
+        "f9326009-1a8d-4417-b52a-45ce519de748",
+        "b8a4d560-1153-4d90-a7fd-2a32ce0f62a4"
+      ]
+    },
+    {
+      "id": "f887ac2b-6eec-4a0e-be79-0a0b12ff5347",
+      "type": "WebLabel",
+      "name": "AccountSummaryHeading",
+      "parentId": "caa3f082-968d-41f5-bc1a-ab1b8ad370db",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 28,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "CURRENT ACCOUNT / SESSION",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "a6f3823a-5e1c-4e8c-8e16-132ccbd198f6",
+      "type": "WebTextArea",
+      "name": "AccountSummary",
+      "parentId": "caa3f082-968d-41f5-bc1a-ab1b8ad370db",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 144,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "No session loaded yet.",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "placeholder": "",
+        "readOnly": true,
+        "rows": 3,
+        "spellCheck": true,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebTextArea",
+      "children": []
+    },
+    {
+      "id": "f9326009-1a8d-4417-b52a-45ce519de748",
+      "type": "WebLabel",
+      "name": "AccountEventsHeading",
+      "parentId": "caa3f082-968d-41f5-bc1a-ab1b8ad370db",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 28,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "AUTHENTICATION EVENTS",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "b8a4d560-1153-4d90-a7fd-2a32ce0f62a4",
+      "type": "WebTextArea",
+      "name": "AccountEvents",
+      "parentId": "caa3f082-968d-41f5-bc1a-ab1b8ad370db",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 144,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "value": "Authentication events appear here while this page is visible.",
+        "enabled": true,
+        "collapseWhenHidden": true,
+        "placeholder": "",
+        "readOnly": true,
+        "rows": 3,
+        "spellCheck": true,
+        "tabIndex": 0,
+        "visible": true
+      },
+      "events": {
+        "OnBlur": null,
+        "OnChange": null,
+        "OnFocus": null,
+        "OnInput": null,
+        "OnKeyDown": null,
+        "OnKeyUp": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebTextArea",
+      "children": []
+    }
+  ]
+}

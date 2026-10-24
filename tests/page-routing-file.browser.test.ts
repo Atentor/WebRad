@@ -6,9 +6,7 @@ import { compileProjectToMemory } from '@webrad/compiler';
 import { addPage, createPage, createProject } from '@webrad/project-model';
 import { expect, it } from 'vitest';
 import { withChromium } from './chromium';
-
 const browser = process.env.WEBRAD_BROWSER_PATH;
-
 it.runIf(browser !== undefined)(
   'uses Hash automatically for exported file URLs and replaces history without changing directories',
   async () => {
@@ -16,7 +14,6 @@ it.runIf(browser !== undefined)(
     const output = await compileProjectToMemory(project, { target: 'deploy', userSources: {} });
     expect(output.success, JSON.stringify(output.diagnostics)).toBe(true);
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-route-file-'));
-
     const resolved = path.resolve(directory);
     if (
       path.dirname(resolved) !== path.resolve(os.tmpdir()) ||
@@ -37,14 +34,18 @@ it.runIf(browser !== undefined)(
               expression: 'typeof Navigate',
               returnByValue: true,
             });
-            return (result.result as { value: string }).value;
+            return (
+              result.result as {
+                value: string;
+              }
+            ).value;
           })
           .toBe('function');
         const result = await send('Runtime.evaluate', {
           expression: `(() => {
           Navigate('PageCustomers');
           const length = history.length;
-          Navigate('PageMain', { replace: true });
+          Navigate("index", { replace: true });
           return { url: location.href, length, after: history.length, mounted: document.querySelector('[data-webrad-page-id="${project.pages[0]!.id}"]') !== null };
         })()`,
           returnByValue: true,
@@ -52,7 +53,12 @@ it.runIf(browser !== undefined)(
         expect(result.exceptionDetails).toBeUndefined();
         const value = (
           result.result as {
-            value: { url: string; length: number; after: number; mounted: boolean };
+            value: {
+              url: string;
+              length: number;
+              after: number;
+              mounted: boolean;
+            };
           }
         ).value;
         expect(value.url).toBe(url + '#/index');
@@ -63,5 +69,5 @@ it.runIf(browser !== undefined)(
       await fs.rm(resolved, { recursive: true, force: true });
     }
   },
-  60_000,
+  60000,
 );

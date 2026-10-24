@@ -8,7 +8,6 @@ import {
   createReusableElement,
   updatePage,
 } from '@webrad/project-model';
-
 export function progressBarProject(reusable = false) {
   let project = createProject('ProgressBarExample');
   let page = project.pages[0]!;
@@ -65,7 +64,6 @@ export function progressBarProject(reusable = false) {
   }
   return updatePage(project, page.id, page);
 }
-
 const methods = `
   advance(): void {
     Bars1.increment(50);
@@ -79,9 +77,9 @@ const methods = `
 `;
 export function progressBarUserSources(reusable = false): Record<string, string> {
   return {
-    'pages/PageMain.ts': `import type { WebProgressBar } from '@webrad/runtime';
-import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated { ${reusable ? '' : methods} }`,
+    'pages/index.ts': `import type { WebProgressBar } from '@webrad/runtime';
+import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated { ${reusable ? '' : methods} }`,
     ...(reusable
       ? {
           'reusables/ProgressCard.ts': `import type { WebProgressBar } from '@webrad/runtime';

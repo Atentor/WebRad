@@ -8,7 +8,6 @@ import {
   createReusableElement,
   updatePage,
 } from '@webrad/project-model';
-
 export function iconProject(reusable = false) {
   let project = createProject('LucideExample');
   let page = project.pages[0]!;
@@ -74,7 +73,6 @@ export function iconProject(reusable = false) {
   }
   return updatePage(project, page.id, page);
 }
-
 const methods = `activate(sender: WebIcon): void {
   Icon1.icon = 'check';
   this.Button1.icon = 'check';
@@ -88,9 +86,9 @@ activateButton(): void {
 }`;
 export function iconUserSources(reusable = false): Record<string, string> {
   return {
-    'pages/PageMain.ts': `import type { WebIcon } from '@webrad/runtime';
-import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated { ${reusable ? '' : methods} }`,
+    'pages/index.ts': `import type { WebIcon } from '@webrad/runtime';
+import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated { ${reusable ? '' : methods} }`,
     ...(reusable
       ? {
           'reusables/IconCard.ts': `import type { WebIcon } from '@webrad/runtime';

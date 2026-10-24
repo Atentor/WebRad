@@ -6,7 +6,6 @@ import { expect, it } from 'vitest';
 import { compileGeneratedAppStyles, compileProjectToMemory } from '@webrad/compiler';
 import { withChromium } from './chromium';
 import { panelProgressProject, panelProgressUserSources } from './fixtures/panel-progress';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'matches real Designer/Preview border geometry, Aurora styles, dynamic resize and automatic visibility',
   async () => {
@@ -34,7 +33,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
         request.url === '/designer.js' ? 'text/javascript' : 'text/html',
       );
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? compiled.previewHtml
           : request.url === '/designer.js'
             ? bundle.outputFiles[0]!.text
@@ -52,7 +51,11 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           const evaluate = async (expression: string): Promise<unknown> => {
             const result = await send('Runtime.evaluate', { expression, returnByValue: true });
             if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-            return (result.result as { value?: unknown }).value;
+            return (
+              result.result as {
+                value?: unknown;
+              }
+            ).value;
           };
           const runtime = `document.querySelector('iframe').contentDocument.querySelector('[data-webrad-name="Panel1"]')`;
           const designer = `document.querySelector('[data-component-id="panel"]')`;
@@ -65,10 +68,10 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
         return { visible: true, value: svg.getAttribute('aria-valuenow'), d: path.getAttribute('d'), length: path.getTotalLength(), dash: path.getAttribute('stroke-dasharray'), color: w.getComputedStyle(path).stroke, track: w.getComputedStyle(svg.querySelector('.wr-panel-progress-track')).stroke, thickness: path.getAttribute('stroke-width'), paintedThickness: w.getComputedStyle(path).strokeWidth, svgWidth: overlay.width, svgHeight: overlay.height, width: box.width, height: box.height, leftOffset: overlay.left-box.left, topOffset: overlay.top-box.top, pathBox: { x: pathBox.x, y: pathBox.y, width: pathBox.width, height: pathBox.height }, radius: s.borderTopLeftRadius, pointer: w.getComputedStyle(svg).pointerEvents };
       })()`);
           await expect
-            .poll(() => paint(runtime), { timeout: 15_000 })
+            .poll(() => paint(runtime), { timeout: 15000 })
             .toMatchObject({ visible: true, value: '50' });
           await expect
-            .poll(() => paint(designer), { timeout: 15_000 })
+            .poll(() => paint(designer), { timeout: 15000 })
             .toEqual(await paint(runtime));
           expect(await paint(runtime)).toMatchObject({
             dash: '50 100',
@@ -108,7 +111,10 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           for (const expression of [designer, runtime]) {
             const point = (await evaluate(
               `(() => { const e=${expression}, b=e.getBoundingClientRect(), f=e.ownerDocument===document ? {left:0,top:0} : document.querySelector('iframe').getBoundingClientRect(); return {x:Math.round(f.left+b.left+b.width/2),y:Math.round(f.top+b.top)}; })()`,
-            )) as { x: number; y: number };
+            )) as {
+              x: number;
+              y: number;
+            };
             const rgb = (dy: number): number[] => {
               const offset =
                 ((point.y + dy) * centeredPixels.info.width + point.x) *
@@ -219,5 +225,5 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   },
-  45_000,
+  45000,
 );

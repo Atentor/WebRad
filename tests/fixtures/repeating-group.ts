@@ -9,14 +9,12 @@ import {
   type ContainerLayoutMode,
 } from '@webrad/project-model';
 import { comboBoxApiConfiguration } from './combo-box';
-
 export const repeatingLayoutModes: readonly ContainerLayoutMode[] = [
   'fixed',
   'align-to-parent',
   'row',
   'column',
 ];
-
 export function repeatingGroupProject(
   baseUrl = 'https://api.example.test',
   rowHeightMode: 'fixed' | 'dynamic' = 'fixed',
@@ -113,7 +111,6 @@ export function repeatingGroupProject(
   page = bindComponentEvent(page, 'reload', 'OnClick', 'load');
   return deserializeProject(serializeProject(updatePage(project, page.id, page)));
 }
-
 export function repeatingGroupUserSources() {
   const methods = repeatingLayoutModes.map(
     (_, index) => `
@@ -130,10 +127,10 @@ export function repeatingGroupUserSources() {
   }`,
   );
   return {
-    'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-import type { ${repeatingLayoutModes.map((_, index) => `RepeatingGroup${index}CurrentRow`).join(', ')} } from './PageMain.generated';
+    'pages/index.ts': `import { indexGenerated } from "./index.generated";
+import type { ${repeatingLayoutModes.map((_, index) => `RepeatingGroup${index}CurrentRow`).join(', ')} } from "./index.generated";
 import type { WebButton, WebLabel } from '@webrad/runtime';
-export class PageMain extends PageMainGenerated {
+export class index extends indexGenerated {
   #clicks = 0;
   public async load(): Promise<void> { await ApiClient1.Load.execute(); }
   ${methods.join('\n')}

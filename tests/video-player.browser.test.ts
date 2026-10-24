@@ -9,7 +9,6 @@ import {
 } from './fixtures/video-player';
 import { videoUser } from './fixtures/video-upload';
 import { withChromium } from './chromium';
-
 const browser = process.env.WEBRAD_BROWSER_PATH;
 it.runIf(browser !== undefined).each([false, true])(
   'plays real HLS/TS and DASH through Shaka in compiled Preview with private session refresh and scoped transport (reusable=%s)',
@@ -27,7 +26,11 @@ it.runIf(browser !== undefined).each([false, true])(
         name,
         await fs.readFile(new URL(`./fixtures/video-media/${name}`, import.meta.url)),
       );
-    const calls: { path: string; authorization?: string; cookie?: string }[] = [];
+    const calls: {
+      path: string;
+      authorization?: string;
+      cookie?: string;
+    }[] = [];
     let expired = false;
     let renewed = false;
     let denied = false;
@@ -187,9 +190,9 @@ it.runIf(browser !== undefined).each([false, true])(
     const app = createServer((request, response) => {
       response.writeHead(200, { 'Content-Type': 'text/html' });
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? preview
-          : '<!doctype html><iframe style="width:100%;height:600px;border:0" src="/preview"></iframe>',
+          : '<!doctype html><iframe style="width:100%;height:600px;border:0" src="/index.html"></iframe>',
       );
     });
     await Promise.all([
@@ -224,7 +227,11 @@ it.runIf(browser !== undefined).each([false, true])(
             returnByValue: true,
           });
           if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-          return (result.result as { value?: unknown })?.value;
+          return (
+            result.result as {
+              value?: unknown;
+            }
+          )?.value;
         };
         const frame = 'document.querySelector("iframe").contentWindow';
         const root = reusable

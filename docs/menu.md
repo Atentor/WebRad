@@ -2,8 +2,9 @@
 
 **Navigation > Menu** provides vertical or horizontal navigation, branding,
 profile photos, Lucide icons and nested items. **Project > Add Reusable Component
+
 > Responsive menu** creates a shared definition with its own TypeScript class.
-Instances keep separate selection, expanded state, events and profile state.
+> Instances keep separate selection, expanded state, events and profile state.
 
 ## Automatic placement
 
@@ -125,6 +126,13 @@ explicit validation request; they were not run for this change.
 Default Menu has no outer shadow. Project loading updates the exact original
 seeded base (zero border, 16 px radius, medium shadow) to shadow none, preserving
 style IDs, other states and customized styles. Save persists this adjustment.
+
+Menu navigation and horizontal flyouts use the global scrollbar appearance from
+**Project Settings**, including dimensions, track/thumb colors, borders, radii
+and hover/active states in compiled Preview and generated applications. The
+mobile drawer follows the same settings. Menu CSS does not override scrollbar
+width; Firefox retains the global standard-property fallback and forced colors
+retain the browser's accessible appearance.
 
 ## Search behavior and OnSearch
 

@@ -8,11 +8,11 @@ import { WEBRAD_FONT_FAMILIES } from '@webrad/runtime/fonts';
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import { withChromium } from './chromium';
 import { fontProject } from './fixtures/fonts';
-
+import { updateProjectSettings } from '@webrad/project-model';
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'loads real fonts with accents, bold and italic in Designer, compiled Preview and static export without external font access',
   async () => {
-    const project = fontProject();
+    const project = updateProjectSettings(fontProject(), { routingBasePath: '/export/' });
     const compiled = await compileProjectToMemory(project, { userSources: {}, minify: true });
     expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
     const designerCss = await compileTailwindStyles(project.styles);
@@ -64,13 +64,13 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       } else {
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
         response.end(
-          request.url === '/preview'
+          request.url === '/index.html'
             ? compiled.previewHtml
             : `<!doctype html><html><head><style>${designerCss}
           body { margin:0;display:flex;font-family:sans-serif;background:white;color:#111827 }
           section { position:relative;flex:none;width:620px;height:820px } iframe { width:620px;height:820px;border:0 }
           header { position:relative;padding:8px;font-size:20px }
-          </style></head><body><section><header>Designer</header><div id="designer" style="position:relative">${markup}</div></section><section><header>Preview</header><iframe id="preview" src="/preview"></iframe></section><section><header>Export</header><iframe id="export" src="/export/index.html"></iframe></section></body></html>`,
+          </style></head><body><section><header>Designer</header><div id="designer" style="position:relative">${markup}</div></section><section><header>Preview</header><iframe id="preview" src="/index.html"></iframe></section><section><header>Export</header><iframe id="export" src="/export/index.html"></iframe></section></body></html>`,
         );
       }
     });
@@ -90,7 +90,11 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
             });
             if (response.exceptionDetails)
               throw new Error(JSON.stringify(response.exceptionDetails));
-            return (response.result as { value?: unknown }).value;
+            return (
+              response.result as {
+                value?: unknown;
+              }
+            ).value;
           };
           await expect
             .poll(
@@ -98,7 +102,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
                 evaluate(
                   `['preview','export'].every(id => document.getElementById(id)?.contentDocument?.querySelectorAll('[data-webrad-id]').length >= 25)`,
                 ),
-              { timeout: 20_000 },
+              { timeout: 20000 },
             )
             .toBe(true);
           const families = JSON.stringify(WEBRAD_FONT_FAMILIES);
@@ -176,5 +180,5 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   },
-  90_000,
+  90000,
 );

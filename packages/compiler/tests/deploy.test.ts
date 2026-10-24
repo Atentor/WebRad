@@ -14,7 +14,6 @@ import { defaultComponentRegistry } from '@webrad/component-registry';
 import { createUserPageSource } from '@webrad/language';
 import { JSDOM } from 'jsdom';
 import { compileProjectToMemory } from '../src/index.js';
-
 function fixture() {
   const original = createProject('DeployApp');
   const page = original.pages[0];
@@ -39,7 +38,6 @@ function fixture() {
     },
   );
 }
-
 describe('hosting deployment', () => {
   it('exports the Preview bundle layout and omits unreferenced code', async () => {
     let project = fixture();
@@ -62,7 +60,7 @@ describe('hosting deployment', () => {
         'export const UNUSED_MARKER = "UNREACHABLE_CODE_SENTINEL"; export const unusedRestGo = (): unknown => RestGO.auth;',
       'reusables/UnusedVideo.ts':
         'import { UnusedVideoGenerated } from "./UnusedVideo.generated"; export class UnusedVideo extends UnusedVideoGenerated {}',
-      'pages/PageMain.ts':
+      'pages/index.ts':
         'import { Customer } from "../models/Customer"; import { greeting } from "../units/Greeting";\n' +
         createUserPageSource(page) +
         '\ndocument.documentElement.dataset.greeting = greeting(new Customer());',
@@ -76,7 +74,9 @@ describe('hosting deployment', () => {
     expect(Object.keys(result.files).sort()).toEqual([
       'assets/app.css',
       'assets/app.js',
+      'assets/licenses/Lucide.txt',
       'assets/licenses/WebRAD-MIT.txt',
+      'assets/licenses/fonts/roboto-OFL-1.1.txt',
       'index.html',
       'service-worker.js',
     ]);
@@ -102,8 +102,7 @@ describe('hosting deployment', () => {
     expect(javascript).not.toContain('dev-secret');
     expect(javascript).not.toMatch(/from\s+["'](?:node:|electron)/u);
     expect(result.files['manifest.webmanifest']).toBeUndefined();
-  }, 120_000);
-
+  }, 120000);
   it('generates installable subfolder metadata, raster icons and an isolated offline shell', async () => {
     const original = fixture();
     const project = updateProjectSettings(original, {
@@ -143,7 +142,6 @@ describe('hosting deployment', () => {
     expect(result.files['index.html']).toContain(
       '<script src="./assets/pwa-register.js"></script>',
     );
-
     const listeners = new Map<string, (event: unknown) => void>();
     const cachedUrls: string[] = [];
     const cache = {
@@ -206,8 +204,7 @@ describe('hosting deployment', () => {
     }
     expect(result.files['service-worker.js']).not.toContain('skipWaiting(');
     expect(Object.keys(result.files).every((file) => !path.isAbsolute(file))).toBe(true);
-  }, 120_000);
-
+  }, 120000);
   it('returns imported asset bytes in memory and keeps PWA out of Preview', async () => {
     const original = fixture();
     const project = parseProject({
@@ -229,8 +226,7 @@ describe('hosting deployment', () => {
     expect(result.previewHtml).not.toContain('serviceWorker');
     expect(result.previewHtml).not.toContain('WebVideoPlayer');
     expect(result.previewHtml).not.toContain('RestGoTransport');
-  }, 120_000);
-
+  }, 120000);
   it('keeps runtime adapters functional for authored dynamic registry creation', async () => {
     const project = fixture();
     const page = project.pages[0];
@@ -238,7 +234,7 @@ describe('hosting deployment', () => {
     if (page === undefined || node === undefined) throw new Error('Expected fixture node.');
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/PageMain.ts':
+        'pages/index.ts':
           'import { runtimeComponentRegistry } from "@webrad/runtime";\n' +
           createUserPageSource(page) +
           `\ndocument.documentElement.dataset.dynamicImage = runtimeComponentRegistry.create(document, ${JSON.stringify({ id: node.id, name: node.name, parentId: node.parentId, layout: node.layout, bounds: node.bounds, children: node.children, type: 'WebImage', props: { src: '', placeholder: 'user', alt: 'Dynamic' } })}).element.tagName;`,
@@ -255,5 +251,5 @@ describe('hosting deployment', () => {
     } finally {
       dom.window.close();
     }
-  }, 120_000);
+  }, 120000);
 });

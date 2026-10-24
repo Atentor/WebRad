@@ -75,7 +75,7 @@ it('keeps edited Video Player defaults and uses the actual project palette when 
   const project = createProject('VideoStyles');
   const style = findDefaultComponentStyle(project.styles, 'WebVideoPlayer')!;
   const edited = updateComponentStyle(project, style.id, {
-    states: { ...style.states, base: { backgroundColor: '#123456' } },
+    states: { ...style.states, base: { backgroundColor: '#123456', fontFamily: 'roboto' } },
   });
   expect(deserializeProject(serializeProject(edited))).toEqual(edited);
   const colors = [{ id: 'custom-ink', name: 'Ink', color: '#0f172a' }];

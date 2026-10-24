@@ -5,7 +5,6 @@ import { expect, it } from 'vitest';
 import { compileGeneratedAppStyles, compileProjectToMemory } from '@webrad/compiler';
 import { withChromium } from './chromium';
 import { panelFloatingProject, panelFloatingUserSources } from './fixtures/panel-floating';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'renders a real Designer overlay and scrolls compiled Preview and exported app Panels with the page',
   async () => {
@@ -35,14 +34,14 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
         url.endsWith('.js') ? 'text/javascript' : url.endsWith('.css') ? 'text/css' : 'text/html',
       );
       response.end(
-        url === '/preview'
+        url === '/index.html'
           ? compiled.previewHtml
-          : url === '/export'
+          : url === '/index'
             ? compiled.files['index.html']
             : url === '/designer.js'
               ? bundle.outputFiles[0]!.text
               : (compiled.files[url.slice(1)] ??
-                `<!doctype html><style>${css}</style><style>${designerCss}</style><div id="root" style="height:900px"></div><iframe id="preview" src="/preview" style="width:800px;height:500px"></iframe><iframe id="export" src="/export" style="width:800px;height:500px"></iframe><script src="/designer.js"></script>`),
+                `<!doctype html><style>${css}</style><style>${designerCss}</style><div id="root" style="height:900px"></div><iframe id="preview" src="/index.html" style="width:800px;height:500px"></iframe><iframe id="export" src="/index" style="width:800px;height:500px"></iframe><script src="/designer.js"></script>`),
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -60,7 +59,11 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
               awaitPromise: true,
             });
             if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-            return (result.result as { value: unknown }).value;
+            return (
+              result.result as {
+                value: unknown;
+              }
+            ).value;
           };
           await expect
             .poll(() =>
@@ -105,7 +108,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
               .toEqual({ scroll: 180, y: -148 });
             expect(
               await evaluate(
-                `(() => { ${setup} w.scrollTo(0,0); p.querySelector('button').click(); const b=p.getBoundingClientRect(); return { right:w.innerWidth-b.right,bottom:w.innerHeight-b.bottom,z:p.style.zIndex }; })()`,
+                `(() => { ${setup} w.scrollTo(0,0); p.querySelector('button').click(); const b=p.getBoundingClientRect(); return { right:d.documentElement.clientWidth-b.right,bottom:d.documentElement.clientHeight-b.bottom,z:p.style.zIndex }; })()`,
               ),
             ).toMatchObject({ right: 24, bottom: 32, z: '300' });
             expect(

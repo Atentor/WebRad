@@ -2745,6 +2745,249 @@ kbd {
   line-height: 1.55;
 }
 
+.wr-new-project-dialog:has(.wr-project-templates) {
+  display: flex;
+  width: min(640px, 100%);
+  max-height: calc(100dvh - 48px);
+  flex-direction: column;
+}
+
+.wr-new-project-dialog:has(.wr-project-templates) > form {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.wr-project-templates {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wr-project-templates legend {
+  margin-bottom: 9px;
+  padding: 0;
+  color: var(--wr-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wr-project-template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.wr-project-template {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.wr-project-template > input {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 10px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--wr-accent);
+}
+
+.wr-project-template-card {
+  display: flex;
+  height: 100%;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 10px 14px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 10px;
+  background: var(--wr-panel-alt);
+}
+
+.wr-project-template-card > strong,
+.wr-project-template-description {
+  padding: 0 4px;
+}
+
+.wr-project-template-card > strong {
+  margin-top: 4px;
+  color: var(--wr-text);
+  font-size: 13px;
+}
+
+.wr-project-template-description {
+  color: var(--wr-muted-text);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.wr-project-template:has(input:checked) .wr-project-template-card {
+  border-color: var(--wr-accent);
+  box-shadow: 0 0 0 1px var(--wr-accent);
+  background: color-mix(in srgb, var(--wr-accent) 6%, var(--wr-panel-alt));
+}
+
+.wr-project-template:has(input:focus-visible) .wr-project-template-card {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 4px;
+}
+
+.wr-project-template:has(input:disabled) {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.wr-project-template-preview {
+  display: grid;
+  height: 164px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f5f7fb;
+}
+
+.wr-project-template-preview.blank {
+  background-color: #ffffff;
+  background-image: radial-gradient(#dbe1ea 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.wr-template-empty {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: white;
+  color: #94a3b8;
+  font-size: 26px;
+  font-weight: 300;
+}
+
+.wr-template-workspace {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  width: 92%;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 0 12px 34px;
+  color: #0f172a;
+}
+
+.wr-template-sidebar {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  display: flex;
+  width: 27px;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  background: #ffffff;
+}
+
+.wr-template-sidebar i {
+  height: 5px;
+  border-radius: 2px;
+  background: #c4b5fd;
+}
+
+.wr-template-sidebar .wr-template-user {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  margin-top: auto;
+  border-radius: 50%;
+  background: #a5b4fc;
+}
+
+.wr-template-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.wr-template-brand i {
+  width: 24px;
+  height: 3px;
+  border-radius: 3px;
+  background: #cbd5e1;
+}
+
+.wr-template-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 7px;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(#ffffff, #f8fafc);
+  color: #334155;
+}
+
+.wr-template-hero small {
+  color: #64748b;
+  font-size: 5px;
+  letter-spacing: 1px;
+}
+
+.wr-template-hero strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.wr-template-hero i {
+  width: 45px;
+  height: 7px;
+  margin-top: 3px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+.wr-template-metrics,
+.wr-template-panels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.wr-template-metrics i,
+.wr-template-panels i {
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: white;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.wr-template-panels {
+  grid-template-columns: 1.5fr 1fr;
+}
+
+.wr-template-panels i {
+  padding: 8px;
+}
+
+@media (max-width: 520px) {
+  .wr-project-template-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .wr-modal-error {
   padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--wr-danger) 55%, var(--wr-border));
@@ -5761,4 +6004,72 @@ kbd {
   .wr-data-grid-column-actions {
     justify-content: start;
   }
+}
+
+.wr-project-explorer {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.wr-project-explorer .wr-panel-header {
+  min-height: 34px;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 4px 8px;
+}
+
+.wr-project-explorer .wr-panel-header > span {
+  flex: 1 0 auto;
+  white-space: nowrap;
+}
+
+.wr-project-explorer .wr-panel-actions {
+  align-items: center;
+  margin-left: auto;
+  gap: 1px;
+}
+
+.wr-project-explorer .wr-panel-actions button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 24px;
+  color: var(--wr-muted-text);
+}
+
+.wr-project-explorer .wr-panel-actions button:hover:not(:disabled) {
+  color: var(--wr-text);
+}
+
+.wr-project-explorer .wr-panel-actions button[aria-pressed='true'] {
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
+}
+
+.wr-project-explorer .wr-panel-actions button:focus-visible {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+
+.wr-project-search {
+  min-width: 0;
+  padding: 8px;
+  font-family: var(--wr-font-ui);
+  font-size: 12px;
+}
+
+.wr-project-search input {
+  min-width: 0;
+  font: inherit;
+  line-height: 18px;
+}
+
+.wr-project-search input:focus-visible {
+  border-color: var(--wr-accent);
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+
+.wr-project-search .wr-icon {
+  width: 14px;
+  height: 14px;
 }

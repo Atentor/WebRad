@@ -21,7 +21,7 @@ export const WEB_MENU_CSS = `
 .wr-menu-search { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; min-height: 40px; color: var(--wr-menu-muted); background: var(--wr-menu-hover-background); border: 1px solid var(--wr-menu-border); border-radius: var(--wr-menu-item-radius); }
 .wr-menu-search-input { width: 100%; min-width: 0; border: 0; background: transparent; color: var(--wr-menu-foreground); padding: 0; }
 .wr-menu-search-input::placeholder { color: var(--wr-menu-muted); opacity: 1; }
-.wr-menu-navigation { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; overscroll-behavior: contain; padding: 3px; margin: -3px; }
+.wr-menu-navigation { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 3px; margin: -3px; }
 .wr-menu-list, .wr-menu-submenu { display: flex; flex-direction: column; gap: var(--wr-menu-item-gap); padding: 0; margin: 0; list-style: none; }
 .wr-menu-row { position: relative; min-width: 0; }
 .wr-menu-line { display: flex; align-items: center; gap: 2px; min-width: 0; }

@@ -8,7 +8,6 @@ import {
   createReusableElement,
   updatePage,
 } from '@webrad/project-model';
-
 export function panelProgressProject(reusable = false, value = 0) {
   let project = createProject('PanelProgressExample');
   let page = project.pages[0]!;
@@ -62,7 +61,6 @@ export function panelProgressProject(reusable = false, value = 0) {
   }
   return updatePage(project, page.id, page);
 }
-
 const methods = `
   advance(): void {
     Panel1.progressEnabled = true;
@@ -70,11 +68,10 @@ const methods = `
     Advance1.caption = Panel1.progressVisible ? 'Progress ' + Panel1.progressValue : 'Hidden';
   }
 `;
-
 export function panelProgressUserSources(reusable = false): Record<string, string> {
   return {
-    'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated { ${reusable ? '' : methods} }`,
+    'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated { ${reusable ? '' : methods} }`,
     ...(reusable
       ? {
           'reusables/ProgressCard.ts': `import { ProgressCardGenerated } from './ProgressCard.generated';

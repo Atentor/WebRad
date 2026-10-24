@@ -168,7 +168,10 @@ function createEntrySource(
   const entryPage = project.pages.find((page) => page.id === project.entryPage);
   if (entryPage === undefined) throw new Error('The validated project has no entry page.');
   const pageImports = project.pages
-    .map((page, index) => `import { ${pageClassName(page.name)} as WebRadPage${String(index)} } from './pages/${page.name}';`)
+    .map(
+      (page, index) =>
+        `import { ${pageClassName(page.name)} as WebRadPage${String(index)} } from './pages/${page.name}';`,
+    )
     .join('\n');
   const reusableImports = project.reusableElements
     .map(
@@ -190,7 +193,7 @@ function createEntrySource(
       return `  {
     id: ${JSON.stringify(page.id)},
     name: ${JSON.stringify(page.name)},
-    path: ${JSON.stringify(page.id === project.entryPage ? '/index' : (page.components.find((node) => node.id === page.rootComponentId)?.props.routePath || `/${page.name.toLowerCase()}`))},
+    path: ${JSON.stringify(page.id === project.entryPage ? '/index' : page.components.find((node) => node.id === page.rootComponentId)?.props.routePath || `/${page.name.toLowerCase()}`)},
     model: ${model} as unknown as RuntimePageModel,
     createPage: (element: HTMLElement) => new WebRadPage${String(index)}(element),
     createReusableElements,
@@ -237,7 +240,7 @@ type ReusableElementFactory = (
   componentIds: ReadonlyMap<string, string>,
 ) => WebReusableElementInstance;
 
-const reusableElementFactories: ReadonlyMap<string, ReusableElementFactory> = new Map([
+const reusableElementFactories: ReadonlyMap<string, ReusableElementFactory> = new Map<string, ReusableElementFactory>([
 ${reusableFactories}
 ]);
 

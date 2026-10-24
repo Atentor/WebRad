@@ -7,7 +7,6 @@ import { findDefaultComponentStyle } from '@webrad/project-model';
 import { resolveComponentStyleClassName } from '@webrad/runtime';
 import { withChromium } from './chromium';
 import { toggleProject, toggleUserSources } from './fixtures/toggle';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'matches Aurora Toggle styles in Designer and compiled Preview and handles native keyboard activation',
   async () => {
@@ -31,9 +30,9 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
     const server = createServer((request, response) => {
       response.setHeader('Content-Type', 'text/html');
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? compiled.previewHtml
-          : `<!doctype html><style>${css}</style><div style="width:48px;height:26px;margin:20px">${markup}</div><iframe src="/preview" style="width:900px;height:500px"></iframe>`,
+          : `<!doctype html><style>${css}</style><div style="width:48px;height:26px;margin:20px">${markup}</div><iframe src="/index.html" style="width:900px;height:500px"></iframe>`,
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -51,10 +50,14 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           const evaluate = async (expression: string): Promise<unknown> => {
             const result = await send('Runtime.evaluate', { expression, returnByValue: true });
             if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-            return (result.result as { value?: unknown })?.value;
+            return (
+              result.result as {
+                value?: unknown;
+              }
+            )?.value;
           };
           await expect
-            .poll(() => evaluate(`Boolean(${expressions[1]})`), { timeout: 15_000 })
+            .poll(() => evaluate(`Boolean(${expressions[1]})`), { timeout: 15000 })
             .toBe(true);
           const read = (expression: string) =>
             evaluate(`(() => {
@@ -96,7 +99,11 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           for (const expression of expressions) {
             const object = await send('Runtime.evaluate', { expression });
             const node = await send('DOM.requestNode', {
-              objectId: (object.result as { objectId: string }).objectId,
+              objectId: (
+                object.result as {
+                  objectId: string;
+                }
+              ).objectId,
             });
             const paints: unknown[] = [];
             for (const state of ['hover', 'focus-within', 'active']) {
@@ -171,5 +178,5 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   },
-  60_000,
+  60000,
 );

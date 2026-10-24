@@ -875,6 +875,7 @@ export function renamePageUserSource(
   oldPageName: string,
   newPageName: string,
   fileName = `${oldPageName}.ts`,
+  oldModuleName = oldPageName,
 ): RenamePageSourceResult {
   assertIdentifier(oldPageName, 'Old page name');
   assertIdentifier(newPageName, 'New page name');
@@ -903,7 +904,7 @@ export function renamePageUserSource(
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) {
       continue;
     }
-    if (statement.moduleSpecifier.text === `./${oldPageName}.generated`) {
+    if (statement.moduleSpecifier.text === `./${oldModuleName}.generated`) {
       edits.push({
         position: statement.moduleSpecifier.getStart(sourceFile),
         end: statement.moduleSpecifier.getEnd(),

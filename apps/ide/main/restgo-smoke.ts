@@ -246,9 +246,7 @@ export async function runRestGoPageEventsSmoke(
       root.events.OnUnauthenticated === 'indexUnauthenticated' &&
       source.includes('CustomEvent<WebPageLoginEventDetail>') &&
       source.includes('CustomEvent<WebPageLogoutEventDetail>') &&
-      source.includes(
-        'async indexUnauthenticated(sender: WebPage, event: Event): Promise<void>',
-      ) &&
+      source.includes('async indexUnauthenticated(sender: WebPage, event: Event): Promise<void>') &&
       source.includes('const { user } = event.detail;')
     ) {
       log(

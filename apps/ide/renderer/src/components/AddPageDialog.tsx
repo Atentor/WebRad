@@ -76,7 +76,8 @@ export function AddPageDialog({
       return;
     }
     setError(null);
-    onCreate(normalizedName, kind === 'reusable' ? templateId : undefined);
+    if (kind === 'reusable') onCreate(normalizedName, templateId);
+    else onCreate(normalizedName);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {

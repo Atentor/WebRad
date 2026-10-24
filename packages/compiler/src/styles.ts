@@ -31,14 +31,14 @@ body {
 }
 
 body {
-  min-width: 100vw;
+  width: 100%;
   min-height: 100vh;
   color: #1f2937;
   background: #ffffff;
 }
 
 .wr-webpage {
-  width: 100vw !important;
+  width: 100% !important;
   min-height: 100vh;
   height: 100vh !important;
   color: #111827;

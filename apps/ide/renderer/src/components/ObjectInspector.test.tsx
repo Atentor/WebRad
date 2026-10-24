@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import {
   createComponentStyle,
@@ -12,9 +11,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ObjectInspector } from './ObjectInspector';
-
 afterEach(cleanup);
-
 const button: ComponentNode = {
   id: 'button-id',
   name: 'ButtonSave',
@@ -26,7 +23,6 @@ const button: ComponentNode = {
   events: { OnClick: 'ButtonSaveClick' },
   children: [],
 };
-
 describe('ObjectInspector', () => {
   it('edits Lucide selection, mode, stroke and accessible label without a caption', () => {
     const onPropertyChange = vi.fn();
@@ -91,7 +87,6 @@ describe('ObjectInspector', () => {
     view.rerender(<ObjectInspector {...props} selection={[{ ...root, props: {} }]} />);
     expect((screen.getByLabelText('Browser title') as HTMLInputElement).value).toBe('');
   });
-
   it('edits TextArea spell checking with a true fallback for older projects', () => {
     const onPropertyChange = vi.fn();
     const node = defaultComponentRegistry.createComponent('WebTextArea', {
@@ -215,7 +210,27 @@ describe('ObjectInspector', () => {
         expect(screen.queryByLabelText('Margin')).toBeNull();
         continue;
       }
-      const input = screen.getByLabelText('Margin') as HTMLInputElement;
+      const input = screen.queryByLabelText('Margin') as HTMLInputElement | null;
+      const properties =
+        definition.inspectorProperties?.(definition.properties, node) ?? definition.properties;
+      if (!properties.some((property) => property.name === 'margin')) {
+        expect(input).toBeNull();
+        for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
+          const sideInput = screen.getByLabelText(
+            `Margin ${side.toLowerCase()}`,
+          ) as HTMLInputElement;
+          expect(sideInput.type).toBe('number');
+          expect(sideInput.value).toBe('0');
+          fireEvent.change(sideInput, { target: { value: '12' } });
+          expect(onPropertyChange).toHaveBeenLastCalledWith(
+            `margin${side}`,
+            12,
+            expect.objectContaining({ name: `margin${side}`, source: 'props' }),
+          );
+        }
+        continue;
+      }
+      if (!input) throw new Error('The registered Margin editor is missing.');
       expect(input.closest('details')?.querySelector('summary')?.textContent).toBe('Spacing');
       expect(input.type).toBe('number');
       expect(input.value).toBe('0');
@@ -268,7 +283,6 @@ describe('ObjectInspector', () => {
       }
     }
   });
-
   it('searches common properties without losing mixed values or editor callbacks', async () => {
     const user = userEvent.setup();
     const onPropertyChange = vi.fn();
@@ -316,7 +330,6 @@ describe('ObjectInspector', () => {
     expect((search as HTMLInputElement).value).toBe('');
     expect(screen.getByLabelText('Name')).toBeTruthy();
   });
-
   it('updates registry-defined read-only behavior when an API Client binds to RestGo', async () => {
     const user = userEvent.setup();
     const onPropertyChange = vi.fn();
@@ -340,7 +353,6 @@ describe('ObjectInspector', () => {
       expect.objectContaining({ name: 'baseUrl' }),
     );
     onPropertyChange.mockClear();
-
     const boundClient = {
       ...customClient,
       props: {
@@ -358,7 +370,6 @@ describe('ObjectInspector', () => {
     fireEvent.change(fixedUrl, { target: { value: 'https://escaped.example.test' } });
     expect(onPropertyChange).not.toHaveBeenCalled();
   });
-
   it.each([false, true])(
     'keeps mixed custom and RestGo-bound selections read-only (bound first: %s)',
     (boundFirst) => {
@@ -391,7 +402,6 @@ describe('ObjectInspector', () => {
       expect(onPropertyChange).not.toHaveBeenCalled();
     },
   );
-
   it('preserves static read-only property metadata alongside dynamic predicates', () => {
     const onPropertyChange = vi.fn();
     const original = defaultComponentRegistry.require('WebButton');
@@ -417,14 +427,13 @@ describe('ObjectInspector', () => {
     fireEvent.change(caption, { target: { value: 'Edited caption' } });
     expect(onPropertyChange).not.toHaveBeenCalled();
   });
-
   it('offers typed RestGO page events in Interaction from the central registry', async () => {
     const user = userEvent.setup();
     const onEventDoubleClick = vi.fn();
     render(
       <ObjectInspector
         selection={[]}
-        page={createPage('PageMain')}
+        page={createPage('index')}
         definition={defaultComponentRegistry.get('WebPage')}
         onPropertyChange={vi.fn()}
         onEventChange={vi.fn()}
@@ -469,13 +478,11 @@ describe('ObjectInspector', () => {
         onEventDoubleClick={onEventDoubleClick}
       />,
     );
-
     expect(screen.getByRole('tab', { name: 'Properties' }).textContent).toBe('Visual');
     expect(screen.getByRole('tab', { name: 'Events' }).textContent).toBe('Interaction');
     expect(container.querySelector('.wr-inspector-selection-icon')?.getAttribute('data-icon')).toBe(
       defaultComponentRegistry.get('WebButton')?.icon,
     );
-
     const geometrySummary = screen.getByText('Size & position');
     const geometrySection = geometrySummary.closest('details');
     expect(geometrySection?.open).toBe(true);
@@ -488,10 +495,8 @@ describe('ObjectInspector', () => {
       160,
       expect.objectContaining({ source: 'bounds' }),
     );
-
     await user.selectOptions(screen.getByLabelText('Style'), style.id);
     expect(onStyleChange).toHaveBeenCalledWith(style.id);
-
     await user.click(screen.getByRole('tab', { name: 'Events' }));
     fireEvent.change(screen.getByLabelText('OnClick'), { target: { value: 'HandleSave' } });
     expect(onEventChange).toHaveBeenCalledWith(
@@ -507,9 +512,8 @@ describe('ObjectInspector', () => {
     await user.click(screen.getByRole('tab', { name: 'Properties' }));
     expect((screen.getByLabelText('Width') as HTMLInputElement).value).toBe('120');
   });
-
   it('inspects the page root with hidden interactions when the host has no component selection', () => {
-    const page = createPage('PageMain');
+    const page = createPage('index');
     render(
       <ObjectInspector
         selection={[]}
@@ -521,8 +525,7 @@ describe('ObjectInspector', () => {
         onEventDoubleClick={vi.fn()}
       />,
     );
-
-    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('PageMain');
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('index');
     expect(screen.queryByRole('tab', { name: 'Events' })).toBeNull();
     expect(screen.getByRole('tab', { name: 'Properties' }).getAttribute('aria-selected')).toBe(
       'true',

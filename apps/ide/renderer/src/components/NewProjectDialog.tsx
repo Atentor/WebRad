@@ -1,3 +1,5 @@
+import { ProjectTemplatePicker } from './ProjectTemplatePicker';
+import { type ProjectTemplateId } from '@webrad/component-registry';
 import { Icon } from './Icon';
 import { getProjectNameError } from '@webrad/project-model';
 import {
@@ -15,7 +17,7 @@ interface NewProjectDialogProps {
   readonly error?: string | null;
   readonly onCancel: () => void;
   readonly onClearError: () => void;
-  readonly onCreate: (name: string) => void;
+  readonly onCreate: (name: string, templateId: ProjectTemplateId) => void;
 }
 
 function validationMessage(reason: string): string {
@@ -39,6 +41,7 @@ export function NewProjectDialog({
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
   const [name, setName] = useState('Project1');
+  const [templateId, setTemplateId] = useState<ProjectTemplateId>('blank');
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,7 +67,7 @@ export function NewProjectDialog({
       return;
     }
     setLocalError(null);
-    onCreate(normalizedName);
+    onCreate(normalizedName, templateId);
   };
   const displayedError = localError ?? error;
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -122,6 +125,14 @@ export function NewProjectDialog({
             Choose a project name. WebRAD will then ask where to create it and make a folder with
             that name inside the selected location.
           </p>
+          <ProjectTemplatePicker
+            value={templateId}
+            disabled={busy}
+            onChange={(value) => {
+              setTemplateId(value);
+              onClearError();
+            }}
+          />
           <label className="wr-modal-field">
             <span>Project name</span>
             <input

@@ -19,7 +19,6 @@ import {
 } from '@webrad/language';
 import { appendComponentReferenceDeclarations } from '../packages/language/src/component-references';
 import { groupProject, groupUserSources } from './fixtures/group';
-
 it('registers a transparent child container without appearance props or a default style', () => {
   const project = groupProject();
   const group = project.pages[0]!.components.find((n) => n.id === 'group')!;
@@ -53,14 +52,13 @@ it('registers a transparent child container without appearance props or a defaul
   vi.unstubAllGlobals();
   dom.window.close();
 });
-
 it.each([false, true])(
   'provides typed Group completion and diagnostics in reusable=%s',
   (reusable) => {
     const page = groupProject().pages[0]!;
-    const filename = '/virtual/PageMain.ts';
-    const source = `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+    const filename = '/virtual/index.ts';
+    const source = `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   run(): void { Group1.width = 'bad'; this.Group1.missing(); Group1.show(); this.Group1.hide(); }
 }`;
     const augmented = appendComponentReferenceDeclarations(ts, filename, source, {
@@ -71,10 +69,10 @@ export class PageMain extends PageMainGenerated {
     const files = new Map([
       [filename, augmented],
       [
-        '/virtual/PageMain.generated.d.ts',
+        '/virtual/index.generated.d.ts',
         reusable
           ? generateReusableElementTypings({
-              ...createReusableElement('PageMain'),
+              ...createReusableElement('index'),
               rootComponentId: page.rootComponentId,
               components: page.components.map((node) =>
                 node.id === page.rootComponentId ? { ...node, type: 'WebPanel' } : node,
@@ -119,7 +117,6 @@ export class PageMain extends PageMainGenerated {
     service.dispose();
   },
 );
-
 it('executes the real Group instance, child hierarchy and bubbling handler in compiled Preview', async () => {
   const compiled = await compileProjectToMemory(groupProject(), { userSources: groupUserSources });
   expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
@@ -139,4 +136,4 @@ it('executes the real Group instance, child hierarchy and bubbling handler in co
   } finally {
     dom.window.close();
   }
-}, 120_000);
+}, 120000);

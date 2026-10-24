@@ -55,7 +55,9 @@ it.runIf(browserPath !== undefined)(
             : 'text/html',
       );
       const file = route === '' ? 'index.html' : route;
-      const contents = route === 'preview' ? result.previewHtml : exported.files[file];
+      const contents = request.url?.includes('?preview=1')
+        ? result.previewHtml
+        : exported.files[file];
       response.statusCode = contents === undefined ? 404 : 200;
       response.end(contents ?? '');
     });
@@ -65,7 +67,7 @@ it.runIf(browserPath !== undefined)(
       throw new Error('Missing page-title server');
     const origin = `http://127.0.0.1:${address.port}`;
     try {
-      for (const mode of ['preview', 'index.html']) {
+      for (const mode of ['index.html?preview=1', 'index.html']) {
         await withChromium(browserPath!, `${origin}/${mode}`, async (send) => {
           const expectPage = async (rootId: string, title: string): Promise<void> => {
             await expect

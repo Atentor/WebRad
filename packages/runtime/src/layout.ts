@@ -1182,7 +1182,8 @@ export function applyRuntimeLayout(
               width: INTRINSIC_CONTENT_SIZE,
               ...axisMinMaxStyles('horizontal', item.minWidth, item.maxWidth),
             }
-          : { width: '100vw' }),
+          : // Percentages use the available body width, excluding classic scrollbars.
+            { width: '100%' }),
         ...(item.height === 'fit-content'
           ? {
               height: INTRINSIC_CONTENT_SIZE,

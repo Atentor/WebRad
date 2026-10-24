@@ -69,13 +69,10 @@ describe('page browser titles', () => {
     expect(exported.success, JSON.stringify(exported.diagnostics)).toBe(true);
     expect(exported.files['index.html']).toContain('<title>Home &amp; &lt;Account&gt;</title>');
 
-    const preview = await compileProjectToMemory(
-      { ...project, entryPage: alternate.id },
-      { userSources: {} },
-    );
+    const preview = await compileProjectToMemory(project, { userSources: {} });
     expect(preview.success, JSON.stringify(preview.diagnostics)).toBe(true);
-    expect(preview.previewHtml).toContain('<title>Alternate title</title>');
-    expect(preview.files['index.html']).toContain('<title>Alternate title</title>');
+    expect(preview.previewHtml).toContain('<title>Home &amp; &lt;Account&gt;</title>');
+    expect(preview.files['index.html']).toContain('<title>Home &amp; &lt;Account&gt;</title>');
     expect(preview.previewHtml).toContain('data-webrad-application-name="Application"');
   });
 

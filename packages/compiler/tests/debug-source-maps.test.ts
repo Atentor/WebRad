@@ -16,16 +16,19 @@ import {
 } from '@webrad/project-model';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
-
 import { compileProjectToMemory } from '../src/index.js';
-
-function sourcePosition(source: string, token: string): { line: number; column: number } {
+function sourcePosition(
+  source: string,
+  token: string,
+): {
+  line: number;
+  column: number;
+} {
   const offset = source.indexOf(token);
   if (offset < 0) throw new Error(`Missing test token: ${token}`);
   const prefix = source.slice(0, offset).split('\n');
   return { line: prefix.length, column: prefix[prefix.length - 1]?.length ?? 0 };
 }
-
 describe('debug source maps', () => {
   it('maps the complete debug bundle to original portable authored sources and preserves execution', async () => {
     let project = createProject('Debugger');
@@ -73,10 +76,10 @@ describe('debug source maps', () => {
     );
     project = updatePage(project, page.id, page);
     const pageSource = [
-      `import { PageMainGenerated } from './PageMain.generated';`,
+      `import { indexGenerated } from "./index.generated";`,
       `import { Customer } from '../models/Customer';`,
       `import { greeting } from '../units/Helpers';`,
-      'export class PageMain extends PageMainGenerated {',
+      'export class index extends indexGenerated {',
       '  public PageMainCreate(): void {',
       `    const emoji = '😀'; Button1.caption = greeting(new Customer()); Button1.visible = true;`,
       `    const refs = { Button1 }; this.element.dataset.caption = refs.Button1.caption + emoji;`,
@@ -94,7 +97,7 @@ export class DebugReusable extends DebugReusableGenerated {
     const unitSource = `import type { Customer } from '../models/Customer';
 export function greeting(customer: Customer): string { return 'Hello ' + customer.name; }`;
     const userSources = Object.freeze({
-      'pages\\PageMain.ts': pageSource,
+      'pages\\index.ts': pageSource,
       'reusables/DebugReusable.ts': reusableSource,
       'models/Customer.ts': modelSource,
       'units/Helpers.ts': unitSource,
@@ -121,7 +124,7 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
     expect(encoded.ignoreList ?? encoded.x_google_ignoreList).toContain(shakaIndex);
     expect(map.sources).toEqual(
       expect.arrayContaining([
-        'pages/PageMain.ts',
+        'pages/index.ts',
         'reusables/DebugReusable.ts',
         'models/Customer.ts',
         'units/Helpers.ts',
@@ -137,16 +140,19 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
       ),
     ).toBe(true);
     for (const [source, content] of Object.entries({
-      'pages/PageMain.ts': pageSource,
+      'pages/index.ts': pageSource,
       'reusables/DebugReusable.ts': reusableSource,
       'models/Customer.ts': modelSource,
       'units/Helpers.ts': unitSource,
     }))
       expect(sourceContentFor(map, source)).toBe(content);
-    const authoredMappings: { line: number; column: number }[] = [];
+    const authoredMappings: {
+      line: number;
+      column: number;
+    }[] = [];
     eachMapping(map, (mapping) => {
       if (
-        mapping.source === 'pages/PageMain.ts' &&
+        mapping.source === 'pages/index.ts' &&
         mapping.originalLine !== null &&
         mapping.originalColumn !== null
       )
@@ -164,15 +170,15 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
     ]) {
       const position = sourcePosition(pageSource, token);
       expect(authoredMappings, token).toContainEqual(position);
-      const generated = generatedPositionFor(map, { source: 'pages/PageMain.ts', ...position });
+      const generated = generatedPositionFor(map, { source: 'pages/index.ts', ...position });
       expect(generated.line, token).not.toBeNull();
       const roundtrip = originalPositionFor(map, {
         line: generated.line!,
         column: generated.column!,
       });
-      expect(roundtrip, token).toMatchObject({ source: 'pages/PageMain.ts', ...position });
+      expect(roundtrip, token).toMatchObject({ source: 'pages/index.ts', ...position });
     }
-    expect(userSources['pages\\PageMain.ts']).toBe(pageSource);
+    expect(userSources['pages\\index.ts']).toBe(pageSource);
     const parsed = new JSDOM(result.previewHtml);
     try {
       // No HTML-time escaping may shift generated columns after esbuild creates the map.
@@ -205,8 +211,7 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
     } finally {
       dom.window.close();
     }
-  }, 120_000);
-
+  }, 120000);
   it('keeps normal builds free of debugger metadata while correcting requested source maps', async () => {
     const result = await compileProjectToMemory(createProject('OrdinaryBrowser'), {
       userSources: {},
@@ -215,16 +220,15 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
     expect(result.success, JSON.stringify(result.diagnostics)).toBe(true);
     expect(result.debug).toBeUndefined();
     expect(result.previewHtml).not.toContain('webrad-debug://');
-    expect(new TraceMap(result.files['assets/app.js.map']!).sources).toContain('pages/PageMain.ts');
-  }, 120_000);
-
+    expect(new TraceMap(result.files['assets/app.js.map']!).sources).toContain('pages/index.ts');
+  }, 120000);
   it('executes nested HTML delimiters and tagged raw templates with the exact mapped debug script', async () => {
     let project = createProject('HtmlScriptDelimiters');
     let page = project.pages[0]!;
     page = bindComponentEvent(page, page.rootComponentId, 'OnCreate', 'PageMainCreate');
     project = updatePage(project, page.id, page);
-    const source = `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+    const source = `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   public PageMainCreate(): void {
     document.documentElement.dataset.executedScript = document.currentScript?.textContent ?? '';
     document.documentElement.dataset.htmlTrap = '<!--<script>';
@@ -233,17 +237,17 @@ export class PageMain extends PageMainGenerated {
   }
 }`;
     const result = await compileProjectToMemory(project, {
-      userSources: { 'pages/PageMain.ts': source },
+      userSources: { 'pages/index.ts': source },
       debug: true,
     });
     expect(result.success, JSON.stringify(result.diagnostics)).toBe(true);
     const map = new TraceMap(result.debug!.sourceMap);
     const position = sourcePosition(source, 'document.documentElement.dataset.afterTrap');
-    const generated = generatedPositionFor(map, { source: 'pages/PageMain.ts', ...position });
+    const generated = generatedPositionFor(map, { source: 'pages/index.ts', ...position });
     expect(
       originalPositionFor(map, { line: generated.line!, column: generated.column! }),
     ).toMatchObject({
-      source: 'pages/PageMain.ts',
+      source: 'pages/index.ts',
       ...position,
     });
     const dom = new JSDOM(result.previewHtml, {
@@ -262,5 +266,5 @@ export class PageMain extends PageMainGenerated {
     } finally {
       dom.window.close();
     }
-  }, 120_000);
+  }, 120000);
 });

@@ -8,9 +8,7 @@ import { defaultComponentRegistry } from '@webrad/component-registry';
 import { addComponent, bindComponentEvent, updateProjectSettings } from '@webrad/project-model';
 import { fileUploadMethods, fileUploadProject } from './fixtures/file-upload';
 import { withChromium } from './chromium';
-
 const browserPath = process.env.WEBRAD_BROWSER_PATH;
-
 it.runIf(browserPath !== undefined)(
   'runs nonvisual OpenFile/SendToRestGO with native metadata, full RestGO results and real upload progress in Chromium Preview',
   async () => {
@@ -22,7 +20,12 @@ it.runIf(browserPath !== undefined)(
     const contents = 'Conteúdo real do arquivo selecionado.\n'.repeat(8192);
     await fs.writeFile(filePath, contents, 'utf8');
     let previewHtml = '';
-    const uploads: { id: string; isPublic: boolean; content: string; name: string }[] = [];
+    const uploads: {
+      id: string;
+      isPublic: boolean;
+      content: string;
+      name: string;
+    }[] = [];
     const user = {
       id: 'upload-user',
       email: 'upload@example.test',
@@ -102,9 +105,9 @@ it.runIf(browserPath !== undefined)(
     const application = createServer((request, response) => {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? previewHtml
-          : '<!doctype html><html><body style="margin:0"><iframe title="Compiled F9 Preview" style="width:100%;height:500px;border:0" src="/preview"></iframe></body></html>',
+          : '<!doctype html><html><body style="margin:0"><iframe title="Compiled F9 Preview" style="width:100%;height:500px;border:0" src="/index.html"></iframe></body></html>',
       );
     });
     await Promise.all([
@@ -213,12 +216,18 @@ export class ${page.name} extends ${page.name}Generated {
             userGesture: true,
           });
           if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-          return (result.result as { value?: unknown } | undefined)?.value;
+          return (
+            result.result as
+              | {
+                  value?: unknown;
+                }
+              | undefined
+          )?.value;
         };
         const frameDocument = "document.querySelector('iframe').contentDocument";
         const root = `${frameDocument}.querySelector('.wr-webpage')`;
         await expect
-          .poll(() => evaluate(`${root}?.dataset.authenticated`), { timeout: 15_000 })
+          .poll(() => evaluate(`${root}?.dataset.authenticated`), { timeout: 15000 })
           .toBe('true');
         expect(
           await evaluate(
@@ -233,7 +242,13 @@ export class ${page.name} extends ${page.name}Generated {
           const input = await send('Runtime.evaluate', {
             expression: `${frameDocument}.querySelector('[data-file-upload-input]')`,
           });
-          const objectId = (input.result as { objectId?: string } | undefined)?.objectId;
+          const objectId = (
+            input.result as
+              | {
+                  objectId?: string;
+                }
+              | undefined
+          )?.objectId;
           if (!objectId) throw new Error('Missing native file chooser.');
           await send('DOM.setFileInputFiles', { objectId, files: [filePath] });
         };
@@ -251,7 +266,7 @@ export class ${page.name} extends ${page.name}Generated {
         ).toBe(true);
         await evaluate(`${frameDocument}.querySelector('[data-webrad-id="send-file"]').click()`);
         await expect
-          .poll(() => evaluate(`${root}.dataset.uploadId`), { timeout: 15_000 })
+          .poll(() => evaluate(`${root}.dataset.uploadId`), { timeout: 15000 })
           .toBe('file-1');
         const first = JSON.parse(String(await evaluate(`${root}.dataset.uploadResult`)));
         expect(first).toEqual({
@@ -299,7 +314,7 @@ export class ${page.name} extends ${page.name}Generated {
         expect(uploads).toHaveLength(1);
         await evaluate(`${frameDocument}.querySelector('[data-webrad-id="send-file"]').click()`);
         await expect
-          .poll(() => evaluate(`${root}.dataset.uploadId`), { timeout: 15_000 })
+          .poll(() => evaluate(`${root}.dataset.uploadId`), { timeout: 15000 })
           .toBe('file-2');
         expect(await evaluate(`${root}.dataset.uploadPublic`)).toBe('true');
         expect(await evaluate(`${root}.dataset.completed`)).toBe('true');
@@ -332,5 +347,5 @@ export class ${page.name} extends ${page.name}Generated {
       await fs.rm(resolvedRoot, { recursive: true, force: true });
     }
   },
-  60_000,
+  60000,
 );

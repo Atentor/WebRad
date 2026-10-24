@@ -20,7 +20,6 @@ import {
 import { importRestGoPublishedApis, type RestGoPublishedApi } from '@webrad/designer';
 import { DesignerController } from './designer-controller';
 import { synchronizeProjectRestGoClients } from './restgo-api-sync';
-
 function deferred<T>(): {
   readonly promise: Promise<T>;
   readonly resolve: (value: T) => void;
@@ -34,7 +33,6 @@ function deferred<T>(): {
   });
   return { promise, resolve, reject };
 }
-
 function projectSession(name: string): ProjectSession {
   const rootPath = 'C:/projects/' + name;
   return {
@@ -44,7 +42,6 @@ function projectSession(name: string): ProjectSession {
     userSources: {},
   };
 }
-
 function fakeBridge(session: ProjectSession): WebRadBridge {
   return {
     updates: createUpdateTestBridge(),
@@ -109,7 +106,6 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
     platform: 'win32',
   };
 }
-
 describe('ProjectController', () => {
   it('retains code typed into an empty handler while its cleaned save is in flight', async () => {
     const seed = projectSession('CleanupRace');
@@ -128,7 +124,7 @@ describe('ProjectController', () => {
           },
         ],
       },
-      userSources: { 'pages/PageMain.ts': 'export class PageMain { Empty() {} }' },
+      userSources: { 'pages/index.ts': 'export class index { Empty() {} }' },
     };
     const first = deferred<ProjectSession>();
     const bridge = fakeBridge(session);
@@ -140,16 +136,15 @@ describe('ProjectController', () => {
     controller.load(session);
     const saving = controller.save();
     const firstRequest = vi.mocked(bridge.project.save).mock.calls[0]![0];
-    expect(firstRequest.userSources['pages/PageMain.ts']).not.toContain('Empty()');
-    const authored = 'export class PageMain { Empty() { return; } }';
-    controller.setUserSource('pages/PageMain.ts', authored);
+    expect(firstRequest.userSources['pages/index.ts']).not.toContain('Empty()');
+    const authored = 'export class index { Empty() { return; } }';
+    controller.setUserSource('pages/index.ts', authored);
     first.resolve({ ...session, ...firstRequest });
     await saving;
     expect(bridge.project.save).toHaveBeenCalledTimes(2);
-    expect(controller.getSnapshot().userSources['pages/PageMain.ts']).toBe(authored);
+    expect(controller.getSnapshot().userSources['pages/index.ts']).toBe(authored);
     expect(controller.getSnapshot().project?.pages[0]?.components[0]?.events.OnShow).toBe('Empty');
   });
-
   it.each(['save', 'saveAs'] as const)(
     'removes an empty event and its bindings together on %s and reload',
     async (operation) => {
@@ -167,15 +162,15 @@ describe('ProjectController', () => {
           },
         ],
       };
-      const source = 'export class PageMain { async Empty() {} Keep() { return; } }';
-      const session = { ...seed, project, userSources: { 'pages/PageMain.ts': source } };
+      const source = 'export class index { async Empty() {} Keep() { return; } }';
+      const session = { ...seed, project, userSources: { 'pages/index.ts': source } };
       const bridge = fakeBridge(session);
       const controller = new ProjectController(bridge);
       controller.load(session);
       const revision = controller.getSnapshot().revision;
       const saved = await controller[operation]();
-      expect(saved?.userSources['pages/PageMain.ts']).not.toContain('Empty()');
-      expect(saved?.userSources['pages/PageMain.ts']).toContain('Keep() { return; }');
+      expect(saved?.userSources['pages/index.ts']).not.toContain('Empty()');
+      expect(saved?.userSources['pages/index.ts']).toContain('Keep() { return; }');
       expect(saved?.project.pages[0]?.components[0]?.events).toEqual({
         OnShow: null,
         OnHide: 'Keep',
@@ -186,7 +181,6 @@ describe('ProjectController', () => {
       expect(controller.getSnapshot().project?.pages[0]?.components[0]?.events.OnShow).toBeNull();
     },
   );
-
   it('preserves the authored source and bindings on save failure and save-as cancellation', async () => {
     const seed = projectSession('Cleanup');
     const page = seed.project.pages[0]!;
@@ -204,21 +198,21 @@ describe('ProjectController', () => {
           },
         ],
       },
-      userSources: { 'pages/PageMain.ts': 'export class PageMain { Empty() {} }' },
+      userSources: { 'pages/index.ts': 'export class index { Empty() {} }' },
     };
     const bridge = fakeBridge(session);
     bridge.project.save = vi.fn().mockRejectedValue(new Error('Disk unavailable'));
     bridge.project.saveAs = vi.fn().mockResolvedValue(null);
     const controller = new ProjectController(bridge);
     controller.load(session);
+    const beforeSave = controller.getSnapshot();
     await expect(controller.save()).rejects.toThrow('Disk unavailable');
-    expect(controller.getSnapshot().userSources).toEqual(session.userSources);
-    expect(controller.getSnapshot().project).toEqual(session.project);
+    expect(controller.getSnapshot().userSources).toEqual(beforeSave.userSources);
+    expect(controller.getSnapshot().project).toEqual(beforeSave.project);
     await controller.saveAs();
-    expect(controller.getSnapshot().userSources).toEqual(session.userSources);
-    expect(controller.getSnapshot().project).toEqual(session.project);
+    expect(controller.getSnapshot().userSources).toEqual(beforeSave.userSources);
+    expect(controller.getSnapshot().project).toEqual(beforeSave.project);
   });
-
   it('synchronizes imported clients across pages and reusables, persists the inputs, and supports undo without touching authored sources', async () => {
     const seed = projectSession('RestGoSync');
     const api: RestGoPublishedApi = {
@@ -280,7 +274,10 @@ describe('ProjectController', () => {
       synchronizeProjectRestGoClients(controller, designer, session.project.id, baseUrl, [changed]),
     ).toEqual({ updated: 3, issues: [] });
     const project = controller.getSnapshot().project!;
-    for (const document of [...project.pages, ...project.reusableElements]) {
+    for (const document of [
+      ...project.pages.filter((page) => page.name !== '404'),
+      ...project.reusableElements,
+    ]) {
       const restored = parseVisualDocument(JSON.parse(serializeVisualDocument(document)));
       const client = restored.components.find((component) => component.type === 'WebApiClient')!;
       expect(
@@ -353,7 +350,6 @@ describe('ProjectController', () => {
     expect(() => controller.duplicateStyle('missing')).toThrow('Style does not exist');
     expect(controller.getSnapshot()).toBe(before);
   });
-
   it('removes project resources, authored sources and their breakpoints without changing other sources', () => {
     const session = projectSession('Resources');
     const controller = new ProjectController(fakeBridge(session));
@@ -383,7 +379,7 @@ describe('ProjectController', () => {
     expect(after.project?.assets).toEqual([]);
     expect(after.userSources['models/Customer.ts']).toBeUndefined();
     expect(after.userSources['units/Helpers.ts']).toBe(before.userSources['units/Helpers.ts']);
-    expect(after.userSources['pages/PageMain.ts']).toBe(before.userSources['pages/PageMain.ts']);
+    expect(after.userSources['pages/index.ts']).toBe(before.userSources['pages/index.ts']);
     expect(after.project?.debugger?.breakpoints).toEqual([
       { path: 'units/Helpers.ts', line: 1, enabled: true },
     ]);
@@ -393,15 +389,15 @@ describe('ProjectController', () => {
     expect(() => controller.removeAsset('missing')).toThrow('not found');
     expect(controller.getSnapshot()).toBe(after);
   });
-
   it('keeps debugger breakpoints attached to renamed pages and removes deleted source breakpoints', () => {
     const session = projectSession('Debug');
-    const page = session.project.pages[0]!;
+    const page = createPage('DebugPage');
     const controller = new ProjectController(fakeBridge(session));
     controller.load(session);
+    controller.addPage(page);
     controller.updateDebugger({
       version: 1,
-      breakpoints: [{ path: 'pages/PageMain.ts', line: 7, enabled: true }],
+      breakpoints: [{ path: 'pages/DebugPage.ts', line: 7, enabled: true }],
       watches: ['this.name'],
       pauseOnExceptions: 'uncaught',
     });
@@ -413,22 +409,19 @@ describe('ProjectController', () => {
     controller.removePage(page.id);
     expect(controller.getSnapshot().project?.debugger?.breakpoints).toEqual([]);
   });
-
   it('restores once, shares the startup promise, and loads a clean authored project', async () => {
     const session = {
       ...projectSession('Previous'),
-      userSources: { 'pages/PageMain.ts': '// preserved authored source' },
+      userSources: { 'pages/index.ts': '// preserved authored source' },
     };
     const bridge = fakeBridge(session);
     const restored = deferred<ProjectSession | null>();
     bridge.project.restore = vi.fn(() => restored.promise);
     const controller = new ProjectController(bridge);
-
     const result = controller.restoreLastProject();
     expect(controller.restoreLastProject()).toBe(result);
     expect(bridge.project.restore).toHaveBeenCalledOnce();
     restored.resolve(session);
-
     await expect(result).resolves.toBe(session);
     expect(controller.restoreLastProject()).toBe(result);
     expect(controller.getSnapshot()).toMatchObject({
@@ -444,18 +437,15 @@ describe('ProjectController', () => {
     expect(bridge.lifecycle.setDirty).toHaveBeenCalledExactlyOnceWith(false);
     expect(bridge.project.release).not.toHaveBeenCalled();
   });
-
   it('keeps the empty startup state when there is no project to restore', async () => {
     const bridge = fakeBridge(projectSession('Previous'));
     const controller = new ProjectController(bridge);
     const initial = controller.getSnapshot();
-
     await expect(controller.restoreLastProject()).resolves.toBeNull();
     await expect(controller.restoreLastProject()).resolves.toBeNull();
     expect(bridge.project.restore).toHaveBeenCalledOnce();
     expect(controller.getSnapshot()).toBe(initial);
   });
-
   it('rejects startup errors without presenting a project error or retrying automatically', async () => {
     const bridge = fakeBridge(projectSession('Previous'));
     bridge.project.restore = vi.fn(async () => {
@@ -464,13 +454,11 @@ describe('ProjectController', () => {
     const controller = new ProjectController(bridge);
     const initial = controller.getSnapshot();
     const result = controller.restoreLastProject();
-
     await expect(result).rejects.toThrow('Last project could not be read');
     expect(controller.restoreLastProject()).toBe(result);
     expect(controller.getSnapshot()).toBe(initial);
     expect(bridge.project.restore).toHaveBeenCalledOnce();
   });
-
   it.each(['create', 'open'] as const)(
     'discards restoration as soon as manual %s starts, before its response arrives',
     async (operation) => {
@@ -484,19 +472,16 @@ describe('ProjectController', () => {
       bridge.project.open = vi.fn(() => manual.promise);
       const controller = new ProjectController(bridge);
       const restoration = controller.restoreLastProject();
-
       const selection = operation === 'create' ? controller.create('Selected') : controller.open();
       restored.resolve(previous);
       await expect(restoration).resolves.toBeNull();
       expect(controller.getSnapshot()).toMatchObject({ project: null, saving: true, error: null });
       expect(bridge.project.release).toHaveBeenCalledExactlyOnceWith(previous.rootPath);
       manual.resolve(selected);
-
       await expect(selection).resolves.toBe(selected);
       expect(controller.getSnapshot()).toMatchObject({ rootPath: selected.rootPath, dirty: false });
     },
   );
-
   it('preserves a manually loaded project and releases the discarded restored root', async () => {
     const previous = projectSession('Previous');
     const selected = projectSession('Selected');
@@ -506,15 +491,13 @@ describe('ProjectController', () => {
     const controller = new ProjectController(bridge);
     const restoration = controller.restoreLastProject();
     controller.load(selected);
-    controller.setUserSource('pages/PageMain.ts', '// selected project edit');
+    controller.setUserSource('pages/index.ts', '// selected project edit');
     const active = controller.getSnapshot();
-
     restored.resolve(previous);
     await expect(restoration).resolves.toBeNull();
     expect(controller.getSnapshot()).toBe(active);
     expect(bridge.project.release).toHaveBeenCalledExactlyOnceWith(previous.rootPath);
   });
-
   it('does not release an active root when restoration of the same project becomes stale', async () => {
     const session = projectSession('Previous');
     const bridge = fakeBridge(session);
@@ -523,15 +506,13 @@ describe('ProjectController', () => {
     const controller = new ProjectController(bridge);
     const restoration = controller.restoreLastProject();
     controller.load(session);
-    controller.setUserSource('pages/PageMain.ts', '// manual edit to the same project');
+    controller.setUserSource('pages/index.ts', '// manual edit to the same project');
     const active = controller.getSnapshot();
-
     restored.resolve(session);
     await expect(restoration).resolves.toBeNull();
     expect(controller.getSnapshot()).toBe(active);
     expect(bridge.project.release).not.toHaveBeenCalled();
   });
-
   it('preserves the active Windows root across path casing and separator variants', async () => {
     const previous = {
       ...projectSession('Portal'),
@@ -550,15 +531,13 @@ describe('ProjectController', () => {
     const restoration = controller.restoreLastProject();
     controller.load(previous);
     controller.load(selected);
-    controller.setUserSource('pages/PageMain.ts', '// manual Windows project edit');
+    controller.setUserSource('pages/index.ts', '// manual Windows project edit');
     const active = controller.getSnapshot();
-
     restored.resolve(previous);
     await expect(restoration).resolves.toBeNull();
     expect(controller.getSnapshot()).toBe(active);
     expect(bridge.project.release).not.toHaveBeenCalled();
   });
-
   it('releases a discarded Linux root with different path casing', async () => {
     const previous = { ...projectSession('Portal'), rootPath: '/projects/Portal' };
     const selected = { ...previous, rootPath: '/projects/portal' };
@@ -570,13 +549,11 @@ describe('ProjectController', () => {
     const restoration = controller.restoreLastProject();
     controller.load(selected);
     const active = controller.getSnapshot();
-
     restored.resolve(previous);
     await expect(restoration).resolves.toBeNull();
     expect(controller.getSnapshot()).toBe(active);
     expect(bridge.project.release).toHaveBeenCalledExactlyOnceWith(previous.rootPath);
   });
-
   it('leaves the project closed when restoration finishes after Close', async () => {
     const session = projectSession('Previous');
     const bridge = fakeBridge(session);
@@ -586,13 +563,11 @@ describe('ProjectController', () => {
     const restoration = controller.restoreLastProject();
     controller.close();
     const closed = controller.getSnapshot();
-
     restored.resolve(session);
     await expect(restoration).resolves.toBeNull();
     expect(controller.getSnapshot()).toBe(closed);
     expect(bridge.project.release).toHaveBeenCalledExactlyOnceWith(session.rootPath);
   });
-
   it('ignores a restoration error after the user has changed project context', async () => {
     const selected = projectSession('Selected');
     const bridge = fakeBridge(selected);
@@ -602,24 +577,20 @@ describe('ProjectController', () => {
     const restoration = controller.restoreLastProject();
     controller.load(selected);
     const active = controller.getSnapshot();
-
     restored.reject(new Error('Stale restoration failed'));
     await expect(restoration).resolves.toBeNull();
     expect(controller.getSnapshot()).toBe(active);
   });
-
   it('skips startup restoration after an earlier manual operation was canceled', async () => {
     const bridge = fakeBridge(projectSession('Previous'));
     bridge.project.open = vi.fn(async () => null);
     const controller = new ProjectController(bridge);
-
     await controller.open();
     const empty = controller.getSnapshot();
     await expect(controller.restoreLastProject()).resolves.toBeNull();
     expect(bridge.project.restore).not.toHaveBeenCalled();
     expect(controller.getSnapshot()).toBe(empty);
   });
-
   it('keeps a save response valid when a manual picker is canceled', async () => {
     const session = projectSession('Current');
     const bridge = fakeBridge(session);
@@ -628,16 +599,13 @@ describe('ProjectController', () => {
     bridge.project.open = vi.fn(async () => null);
     const controller = new ProjectController(bridge);
     controller.load(session);
-    controller.setUserSource('pages/PageMain.ts', '// authored edit');
+    controller.setUserSource('pages/index.ts', '// authored edit');
     const saving = controller.save();
-
     await controller.open();
-    saved.resolve({ ...session, userSources: { 'pages/PageMain.ts': '// authored edit' } });
-
+    saved.resolve({ ...session, userSources: { 'pages/index.ts': '// authored edit' } });
     await expect(saving).resolves.toMatchObject({ rootPath: session.rootPath });
     expect(controller.getSnapshot()).toMatchObject({ dirty: false, saving: false, error: null });
   });
-
   it('publishes a monotonic content revision and ignores identical source updates', () => {
     const project = createProject('Project1');
     const session = {
@@ -649,18 +617,15 @@ describe('ProjectController', () => {
     const controller = new ProjectController(fakeBridge(session));
     controller.load(session);
     const loaded = controller.getSnapshot();
-    const source = loaded.userSources['pages/PageMain.ts'];
+    const source = loaded.userSources['pages/index.ts'];
     expect(source).toBeDefined();
-
-    controller.setUserSource('pages\\PageMain.ts', source!);
+    controller.setUserSource('pages\\index.ts', source!);
     expect(controller.getSnapshot()).toBe(loaded);
-
-    controller.setUserSource('pages/PageMain.ts', `${source!}\n// edited`);
+    controller.setUserSource('pages/index.ts', `${source!}\n// edited`);
     expect(controller.getSnapshot().revision).toBe(loaded.revision + 1);
     controller.close();
     expect(controller.getSnapshot().revision).toBe(loaded.revision + 2);
   });
-
   it('keeps the aggregate authoritative and tracks dirty/save transitions', async () => {
     const project = createProject('Project1');
     const session = {
@@ -673,8 +638,11 @@ describe('ProjectController', () => {
     const controller = new ProjectController(bridge);
     controller.load(session);
     controller.addPage(createPage('PageOther'));
-    expect(controller.getSnapshot().project?.pages).toHaveLength(2);
-    expect(controller.getSnapshot().project?.pages[1]?.components[0]?.styleId).toBe(
+    expect(controller.getSnapshot().project?.pages).toHaveLength(3);
+    expect(
+      controller.getSnapshot().project?.pages.find((page) => page.name === 'PageOther')
+        ?.components[0]?.styleId,
+    ).toBe(
       project.styles.find(
         (style) => style.componentType === 'WebPage' && style.preset === 'default',
       )?.id,
@@ -683,7 +651,6 @@ describe('ProjectController', () => {
     await controller.save();
     expect(controller.getSnapshot().dirty).toBe(false);
   });
-
   it('owns reusable authored sources while adding, renaming, and removing definitions', () => {
     const project = createProject('Project1');
     const session = {
@@ -695,7 +662,6 @@ describe('ProjectController', () => {
     const controller = new ProjectController(fakeBridge(session));
     controller.load(session);
     const reusableElement = createReusableElement('CustomerCard');
-
     controller.addReusableElement(reusableElement);
     const originalPath = 'reusables/CustomerCard.ts';
     expect(controller.getSnapshot().userSources[originalPath]).toContain(
@@ -706,7 +672,6 @@ describe('ProjectController', () => {
       `${controller.getSnapshot().userSources[originalPath]}\n// authored reusable code\n`,
     );
     controller.renameReusableElement(reusableElement.id, 'CustomerSummary');
-
     const renamedPath = 'reusables/CustomerSummary.ts';
     expect(controller.getSnapshot().userSources[originalPath]).toBeUndefined();
     expect(controller.getSnapshot().userSources[renamedPath]).toContain(
@@ -718,7 +683,6 @@ describe('ProjectController', () => {
     controller.removeReusableElement(reusableElement.id);
     expect(controller.getSnapshot().userSources[renamedPath]).toBeUndefined();
   });
-
   it('projects style CRUD into the aggregate and clears assigned references on delete', () => {
     const project = createProject('Project1');
     const session = {
@@ -730,7 +694,6 @@ describe('ProjectController', () => {
     const bridge = fakeBridge(session);
     const controller = new ProjectController(bridge);
     controller.load(session);
-
     const style = controller.createStyle('Page Surface', 'WebPage');
     controller.updateStyle({
       ...style,
@@ -750,7 +713,6 @@ describe('ProjectController', () => {
         style.id,
       ),
     );
-
     expect(
       controller.getSnapshot().project?.styles.find((candidate) => candidate.id === style.id),
     ).toMatchObject({
@@ -762,12 +724,10 @@ describe('ProjectController', () => {
     expect(controller.getSnapshot().project?.pages[0]?.components[0]?.styleId).toBe(style.id);
     expect(controller.getSnapshot().dirty).toBe(true);
     expect(bridge.lifecycle.setDirty).toHaveBeenCalledWith(true);
-
     controller.removeStyle(style.id);
     expect(controller.getSnapshot().project?.styles).toEqual(project.styles);
     expect(controller.getSnapshot().project?.pages[0]?.components[0]?.styleId).toBeUndefined();
   });
-
   it('queues edits made while a save is in flight and never restores the stale response', async () => {
     const project = createProject('Project1');
     const session = {
@@ -791,54 +751,49 @@ describe('ProjectController', () => {
     bridge.project.save = save;
     const controller = new ProjectController(bridge);
     controller.load(session);
-
-    controller.setUserSource('pages/PageMain.ts', '// before save');
+    controller.setUserSource('pages/index.ts', '// before save');
     const saving = controller.save();
-    controller.setUserSource('pages/PageMain.ts', '// during save');
+    controller.setUserSource('pages/index.ts', '// during save');
     finishFirstSave?.({
       ...session,
-      userSources: { 'pages/PageMain.ts': '// before save' },
+      userSources: { 'pages/index.ts': '// before save' },
     });
-
     await saving;
     expect(save).toHaveBeenCalledTimes(2);
-    expect(save.mock.calls[1]?.[0].userSources['pages/PageMain.ts']).toBe('// during save');
-    expect(controller.getSnapshot().userSources['pages/PageMain.ts']).toBe('// during save');
+    expect(save.mock.calls[1]?.[0].userSources['pages/index.ts']).toBe('// during save');
+    expect(controller.getSnapshot().userSources['pages/index.ts']).toBe('// during save');
     expect(controller.getSnapshot().dirty).toBe(false);
   });
-
   it('does not mutate sources when remove or rename validation fails', () => {
     const initialProject = createProject('Project1');
     const initialSession = {
       rootPath: 'C:/projects/Project1',
       projectFilePath: 'C:/projects/Project1/Project1.wrproj',
       project: initialProject,
-      userSources: { 'pages/PageMain.ts': '// main source' },
+      userSources: { 'pages/index.ts': '// main source' },
     };
     const controller = new ProjectController(fakeBridge(initialSession));
     controller.load(initialSession);
     const beforeRemove = controller.getSnapshot();
-
-    expect(() => controller.removePage(initialProject.pages[0]!.id)).toThrow('at least one page');
+    expect(() => controller.removePage(initialProject.pages[0]!.id)).toThrow(
+      'Mandatory pages cannot be deleted',
+    );
     expect(controller.getSnapshot()).toBe(beforeRemove);
-
     const otherPage = createPage('PageOther');
     const projectWithOther = addPageToProject(initialProject, otherPage);
     const sessionWithOther = {
       ...initialSession,
       project: projectWithOther,
       userSources: {
-        'pages/PageMain.ts': '// main source',
+        'pages/index.ts': '// main source',
         'pages/PageOther.ts': '// other source',
       },
     };
     controller.load(sessionWithOther);
     const beforeRename = controller.getSnapshot();
-
-    expect(() => controller.renamePage(otherPage.id, 'PageMain')).toThrow('already exists');
+    expect(() => controller.renamePage(otherPage.id, 'index')).toThrow('already exists');
     expect(controller.getSnapshot()).toBe(beforeRename);
   });
-
   it('discards a project picker result if the current context was closed', async () => {
     const projectA = createProject('ProjectA');
     const sessionA = {
@@ -859,30 +814,27 @@ describe('ProjectController', () => {
     bridge.project.open = vi.fn(() => opening.promise);
     const controller = new ProjectController(bridge);
     controller.load(sessionA);
-
     const result = controller.open();
     controller.close();
     opening.resolve(sessionB);
-
     await expect(result).resolves.toBeNull();
     expect(controller.getSnapshot().project).toBeNull();
     expect(bridge.project.release).toHaveBeenCalledWith(sessionA.rootPath);
     expect(bridge.project.release).toHaveBeenCalledWith(sessionB.rootPath);
   });
-
   it('persists edits made while Save As is in flight before switching roots', async () => {
     const project = createProject('Project1');
     const session = {
       rootPath: 'C:/projects/Project1',
       projectFilePath: 'C:/projects/Project1/Project1.wrproj',
       project,
-      userSources: { 'pages/PageMain.ts': '// initial' },
+      userSources: { 'pages/index.ts': '// initial' },
     };
     const destinationSession = {
       ...session,
       rootPath: 'C:/copies/Project1',
       projectFilePath: 'C:/copies/Project1/Project1.wrproj',
-      userSources: { 'pages/PageMain.ts': '// before save as' },
+      userSources: { 'pages/index.ts': '// before save as' },
     };
     const bridge = fakeBridge(session);
     const saveAsResult = deferred<ProjectSession | null>();
@@ -895,26 +847,24 @@ describe('ProjectController', () => {
     }));
     const controller = new ProjectController(bridge);
     controller.load(session);
-    controller.setUserSource('pages/PageMain.ts', '// before save as');
-
+    controller.setUserSource('pages/index.ts', '// before save as');
     const saving = controller.saveAs();
-    controller.setUserSource('pages/PageMain.ts', '// during save as');
+    controller.setUserSource('pages/index.ts', '// during save as');
+    const currentSources = controller.getSnapshot().userSources;
     saveAsResult.resolve(destinationSession);
-
     await expect(saving).resolves.toMatchObject({ rootPath: destinationSession.rootPath });
     expect(bridge.project.save).toHaveBeenCalledWith(
       expect.objectContaining({
         rootPath: destinationSession.rootPath,
-        userSources: { 'pages/PageMain.ts': '// during save as' },
+        userSources: currentSources,
       }),
     );
     expect(controller.getSnapshot()).toMatchObject({
       rootPath: destinationSession.rootPath,
       dirty: false,
-      userSources: { 'pages/PageMain.ts': '// during save as' },
+      userSources: { 'pages/index.ts': '// during save as' },
     });
   });
-
   it('starts a new-context save immediately and ignores a stale save failure', async () => {
     const projectA = createProject('ProjectA');
     const sessionA = {
@@ -939,13 +889,11 @@ describe('ProjectController', () => {
     bridge.project.save = save;
     const controller = new ProjectController(bridge);
     controller.load(sessionA);
-    controller.setUserSource('pages/PageMain.ts', '// project A');
-
+    controller.setUserSource('pages/index.ts', '// project A');
     const savingA = controller.save();
     controller.load(sessionB);
-    controller.setUserSource('pages/PageMain.ts', '// project B');
+    controller.setUserSource('pages/index.ts', '// project B');
     const savingB = controller.save();
-
     await expect(savingB).resolves.toMatchObject({ rootPath: sessionB.rootPath });
     staleSave.reject(new Error('Project A failed'));
     await expect(savingA).resolves.toBeNull();
@@ -957,20 +905,19 @@ describe('ProjectController', () => {
       error: null,
     });
   });
-
   it('releases a Save As destination when its follow-up save becomes stale', async () => {
     const project = createProject('Project1');
     const session = {
       rootPath: 'C:/projects/Project1',
       projectFilePath: 'C:/projects/Project1/Project1.wrproj',
       project,
-      userSources: { 'pages/PageMain.ts': '// initial' },
+      userSources: { 'pages/index.ts': '// initial' },
     };
     const destination = {
       ...session,
       rootPath: 'C:/copies/Project1',
       projectFilePath: 'C:/copies/Project1/Project1.wrproj',
-      userSources: { 'pages/PageMain.ts': '// before' },
+      userSources: { 'pages/index.ts': '// before' },
     };
     const saveAsResult = deferred<ProjectSession | null>();
     const followUpSave = deferred<ProjectSession>();
@@ -979,15 +926,13 @@ describe('ProjectController', () => {
     bridge.project.save = vi.fn(() => followUpSave.promise);
     const controller = new ProjectController(bridge);
     controller.load(session);
-    controller.setUserSource('pages/PageMain.ts', '// before');
-
+    controller.setUserSource('pages/index.ts', '// before');
     const saving = controller.saveAs();
-    controller.setUserSource('pages/PageMain.ts', '// during');
+    controller.setUserSource('pages/index.ts', '// during');
     saveAsResult.resolve(destination);
     await vi.waitFor(() => expect(bridge.project.save).toHaveBeenCalledOnce());
     controller.close();
     followUpSave.reject(new Error('stale destination failed'));
-
     await expect(saving).resolves.toBeNull();
     expect(bridge.project.release).toHaveBeenCalledWith(destination.rootPath);
     expect(controller.getSnapshot()).toEqual(

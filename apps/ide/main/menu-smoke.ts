@@ -136,6 +136,14 @@ export async function runMenuSmoke(
     .find((candidate) => candidate.id === page.id)
     ?.components.find((candidate) => candidate.id === id);
   const config = parseWebMenuConfiguration(node?.props.configuration);
+  const matchesProjectScrollbar = `(navigation) => {
+    if (!navigation) return false;
+    const style = getComputedStyle(navigation);
+    const scrollbar = getComputedStyle(navigation, '::-webkit-scrollbar');
+    return style.scrollbarWidth === 'auto'
+      && scrollbar.width === ${JSON.stringify(`${saved.project.settings.scrollbar.width}px`)}
+      && scrollbar.height === ${JSON.stringify(`${saved.project.settings.scrollbar.height}px`)};
+  }`;
   if (
     node?.type !== 'WebMenu' ||
     config.items[0]?.label !== 'Menu smoke home' ||
@@ -168,7 +176,7 @@ export async function runMenuSmoke(
   await ready(menuCanvasGeometry(true));
   await click('.wr-viewport-presets button[aria-label="Default"]');
   await ready(menuCanvasGeometry(false));
-  await click('button[role="tab"][aria-label="Builder"]');
+  await click('button[aria-label="Design"]');
   options.log(
     'renderer Menu canvas geometry passed: desktop/mobile/restored viewport, visual bounds and selection hitboxes',
   );
@@ -207,7 +215,7 @@ export async function runMenuSmoke(
     if (
       frame &&
       (await frame.executeJavaScript(
-        `document.querySelector('[data-webrad-id="${id}"] .wr-menu-item') !== null`,
+        `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); return menu?.dataset.menuMobile === 'false' && menu.dataset.menuOrientation === 'vertical' && menu.querySelector('.wr-menu-search-input') !== null && menu.querySelector('.wr-menu-item') !== null; })()`,
         true,
       )) === true
     )
@@ -218,32 +226,43 @@ export async function runMenuSmoke(
   const desktop = await frame.executeJavaScript(
     `(() => {
     const menu = document.querySelector('[data-webrad-id="${id}"]');
-    if (!menu || menu.dataset.menuMobile !== 'false') return false;
+    if (!menu || menu.dataset.menuMobile !== 'false') return {error:'Missing desktop Menu',mobile:menu?.dataset.menuMobile};
+    if (!(${matchesProjectScrollbar})(menu.querySelector('.wr-menu-navigation'))) return {error:'Desktop navigation scrollbar'};
     const received=[];
     const onSearch=event=>received.push(event.detail.text);
     menu.addEventListener('search',onSearch);
     const search=menu.querySelector('.wr-menu-search-input');
-    if(!search)return false;
+    if(!search)return {error:'Missing search'};
     const count=menu.querySelectorAll('.wr-menu-item').length;
     search.value='external search';search.dispatchEvent(new Event('input',{bubbles:true}));
-    if(received.length!==1||received[0]!=='external search'||menu.querySelectorAll('.wr-menu-item').length!==count)return false;
+    if(received.length!==1||received[0]!=='external search'||menu.querySelectorAll('.wr-menu-item').length!==count)return {error:'Search event-only contract',received,count,actual:menu.querySelectorAll('.wr-menu-item').length};
     search.value='';search.dispatchEvent(new Event('input',{bubbles:true}));
     menu.removeEventListener('search',onSearch);
-    if(received.length!==2||received[1]!=='')return false;
+    if(received.length!==2||received[1]!=='')return {error:'Cleared search event',received};
 
     const toggle = () => menu.querySelector('[data-menu-action="collapse"]');
     const width = menu.getBoundingClientRect().width;
     toggle().click();
-    if (menu.dataset.menuCollapsed !== 'true' || Math.abs(menu.getBoundingClientRect().width - 72) > 1) return false;
+    if (menu.dataset.menuCollapsed !== 'true' || Math.abs(menu.getBoundingClientRect().width - 72) > 1) return {error:'Collapse',collapsed:menu.dataset.menuCollapsed,width:menu.getBoundingClientRect().width,style:menu.getAttribute('style')};
     toggle().click();
-    if (Math.abs(menu.getBoundingClientRect().width - width) > 1) return false;
+    if (Math.abs(menu.getBoundingClientRect().width - width) > 1) return {error:'Expanded width restoration',before:width,after:menu.getBoundingClientRect().width,style:menu.getAttribute('style')};
     menu.querySelector('[data-menu-item="home"]').click();
-    return menu.querySelector('[data-menu-item="home"]').getAttribute('aria-current') === 'page' && menu.querySelector('.wr-menu-submenu').children.length === 2;
+    return {selected:menu.querySelector('[data-menu-item="home"]').getAttribute('aria-current'),children:menu.querySelector('.wr-menu-submenu').children.length};
   })()`,
     true,
   );
-  if (desktop !== true)
-    throw new Error('Menu desktop collapse, selection or submenu projection failed.');
+  if (
+    typeof desktop !== 'object' ||
+    desktop === null ||
+    !('selected' in desktop) ||
+    desktop.selected !== 'page' ||
+    !('children' in desktop) ||
+    desktop.children !== 2
+  )
+    throw new Error(
+      'Menu desktop project scrollbar, collapse, selection or submenu projection failed: ' +
+        JSON.stringify(desktop),
+    );
   window.webContents.debugger.attach('1.3');
   try {
     window.webContents.focus();
@@ -270,11 +289,13 @@ export async function runMenuSmoke(
     }
     if (!mobile) throw new Error('Menu did not respond to the real mobile viewport.');
     const drawer = await frame.executeJavaScript(
-      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); menu.querySelector('[data-menu-action="open"]').click(); const dialog = menu.querySelector('dialog'); return Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
+      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); menu.querySelector('[data-menu-action="open"]').click(); const dialog = menu.querySelector('dialog'); return (${matchesProjectScrollbar})(dialog.querySelector('.wr-menu-navigation')) && Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
       true,
     );
     if (drawer !== true)
-      throw new Error('Menu mobile drawer lacks modal focus, viewport sizing or scroll lock.');
+      throw new Error(
+        'Menu mobile drawer lacks project scrollbar, modal focus, viewport sizing or scroll lock.',
+      );
     await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
       type: 'keyDown',
       key: 'Escape',
@@ -338,37 +359,78 @@ export async function runMenuSmoke(
     root.url.startsWith(new URL('./', String(horizontalUrl)).href)
       ? root
       : root.frames.map(horizontalFrame).find(Boolean);
+  const horizontalSaved = await loadProjectFiles(options.projectPath);
+  const horizontalNode = horizontalSaved.project.pages
+    .find((candidate) => candidate.id === page.id)
+    ?.components.find((candidate) => candidate.id === id);
+  if (
+    horizontalNode?.props.floatingVerticalAnchor !== 'bottom' ||
+    horizontalNode.bounds.height !== 80
+  )
+    throw new Error(
+      'Horizontal Menu saved layout was not normalized: ' + JSON.stringify(horizontalNode),
+    );
   const horizontalDeadline = Date.now() + 10000;
-  let horizontal = horizontalFrame(window.webContents.mainFrame);
-  while (!horizontal && Date.now() < horizontalDeadline) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  let horizontal: WebFrameMain | undefined;
+  let horizontalReady = false;
+  while (Date.now() < horizontalDeadline) {
     horizontal = horizontalFrame(window.webContents.mainFrame);
+    if (
+      horizontal &&
+      (await horizontal.executeJavaScript(
+        `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); return menu?.dataset.menuOrientation === 'horizontal' && menu.querySelector('[data-menu-item="workspace"]') !== null && Math.abs(menu.getBoundingClientRect().height - 80) <= 1; })()`,
+        true,
+      )) === true
+    ) {
+      horizontalReady = true;
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  if (!horizontal) throw new Error('Missing horizontal Menu F9 frame.');
+  if (!horizontal || !horizontalReady)
+    throw new Error('Horizontal Menu F9 geometry did not become ready.');
   const flyout = await horizontal.executeJavaScript(
     `(async()=>{
- const menu=document.querySelector('[data-webrad-id="${id}"]');if(!menu || menu.dataset.menuOrientation!=='horizontal')return false;
- const toggle=menu.querySelector('[data-menu-item="workspace"]');if(toggle.getAttribute('aria-expanded')!=='false')return false;
+ const menu=document.querySelector('[data-webrad-id="${id}"]');if(!menu || menu.dataset.menuOrientation!=='horizontal')return {error:'Missing horizontal Menu',orientation:menu?.dataset.menuOrientation};
+ if(!(${matchesProjectScrollbar})(menu.querySelector('.wr-menu-navigation')))return {error:'Navigation scrollbar'};
+ const toggle=menu.querySelector('[data-menu-item="workspace"]');if(toggle.getAttribute('aria-expanded')!=='false')return {error:'Submenu initially expanded'};
  toggle.click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
  const submenu=menu.querySelector('.wr-menu-submenu');const r=submenu.getBoundingClientRect();
+ if(!(${matchesProjectScrollbar})(submenu))return {error:'Submenu scrollbar'};
  const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
  const visible=submenu.matches(':popover-open') && submenu.dataset.openDirection==='up' && r.left>=0 && r.top>=0 && r.right<=innerWidth && r.bottom<=innerHeight && submenu.contains(hit);
  menu.querySelector('[data-menu-item="workspace"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
  const focused=menu.querySelector('.wr-menu-submenu').contains(document.activeElement);
  document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
  const closed=!menu.querySelector(':popover-open') && document.activeElement?.dataset.menuItem==='workspace';
- return visible&&focused&&closed;
+ return { visible, focused, closed, direction:submenu.dataset.openDirection, rect:{left:r.left,top:r.top,right:r.right,bottom:r.bottom}, viewport:{width:innerWidth,height:innerHeight}, menu:menu.getBoundingClientRect().toJSON(), anchor:toggle.getBoundingClientRect().toJSON(), hit:hit?.outerHTML.slice(0,200) };
  })()`,
     true,
   );
-  if (flyout !== true)
-    throw new Error('Horizontal Menu flyout is clipped, outside the viewport or has broken focus.');
+  if (
+    typeof flyout !== 'object' ||
+    flyout === null ||
+    !('visible' in flyout) ||
+    flyout.visible !== true ||
+    !('focused' in flyout) ||
+    flyout.focused !== true ||
+    !('closed' in flyout) ||
+    flyout.closed !== true
+  )
+    throw new Error(
+      'Horizontal Menu flyout is clipped, outside the viewport or has broken focus: ' +
+        JSON.stringify(flyout),
+    );
   options.log(
     'renderer Menu horizontal flyouts passed: bottom docking, top-layer geometry, visible hit area, ArrowDown/Escape and focus restoration',
   );
   await click('button[aria-label="Design"]');
   await click(tree);
   for (let index = 0; index < 8; index++) {
+    const undoState = await evaluate(
+      `(() => { const menu = document.querySelector('[data-component-id="${id}"].wr-component'); return { undoDisabled: document.querySelector('button[aria-label="Undo (Ctrl+Z)"]')?.disabled, menu: menu?.outerHTML.slice(0, 500), inspector: [...document.querySelectorAll('.wr-object-inspector label')].map(label => [label.textContent, label.control?.value]) }; })()`,
+    );
+    options.log(`renderer Menu undo step ${String(index + 1)}: ${JSON.stringify(undoState)}`);
     await evaluate(
       `document.querySelector(${JSON.stringify(tree)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
     );
@@ -381,6 +443,6 @@ export async function runMenuSmoke(
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
   options.log(
-    `renderer Menu Inspector and F9 passed: nested items, persistence, desktop collapse/selection, mobile viewport, modal focus/Escape, undo; screenshot ${screenshot}`,
+    `renderer Menu Inspector and F9 passed: project scrollbar, nested items, persistence, desktop collapse/selection, mobile viewport, modal focus/Escape, undo; screenshot ${screenshot}`,
   );
 }

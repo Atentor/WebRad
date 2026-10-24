@@ -9,9 +9,7 @@ import { defaultComponentRegistry } from '@webrad/component-registry';
 import { addComponent, updatePage } from '@webrad/project-model';
 import { repeatingGroupProject, repeatingGroupUserSources } from './fixtures/repeating-group';
 import { withChromium } from './chromium';
-
 const browser = process.env.WEBRAD_BROWSER_PATH;
-
 it.runIf(browser !== undefined).each(['fixed', 'dynamic'] as const)(
   'renders responsive %s row templates and isolated API-bound rows in compiled F9 Preview',
   async (rowHeightMode) => {
@@ -33,7 +31,7 @@ it.runIf(browser !== undefined).each(['fixed', 'dynamic'] as const)(
       }
       const [type, body] = routes[request.url ?? ''] ?? [
         'text/html',
-        '<!doctype html><html><head><link rel="stylesheet" href="/app.css"><style>body{margin:0}#root{width:1000px;height:2200px}iframe{border:0;width:960px;height:2200px}</style></head><body><div id="root"></div><iframe title="Preview" src="/preview"></iframe><script type="module" src="/app.js"></script></body></html>',
+        '<!doctype html><html><head><link rel="stylesheet" href="/app.css"><style>body{margin:0}#root{width:1000px;height:2200px}iframe{border:0;width:960px;height:2200px}</style></head><body><div id="root"></div><iframe title="Preview" src="/index.html"></iframe><script type="module" src="/app.js"></script></body></html>',
       ];
       response.writeHead(200, { 'Content-Type': type });
       response.end(body);
@@ -117,9 +115,15 @@ it.runIf(browser !== undefined).each(['fixed', 'dynamic'] as const)(
       ];
       routes['/project.css'] = ['text/css', await compileTailwindStyles(project.styles)];
       routes['/project'] = ['application/json', JSON.stringify(project)];
-      routes['/preview'] = ['text/html', compiled.previewHtml!];
+      routes['/index.html'] = ['text/html', compiled.previewHtml!];
       await withChromium(browser!, baseUrl, async (send) => {
-        let evidence: { passed: boolean; cases: number; error?: string } | undefined;
+        let evidence:
+          | {
+              passed: boolean;
+              cases: number;
+              error?: string;
+            }
+          | undefined;
         await expect
           .poll(
             async () => {
@@ -127,11 +131,15 @@ it.runIf(browser !== undefined).each(['fixed', 'dynamic'] as const)(
                 expression: 'document.body.dataset.evidence',
                 returnByValue: true,
               });
-              const value = (result.result as { value?: string })?.value;
+              const value = (
+                result.result as {
+                  value?: string;
+                }
+              )?.value;
               if (value) evidence = JSON.parse(value) as typeof evidence;
               return evidence !== undefined;
             },
-            { timeout: 25_000 },
+            { timeout: 25000 },
           )
           .toBe(true);
         expect(evidence?.passed, evidence?.error).toBe(true);
@@ -236,5 +244,5 @@ it.runIf(browser !== undefined).each(['fixed', 'dynamic'] as const)(
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   },
-  60_000,
+  60000,
 );

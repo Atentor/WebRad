@@ -125,6 +125,9 @@ ${visuals
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
     runScripts: 'outside-only',
     url: 'https://preview.webrad.test/',
+    beforeParse(window) {
+      window.structuredClone = structuredClone;
+    },
   });
   dom.window.fetch = async () =>
     new Response('[]', { headers: { 'Content-Type': 'application/json' } });

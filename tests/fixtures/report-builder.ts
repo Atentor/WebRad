@@ -5,7 +5,6 @@ import {
   type WebReportTemplate,
 } from '@webrad/runtime/report-template';
 import { comboBoxApiConfiguration } from './combo-box';
-
 export function reportBuilderTemplate(): WebReportTemplate {
   const template = createDefaultReportTemplate();
   return {
@@ -64,7 +63,6 @@ export function reportBuilderTemplate(): WebReportTemplate {
     }),
   };
 }
-
 export function reportBuilderProject(
   baseUrl: string,
   reportTemplate: WebReportTemplate = reportBuilderTemplate(),
@@ -104,15 +102,14 @@ export function reportBuilderProject(
   page = bindComponentEvent(page, page.rootComponentId, 'OnCreate', 'prepare');
   return updatePage(project, page.id, page);
 }
-
 export function reportBuilderSources(): Record<string, string> {
   return {
-    'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+    'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   async prepare(): Promise<void> {
     try {
       await ApiClient1.Load.execute();
-      this.ReportBuilder1.Parameters.Set('Title', 'Clientes de São Paulo');
+      this.ReportBuilder1.Parameters.Set('Title', 'Clientes de S\u00E3o Paulo');
       this.element.dataset.ready = 'true';
     } catch (error) { this.element.dataset.error = String(error); }
   }

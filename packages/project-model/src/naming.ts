@@ -223,7 +223,8 @@ export function validateComponentName(
   componentId?: string,
 ): NameValidationResult {
   const isPageRoot =
-    'rootComponentId' in pageOrComponents && componentId === pageOrComponents.rootComponentId &&
+    'rootComponentId' in pageOrComponents &&
+    componentId === pageOrComponents.rootComponentId &&
     pageOrComponents.components.some((node) => node.id === componentId && node.type === 'WebPage');
   const reason = isPageRoot && name === '404' ? undefined : getTypeScriptIdentifierError(name);
   if (reason !== undefined) {

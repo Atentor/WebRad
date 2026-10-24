@@ -8,10 +8,8 @@ import { build } from 'esbuild';
 import { expect, it } from 'vitest';
 import { compileProjectToMemory, compileTailwindStyles } from '@webrad/compiler';
 import { parseProject, parseComponentStyle } from '@webrad/project-model';
-
 const browserPath = process.env.WEBRAD_BROWSER_PATH;
 const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
-
 it.runIf(browserPath !== undefined)(
   'applies and persists palette choices with native Chromium popovers',
   async () => {
@@ -44,7 +42,7 @@ it.runIf(browserPath !== undefined)(
         });
         return;
       }
-      if (route === '/preview') {
+      if (route === '/index.html') {
         response.writeHead(200, { 'Content-Type': 'text/html' });
         response.end(compiledHtml);
         return;
@@ -94,7 +92,7 @@ it.runIf(browserPath !== undefined)(
           const timeout = setTimeout(() => {
             child.kill();
             reject(new Error('Color palette browser timed out'));
-          }, 30_000);
+          }, 30000);
           child.once('error', (error) => {
             clearTimeout(timeout);
             reject(error);
@@ -124,7 +122,7 @@ it.runIf(browserPath !== undefined)(
       expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
       expect(compiled.files['assets/app.css']).toContain('--wr-palette-aurora-blue: #e11d48');
       compiledHtml = `${compiled.previewHtml}<script>setInterval(() => { const node = document.querySelector('[data-webrad-id="palette-label"]'); if (node) document.body.dataset.previewEvidence = getComputedStyle(node).color; }, 50);</script>`;
-      const previewOutput = await runBrowser('/preview');
+      const previewOutput = await runBrowser('/index.html');
       expect(/data-preview-evidence="([^"]+)"/.exec(previewOutput)?.[1]).toBe('rgb(225, 29, 72)');
     } finally {
       server.closeAllConnections();
@@ -132,5 +130,5 @@ it.runIf(browserPath !== undefined)(
       await fs.rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   },
-  60_000,
+  60000,
 );

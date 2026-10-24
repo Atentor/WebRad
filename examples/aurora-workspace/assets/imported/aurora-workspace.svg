@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-label="Aurora workspace illustration">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#eff6ff"/><stop offset="1" stop-color="#f5f3ff"/></linearGradient><linearGradient id="accent" x2="1" y2="1"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
+<rect width="640" height="400" rx="24" fill="url(#bg)"/>
+<circle cx="560" cy="48" r="100" fill="#dbeafe"/><circle cx="65" cy="375" r="100" fill="#ede9fe"/>
+<rect x="66" y="48" width="508" height="304" rx="16" fill="#fff" stroke="#cbd5e1"/>
+<path d="M66 92h508" stroke="#e2e8f0"/><circle cx="90" cy="70" r="5" fill="#93c5fd"/><circle cx="108" cy="70" r="5" fill="#c4b5fd"/><circle cx="126" cy="70" r="5" fill="#cbd5e1"/>
+<rect x="90" y="116" width="460" height="66" rx="10" fill="url(#accent)"/><text x="112" y="145" font-family="sans-serif" font-size="18" font-weight="700" fill="#fff">Create something worth sharing.</text><text x="112" y="166" font-family="sans-serif" font-size="11" fill="#dbeafe">AURORA WORKSPACE</text>
+<g fill="#f8fafc" stroke="#e2e8f0"><rect x="90" y="200" width="138" height="120" rx="10"/><rect x="251" y="200" width="138" height="120" rx="10"/><rect x="412" y="200" width="138" height="120" rx="10"/></g>
+<path d="M108 229h72m89 0h70m91 0h70" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/>
+<g fill="#2563eb"><rect x="108" y="250" width="102" height="8" rx="4"/><rect x="269" y="250" width="82" height="8" rx="4"/></g>
+<g fill="#c4b5fd"><rect x="108" y="272" width="78" height="8" rx="4"/><rect x="269" y="272" width="98" height="8" rx="4"/></g>
+<circle cx="480" cy="272" r="30" fill="none" stroke="#dbeafe" stroke-width="9"/><path d="M480 242a30 30 0 1 1-30 30" fill="none" stroke="#7c3aed" stroke-width="9" stroke-linecap="round"/>
+</svg>

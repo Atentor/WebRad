@@ -6,7 +6,6 @@ import {
   createProject,
   updatePage,
 } from '@webrad/project-model';
-
 export const panelImage = 'assets/imported/panel image.svg';
 export const panelAsset = {
   id: 'panel-image',
@@ -16,7 +15,6 @@ export const panelAsset = {
     '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16"><path fill="#ff6600" d="M0 0h32v16H0z"/></svg>',
   ).toString('base64'),
 };
-
 export function panelBackgroundProject() {
   const project = { ...createProject('PanelBackground'), assets: [panelAsset] };
   let page = project.pages[0]!;
@@ -50,10 +48,9 @@ export function panelBackgroundProject() {
   page = bindComponentEvent(page, 'child', 'OnClick', 'changeBackground');
   return updatePage(project, page.id, page);
 }
-
 export const panelBackgroundUserSources = {
-  'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+  'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   changeBackground(): void {
     if (Panel1.backgroundSize === 'cover') {
       Panel1.backgroundSize = 'contain'; this.Panel1.backgroundPosition = 'right bottom';

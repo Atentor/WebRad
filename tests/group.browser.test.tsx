@@ -6,7 +6,6 @@ import { compileProjectToMemory } from '@webrad/compiler';
 import { WEBRAD_COMPONENT_CSS } from '@webrad/runtime';
 import { withChromium } from './chromium';
 import { groupProject, groupUserSources } from './fixtures/group';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'keeps Group transparent in Designer and executes children in browser Preview',
   async () => {
@@ -22,9 +21,9 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
     const server = createServer((request, response) => {
       response.setHeader('Content-Type', 'text/html');
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? compiled.previewHtml
-          : `<!doctype html><style>${WEBRAD_COMPONENT_CSS}</style>${markup}<iframe src="/preview"></iframe>`,
+          : `<!doctype html><style>${WEBRAD_COMPONENT_CSS}</style>${markup}<iframe src="/index.html"></iframe>`,
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -50,9 +49,13 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           })()`,
                   returnByValue: true,
                 });
-                return (result.result as { value?: unknown })?.value;
+                return (
+                  result.result as {
+                    value?: unknown;
+                  }
+                )?.value;
               },
-              { timeout: 15_000 },
+              { timeout: 15000 },
             )
             .toEqual({
               designer: ['rgba(0, 0, 0, 0)', '0px', 'none'],
@@ -67,5 +70,5 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       );
     }
   },
-  40_000,
+  40000,
 );

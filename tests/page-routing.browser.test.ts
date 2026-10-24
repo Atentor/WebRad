@@ -5,7 +5,6 @@ import {
   createPage,
   createProject,
   updateComponentProps,
-  updatePage,
   updateProjectSettings,
   serializeProject,
   deserializeProject,
@@ -13,9 +12,7 @@ import {
 import { expect, it } from 'vitest';
 import { withChromium } from './chromium';
 import { publishPreviewHtml, closePreviewServer } from '../apps/ide/main/preview-server';
-
 const browser = process.env.WEBRAD_BROWSER_PATH;
-
 it.runIf(browser !== undefined)(
   'navigates and reloads compiled clean routes in Preview and subdirectory exports',
   async () => {
@@ -54,7 +51,11 @@ it.runIf(browser !== undefined)(
           const evaluate = async (expression: string): Promise<unknown> => {
             const result = await send('Runtime.evaluate', { expression, returnByValue: true });
             expect(result.exceptionDetails).toBeUndefined();
-            return (result.result as { value: unknown }).value;
+            return (
+              result.result as {
+                value: unknown;
+              }
+            ).value;
           };
           const mounted = async (root: string): Promise<void> => {
             await expect
@@ -75,7 +76,7 @@ it.runIf(browser !== undefined)(
           await mounted(project.pages[0]!.rootComponentId);
           await evaluate('history.forward()');
           await mounted(details.rootComponentId);
-          await evaluate("Navigate('PageMain', { replace: true })");
+          await evaluate('Navigate("index", { replace: true })');
           await mounted(project.pages[0]!.rootComponentId);
           await evaluate("Navigate('/admin/clientes')");
           await mounted(details.rootComponentId);
@@ -88,7 +89,11 @@ it.runIf(browser !== undefined)(
                 expression: `document.querySelector('[data-webrad-id="${details.rootComponentId}"]') !== null`,
                 returnByValue: true,
               });
-              return (result.result as { value: boolean }).value;
+              return (
+                result.result as {
+                  value: boolean;
+                }
+              ).value;
             })
             .toBe(true);
         });
@@ -100,12 +105,10 @@ it.runIf(browser !== undefined)(
       );
     }
   },
-  120_000,
+  120000,
 );
-
 it('rejects duplicate and unsafe compiled paths', async () => {
   const initial = createProject('InvalidRoutes');
-  const first = initial.pages[0]!;
   // Use the authored root IDs rather than names when editing route properties.
   const second = createPage('PageOther');
   const configured = updateComponentProps(second, second.rootComponentId, {
@@ -117,11 +120,8 @@ it('rejects duplicate and unsafe compiled paths', async () => {
     true,
   );
   for (const routePath of ['/../secret', '/assets/app', '/customers?x=1', '//external', '/a b']) {
-    const changed = updateComponentProps(first, first.rootComponentId, { routePath });
-    const result = await compileProjectToMemory(
-      updatePage(initial, first.id, { components: changed.components }),
-      { userSources: {} },
-    );
+    const changed = updateComponentProps(second, second.rootComponentId, { routePath });
+    const result = await compileProjectToMemory(addPage(initial, changed), { userSources: {} });
     expect(result.success).toBe(false);
     expect(result.diagnostics.some((item) => item.message.includes('Invalid Route path'))).toBe(
       true,

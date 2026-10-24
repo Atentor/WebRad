@@ -1232,7 +1232,7 @@ describe('browser runtime', () => {
     };
 
     const mounted = mountPage(contentSizedPage);
-    expect(mounted.element.style.width).toBe('100vw');
+    expect(mounted.element.style.width).toBe('100%');
     expect(mounted.element.style.height).toBe('max-content');
     expect(mounted.element.style.minHeight).toBe('24px');
     mounted.dispose();
@@ -1838,7 +1838,7 @@ describe('browser runtime', () => {
     expect(root.style.flexWrap).toBe('wrap');
     expect(root.style.justifyContent).toBe('space-between');
     expect(root.style.alignItems).toBe('center');
-    expect(root.style.width).toBe('100vw');
+    expect(root.style.width).toBe('100%');
     expect(root.style.height).toBe('100dvh');
     expect(root.style.getPropertyPriority('width')).toBe('important');
     expect(root.style.getPropertyPriority('display')).toBe('important');

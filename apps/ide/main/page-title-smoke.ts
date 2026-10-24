@@ -203,14 +203,21 @@ export async function runPageTitleSmoke(
 
   const customTitle = 'WebRAD browser title <Smoke> & "preview"';
   await openPageInspector();
-  await ready(window, `(() => {
+  await ready(
+    window,
+    `(() => {
     const labels = [...document.querySelectorAll('.wr-object-inspector label')];
     const name = labels.find((label) => label.textContent?.trim() === 'Name')?.control;
-    const remove = document.querySelector('button[aria-label="Delete selected project item"]');
     return !labels.some((label) => label.textContent?.trim() === 'Route path')
-      && name instanceof HTMLInputElement && name.value === 'index' && name.readOnly
-      && remove instanceof HTMLButtonElement && remove.disabled;
-  })()`);
+      && name instanceof HTMLInputElement && name.value === 'index' && name.readOnly;
+  })()`,
+  );
+  await click(window, 'button[aria-label="Show pages"]');
+  await ready(
+    window,
+    'document.querySelector(\'button[aria-label="Delete selected project item"]\')?.disabled === true',
+  );
+  await openPageInspector();
   log('renderer mandatory index page passed: fixed name, hidden Route path, deletion disabled');
   await ready(window, `${browserTitleField}?.value === ''`);
   await setBrowserTitle(window, customTitle);
@@ -225,28 +232,48 @@ export async function runPageTitleSmoke(
   await openPageInspector();
   const notFoundPage = original.project.pages.find((candidate) => candidate.name === '404');
   if (notFoundPage === undefined) throw new Error('The project has no mandatory 404 page.');
-  await window.webContents.executeJavaScript(`(() => {
+  await click(window, 'button[aria-label="Show pages"]');
+  await window.webContents.executeJavaScript(
+    `(() => {
     const row = [...document.querySelectorAll('.wr-project-tree .wr-page-row')]
       .find((row) => row.querySelector('span')?.textContent === '404');
     if (!(row instanceof HTMLElement)) throw new Error('404 is missing from Project Explorer.');
     row.click();
-  })()`, true);
-  await click(window, `[role="treeitem"][data-component-id=${JSON.stringify(notFoundPage.rootComponentId)}]`);
+  })()`,
+    true,
+  );
+  await ready(
+    window,
+    'document.querySelector(\'button[aria-label="Delete selected project item"]\')?.disabled === true',
+  );
+  await click(window, 'button[aria-label="Design"]');
+  await click(
+    window,
+    `[role="treeitem"][data-component-id=${JSON.stringify(notFoundPage.rootComponentId)}]`,
+  );
   await click(window, 'button[role="tab"][aria-label="Properties"]');
-  await ready(window, `(() => {
+  await ready(
+    window,
+    `(() => {
     const labels = [...document.querySelectorAll('.wr-object-inspector label')];
     const name = labels.find((label) => label.textContent?.trim() === 'Name')?.control;
-    const remove = document.querySelector('button[aria-label="Delete selected project item"]');
     return !labels.some((label) => label.textContent?.trim() === 'Route path')
-      && name instanceof HTMLInputElement && name.value === '404' && name.readOnly
-      && remove instanceof HTMLButtonElement && remove.disabled;
-  })()`);
-  await window.webContents.executeJavaScript(`(() => {
+      && name instanceof HTMLInputElement && name.value === '404' && name.readOnly;
+  })()`,
+  );
+  await click(window, 'button[aria-label="Show pages"]');
+  await window.webContents.executeJavaScript(
+    `(() => {
     const row = [...document.querySelectorAll('.wr-project-tree .wr-page-row')]
       .find((row) => row.querySelector('span')?.textContent === 'index');
     row?.click();
-  })()`, true);
-  log('renderer mandatory 404 page passed: protected identity, direct URL fallback, unknown history and Navigate redirected to /404');
+  })()`,
+    true,
+  );
+  log(
+    'renderer mandatory 404 page passed: protected identity, direct URL fallback, unknown history and Navigate redirected to /404',
+  );
+  if (typeof originalSelection === 'string') await click(window, 'button[aria-label="Design"]');
   if (typeof originalSelection === 'string')
     await click(
       window,

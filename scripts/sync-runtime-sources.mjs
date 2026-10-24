@@ -337,8 +337,17 @@ const outputs = [
   [
     path.join(repositoryRoot, 'packages', 'language', 'src', 'menu-typings.generated.json'),
     JSON.stringify(
-      createApiClientDeclarations(repositoryRoot, ['menu-model.ts', 'menu.ts'], (name) =>
-        name.startsWith('WebMenu'),
+      createApiClientDeclarations(
+        repositoryRoot,
+        ['menu-model.ts', 'menu.ts'],
+        (name) =>
+          name.startsWith('WebMenu') ||
+          [
+            'createDefaultWebMenuConfiguration',
+            'isWebMenuLink',
+            'parseWebMenuConfiguration',
+            'webMenuItemPath',
+          ].includes(name),
       ),
       null,
       2,

@@ -1,3 +1,4 @@
+import { type ProjectTemplateId } from '@webrad/component-registry';
 import {
   addComponentStyle,
   projectSourceFilePath,
@@ -10,6 +11,7 @@ import {
   getReusableElement,
   parseProject,
   portableFileNameKey,
+  pageClassName,
   removeComponentStyle,
   removePage as removePageFromProject,
   removeReusableElement as removeReusableElementFromProject,
@@ -34,6 +36,7 @@ import {
   pruneEmptyEventHandlers,
 } from '@webrad/language';
 import type { ProjectSession, WebRadBridge } from '../../../shared/contracts';
+import { duplicateDocument } from './duplicate-document';
 
 export interface ProjectControllerSnapshot {
   readonly session: ProjectSession | null;
@@ -122,11 +125,17 @@ export class ProjectController {
     return this.#restoreTask;
   }
 
-  public async create(name: string): Promise<ProjectSession | null> {
+  public async create(
+    name: string,
+    templateId?: ProjectTemplateId,
+  ): Promise<ProjectSession | null> {
     const operationRevision = ++this.#projectOperationRevision;
     this.#publish({ saving: true, error: null });
     try {
-      const session = await this.#bridge.project.create({ name });
+      const session = await this.#bridge.project.create({
+        name,
+        ...(templateId === undefined ? {} : { templateId }),
+      });
       if (operationRevision !== this.#projectOperationRevision) {
         this.#releaseInactiveSession(session);
         return null;
@@ -170,7 +179,10 @@ export class ProjectController {
       const source = userSources[oldKey];
       if (source !== undefined) {
         userSources[newKey] = renamePageUserSource(
-          source, previousEntry.name, 'index', oldKey,
+          source,
+          previousEntry.name,
+          'index',
+          oldKey,
         ).sourceText;
         delete userSources[oldKey];
       }
@@ -397,6 +409,75 @@ export class ProjectController {
       [projectSourceFilePath(file)]: createUserProjectSource(file),
     });
     return file;
+  }
+
+  public duplicateProjectItem(id: string): string {
+    const project = this.#requireProject();
+    const source = project.sourceFiles?.find((item) => item.id === id);
+    const asset = project.assets?.find((item) => item.id === id);
+    const page = project.pages.find((item) => item.id === id);
+    const reusable = project.reusableElements.find((item) => item.id === id);
+    const document = page ?? reusable;
+    const original = document?.name ?? source?.name ?? asset?.fileName;
+    if (!original) throw new Error('Select a project item to duplicate.');
+    const occupied = new Set(
+      [
+        ...project.pages.map((item) => item.name),
+        ...project.reusableElements.map((item) => item.name),
+        ...(project.sourceFiles ?? []).map((item) => item.name),
+        ...(project.assets ?? []).map((item) => item.fileName),
+      ].map(portableFileNameKey),
+    );
+    const dot = asset ? original.lastIndexOf('.') : -1;
+    const stem = dot > 0 ? original.slice(0, dot) : original === '404' ? 'Page404' : original;
+    const extension = dot > 0 ? original.slice(dot) : '';
+    let number = 1;
+    let name = `${stem}Copy${extension}`;
+    while (occupied.has(portableFileNameKey(name))) name = `${stem}Copy${++number}${extension}`;
+    const copyId = crypto.randomUUID();
+    const userSources = { ...this.#snapshot.userSources };
+    if (asset) {
+      this.#commitEdit(
+        {
+          ...project,
+          assets: [...(project.assets ?? []), { ...asset, id: copyId, fileName: name }],
+        },
+        userSources,
+      );
+      return copyId;
+    }
+    if (source) {
+      const copy = { ...source, id: copyId, name };
+      const text = userSources[projectSourceFilePath(source)] ?? createUserProjectSource(source);
+      userSources[projectSourceFilePath(copy)] =
+        source.kind === 'model'
+          ? renamePageUserSource(text, source.name, name, projectSourceFilePath(source)).sourceText
+          : text;
+      this.#commitEdit(
+        { ...project, sourceFiles: [...(project.sourceFiles ?? []), copy] },
+        userSources,
+      );
+      return copyId;
+    }
+    if (!document) throw new Error('Project document not found.');
+    const copy = duplicateDocument(document, name);
+    const oldPath = page ? sourcePath(document.name) : reusableSourcePath(document.name);
+    const newPath = page ? sourcePath(name) : reusableSourcePath(name);
+    const text =
+      userSources[oldPath] ??
+      (page ? createUserPageSource(document) : createUserReusableElementSource(document));
+    userSources[newPath] = renamePageUserSource(
+      text,
+      pageClassName(document.name),
+      name,
+      oldPath,
+      document.name,
+    ).sourceText;
+    this.#commitEdit(
+      page ? addPageToProject(project, copy) : addReusableElementToProject(project, copy),
+      userSources,
+    );
+    return copy.id;
   }
 
   public addAsset(asset: ProjectAsset): void {

@@ -103,15 +103,22 @@ function startPreviewServer(): Promise<PreviewServer> {
           const rawPath = match?.[2] ?? '';
           const routePath = decodeURIComponent(rawPath);
           const segments = routePath.split('/');
-          const navigation = request.headers['sec-fetch-dest'] === 'document' ||
+          const navigation =
+            request.headers['sec-fetch-dest'] === 'document' ||
             request.headers['sec-fetch-dest'] === 'iframe' ||
             request.headers.accept?.includes('text/html') === true;
-          const applicationPath = !routePath.includes('\\') &&
-            !/[\u0000-\u001f\u007f]/u.test(routePath) &&
+          const applicationPath =
+            !routePath.includes('\\') &&
+            ![...routePath].some(
+              (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+            ) &&
             !segments.some((part) => part === '.' || part === '..' || part === 'assets') &&
             (navigation || !segments.some((part) => part.includes('.')));
-          if (Array.isArray(paths) &&
-            (paths.includes(rawPath) || (paths.includes('/404') && applicationPath))) html = candidate;
+          if (
+            Array.isArray(paths) &&
+            (paths.includes(rawPath) || (paths.includes('/404') && applicationPath))
+          )
+            html = candidate;
         } catch {
           /* Malformed compiler metadata never enables additional routes. */
         }

@@ -7,4 +7,4 @@ The `.ts` MPEG-TS samples are stored as `.ts.bin` to keep them out of the TypeSc
 
 The fragmented Sintel segments start at 40 seconds. The test DASH manifest uses `presentationTimeOffset="40"` to map their timestamps into the ten-second fixture, with the actual 258×110 video dimensions.
 
-The Shaka project distributes its test assets under its repository license notices. See https://github.com/shaka-project/shaka-player/blob/v5.2.13/LICENSE. These samples are used only in automated local playback tests; they are not bundled into generated applications.
+The Shaka project distributes its test assets under its repository license notices. See https://github.com/shaka-project/shaka-player/blob/v5.2.13/LICENSE. The four `sintel-*` MP4 files are also embedded, byte-for-byte, in the Aurora Workspace demonstration template with a ten-second DASH manifest and the `aurora-media-license.txt` attribution. A project created from that template exports those assets. The MPEG-TS samples remain test-only. See [third-party notices](../../../THIRD_PARTY_NOTICES.md).

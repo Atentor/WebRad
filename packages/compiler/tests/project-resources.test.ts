@@ -6,14 +6,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createProject, parseProject } from '@webrad/project-model';
 import { createUserPageSource } from '@webrad/language';
 import { compileProject } from '../src/index.js';
-
 const directories: string[] = [];
 afterEach(async () => {
   await Promise.all(
     directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
-
 describe('compiled project resources', () => {
   it('executes imported models and units in Preview and emits exact asset bytes', async () => {
     const outputDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-resources-'));
@@ -40,7 +38,7 @@ describe('compiled project resources', () => {
       'models/Customer.ts': 'export class Customer { public name: string = "Alice"; }',
       'units/Helpers.ts':
         'import type { Customer } from "../models/Customer"; export function greeting(customer: Customer): string { return "Hello " + customer.name; }',
-      'pages/PageMain.ts':
+      'pages/index.ts':
         'import { Customer } from "../models/Customer"; import { greeting } from "../units/Helpers";\n' +
         source +
         '\ndocument.documentElement.dataset.resourceGreeting = greeting(new Customer());',
@@ -76,5 +74,5 @@ describe('compiled project resources', () => {
           diagnostic.source === 'typescript' && diagnostic.file?.includes('Helpers.ts'),
       ),
     ).toBe(true);
-  }, 120_000);
+  }, 120000);
 });

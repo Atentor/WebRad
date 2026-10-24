@@ -47,9 +47,19 @@ Preserve the `assets/licenses/` directory when deploying exported applications.
 User-authored code, project assets and external dependencies require their own
 license decisions; WebRAD does not assign them a license automatically.
 
-## Test media
+## Test and Aurora demonstration media
 
 [Playback fixtures](tests/fixtures/video-media/README.md) originate from Shaka
 Player test assets. The Sintel trailer fragments are attributed to the Blender
-Foundation under CC BY 3.0. They are test-only assets and are not distributed
-with exported applications.
+Foundation under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+The four Sintel MP4 initialization/segment files are also embedded in the
+**Aurora Workspace** demonstration template, with a local DASH manifest mapping
+their original 40-second timestamps to a ten-second presentation. Projects
+created from that template include the media when exported; blank projects do
+not. Keep the bundled `assets/imported/aurora-media-license.txt` attribution with
+those files when distributing the demonstration. The media files are unchanged;
+only their local names and manifest are adapted. Film credits and sharing terms:
+[Blender Foundation / Sintel](https://durian.blender.org/sharing/).
+
+The other playback fixtures remain test-only. The original Aurora workspace SVG
+and example JSON records are repository-authored assets under the MIT license.

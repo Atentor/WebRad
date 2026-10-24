@@ -1,0 +1,39 @@
+{
+  "projects": [
+    {
+      "name": "Customer portal",
+      "owner": "Alex Morgan",
+      "status": "In progress",
+      "progress": 75,
+      "progressFormat": "bars"
+    },
+    {
+      "name": "Team dashboard",
+      "owner": "Sam Rivera",
+      "status": "Review",
+      "progress": 90,
+      "progressFormat": "dunnet"
+    },
+    {
+      "name": "Product catalog",
+      "owner": "Jordan Lee",
+      "status": "Design",
+      "progress": 35,
+      "progressFormat": "circus"
+    },
+    {
+      "name": "Event registration",
+      "owner": "Taylor Chen",
+      "status": "In progress",
+      "progress": 60,
+      "progressFormat": "bars"
+    },
+    {
+      "name": "Help center",
+      "owner": "Casey Patel",
+      "status": "Complete",
+      "progress": 100,
+      "progressFormat": "dunnet"
+    }
+  ]
+}

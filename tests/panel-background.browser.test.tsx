@@ -11,7 +11,6 @@ import {
   panelAsset,
   panelImage,
 } from './fixtures/panel-background';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'renders imported Panel backgrounds in Designer and Preview, preserves gradient borders and restores the style',
   async () => {
@@ -47,9 +46,9 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       }
       response.setHeader('Content-Type', 'text/html');
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? compiled.previewHtml
-          : `<!doctype html><style>${css}</style><div style="width:280px;height:160px">${markup}</div><iframe src="/preview"></iframe>`,
+          : `<!doctype html><style>${css}</style><div style="width:280px;height:160px">${markup}</div><iframe src="/index.html"></iframe>`,
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -67,11 +66,15 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
               awaitPromise: true,
             });
             if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-            return (result.result as { value?: unknown }).value;
+            return (
+              result.result as {
+                value?: unknown;
+              }
+            ).value;
           };
           const runtime = `document.querySelector('iframe').contentDocument.querySelector('[data-webrad-id="panel"]')`;
           const designer = `document.querySelector('[data-component-id="panel"]')`;
-          await expect.poll(() => evaluate(`Boolean(${runtime})`), { timeout: 15_000 }).toBe(true);
+          await expect.poll(() => evaluate(`Boolean(${runtime})`), { timeout: 15000 }).toBe(true);
           const paint = (expression: string) =>
             evaluate(`(() => {
         const e = ${expression}, s = e.ownerDocument.defaultView.getComputedStyle(e);
@@ -123,7 +126,13 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
             size: 'auto, auto',
             border: '1px',
           });
-          expect((restored as { image: string }).image).not.toContain('url(');
+          expect(
+            (
+              restored as {
+                image: string;
+              }
+            ).image,
+          ).not.toContain('url(');
           expect(await evaluate(`${runtime}.querySelector('button').textContent`)).toBe('Cleared');
         },
       );
@@ -132,5 +141,5 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   },
-  45_000,
+  45000,
 );

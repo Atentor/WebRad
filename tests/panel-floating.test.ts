@@ -14,7 +14,6 @@ import { parseProject, serializeProject, safeParseProject } from '@webrad/projec
 import { WebPanel, mountPage, projectRuntimeLayout } from '@webrad/runtime';
 import { panelFloatingProject, panelFloatingUserSources } from './fixtures/panel-floating';
 afterEach(() => vi.unstubAllGlobals());
-
 it('persists Panel placement, validates anchors and keeps legacy Panels in flow', () => {
   const project = panelFloatingProject();
   expect(defaultComponentRegistry.require('WebPanel').supportsFloatingPlacement).toBe(true);
@@ -59,7 +58,6 @@ it('persists Panel placement, validates anchors and keeps legacy Panels in flow'
       .position,
   ).toBe('relative');
 });
-
 it.each(['left', 'center', 'right'] as const)(
   'projects page-owned floating geometry for %s anchoring',
   (horizontal) => {
@@ -87,7 +85,6 @@ it.each(['left', 'center', 'right'] as const)(
     if (horizontal === 'center') expect(styles.translate).toBe('-50% 0');
   },
 );
-
 it('executes typed bare/this assignments in compiled Preview and restores parent order without recreating children', async () => {
   const compiled = await compileProjectToMemory(panelFloatingProject(), {
     userSources: panelFloatingUserSources,
@@ -122,7 +119,6 @@ it('executes typed bare/this assignments in compiled Preview and restores parent
     dom.window.close();
   }
 });
-
 it('shares floating state across wrappers and removes placement listeners on mount disposal', () => {
   const page = panelFloatingProject().pages[0]!;
   const dom = new JSDOM('<!doctype html><body></body>');
@@ -148,7 +144,6 @@ it('shares floating state across wrappers and removes placement listeners on mou
     dom.window.close();
   }
 });
-
 it('isolates floating Panels and their authored handlers in two reusable placements', async () => {
   const original = panelProgressProject(true);
   const project = {
@@ -164,7 +159,7 @@ it('isolates floating Panels and their authored handlers in two reusable placeme
   };
   const compiled = await compileProjectToMemory(project, {
     userSources: {
-      'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated'; export class PageMain extends PageMainGenerated {}`,
+      'pages/index.ts': `import { indexGenerated } from "./index.generated"; export class index extends indexGenerated {}`,
       'reusables/ProgressCard.ts': `import { ProgressCardGenerated } from './ProgressCard.generated';
 export class ProgressCard extends ProgressCardGenerated {
   advance(): void { Panel1.placement = 'in-flow'; this.Panel1.floatingZIndex = 300; Advance1.caption = 'Updated'; }
@@ -194,7 +189,6 @@ export class ProgressCard extends ProgressCardGenerated {
     dom.window.close();
   }
 });
-
 it.each([false, true])(
   'offers typed bare/this Panel floating placement completion, hover and diagnostics in reusable=%s',
   (reusable) => {

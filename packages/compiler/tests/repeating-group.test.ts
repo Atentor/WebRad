@@ -15,7 +15,6 @@ import {
   repeatingGroupProject,
   repeatingGroupUserSources,
 } from '../../../tests/fixtures/repeating-group.js';
-
 it('executes isolated row handlers in compiled Preview with real page state and stable async row values', async () => {
   const result = await compileProjectToMemory(repeatingGroupProject(), {
     userSources: repeatingGroupUserSources(),
@@ -75,13 +74,12 @@ it('executes isolated row handlers in compiled Preview with real page state and 
   } finally {
     dom.window.close();
   }
-}, 120_000);
-
+}, 120000);
 it('restores the static value only in the clicked row when authored code clears its binding', async () => {
   const result = await compileProjectToMemory(repeatingGroupProject(), {
     userSources: {
-      'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+      'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   async load(): Promise<void> { await ApiClient1.Load.execute(); }
   choose0(): void { Name0.currentRowBindings = []; this.Result.text = Name0.text; }
 }`,
@@ -121,8 +119,7 @@ export class PageMain extends PageMainGenerated {
   } finally {
     dom.window.close();
   }
-}, 120_000);
-
+}, 120000);
 it('rejects dangling row fields, incompatible visual bindings and current-row bindings outside a template', async () => {
   const project = repeatingGroupProject();
   const page = project.pages[0]!;
@@ -166,14 +163,13 @@ it('rejects dangling row fields, incompatible visual bindings and current-row bi
     ]),
   );
 });
-
 it('preserves shadowed CurrentRow and component names while resolving visual instances across async arrows', async () => {
   const result = await compileProjectToMemory(repeatingGroupProject(), {
     userSources: {
-      'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-import type { RepeatingGroup0CurrentRow } from './PageMain.generated';
+      'pages/index.ts': `import { indexGenerated } from "./index.generated";
+import type { RepeatingGroup0CurrentRow } from "./index.generated";
 import type { WebButton } from '@webrad/runtime';
-export class PageMain extends PageMainGenerated {
+export class index extends indexGenerated {
   async load() { await ApiClient1.Load.execute(); }
   async choose0(sender: WebButton, event: Event, CurrentRow: RepeatingGroup0CurrentRow) {
     const __wrCurrentRow1 = 'collision'; void __wrCurrentRow1;
@@ -224,8 +220,7 @@ export class PageMain extends PageMainGenerated {
   } finally {
     dom.window.close();
   }
-}, 120_000);
-
+}, 120000);
 it('rejects one handler assigned to different row scopes', async () => {
   const project = repeatingGroupProject();
   const page = project.pages[0]!;
@@ -252,7 +247,6 @@ it('rejects one handler assigned to different row scopes', async () => {
     ),
   ).toBe(true);
 });
-
 it('initializes nested repeating groups and binds events to their closest row template', async () => {
   let project = repeatingGroupProject();
   let page = project.pages[0]!;
@@ -282,10 +276,10 @@ it('initializes nested repeating groups and binds events to their closest row te
   project = updatePage(project, page.id, page);
   const result = await compileProjectToMemory(project, {
     userSources: {
-      'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-import type { NestedCurrentRow } from './PageMain.generated';
+      'pages/index.ts': `import { indexGenerated } from "./index.generated";
+import type { NestedCurrentRow } from "./index.generated";
 import type { WebButton } from '@webrad/runtime';
-export class PageMain extends PageMainGenerated {
+export class index extends indexGenerated {
   async load() { await ApiClient1.Load.execute(); }
   innerClick(sender: WebButton, event: Event, CurrentRow: NestedCurrentRow) {
     this.InnerName.text = 'Nested ' + CurrentRow.value.name;
@@ -332,8 +326,7 @@ export class PageMain extends PageMainGenerated {
   } finally {
     dom.window.close();
   }
-}, 120_000);
-
+}, 120000);
 it('keeps repeating groups inside separate authored reusable placements isolated', async () => {
   const original = repeatingGroupProject().pages[0]!;
   const reusable = createReusableElement('CustomerRows');
@@ -452,8 +445,7 @@ export class CustomerRows extends CustomerRowsGenerated {
   } finally {
     dom.window.close();
   }
-}, 120_000);
-
+}, 120000);
 it('constructs authored reusable classes in each row with independent state and inferred CurrentRow', async () => {
   let definition = createReusableElement('RowCard');
   for (const node of [
@@ -542,15 +534,14 @@ export class RowCard extends RowCardGenerated {
   } finally {
     dom.window.close();
   }
-}, 120_000);
-
+}, 120000);
 it('resolves method parameter defaults and arrow or function property handlers to the clicked second row', async () => {
   const result = await compileProjectToMemory(repeatingGroupProject(), {
     userSources: {
-      'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-import type { RepeatingGroup0CurrentRow, RepeatingGroup1CurrentRow, RepeatingGroup2CurrentRow, RepeatingGroup3CurrentRow } from './PageMain.generated';
+      'pages/index.ts': `import { indexGenerated } from "./index.generated";
+import type { RepeatingGroup0CurrentRow, RepeatingGroup1CurrentRow, RepeatingGroup2CurrentRow, RepeatingGroup3CurrentRow } from "./index.generated";
 import type { WebButton, WebLabel } from '@webrad/runtime';
-export class PageMain extends PageMainGenerated {
+export class index extends indexGenerated {
   async load() { await ApiClient1.Load.execute(); }
   choose0(sender: WebButton, event: Event, CurrentRow: RepeatingGroup0CurrentRow, label: WebLabel = this.Name0) {
     label.text = 'Default ' + CurrentRow.value.name;
@@ -607,4 +598,4 @@ export class PageMain extends PageMainGenerated {
   } finally {
     dom.window.close();
   }
-}, 120_000);
+}, 120000);

@@ -78,14 +78,20 @@ it('exports font notices and embedded fonts in the minified compiled Preview and
   const plain = await compileProjectToMemory(
     addComponentStyle(
       createProject('UnusedFont'),
-      createComponentStyle('Unused', 'WebLabel', { states: { base: { fontFamily: 'roboto' } } }),
+      createComponentStyle('Unused', 'WebLabel', { states: { base: { fontFamily: 'nunito' } } }),
     ),
     { userSources: {} },
   );
   // An unassigned style is pruned by the existing application source selection.
   expect(plain.success, JSON.stringify(plain.diagnostics)).toBe(true);
-  expect(plain.files['assets/app.css']).not.toContain('data:font/woff2');
+  const embeddedFamilies = new Set<string>();
+  postcss.parse(plain.files['assets/app.css']!).walkAtRules('font-face', (face) => {
+    face.walkDecls('font-family', (declaration) => {
+      embeddedFamilies.add(declaration.value.replaceAll("'", '').replaceAll('"', ''));
+    });
+  });
+  expect([...embeddedFamilies]).toEqual(['Roboto']);
   expect(
     Object.keys(plain.files).filter((file) => file.startsWith('assets/licenses/fonts/')),
-  ).toEqual([]);
+  ).toEqual(['assets/licenses/fonts/roboto-OFL-1.1.txt']);
 });

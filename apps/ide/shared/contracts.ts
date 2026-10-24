@@ -1,3 +1,4 @@
+import { type ProjectTemplateId } from '@webrad/component-registry';
 import type { UpdateBridge } from './update-contracts';
 import type { NativeBuildBridge } from './native-build-contracts';
 import type { ExternalLinkTarget } from './external-links';
@@ -60,6 +61,7 @@ export interface ProjectSession {
 
 export interface CreateProjectRequest {
   name: string;
+  templateId?: ProjectTemplateId;
 }
 
 export interface SaveProjectRequest {

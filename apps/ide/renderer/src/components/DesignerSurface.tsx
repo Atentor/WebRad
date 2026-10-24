@@ -1007,7 +1007,7 @@ function ReusableDefinitionContent({
 }
 
 function ReusableDefinitionNode({
-  node,
+  node: savedNode,
   byId,
   reusableElementsById,
   styleClassNames,
@@ -1019,10 +1019,10 @@ function ReusableDefinitionNode({
   scale,
   floatingHost,
 }: ReusableDefinitionNodeProps): ReactElement {
-  node =
-    componentRegistry.require(node.type).projectLayout?.(node, designViewport, {
+  const node =
+    componentRegistry.require(savedNode.type).projectLayout?.(savedNode, designViewport, {
       reusableElements: [...reusableElementsById.values()],
-    }) ?? node;
+    }) ?? savedNode;
   const children = reusableVisualChildren(node, byId);
   const referencedReusableElementId = reusableElementId(node);
   const reusableElement =
@@ -1098,7 +1098,7 @@ function ReusableDefinitionNode({
 }
 
 const RuntimeNode = memo(function RuntimeNode({
-  node,
+  node: savedNode,
   byId,
   reusableElementsById,
   styleClassNames,
@@ -1110,10 +1110,10 @@ const RuntimeNode = memo(function RuntimeNode({
   floatingHost,
   floatingEditorBounds,
 }: RuntimeNodeProps): ReactElement {
-  node =
-    componentRegistry.require(node.type).projectLayout?.(node, designViewport, {
+  const node =
+    componentRegistry.require(savedNode.type).projectLayout?.(savedNode, designViewport, {
       reusableElements: [...reusableElementsById.values()],
-    }) ?? node;
+    }) ?? savedNode;
   const children = reusableVisualChildren(node, byId);
   const referencedReusableElementId = reusableElementId(node);
   const reusableElement =
@@ -1361,17 +1361,19 @@ export function DesignerSurface({
       : componentRegistry
           .get(root.type)
           ?.designSurface?.(root, { document: page, reusableElements });
-  const previewWidth = viewport.width ?? rootSurface?.width ?? responsiveWidth;
+  const previewWidth = Number(viewport.width ?? rootSurface?.width ?? responsiveWidth);
 
   const rootFitContentSize = root === undefined ? undefined : fitContentSizes.get(root.id);
-  const viewportWidth =
+  const viewportWidth = Number(
     root?.layout.item.width === 'fit-content' && rootFitContentSize?.width !== undefined
       ? rootFitContentSize.width
-      : previewWidth;
-  const viewportHeight =
+      : previewWidth,
+  );
+  const viewportHeight = Number(
     root?.layout.item.height === 'fit-content' && rootFitContentSize?.height !== undefined
       ? rootFitContentSize.height
-      : (rootSurface?.height ?? page.height);
+      : (rootSurface?.height ?? page.height),
+  );
   const reusableElementsById = useMemo(
     () => new Map(reusableElements.map((reusableElement) => [reusableElement.id, reusableElement])),
     [reusableElements],
@@ -1551,7 +1553,6 @@ export function DesignerSurface({
     reusableElements,
     viewportWidth,
     viewportHeight,
-    previewWidth,
     responsiveWidth,
   ]);
 

@@ -333,6 +333,11 @@ ${repeatingGroupTypings.source}
     element: HTMLElement,
     ratio: 'none' | '16:9' | '9:16',
   ): void;
+  export type RuntimeLayoutNodeProjector = (node: RuntimeLayoutNode) => RuntimeLayoutNode;
+  export function setRuntimeLayoutProjection(
+    element: HTMLElement,
+    projector: RuntimeLayoutNodeProjector | null,
+  ): boolean;
   export function measureRuntimeFitContentSize(
     target: HTMLElement,
     contentHost: HTMLElement,

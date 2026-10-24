@@ -16,6 +16,7 @@ import {
 } from '@webrad/project-model';
 import { COMPONENT_SCOPE_PREFIX, componentReferenceScope } from './component-references.js';
 import { repeatingGroupForComponent } from './repeating-context.js';
+import ts from 'typescript';
 
 export interface GeneratePageOptions {
   readonly registry?: ComponentRegistry;
@@ -50,7 +51,9 @@ function runtimeTypes(page: PageModel, kind: GeneratedDocumentKind): readonly st
     ...new Set([
       kind === 'page' ? 'WebPage' : 'WebComponent',
       ...(kind === 'page' ? [] : ['WebReusableElementInstance']),
-      ...page.components.map((component) => component.type),
+      ...page.components
+        .filter((component) => component.id !== page.rootComponentId)
+        .map((component) => component.type),
       ...(page.components.some((component) => component.type === 'WebApiClient')
         ? ['WebApiTemplateValue', 'WebApiQueryValue', 'WebApiClientInstance']
         : []),
@@ -201,30 +204,34 @@ function apiClientTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
       const headerNames = [...new Set(operation.headers.map((header) => header.name))];
       declarations.push(
         '  readonly ' + JSON.stringify(operation.name) + ': {',
-        '    readonly Parameter: {',
-        ...[...fields].map(
-          ([name, type]) => '      readonly ' + JSON.stringify(name) + ': ' + type + ';',
+        ...apiInputRecord(
+          'Parameter',
+          [...fields].map(([name, type]) => [name, type]),
         ),
-        '    };',
-        '    readonly Query: {',
-        ...queryNames.map(
-          (name) => '      readonly ' + JSON.stringify(name) + ': WebApiQueryValue;',
+        ...apiInputRecord(
+          'Query',
+          queryNames.map((name) => [name, 'WebApiQueryValue']),
         ),
-        '    };',
-        '    readonly Headers: {',
-        ...headerNames.map((name) => '      readonly ' + JSON.stringify(name) + ': string;'),
-        '    };',
+        ...apiInputRecord(
+          'Headers',
+          headerNames.map((name) => [name, 'string']),
+        ),
         '  };',
       );
     }
+    const defaultHeaderNames = [
+      ...new Set(configuration.data.defaultHeaders.map((header) => header.name)),
+    ];
     declarations.push(
       '}',
       '',
-      'export interface ' + headersTypeName + ' {',
-      ...[...new Set(configuration.data.defaultHeaders.map((header) => header.name))].map(
-        (name) => '  readonly ' + JSON.stringify(name) + ': string;',
-      ),
-      '}',
+      ...(defaultHeaderNames.length === 0
+        ? ['export type ' + headersTypeName + ' = Readonly<Record<string, never>>;']
+        : [
+            'export interface ' + headersTypeName + ' {',
+            ...defaultHeaderNames.map((name) => '  readonly ' + JSON.stringify(name) + ': string;'),
+            '}',
+          ]),
       '',
     );
     typeByComponentId.set(
@@ -233,6 +240,16 @@ function apiClientTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
     );
   }
   return { declarations, typeByComponentId };
+}
+
+function apiInputRecord(name: string, fields: readonly (readonly [string, string])[]): string[] {
+  return fields.length === 0
+    ? [`    readonly ${name}: Readonly<Record<string, never>>;`]
+    : [
+        `    readonly ${name}: {`,
+        ...fields.map(([field, type]) => `      readonly ${JSON.stringify(field)}: ${type};`),
+        '    };',
+      ];
 }
 
 function repeatingGroupTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
@@ -434,6 +451,63 @@ function parseGeneratedDocument(documentInput: PageModel, kind: GeneratedDocumen
   return kind === 'page' ? parsePage(documentInput) : parseReusableElement(documentInput);
 }
 
+/** Keep generated imports aligned with actual constructor and type references. */
+function normalizeRuntimeImports(text: string): string {
+  const source = ts.createSourceFile('generated.ts', text, ts.ScriptTarget.Latest, true);
+  const declaration = source.statements.find(ts.isImportDeclaration);
+  const bindings = declaration?.importClause?.namedBindings;
+  if (!declaration || !declaration.importClause || !bindings || !ts.isNamedImports(bindings))
+    return text;
+  const used = new Set<string>();
+  const values = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node)) {
+      used.add(node.text);
+      if (
+        (ts.isNewExpression(node.parent) && node.parent.expression === node) ||
+        (ts.isExpressionWithTypeArguments(node.parent) &&
+          ts.isHeritageClause(node.parent.parent) &&
+          node.parent.parent.token === ts.SyntaxKind.ExtendsKeyword)
+      )
+        values.add(node.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  for (const statement of source.statements)
+    if (!ts.isImportDeclaration(statement)) visit(statement);
+  const updated = ts.factory.updateImportDeclaration(
+    declaration,
+    declaration.modifiers,
+    ts.factory.updateImportClause(
+      declaration.importClause,
+      false,
+      undefined,
+      ts.factory.updateNamedImports(
+        bindings,
+        bindings.elements
+          .filter((item) => used.has(item.name.text))
+          .map((item) =>
+            ts.factory.updateImportSpecifier(
+              item,
+              !values.has(item.name.text),
+              item.propertyName,
+              item.name,
+            ),
+          ),
+      ),
+    ),
+    declaration.moduleSpecifier,
+    declaration.attributes,
+  );
+  return (
+    text.slice(0, declaration.getStart(source)) +
+    ts
+      .createPrinter({ newLine: ts.NewLineKind.LineFeed })
+      .printNode(ts.EmitHint.Unspecified, updated, source) +
+    text.slice(declaration.end)
+  );
+}
+
 function generateDocumentSource(
   documentInput: PageModel,
   kind: GeneratedDocumentKind,
@@ -459,13 +533,19 @@ function generateDocumentSource(
   const lines: string[] = [
     '// Generated by WebRAD. Changes to this file will be replaced.',
     `import { ${runtimeTypes(page, kind)
+      .filter(
+        (name) =>
+          !['WebApiTemplateValue', 'WebApiQueryValue'].includes(name) ||
+          apiClientTypes.declarations.some((line) => line.includes(name)),
+      )
       .map((name) =>
         [
           'WebApiTemplateValue',
           'WebApiQueryValue',
           'WebApiClientInstance',
           'WebRepeatingGroupCurrentRow',
-        ].includes(name)
+        ].includes(name) ||
+        (isReusable && name === 'WebComponent')
           ? `type ${name}`
           : name,
       )
@@ -608,7 +688,7 @@ function generateDocumentSource(
   lines.push('}', '');
   if (apiClientTypes.declarations.length > 0) lines.push(...apiClientTypes.declarations);
 
-  return `${lines.join('\n')}\n`;
+  return normalizeRuntimeImports(`${lines.join('\n')}\n`);
 }
 
 export function generatePageSource(
@@ -686,9 +766,7 @@ function createUserDocumentSource(
 ): string {
   const page = parseGeneratedDocument(documentInput, kind);
   const className = generatedClassName(page, options.generatedSuffix ?? 'Generated');
-  const componentTypes = [...new Set(page.components.map((component) => component.type))].sort();
   const lines = [
-    `import type { ${componentTypes.join(', ')} } from '@webrad/runtime';`,
     `import { ${className} } from './${page.name}.generated';`,
     '',
     `export class ${pageClassName(page.name)} extends ${className} {`,

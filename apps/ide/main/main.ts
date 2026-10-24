@@ -13,6 +13,7 @@ import path from 'node:path';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
+import { WEBRAD_FONT_FAMILIES } from '@webrad/runtime/fonts';
 import { resolveCompilerEnvironment } from './compiler-environment';
 import { synchronizeInstallationIcon } from './installation-icon';
 import { applicationWindowIconPath } from './application-icon';
@@ -821,7 +822,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   }
   smokeLog('renderer shell passed');
   await runBugReportSmoke(window);
-  smokeLog('renderer bug report browser link passed');
+  smokeLog('renderer bug report and documentation browser links passed');
   const loadedIcon = await waitForRendererString(
     window,
     `(() => {
@@ -859,6 +860,60 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     (value) => value === true,
   );
   smokeLog('renderer About WebRAD modal passed');
+  await clickRendererControl(window, 'button[aria-label="New project (Ctrl+N)"]', 'New project');
+  await waitForRendererResult(
+    window,
+    `(() => {
+      const dialog = document.querySelector('.wr-new-project-dialog');
+      const blank = dialog?.querySelector('input[value="blank"]');
+      const template = dialog?.querySelector('input[value="aurora-workspace"]');
+      const cards = [...(dialog?.querySelectorAll('.wr-project-template-card') ?? [])];
+      const bounds = dialog?.getBoundingClientRect();
+      return dialog?.querySelector('.wr-template-sidebar') !== null && dialog?.textContent?.includes('Examples & Tutorial') === true && blank instanceof HTMLInputElement && blank.checked && template instanceof HTMLInputElement
+        && dialog.textContent.includes('Learn WebRAD with editable examples')
+        && dialog.textContent.includes('API requests') && dialog.textContent.includes('13 pages') && dialog.textContent.includes('RestGO accounts')
+        && dialog.textContent.includes('reusable menus')
+        && dialog.querySelector('.wr-template-sidebar .wr-template-user') !== null
+        && cards.length === 2 && cards.every(card => card.getBoundingClientRect().width > 100)
+        && bounds !== undefined && bounds.left >= 0 && bounds.right <= innerWidth
+        && bounds.top >= 0 && bounds.bottom <= innerHeight
+        && dialog.contains(document.activeElement) && document.querySelector('.wr-ide-modal-host')?.inert === true;
+    })()`,
+    'the accessible blank/template project chooser',
+    (value) => value === true,
+  );
+  await clickRendererControl(
+    window,
+    'input[value="aurora-workspace"]',
+    'Examples & Tutorial template',
+  );
+  await waitForRendererResult(
+    window,
+    'document.querySelector(\'input[value="aurora-workspace"]\')?.checked === true && document.querySelector(\'input[value="blank"]\')?.checked === false',
+    'the selected tutorial template',
+    (value) => value === true,
+  );
+  await clickRendererControl(window, 'input[value="blank"]', 'Blank project');
+  await waitForRendererResult(
+    window,
+    'document.querySelector(\'input[value="blank"]\')?.checked === true',
+    'the selected blank project',
+    (value) => value === true,
+  );
+  await clickRendererControl(
+    window,
+    '[aria-label="Close new project dialog"]',
+    'Cancel new project',
+  );
+  await waitForRendererResult(
+    window,
+    "document.querySelector('.wr-new-project-dialog') === null && document.querySelector('.wr-ide-modal-host')?.inert === false",
+    'the dismissed project chooser',
+    (value) => value === true,
+  );
+  smokeLog(
+    'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu',
+  );
 
   if (smokeProjectPath === undefined) return;
   const opened = (await window.webContents.executeJavaScript(
@@ -1049,7 +1104,17 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await runPanelFloatingSmoke(window, smokeProjectPath, smokeLog);
 
   await runRestGoSettingsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
-  const designerButtonStyle = await captureDesignerButtonStyle(window);
+  const styledSession = await loadProjectFiles(smokeProjectPath);
+  const styledButton = styledSession.project.pages
+    .flatMap((page) => page.components)
+    .find((node) => node.name === 'BTNMostrar');
+  const fontId =
+    styledSession.project.styles.find((style) => style.id === styledButton?.styleId)?.states.base
+      .fontFamily ?? 'sans';
+  const expectedFontFamily =
+    WEBRAD_FONT_FAMILIES.find((family) => family.id === fontId)?.label ??
+    (fontId === 'mono' ? 'JetBrains Mono' : fontId === 'serif' ? 'serif' : 'Inter');
+  const designerButtonStyle = await captureDesignerButtonStyle(window, expectedFontFamily);
 
   const codeDispatched = (await window.webContents.executeJavaScript(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F12', bubbles: true, cancelable: true }))`,
@@ -1095,7 +1160,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     'the mounted Preview controls after F9',
   );
   await assertPreviewButtonStyle(previewFrame, designerButtonStyle);
-  smokeLog('renderer Designer/Preview button style parity passed');
+  smokeLog('renderer Designer/Preview button style parity passed / page available width');
   const interaction = (await previewFrame.executeJavaScript(
     `(() => {
       globalThis.__webradSmokeMessage = '';

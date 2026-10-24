@@ -1,0 +1,119 @@
+{
+  "formatVersion": 2,
+  "id": "hello-webrad-project-v1:404:page",
+  "name": "404",
+  "caption": "404",
+  "width": 640,
+  "height": 320,
+  "rootComponentId": "hello-webrad-project-v1:404:root",
+  "components": [
+    {
+      "id": "hello-webrad-project-v1:404:root",
+      "type": "WebPage",
+      "name": "404",
+      "parentId": null,
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "fixed",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 640,
+        "height": 320,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "404",
+        "enabled": true,
+        "backgroundColor": "#ffffff",
+        "browserTitle": "404 - Page not found",
+        "routePath": "/404",
+        "visible": true
+      },
+      "events": {
+        "OnCreate": null,
+        "OnHide": null,
+        "OnResize": null,
+        "OnShow": null
+      },
+      "children": [
+        "hello-webrad-project-v1:404:message"
+      ]
+    },
+    {
+      "id": "hello-webrad-project-v1:404:message",
+      "type": "WebLabel",
+      "name": "NotFoundMessage",
+      "parentId": "hello-webrad-project-v1:404:root",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "fixed",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 592,
+        "height": 96,
+        "x": 24,
+        "y": 24
+      },
+      "props": {
+        "caption": "404 - Page not found",
+        "enabled": true,
+        "visible": true
+      },
+      "events": {},
+      "children": []
+    }
+  ]
+}

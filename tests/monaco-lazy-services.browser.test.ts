@@ -24,12 +24,21 @@ it.runIf(browser !== undefined)(
             const initial = monaco.editor.create(host, { value: '', language: 'plaintext' });
 
             const source = 'export const message: string = "Hello";';
-            const languageReady = new Promise((resolve) =>
-              monaco.languages.onLanguage('typescript', resolve),
-            );
-            const model = monaco.editor.createModel(source, 'typescript');
+            // onLanguage announces activation before tsMode has finished loading.
+            // A real semantic diagnostic proves the lazy worker is registered.
+            let model;
+            const languageReady = new Promise((resolve) => {
+              const listener = monaco.editor.onDidChangeMarkers(() => {
+                if (model && monaco.editor.getModelMarkers({ resource: model.uri }).some(marker => String(marker.code) === '2322')) {
+                  listener.dispose();
+                  resolve();
+                }
+              });
+            });
+            model = monaco.editor.createModel('export const message: string = 1;', 'typescript');
             initial.setModel(model);
             await languageReady;
+            model.setValue(source);
             let remounted;
             try {
               const workerFactory = await getTypeScriptWorker();

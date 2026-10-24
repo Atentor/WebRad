@@ -6,9 +6,7 @@ import { expect, it } from 'vitest';
 import { compileProjectToMemory } from '@webrad/compiler';
 import { comboBoxBinding, comboBoxProject, comboBoxUserSources } from './fixtures/combo-box';
 import { withChromium } from './chromium';
-
 const browserPath = process.env.WEBRAD_BROWSER_PATH;
-
 it.runIf(browserPath !== undefined).each(['api', 'static'] as const)(
   'configures a %s ComboBox in Chromium and executes its compiled F9 Preview',
   async (mode) => {
@@ -55,13 +53,13 @@ it.runIf(browserPath !== undefined).each(['api', 'static'] as const)(
               : 'text/html',
       });
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? previewHtml
           : request.url === '/dialog.js'
             ? dialogScript
             : request.url === '/ide.css'
               ? ideCss
-              : '<!doctype html><html><head><link rel="stylesheet" href="/ide.css"></head><body><div id="root" style="height:0"></div><iframe style="width:100%;height:350px;border:0" title="Compiled F9 Preview" src="/preview"></iframe><script src="/dialog.js"></script></body></html>',
+              : '<!doctype html><html><head><link rel="stylesheet" href="/ide.css"></head><body><div id="root" style="height:0"></div><iframe style="width:100%;height:350px;border:0" title="Compiled F9 Preview" src="/index.html"></iframe><script src="/dialog.js"></script></body></html>',
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -136,7 +134,13 @@ it.runIf(browserPath !== undefined).each(['api', 'static'] as const)(
           });
           if (result.exceptionDetails !== undefined)
             throw new Error(JSON.stringify(result.exceptionDetails));
-          return (result.result as { value?: unknown } | undefined)?.value;
+          return (
+            result.result as
+              | {
+                  value?: unknown;
+                }
+              | undefined
+          )?.value;
         };
         await expect
           .poll(
@@ -144,7 +148,7 @@ it.runIf(browserPath !== undefined).each(['api', 'static'] as const)(
               evaluate(
                 `Boolean(document.querySelector('[aria-label="${mode === 'api' ? 'ComboBox API Client' : 'ComboBox Items'}"]')) && document.querySelector('iframe').contentDocument.querySelector('select')?.options.length === 2`,
               ),
-            { timeout: 15_000 },
+            { timeout: 15000 },
           )
           .toBe(true);
         if (mode === 'api') {
@@ -236,5 +240,5 @@ it.runIf(browserPath !== undefined).each(['api', 'static'] as const)(
       );
     }
   },
-  60_000,
+  60000,
 );

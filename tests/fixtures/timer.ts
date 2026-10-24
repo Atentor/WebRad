@@ -1,6 +1,5 @@
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { addComponent, bindComponentEvent, createProject, updatePage } from '@webrad/project-model';
-
 export function timerProject() {
   const project = createProject('TimerExample');
   let page = project.pages[0]!;
@@ -17,11 +16,10 @@ export function timerProject() {
   page = bindComponentEvent(page, 'timer', 'OnTimer', 'tick');
   return updatePage(project, page.id, page);
 }
-
 export const timerUserSources = {
-  'pages/PageMain.ts': `import type { WebTimer, WebTimerEventDetail } from '@webrad/runtime';
-import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+  'pages/index.ts': `import type { WebTimer, WebTimerEventDetail } from '@webrad/runtime';
+import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   tick(sender: WebTimer, event: CustomEvent<WebTimerEventDetail>): void {
     this.element.dataset.timerTicks = String(event.detail.tick);
     if (Timer1.tickCount === 3) this.Timer1.Stop();

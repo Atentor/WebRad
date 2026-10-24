@@ -1,0 +1,14 @@
+Aurora Workspace demonstration media
+
+Sintel trailer excerpt (10 seconds, starting at 40 seconds)
+Copyright Blender Foundation, 2010. Licensed under Creative Commons Attribution 3.0.
+Film and attribution: https://durian.blender.org/
+Sharing terms: https://durian.blender.org/sharing/
+License: https://creativecommons.org/licenses/by/3.0/
+
+The four unmodified fragmented MP4 samples originate from the official Shaka Player v5.2.13 test assets:
+https://github.com/shaka-project/shaka-player/tree/v5.2.13/test/test/assets
+The Aurora DASH manifest renames the local files and maps their 40-second timestamps into a ten-second presentation.
+Keep this attribution with the media when sharing or exporting the demonstration project.
+
+The Aurora workspace SVG illustration and example project records were created for this repository and are provided under its MIT license.

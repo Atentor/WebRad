@@ -8,7 +8,6 @@ import {
   createReusableElement,
   updatePage,
 } from '@webrad/project-model';
-
 export function toggleProject(reusable = false) {
   let project = createProject('ToggleExample');
   let page = project.pages[0]!;
@@ -62,7 +61,6 @@ export function toggleProject(reusable = false) {
   }
   return updatePage(project, page.id, page);
 }
-
 const methods = `
   changed(sender: WebToggle): void {
     this.Status1.caption = Toggle1.checked ? 'On' : 'Off';
@@ -74,9 +72,9 @@ const methods = `
 `;
 export function toggleUserSources(reusable = false): Record<string, string> {
   return {
-    'pages/PageMain.ts': `import type { WebToggle } from '@webrad/runtime';
-import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated { ${reusable ? '' : methods} }`,
+    'pages/index.ts': `import type { WebToggle } from '@webrad/runtime';
+import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated { ${reusable ? '' : methods} }`,
     ...(reusable
       ? {
           'reusables/SwitchCard.ts': `import type { WebToggle } from '@webrad/runtime';

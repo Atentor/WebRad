@@ -1,5 +1,118 @@
 # Project format
 
+The Project Explorer's **Duplicate selected project item** action copies the active
+page, reusable component, Model, Unit or Asset and opens the copy. Names use the
+first available `Copy`, `Copy2`, etc. suffix (before asset extensions). Documents
+receive new document/component IDs while retaining component names, handlers,
+properties, shared styles and reusable references. Authored code is copied;
+document/model class names and generated imports are adjusted with the TypeScript
+AST. Copied pages receive their own default route. References to other documents,
+assets and resources remain unchanged. Save persists the copy normally.
+
+## New project templates
+
+**File > New Project** offers **Blank project** (the default) and **Aurora
+Workspace**, each with a visual preview. Aurora demonstrates all 20 visual and
+five nonvisual registered components, using only the protected **Default**
+styles. It creates `index`, `Forms`, `Data`, `Media`, `Pokemon`, `Timer`, `Files`,
+`Reports`, `RestGoAccount`, `RestGoRecovery`, `RestGoProfile`, `RestGoSession`
+and the mandatory `404` page (13 total), plus the
+`FeatureCard` and `AuroraMenu` reusable definitions and ordinary authored TypeScript files for
+their behavior. Group has no style support; reusable placements render their
+definition's Default Panel and child styles. No custom style is added or seeded
+Default style changed. All elements remain editable through the Designer,
+Inspector, Styles and Code.
+
+A materialized copy is available at
+[`examples/aurora-workspace/AuroraWorkspace.wrproj`](../examples/aurora-workspace/AuroraWorkspace.wrproj),
+with [a page and interaction guide](../examples/aurora-workspace/README.md).
+
+The overview includes two independent FeatureCard placements with working
+progress buttons. Forms demonstrates Edit, Text Area, Check Box, Toggle, Combo
+Box and List Box, with a review button opening a populated native Popup. It does
+not submit profile values to a server. Data uses a real API Client operation to
+load the bundled `aurora-projects.json` asset into a Data Grid and Repeating
+Group, with typed cell/row selection handlers. Media includes a bundled SVG,
+an interactive favorite icon and a playable ten-second local DASH sample in
+Video Player. Menu links use stable page IDs, including its mobile drawer.
+
+The **Nonvisual** menu section opens four additional examples:
+
+- **API Client / PokeAPI** (`Pokemon`): typed `ListPokemon` and `GetPokemon`
+  requests to the public [PokéAPI v2](https://pokeapi.co/docs/v2). List requests
+  use `limit=12` and `offset`; detail requests accept a name or numeric ID.
+  Successful responses are cached in memory for that page instance. Network
+  errors remain visible, and leaving the page aborts outstanding requests.
+- **Timer**: editable interval and Loop, Start/Stop/Restart controls and real
+  OnStart/OnTimer/OnStop feedback. Leaving the page stops its Timer.
+- **File / Video Upload** (`Files`): local file/video selection and explicit
+  private RestGO uploads, real transfer progress, video pause/resume/cancel and
+  a runtime account login. Sending requires the project's own RestGO Connection
+  and user account. No credentials or server are bundled with the template.
+- **Report Builder** (`Reports`): an editable saved PDF layout with typed
+  Title/PreparedFor/Notes parameters, real modal preview and download. Generation
+  runs locally and requires no API response or server.
+
+The separate **RestGO** menu demonstrates the application's account lifecycle:
+registration and login, email confirmation and password recovery, a protected
+profile with avatar upload/removal, session validation/renewal and logout. It
+uses only the configured RestGO server and the SDK's public account methods.
+`AuroraAccount` is an ordinary project Unit that projects session identity into
+the menu and account panels without displaying credential values. The authored
+`AuroraMenu` reusable class owns each placement's menu subscription until that
+instance is disposed. `AuroraSidebar` owns the page's viewport/menu layout listeners.
+The protected profile binds `OnUnauthenticated`; all account pages expose typed
+`OnLogin`/`OnLogout` feedback. See [the complete account flow](aurora-restgo-account.md).
+
+Reusable FeatureCards display donut ProgressBars. Data rows alternate `bars`,
+`dunnet` and `circus` through a Current row binding from `format` to the bundled
+JSON's `/progressFormat` string field; their numeric values remain bound to
+`/progress`. Circular controls have enough height to display their percentage.
+
+Navigation is a vertical Menu fixed to the left, 264px wide on desktop, with
+the user section enabled and the editable example profile "Demo user". Each
+page places the shared **AuroraMenu** reusable as `Navigation`; menu items,
+appearance, profile defaults and user-click behavior are edited once through
+**Reusable Components > AuroraMenu**. FeatureCard is a separate reusable and
+does not contain the application sidebar. Each
+page fills the available document width, excluding the vertical scrollbar, so
+vertical scrolling does not introduce horizontal scrolling in the responsive
+Workspace. Preview and generated applications share this page sizing rule. Each
+page's transparent `PageContent` group reserves its horizontal footprint. The
+typed `units/AuroraSidebar.ts` binding adjusts that clearance for the mobile
+trigger, subscribes only while the page is visible and is disposed with the
+page. Native controls retain their Registry layout defaults: only containers
+receive row/column child layout. Top-level Panels stretch across the content;
+Panels inside rows use flexible fixed-width tracks. Static paragraphs compose
+short Default Labels, respecting the Default Label's single-line behavior.
+Dynamic status messages and longer summary values use readonly Default Text
+Areas so full messages remain accessible without changing the Default styles.
+
+The eight Project Assets include JSON records, the original SVG illustration,
+the DASH manifest and four media segments, and `aurora-media-license.txt` with
+Sintel attribution and license links. They are saved, reopened and exported with
+the project. The original visual/Data/Media examples and Timer/PDF generation
+run without an external API or media host. The Pokemon example requires internet
+access; account actions and sending files/videos require a configured RestGO
+server, with an authenticated session where the endpoint requires one.
+PokéAPI requests and file/video uploads start only through explicit actions;
+RestGO account pages also observe the SDK's session restoration and validation.
+Preserve its media
+attribution when distributing the sample. See [third-party notices](../THIRD_PARTY_NOTICES.md).
+
+The creation IPC accepts an optional, allowlisted `templateId` (`blank` or
+`aurora-workspace`); omission selects blank. The main process validates this
+selection before opening the native destination picker. Templates are composed
+in the Component Registry package, then saved through the normal project-file
+transaction into the empty project-named directory. Initial template TypeScript
+is supplied only during creation and never reapplied when opening or saving an
+existing project. No template ID, new format version, remote assets or additional
+runtime dependency is persisted. The saved model and authored source files are
+the complete project. Template construction also rejects an incomplete visual
+catalogue so newly registered visuals cannot be silently omitted from the demo.
+
+## Persisted component metadata
+
 `WebMenu.props.configuration` stores a `schemaVersion: 1` menu with stable-ID
 recursive items, brand/profile data, appearance and responsive behavior. Pages
 use stable IDs. Project format 2 is unchanged; a shared parser validates menus
@@ -32,9 +145,12 @@ Every persisted structure carries `formatVersion`. The current Page-based format
 MyProject/
   MyProject.wrproj
   pages/
-    PageMain.wrpage
-    PageMain.generated.ts
-    PageMain.ts
+    index.wrpage
+    index.generated.ts
+    index.ts
+    404.wrpage
+    404.generated.ts
+    404.ts
   reusables/
     CustomerCard.generated.ts
     CustomerCard.ts
@@ -267,6 +383,12 @@ saved into the authored source property or imported assets.
 # Video Player aspect ratio
 
 `WebVideoPlayer.props.aspectRatio` optionally stores `none`, `16:9`, or `9:16` in format-v2 documents. Missing values behave as `none`; new components persist that default. Fixed ratios project height from the responsive width through the shared structural layout, overriding vertical sizing and limits without rewriting saved bounds or layout rules. Disabling the ratio restores those saved rules. Runtime assignments affect only the mounted instance. This additive property requires no format-version change.
+
+Protected Aurora Default styles seed `states.base.fontFamily: "roboto"`. Project
+and manifest parsing normalizes omitted or `sans` base fonts on these defaults
+to `roboto`. Explicit alternative families, interaction-state overrides, user
+styles and component bindings are preserved. The next save persists this
+normalization without a format-version change. See [Project fonts](fonts.md).
 
 # Video Player default style
 

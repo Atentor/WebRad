@@ -16,10 +16,8 @@ import {
   updatePage,
 } from '@webrad/project-model';
 import { withChromium } from './chromium';
-
 const browserPath = process.env.WEBRAD_BROWSER_PATH;
 const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
-
 it.runIf(browserPath !== undefined)(
   'resamples real Designer and compiled Preview images while preserving sharp edges and runtime APIs',
   async () => {
@@ -130,8 +128,8 @@ it.runIf(browserPath !== undefined)(
     ).toMatchObject({ src: null, placeholder: 'user' });
     const compiled = await compileProjectToMemory(project, {
       userSources: {
-        'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+        'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {
   public ResizeClick(): void { this.Image1.width = 130; Image1.height = 130; }
   public ReplaceClick(): void {
     this.Image1.src = '/red.png';
@@ -165,7 +163,7 @@ export class PageMain extends PageMainGenerated {
               ? projectCss
               : route === '/project'
                 ? JSON.stringify(project)
-                : route === '/preview'
+                : route === '/index.html'
                   ? compiled.previewHtml
                   : route === '/pattern.png'
                     ? pattern
@@ -173,7 +171,7 @@ export class PageMain extends PageMainGenerated {
                       ? red
                       : route === '/rectangular.png'
                         ? rectangular
-                        : '<!doctype html><html><head><link rel="stylesheet" href="/app.css"><style>body{margin:0;display:flex;gap:16px;background:white}#root{width:600px;height:440px}iframe{border:0;width:600px;height:440px}</style></head><body><div id="root"></div><iframe title="Compiled Preview" src="/preview"></iframe><script type="module" src="/app.js"></script></body></html>';
+                        : '<!doctype html><html><head><link rel="stylesheet" href="/app.css"><style>body{margin:0;display:flex;gap:16px;background:white}#root{width:600px;height:440px}iframe{border:0;width:600px;height:440px}</style></head><body><div id="root"></div><iframe title="Compiled Preview" src="/index.html"></iframe><script type="module" src="/app.js"></script></body></html>';
       response.writeHead(200, {
         'Content-Type': route?.endsWith('.js')
           ? 'text/javascript'
@@ -196,13 +194,19 @@ export class PageMain extends PageMainGenerated {
         `http://127.0.0.1:${String(address.port)}/`,
         async (send) => {
           let encoded: string | undefined;
-          const deadline = Date.now() + 20_000;
+          const deadline = Date.now() + 20000;
           while (!encoded && Date.now() < deadline) {
             const result = await send('Runtime.evaluate', {
               expression: 'document.body.dataset.evidence',
               returnByValue: true,
             });
-            encoded = (result.result as { value?: string } | undefined)?.value;
+            encoded = (
+              result.result as
+                | {
+                    value?: string;
+                  }
+                | undefined
+            )?.value;
             if (!encoded) await new Promise((resolve) => setTimeout(resolve, 100));
           }
           if (process.env.WEBRAD_IMAGE_SCREENSHOT) {
@@ -242,7 +246,13 @@ export class PageMain extends PageMainGenerated {
             awaitPromise: true,
             returnByValue: true,
           });
-          expect((density.result as { value?: unknown }).value).toEqual({
+          expect(
+            (
+              density.result as {
+                value?: unknown;
+              }
+            ).value,
+          ).toEqual({
             cover: [128, 128],
             contain: [96, 96],
             rectangular: [128, 74],
@@ -257,5 +267,5 @@ export class PageMain extends PageMainGenerated {
       }
     }
   },
-  60_000,
+  60000,
 );

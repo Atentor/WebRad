@@ -8,7 +8,6 @@ import { findDefaultComponentStyle } from '@webrad/project-model';
 import { resolveComponentStyleClassName } from '@webrad/runtime';
 import { withChromium } from './chromium';
 import { progressBarProject, progressBarUserSources } from './fixtures/progress-bar';
-
 it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
   'matches all ProgressBar formats, styles and responsive geometry in Designer and compiled Preview',
   async () => {
@@ -33,9 +32,9 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
     const server = createServer((request, response) => {
       response.setHeader('Content-Type', 'text/html');
       response.end(
-        request.url === '/preview'
+        request.url === '/index.html'
           ? compiled.previewHtml
-          : `<!doctype html><style>${css}</style><main style="display:flex;align-items:start"><section>${markup}</section><iframe src="/preview" style="width:850px;height:500px;border:0"></iframe></main>`,
+          : `<!doctype html><style>${css}</style><main style="display:flex;align-items:start"><section>${markup}</section><iframe src="/index.html" style="width:850px;height:500px;border:0"></iframe></main>`,
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -49,14 +48,18 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           const evaluate = async (expression: string): Promise<unknown> => {
             const result = await send('Runtime.evaluate', { expression, returnByValue: true });
             if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-            return (result.result as { value?: unknown }).value;
+            return (
+              result.result as {
+                value?: unknown;
+              }
+            ).value;
           };
           const runtime = (format: string) =>
             `document.querySelector('iframe').contentDocument.querySelector('[data-webrad-id=${format}]')`;
           const designer = (format: string) =>
             `document.querySelector('[data-component-id=${format}]')`;
           await expect
-            .poll(() => evaluate(`Boolean(${runtime('bars')})`), { timeout: 15_000 })
+            .poll(() => evaluate(`Boolean(${runtime('bars')})`), { timeout: 15000 })
             .toBe(true);
           const read = (expression: string) =>
             evaluate(`(() => {
@@ -156,5 +159,5 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   },
-  60_000,
+  60000,
 );

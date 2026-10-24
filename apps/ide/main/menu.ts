@@ -1,5 +1,6 @@
-import { app, type BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron';
+import { app, type BrowserWindow, Menu, type MenuItemConstructorOptions, shell } from 'electron';
 import type { IdeCommand } from '../shared/contracts';
+import { EXTERNAL_LINKS } from '../shared/external-links';
 
 function commandItem(
   window: BrowserWindow,
@@ -98,6 +99,14 @@ export function installApplicationMenu(window: BrowserWindow): void {
     {
       label: 'Help',
       submenu: [
+        {
+          label: 'Documentation',
+          click: () => {
+            void shell.openExternal(EXTERNAL_LINKS.documentation).catch((error: unknown) => {
+              console.error('[IDE] Failed to open documentation:', error);
+            });
+          },
+        },
         commandItem(window, 'Check for Updates...', 'help.checkUpdates'),
         commandItem(window, 'About WebRAD', 'help.about'),
       ],

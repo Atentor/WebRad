@@ -6,13 +6,318 @@
   "pages": [
     {
       "id": "hello-webrad-form-main-v1",
-      "name": "PageMain",
-      "pageFile": "pages/PageMain.wrpage",
-      "generatedFile": "pages/PageMain.generated.ts",
-      "codeFile": "pages/PageMain.ts"
+      "name": "index",
+      "pageFile": "pages/index.wrpage",
+      "generatedFile": "pages/index.generated.ts",
+      "codeFile": "pages/index.ts"
+    },
+    {
+      "id": "hello-webrad-project-v1:404:page",
+      "name": "404",
+      "pageFile": "pages/404.wrpage",
+      "generatedFile": "pages/404.generated.ts",
+      "codeFile": "pages/404.ts"
     }
   ],
+  "reusableElements": [],
   "styles": [
+    {
+      "id": "hello-webrad-project-v1:default-style:WebToggle",
+      "name": "Default Toggle",
+      "componentType": "WebToggle",
+      "preset": "default",
+      "states": {
+        "base": {
+          "backgroundGradient": {
+            "kind": "linear",
+            "direction": "to-bottom",
+            "from": "#e2e8f0",
+            "to": "#cbd5e1"
+          },
+          "borderGradient": {
+            "kind": "linear",
+            "direction": "to-bottom-right",
+            "from": "#bfdbfe",
+            "to": "#ddd6fe"
+          },
+          "borderRadius": {
+            "value": 6,
+            "unit": "px"
+          },
+          "borderStyle": "solid",
+          "borderWidth": {
+            "value": 1,
+            "unit": "px"
+          },
+          "boxShadow": "sm",
+          "cursor": "pointer",
+          "fontFamily": "roboto",
+          "toggleCheckedColor": "var(--wr-palette-aurora-blue)",
+          "toggleThumbColor": "var(--wr-palette-aurora-white)",
+          "transitionDuration": 200,
+          "transitionProperty": "all",
+          "transitionTimingFunction": "easeOut"
+        },
+        "hover": {
+          "boxShadow": "md"
+        },
+        "focus": {
+          "ringColor": "#93c5fd",
+          "ringOffsetColor": "var(--wr-palette-aurora-white)",
+          "ringOffsetWidth": {
+            "value": 2,
+            "unit": "px"
+          },
+          "ringWidth": {
+            "value": 2,
+            "unit": "px"
+          }
+        },
+        "active": {
+          "boxShadow": "none"
+        },
+        "disabled": {
+          "boxShadow": "none",
+          "cursor": "not-allowed",
+          "opacity": 60,
+          "toggleCheckedColor": "#94a3b8",
+          "toggleThumbColor": "#f1f5f9"
+        }
+      }
+    },
+    {
+      "id": "hello-webrad-project-v1:default-style:WebProgressBar",
+      "name": "Default ProgressBar",
+      "componentType": "WebProgressBar",
+      "preset": "default",
+      "states": {
+        "base": {
+          "backgroundGradient": {
+            "kind": "linear",
+            "direction": "to-bottom",
+            "from": "var(--wr-palette-aurora-white)",
+            "to": "var(--wr-palette-aurora-surface)"
+          },
+          "borderGradient": {
+            "kind": "linear",
+            "direction": "to-bottom-right",
+            "from": "#bfdbfe",
+            "to": "#ddd6fe"
+          },
+          "borderRadius": {
+            "value": 6,
+            "unit": "px"
+          },
+          "borderStyle": "solid",
+          "borderWidth": {
+            "value": 1,
+            "unit": "px"
+          },
+          "fontFamily": "roboto",
+          "fontSize": {
+            "value": 12,
+            "unit": "px"
+          },
+          "fontWeight": "semibold",
+          "progressColor": "var(--wr-palette-aurora-blue)",
+          "progressThickness": 8,
+          "progressTrackColor": "#e2e8f0",
+          "textColor": "var(--wr-palette-aurora-ink)"
+        },
+        "hover": {},
+        "focus": {},
+        "active": {},
+        "disabled": {
+          "opacity": 60,
+          "progressColor": "#94a3b8"
+        }
+      }
+    },
+    {
+      "id": "hello-webrad-project-v1:default-style:WebIcon",
+      "name": "Default Icons",
+      "componentType": "WebIcon",
+      "preset": "default",
+      "states": {
+        "base": {
+          "borderRadius": {
+            "value": 4,
+            "unit": "px"
+          },
+          "borderWidth": {
+            "value": 0,
+            "unit": "px"
+          },
+          "fontFamily": "roboto",
+          "textColor": "var(--wr-palette-aurora-blue)"
+        },
+        "hover": {},
+        "focus": {},
+        "active": {},
+        "disabled": {
+          "cursor": "not-allowed",
+          "opacity": 60
+        }
+      }
+    },
+    {
+      "id": "hello-webrad-project-v1:default-style:WebMenu",
+      "name": "Default Menu",
+      "componentType": "WebMenu",
+      "preset": "default",
+      "states": {
+        "base": {
+          "borderRadius": {
+            "value": 16,
+            "unit": "px"
+          },
+          "borderWidth": {
+            "value": 0,
+            "unit": "px"
+          },
+          "boxShadow": "none",
+          "fontFamily": "roboto"
+        },
+        "hover": {},
+        "focus": {},
+        "active": {},
+        "disabled": {
+          "opacity": 60
+        }
+      }
+    },
+    {
+      "id": "hello-webrad-project-v1:default-style:WebRepeatingGroup",
+      "name": "Default Repeating Group",
+      "componentType": "WebRepeatingGroup",
+      "preset": "default",
+      "states": {
+        "base": {
+          "backgroundColor": "var(--wr-palette-aurora-white)",
+          "borderColor": "#cbd5e1",
+          "borderRadius": {
+            "value": 6,
+            "unit": "px"
+          },
+          "borderStyle": "solid",
+          "borderWidth": {
+            "value": 1,
+            "unit": "px"
+          },
+          "fontFamily": "roboto",
+          "fontSize": {
+            "value": 14,
+            "unit": "px"
+          },
+          "textColor": "var(--wr-palette-aurora-graphite)"
+        },
+        "hover": {},
+        "focus": {},
+        "active": {},
+        "disabled": {}
+      }
+    },
+    {
+      "id": "hello-webrad-project-v1:default-style:WebVideoPlayer",
+      "name": "Default Video Player",
+      "componentType": "WebVideoPlayer",
+      "preset": "default",
+      "states": {
+        "base": {
+          "backgroundGradient": {
+            "kind": "linear",
+            "direction": "to-bottom",
+            "from": "var(--wr-palette-aurora-graphite)",
+            "to": "var(--wr-palette-aurora-ink)"
+          },
+          "borderGradient": {
+            "kind": "linear",
+            "direction": "to-bottom-right",
+            "from": "var(--wr-palette-aurora-sky)",
+            "to": "var(--wr-palette-aurora-lavender)"
+          },
+          "borderRadius": {
+            "value": 6,
+            "unit": "px"
+          },
+          "borderStyle": "solid",
+          "borderWidth": {
+            "value": 1,
+            "unit": "px"
+          },
+          "boxShadow": "sm",
+          "fontFamily": "roboto",
+          "objectFit": "contain",
+          "objectPosition": "center",
+          "textColor": "var(--wr-palette-aurora-white)",
+          "transitionDuration": 200,
+          "transitionProperty": "shadow",
+          "transitionTimingFunction": "easeOut"
+        },
+        "hover": {
+          "boxShadow": "md"
+        },
+        "focus": {
+          "boxShadow": "md",
+          "ringColor": "var(--wr-palette-aurora-sky)",
+          "ringOffsetColor": "var(--wr-palette-aurora-white)",
+          "ringOffsetWidth": {
+            "value": 2,
+            "unit": "px"
+          },
+          "ringWidth": {
+            "value": 2,
+            "unit": "px"
+          }
+        },
+        "active": {},
+        "disabled": {
+          "boxShadow": "none",
+          "opacity": 60
+        }
+      }
+    },
+    {
+      "id": "hello-webrad-project-v1:default-style:WebPopup",
+      "name": "Default Popup",
+      "componentType": "WebPopup",
+      "preset": "default",
+      "states": {
+        "base": {
+          "backgroundGradient": {
+            "kind": "linear",
+            "direction": "to-bottom",
+            "from": "#ffffff",
+            "to": "#f8fafc"
+          },
+          "borderGradient": {
+            "kind": "linear",
+            "direction": "to-bottom-right",
+            "from": "#dbeafe",
+            "to": "#e9d5ff"
+          },
+          "borderRadius": {
+            "value": 6,
+            "unit": "px"
+          },
+          "borderStyle": "solid",
+          "borderWidth": {
+            "value": 1,
+            "unit": "px"
+          },
+          "boxShadow": "md",
+          "fontFamily": "roboto",
+          "textColor": "#0f172a",
+          "transitionDuration": 200,
+          "transitionProperty": "all",
+          "transitionTimingFunction": "easeOut"
+        },
+        "hover": {},
+        "focus": {},
+        "active": {},
+        "disabled": {}
+      }
+    },
     {
       "id": "hello-webrad-style-button-primary-v1",
       "name": "PrimaryButton",
@@ -20,42 +325,97 @@
       "states": {
         "base": {
           "backgroundColor": "#0284c7",
-          "textColor": "#ffffff",
           "borderColor": "transparent",
           "borderRadius": "lg",
           "boxShadow": "md",
           "fontWeight": "medium",
-          "userSelect": "none",
-          "transitionProperty": "all",
+          "textColor": "#ffffff",
           "transitionDuration": 200,
-          "transitionTimingFunction": "easeOut"
+          "transitionProperty": "all",
+          "transitionTimingFunction": "easeOut",
+          "userSelect": "none"
         },
         "hover": {
           "backgroundColor": "#0369a1",
-          "translateY": { "value": -2, "unit": "px" },
-          "boxShadow": "lg"
+          "boxShadow": "lg",
+          "translateY": {
+            "value": -2,
+            "unit": "px"
+          }
         },
         "focus": {
           "outlineStyle": "none",
-          "ringWidth": { "value": 2, "unit": "px" },
           "ringColor": "#38bdf8",
-          "ringOffsetWidth": { "value": 2, "unit": "px" }
+          "ringOffsetWidth": {
+            "value": 2,
+            "unit": "px"
+          },
+          "ringWidth": {
+            "value": 2,
+            "unit": "px"
+          }
         },
         "active": {
-          "translateY": { "value": 0, "unit": "px" },
-          "scale": 95
+          "scale": 95,
+          "translateY": {
+            "value": 0,
+            "unit": "px"
+          }
         },
         "disabled": {
-          "opacity": 50,
-          "cursor": "not-allowed"
+          "cursor": "not-allowed",
+          "opacity": 50
         }
       }
     }
   ],
   "settings": {
+    "applicationName": "HelloWebRad",
+    "applicationDescription": "",
+    "locale": "pt-BR",
+    "timeZone": "America/Sao_Paulo",
+    "applicationIcon": null,
+    "seo": {
+      "canonicalUrl": "",
+      "keywords": "",
+      "allowIndexing": true,
+      "socialTitle": "",
+      "socialDescription": "",
+      "socialImage": null
+    },
+    "environment": "development",
+    "environmentVariables": [],
+    "restGo": {
+      "enabled": false,
+      "baseUrl": "",
+      "apiVersion": 1,
+      "defaultDatabase": "",
+      "persistSession": true,
+      "sessionStorage": "local",
+      "storageKey": "webrad-restgo-session",
+      "apiToken": ""
+    },
+    "scrollbar": {
+      "width": 10,
+      "height": 10,
+      "trackColor": "#f8fafc",
+      "trackBorderColor": "#e2e8f0",
+      "trackBorderWidth": 1,
+      "trackBorderRadius": 8,
+      "thumbColor": "#93c5fd",
+      "thumbHoverColor": "#60a5fa",
+      "thumbActiveColor": "#2563eb",
+      "thumbBorderColor": "#eff6ff",
+      "thumbBorderWidth": 2,
+      "thumbBorderRadius": 8,
+      "cornerColor": "#f8fafc"
+    },
+    "gridSize": 8,
+    "snapToGrid": true,
+    "showGrid": true,
     "build": {
-      "deployDirectory": "",
       "environment": "production",
+      "deployDirectory": "",
       "minify": true,
       "sourceMaps": false
     },
@@ -68,9 +428,108 @@
       "backgroundColor": "#ffffff",
       "offline": true
     },
-    "gridSize": 8,
-    "snapToGrid": true,
-    "showGrid": true,
-    "outputDirectory": "dist"
-  }
+    "outputDirectory": "dist",
+    "colorPalette": [
+      {
+        "id": "aurora-blue",
+        "name": "Aurora Blue",
+        "color": "#2563eb"
+      },
+      {
+        "id": "aurora-violet",
+        "name": "Aurora Violet",
+        "color": "#7c3aed"
+      },
+      {
+        "id": "aurora-sky",
+        "name": "Aurora Sky",
+        "color": "#60a5fa"
+      },
+      {
+        "id": "aurora-lavender",
+        "name": "Aurora Lavender",
+        "color": "#a78bfa"
+      },
+      {
+        "id": "aurora-white",
+        "name": "Aurora White",
+        "color": "#ffffff"
+      },
+      {
+        "id": "aurora-surface",
+        "name": "Aurora Surface",
+        "color": "#f8fbff"
+      },
+      {
+        "id": "aurora-mist",
+        "name": "Aurora Mist",
+        "color": "#eef2ff"
+      },
+      {
+        "id": "aurora-border",
+        "name": "Aurora Border",
+        "color": "#dbeafe"
+      },
+      {
+        "id": "aurora-graphite",
+        "name": "Aurora Graphite",
+        "color": "#334155"
+      },
+      {
+        "id": "aurora-ink",
+        "name": "Aurora Ink",
+        "color": "#0f172a"
+      }
+    ],
+    "nativeApplication": {
+      "applicationName": "HelloWebRad",
+      "build": {
+        "outputDirectory": "native-dist",
+        "architecture": "host",
+        "bundleFormat": "nsis",
+        "configuration": "release",
+        "platform": "windows"
+      },
+      "description": "",
+      "desktop": {
+        "width": 1024,
+        "height": 768,
+        "minWidth": 320,
+        "minHeight": 240,
+        "fullscreen": false,
+        "maximizable": true,
+        "resizable": true
+      },
+      "icon": null,
+      "identifier": "com.webrad.application",
+      "mobile": {
+        "orientation": "auto",
+        "fullscreen": false,
+        "icon": null,
+        "safeArea": true,
+        "splashScreen": null,
+        "statusBar": true
+      },
+      "publisher": "",
+      "security": {
+        "networkOrigins": []
+      },
+      "signing": {
+        "androidKeyAliasEnvironmentVariable": "",
+        "androidKeyPasswordEnvironmentVariable": "",
+        "androidKeystorePasswordEnvironmentVariable": "",
+        "androidKeystorePathEnvironmentVariable": "",
+        "appleNotarizationProfile": "",
+        "appleSigningIdentity": "",
+        "appleTeamId": "",
+        "iosExportMethod": "debugging",
+        "windowsCertificateThumbprint": ""
+      },
+      "version": "0.1.0"
+    },
+    "routingBasePath": "/",
+    "routingMode": "history"
+  },
+  "assets": [],
+  "sourceFiles": []
 }

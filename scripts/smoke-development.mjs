@@ -132,6 +132,8 @@ try {
           'renderer project Models and Units passed',
           'renderer project asset import passed',
           'renderer project resources restore and F9 passed',
+          'renderer project Explorer collapse and search passed',
+          'renderer project Explorer duplication and persistence passed',
           'renderer project Explorer confirmed deletion and persistence passed',
         ]
       : [
@@ -142,6 +144,7 @@ try {
           'renderer loaded:',
           'renderer shell passed',
           'renderer About WebRAD modal passed',
+          'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu',
           'renderer application icon passed',
           'renderer project open passed',
           'renderer Native Application settings passed',
@@ -162,7 +165,7 @@ try {
           'renderer Data Grid configuration passed:',
           'renderer Timer Inspector and Interact passed:',
           'renderer Lucide Icons Inspector and F9 passed:',
-          'renderer Menu Inspector and F9 passed:',
+          'renderer Menu Inspector and F9 passed: project scrollbar,',
           'renderer Menu configurator layout passed:',
           'renderer Menu canvas geometry passed:',
           'renderer Menu horizontal flyouts passed:',
@@ -180,7 +183,7 @@ try {
           'renderer element tree selection passed:',
           'renderer responsive viewport passed:',
           'renderer Designer toolbar contract passed:',
-          'renderer bug report browser link passed',
+          'renderer bug report and documentation browser links passed',
           'renderer Monaco passed',
           'renderer Monaco TypeScript highlight passed:',
           'renderer Monaco autocomplete passed:',
@@ -194,7 +197,7 @@ try {
           'renderer Monaco workspace restored view:',
           'renderer Monaco event navigation passed:',
           'renderer F9 preview passed: Olá Ada',
-          'renderer Designer/Preview button style parity passed',
+          'renderer Designer/Preview button style parity passed / page available width',
           'renderer Preview isolation passed:',
         ];
   const requiredEvidence = updateSmoke

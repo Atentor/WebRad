@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import {
   CURRENT_PAGE_FORMAT_VERSION,
   CURRENT_PROJECT_FORMAT_VERSION,
@@ -55,7 +54,6 @@ import {
   type ComponentStyleModel,
   type IdFactory,
 } from '../src/index.js';
-
 function idSequence(...values: readonly string[]): IdFactory {
   let index = 0;
   return () => {
@@ -65,7 +63,6 @@ function idSequence(...values: readonly string[]): IdFactory {
     return value;
   };
 }
-
 function component(
   id: string,
   type: string,
@@ -85,7 +82,6 @@ function component(
     children: [],
   };
 }
-
 describe('project factories', () => {
   it('persists stable palette identities and rejects the obsolete string-array format', () => {
     const original = createProject('Palette');
@@ -118,12 +114,10 @@ describe('project factories', () => {
       ).toBe(false);
     }
   });
-
   it('creates a complete aggregate with an entry page and WebPage root', () => {
     const project = createProject('CustomerApp', {
       idFactory: idSequence('project-id', 'page-id', 'root-id'),
     });
-
     expect(project).toMatchObject({
       formatVersion: CURRENT_PROJECT_FORMAT_VERSION,
       id: 'project-id',
@@ -151,8 +145,8 @@ describe('project factories', () => {
       },
     });
     expect(project.settings.scrollbar).toEqual(DEFAULT_PROJECT_SCROLLBAR_STYLE);
-    expect(project.pages).toHaveLength(1);
-    expect(project.styles).toHaveLength(17);
+    expect(project.pages.map((page) => page.name)).toEqual(['index', '404']);
+    expect(project.styles).toHaveLength(18);
     expect(project.styles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ componentType: 'WebPage', preset: 'default' }),
@@ -173,13 +167,13 @@ describe('project factories', () => {
     expect(project.pages[0]).toMatchObject({
       formatVersion: CURRENT_PAGE_FORMAT_VERSION,
       id: 'page-id',
-      name: 'PageMain',
+      name: 'index',
       rootComponentId: 'root-id',
     });
     expect(project.pages[0]?.components[0]).toMatchObject({
       id: 'root-id',
       type: 'WebPage',
-      name: 'PageMain',
+      name: 'index',
       parentId: null,
       layout: {
         container: { mode: 'fixed' },
@@ -229,21 +223,18 @@ describe('project factories', () => {
       expect(defaultCheckBox.states.base).not.toHaveProperty('borderGradient');
     }
   });
-
   it('binds every newly added page root to the default WebPage style', () => {
     const project = createProject('CustomerApp', {
       idFactory: idSequence('project-id', 'page-id', 'root-id'),
     });
     const page = createPage('PageSettings', idSequence('settings-page-id', 'settings-root-id'));
     const updated = addPage(project, page);
-
     expect(updated.pages[1]?.components[0]?.styleId).toBe(
       findDefaultComponentStyle(updated.styles, 'WebPage')?.id,
     );
   });
-
   it('normalizes retired Popup caption and message properties from version 2 documents', () => {
-    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const page = createPage('index', idSequence('page-id', 'root-id'));
     const root = page.components[0];
     if (root === undefined) throw new Error('Expected a page root.');
     const legacyPopup = component('popup-id', 'WebPopup', 'Popup1', root.id, {
@@ -258,7 +249,6 @@ describe('project factories', () => {
       ...page,
       components: [{ ...root, children: [legacyPopup.id] }, legacyPopup],
     };
-
     const restored = deserializePage(JSON.stringify(legacyDocument));
     const popup = restored.components.find((node) => node.id === legacyPopup.id);
     expect(popup?.props).toEqual({
@@ -267,13 +257,11 @@ describe('project factories', () => {
       collapseWhenHidden: true,
       enabled: true,
     });
-
     const persisted = deserializePage(serializePage(restored));
     const persistedPopup = persisted.components.find((node) => node.id === legacyPopup.id);
     expect(persistedPopup?.props).not.toHaveProperty('caption');
     expect(persistedPopup?.props).not.toHaveProperty('message');
   });
-
   it('restores the protected Default Popup style for older v2 libraries without restyling nodes', () => {
     const project = createProject('CustomerApp', {
       idFactory: idSequence('project-id', 'page-id', 'root-id'),
@@ -309,14 +297,12 @@ describe('project factories', () => {
       ),
       popup,
     ];
-
     const restored = deserializeProject(JSON.stringify(legacy));
     const defaultPopupStyle = findDefaultComponentStyle(restored.styles, 'WebPopup');
     const panelIndex = restored.styles.findIndex(
       (style) => style.componentType === 'WebPanel' && style.preset === 'default',
     );
     const popupIndex = restored.styles.findIndex((style) => style.id === defaultPopupStyle?.id);
-
     expect(defaultPopupStyle).toMatchObject({
       id: 'project-id:default-style:WebPopup-2',
       name: 'Default Popup 2',
@@ -343,7 +329,6 @@ describe('project factories', () => {
     ).toBe(defaultPopupStyle?.id);
     expect(deserializeProject(serializeProject(restored))).toEqual(restored);
   });
-
   it('persists general settings and materializes defaults for existing v2 projects', () => {
     const project = createProject('CustomerApp', {
       idFactory: idSequence('project-id', 'page-id', 'root-id'),
@@ -391,7 +376,6 @@ describe('project factories', () => {
         thumbActiveColor: '#4f46e5',
       },
     });
-
     expect(updated.settings).toMatchObject({
       applicationName: 'Customer Portal',
       applicationDescription: 'Customer self-service area.',
@@ -417,7 +401,6 @@ describe('project factories', () => {
     expect(deserializeProject(serializeProject(updated)).settings.scrollbar).toEqual(
       updated.settings.scrollbar,
     );
-
     const legacy = JSON.parse(serializeProject(project)) as {
       readonly settings: Record<string, unknown>;
     };
@@ -431,7 +414,6 @@ describe('project factories', () => {
     delete legacy.settings.environmentVariables;
     delete legacy.settings.scrollbar;
     const restored = deserializeProject(JSON.stringify(legacy));
-
     expect(restored.settings).toMatchObject({
       applicationName: 'CustomerApp',
       applicationDescription: '',
@@ -450,7 +432,6 @@ describe('project factories', () => {
       environmentVariables: [],
       scrollbar: DEFAULT_PROJECT_SCROLLBAR_STYLE,
     });
-
     const partialScrollbarProject = JSON.parse(serializeProject(project)) as {
       readonly settings: Record<string, unknown>;
     };
@@ -460,7 +441,6 @@ describe('project factories', () => {
       thumbColor: '#3b82f6',
       thumbBorderWidth: 3,
     });
-
     const invalidScrollbar = safeParseProject({
       ...updated,
       settings: {
@@ -481,16 +461,16 @@ describe('project factories', () => {
         ]),
       );
     }
-
     const urlBasedSeoProject = JSON.parse(serializeProject(updated)) as {
-      readonly settings: { readonly seo: Record<string, unknown> };
+      readonly settings: {
+        readonly seo: Record<string, unknown>;
+      };
     };
     delete urlBasedSeoProject.settings.seo.socialImage;
     urlBasedSeoProject.settings.seo.socialImageUrl = 'https://cdn.example.test/legacy-share.png';
     expect(
       deserializeProject(JSON.stringify(urlBasedSeoProject)).settings.seo.socialImage,
     ).toBeNull();
-
     const stagingProject = JSON.parse(serializeProject(updated)) as {
       readonly settings: Record<string, unknown>;
     };
@@ -505,7 +485,6 @@ describe('project factories', () => {
         },
       },
     ];
-
     expect(deserializeProject(JSON.stringify(stagingProject)).settings).toMatchObject({
       environment: 'production',
       environmentVariables: [
@@ -519,22 +498,19 @@ describe('project factories', () => {
       ],
     });
   });
-
   it('uses crypto UUIDs by default', () => {
-    const page = createPage('PageMain');
+    const page = createPage('index');
     expect(page.id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
     expect(page.rootComponentId).not.toBe(page.id);
   });
-
   it('materializes an independent fixed responsive-layout contract for each component', () => {
     const first = createDefaultComponentLayout();
     const second = createDefaultComponentLayout();
     const project = createProject('CustomerApp', {
       idFactory: idSequence('project-id', 'page-id', 'root-id'),
     });
-
     expect(first).toEqual(DEFAULT_COMPONENT_LAYOUT);
     expect(second).toEqual(DEFAULT_COMPONENT_LAYOUT);
     expect(first).not.toBe(second);
@@ -542,7 +518,6 @@ describe('project factories', () => {
     expect(first.item).not.toBe(second.item);
     expect(project.pages[0]?.components[0]?.layout).toEqual(DEFAULT_COMPONENT_LAYOUT);
   });
-
   it('persists per-item alignment, validates it and restores auto for documents without it', () => {
     const page = createPage('AlignmentPage');
     const button = component(
@@ -586,7 +561,6 @@ describe('project factories', () => {
       }).success,
     ).toBe(false);
   });
-
   it('allows portable display names for projects while page names remain identifiers', () => {
     const project = createProject('Customer App', idSequence('project-id', 'page-id', 'root-id'));
     expect(project.name).toBe('Customer App');
@@ -595,9 +569,8 @@ describe('project factories', () => {
     ).toThrow('portable');
     expect(() => createPage('Customer Page')).toThrow('TypeScript identifier');
     expect(getPageNameError('CON')).toContain('reserved Windows device');
-    expect(() => createPage('CON')).toThrow(ProjectValidationError);
+    expect(() => createPage('CON')).toThrow('reserved Windows device');
   });
-
   it('creates reusable styles with five structured visual states', () => {
     const style = createComponentStyle('Primary Button', 'WebButton', {
       idFactory: idSequence('style-id'),
@@ -606,7 +579,6 @@ describe('project factories', () => {
         hover: { backgroundColor: '#1d4ed8' },
       },
     });
-
     expect(style).toEqual({
       id: 'style-id',
       name: 'Primary Button',
@@ -620,7 +592,6 @@ describe('project factories', () => {
       },
     });
   });
-
   it('accepts only safe structured two-color linear background gradients', () => {
     const valid = createComponentStyle('Gradient Button', 'WebButton', {
       idFactory: idSequence('style-gradient'),
@@ -635,7 +606,6 @@ describe('project factories', () => {
         },
       },
     });
-
     expect(safeParseComponentStyle(valid).success).toBe(true);
     for (const backgroundGradient of [
       {
@@ -672,7 +642,6 @@ describe('project factories', () => {
       ).toBe(false);
     }
   });
-
   it('keeps color and gradient properties mutually exclusive per state', () => {
     const valid = createComponentStyle('Exclusive Background', 'WebButton', {
       idFactory: idSequence('style-exclusive-background'),
@@ -680,7 +649,6 @@ describe('project factories', () => {
         base: { backgroundColor: '#2563eb' },
       },
     });
-
     const gradient = {
       kind: 'linear',
       direction: 'to-right',
@@ -700,7 +668,6 @@ describe('project factories', () => {
       ).toBe(false);
     }
   });
-
   it('keeps the semantic button presentation on the base style state', () => {
     const valid = createComponentStyle('Icon Button', 'WebButton', {
       idFactory: idSequence('style-icon-button'),
@@ -732,7 +699,6 @@ describe('project factories', () => {
       }).success,
     ).toBe(false);
   });
-
   it('publishes Data Grid-only line, header, and footer visual properties on the base state', () => {
     const dataGridDefinitions = COMPONENT_STYLE_PROPERTY_DEFINITIONS.filter((definition) =>
       definition.name.startsWith('dataGrid'),
@@ -792,7 +758,6 @@ describe('project factories', () => {
           definition.stateNames[0] === 'base',
       ),
     ).toBe(true);
-
     const valid = createComponentStyle('Grid Appearance', 'WebDataGrid', {
       idFactory: idSequence('style-grid-appearance'),
       states: {
@@ -853,7 +818,6 @@ describe('project factories', () => {
       }).success,
     ).toBe(false);
   });
-
   it('publishes one valid and useful editor default for every style property', () => {
     expect(COMPONENT_STYLE_PROPERTY_DEFINITIONS.map(({ name }) => name)).toEqual(
       COMPONENT_STYLE_PROPERTY_NAMES,
@@ -876,7 +840,6 @@ describe('project factories', () => {
     }
   });
 });
-
 describe('name validation', () => {
   it('accepts TypeScript identifiers and rejects reserved or malformed names', () => {
     expect(isValidTypeScriptIdentifier('BTNMostrar')).toBe(true);
@@ -885,18 +848,16 @@ describe('name validation', () => {
     expect(isValidTypeScriptIdentifier('two-buttons')).toBe(false);
     expect(isValidTypeScriptIdentifier('class')).toBe(false);
   });
-
   it('generates the first available sequential name and validates uniqueness', () => {
     expect(createSequentialName('Button', ['Button1', 'Button2', 'Button4'])).toBe('Button3');
-    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const page = createPage('index', idSequence('page-id', 'root-id'));
     const withButton = addComponent(
       page,
       component('button-id', 'WebButton', 'Button1', page.rootComponentId),
     );
-
     expect(validateComponentName('Button1', withButton).valid).toBe(false);
     expect(validateComponentName('Button1', withButton, 'button-id').valid).toBe(true);
-    expect(() => renameComponent(withButton, 'button-id', 'PageMain')).toThrow(ModelUpdateError);
+    expect(() => renameComponent(withButton, 'button-id', 'index')).toThrow(ModelUpdateError);
     expect(validateComponentName('show', withButton, 'button-id')).toMatchObject({
       valid: false,
       reason: expect.stringContaining('runtime API'),
@@ -927,7 +888,6 @@ describe('name validation', () => {
         reason: expect.stringContaining('runtime API'),
       });
     }
-
     const collidingDocument = {
       ...withButton,
       components: withButton.components.map((node) =>
@@ -943,18 +903,15 @@ describe('name validation', () => {
     }
   });
 });
-
 describe('zod validation', () => {
   it('requires complete valid responsive layout data on every component', () => {
-    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const page = createPage('index', idSequence('page-id', 'root-id'));
     const root = page.components[0];
     expect(root).toBeDefined();
     if (root === undefined) return;
-
     const missingLayout = { ...root } as Record<string, unknown>;
     delete missingLayout.layout;
     expect(safeParsePage({ ...page, components: [missingLayout] }).success).toBe(false);
-
     const invalidMaximum = {
       ...page,
       components: [
@@ -969,9 +926,8 @@ describe('zod validation', () => {
     };
     expect(safeParsePage(invalidMaximum).success).toBe(false);
   });
-
   it('detects duplicate names and broken parent/child links without throwing', () => {
-    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const page = createPage('index', idSequence('page-id', 'root-id'));
     const invalid = {
       ...page,
       components: [
@@ -981,7 +937,6 @@ describe('zod validation', () => {
       ],
     };
     const result = safeParsePage(invalid);
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.message.includes('unique'))).toBe(true);
@@ -990,18 +945,15 @@ describe('zod validation', () => {
       );
     }
   });
-
   it('rejects components that are disconnected from the page root', () => {
-    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const page = createPage('index', idSequence('page-id', 'root-id'));
     const orphan = component('orphan-id', 'WebButton', 'OrphanButton', null);
     const result = safeParsePage({ ...page, components: [...page.components, orphan] });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.message.includes('reachable'))).toBe(true);
     }
   });
-
   it('rejects non-JSON props, unknown fields, and invalid entry pages', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const root = project.pages[0]?.components[0];
@@ -1019,25 +971,21 @@ describe('zod validation', () => {
     expect(safeParseProject(invalidProps).success).toBe(false);
     expect(safeParseProject({ ...project, entryPage: 'missing' }).success).toBe(false);
   });
-
   it('rejects page names that collide on case-insensitive portable filesystems', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
-    const collidingPage = createPage('pagemain', idSequence('other-page', 'other-root'));
+    const collidingPage = createPage('INDEX', idSequence('other-page', 'other-root'));
     const result = safeParseProject({ ...project, pages: [...project.pages, collidingPage] });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.message.includes('portable'))).toBe(true);
     }
   });
-
   it('throws a useful validation error from strict parsers', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     expect(() => serializeProject({ ...project, entryPage: 'missing' })).toThrow(
       ProjectValidationError,
     );
   });
-
   it('accepts style references in isolated pages and validates them in the aggregate', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = project.pages[0];
@@ -1047,7 +995,6 @@ describe('zod validation', () => {
       ...component('button-id', 'WebButton', 'Button1', page.rootComponentId),
       styleId: 'style-id',
     });
-
     expect(safeParsePage(referencedPage).success).toBe(true);
     const unknownStyle = safeParseProject({ ...project, pages: [referencedPage] });
     expect(unknownStyle.success).toBe(false);
@@ -1058,7 +1005,6 @@ describe('zod validation', () => {
         ),
       ).toBe(true);
     }
-
     const incompatibleStyle = createComponentStyle('Label Style', 'WebLabel', {
       idFactory: idSequence('style-id'),
     });
@@ -1074,7 +1020,6 @@ describe('zod validation', () => {
       ).toBe(true);
     }
   });
-
   it('rejects duplicate style IDs and case-insensitive names', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const first = createComponentStyle('Primary', 'WebButton', idSequence('style-id'));
@@ -1084,7 +1029,6 @@ describe('zod validation', () => {
       ...project,
       styles: [first, duplicateId, duplicateName],
     });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(
@@ -1095,13 +1039,11 @@ describe('zod validation', () => {
       );
     }
   });
-
   it('allows one protected default style per component type', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const existing = findDefaultComponentStyle(project.styles, 'WebButton');
     expect(existing).toBeDefined();
     if (existing === undefined) return;
-
     const duplicate = safeParseProject({
       ...project,
       styles: [
@@ -1113,7 +1055,6 @@ describe('zod validation', () => {
         },
       ],
     });
-
     expect(duplicate.success).toBe(false);
     if (!duplicate.success) {
       expect(duplicate.error.issues.some((issue) => issue.message.includes('already exists'))).toBe(
@@ -1121,17 +1062,15 @@ describe('zod validation', () => {
       );
     }
   });
-
   it('rejects unsafe, out-of-range, inapplicable, and legacy style values', () => {
     const valid = createComponentStyle('Primary', 'WebButton', idSequence('style-id'));
     const invalidValues = [
       { backgroundColor: 'rgb(1, 2, 3)' },
       { opacity: 101 },
       { paddingLeft: { value: -1, unit: 'px' } },
-      { marginLeft: { value: 1_000_001, unit: 'px' } },
+      { marginLeft: { value: 1000001, unit: 'px' } },
       { objectFit: 'cover' },
     ];
-
     for (const base of invalidValues) {
       expect(
         safeParseComponentStyle({
@@ -1150,19 +1089,15 @@ describe('zod validation', () => {
     ).toBe(false);
   });
 });
-
 describe('reusable elements', () => {
   it('normalizes a legacy v2 project without reusableElements to an empty collection', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const legacy = JSON.parse(serializeProject(project)) as Record<string, unknown>;
     delete legacy.reusableElements;
-
     const parsed = deserializeProject(JSON.stringify(legacy));
-
     expect(parsed.reusableElements).toEqual([]);
     expect(serializeProject(parsed)).toContain('"reusableElements": []');
   });
-
   it('accepts a page instance that references a registered reusable definition', () => {
     const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const reusable = createReusableElement(
@@ -1173,7 +1108,6 @@ describe('reusable elements', () => {
     const page = withReusable.pages[0];
     expect(page).toBeDefined();
     if (page === undefined) return;
-
     const pageWithInstance = addComponent(
       page,
       component(
@@ -1187,7 +1121,6 @@ describe('reusable elements', () => {
       ),
     );
     const project = updatePage(withReusable, page.id, () => pageWithInstance);
-
     const parsed = safeParseProject(project);
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
@@ -1204,7 +1137,6 @@ describe('reusable elements', () => {
       floatingZIndex: 100,
     });
   });
-
   it('rejects invalid reusable placement settings in the aggregate model', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const reusable = createReusableElement(
@@ -1215,7 +1147,6 @@ describe('reusable elements', () => {
     const page = withReusable.pages[0];
     expect(page).toBeDefined();
     if (page === undefined) return;
-
     const pageWithInvalidInstance = addComponent(
       page,
       component(
@@ -1232,9 +1163,7 @@ describe('reusable elements', () => {
         },
       ),
     );
-
     const result = safeParseProject({ ...withReusable, pages: [pageWithInvalidInstance] });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(
@@ -1247,7 +1176,6 @@ describe('reusable elements', () => {
       );
     }
   });
-
   it('rejects an instance that references an unknown reusable definition', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = project.pages[0];
@@ -1265,9 +1193,7 @@ describe('reusable elements', () => {
         },
       ),
     );
-
     const result = safeParseProject({ ...project, pages: [pageWithInvalidInstance] });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(
@@ -1277,7 +1203,6 @@ describe('reusable elements', () => {
       ).toBe(true);
     }
   });
-
   it('rejects cyclic reusable references', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const navigation = createReusableElement(
@@ -1308,12 +1233,10 @@ describe('reusable elements', () => {
         { reusableElementId: navigation.id },
       ),
     );
-
     const result = safeParseProject({
       ...project,
       reusableElements: [navigationWithAccountMenu, accountMenuWithNavigation],
     });
-
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(
@@ -1323,7 +1246,6 @@ describe('reusable elements', () => {
       ).toBe(true);
     }
   });
-
   it('blocks removal while a reusable definition still has an instance', () => {
     const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const reusable = createReusableElement(
@@ -1348,14 +1270,12 @@ describe('reusable elements', () => {
         ),
       ),
     );
-
     expect(() => removeReusableElement(projectWithInstance, reusable.id)).toThrow(
       'still used by 1 instance',
     );
     expect(projectWithInstance.reusableElements).toHaveLength(1);
   });
 });
-
 describe('serialization', () => {
   it('round-trips a nonvisual File Upload configuration and handlers without visual styles or runtime selection state', () => {
     const project = createProject('Files');
@@ -1392,13 +1312,11 @@ describe('serialization', () => {
       ),
     ).toEqual(upload);
   });
-
   it('round-trips a Popup child relationship and its responsive container layout', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = project.pages[0];
     expect(page).toBeDefined();
     if (page === undefined) return;
-
     const popup = {
       ...component('popup-id', 'WebPopup', 'Popup1', page.rootComponentId),
       layout: {
@@ -1421,12 +1339,10 @@ describe('serialization', () => {
       popup.id,
     );
     const projectWithPopup = updatePage(project, page.id, withPopupChild);
-
     const restored = deserializeProject(serializeProject(projectWithPopup));
     const restoredPage = restored.pages[0];
     const restoredPopup = restoredPage?.components.find((node) => node.id === popup.id);
     const restoredChild = restoredPage?.components.find((node) => node.id === 'popup-button-id');
-
     expect(restoredPopup?.children).toEqual(['popup-button-id']);
     expect(restoredPopup?.layout.container).toMatchObject({
       mode: 'column',
@@ -1438,7 +1354,6 @@ describe('serialization', () => {
     });
     expect(restoredChild?.parentId).toBe(popup.id);
   });
-
   it('round-trips structured gradients in their stable field order', () => {
     const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const project = addComponentStyle(
@@ -1457,7 +1372,6 @@ describe('serialization', () => {
         },
       }),
     );
-
     const serialized = serializeProject(project);
     const gradientOffset = serialized.indexOf('"backgroundGradient"');
     expect(gradientOffset).toBeGreaterThanOrEqual(0);
@@ -1472,7 +1386,6 @@ describe('serialization', () => {
     );
     expect(deserializeProject(serialized)).toEqual(project);
   });
-
   it('round-trips deterministically and sorts arbitrary property keys', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = project.pages[0];
@@ -1495,18 +1408,15 @@ describe('serialization', () => {
     const firstProject = updatePage(project, page.id, () => first);
     const secondProject = updatePage(project, page.id, () => second);
     const serialized = serializeProject(firstProject);
-
     expect(serialized).toBe(serializeProject(secondProject));
     expect(serialized.endsWith('\n')).toBe(true);
     expect(deserializeProject(serialized)).toEqual(firstProject);
   });
-
   it('rejects the former Form-shaped contract at the current format version', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = project.pages[0];
     expect(page).toBeDefined();
     if (page === undefined) return;
-
     expect(() =>
       deserializeProject(
         JSON.stringify({
@@ -1519,7 +1429,6 @@ describe('serialization', () => {
         }),
       ),
     ).toThrow(ProjectValidationError);
-
     expect(() =>
       deserializeProjectManifest(
         JSON.stringify({
@@ -1540,7 +1449,6 @@ describe('serialization', () => {
         }),
       ),
     ).toThrow(ProjectValidationError);
-
     expect(() =>
       deserializePage(
         JSON.stringify({
@@ -1552,7 +1460,6 @@ describe('serialization', () => {
       ),
     ).toThrow(ProjectValidationError);
   });
-
   it('requires the current inline styles collection without legacy fallback', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const projectWithoutStyles = JSON.parse(JSON.stringify(project)) as Record<string, unknown>;
@@ -1560,7 +1467,6 @@ describe('serialization', () => {
     expect(() => deserializeProject(JSON.stringify(projectWithoutStyles))).toThrow(
       ProjectValidationError,
     );
-
     const manifestWithoutStyles = JSON.parse(
       serializeProjectManifest(projectToManifest(project)),
     ) as Record<string, unknown>;
@@ -1569,7 +1475,6 @@ describe('serialization', () => {
       ProjectValidationError,
     );
   });
-
   it('rejects unsupported versions and safely reports malformed JSON', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     expect(() => deserializeProject(JSON.stringify({ ...project, formatVersion: 1 }))).toThrow(
@@ -1585,7 +1490,6 @@ describe('serialization', () => {
     expect(malformed.success).toBe(false);
     if (!malformed.success) expect(malformed.error.message).toContain('Invalid JSON');
   });
-
   it('creates a portable manifest and reassembles the aggregate', () => {
     const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const project = addComponentStyle(
@@ -1593,13 +1497,12 @@ describe('serialization', () => {
       createComponentStyle('Primary Button', 'WebButton', idSequence('style-id')),
     );
     const manifest = projectToManifest(project);
-
     expect(manifest.pages[0]).toEqual({
       id: 'page-id',
-      name: 'PageMain',
-      pageFile: 'pages/PageMain.wrpage',
-      generatedFile: 'pages/PageMain.generated.ts',
-      codeFile: 'pages/PageMain.ts',
+      name: 'index',
+      pageFile: 'pages/index.wrpage',
+      generatedFile: 'pages/index.generated.ts',
+      codeFile: 'pages/index.ts',
     });
     expect(manifest.styles).toEqual(project.styles);
     const serialized = serializeProjectManifest(manifest);
@@ -1607,10 +1510,9 @@ describe('serialization', () => {
     expect(assembleProject(parsedManifest, project.pages)).toEqual(project);
   });
 });
-
 describe('immutable update helpers', () => {
   it('updates props, bounds, events, and names while retaining the component ID', () => {
-    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const page = createPage('index', idSequence('page-id', 'root-id'));
     const initial = addComponent(
       page,
       component('button-id', 'WebButton', 'Button1', page.rootComponentId, { caption: 'Button' }),
@@ -1620,7 +1522,6 @@ describe('immutable update helpers', () => {
     const captioned = updateComponentProps(moved, 'button-id', { caption: 'Gravar' });
     const bound = bindComponentEvent(captioned, 'button-id', 'OnClick', 'BTNGravarClick');
     const button = bound.components.find((candidate) => candidate.id === 'button-id');
-
     expect(button).toMatchObject({
       id: 'button-id',
       name: 'BTNGravar',
@@ -1635,9 +1536,8 @@ describe('immutable update helpers', () => {
       events: { OnClick: null },
     });
   });
-
   it('removes a component subtree without mutating the original page', () => {
-    const page = createPage('PageMain', idSequence('page-id', 'root-id'));
+    const page = createPage('index', idSequence('page-id', 'root-id'));
     const withPanel = addComponent(
       page,
       component('panel-id', 'WebPanel', 'Panel1', page.rootComponentId),
@@ -1647,28 +1547,29 @@ describe('immutable update helpers', () => {
       component('label-id', 'WebLabel', 'Label1', 'panel-id'),
     );
     const removed = removeComponent(withLabel, 'panel-id');
-
     expect(withLabel.components).toHaveLength(3);
     expect(removed.components.map((candidate) => candidate.id)).toEqual(['root-id']);
     expect(removed.components[0]?.children).toEqual([]);
   });
-
   it('renames a page and its root without changing either stable ID', () => {
-    const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
-    const renamed = renamePage(project, 'page-id', 'PageCustomers');
-
-    expect(renamed.pages[0]).toMatchObject({
-      id: 'page-id',
+    const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
+    const project = addPage(
+      initial,
+      createPage('PageOther', idSequence('other-page', 'other-root')),
+    );
+    expect(() => renamePage(project, 'page-id', 'PageCustomers')).toThrow('mandatory entry page');
+    const renamed = renamePage(project, 'other-page', 'PageCustomers');
+    expect(renamed.pages.find((page) => page.id === 'other-page')).toMatchObject({
+      id: 'other-page',
       name: 'PageCustomers',
-      rootComponentId: 'root-id',
+      rootComponentId: 'other-root',
     });
-    expect(renamed.pages[0]?.components[0]).toMatchObject({
-      id: 'root-id',
+    expect(renamed.pages.find((page) => page.id === 'other-page')?.components[0]).toMatchObject({
+      id: 'other-root',
       name: 'PageCustomers',
     });
-    expect(() => renamePage(project, 'page-id', 'pagemain')).toThrow('more than case');
+    expect(() => renamePage(project, 'other-page', 'pageother')).toThrow('more than case');
   });
-
   it('creates, updates, assigns, and safely removes styles without mutating prior state', () => {
     const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = initial.pages[0];
@@ -1693,7 +1594,6 @@ describe('immutable update helpers', () => {
       backgroundColor: '#1d4ed8',
     });
     const renamed = updateComponentStyle(updated, style.id, { name: 'Primary Action' });
-
     expect(renamed.styles.find((candidate) => candidate.id === style.id)).toMatchObject({
       id: 'style-id',
       name: 'Primary Action',
@@ -1720,7 +1620,6 @@ describe('immutable update helpers', () => {
     expect(() => updateComponentStyle(renamed, style.id, { componentType: 'WebLabel' })).toThrow(
       'not WebButton',
     );
-
     const removed = removeComponentStyle(renamed, style.id);
     expect(removed.styles).toEqual(initial.styles);
     expect(removed.pages[0]?.components.find((node) => node.id === 'button-id')).not.toHaveProperty(
@@ -1728,19 +1627,16 @@ describe('immutable update helpers', () => {
     );
     expect(renamed.styles).toHaveLength(initial.styles.length + 1);
   });
-
   it('keeps the seeded default styles available for future component insertion', () => {
     const project = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const defaultButton = findDefaultComponentStyle(project.styles, 'WebButton');
     expect(defaultButton).toBeDefined();
     if (defaultButton === undefined) return;
-
     expect(defaultButton.states.base).toMatchObject({
       buttonContentMode: 'text-icon',
       buttonIconPosition: 'left',
       buttonIconSize: { value: 16, unit: 'px' },
     });
-
     expect(() => removeComponentStyle(project, defaultButton.id)).toThrow(
       'Default component styles cannot be removed',
     );
@@ -1748,7 +1644,6 @@ describe('immutable update helpers', () => {
       updateComponentStyle(project, defaultButton.id, { componentType: 'WebLabel' }),
     ).toThrow('must keep its component type');
   });
-
   it('rejects incompatible assignments and supports explicit unbinding', () => {
     const initial = createProject('Project1', idSequence('project-id', 'page-id', 'root-id'));
     const page = initial.pages[0];
@@ -1762,7 +1657,6 @@ describe('immutable update helpers', () => {
     const labelStyle = createComponentStyle('Label', 'WebLabel', idSequence('label-style'));
     const buttonStyle = createComponentStyle('Button', 'WebButton', idSequence('button-style'));
     const withStyles = addComponentStyle(addComponentStyle(withButton, labelStyle), buttonStyle);
-
     expect(() => setComponentStyle(withStyles, page.id, 'button-id', labelStyle.id)).toThrow(
       'not WebButton',
     );

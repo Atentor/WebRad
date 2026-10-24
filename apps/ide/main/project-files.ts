@@ -1,3 +1,4 @@
+import { createProjectFromTemplate, type ProjectTemplateId } from '@webrad/component-registry';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -6,7 +7,6 @@ import {
   projectSourceFilePath,
   projectAssetPath,
   assembleProject,
-  createProject,
   deserializePage,
   deserializeProjectManifest,
   parseProject,
@@ -502,7 +502,12 @@ async function saveProjectFilesUnlocked(
       const oldKey = sourcePathFor(originalPage);
       const originalSource = request.userSources[oldKey];
       if (originalSource !== undefined) {
-        userSource = renamePageUserSource(originalSource, originalPage.name, page.name, oldKey).sourceText;
+        userSource = renamePageUserSource(
+          originalSource,
+          originalPage.name,
+          page.name,
+          oldKey,
+        ).sourceText;
       }
     }
     if (userSource === undefined) {
@@ -518,10 +523,15 @@ async function saveProjectFilesUnlocked(
             await resolveInsideProjectSecure(rootPath, previousSource.relativePath),
             'utf8',
           );
-          const previousPage = previousManifest?.pages.find((candidate) => candidate.id === page.id);
+          const previousPage = previousManifest?.pages.find(
+            (candidate) => candidate.id === page.id,
+          );
           if (previousPage !== undefined && previousPage.name !== page.name) {
             userSource = renamePageUserSource(
-              userSource, previousPage.name, page.name, previousSource.relativePath,
+              userSource,
+              previousPage.name,
+              page.name,
+              previousSource.relativePath,
             ).sourceText;
           }
         } catch (error) {
@@ -703,7 +713,10 @@ async function loadProjectFilesUnlocked(projectFilePath: string): Promise<Projec
     const source = userSources[oldKey];
     if (source !== undefined) {
       userSources[newKey] = renamePageUserSource(
-        source, previousEntry.name, 'index', oldKey,
+        source,
+        previousEntry.name,
+        'index',
+        oldKey,
       ).sourceText;
       delete userSources[oldKey];
     }
@@ -729,7 +742,11 @@ export async function loadProjectFiles(projectFilePath: string): Promise<Project
   );
 }
 
-export async function createProjectFiles(rootPath: string, name: string): Promise<ProjectSession> {
+export async function createProjectFiles(
+  rootPath: string,
+  name: string,
+  templateId: ProjectTemplateId = 'blank',
+): Promise<ProjectSession> {
   const normalizedRoot = normalizeRoot(rootPath);
   await fs.mkdir(normalizedRoot, { recursive: true });
   return withRootOperation(normalizedRoot, async () => {
@@ -737,12 +754,12 @@ export async function createProjectFiles(rootPath: string, name: string): Promis
     if (contents.length > 0) {
       throw new Error(`The destination folder "${normalizedRoot}" is not empty.`);
     }
-    const project = createProject(name);
+    const { project, userSources } = createProjectFromTemplate(name, templateId);
     return saveProjectFilesUnlocked(
       {
         rootPath: normalizedRoot,
         project,
-        userSources: defaultUserSources(project),
+        userSources: { ...defaultUserSources(project), ...userSources },
       },
       normalizedRoot,
     );

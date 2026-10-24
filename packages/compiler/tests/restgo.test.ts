@@ -8,10 +8,8 @@ import {
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-
 import { compileProjectToMemory } from '../src/index.js';
 import { createVirtualSourceGraph, RESTGO_ENTRY_PATH } from '../src/source-graph.js';
-
 describe('compiled native RestGO integration', () => {
   it('rejects user source paths that shadow embedded libraries or generated bootstrap files', async () => {
     const project = createProject('RestGoReservedSources');
@@ -39,7 +37,6 @@ describe('compiled native RestGO integration', () => {
     expect(result.files).toEqual({});
     expect(userSources).toEqual(preservedSources);
   });
-
   it('creates the configured shared client before authored page construction', async () => {
     const original = createProject('RestGoBrowser');
     const page = original.pages[0];
@@ -124,7 +121,6 @@ export class ${page.name} extends ${page.name}Generated {
     const graph = createVirtualSourceGraph(project, userSources, defaultComponentRegistry, '');
     expect([...graph.sources.keys()].some((fileName) => fileName.includes('__restgo'))).toBe(true);
     expect([...graph.sources.values()]).toContain(userSource);
-
     const result = await compileProjectToMemory(project, { userSources });
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
     const application = result.files['assets/app.js'] ?? '';
@@ -203,13 +199,12 @@ export class ${page.name} extends ${page.name}Generated {
       dom.window.close();
     }
   });
-
   it('provides an actionable runtime error when the project integration is disabled', async () => {
     const project = createProject('RestGoDisabled');
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/PageMain.ts':
-          'import { PageMainGenerated } from "./PageMain.generated"; export class PageMain extends PageMainGenerated { public configured(): boolean { return Boolean(RestGO.auth); } }',
+        'pages/index.ts':
+          'import { indexGenerated } from "./index.generated"; export class index extends indexGenerated { public configured(): boolean { return Boolean(RestGO.auth); } }',
       },
     });
     expect(result.success, JSON.stringify(result.diagnostics, null, 2)).toBe(true);
@@ -224,7 +219,6 @@ export class ${page.name} extends ${page.name}Generated {
       dom.window.close();
     }
   });
-
   it('generates an API Client that uses the authenticated JWT beneath the fixed RestGo URL prefix', async () => {
     const original = createProject('BoundRestGoBrowser');
     const page = original.pages[0];

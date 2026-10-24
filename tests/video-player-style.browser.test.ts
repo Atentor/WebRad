@@ -14,7 +14,6 @@ import {
 } from '@webrad/project-model';
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import { withChromium } from './chromium';
-
 const browser = process.env.WEBRAD_BROWSER_PATH;
 it.runIf(browser !== undefined)(
   'renders linked Aurora video styling and interaction states equally in Designer and compiled Preview',
@@ -36,8 +35,8 @@ it.runIf(browser !== undefined)(
     project = updatePage(project, page.id, page);
     const compiled = await compileProjectToMemory(project, {
       userSources: {
-        'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {}`,
+        'pages/index.ts': `import { indexGenerated } from "./index.generated";
+export class index extends indexGenerated {}`,
       },
     });
     expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
@@ -54,14 +53,14 @@ export class PageMain extends PageMainGenerated {}`,
       }),
     );
     const server = createServer((request, response) => {
-      const preview = request.url === '/preview';
+      const preview = request.url === '/index.html';
       response.writeHead(200, { 'Content-Type': 'text/html' });
       response.end(
         preview
           ? compiled.previewHtml!
           : `<!doctype html><html><head><style>${css}</style></head><body>
 <div style="width:480px;height:270px">${designer}</div>
-<iframe title="Preview" src="/preview" style="width:600px;height:400px;border:0"></iframe>
+<iframe title="Preview" src="/index.html" style="width:600px;height:400px;border:0"></iframe>
 </body></html>`,
       );
     });
@@ -81,7 +80,11 @@ export class PageMain extends PageMainGenerated {}`,
                 expression: `Boolean(${elements[1]})`,
                 returnByValue: true,
               });
-              return (result.result as { value?: boolean })?.value;
+              return (
+                result.result as {
+                  value?: boolean;
+                }
+              )?.value;
             },
             { timeout: 20000 },
           )
@@ -93,7 +96,11 @@ export class PageMain extends PageMainGenerated {}`,
         for (const expression of elements) {
           const object = await send('Runtime.evaluate', { expression });
           const node = await send('DOM.requestNode', {
-            objectId: (object.result as { objectId: string }).objectId,
+            objectId: (
+              object.result as {
+                objectId: string;
+              }
+            ).objectId,
           });
           const read = async (): Promise<Record<string, unknown>> => {
             const result = await send('Runtime.evaluate', {
@@ -105,7 +112,11 @@ return Object.fromEntries(['backgroundImage', 'color', 'borderRadius', 'borderTo
 })()`,
               returnByValue: true,
             });
-            return (result.result as { value: Record<string, unknown> }).value;
+            return (
+              result.result as {
+                value: Record<string, unknown>;
+              }
+            ).value;
           };
           const base = await read();
           await send('CSS.forcePseudoState', {
