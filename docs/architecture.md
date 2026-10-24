@@ -49,6 +49,19 @@ project model -> generated source -> esbuild -> browser-only output
 
 ## Package boundaries
 
+The compiler retains at most its latest TypeScript Program to reuse parsed
+SourceFiles in compatible repeated builds. Reuse requires the same current
+directory, TypeScript library location, compiler options and root files, plus
+identical file content and parse settings. Every build rereads current inputs,
+invalidates module resolutions and computes strict diagnostics and component
+reference lowering again. This is a process-local parsing optimization; neither
+diagnostic results nor build outputs are accepted from a previous build.
+
+`CompileProjectOptions.onProgress` optionally reports compiler phase names.
+The main process uses this during Electron smokes to record elapsed time for
+project saving, compilation phases and Preview publication. Phase logs contain
+no authored source, credential values or new renderer IPC capabilities.
+
 - `packages/project-model`: versioned models, validation, serialization, naming, and immutable update operations.
 - `packages/component-registry`: component metadata and registry behavior without React dependencies.
 - `packages/components`: React projection of the browser-safe visual contract exported by the runtime.

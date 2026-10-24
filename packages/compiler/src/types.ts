@@ -15,6 +15,17 @@ export interface CompileDiagnostic {
   readonly path?: readonly (string | number)[];
 }
 
+export type CompileProjectPhase =
+  | 'validation'
+  | 'selection'
+  | 'styles'
+  | 'source-generation'
+  | 'typecheck'
+  | 'bundle'
+  | 'assets'
+  | 'write'
+  | 'complete';
+
 export interface CompileProjectOptions {
   readonly outputDirectory: string;
   readonly userSources: Readonly<Record<string, string>>;
@@ -26,6 +37,8 @@ export interface CompileProjectOptions {
   /** Emit the original TypeScript mappings and an unminified Debug Preview. */
   readonly debug?: boolean;
   readonly registry?: ComponentRegistry;
+  /** Main-process diagnostics only; phase names never include authored source or credentials. */
+  readonly onProgress?: (phase: CompileProjectPhase) => void;
 }
 
 export interface CompileProjectResult {

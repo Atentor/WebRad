@@ -61,6 +61,18 @@ O preflight da tag confere a ancestralidade em `main` e consulta as verificaçõ
 
 ## Ao investigar uma falha
 
+Na execução `40121913310` (`2b2897e`), somente o macOS Intel falhou no primeiro
+F9 do título da página. O diagnóstico registrou `Saved`, Run desabilitado e
+`Build started` ainda presente; o build permanecia em andamento. Esse estado
+difere do Preview concluído com uma leitura antiga no polling. Preserve o
+prazo de 20 segundos e consulte as durações de cada etapa registradas como
+`[COMPILER] Preview`: gravação, validação, seleção, estilos, geração, typecheck,
+bundle, assets, saída e publicação. A checagem TypeScript reaproveita somente
+árvores de sintaxe inalteradas do último Program compatível e recalcula os
+diagnósticos estritos. O log original não discrimina a etapa lenta; a otimização
+de parsing exige confirmação no runner, sem atribuir a ela um ganho medido
+localmente ou aumentar prazos para obter aprovação.
+
 No commit `3c3d1b1`, as execuções `40119219411` (release) e `40119219511`
 (validate) pararam na geometria do Menu em Windows/Linux. O preset Default usa
 a largura disponível do canvas e pode ativar o modo mobile; o smoke deve calcular

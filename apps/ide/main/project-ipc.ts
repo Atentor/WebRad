@@ -256,13 +256,26 @@ async function writeFileHandler(event: IpcMainInvokeEvent, input: WriteFileReque
 async function buildHandler(
   event: IpcMainInvokeEvent,
   input: BuildRequest,
+  log?: (message: string) => void,
 ): Promise<BuildResponse> {
   const request = buildRequestSchema.parse(input);
   requireGrantedRoot(event, request.rootPath);
   return withCompilation(event.sender.id, async () => {
+    const started = performance.now();
+    let lastPhase = 'start';
+    let phaseStarted = started;
+    const progress = (phase: string): void => {
+      const now = performance.now();
+      log?.(
+        `[COMPILER] Preview ${lastPhase} ended after ${Math.round(now - phaseStarted)}ms; ${phase} started (${Math.round(now - started)}ms total)`,
+      );
+      lastPhase = phase;
+      phaseStarted = now;
+    };
     stopDebuggerForOwner(event.sender.id);
     revokePreview(event.sender.id);
     const project = parseProject(request.project);
+    progress('save');
     await saveProjectFiles({
       rootPath: request.rootPath,
       project,
@@ -275,11 +288,14 @@ async function buildHandler(
     const result = await compileProject(project, {
       outputDirectory,
       userSources: request.userSources,
+      ...(log === undefined ? {} : { onProgress: progress }),
     });
+    progress('publish-preview');
     const previewUrl =
       result.success && result.previewHtml
         ? await publishPreviewHtml(event.sender.id, result.previewHtml, project.assets ?? [])
         : undefined;
+    progress(result.success ? 'finished' : 'failed');
     return {
       success: result.success,
       outputDirectory,
@@ -536,6 +552,7 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
 
 export interface RegisterIpcHandlersOptions {
   readonly nativeInspectionLog?: (message: string) => void;
+  readonly compilationLog?: (message: string) => void;
   readonly automatedOpenProjectPath?: string;
   readonly userDataPath?: string;
 }
@@ -640,7 +657,9 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   ipcMain.handle('webrad:project:release', releaseProjectHandler);
   ipcMain.handle('webrad:files:read', readFileHandler);
   ipcMain.handle('webrad:files:write', writeFileHandler);
-  ipcMain.handle('webrad:build:run', buildHandler);
+  ipcMain.handle('webrad:build:run', (event, input) =>
+    buildHandler(event, input, options.compilationLog),
+  );
   ipcMain.handle('webrad:deploy:choose-directory', async (event, ...input: unknown[]) => {
     if (input.length !== 1)
       throw new Error('Choosing a deploy folder requires exactly one project root.');

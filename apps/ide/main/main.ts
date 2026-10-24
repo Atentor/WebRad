@@ -1403,6 +1403,7 @@ app
         ? {
             automatedOpenProjectPath: smokeProjectPath,
             nativeInspectionLog: smokeLog,
+            compilationLog: smokeLog,
             // Smoke fixtures use isolated preferences and never read or overwrite real user state.
             userDataPath: path.join(path.dirname(smokeProjectPath), '.webrad-smoke-preferences'),
           }

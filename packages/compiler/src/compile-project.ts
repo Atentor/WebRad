@@ -634,6 +634,7 @@ export async function compileProject(
   projectInput: WebRadProject,
   options: CompileProjectOptions,
 ): Promise<CompileProjectResult> {
+  options.onProgress?.('validation');
   if (options.outputDirectory.trim().length === 0) {
     return failedResult('', [
       {
@@ -684,8 +685,10 @@ export async function compileProject(
   const registryDiagnostics = validateRegistry(project, registry);
   if (hasErrors(registryDiagnostics)) return failedResult(outputDirectory, registryDiagnostics);
 
+  options.onProgress?.('selection');
   const selected = selectApplicationSources(project, options.userSources);
 
+  options.onProgress?.('styles');
   let generatedAppCss: string;
   try {
     generatedAppCss = await compileGeneratedAppStyles(
@@ -705,6 +708,7 @@ export async function compileProject(
     ]);
   }
 
+  options.onProgress?.('source-generation');
   let graph;
   try {
     graph = createVirtualSourceGraph(project, options.userSources, registry, generatedAppCss);
@@ -718,6 +722,7 @@ export async function compileProject(
       },
     ]);
   }
+  options.onProgress?.('typecheck');
   const checked = typecheckSources(graph.sources, graph.componentScopes);
   const preBundleDiagnostics = [
     ...registryDiagnostics,
@@ -738,6 +743,7 @@ export async function compileProject(
         options.debug || (options.sourcemap ?? (publishing && project.settings.build.sourceMaps)),
       componentTypes: graph.componentTypes,
     };
+    options.onProgress?.('bundle');
     const bundle = await bundleSources(bundleOptions);
     const bundleFiles = { ...bundle.files };
     for (const [file, sourceMap] of Object.entries(bundleFiles)) {
@@ -757,6 +763,7 @@ export async function compileProject(
         },
       ]);
     }
+    options.onProgress?.('assets');
     const iconOutputPath =
       project.settings.applicationIcon === null
         ? null
@@ -813,8 +820,12 @@ export async function compileProject(
       files['service-worker.js'] = createPwaRetirementWorker();
     }
     const diagnostics = [...preBundleDiagnostics, ...bundle.diagnostics];
-    if (options.write ?? true) await writeOutputFiles(outputDirectory, files, binaryFiles);
+    if (options.write ?? true) {
+      options.onProgress?.('write');
+      await writeOutputFiles(outputDirectory, files, binaryFiles);
+    }
     const debugSourceMap = bundleFiles['assets/app.js.map'];
+    options.onProgress?.('complete');
     return {
       success: true,
       outputDirectory,

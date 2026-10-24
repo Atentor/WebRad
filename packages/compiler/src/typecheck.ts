@@ -27,6 +27,9 @@ function scriptRootNames(sources: ReadonlyMap<string, string>): readonly string[
   );
 }
 
+// Retain only the latest program. Reuse syntax trees, never diagnostic results.
+let previousTypecheck: { readonly environment: string; readonly program: ts.Program } | undefined;
+
 export function typecheckSources(
   sources: ReadonlyMap<string, string>,
   componentScopes: ReadonlyMap<string, ComponentReferenceScope> = new Map(),
@@ -64,6 +67,15 @@ export function typecheckSources(
     useUnknownInCatchVariables: true,
     verbatimModuleSyntax: true,
   };
+  const rootNames = [...scriptRootNames(sources)];
+  const environment = JSON.stringify([
+    process.cwd(),
+    process.env.WEBRAD_TYPESCRIPT_LIB_PATH ?? null,
+    compilerOptions,
+    rootNames,
+  ]);
+  const oldProgram =
+    previousTypecheck?.environment === environment ? previousTypecheck.program : undefined;
   const host = ts.createCompilerHost(compilerOptions, true);
   const typeScriptLibLocation = process.env.WEBRAD_TYPESCRIPT_LIB_PATH;
   if (typeScriptLibLocation) {
@@ -107,16 +119,32 @@ export function typecheckSources(
     virtualSources.has(canonicalPath(fileName)) || virtualDirectories.has(canonicalPath(fileName))
       ? path.resolve(fileName)
       : (defaultRealpath?.(fileName) ?? fileName);
-  host.getSourceFile = (fileName, languageVersionOrOptions) => {
+  // Resolve imports against the current filesystem/virtual graph on every build,
+  // including a previously missing module that has since been created.
+  host.hasInvalidatedResolutions = () => true;
+  host.getSourceFile = (fileName, languageVersionOrOptions, _onError, shouldCreateNewSourceFile) => {
     const content = host.readFile(fileName);
     if (content === undefined) return undefined;
+    const previous = oldProgram?.getSourceFile(fileName);
+    const parseOptions =
+      typeof languageVersionOrOptions === 'number'
+        ? { languageVersion: languageVersionOrOptions, impliedNodeFormat: undefined }
+        : languageVersionOrOptions;
+    if (
+      !shouldCreateNewSourceFile &&
+      previous?.text === content &&
+      previous.languageVersion === parseOptions.languageVersion &&
+      previous.impliedNodeFormat === parseOptions.impliedNodeFormat
+    )
+      return previous;
     return ts.createSourceFile(fileName, content, languageVersionOrOptions, true);
   };
 
   const program = ts.createProgram({
-    rootNames: [...scriptRootNames(sources)],
+    rootNames,
     options: compilerOptions,
     host,
+    oldProgram,
   });
   let diagnostics = [...ts.getPreEmitDiagnostics(program)];
   const bundleSources = new Map(sources);
@@ -151,6 +179,7 @@ export function typecheckSources(
     bundleSources.set(fileName, applyComponentReferenceEdits(authored, analysis.edits));
     if (analysis.edits.length > 0) sourceEdits.set(fileName, analysis.edits);
   }
+  previousTypecheck = { environment, program };
   return {
     diagnostics: diagnostics.map(fromTypeScriptDiagnostic),
     sources: bundleSources,
