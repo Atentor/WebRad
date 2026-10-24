@@ -61,7 +61,7 @@
     "react-dom": "19.3.1",
     "sharp": "0.35.5",
     "tailwindcss": "4.3.3",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "zod": "4.6.7"
   },
   "devDependencies": {
