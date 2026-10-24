@@ -15,11 +15,22 @@ export async function runMenuSmoke(
     window.webContents.executeJavaScript(source, true);
   const ready = async (source: string): Promise<void> => {
     const deadline = Date.now() + 10000;
-    while (Date.now() < deadline) {
+    for (;;) {
       if ((await evaluate(source)) === true) return;
+      if (Date.now() >= deadline) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    throw new Error(`Menu smoke timed out: ${source}`);
+    const evidence = await evaluate(`({
+      viewport: document.querySelector('[data-viewport]')?.getAttribute('data-viewport-width'),
+      menus: [...document.querySelectorAll('[data-designer-node-id] > .wr-webmenu')].map(menu => ({
+        mobile: menu.dataset.menuMobile, bounds: menu.getBoundingClientRect().toJSON(),
+        wrapper: menu.parentElement.getBoundingClientRect().toJSON(),
+        hit: document.querySelector('.wr-design-hit[data-component-id="' + menu.dataset.componentId + '"]')?.getBoundingClientRect().toJSON(),
+      })),
+      preview: document.querySelector('.wr-preview-state')?.textContent,
+      output: document.querySelector('.wr-bottom-panel')?.textContent,
+    })`);
+    throw new Error(`Menu smoke timed out: ${source}; evidence: ${JSON.stringify(evidence)}`);
   };
   const click = async (selector: string): Promise<void> => {
     await ready(`document.querySelector(${JSON.stringify(selector)}) instanceof HTMLElement`);
@@ -157,25 +168,30 @@ export async function runMenuSmoke(
     config.items[1]?.children?.length !== 2
   )
     throw new Error('Menu editor and saved model disagree.');
-  const menuCanvasGeometry = (mobile: boolean): string => `(() => {
+  const menuCanvasGeometry = (mobile?: boolean): string => `(() => {
  const wrapper=document.querySelector('[data-designer-node-id="${id}"]');
  const menu=wrapper?.querySelector('.wr-webmenu');
  const hit=document.querySelector('.wr-design-hit[data-component-id="${id}"]');
- if (!wrapper || !menu || !hit || menu.dataset.menuMobile !== '${String(mobile)}') return false;
+ const surface=wrapper?.closest('[data-viewport]');
+ if (!wrapper || !menu || !hit || !surface) return false;
+ const mobile=${mobile === undefined ? 'Number(surface.dataset.viewportWidth) < 768' : String(mobile)};
+ if (menu.dataset.menuMobile !== String(mobile)) return false;
  const bounds=wrapper.getBoundingClientRect();
  const visual=menu.getBoundingClientRect();
  const selection=hit.getBoundingClientRect();
  const same=rect => ['left','top','width','height'].every(key=>Math.abs(rect[key]-bounds[key])<=1);
- const surface=wrapper.closest('[data-viewport]');
  const scale=surface.getBoundingClientRect().width / surface.clientWidth;
- return bounds.width>0 && same(visual) && same(selection) && (!${String(mobile)} || Math.abs(bounds.height / scale - 48)<=1);
+ return bounds.width>0 && same(visual) && same(selection) && (!mobile || Math.abs(bounds.height / scale - 48)<=1);
  })()`;
-  await ready(menuCanvasGeometry(false));
+  // Default follows available canvas width and can legitimately be mobile.
+  await ready(menuCanvasGeometry());
   await click('button[role="tab"][aria-label="Responsive"]');
+  await click('.wr-viewport-presets button[aria-label="Tablet"]');
+  await ready(menuCanvasGeometry(false));
   await click('.wr-viewport-presets button[aria-label="Mobile"]');
   await ready(menuCanvasGeometry(true));
   await click('.wr-viewport-presets button[aria-label="Default"]');
-  await ready(menuCanvasGeometry(false));
+  await ready(menuCanvasGeometry());
   await click('button[aria-label="Design"]');
   options.log(
     'renderer Menu canvas geometry passed: desktop/mobile/restored viewport, visual bounds and selection hitboxes',

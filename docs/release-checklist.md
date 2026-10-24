@@ -61,6 +61,28 @@ O preflight da tag confere a ancestralidade em `main` e consulta as verificaçõ
 
 ## Ao investigar uma falha
 
+No commit `3c3d1b1`, as execuções `40119219411` (release) e `40119219511`
+(validate) pararam na geometria do Menu em Windows/Linux. O preset Default usa
+a largura disponível do canvas e pode ativar o modo mobile; o smoke deve calcular
+esse estado pela largura simulada, verificar também Tablet (768px, não mobile)
+e Mobile (390px) e restaurar Default, preservando geometria visual, hitbox e
+altura de 48px no modo mobile. Não presuma desktop pelo nome interno do preset.
+
+O macOS Intel parou antes, esperando o iframe F9 dos ícones. Assim como no smoke
+de título, a espera deve ler o renderer novamente após uma compilação síncrona
+antes de avaliar o prazo. Aguarde Saved, Run habilitado e ausência de diálogo,
+dispare F9 uma vez e registre compilador/Preview no timeout. O log original não
+contém esses diagnósticos e não comprova sozinho a causa exclusiva do timeout;
+a confirmação no runner permanece necessária.
+
+O job de segurança `40119219393` apontou quatro ocorrências. O exemplo Aurora
+contém quatro bindings `apiClientId` com o mesmo UUID do Project Model em
+`Data.generated.ts` e `Data.wrpage`. A configuração `.gitleaks.toml` estende todas
+as regras padrão e permite somente esse UUID quando associado à propriedade e
+a esses caminhos, inclusive no histórico. Preserve o scan completo, a redação
+integral dos valores e a saída detalhada para diagnosticar futuras ocorrências;
+não ignore commits, diretórios inteiros ou credenciais reais.
+
 Na verificação `39963098127` do commit `b6e1ba4`, somente o Windows falhou: o smoke empacotado aguardou 15 segundos pelo checklist enquanto a consulta final de `rustc.exe --version` ainda estava pendente. Cada processo podia consumir 20 segundos e as consultas eram sequenciais. O log não determina por que esse executável deixou de responder. Preserve o orçamento compartilhado de 10 segundos da inspeção e o limite de 5 segundos por processo, os diagnósticos de ferramentas não verificadas e o cancelamento de descendentes. Não amplie o prazo do smoke nem marque consultas expiradas como ferramentas disponíveis. A regressão cobre processos sem resposta, esgotamento do orçamento e preservação das versões já consultadas.
 
 A regressão com um processo real sem resposta falha no código original após 20,1 segundos e passa com a correção em aproximadamente 5 segundos. A validação local Windows passou com 1.697 testes e 39 skips opcionais, assim como os smokes de desenvolvimento, empacotado e do atualizador. A confirmação do código corrigido nos runners do GitHub permanece pendente do envio do commit.

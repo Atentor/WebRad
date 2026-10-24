@@ -5,11 +5,21 @@ import { loadProjectFiles } from './project-files';
 
 async function ready(window: BrowserWindow, expression: string): Promise<void> {
   const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline) {
+  // Compilation can block the main process past the deadline between samples.
+  // Read the current renderer state before deciding that the wait has expired.
+  for (;;) {
     if ((await window.webContents.executeJavaScript(expression, true)) === true) return;
+    if (Date.now() >= deadline) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error(`Icons smoke timed out: ${expression}`);
+  const evidence: unknown = await window.webContents.executeJavaScript(`({
+    preview: document.querySelector('.wr-preview-state')?.textContent,
+    runDisabled: document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled,
+    saveState: document.querySelector('.wr-toolbar-save-state')?.textContent,
+    output: document.querySelector('.wr-bottom-panel')?.textContent,
+    dialogs: [...document.querySelectorAll('[role="dialog"]')].map(dialog => dialog.textContent),
+  })`);
+  throw new Error(`Icons smoke timed out: ${expression}; evidence: ${JSON.stringify(evidence)}`);
 }
 async function click(window: BrowserWindow, selector: string): Promise<void> {
   await ready(window, `document.querySelector(${JSON.stringify(selector)}) instanceof HTMLElement`);
@@ -136,14 +146,24 @@ export async function runIconSmoke(
   });
   if (capture.isEmpty()) throw new Error('Icons Designer screenshot was empty.');
   await fs.writeFile(screenshotPath, capture.toPNG());
+  await ready(
+    window,
+    `(() => {
+      const run = document.querySelector('button[aria-label="Build and run (F9)"]');
+      return run instanceof HTMLButtonElement && !run.disabled
+        && document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'
+        && document.querySelector('[role="dialog"]') === null;
+    })()`,
+  );
   const previousUrl: unknown = await window.webContents.executeJavaScript(
     `document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src') ?? ''`,
     true,
   );
-  await window.webContents.executeJavaScript(
+  const dispatched: unknown = await window.webContents.executeJavaScript(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F9', bubbles: true, cancelable: true }))`,
     true,
   );
+  if (dispatched !== false) throw new Error('Icons smoke F9 was not handled.');
   await ready(
     window,
     `(() => { const src = document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src'); return Boolean(src && src !== ${JSON.stringify(previousUrl)}); })()`,

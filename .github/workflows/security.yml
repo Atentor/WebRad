@@ -31,7 +31,7 @@ jobs:
             --output "$archive"
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $archive" | sha256sum --check
           tar -xzf "$archive" -C "$scan_directory" gitleaks
-          "$scan_directory/gitleaks" git . --log-opts='--all --full-history' --redact=100 --no-banner
+          "$scan_directory/gitleaks" git . --config=.gitleaks.toml --log-opts='--all --full-history' --redact=100 --no-banner --verbose
   production-dependencies:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

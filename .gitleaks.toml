@@ -1,0 +1,14 @@
+title = "WebRAD secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Aurora component binding ID, not an API credential (including Git history)"
+condition = "AND"
+regexTarget = "match"
+paths = ['''^examples/aurora-workspace/pages/Data\.(generated\.ts|wrpage)$''']
+regexes = ['''apiClientId["']?\s*:\s*["']183e9e9c-2b0e-41af-8a2c-57426be7d213["']''']
