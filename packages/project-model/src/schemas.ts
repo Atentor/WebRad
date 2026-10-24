@@ -1,3 +1,6 @@
+import { materializeEntryPage } from './entry-page.js';
+import { materializeManagedMenuLayouts } from './managed-menu-layout.js';
+import { materializeResponsiveMenuLayouts } from './menu-layout-migration.js';
 import { ReportBuilderPropertiesSchema } from './report-builder.js';
 import {
   MenuConfigurationSchema,
@@ -206,6 +209,33 @@ function normalizeIconDefaultFocus(
   });
 }
 
+/** Update only the original Menu base; preserve customized default and user styles. */
+function normalizeMenuDefaultShadow(styles: readonly unknown[]): readonly unknown[] {
+  return styles.map((style) => {
+    if (
+      !isDefaultStyleForComponent(style, 'WebMenu') ||
+      !isRecord(style) ||
+      !isRecord(style.states)
+    )
+      return style;
+    const base = style.states.base;
+    const length = (value: unknown, expected: number): boolean =>
+      isRecord(value) &&
+      Object.keys(value).length === 2 &&
+      value.value === expected &&
+      value.unit === 'px';
+    if (
+      !isRecord(base) ||
+      Object.keys(base).length !== 3 ||
+      base.boxShadow !== 'md' ||
+      !length(base.borderWidth, 0) ||
+      !length(base.borderRadius, 16)
+    )
+      return style;
+    return { ...style, states: { ...style.states, base: { ...base, boxShadow: 'none' } } };
+  });
+}
+
 /**
  * Add a newly introduced Aurora visual's protected style deterministically
  * without disturbing a project's other saved styles or component bindings.
@@ -320,13 +350,15 @@ function materializeProjectDefaults(input: unknown): unknown {
       ).styles,
       palette.success ? palette.data : [],
     );
-    styles = materializeComponentDefaultStyle(
-      candidate.id,
-      styles,
-      'WebMenu',
-      ['WebIcon'],
-      palette.success ? palette.data : [],
-    ).styles;
+    styles = normalizeMenuDefaultShadow(
+      materializeComponentDefaultStyle(
+        candidate.id,
+        styles,
+        'WebMenu',
+        ['WebIcon'],
+        palette.success ? palette.data : [],
+      ).styles,
+    );
   }
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;
@@ -566,7 +598,7 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
     .object({
       id: nonEmptyStringSchema,
       type: identifierSchema,
-      name: identifierSchema,
+      name: z.string(),
       parentId: nonEmptyStringSchema.nullable(),
       layout: ComponentLayoutSchema,
       bounds: BoundsSchema,
@@ -577,6 +609,10 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
     })
     .strict()
     .superRefine((component, context) => {
+      const nameError = component.name === '404' && component.type === 'WebPage' && component.parentId === null
+        ? undefined : getTypeScriptIdentifierError(component.name);
+      if (nameError !== undefined)
+        context.addIssue({ code: 'custom', message: nameError, path: ['name'] });
       if (component.type === 'WebMenu' && component.props.configuration !== undefined) {
         const result = MenuConfigurationSchema.safeParse(component.props.configuration);
         if (!result.success)
@@ -1474,6 +1510,8 @@ function validateReusableElementRelationships(
   context: z.RefinementCtx,
 ): void {
   validateDocumentRelationships(reusableElement, context, ['WebPanel']);
+  if (reusableElement.name === '404')
+    context.addIssue({ code: 'custom', message: '404 is reserved for the mandatory page.', path: ['name'] });
 }
 
 function validateVisualDocumentRelationships(page: PageModel, context: z.RefinementCtx): void {
@@ -1582,6 +1620,8 @@ function validatePaletteReferences(
     });
 }
 function validateProjectRelationships(project: WebRadProject, context: z.RefinementCtx): void {
+  if (project.pages.find((page) => page.id === project.entryPage)?.name !== 'index')
+    context.addIssue({ code: 'custom', message: 'The entry page must be index.', path: ['entryPage'] });
   validateMenuPageReferences(project, context);
   validateProjectResourceIds(project, context);
   validatePaletteReferences(project, context);
@@ -1896,7 +1936,10 @@ export const ProjectDebuggerSettingsSchema = z
   });
 
 export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
-  materializeProjectDefaults,
+  (input) =>
+    materializeManagedMenuLayouts(
+      materializeResponsiveMenuLayouts(materializeProjectDefaults(input)),
+    ),
   z
     .object({
       formatVersion: z.literal(CURRENT_PROJECT_FORMAT_VERSION),
@@ -1912,6 +1955,7 @@ export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
       settings: ProjectSettingsSchema,
     })
     .strict()
+    .transform(materializeEntryPage)
     .superRefine(validateProjectRelationships),
 );
 

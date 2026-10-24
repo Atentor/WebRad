@@ -92,7 +92,7 @@ function startPreviewServer(): Promise<PreviewServer> {
     let html = token === undefined ? undefined : previewByToken.get(token);
     if (html === undefined) {
       const match =
-        /^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\/(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?)(?:\?[^#]*)?$/.exec(
+        /^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\/[^?#]*)(?:\?[^#]*)?$/.exec(
           request.url ?? '',
         );
       const candidate = match?.[1] === undefined ? undefined : previewByToken.get(match[1]);
@@ -100,7 +100,18 @@ function startPreviewServer(): Promise<PreviewServer> {
       if (candidate !== undefined && encoded !== undefined) {
         try {
           const paths: unknown = JSON.parse(decodeURIComponent(encoded));
-          if (Array.isArray(paths) && paths.includes(match?.[2])) html = candidate;
+          const rawPath = match?.[2] ?? '';
+          const routePath = decodeURIComponent(rawPath);
+          const segments = routePath.split('/');
+          const navigation = request.headers['sec-fetch-dest'] === 'document' ||
+            request.headers['sec-fetch-dest'] === 'iframe' ||
+            request.headers.accept?.includes('text/html') === true;
+          const applicationPath = !routePath.includes('\\') &&
+            !/[\u0000-\u001f\u007f]/u.test(routePath) &&
+            !segments.some((part) => part === '.' || part === '..' || part === 'assets') &&
+            (navigation || !segments.some((part) => part.includes('.')));
+          if (Array.isArray(paths) &&
+            (paths.includes(rawPath) || (paths.includes('/404') && applicationPath))) html = candidate;
         } catch {
           /* Malformed compiler metadata never enables additional routes. */
         }

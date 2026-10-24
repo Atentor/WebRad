@@ -65,7 +65,7 @@ export class ${document.name} extends ${document.name}Generated {
             layout: {
               ...root.layout,
               container: { ...root.layout.container, mode: 'column' },
-              item: { ...root.layout.item, width: 'fit-content', height: 'fit-content' },
+              item: { ...root.layout.item, width: 'fit-content', height: 'stretch' },
             },
             props: { ...root.props, borderColor: 'transparent' },
             children: [menu.id],
@@ -74,7 +74,7 @@ export class ${document.name} extends ${document.name}Generated {
             ...menu,
             layout: {
               ...createDefaultComponentLayout(),
-              item: { ...menu.layout.item },
+              item: { ...menu.layout.item, height: 'stretch', grow: 1, shrink: false },
             },
           },
         ],

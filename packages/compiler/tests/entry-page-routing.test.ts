@@ -10,14 +10,21 @@ import {
 import { compileProjectToMemory } from '../src/index.js';
 
 describe('initial page default route', () => {
-  it('uses /index for the selected entry even when it is renamed and is not the first page', async () => {
+  it('keeps the mandatory entry at /index even when it is not the first page', async () => {
     const initial = addPage(createProject('EntryRouting'), createPage('Welcome'));
-    const entry = initial.pages[1]!;
-    const project = { ...initial, entryPage: entry.id };
+    const entry = initial.pages[0]!;
+    const project = {
+      ...initial,
+      pages: [
+        initial.pages.find((page) => page.name === 'Welcome')!,
+        entry,
+        initial.pages.find((page) => page.name === '404')!,
+      ],
+    };
     const output = await compileProjectToMemory(project, { userSources: {} });
     expect(output.success, JSON.stringify(output.diagnostics)).toBe(true);
     expect(output.previewHtml).toContain(
-      encodeURIComponent(JSON.stringify(['/pagemain', '/index'])),
+      encodeURIComponent(JSON.stringify(['/welcome', '/index', '/404'])),
     );
     const dom = new JSDOM('', { url: 'https://example.test/index', runScripts: 'outside-only' });
     try {
@@ -27,7 +34,7 @@ describe('initial page default route', () => {
           .querySelector(`[data-webrad-page-id="${entry.id}"]`)
           ?.getAttribute('data-webrad-route-path'),
       ).toBe('/index');
-      dom.window.eval("Navigate('PageMain'); Navigate('Welcome');");
+      dom.window.eval("Navigate('Welcome'); Navigate('index');");
       expect(dom.window.location.pathname).toBe('/index');
       expect(dom.window.location.hash).toBe('');
     } finally {
@@ -40,7 +47,7 @@ describe('initial page default route', () => {
     );
     expect(custom.success, JSON.stringify(custom.diagnostics)).toBe(true);
     expect(custom.previewHtml).toContain(
-      encodeURIComponent(JSON.stringify(['/pagemain', '/home'])),
+      encodeURIComponent(JSON.stringify(['/welcome', '/index', '/404'])),
     );
   });
 });

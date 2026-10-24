@@ -80,7 +80,10 @@ export function ProjectExplorer({
     ? onDeleteResource !== undefined
     : selectedReusable
       ? onDeleteReusableElement !== undefined
-      : selectedPage !== undefined && (project?.pages.length ?? 0) > 1;
+      : selectedPage !== undefined &&
+        selectedPage.id !== project?.entryPage &&
+        selectedPage.name !== '404' &&
+        (project?.pages.length ?? 0) > 1;
   const deleteSelected = (): void => {
     if (!canDelete) return;
     if (selectedResource) onDeleteResource?.(selectedResource.id);
@@ -89,6 +92,10 @@ export function ProjectExplorer({
   };
 
   const beginRename = (pageId: string, name: string): void => {
+    if (
+      pageId === project?.entryPage ||
+      project?.pages.some((page) => page.id === pageId && page.name === '404')
+    ) return;
     setEditingPageId(pageId);
     setDraftName(name);
   };
@@ -124,7 +131,7 @@ export function ProjectExplorer({
             type="button"
             title={
               selectedPage && !selectedResource && !selectedReusable && !canDelete
-                ? 'The project must keep at least one page'
+                ? 'Mandatory pages cannot be deleted'
                 : selectedName
                   ? `Delete ${selectedName}`
                   : 'Select an item to delete'
@@ -169,7 +176,8 @@ export function ProjectExplorer({
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') onOpenPage(page.id);
                       if (event.key === 'F2') beginRename(page.id, page.name);
-                      if (event.key === 'Delete') onDeletePage(page.id);
+                      if (event.key === 'Delete' && page.id !== project.entryPage && page.name !== '404')
+                        onDeletePage(page.id);
                     }}
                     tabIndex={0}
                   >

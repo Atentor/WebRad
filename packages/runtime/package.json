@@ -47,6 +47,10 @@
     "./progress-bar": {
       "types": "./src/progress-bar.ts",
       "default": "./src/progress-bar.ts"
+    },
+    "./menu-layout": {
+      "types": "./src/menu-layout.ts",
+      "default": "./src/menu-layout.ts"
     }
   },
   "types": "./src/index.ts",

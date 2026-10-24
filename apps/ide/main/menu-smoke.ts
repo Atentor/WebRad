@@ -34,8 +34,8 @@ export async function runMenuSmoke(
     await ready(`${field(label)}?.value === ${JSON.stringify(value)}`);
   };
   const original = await loadProjectFiles(options.projectPath);
-  const page = original.project.pages.find((candidate) => candidate.name === 'PageMain');
-  if (!page) throw new Error('Menu smoke has no PageMain.');
+  const page = original.project.pages.find((candidate) => candidate.name === 'index');
+  if (!page) throw new Error('Menu smoke has no index.');
   const root = `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`;
   await click('button[aria-label="Design"]');
   await click(root);
@@ -103,11 +103,32 @@ export async function runMenuSmoke(
       editorScreenshot,
   );
   await evaluate(
-    `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(e => e.textContent === 'Behavior & mobile').click()`,
+    `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(e=>e.textContent==='Behavior & layout').click()`,
   );
-  await input('Mobile breakpoint (px)', '480');
+  if (
+    await evaluate(
+      `Boolean(${field('Mobile breakpoint (px)')} || ${field('Drawer width (px)')} || ${field('Drawer side')})`,
+    )
+  )
+    throw new Error('Menu still exposes manual mobile sizing controls.');
+  await evaluate(
+    `(() => {const label=[...document.querySelectorAll('.wr-menu-editor-fields label')].find(e=>e.textContent.trim()==='Show menu search');label.querySelector('input').click();})()`,
+  );
+  await evaluate(
+    `(() => {const select=${field('Search behavior')};if(!(select instanceof HTMLSelectElement)||select.disabled)throw new Error('Missing Menu search behavior');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(select,'event');select.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+  );
   await click('.wr-menu-configuration-dialog button[type="submit"]');
   await ready(`document.querySelector('.wr-menu-configuration-dialog') === null`);
+  for (const [label, value] of [
+    ['Margin top', 12],
+    ['Margin right', 16],
+    ['Margin bottom', 20],
+    ['Margin left', 24],
+  ] as const) {
+    await evaluate(
+      `(() => {const label=[...document.querySelectorAll('.wr-object-inspector label')].find(e=>e.textContent.trim()===${JSON.stringify(label)});const input=label?.control;if(!(input instanceof HTMLInputElement))throw new Error('Missing Menu margin side');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${JSON.stringify(String(value))});input.dispatchEvent(new Event('input',{bubbles:true}));input.blur();})()`,
+    );
+  }
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
   const saved = await loadProjectFiles(options.projectPath);
@@ -118,10 +139,39 @@ export async function runMenuSmoke(
   if (
     node?.type !== 'WebMenu' ||
     config.items[0]?.label !== 'Menu smoke home' ||
-    config.mobileBreakpoint !== 480 ||
+    config.mobileBreakpoint !== 768 ||
+    !config.searchable ||
+    config.searchMode !== 'event' ||
+    node.props.marginTop !== 12 ||
+    node.props.marginRight !== 16 ||
+    node.props.marginBottom !== 20 ||
+    node.props.marginLeft !== 24 ||
     config.items[1]?.children?.length !== 2
   )
     throw new Error('Menu editor and saved model disagree.');
+  const menuCanvasGeometry = (mobile: boolean): string => `(() => {
+ const wrapper=document.querySelector('[data-designer-node-id="${id}"]');
+ const menu=wrapper?.querySelector('.wr-webmenu');
+ const hit=document.querySelector('.wr-design-hit[data-component-id="${id}"]');
+ if (!wrapper || !menu || !hit || menu.dataset.menuMobile !== '${String(mobile)}') return false;
+ const bounds=wrapper.getBoundingClientRect();
+ const visual=menu.getBoundingClientRect();
+ const selection=hit.getBoundingClientRect();
+ const same=rect => ['left','top','width','height'].every(key=>Math.abs(rect[key]-bounds[key])<=1);
+ const surface=wrapper.closest('[data-viewport]');
+ const scale=surface.getBoundingClientRect().width / surface.clientWidth;
+ return bounds.width>0 && same(visual) && same(selection) && (!${String(mobile)} || Math.abs(bounds.height / scale - 48)<=1);
+ })()`;
+  await ready(menuCanvasGeometry(false));
+  await click('button[role="tab"][aria-label="Responsive"]');
+  await click('.wr-viewport-presets button[aria-label="Mobile"]');
+  await ready(menuCanvasGeometry(true));
+  await click('.wr-viewport-presets button[aria-label="Default"]');
+  await ready(menuCanvasGeometry(false));
+  await click('button[role="tab"][aria-label="Builder"]');
+  options.log(
+    'renderer Menu canvas geometry passed: desktop/mobile/restored viewport, visual bounds and selection hitboxes',
+  );
   const screenshot = path.resolve('node_modules', '.cache', 'webrad-menu-designer.png');
   await fs.mkdir(path.dirname(screenshot), { recursive: true });
   window.webContents.invalidate();
@@ -147,7 +197,7 @@ export async function runMenuSmoke(
     `document.querySelector('iframe[title="WebRAD application preview"]').getAttribute('src')`,
   );
   const findFrame = (frame: WebFrameMain): WebFrameMain | undefined =>
-    frame.url === url
+    frame.url.startsWith(new URL('./', String(url)).href)
       ? frame
       : frame.frames.map(findFrame).find((candidate) => candidate !== undefined);
   let frame: WebFrameMain | undefined;
@@ -169,6 +219,18 @@ export async function runMenuSmoke(
     `(() => {
     const menu = document.querySelector('[data-webrad-id="${id}"]');
     if (!menu || menu.dataset.menuMobile !== 'false') return false;
+    const received=[];
+    const onSearch=event=>received.push(event.detail.text);
+    menu.addEventListener('search',onSearch);
+    const search=menu.querySelector('.wr-menu-search-input');
+    if(!search)return false;
+    const count=menu.querySelectorAll('.wr-menu-item').length;
+    search.value='external search';search.dispatchEvent(new Event('input',{bubbles:true}));
+    if(received.length!==1||received[0]!=='external search'||menu.querySelectorAll('.wr-menu-item').length!==count)return false;
+    search.value='';search.dispatchEvent(new Event('input',{bubbles:true}));
+    menu.removeEventListener('search',onSearch);
+    if(received.length!==2||received[1]!=='')return false;
+
     const toggle = () => menu.querySelector('[data-menu-action="collapse"]');
     const width = menu.getBoundingClientRect().width;
     toggle().click();
@@ -208,7 +270,7 @@ export async function runMenuSmoke(
     }
     if (!mobile) throw new Error('Menu did not respond to the real mobile viewport.');
     const drawer = await frame.executeJavaScript(
-      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); menu.querySelector('[data-menu-action="open"]').click(); const dialog = menu.querySelector('dialog'); return dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
+      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); menu.querySelector('[data-menu-action="open"]').click(); const dialog = menu.querySelector('dialog'); return Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
       true,
     );
     if (drawer !== true)
@@ -238,7 +300,75 @@ export async function runMenuSmoke(
   await click('button[aria-label="Design"]');
   const tree = `[role="treeitem"][data-component-id=${JSON.stringify(id)}]`;
   await click(tree);
-  for (let index = 0; index < 2; index++) {
+
+  await click('button[aria-label="Configure Menu"]');
+  await ready(`document.querySelector('.wr-menu-configuration-dialog') !== null`);
+  await evaluate(
+    `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(e=>e.textContent==='Behavior & layout').click()`,
+  );
+  await evaluate(
+    `(() => {const e=${field('Desktop orientation')};Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'horizontal');e.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+  );
+  await click('.wr-menu-configuration-dialog button[type="submit"]');
+  await ready(`document.querySelector('.wr-menu-configuration-dialog')===null`);
+  await evaluate(
+    `(() => {const label=[...document.querySelectorAll('.wr-object-inspector label')].find(e=>e.textContent.trim()==='Vertical side');const e=label?.control;if(!(e instanceof HTMLSelectElement))throw new Error('Missing automatic Menu placement');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'bottom');e.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+  );
+  if (
+    await evaluate(
+      `[...document.querySelectorAll('.wr-object-inspector label')].some(e=>['Responsive width','Responsive height','Left inset','Top inset','Placement'].includes(e.textContent.trim()))`,
+    )
+  )
+    throw new Error('Menu still exposes manual responsive placement controls.');
+  await click('button[aria-label="Save (Ctrl+S)"]');
+  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim()==='Saved'`);
+  const previousHorizontal = await evaluate(
+    `document.querySelector('iframe[title="WebRAD application preview"]')?.src??''`,
+  );
+  await evaluate(
+    `window.dispatchEvent(new KeyboardEvent('keydown',{key:'F9',bubbles:true,cancelable:true}))`,
+  );
+  await ready(
+    `(() => {const frame=document.querySelector('iframe[title="WebRAD application preview"]');return Boolean(frame?.src && frame.src!==${JSON.stringify(previousHorizontal)});})()`,
+  );
+  const horizontalUrl = await evaluate(
+    `document.querySelector('iframe[title="WebRAD application preview"]').src`,
+  );
+  const horizontalFrame = (root: WebFrameMain): WebFrameMain | undefined =>
+    root.url.startsWith(new URL('./', String(horizontalUrl)).href)
+      ? root
+      : root.frames.map(horizontalFrame).find(Boolean);
+  const horizontalDeadline = Date.now() + 10000;
+  let horizontal = horizontalFrame(window.webContents.mainFrame);
+  while (!horizontal && Date.now() < horizontalDeadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    horizontal = horizontalFrame(window.webContents.mainFrame);
+  }
+  if (!horizontal) throw new Error('Missing horizontal Menu F9 frame.');
+  const flyout = await horizontal.executeJavaScript(
+    `(async()=>{
+ const menu=document.querySelector('[data-webrad-id="${id}"]');if(!menu || menu.dataset.menuOrientation!=='horizontal')return false;
+ const toggle=menu.querySelector('[data-menu-item="workspace"]');if(toggle.getAttribute('aria-expanded')!=='false')return false;
+ toggle.click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+ const submenu=menu.querySelector('.wr-menu-submenu');const r=submenu.getBoundingClientRect();
+ const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+ const visible=submenu.matches(':popover-open') && submenu.dataset.openDirection==='up' && r.left>=0 && r.top>=0 && r.right<=innerWidth && r.bottom<=innerHeight && submenu.contains(hit);
+ menu.querySelector('[data-menu-item="workspace"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
+ const focused=menu.querySelector('.wr-menu-submenu').contains(document.activeElement);
+ document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+ const closed=!menu.querySelector(':popover-open') && document.activeElement?.dataset.menuItem==='workspace';
+ return visible&&focused&&closed;
+ })()`,
+    true,
+  );
+  if (flyout !== true)
+    throw new Error('Horizontal Menu flyout is clipped, outside the viewport or has broken focus.');
+  options.log(
+    'renderer Menu horizontal flyouts passed: bottom docking, top-layer geometry, visible hit area, ArrowDown/Escape and focus restoration',
+  );
+  await click('button[aria-label="Design"]');
+  await click(tree);
+  for (let index = 0; index < 8; index++) {
     await evaluate(
       `document.querySelector(${JSON.stringify(tree)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
     );

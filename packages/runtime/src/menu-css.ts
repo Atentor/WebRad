@@ -48,13 +48,13 @@ export const WEB_MENU_CSS = `
 .wr-webmenu[data-menu-collapsed='true'] .wr-menu-header, .wr-webmenu[data-menu-collapsed='true'] .wr-menu-item, .wr-webmenu[data-menu-collapsed='true'] .wr-menu-user { justify-content: center; }
 .wr-webmenu[data-menu-collapsed='true'] .wr-menu-item > .wr-icon-graphic:not(:first-child), .wr-webmenu[data-menu-collapsed='true'] .wr-menu-line > .wr-menu-icon-button, .wr-webmenu[data-menu-collapsed='true'] .wr-menu-user > .wr-icon-graphic { display: none; }
 .wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] > .wr-menu-panel { flex-direction: row; align-items: center; gap: 20px; }
-.wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-navigation { overflow: visible; }
-.wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-list { flex-direction: row; align-items: center; flex-wrap: wrap; }
-.wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-list > .wr-menu-row > .wr-menu-submenu { position: absolute; top: 100%; left: 0; min-width: 220px; max-width: min(340px, 90vw); padding: 8px; margin: 0; border: 1px solid var(--wr-menu-border); border-radius: var(--wr-menu-item-radius); background: var(--wr-menu-background); box-shadow: 0 12px 36px #0f172a24; z-index: 20; }
+.wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-navigation { overflow-x: auto; overflow-y: hidden; }
+.wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-list { flex-direction: row; align-items: center; flex-wrap: nowrap; }
+.wr-menu-submenu.wr-menu-flyout { position: fixed; inset: auto; display: flex; flex-direction: column; min-width: min(220px, calc(100vw - 16px)); width: max-content; max-width: min(340px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow: auto; padding: 8px; margin: 0; border: 1px solid var(--wr-menu-border); border-radius: var(--wr-menu-item-radius); background: var(--wr-menu-background); color: var(--wr-menu-foreground); box-shadow: 0 12px 36px #0f172a24; box-sizing: border-box; }
 .wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-user { border: 0; padding: 4px; width: auto; max-width: 240px; }
 .wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-search { max-width: 220px; }
 .wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-heading { padding: 8px; }
-.wr-menu-mobile-trigger { display: flex; align-items: center; gap: 12px; min-height: 48px; width: 100%; padding: 12px 16px; border: 1px solid var(--wr-menu-border); border-radius: inherit; background: var(--wr-menu-background); color: var(--wr-menu-foreground); text-align: start; cursor: pointer; }
+.wr-menu-mobile-trigger { box-sizing: border-box; height: 100%; overflow: hidden; display: flex; align-items: center; gap: 12px; min-height: 48px; width: 100%; padding: 12px 16px; border: 1px solid var(--wr-menu-border); border-radius: inherit; background: var(--wr-menu-background); color: var(--wr-menu-foreground); text-align: start; cursor: pointer; }
 .wr-menu-dialog { position: fixed; inset: 0 auto 0 0; width: min(var(--wr-menu-drawer-width), 92vw); max-width: 92vw; height: 100dvh; max-height: 100dvh; padding: 0; margin: 0; border: 0; background: var(--wr-menu-background); overflow: hidden; box-shadow: 8px 0 40px #0003; }
 .wr-menu-dialog[data-side='right'] { inset: 0 0 0 auto; }
 .wr-menu-dialog::backdrop { background: #0f172a70; backdrop-filter: blur(3px); }
@@ -64,4 +64,11 @@ export const WEB_MENU_CSS = `
 .wr-webmenu[aria-disabled='true'] { opacity: .55; }
 @keyframes wr-menu-appear { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .wr-menu-dialog[open] { animation: none; } .wr-menu-item > .wr-icon-graphic { transition: none; } }
+
+.wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] > .wr-menu-panel { overflow: visible; }
+.wr-menu-submenu.wr-menu-flyout .wr-menu-item { white-space: normal; }
+
+.wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-header { max-width: 40%; }
+
+.wr-menu-dialog[data-side='center'] { inset: 0 auto 0 50%; translate: -50% 0; }
 `;

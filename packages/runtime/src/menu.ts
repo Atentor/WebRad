@@ -1,3 +1,6 @@
+import { bindWebMenuPopovers } from './menu-popovers.js';
+import { setRuntimeLayoutProjection } from './layout.js';
+import { projectWebMenuLayout, readWebMenuMargins } from './menu-layout.js';
 import { WebComponent } from './component.js';
 import { applyWebMenuAppearance, createWebMenuPanel, menuButton, menuElement } from './menu-dom.js';
 import {
@@ -8,6 +11,7 @@ import {
   type WebMenuItem,
   type WebMenuItemEvent,
   type WebMenuStateEvent,
+  type WebMenuSearchEvent,
 } from './menu-model.js';
 
 export interface WebMenuOptions {
@@ -22,6 +26,118 @@ let menuSequence = 0;
 
 /** Responsive navigation with per-instance state, disclosure submenus and a modal mobile drawer. */
 export class WebMenu extends WebComponent<HTMLElement> {
+  readonly #onFocusOut = (): void => {
+    queueMicrotask(() => {
+      if (
+        !this.#disposed &&
+        !this.#mobile &&
+        this.orientation === 'horizontal' &&
+        this.#expanded.size &&
+        !this.element.contains(this.element.ownerDocument.activeElement)
+      ) {
+        this.#expanded.clear();
+        this.#render();
+      }
+    });
+  };
+
+  #disposePopovers: (() => void) | undefined;
+  #layoutSignature = '';
+  public get floatingZIndex(): number {
+    return 1000;
+  }
+
+  #marginOwner(): HTMLElement {
+    return (
+      this.element.closest<HTMLElement>('.wr-webreusableelement[data-menu-managed="true"]') ??
+      this.element
+    );
+  }
+  #setMargin(
+    property: 'margin' | 'marginTop' | 'marginRight' | 'marginBottom' | 'marginLeft',
+    value: number,
+  ): void {
+    if (!Number.isFinite(value)) throw new RangeError(property + ' must be a finite number.');
+    const owner = this.#marginOwner();
+    owner.style[property] = String(value) + 'px';
+    if (owner !== this.element) {
+      this.element.style[property] = '0px';
+      owner.dispatchEvent(new Event('webrad-placement-change'));
+    }
+    this.#render();
+  }
+  public override get margin(): number {
+    return Number.parseFloat(this.#marginOwner().style.margin) || 0;
+  }
+  public override get marginTop(): number {
+    return Number.parseFloat(this.#marginOwner().style.marginTop) || 0;
+  }
+  public override set marginTop(value: number) {
+    this.#setMargin('marginTop', value);
+  }
+  public override get marginRight(): number {
+    return Number.parseFloat(this.#marginOwner().style.marginRight) || 0;
+  }
+  public override set marginRight(value: number) {
+    this.#setMargin('marginRight', value);
+  }
+  public override get marginBottom(): number {
+    return Number.parseFloat(this.#marginOwner().style.marginBottom) || 0;
+  }
+  public override set marginBottom(value: number) {
+    this.#setMargin('marginBottom', value);
+  }
+  public override get marginLeft(): number {
+    return Number.parseFloat(this.#marginOwner().style.marginLeft) || 0;
+  }
+  public override set marginLeft(value: number) {
+    this.#setMargin('marginLeft', value);
+  }
+  public override set margin(value: number) {
+    this.#setMargin('margin', value);
+  }
+  public get placement(): 'floating' {
+    return 'floating';
+  }
+  public get floatingHorizontalAnchor(): 'left' | 'center' | 'right' {
+    const owner = this.element.closest<HTMLElement>(
+      '.wr-webreusableelement[data-menu-managed="true"]',
+    );
+    const value =
+      owner?.dataset.webradFloatingHorizontalAnchor ??
+      this.element.dataset.webradFloatingHorizontalAnchor;
+    return value === 'center' || value === 'right' ? value : 'left';
+  }
+  public set floatingHorizontalAnchor(value: 'left' | 'center' | 'right') {
+    if (value !== 'left' && value !== 'center' && value !== 'right')
+      throw new TypeError('Menu side must be left, center or right.');
+    const owner = this.element.closest<HTMLElement>(
+      '.wr-webreusableelement[data-menu-managed="true"]',
+    );
+    (owner ?? this.element).dataset.webradFloatingHorizontalAnchor = value;
+    owner?.dispatchEvent(new Event('webrad-placement-change'));
+    this.#render();
+  }
+  public get floatingVerticalAnchor(): 'top' | 'center' | 'bottom' {
+    const owner = this.element.closest<HTMLElement>(
+      '.wr-webreusableelement[data-menu-managed="true"]',
+    );
+    const value =
+      owner?.dataset.webradFloatingVerticalAnchor ??
+      this.element.dataset.webradFloatingVerticalAnchor;
+    return value === 'center' || value === 'bottom' ? value : 'top';
+  }
+  public set floatingVerticalAnchor(value: 'top' | 'center' | 'bottom') {
+    if (value !== 'top' && value !== 'center' && value !== 'bottom')
+      throw new TypeError('Menu side must be top, center or bottom.');
+    const owner = this.element.closest<HTMLElement>(
+      '.wr-webreusableelement[data-menu-managed="true"]',
+    );
+    (owner ?? this.element).dataset.webradFloatingVerticalAnchor = value;
+    owner?.dispatchEvent(new Event('webrad-placement-change'));
+    this.#render();
+  }
+
   #configuration = createDefaultWebMenuConfiguration();
   #expanded = new Set<string>();
   #selectedItemId = '';
@@ -103,19 +219,25 @@ export class WebMenu extends WebComponent<HTMLElement> {
     }
   };
   readonly #onInput = (event: Event): void => {
+    const input = event.target;
     if (
-      event.target instanceof HTMLInputElement &&
-      event.target.dataset.menuAction === 'search' &&
-      this.enabled
-    ) {
-      const start = event.target.selectionStart;
-      const end = event.target.selectionEnd;
-      this.#query = event.target.value;
-      this.#render();
-      const search = this.element.querySelector<HTMLInputElement>('.wr-menu-search-input');
-      search?.focus();
-      if (start !== null && end !== null) search?.setSelectionRange(start, end);
+      !(input instanceof HTMLInputElement) ||
+      input.dataset.menuAction !== 'search' ||
+      !this.enabled ||
+      this.#query === input.value
+    )
+      return;
+    this.#query = input.value;
+    if (this.searchMode === 'event') {
+      this.emit('OnSearch', { text: this.#query } satisfies WebMenuSearchEvent);
+      return;
     }
+    const start = input.selectionStart,
+      end = input.selectionEnd;
+    this.#render();
+    const search = this.element.querySelector<HTMLInputElement>('.wr-menu-search-input');
+    search?.focus();
+    if (start !== null && end !== null) search?.setSelectionRange(start, end);
   };
   readonly #onKeyDown = (event: KeyboardEvent): void => {
     if (!this.enabled) return;
@@ -123,9 +245,21 @@ export class WebMenu extends WebComponent<HTMLElement> {
       if (this.#open) {
         event.preventDefault();
         this.close();
-      } else {
-        this.#expanded.clear();
-        this.#render();
+      } else if (this.#expanded.size) {
+        event.preventDefault();
+        const control =
+          event.target instanceof Element
+            ? event.target.closest<HTMLElement>('[data-menu-item]')
+            : null;
+        const path = webMenuItemPath(this.items, control?.dataset.menuItem ?? '');
+        const owner = path.length > 1 ? path.at(-2) : path[0];
+        if (owner) {
+          this.collapseItem(owner.id);
+          this.focusItem(owner.id);
+        } else {
+          this.#expanded.clear();
+          this.#render();
+        }
       }
       return;
     }
@@ -139,6 +273,19 @@ export class WebMenu extends WebComponent<HTMLElement> {
     const id = control.dataset.menuItem ?? '';
     const path = webMenuItemPath(this.items, id);
     const item = path.at(-1);
+    if (
+      event.key === 'ArrowDown' &&
+      this.orientation === 'horizontal' &&
+      !this.#mobile &&
+      path.length === 1 &&
+      item?.children?.length
+    ) {
+      event.preventDefault();
+      this.expandItem(id);
+      const first = item.children.find((child) => child.visible !== false && !child.disabled);
+      if (first) this.focusItem(first.id);
+      return;
+    }
     if (!item) return;
     if (event.key === 'ArrowRight' && item.children?.length) {
       event.preventDefault();
@@ -181,6 +328,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
       element.addEventListener('click', this.#onClick);
       element.addEventListener('input', this.#onInput);
       element.addEventListener('keydown', this.#onKeyDown);
+      element.addEventListener('focusout', this.#onFocusOut);
       element.ownerDocument.addEventListener('pointerdown', this.#onOutsidePointer);
       element.ownerDocument.defaultView?.addEventListener('resize', this.#onResize);
       element.ownerDocument.defaultView?.addEventListener(
@@ -207,7 +355,11 @@ export class WebMenu extends WebComponent<HTMLElement> {
   public override set enabled(value: boolean) {
     super.enabled = value;
     this.element.inert = !value;
-    if (!value) this.close();
+    if (!value) {
+      this.close();
+      this.#expanded.clear();
+      this.#render();
+    }
   }
   public set configuration(value: WebMenuConfiguration) {
     const parsed = parseWebMenuConfiguration(value);
@@ -219,13 +371,14 @@ export class WebMenu extends WebComponent<HTMLElement> {
     this.#expanded.clear();
     const visit = (items: readonly WebMenuItem[]): void => {
       for (const item of items) {
-        if (item.expanded) this.#expanded.add(item.id);
+        if (item.expanded && parsed.orientation === 'vertical') this.#expanded.add(item.id);
         visit(item.children ?? []);
       }
     };
     visit(parsed.items);
-    for (const item of webMenuItemPath(parsed.items, this.#selectedItemId).slice(0, -1))
-      this.#expanded.add(item.id);
+    if (parsed.orientation === 'vertical')
+      for (const item of webMenuItemPath(parsed.items, this.#selectedItemId).slice(0, -1))
+        this.#expanded.add(item.id);
     this.#render();
   }
   public get items(): readonly WebMenuItem[] {
@@ -279,8 +432,9 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (value && !webMenuItemPath(this.#configuration.items, value).length)
       throw new RangeError(`Unknown menu item: ${value}`);
     this.#selectedItemId = value;
-    for (const item of webMenuItemPath(this.#configuration.items, value).slice(0, -1))
-      this.#expanded.add(item.id);
+    if (this.orientation === 'vertical')
+      for (const item of webMenuItemPath(this.#configuration.items, value).slice(0, -1))
+        this.#expanded.add(item.id);
     this.#render();
   }
   public get collapsed(): boolean {
@@ -301,6 +455,12 @@ export class WebMenu extends WebComponent<HTMLElement> {
   }
   public get isMobile(): boolean {
     return this.#mobile;
+  }
+  public get searchMode(): WebMenuConfiguration['searchMode'] {
+    return this.#configuration.searchMode;
+  }
+  public set searchMode(value: WebMenuConfiguration['searchMode']) {
+    this.#patchConfiguration({ searchMode: value });
   }
   public get searchText(): string {
     return this.#query;
@@ -362,7 +522,10 @@ export class WebMenu extends WebComponent<HTMLElement> {
     this.#selectedItemId = id;
     this.emit('OnSelectionChange', detail);
     if (this.#disposed) return;
-    if (this.#configuration.closeOnSelect) this.close();
+    if (this.#configuration.closeOnSelect) {
+      if (this.orientation === 'horizontal') this.#expanded.clear();
+      this.close();
+    }
     this.#render();
     this.#navigate(item.page ?? '', item.href ?? '', item.target);
   }
@@ -419,6 +582,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
     this.element.removeEventListener('click', this.#onClick);
     this.element.removeEventListener('input', this.#onInput);
     this.element.removeEventListener('keydown', this.#onKeyDown);
+    this.element.removeEventListener('focusout', this.#onFocusOut);
     this.element.ownerDocument.removeEventListener('pointerdown', this.#onOutsidePointer);
     this.element.ownerDocument.defaultView?.removeEventListener('resize', this.#onResize);
     this.element.ownerDocument.defaultView?.removeEventListener(
@@ -427,6 +591,9 @@ export class WebMenu extends WebComponent<HTMLElement> {
     );
     this.#restoreWidth();
     this.#restoreHeight();
+    setRuntimeLayoutProjection(this.element, null);
+    this.#disposePopovers?.();
+    this.#disposePopovers = undefined;
     super.dispose();
   }
   #setExpanded(id: string, expanded: boolean): void {
@@ -435,12 +602,24 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (!item?.children?.length || path.some((entry) => entry.disabled || entry.visible === false))
       return;
     if (this.#collapsed && !this.#mobile) this.#collapsed = false;
-    if (expanded && this.#configuration.accordion) {
+    if (expanded && (this.#configuration.accordion || this.orientation === 'horizontal')) {
       const siblings = path.length > 1 ? (path.at(-2)?.children ?? []) : this.#configuration.items;
-      for (const sibling of siblings) this.#expanded.delete(sibling.id);
+      const closeBranch = (entry: WebMenuItem): void => {
+        this.#expanded.delete(entry.id);
+        for (const child of entry.children ?? []) closeBranch(child);
+      };
+      for (const sibling of siblings) if (sibling.id !== id) closeBranch(sibling);
     }
-    if (expanded) this.#expanded.add(id);
-    else this.#expanded.delete(id);
+    if (expanded) {
+      for (const parent of path.slice(0, -1)) this.#expanded.add(parent.id);
+      this.#expanded.add(id);
+    } else {
+      const close = (entry: WebMenuItem): void => {
+        this.#expanded.delete(entry.id);
+        for (const child of entry.children ?? []) close(child);
+      };
+      close(item);
+    }
     this.#render();
     this.focusItem(id);
     this.emit('OnItemToggle', {
@@ -451,6 +630,8 @@ export class WebMenu extends WebComponent<HTMLElement> {
     });
   }
   #patchConfiguration(changes: Partial<WebMenuConfiguration>): void {
+    if (changes.orientation !== undefined && changes.orientation !== this.orientation)
+      this.#expanded.clear();
     this.#configuration = parseWebMenuConfiguration({ ...this.configuration, ...changes });
     this.#render();
   }
@@ -500,25 +681,61 @@ export class WebMenu extends WebComponent<HTMLElement> {
     }
     this.#mobile = mobile;
     const collapsed = this.#collapsed && !mobile && this.orientation === 'vertical';
-    if ((collapsed || mobile) && this.element.isConnected) {
+    const layoutConfiguration = { ...this.#configuration, collapsed: this.#collapsed };
+    const horizontalAnchor = this.floatingHorizontalAnchor;
+    const verticalAnchor = this.floatingVerticalAnchor;
+    const liveMargins = readWebMenuMargins(this.element);
+    const viewportHeight = document.defaultView?.innerHeight;
+    const managed = setRuntimeLayoutProjection(this.element, (node) =>
+      projectWebMenuLayout(
+        {
+          ...node,
+          props: {
+            ...node.props,
+            ...liveMargins,
+            floatingHorizontalAnchor: horizontalAnchor,
+            floatingVerticalAnchor: verticalAnchor,
+          },
+        },
+        viewport,
+        layoutConfiguration,
+        undefined,
+        viewportHeight,
+      ),
+    );
+    if (!managed && this.#options.interactive !== false && collapsed && this.element.isConnected) {
       this.#expandedWidth ??= {
         value: this.element.style.getPropertyValue('width'),
         priority: this.element.style.getPropertyPriority('width'),
       };
       this.element.style.setProperty(
         'width',
-        mobile ? '100%' : `${String(this.#configuration.appearance.collapsedWidth)}px`,
+        `${String(this.#configuration.appearance.collapsedWidth)}px`,
         'important',
       );
-    } else this.#restoreWidth();
-    if (mobile && this.element.isConnected) {
+    } else if (managed) this.#expandedWidth = undefined;
+    else this.#restoreWidth();
+    if (!managed && this.#options.interactive !== false && mobile && this.element.isConnected) {
       this.#desktopHeight ??= {
         value: this.element.style.getPropertyValue('height'),
         priority: this.element.style.getPropertyPriority('height'),
       };
       this.element.style.setProperty('height', '48px', 'important');
-    } else this.#restoreHeight();
+    } else if (managed) this.#desktopHeight = undefined;
+    else this.#restoreHeight();
     applyWebMenuAppearance(this.element, this.#configuration);
+    const owner =
+      this.element.closest<HTMLElement>('.wr-webreusableelement[data-menu-managed="true"]') ??
+      this.element;
+    const style = document.defaultView?.getComputedStyle(owner);
+    const minimum = Number.parseFloat(style?.minWidth ?? '') || 0;
+    const maximum = Number.parseFloat(style?.maxWidth ?? '') || Number.POSITIVE_INFINITY;
+    const preferred =
+      Number(owner.dataset.menuPreferredWidth ?? this.element.dataset.menuPreferredWidth) || 288;
+    this.element.style.setProperty(
+      '--wr-menu-drawer-width',
+      `${Math.max(0, Math.min(viewport * 0.92, Math.max(minimum, Math.min(preferred, maximum))))}px`,
+    );
     this.element.dataset.menuOrientation = this.orientation;
     this.element.dataset.menuMobile = String(mobile);
     this.element.dataset.menuCollapsed = String(collapsed);
@@ -528,6 +745,8 @@ export class WebMenu extends WebComponent<HTMLElement> {
     const focusedAction = focused?.dataset.menuAction;
     const scrollTop =
       this.element.querySelector<HTMLElement>('.wr-menu-navigation')?.scrollTop ?? 0;
+    this.#disposePopovers?.();
+    this.#disposePopovers = undefined;
     const panel = createWebMenuPanel(document, this.#configuration, {
       idPrefix: this.#idPrefix,
       collapsed,
@@ -572,7 +791,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
           }
         });
       }
-      this.#dialog.dataset.side = this.#configuration.drawerSide;
+      this.#dialog.dataset.side = this.floatingHorizontalAnchor;
       this.#dialog.replaceChildren(panel);
       // Keep an open dialog connected; removing it would discard its top-layer state.
       if (this.#dialog.parentElement === this.element) {
@@ -585,6 +804,8 @@ export class WebMenu extends WebComponent<HTMLElement> {
     }
     const navigation = this.element.querySelector<HTMLElement>('.wr-menu-navigation');
     if (navigation) navigation.scrollTop = scrollTop;
+    if (!mobile && this.orientation === 'horizontal' && this.#options.interactive !== false)
+      this.#disposePopovers = bindWebMenuPopovers(this.element);
     if (focusedItem && focused && !focused.isConnected) this.focusItem(focusedItem);
     else if (focusedAction && focused && !focused.isConnected)
       for (const control of this.element.querySelectorAll<HTMLElement>('[data-menu-action]'))
@@ -595,5 +816,11 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (this.#options.interactive === false)
       for (const control of this.element.querySelectorAll<HTMLElement>('a,button,input'))
         control.tabIndex = -1;
+
+    const signature = `${mobile}:${collapsed}:${this.orientation}:${this.floatingHorizontalAnchor}:${this.floatingVerticalAnchor}:${this.#configuration.appearance.collapsedWidth}`;
+    if (managed && signature !== this.#layoutSignature) {
+      this.#layoutSignature = signature;
+      this.element.dispatchEvent(new Event('webrad:menu-layout-change', { bubbles: true }));
+    }
   }
 }

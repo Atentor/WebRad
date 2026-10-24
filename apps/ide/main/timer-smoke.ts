@@ -21,7 +21,7 @@ export async function runTimerSmoke(
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
   };
   const original = await loadProjectFiles(options.projectPath);
-  const page = original.project.pages.find((item) => item.name === 'PageMain')!;
+  const page = original.project.pages.find((item) => item.name === 'index')!;
   const root = `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`;
   await click('button[aria-label="Design"]');
   await click(root);

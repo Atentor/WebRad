@@ -1,7 +1,10 @@
 import {
-  createDefaultWebMenuConfiguration,
-  parseWebMenuConfiguration,
-} from '@webrad/runtime/menu-model';
+  automaticMenuLayout,
+  menuInspectorProperties,
+  MENU_CONFIGURATION_PROPERTY,
+} from './menu-properties.js';
+import { projectWebMenuLayout, reusableMenuNode } from '@webrad/runtime/menu-layout';
+import { createDefaultWebMenuConfiguration } from '@webrad/runtime/menu-model';
 import type { ComponentDefinition, ComponentPropertyDefinition } from './types.js';
 
 export function createWebMenuDefinition(
@@ -17,12 +20,29 @@ export function createWebMenuDefinition(
     canHaveChildren: false,
     defaultEvent: 'OnItemClick',
     designerAction: 'menu-configurator',
+    projectLayout: (node, viewport, context) =>
+      projectWebMenuLayout(
+        node,
+        viewport.responsiveWidth ?? viewport.width,
+        undefined,
+        context?.reusableElements?.some(
+          (definition) => reusableMenuNode(definition)?.id === node.id,
+        ) ?? false,
+        viewport.height,
+      ),
+    supportsFloatingPlacement: true,
+    floatingSizing: 'responsive',
+    automaticLayout: automaticMenuLayout,
+    inspectorProperties: menuInspectorProperties,
     defaultBounds: { width: 288, height: 640 },
     defaults: {
       configuration: createDefaultWebMenuConfiguration(),
       visible: true,
       collapseWhenHidden: true,
       enabled: true,
+      placement: 'floating',
+      floatingHorizontalAnchor: 'left',
+      floatingVerticalAnchor: 'top',
     },
     styleEditor: {
       essentialProperties: [
@@ -40,27 +60,52 @@ export function createWebMenuDefinition(
     },
     properties: [
       ...geometry,
+      MENU_CONFIGURATION_PROPERTY,
       {
-        name: 'configuration',
-        label: 'Menu configuration',
-        type: 'menu-config',
-        category: 'Menu',
+        name: 'placement',
+        label: 'Placement',
+        type: 'enum',
         source: 'props',
-        designerAction: 'menu-configurator',
-        defaultValue: createDefaultWebMenuConfiguration(),
-        description:
-          'Edit nested items, icons, brand, user profile, appearance and desktop/mobile behavior.',
-        validateValue: (value) => {
-          try {
-            parseWebMenuConfiguration(value);
-            return true;
-          } catch {
-            return false;
-          }
-        },
+        defaultValue: 'floating',
+        options: ['in-flow', 'floating'],
+        readOnly: true,
+      },
+      {
+        name: 'floatingHorizontalAnchor',
+        label: 'Horizontal side',
+        type: 'enum',
+        source: 'props',
+        defaultValue: 'left',
+        options: ['left', 'center', 'right'],
+        category: 'Menu placement',
+      },
+      {
+        name: 'floatingVerticalAnchor',
+        label: 'Vertical side',
+        type: 'enum',
+        source: 'props',
+        defaultValue: 'top',
+        options: ['top', 'center', 'bottom'],
+        category: 'Menu placement',
+      },
+      {
+        name: 'floatingZIndex',
+        label: 'Layer',
+        type: 'number',
+        source: 'props',
+        defaultValue: 1000,
+        readOnly: true,
       },
     ],
     events: [
+      {
+        name: 'OnSearch',
+        category: 'Menu',
+        eventDetailType: 'WebMenuSearchEvent',
+        eventDetailProperties: ['text'],
+        description:
+          'Emitted for user text changes in event search mode, including clearing the search. Menu items remain unchanged.',
+      },
       {
         name: 'OnItemClick',
         category: 'Menu',

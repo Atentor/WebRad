@@ -97,7 +97,7 @@ export async function runEmptyEventCleanupSmoke(
   const button = saved.project.pages
     .flatMap((page) => page.components)
     .find((component) => component.name === 'BTNMostrar');
-  const source = saved.userSources['pages/PageMain.ts'];
+  const source = saved.userSources['pages/index.ts'];
   if (
     !button ||
     button.events.OnFocus !== null ||

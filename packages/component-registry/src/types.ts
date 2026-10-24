@@ -60,6 +60,8 @@ export interface ComponentPropertyDefinition {
   readonly nullable?: boolean;
   /** Optional specialized designer workflow associated with this property. */
   readonly designerAction?: ComponentDesignerAction;
+  /** Contextual Inspector alias for the active stored position coordinate. */
+  readonly layoutCoordinate?: 'x' | 'y';
 }
 
 export interface ComponentEventDefinition {
@@ -133,7 +135,29 @@ export interface ComponentStyleEditorMetadata {
   readonly essentialProperties: readonly string[];
 }
 
+export interface RegisteredVisualDocument {
+  readonly id: string;
+  readonly rootComponentId: string;
+  readonly components: readonly RegisteredComponentNode[];
+  readonly width?: number;
+  readonly height?: number;
+}
+export interface ComponentLayoutContext {
+  readonly reusableElements?: readonly RegisteredVisualDocument[];
+  readonly document?: RegisteredVisualDocument;
+}
 export interface ComponentDefinition {
+  /** Pure state-dependent footprint shared with the browser runtime. */
+  readonly projectLayout?: <T extends RegisteredComponentNode>(
+    node: T,
+    viewport: {
+      readonly width: number;
+      readonly height: number;
+      readonly responsiveWidth?: number;
+    },
+    context?: ComponentLayoutContext,
+  ) => T;
+
   /** Supports viewport-owned placement outside the normal container flow. */
   readonly supportsFloatingPlacement?: boolean;
   /** Responsive item sizing remains active when projected into an overlay. */
@@ -168,6 +192,19 @@ export interface ComponentDefinition {
   readonly defaults: Readonly<Record<string, unknown>>;
   readonly properties: readonly ComponentPropertyDefinition[];
   readonly events: readonly ComponentEventDefinition[];
+  readonly automaticLayout?: (
+    node: RegisteredComponentNode,
+    context?: ComponentLayoutContext,
+  ) => boolean;
+  readonly inspectorProperties?: (
+    properties: readonly ComponentPropertyDefinition[],
+    node: RegisteredComponentNode,
+    context?: ComponentLayoutContext,
+  ) => readonly ComponentPropertyDefinition[];
+  readonly designSurface?: (
+    node: RegisteredComponentNode,
+    context: ComponentLayoutContext,
+  ) => { readonly width?: number; readonly height?: number } | undefined;
 }
 
 /**

@@ -2,6 +2,7 @@ import { createDefaultReportTemplate, parseReportTemplate } from '@webrad/runtim
 import { getApiClientBodyInputs, type WebApiBodyInput } from '@webrad/runtime';
 import { defaultComponentRegistry, type ComponentRegistry } from '@webrad/component-registry';
 import {
+  pageClassName,
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
   ComboBoxConfigurationSchema,
@@ -41,7 +42,7 @@ export class LanguageGenerationError extends Error {
 }
 
 function generatedClassName(page: PageModel, suffix: string): string {
-  return `${page.name}${suffix}`;
+  return `${pageClassName(page.name)}${suffix}`;
 }
 
 function runtimeTypes(page: PageModel, kind: GeneratedDocumentKind): readonly string[] {
@@ -690,7 +691,7 @@ function createUserDocumentSource(
     `import type { ${componentTypes.join(', ')} } from '@webrad/runtime';`,
     `import { ${className} } from './${page.name}.generated';`,
     '',
-    `export class ${page.name} extends ${className} {`,
+    `export class ${pageClassName(page.name)} extends ${className} {`,
     '  // Variables and properties: declare class state here.',
     '',
     '  // Functions: methods that return a value.',

@@ -63,6 +63,8 @@ export interface RuntimeLayoutNode {
   readonly props?: Readonly<Record<string, unknown>>;
   /** Optional only to preserve mounting of pre-responsive generated models. */
   readonly layout?: RuntimeComponentLayout;
+  readonly reusableInstanceId?: string;
+  readonly menuEmbedded?: boolean;
 }
 
 export interface RuntimeLayoutProjection {
@@ -373,10 +375,10 @@ function floatingVerticalAnchor(
 }
 
 export function isFloatingLayoutNode(node: RuntimeLayoutNode): boolean {
-  return (
-    (node.type === 'WebReusableElement' || node.type === 'WebPanel') &&
-    node.props?.placement === 'floating'
-  );
+  return node.type === 'WebMenu'
+    ? node.menuEmbedded !== true && node.props?.placement !== 'in-flow'
+    : (node.type === 'WebReusableElement' || node.type === 'WebPanel') &&
+        node.props?.placement === 'floating';
 }
 
 export type WebPanelFloatingAlignment = 'none' | 'top' | 'bottom' | 'left' | 'right' | 'client';
@@ -494,7 +496,7 @@ export function projectFloatingPanelBounds(
   node: RuntimeLayoutNode,
   pageSize: Pick<RuntimeLayoutBounds, 'width' | 'height'>,
 ): RuntimeLayoutBounds | undefined {
-  if (node.type !== 'WebPanel' || !isFloatingLayoutNode(node)) return undefined;
+  if (!isFloatingLayoutNode(node)) return undefined;
   const horizontal = floatingPanelAxisBounds(floatingPanelAxis(node, true), pageSize.width);
   const vertical = floatingPanelAxisBounds(floatingPanelAxis(node, false), pageSize.height);
   return {
@@ -513,50 +515,19 @@ function floatingItemStyles(
   node: RuntimeLayoutNode,
   item: RuntimeLayoutItem,
 ): Readonly<Record<string, string>> {
-  const horizontal = floatingAnchor(node.props?.floatingHorizontalAnchor, 'left');
-  const vertical = floatingVerticalAnchor(node.props?.floatingVerticalAnchor, 'top');
-  const zIndex = finite(node.props?.floatingZIndex, 100);
-  const pageOwned = node.type === 'WebPanel';
-  if (pageOwned) {
-    const horizontalAxis = floatingPanelAxis(node, true);
-    const verticalAxis = floatingPanelAxis(node, false);
-    return {
-      position: 'absolute',
-      ...floatingPanelAxisStyles(horizontalAxis, true),
-      ...floatingPanelAxisStyles(verticalAxis, false),
-      ...(horizontalAxis.anchor === 'center' || verticalAxis.anchor === 'center'
-        ? {
-            translate: `${horizontalAxis.anchor === 'center' ? '-50%' : '0'} ${verticalAxis.anchor === 'center' ? '-50%' : '0'}`,
-          }
-        : {}),
-      ...minMaxStyles(item),
-      'z-index': String(Math.trunc(zIndex)),
-    };
-  }
-  const horizontalStyles: Readonly<Record<string, string>> =
-    horizontal === 'right'
-      ? { right: coordinatePixels(node.bounds.x) }
-      : horizontal === 'center'
-        ? {
-            left: `calc(${pageOwned ? '50%' : '50vw'} + ${coordinatePixels(node.bounds.x)} - ${pixels(node.bounds.width / 2)})`,
-          }
-        : { left: coordinatePixels(node.bounds.x) };
-  const verticalStyles: Readonly<Record<string, string>> =
-    vertical === 'bottom'
-      ? { bottom: coordinatePixels(node.bounds.y) }
-      : vertical === 'center'
-        ? {
-            top: `calc(${pageOwned ? '50%' : '50dvh'} + ${coordinatePixels(node.bounds.y)} - ${pixels(node.bounds.height / 2)})`,
-          }
-        : { top: coordinatePixels(node.bounds.y) };
+  const horizontalAxis = floatingPanelAxis(node, true);
+  const verticalAxis = floatingPanelAxis(node, false);
   return {
-    position: pageOwned ? 'absolute' : 'fixed',
-    ...horizontalStyles,
-    ...verticalStyles,
-    width: pixels(node.bounds.width),
-    height: pixels(node.bounds.height),
-    'z-index': String(Math.trunc(zIndex)),
+    position: node.type === 'WebPanel' ? 'absolute' : 'fixed',
+    ...floatingPanelAxisStyles(horizontalAxis, true),
+    ...floatingPanelAxisStyles(verticalAxis, false),
+    ...(horizontalAxis.anchor === 'center' || verticalAxis.anchor === 'center'
+      ? {
+          translate: `${horizontalAxis.anchor === 'center' ? '-50%' : '0'} ${verticalAxis.anchor === 'center' ? '-50%' : '0'}`,
+        }
+      : {}),
     ...minMaxStyles(item),
+    'z-index': String(Math.trunc(finite(node.props?.floatingZIndex, 100))),
   };
 }
 
@@ -771,8 +742,49 @@ function projectAspectRatio(
 interface RuntimeLayoutBinding {
   readonly node: RuntimeLayoutNode;
   readonly parent?: RuntimeContainerLayout;
+  readonly options: ApplyRuntimeLayoutOptions;
 }
 const layoutBindings = new WeakMap<HTMLElement, RuntimeLayoutBinding>();
+
+/** Per-instance state projects through the same layout as the saved model. */
+export type RuntimeLayoutNodeProjector = (node: RuntimeLayoutNode) => RuntimeLayoutNode;
+const layoutProjectors = new WeakMap<HTMLElement, RuntimeLayoutNodeProjector>();
+export function setRuntimeLayoutProjection(
+  element: HTMLElement,
+  projector: RuntimeLayoutNodeProjector | null,
+): boolean {
+  const previous = layoutProjectors.get(element);
+  if (projector === null) layoutProjectors.delete(element);
+  else layoutProjectors.set(element, projector);
+  const binding = layoutBindings.get(element);
+  if (!binding) return false;
+  if (binding.options.isPageRoot || binding.options.isReusableRoot) {
+    applyRuntimeLayout(element, binding.node, binding.parent, binding.options);
+    return true;
+  }
+  const styles = (
+    project: RuntimeLayoutNodeProjector | undefined,
+  ): Readonly<Record<string, string>> => {
+    let node = project?.(binding.node) ?? binding.node;
+    const ratio = aspectRatioOverrides.get(element);
+    if (ratio !== undefined) node = { ...node, props: { ...node.props, aspectRatio: ratio } };
+    const layout = projectRuntimeLayout(node, binding.parent);
+    return { ...layout.container, ...layout.item };
+  };
+  const before = styles(previous);
+  const after = styles(projector ?? undefined);
+  // Content updates must not reset instance-owned position or other dimensions.
+  for (const name of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (before[name] === after[name]) continue;
+    const value = after[name];
+    if (value === undefined) element.style.removeProperty(name);
+    else if (name === 'display' && element.hidden)
+      element.style.setProperty(name, 'none', 'important');
+    else element.style.setProperty(name, value, 'important');
+  }
+  return true;
+}
+
 const aspectRatioOverrides = new WeakMap<HTMLElement, 'none' | '16:9' | '9:16'>();
 const standaloneRatioStyles = new WeakMap<HTMLElement, readonly [string, string, string][]>();
 
@@ -787,9 +799,14 @@ export function setRuntimeLayoutAspectRatio(
   if (binding !== undefined) {
     const projectRatio = (value: 'none' | '16:9' | '9:16' | undefined) =>
       projectRuntimeLayout(
-        value === undefined
-          ? binding.node
-          : { ...binding.node, props: { ...binding.node.props, aspectRatio: value } },
+        layoutProjectors.get(element)?.(
+          value === undefined
+            ? binding.node
+            : { ...binding.node, props: { ...binding.node.props, aspectRatio: value } },
+        ) ??
+          (value === undefined
+            ? binding.node
+            : { ...binding.node, props: { ...binding.node.props, aspectRatio: value } }),
         binding.parent,
       ).item;
     const before = projectRatio(previousRatio);
@@ -1026,7 +1043,11 @@ export function bindRuntimeFitContent(
   options?: RuntimeFitContentMeasurementOptions,
 ): RuntimeFitContentBinding {
   const item = normalizeItem(layout);
-  if (item.width !== 'fit-content' && item.height !== 'fit-content') {
+  if (
+    item.width !== 'fit-content' &&
+    item.height !== 'fit-content' &&
+    !layoutProjectors.has(target)
+  ) {
     return { refresh: () => undefined, dispose: () => undefined };
   }
 
@@ -1034,7 +1055,11 @@ export function bindRuntimeFitContent(
   let scheduled = false;
   const refresh = (): void => {
     if (disposed) return;
-    const size = measureRuntimeFitContentSize(target, contentHost, layout, options);
+    const binding = layoutBindings.get(target);
+    const effectiveLayout = binding
+      ? (layoutProjectors.get(target)?.(binding.node) ?? binding.node).layout
+      : layout;
+    const size = measureRuntimeFitContentSize(target, contentHost, effectiveLayout, options);
     setFitContentDimension(target, 'width', size.width);
     setFitContentDimension(target, 'height', size.height);
   };
@@ -1140,7 +1165,8 @@ export function applyRuntimeLayout(
   parentContainer?: RuntimeContainerLayout,
   options: ApplyRuntimeLayoutOptions = {},
 ): RuntimeLayoutProjection {
-  layoutBindings.set(element, { node, parent: parentContainer });
+  layoutBindings.set(element, { node, parent: parentContainer, options });
+  node = layoutProjectors.get(element)?.(node) ?? node;
   standaloneRatioStyles.delete(element);
   const ratio = aspectRatioOverrides.get(element);
   const projection = projectRuntimeLayout(

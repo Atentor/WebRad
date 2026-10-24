@@ -1648,8 +1648,8 @@ describe('DesignerSurface responsive projection', () => {
 
     expect(renderedDefinition.textContent).toContain('Customer summary');
     expect(runtimeNode.style.position).toBe('absolute');
-    expect(runtimeNode.style.left).toBe('888px');
-    expect(runtimeNode.style.top).toBe('312px');
+    expect(runtimeNode.style.right).toBe('32px');
+    expect(runtimeNode.style.bottom).toBe('48px');
     expect(runtimeNode.parentElement?.className).toContain('wr-designer-floating-layer');
     expect(hitTarget.style.zIndex).toBe('10240');
 

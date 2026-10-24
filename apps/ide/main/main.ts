@@ -296,7 +296,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
         tokenClasses: tokenClasses.length,
         colors: colors.length,
         keywords: highlightedKeywords,
-        pageClass: source.includes('PageMainGenerated'),
+        pageClass: source.includes('indexGenerated'),
         eventHandler: source.includes('BTNMostrarClick'),
         inlayHintsHidden: !source.includes('message:'),
         samples: tokens.slice(0, 12),

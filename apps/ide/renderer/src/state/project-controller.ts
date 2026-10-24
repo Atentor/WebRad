@@ -161,8 +161,21 @@ export class ProjectController {
   }
 
   public load(session: ProjectSession): void {
-    const project = parseProject(session.project);
+    let project = parseProject(session.project);
     const userSources: Record<string, string> = { ...session.userSources };
+    const previousEntry = session.project.pages.find((page) => page.id === project.entryPage);
+    if (previousEntry !== undefined && previousEntry.name !== 'index') {
+      const oldKey = sourcePath(previousEntry.name);
+      const newKey = sourcePath('index');
+      const source = userSources[oldKey];
+      if (source !== undefined) {
+        userSources[newKey] = renamePageUserSource(
+          source, previousEntry.name, 'index', oldKey,
+        ).sourceText;
+        delete userSources[oldKey];
+      }
+      project = renameDebugSource(project, oldKey, newKey);
+    }
     for (const page of project.pages) {
       userSources[sourcePath(page.name)] ??= createUserPageSource(page);
     }
@@ -480,6 +493,7 @@ export class ProjectController {
   public renamePage(pageId: string, newName: string): void {
     const project = this.#requireProject();
     const oldPage = getPage(project, pageId);
+    if (oldPage.name === newName) return;
     const nextProject = renamePageInProject(project, pageId, newName);
     const oldKey = sourcePath(oldPage.name);
     const newKey = sourcePath(newName);

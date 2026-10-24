@@ -64,6 +64,7 @@ export interface WebMenuConfiguration {
   readonly collapsed: boolean;
   readonly accordion: boolean;
   readonly searchable: boolean;
+  readonly searchMode: 'filter' | 'event';
   readonly searchPlaceholder: string;
   readonly emptyText: string;
   readonly footerText: string;
@@ -77,6 +78,10 @@ export interface WebMenuConfiguration {
   readonly user: WebMenuUser;
   readonly appearance: WebMenuAppearance;
   readonly items: readonly WebMenuItem[];
+}
+
+export interface WebMenuSearchEvent {
+  readonly text: string;
 }
 
 export interface WebMenuItemEvent {
@@ -146,6 +151,7 @@ export function createDefaultWebMenuConfiguration(): WebMenuConfiguration {
     collapsed: false,
     accordion: false,
     searchable: false,
+    searchMode: 'filter',
     searchPlaceholder: 'Search menu…',
     emptyText: 'No items found',
     footerText: '',
@@ -244,6 +250,8 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
   ])
     text(value, key);
   choice(value, 'orientation', ['vertical', 'horizontal']);
+  const searchMode =
+    value.searchMode === undefined ? 'filter' : choice(value, 'searchMode', ['filter', 'event']);
   choice(value, 'drawerSide', ['left', 'right']);
   number(value, 'mobileBreakpoint', 0, 4096);
   number(value, 'drawerWidth', 180, 640);
@@ -328,7 +336,12 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
   if (value.selectedItemId !== '' && !ids.has(String(value.selectedItemId)))
     fail('selectedItemId does not exist');
   if (brand.page && brand.href) fail('choose a page or link for the brand');
-  return structuredClone(value) as unknown as WebMenuConfiguration;
+  return structuredClone({
+    ...value,
+    searchMode,
+    mobileBreakpoint: 768,
+    drawerWidth: 288,
+  }) as unknown as WebMenuConfiguration;
 }
 
 export function webMenuItemPath(

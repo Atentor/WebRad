@@ -23,10 +23,7 @@ export function MenuView({
     const element = ref.current;
     if (!element) return;
     const viewport = element.closest<HTMLElement>('[data-viewport]');
-    const host =
-      designTime && element.parentElement?.classList.contains('wr-runtime-node')
-        ? element.parentElement
-        : null;
+
     const config =
       node.props.configuration === undefined
         ? createDefaultWebMenuConfiguration()
@@ -36,17 +33,13 @@ export function MenuView({
       brand: { ...config.brand, logo: resolveProjectImageSource(config.brand.logo, assets) },
       user: { ...config.user, avatar: resolveProjectImageSource(config.user.avatar, assets) },
     };
-    const previousCollapsedWidth = host?.style.getPropertyValue(
-      '--wr-menu-designer-collapsed-width',
-    );
-    host?.style.setProperty(
-      '--wr-menu-designer-collapsed-width',
-      `${String(config.appearance.collapsedWidth)}px`,
-    );
+
     let menu: WebMenu | undefined;
     let previousWidth: number | undefined;
     const project = (): void => {
-      const width = viewport ? Number.parseFloat(viewport.style.width) : undefined;
+      const width = viewport
+        ? Number.parseFloat(viewport.dataset.viewportWidth ?? viewport.style.width)
+        : undefined;
       if (menu && previousWidth === width) return;
       menu?.dispose();
       previousWidth = width;
@@ -63,15 +56,20 @@ export function MenuView({
       designTime && viewport && typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(project)
         : undefined;
+    const attributesObserver =
+      designTime && viewport && typeof MutationObserver !== 'undefined'
+        ? new MutationObserver(project)
+        : undefined;
+    if (attributesObserver && viewport)
+      attributesObserver.observe(viewport, {
+        attributes: true,
+        attributeFilter: ['data-viewport-width'],
+      });
     if (observer && viewport) observer.observe(viewport);
     return () => {
       observer?.disconnect();
+      attributesObserver?.disconnect();
       menu?.dispose();
-      if (host) {
-        if (previousCollapsedWidth)
-          host.style.setProperty('--wr-menu-designer-collapsed-width', previousCollapsedWidth);
-        else host.style.removeProperty('--wr-menu-designer-collapsed-width');
-      }
     };
   }, [node.props.configuration, designTime, assets, node.bounds.width]);
   return <div {...attributes} ref={ref} />;

@@ -220,7 +220,7 @@ export async function runRestGoPageEventsSmoke(
     if (name === 'OnUnauthenticated') {
       // This smoke verifies persistence of a working binding; empty stubs are pruned on Save.
       // The editor DOM mounts before event navigation restores the model, caret and focus.
-      await rendererReady(window, monacoHandlerInputReadyExpression('PageMainUnauthenticated'));
+      await rendererReady(window, monacoHandlerInputReadyExpression('indexUnauthenticated'));
       window.webContents.focus();
       await window.webContents.insertText('return;');
       await rendererReady(
@@ -230,8 +230,8 @@ export async function runRestGoPageEventsSmoke(
     }
   }
   await click(window, 'button[aria-label="Save (Ctrl+S)"]');
-  const pagePath = path.join(path.dirname(projectPath), 'pages', 'PageMain.wrpage');
-  const sourcePath = path.join(path.dirname(projectPath), 'pages', 'PageMain.ts');
+  const pagePath = path.join(path.dirname(projectPath), 'pages', 'index.wrpage');
+  const sourcePath = path.join(path.dirname(projectPath), 'pages', 'index.ts');
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     const model = JSON.parse(await fs.readFile(pagePath, 'utf8')) as {
@@ -241,13 +241,13 @@ export async function runRestGoPageEventsSmoke(
     const root = model.components.find((component) => component.id === model.rootComponentId);
     const source = await fs.readFile(sourcePath, 'utf8');
     if (
-      root?.events.OnLogin === 'PageMainLogin' &&
-      root.events.OnLogout === 'PageMainLogout' &&
-      root.events.OnUnauthenticated === 'PageMainUnauthenticated' &&
+      root?.events.OnLogin === 'indexLogin' &&
+      root.events.OnLogout === 'indexLogout' &&
+      root.events.OnUnauthenticated === 'indexUnauthenticated' &&
       source.includes('CustomEvent<WebPageLoginEventDetail>') &&
       source.includes('CustomEvent<WebPageLogoutEventDetail>') &&
       source.includes(
-        'async PageMainUnauthenticated(sender: WebPage, event: Event): Promise<void>',
+        'async indexUnauthenticated(sender: WebPage, event: Event): Promise<void>',
       ) &&
       source.includes('const { user } = event.detail;')
     ) {
@@ -565,32 +565,32 @@ export async function runRestGoBrowserSmoke(
     if (!page) throw new Error('RestGO smoke requires an entry page.');
     const boundPage = bindComponentEvent(
       bindComponentEvent(
-        bindComponentEvent(page, page.rootComponentId, 'OnLogin', 'PageMainLogin'),
+        bindComponentEvent(page, page.rootComponentId, 'OnLogin', 'indexLogin'),
         page.rootComponentId,
         'OnUnauthenticated',
-        'PageMainUnauthenticated',
+        'indexUnauthenticated',
       ),
       page.rootComponentId,
       'OnLogout',
-      'PageMainLogout',
+      'indexLogout',
     );
     const project = { ...original, pages: [boundPage] };
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/PageMain.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail } from '@webrad/runtime';
+        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail } from '@webrad/runtime';
 import { createClient } from '@webrad/restgo-sdk';
-import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+import { indexGenerated } from './index.generated';
+export class index extends indexGenerated {
   private usuarioId = '';
-  public PageMainUnauthenticated(_sender: WebPage): void {
+  public indexUnauthenticated(_sender: WebPage): void {
     this.element.dataset.unauthenticatedCount = String(Number(this.element.dataset.unauthenticatedCount ?? 0) + 1);
   }
-  public PageMainLogin(_sender: WebPage, event: CustomEvent<WebPageLoginEventDetail>): void {
+  public indexLogin(_sender: WebPage, event: CustomEvent<WebPageLoginEventDetail>): void {
     this.usuarioId = event.detail.user.id;
     this.element.dataset.loginUser = this.usuarioId;
     this.element.dataset.loginCount = String(Number(this.element.dataset.loginCount ?? 0) + 1);
   }
-  public PageMainLogout(_sender: WebPage, event: CustomEvent<WebPageLogoutEventDetail>): void {
+  public indexLogout(_sender: WebPage, event: CustomEvent<WebPageLogoutEventDetail>): void {
     this.element.dataset.logoutUser = event.detail.user.id;
     this.usuarioId = '';
     this.element.dataset.currentUser = this.usuarioId;

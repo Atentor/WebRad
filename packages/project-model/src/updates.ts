@@ -470,6 +470,9 @@ export function updatePage(
     throw new ModelUpdateError('Page IDs are immutable and cannot be changed by an update.');
   }
 
+  if (current.name === '404' && updated.name !== '404') {
+    throw new ModelUpdateError('The mandatory not-found page must be named 404.');
+  }
   const parsedPage = parsePage(updated);
   return parseProject({
     ...project,
@@ -484,6 +487,9 @@ export function addPage(
 ): WebRadProject {
   const project = parseProject(projectInput);
   const page = parsePage(pageInput);
+  if (setAsEntry) {
+    throw new ModelUpdateError('The mandatory index page is the project entry page.');
+  }
   const styledPage = updateComponent(page, page.rootComponentId, (root) =>
     applyDefaultComponentStyle(root, project.styles),
   );
@@ -536,12 +542,9 @@ export function addReusableElement(
   if (root.type !== 'WebPanel') {
     throw new ModelUpdateError('A reusable component must have a WebPanel root.');
   }
-  const styledReusableElement = updateComponent(reusableElement, root.id, (current) =>
-    applyDefaultComponentStyle(current, project.styles),
-  );
   return parseProject({
     ...project,
-    reusableElements: [...project.reusableElements, styledReusableElement],
+    reusableElements: [...project.reusableElements, reusableElement],
   });
 }
 
@@ -605,6 +608,9 @@ export function renameReusableElement(
 export function removePage(projectInput: WebRadProject, pageId: string): WebRadProject {
   const project = parseProject(projectInput);
   getPage(project, pageId);
+  if (pageId === project.entryPage || getPage(project, pageId).name === '404') {
+    throw new ModelUpdateError('Mandatory pages cannot be deleted.');
+  }
   if (project.pages.length === 1) {
     throw new ModelUpdateError('A project must contain at least one page.');
   }
@@ -624,6 +630,12 @@ export function renamePage(
   assertValidPageName(name);
   const project = parseProject(projectInput);
   const page = getPage(project, pageId);
+  if (page.name === '404' && name !== '404') {
+    throw new ModelUpdateError('The mandatory not-found page must be named 404.');
+  }
+  if (pageId === project.entryPage && name !== 'index') {
+    throw new ModelUpdateError('The mandatory entry page must be named index.');
+  }
   const nameKey = portableFileNameKey(name);
   if (page.name !== name && portableFileNameKey(page.name) === nameKey) {
     throw new ModelUpdateError('A page rename must differ by more than case or normalization.');
@@ -645,7 +657,10 @@ export function renamePage(
 export function setEntryPage(projectInput: WebRadProject, pageId: string): WebRadProject {
   const project = parseProject(projectInput);
   getPage(project, pageId);
-  return parseProject({ ...project, entryPage: pageId });
+  if (pageId !== project.entryPage) {
+    throw new ModelUpdateError('The mandatory index page is the project entry page.');
+  }
+  return project;
 }
 
 export function updateProjectSettings(

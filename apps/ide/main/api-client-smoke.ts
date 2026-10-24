@@ -463,7 +463,7 @@ export async function runApiClientDesignerSmoke(
     await clickText(window, 'Save API Client');
     await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
     await click(window, 'button[aria-label="Save (Ctrl+S)"]');
-    const emptyPagePath = path.join(path.dirname(projectPath), 'pages', 'PageMain.wrpage');
+    const emptyPagePath = path.join(path.dirname(projectPath), 'pages', 'index.wrpage');
     const emptyDeadline = Date.now() + 10_000;
     let emptyPersisted = false;
     while (Date.now() < emptyDeadline) {
@@ -597,7 +597,7 @@ export async function runApiClientDesignerSmoke(
     await clickText(window, 'Save API Client');
     await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
     await click(window, 'button[aria-label="Save (Ctrl+S)"]');
-    const pagePath = path.join(path.dirname(projectPath), 'pages', 'PageMain.wrpage');
+    const pagePath = path.join(path.dirname(projectPath), 'pages', 'index.wrpage');
     const deadline = Date.now() + 10_000;
     let persisted = false;
     while (Date.now() < deadline) {
@@ -947,9 +947,9 @@ export async function runApiClientBrowserSmoke(log: (message: string) => void): 
     };
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/PageMain.ts': `import type { WebApiClient } from '@webrad/runtime';
-import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+        'pages/index.ts': `import type { WebApiClient } from '@webrad/runtime';
+import { indexGenerated } from './index.generated';
+export class index extends indexGenerated {
   public constructor(element: HTMLElement) {
     super(element);
     (globalThis as unknown as { apiSmoke: WebApiClient }).apiSmoke = this.ApiSmoke;

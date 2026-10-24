@@ -33,7 +33,7 @@ import { LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
 import { Icon } from './Icon';
 import { IconPickerDialog } from './IconPickerDialog';
 
-type Section = 'Items' | 'Brand & user' | 'Appearance' | 'Behavior & mobile';
+type Section = 'Items' | 'Brand & user' | 'Appearance' | 'Behavior & layout';
 
 function Field({
   label,
@@ -257,7 +257,7 @@ export function MenuConfigurationDialog({
           <div className="wr-menu-editor-body">
             <div className="wr-menu-editor-main">
               <nav className="wr-menu-editor-tabs" aria-label="Menu configuration sections">
-                {(['Items', 'Brand & user', 'Appearance', 'Behavior & mobile'] as const).map(
+                {(['Items', 'Brand & user', 'Appearance', 'Behavior & layout'] as const).map(
                   (tab) => (
                     <button
                       type="button"
@@ -641,7 +641,7 @@ export function MenuConfigurationDialog({
                     </p>
                   </div>
                 )}
-                {section === 'Behavior & mobile' && (
+                {section === 'Behavior & layout' && (
                   <div className="wr-menu-editor-fields">
                     <Field label="Desktop orientation">
                       <select
@@ -678,12 +678,31 @@ export function MenuConfigurationDialog({
                             collapsed: 'Initially collapsed',
                             accordion: 'One expanded submenu per level',
                             searchable: 'Show menu search',
-                            closeOnSelect: 'Close mobile drawer after selection',
+                            closeOnSelect: 'Close navigation after selection',
                           }[key]
                         }
                       </label>
                     ))}
                     {textField('accessibleLabel', 'Accessible navigation label')}
+                    <Field label="Search behavior">
+                      <select
+                        value={draft.searchMode}
+                        disabled={!draft.searchable}
+                        onChange={(event) =>
+                          set(
+                            'searchMode',
+                            event.currentTarget.value as WebMenuConfiguration['searchMode'],
+                          )
+                        }
+                      >
+                        <option value="filter">Filter menu items</option>
+                        <option value="event">Only trigger OnSearch</option>
+                      </select>
+                    </Field>
+                    <p className="wr-modal-description">
+                      Filter menu items locally, or keep navigation unchanged and handle the typed
+                      text through Interaction &gt; OnSearch.
+                    </p>
                     {textField('searchPlaceholder', 'Search placeholder')}
                     {textField('emptyText', 'Empty search text')}
                     {textField('footerText', 'Footer text')}
@@ -702,41 +721,10 @@ export function MenuConfigurationDialog({
                           ))}
                       </select>
                     </Field>
-                    <Field label="Mobile breakpoint (px)">
-                      <input
-                        type="number"
-                        min={0}
-                        max={4096}
-                        value={draft.mobileBreakpoint}
-                        onChange={(event) =>
-                          set('mobileBreakpoint', Number(event.currentTarget.value))
-                        }
-                      />
-                    </Field>
-                    <Field label="Drawer width (px)">
-                      <input
-                        type="number"
-                        min={180}
-                        max={640}
-                        value={draft.drawerWidth}
-                        onChange={(event) => set('drawerWidth', Number(event.currentTarget.value))}
-                      />
-                    </Field>
-                    <Field label="Drawer side">
-                      <select
-                        value={draft.drawerSide}
-                        onChange={(event) =>
-                          set('drawerSide', event.currentTarget.value as 'left' | 'right')
-                        }
-                      >
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
-                      </select>
-                    </Field>
+
                     <p className="wr-modal-description">
-                      The mobile breakpoint uses the browser viewport. Set 0 to keep the desktop
-                      layout. The mobile drawer supports Escape, backdrop dismissal and keyboard
-                      focus containment.
+                      WebRAD manages floating placement and mobile adaptation automatically. Choose
+                      the menu sides and size limits in the Inspector.
                     </p>
                   </div>
                 )}

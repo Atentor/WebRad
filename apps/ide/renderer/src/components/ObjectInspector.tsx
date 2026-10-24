@@ -1,3 +1,4 @@
+import { resolveInspectorLayoutProperty } from '@webrad/component-registry';
 import {
   defaultComponentRegistry,
   CURRENT_ROW_BINDINGS_PROPERTY,
@@ -113,6 +114,8 @@ function definitionsForSelection(
   selection: readonly ComponentNode[],
   explicitDefinition: ComponentDefinition | undefined,
   registry: ComponentRegistry,
+  page?: PageModel | null,
+  reusableElements?: readonly ReusableElementModel[],
 ): readonly ComponentDefinition[] | null {
   const definitions: ComponentDefinition[] = [];
   selection.forEach((component, index) => {
@@ -120,7 +123,15 @@ function definitionsForSelection(
       index === 0 && explicitDefinition?.type === component.type
         ? explicitDefinition
         : registry.get(component.type);
-    if (definition !== undefined) definitions.push(definition);
+    if (definition !== undefined)
+      definitions.push({
+        ...definition,
+        properties:
+          definition.inspectorProperties?.(definition.properties, component, {
+            document: page ?? undefined,
+            reusableElements,
+          }) ?? definition.properties,
+      });
   });
   return definitions.length === selection.length ? definitions : null;
 }
@@ -128,6 +139,7 @@ function definitionsForSelection(
 function commonProperties(
   definitions: readonly ComponentDefinition[],
   selection: readonly ComponentNode[],
+  page?: PageModel | null,
 ): readonly ComponentPropertyDefinition[] {
   const first = definitions[0];
   if (first === undefined) return [];
@@ -139,17 +151,29 @@ function commonProperties(
           definition.properties.some((candidate) => compatibleProperty(property, candidate)),
         ),
     )
-    .map((property) => ({
-      ...property,
-      readOnly: definitions.some((definition, index) => {
-        const candidate = definition.properties.find((item) => compatibleProperty(property, item));
-        const component = selection[index];
-        return (
-          candidate?.readOnly === true ||
-          (component !== undefined && candidate?.readOnlyWhen?.(component.props) === true)
-        );
-      }),
-    }));
+    .map((property) => {
+      const resolved = selection.map((component) =>
+        resolveInspectorLayoutProperty(
+          property,
+          component,
+          page?.components.find((node) => node.id === component.parentId)?.layout.container.mode,
+        ),
+      );
+      return {
+        ...(resolved[0] ?? property),
+        readOnly: definitions.some((definition, index) => {
+          const candidate = definition.properties.find((item) =>
+            compatibleProperty(property, item),
+          );
+          const component = selection[index];
+          return (
+            resolved[index]?.readOnly === true ||
+            candidate?.readOnly === true ||
+            (component !== undefined && candidate?.readOnlyWhen?.(component.props) === true)
+          );
+        }),
+      };
+    });
 }
 
 function commonEvents(
@@ -196,11 +220,20 @@ function readPropertyValue(
       break;
     case 'layout-container':
     case 'layout-item': {
-      const reference = responsiveLayoutPropertyReference(property);
+      const reference = responsiveLayoutPropertyReference(
+        resolveInspectorLayoutProperty(
+          property,
+          component,
+          page?.components.find((node) => node.id === component.parentId)?.layout.container.mode,
+        ),
+      );
       value =
         reference === undefined
           ? undefined
-          : reflectValue(component.layout[reference.target], reference.field);
+          : reflectValue(
+              reference.target === 'bounds' ? component.bounds : component.layout[reference.target],
+              reference.field,
+            );
       break;
     }
     case 'page':
@@ -791,15 +824,22 @@ export function ObjectInspector({
     [definition, page, selection],
   );
   const definitions = useMemo(
-    () => definitionsForSelection(inspectedSelection, definition, registry),
-    [definition, inspectedSelection, registry],
+    () =>
+      definitionsForSelection(
+        inspectedSelection,
+        definition,
+        registry,
+        page,
+        availableReusableElements,
+      ),
+    [definition, inspectedSelection, registry, page, availableReusableElements],
   );
   const componentChoices = availableComponents ?? page?.components ?? inspectedSelection;
   const propertyCategories = useMemo(() => {
     const properties =
       definitions === null
         ? []
-        : commonProperties(definitions, inspectedSelection).filter(
+        : commonProperties(definitions, inspectedSelection, page).filter(
             (property) => property.name !== CURRENT_ROW_BINDINGS_PROPERTY.name,
           );
     const component = inspectedSelection.length === 1 ? inspectedSelection[0] : undefined;
@@ -813,7 +853,7 @@ export function ObjectInspector({
       rowBindingsAvailable ? [...properties, CURRENT_ROW_BINDINGS_PROPERTY] : properties,
       searchQuery,
     );
-  }, [definitions, inspectedSelection, componentChoices, registry, searchQuery]);
+  }, [definitions, inspectedSelection, componentChoices, registry, searchQuery, page]);
   const eventCategories = useMemo(
     () => groupByCategory(definitions === null ? [] : commonEvents(definitions)),
     [definitions],

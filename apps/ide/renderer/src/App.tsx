@@ -1,3 +1,4 @@
+import { menuInspectorTarget } from '@webrad/component-registry';
 import { useUpdates } from './use-updates';
 import { UpdateInstallingDialog } from './components/UpdateIndicator';
 import { ProjectAssetPreview } from './components/ProjectAssetPreview';
@@ -34,6 +35,7 @@ import {
   type ComponentPropertyDefinition,
 } from '@webrad/component-registry';
 import {
+  pageClassName,
   applyDefaultComponentStyle,
   projectSourceFilePath,
   portableFileNameKey,
@@ -325,9 +327,16 @@ export function App(): ReactElement {
       null
     );
   }, [activePage, dataGridConfiguratorComponentId]);
+  const menuConfiguratorDocument = [
+    ...(activePage ? [activePage] : []),
+    ...(project?.reusableElements ?? []),
+  ].find((document) =>
+    document.components.some((component) => component.id === menuConfiguratorComponentId),
+  );
   const menuConfiguratorComponent =
-    activePage?.components.find((component) => component.id === menuConfiguratorComponentId) ??
-    null;
+    menuConfiguratorDocument?.components.find(
+      (component) => component.id === menuConfiguratorComponentId,
+    ) ?? null;
   const comboBoxConfiguratorComponent = useMemo(
     () =>
       activePage?.components.find(
@@ -630,11 +639,7 @@ export function App(): ReactElement {
           ...node,
           layout: {
             ...node.layout,
-            item: {
-              ...node.layout.item,
-              width: reusableRoot.layout.item.width,
-              height: reusableRoot.layout.item.height,
-            },
+            item: { ...reusableRoot.layout.item },
           },
         };
         commitDesignerCommand(new AddComponentCommand(placement, { parentId: requestedParentId }));
@@ -952,13 +957,13 @@ export function App(): ReactElement {
           .get(component.type)
           ?.events.find((candidate) => candidate.name === eventName);
         const handlerName =
-          component.events[eventName] ?? eventHandlerName(component.name, eventName);
+          component.events[eventName] ?? eventHandlerName(pageClassName(component.name), eventName);
         const key = sourceKey(activePage, activeDocumentKind);
         const currentSource =
           projectState.userSources[key] ?? createUserSource(activePage, activeDocumentKind);
         const edit = ensureEventHandler(currentSource, {
-          className: activePage.name,
-          componentName: component.name,
+          className: pageClassName(activePage.name),
+          componentName: pageClassName(component.name),
           componentType: component.type,
           eventName,
           eventType: eventDefinition?.eventType,
@@ -1016,7 +1021,12 @@ export function App(): ReactElement {
       if (action === 'api-client-tester') {
         setApiClientTesterComponentId(component.id);
       } else if (action === 'menu-configurator') {
-        setMenuConfiguratorComponentId(component.id);
+        setMenuConfiguratorComponentId(
+          menuInspectorTarget(component, {
+            document: activePage ?? undefined,
+            reusableElements: project?.reusableElements,
+          })?.id ?? component.id,
+        );
       } else if (action === 'data-grid-configurator') {
         setDataGridConfiguratorComponentId(component.id);
       } else if (action === 'repeating-group-configurator') {
@@ -1033,7 +1043,7 @@ export function App(): ReactElement {
         setComboBoxConfiguratorComponentId(component.id);
       }
     },
-    [selectionManager],
+    [selectionManager, activePage, project?.reusableElements],
   );
 
   const activateComponent = useCallback(
@@ -1271,16 +1281,27 @@ export function App(): ReactElement {
     (configuration: WebMenuConfiguration): void => {
       if (!activePage || !menuConfiguratorComponent) return;
       try {
-        const next = designerController.executeMany(activePage, 'Configure Menu', [
-          new ChangePropertyCommand(menuConfiguratorComponent.id, 'configuration', configuration),
-        ]);
-        updateActivePage(next);
+        const next = designerController.executeMany(
+          menuConfiguratorDocument ?? activePage,
+          'Configure Menu',
+          [new ChangePropertyCommand(menuConfiguratorComponent.id, 'configuration', configuration)],
+        );
+        if (next.id === activePage.id) updateActivePage(next);
+        else projectController.updateReusableElement(next.id, () => next);
         setMenuConfiguratorComponentId(null);
       } catch (error) {
         reportError(error, 'DESIGNER');
       }
     },
-    [activePage, menuConfiguratorComponent, designerController, updateActivePage, reportError],
+    [
+      activePage,
+      menuConfiguratorComponent,
+      designerController,
+      updateActivePage,
+      reportError,
+      menuConfiguratorDocument,
+      projectController,
+    ],
   );
 
   const saveProjectSettings = useCallback(
@@ -1474,7 +1495,9 @@ export function App(): ReactElement {
         const document = {
           ...created,
           components: created.components.map((node) =>
-            applyDefaultComponentStyle(node, project.styles),
+            kind === 'reusable' && node.id === created.rootComponentId
+              ? node
+              : applyDefaultComponentStyle(node, project.styles),
           ),
         };
         if (kind === 'page') projectController.addPage(document);

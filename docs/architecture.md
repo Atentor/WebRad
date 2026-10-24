@@ -141,7 +141,7 @@ Every physical reusable placement receives its own authored class instance after
 
 The compiler registers every project page, its runtime visual model, and its authored class in one browser-side `WebPageRouter`. An event handler navigates inside the application with `Navigate('PageName')` or the stable page ID. When the destination exactly matches a registered project page, the generated bootstrap swaps the mounted page without reloading the browser: it emits `OnHide`, removes the previous page and its floating layer, disposes generated bindings, mounts the target, and invokes its normal `OnCreate`/`OnShow` lifecycle. Page-local runtime state is therefore recreated on each route activation.
 
-The canonical internal URL is a static-host-safe hash such as `#/PageDetails`. Direct links and browser back/forward events resolve through the same router, with an empty or unknown hash falling back to the project entry page. Destinations that do not match a project page retain `Navigate`'s browser behavior, including external URLs and explicit new-window targets.
+The canonical internal URL uses History routing over HTTP/HTTPS, with Hash routing available for static hosts and file delivery. Direct links and browser back/forward events resolve through the same router: an empty initial URL opens the mandatory `index` page, while an unmatched URL redirects to the mandatory `404` page at `/404` (or `#/404` in Hash mode). Destinations that do not match a project page retain `Navigate`'s browser behavior, including external URLs and explicit new-window targets.
 
 ## IDE themes
 

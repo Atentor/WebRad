@@ -1,5 +1,26 @@
 # Component model
 
+Menus use a Registry-declared automatic layout policy and a reduced Inspector.
+Their standalone and single-Menu reusable placements are always floating, docked
+to the chosen horizontal/vertical sides, with configurable size constraints.
+Generic responsiveness, coordinates, insets and drag gestures are unavailable
+for these instances. Canonical model loading and browser/Designer projections
+enforce the same policy. Horizontal submenus use native top-layer popovers.
+See [Menu](menu.md) for the supported controls and runtime API.
+
+The Inspector resolves layout offsets through the registry's shared
+`resolveInspectorLayoutProperty` metadata. A contextual `layoutCoordinate`
+alias reads and edits the active bounds coordinate for fixed and floating
+edges, preserving one position source for rendering, gestures and undo/redo.
+Unused anchors and offsets are read-only; root position belongs to each
+placement. New reusable placements copy the complete root item layout,
+including constraints, anchors and offsets.
+
+New reusable definitions start with **Style = None** on their root Panel. Adding
+or selecting the definition does not automatically bind Default Panel. Child
+controls receive their normal default styles, and users can explicitly choose a
+root style in the Inspector.
+
 `WebMenu` is a registered visual navigation component with a transactional
 tree/appearance/profile/mobile editor and a typed browser runtime. Its saved
 `configuration` is shared by Designer, Preview and export. Reusable project

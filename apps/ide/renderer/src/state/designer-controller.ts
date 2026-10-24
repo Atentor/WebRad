@@ -1,3 +1,4 @@
+import { resolveInspectorLayoutProperty } from '@webrad/component-registry';
 import {
   ChangeLayoutPropertyCommand,
   ChangePropertyCommand,
@@ -270,12 +271,26 @@ export class DesignerController {
       );
     }
     if (property.source === 'layout-container' || property.source === 'layout-item') {
-      const reference = responsiveLayoutPropertyReference(property);
-      if (reference === undefined) return page;
-      return this.execute(
-        page,
-        new ChangeLayoutPropertyCommand(ids, reference.target, reference.field, value),
-      );
+      const changes = selected.flatMap((component): Command<PageModel>[] => {
+        const resolved = resolveInspectorLayoutProperty(
+          property,
+          component,
+          page.components.find((node) => node.id === component.parentId)?.layout.container.mode,
+        );
+        if (resolved.readOnly) return [];
+        const reference = responsiveLayoutPropertyReference(resolved);
+        if (!reference) return [];
+        if (reference.target === 'bounds') {
+          if (typeof value !== 'number' || !Number.isFinite(value)) return [];
+          return [
+            new ResizeCommand(component.id, { ...component.bounds, [reference.field]: value }),
+          ];
+        }
+        return [
+          new ChangeLayoutPropertyCommand([component.id], reference.target, reference.field, value),
+        ];
+      });
+      return this.executeMany(page, `Change ${property.label ?? property.name}`, changes);
     }
     return this.execute(page, new ChangePropertyCommand(ids, property.name, value));
   }

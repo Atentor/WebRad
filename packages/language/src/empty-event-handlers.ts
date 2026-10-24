@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import type { PageModel, WebRadProject } from '@webrad/project-model';
+import { pageClassName, type PageModel, type WebRadProject } from '@webrad/project-model';
 
 /** Remove only bound, ordinary instance methods whose bodies contain whitespace alone. */
 export function pruneEmptyEventHandlers(
@@ -19,7 +19,7 @@ export function pruneEmptyEventHandlers(
     const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     const declaration = file.statements.find(
       (node): node is ts.ClassDeclaration =>
-        ts.isClassDeclaration(node) && node.name?.text === document.name,
+        ts.isClassDeclaration(node) && node.name?.text === pageClassName(document.name),
     );
     if (!declaration) return document;
     const removals = declaration.members.filter(

@@ -124,12 +124,31 @@ export async function assertPreviewTitle(
         actualTitle = Reflect.get(evidence, 'title');
         if (actualTitle === title && Reflect.get(evidence, 'mounted') === true) {
           const routeEvidence: unknown = await frame.executeJavaScript(
-            `(() => { Navigate('PageMain', { replace: true }); return { hash: location.hash, path: location.pathname }; })()`,
+            `(async () => {
+              Navigate('index', { replace: true });
+              const missing = new URL(location.href);
+              missing.pathname = missing.pathname.replace(/index$/, 'missing-smoke-page');
+              const directResponse = await fetch(missing, { headers: { Accept: 'text/html' } });
+              const directFallback = directResponse.ok &&
+                (await directResponse.text()).includes('webrad-route-paths');
+              history.pushState(null, '', missing);
+              dispatchEvent(new PopStateEvent('popstate'));
+              const notFound = location.pathname.endsWith('/404') &&
+                document.querySelector('[data-webrad-route-path="/404"]') !== null;
+              Navigate(new URL('missing-smoke-page', document.baseURI), { replace: true });
+              const internalNotFound = location.pathname.endsWith('/404') &&
+                document.querySelector('[data-webrad-route-path="/404"]') !== null;
+              Navigate('index', { replace: true });
+              return { hash: location.hash, path: location.pathname, notFound, internalNotFound, directFallback };
+            })()`,
             true,
           );
           if (
             typeof routeEvidence !== 'object' ||
             routeEvidence === null ||
+            Reflect.get(routeEvidence, 'directFallback') !== true ||
+            Reflect.get(routeEvidence, 'notFound') !== true ||
+            Reflect.get(routeEvidence, 'internalNotFound') !== true ||
             Reflect.get(routeEvidence, 'hash') !== '' ||
             !String(Reflect.get(routeEvidence, 'path')).endsWith('/index')
           )
@@ -151,8 +170,8 @@ export async function runPageTitleSmoke(
   { projectPath, log }: PageTitleSmokeOptions,
 ): Promise<void> {
   const original = await loadProjectFiles(projectPath);
-  const page = original.project.pages.find((candidate) => candidate.name === 'PageMain');
-  if (page === undefined) throw new Error('Page title smoke requires the PageMain fixture.');
+  const page = original.project.pages.find((candidate) => candidate.name === 'index');
+  if (page === undefined) throw new Error('Page title smoke requires the index fixture.');
   const pageId = page.id;
   const rootComponentId = page.rootComponentId;
   const originalSelection: unknown = await window.webContents.executeJavaScript(
@@ -184,6 +203,15 @@ export async function runPageTitleSmoke(
 
   const customTitle = 'WebRAD browser title <Smoke> & "preview"';
   await openPageInspector();
+  await ready(window, `(() => {
+    const labels = [...document.querySelectorAll('.wr-object-inspector label')];
+    const name = labels.find((label) => label.textContent?.trim() === 'Name')?.control;
+    const remove = document.querySelector('button[aria-label="Delete selected project item"]');
+    return !labels.some((label) => label.textContent?.trim() === 'Route path')
+      && name instanceof HTMLInputElement && name.value === 'index' && name.readOnly
+      && remove instanceof HTMLButtonElement && remove.disabled;
+  })()`);
+  log('renderer mandatory index page passed: fixed name, hidden Route path, deletion disabled');
   await ready(window, `${browserTitleField}?.value === ''`);
   await setBrowserTitle(window, customTitle);
   await assertSavedTitle(customTitle);
@@ -195,6 +223,30 @@ export async function runPageTitleSmoke(
   await assertSavedTitle('');
   await assertPreviewTitle(window, original.project.settings.applicationName, page.rootComponentId);
   await openPageInspector();
+  const notFoundPage = original.project.pages.find((candidate) => candidate.name === '404');
+  if (notFoundPage === undefined) throw new Error('The project has no mandatory 404 page.');
+  await window.webContents.executeJavaScript(`(() => {
+    const row = [...document.querySelectorAll('.wr-project-tree .wr-page-row')]
+      .find((row) => row.querySelector('span')?.textContent === '404');
+    if (!(row instanceof HTMLElement)) throw new Error('404 is missing from Project Explorer.');
+    row.click();
+  })()`, true);
+  await click(window, `[role="treeitem"][data-component-id=${JSON.stringify(notFoundPage.rootComponentId)}]`);
+  await click(window, 'button[role="tab"][aria-label="Properties"]');
+  await ready(window, `(() => {
+    const labels = [...document.querySelectorAll('.wr-object-inspector label')];
+    const name = labels.find((label) => label.textContent?.trim() === 'Name')?.control;
+    const remove = document.querySelector('button[aria-label="Delete selected project item"]');
+    return !labels.some((label) => label.textContent?.trim() === 'Route path')
+      && name instanceof HTMLInputElement && name.value === '404' && name.readOnly
+      && remove instanceof HTMLButtonElement && remove.disabled;
+  })()`);
+  await window.webContents.executeJavaScript(`(() => {
+    const row = [...document.querySelectorAll('.wr-project-tree .wr-page-row')]
+      .find((row) => row.querySelector('span')?.textContent === 'index');
+    row?.click();
+  })()`, true);
+  log('renderer mandatory 404 page passed: protected identity, direct URL fallback, unknown history and Navigate redirected to /404');
   if (typeof originalSelection === 'string')
     await click(
       window,

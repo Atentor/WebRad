@@ -46,8 +46,8 @@ export function popupSmokeProject() {
 }
 
 export const popupSmokeSources = {
-  'pages/PageMain.ts': `import { PageMainGenerated } from './PageMain.generated';
-export class PageMain extends PageMainGenerated {
+  'pages/index.ts': `import { indexGenerated } from './index.generated';
+export class index extends indexGenerated {
   private popupOpens = 0;
   private get opened(): number { return popupOpens; }
   private showPopup(): void {

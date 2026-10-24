@@ -3,7 +3,7 @@ import shakaSources from './shaka-sources.generated.json';
 import path from 'node:path';
 
 import type { ComponentRegistry } from '@webrad/component-registry';
-import type { PageModel, WebRadProject } from '@webrad/project-model';
+import { pageClassName, type PageModel, type WebRadProject } from '@webrad/project-model';
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   createUserPageSource,
@@ -168,7 +168,7 @@ function createEntrySource(
   const entryPage = project.pages.find((page) => page.id === project.entryPage);
   if (entryPage === undefined) throw new Error('The validated project has no entry page.');
   const pageImports = project.pages
-    .map((page) => `import { ${page.name} } from './pages/${page.name}';`)
+    .map((page, index) => `import { ${pageClassName(page.name)} as WebRadPage${String(index)} } from './pages/${page.name}';`)
     .join('\n');
   const reusableImports = project.reusableElements
     .map(
@@ -183,16 +183,16 @@ function createEntrySource(
     )
     .join('\n');
   const routes = project.pages
-    .map((page) => {
+    .map((page, index) => {
       const model = JSON.stringify(
         runtimePageModel(page, project.styles, registry, project.reusableElements),
       );
       return `  {
     id: ${JSON.stringify(page.id)},
     name: ${JSON.stringify(page.name)},
-    path: ${JSON.stringify(page.components.find((node) => node.id === page.rootComponentId)?.props.routePath || (page.id === project.entryPage ? '/index' : `/${page.name.toLowerCase()}`))},
+    path: ${JSON.stringify(page.id === project.entryPage ? '/index' : (page.components.find((node) => node.id === page.rootComponentId)?.props.routePath || `/${page.name.toLowerCase()}`))},
     model: ${model} as unknown as RuntimePageModel,
-    createPage: (element: HTMLElement) => new ${page.name}(element),
+    createPage: (element: HTMLElement) => new WebRadPage${String(index)}(element),
     createReusableElements,
   }`;
     })
@@ -293,7 +293,7 @@ export function createVirtualSourceGraph(
     const configured = page.components.find((node) => node.id === page.rootComponentId)?.props
       .routePath;
     const routePath =
-      configured || (page.id === project.entryPage ? '/index' : '/' + page.name.toLowerCase());
+      page.id === project.entryPage ? '/index' : configured || '/' + page.name.toLowerCase();
     if (
       typeof routePath !== 'string' ||
       !/^\/(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?$/.test(routePath) ||

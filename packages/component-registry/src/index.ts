@@ -1,3 +1,5 @@
+export * from './menu-properties.js';
+export * from './layout-inspector.js';
 export * from './errors.js';
 export * from './registry.js';
 export * from './mvp-components.js';

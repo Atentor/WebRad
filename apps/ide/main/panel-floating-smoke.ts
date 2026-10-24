@@ -40,7 +40,7 @@ export async function runPanelFloatingSmoke(
   };
   await click('button[aria-label="Design"]');
   const before = await loadProjectFiles(projectPath);
-  const page = before.project.pages.find((p) => p.name === 'PageMain');
+  const page = before.project.pages.find((p) => p.name === 'index');
   if (!page) throw new Error('Missing Panel smoke page');
   await click(`[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`);
   const palette = 'button[title="Select Panel; drag or double-click to insert"]';
@@ -92,6 +92,31 @@ export async function runPanelFloatingSmoke(
     })()`,
     );
   }
+  for (const [label, value] of [
+    ['Floating horizontal anchor', 'right'],
+    ['Floating vertical anchor', 'bottom'],
+    ['Right inset', '24'],
+    ['Bottom inset', '32'],
+    ['Responsive height', 'stretch'],
+    ['Top inset', '16'],
+  ] as const) {
+    await execute(
+      `(() => { const e=${field(label)}; if (!(e instanceof HTMLInputElement || e instanceof HTMLSelectElement) || e.disabled || e.readOnly) throw new Error('Inactive Inspector field: ${label}'); const type=e instanceof HTMLSelectElement ? HTMLSelectElement : HTMLInputElement; Object.getOwnPropertyDescriptor(type.prototype,'value').set.call(e,${JSON.stringify(value)}); e.dispatchEvent(new Event(e instanceof HTMLSelectElement ? 'change' : 'input',{bubbles:true})); })()`,
+    );
+    await ready(window, `${field(label)}?.value === ${JSON.stringify(value)}`);
+  }
+  await ready(
+    window,
+    `(() => {
+ const panel=document.querySelector('[data-designer-node-id="${id}"]');
+ const hit=document.querySelector('.wr-design-hit[data-component-id="${id}"]');
+ const surface=document.querySelector('.wr-page-surface');
+ if (!panel || !hit || !surface) return false;
+ const b=panel.getBoundingClientRect(), h=hit.getBoundingClientRect(), p=surface.getBoundingClientRect();
+ const scale=p.width/surface.clientWidth, near=(a,b)=>Math.abs(a-b)<2;
+ return near(p.right-b.right,24*scale) && near(b.top-p.top,16*scale) && near(p.bottom-b.bottom,32*scale) && ['left','top','width','height'].every(k=>near(b[k],h[k])) && ${field('Left inset')}?.readOnly === true;
+ })()`,
+  );
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(
     window,
@@ -100,7 +125,11 @@ export async function runPanelFloatingSmoke(
   const saved = await loadProjectFiles(projectPath);
   if (
     saved.project.pages.find((p) => p.id === page.id)?.components.find((c) => c.id === id)?.props
-      .placement !== 'floating'
+      .placement !== 'floating' ||
+    saved.project.pages.find((p) => p.id === page.id)?.components.find((c) => c.id === id)?.bounds
+      .x !== 24 ||
+    saved.project.pages.find((p) => p.id === page.id)?.components.find((c) => c.id === id)?.bounds
+      .y !== 32
   )
     throw new Error('Panel floating placement was not saved');
   const previous: unknown = await execute(
@@ -167,6 +196,6 @@ export async function runPanelFloatingSmoke(
     `document.querySelector('.wr-toolbar-save-state')?.textContent.trim() === 'Saved'`,
   );
   log(
-    `renderer Panel floating Inspector and F9 passed: top/bottom/left/right/client/none Inspector alignment; ${JSON.stringify(evidence)}`,
+    `renderer Panel floating Inspector and F9 passed: top/bottom/left/right/client/none Inspector alignment, active inset coordinates, Stretch height and measured selection; ${JSON.stringify(evidence)}`,
   );
 }

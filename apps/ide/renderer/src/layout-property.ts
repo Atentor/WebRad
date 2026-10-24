@@ -3,7 +3,7 @@ import type { ComponentPropertyDefinition } from '@webrad/component-registry';
 export type ResponsiveLayoutPropertyTarget = 'container' | 'item';
 
 interface ResponsiveLayoutPropertyReference {
-  readonly target: ResponsiveLayoutPropertyTarget;
+  readonly target: ResponsiveLayoutPropertyTarget | 'bounds';
   readonly field: string;
 }
 
@@ -11,6 +11,8 @@ interface ResponsiveLayoutPropertyReference {
 export function responsiveLayoutPropertyReference(
   property: ComponentPropertyDefinition,
 ): ResponsiveLayoutPropertyReference | undefined {
+  if (property.layoutCoordinate !== undefined)
+    return { target: 'bounds', field: property.layoutCoordinate };
   const source = property.source;
   const prefix =
     source === 'layout-container' ? 'container' : source === 'layout-item' ? 'item' : '';

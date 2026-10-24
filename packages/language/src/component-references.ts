@@ -1,10 +1,11 @@
 import type ts from 'typescript';
-import type { PageModel } from '@webrad/project-model';
+import { pageClassName, type PageModel } from '@webrad/project-model';
 import { repeatingGroupForComponent } from './repeating-context.js';
 
 export interface ComponentReferenceScope {
   readonly className: string;
   readonly generatedClassName: string;
+  readonly generatedModulePath?: string;
   readonly reusable?: boolean;
   readonly componentNames: readonly string[];
   readonly repeatingHandlers?: Readonly<
@@ -148,8 +149,9 @@ export function componentReferenceScope(document: PageModel): ComponentReference
     }
   }
   return {
-    className: document.name,
-    generatedClassName: `${document.name}Generated`,
+    ...(document.name === '404' ? { generatedModulePath: './404.generated' } : {}),
+    className: pageClassName(document.name),
+    generatedClassName: `${pageClassName(document.name)}Generated`,
     ...(document.components.find((component) => component.id === document.rootComponentId)?.type ===
     'WebPage'
       ? {}
@@ -178,6 +180,7 @@ export function readComponentReferenceScope(
       typeof value.className !== 'string' ||
       !('generatedClassName' in value) ||
       typeof value.generatedClassName !== 'string' ||
+      ('generatedModulePath' in value && typeof value.generatedModulePath !== 'string') ||
       !('componentNames' in value) ||
       !Array.isArray(value.componentNames) ||
       !value.componentNames.every((name: unknown) => typeof name === 'string')
@@ -237,7 +240,7 @@ export function appendComponentReferenceDeclarations(
     api.forEachChild(node, collect);
   };
   for (const statement of sourceFile.statements) collect(statement);
-  const moduleName = JSON.stringify(`./${scope.className}.generated`);
+  const moduleName = JSON.stringify(scope.generatedModulePath ?? `./${scope.className}.generated`);
   const declarations = scope.componentNames
     .filter((name) => !declared.has(name))
     .map(
@@ -553,7 +556,7 @@ export function analyzeComponentReferences(
           });
           return undefined;
         }
-        const argumentType = `import(${JSON.stringify(`./${scope.className}.generated`)}).${row.currentRowType}`;
+        const argumentType = `import(${JSON.stringify(scope.generatedModulePath ?? `./${scope.className}.generated`)}).${row.currentRowType}`;
         if (isParameterInitializer(api, node, handler))
           return { ...row, receiver: `(${argument} as ${argumentType})` };
         let receiver = capturedRows.get(handler);
@@ -592,7 +595,7 @@ export function analyzeComponentReferences(
         edits.push({
           start: node.getStart(sourceFile),
           end: node.end,
-          text: `${row.receiver}.component<import(${JSON.stringify(`./${scope.className}.generated`)}).${scope.generatedClassName}[${JSON.stringify(node.name.text)}]>(${scope.reusable ? `this.componentId(${JSON.stringify(componentId)})` : JSON.stringify(componentId)})`,
+          text: `${row.receiver}.component<import(${JSON.stringify(scope.generatedModulePath ?? `./${scope.className}.generated`)}).${scope.generatedClassName}[${JSON.stringify(node.name.text)}]>(${scope.reusable ? `this.componentId(${JSON.stringify(componentId)})` : JSON.stringify(componentId)})`,
         });
         return;
       }
@@ -645,7 +648,7 @@ export function analyzeComponentReferences(
           const componentId = row?.componentIds[node.text];
           const reference =
             row !== undefined && componentId !== undefined
-              ? `${row.receiver}.component<import(${JSON.stringify(`./${scope.className}.generated`)}).${scope.generatedClassName}[${JSON.stringify(node.text)}]>(${scope.reusable ? `this.componentId(${JSON.stringify(componentId)})` : JSON.stringify(componentId)})`
+              ? `${row.receiver}.component<import(${JSON.stringify(scope.generatedModulePath ?? `./${scope.className}.generated`)}).${scope.generatedClassName}[${JSON.stringify(node.text)}]>(${scope.reusable ? `this.componentId(${JSON.stringify(componentId)})` : JSON.stringify(componentId)})`
               : `this.${node.text}`;
           edits.push({
             start: node.getStart(sourceFile),

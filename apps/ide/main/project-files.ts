@@ -22,6 +22,7 @@ import {
   createUserPageSource,
   createUserProjectSource,
   createUserReusableElementSource,
+  renamePageUserSource,
   generatePageSource,
   generateReusableElementSource,
 } from '@webrad/language';
@@ -496,6 +497,14 @@ async function saveProjectFilesUnlocked(
     const sourceKey = descriptor.codeFile.replaceAll('\\', '/');
     const userFilePath = await resolveInsideProjectSecure(rootPath, descriptor.codeFile);
     let userSource = request.userSources[sourceKey];
+    const originalPage = request.project.pages.find((candidate) => candidate.id === page.id);
+    if (userSource === undefined && originalPage !== undefined && originalPage.name !== page.name) {
+      const oldKey = sourcePathFor(originalPage);
+      const originalSource = request.userSources[oldKey];
+      if (originalSource !== undefined) {
+        userSource = renamePageUserSource(originalSource, originalPage.name, page.name, oldKey).sourceText;
+      }
+    }
     if (userSource === undefined) {
       const previousSource = previousArtifacts.find(
         (artifact) =>
@@ -509,6 +518,12 @@ async function saveProjectFilesUnlocked(
             await resolveInsideProjectSecure(rootPath, previousSource.relativePath),
             'utf8',
           );
+          const previousPage = previousManifest?.pages.find((candidate) => candidate.id === page.id);
+          if (previousPage !== undefined && previousPage.name !== page.name) {
+            userSource = renamePageUserSource(
+              userSource, previousPage.name, page.name, previousSource.relativePath,
+            ).sourceText;
+          }
         } catch (error) {
           if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
         }
@@ -680,7 +695,30 @@ async function loadProjectFilesUnlocked(projectFilePath: string): Promise<Projec
       'utf8',
     );
   }
-  const project = assembleProject(manifest, pages);
+  let project = assembleProject(manifest, pages);
+  const previousEntry = pages.find((page) => page.id === project.entryPage);
+  if (previousEntry !== undefined && previousEntry.name !== 'index') {
+    const oldKey = sourcePathFor(previousEntry);
+    const newKey = 'pages/index.ts';
+    const source = userSources[oldKey];
+    if (source !== undefined) {
+      userSources[newKey] = renamePageUserSource(
+        source, previousEntry.name, 'index', oldKey,
+      ).sourceText;
+      delete userSources[oldKey];
+    }
+    if (project.debugger !== undefined) {
+      project = {
+        ...project,
+        debugger: {
+          ...project.debugger,
+          breakpoints: project.debugger.breakpoints.map((breakpoint) =>
+            breakpoint.path === oldKey ? { ...breakpoint, path: newKey } : breakpoint,
+          ),
+        },
+      };
+    }
+  }
   return { rootPath, projectFilePath: absoluteProjectFile, project, userSources };
 }
 

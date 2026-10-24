@@ -200,9 +200,9 @@ export async function runDataGridConfigurationSmoke(
 ): Promise<void> {
   log('renderer Data Grid smoke started');
   const original = await loadProjectFiles(projectPath);
-  const page = original.project.pages.find((candidate) => candidate.name === 'PageMain');
+  const page = original.project.pages.find((candidate) => candidate.name === 'index');
   if (page === undefined)
-    throw new Error('Data Grid smoke requires the isolated PageMain fixture.');
+    throw new Error('Data Grid smoke requires the isolated index fixture.');
   const bounds = window.getBounds();
   const minimumSize = window.getMinimumSize();
   const wasMaximized = window.isMaximized();

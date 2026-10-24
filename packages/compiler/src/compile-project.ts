@@ -782,8 +782,10 @@ export async function compileProject(
       ...project.settings,
       routePaths: project.pages.map((page) =>
         String(
-          page.components.find((node) => node.id === page.rootComponentId)?.props.routePath ||
-            (page.id === project.entryPage ? '/index' : '/' + page.name.toLowerCase()),
+          page.id === project.entryPage
+            ? '/index'
+            : page.components.find((node) => node.id === page.rootComponentId)?.props.routePath ||
+                '/' + page.name.toLowerCase(),
         ),
       ),
       browserTitle:

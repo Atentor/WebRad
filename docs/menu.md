@@ -1,126 +1,145 @@
-# Menu responsivo
+# Responsive Menu
 
-O componente **Navigation → Menu** oferece um menu lateral recolhível, uma barra
-horizontal para desktop e uma gaveta modal para telas menores. Dê dois cliques
-no componente ou abra **Menu configuration → Configure Menu** no Inspector.
+**Navigation > Menu** provides vertical or horizontal navigation, branding,
+profile photos, Lucide icons and nested items. **Project > Add Reusable Component
+> Responsive menu** creates a shared definition with its own TypeScript class.
+Instances keep separate selection, expanded state, events and profile state.
 
-O editor tem quatro seções:
+## Automatic placement
 
-- **Items**: itens com ícones Lucide, descrição, badge, página ou link, estados
-  visível/desabilitado e submenus. Insira, remova, reordene, indente e desindente
-  os itens sem alterar seus IDs.
-- **Brand & user**: logo, título, subtítulo, destino da marca, foto, nome,
-  descrição e presença do usuário. Sem foto, o perfil usa iniciais. Importe
-  imagens em Project Assets e selecione seus caminhos nos campos de imagem.
-- **Appearance**: presets claro/escuro e cores, dimensões, espaçamento, tamanho
-  dos ícones, recuo e largura recolhida. Cores aceitam hexadecimal, nomes CSS e
-  referências `var(--wr-palette-ID)`. O Style controla cantos, sombra e opacidade.
-- **Behavior & mobile**: orientação, recolhimento, acordeão, busca, item inicial,
-  textos, breakpoint, largura/lado da gaveta e fechamento após selecionar.
+WebRAD owns responsiveness and placement. Standalone Menus and reusable
+compositions containing only a Menu always float outside the parent layout.
+The supported controls are:
 
-A prévia do editor permite experimentar desktop e mobile; seus links são
-interceptados. **Save Menu** grava uma transação no histórico do Designer.
-Cancel e Escape descartam o rascunho. F9 executa a navegação real.
+- **Desktop orientation**: vertical sidebar or horizontal bar.
+- **Horizontal side**: left, center or right.
+- **Vertical side**: top, center or bottom.
+- **Width** for a vertical sidebar; **Height** for a horizontal bar.
+- Minimum/maximum width and height under **Menu size**.
+- **Margin top/right/bottom/left**: independent outer spacing in pixels on the
+  Menu or reusable placement.
 
-## Layout e acessibilidade
+A sidebar fills the viewport height; its default preferred width is 288 px.
+A horizontal bar fills the viewport width; its default preferred height is 80 px.
+Size constraints can reduce either dimension while preserving the selected edge.
+Effective dimensions reserve space for each side's margin on both axes. The
+selected edge or center remains active; legacy coordinate offsets remain zero.
+For reusable Menus, Margin belongs to the placement and is not duplicated on the
+inner Menu. Runtime Menu.marginTop, marginRight, marginBottom and marginLeft
+updates refresh the managed layout. Menu.margin remains a TypeScript shorthand
+for setting all sides; existing shared values remain a fallback for unset sides.
 
-O padrão mede 288 × 640 px, tem orientação vertical e muda para mobile abaixo
-de 768 CSS pixels de largura da janela. O breakpoint é configurável; zero
-mantém desktop. Ao escolher a orientação horizontal, ajuste largura/altura no
-Inspector. Os modos responsivos de tamanho e as âncoras existentes continuam
-disponíveis para compor o layout da página.
+The Inspector hides generic responsive sizing modes, grow/shrink, anchors,
+insets, coordinates, placement and breakpoint controls for these components.
+Canvas selection and configuration remain available; position/resize gestures
+are disabled because the component owns its layout.
 
-No desktop, recolher reduz a largura e preserva ícones e nomes acessíveis. No
-mobile, aparece um botão com o nome da marca. A gaveta usa
-`<dialog>.showModal()`, ocupa no máximo 92% da janela, contém o foco, bloqueia
-a rolagem da página e fecha pelo botão, backdrop ou Escape. Fechar devolve o
-foco ao botão de abertura. Movimento reduzido desativa a animação.
+Below 768 CSS pixels, navigation becomes a 48 px trigger with the brand caption.
+The modal drawer follows the selected horizontal side, uses the instance's
+preferred width and size constraints, and occupies at most 92% of the viewport.
+It traps focus, locks page scrolling and closes through its button, backdrop or
+Escape. WebRAD owns the breakpoint and effective drawer width.
 
-Os itens usam links/botões nativos em uma região de navegação. Submenus usam
-`aria-expanded` e `aria-controls`; o item ativo recebe `aria-current="page"`.
-Tab, Enter e Space preservam o comportamento nativo. Setas para cima/baixo,
-Home e End percorrem itens visíveis; as laterais expandem/recolhem submenus.
-A busca preserva os ancestrais dos resultados. Itens ocultos e subárvores
-desabilitadas não executam ações.
+Designer uses the simulated page width for the breakpoint. A narrow reusable
+editing surface does not itself force mobile mode. Designer, Preview and browser
+runtime share the layout policy and selection geometry.
 
-## Reutilizável com script próprio
+## Configuration
 
-Em **Project → Add Reusable Component**, escolha **Responsive menu** no campo
-**Template**. O projeto recebe uma definição visual com `Menu1` e um arquivo
-editável `reusables/Nome.ts`, separado do arquivo gerado. O template inclui
-procedimentos `setUser`, `setItems` e `selectItem` para uso na sua classe.
-Abra **Code** para escrever a lógica e a aba **Interact** de `Menu1` para criar
-handlers tipados.
+Open **Menu configuration > Configure Menu** or double-click the Menu. Opening
+configuration from a reusable placement edits the shared Menu definition.
 
-Arraste a definição do Project Explorer para as páginas. A nova instância usa
-as dimensões e os modos de tamanho do root da definição. O template sugere
-`fit-content` para acompanhar o conteúdo e o recolhimento. Cada colocação tem seus próprios
-objetos, eventos, seleção, submenus, perfil e ciclo de vida. A lógica é
-compartilhada pelo arquivo TypeScript; o estado é isolado por instância.
+- **Items**: stable IDs, icons, descriptions, badges, destinations, visibility,
+  disabled state, ordering and nested levels.
+- **Brand & user**: logo, photo, name, description and presence. Images accept
+  Project Assets paths; profiles without photos use initials.
+- **Appearance**: light/dark themes, colors, spacing, icons, indentation and
+  collapsed width. Component Style controls corners, shadow and typography.
+- **Behavior & layout**: orientation, collapse behavior, accordion, search,
+  initial selection, text and closure after selection. Mobile layout is automatic.
 
-O código inicial só é aplicado ao criar um arquivo novo; arquivos TypeScript
-existentes são preservados. Os métodos da classe reutilizável pertencem ao seu
-escopo de código, sem transformar membros internos em globais da página.
+The preview switches between desktop and mobile. Save Menu records one command;
+Cancel and Escape discard the draft. F9 runs the compiled application.
 
-## API TypeScript
+## Submenus
 
-`WebMenu`, `WebMenuConfiguration`, `WebMenuItem`, `WebMenuUser`,
-`WebMenuAppearance` e os detalhes dos eventos são exportados por
-`@webrad/runtime`. `Menu1.member` e `this.Menu1.member` usam o contrato de
-instâncias do Monaco, respeitando sombreamento léxico.
+Vertical/mobile branches expand in the scrollable navigation flow. Horizontal
+branches use native manual popovers in the browser top layer. They remain Menu
+DOM descendants for events, inherited styles and instance isolation, while
+escaping ancestor overflow clipping and stacking contexts.
 
-```ts
-this.Menu1.user = {
-  visible: true,
-  name: 'Ana Silva',
-  description: 'Administradora',
-  avatar: 'assets/imported/ana.png',
-  status: 'online',
-};
-this.Menu1.updateItem('projects', { badge: '12', disabled: false });
-this.Menu1.selectedItemId = 'projects';
-this.Menu1.expandItem('workspace');
-this.Menu1.collapsed = false;
-```
+The first level opens below or above its trigger according to available space.
+Nested levels open right or left. Positioning follows resize, scrolling and the
+visual viewport; bounds are clamped and long branches scroll independently.
+The horizontal navigation bar can scroll when its items exceed available space.
 
-Propriedades: `configuration`, `items`, `brand`, `user`, `appearance`,
-`orientation`, `selectedItemId`, `collapsed`, `searchText`; somente leitura:
-`isOpen`, `isMobile`. Getters de configuração retornam cópias. Métodos:
-`findItem`, `updateItem`, `expandItem`, `collapseItem`, `toggleItem`, `focusItem`,
-`activateItem`, `open`, `close`, `toggle`. `activateItem` executa a ação;
-`selectedItemId` apenas muda a seleção. Alterações por código são transitórias.
+Horizontal branches start closed and require an explicit opening action. Only
+one sibling branch remains expanded; closing it also closes its descendants.
+Outside pointer actions, focus leaving the Menu and Escape close the appropriate
+branch. ArrowDown opens a top-level branch and focuses its first enabled item;
+Escape restores focus to the owner. Controls expose aria-expanded/aria-controls;
+the selected destination exposes aria-current="page".
 
-Eventos: `OnItemClick`, `OnSelectionChange`, `OnItemToggle`, `OnCollapseChange`,
-`OnOpen`, `OnClose`, `OnBrandClick`, `OnUserClick`. `OnItemClick` recebe
-`CustomEvent<WebMenuItemEvent>` com `item`, `itemId` e `path`. Chame
-`event.preventDefault()` sincronamente para cancelar seleção/navegação antes de
-uma ação assíncrona. `OnUserClick` permite implementar o fluxo do perfil.
+## Reuse and TypeScript
 
-Destinos de páginas usam IDs estáveis e `WebPageRouter`, preservando History
-ou Hash. O item correspondente acompanha a rota ativa. Links podem abrir na
-mesma janela ou em outra com `noopener,noreferrer`.
+The template provides setUser, setItems and selectItem in reusables/Name.ts.
+Existing authored sources are never overwritten. Menu1.member and
+this.Menu1.member provide typed completion and diagnostics; internal references
+are scoped to each placement.
 
-## Persistência e integração
+WebMenu and its configuration/item/event types are exported by @webrad/runtime.
+Properties include configuration, items, brand, user, appearance, orientation,
+selectedItemId, collapsed, searchText, floatingHorizontalAnchor (left/center/right) and
+floatingVerticalAnchor (top/center/bottom). placement and floatingZIndex are read-only.
+Configuration getters return copies; runtime changes remain transient.
 
-Projetos criados com a primeira versão do template podem conter `borderWidth: 0`
-nas propriedades do `WebPanel` raiz. Essa propriedade não pertence ao contrato
-do Panel e bloqueava a compilação. A leitura do documento remove somente esse
-valor no formato específico do template antigo (root transparente com um único
-filho Menu), sem alterar estilos, IDs, itens ou TypeScript. Novos templates não
-gravam a propriedade inválida.
+Methods include findItem, updateItem, expandItem, collapseItem, toggleItem,
+focusItem, activateItem, open, close and toggle. Events include OnItemClick,
+OnSelectionChange, OnItemToggle, OnCollapseChange, OnOpen, OnClose, OnBrandClick
+and OnUserClick. OnItemClick receives CustomEvent<WebMenuItemEvent> with item,
+itemId and path; synchronous event.preventDefault() cancels selection/navigation.
+Page destinations use stable IDs and WebPageRouter; selection follows routing.
+External links can open with noopener,noreferrer.
 
-`ComponentNode.props.configuration` usa `schemaVersion: 1`, sem alterar o
-formato geral de projeto 2. Há até 1.000 itens e 12 níveis, com IDs únicos.
-O mesmo parser valida persistência, editor e runtime. Referências a páginas
-inexistentes, ícones inválidos e protocolos de URL executáveis são rejeitados.
+## Persistence and integration
 
-O Registry declara metadados, propriedades, eventos e a ação do editor. Designer
-e runtime projetam o mesmo DOM/CSS; o Designer usa sua viewport simulada. O
-compilador retém o CSS quando o menu é usado e inclui imagens referenciadas.
-`runtime:sources` incorpora os módulos browser e emite as declarações reais do
-Monaco. `Default Menu` é materializado sem substituir estilos/vínculos existentes.
-O runtime não depende de Designer, Electron ou Node.js.
+Project format remains version 2; configuration keeps schemaVersion: 1. Project
+loading normalizes Menus and single-Menu compositions to automatic layout,
+preserving IDs, content, images, styles and authored TypeScript. Legacy responsive
+settings are replaced. mobileBreakpoint/drawerWidth remain accepted legacy
+fields but normalize to managed defaults; effective drawer size is computed at
+runtime. The placement side supersedes legacy drawerSide. Save persists the
+normalized model.
 
-O smoke existente foi estendido com edição, salvamento, submenus, recolhimento,
-seleção, viewport mobile, foco modal, Escape e undo. Testes, smokes e builds não
-foram executados nesta alteração, pois a validação não foi solicitada.
+The narrow repair for invalid legacy WebPanel root props.borderWidth: 0 remains.
+The parser limits menus to 1,000 items and 12 levels, rejecting duplicate IDs,
+missing destination pages, invalid icons and executable URL protocols. Registry,
+Designer and runtime projections are browser-safe. runtime:sources regenerates
+embedded runtime files and Monaco declarations.
+
+The existing Menu smoke covers editing, saved state, desktop/mobile canvas,
+compiled F9, collapse, drawer focus/Escape and horizontal popover geometry,
+visible hit targets and focus restoration. Execution and other checks require an
+explicit validation request; they were not run for this change.
+
+Default Menu has no outer shadow. Project loading updates the exact original
+seeded base (zero border, 16 px radius, medium shadow) to shadow none, preserving
+style IDs, other states and customized styles. Save persists this adjustment.
+
+## Search behavior and OnSearch
+
+Enable **Show menu search** in **Behavior & layout**, then choose **Search behavior**:
+
+- **Filter menu items** (default): filters labels/descriptions locally and expands
+  matching paths. It does not trigger OnSearch.
+- **Only trigger OnSearch**: leaves item visibility and expanded branches unchanged
+  and emits OnSearch on each user text change, including clearing the field.
+
+Bind OnSearch in Interaction. Its typed `CustomEvent<WebMenuSearchEvent>` provides
+`event.detail.text` with the original input, including whitespace. The current
+value is also available as `Menu1.searchText`. Use `Menu1.searchMode` (`filter` or
+`event`) or `configuration.searchMode` to switch modes in TypeScript. Programmatic
+searchText/configuration changes do not emit OnSearch, preventing handler loops.
+Existing configurations without searchMode normalize to `filter`; schemaVersion
+remains 1. The existing Menu smoke now selects/persists event mode and checks
+compiled input/clear events while retaining all Menu items. It was not executed.

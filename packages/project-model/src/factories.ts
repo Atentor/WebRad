@@ -10,7 +10,7 @@ import {
   defaultComponentStyleId,
   DEFAULT_COMPONENT_STYLE_DEFINITIONS,
 } from './default-styles.js';
-import { assertValidProjectName, assertValidTypeScriptIdentifier } from './naming.js';
+import { assertValidPageName, assertValidProjectName, assertValidTypeScriptIdentifier } from './naming.js';
 import {
   parseComponentStyle,
   parsePage,
@@ -120,7 +120,7 @@ export function createDefaultRoot(
   name: string,
   options: CreateDefaultRootOptions | IdFactory = {},
 ): ComponentNode {
-  assertValidTypeScriptIdentifier(name);
+  assertValidPageName(name);
   const width =
     typeof options === 'function' ? DEFAULT_PAGE_WIDTH : (options.width ?? DEFAULT_PAGE_WIDTH);
   const height =
@@ -158,7 +158,7 @@ export function createPage(
   name = 'PageMain',
   options: CreatePageOptions | IdFactory = {},
 ): PageModel {
-  assertValidTypeScriptIdentifier(name);
+  assertValidPageName(name);
   const idFactory = resolveFactory(options);
   const width =
     typeof options === 'function' ? DEFAULT_PAGE_WIDTH : (options.width ?? DEFAULT_PAGE_WIDTH);
@@ -248,15 +248,12 @@ export function createProject(
   assertValidProjectName(name);
   const idFactory = resolveFactory(options);
   const projectId = idFactory();
-  const page = createPage(
-    typeof options === 'function' ? 'PageMain' : (options.pageName ?? 'PageMain'),
-    {
-      idFactory,
-      caption: typeof options === 'function' ? undefined : options.pageCaption,
-      width: typeof options === 'function' ? undefined : options.pageWidth,
-      height: typeof options === 'function' ? undefined : options.pageHeight,
-    },
-  );
+  const page = createPage('index', {
+    idFactory,
+    caption: typeof options === 'function' ? undefined : options.pageCaption,
+    width: typeof options === 'function' ? undefined : options.pageWidth,
+    height: typeof options === 'function' ? undefined : options.pageHeight,
+  });
   const settings = {
     ...DEFAULT_PROJECT_SETTINGS,
     applicationName: name,

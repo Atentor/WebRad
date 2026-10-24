@@ -1,3 +1,9 @@
+import {
+  automaticMenuLayout,
+  menuInspectorProperties,
+  menuDesignSurface,
+} from './menu-properties.js';
+import { projectReusableMenuLayout } from '@webrad/runtime/menu-layout';
 import { webReportBuilder } from './report-builder.js';
 import { createWebMenuDefinition } from './menu.js';
 import { componentRegistry, ComponentRegistry } from './registry.js';
@@ -589,6 +595,14 @@ const dataGridStyleEditor: ComponentStyleEditorMetadata = {
 
 const webPage: ComponentDefinition = {
   type: 'WebPage',
+  inspectorProperties: (properties, node) =>
+    node.name === 'index' || node.name === '404'
+      ? properties
+          .filter((property) => property.name !== 'routePath')
+          .map((property) =>
+            property.name === 'name' ? { ...property, readOnly: true } : property,
+          )
+      : properties,
   displayName: 'Page',
   namePrefix: 'Page',
   palette: { category: containersCategory, caption: 'Page' },
@@ -615,7 +629,7 @@ const webPage: ComponentDefinition = {
       name: 'routePath',
       label: 'Route path',
       description:
-        'URL path, such as /clientes or /admin/clientes. Blank uses /index for the initial page, otherwise the page name in lowercase. Set before publishing; routes are fixed at compilation.',
+        'URL path, such as /clientes or /admin/clientes. Blank uses the page name in lowercase. Mandatory index and 404 pages use fixed /index and /404 routes. Set before publishing; routes are fixed at compilation.',
       type: 'string',
       category: 'Identity',
       source: 'props',
@@ -707,6 +721,9 @@ function floatingPlacementProperties(pageOwned = false): ComponentPropertyDefini
 
 const webPanel: ComponentDefinition = {
   supportsFloatingPlacement: true,
+  automaticLayout: automaticMenuLayout,
+  inspectorProperties: menuInspectorProperties,
+  designSurface: menuDesignSurface,
   floatingSizing: 'responsive',
   type: 'WebPanel',
   displayName: 'Panel',
@@ -870,6 +887,19 @@ const webGroup: ComponentDefinition = {
  */
 const webReusableElement: ComponentDefinition = {
   supportsFloatingPlacement: true,
+  automaticLayout: automaticMenuLayout,
+  inspectorProperties: menuInspectorProperties,
+  floatingSizing: 'responsive',
+  projectLayout: (node, viewport, context) =>
+    projectReusableMenuLayout(
+      node,
+      context?.reusableElements?.find(
+        (definition) => definition.id === node.props.reusableElementId,
+      ),
+      viewport.responsiveWidth ?? viewport.width,
+      undefined,
+      viewport.height,
+    ),
   type: 'WebReusableElement',
   displayName: 'Reusable Component',
   namePrefix: 'Reusable',

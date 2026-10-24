@@ -108,7 +108,7 @@ interface LayoutNode {
   depth: number;
 }
 
-type DesignViewport = Pick<Bounds, 'width' | 'height'>;
+type DesignViewport = Pick<Bounds, 'width' | 'height'> & { readonly responsiveWidth?: number };
 
 interface FloatingContainerEditor {
   readonly rootId: string;
@@ -142,6 +142,7 @@ interface ResizeInteraction {
   id: string;
   handle: ResizeHandle;
   originalBounds: Bounds;
+  originalVisualBounds?: Bounds;
   currentBounds: Bounds;
   containerBounds: Bounds;
   activated: boolean;
@@ -207,9 +208,10 @@ function sameFitContentSizeMap(
 }
 
 function isFloatingComponent(node: ComponentNode): boolean {
+  const definition = componentRegistry.get(node.type);
   return (
-    componentRegistry.get(node.type)?.supportsFloatingPlacement === true &&
-    node.props.placement === 'floating'
+    definition?.supportsFloatingPlacement === true &&
+    (node.props.placement ?? definition.defaults.placement) === 'floating'
   );
 }
 
@@ -304,7 +306,9 @@ function movementSignature(node: ComponentNode): string {
 function boundsResizeHandles(
   node: ComponentNode,
   parentMode: ContainerLayoutMode,
+  automatic = false,
 ): readonly ResizeHandle[] {
+  if (automatic) return [];
   if (usesResponsiveFloatingSize(node)) {
     const handles = getBoundsResizeHandles(node.layout.item, 'fixed');
     switch (getFloatingPanelAlignment(node)) {
@@ -458,7 +462,8 @@ function projectItemStyle(
   fitContentSize?: RuntimeFitContentSize,
 ): CSSProperties {
   const bounds = localBoundsWithPreview(node, interaction);
-  const item = projectRuntimeLayout({ ...node, bounds }, parentContainer).item;
+  node = { ...node, bounds };
+  const item = projectRuntimeLayout(node, parentContainer).item;
   const supportsDynamicFitMeasurement =
     !isFloatingComponent(node) || usesResponsiveFloatingSize(node);
   const measuredFitContent =
@@ -477,7 +482,11 @@ function projectItemStyle(
   };
   if (!isFloatingComponent(node) || usesResponsiveFloatingSize(node)) {
     return reactStyle(
-      { ...item, ...fitContentStyles },
+      {
+        ...item,
+        ...fitContentStyles,
+        ...(isFloatingComponent(node) ? { position: 'absolute' } : {}),
+      },
       {
         boxSizing: 'border-box',
       },
@@ -584,9 +593,11 @@ function floatingPersistedBounds(
   node: ComponentNode,
   visualBounds: Bounds,
   designViewport: DesignViewport,
+  originalVisualBounds?: Bounds,
 ): Bounds {
   if (usesResponsiveFloatingSize(node)) {
-    const original = projectFloatingPanelBounds(node, designViewport) ?? node.bounds;
+    const original =
+      originalVisualBounds ?? projectFloatingPanelBounds(node, designViewport) ?? node.bounds;
     const free = getFloatingPanelAlignment(node) === 'none';
     return {
       ...node.bounds,
@@ -736,6 +747,8 @@ function useReusableDefinitionFitContentSizes(
   definitionRootRef: RefObject<HTMLDivElement | null>,
   byId: ReadonlyMap<string, ComponentNode>,
   scale: number,
+  designViewport: DesignViewport,
+  reusableElementsById: ReadonlyMap<string, ReusableElementModel>,
 ): ReadonlyMap<string, RuntimeFitContentSize> {
   const [fitContentSizes, setFitContentSizes] = useState<
     ReadonlyMap<string, RuntimeFitContentSize>
@@ -750,23 +763,33 @@ function useReusableDefinitionFitContentSizes(
       if (wrapper.closest('[data-reusable-element-id]') !== definitionRoot) continue;
       const nodeId = wrapper.dataset.designerDefinitionNodeId;
       const node = nodeId === undefined ? undefined : byId.get(nodeId);
-      if (node === undefined || !shouldMeasureDesignerFitContent(node)) continue;
+      if (node === undefined) continue;
+      const projected =
+        componentRegistry.require(node.type).projectLayout?.(node, designViewport, {
+          reusableElements: [...reusableElementsById.values()],
+        }) ?? node;
+      if (!shouldMeasureDesignerFitContent(projected)) continue;
       const component = directElementChildren(wrapper).find(
         (child) => child.dataset.componentId === node.id,
       );
       if (component === undefined) continue;
-      const size = measureDesignerFitContentSize(component, fitContentHost(component, node), node, {
-        scale,
-        isLayoutChild: (child) => {
-          const childNodeId = child.dataset.designerDefinitionNodeId;
-          const childNode = childNodeId === undefined ? undefined : byId.get(childNodeId);
-          return childNode === undefined || !isDesignerFloatingContainer(childNode);
+      const size = measureDesignerFitContentSize(
+        component,
+        fitContentHost(component, projected),
+        projected,
+        {
+          scale,
+          isLayoutChild: (child) => {
+            const childNodeId = child.dataset.designerDefinitionNodeId;
+            const childNode = childNodeId === undefined ? undefined : byId.get(childNodeId);
+            return childNode === undefined || !isDesignerFloatingContainer(childNode);
+          },
         },
-      });
+      );
       if (size.width !== undefined || size.height !== undefined) next.set(node.id, size);
     }
     setFitContentSizes((current) => (sameFitContentSizeMap(current, next) ? current : next));
-  }, [byId, definitionRootRef, scale]);
+  }, [byId, definitionRootRef, scale, designViewport, reusableElementsById]);
 
   useLayoutEffect(() => {
     measure();
@@ -915,7 +938,13 @@ function ReusableDefinitionContent({
     () => new Map(reusableElement.components.map((component) => [component.id, component])),
     [reusableElement.components],
   );
-  const fitContentSizes = useReusableDefinitionFitContentSizes(definitionRootRef, byId, scale);
+  const fitContentSizes = useReusableDefinitionFitContentSizes(
+    definitionRootRef,
+    byId,
+    scale,
+    designViewport,
+    reusableElementsById,
+  );
   if (ancestry.includes(reusableElement.id)) return null;
   const root = byId.get(reusableElement.rootComponentId);
   if (root === undefined) return null;
@@ -990,6 +1019,10 @@ function ReusableDefinitionNode({
   scale,
   floatingHost,
 }: ReusableDefinitionNodeProps): ReactElement {
+  node =
+    componentRegistry.require(node.type).projectLayout?.(node, designViewport, {
+      reusableElements: [...reusableElementsById.values()],
+    }) ?? node;
   const children = reusableVisualChildren(node, byId);
   const referencedReusableElementId = reusableElementId(node);
   const reusableElement =
@@ -1077,6 +1110,10 @@ const RuntimeNode = memo(function RuntimeNode({
   floatingHost,
   floatingEditorBounds,
 }: RuntimeNodeProps): ReactElement {
+  node =
+    componentRegistry.require(node.type).projectLayout?.(node, designViewport, {
+      reusableElements: [...reusableElementsById.values()],
+    }) ?? node;
   const children = reusableVisualChildren(node, byId);
   const referencedReusableElementId = reusableElementId(node);
   const reusableElement =
@@ -1314,10 +1351,18 @@ export function DesignerSurface({
   >(() => new Map());
   const scale = zoom / 100;
   const viewport = VIEWPORTS[viewportName];
-  const previewWidth =
-    viewport.width ?? (availableWidth === undefined ? page.width : availableWidth / scale);
   const byId = useMemo(() => new Map(page.components.map((node) => [node.id, node])), [page]);
   const root = byId.get(page.rootComponentId);
+  const responsiveWidth =
+    viewport.width ?? (availableWidth === undefined ? page.width : availableWidth / scale);
+  const rootSurface =
+    root === undefined
+      ? undefined
+      : componentRegistry
+          .get(root.type)
+          ?.designSurface?.(root, { document: page, reusableElements });
+  const previewWidth = viewport.width ?? rootSurface?.width ?? responsiveWidth;
+
   const rootFitContentSize = root === undefined ? undefined : fitContentSizes.get(root.id);
   const viewportWidth =
     root?.layout.item.width === 'fit-content' && rootFitContentSize?.width !== undefined
@@ -1326,7 +1371,7 @@ export function DesignerSurface({
   const viewportHeight =
     root?.layout.item.height === 'fit-content' && rootFitContentSize?.height !== undefined
       ? rootFitContentSize.height
-      : page.height;
+      : (rootSurface?.height ?? page.height);
   const reusableElementsById = useMemo(
     () => new Map(reusableElements.map((reusableElement) => [reusableElement.id, reusableElement])),
     [reusableElements],
@@ -1384,6 +1429,13 @@ export function DesignerSurface({
       ),
     [page],
   );
+  const automaticLayout = useCallback(
+    (node: ComponentNode) =>
+      componentRegistry
+        .get(node.type)
+        ?.automaticLayout?.(node, { document: page, reusableElements }) === true,
+    [page, reusableElements],
+  );
   const selectedVisualIds = useMemo(
     () =>
       selectedIds.filter(
@@ -1401,7 +1453,8 @@ export function DesignerSurface({
       return (
         node !== undefined &&
         !isDesignerFloatingContainer(node) &&
-        parentModeOf(node, byId) === 'fixed'
+        parentModeOf(node, byId) === 'fixed' &&
+        !automaticLayout(node)
       );
     });
     const first = topLevelIds[0] === undefined ? undefined : byId.get(topLevelIds[0]);
@@ -1413,7 +1466,7 @@ export function DesignerSurface({
         return node !== undefined && movementSignature(node) === signature;
       });
     return allFixed && matchingAxes ? topLevelIds : [];
-  }, [byId, page, selectedVisualIds]);
+  }, [byId, page, selectedVisualIds, automaticLayout]);
 
   const measureLayout = useCallback((): void => {
     const surface = surfaceRef.current;
@@ -1452,7 +1505,15 @@ export function DesignerSurface({
       surface.querySelectorAll<HTMLElement>('[data-component-id]'),
     ).find((element) => element.dataset.componentId === page.rootComponentId);
 
-    for (const node of page.components) {
+    for (const savedNode of page.components) {
+      const node =
+        componentRegistry
+          .require(savedNode.type)
+          .projectLayout?.(
+            savedNode,
+            { width: viewportWidth, height: viewportHeight, responsiveWidth: responsiveWidth },
+            { reusableElements },
+          ) ?? savedNode;
       if (!shouldMeasureDesignerFitContent(node, node.id === page.rootComponentId)) {
         continue;
       }
@@ -1482,7 +1543,17 @@ export function DesignerSurface({
       if (size.width !== undefined || size.height !== undefined) next.set(node.id, size);
     }
     setFitContentSizes((current) => (sameFitContentSizeMap(current, next) ? current : next));
-  }, [byId, page.components, page.rootComponentId, scale]);
+  }, [
+    byId,
+    page.components,
+    page.rootComponentId,
+    scale,
+    reusableElements,
+    viewportWidth,
+    viewportHeight,
+    previewWidth,
+    responsiveWidth,
+  ]);
 
   useLayoutEffect(() => {
     // A tray-authored visual container is mounted into the floating portal
@@ -1535,7 +1606,9 @@ export function DesignerSurface({
     };
     const observer = new ResizeObserver(scheduleMeasure);
     observer.observe(surface);
-    for (const element of surface.querySelectorAll<HTMLElement>('[data-designer-node-id]')) {
+    for (const element of surface.querySelectorAll<HTMLElement>(
+      '[data-designer-node-id], [data-designer-definition-node-id]',
+    )) {
       observer.observe(element);
     }
     scheduleMeasure();
@@ -1633,7 +1706,7 @@ export function DesignerSurface({
     const ids = normalizeTopLevelIds(page, selection).filter((id) => id !== page.rootComponentId);
     // Tray-authored visual containers are intentionally centered by their
     // editor/runtime host, so their page coordinates are never mutated.
-    if (isDesignerFloatingContainer(node)) return;
+    if (isDesignerFloatingContainer(node) || automaticLayout(node)) return;
     const parentMode = parentModeOf(node, byId);
     // Anchored components have no safe x/y mutation. Selection and resize are
     // retained; an anchor-aware command can be supplied later by the host.
@@ -1655,7 +1728,8 @@ export function DesignerSurface({
         return (
           selected !== undefined &&
           parentModeOf(selected, byId) === 'fixed' &&
-          movementSignature(selected) === selectedSignature
+          movementSignature(selected) === selectedSignature &&
+          !automaticLayout(selected)
         );
       });
     // Flow items have no meaningful x/y to mutate. Block a mixed selection
@@ -1705,7 +1779,7 @@ export function DesignerSurface({
     if (
       event.button !== 0 ||
       pointerInteraction.get() !== null ||
-      !boundsResizeHandles(node, parentModeOf(node, byId)).includes(handle)
+      !boundsResizeHandles(node, parentModeOf(node, byId), automaticLayout(node)).includes(handle)
     )
       return;
     event.stopPropagation();
@@ -1757,6 +1831,7 @@ export function DesignerSurface({
         id: node.id,
         handle,
         originalBounds: editorBounds,
+        originalVisualBounds: visualBounds,
         currentBounds: editorBounds,
         activated: false,
         containerBounds,
@@ -1840,15 +1915,17 @@ export function DesignerSurface({
           ? floatingPersistedBounds(
               node,
               resizeBounds(
-                floatingVisualBounds(node, interaction.originalBounds, {
-                  width: viewportWidth,
-                  height: viewportHeight,
-                }),
+                interaction.originalVisualBounds ??
+                  floatingVisualBounds(node, interaction.originalBounds, {
+                    width: viewportWidth,
+                    height: viewportHeight,
+                  }),
                 interaction.handle,
                 requested,
                 resizeOptions,
               ),
               { width: viewportWidth, height: viewportHeight },
+              interaction.originalVisualBounds,
             )
           : resizeBounds(interaction.originalBounds, interaction.handle, requested, resizeOptions);
       return {
@@ -2059,6 +2136,7 @@ export function DesignerSurface({
             ref={surfaceRef}
             className="wr-page-surface wr-project-surface"
             data-viewport={viewportName}
+            data-viewport-width={responsiveWidth}
             style={{
               width: viewportWidth,
               height: viewportHeight,
@@ -2094,7 +2172,11 @@ export function DesignerSurface({
                         fitContentSizes={fitContentSizes}
                         parentContainer={root.layout.container}
                         interaction={interaction}
-                        designViewport={{ width: viewportWidth, height: viewportHeight }}
+                        designViewport={{
+                          width: viewportWidth,
+                          height: viewportHeight,
+                          responsiveWidth: responsiveWidth,
+                        }}
                         scale={scale}
                         floatingHost={floatingHost}
                       />
@@ -2121,7 +2203,11 @@ export function DesignerSurface({
                         root.layout.container)
                   }
                   interaction={interaction}
-                  designViewport={{ width: viewportWidth, height: viewportHeight }}
+                  designViewport={{
+                    width: viewportWidth,
+                    height: viewportHeight,
+                    responsiveWidth: responsiveWidth,
+                  }}
                   scale={scale}
                   floatingHost={floatingHost}
                   floatingEditorBounds={floatingContainerEditor.bounds}
@@ -2165,7 +2251,7 @@ export function DesignerSurface({
                   >
                     {selected &&
                       selectedIds.length === 1 &&
-                      boundsResizeHandles(node, parentMode).map((handle) => (
+                      boundsResizeHandles(node, parentMode, automaticLayout(node)).map((handle) => (
                         <div
                           className={`wr-resize-handle handle-${handle}`}
                           data-resize-handle={handle}

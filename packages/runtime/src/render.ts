@@ -1,3 +1,5 @@
+import { projectWebMenuLayout, reusableMenuNode } from './menu-layout.js';
+import { bindReusableMenuLayout } from './reusable-menu-layout.js';
 import { WebProgressBar, projectProgressBar } from './progress-bar.js';
 import { WebIcon, projectIcon } from './icon.js';
 import { WebMenu } from './menu.js';
@@ -106,6 +108,7 @@ export interface RuntimeComponentNode {
   readonly children: readonly string[];
   /** Resolved at compile time so generated apps do not ship a Tailwind runtime. */
   readonly styleClassName?: string;
+  readonly menuEmbedded?: boolean;
 }
 
 /** Browser-safe reusable definition supplied by the compiler alongside a page. */
@@ -306,6 +309,17 @@ runtimeComponentRegistry
     createComponent: (element) => new WebMenu(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
+      component.element.dataset.menuPreferredWidth = String(node.bounds.width);
+      component.floatingHorizontalAnchor =
+        node.props.floatingHorizontalAnchor === 'right' ||
+        node.props.floatingHorizontalAnchor === 'center'
+          ? node.props.floatingHorizontalAnchor
+          : 'left';
+      component.floatingVerticalAnchor =
+        node.props.floatingVerticalAnchor === 'bottom' ||
+        node.props.floatingVerticalAnchor === 'center'
+          ? node.props.floatingVerticalAnchor
+          : 'top';
       component.configuration =
         node.props.configuration === undefined
           ? createDefaultWebMenuConfiguration()
@@ -709,7 +723,11 @@ function isRuntimeLayoutChild(
  */
 export function expandReusableElements(model: RuntimePageModel): RuntimePageModel {
   const reusableElements = model.reusableElements ?? [];
-  if (reusableElements.length === 0 && !model.components.some(isReusableElement)) return model;
+  if (
+    reusableElements.length === 0 &&
+    !model.components.some((node) => isReusableElement(node) || node.type === 'WebMenu')
+  )
+    return model;
   const reusableById = new Map(reusableElements.map((element) => [element.id, element]));
   const expanded = new Map<string, RuntimeComponentNode>();
   // Component IDs are opaque strings, so an instance-scoped ID can still be
@@ -765,7 +783,25 @@ export function expandReusableElements(model: RuntimePageModel): RuntimePageMode
         reusableDefinitionId: reusableElement.id,
         reusableInstanceId: instance.id,
         ...(isRoot ? { reusableRoot: true } : {}),
+        menuEmbedded: reusableMenuNode(reusableElement)?.id === source.id,
       };
+      if (node.type === 'WebMenu') Object.assign(node, managedMenuNode(node));
+      if (isRoot && reusableMenuNode(reusableElement))
+        Object.assign(node, {
+          layout: {
+            ...node.layout,
+            container: {
+              ...node.layout.container,
+              mode: 'column',
+              paddingTop: 0,
+              paddingRight: 0,
+              paddingBottom: 0,
+              paddingLeft: 0,
+              gap: 0,
+            },
+            item: { ...node.layout.item, width: 'stretch', height: 'stretch' },
+          },
+        });
       expanded.set(id, node);
       const children = source.children.map((childId) => cloneDefinitionNode(childId, id, scope));
       if (source.type === 'WebReusableElement') {
@@ -778,13 +814,36 @@ export function expandReusableElements(model: RuntimePageModel): RuntimePageMode
     return cloneDefinitionNode(root.id, instance.id, instance.id, true);
   };
 
+  const managedMenuNode = (
+    source: RuntimeComponentNode,
+    definition?: RuntimeReusableElementModel,
+  ): RuntimeComponentNode => {
+    const menu = source.type === 'WebMenu' ? source : reusableMenuNode(definition);
+    if (!menu) return source;
+    return projectWebMenuLayout(
+      source,
+      Number.POSITIVE_INFINITY,
+      {
+        ...parseWebMenuConfiguration(
+          menu.props?.configuration ?? createDefaultWebMenuConfiguration(),
+        ),
+        collapsed: false,
+      },
+      source.menuEmbedded === true,
+    );
+  };
   const pageNodes = new Map(model.components.map((node) => [node.id, node]));
   const clonePageNode = (sourceId: string): string => {
     const source = pageNodes.get(sourceId);
     if (source === undefined) {
       throw new Error(`Runtime page references unknown component "${sourceId}".`);
     }
-    const node: RuntimeComponentNode = { ...source, children: [] };
+    const node: RuntimeComponentNode = {
+      ...(source.type === 'WebMenu'
+        ? managedMenuNode(source)
+        : managedMenuNode(source, reusableById.get(String(source.props.reusableElementId)))),
+      children: [],
+    };
     expanded.set(node.id, node);
     const children = source.children.map(clonePageNode);
     if (source.type === 'WebReusableElement') children.push(resolveReusableInstance(node, []));
@@ -1124,9 +1183,7 @@ export function mountPage(
     const adapter = registry.require(node.type);
     const reusablePlacement = node.parentId === null ? undefined : nodes.get(node.parentId);
     const reusableRootFitContent =
-      node.reusableRoot === true &&
-      reusablePlacement !== undefined &&
-      !isFloatingLayoutNode(reusablePlacement)
+      node.reusableRoot === true && reusablePlacement !== undefined
         ? {
             width: reusablePlacement.layout.item.width === 'fit-content',
             height: reusablePlacement.layout.item.height === 'fit-content',
@@ -1157,6 +1214,25 @@ export function mountPage(
     const container = resolveRuntimeContainerLayout(node.layout);
     for (const childId of node.children) applyBranchLayout(childId, container);
   };
+  const reusableLayoutDisposers: (() => void)[] = [];
+  for (const node of nodes.values()) {
+    if (node.type !== 'WebReusableElement') continue;
+    const rootId = node.children.find((id) => nodes.get(id)?.reusableRoot);
+    const root = rootId === undefined ? undefined : nodes.get(rootId);
+    if (!root || root.children.length !== 1) continue;
+    const menuNode = nodes.get(root.children[0] ?? '');
+    const menu = menuNode === undefined ? undefined : components.get(menuNode.id);
+    const element = components.get(node.id)?.element;
+    if (!(menu instanceof WebMenu) || !element || !menuNode) continue;
+    element.dataset.menuPreferredWidth = String(node.bounds.width);
+    reusableLayoutDisposers.push(
+      bindReusableMenuLayout(
+        element,
+        { rootComponentId: root.id, components: [root, menuNode] },
+        menu,
+      ),
+    );
+  }
   applyBranchLayout(expandedModel.rootComponentId, undefined, true);
   const placementDisposers: (() => void)[] = [];
   for (const [id, origin] of placementOrigins) {
@@ -1219,16 +1295,15 @@ export function mountPage(
     const adapter = registry.require(node.type);
     if (component instanceof WebRepeatingGroup) return;
     const item = node.layout.item;
-    // Bind structural containers only. Leaf controls retain the browser's own
-    // intrinsic sizing (for example native inputs), while a container needs
-    // observation for its fixed or anchored visual child branches. Panels
-    // retain responsive sizing in their overlay; reusable wrappers retain
-    // their existing fixed viewport geometry.
+    // Bind structural containers only. Leaf controls retain native intrinsic
+    // sizing; containers measure fixed or anchored visual children. Floating
+    // Panels and reusable placements retain the same responsive measurement.
     if (
       adapter.participatesInLayout !== false &&
-      (!isFloatingLayoutNode(node) || node.type === 'WebPanel') &&
       node.children.length > 0 &&
-      (item.width === 'fit-content' || item.height === 'fit-content')
+      (item.width === 'fit-content' ||
+        item.height === 'fit-content' ||
+        node.type === 'WebReusableElement')
     ) {
       const childrenHost = fitContentMeasurementHost(node, component, nodes, components, registry);
       fitContentBindings.set(
@@ -1248,6 +1323,7 @@ export function mountPage(
     components,
     reusableInstances,
     dispose: () => {
+      for (const dispose of reusableLayoutDisposers) dispose();
       for (const dispose of placementDisposers) dispose();
       for (const binding of fitContentBindings.values()) binding.dispose();
       for (const component of components.values())

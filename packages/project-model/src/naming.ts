@@ -172,7 +172,13 @@ export function getGeneratedPageMemberNameError(value: string): string | undefin
     : undefined;
 }
 
+/** Returns the authored class identifier for a page's persisted name. */
+export function pageClassName(name: string): string {
+  return name === '404' ? 'Page404' : name;
+}
+
 export function getPageNameError(value: string): string | undefined {
+  if (value === '404') return undefined;
   const identifierError = getTypeScriptIdentifierError(value);
   if (identifierError !== undefined) return identifierError;
   if (WINDOWS_DEVICE_NAME_PATTERN.test(value)) {
@@ -216,7 +222,10 @@ export function validateComponentName(
   pageOrComponents: PageModel | readonly ComponentNode[],
   componentId?: string,
 ): NameValidationResult {
-  const reason = getTypeScriptIdentifierError(name);
+  const isPageRoot =
+    'rootComponentId' in pageOrComponents && componentId === pageOrComponents.rootComponentId &&
+    pageOrComponents.components.some((node) => node.id === componentId && node.type === 'WebPage');
+  const reason = isPageRoot && name === '404' ? undefined : getTypeScriptIdentifierError(name);
   if (reason !== undefined) {
     return { valid: false, reason };
   }

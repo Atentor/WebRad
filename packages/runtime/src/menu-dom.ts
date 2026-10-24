@@ -115,7 +115,7 @@ export function createWebMenuPanel(
   }
   const nav = menuElement(document, 'nav', 'wr-menu-navigation');
   nav.setAttribute('aria-label', config.accessibleLabel);
-  const query = state.query.trim().toLocaleLowerCase();
+  const query = config.searchMode === 'event' ? '' : state.query.trim().toLocaleLowerCase();
   const tree = (
     items: readonly WebMenuItem[],
     depth: number,
