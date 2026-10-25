@@ -11,7 +11,7 @@ import { parseProject, parseComponentStyle } from '@webrad/project-model';
 const browserPath = process.env.WEBRAD_BROWSER_PATH;
 const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
 it.runIf(browserPath !== undefined)(
-  'applies and persists palette choices with native Chromium popovers',
+  'applies and persists unified theme color choices with native Chromium popovers',
   async () => {
     const bundle = await build({
       entryPoints: [path.join(repositoryRoot, 'tests/fixtures/color-palette-browser.tsx')],
@@ -120,7 +120,7 @@ it.runIf(browserPath !== undefined)(
         userSources: {},
       });
       expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
-      expect(compiled.files['assets/app.css']).toContain('--wr-palette-aurora-blue: #e11d48');
+      expect(compiled.files['assets/app.css']).toContain('--wr-theme-custom-aurora-blue: #e11d48');
       compiledHtml = `${compiled.previewHtml}<script>setInterval(() => { const node = document.querySelector('[data-webrad-id="palette-label"]'); if (node) document.body.dataset.previewEvidence = getComputedStyle(node).color; }, 50);</script>`;
       const previewOutput = await runBrowser('/index.html');
       expect(/data-preview-evidence="([^"]+)"/.exec(previewOutput)?.[1]).toBe('rgb(225, 29, 72)');

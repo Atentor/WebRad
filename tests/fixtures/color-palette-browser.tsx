@@ -11,11 +11,13 @@ import {
   updateComponentStyle,
   updatePage,
   updateProjectSettings,
-  paletteColorReference,
-  projectColorPaletteCss,
+  customThemeColorReference,
+  projectThemeCss,
+  DEFAULT_PROJECT_COLOR_PALETTE,
+  THEME_COLOR_NAMES,
 } from '@webrad/project-model';
 import { ComponentView } from '@webrad/components';
-import { ProjectColorPaletteContext } from '../../apps/ide/renderer/src/project-color-palette';
+import { ProjectThemeContext } from '../../apps/ide/renderer/src/project-theme';
 import { ProjectSettingsDialog } from '../../apps/ide/renderer/src/components/ProjectSettingsDialog';
 import { ObjectInspector } from '../../apps/ide/renderer/src/components/ObjectInspector';
 import { StylesWorkspace } from '../../apps/ide/renderer/src/components/StylesWorkspace';
@@ -26,7 +28,13 @@ import '../../apps/ide/renderer/src/designer-chrome.css';
 
 export function Harness(): ReactElement {
   const [project, setProject] = useState(() => {
-    const created = createProject('ColorPalette');
+    const original = createProject('ThemeColors');
+    const created = deserializeProject(
+      JSON.stringify({
+        ...original,
+        settings: { ...original.settings, colorPalette: DEFAULT_PROJECT_COLOR_PALETTE },
+      }),
+    );
     const page = created.pages[0]!;
     const label = defaultComponentRegistry.createComponent('WebLabel', {
       id: 'palette-label',
@@ -52,9 +60,9 @@ export function Harness(): ReactElement {
   const page = project.pages[0]!;
   const label = page.components.find((node) => node.id === 'palette-label')!;
   return (
-    <ProjectColorPaletteContext.Provider value={project.settings.colorPalette}>
-      <style data-webrad-color-palette>
-        {projectColorPaletteCss(project.settings.colorPalette)}
+    <ProjectThemeContext.Provider value={{ themes: project.settings.themes, mode: 'light' }}>
+      <style data-webrad-themes>
+        {projectThemeCss(project.settings.themes, { layered: true })}
       </style>
       <output id="css-ready" hidden>
         {cssVersion}
@@ -82,12 +90,10 @@ export function Harness(): ReactElement {
           compiledCss={compiledCss}
           styles={project.styles}
           selectedComponentType="WebButton"
-          colorPalette={project.settings.colorPalette}
-          onUpdateColorPalette={(colorPalette) =>
+          themes={project.settings.themes}
+          onUpdateThemes={(themes) =>
             setProject(
-              deserializeProject(
-                serializeProject(updateProjectSettings(project, { colorPalette })),
-              ),
+              deserializeProject(serializeProject(updateProjectSettings(project, { themes }))),
             )
           }
           onCreateStyle={() => null}
@@ -111,7 +117,7 @@ export function Harness(): ReactElement {
           }}
         />
       )}
-    </ProjectColorPaletteContext.Provider>
+    </ProjectThemeContext.Provider>
   );
 }
 
@@ -154,16 +160,24 @@ function popup(): HTMLElement {
 async function smoke(): Promise<void> {
   await tick();
   if (document.body.dataset.renderError) throw new Error(document.body.dataset.renderError);
-  await click('Color palette');
+  assert(
+    document.querySelector('[aria-label="Color palette"]') === null,
+    'Redundant Color palette control remains',
+  );
+  await click('Themes');
   const add = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
     (entry) => entry.textContent?.trim() === 'Add color',
   )!;
-  assert(add.disabled, 'Palette exceeded ten colors');
-  await setHex('Palette color 1 hex', '#007acc');
-  await textButton('Save palette');
-  await click('Color palette');
   assert(
-    (labelled('Palette color 1 hex') as HTMLInputElement).value === '#007acc',
+    !add.disabled && document.querySelectorAll('[data-custom-theme-color]').length === 10,
+    'Migrated colors are missing from Themes',
+  );
+  await setHex('light aurora-blue value', '#007acc');
+  await textButton('Save themes');
+  await click('Themes');
+  assert(
+    (labelled('light aurora-blue value') as HTMLInputElement).value === '#007acc' &&
+      (labelled('dark aurora-blue value') as HTMLInputElement).value === '#007acc',
     'Palette was lost on reopening Styles',
   );
   await textButton('Cancel');
@@ -180,7 +194,10 @@ async function smoke(): Promise<void> {
     rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight,
     'Popover exceeded viewport',
   );
-  assert(popup().querySelectorAll('button').length === 10, 'Popover did not expose ten colors');
+  assert(
+    popup().querySelectorAll('button').length === THEME_COLOR_NAMES.length + 10,
+    'Popover did not expose the unified theme colors',
+  );
   document.activeElement!.dispatchEvent(
     new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }),
   );
@@ -198,14 +215,14 @@ async function smoke(): Promise<void> {
     'Escape closed project settings',
   );
   await click('Predefined colors for Track color');
-  await click('Use #007ACC for Track color');
+  await click('Use theme Aurora Blue for Track color');
   assert(
     (labelled('Track color') as HTMLInputElement).value === '#007acc',
     'Scrollbar choice did not apply',
   );
   await textButton('Save changes');
   await click('Predefined colors for Color color picker');
-  await click('Use #007ACC for Color color picker');
+  await click('Use theme Aurora Blue for Color color picker');
   await textButton('All properties');
   const textCategory = document.querySelector<HTMLButtonElement>(
     '.wr-style-category-summary[aria-label^="Text,"]',
@@ -215,7 +232,7 @@ async function smoke(): Promise<void> {
     await tick();
   }
   await click('Predefined colors for Text color');
-  await click('Use #007ACC for Text color');
+  await click('Use theme Aurora Blue for Text color');
   const appearance = document.querySelector<HTMLButtonElement>(
     '.wr-style-category-summary[aria-label^="Appearance,"]',
   )!;
@@ -235,36 +252,36 @@ async function smoke(): Promise<void> {
       'Palette icon is too small',
     );
     await click(`Predefined colors for Background gradient ${end} color`);
-    await click(`Use #007ACC for Background gradient ${end} color`);
+    await click(`Use theme Aurora Blue for Background gradient ${end} color`);
   }
   const project = deserializeProject(document.querySelector('#project')!.textContent!);
   assert(
-    project.settings.colorPalette.length === 10 &&
-      project.settings.scrollbar.trackColor === paletteColorReference('aurora-blue'),
+    project.settings.themes.customColors.length === 10 &&
+      project.settings.scrollbar.trackColor === customThemeColorReference('aurora-blue'),
     'Saved settings mismatch',
   );
   assert(
     project.pages[0]!.components.find((entry) => entry.id === 'palette-label')!.props.color ===
-      paletteColorReference('aurora-blue'),
+      customThemeColorReference('aurora-blue'),
     'Inspector choice was not persisted',
   );
   const style = project.styles.find((entry) => entry.componentType === 'WebButton')!;
   assert(
-    style.states.base.textColor === paletteColorReference('aurora-blue'),
+    style.states.base.textColor === customThemeColorReference('aurora-blue'),
     'Style color was not persisted',
   );
   const gradient = style.states.base.backgroundGradient;
   assert(
     typeof gradient === 'object' &&
       'from' in gradient &&
-      gradient.from === paletteColorReference('aurora-blue') &&
-      gradient.to === paletteColorReference('aurora-blue'),
+      gradient.from === customThemeColorReference('aurora-blue') &&
+      gradient.to === customThemeColorReference('aurora-blue'),
     'Gradient endpoints were not persisted',
   );
-  await click('Color palette');
-  await setHex('Palette color 1 name', 'Rose');
-  await setHex('Palette color 1 hex', '#e11d48');
-  await textButton('Save palette');
+  await click('Themes');
+  await setHex('Color aurora-blue name', 'Rose');
+  await setHex('light aurora-blue value', '#e11d48');
+  await textButton('Save themes');
   await textButton('All properties');
   const updatedAppearance = document.querySelector<HTMLButtonElement>(
     '.wr-style-category-summary[aria-label^="Appearance,"]',
@@ -300,14 +317,14 @@ async function smoke(): Promise<void> {
   const updated = deserializeProject(document.querySelector('#project')!.textContent!);
   assert(
     updated.pages[0]!.components.find((entry) => entry.id === 'palette-label')!.props.color ===
-      paletteColorReference('aurora-blue'),
+      customThemeColorReference('aurora-blue'),
     'Palette edit discarded the component link',
   );
   await click('Predefined colors for Background gradient to color');
   document.body.dataset.evidence = encodeURIComponent(
     JSON.stringify({
       passed: true,
-      colors: updated.settings.colorPalette.length,
+      colors: updated.settings.themes.customColors.length,
       project: updated,
     }),
   );

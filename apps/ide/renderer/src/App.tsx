@@ -42,8 +42,9 @@ import {
   createPage,
   createReusableElement,
   DEFAULT_PROJECT_SETTINGS,
-  projectColorPaletteCss,
-  type ProjectPaletteColor,
+  projectThemeCss,
+  type ResolvedThemeMode,
+  type ProjectThemePresetId,
   getComponent,
   type ApiClientConfiguration,
   type Bounds,
@@ -240,6 +241,7 @@ export function App(): ReactElement {
   const [viewportName, setViewportName] = useState<DesignerViewportName>('desktop');
   const [sidebarMode, setSidebarMode] = useState<DesignerSidebarMode>('builder');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [projectPreviewTheme, setProjectPreviewTheme] = useState<ResolvedThemeMode>('light');
   const [output, setOutput] = useState<readonly OutputEntry[]>([]);
   const [buildDiagnostics, setBuildDiagnostics] = useState<readonly BuildDiagnostic[]>([]);
   const [monacoMarkers, setMonacoMarkers] = useState<readonly MonacoMarkerLike[]>([]);
@@ -403,6 +405,14 @@ export function App(): ReactElement {
 
   const activateProjectSession = useCallback(
     (session: ProjectSession): void => {
+      const initialTheme = session.project.settings.themes.initialMode;
+      setProjectPreviewTheme(
+        initialTheme === 'system'
+          ? window.matchMedia?.('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+          : initialTheme,
+      );
       setSidebarMode('builder');
       setViewportName('desktop');
       setSelectedPaletteType(null);
@@ -1353,14 +1363,6 @@ export function App(): ReactElement {
     [projectController, designerController, addOutput],
   );
 
-  const saveColorPalette = useCallback(
-    (colorPalette: readonly ProjectPaletteColor[]): void => {
-      projectController.updateProjectSettings({ colorPalette });
-      addOutput('PROJECT', 'Updated project color palette.');
-    },
-    [projectController, addOutput],
-  );
-
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
     if (!projectState.dirty) return true;
     if (window.confirm('Save unsaved changes before continuing?')) {
@@ -1381,11 +1383,15 @@ export function App(): ReactElement {
   }, [prepareToReplaceProject, reportError]);
 
   const submitNewProject = useCallback(
-    async (name: string, templateId: ProjectTemplateId): Promise<void> => {
+    async (
+      name: string,
+      templateId: ProjectTemplateId,
+      themePresetId: ProjectThemePresetId,
+    ): Promise<void> => {
       setCreatingProject(true);
       setNewProjectError(null);
       try {
-        const session = await projectController.create(name, templateId);
+        const session = await projectController.create(name, templateId, themePresetId);
         if (session) {
           activateProjectSession(session);
           addOutput('PROJECT', `Created ${session.project.name}.`);
@@ -2340,8 +2346,13 @@ export function App(): ReactElement {
   const pageEditorContent = stylesActive ? (
     <ErrorBoundary area="Styles">
       <StylesWorkspace
-        colorPalette={project?.settings.colorPalette ?? []}
-        onUpdateColorPalette={saveColorPalette}
+        themes={project?.settings.themes}
+        previewTheme={projectPreviewTheme}
+        onPreviewThemeChange={setProjectPreviewTheme}
+        onUpdateThemes={(themes, linkDefaults) => {
+          projectController.updateThemes(themes, linkDefaults);
+          addOutput('PROJECT', 'Updated application themes.');
+        }}
         styles={project?.styles ?? []}
         selectedComponentType={styleComponentType}
         onSelectComponentType={setStyleComponentType}
@@ -2394,6 +2405,7 @@ export function App(): ReactElement {
   ) : !activePage ? null : activeView === 'design' ? (
     <ErrorBoundary area="Designer">
       <DesignerSurface
+        previewTheme={projectPreviewTheme}
         page={activePage}
         reusableElements={project?.reusableElements}
         styles={project?.styles}
@@ -2502,11 +2514,14 @@ export function App(): ReactElement {
         } as const);
   return (
     <ProjectVisualResources
-      colors={project?.settings.colorPalette ?? []}
+      themes={project?.settings.themes}
+      themeMode={projectPreviewTheme}
       assets={project?.assets ?? []}
     >
-      <style data-webrad-color-palette>
-        {projectColorPaletteCss(project?.settings.colorPalette ?? [])}
+      <style data-webrad-themes>
+        {projectThemeCss(project?.settings.themes ?? DEFAULT_PROJECT_SETTINGS.themes, {
+          layered: true,
+        })}
       </style>
       <div
         className="wr-ide-modal-host"
@@ -2605,6 +2620,8 @@ export function App(): ReactElement {
               />
             ) : (
               <DesignerSidebar
+                previewTheme={projectPreviewTheme}
+                onPreviewThemeChange={setProjectPreviewTheme}
                 mode={sidebarMode}
                 onModeChange={setSidebarMode}
                 page={activePage}
@@ -2861,7 +2878,9 @@ export function App(): ReactElement {
             setNewProjectDialogOpen(false);
             setNewProjectError(null);
           }}
-          onCreate={(name, templateId) => void submitNewProject(name, templateId)}
+          onCreate={(name, templateId, themePresetId) =>
+            void submitNewProject(name, templateId, themePresetId)
+          }
         />
       )}
       {addDocumentDialogKind !== null && project !== null && (

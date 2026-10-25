@@ -1,4 +1,5 @@
 import { WEB_MENU_CSS } from './menu-css.js';
+import { themeColorId, customThemeColorId, type ResolvedThemeMode } from './theme.js';
 /**
  * Browser-safe visual contract shared by the generated runtime and design-time
  * projections. Layout positioning and designer interaction intentionally stay
@@ -186,6 +187,11 @@ export function paletteColorReference(id: string): string {
 export interface TailwindStyleSource {
   readonly componentType?: string;
   readonly states: Readonly<Record<ComponentStyleStateName, TailwindStyleProperties>>;
+  readonly themeOverrides?: Readonly<
+    Partial<
+      Record<ResolvedThemeMode, Partial<Record<ComponentStyleStateName, TailwindStyleProperties>>>
+    >
+  >;
 }
 
 /**
@@ -294,10 +300,16 @@ function isBackgroundGradientValue(value: unknown): value is BackgroundGradientV
     LINEAR_GRADIENT_DIRECTIONS.has(value.direction as LinearGradientDirection) &&
     'from' in value &&
     typeof value.from === 'string' &&
-    (/^#[\da-f]{6}$/iu.test(value.from) || paletteColorId(value.from) !== undefined) &&
+    (/^#[\da-f]{6}$/iu.test(value.from) ||
+      paletteColorId(value.from) !== undefined ||
+      themeColorId(value.from) !== undefined ||
+      customThemeColorId(value.from) !== undefined) &&
     'to' in value &&
     typeof value.to === 'string' &&
-    (/^#[\da-f]{6}$/iu.test(value.to) || paletteColorId(value.to) !== undefined)
+    (/^#[\da-f]{6}$/iu.test(value.to) ||
+      paletteColorId(value.to) !== undefined ||
+      themeColorId(value.to) !== undefined ||
+      customThemeColorId(value.to) !== undefined)
   );
 }
 
@@ -352,7 +364,12 @@ function mappedEnumClass(
 
 function colorClass(prefix: string, value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
-  if (paletteColorId(value) !== undefined) return `${prefix}-[color:${value}]`;
+  if (
+    paletteColorId(value) !== undefined ||
+    themeColorId(value) !== undefined ||
+    customThemeColorId(value) !== undefined
+  )
+    return `${prefix}-[color:${value}]`;
   if (value === 'current') return `${prefix}-current`;
   if (value === 'transparent' || value === 'inherit') return `${prefix}-${value}`;
   return /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/iu.test(value)
@@ -362,7 +379,12 @@ function colorClass(prefix: string, value: unknown): string | undefined {
 
 function cssColorValue(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
-  if (paletteColorId(value) !== undefined) return value;
+  if (
+    paletteColorId(value) !== undefined ||
+    themeColorId(value) !== undefined ||
+    customThemeColorId(value) !== undefined
+  )
+    return value;
   if (value === 'current') return 'currentColor';
   if (value === 'transparent' || value === 'inherit') return value;
   return /^#[\da-f]{6}$/iu.test(value) ? value.toLowerCase() : undefined;
@@ -425,7 +447,12 @@ const DEFAULT_BORDER_GRADIENT_FILL =
 
 function backgroundColorValue(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
-  if (paletteColorId(value) !== undefined) return value;
+  if (
+    paletteColorId(value) !== undefined ||
+    themeColorId(value) !== undefined ||
+    customThemeColorId(value) !== undefined
+  )
+    return value;
   if (/^#[\da-f]{6}$/iu.test(value)) return value.toLowerCase();
   if (value === 'transparent') return value;
   if (value === 'current') return 'currentColor';
@@ -603,7 +630,9 @@ export function resolveStylePropertyCandidate(
     case 'paddingLeft':
       return lengthClass('pl', value);
     case 'fontFamily':
-      return prefixedEnumClass('font', value);
+      return value === 'ide'
+        ? "[font-family:'Segoe_UI_Variable_Text','Segoe_UI',system-ui,-apple-system,sans-serif]"
+        : prefixedEnumClass('font', value);
     case 'fontSize':
       return lengthClass('text', value);
     case 'fontWeight':
@@ -803,8 +832,12 @@ export function resolveStylePropertyCandidate(
       return colorClass('border', value);
     case 'borderGradient':
       return borderGradientClass(value);
-    case 'borderRadius':
-      return lengthClass('rounded', value);
+    case 'borderRadius': {
+      const radius = lengthClass('rounded', value);
+      if (radius === undefined) return undefined;
+      const square = isStyleLengthValue(value) && value.value === 0;
+      return `${radius} [--wr-square-radius:${square ? '0px' : 'initial'}]`;
+    }
     case 'outlineWidth':
       return lengthClass('outline', value);
     case 'outlineStyle':
@@ -1020,6 +1053,8 @@ function mergeStateProperties(
   if (selected.backgroundGradient !== undefined) delete merged.backgroundColor;
   if (selected.borderColor !== undefined) delete merged.borderGradient;
   if (selected.borderGradient !== undefined) delete merged.borderColor;
+  if (selected.textColor !== undefined) delete merged.textGradient;
+  if (selected.textGradient !== undefined) delete merged.textColor;
 
   return merged;
 }
@@ -1052,6 +1087,13 @@ function requiresBackgroundReset(
 export function resolveComponentStyleClassNames(
   style: TailwindStyleSource | null | undefined,
 ): readonly string[] {
+  if (style?.themeOverrides !== undefined && Object.keys(style.themeOverrides).length > 0) {
+    return (['light', 'dark'] as const).flatMap((mode) =>
+      resolveComponentStyleClassNames(resolveThemedStyle(style, mode)).map(
+        (candidate) => `wr-theme-${mode}:${candidate}`,
+      ),
+    );
+  }
   const resolved: string[] = [];
   const seen = new Set<string>();
   const base = stateProperties(style, 'base') ?? {};
@@ -1106,6 +1148,15 @@ export function resolveComponentStylePreviewClassName(
   style: TailwindStyleSource | null | undefined,
   stateName: ComponentStyleStateName,
 ): string {
+  if (style?.themeOverrides !== undefined && Object.keys(style.themeOverrides).length > 0) {
+    return (['light', 'dark'] as const)
+      .flatMap((mode) =>
+        tokenizeTailwindClasses(
+          resolveComponentStylePreviewClassName(resolveThemedStyle(style, mode), stateName),
+        ).map((candidate) => `wr-theme-${mode}:${candidate}`),
+      )
+      .join(' ');
+  }
   const base = stateProperties(style, 'base') ?? {};
   const selected = stateName === 'base' ? {} : (stateProperties(style, stateName) ?? {});
   const effective = mergeStateProperties(base, selected);
@@ -1120,6 +1171,24 @@ export function resolveComponentStylePreviewClassName(
   if (style?.componentType === 'WebPanel' && !hasRootPaintProperties(effective))
     candidates.push('[background-image:var(--wr-panel-background-image,none)]');
   return candidates.join(' ');
+}
+
+/** Merge before producing CSS so a theme never competes with duplicate base utilities. */
+export function resolveThemedStyle(
+  style: TailwindStyleSource,
+  mode: ResolvedThemeMode,
+): TailwindStyleSource {
+  const overrides = style.themeOverrides?.[mode];
+  return {
+    componentType: style.componentType,
+    states: {
+      base: mergeStateProperties(style.states.base, overrides?.base ?? {}),
+      hover: mergeStateProperties(style.states.hover, overrides?.hover ?? {}),
+      focus: mergeStateProperties(style.states.focus, overrides?.focus ?? {}),
+      active: mergeStateProperties(style.states.active, overrides?.active ?? {}),
+      disabled: mergeStateProperties(style.states.disabled, overrides?.disabled ?? {}),
+    },
+  };
 }
 
 export type VisualSizingMode = 'bounds' | 'fill';
@@ -1241,7 +1310,7 @@ export function projectComponentVisual(
 export const WEBRAD_PROJECT_CSS = /* @__PURE__ */ `
 .wr-project-surface, .wr-webpage, .wr-panel-floating-layer {
   color-scheme: light dark;
-  font: 400 16px/normal Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 400 16px/normal Roboto, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: normal;
   word-spacing: normal;
   text-align: start;
@@ -1287,7 +1356,7 @@ ${WEB_MENU_CSS}
 .wr-panel-progress-track { stroke: var(--wr-panel-progress-track-color, var(--wr-palette-aurora-border, #dbeafe)); }
 .wr-panel-progress-fill { stroke: var(--wr-panel-progress-color, var(--wr-palette-aurora-blue, #2563eb)); stroke-linecap: round; }
 .wr-webpopup { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); border-radius: 8px; background: var(--wr-control-surface, #262b35); color: inherit; overflow: hidden; padding: 0; }
-.wr-webpopup::backdrop { background: rgb(15 23 42 / .48); }
+.wr-webpopup::backdrop { background: color-mix(in srgb, var(--wr-theme-overlay, #0f172a) 48%, transparent); }
 .wr-popup-children { box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: auto; }
 .wr-webedit, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { --webrad-border-gradient-surface: var(--wr-input-bg, #11151c); border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
 .wr-webedit:focus, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
@@ -1345,7 +1414,7 @@ ${WEB_MENU_CSS}
 .wr-webtoggle:disabled { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) { .wr-toggle-track, .wr-toggle-thumb { transition: none; } }
 
-.wr-data-grid-toggle { display: inline-block; width: 48px; height: 24px; vertical-align: middle; margin: 0; background: linear-gradient(to bottom, #e2e8f0, #cbd5e1); border-color: #bfdbfe; pointer-events: none; }
+.wr-data-grid-toggle { display: inline-block; width: 48px; height: 24px; vertical-align: middle; margin: 0; border-radius: var(--wr-square-radius, 6px); background: linear-gradient(to bottom, var(--wr-theme-surface-muted, #e2e8f0), var(--wr-theme-border, #cbd5e1)); border-color: var(--wr-theme-border, #bfdbfe); pointer-events: none; }
 .wr-data-grid-toggle[aria-checked='true'] > .wr-toggle-track { background: var(--wr-toggle-checked-color, var(--wr-palette-aurora-blue, #2563eb)); }
 .wr-data-grid-toggle > .wr-toggle-thumb { background: var(--wr-toggle-thumb-color, var(--wr-palette-aurora-white, #ffffff)); }
 

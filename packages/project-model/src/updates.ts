@@ -1,6 +1,6 @@
 import { ModelUpdateError } from './errors.js';
 import { applyDefaultComponentStyle } from './default-styles.js';
-import { detachPaletteColors } from './color-palette.js';
+import { detachRemovedThemeColors } from './project-themes.js';
 import {
   assertValidPageName,
   assertValidTypeScriptIdentifier,
@@ -670,9 +670,9 @@ export function updateProjectSettings(
   const project = parseProject(projectInput);
   const settings = { ...project.settings, ...patch };
   const removed = new Map(
-    project.settings.colorPalette
-      .filter((color) => !settings.colorPalette.some((entry) => entry.id === color.id))
-      .map((entry) => [entry.id, entry.color]),
+    project.settings.themes.customColors
+      .filter((color) => !settings.themes.customColors.some((entry) => entry.id === color.id))
+      .map((entry) => [entry.id, entry]),
   );
   if (removed.size === 0) return parseProject({ ...project, settings });
   return parseProject({
@@ -681,21 +681,28 @@ export function updateProjectSettings(
       ...page,
       components: page.components.map((node) => ({
         ...node,
-        props: detachPaletteColors(node.props, removed),
+        props: detachRemovedThemeColors(node.props, removed),
       })),
     })),
     reusableElements: project.reusableElements.map((page) => ({
       ...page,
       components: page.components.map((node) => ({
         ...node,
-        props: detachPaletteColors(node.props, removed),
+        props: detachRemovedThemeColors(node.props, removed),
       })),
     })),
     styles: project.styles.map((style) => ({
       ...style,
-      states: detachPaletteColors(style.states, removed),
+      states: detachRemovedThemeColors(style.states, removed),
+      ...(style.themeOverrides === undefined
+        ? {}
+        : { themeOverrides: detachRemovedThemeColors(style.themeOverrides, removed) }),
     })),
-    settings: { ...settings, scrollbar: detachPaletteColors(settings.scrollbar, removed) },
+    settings: {
+      ...settings,
+      scrollbar: detachRemovedThemeColors(settings.scrollbar, removed),
+      themes: detachRemovedThemeColors(settings.themes, removed),
+    },
   });
 }
 

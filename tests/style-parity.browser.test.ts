@@ -16,7 +16,7 @@ import {
   createProject,
   setComponentStyle,
   updatePage,
-  projectColorPaletteCss,
+  projectThemeCss,
 } from '@webrad/project-model';
 import { DesignerSurface } from '../apps/ide/renderer/src/components/DesignerSurface';
 
@@ -136,7 +136,7 @@ it.runIf(browserPath !== undefined)(
     project = setComponentStyle(project, page.id, 'control-5', null);
     page = project.pages[0];
     if (page === undefined) throw new Error('Missing styled page.');
-    const css = `${await compileTailwindStyles(project.styles)}\n${projectColorPaletteCss(project.settings.colorPalette)}`;
+    const css = `${await compileTailwindStyles(project.styles)}\n${projectThemeCss(project.settings.themes, { layered: true })}`;
     const chromeCss = (
       await Promise.all(
         ['theme.css', 'layout.css', 'designer-chrome.css'].map((file) =>

@@ -83,21 +83,27 @@ function component(
   };
 }
 describe('project factories', () => {
-  it('persists stable palette identities and rejects the obsolete string-array format', () => {
+  it('migrates stable palette identities into Themes and rejects the obsolete string-array format', () => {
     const original = createProject('Palette');
-    expect(original.settings.colorPalette).toHaveLength(10);
+    expect(original.settings.themes.customColors).toEqual([]);
     const colors = Array.from({ length: 10 }, (_, index) => ({
       id: `color-${index}`,
       name: `Color ${index}`,
       color: `#${index.toString(16).padStart(6, '0')}`,
     }));
-    const updated = updateProjectSettings(original, { colorPalette: colors });
-    expect(original.settings.colorPalette).toHaveLength(10);
-    expect(deserializeProject(serializeProject(updated)).settings.colorPalette).toEqual(colors);
+    const updated = deserializeProject(
+      JSON.stringify({ ...original, settings: { ...original.settings, colorPalette: colors } }),
+    );
+    const migrated = colors.map(({ id, name, color }) => ({ id, name, light: color, dark: color }));
+    expect(original.settings.themes.customColors).toEqual([]);
+    expect(deserializeProject(serializeProject(updated)).settings.themes.customColors).toEqual(
+      migrated,
+    );
+    expect(serializeProject(updated)).not.toContain('"colorPalette"');
     const manifest = deserializeProjectManifest(
       serializeProjectManifest(projectToManifest(updated)),
     );
-    expect(assembleProject(manifest, updated.pages).settings.colorPalette).toEqual(colors);
+    expect(assembleProject(manifest, updated.pages).settings.themes.customColors).toEqual(migrated);
     for (const colorPalette of [
       [...colors, '#ffffff'],
       ['red'],
@@ -144,7 +150,16 @@ describe('project factories', () => {
         outputDirectory: 'dist',
       },
     });
-    expect(project.settings.scrollbar).toEqual(DEFAULT_PROJECT_SCROLLBAR_STYLE);
+    expect(project.settings.scrollbar).toEqual({
+      ...DEFAULT_PROJECT_SCROLLBAR_STYLE,
+      trackColor: 'var(--wr-theme-scrollbar-track)',
+      trackBorderColor: 'var(--wr-theme-border)',
+      thumbColor: 'var(--wr-theme-scrollbar-thumb)',
+      thumbHoverColor: 'var(--wr-theme-scrollbar-thumb-hover)',
+      thumbActiveColor: 'var(--wr-theme-scrollbar-thumb-active)',
+      thumbBorderColor: 'var(--wr-theme-surface)',
+      cornerColor: 'var(--wr-theme-scrollbar-track)',
+    });
     expect(project.pages.map((page) => page.name)).toEqual(['index', '404']);
     expect(project.styles).toHaveLength(18);
     expect(project.styles).toEqual(
@@ -184,33 +199,33 @@ describe('project factories', () => {
       findDefaultComponentStyle(project.styles, 'WebPage')?.id,
     );
     expect(findDefaultComponentStyle(project.styles, 'WebDataGrid')?.states.base).toMatchObject({
-      dataGridHeaderBackgroundColor: '#e0e7ff',
-      dataGridHeaderTextColor: '#1e3a8a',
-      dataGridFooterBackgroundColor: '#f8fafc',
-      dataGridFooterTextColor: 'var(--wr-palette-aurora-graphite)',
+      dataGridHeaderBackgroundColor: 'var(--wr-theme-surface-muted)',
+      dataGridHeaderTextColor: 'var(--wr-theme-primary)',
+      dataGridFooterBackgroundColor: 'var(--wr-theme-surface-end)',
+      dataGridFooterTextColor: 'var(--wr-theme-heading)',
       dataGridButtonContentMode: 'text-icon',
       dataGridButtonIconPosition: 'left',
       dataGridButtonIconSize: { value: 16, unit: 'px' },
       dataGridButtonIconColor: 'current',
-      dataGridButtonBackgroundColor: '#e0e7ff',
-      dataGridButtonTextColor: '#1e3a8a',
-      dataGridButtonBorderColor: '#c7d2fe',
+      dataGridButtonBackgroundColor: 'var(--wr-theme-surface-muted)',
+      dataGridButtonTextColor: 'var(--wr-theme-primary)',
+      dataGridButtonBorderColor: 'var(--wr-theme-border)',
       dataGridButtonBorderWidth: { value: 1, unit: 'px' },
       dataGridButtonBorderStyle: 'solid',
       dataGridButtonBorderRadius: { value: 6, unit: 'px' },
       dataGridButtonPaddingX: { value: 8, unit: 'px' },
       dataGridButtonPaddingY: { value: 4, unit: 'px' },
       dataGridButtonFontWeight: 'semibold',
-      dataGridCheckboxAccentColor: 'var(--wr-palette-aurora-blue)',
+      dataGridCheckboxAccentColor: 'var(--wr-theme-primary)',
       dataGridCheckboxSize: { value: 16, unit: 'px' },
-      dataGridCheckboxTextColor: 'var(--wr-palette-aurora-graphite)',
+      dataGridCheckboxTextColor: 'var(--wr-theme-heading)',
       dataGridCheckboxFontWeight: 'medium',
       dataGridCheckboxGap: { value: 6, unit: 'px' },
     });
     expect(findDefaultComponentStyle(project.styles, 'WebPopup')?.states.base).toMatchObject({
       borderRadius: { value: 6, unit: 'px' },
       boxShadow: 'md',
-      textColor: 'var(--wr-palette-aurora-ink)',
+      textColor: 'var(--wr-theme-text)',
     });
     const defaultCheckBox = findDefaultComponentStyle(project.styles, 'WebCheckBox');
     expect(defaultCheckBox).toBeDefined();

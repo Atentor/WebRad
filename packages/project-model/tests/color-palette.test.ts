@@ -6,20 +6,33 @@ import {
   deserializeProject,
   findDefaultComponentStyle,
   paletteColorReference,
-  projectColorPaletteCss,
-  resolvePaletteColor,
+  DEFAULT_PROJECT_COLOR_PALETTE,
+  projectThemeCss,
+  resolveProjectColor,
   serializeProject,
   safeParseProject,
   updateComponentProps,
   updateComponentStyleState,
   updatePage,
   updateProjectSettings,
+  themeColorReference,
 } from '../src/index.js';
 
 const blue = paletteColorReference('aurora-blue');
 
 function boundProject() {
   let project = createProject('PaletteBindings');
+  project = updateProjectSettings(project, {
+    themes: {
+      ...project.settings.themes,
+      customColors: DEFAULT_PROJECT_COLOR_PALETTE.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        light: entry.color,
+        dark: entry.color,
+      })),
+    },
+  });
   const page = project.pages[0]!;
   project = updatePage(
     project,
@@ -33,6 +46,15 @@ function boundProject() {
   reusable = updateComponentProps(reusable, reusable.rootComponentId, { backgroundColor: blue });
   project = addReusableElement(project, reusable);
   const style = findDefaultComponentStyle(project.styles, 'WebButton')!;
+  project = updateComponentStyleState(project, style.id, 'base', {
+    ...style.states.base,
+    backgroundGradient: {
+      kind: 'linear',
+      direction: 'to-right',
+      from: blue,
+      to: paletteColorReference('aurora-violet'),
+    },
+  });
   project = updateComponentStyleState(project, style.id, 'hover', {
     textGradient: { kind: 'linear', direction: 'to-right', from: blue, to: '#ffffff' },
   });
@@ -41,32 +63,38 @@ function boundProject() {
   });
 }
 
-describe('linked project palette', () => {
-  it('seeds ten Aurora colors and binds default solids, gradients and embedded grid controls', () => {
+describe('linked project theme colors', () => {
+  it('seeds semantic theme colors without a separate palette and links default styles and embedded grid controls', () => {
     const project = createProject('Aurora');
-    expect(project.settings.colorPalette).toHaveLength(10);
-    expect(new Set(project.settings.colorPalette.map((color) => color.id)).size).toBe(10);
+    expect(project.settings.themes.customColors).toEqual([]);
+    expect(project.settings).not.toHaveProperty('colorPalette');
     expect(
       findDefaultComponentStyle(project.styles, 'WebButton')?.states.base.backgroundGradient,
-    ).toMatchObject({ from: blue, to: paletteColorReference('aurora-violet') });
+    ).toMatchObject({ from: themeColorReference('primary'), to: themeColorReference('accent') });
     expect(findDefaultComponentStyle(project.styles, 'WebLabel')?.states.base.textColor).toBe(
-      paletteColorReference('aurora-graphite'),
+      themeColorReference('heading'),
     );
     expect(
       findDefaultComponentStyle(project.styles, 'WebDataGrid')?.states.base
         .dataGridCheckboxAccentColor,
-    ).toBe(blue);
+    ).toBe(themeColorReference('primary'));
   });
 
   it('retains links when entries change name, value or order without binding equal custom colors', () => {
     const original = boundProject();
-    const colors = [...original.settings.colorPalette]
+    const colors = [...original.settings.themes.customColors]
       .reverse()
       .map((entry) =>
-        entry.id === 'aurora-blue' ? { ...entry, name: 'Rose', color: '#e11d48' } : entry,
+        entry.id === 'aurora-blue'
+          ? { ...entry, name: 'Rose', light: '#e11d48', dark: '#fb7185' }
+          : entry,
       );
     const project = deserializeProject(
-      serializeProject(updateProjectSettings(original, { colorPalette: colors })),
+      serializeProject(
+        updateProjectSettings(original, {
+          themes: { ...original.settings.themes, customColors: colors },
+        }),
+      ),
     );
     expect(project.pages[0]?.components[0]?.props).toMatchObject({
       backgroundColor: blue,
@@ -77,22 +105,31 @@ describe('linked project palette', () => {
     expect(
       findDefaultComponentStyle(project.styles, 'WebButton')?.states.hover.textGradient,
     ).toMatchObject({ from: blue });
-    expect(resolvePaletteColor(blue, project.settings.colorPalette)).toBe('#e11d48');
-    expect(projectColorPaletteCss(project.settings.colorPalette)).toContain(
-      '--wr-palette-aurora-blue: #e11d48;',
+    expect(resolveProjectColor(blue, project.settings.themes)).toBe('#e11d48');
+    expect(resolveProjectColor(blue, project.settings.themes, 'dark')).toBe('#fb7185');
+    expect(projectThemeCss(project.settings.themes)).toContain(
+      '--wr-palette-aurora-blue: var(--wr-theme-custom-aurora-blue);',
     );
-    expect(resolvePaletteColor(blue, original.settings.colorPalette)).toBe('#2563eb');
+    expect(resolveProjectColor(blue, original.settings.themes)).toBe('#2563eb');
   });
 
   it('detaches deleted identities at their last color across pages, reusables, states and scrollbars', () => {
     const original = boundProject();
     const changed = updateProjectSettings(original, {
-      colorPalette: original.settings.colorPalette.map((entry) =>
-        entry.id === 'aurora-blue' ? { ...entry, color: '#e11d48' } : entry,
-      ),
+      themes: {
+        ...original.settings.themes,
+        customColors: original.settings.themes.customColors.map((entry) =>
+          entry.id === 'aurora-blue' ? { ...entry, light: '#e11d48', dark: '#e11d48' } : entry,
+        ),
+      },
     });
     const removed = updateProjectSettings(changed, {
-      colorPalette: changed.settings.colorPalette.filter((entry) => entry.id !== 'aurora-blue'),
+      themes: {
+        ...changed.settings.themes,
+        customColors: changed.settings.themes.customColors.filter(
+          (entry) => entry.id !== 'aurora-blue',
+        ),
+      },
     });
     expect(removed.pages[0]?.components[0]?.props.backgroundColor).toBe('#e11d48');
     expect(removed.reusableElements[0]?.components[0]?.props.backgroundColor).toBe('#e11d48');

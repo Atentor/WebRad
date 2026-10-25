@@ -1,5 +1,5 @@
 import { parseReportTemplate, type WebReportElement } from '@webrad/runtime/report-template';
-import { projectAssetPath } from '@webrad/project-model';
+import { projectAssetPath, projectThemeRuntimeConfiguration } from '@webrad/project-model';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
@@ -694,7 +694,7 @@ export async function compileProject(
     generatedAppCss = await compileGeneratedAppStyles(
       selected.project.styles,
       project.settings.scrollbar,
-      project.settings.colorPalette,
+      project.settings.themes,
       selectedComponentTypes(selected, registry),
     );
   } catch (error) {
@@ -790,6 +790,7 @@ export async function compileProject(
     );
     const documentMetadata = {
       ...project.settings,
+      themeConfiguration: projectThemeRuntimeConfiguration(project.settings.themes, project.id),
       routePaths: project.pages.map((page) =>
         String(
           page.id === project.entryPage

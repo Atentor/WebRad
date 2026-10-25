@@ -1,5 +1,13 @@
 # WebRAD delivery plan
 
+- IMPLEMENTED locally, verification pending (2026-10-25): Enable Show theme switch by default for new Menu configurations. Preserve explicit saved choices and the disabled fallback for older configurations without themeToggle. Update the existing Menu smoke interaction to require the new checked default and exercise disabling/re-enabling; document the default and regenerate runtime sources. Validation was not requested and was not run.
+
+- IMPLEMENTED locally, verification pending (2026-10-25): Review application theme typography. Remove the WebRAD preset's system-font/normal-weight replacement and its 13px Light / 12px Dark overrides, preserving base style typography across all four presets. Use Roboto in the shared project surface and always embed its offline font faces, including projects with no explicit font selection. Preserve authored font choices and per-theme overrides. Update font documentation and the existing compiler expectation; regenerate runtime sources. Code review only; automated tests, smokes and builds were not run.
+
+- IMPLEMENTED locally, verification pending (2026-10-25): Remove the separate Color palette manager, context, editor and obsolete CSS. Centralize semantic and named custom colors in Styles > Themes with Light/Dark values and a Same option for fixed colors. Persist only settings.themes.customColors; migrate legacy palette entries with stable IDs and matching Light/Dark values, retaining old references as CSS aliases. Preserve links on rename/reorder and last values on fixed-color removal; reject removal of adaptive colors still used by shared fields. Use one theme picker across Inspector, styles, gradients, scrollbars and Menu. Update existing expectations, browser fixture and Electron smoke interactions/evidence; document the unified format and regenerate runtime sources. Validation was not requested and was not run. No commit, push, version or release change.
+
+- IMPLEMENTED locally, verification pending (2026-10-25): Add project-owned Light/Dark semantic theme colors, initial Light/Dark/System mode and optional per-project remembered choice. Add transactional Styles > Themes editing/adoption, shared Designer/Styles preview selection independent of IDE appearance, sparse per-theme style overrides and duplication, theme-aware color/gradient/scrollbar editors, and theme-linked new Default styles and Menu configurations. Preserve saved legacy/custom styles and IDs; expose an explicit Default-style/scrollbar conversion and Menu application-theme preset. Add browser-only WebTheme/Theme with typed mode/resolvedMode, toggle/reset/change subscriptions, live OS preference, cross-tab storage synchronization and shared prepaint HTML initialization for Preview/exports. Keep compiled CSS, public/Monaco declarations and embedded runtime sources aligned. Update existing model expectations, Styles/compiled Popup smoke interactions and required evidence in both runners; document format and architecture. Regenerate runtime sources. Tests, smokes, typecheck, lint, formatting checks, builds and packaging were not requested and were not run. No commit, push, version or release change.
+
 - IMPLEMENTED locally, verification pending (2026-10-25): Inspect every failure of f41d4fc in release 40195347739 and validate 40195347759; security and packaged Windows/Linux builds passed. Both macOS test workers aborted at the 2GB heap limit in compiler.test.ts. Break the unbounded Program -> CompilerHost.getSourceFile -> previous Program chain by clearing the host's mutable capture in finally after createProgram; release incompatible cached graphs before parsing, preserving strict checks/tree reuse. Linux development Panel scroll sampled before its scroll extent/layout settled (scroll=0, delta=-62): await loaded document/fonts, prepare and settle overflow, establish the baseline, dispatch one native scroll and retain exact 120px assertions/shared 15s budget with finally restoration. Windows development Save hit EPERM replacing index.ts: retain atomic sibling replacement/rollback and add Windows-only bounded sharing-error backoff (five waits, 620ms total; persistent/unrelated errors propagate). Preserve all smoke evidence and worker/deadline/heap settings. Original artifacts and diagnosis: artifacts/ci-40195347739/. Applied the configured formatter only to edited source/docs. No local tests, smokes, typecheck, lint, formatting checks, builds, commits, pushes or workflow reruns were requested or performed; exact-SHA hosted confirmation remains required.
 
 - IMPLEMENTED locally, verification pending (2026-10-25): Resume the macOS Actions investigation after the preceding parsing/progress changes were committed as d1f418c. Inspect exact-SHA release 40124234996 and validate 40124234978: all four release builds and both quality jobs stopped at format:check, which identified only packages/compiler/src/typecheck.ts; strict typecheck/lint and 1,725 portable tests (41 optional skips) passed in the quality jobs, and security 40124234989 passed. Apply the configured Prettier write operation only to that file, preserving compiler behavior. The hosted runs never reached the affected Preview smoke, so macOS timeout resolution remains unconfirmed. Diagnosis: artifacts/ci-40124234996/DIAGNOSIS.md. No local tests, smokes, typecheck, lint, formatting checks, builds, commits, pushes or workflow reruns were requested or performed.
@@ -775,3 +783,34 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED`.
 # Template chooser wording
 
 - IMPLEMENTED locally (2026-10-24): Rename the Aurora chooser card to **Examples & Tutorial** and describe its editable learning examples, reusable menus, API requests and RestGO accounts across 13 pages. Keep the stable template ID and update README instructions and existing Electron chooser assertions. Validation was not requested or run.
+
+## Style preview sample text (2026-10-25)
+
+- Added Registry preview-only sample content for Edit, Combo Box and List Box; retained existing captions, multiline Text Area and Data Grid examples. Project component defaults remain unchanged.
+- Updated the existing Electron Styles smoke to require sample values in all four text input/list previews. Validation was not requested and was not run.
+
+## Theme available without imports (2026-10-25)
+
+- Exposed the configured Theme service from the generated bootstrap before authored modules execute, following the existing application helper contract. Added compiler and Monaco ambient typings for pages, reusables, Models and Units; explicit imports and lexical shadowing remain supported. Updated docs/themes.md.
+- Validation was not requested and was not run.
+
+## New project theme presets (2026-10-25)
+
+- Added Aurora, Prism and Flat as an independent Application theme choice for both Blank project and Examples & Tutorial, with paired Light/Dark visual samples. Prism uses violet/coral gradients and adaptive mint accents; Flat materializes solid Default styles without shadows or hover scaling.
+- Preset palettes and style geometry live in the Project Model and are materialized at creation. Typed renderer/controller/IPC/file creation flow validates the preset ID in main; saved projects use the existing theme/style format and stable IDs.
+- Updated existing integration expectations and Electron chooser interactions, including required evidence in both runners; updated theme/project format documentation. Validation was not requested and was not run.
+
+## WebRAD project theme (2026-10-25)
+
+- Added WebRAD as a fourth new-project theme with the IDE Light/Dark palette, matching neutral button/field surfaces, native IDE font stack and 13px Light / 12px Dark typography. Default styles, nested Data Grid buttons and scrollbars use zero corner radius.
+- Shared structured radius projection now carries square corners into Menu controls and Data Grid toggles; nonzero radii reset that projection. Added the native ide font-family option and regenerated runtime sources.
+- Updated existing font/runtime expectations, chooser smoke interactions and both runners' required evidence for WebRAD selection, colors and square samples. Updated theme/project format docs and README. Tests, smokes, typecheck, lint and builds were not run because validation was not requested.
+
+## Menu Light/Dark switch (2026-10-25)
+
+- Added Show theme switch in Configure Menu > Behavior & layout. Persisted configuration.themeToggle defaults to false for existing menus; Menu.themeToggle exposes the typed runtime visibility property.
+- Shared Menu DOM renders an accessible sun/moon action in vertical, collapsed, horizontal and mobile layouts. Runtime uses Theme.toggle without rerendering navigation, preserving focus, selection, search and open drawers; observed theme changes update all controls and observers are disposed.
+- Configurator preview changes only its local theme through a browser-safe callback. Designer remains static. Updated registry description, docs and existing Electron smoke interactions/evidence for local preview, persistence and desktop/mobile runtime switching.
+- Validation was not requested. Tests, smokes, typecheck, lint and builds were not run.
+
+- Menu theme switch placement (2026-10-25): Moved the Light/Dark action into the header opposite the brand and removed its visible text, retaining the accessible action label and tooltip. Collapsed vertical headers stack the two controls to avoid overflow. Updated docs and existing Electron geometry/evidence assertions. Validation was not requested or run.

@@ -28,7 +28,9 @@ Consulte [releases e atualizações](docs/releases.md) para os detalhes por plat
 
 ## Primeira aplicação
 
-1. Abra **New Project**, escolha **Blank project** ou **Examples & Tutorial**, informe
+1. Abra **New Project**, escolha **Blank project** ou **Examples & Tutorial** e o tema
+   **Aurora**, **Prism** (colorido), **Flat** (superfícies sólidas) ou **WebRAD**
+   (paleta e fonte da IDE, com cantos retos), todos com Light e Dark. Informe
    o nome e selecione a pasta que receberá a subpasta do projeto. O template Aurora
    demonstra os componentes visuais e não visuais usando apenas os styles Default,
    com formulário, Popup, dados e mídia locais, Menu e componentes reutilizáveis.

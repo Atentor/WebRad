@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./theme": {
+      "types": "./src/theme.ts",
+      "default": "./src/theme.ts"
+    },
     "./menu": {
       "types": "./src/menu.ts",
       "default": "./src/menu.ts"

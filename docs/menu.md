@@ -1,5 +1,12 @@
 # Responsive Menu
 
+New configurations use semantic application-theme colors. **Appearance > Follow
+application theme** applies the project's colors to an existing Menu while
+retaining its dimensions; fixed Light and Dark presets remain available.
+Every appearance color supports fixed values and the shared theme color picker.
+Open drawers and flyouts inherit live theme changes without rebuilding their
+navigation state. See [Application themes](themes.md).
+
 **Navigation > Menu** provides vertical or horizontal navigation, branding,
 profile photos, Lucide icons and nested items. **Project > Add Reusable Component
 
@@ -133,6 +140,29 @@ and hover/active states in compiled Preview and generated applications. The
 mobile drawer follows the same settings. Menu CSS does not override scrollbar
 width; Firefox retains the global standard-property fallback and forced colors
 retain the browser's accessible appearance.
+
+## Application theme switch
+
+**Show theme switch** in **Configure Menu > Behavior & layout** is enabled by
+default for new Menus. Existing saved choices are preserved; disable it to hide
+the switch. This option displays
+an icon-only sun/moon button in the header, opposite the logo. Its accessible
+name and tooltip describe the action. It switches
+between the application's Light and Dark themes through `Theme.toggle()`, using
+the project's remembering preference. It also works in horizontal menus,
+collapsed sidebars and mobile drawers. Switching keeps the drawer open and
+preserves focus, search text, selection and expanded branches. Theme changes
+made elsewhere update the control's icon and accessible action label.
+
+The configurator's interactive preview switches only its local Light/Dark
+appearance. It does not change the IDE theme, project settings or the running
+application's theme. Designer projections display the control without executing
+it. Menus with fixed appearance colors retain those colors; enable
+**Follow application theme** in Appearance to make the Menu colors follow it.
+
+`configuration.themeToggle` and the typed `Menu1.themeToggle` property control
+visibility. Omitted legacy values normalize to `false`; `schemaVersion` remains
+1. Monaco declarations and generated runtime sources include the option.
 
 ## Search behavior and OnSearch
 

@@ -16,11 +16,10 @@ import type {
   ReusableElementModel,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES, isWebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
-import { useContext, useEffect, useId, useMemo, useState, type ReactElement } from 'react';
-import { resolvePaletteColor } from '@webrad/project-model';
-import { ProjectColorPaletteContext } from '../project-color-palette';
+import { useEffect, useId, useMemo, useState, type ReactElement } from 'react';
+import { useProjectColorResolver } from '../project-theme';
 import { Icon } from './Icon';
-import { ColorInput, PaletteColorButton } from './ColorInput';
+import { ColorInput, ThemeColorButton } from './ColorInput';
 import { ComponentIcon } from './ComponentIcon';
 import { IconPickerDialog } from './IconPickerDialog';
 import { Panel } from './Panel';
@@ -407,9 +406,9 @@ function PropertyEditor({
   onDesignerAction,
   onIconPickerOpenChange,
 }: PropertyEditorProps): ReactElement {
-  const colors = useContext(ProjectColorPaletteContext);
+  const resolveColor = useProjectColorResolver();
   const rawText = editorText(value, multiple);
-  const text = property.type === 'color' ? resolvePaletteColor(rawText, colors) : rawText;
+  const text = property.type === 'color' ? resolveColor(rawText) : rawText;
   const placeholder = multiple ? MULTIPLE_VALUES_LABEL : undefined;
   const disabled = property.readOnly === true;
 
@@ -556,7 +555,7 @@ function PropertyEditor({
               value={validPickerColor(text)}
               disabled={disabled}
               label={`${property.label ?? property.name} color picker`}
-              showPalette={false}
+              showThemeColors={false}
               onChange={onChange}
             />
             <input
@@ -570,7 +569,7 @@ function PropertyEditor({
               onChange={(event) => onChange(event.target.value)}
             />
           </div>
-          <PaletteColorButton
+          <ThemeColorButton
             label={`${property.label ?? property.name} color picker`}
             value={rawText}
             disabled={disabled}

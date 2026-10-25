@@ -52,6 +52,7 @@ export function typecheckSources(
     ignoreDeprecations: '6.0',
     paths: {
       '@webrad/runtime': [RUNTIME_ENTRY_PATH],
+      '@webrad/runtime/theme': [path.join(path.dirname(RUNTIME_ENTRY_PATH), 'theme.ts')],
       '@webrad/restgo-sdk': [RESTGO_ENTRY_PATH],
       'shaka-player/dist/shaka-player.ui.js': [
         path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/shaka/shaka-player.ui.d.ts'),

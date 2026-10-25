@@ -18,7 +18,7 @@ export const MENU_CONFIGURATION_PROPERTY: ComponentPropertyDefinition = {
   designerAction: 'menu-configurator',
   defaultValue: createDefaultWebMenuConfiguration(),
   description:
-    'Edit orientation, menu items, brand, user and appearance. Responsive placement is automatic.',
+    'Edit orientation, menu items, brand, user, appearance and the optional Light/Dark theme switch. Responsive placement is automatic.',
   validateValue: (value) => {
     try {
       parseWebMenuConfiguration(value);

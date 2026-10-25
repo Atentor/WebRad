@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { THEME_COLOR_NAMES } from '@webrad/project-model';
 
 import type { BrowserWindow } from 'electron';
 
@@ -238,6 +239,25 @@ export async function runStylesWorkspaceSmoke(
   options: StylesSmokeOptions,
 ): Promise<void> {
   const originalSize = window.getContentSize();
+  for (const componentName of ['Edit', 'Text Area', 'Combo Box', 'List Box']) {
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const option = Array.from(document.querySelectorAll('[aria-label="Style components"] [role="option"]'))
+          .find((item) => item.querySelector('strong')?.textContent?.trim() === ${JSON.stringify(componentName)});
+        if (!(option instanceof HTMLButtonElement)) throw new Error('Missing text style component');
+        option.click();
+      })()`,
+      true,
+    );
+    await ready(
+      window,
+      `(() => {
+        const control = document.querySelector('.wr-style-preview-frame input, .wr-style-preview-frame textarea, .wr-style-preview-frame select');
+        return (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement)
+          && control.value.includes('Sample text');
+      })()`,
+    );
+  }
   await selectStyle(window, 'Default Popup');
   await assertDefaultFilters(window);
   const essentialCount = await propertyCount(window);
@@ -290,6 +310,73 @@ export async function runStylesWorkspaceSmoke(
   await assertDefaultFilters(window);
 
   await createPageSnapshotStyle(window);
+  await setField(window, searchSelector, 'text color');
+  await click(window, labelledControl('Predefined colors for Text color'));
+  await click(window, '[aria-label="Use theme text for Text color"]');
+  const typography: unknown = await window.webContents.executeJavaScript(`(() => {
+    const node = document.querySelector('.wr-style-preview-frame .wr-webpage');
+    if (!(node instanceof HTMLElement)) throw new Error('Missing theme typography sample');
+    const style = getComputedStyle(node);
+    if (!style.fontFamily.includes('Roboto')) throw new Error('Default theme font must be Roboto');
+    return [style.fontFamily, style.fontSize, style.fontWeight];
+  })()`);
+  for (const [mode, expected] of [
+    ['dark', 'rgb(241, 245, 249)'],
+    ['light', 'rgb(15, 23, 42)'],
+  ] as const) {
+    await setField(window, '[aria-label="Styles preview theme"]', mode);
+    await ready(
+      window,
+      `(() => {
+      const node = document.querySelector('.wr-style-preview-frame .wr-webpage');
+      if (!(node instanceof HTMLElement)) return false;
+      const style = getComputedStyle(node);
+      return style.color === ${JSON.stringify(expected)} &&
+        JSON.stringify([style.fontFamily, style.fontSize, style.fontWeight]) === ${JSON.stringify(JSON.stringify(typography))};
+    })()`,
+    );
+  }
+  await click(window, '[aria-label="Themes"]');
+  await ready(
+    window,
+    `document.querySelectorAll('[data-theme-role]').length === ${String(THEME_COLOR_NAMES.length)} && document.querySelector('[aria-label="Color palette"]') === null`,
+  );
+  const originalTheme: unknown = await window.webContents.executeJavaScript(
+    `document.querySelector('[aria-label="Initial application theme"]')?.value`,
+    true,
+  );
+  await window.webContents.executeJavaScript(
+    `Array.from(document.querySelectorAll('.wr-styles-themes-panel button')).find((button) => button.textContent.trim() === 'Add color').click()`,
+    true,
+  );
+  await paint(window);
+  const customId: unknown = await window.webContents.executeJavaScript(
+    `Array.from(document.querySelectorAll('[data-custom-theme-color]')).at(-1)?.getAttribute('data-custom-theme-color')`,
+    true,
+  );
+  if (typeof customId !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/u.test(customId))
+    throw new Error('Missing custom theme color.');
+  await setField(window, `[aria-label="Color ${customId} name"]`, 'Smoke brand');
+  await setField(window, `[aria-label="light ${customId} value"]`, '#0d9488');
+  await ready(
+    window,
+    `document.querySelector('[aria-label="dark ${customId} value"]')?.value === '#0d9488' && document.querySelector('[aria-label="dark ${customId} value"]')?.disabled === true`,
+  );
+  await click(window, `[aria-label="Use same color in both themes for ${customId}"]`);
+  await setField(window, `[aria-label="dark ${customId} value"]`, '#5eead4');
+  await setField(window, '[aria-label="Initial application theme"]', 'system');
+  await click(window, '.wr-styles-themes-panel .wr-styles-theme-actions button:last-child');
+  await click(window, '[aria-label="Themes"]');
+  await ready(
+    window,
+    `document.querySelector('[aria-label="Initial application theme"]')?.value === 'system' && document.querySelector('[aria-label="Color ${customId} name"]')?.value === 'Smoke brand' && document.querySelector('[aria-label="light ${customId} value"]')?.value === '#0d9488' && document.querySelector('[aria-label="dark ${customId} value"]')?.value === '#5eead4' && document.querySelector('[aria-label="Use same color in both themes for ${customId}"]')?.checked === false`,
+  );
+  await click(window, `[aria-label="Remove theme color ${customId}"]`);
+  await setField(window, '[aria-label="Initial application theme"]', String(originalTheme));
+  await click(window, '.wr-styles-themes-panel .wr-styles-theme-actions button:last-child');
+  options.log(
+    'renderer unified themes Styles passed: Color palette absent / semantic color picker / Light and Dark rendered colors / fixed and adaptive custom colors / saved System mode / original mode restored',
+  );
   const captures: string[] = [];
   try {
     for (const width of [1275, 1600]) captures.push(await captureStyles(window, width));

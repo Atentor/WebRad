@@ -47,6 +47,7 @@ export function popupSmokeProject() {
 
 export const popupSmokeSources = {
   'pages/index.ts': `import { indexGenerated } from './index.generated';
+import { Theme } from '@webrad/runtime';
 export class index extends indexGenerated {
   private popupOpens = 0;
   private get opened(): number { return popupOpens; }
@@ -55,6 +56,18 @@ export class index extends indexGenerated {
     this.element.dataset.barePageOpens = String(opened);
   }
   created(): void {
+    this.element.dataset.themeAtCreate = document.documentElement.dataset.webradTheme;
+    Theme.subscribe((_sender, event) => {
+      this.element.dataset.themeMode = event.detail.mode;
+      this.element.dataset.themeResolved = event.detail.resolvedMode;
+    });
+    document.body.addEventListener('keydown', event => {
+      if (event.key === 'F6') Theme.mode = 'dark';
+      if (event.key === 'F7') Theme.mode = 'light';
+      if (event.key === 'F8') Theme.mode = 'system';
+      if (event.key === 'F10') Theme.toggle();
+      if (event.key === 'F11') Theme.reset();
+    });
     document.body.addEventListener('click', () => { popupOpens += 1; showPopup(); });
   }
 }`,

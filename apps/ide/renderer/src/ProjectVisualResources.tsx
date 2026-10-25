@@ -1,20 +1,27 @@
 import type { ReactElement, ReactNode } from 'react';
-import type { ProjectAsset, ProjectPaletteColor } from '@webrad/project-model';
+import {
+  DEFAULT_PROJECT_THEMES,
+  type ProjectAsset,
+  type ProjectThemeSettings,
+  type ResolvedThemeMode,
+} from '@webrad/project-model';
 import { ProjectAssetsContext } from '@webrad/components';
-import { ProjectColorPaletteContext } from './project-color-palette';
+import { ProjectThemeContext } from './project-theme';
 
 export function ProjectVisualResources({
-  colors,
   assets,
+  themes = DEFAULT_PROJECT_THEMES,
+  themeMode = 'light',
   children,
 }: {
-  colors: readonly ProjectPaletteColor[];
   assets: readonly ProjectAsset[];
+  themes?: ProjectThemeSettings;
+  themeMode?: ResolvedThemeMode;
   children: ReactNode;
 }): ReactElement {
   return (
-    <ProjectColorPaletteContext.Provider value={colors}>
+    <ProjectThemeContext.Provider value={{ themes, mode: themeMode }}>
       <ProjectAssetsContext.Provider value={assets}>{children}</ProjectAssetsContext.Provider>
-    </ProjectColorPaletteContext.Provider>
+    </ProjectThemeContext.Provider>
   );
 }

@@ -2007,6 +2007,7 @@ describe('browser runtime', () => {
       'transition-all',
       'animate-pulse',
       'rounded-[40px]',
+      '[--wr-square-radius:initial]',
       'hover:border',
       'hover:border-transparent',
       'hover:[border-style:solid]',

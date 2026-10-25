@@ -18,7 +18,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
     const css = await compileGeneratedAppStyles(
       project.styles,
       project.settings.scrollbar,
-      project.settings.colorPalette,
+      project.settings.themes,
     );
     const markup = renderToStaticMarkup(
       <ComponentView

@@ -10,6 +10,7 @@ import type {
 
 import type { WebRadIconName } from '@webrad/runtime/icons';
 import {
+  useContext,
   useEffect,
   useId,
   useRef,
@@ -19,11 +20,9 @@ import {
   type ReactElement,
 } from 'react';
 import { Icon } from './Icon';
-import { ColorInput, PaletteColorButton } from './ColorInput';
-import { ProjectColorPaletteContext } from '../project-color-palette';
-import { resolvePaletteColor } from '@webrad/project-model';
+import { ColorInput, ThemeColorButton } from './ColorInput';
+import { ProjectThemeContext, useProjectColorResolver } from '../project-theme';
 import { ProjectSettingsSchema } from '@webrad/project-model';
-import { useContext } from 'react';
 import { ProjectBuildSettings } from './ProjectBuildSettings';
 import { ProjectPwaSettings } from './ProjectPwaSettings';
 import { ProjectNativeSettings } from './ProjectNativeSettings';
@@ -149,16 +148,16 @@ function ScrollbarColorControl({
   value,
   onChange,
 }: ScrollbarColorControlProps): ReactElement {
-  const colors = useContext(ProjectColorPaletteContext);
+  const resolveColor = useProjectColorResolver();
   return (
     <div className="wr-project-settings-scrollbar-color">
       <span>{label}</span>
       <span className="wr-project-settings-scrollbar-color-row">
         <span className="wr-project-settings-scrollbar-color-value">
-          <ColorInput label={label} value={value} onChange={onChange} showPalette={false} />
-          <code>{resolvePaletteColor(value, colors).toUpperCase()}</code>
+          <ColorInput label={label} value={value} onChange={onChange} showThemeColors={false} />
+          <code>{resolveColor(value).toUpperCase()}</code>
         </span>
-        <PaletteColorButton label={label} value={value} onChange={onChange} />
+        <ThemeColorButton label={label} value={value} onChange={onChange} />
       </span>
     </div>
   );
@@ -299,6 +298,7 @@ export function ProjectSettingsDialog({
   );
   const [activeSectionId, setActiveSectionId] =
     useState<ProjectSettingsSectionId>(initialSectionId);
+  const { mode } = useContext(ProjectThemeContext);
   const [draft, setDraft] = useState<ProjectSettings>(settings);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
@@ -1315,8 +1315,8 @@ export function ProjectSettingsDialog({
     </div>
   );
   return (
-    <ProjectColorPaletteContext.Provider value={draft.colorPalette}>
+    <ProjectThemeContext.Provider value={{ themes: draft.themes, mode }}>
       {dialog}
-    </ProjectColorPaletteContext.Provider>
+    </ProjectThemeContext.Provider>
   );
 }

@@ -1,11 +1,13 @@
 import { DESIGNER_VIEWPORTS, type DesignerViewportName } from '@webrad/designer';
-import type { PageModel } from '@webrad/project-model';
+import type { PageModel, ResolvedThemeMode } from '@webrad/project-model';
 import type { ReactElement, ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
 
 export type DesignerSidebarMode = 'builder' | 'responsive' | 'project';
 
 interface DesignerSidebarProps {
+  previewTheme?: ResolvedThemeMode;
+  onPreviewThemeChange?: (mode: ResolvedThemeMode) => void;
   mode: DesignerSidebarMode;
   onModeChange: (mode: DesignerSidebarMode) => void;
   page: PageModel | null;
@@ -62,6 +64,21 @@ export function DesignerSidebar(props: DesignerSidebarProps): ReactElement {
           props.explorer
         ) : (
           <div className="wr-responsive-panel">
+            {props.onPreviewThemeChange !== undefined && (
+              <label className="wr-designer-theme-select">
+                Application theme
+                <select
+                  aria-label="Designer preview theme"
+                  value={props.previewTheme ?? 'light'}
+                  onChange={(event) =>
+                    props.onPreviewThemeChange?.(event.target.value as ResolvedThemeMode)
+                  }
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+            )}
             <h2>Preview width</h2>
             <div className="wr-viewport-presets" role="group" aria-label="Responsive viewport">
               {Object.entries(DESIGNER_VIEWPORTS).map(([name, preset]) => {

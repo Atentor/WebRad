@@ -19,11 +19,12 @@ import {
   type StyleLengthValue,
   type StylePropertyValue,
   paletteColorId,
-  resolvePaletteColor,
+  themeColorId,
+  customThemeColorId,
 } from '@webrad/project-model';
-import { useContext, useId, useMemo, useState, type ReactElement, type ReactNode } from 'react';
-import { ProjectColorPaletteContext } from '../project-color-palette';
-import { ColorInput, PaletteColorButton } from './ColorInput';
+import { useId, useMemo, useState, type ReactElement, type ReactNode } from 'react';
+import { useProjectColorResolver } from '../project-theme';
+import { ColorInput, ThemeColorButton } from './ColorInput';
 
 interface VisualStyleEditorProps {
   readonly componentType: string;
@@ -83,10 +84,16 @@ function isLinearGradientValue(value: StylePropertyValue): value is BackgroundGr
     typeof value.direction === 'string' &&
     'from' in value &&
     typeof value.from === 'string' &&
-    (HEX_COLOR.test(value.from) || paletteColorId(value.from) !== undefined) &&
+    (HEX_COLOR.test(value.from) ||
+      paletteColorId(value.from) !== undefined ||
+      customThemeColorId(value.from) !== undefined ||
+      themeColorId(value.from) !== undefined) &&
     'to' in value &&
     typeof value.to === 'string' &&
-    (HEX_COLOR.test(value.to) || paletteColorId(value.to) !== undefined)
+    (HEX_COLOR.test(value.to) ||
+      paletteColorId(value.to) !== undefined ||
+      customThemeColorId(value.to) !== undefined ||
+      themeColorId(value.to) !== undefined)
   );
 }
 
@@ -158,21 +165,23 @@ function EnumControl({ definition, value, onChange }: PropertyControlProps): Rea
 }
 
 function ColorControl({ definition, value, onChange }: PropertyControlProps): ReactElement {
-  const colors = useContext(ProjectColorPaletteContext);
+  const resolveColor = useProjectColorResolver();
   if (definition.editor.kind !== 'color') throw new Error('Expected a color style editor.');
-  const linked = paletteColorId(value) !== undefined;
-  const custom =
-    typeof value === 'string' && (HEX_COLOR.test(value) || paletteColorId(value) !== undefined);
+  const linked =
+    themeColorId(value) !== undefined ||
+    customThemeColorId(value) !== undefined ||
+    paletteColorId(value) !== undefined;
+  const custom = typeof value === 'string' && (HEX_COLOR.test(value) || linked);
   return (
     <div className="wr-style-color-control">
       <select
         aria-label={`${definition.label} type`}
-        value={linked ? 'palette' : custom ? 'custom' : String(value)}
+        value={linked ? 'theme' : custom ? 'custom' : String(value)}
         onChange={(event) =>
           onChange(
             event.target.value === 'custom'
               ? linked
-                ? resolvePaletteColor(String(value), colors)
+                ? resolveColor(String(value))
                 : '#000000'
               : event.target.value,
           )
@@ -180,8 +189,8 @@ function ColorControl({ definition, value, onChange }: PropertyControlProps): Re
       >
         <option value="custom">Custom color</option>
         {linked && (
-          <option value="palette" disabled>
-            Palette color
+          <option value="theme" disabled>
+            Theme color
           </option>
         )}
         {definition.editor.keywords.map((option) => (
@@ -195,13 +204,13 @@ function ColorControl({ definition, value, onChange }: PropertyControlProps): Re
           <ColorInput
             label={definition.label}
             value={value}
-            showPalette={false}
+            showThemeColors={false}
             onChange={onChange}
           />
-          <span>{resolvePaletteColor(String(value), colors).toUpperCase()}</span>
+          <span>{resolveColor(String(value)).toUpperCase()}</span>
         </div>
       )}
-      <PaletteColorButton label={definition.label} value={String(value)} onChange={onChange} />
+      <ThemeColorButton label={definition.label} value={String(value)} onChange={onChange} />
     </div>
   );
 }
@@ -224,7 +233,7 @@ function exclusivePropertyName(
 }
 
 function GradientControl({ definition, value, onChange }: PropertyControlProps): ReactElement {
-  const colors = useContext(ProjectColorPaletteContext);
+  const resolveColor = useProjectColorResolver();
   if (definition.editor.kind !== 'gradient') throw new Error('Expected a gradient style editor.');
   const editor = definition.editor;
   const fallbackDirection = gradientDirection(editor.directions[0]?.value ?? '', 'to-right');
@@ -265,12 +274,12 @@ function GradientControl({ definition, value, onChange }: PropertyControlProps):
             <ColorInput
               label={`${definition.label} from color`}
               value={gradient.from}
-              showPalette={false}
+              showThemeColors={false}
               onChange={(from) => changeGradient({ from })}
             />
-            <code>{resolvePaletteColor(gradient.from, colors).toUpperCase()}</code>
+            <code>{resolveColor(gradient.from).toUpperCase()}</code>
           </div>
-          <PaletteColorButton
+          <ThemeColorButton
             label={`${definition.label} from color`}
             value={gradient.from}
             onChange={(from) => changeGradient({ from })}
@@ -282,12 +291,12 @@ function GradientControl({ definition, value, onChange }: PropertyControlProps):
             <ColorInput
               label={`${definition.label} to color`}
               value={gradient.to}
-              showPalette={false}
+              showThemeColors={false}
               onChange={(to) => changeGradient({ to })}
             />
-            <code>{resolvePaletteColor(gradient.to, colors).toUpperCase()}</code>
+            <code>{resolveColor(gradient.to).toUpperCase()}</code>
           </div>
-          <PaletteColorButton
+          <ThemeColorButton
             label={`${definition.label} to color`}
             value={gradient.to}
             onChange={(to) => changeGradient({ to })}

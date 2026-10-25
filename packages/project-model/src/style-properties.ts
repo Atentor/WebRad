@@ -488,6 +488,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ['sans', 'Sans serif'],
     ['serif', 'Serif'],
     ['mono', 'Monospace'],
+    ['ide', 'WebRAD IDE (system)'],
     ...WEBRAD_FONT_FAMILIES.map((font) => [font.id, font.label] as const),
   ]),
   lengthProperty('fontSize', 'Font size', 'Typography', { units: ['px', 'rem'], min: 0 }),

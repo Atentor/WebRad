@@ -9,13 +9,17 @@ import {
   portableFileNameKey,
   type ComponentStyleModel,
   type ComponentStyleStateName,
-  type ProjectPaletteColor,
+  DEFAULT_PROJECT_THEMES,
+  projectThemeCss,
+  type ProjectThemeSettings,
+  type ResolvedThemeMode,
 } from '@webrad/project-model';
 import { resolveComponentStylePreviewClassName } from '@webrad/runtime/visual';
 import { useId, useMemo, useState, type FormEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { VisualStyleEditor } from './VisualStyleEditor';
-import { StylesColorPalettePanel } from './StylesColorPalettePanel';
+import { StylesThemesPanel } from './StylesThemesPanel';
+import { ProjectThemeContext } from '../project-theme';
 
 interface StyleStateDefinition {
   readonly key: ComponentStyleStateName;
@@ -85,8 +89,10 @@ function createPreviewProps(
 }
 
 interface StylesWorkspaceProps {
-  readonly colorPalette?: readonly ProjectPaletteColor[];
-  readonly onUpdateColorPalette?: (colors: readonly ProjectPaletteColor[]) => void;
+  readonly themes?: ProjectThemeSettings;
+  readonly previewTheme?: ResolvedThemeMode;
+  readonly onPreviewThemeChange?: (mode: ResolvedThemeMode) => void;
+  readonly onUpdateThemes?: (themes: ProjectThemeSettings, linkDefaults: boolean) => void;
   readonly styles: readonly ComponentStyleModel[];
   readonly selectedComponentType?: string;
   readonly onSelectComponentType?: (type: string) => void;
@@ -180,8 +186,10 @@ function StyleNameEditor({ style, styles, onCommit }: StyleNameEditorProps): Rea
 }
 
 export function StylesWorkspace({
-  colorPalette = [],
-  onUpdateColorPalette,
+  themes = DEFAULT_PROJECT_THEMES,
+  previewTheme: controlledPreviewTheme,
+  onPreviewThemeChange,
+  onUpdateThemes,
   styles,
   selectedComponentType,
   onSelectComponentType,
@@ -203,7 +211,14 @@ export function StylesWorkspace({
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [editingPalette, setEditingPalette] = useState(false);
+  const [editingThemes, setEditingThemes] = useState(false);
+  const [editLayer, setEditLayer] = useState<'shared' | ResolvedThemeMode>('shared');
+  const [localPreviewTheme, setLocalPreviewTheme] = useState<ResolvedThemeMode>('light');
+  const previewTheme = controlledPreviewTheme ?? localPreviewTheme;
+  const changePreviewTheme = (mode: ResolvedThemeMode): void => {
+    setLocalPreviewTheme(mode);
+    onPreviewThemeChange?.(mode);
+  };
   const [draftType, setDraftType] = useState(visualDefinitions[0]?.type ?? '');
   const [draftName, setDraftName] = useState(() =>
     suggestedStyleName(visualDefinitions[0], styles),
@@ -241,7 +256,8 @@ export function StylesWorkspace({
   );
 
   const beginCreate = (): void => {
-    setEditingPalette(false);
+    setEditLayer('shared');
+    setEditingThemes(false);
     const definition = registry.get(selectedComponentType ?? draftType) ?? visualDefinitions[0];
     const componentType = definition?.type ?? '';
     setDraftType(componentType);
@@ -291,274 +307,340 @@ export function StylesWorkspace({
   };
 
   return (
-    <section className="wr-styles-workspace" aria-label="Styles editor">
-      <style data-webrad-project-styles>{compiledCss}</style>
-      <SharedComponentStyles />
+    <ProjectThemeContext.Provider value={{ themes, mode: previewTheme }}>
+      <section className="wr-styles-workspace" aria-label="Styles editor">
+        <style data-webrad-project-styles>{compiledCss}</style>
+        <style data-webrad-project-themes>{projectThemeCss(themes, { layered: true })}</style>
+        <SharedComponentStyles />
+        <div className="wr-styles-theme-toolbar">
+          <span>Application appearance</span>
+          <label>
+            Preview theme
+            <select
+              aria-label="Styles preview theme"
+              value={previewTheme}
+              onChange={(event) => changePreviewTheme(event.target.value as ResolvedThemeMode)}
+            >
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+        </div>
 
-      <div className="wr-styles-body">
-        <aside className="wr-style-library" aria-label="Style library">
-          <div className="wr-style-section-heading">
-            <div>
-              <span>Project</span>
-              <h2>Style library</h2>
-            </div>
-            <button type="button" onClick={beginCreate} disabled={visualDefinitions.length === 0}>
-              <Icon name="add" />
-              New style
-            </button>
-          </div>
-
-          <div className="wr-style-library-content">
-            {onUpdateColorPalette !== undefined && (
-              <button
-                type="button"
-                className="wr-style-palette-entry"
-                aria-label="Color palette"
-                aria-pressed={editingPalette}
-                onClick={() => {
-                  setCreating(false);
-                  setEditingPalette(true);
-                }}
-              >
-                <Icon name="palette" />
-                <span>Color palette</span>
-                <small>{colorPalette.length} / 10</small>
-              </button>
-            )}
-            {creating && (
-              <form className="wr-style-create-form" onSubmit={submitCreate}>
-                <strong>Create style</strong>
-                <label htmlFor={createTypeId}>Component type</label>
-                <select
-                  id={createTypeId}
-                  value={draftType}
-                  onChange={(event) => {
-                    const nextType = event.target.value;
-                    setDraftType(nextType);
-                    setDraftName(suggestedStyleName(registry.get(nextType), styles));
-                    setCreateError(null);
-                  }}
-                >
-                  {visualDefinitions.map((definition) => (
-                    <option value={definition.type} key={definition.type}>
-                      {definition.displayName}
-                    </option>
-                  ))}
-                </select>
-                <label htmlFor={createNameId}>New style name</label>
-                <input
-                  id={createNameId}
-                  value={draftName}
-                  spellCheck={false}
-                  autoFocus
-                  onChange={(event) => {
-                    setDraftName(event.target.value);
-                    setCreateError(null);
-                  }}
-                />
-                {createError !== null && <small role="alert">{createError}</small>}
-                <div className="wr-style-create-actions">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreating(false);
-                      setCreateError(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit">Create</button>
-                </div>
-              </form>
-            )}
-
-            {visibleStyles.length === 0 && !creating ? (
-              <div className="wr-style-library-empty">
-                <Icon name="layers" />
-                <strong>No styles yet</strong>
-                <p>Create a reusable style for the selected component type.</p>
+        <div className="wr-styles-body">
+          <aside className="wr-style-library" aria-label="Style library">
+            <div className="wr-style-section-heading">
+              <div>
+                <span>Project</span>
+                <h2>Style library</h2>
               </div>
-            ) : (
-              <div className="wr-style-list" role="listbox" aria-label="Project styles">
-                {visibleStyles.map((style) => {
-                  const definition = registry.get(style.componentType);
-                  const selected = selectedStyle?.id === style.id;
-                  return (
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      className={selected ? 'selected' : ''}
-                      key={style.id}
-                      onClick={() => {
-                        setEditingPalette(false);
-                        setSelectedId(style.id);
-                        setActiveState('base');
-                      }}
-                    >
-                      {componentGlyph(definition)}
-                      <span>
-                        <strong>{style.name}</strong>
-                        <small>
-                          {style.preset === 'default' ? 'Default · ' : ''}
-                          {definition?.displayName ?? style.componentType}
-                        </small>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </aside>
-
-        <div className="wr-style-configurator">
-          {editingPalette && onUpdateColorPalette !== undefined ? (
-            <StylesColorPalettePanel
-              colors={colorPalette}
-              onSave={onUpdateColorPalette}
-              onClose={() => setEditingPalette(false)}
-            />
-          ) : selectedStyle === undefined ? (
-            <div className="wr-style-configurator-empty">
-              <Icon name="style" />
-              <h2>Create your first component style</h2>
-              <p>
-                Choose a component type, customize its visual states, then assign the style from the
-                Object Inspector.
-              </p>
               <button type="button" onClick={beginCreate} disabled={visualDefinitions.length === 0}>
+                <Icon name="add" />
                 New style
               </button>
             </div>
-          ) : (
-            <>
-              <div className="wr-style-configurator-heading">
-                <StyleNameEditor
-                  key={selectedStyle.id}
-                  style={selectedStyle}
-                  styles={styles}
-                  onCommit={(name) => onUpdateStyle({ ...selectedStyle, name })}
-                />
-                <div className="wr-style-configurator-actions">
-                  <span className="wr-style-component-type">
-                    {componentGlyph(selectedDefinition)}
-                    {selectedDefinition?.displayName ?? selectedStyle.componentType}
-                  </span>
-                  {onDuplicateStyle !== undefined && (
+
+            <div className="wr-style-library-content">
+              {onUpdateThemes !== undefined && (
+                <button
+                  type="button"
+                  className="wr-style-theme-entry"
+                  aria-label="Themes"
+                  aria-pressed={editingThemes}
+                  onClick={() => {
+                    setCreating(false);
+                    setEditingThemes(true);
+                  }}
+                >
+                  <Icon name="palette" />
+                  <span>Themes</span>
+                  <small>Light / Dark</small>
+                </button>
+              )}
+              {creating && (
+                <form className="wr-style-create-form" onSubmit={submitCreate}>
+                  <strong>Create style</strong>
+                  <label htmlFor={createTypeId}>Component type</label>
+                  <select
+                    id={createTypeId}
+                    value={draftType}
+                    onChange={(event) => {
+                      const nextType = event.target.value;
+                      setDraftType(nextType);
+                      setDraftName(suggestedStyleName(registry.get(nextType), styles));
+                      setCreateError(null);
+                    }}
+                  >
+                    {visualDefinitions.map((definition) => (
+                      <option value={definition.type} key={definition.type}>
+                        {definition.displayName}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor={createNameId}>New style name</label>
+                  <input
+                    id={createNameId}
+                    value={draftName}
+                    spellCheck={false}
+                    autoFocus
+                    onChange={(event) => {
+                      setDraftName(event.target.value);
+                      setCreateError(null);
+                    }}
+                  />
+                  {createError !== null && <small role="alert">{createError}</small>}
+                  <div className="wr-style-create-actions">
                     <button
                       type="button"
-                      className="wr-style-duplicate-button"
-                      title="Duplicate style"
-                      aria-label={`Duplicate ${selectedStyle.name}`}
                       onClick={() => {
-                        const id = onDuplicateStyle(selectedStyle.id);
-                        if (id === null) return;
-                        setSelectedId(id);
                         setCreating(false);
+                        setCreateError(null);
                       }}
                     >
-                      <Icon name="copy" />
-                      Duplicate
+                      Cancel
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    className="wr-style-delete-button"
-                    onClick={deleteSelectedStyle}
-                    disabled={selectedStyle.preset === 'default'}
-                    title={
-                      selectedStyle.preset === 'default'
-                        ? 'Default styles cannot be deleted.'
-                        : 'Delete style'
-                    }
-                    aria-label={
-                      selectedStyle.preset === 'default'
-                        ? `${selectedStyle.name} is a protected default style`
-                        : `Delete ${selectedStyle.name}`
-                    }
-                  >
-                    <Icon name="delete" />
-                  </button>
+                    <button type="submit">Create</button>
+                  </div>
+                </form>
+              )}
+
+              {visibleStyles.length === 0 && !creating ? (
+                <div className="wr-style-library-empty">
+                  <Icon name="layers" />
+                  <strong>No styles yet</strong>
+                  <p>Create a reusable style for the selected component type.</p>
                 </div>
-              </div>
-
-              <div className="wr-style-state-strip" role="tablist" aria-label="Style states">
-                {STYLE_STATES.map((state) => (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-label={state.label}
-                    aria-selected={activeState === state.key}
-                    className={activeState === state.key ? 'active' : ''}
-                    key={state.key}
-                    onClick={() => setActiveState(state.key)}
-                  >
-                    {state.label}
-                    {Object.keys(selectedStyle.states[state.key]).length > 0 && (
-                      <span title={`${state.label} configured`} aria-hidden="true" />
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <div className="wr-style-editor-layout">
-                <VisualStyleEditor
-                  key={`${selectedStyle.id}-${activeState}`}
-                  componentType={selectedStyle.componentType}
-                  stateName={activeState}
-                  properties={selectedStyle.states[activeState]}
-                  onChange={(properties) =>
-                    onUpdateStyle({
-                      ...selectedStyle,
-                      states: {
-                        ...selectedStyle.states,
-                        [activeState]: properties,
-                      },
-                    })
-                  }
-                  registry={registry}
-                />
-
-                <section
-                  className="wr-style-component-preview"
-                  aria-label="Component style preview"
-                >
-                  <div className="wr-style-preview-heading">
-                    <div>
-                      <span>Live preview</span>
-                      <h3>{selectedDefinition?.displayName ?? selectedStyle.componentType}</h3>
-                    </div>
-                    <span>{activeStateDefinition.label}</span>
-                  </div>
-                  <div className="wr-style-preview-canvas">
-                    <div
-                      className="wr-style-preview-frame wr-project-surface"
-                      data-style-preview={selectedStyle.id}
-                    >
-                      {previewNode === undefined ? (
-                        <span className="wr-style-preview-unavailable">
-                          Preview unavailable for unregistered or nonvisual component type{' '}
-                          <code>{selectedStyle.componentType}</code>.
+              ) : (
+                <div className="wr-style-list" role="listbox" aria-label="Project styles">
+                  {visibleStyles.map((style) => {
+                    const definition = registry.get(style.componentType);
+                    const selected = selectedStyle?.id === style.id;
+                    return (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        className={selected ? 'selected' : ''}
+                        key={style.id}
+                        onClick={() => {
+                          setEditingThemes(false);
+                          setEditLayer('shared');
+                          setSelectedId(style.id);
+                          setActiveState('base');
+                        }}
+                      >
+                        {componentGlyph(definition)}
+                        <span>
+                          <strong>{style.name}</strong>
+                          <small>
+                            {style.preset === 'default' ? 'Default · ' : ''}
+                            {definition?.displayName ?? style.componentType}
+                          </small>
                         </span>
-                      ) : (
-                        <ComponentView
-                          node={previewNode}
-                          designTime
-                          styleClassName={resolveComponentStylePreviewClassName(
-                            selectedStyle,
-                            activeState,
-                          )}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </section>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </aside>
+
+          <div className="wr-style-configurator">
+            {editingThemes && onUpdateThemes !== undefined ? (
+              <StylesThemesPanel
+                themes={themes}
+                onSave={onUpdateThemes}
+                onClose={() => setEditingThemes(false)}
+              />
+            ) : selectedStyle === undefined ? (
+              <div className="wr-style-configurator-empty">
+                <Icon name="style" />
+                <h2>Create your first component style</h2>
+                <p>
+                  Choose a component type, customize its visual states, then assign the style from
+                  the Object Inspector.
+                </p>
+                <button
+                  type="button"
+                  onClick={beginCreate}
+                  disabled={visualDefinitions.length === 0}
+                >
+                  New style
+                </button>
               </div>
-            </>
-          )}
+            ) : (
+              <>
+                <div className="wr-style-configurator-heading">
+                  <StyleNameEditor
+                    key={selectedStyle.id}
+                    style={selectedStyle}
+                    styles={styles}
+                    onCommit={(name) => onUpdateStyle({ ...selectedStyle, name })}
+                  />
+                  <div className="wr-style-configurator-actions">
+                    <span className="wr-style-component-type">
+                      {componentGlyph(selectedDefinition)}
+                      {selectedDefinition?.displayName ?? selectedStyle.componentType}
+                    </span>
+                    {onDuplicateStyle !== undefined && (
+                      <button
+                        type="button"
+                        className="wr-style-duplicate-button"
+                        title="Duplicate style"
+                        aria-label={`Duplicate ${selectedStyle.name}`}
+                        onClick={() => {
+                          const id = onDuplicateStyle(selectedStyle.id);
+                          if (id === null) return;
+                          setSelectedId(id);
+                          setCreating(false);
+                        }}
+                      >
+                        <Icon name="copy" />
+                        Duplicate
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="wr-style-delete-button"
+                      onClick={deleteSelectedStyle}
+                      disabled={selectedStyle.preset === 'default'}
+                      title={
+                        selectedStyle.preset === 'default'
+                          ? 'Default styles cannot be deleted.'
+                          : 'Delete style'
+                      }
+                      aria-label={
+                        selectedStyle.preset === 'default'
+                          ? `${selectedStyle.name} is a protected default style`
+                          : `Delete ${selectedStyle.name}`
+                      }
+                    >
+                      <Icon name="delete" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="wr-style-state-strip" role="tablist" aria-label="Style states">
+                  {STYLE_STATES.map((state) => (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-label={state.label}
+                      aria-selected={activeState === state.key}
+                      className={activeState === state.key ? 'active' : ''}
+                      key={state.key}
+                      onClick={() => setActiveState(state.key)}
+                    >
+                      {state.label}
+                      {Object.keys(
+                        editLayer === 'shared'
+                          ? selectedStyle.states[state.key]
+                          : (selectedStyle.themeOverrides?.[editLayer]?.[state.key] ?? {}),
+                      ).length > 0 && (
+                        <span title={`${state.label} configured`} aria-hidden="true" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="wr-style-editor-layout">
+                  <div className="wr-style-theme-layer">
+                    <label>
+                      Edit values
+                      <select
+                        aria-label="Style theme layer"
+                        value={editLayer}
+                        onChange={(event) => {
+                          const value = event.target.value as typeof editLayer;
+                          setEditLayer(value);
+                          if (value !== 'shared') changePreviewTheme(value);
+                        }}
+                      >
+                        <option value="shared">Shared</option>
+                        <option value="light">Light overrides</option>
+                        <option value="dark">Dark overrides</option>
+                      </select>
+                    </label>
+                    <span>
+                      {editLayer === 'shared'
+                        ? 'Shared values apply to both themes.'
+                        : 'Configured values override Shared. Clear a value to inherit it.'}
+                    </span>
+                  </div>
+                  <VisualStyleEditor
+                    key={`${selectedStyle.id}-${activeState}-${editLayer}`}
+                    componentType={selectedStyle.componentType}
+                    stateName={activeState}
+                    properties={
+                      editLayer === 'shared'
+                        ? selectedStyle.states[activeState]
+                        : (selectedStyle.themeOverrides?.[editLayer]?.[activeState] ?? {})
+                    }
+                    onChange={(properties) =>
+                      onUpdateStyle({
+                        ...selectedStyle,
+                        ...(editLayer === 'shared'
+                          ? {
+                              states: {
+                                ...selectedStyle.states,
+                                [activeState]: properties,
+                              },
+                            }
+                          : {
+                              themeOverrides: {
+                                ...selectedStyle.themeOverrides,
+                                [editLayer]: {
+                                  ...selectedStyle.themeOverrides?.[editLayer],
+                                  [activeState]: properties,
+                                },
+                              },
+                            }),
+                      })
+                    }
+                    registry={registry}
+                  />
+
+                  <section
+                    className="wr-style-component-preview"
+                    aria-label="Component style preview"
+                  >
+                    <div className="wr-style-preview-heading">
+                      <div>
+                        <span>Live preview</span>
+                        <h3>{selectedDefinition?.displayName ?? selectedStyle.componentType}</h3>
+                      </div>
+                      <span>{activeStateDefinition.label}</span>
+                    </div>
+                    <div className="wr-style-preview-canvas">
+                      <div
+                        className="wr-style-preview-frame wr-project-surface"
+                        data-style-preview={selectedStyle.id}
+                        data-webrad-theme={previewTheme}
+                      >
+                        {previewNode === undefined ? (
+                          <span className="wr-style-preview-unavailable">
+                            Preview unavailable for unregistered or nonvisual component type{' '}
+                            <code>{selectedStyle.componentType}</code>.
+                          </span>
+                        ) : (
+                          <ComponentView
+                            node={previewNode}
+                            designTime
+                            styleClassName={resolveComponentStylePreviewClassName(
+                              selectedStyle,
+                              activeState,
+                            )}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </ProjectThemeContext.Provider>
   );
 }

@@ -27,3 +27,4 @@ export { configureRestGo, getRestGoClient, RestGO, RestGoNotConfiguredError } fr
 export type { RestGoRuntimeConfiguration } from './restgo.js';
 export * from './visual.js';
 export * from './timer.js';
+export * from './theme.js';

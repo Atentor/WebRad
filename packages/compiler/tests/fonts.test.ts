@@ -62,7 +62,8 @@ it('includes families referenced by interaction classes and omits unused font bi
   const generic = await compileTailwindStyles([
     createComponentStyle('Generic', 'WebLabel', { states: { base: { fontFamily: 'sans' } } }),
   ]);
-  expect(generic).not.toContain('data:font/woff2');
+  expect(generic).toContain("font-family: 'Roboto'");
+  expect(generic).toContain('data:font/woff2');
 });
 
 it('exports font notices and embedded fonts in the minified compiled Preview and browser application', async () => {

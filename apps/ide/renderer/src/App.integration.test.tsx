@@ -1521,7 +1521,11 @@ describe('App MVP integration', () => {
     expect(
       within(screen.getByRole('toolbar', { name: 'Main toolbar' })).queryByRole('img'),
     ).toBeNull();
-    expect(harness.create).toHaveBeenCalledWith({ name: 'MvpProject', templateId: 'blank' });
+    expect(harness.create).toHaveBeenCalledWith({
+      name: 'MvpProject',
+      templateId: 'blank',
+      themePresetId: 'aurora',
+    });
     await user.dblClick(screen.getByRole('button', { name: 'Label' }));
     await screen.findByTitle('Label1: WebLabel');
     await user.dblClick(screen.getByRole('button', { name: 'Edit' }));
@@ -2523,19 +2527,19 @@ describe('App MVP integration', () => {
     ).toBe('Mvp Portal');
     await user.click(within(reopenedDialog).getByRole('button', { name: 'Cancel' }));
     await user.click(screen.getByRole('button', { name: 'Styles' }));
-    await user.click(screen.getByRole('button', { name: 'Color palette' }));
-    fireEvent.change(screen.getByLabelText('Palette color 1'), { target: { value: '#007acc' } });
-    await user.click(screen.getByRole('button', { name: 'Save palette' }));
-    await user.click(screen.getByRole('button', { name: 'Color palette' }));
-    expect((screen.getByLabelText('Palette color 1 hex') as HTMLInputElement).value).toBe(
+    expect(screen.queryByRole('button', { name: 'Color palette' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Themes' }));
+    fireEvent.change(screen.getByLabelText('light primary'), { target: { value: '#007acc' } });
+    await user.click(screen.getByRole('button', { name: 'Save themes' }));
+    await user.click(screen.getByRole('button', { name: 'Themes' }));
+    expect((screen.getByLabelText('light primary value') as HTMLInputElement).value).toBe(
       '#007acc',
     );
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await waitFor(() =>
-      expect(harness.persisted().project.settings.colorPalette[0]).toMatchObject({
-        id: 'aurora-blue',
-        color: '#007acc',
+      expect(harness.persisted().project.settings.themes.colors.primary).toMatchObject({
+        light: '#007acc',
       }),
     );
     await user.click(screen.getByRole('option', { name: 'Button' }));
@@ -2768,7 +2772,11 @@ describe('App MVP integration', () => {
     const projectName = await screen.findByRole('textbox', { name: 'Project name' });
     await user.click(screen.getByRole('button', { name: 'Create project' }));
     await waitFor(() =>
-      expect(harness.create).toHaveBeenCalledWith({ name: 'Project1', templateId: 'blank' }),
+      expect(harness.create).toHaveBeenCalledWith({
+        name: 'Project1',
+        templateId: 'blank',
+        themePresetId: 'aurora',
+      }),
     );
     await waitFor(() => expect(document.activeElement).toBe(projectName));
     expect((projectName as HTMLInputElement).disabled).toBe(false);

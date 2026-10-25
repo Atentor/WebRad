@@ -2,6 +2,8 @@ import { bindWebMenuPopovers } from './menu-popovers.js';
 import { setRuntimeLayoutProjection } from './layout.js';
 import { projectWebMenuLayout, readWebMenuMargins } from './menu-layout.js';
 import { WebComponent } from './component.js';
+import { createLucideIconElement } from './icon.js';
+import { Theme } from './theme.js';
 import { applyWebMenuAppearance, createWebMenuPanel, menuButton, menuElement } from './menu-dom.js';
 import {
   createDefaultWebMenuConfiguration,
@@ -18,6 +20,8 @@ export interface WebMenuOptions {
   /** Static projections still use the identical DOM and appearance. */
   readonly interactive?: boolean;
   readonly viewportWidth?: number;
+  /** Allows embedded previews to change their local theme without changing the application. */
+  readonly onThemeToggle?: () => void;
 }
 
 const scrollLocks = new WeakMap<Document, { count: number; overflow: string }>();
@@ -42,6 +46,27 @@ export class WebMenu extends WebComponent<HTMLElement> {
   };
 
   #disposePopovers: (() => void) | undefined;
+  #themeObserver: MutationObserver | undefined;
+  #themeMode(): 'light' | 'dark' {
+    const host =
+      this.element.closest<HTMLElement>('[data-webrad-theme]') ??
+      this.element.ownerDocument.documentElement;
+    return host.dataset.webradTheme === 'dark' ? 'dark' : 'light';
+  }
+  #syncThemeToggle(): void {
+    if (this.#disposed) return;
+    const dark = this.#themeMode() === 'dark';
+    for (const control of this.element.querySelectorAll<HTMLButtonElement>(
+      '[data-menu-action="theme"]',
+    )) {
+      const label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+      control.setAttribute('aria-label', label);
+      control.title = label;
+      control.replaceChildren(
+        createLucideIconElement(this.element.ownerDocument, dark ? 'sun' : 'moon'),
+      );
+    }
+  }
   #layoutSignature = '';
   public get floatingZIndex(): number {
     return 1000;
@@ -206,6 +231,11 @@ export class WebMenu extends WebComponent<HTMLElement> {
       case 'user':
         this.emit('OnUserClick', { ...this.#configuration.user });
         break;
+      case 'theme':
+        if (this.#options.onThemeToggle) this.#options.onThemeToggle();
+        else Theme.toggle();
+        this.#syncThemeToggle();
+        break;
       case 'brand':
         if (this.emit('OnBrandClick', { ...this.#configuration.brand }))
           this.#navigate(this.#configuration.brand.page, this.#configuration.brand.href);
@@ -324,6 +354,12 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (existing) return existing;
     menuInstances.set(element, this);
     element.classList.add('wr-webmenu');
+    const themeHost = element.closest('[data-webrad-theme]') ?? element.ownerDocument.documentElement;
+    this.#themeObserver = new MutationObserver(() => this.#syncThemeToggle());
+    this.#themeObserver.observe(themeHost, {
+      attributes: true,
+      attributeFilter: ['data-webrad-theme'],
+    });
     if (options.interactive !== false) {
       element.addEventListener('click', this.#onClick);
       element.addEventListener('input', this.#onInput);
@@ -459,6 +495,12 @@ export class WebMenu extends WebComponent<HTMLElement> {
   public get searchMode(): WebMenuConfiguration['searchMode'] {
     return this.#configuration.searchMode;
   }
+  public get themeToggle(): boolean {
+    return this.#configuration.themeToggle;
+  }
+  public set themeToggle(value: boolean) {
+    this.#patchConfiguration({ themeToggle: value });
+  }
   public set searchMode(value: WebMenuConfiguration['searchMode']) {
     this.#patchConfiguration({ searchMode: value });
   }
@@ -578,6 +620,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (this.#disposed) return;
     this.close();
     this.#disposed = true;
+    this.#themeObserver?.disconnect();
     menuInstances.delete(this.element);
     this.element.removeEventListener('click', this.#onClick);
     this.element.removeEventListener('input', this.#onInput);
@@ -749,6 +792,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
     this.#disposePopovers = undefined;
     const panel = createWebMenuPanel(document, this.#configuration, {
       idPrefix: this.#idPrefix,
+      themeMode: this.#themeMode(),
       collapsed,
       mobile,
       query: this.#query,

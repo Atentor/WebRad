@@ -1,4 +1,9 @@
-import { createProject, type WebRadProject } from '@webrad/project-model';
+import {
+  applyProjectThemePreset,
+  createProject,
+  type ProjectThemePresetId,
+  type WebRadProject,
+} from '@webrad/project-model';
 import { createAuroraWorkspace } from './templates/aurora-workspace.js';
 
 export const PROJECT_TEMPLATE_IDS = ['blank', 'aurora-workspace'] as const;
@@ -28,12 +33,18 @@ export interface ProjectTemplateResult {
 export function createProjectFromTemplate(
   name: string,
   templateId: ProjectTemplateId = 'blank',
+  themePresetId: ProjectThemePresetId = 'aurora',
 ): ProjectTemplateResult {
   switch (templateId) {
     case 'blank':
-      return { project: createProject(name), userSources: {} };
-    case 'aurora-workspace':
-      return createAuroraWorkspace(name);
+      return {
+        project: applyProjectThemePreset(createProject(name), themePresetId),
+        userSources: {},
+      };
+    case 'aurora-workspace': {
+      const result = createAuroraWorkspace(name);
+      return { ...result, project: applyProjectThemePreset(result.project, themePresetId) };
+    }
     default:
       throw new Error('Unknown project template: ' + String(templateId));
   }

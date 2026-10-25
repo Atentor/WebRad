@@ -111,6 +111,11 @@ function virtualPlugin(options: BundleOptions): Plugin {
         path: 'index.ts',
         sideEffects: false,
       }));
+      buildContext.onResolve({ filter: /^@webrad\/runtime\/theme$/ }, () => ({
+        namespace: RUNTIME_NAMESPACE,
+        path: 'theme.ts',
+        sideEffects: false,
+      }));
       buildContext.onResolve({ filter: /^@webrad\/restgo-sdk$/ }, () => ({
         namespace: RESTGO_NAMESPACE,
         path: 'index.ts',

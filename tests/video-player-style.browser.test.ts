@@ -43,7 +43,7 @@ export class index extends indexGenerated {}`,
     const css = await compileGeneratedAppStyles(
       project.styles,
       project.settings.scrollbar,
-      project.settings.colorPalette,
+      project.settings.themes,
     );
     const designer = renderToStaticMarkup(
       createElement(ComponentView, {

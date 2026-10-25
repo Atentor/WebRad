@@ -154,6 +154,23 @@ async function runMenuSmokeWorkflow(
     `(() => {const label=[...document.querySelectorAll('.wr-menu-editor-fields label')].find(e=>e.textContent.trim()==='Show menu search');label.querySelector('input').click();})()`,
   );
   await evaluate(
+    `(() => {const label=[...document.querySelectorAll('.wr-menu-editor-fields label')].find(e=>e.textContent.trim()==='Show theme switch');if(!label)throw new Error('Missing Menu theme switch option');const input=label.querySelector('input');if(!input.checked)throw new Error('New Menu theme switch must be enabled by default');input.click();if(input.checked)throw new Error('Menu theme switch must allow disabling');input.click();})()`,
+  );
+  await ready(
+    `document.querySelector('.wr-menu-editor-preview-surface [data-menu-action="theme"]') !== null`,
+  );
+  const originalPreviewTheme = await evaluate(
+    `document.querySelector('.wr-menu-editor-preview-surface').dataset.webradTheme`,
+  );
+  await click('.wr-menu-editor-preview-surface [data-menu-action="theme"]');
+  await ready(
+    `document.querySelector('.wr-menu-editor-preview-surface').dataset.webradTheme !== ${JSON.stringify(originalPreviewTheme)}`,
+  );
+  await click('.wr-menu-editor-preview-surface [data-menu-action="theme"]');
+  await ready(
+    `document.querySelector('.wr-menu-editor-preview-surface').dataset.webradTheme === ${JSON.stringify(originalPreviewTheme)}`,
+  );
+  await evaluate(
     `(() => {const select=${field('Search behavior')};if(!(select instanceof HTMLSelectElement)||select.disabled)throw new Error('Missing Menu search behavior');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(select,'event');select.dispatchEvent(new Event('change',{bubbles:true}));})()`,
   );
   await click('.wr-menu-configuration-dialog button[type="submit"]');
@@ -188,6 +205,7 @@ async function runMenuSmokeWorkflow(
     config.items[0]?.label !== 'Menu smoke home' ||
     config.mobileBreakpoint !== 768 ||
     !config.searchable ||
+    !config.themeToggle ||
     config.searchMode !== 'event' ||
     node.props.marginTop !== 12 ||
     node.props.marginRight !== 16 ||
@@ -292,6 +310,18 @@ async function runMenuSmokeWorkflow(
     const menu = document.querySelector('[data-webrad-id="${id}"]');
     if (!menu || menu.dataset.menuMobile !== 'false') return {error:'Missing desktop Menu',mobile:menu?.dataset.menuMobile};
     if (!(${matchesProjectScrollbar})(menu.querySelector('.wr-menu-navigation'))) return {error:'Desktop navigation scrollbar'};
+    const originalMode = Theme.mode;
+    const originalResolved = Theme.resolvedMode;
+    const themeControl = menu.querySelector('[data-menu-action="theme"]');
+    if (!(themeControl instanceof HTMLButtonElement)) return {error:'Missing theme switch'};
+    const brand = menu.querySelector('.wr-menu-brand');
+    if (!themeControl.closest('.wr-menu-header') || themeControl.textContent.trim() !== ''
+      || !themeControl.title || !brand || themeControl.getBoundingClientRect().left < brand.getBoundingClientRect().right - 1) return {error:'Theme switch must be an icon in the header opposite the logo'};
+    themeControl.focus();
+    themeControl.click();
+    if (Theme.resolvedMode === originalResolved || document.activeElement !== themeControl
+      || themeControl.getAttribute('aria-label') !== (Theme.resolvedMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme')) return {error:'Theme switch did not update theme, label or preserve focus'};
+    Theme.mode = originalMode;
     const received=[];
     const onSearch=event=>received.push(event.detail.text);
     menu.addEventListener('search',onSearch);
@@ -357,7 +387,7 @@ async function runMenuSmokeWorkflow(
       true,
     );
     const drawer = await frame.executeJavaScript(
-      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); menu.querySelector('[data-menu-action="open"]').click(); const dialog = menu.querySelector('dialog'); return (${matchesProjectScrollbar})(dialog.querySelector('.wr-menu-navigation')) && Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
+      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); menu.querySelector('[data-menu-action="open"]').click(); const dialog = menu.querySelector('dialog'); const originalMode = Theme.mode; const originalResolved = Theme.resolvedMode; const themeControl = dialog.querySelector('[data-menu-action="theme"]'); if (!(themeControl instanceof HTMLButtonElement)) return false; themeControl.focus(); themeControl.click(); const themeChanged = Theme.resolvedMode !== originalResolved && dialog.open && document.activeElement === themeControl; Theme.mode = originalMode; return themeChanged && (${matchesProjectScrollbar})(dialog.querySelector('.wr-menu-navigation')) && Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
       true,
     );
     if (drawer !== true)
@@ -515,6 +545,6 @@ async function runMenuSmokeWorkflow(
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
   options.log(
-    `renderer Menu Inspector and F9 passed: project scrollbar, nested items, persistence, desktop collapse/selection, mobile viewport, modal focus/Escape, undo; screenshot ${screenshot}`,
+    `renderer Menu Inspector and F9 passed: project scrollbar, Light/Dark switch configuration and local preview, persisted themeToggle, desktop/mobile application theme and focus, header icon opposite logo, nested items, persistence, desktop collapse/selection, mobile viewport, modal focus/Escape, undo; screenshot ${screenshot}`,
   );
 }

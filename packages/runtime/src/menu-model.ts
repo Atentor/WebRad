@@ -1,4 +1,5 @@
 import { isLucideIconName, type LucideIconName } from './icon.js';
+import { themeColorReference } from './theme.js';
 
 export interface WebMenuItem {
   readonly id: string;
@@ -64,6 +65,7 @@ export interface WebMenuConfiguration {
   readonly collapsed: boolean;
   readonly accordion: boolean;
   readonly searchable: boolean;
+  readonly themeToggle: boolean;
   readonly searchMode: 'filter' | 'event';
   readonly searchPlaceholder: string;
   readonly emptyText: string;
@@ -151,6 +153,7 @@ export function createDefaultWebMenuConfiguration(): WebMenuConfiguration {
     collapsed: false,
     accordion: false,
     searchable: false,
+    themeToggle: true,
     searchMode: 'filter',
     searchPlaceholder: 'Search menu…',
     emptyText: 'No items found',
@@ -170,7 +173,7 @@ export function createDefaultWebMenuConfiguration(): WebMenuConfiguration {
       href: '',
     },
     user: { visible: false, name: '', description: '', avatar: '', status: 'none' },
-    appearance: { ...WEB_MENU_THEMES.light },
+    appearance: createProjectWebMenuAppearance(),
     items: [
       { id: 'home', label: 'Home', icon: 'house' },
       {
@@ -185,6 +188,25 @@ export function createDefaultWebMenuConfiguration(): WebMenuConfiguration {
       },
       { id: 'settings', label: 'Settings', icon: 'settings' },
     ],
+  };
+}
+
+/** A saved appearance can follow project themes while fixed presets stay available. */
+export function createProjectWebMenuAppearance(
+  appearance: WebMenuAppearance = WEB_MENU_THEMES.light,
+): WebMenuAppearance {
+  return {
+    ...appearance,
+    background: themeColorReference('surface'),
+    foreground: themeColorReference('heading'),
+    muted: themeColorReference('text-muted'),
+    border: themeColorReference('border'),
+    hoverBackground: themeColorReference('disabled-surface'),
+    activeBackground: themeColorReference('surface-muted'),
+    activeForeground: themeColorReference('primary'),
+    accent: themeColorReference('primary'),
+    badgeBackground: themeColorReference('surface-muted'),
+    badgeForeground: themeColorReference('primary'),
   };
 }
 
@@ -258,6 +280,8 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
   choice(value, 'orientation', ['vertical', 'horizontal']);
   const searchMode =
     value.searchMode === undefined ? 'filter' : choice(value, 'searchMode', ['filter', 'event']);
+  const themeToggle = value.themeToggle === undefined ? false : value.themeToggle;
+  if (typeof themeToggle !== 'boolean') fail('themeToggle');
   choice(value, 'drawerSide', ['left', 'right']);
   number(value, 'mobileBreakpoint', 0, 4096);
   number(value, 'drawerWidth', 180, 640);
@@ -345,6 +369,7 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
   return structuredClone({
     ...value,
     searchMode,
+    themeToggle,
     mobileBreakpoint: 768,
     drawerWidth: 288,
   }) as unknown as WebMenuConfiguration;

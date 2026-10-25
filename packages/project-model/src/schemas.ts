@@ -14,6 +14,13 @@ import {
 } from './project-resources.js';
 import { z } from 'zod';
 import { bindStyleColorsToPalette, paletteColorId } from './color-palette.js';
+import {
+  DEFAULT_PROJECT_THEMES,
+  THEME_COLOR_NAMES,
+  themeColorId,
+  customThemeColorId,
+  type ProjectThemeSettings,
+} from './project-themes.js';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
@@ -42,6 +49,7 @@ import {
   CURRENT_PROJECT_FORMAT_VERSION,
   DEFAULT_PROJECT_SCROLLBAR_STYLE,
   DEFAULT_PROJECT_SETTINGS,
+  DEFAULT_PROJECT_COLOR_PALETTE,
   DEFAULT_NATIVE_APPLICATION_SETTINGS,
   NATIVE_TARGET_PLATFORMS,
   NATIVE_TARGET_ARCHITECTURES,
@@ -322,18 +330,26 @@ function materializeComponentDefaultStyle(
 function materializeProjectDefaults(input: unknown): unknown {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) return input;
   const candidate = input as Readonly<Record<string, unknown>>;
-  const settings = candidate.settings;
+  const settings = materializeUnifiedThemeSettings(candidate.settings);
   let styles = candidate.styles;
   if (typeof candidate.id === 'string' && Array.isArray(styles)) {
     const popupStyles = materializeComponentDefaultStyle(candidate.id, styles, 'WebPopup', [
       'WebPanel',
       'WebPage',
     ]).styles;
-    const palette = ProjectColorPaletteSchema.safeParse(
-      isRecord(settings)
-        ? (settings.colorPalette ?? DEFAULT_PROJECT_SETTINGS.colorPalette)
-        : DEFAULT_PROJECT_SETTINGS.colorPalette,
+    const parsedThemes = ProjectThemeSettingsSchema.safeParse(
+      isRecord(settings) ? settings.themes : DEFAULT_PROJECT_THEMES,
     );
+    const palette = {
+      success: parsedThemes.success,
+      data: parsedThemes.success
+        ? parsedThemes.data.customColors.map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            color: entry.light,
+          }))
+        : [],
+    };
     const videoStyles = materializeComponentDefaultStyle(
       candidate.id,
       popupStyles,
@@ -728,9 +744,70 @@ const hexColorSchema = z
 const paletteLinkedColorSchema = z
   .string()
   .refine(
-    (value) => hexColorSchema.safeParse(value).success || paletteColorId(value) !== undefined,
-    'Expected a hexadecimal color or palette reference.',
+    (value) =>
+      hexColorSchema.safeParse(value).success ||
+      paletteColorId(value) !== undefined ||
+      themeColorId(value) !== undefined ||
+      customThemeColorId(value) !== undefined,
+    'Expected a hexadecimal color, palette reference or theme color.',
   );
+
+export const ProjectThemeSettingsSchema: z.ZodType<ProjectThemeSettings> = z
+  .object({
+    initialMode: z.enum(['light', 'dark', 'system']),
+    rememberChoice: z.boolean(),
+    customColors: z
+      .array(
+        z
+          .object({
+            id: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/u, 'Invalid theme color ID.'),
+            name: z.string().trim().min(1, 'Enter a color name.').max(40),
+            light: hexColorSchema,
+            dark: hexColorSchema,
+          })
+          .strict(),
+      )
+      .max(100, 'Use up to 100 custom theme colors.')
+      .superRefine((colors, context) => {
+        const ids = new Set<string>();
+        colors.forEach((entry, index) => {
+          if (ids.has(entry.id))
+            context.addIssue({
+              code: 'custom',
+              message: 'Theme color IDs must be unique.',
+              path: [index, 'id'],
+            });
+          ids.add(entry.id);
+        });
+      })
+      .default([]),
+    colors: z.record(
+      z.enum(THEME_COLOR_NAMES),
+      z
+        .object({
+          light: z
+            .string()
+            .refine(
+              (value) =>
+                hexColorSchema.safeParse(value).success ||
+                paletteColorId(value) !== undefined ||
+                customThemeColorId(value) !== undefined,
+              'Choose a fixed or custom theme color.',
+            ),
+          dark: z
+            .string()
+            .refine(
+              (value) =>
+                hexColorSchema.safeParse(value).success ||
+                paletteColorId(value) !== undefined ||
+                customThemeColorId(value) !== undefined,
+              'Choose a fixed or custom theme color.',
+            ),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 
 export const ProjectColorPaletteSchema = z
   .array(
@@ -755,6 +832,55 @@ export const ProjectColorPaletteSchema = z
       ids.add(entry.id);
     });
   });
+
+/** Consume the old palette once; only Themes is written back to the project. */
+function materializeUnifiedThemeSettings(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+  const hasPalette = Object.hasOwn(input, 'colorPalette');
+  const themes = input.themes;
+  if (
+    isRecord(themes) &&
+    Object.hasOwn(themes, 'customColors') &&
+    !Array.isArray(themes.customColors)
+  )
+    return input;
+  const legacy = hasPalette
+    ? ProjectColorPaletteSchema.safeParse(input.colorPalette)
+    : !Object.hasOwn(input, 'themes')
+      ? ProjectColorPaletteSchema.safeParse(DEFAULT_PROJECT_COLOR_PALETTE)
+      : null;
+  // Invalid old data remains visible to strict validation instead of being discarded.
+  if (legacy !== null && !legacy.success) return input;
+  const colors = legacy?.success
+    ? legacy.data.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        light: entry.color,
+        dark: entry.color,
+      }))
+    : [];
+  const custom = isRecord(themes) && Array.isArray(themes.customColors) ? themes.customColors : [];
+  const settings = Object.fromEntries(
+    Object.entries(input).filter(([key]) => key !== 'colorPalette'),
+  );
+  const migrated = colors.filter(
+    (entry) =>
+      !custom.some(
+        (current: unknown) =>
+          isRecord(current) &&
+          current.id === entry.id &&
+          current.light === entry.light &&
+          current.dark === entry.dark,
+      ),
+  );
+  return {
+    ...settings,
+    themes:
+      themes === undefined || isRecord(themes)
+        ? { ...(themes ?? DEFAULT_PROJECT_THEMES), customColors: [...custom, ...migrated] }
+        : themes,
+  };
+}
 
 export const BackgroundGradientValueSchema: z.ZodType<BackgroundGradientValue> = z
   .object({
@@ -795,7 +921,13 @@ function validateStylePropertyValue(
     const isKeyword =
       typeof value === 'string' && editor.keywords.some((option) => option.value === value);
     const isHexColor = typeof value === 'string' && /^#[\da-f]{6}$/iu.test(value);
-    if (!isKeyword && !isHexColor && paletteColorId(value) === undefined) {
+    if (
+      !isKeyword &&
+      !isHexColor &&
+      paletteColorId(value) === undefined &&
+      themeColorId(value) === undefined &&
+      customThemeColorId(value) === undefined
+    ) {
       addIssue(
         `${definition.label} must be a hexadecimal color, palette reference, or supported keyword.`,
       );
@@ -891,30 +1023,48 @@ export const ComponentStyleSchema: z.ZodType<ComponentStyleModel> = z
     componentType: identifierSchema,
     preset: z.enum(COMPONENT_STYLE_PRESETS).optional(),
     states: ComponentStyleStatesSchema,
+    themeOverrides: z
+      .partialRecord(
+        z.enum(['light', 'dark']),
+        z.partialRecord(z.enum(COMPONENT_STYLE_STATE_NAMES), ComponentStylePropertiesSchema),
+      )
+      .optional(),
   })
   .strict()
   .superRefine((style, context) => {
-    for (const stateName of COMPONENT_STYLE_STATE_NAMES) {
-      for (const propertyName of Object.keys(style.states[stateName])) {
-        const definition = COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME.get(
-          propertyName as (typeof COMPONENT_STYLE_PROPERTY_NAMES)[number],
-        );
-        if (
-          definition?.componentTypes !== undefined &&
-          !definition.componentTypes.includes(style.componentType)
-        ) {
-          context.addIssue({
-            code: 'custom',
-            message: `${definition.label} is not available for ${style.componentType}.`,
-            path: ['states', stateName, propertyName],
-          });
-        }
-        if (definition?.stateNames !== undefined && !definition.stateNames.includes(stateName)) {
-          context.addIssue({
-            code: 'custom',
-            message: `${definition.label} is only available in the ${definition.stateNames.join(', ')} state.`,
-            path: ['states', stateName, propertyName],
-          });
+    const layers: readonly {
+      readonly states: Partial<ComponentStyleStates>;
+      readonly path: readonly string[];
+    }[] = [
+      { states: style.states, path: ['states'] },
+      ...(['light', 'dark'] as const).map((mode) => ({
+        states: style.themeOverrides?.[mode] ?? {},
+        path: ['themeOverrides', mode],
+      })),
+    ];
+    for (const layer of layers) {
+      for (const stateName of COMPONENT_STYLE_STATE_NAMES) {
+        for (const propertyName of Object.keys(layer.states[stateName] ?? {})) {
+          const definition = COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME.get(
+            propertyName as (typeof COMPONENT_STYLE_PROPERTY_NAMES)[number],
+          );
+          if (
+            definition?.componentTypes !== undefined &&
+            !definition.componentTypes.includes(style.componentType)
+          ) {
+            context.addIssue({
+              code: 'custom',
+              message: `${definition.label} is not available for ${style.componentType}.`,
+              path: [...layer.path, stateName, propertyName],
+            });
+          }
+          if (definition?.stateNames !== undefined && !definition.stateNames.includes(stateName)) {
+            context.addIssue({
+              code: 'custom',
+              message: `${definition.label} is only available in the ${definition.stateNames.join(', ')} state.`,
+              path: [...layer.path, stateName, propertyName],
+            });
+          }
         }
       }
     }
@@ -1328,7 +1478,7 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
       .string()
       .regex(/^\/(?:[a-zA-Z0-9_-]+\/)*$/)
       .default('/'),
-    colorPalette: ProjectColorPaletteSchema,
+    themes: ProjectThemeSettingsSchema.default(DEFAULT_PROJECT_THEMES),
     applicationName: z.string().trim().min(1).max(120),
     applicationDescription: z.string().trim().max(500),
     locale: z
@@ -1629,16 +1779,35 @@ function validatePaletteReferences(
   },
   context: z.RefinementCtx,
 ): void {
-  const ids = new Set(project.settings.colorPalette.map((entry) => entry.id));
+  const ids = new Set(project.settings.themes.customColors.map((entry) => entry.id));
   const walk = (value: unknown, path: (string | number)[]): void => {
-    const id = paletteColorId(value);
+    if (
+      typeof value === 'string' &&
+      value.startsWith('var(--wr-theme-') &&
+      themeColorId(value) === undefined &&
+      customThemeColorId(value) === undefined
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Unknown or invalid theme color reference.',
+        path,
+      });
+    const id = customThemeColorId(value) ?? paletteColorId(value);
     if (id !== undefined && !ids.has(id))
-      context.addIssue({ code: 'custom', message: `Palette color "${id}" does not exist.`, path });
+      context.addIssue({
+        code: 'custom',
+        message: `Theme color "${id}" does not exist or is still in use.`,
+        path,
+      });
     if (Array.isArray(value)) value.forEach((entry, index) => walk(entry, [...path, index]));
     else if (isRecord(value))
       Object.entries(value).forEach(([key, entry]) => walk(entry, [...path, key]));
   };
-  project.styles.forEach((style, index) => walk(style.states, ['styles', index, 'states']));
+  project.styles.forEach((style, index) => {
+    walk(style.states, ['styles', index, 'states']);
+    walk(style.themeOverrides, ['styles', index, 'themeOverrides']);
+  });
+  walk(project.settings.themes, ['settings', 'themes']);
   walk(project.settings.scrollbar, ['settings', 'scrollbar']);
   for (const collection of ['pages', 'reusableElements'] as const)
     project[collection].forEach((page, index) => {

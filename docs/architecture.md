@@ -1,5 +1,16 @@
 # WebRAD architecture
 
+Application themes are project-owned data, separate from IDE appearance.
+`settings.themes` holds semantic and custom Light/Dark colors and initial/persistence
+options; component styles may add sparse `themeOverrides`. Project Model
+validation owns reference integrity and legacy defaults. Designer and Styles
+project a scoped `data-webrad-theme`, while the compiler emits both static CSS
+palettes and merged style-state variants. A self-contained HTML-head initializer
+and the browser-only `WebTheme` service share the startup contract, including
+system preference and per-project remembered choice. The service changes CSS
+state without remounting pages or components. Public declarations are emitted
+from the actual runtime source for Monaco. See [Application themes](themes.md).
+
 Responsive Menu uses Registry metadata, a browser-only configuration parser and
 runtime class, shared DOM/CSS, and a Designer-owned transactional editor. The
 router handles navigation and announces active routes; each placement disposes
@@ -19,9 +30,9 @@ Deployment and Preview use the same single browser bundle: `assets/app.js` (a cl
 
 PWA generation is a compiler-only concern. Raster icon generation runs in Node through packaged Sharp; browser output has no image-processing dependency. The classic registration helper resolves the worker relative to its own script URL and only runs on secure HTTP(S), so a local file can render the application without attempting PWA installation. The generated worker uses a content revision and application scope for its cache, waits for old clients before normal updates, and caches only the explicit static artifact set. It never caches authentication/API data. Manifest identity, colors and display settings originate in the Project Model; Preview does not install workers into the IDE's shared preview origin.
 
-Project colors are owned by `settings.colorPalette`, with up to ten named `{ id, name, color }` entries and a default Aurora palette. The renderer projects them through `ProjectColorPaletteContext`; shared pickers write bounded `var(--wr-palette-<id>)` references into existing string color properties and gradient endpoints. Native inputs resolve the current value while preserving that identity; custom edits replace the reference with a literal. Palette buttons remain separate from color-value fields, and `StylesColorPalettePanel` owns configuration with Save/Cancel and Restore Aurora.
+Styles > Themes is the single project color manager. `settings.themes.customColors` stores named `{ id, name, light, dark }` entries with stable identities; equal values represent a fixed color. The renderer projects semantic roles and custom entries through `ProjectThemeContext` and one shared picker. Custom links use bounded `var(--wr-theme-custom-<id>)` references in existing string color properties and gradient endpoints. Native inputs resolve the current value while preserving identity; literal edits unlink the field. Restore Aurora changes semantic roles and preserves custom colors.
 
-The Project Model validates stable identities and all saved references across styles, pages, reusable definitions, and scrollbars. Removing an entry detaches its references at their last value in one project update. Default style creation binds matching Aurora colors through the central style-property metadata. The renderer emits the current variables for the Designer/style previews; the compiler emits the same variables in ordinary browser CSS. Browser-safe runtime style projection supports palette references in every color and gradient candidate without changing typed component color APIs or introducing a Designer/Electron dependency. The old string-array palette shape has no compatibility layer.
+The Project Model migrates old `settings.colorPalette` entries into Themes and drops the old property from canonical saves. Legacy `var(--wr-palette-<id>)` links remain CSS aliases, preserving authored source. Reference validation covers themes, styles, pages, reusables and scrollbars. Removing a fixed custom entry detaches links at its last value; theme-specific fields use their corresponding value. Removing an adaptive color still linked from a shared field is rejected without changing the project. Designer/style previews and the compiler emit the same variables as ordinary browser CSS, without a Designer/Electron dependency in the runtime. Invalid legacy string-array palettes remain rejected.
 
 The About dialog identifies WebRAD as Powered by Atentor and highlights its website and documentation. Its `links.open(target)` preload API accepts only the typed `atentor` and `webrad` targets. The main process validates the trusted IDE main frame and exactly one allowed target before calling Electron `shell.openExternal` with the corresponding fixed HTTPS address (`https://atentor.com` or `https://webrad.atentor.com`). The renderer has no arbitrary URL-opening or Electron capability; browser-launch failures remain visible in the dialog.
 

@@ -2,7 +2,7 @@
 
 import { ComponentRegistry, defaultComponentRegistry } from '@webrad/component-registry';
 import { createComponentStyle } from '@webrad/project-model';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StylesWorkspace } from './StylesWorkspace';
@@ -80,7 +80,9 @@ describe('StylesWorkspace', () => {
       onSelectComponentType: vi.fn(),
     };
     const { rerender } = render(<StylesWorkspace {...props} selectedComponentType="WebLabel" />);
-    expect(screen.getAllByRole('option')).toHaveLength(2);
+    expect(
+      within(screen.getByRole('listbox', { name: 'Project styles' })).getAllByRole('option'),
+    ).toHaveLength(2);
     expect(screen.queryByRole('option', { name: /Button A/ })).toBeNull();
     await user.click(screen.getByRole('option', { name: /Label B/ }));
     rerender(<StylesWorkspace {...props} selectedComponentType="WebButton" />);

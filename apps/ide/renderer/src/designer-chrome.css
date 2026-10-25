@@ -1060,13 +1060,13 @@
   border-radius: 0 3px 3px 0;
 }
 
-.wr-object-inspector .wr-color-palette-trigger {
+.wr-object-inspector .wr-theme-color-trigger {
   width: 24px;
   height: 24px;
   padding: 3px;
 }
 
-.wr-object-inspector .wr-color-palette-trigger > .wr-icon {
+.wr-object-inspector .wr-theme-color-trigger > .wr-icon {
   width: 18px;
   height: 18px;
 }

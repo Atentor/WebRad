@@ -135,6 +135,7 @@ const sourceFiles = [
   'repeating-group.ts',
   ...reportSourceNames,
   'timer.ts',
+  'theme.ts',
   'file-upload.ts',
   'video-file-selection.ts',
   'video-upload.ts',
@@ -335,6 +336,10 @@ const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclaration
 
 const outputs = [
   [
+    path.join(repositoryRoot, 'packages', 'language', 'src', 'theme-typings.generated.json'),
+    JSON.stringify(createApiClientDeclarations(repositoryRoot, ['theme.ts']), null, 2) + '\n',
+  ],
+  [
     path.join(repositoryRoot, 'packages', 'language', 'src', 'menu-typings.generated.json'),
     JSON.stringify(
       createApiClientDeclarations(
@@ -344,6 +349,7 @@ const outputs = [
           name.startsWith('WebMenu') ||
           [
             'createDefaultWebMenuConfiguration',
+            'createProjectWebMenuAppearance',
             'isWebMenuLink',
             'parseWebMenuConfiguration',
             'webMenuItemPath',

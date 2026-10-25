@@ -17,6 +17,7 @@ import {
   type ProjectManifest,
   type ReusableElementModel,
   type WebRadProject,
+  type ProjectThemePresetId,
 } from '@webrad/project-model';
 import {
   createUserPageSource,
@@ -769,6 +770,7 @@ export async function createProjectFiles(
   rootPath: string,
   name: string,
   templateId: ProjectTemplateId = 'blank',
+  themePresetId: ProjectThemePresetId = 'aurora',
 ): Promise<ProjectSession> {
   const normalizedRoot = normalizeRoot(rootPath);
   await fs.mkdir(normalizedRoot, { recursive: true });
@@ -777,7 +779,7 @@ export async function createProjectFiles(
     if (contents.length > 0) {
       throw new Error(`The destination folder "${normalizedRoot}" is not empty.`);
     }
-    const { project, userSources } = createProjectFromTemplate(name, templateId);
+    const { project, userSources } = createProjectFromTemplate(name, templateId, themePresetId);
     return saveProjectFilesUnlocked(
       {
         rootPath: normalizedRoot,

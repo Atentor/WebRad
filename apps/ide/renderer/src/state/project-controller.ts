@@ -1,6 +1,8 @@
 import { type ProjectTemplateId } from '@webrad/component-registry';
 import {
   addComponentStyle,
+  bindDefaultStylesToTheme,
+  bindScrollbarColorsToTheme,
   projectSourceFilePath,
   type ProjectSourceFile,
   type ProjectAsset,
@@ -24,6 +26,8 @@ import {
   type ComponentStyleModel,
   type PageModel,
   type ProjectSettings,
+  type ProjectThemeSettings,
+  type ProjectThemePresetId,
   type ProjectDebuggerSettings,
   type ReusableElementModel,
   type WebRadProject,
@@ -128,6 +132,7 @@ export class ProjectController {
   public async create(
     name: string,
     templateId?: ProjectTemplateId,
+    themePresetId?: ProjectThemePresetId,
   ): Promise<ProjectSession | null> {
     const operationRevision = ++this.#projectOperationRevision;
     this.#publish({ saving: true, error: null });
@@ -135,6 +140,7 @@ export class ProjectController {
       const session = await this.#bridge.project.create({
         name,
         ...(templateId === undefined ? {} : { templateId }),
+        ...(themePresetId === undefined ? {} : { themePresetId }),
       });
       if (operationRevision !== this.#projectOperationRevision) {
         this.#releaseInactiveSession(session);
@@ -331,7 +337,12 @@ export class ProjectController {
     let name = base;
     let sequence = 2;
     while (occupied.has(portableFileNameKey(name))) name = base + ' ' + String(sequence++);
-    const style = createComponentStyle(name, source.componentType, { states: source.states });
+    const style = createComponentStyle(name, source.componentType, {
+      states: source.states,
+      ...(source.themeOverrides === undefined
+        ? {}
+        : { themeOverrides: structuredClone(source.themeOverrides) }),
+    });
     this.replaceProject(addComponentStyle(project, style));
     return style;
   }
@@ -339,6 +350,22 @@ export class ProjectController {
   public updateStyle(style: ComponentStyleModel): void {
     const project = this.#requireProject();
     this.replaceProject(updateComponentStyle(project, style.id, () => style));
+  }
+
+  public updateThemes(themes: ProjectThemeSettings, linkDefaults = false): void {
+    const project = updateSettingsInProject(this.#requireProject(), { themes });
+    if (!linkDefaults) {
+      this.replaceProject(project);
+      return;
+    }
+    this.replaceProject({
+      ...project,
+      styles: bindDefaultStylesToTheme(project.styles, project.settings.themes),
+      settings: {
+        ...project.settings,
+        scrollbar: bindScrollbarColorsToTheme(project.settings.scrollbar),
+      },
+    });
   }
 
   public removeStyle(styleId: string): void {

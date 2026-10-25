@@ -330,7 +330,7 @@
   overflow: auto;
   border: 1px solid var(--wr-border-strong);
   border-radius: 12px;
-  background: var(--wr-bg);
+  background: var(--wr-theme-background, var(--wr-bg));
   scrollbar-width: thin;
 }
 .wr-menu-editor-preview-surface > .wr-webmenu {

@@ -1,0 +1,114 @@
+.wr-color-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.wr-theme-color-trigger {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  padding: 4px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wr-muted-text);
+  cursor: pointer;
+}
+.wr-theme-color-trigger > .wr-icon {
+  width: 22px;
+  height: 22px;
+}
+.wr-theme-color-trigger:hover,
+.wr-theme-color-trigger[aria-expanded='true'] {
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
+}
+.wr-theme-color-trigger[data-linked='true'] {
+  color: var(--wr-accent);
+}
+.wr-theme-color-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.wr-theme-color-trigger:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+
+.wr-theme-color-popover {
+  position: fixed;
+  inset: auto;
+  width: 212px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 6px;
+  background: var(--wr-panel-bg);
+  color: var(--wr-text);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 25%);
+  font-size: 12px;
+}
+.wr-theme-color-popover:popover-open {
+  display: grid;
+  gap: 10px;
+}
+
+.wr-inspector-color-control,
+.wr-style-gradient-color-field,
+.wr-project-settings-scrollbar-color-row {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+}
+
+.wr-style-theme-entry {
+  display: flex;
+  width: calc(100% - 16px);
+  align-items: center;
+  gap: 8px;
+  margin: 8px;
+  padding: 8px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-panel-alt);
+  color: var(--wr-text);
+  text-align: left;
+  cursor: pointer;
+}
+.wr-style-theme-entry[aria-pressed='true'] {
+  background: var(--wr-accent-soft);
+}
+.wr-style-theme-entry > .wr-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--wr-accent);
+}
+.wr-style-theme-entry small {
+  margin-left: auto;
+  color: var(--wr-muted-text);
+}
+
+.wr-styles-themes-panel button {
+  padding: 6px 10px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-control-surface);
+  color: var(--wr-text);
+  cursor: pointer;
+}
+.wr-styles-themes-panel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.wr-styles-theme-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}

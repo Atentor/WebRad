@@ -8,6 +8,7 @@ export interface WebMenuProjection {
   readonly query: string;
   readonly selectedItemId: string;
   readonly expanded: ReadonlySet<string>;
+  readonly themeMode?: 'light' | 'dark';
 }
 
 export function menuElement<K extends keyof HTMLElementTagNameMap>(
@@ -89,6 +90,13 @@ export function createWebMenuPanel(
   const panel = menuElement(document, 'div', 'wr-menu-panel');
   const header = menuElement(document, 'div', 'wr-menu-header');
   if (config.brand.visible) header.append(brand(document, config));
+  if (config.themeToggle) {
+    const dark = state.themeMode === 'dark';
+    const label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    const toggle = menuButton(document, 'theme', label, dark ? 'sun' : 'moon');
+    toggle.classList.add('wr-menu-theme-toggle');
+    header.append(toggle);
+  }
   if (state.mobile) header.append(menuButton(document, 'close', 'Close menu', 'x'));
   else if (config.collapsible && config.orientation === 'vertical') {
     const toggle = menuButton(

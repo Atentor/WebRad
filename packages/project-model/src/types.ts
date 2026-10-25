@@ -1,4 +1,9 @@
 import type { ProjectSourceFile, ProjectAsset } from './project-resources.js';
+import {
+  DEFAULT_PROJECT_THEMES,
+  type ProjectThemeSettings,
+  type ResolvedThemeMode,
+} from './project-themes.js';
 export const CURRENT_PROJECT_FORMAT_VERSION = 2 as const;
 export const CURRENT_PAGE_FORMAT_VERSION = 2 as const;
 
@@ -306,6 +311,9 @@ export interface ComponentStyleModel {
   /** Identifies a protected built-in style seeded by the project factory. */
   readonly preset?: ComponentStylePreset;
   readonly states: ComponentStyleStates;
+  readonly themeOverrides?: Readonly<
+    Partial<Record<ResolvedThemeMode, Partial<ComponentStyleStates>>>
+  >;
 }
 
 export interface PageModel {
@@ -557,8 +565,7 @@ export interface ProjectSettings {
   readonly routingMode: 'history' | 'hash';
   /** Deployment directory in the public URL, with leading and trailing slashes. */
   readonly routingBasePath: string;
-  /** Up to ten named colors with stable identities shared by all color fields. */
-  readonly colorPalette: readonly ProjectPaletteColor[];
+  readonly themes: ProjectThemeSettings;
   /** Human-facing application title. It may differ from the project file name. */
   readonly applicationName: string;
   /** Optional plain-text description emitted as browser metadata. */
@@ -742,7 +749,7 @@ export const DEFAULT_NATIVE_APPLICATION_SETTINGS: Readonly<NativeApplicationSett
   });
 
 export const DEFAULT_PROJECT_SETTINGS: Readonly<ProjectSettings> = Object.freeze({
-  colorPalette: DEFAULT_PROJECT_COLOR_PALETTE,
+  themes: DEFAULT_PROJECT_THEMES,
   routingMode: 'history',
   routingBasePath: '/',
   applicationName: 'WebRAD Application',

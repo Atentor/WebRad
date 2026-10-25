@@ -1,6 +1,7 @@
 # Project fonts
 
-Every built-in Aurora Default style uses Roboto in its base state. When opening
+Every built-in Default style uses Roboto in its base state across all four
+application theme presets. When opening
 an existing project, protected Default styles with an omitted or generic `sans`
 base font adopt `roboto`; explicit alternative families, interaction-state
 overrides, custom styles and component bindings are preserved. The normalized
@@ -8,8 +9,8 @@ font is persisted on the next save, without changing format version 2.
 
 The Electron style smoke checks the font selected by the saved component style
 and compares its rendered appearance between Designer and Preview. A custom
-style without a font override retains the generic Inter fallback; the Roboto
-default applies to the protected Aurora Default styles.
+style without a font override inherits Roboto from the shared project surface.
+Switching Light/Dark does not change default font sizes or weights.
 
 In **Styles**, select a visual component style, expand **Text**, enable **Font
 family** when necessary, and choose a family. Assign that style to components
@@ -52,7 +53,8 @@ or events are introduced.
 packages. The generator preserves upstream weight/style/Unicode descriptors and
 unmodified WOFF2 binaries, embedding them as data URLs. Both Designer style
 compilation and generated app compilation include only families referenced by
-their selected style candidates, including interaction states. Export selection
+their selected style candidates, including interaction states, plus Roboto as
+the shared default even when no style references it. Export selection
 continues to prune unused styles. Each selected family includes all its bundled
 weights and styles so changing font weight or interaction state needs no network
 request.

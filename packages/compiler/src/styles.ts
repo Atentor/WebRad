@@ -2,9 +2,9 @@ import {
   DEFAULT_PROJECT_SCROLLBAR_STYLE,
   type ComponentStyleModel,
   type ProjectScrollbarStyle,
-  type ProjectPaletteColor,
-  DEFAULT_PROJECT_COLOR_PALETTE,
-  projectColorPaletteCss,
+  DEFAULT_PROJECT_THEMES,
+  projectThemeCss,
+  type ProjectThemeSettings,
 } from '@webrad/project-model';
 import {
   resolveComponentStyleClassNames,
@@ -224,6 +224,8 @@ function tailwindInput(
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
 ${PROJECT_FONT_THEME_CSS}
+@custom-variant wr-theme-light (&:where([data-webrad-theme="light"], [data-webrad-theme="light"] *));
+@custom-variant wr-theme-dark (&:where([data-webrad-theme="dark"], [data-webrad-theme="dark"] *));
 ${projectFontFaceCss(candidates)}${sourceDirective}${components}
 `;
 }
@@ -255,7 +257,7 @@ export function compileTailwindStyles(styles: readonly ComponentStyleModel[]): P
 export function compileGeneratedAppStyles(
   styles: readonly ComponentStyleModel[],
   scrollbar: Readonly<ProjectScrollbarStyle> = DEFAULT_PROJECT_SCROLLBAR_STYLE,
-  colorPalette: readonly ProjectPaletteColor[] = DEFAULT_PROJECT_COLOR_PALETTE,
+  themes: ProjectThemeSettings = DEFAULT_PROJECT_THEMES,
   componentTypes?: ReadonlySet<string>,
 ): Promise<string> {
   const base =
@@ -264,6 +266,6 @@ export function compileGeneratedAppStyles(
       : `${APP_BASE_CSS}\n${selectComponentCss(componentTypes)}\n${WEBRAD_PROJECT_CSS}`;
   return processTailwind(
     styles,
-    `${base}\n${projectScrollbarCss(scrollbar)}\n${projectColorPaletteCss(colorPalette)}`,
+    `${base}\n${projectScrollbarCss(scrollbar)}\n${projectThemeCss(themes)}`,
   );
 }

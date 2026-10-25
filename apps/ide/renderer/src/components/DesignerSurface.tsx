@@ -29,6 +29,7 @@ import type {
   ReusableElementModel,
 } from '@webrad/project-model';
 import type { ComponentStyleModel } from '@webrad/project-model';
+import { projectThemeCss, type ResolvedThemeMode } from '@webrad/project-model';
 import {
   projectRuntimeLayout,
   getFloatingPanelAlignment,
@@ -59,6 +60,7 @@ import { measureDesignerChildrenHost, measureDesignerNodeMargins } from './desig
 import { measureDesignerFitContentSize } from './designer-fit-content';
 
 interface DesignerSurfaceProps {
+  previewTheme?: ResolvedThemeMode;
   viewportName?: ViewportName;
   onViewportChange?: (viewport: ViewportName) => void;
   showToolbar?: boolean;
@@ -1298,6 +1300,7 @@ function hasReorderChanged(
 }
 
 export function DesignerSurface({
+  previewTheme = 'light',
   viewportName: controlledViewportName,
   onViewportChange,
   showToolbar = true,
@@ -2136,6 +2139,7 @@ export function DesignerSurface({
           <div
             ref={surfaceRef}
             className="wr-page-surface wr-project-surface"
+            data-webrad-theme={previewTheme}
             data-viewport={viewportName}
             data-viewport-width={responsiveWidth}
             style={{
@@ -2147,6 +2151,9 @@ export function DesignerSurface({
             onKeyDown={handleKeyboard}
           >
             <style data-webrad-project-styles>{compiledStylesCss}</style>
+            <style data-webrad-project-themes>
+              {projectThemeCss(settings.themes, { layered: true })}
+            </style>
             <SharedComponentStyles />
             {root !== undefined && (
               <ComponentView node={root} designTime styleClassName={rootStyleClassName}>

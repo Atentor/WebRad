@@ -11,8 +11,11 @@ assets and resources remain unchanged. Save persists the copy normally.
 
 ## New project templates
 
-**File > New Project** offers **Blank project** (the default) and **Aurora
-Workspace**, each with a visual preview. Aurora demonstrates all 20 visual and
+**File > New Project** offers **Blank project** (the default) and **Examples &
+Tutorial**, each with a visual preview. Its independent **Application theme**
+selector offers **Aurora**, **Prism**, **Flat** and **WebRAD**, each with Light and Dark
+palettes. The choice is materialized into `settings.themes` and Default styles;
+no preset identifier or new project format is required. The Aurora tutorial demonstrates all 20 visual and
 five nonvisual registered components, using only the protected **Default**
 styles. It creates `index`, `Forms`, `Data`, `Media`, `Pokemon`, `Timer`, `Files`,
 `Reports`, `RestGoAccount`, `RestGoRecovery`, `RestGoProfile`, `RestGoSession`
@@ -20,8 +23,15 @@ and the mandatory `404` page (13 total), plus the
 `FeatureCard` and `AuroraMenu` reusable definitions and ordinary authored TypeScript files for
 their behavior. Group has no style support; reusable placements render their
 definition's Default Panel and child styles. No custom style is added or seeded
-Default style changed. All elements remain editable through the Designer,
+Default style changed with the Aurora preset; Prism and Flat materialize their
+own Default style appearance. All elements remain editable through the Designer,
 Inspector, Styles and Code.
+
+WebRAD materializes the IDE palette, zero-radius Default styles and scrollbars,
+and Light/Dark typography overrides. The `fontFamily: 'ide'` style value uses
+the same system font stack as the IDE, without embedding font binaries. A zero
+component border radius also projects square nested Menu controls and Data Grid
+toggles; nonzero radii retain their normal component appearance.
 
 A materialized copy is available at
 [`examples/aurora-workspace/AuroraWorkspace.wrproj`](../examples/aurora-workspace/AuroraWorkspace.wrproj),
@@ -114,7 +124,10 @@ catalogue so newly registered visuals cannot be silently omitted from the demo.
 ## Persisted component metadata
 
 `WebMenu.props.configuration` stores a `schemaVersion: 1` menu with stable-ID
-recursive items, brand/profile data, appearance and responsive behavior. Pages
+recursive items, brand/profile data, appearance and responsive behavior. Menus
+may enable the optional application Light/Dark action through the configuration's
+`themeToggle` boolean. Missing legacy values normalize to `false`; the action
+uses the runtime Theme service and does not alter navigation state. Pages
 use stable IDs. Project format 2 is unchanged; a shared parser validates menus
 and the project parser verifies page references. Custom styles remain intact
 when the protected Menu style is materialized. Reusable templates create ordinary
@@ -129,11 +142,15 @@ These stable IDs are validated in every style state. Font bytes are compiler
 resources, so this additive catalog requires no format-version change and does
 not rewrite saved styles. See [Project fonts](fonts.md).
 
-`settings.colorPalette` contains zero to ten `{ "id": "aurora-blue", "name": "Aurora Blue", "color": "#2563eb" }` entries. IDs are stable lowercase slugs (up to 64 characters), names contain 1–40 characters, and colors are six-digit hexadecimal values. New projects start with ten Aurora colors: blue, violet, sky, lavender, white, surface, mist, border, graphite, and ink. Palette IDs must be unique. The palette is saved in `.wrproj` and retained by project assembly and settings updates. The former string-array palette shape is rejected; there is no conversion layer.
+`settings.themes` is the single color source in format 2: `{ initialMode: 'light' | 'dark' | 'system', rememberChoice: boolean, colors, customColors }`. `colors` contains every role in `THEME_COLOR_NAMES`, each with `{ light, dark }` values accepting six-digit hexadecimal colors or custom color references. Semantic references use `var(--wr-theme-<role>)`. Roles cannot reference other roles, preventing cycles.
 
-The Styles workspace **Color palette** panel edits the list with Save/Cancel and can restore Aurora. Every design-time color property, style color, gradient endpoint, and scrollbar color exposes these choices through a shared picker. Choosing a swatch stores `var(--wr-palette-<id>)`, preserving its identity even when its name, color, or list position changes. Native color inputs and displayed hex codes resolve this reference without overwriting it. Entering a custom color replaces the reference with a literal and removes the link. Matching Aurora colors in the seeded default styles are linked automatically.
+`customColors` contains up to 100 `{ id, name, light, dark }` entries. IDs are unique stable lowercase slugs (up to 64 characters), names contain 1–40 characters, and both values are six-digit hexadecimal colors. **Styles > Themes** edits semantic and custom colors together with Save/Cancel. **Same** writes identical values for fixed colors; otherwise Light and Dark are independent. The shared picker writes `var(--wr-theme-custom-<id>)`. Renaming or reordering preserves links; literal edits unlink individual fields. New projects have semantic Default styles; Aurora and Flat start without custom colors, while Prism includes adaptive Coral, Mint and Sunshine colors. Restore Aurora resets semantic roles without replacing custom colors.
 
-Palette edits immediately update linked colors through project-owned CSS variables in the Designer, live style previews, and the next compiled Preview/Build. Aggregate and manifest validation reject unknown palette references in styles, scrollbars, page component properties, and reusable definitions. Removing a palette entry detaches its references at the last saved color throughout those scopes, preserving appearance. Generated applications embed the variables as static browser CSS and require no palette UI or Electron dependency. Project format remains 2.
+Legacy `settings.colorPalette` lists of up to ten `{ id, name, color }` entries are consumed on loading and moved to `settings.themes.customColors`, preserving IDs/names with `light = dark = color`. The old property is omitted when saving. Existing `var(--wr-palette-<id>)` references remain supported through aliases to the migrated custom theme variables, including in authored TypeScript. A project with neither Themes nor a palette materializes the legacy Aurora entries and semantic defaults. Invalid legacy entries, duplicate identities, and the obsolete string-array shape are rejected. Missing Themes defaults to initial Light with remembering enabled; saved styles are preserved.
+
+Theme settings and references are retained by serialization, manifests, assembly and settings updates. Aggregate and manifest validation reject missing custom identities across styles, theme values, scrollbars, pages and reusable definitions. Removing a fixed custom color detaches links at its last saved value. Theme-specific fields detach to their corresponding value; removal of an adaptive color still used by a shared field is rejected atomically to preserve both appearances. Designer, Styles and compiled applications use the same CSS variables; generated applications require no Designer or Electron dependency. Project format remains 2.
+
+Styles may persist optional `themeOverrides: { light?: { base?, hover?, focus?, active?, disabled? }, dark?: { base?, hover?, focus?, active?, disabled? } }`. Every supplied state uses the same property schema, component applicability and mutually exclusive paint rules as Shared `states`. Overrides merge per property before CSS generation; clearing an override inherits Shared. IDs and bindings remain stable. New projects opt into semantic Default colors, while conversion of saved Default styles and scrollbars is an explicit Themes save option. See [Application themes](themes.md).
 
 Visual component property bags may include `margin`, a finite numeric outer spacing in pixels applied equally to all four sides, and independent `marginTop`, `marginRight`, `marginBottom`, and `marginLeft` overrides. These optional properties do not change the version-2 format or component IDs. Each saved side overrides the shared margin on that side, including explicit zero. Absent values preserve existing style margins, or inherit the shared margin when present. Inspector fallbacks are not persisted until edited.
 
@@ -185,7 +202,7 @@ The page root's optional `props.browserTitle` string overrides the browser tab t
 
 `applicationName` defaults to the project display name for new projects. Existing valid v2 aggregates and manifests receive deterministic defaults for all general settings during parsing, then write their canonical values on the next serialization; this additive compatibility rule does not change `formatVersion`. The grid size, visibility, and snapping values are consumed directly by the Designer projection.
 
-`settings.scrollbar` is the application-wide scrollbar style. It stores independent vertical and horizontal thicknesses (`width` and `height`); track color, border color, border width, and radius (`trackColor`, `trackBorderColor`, `trackBorderWidth`, and `trackBorderRadius`); thumb normal, hover, and active colors plus its border and radius (`thumbColor`, `thumbHoverColor`, `thumbActiveColor`, `thumbBorderColor`, `thumbBorderWidth`, and `thumbBorderRadius`); and the `cornerColor` used where horizontal and vertical scrollbars meet. New projects receive the Aurora defaults: `width` and `height` `10`, a `#f8fafc` track/corner, `#e2e8f0` one-pixel track border with radius `8`, a `#93c5fd` thumb that changes to `#60a5fa` on hover and `#2563eb` while active, and a `#eff6ff` two-pixel thumb border with radius `8`. Older valid v2 projects materialize these values during parsing and serialize their canonical shape on the next save.
+`settings.scrollbar` is the application-wide scrollbar style. It stores independent vertical and horizontal thicknesses (`width` and `height`); track color, border color, border width, and radius (`trackColor`, `trackBorderColor`, `trackBorderWidth`, and `trackBorderRadius`); thumb normal, hover, and active colors plus its border and radius (`thumbColor`, `thumbHoverColor`, `thumbActiveColor`, `thumbBorderColor`, `thumbBorderWidth`, and `thumbBorderRadius`); and the `cornerColor` used where horizontal and vertical scrollbars meet. New projects link these colors to theme roles while retaining `width` and `height` `10`, one-pixel track and two-pixel thumb borders, and radius `8`. Older valid v2 projects materialize the original fixed Aurora colors if scrollbar settings are absent and retain saved colors otherwise. Existing projects can explicitly adopt theme-linked scrollbar colors in Styles > Themes. Both shapes serialize canonically without changing format version 2.
 
 The compiler emits this style into generated `assets/app.css`, and Preview uses the same compiled CSS. WebKit-family browsers receive the complete track, thumb, hover, active, corner, border, radius, and axis-size projection through scrollbar pseudo-elements. Firefox progressively applies the supported thumb/track colors and its closest native thickness, so its browser-controlled scrollbar geometry may differ while retaining the configured colors.
 

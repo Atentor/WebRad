@@ -10,7 +10,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent, shell } from 'electron';
 import { compileProject, compileTailwindStyles } from '@webrad/compiler';
-import { parseComponentStyle, parseProject } from '@webrad/project-model';
+import { parseComponentStyle, parseProject, PROJECT_THEME_PRESET_IDS } from '@webrad/project-model';
 import { z } from 'zod';
 import type {
   BuildRequest,
@@ -65,6 +65,7 @@ const createProjectSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
     templateId: z.enum(PROJECT_TEMPLATE_IDS).default('blank'),
+    themePresetId: z.enum(PROJECT_THEME_PRESET_IDS).default('aurora'),
   })
   .strict();
 
@@ -163,7 +164,12 @@ async function createProjectHandler(
   if (!parentPath) return null;
   const rootPath = resolveNewProjectRoot(parentPath, request.name);
   await ensureNewDestination(rootPath);
-  const session = await createProjectFiles(rootPath, request.name, request.templateId);
+  const session = await createProjectFiles(
+    rootPath,
+    request.name,
+    request.templateId,
+    request.themePresetId,
+  );
 
   return session;
 }

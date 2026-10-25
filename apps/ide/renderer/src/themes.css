@@ -1,0 +1,131 @@
+.wr-styles-theme-toolbar,
+.wr-style-theme-layer,
+.wr-themes-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.wr-styles-theme-toolbar {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-panel-bg);
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.wr-styles-theme-toolbar label,
+.wr-style-theme-layer label,
+.wr-themes-options label,
+.wr-designer-theme-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--wr-text);
+  font-size: 12px;
+}
+
+.wr-styles-theme-toolbar select,
+.wr-style-theme-layer select,
+.wr-themes-options select,
+.wr-theme-color-row input[type='text'],
+.wr-designer-theme-select select {
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  padding: 3px 7px;
+  font: inherit;
+}
+
+.wr-style-theme-layer {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--wr-muted-text);
+}
+
+.wr-styles-themes-panel {
+  min-width: 0;
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.wr-styles-themes-panel h2,
+.wr-styles-themes-panel p {
+  margin: 0;
+}
+.wr-styles-themes-panel p {
+  max-width: 75ch;
+  line-height: 1.5;
+}
+.wr-theme-colors-table {
+  overflow-x: auto;
+}
+.wr-theme-color-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) repeat(2, minmax(185px, 1fr)) 45px 30px;
+  gap: 12px;
+  align-items: center;
+  min-width: 640px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--wr-border);
+  font-size: 12px;
+}
+.wr-theme-color-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.wr-theme-color-row input[type='text'] {
+  width: 100%;
+}
+.wr-designer-theme-select {
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.wr-theme-color-popover {
+  max-height: min(60vh, 460px);
+  overflow-y: auto;
+}
+.wr-color-theme-swatches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+.wr-color-theme-swatches button {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  text-align: left;
+  cursor: pointer;
+}
+.wr-color-theme-swatches button > span {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 3px;
+  flex: 0 0 16px;
+}
+.wr-color-theme-swatches button[aria-pressed='true'] {
+  border-color: var(--wr-accent);
+}
+.wr-color-theme-swatches button:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 1px;
+}

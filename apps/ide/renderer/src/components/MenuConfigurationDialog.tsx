@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useContext,
   useId,
   useRef,
   useState,
@@ -24,6 +25,7 @@ import {
 import { WebMenu } from '@webrad/runtime/menu';
 import {
   createDefaultWebMenuConfiguration,
+  createProjectWebMenuAppearance,
   parseWebMenuConfiguration,
   WEB_MENU_THEMES,
   type WebMenuConfiguration,
@@ -32,6 +34,8 @@ import {
 import { LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
 import { Icon } from './Icon';
 import { IconPickerDialog } from './IconPickerDialog';
+import { ColorInput } from './ColorInput';
+import { ProjectThemeContext } from '../project-theme';
 
 type Section = 'Items' | 'Brand & user' | 'Appearance' | 'Behavior & layout';
 
@@ -60,10 +64,16 @@ function MenuPreview({
   readonly assets: readonly ProjectAsset[];
 }): ReactElement {
   const ref = useRef<HTMLDivElement>(null);
+  const { mode } = useContext(ProjectThemeContext);
+  const [previewMode, setPreviewMode] = useState(mode);
+  useEffect(() => setPreviewMode(mode), [mode]);
   useEffect(() => {
     if (!ref.current) return;
     const element = ref.current;
-    const menu = new WebMenu(element, { viewportWidth: mobile ? 390 : 1440 });
+    const menu = new WebMenu(element, {
+      viewportWidth: mobile ? 390 : 1440,
+      onThemeToggle: () => setPreviewMode((current) => (current === 'dark' ? 'light' : 'dark')),
+    });
     const cancelNavigation = (event: Event): void => {
       event.preventDefault();
     };
@@ -87,6 +97,7 @@ function MenuPreview({
   return (
     <div
       className="wr-menu-editor-preview-surface"
+      data-webrad-theme={previewMode}
       data-orientation={configuration.orientation}
       data-mobile={mobile}
     >
@@ -602,6 +613,14 @@ export function MenuConfigurationDialog({
                     <div className="wr-menu-editor-actions">
                       <button
                         type="button"
+                        onClick={() =>
+                          set('appearance', createProjectWebMenuAppearance(draft.appearance))
+                        }
+                      >
+                        Follow application theme
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => set('appearance', { ...WEB_MENU_THEMES.light })}
                       >
                         Light preset
@@ -620,6 +639,15 @@ export function MenuConfigurationDialog({
                           .replace(/[A-Z]/gu, (letter) => ` ${letter.toLowerCase()}`)
                           .replace(/^./u, (letter) => letter.toUpperCase())}
                       >
+                        {typeof value === 'string' ? (
+                          <ColorInput
+                            label={`Menu ${key}`}
+                            value={value}
+                            onChange={(next) =>
+                              set('appearance', { ...draft.appearance, [key]: next })
+                            }
+                          />
+                        ) : null}
                         <input
                           type={typeof value === 'number' ? 'number' : 'text'}
                           value={value}
@@ -638,9 +666,9 @@ export function MenuConfigurationDialog({
                       </Field>
                     ))}
                     <p className="wr-modal-description">
-                      Colors accept hexadecimal values, color names and project palette variables.
-                      All dimensions are CSS pixels. The component Style controls its outer corners,
-                      shadow and opacity.
+                      Colors accept hexadecimal values, color names and theme colors. All dimensions
+                      are CSS pixels. The component Style controls its outer corners, shadow and
+                      opacity.
                     </p>
                   </div>
                 )}
@@ -666,6 +694,7 @@ export function MenuConfigurationDialog({
                         'collapsed',
                         'accordion',
                         'searchable',
+                        'themeToggle',
                         'closeOnSelect',
                       ] as const
                     ).map((key) => (
@@ -681,6 +710,7 @@ export function MenuConfigurationDialog({
                             collapsed: 'Initially collapsed',
                             accordion: 'One expanded submenu per level',
                             searchable: 'Show menu search',
+                            themeToggle: 'Show theme switch',
                             closeOnSelect: 'Close navigation after selection',
                           }[key]
                         }

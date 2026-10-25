@@ -1,7 +1,8 @@
 import { ProjectTemplatePicker } from './ProjectTemplatePicker';
+import { ProjectThemePresetPicker } from './ProjectThemePresetPicker';
 import { type ProjectTemplateId } from '@webrad/component-registry';
 import { Icon } from './Icon';
-import { getProjectNameError } from '@webrad/project-model';
+import { getProjectNameError, type ProjectThemePresetId } from '@webrad/project-model';
 import {
   useEffect,
   useId,
@@ -17,7 +18,11 @@ interface NewProjectDialogProps {
   readonly error?: string | null;
   readonly onCancel: () => void;
   readonly onClearError: () => void;
-  readonly onCreate: (name: string, templateId: ProjectTemplateId) => void;
+  readonly onCreate: (
+    name: string,
+    templateId: ProjectTemplateId,
+    themePresetId: ProjectThemePresetId,
+  ) => void;
 }
 
 function validationMessage(reason: string): string {
@@ -42,6 +47,7 @@ export function NewProjectDialog({
   );
   const [name, setName] = useState('Project1');
   const [templateId, setTemplateId] = useState<ProjectTemplateId>('blank');
+  const [themePresetId, setThemePresetId] = useState<ProjectThemePresetId>('aurora');
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,7 +73,7 @@ export function NewProjectDialog({
       return;
     }
     setLocalError(null);
-    onCreate(normalizedName, templateId);
+    onCreate(normalizedName, templateId, themePresetId);
   };
   const displayedError = localError ?? error;
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -130,6 +136,14 @@ export function NewProjectDialog({
             disabled={busy}
             onChange={(value) => {
               setTemplateId(value);
+              onClearError();
+            }}
+          />
+          <ProjectThemePresetPicker
+            value={themePresetId}
+            disabled={busy}
+            onChange={(value) => {
+              setThemePresetId(value);
               onClearError();
             }}
           />

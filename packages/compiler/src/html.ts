@@ -1,5 +1,6 @@
 import type { ProjectApplicationIcon, ProjectSeoSettings } from '@webrad/project-model';
 import type { ProjectPwaSettings } from '@webrad/project-model';
+import { themeBootstrapSource, type ThemeRuntimeConfiguration } from '@webrad/runtime/theme';
 
 function escapeHtml(value: string): string {
   return value
@@ -19,6 +20,13 @@ export interface HtmlDocumentMetadata {
   readonly timeZone: string;
   readonly applicationIcon: ProjectApplicationIcon | null;
   readonly seo: ProjectSeoSettings;
+  readonly themeConfiguration?: ThemeRuntimeConfiguration;
+}
+
+function themeScript(metadata: HtmlDocumentMetadata): string {
+  return metadata.themeConfiguration === undefined
+    ? ''
+    : `<script>${themeBootstrapSource(metadata.themeConfiguration)}</script>\n`;
 }
 
 function documentTitle(metadata: HtmlDocumentMetadata): string {
@@ -92,6 +100,7 @@ export function createIndexHtml(
 <html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}" data-webrad-application-name="${escapeHtml(metadata.applicationName)}">
   <head>
     <meta charset="UTF-8" />
+${themeScript(metadata)}
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(documentTitle(metadata))}</title>
 ${baseScript}
@@ -131,6 +140,7 @@ export function createPreviewHtml(
 <html lang="${escapeHtml(metadata.locale)}" data-webrad-time-zone="${escapeHtml(metadata.timeZone)}" data-webrad-application-name="${escapeHtml(metadata.applicationName)}">
   <head>
     <meta charset="UTF-8" />
+${themeScript(metadata)}
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${descriptionTag(metadata.applicationDescription)}    <title>${escapeHtml(documentTitle(metadata))}</title>
 <meta name="webrad-route-paths" content="${encodeURIComponent(JSON.stringify(metadata.routePaths ?? []))}" />

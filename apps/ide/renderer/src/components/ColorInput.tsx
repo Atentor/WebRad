@@ -1,32 +1,57 @@
 import { useContext, useId, useRef, useState, type ReactElement } from 'react';
-import { paletteColorId, paletteColorReference, resolvePaletteColor } from '@webrad/project-model';
-import { ProjectColorPaletteContext } from '../project-color-palette';
+import {
+  paletteColorId,
+  customThemeColorId,
+  customThemeColorReference,
+  themeColorId,
+  themeColorReference,
+  THEME_COLOR_NAMES,
+  resolveProjectColor,
+} from '@webrad/project-model';
+import { ProjectThemeContext, useProjectColorResolver } from '../project-theme';
 import { Icon } from './Icon';
-import '../color-palette.css';
+import '../theme-colors.css';
 
-interface PaletteColorButtonProps {
+interface ThemeColorButtonProps {
   readonly label: string;
   readonly value: string;
   readonly disabled?: boolean;
+  readonly includeRoles?: boolean;
   readonly onChange: (color: string) => void;
 }
 
 /** Native popovers stay above scrolling inspectors and modal dialog content. */
-export function PaletteColorButton({
+export function ThemeColorButton({
   label,
   value,
   disabled,
+  includeRoles = true,
   onChange,
-}: PaletteColorButtonProps): ReactElement | null {
-  const colors = useContext(ProjectColorPaletteContext).filter((entry) =>
-    /^#[0-9a-fA-F]{6}$/.test(entry.color),
-  );
+}: ThemeColorButtonProps): ReactElement | null {
+  const { themes, mode } = useContext(ProjectThemeContext);
+  const customId = customThemeColorId(value) ?? paletteColorId(value);
+  const role = themeColorId(value);
+  const colors = [
+    ...(includeRoles
+      ? THEME_COLOR_NAMES.map((name) => ({
+          id: `role:${name}`,
+          name,
+          reference: themeColorReference(name),
+          selected: role === name,
+        }))
+      : []),
+    ...themes.customColors.map((entry) => ({
+      id: `custom:${entry.id}`,
+      name: entry.name,
+      reference: customThemeColorReference(entry.id),
+      selected: customId === entry.id,
+    })),
+  ];
   const popupId = useId();
   const popupRef = useRef<HTMLSpanElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const linkedId = paletteColorId(value);
-  const linkedColor = colors.find((entry) => entry.id === linkedId);
+  const linked = colors.find((entry) => entry.selected);
   if (colors.length === 0) return null;
 
   const close = (): void => {
@@ -38,15 +63,13 @@ export function PaletteColorButton({
       <button
         ref={buttonRef}
         type="button"
-        className="wr-color-palette-trigger"
+        className="wr-theme-color-trigger"
         disabled={disabled}
         aria-label={`Predefined colors for ${label}`}
         aria-expanded={open}
         aria-controls={popupId}
-        data-linked={linkedColor !== undefined}
-        title={
-          linkedColor === undefined ? 'Choose a project color' : `Linked to ${linkedColor.name}`
-        }
+        data-linked={linked !== undefined}
+        title={linked === undefined ? 'Choose a theme color' : `Linked to theme ${linked.name}`}
         onClick={(event) => {
           event.preventDefault();
           const popup = popupRef.current;
@@ -57,7 +80,7 @@ export function PaletteColorButton({
           }
           const rect = event.currentTarget.getBoundingClientRect();
           popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 220))}px`;
-          popup.style.top = `${Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 155))}px`;
+          popup.style.top = `${Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - Math.min(460, window.innerHeight * 0.6)))}px`;
           popup.showPopover();
           popup.querySelector<HTMLButtonElement>('button')?.focus();
         }}
@@ -68,9 +91,9 @@ export function PaletteColorButton({
         ref={popupRef}
         id={popupId}
         popover="auto"
-        className="wr-color-palette-popover"
+        className="wr-theme-color-popover"
         role="group"
-        aria-label={`Project colors for ${label}`}
+        aria-label={`Theme colors for ${label}`}
         onToggle={(event) => setOpen(event.newState === 'open')}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
@@ -88,22 +111,26 @@ export function PaletteColorButton({
           }
         }}
       >
-        <strong>Project colors</strong>
-        <span className="wr-color-palette-swatches">
+        <strong>Theme colors · {mode === 'dark' ? 'Dark' : 'Light'}</strong>
+        <span className="wr-color-theme-swatches">
           {colors.map((entry) => (
             <button
-              key={entry.id}
               type="button"
-              aria-label={`Use ${entry.color.toUpperCase()} for ${label}`}
-              aria-pressed={paletteColorId(value) === entry.id}
-              title={`${entry.name} · ${entry.color.toUpperCase()}`}
-              style={{ backgroundColor: entry.color }}
+              key={entry.id}
+              aria-label={`Use theme ${entry.name} for ${label}`}
+              aria-pressed={entry.selected}
+              title={entry.name}
               onClick={(event) => {
                 event.preventDefault();
-                onChange(paletteColorReference(entry.id));
+                onChange(entry.reference);
                 close();
               }}
-            />
+            >
+              <span
+                style={{ backgroundColor: resolveProjectColor(entry.reference, themes, mode) }}
+              />
+              {entry.name}
+            </button>
           ))}
         </span>
       </span>
@@ -111,10 +138,10 @@ export function PaletteColorButton({
   );
 }
 
-interface ColorInputProps extends PaletteColorButtonProps {
+interface ColorInputProps extends ThemeColorButtonProps {
   readonly id?: string;
   readonly className?: string;
-  readonly showPalette?: boolean;
+  readonly showThemeColors?: boolean;
 }
 
 export function ColorInput({
@@ -124,9 +151,11 @@ export function ColorInput({
   id,
   className,
   disabled,
-  showPalette = true,
+  showThemeColors = true,
+  includeRoles = true,
 }: ColorInputProps): ReactElement {
-  const colors = useContext(ProjectColorPaletteContext);
+  const resolveColor = useProjectColorResolver();
+  const resolved = resolveColor(value);
   return (
     <span className="wr-color-input">
       <input
@@ -134,12 +163,18 @@ export function ColorInput({
         className={className}
         type="color"
         aria-label={label}
-        value={resolvePaletteColor(value, colors)}
+        value={/^#[a-f0-9]{6}$/iu.test(resolved) ? resolved : '#000000'}
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
       />
-      {showPalette && (
-        <PaletteColorButton label={label} value={value} disabled={disabled} onChange={onChange} />
+      {showThemeColors && (
+        <ThemeColorButton
+          label={label}
+          value={value}
+          disabled={disabled}
+          onChange={onChange}
+          includeRoles={includeRoles}
+        />
       )}
     </span>
   );

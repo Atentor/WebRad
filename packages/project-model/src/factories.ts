@@ -1,10 +1,7 @@
 import { ModelUpdateError, ProjectModelError } from './errors.js';
 import { bindStyleColorsToPalette } from './color-palette.js';
-import {
-  DEFAULT_PROJECT_COLOR_PALETTE,
-  COMPONENT_STYLE_STATE_NAMES,
-  type ProjectPaletteColor,
-} from './types.js';
+import { bindDefaultStylesToTheme, bindScrollbarColorsToTheme } from './project-themes.js';
+import { COMPONENT_STYLE_STATE_NAMES, type ProjectPaletteColor } from './types.js';
 import {
   applyDefaultComponentStyle,
   defaultComponentStyleId,
@@ -61,6 +58,7 @@ export interface CreateComponentStyleOptions {
   readonly idFactory?: IdFactory;
   readonly preset?: ComponentStylePreset;
   readonly states?: Partial<Readonly<Record<ComponentStyleStateName, ComponentStyleProperties>>>;
+  readonly themeOverrides?: ComponentStyleModel['themeOverrides'];
 }
 
 /** Creates an unbound reusable style with a stable identity. */
@@ -77,6 +75,9 @@ export function createComponentStyle(
     name,
     componentType,
     ...(preset === undefined ? {} : { preset }),
+    ...(typeof options === 'function' || options.themeOverrides === undefined
+      ? {}
+      : { themeOverrides: options.themeOverrides }),
     states: {
       base: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.base },
       hover: { ...EMPTY_COMPONENT_STYLE_PROPERTIES, ...states?.hover },
@@ -90,7 +91,7 @@ export function createComponentStyle(
 /** Creates the protected visual library seeded into every new project. */
 export function createDefaultComponentStyles(
   projectId: string,
-  colors: readonly ProjectPaletteColor[] = DEFAULT_PROJECT_COLOR_PALETTE,
+  colors: readonly ProjectPaletteColor[] = [],
 ): readonly ComponentStyleModel[] {
   return DEFAULT_COMPONENT_STYLE_DEFINITIONS.map((definition) =>
     createComponentStyle(definition.name, definition.componentType, {
@@ -264,7 +265,10 @@ export function createProject(
     nativeApplication: { ...DEFAULT_PROJECT_SETTINGS.nativeApplication, applicationName: name },
     ...(typeof options === 'function' ? {} : options.settings),
   };
-  const styles = createDefaultComponentStyles(projectId, settings.colorPalette);
+  const styles = bindDefaultStylesToTheme(createDefaultComponentStyles(projectId), settings.themes);
+  if (typeof options === 'function' || options.settings?.scrollbar === undefined) {
+    settings.scrollbar = bindScrollbarColorsToTheme(settings.scrollbar);
+  }
   const styledPage = parsePage({
     ...page,
     components: page.components.map((component) =>

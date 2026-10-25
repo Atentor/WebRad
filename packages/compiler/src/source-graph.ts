@@ -3,7 +3,12 @@ import shakaSources from './shaka-sources.generated.json';
 import path from 'node:path';
 
 import type { ComponentRegistry } from '@webrad/component-registry';
-import { pageClassName, type PageModel, type WebRadProject } from '@webrad/project-model';
+import {
+  pageClassName,
+  projectThemeRuntimeConfiguration,
+  type PageModel,
+  type WebRadProject,
+} from '@webrad/project-model';
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   createUserPageSource,
@@ -72,6 +77,7 @@ function isReservedSourcePath(sourcePath: string): boolean {
     normalized.startsWith('__restgo/') ||
     [
       'entry.ts',
+      'theme-bootstrap.ts',
       'app.css',
       'webrad-globals.d.ts',
       'webrad-environment.d.ts',
@@ -102,6 +108,7 @@ function createGlobalTypings(): string {
   Message as RuntimeMessage,
   Navigate as RuntimeNavigate,
   RestGO as RuntimeRestGO,
+  Theme as RuntimeTheme,
 } from '@webrad/runtime';
 
 declare global {
@@ -109,6 +116,7 @@ declare global {
   const Confirm: typeof RuntimeConfirm;
   const Navigate: typeof RuntimeNavigate;
   const RestGO: typeof RuntimeRestGO;
+  const Theme: typeof RuntimeTheme;
 }
 
 export {};
@@ -211,7 +219,8 @@ function createEntrySource(
   );
   const confirm = usesRuntimeGlobal(userSources, 'Confirm');
   const message = usesRuntimeGlobal(userSources, 'Message');
-  return `import {
+  return `import './theme-bootstrap';
+import {
   ${confirm ? 'Confirm,' : ''}
   ${restGo ? 'configureRestGo,' : ''}
   ${message ? 'Message,' : ''}
@@ -402,6 +411,10 @@ export function createVirtualSourceGraph(
     ),
   );
   sources.set(stylePath, generatedAppCss);
+  sources.set(
+    virtualAbsolutePath('theme-bootstrap.ts'),
+    `import { Theme } from '@webrad/runtime';\nTheme.configure(${JSON.stringify(projectThemeRuntimeConfiguration(project.settings.themes, project.id))});\nObject.assign(globalThis, { Theme });\n`,
+  );
   sources.set(virtualAbsolutePath('webrad-globals.d.ts'), createGlobalTypings());
   sources.set(
     virtualAbsolutePath('webrad-environment.d.ts'),

@@ -1,4 +1,5 @@
 import timerTypings from './timer-typings.generated.json';
+import themeTypings from './theme-typings.generated.json';
 import menuTypings from './menu-typings.generated.json';
 import reportBuilderTypings from './report-builder-typings.generated.json';
 import apiClientTypings from './api-client-typings.generated.json';
@@ -25,6 +26,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     set onClick(handler: WebComponentEventHandler<this> | null);
   }
 ${timerTypings.source}
+${themeTypings.source}
 ${menuTypings.source}
 ${reportBuilderTypings.source}
 ${repeatingGroupTypings.source}
@@ -792,6 +794,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
   export interface TailwindStyleSource {
     readonly componentType?: string;
     readonly states: Readonly<Record<ComponentStyleStateName, TailwindStyleProperties>>;
+    readonly themeOverrides?: Readonly<Partial<Record<'light' | 'dark', Partial<Record<ComponentStyleStateName, TailwindStyleProperties>>>>>;
   }
 
   export function tokenizeTailwindClasses(value: string): readonly string[];
@@ -818,6 +821,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     style: TailwindStyleSource | null | undefined,
     stateName: ComponentStyleStateName,
   ): string;
+  export function resolveThemedStyle(style: TailwindStyleSource, mode: ResolvedThemeMode): TailwindStyleSource;
 
   export type VisualSizingMode = 'bounds' | 'fill';
 
@@ -872,6 +876,11 @@ ${WEB_BUTTON_ICON_TYPINGS};
   export const WEBRAD_PROJECT_CSS: string;
 }
 
+declare module '@webrad/runtime/theme' {
+  export { Theme, WebTheme, THEME_MODES, THEME_COLOR_NAMES, themeColorId, themeColorReference, customThemeColorId, customThemeColorReference, initializeTheme, themeBootstrapSource } from '@webrad/runtime';
+  export type { ThemeMode, ResolvedThemeMode, ThemeColorName, ThemeRuntimeConfiguration, ThemeChangeDetail, ThemeChangeHandler } from '@webrad/runtime';
+}
+
 declare module '@webrad/runtime/image-display' {
   export type WebImagePlaceholder = 'image' | 'user';
   export function imagePlaceholderSource(placeholder: WebImagePlaceholder): string;
@@ -884,6 +893,8 @@ declare const Message: typeof import('@webrad/runtime').Message;
 declare const Confirm: typeof import('@webrad/runtime').Confirm;
 /** Globally available WebRAD navigation helper. */
 declare const Navigate: typeof import('@webrad/runtime').Navigate;
+/** Application theme service, available without an import. */
+declare const Theme: typeof import('@webrad/runtime').Theme;
 /** The RestGO client configured in Project Settings, shared by all pages. */
 declare const RestGO: import('@webrad/restgo-sdk').RestGoClient;
 `;

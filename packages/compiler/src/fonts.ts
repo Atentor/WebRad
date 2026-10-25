@@ -8,8 +8,10 @@ export const PROJECT_FONT_THEME_CSS = `@theme {\n${WEBRAD_FONT_FAMILIES.map(
 ).join('\n')}\n}`;
 
 export function projectFontFaceCss(candidates: readonly string[]): string {
-  return WEBRAD_FONT_FAMILIES.filter((font) =>
-    candidates.some((candidate) => new RegExp(`(?:^|:)!?font-${font.id}!?$`, 'u').test(candidate)),
+  return WEBRAD_FONT_FAMILIES.filter(
+    (font) =>
+      font.id === 'roboto' ||
+      candidates.some((candidate) => new RegExp(`(?:^|:)!?font-${font.id}!?$`, 'u').test(candidate)),
   )
     .map((font) => fontSources[font.id].css)
     .join('\n');

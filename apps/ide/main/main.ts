@@ -867,7 +867,8 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
       const dialog = document.querySelector('.wr-new-project-dialog');
       const blank = dialog?.querySelector('input[value="blank"]');
       const template = dialog?.querySelector('input[value="aurora-workspace"]');
-      const cards = [...(dialog?.querySelectorAll('.wr-project-template-card') ?? [])];
+      const cards = [...(dialog?.querySelectorAll('.wr-project-template-grid .wr-project-template-card') ?? [])];
+      const themes = [...(dialog?.querySelectorAll('input[name="project-theme"]') ?? [])];
       const bounds = dialog?.getBoundingClientRect();
       return dialog?.querySelector('.wr-template-sidebar') !== null && dialog?.textContent?.includes('Examples & Tutorial') === true && blank instanceof HTMLInputElement && blank.checked && template instanceof HTMLInputElement
         && dialog.textContent.includes('Learn WebRAD with editable examples')
@@ -875,6 +876,8 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
         && dialog.textContent.includes('reusable menus')
         && dialog.querySelector('.wr-template-sidebar .wr-template-user') !== null
         && cards.length === 2 && cards.every(card => card.getBoundingClientRect().width > 100)
+        && themes.length === 4 && themes.map(theme => theme.value).join(',') === 'aurora,prism,flat,webrad'
+        && themes[0].checked && dialog.querySelectorAll('.wr-project-theme-sample').length === 8
         && bounds !== undefined && bounds.left >= 0 && bounds.right <= innerWidth
         && bounds.top >= 0 && bounds.bottom <= innerHeight
         && dialog.contains(document.activeElement) && document.querySelector('.wr-ide-modal-host')?.inert === true;
@@ -882,6 +885,30 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     'the accessible blank/template project chooser',
     (value) => value === true,
   );
+  for (const themeId of ['prism', 'flat', 'webrad', 'aurora']) {
+    await clickRendererControl(
+      window,
+      `input[name="project-theme"][value="${themeId}"]`,
+      `${themeId} application theme`,
+    );
+    await waitForRendererResult(
+      window,
+      `(() => {
+        const theme = document.querySelector('input[name="project-theme"][value="${themeId}"]');
+        const samples = [...(theme?.closest('label')?.querySelectorAll('.wr-project-theme-sample') ?? [])];
+        const surfaces = samples.map(sample => sample.querySelector('.wr-project-theme-surface'));
+        return theme?.checked === true && samples.length === 2
+          && samples[0].textContent.includes('Light') && samples[1].textContent.includes('Dark')
+          && getComputedStyle(samples[0]).color !== getComputedStyle(samples[1]).color
+          && surfaces.every(surface => surface instanceof HTMLElement && surface.getBoundingClientRect().width > 20)
+          && (!['flat', 'webrad'].includes(${JSON.stringify(themeId)}) || surfaces.every(surface => getComputedStyle(surface).boxShadow === 'none'))
+          && (${JSON.stringify(themeId)} !== 'webrad' || surfaces.every(surface => getComputedStyle(surface).borderRadius === '0px'))
+          && (${JSON.stringify(themeId)} !== 'webrad' || getComputedStyle(samples[1]).backgroundColor === 'rgb(30, 30, 30)');
+      })()`,
+      'the selected application theme with Light and Dark samples',
+      (value) => value === true,
+    );
+  }
   await clickRendererControl(
     window,
     'input[value="aurora-workspace"]',
@@ -912,7 +939,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     (value) => value === true,
   );
   smokeLog(
-    'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu',
+    'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu / Aurora, Prism, Flat and WebRAD Light/Dark themes / WebRAD square corners',
   );
 
   if (smokeProjectPath === undefined) return;

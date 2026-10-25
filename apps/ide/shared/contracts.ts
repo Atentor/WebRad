@@ -5,7 +5,12 @@ import type { ExternalLinkTarget } from './external-links';
 import type { RestGoAdminBridge } from './restgo-admin';
 import type { RestGoDevelopmentBridge } from './restgo-development';
 import type { DebugBridge } from './debugger-contracts';
-import type { ComponentStyleModel, ProjectAsset, WebRadProject } from '@webrad/project-model';
+import type {
+  ComponentStyleModel,
+  ProjectAsset,
+  ProjectThemePresetId,
+  WebRadProject,
+} from '@webrad/project-model';
 
 export const IDE_COMMANDS = [
   'file.newProject',
@@ -62,6 +67,7 @@ export interface ProjectSession {
 export interface CreateProjectRequest {
   name: string;
   templateId?: ProjectTemplateId;
+  themePresetId?: ProjectThemePresetId;
 }
 
 export interface SaveProjectRequest {

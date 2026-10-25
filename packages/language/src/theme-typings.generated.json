@@ -1,0 +1,21 @@
+{
+  "source": "export const THEME_MODES: readonly [\n    \"light\",\n    \"dark\",\n    \"system\"\n];\n\nexport type ThemeMode = (typeof THEME_MODES)[number];\n\nexport type ResolvedThemeMode = 'light' | 'dark';\n\nexport const THEME_COLOR_NAMES: readonly [\n    \"background\",\n    \"background-end\",\n    \"surface\",\n    \"surface-end\",\n    \"surface-muted\",\n    \"input\",\n    \"input-end\",\n    \"control-thumb\",\n    \"text\",\n    \"text-muted\",\n    \"heading\",\n    \"border\",\n    \"border-accent\",\n    \"primary\",\n    \"primary-hover\",\n    \"primary-active\",\n    \"on-primary\",\n    \"accent\",\n    \"accent-hover\",\n    \"accent-active\",\n    \"on-accent\",\n    \"focus\",\n    \"disabled-surface\",\n    \"disabled-text\",\n    \"success\",\n    \"warning\",\n    \"danger\",\n    \"overlay\",\n    \"scrollbar-track\",\n    \"scrollbar-thumb\",\n    \"scrollbar-thumb-hover\",\n    \"scrollbar-thumb-active\",\n    \"media-background\",\n    \"media-background-end\",\n    \"on-media\"\n];\n\nexport type ThemeColorName = (typeof THEME_COLOR_NAMES)[number];\n\n/** Stable identities for user-defined colors managed in Themes. */\nexport function customThemeColorId(value: unknown): string | undefined;\n\nexport function customThemeColorReference(id: string): string;\n\nexport function themeColorId(value: unknown): ThemeColorName | undefined;\n\nexport function themeColorReference(name: ThemeColorName): string;\n\nexport interface ThemeRuntimeConfiguration {\n    readonly initialMode: ThemeMode;\n    readonly rememberChoice: boolean;\n    /** Unique per project, including when multiple applications share an origin. */\n    readonly storageKey: string;\n}\n\nexport interface ThemeChangeDetail {\n    readonly mode: ThemeMode;\n    readonly resolvedMode: ResolvedThemeMode;\n    readonly previousMode: ThemeMode;\n    readonly previousResolvedMode: ResolvedThemeMode;\n}\n\nexport type ThemeChangeHandler = (sender: WebTheme, event: CustomEvent<ThemeChangeDetail>) => void;\n\n/** Self-contained so this exact initializer can also run in the HTML head before CSS. */\nexport function initializeTheme(configuration: ThemeRuntimeConfiguration): void;\n\n/** Browser-only application service. It owns no component instances or page state. */\nexport class WebTheme {\n    #private;\n    onChange: ThemeChangeHandler | null;\n    get mode(): ThemeMode;\n    set mode(value: ThemeMode);\n    get resolvedMode(): ResolvedThemeMode;\n    configure(configuration: ThemeRuntimeConfiguration): void;\n    toggle(): void;\n    subscribe(handler: ThemeChangeHandler): () => void;\n    /** Forget the remembered choice and return to the project's initial mode. */\n    reset(): void;\n    dispose(): void;\n}\n\nexport const Theme: WebTheme;\n\nexport function themeBootstrapSource(configuration: ThemeRuntimeConfiguration): string;\n",
+  "names": [
+    "ResolvedThemeMode",
+    "THEME_COLOR_NAMES",
+    "THEME_MODES",
+    "Theme",
+    "ThemeChangeDetail",
+    "ThemeChangeHandler",
+    "ThemeColorName",
+    "ThemeMode",
+    "ThemeRuntimeConfiguration",
+    "WebTheme",
+    "customThemeColorId",
+    "customThemeColorReference",
+    "initializeTheme",
+    "themeBootstrapSource",
+    "themeColorId",
+    "themeColorReference"
+  ]
+}
