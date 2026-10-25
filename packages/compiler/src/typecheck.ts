@@ -122,7 +122,12 @@ export function typecheckSources(
   // Resolve imports against the current filesystem/virtual graph on every build,
   // including a previously missing module that has since been created.
   host.hasInvalidatedResolutions = () => true;
-  host.getSourceFile = (fileName, languageVersionOrOptions, _onError, shouldCreateNewSourceFile) => {
+  host.getSourceFile = (
+    fileName,
+    languageVersionOrOptions,
+    _onError,
+    shouldCreateNewSourceFile,
+  ) => {
     const content = host.readFile(fileName);
     if (content === undefined) return undefined;
     const previous = oldProgram?.getSourceFile(fileName);
