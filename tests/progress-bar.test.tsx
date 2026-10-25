@@ -29,7 +29,7 @@ import {
 import { appendComponentReferenceDeclarations } from '../packages/language/src/component-references';
 import { progressBarProject, progressBarUserSources } from './fixtures/progress-bar';
 
-it('registers three persisted formats with Inspector/style metadata and a palette-linked default', () => {
+it('registers three persisted formats with Inspector/style metadata and a theme-linked default', () => {
   const project = progressBarProject();
   const definition = defaultComponentRegistry.require('WebProgressBar');
   expect(definition).toMatchObject({
@@ -55,7 +55,7 @@ it('registers three persisted formats with Inspector/style metadata and a palett
         borderWidth: { value: 1, unit: 'px' },
         borderStyle: 'solid',
         borderGradient: { kind: 'linear', direction: 'to-bottom-right' },
-        progressColor: 'var(--wr-palette-aurora-blue)',
+        progressColor: 'var(--wr-theme-primary)',
         progressThickness: 8,
         borderRadius: { value: 6, unit: 'px' },
       },

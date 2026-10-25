@@ -1137,7 +1137,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     .find((node) => node.name === 'BTNMostrar');
   const fontId =
     styledSession.project.styles.find((style) => style.id === styledButton?.styleId)?.states.base
-      .fontFamily ?? 'sans';
+      .fontFamily ?? 'roboto';
   const expectedFontFamily =
     WEBRAD_FONT_FAMILIES.find((family) => family.id === fontId)?.label ??
     (fontId === 'mono' ? 'JetBrains Mono' : fontId === 'serif' ? 'serif' : 'Inter');

@@ -42,12 +42,12 @@ it('restores the missing Aurora Video Player style in projects and manifests wit
     states: {
       base: {
         backgroundGradient: {
-          from: 'var(--wr-palette-aurora-graphite)',
-          to: 'var(--wr-palette-aurora-ink)',
+          from: '#334155',
+          to: '#0f172a',
         },
         borderGradient: {
-          from: 'var(--wr-palette-aurora-sky)',
-          to: 'var(--wr-palette-aurora-lavender)',
+          from: '#60a5fa',
+          to: '#a78bfa',
         },
         borderRadius: { value: 6, unit: 'px' },
         objectFit: 'contain',

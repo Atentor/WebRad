@@ -123,11 +123,11 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
             expect(disabled).toMatchObject({
               opacity: '0.6',
               track: 'rgb(148, 163, 184)',
-              thumb: 'rgb(241, 245, 249)',
+              thumb: 'rgb(255, 255, 255)',
             });
             paints.push(disabled);
             await evaluate(
-              `${expression}.disabled = false; ${expression}.setAttribute('aria-disabled', 'false'); ${expression}.ownerDocument.documentElement.style.setProperty('--wr-palette-aurora-blue', '#123456')`,
+              `${expression}.disabled = false; ${expression}.setAttribute('aria-disabled', 'false'); ${expression}.ownerDocument.documentElement.style.setProperty('--wr-theme-primary', '#123456')`,
             );
             await settle();
             const linked = await read(expression);

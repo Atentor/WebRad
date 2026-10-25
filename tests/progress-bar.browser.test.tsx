@@ -132,7 +132,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           }
           for (const expression of [designer('dunnet'), runtime('dunnet')]) {
             await evaluate(
-              `${expression}.ownerDocument.documentElement.style.setProperty('--wr-palette-aurora-blue', '#123456'); ${expression}.style.setProperty('--wr-progress-track-color', '#abcdef'); ${expression}.style.setProperty('--wr-progress-thickness', '12')`,
+              `${expression}.ownerDocument.documentElement.style.setProperty('--wr-theme-primary', '#123456'); ${expression}.style.setProperty('--wr-progress-track-color', '#abcdef'); ${expression}.style.setProperty('--wr-progress-thickness', '12')`,
             );
             const custom = await read(expression);
             expect(custom).toMatchObject({

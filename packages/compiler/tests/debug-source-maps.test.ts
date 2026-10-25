@@ -182,9 +182,11 @@ export function greeting(customer: Customer): string { return 'Hello ' + custome
     const parsed = new JSDOM(result.previewHtml);
     try {
       // No HTML-time escaping may shift generated columns after esbuild creates the map.
-      expect(parsed.window.document.querySelector('script')?.textContent).toBe(
-        `${result.files['assets/app.js']}\n//# sourceURL=webrad-debug://app.js\n`,
-      );
+      expect(
+        Array.from(parsed.window.document.scripts).find((script) =>
+          script.textContent?.includes('//# sourceURL=webrad-debug://app.js'),
+        )?.textContent,
+      ).toBe(`${result.files['assets/app.js']}\n//# sourceURL=webrad-debug://app.js\n`);
     } finally {
       parsed.window.close();
     }

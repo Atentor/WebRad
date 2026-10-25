@@ -97,7 +97,7 @@ describe('hosting deployment', () => {
       /shaka|WebVideoPlayer|WebDataGrid|RestGoTransport|UNREACHABLE_CODE_SENTINEL/u,
     );
     expect(javascript).not.toContain('UNUSED_EXPORT_FROM_USED_UNIT');
-    expect(result.files['assets/app.css']).not.toMatch(/wr-webvideoplayer|wr-data-grid-/u);
+    expect(result.files['assets/app.css']).not.toMatch(/\.wr-(?:webvideoplayer|data-grid-)/u);
     expect(javascript).toContain('production-value');
     expect(javascript).not.toContain('dev-secret');
     expect(javascript).not.toMatch(/from\s+["'](?:node:|electron)/u);

@@ -138,7 +138,7 @@ return Object.fromEntries(['backgroundImage', 'color', 'borderRadius', 'borderTo
           await new Promise((resolve) => setTimeout(resolve, 250));
           const disabled = await read();
           await send('Runtime.evaluate', {
-            expression: `${expression}.ownerDocument.documentElement.style.setProperty('--wr-palette-aurora-ink', '#123456')`,
+            expression: `${expression}.ownerDocument.documentElement.style.setProperty('--wr-theme-media-background-end', '#123456')`,
           });
           const linked = await read();
           expect(base.borderRadius).toBe('6px');

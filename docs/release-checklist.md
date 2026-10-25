@@ -61,6 +61,24 @@ O preflight da tag confere a ancestralidade em `main` e consulta as verificaçõ
 
 ## Ao investigar uma falha
 
+Na validação local de 25/10/2026, o commit `07398e9` parou no lint do preview
+do Menu: o estado local deve reiniciar pela identidade do tema, sem um
+`setState` síncrono no efeito. Os testes dos novos padrões devem exigir as
+referências semânticas de tema; projetos antigos continuam preservando seus
+estilos salvos. No smoke de Styles, a fixture antiga HelloWebRad não tem
+estilos de Edit, Text Area, Combo Box e List Box: crie amostras temporárias pela
+interface quando faltarem e remova-as ao terminar. A amostra de tipografia deve
+selecionar Roboto antes de exigir essa fonte; o botão sem fonte explícita também
+herda o novo padrão Roboto. Para verificar a troca de tema de um Popup aberto,
+associe o estilo padrão à instância da fixture antes da compilação, mantendo as
+verificações de identidade, estado e geometria.
+
+O script de inicialização do tema agora precede o bundle no HTML do Preview.
+O teste de source maps deve identificar o script pelo `sourceURL` e continuar
+comparando seu conteúdo integral. As verificações de remoção de CSS de
+componentes ausentes devem procurar seletores de classe, distinguindo-os das
+variáveis globais de tema, como `--wr-data-grid-header-background-color`.
+
 No commit `f41d4fc`, a execução `40195347739` esgotou o heap de 2GB nos dois
 macOS durante `packages/compiler/tests/compiler.test.ts`. O host do compilador
 capturava o Program anterior e formava uma cadeia entre todas as compilações.

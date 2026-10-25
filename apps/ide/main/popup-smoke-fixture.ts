@@ -1,5 +1,11 @@
 import { defaultComponentRegistry } from '@webrad/component-registry';
-import { addComponent, bindComponentEvent, createProject, updatePage } from '@webrad/project-model';
+import {
+  addComponent,
+  bindComponentEvent,
+  createProject,
+  updatePage,
+  applyDefaultComponentStyle,
+} from '@webrad/project-model';
 
 export function popupSmokeProject() {
   const project = createProject('PopupLayout');
@@ -22,6 +28,7 @@ export function popupSmokeProject() {
       height: id === 'popup' ? 200 : 36,
       props: { ...(caption ? { caption } : {}), visible: id !== 'popup' },
     });
+    if (id === 'popup') node = applyDefaultComponentStyle(node, project.styles);
     if (id === 'popup' || id === 'actions')
       node = {
         ...node,

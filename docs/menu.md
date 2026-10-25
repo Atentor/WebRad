@@ -162,6 +162,7 @@ it. Menus with fixed appearance colors retain those colors; enable
 
 `configuration.themeToggle` and the typed `Menu1.themeToggle` property control
 visibility. Omitted legacy values normalize to `false`; `schemaVersion` remains
+
 1. Monaco declarations and generated runtime sources include the option.
 
 ## Search behavior and OnSearch

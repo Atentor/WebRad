@@ -24,7 +24,7 @@ import { panelProgressProject, panelProgressUserSources } from './fixtures/panel
 
 afterEach(() => vi.unstubAllGlobals());
 
-it('registers optional persisted progress and independent palette-linked Aurora style controls', () => {
+it('registers optional persisted progress and independent theme-linked Aurora style controls', () => {
   const project = panelProgressProject();
   const panel = defaultComponentRegistry.require('WebPanel');
   expect(panel.defaults).toMatchObject({ progressEnabled: false, progressValue: 0 });
@@ -35,8 +35,8 @@ it('registers optional persisted progress and independent palette-linked Aurora 
     defaultComponentRegistry.require('WebGroup').properties.map((property) => property.name),
   ).not.toContain('progressEnabled');
   expect(findDefaultComponentStyle(project.styles, 'WebPanel')?.states.base).toMatchObject({
-    panelProgressColor: 'var(--wr-palette-aurora-blue)',
-    panelProgressTrackColor: 'var(--wr-palette-aurora-border)',
+    panelProgressColor: 'var(--wr-theme-primary)',
+    panelProgressTrackColor: 'var(--wr-theme-border)',
     panelProgressThickness: 3,
   });
   for (const name of ['panelProgressColor', 'panelProgressTrackColor', 'panelProgressThickness']) {

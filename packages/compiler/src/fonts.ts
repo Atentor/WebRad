@@ -11,7 +11,9 @@ export function projectFontFaceCss(candidates: readonly string[]): string {
   return WEBRAD_FONT_FAMILIES.filter(
     (font) =>
       font.id === 'roboto' ||
-      candidates.some((candidate) => new RegExp(`(?:^|:)!?font-${font.id}!?$`, 'u').test(candidate)),
+      candidates.some((candidate) =>
+        new RegExp(`(?:^|:)!?font-${font.id}!?$`, 'u').test(candidate),
+      ),
   )
     .map((font) => fontSources[font.id].css)
     .join('\n');

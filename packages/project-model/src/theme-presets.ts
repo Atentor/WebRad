@@ -195,9 +195,7 @@ function presetProperties(
   if (preset === 'prism') {
     return {
       ...properties,
-      ...(properties.borderRadius === undefined
-        ? {}
-        : { borderRadius: { value: 12, unit: 'px' } }),
+      ...(properties.borderRadius === undefined ? {} : { borderRadius: { value: 12, unit: 'px' } }),
       ...(properties.dataGridButtonBorderRadius === undefined
         ? {}
         : { dataGridButtonBorderRadius: { value: 8, unit: 'px' } }),
@@ -238,7 +236,7 @@ function presetProperties(
       : {}),
     ...(square &&
     borderGradient !== undefined &&
-      ['WebButton', 'WebEdit', 'WebTextArea', 'WebComboBox', 'WebListBox'].includes(componentType)
+    ['WebButton', 'WebEdit', 'WebTextArea', 'WebComboBox', 'WebListBox'].includes(componentType)
       ? { borderColor: themeColorReference('border-accent') }
       : {}),
   };

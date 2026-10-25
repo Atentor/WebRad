@@ -354,7 +354,8 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (existing) return existing;
     menuInstances.set(element, this);
     element.classList.add('wr-webmenu');
-    const themeHost = element.closest('[data-webrad-theme]') ?? element.ownerDocument.documentElement;
+    const themeHost =
+      element.closest('[data-webrad-theme]') ?? element.ownerDocument.documentElement;
     this.#themeObserver = new MutationObserver(() => this.#syncThemeToggle());
     this.#themeObserver.observe(themeHost, {
       attributes: true,

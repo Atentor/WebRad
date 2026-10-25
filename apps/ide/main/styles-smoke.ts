@@ -31,7 +31,21 @@ async function ready(window: BrowserWindow, expression: string): Promise<void> {
     if (result === true) return;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error(`Styles renderer smoke timed out: ${expression}`);
+  const state: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+    const frame = document.querySelector('.wr-style-preview-frame');
+    return {
+      component: document.querySelector('[aria-label="Style components"] [aria-selected="true"]')?.textContent,
+      style: document.querySelector('.wr-style-list [aria-selected="true"]')?.textContent,
+      heading: document.querySelector('.wr-style-preview-heading')?.textContent,
+      controls: Array.from(frame?.querySelectorAll('input, textarea, select') ?? []).map(control => ({ tag: control.tagName, value: control.value, html: control.outerHTML })),
+      frame: frame?.innerHTML,
+      error: document.querySelector('.wr-error-boundary')?.textContent,
+    };
+  })()`,
+    true,
+  );
+  throw new Error(`Styles renderer smoke timed out: ${expression}; state=${JSON.stringify(state)}`);
 }
 
 async function paint(window: BrowserWindow): Promise<void> {
@@ -120,7 +134,7 @@ async function createPageSnapshotStyle(window: BrowserWindow): Promise<void> {
   }
   await setField(window, searchSelector, 'font family');
   await click(window, labelledControl('Configure Font family'));
-  await setField(window, labelledControl('Font family'), 'sans');
+  await setField(window, labelledControl('Font family'), 'roboto');
   await click(window, labelledControl('Essential'));
   await assertDefaultFilters(window);
 }
@@ -249,14 +263,41 @@ export async function runStylesWorkspaceSmoke(
       })()`,
       true,
     );
-    await ready(
-      window,
-      `(() => {
+    await paint(window);
+    const needsSampleStyle: unknown = await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-style-library .wr-style-list [role="option"]') === null`,
+      true,
+    );
+    const sampleName = `Smoke ${componentName} sample`;
+    if (needsSampleStyle === true) {
+      await click(window, '.wr-style-section-heading button');
+      await setField(window, '.wr-style-create-form input', sampleName);
+      await click(window, '.wr-style-create-form button[type="submit"]');
+    }
+    try {
+      await ready(
+        window,
+        `(() => {
         const control = document.querySelector('.wr-style-preview-frame input, .wr-style-preview-frame textarea, .wr-style-preview-frame select');
         return (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement)
           && control.value.includes('Sample text');
       })()`,
-    );
+      );
+    } finally {
+      if (needsSampleStyle === true) {
+        await window.webContents.executeJavaScript(
+          `(() => {
+            const button = document.querySelector(${JSON.stringify('[aria-label="Delete ' + sampleName + '"]')});
+            if (!(button instanceof HTMLButtonElement)) throw new Error('Missing temporary sample style delete control');
+            const confirm = window.confirm;
+            window.confirm = () => true;
+            try { button.click(); } finally { window.confirm = confirm; }
+          })()`,
+          true,
+        );
+        await paint(window);
+      }
+    }
   }
   await selectStyle(window, 'Default Popup');
   await assertDefaultFilters(window);

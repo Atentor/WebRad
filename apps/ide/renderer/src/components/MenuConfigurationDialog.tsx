@@ -21,6 +21,7 @@ import {
   type ComponentNode,
   type PageModel,
   type ProjectAsset,
+  type ResolvedThemeMode,
 } from '@webrad/project-model';
 import { WebMenu } from '@webrad/runtime/menu';
 import {
@@ -58,15 +59,17 @@ function MenuPreview({
   configuration,
   mobile,
   assets,
+  mode,
 }: {
   readonly configuration: WebMenuConfiguration;
   readonly mobile: boolean;
   readonly assets: readonly ProjectAsset[];
+  readonly mode: ResolvedThemeMode;
 }): ReactElement {
   const ref = useRef<HTMLDivElement>(null);
-  const { mode } = useContext(ProjectThemeContext);
+
   const [previewMode, setPreviewMode] = useState(mode);
-  useEffect(() => setPreviewMode(mode), [mode]);
+
   useEffect(() => {
     if (!ref.current) return;
     const element = ref.current;
@@ -119,6 +122,7 @@ export function MenuConfigurationDialog({
   readonly onSave: (configuration: WebMenuConfiguration) => void;
   readonly onClose: () => void;
 }): ReactElement {
+  const { mode } = useContext(ProjectThemeContext);
   const titleId = useId();
   const assetsId = useId();
   const dialogRef = useRef<HTMLElement>(null);
@@ -778,7 +782,13 @@ export function MenuConfigurationDialog({
               {error ? (
                 <p role="status">Correct the configuration to update the preview.</p>
               ) : (
-                <MenuPreview configuration={draft} mobile={mobile} assets={assets} />
+                <MenuPreview
+                  key={mode}
+                  mode={mode}
+                  configuration={draft}
+                  mobile={mobile}
+                  assets={assets}
+                />
               )}
             </aside>
           </div>

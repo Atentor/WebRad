@@ -181,7 +181,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
             await evaluate(`${expression}.setAttribute('aria-disabled','false')`);
             await expect.poll(() => paint(expression)).toMatchObject({ thickness: '7' });
             await evaluate(
-              `${expression}.ownerDocument.documentElement.style.setProperty('--wr-palette-aurora-blue','#123456')`,
+              `${expression}.ownerDocument.documentElement.style.setProperty('--wr-theme-primary','#123456')`,
             );
             expect(await paint(expression)).toMatchObject({ color: 'rgb(18, 52, 86)' });
             await evaluate(

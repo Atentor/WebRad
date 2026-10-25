@@ -40,8 +40,8 @@ it('persists Toggle columns and exposes their shared colors in grid styles', () 
     ).toEqual(['WebToggle', 'WebDataGrid']);
   }
   expect(findDefaultComponentStyle(project.styles, 'WebDataGrid')!.states.base).toMatchObject({
-    toggleCheckedColor: 'var(--wr-palette-aurora-blue)',
-    toggleThumbColor: 'var(--wr-palette-aurora-white)',
+    toggleCheckedColor: 'var(--wr-theme-primary)',
+    toggleThumbColor: 'var(--wr-theme-control-thumb)',
   });
   const node = project.pages[0]!.components.find((n) => n.id === 'grid')!;
   const dom = new JSDOM(renderToStaticMarkup(<ComponentView node={node} designTime />));

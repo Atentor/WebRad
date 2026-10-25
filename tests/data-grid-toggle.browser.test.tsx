@@ -125,7 +125,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
         ).toBe('true');
         for (const expression of expressions)
           await evaluate(
-            `${expression}.ownerDocument.documentElement.style.setProperty('--wr-palette-aurora-blue', '#123456')`,
+            `${expression}.ownerDocument.documentElement.style.setProperty('--wr-theme-primary', '#123456')`,
           );
         await new Promise((resolve) => setTimeout(resolve, 240));
         const linked = await Promise.all(expressions.map(read));

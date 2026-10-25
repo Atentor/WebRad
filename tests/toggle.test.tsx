@@ -53,8 +53,8 @@ it('registers a styled Toggle without a caption and preserves its model', () => 
     states: {
       base: {
         borderRadius: { value: 6, unit: 'px' },
-        toggleCheckedColor: 'var(--wr-palette-aurora-blue)',
-        toggleThumbColor: 'var(--wr-palette-aurora-white)',
+        toggleCheckedColor: 'var(--wr-theme-primary)',
+        toggleThumbColor: 'var(--wr-theme-control-thumb)',
       },
     },
   });

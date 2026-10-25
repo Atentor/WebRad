@@ -23,7 +23,13 @@ it('validates and persists bundled fonts in every style state while keeping gene
     ...WEBRAD_FONT_FAMILIES.map((font) => ({ value: font.id, label: font.label })),
   ]);
   let project = createProject('Fonts');
-  for (const family of ['sans', 'serif', 'mono', 'ide', ...WEBRAD_FONT_FAMILIES.map((font) => font.id)]) {
+  for (const family of [
+    'sans',
+    'serif',
+    'mono',
+    'ide',
+    ...WEBRAD_FONT_FAMILIES.map((font) => font.id),
+  ]) {
     const style = createComponentStyle(family, 'WebLabel', {
       states: Object.fromEntries(
         ['base', 'hover', 'focus', 'active', 'disabled'].map((state) => [
