@@ -56,11 +56,22 @@ identical file content and parse settings. Every build rereads current inputs,
 invalidates module resolutions and computes strict diagnostics and component
 reference lowering again. This is a process-local parsing optimization; neither
 diagnostic results nor build outputs are accepted from a previous build.
+The host's temporary reference to the previous Program is cleared in `finally`
+immediately after constructing the new Program. Retaining that closure would
+link every generation to its predecessor and make the latest-program cache
+retain the entire build history. An incompatible previous Program is released
+before parsing the next graph.
 
 `CompileProjectOptions.onProgress` optionally reports compiler phase names.
 The main process uses this during Electron smokes to record elapsed time for
 project saving, compilation phases and Preview publication. Phase logs contain
 no authored source, credential values or new renderer IPC capabilities.
+
+Project file writes use a temporary sibling and atomic rename. On Windows,
+`EPERM`, `EACCES` and `EBUSY` during the rename use at most five nonblocking
+backoffs totaling 620ms, accommodating transient file sharing locks. Other
+errors propagate immediately; persistent locks still fail the save and use
+the existing transaction rollback. The destination is never deleted first.
 
 - `packages/project-model`: versioned models, validation, serialization, naming, and immutable update operations.
 - `packages/component-registry`: component metadata and registry behavior without React dependencies.

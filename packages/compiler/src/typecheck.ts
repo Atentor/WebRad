@@ -74,8 +74,9 @@ export function typecheckSources(
     compilerOptions,
     rootNames,
   ]);
-  const oldProgram =
+  let oldProgram =
     previousTypecheck?.environment === environment ? previousTypecheck.program : undefined;
+  previousTypecheck = undefined;
   const host = ts.createCompilerHost(compilerOptions, true);
   const typeScriptLibLocation = process.env.WEBRAD_TYPESCRIPT_LIB_PATH;
   if (typeScriptLibLocation) {
@@ -145,12 +146,14 @@ export function typecheckSources(
     return ts.createSourceFile(fileName, content, languageVersionOrOptions, true);
   };
 
-  const program = ts.createProgram({
-    rootNames,
-    options: compilerOptions,
-    host,
-    oldProgram,
-  });
+  let program: ts.Program;
+  try {
+    program = ts.createProgram({ rootNames, options: compilerOptions, host, oldProgram });
+  } finally {
+    // Program retains its host, whose getSourceFile closure captures oldProgram.
+    // Release that capture after construction or every build retains its predecessor.
+    oldProgram = undefined;
+  }
   let diagnostics = [...ts.getPreEmitDiagnostics(program)];
   const bundleSources = new Map(sources);
   const sourceEdits = new Map<string, readonly ComponentReferenceEdit[]>();

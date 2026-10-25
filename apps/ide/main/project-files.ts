@@ -109,6 +109,29 @@ export async function resolveInsideProjectSecure(
   return current;
 }
 
+async function renameProjectFile(temporaryPath: string, filePath: string): Promise<void> {
+  // Windows can temporarily deny replacement while a reader or scanner holds
+  // a file. Keep the original intact and bound the whole backoff to 620ms.
+  const delays = [20, 40, 80, 160, 320] as const;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await fs.rename(temporaryPath, filePath);
+      return;
+    } catch (error) {
+      const delay = delays[attempt];
+      if (
+        process.platform !== 'win32' ||
+        !(error instanceof Error) ||
+        !('code' in error) ||
+        !['EPERM', 'EACCES', 'EBUSY'].includes(String(error.code)) ||
+        delay === undefined
+      )
+        throw error;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 async function writeUtf8(filePath: string, content: string | Uint8Array): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const temporaryPath = path.join(
@@ -117,7 +140,7 @@ async function writeUtf8(filePath: string, content: string | Uint8Array): Promis
   );
   try {
     await fs.writeFile(temporaryPath, content, 'utf8');
-    await fs.rename(temporaryPath, filePath);
+    await renameProjectFile(temporaryPath, filePath);
   } finally {
     await fs.rm(temporaryPath, { force: true });
   }

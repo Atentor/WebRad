@@ -61,6 +61,22 @@ O preflight da tag confere a ancestralidade em `main` e consulta as verificaçõ
 
 ## Ao investigar uma falha
 
+No commit `f41d4fc`, a execução `40195347739` esgotou o heap de 2GB nos dois
+macOS durante `packages/compiler/tests/compiler.test.ts`. O host do compilador
+capturava o Program anterior e formava uma cadeia entre todas as compilações.
+Essa referência deve ser liberada em `finally` após `createProgram`, mantendo
+a checagem estrita e o reaproveitamento de árvores sem reter o histórico.
+Não aumente o heap, o número de workers ou os prazos para contornar essa falha.
+
+Na mesma revisão, `40195347759` falhou no smoke Linux ao medir o painel antes
+de criar e estabilizar a área rolável (`scroll: 0`, `delta: -62`). Prepare o
+conteúdo, aguarde carregamento/fontes/layout, estabeleça a posição inicial e
+role uma única vez; preserve as exigências exatas de 120px e o prazo existente.
+O smoke restaura o conteúdo e a posição em `finally`. No Windows, o Save falhou
+com `EPERM` na substituição atômica de `index.ts`: a rotina de gravação deve
+tratar bloqueios transitórios de compartilhamento com backoff limitado e
+propagar bloqueios persistentes, preservando o arquivo anterior e o rollback.
+
 Na execução `40121913310` (`2b2897e`), somente o macOS Intel falhou no primeiro
 F9 do título da página. O diagnóstico registrou `Saved`, Run desabilitado e
 `Build started` ainda presente; o build permanecia em andamento. Esse estado

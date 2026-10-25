@@ -159,12 +159,38 @@ export async function runPanelFloatingSmoke(
   const evidence: unknown = await frame.executeJavaScript(
     `(async () => {
     const deadline=Date.now()+15000;
-    while (!document.querySelector('[data-webrad-id="${id}"]')) { if(Date.now()>=deadline) throw new Error('Missing Panel in Preview'); await new Promise(r=>setTimeout(r,50)); }
+    const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+    const waitFor=async(predicate,description)=>{
+      while(!predicate()) {
+        if(Date.now()>=deadline) throw new Error(description+'; '+JSON.stringify({readyState:document.readyState,fonts:document.fonts.status,scroll:scrollY,viewport:{width:innerWidth,height:innerHeight},scrollHeight:document.scrollingElement?.scrollHeight}));
+        await nextFrame();
+      }
+    };
+    await waitFor(()=>document.readyState==='complete' && document.fonts.status==='loaded' && document.querySelector('[data-webrad-id="${id}"]'),'Panel Preview did not finish loading');
     const panel=document.querySelector('[data-webrad-id="${id}"]');
-    const before=panel.getBoundingClientRect().y;
-    document.body.style.minHeight='2000px'; window.scrollTo(0,120);
-    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-    return {position:getComputedStyle(panel).position,layer:panel.parentElement.className,scroll:window.scrollY,delta:before-panel.getBoundingClientRect().y};
+    const originalMinHeight=document.body.style.minHeight;
+    const originalScroll={left:scrollX,top:scrollY};
+    try {
+      document.body.style.minHeight=Math.max(2000,innerHeight+240)+'px';
+      await nextFrame(); await nextFrame();
+      await waitFor(()=>document.scrollingElement.scrollHeight-document.scrollingElement.clientHeight>=120,'Panel fixture has no scrollable extent');
+      window.scrollTo({left:0,top:0,behavior:'instant'});
+      await waitFor(()=>scrollY===0,'Panel scroll baseline did not settle');
+      let before;
+      await waitFor(()=>{
+        const current=panel.getBoundingClientRect().y;
+        const stable=before===current;
+        before=current;
+        return stable;
+      },'Panel layout did not settle before scrolling');
+      window.scrollTo({left:0,top:120,behavior:'instant'});
+      await waitFor(()=>scrollY===120,'Panel page scroll did not reach 120px');
+      await nextFrame(); await nextFrame();
+      return {position:getComputedStyle(panel).position,layer:panel.parentElement.className,scroll:window.scrollY,delta:before-panel.getBoundingClientRect().y};
+    } finally {
+      document.body.style.minHeight=originalMinHeight;
+      window.scrollTo({...originalScroll,behavior:'instant'});
+    }
   })()`,
     true,
   );
