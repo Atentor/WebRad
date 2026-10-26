@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { applicationIconUrl } from '../application-assets';
 import { Icon } from './Icon';
 
-export type ViewMode = 'design' | 'code' | 'preview';
+export type ViewMode = 'design' | 'code';
 
 export interface DocumentTab {
   id: string;

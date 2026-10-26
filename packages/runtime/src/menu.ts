@@ -1,7 +1,8 @@
 import { bindWebMenuPopovers } from './menu-popovers.js';
+import { webMenuEventHost } from './menu-events.js';
 import { setRuntimeLayoutProjection } from './layout.js';
 import { projectWebMenuLayout, readWebMenuMargins } from './menu-layout.js';
-import { WebComponent } from './component.js';
+import { runtimeEventName, WebComponent } from './component.js';
 import { createLucideIconElement } from './icon.js';
 import { Theme } from './theme.js';
 import { applyWebMenuAppearance, createWebMenuPanel, menuButton, menuElement } from './menu-dom.js';
@@ -30,6 +31,14 @@ let menuSequence = 0;
 
 /** Responsive navigation with per-instance state, disclosure submenus and a modal mobile drawer. */
 export class WebMenu extends WebComponent<HTMLElement> {
+  public override emit(eventName: string, detail?: unknown): boolean {
+    const event = new CustomEvent(runtimeEventName(eventName), { cancelable: true, detail });
+    this.element.dispatchEvent(event);
+    const host = webMenuEventHost(this.element);
+    if (host !== undefined && !this.#disposed) host.dispatchEvent(event);
+    return !event.defaultPrevented;
+  }
+
   readonly #onFocusOut = (): void => {
     queueMicrotask(() => {
       if (
@@ -258,10 +267,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
     )
       return;
     this.#query = input.value;
-    if (this.searchMode === 'event') {
-      this.emit('OnSearch', { text: this.#query } satisfies WebMenuSearchEvent);
-      return;
-    }
+    if (this.searchMode === 'event') return;
     const start = input.selectionStart,
       end = input.selectionEnd;
     this.#render();
@@ -294,7 +300,14 @@ export class WebMenu extends WebComponent<HTMLElement> {
       return;
     }
     if (event.target instanceof HTMLInputElement) {
-      if (event.key === 'Enter') event.preventDefault();
+      const input = event.target;
+      if (input.dataset.menuAction === 'search' && event.key === 'Enter' && !event.isComposing) {
+        event.preventDefault();
+        if (this.searchMode === 'event' && !event.repeat) {
+          this.#query = input.value;
+          this.emit('OnSearch', { text: this.#query } satisfies WebMenuSearchEvent);
+        }
+      }
       return;
     }
     if (!(event.target instanceof HTMLElement)) return;

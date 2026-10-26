@@ -6,7 +6,7 @@ export const WEB_MENU_CSS = `
 .wr-menu-panel *, .wr-menu-panel *::before, .wr-menu-panel *::after { box-sizing: border-box; }
 .wr-menu-panel button, .wr-menu-panel input, .wr-menu-mobile-trigger { font: inherit; }
 .wr-menu-panel button, .wr-menu-panel a { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.wr-menu-panel .wr-icon-graphic, .wr-menu-mobile-trigger .wr-icon-graphic { flex: 0 0 auto; display: block; width: var(--wr-menu-icon-size); height: var(--wr-menu-icon-size); pointer-events: none; }
+.wr-menu-panel .wr-icon-graphic, .wr-menu-mobile-trigger .wr-icon-graphic { flex: 0 0 auto; display: block; width: var(--wr-menu-icon-size, 20px); height: var(--wr-menu-icon-size, 20px); pointer-events: none; }
 .wr-menu-header { display: flex; align-items: center; flex: 0 0 auto; gap: 8px; min-width: 0; min-height: 44px; }
 .wr-menu-brand { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
 .wr-menu-brand-mark, .wr-menu-logo { flex: 0 0 auto; width: var(--wr-menu-logo-size); height: var(--wr-menu-logo-size); border-radius: var(--wr-square-radius, 10px); object-fit: contain; }
@@ -17,9 +17,11 @@ export const WEB_MENU_CSS = `
 .wr-menu-copy > *, .wr-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wr-menu-icon-button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 8px; border: 0; border-radius: var(--wr-square-radius, var(--wr-menu-item-radius)); background: transparent; color: var(--wr-menu-muted); cursor: pointer; }
 .wr-menu-icon-button:hover, .wr-menu-item:hover, .wr-menu-user:hover { background: var(--wr-menu-hover-background); }
-.wr-menu-panel :is(button, a, input):focus-visible, .wr-menu-mobile-trigger:focus-visible { outline: 2px solid var(--wr-menu-accent); outline-offset: 2px; }
+.wr-menu-panel :is(button, a, input):not(.wr-menu-search-input):focus-visible, .wr-menu-mobile-trigger:focus-visible { outline: 2px solid var(--wr-menu-accent); outline-offset: 2px; }
 .wr-menu-search { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; min-height: 40px; color: var(--wr-menu-muted); background: var(--wr-menu-hover-background); border: 1px solid var(--wr-menu-border); border-radius: var(--wr-square-radius, var(--wr-menu-item-radius)); }
-.wr-menu-search-input { width: 100%; min-width: 0; border: 0; background: transparent; color: var(--wr-menu-foreground); padding: 0; }
+.wr-menu-search:focus-within { outline: 2px solid var(--wr-menu-accent); outline-offset: 2px; }
+.wr-menu-search-input { width: 100%; min-width: 0; border: 0; background: transparent; color: var(--wr-menu-foreground); padding: 0; outline: none; box-shadow: none; }
+.wr-menu-search > .wr-menu-search-input:is(:focus, :focus-visible) { outline: none; outline-offset: 0; box-shadow: none; }
 .wr-menu-search-input::placeholder { color: var(--wr-menu-muted); opacity: 1; }
 .wr-menu-navigation { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 3px; margin: -3px; }
 .wr-menu-list, .wr-menu-submenu { display: flex; flex-direction: column; gap: var(--wr-menu-item-gap); padding: 0; margin: 0; list-style: none; }

@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { dialog, Menu, type BrowserWindow } from 'electron';
+import { stopPreviewSmoke } from './preview-workspace-smoke';
 import { loadProjectFiles } from './project-files';
 
 /** Real renderer/Monaco/save/F9 flow using an isolated project and native-picker fixture. */
@@ -161,6 +162,7 @@ export async function runProjectResourcesSmoke(
     throw new Error('F9 Preview asset content differs.');
   log('renderer project resources restore and F9 passed');
 
+  await stopPreviewSmoke(window);
   await click('[aria-label="Design"]');
   await click('[aria-label="Project Explorer"]');
   await waitFor("document.querySelector('[role=tree]') !== null");

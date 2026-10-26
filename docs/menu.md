@@ -109,7 +109,42 @@ itemId and path; synchronous event.preventDefault() cancels selection/navigation
 Page destinations use stable IDs and WebPageRouter; selection follows routing.
 External links can open with noopener,noreferrer.
 
+### Interaction on a reusable placement
+
+Select a reusable Menu placed on a page and open **Interaction**. It exposes the
+same nine events as its internal Menu: OnSearch, OnItemClick, OnSelectionChange,
+OnItemToggle, OnCollapseChange, OnOpen, OnClose, OnBrandClick and OnUserClick.
+Double-click an event to author a typed handler in the page's TypeScript. Its
+sender is the page's `WebReusableElement`; `event.detail` retains the same Menu
+detail type and fields, including `itemId`, `item` and `path` for OnItemClick.
+
+Shared behavior can still be authored on the internal Menu in the reusable
+definition. Each interaction invokes that internal handler first, then the
+handler on the placement in its containing page or reusable definition. Both
+receive the same cancelable event and detail; cancellation in the internal
+handler remains visible as `event.defaultPrevented` in the placement handler,
+which still runs. Either handler can synchronously call `event.preventDefault()`
+to cancel automatic selection/navigation. Handlers start synchronously in this
+order; asynchronous continuations are not awaited by the browser interaction.
+
+Bindings are isolated per placement and released with the mounted page. The relay
+is internal to the runtime; authored code uses the registered typed events,
+without a separate public binding helper.
+Existing definitions, authored code and stable IDs are preserved. Ordinary
+reusable components without the single-Menu composition do not expose Menu
+interactions. The binding is saved on the placement's existing `events` map;
+no project format change is required.
+
 ## Persistence and integration
+
+Menu SVG sizing and state selectors are retained in Preview and exports even
+when the project has no standalone Icons component. The shared `wr-icon-graphic`
+class is not exclusively owned by `WebIcon` during CSS pruning; each selector's
+containing control determines whether it is needed. Visible Menu icons use the
+configured `appearance.iconSize` (20px by default); disclosure chevrons use 16px.
+Collapse/expand, mobile drawers, theme changes and horizontal flyouts preserve
+these dimensions. Existing smoke interactions assert the actual rendered SVG
+geometry across these states; execution requires a validation request.
 
 Project format remains version 2; configuration keeps schemaVersion: 1. Project
 loading normalizes Menus and single-Menu compositions to automatic layout,
@@ -127,8 +162,11 @@ embedded runtime files and Monaco declarations.
 
 The existing Menu smoke covers editing, saved state, desktop/mobile canvas,
 compiled F9, collapse, drawer focus/Escape and horizontal popover geometry,
-visible hit targets and focus restoration. Execution and other checks require an
-explicit validation request; they were not run for this change.
+visible hit targets and focus restoration. It also creates a reusable Menu and
+two dragged placements through the IDE, authors internal/page typed handlers,
+checks persisted bindings and verifies execution order, isolation and cancellation
+in compiled F9. Both smoke runners require this evidence. Execution and other
+checks require an explicit validation request; they were not run for this change.
 
 Default Menu has no outer shadow. Project loading updates the exact original
 seeded base (zero border, 16 px radius, medium shadow) to shadow none, preserving
@@ -172,7 +210,17 @@ Enable **Show menu search** in **Behavior & layout**, then choose **Search behav
 - **Filter menu items** (default): filters labels/descriptions locally and expands
   matching paths. It does not trigger OnSearch.
 - **Only trigger OnSearch**: leaves item visibility and expanded branches unchanged
-  and emits OnSearch on each user text change, including clearing the field.
+  and emits OnSearch when the user presses **Enter** in the search field. Typing,
+  pasting and clearing only update the current text; they do not emit the event.
+  Enter can submit an empty field or resubmit the same text. Holding Enter and
+  confirming an active input-method composition do not submit repeated searches.
+
+Focus outlines the complete rounded search field, including its icon and text
+input, using the configured Menu accent. The input has no separate focus ring;
+its scoped focus/focus-visible reset takes precedence over the project's generic
+control focus style.
+The outline does not change the field's dimensions and disappears on blur;
+Designer/configurator projections, Preview and exports use the shared CSS.
 
 Bind OnSearch in Interaction. Its typed `CustomEvent<WebMenuSearchEvent>` provides
 `event.detail.text` with the original input, including whitespace. The current
@@ -180,5 +228,6 @@ value is also available as `Menu1.searchText`. Use `Menu1.searchMode` (`filter` 
 `event`) or `configuration.searchMode` to switch modes in TypeScript. Programmatic
 searchText/configuration changes do not emit OnSearch, preventing handler loops.
 Existing configurations without searchMode normalize to `filter`; schemaVersion
-remains 1. The existing Menu smoke now selects/persists event mode and checks
-compiled input/clear events while retaining all Menu items. It was not executed.
+remains 1. The existing Menu smoke selects/persists event mode and checks Enter
+submission, silent typing/clearing, explicit resubmission and composition/repeat
+suppression while retaining all Menu items. It was not executed.

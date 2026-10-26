@@ -1,4 +1,5 @@
 import { PROJECT_TEMPLATE_IDS } from '@webrad/component-registry';
+import { setPreviewMenuMode } from './menu';
 import { readSelectedProjectAsset } from './project-asset';
 import {
   cancelNativeBuildForOwner,
@@ -680,6 +681,12 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
     return deployHandler(event, deployRequestSchema.parse(input[0]), deployGrants);
   });
   ipcMain.handle('webrad:styles:compile', compileStylesHandler);
+  ipcMain.handle('webrad:lifecycle:set-preview-mode', (event, ...input: unknown[]) => {
+    const window = requireTrustedSender(event);
+    if (input.length !== 1 || typeof input[0] !== 'boolean')
+      throw new Error('Preview mode requires exactly one boolean.');
+    setPreviewMenuMode(window, input[0]);
+  });
   ipcMain.on('webrad:lifecycle:set-dirty', (event, dirty: unknown) => {
     if (typeof dirty !== 'boolean') return;
     let window: BrowserWindow;

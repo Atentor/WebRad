@@ -1,0 +1,87 @@
+import { Menu, type BrowserWindow } from 'electron';
+
+/** Stop through the visible control, including when focus belongs to the application iframe. */
+export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
+  const position: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+      const button = document.querySelector('button[aria-label="Stop preview"]');
+      if (!(button instanceof HTMLButtonElement)) throw new Error('Missing Stop preview control.');
+      const rect = button.getBoundingClientRect();
+      const x = Math.round(rect.left + rect.width / 2);
+      const y = Math.round(rect.top + rect.height / 2);
+      if (rect.width <= 0 || rect.height <= 0 || !button.contains(document.elementFromPoint(x, y)))
+        throw new Error('Stop preview is not visible or reachable.');
+      return { x, y };
+    })()`,
+    true,
+  );
+  if (
+    typeof position !== 'object' ||
+    position === null ||
+    !('x' in position) ||
+    !('y' in position) ||
+    typeof position.x !== 'number' ||
+    typeof position.y !== 'number'
+  )
+    throw new Error('Invalid Stop preview coordinates.');
+  window.webContents.sendInputEvent({ type: 'mouseDown', ...position, button: 'left', clickCount: 1 });
+  window.webContents.sendInputEvent({ type: 'mouseUp', ...position, button: 'left', clickCount: 1 });
+  const deadline = Date.now() + 15000;
+  for (;;) {
+    if (
+      (await window.webContents.executeJavaScript(
+        `(() => {
+          const host = document.querySelector('.wr-ide-modal-host');
+          return host instanceof HTMLElement && getComputedStyle(host).visibility === 'visible' && !host.inert &&
+            host.getBoundingClientRect().width > 0 &&
+            document.querySelector('.wr-preview-workspace') === null &&
+            document.querySelector('iframe[title="WebRAD application preview"]') === null;
+        })()`,
+        true,
+      )) === true &&
+      (process.platform === 'darwin'
+        ? Menu.getApplicationMenu() !== null
+        : window.isMenuBarVisible())
+    )
+      return;
+    if (Date.now() >= deadline) throw new Error('Stop preview did not restore the IDE.');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+export async function assertExclusivePreviewSmoke(window: BrowserWindow): Promise<void> {
+  if (process.platform === 'darwin'
+    ? Menu.getApplicationMenu() !== null
+    : window.isMenuBarVisible())
+    throw new Error('The native IDE menu is visible during Preview.');
+  const before: unknown = await window.webContents.executeJavaScript(
+    `document.querySelector('.wr-view-tabs [aria-selected="true"]')?.getAttribute('aria-label')`,
+    true,
+  );
+  for (const command of ['view.design', 'edit.delete', 'file.newProject', 'run.run'])
+    window.webContents.send('webrad:menu-command', command);
+  const evidence: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F12', bubbles: true, cancelable: true }));
+      const host = document.querySelector('.wr-ide-modal-host');
+      const frame = document.querySelector('iframe[title="WebRAD application preview"]');
+      const stop = document.querySelector('button[aria-label="Stop preview"]');
+      const address = document.querySelector('input[aria-label="Preview URL"]');
+      if (!(host instanceof HTMLElement) || !(frame instanceof HTMLIFrameElement) ||
+          !(stop instanceof HTMLButtonElement) || !(address instanceof HTMLInputElement)) return false;
+      const rect = frame.getBoundingClientRect();
+      return getComputedStyle(host).visibility === 'hidden' && host.inert && host.getAttribute('aria-hidden') === 'true' &&
+        host.getBoundingClientRect().width > 0 &&
+        Math.abs(rect.left) <= 1 && Math.abs(rect.width - innerWidth) <= 1 &&
+        Math.abs(rect.bottom - innerHeight) <= 1 && Math.abs(rect.top - 42) <= 1 &&
+        stop.getBoundingClientRect().width > 0 &&
+        address.readOnly && address.value === '/index' && address.title === '/index' &&
+        address.getBoundingClientRect().width > 0 &&
+        document.querySelector('[role="dialog"]') === null &&
+        document.querySelector('.wr-view-tabs [aria-selected="true"]')?.getAttribute('aria-label') === ${JSON.stringify(before)};
+    })()`,
+    true,
+  );
+  if (evidence !== true)
+    throw new Error('Preview is not exclusive, does not fill the window, or allows IDE commands.');
+}

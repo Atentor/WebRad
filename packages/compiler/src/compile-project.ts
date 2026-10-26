@@ -123,8 +123,13 @@ function validateRegistry(
           }
         }
       }
+      const events =
+        definition.eventsForNode?.(component, {
+          document,
+          reusableElements: project.reusableElements,
+        }) ?? definition.events;
       for (const eventName of Object.keys(component.events)) {
-        if (!definition.events.some((event) => event.name === eventName)) {
+        if (!events.some((event) => event.name === eventName)) {
           diagnostics.push({
             category: 'error',
             source: 'registry',

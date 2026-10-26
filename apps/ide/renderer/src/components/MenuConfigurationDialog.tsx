@@ -737,8 +737,8 @@ export function MenuConfigurationDialog({
                       </select>
                     </Field>
                     <p className="wr-modal-description">
-                      Filter menu items locally, or keep navigation unchanged and handle the typed
-                      text through Interaction &gt; OnSearch.
+                      Filter menu items while typing, or keep navigation unchanged and press Enter
+                      in the search field to trigger Interaction &gt; OnSearch.
                     </p>
                     {textField('searchPlaceholder', 'Search placeholder')}
                     {textField('emptyText', 'Empty search text')}

@@ -103,16 +103,13 @@ async function checksumsFor(directory, names) {
   return `${checksums.join('\n')}\n`;
 }
 
-function requireVerifiedCommit() {
-  const commit = process.env.GITHUB_SHA;
-  if (!/^[a-f0-9]{40}$/.test(commit ?? ''))
-    throw new Error('Set GITHUB_SHA to the exact release commit before checking its verification.');
+function verificationRuns(commit, workflow, successfulOnly = false) {
   let pages;
   try {
     pages = JSON.parse(
       gh([
         'api',
-        `repos/${repository}/actions/workflows/release.yml/runs?head_sha=${commit}&status=success&per_page=100`,
+        `repos/${repository}/actions/workflows/${workflow}.yml/runs?head_sha=${commit}${successfulOnly ? '&status=success' : ''}&per_page=100`,
         '--paginate',
         '--slurp',
       ]),
@@ -121,20 +118,34 @@ function requireVerifiedCommit() {
       throw new Error('Invalid workflow runs response.');
   } catch {
     throw new Error(
-      'Cannot read release verification runs. Grant Actions read permission to the workflow token.',
+      `Cannot read ${workflow} verification runs. Grant Actions read permission to the workflow token.`,
     );
   }
-  const verified = pages
-    .flatMap((page) => page.workflow_runs)
-    .find(
-      (run) =>
-        run.head_sha === commit &&
-        run.status === 'completed' &&
-        run.conclusion === 'success' &&
-        (run.event === 'workflow_dispatch' ||
-          (run.event === 'push' &&
-            (run.head_branch === 'main' || run.head_branch?.startsWith('codex/verify-release-')))),
-    );
+  return pages.flatMap((page) => page.workflow_runs);
+}
+
+function isVerificationRun(run, commit, allowScheduled = false) {
+  return (
+    run !== null &&
+    typeof run === 'object' &&
+    run.head_sha === commit &&
+    (run.event === 'workflow_dispatch' ||
+      (run.event === 'push' &&
+        (run.head_branch === 'main' || run.head_branch?.startsWith('codex/verify-release-'))) ||
+      (allowScheduled && run.event === 'schedule' && run.head_branch === 'main'))
+  );
+}
+
+function requireVerifiedCommit() {
+  const commit = process.env.GITHUB_SHA;
+  if (!/^[a-f0-9]{40}$/.test(commit ?? ''))
+    throw new Error('Set GITHUB_SHA to the exact release commit before checking its verification.');
+  const verified = verificationRuns(commit, 'release', true).find(
+    (run) =>
+      isVerificationRun(run, commit) &&
+      run.status === 'completed' &&
+      run.conclusion === 'success',
+  );
   if (!verified)
     throw new Error(
       `Commit ${commit} has no successful four-platform release verification. Wait for the release workflow on main or a codex/verify-release-* branch, or run it manually on this exact commit, then rerun this tag workflow. Pull-request runs and other tag releases do not satisfy this gate. See docs/releases.md.`,
@@ -142,6 +153,25 @@ function requireVerifiedCommit() {
   process.stdout.write(
     `Release commit verified by workflow run ${String(verified.id)}: ${commit}\n`,
   );
+  for (const workflow of ['validate', 'security']) {
+    // Do not select only successful runs: a newer failure or pending rerun
+    // must block publication even when this SHA has an earlier green result.
+    const latest = verificationRuns(commit, workflow)
+      .filter(
+        (run) =>
+          isVerificationRun(run, commit, workflow === 'security') &&
+          Number.isSafeInteger(run.id) &&
+          run.id > 0,
+      )
+      .sort((left, right) => right.id - left.id)[0];
+    if (latest?.status !== 'completed' || latest.conclusion !== 'success')
+      throw new Error(
+        `Commit ${commit} has no successful current ${workflow} verification. Wait for the latest ${workflow} workflow on this exact commit to complete successfully, then rerun this tag workflow. Pull-request runs and tag pushes do not satisfy this gate. See docs/releases.md.`,
+      );
+    process.stdout.write(
+      `Release commit ${workflow} verified by workflow run ${String(latest.id)}: ${commit}\n`,
+    );
+  }
 }
 
 async function preflight() {

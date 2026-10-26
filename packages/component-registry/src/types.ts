@@ -192,6 +192,11 @@ export interface ComponentDefinition {
   readonly defaults: Readonly<Record<string, unknown>>;
   readonly properties: readonly ComponentPropertyDefinition[];
   readonly events: readonly ComponentEventDefinition[];
+  /** Registered interactions exposed by a placement's referenced definition. */
+  readonly eventsForNode?: (
+    node: RegisteredComponentNode,
+    context?: ComponentLayoutContext,
+  ) => readonly ComponentEventDefinition[];
   readonly automaticLayout?: (
     node: RegisteredComponentNode,
     context?: ComponentLayoutContext,

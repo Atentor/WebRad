@@ -343,7 +343,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     },
     styles: { compile: compileStyles },
     commands: { subscribe },
-    lifecycle: { setDirty },
+    lifecycle: { setDirty, setPreviewMode: vi.fn(async () => undefined) },
     links: { open: vi.fn().mockResolvedValue(undefined) },
     platform: 'win32',
   } satisfies WebRadBridge;
@@ -2390,7 +2390,8 @@ describe('App MVP integration', () => {
       expect(screen.getByRole('textbox', { name: 'Mock Monaco editor' })).toBe(editor);
       await act(async () => harness.invokeCommand('view.preview'));
       expect(screen.queryByRole('textbox', { name: 'Mock Monaco editor' })).toBeNull();
-      await user.click(screen.getByRole('tab', { name: 'Code' }));
+      await screen.findByTitle('WebRAD application preview');
+      await user.click(screen.getByRole('button', { name: 'Stop preview' }));
       await screen.findByRole('textbox', { name: 'Mock Monaco editor' });
       fireEvent.change(screen.getByRole('textbox', { name: 'Mock Monaco editor' }), {
         target: {
@@ -2838,6 +2839,8 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('button', { name: 'Build and run (F9)' }));
+    await screen.findByText('Preview build failed');
+    await user.click(screen.getByRole('button', { name: 'Stop preview' }));
     const diagnostic = await screen.findByRole('button', {
       name: /Type 'string' is not assignable to type 'number'/i,
     });

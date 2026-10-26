@@ -1,4 +1,5 @@
 import type { BrowserWindow, WebFrameMain } from 'electron';
+import { stopPreviewSmoke } from './preview-workspace-smoke';
 
 import { loadProjectFiles } from './project-files';
 
@@ -223,12 +224,14 @@ export async function runPageTitleSmoke(
   await setBrowserTitle(window, customTitle);
   await assertSavedTitle(customTitle);
   await assertPreviewTitle(window, customTitle, page.rootComponentId);
+  await stopPreviewSmoke(window);
 
   await openPageInspector();
   await ready(window, `${browserTitleField}?.value === ${JSON.stringify(customTitle)}`);
   await setBrowserTitle(window, '');
   await assertSavedTitle('');
   await assertPreviewTitle(window, original.project.settings.applicationName, page.rootComponentId);
+  await stopPreviewSmoke(window);
   await openPageInspector();
   const notFoundPage = original.project.pages.find((candidate) => candidate.name === '404');
   if (notFoundPage === undefined) throw new Error('The project has no mandatory 404 page.');

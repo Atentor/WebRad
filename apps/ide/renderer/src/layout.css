@@ -2075,6 +2075,97 @@ kbd {
   }
 }
 
+.wr-preview-workspace {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 42px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  background: var(--wr-bg);
+}
+
+.wr-preview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-toolbar-bg);
+}
+
+.wr-preview-project {
+  flex: 0 1 180px;
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-preview-url {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-bg);
+  color: var(--wr-text);
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+
+.wr-preview-url:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 1px;
+}
+
+.wr-preview-hint {
+  color: var(--wr-muted-text);
+  font-size: 12px;
+}
+
+.wr-preview-stop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--wr-danger);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--wr-danger) 65%, #000);
+  color: #fff;
+  font-weight: 600;
+}
+
+.wr-preview-stop:hover {
+  filter: brightness(1.12);
+}
+
+.wr-preview-stop:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+
+.wr-preview-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 600px) {
+  .wr-preview-project,
+  .wr-preview-hint {
+    display: none;
+  }
+}
+
 .wr-preview-pane {
   width: 100%;
   height: 100%;
@@ -2391,13 +2482,83 @@ kbd {
   pointer-events: none;
 }
 
+.wr-designer-workspace {
+  --wr-drop-accent: #fbbf24;
+}
+
 .wr-flow-drop-indicator {
   position: absolute;
   z-index: 10001;
   border-radius: 2px;
-  background: var(--wr-selection);
+  background: var(--wr-drop-accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, #ffffff 45%, transparent);
   pointer-events: none;
+}
+
+.wr-insertion-feedback {
+  --wr-drop-color: var(--wr-drop-accent);
+  position: absolute;
+  z-index: 20000;
+  inset: 0;
+  font-family: var(--wr-font-ui);
+  font-size: calc(12px / var(--wr-feedback-scale));
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.wr-insertion-feedback.invalid {
+  --wr-drop-color: var(--wr-danger);
+}
+
+.wr-drop-parent-highlight {
+  position: absolute;
+  border: calc(2px / var(--wr-feedback-scale)) solid var(--wr-drop-color);
+  background: color-mix(in srgb, var(--wr-drop-color) 7%, transparent);
+  box-shadow: inset 0 0 0 calc(1px / var(--wr-feedback-scale))
+    color-mix(in srgb, #fff 55%, transparent);
+}
+
+.wr-drop-ghost {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: calc(2px / var(--wr-feedback-scale)) dashed var(--wr-drop-color);
+  border-radius: calc(4px / var(--wr-feedback-scale));
+  background: color-mix(in srgb, var(--wr-drop-color) 16%, var(--wr-panel-bg));
+  color: var(--wr-text);
+  box-shadow: 0 calc(3px / var(--wr-feedback-scale)) calc(12px / var(--wr-feedback-scale))
+    color-mix(in srgb, var(--wr-drop-color) 18%, transparent);
+}
+
+.wr-drop-ghost > span {
+  display: flex;
+  align-items: center;
+  gap: calc(5px / var(--wr-feedback-scale));
+  max-width: 100%;
+  overflow: hidden;
+  padding: calc(4px / var(--wr-feedback-scale));
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wr-palette-drop-indicator {
+  background: var(--wr-drop-color);
+  box-shadow: 0 0 0 calc(2px / var(--wr-feedback-scale))
+    color-mix(in srgb, var(--wr-drop-color) 22%, transparent);
+}
+
+.wr-palette-item[draggable='true'] {
+  cursor: grab;
+}
+
+.wr-palette-item[draggable='true']:active {
+  cursor: grabbing;
+}
+
+.wr-nonvisual-tray.wr-nonvisual-tray-drop-active {
+  box-shadow: inset 0 0 0 2px var(--wr-drop-accent);
+  background: color-mix(in srgb, var(--wr-drop-accent) 10%, var(--wr-panel-bg));
 }
 
 .wr-nonvisual-tray {
@@ -2541,6 +2702,14 @@ kbd {
 .wr-ide-modal-host {
   width: 100%;
   height: 100%;
+}
+
+.wr-ide-preview-suspended {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .wr-modal {

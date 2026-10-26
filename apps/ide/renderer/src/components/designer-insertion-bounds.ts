@@ -15,10 +15,10 @@ export function designerInsertionBounds(
   surface: HTMLElement | null,
   scale: number,
 ): Pick<Bounds, 'width' | 'height'> {
-  if (componentRegistry.get(parent.type)?.designerChildHost !== 'repeating-row')
-    return parent.bounds;
   const measured = measureDesignerChildrenHost(surface, parent.id, scale);
   if (measured !== undefined) return measured.bounds;
+  if (componentRegistry.get(parent.type)?.designerChildHost !== 'repeating-row')
+    return parent.bounds;
   const configuration = normalizeRepeatingGroupConfiguration(parent.props.repeatingGroupConfig);
   const childrenBounds = page.components
     .filter((component) => component.parentId === parent.id)

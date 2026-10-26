@@ -2,10 +2,11 @@ import {
   automaticMenuLayout,
   menuInspectorProperties,
   menuDesignSurface,
+  menuInspectorTarget,
 } from './menu-properties.js';
 import { projectReusableMenuLayout } from '@webrad/runtime/menu-layout';
 import { webReportBuilder } from './report-builder.js';
-import { createWebMenuDefinition } from './menu.js';
+import { createWebMenuDefinition, MENU_EVENTS } from './menu.js';
 import { componentRegistry, ComponentRegistry } from './registry.js';
 import { organizeInspectorProperty } from './inspector-properties.js';
 import { CURRENT_ROW_BINDINGS_PROPERTY } from './current-row-bindings.js';
@@ -901,6 +902,8 @@ const webReusableElement: ComponentDefinition = {
       viewport.height,
     ),
   type: 'WebReusableElement',
+  eventsForNode: (node, context) =>
+    menuInspectorTarget(node, context) === undefined ? [] : MENU_EVENTS,
   displayName: 'Reusable Component',
   namePrefix: 'Reusable',
   palette: { category: containersCategory, caption: 'Reusable Component' },

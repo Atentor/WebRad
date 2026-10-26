@@ -165,12 +165,14 @@ describe('release publication boundaries', () => {
         { workflow_runs: [verificationRun()] },
       ]),
     });
-    expect((await calls(root))[2]).toEqual([
-      'api',
-      `repos/Atentor/WebRad/actions/workflows/release.yml/runs?head_sha=${commit}&status=success&per_page=100`,
-      '--paginate',
-      '--slurp',
-    ]);
+    expect((await calls(root)).slice(2)).toEqual(
+      ['release', 'validate', 'security'].map((workflow) => [
+        'api',
+        `repos/Atentor/WebRad/actions/workflows/${workflow}.yml/runs?head_sha=${commit}${workflow === 'release' ? '&status=success' : ''}&per_page=100`,
+        '--paginate',
+        '--slurp',
+      ]),
+    );
   });
 
   it('rejects a tag resolving to another commit before consulting verification runs', async () => {

@@ -125,6 +125,11 @@ function definitionsForSelection(
     if (definition !== undefined)
       definitions.push({
         ...definition,
+        events:
+          definition.eventsForNode?.(component, {
+            document: page ?? undefined,
+            reusableElements,
+          }) ?? definition.events,
         properties:
           definition.inspectorProperties?.(definition.properties, component, {
             document: page ?? undefined,

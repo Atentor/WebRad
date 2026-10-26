@@ -5,7 +5,52 @@ import {
 } from './menu-properties.js';
 import { projectWebMenuLayout, reusableMenuNode } from '@webrad/runtime/menu-layout';
 import { createDefaultWebMenuConfiguration } from '@webrad/runtime/menu-model';
-import type { ComponentDefinition, ComponentPropertyDefinition } from './types.js';
+import type {
+  ComponentDefinition,
+  ComponentEventDefinition,
+  ComponentPropertyDefinition,
+} from './types.js';
+
+export const MENU_EVENTS: readonly ComponentEventDefinition[] = [
+  {
+    name: 'OnSearch',
+    category: 'Menu',
+    eventDetailType: 'WebMenuSearchEvent',
+    eventDetailProperties: ['text'],
+    description:
+      'Emitted when the user presses Enter in event search mode. Typing and clearing do not emit; menu items remain unchanged.',
+  },
+  {
+    name: 'OnItemClick',
+    category: 'Menu',
+    eventDetailType: 'WebMenuItemEvent',
+    eventDetailProperties: ['item', 'itemId', 'path'],
+    description:
+      'Call event.preventDefault() synchronously to cancel automatic selection and navigation.',
+  },
+  {
+    name: 'OnSelectionChange',
+    category: 'Menu',
+    eventDetailType: 'WebMenuItemEvent',
+    eventDetailProperties: ['item', 'itemId'],
+  },
+  {
+    name: 'OnItemToggle',
+    category: 'Menu',
+    eventDetailType: 'WebMenuItemToggleEvent',
+    eventDetailProperties: ['itemId', 'expanded'],
+  },
+  {
+    name: 'OnCollapseChange',
+    category: 'Menu',
+    eventDetailType: 'WebMenuStateEvent',
+    eventDetailProperties: ['collapsed'],
+  },
+  { name: 'OnOpen', category: 'Menu', eventDetailType: 'WebMenuStateEvent' },
+  { name: 'OnClose', category: 'Menu', eventDetailType: 'WebMenuStateEvent' },
+  { name: 'OnBrandClick', category: 'Menu', eventDetailType: 'WebMenuBrand' },
+  { name: 'OnUserClick', category: 'Menu', eventDetailType: 'WebMenuUser' },
+];
 
 export function createWebMenuDefinition(
   geometry: readonly ComponentPropertyDefinition[],
@@ -97,45 +142,6 @@ export function createWebMenuDefinition(
         readOnly: true,
       },
     ],
-    events: [
-      {
-        name: 'OnSearch',
-        category: 'Menu',
-        eventDetailType: 'WebMenuSearchEvent',
-        eventDetailProperties: ['text'],
-        description:
-          'Emitted for user text changes in event search mode, including clearing the search. Menu items remain unchanged.',
-      },
-      {
-        name: 'OnItemClick',
-        category: 'Menu',
-        eventDetailType: 'WebMenuItemEvent',
-        eventDetailProperties: ['item', 'itemId', 'path'],
-        description:
-          'Call event.preventDefault() synchronously to cancel automatic selection and navigation.',
-      },
-      {
-        name: 'OnSelectionChange',
-        category: 'Menu',
-        eventDetailType: 'WebMenuItemEvent',
-        eventDetailProperties: ['item', 'itemId'],
-      },
-      {
-        name: 'OnItemToggle',
-        category: 'Menu',
-        eventDetailType: 'WebMenuItemToggleEvent',
-        eventDetailProperties: ['itemId', 'expanded'],
-      },
-      {
-        name: 'OnCollapseChange',
-        category: 'Menu',
-        eventDetailType: 'WebMenuStateEvent',
-        eventDetailProperties: ['collapsed'],
-      },
-      { name: 'OnOpen', category: 'Menu', eventDetailType: 'WebMenuStateEvent' },
-      { name: 'OnClose', category: 'Menu', eventDetailType: 'WebMenuStateEvent' },
-      { name: 'OnBrandClick', category: 'Menu', eventDetailType: 'WebMenuBrand' },
-      { name: 'OnUserClick', category: 'Menu', eventDetailType: 'WebMenuUser' },
-    ],
+    events: MENU_EVENTS,
   };
 }

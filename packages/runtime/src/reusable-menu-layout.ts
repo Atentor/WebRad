@@ -5,6 +5,7 @@ import {
   type RuntimeReusableMenuDefinition,
 } from './menu-layout.js';
 import type { WebMenu } from './menu.js';
+import { bindWebMenuEventHost } from './menu-events.js';
 
 /** Keep the reusable shell in sync with the responsive state of its full-height menu. */
 export function bindReusableMenuLayout(
@@ -12,6 +13,7 @@ export function bindReusableMenuLayout(
   definition: RuntimeReusableMenuDefinition,
   menu: WebMenu,
 ): () => void {
+  const unbindEvents = bindWebMenuEventHost(menu.element, element);
   element.dataset.menuManaged = 'true';
   const view = element.ownerDocument.defaultView;
   const update = (): void => {
@@ -50,6 +52,7 @@ export function bindReusableMenuLayout(
     typeof view?.MutationObserver === 'undefined' ? undefined : new view.MutationObserver(update);
   observer?.observe(element, { attributes: true, attributeFilter: ['style'] });
   return () => {
+    unbindEvents();
     observer?.disconnect();
 
     delete element.dataset.menuManaged;

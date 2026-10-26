@@ -42,6 +42,7 @@ export const IDE_COMMANDS = [
   'project.buildApplication',
   'project.deploy',
   'run.run',
+  'run.stop',
   'debug.start',
   'debug.pause',
   'debug.stepOver',
@@ -176,6 +177,7 @@ export interface WebRadBridge {
   };
   lifecycle: {
     setDirty(dirty: boolean): void;
+    setPreviewMode(active: boolean): Promise<void>;
   };
   platform: NodeJS.Platform;
 }

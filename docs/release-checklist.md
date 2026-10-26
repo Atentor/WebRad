@@ -57,7 +57,7 @@ Na tentativa `v0.0.12` (`39923680356`), o macOS Intel observou o cursor lógico 
 3. A verificação que libera uma tag deve ser um push de `main`/`codex/verify-release-*` ou uma execução manual no **mesmo SHA**. Um pull request detecta falhas antecipadamente, mas seu commit de merge temporário não certifica o SHA final. Após merge/rebase ou qualquer edição, aguarde uma nova verificação do commit final.
 4. Somente com autorização do usuário, crie uma nova tag estável `vMAJOR.MINOR.PATCH` no commit aprovado e envie a referência explícita. Não mova uma tag existente. Reexecutar uma tag antiga compila o código antigo; correções exigem um commit que as contenha.
 
-O preflight da tag confere a ancestralidade em `main` e consulta as verificações completas do SHA exato. Sem uma verificação aprovada, ele interrompe o fluxo antes dos quatro builds e informa como obter a evidência. Essa proteção é deliberada: não a remova para contornar um release bloqueado.
+O preflight da tag confere a ancestralidade em `main` e consulta as verificações completas do SHA exato. Exige também sucesso na execução elegível mais recente de `validate` e `security`, sem aceitar um resultado verde antigo para encobrir uma execução posterior pendente ou reprovada. O scan agendado de `security` na `main` conta para esse gate; pushes de tags e pull requests não substituem as verificações de branch ou manuais. Os três gates são consultados novamente antes de publicar. Sem essas aprovações, o script interrompe o fluxo e informa qual workflow precisa ser concluído. O modo de verificação sem publicação continua independente dessas consultas. Essa proteção é deliberada: não a remova para contornar um release bloqueado.
 
 ## Ao investigar uma falha
 

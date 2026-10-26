@@ -66,6 +66,7 @@ export interface WebMenuConfiguration {
   readonly accordion: boolean;
   readonly searchable: boolean;
   readonly themeToggle: boolean;
+  /** Filter while typing, or emit OnSearch when the user presses Enter. */
   readonly searchMode: 'filter' | 'event';
   readonly searchPlaceholder: string;
   readonly emptyText: string;

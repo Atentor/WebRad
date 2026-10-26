@@ -7,6 +7,7 @@ import { runDebuggerSmoke } from './debugger-smoke';
 import { runDeploySmoke } from './deploy-smoke';
 import { runNativeBuildSmoke } from './native-build-smoke';
 import { runPageTitleSmoke } from './page-title-smoke';
+import { assertExclusivePreviewSmoke, stopPreviewSmoke } from './preview-workspace-smoke';
 import { runPanelFloatingSmoke } from './panel-floating-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -18,7 +19,7 @@ import { resolveCompilerEnvironment } from './compiler-environment';
 import { synchronizeInstallationIcon } from './installation-icon';
 import { applicationWindowIconPath } from './application-icon';
 import { presentMainWindow } from './main-window-presentation';
-import { installApplicationMenu } from './menu';
+import { installApplicationMenu, setPreviewMenuMode } from './menu';
 import { closePreviewServer, publishPreviewHtml, revokePreview } from './preview-server';
 import { closeRendererServer, publishRenderer } from './renderer-server';
 import { installReportPreviewWindows } from './report-preview-windows';
@@ -1178,6 +1179,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     'PreviewPane after F9',
   );
   const previewFrame = await waitForPreviewFrame(window, previewUrl);
+  await assertExclusivePreviewSmoke(window);
   await waitForPreviewFrameResult(
     previewFrame,
     `(() =>
@@ -1267,6 +1269,16 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     throw new Error(`Renderer Preview isolation failed: ${JSON.stringify(isolation)}`);
   }
   smokeLog(`renderer Preview isolation passed: ${JSON.stringify(isolation)}`);
+  await stopPreviewSmoke(window);
+  await waitForRendererResult(
+    window,
+    `document.querySelector('.wr-view-tabs [aria-selected="true"]')?.getAttribute('aria-label') === 'Code'`,
+    'the original Code workspace after Stop preview',
+    (value) => value === true,
+  );
+  smokeLog(
+    'renderer exclusive Preview and Stop passed: full viewport, blocked IDE commands/F12, native Stop click, iframe removed and Code restored',
+  );
   await runRestGoBrowserSmoke(smokeLog, window);
   await captureDesignerSmokeScreenshot(window);
   await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
@@ -1352,6 +1364,7 @@ async function createWindow(): Promise<BrowserWindow> {
     : undefined;
 
   installApplicationMenu(window);
+  window.webContents.on('render-process-gone', () => setPreviewMenuMode(window, false));
   installDirtyGuard(window, rendererUrl);
   installReportPreviewWindows(window.webContents);
   window.webContents.on('will-attach-webview', (event) => event.preventDefault());

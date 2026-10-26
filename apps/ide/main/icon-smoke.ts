@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { BrowserWindow, WebFrameMain } from 'electron';
+import { stopPreviewSmoke } from './preview-workspace-smoke';
 import { loadProjectFiles } from './project-files';
 
 async function ready(window: BrowserWindow, expression: string): Promise<void> {
@@ -239,6 +240,7 @@ export async function runIconSmoke(
     throw new Error(`Icons native Enter/Space produced ${String(activations)} clicks.`);
   if ((await frame.executeJavaScript(paintExpression, true)) !== idlePaint)
     throw new Error('Default Icons appearance changed after focus/native activation.');
+  await stopPreviewSmoke(window);
   await click(window, 'button[aria-label="Design"]');
   await click(window, tree);
   // Exactly three history commands: insertion, selected icon, selected mode.

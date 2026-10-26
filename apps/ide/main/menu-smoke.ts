@@ -1,8 +1,10 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { BrowserWindow, WebFrameMain } from 'electron';
+import { stopPreviewSmoke } from './preview-workspace-smoke';
 import { parseWebMenuConfiguration } from '@webrad/runtime/menu-model';
 import { loadProjectFiles } from './project-files';
+import { monacoHandlerInputReadyExpression } from './monaco-smoke-input';
 
 interface MenuSmokeOptions {
   readonly projectPath: string;
@@ -192,6 +194,56 @@ async function runMenuSmokeWorkflow(
     .find((candidate) => candidate.id === page.id)
     ?.components.find((candidate) => candidate.id === id);
   const config = parseWebMenuConfiguration(node?.props.configuration);
+  const assertMenuSearchFocus = `(menu) => {
+    const input = menu.querySelector('.wr-menu-search-input');
+    const field = input?.closest('.wr-menu-search');
+    if (!input || !field || !field.querySelector('.wr-icon-graphic'))
+      throw new Error('Missing complete Menu search field');
+    const previous = document.activeElement;
+    const before = field.getBoundingClientRect();
+    input.focus();
+    const outer = getComputedStyle(field);
+    const inner = getComputedStyle(input);
+    const after = field.getBoundingClientRect();
+    if (document.activeElement !== input || !input.matches(':focus-visible')
+      || !field.matches(':focus-within')
+      || outer.outlineStyle !== 'solid' || outer.outlineWidth !== '2px'
+      || outer.outlineOffset !== '2px' || inner.outlineStyle !== 'none'
+      || inner.outlineWidth !== '0px' || inner.outlineOffset !== '0px'
+      || inner.boxShadow !== 'none' || Math.abs(after.width - before.width) > 0.5
+      || Math.abs(after.height - before.height) > 0.5)
+      throw new Error('Menu search focus must surround icon and input without an inner ring or layout shift');
+    input.blur();
+    if (getComputedStyle(field).outlineStyle !== 'none')
+      throw new Error('Menu search focus ring remains after blur');
+    if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+  }`;
+  const assertMenuIconGeometry = `(menu) => {
+    const icons = [...menu.querySelectorAll('.wr-icon-graphic')];
+    let visible = 0;
+    for (const icon of icons) {
+      if (icon.getClientRects().length === 0) continue;
+      const bounds = icon.getBoundingClientRect();
+      const style = getComputedStyle(icon);
+      const disclosure = icon.matches('.wr-menu-item > .wr-icon-graphic:last-child:not(:first-child)');
+      const expected = disclosure ? 16 : ${JSON.stringify(config.appearance.iconSize)};
+      const transform = style.transform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(style.transform);
+      const expectedWidth = expected * (Math.abs(transform.a) + Math.abs(transform.c));
+      const expectedHeight = expected * (Math.abs(transform.b) + Math.abs(transform.d));
+      if (Math.abs(Number.parseFloat(style.width) - expected) > 0.5
+        || Math.abs(Number.parseFloat(style.height) - expected) > 0.5
+        || Math.abs(bounds.width - expectedWidth) > 0.5
+        || Math.abs(bounds.height - expectedHeight) > 0.5)
+        throw new Error('Menu icon geometry: ' + JSON.stringify({
+          expected, width: bounds.width, height: bounds.height,
+          collapsed: menu.dataset.menuCollapsed, mobile: menu.dataset.menuMobile,
+          orientation: menu.dataset.menuOrientation, icon: icon.outerHTML,
+          size: getComputedStyle(menu).getPropertyValue('--wr-menu-icon-size')
+        }));
+      visible++;
+    }
+    if (visible === 0) throw new Error('Menu has no visible icons');
+  }`;
   const matchesProjectScrollbar = `(navigation) => {
     if (!navigation) return false;
     const style = getComputedStyle(navigation);
@@ -309,6 +361,7 @@ async function runMenuSmokeWorkflow(
     `(() => {
     const menu = document.querySelector('[data-webrad-id="${id}"]');
     if (!menu || menu.dataset.menuMobile !== 'false') return {error:'Missing desktop Menu',mobile:menu?.dataset.menuMobile};
+    (${assertMenuIconGeometry})(menu);
     if (!(${matchesProjectScrollbar})(menu.querySelector('.wr-menu-navigation'))) return {error:'Desktop navigation scrollbar'};
     const originalMode = Theme.mode;
     const originalResolved = Theme.resolvedMode;
@@ -327,20 +380,36 @@ async function runMenuSmokeWorkflow(
     menu.addEventListener('search',onSearch);
     const search=menu.querySelector('.wr-menu-search-input');
     if(!search)return {error:'Missing search'};
+    (${assertMenuSearchFocus})(menu);
     const count=menu.querySelectorAll('.wr-menu-item').length;
     search.value='external search';search.dispatchEvent(new Event('input',{bubbles:true}));
-    if(received.length!==1||received[0]!=='external search'||menu.querySelectorAll('.wr-menu-item').length!==count)return {error:'Search event-only contract',received,count,actual:menu.querySelectorAll('.wr-menu-item').length};
+    if(received.length!==0||menu.querySelectorAll('.wr-menu-item').length!==count)return {error:'Typing must not submit search or filter items',received,count,actual:menu.querySelectorAll('.wr-menu-item').length};
+    search.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true,isComposing:true}));
+    search.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true,repeat:true}));
+    if(received.length!==0)return {error:'Composing or repeating Enter must not submit search',received};
+    const submit=()=>{const event=new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true});search.dispatchEvent(event);if(!event.defaultPrevented)throw new Error('Search Enter must prevent implicit form submission');};
+    submit();
+    if(received.length!==1||received[0]!=='external search')return {error:'Search Enter event',received};
+    submit();
+    if(received.length!==2||received[1]!=='external search')return {error:'Explicit Enter must allow resubmitting unchanged search',received};
     search.value='';search.dispatchEvent(new Event('input',{bubbles:true}));
+    if(received.length!==2)return {error:'Clearing must not submit search',received};
+    submit();
     menu.removeEventListener('search',onSearch);
-    if(received.length!==2||received[1]!=='')return {error:'Cleared search event',received};
+    if(received.length!==3||received[2]!==''||menu.querySelectorAll('.wr-menu-item').length!==count)return {error:'Empty search Enter event or item visibility',received};
 
     const toggle = () => menu.querySelector('[data-menu-action="collapse"]');
     const width = menu.getBoundingClientRect().width;
-    toggle().click();
-    if (menu.dataset.menuCollapsed !== 'true' || Math.abs(menu.getBoundingClientRect().width - 72) > 1) return {error:'Collapse',collapsed:menu.dataset.menuCollapsed,width:menu.getBoundingClientRect().width,style:menu.getAttribute('style')};
-    toggle().click();
-    if (Math.abs(menu.getBoundingClientRect().width - width) > 1) return {error:'Expanded width restoration',before:width,after:menu.getBoundingClientRect().width,style:menu.getAttribute('style')};
+    for (let cycle = 0; cycle < 4; cycle++) {
+      toggle().click();
+      if (menu.dataset.menuCollapsed !== 'true' || Math.abs(menu.getBoundingClientRect().width - 72) > 1) return {error:'Collapse',collapsed:menu.dataset.menuCollapsed,width:menu.getBoundingClientRect().width,style:menu.getAttribute('style')};
+      (${assertMenuIconGeometry})(menu);
+      toggle().click();
+      if (Math.abs(menu.getBoundingClientRect().width - width) > 1) return {error:'Expanded width restoration',before:width,after:menu.getBoundingClientRect().width,style:menu.getAttribute('style')};
+      (${assertMenuIconGeometry})(menu);
+    }
     menu.querySelector('[data-menu-item="home"]').click();
+    (${assertMenuIconGeometry})(menu);
     return {selected:menu.querySelector('[data-menu-item="home"]').getAttribute('aria-current'),children:menu.querySelector('.wr-menu-submenu').children.length};
   })()`,
     true,
@@ -357,6 +426,9 @@ async function runMenuSmokeWorkflow(
       'Menu desktop project scrollbar, collapse, selection or submenu projection failed: ' +
         JSON.stringify(desktop),
     );
+  options.log(
+    'renderer Menu search Enter passed: typing/clearing remain silent, Enter submits current or empty text, explicit resubmission, composition/repeat suppression and unchanged items',
+  );
   try {
     window.webContents.focus();
     await evaluate(`document.querySelector('iframe[title="WebRAD application preview"]').focus()`);
@@ -387,7 +459,7 @@ async function runMenuSmokeWorkflow(
       true,
     );
     const drawer = await frame.executeJavaScript(
-      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); menu.querySelector('[data-menu-action="open"]').click(); const dialog = menu.querySelector('dialog'); const originalMode = Theme.mode; const originalResolved = Theme.resolvedMode; const themeControl = dialog.querySelector('[data-menu-action="theme"]'); if (!(themeControl instanceof HTMLButtonElement)) return false; themeControl.focus(); themeControl.click(); const themeChanged = Theme.resolvedMode !== originalResolved && dialog.open && document.activeElement === themeControl; Theme.mode = originalMode; return themeChanged && (${matchesProjectScrollbar})(dialog.querySelector('.wr-menu-navigation')) && Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
+      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); (${assertMenuIconGeometry})(menu); menu.querySelector('[data-menu-action="open"]').click(); (${assertMenuIconGeometry})(menu); (${assertMenuSearchFocus})(menu); const dialog = menu.querySelector('dialog'); const originalMode = Theme.mode; const originalResolved = Theme.resolvedMode; const themeControl = dialog.querySelector('[data-menu-action="theme"]'); if (!(themeControl instanceof HTMLButtonElement)) return false; themeControl.focus(); themeControl.click(); (${assertMenuIconGeometry})(menu); const themeChanged = Theme.resolvedMode !== originalResolved && dialog.open && document.activeElement === themeControl; Theme.mode = originalMode; return themeChanged && (${matchesProjectScrollbar})(dialog.querySelector('.wr-menu-navigation')) && Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
       true,
     );
     if (drawer !== true)
@@ -413,12 +485,16 @@ async function runMenuSmokeWorkflow(
     if (closed !== true)
       throw new Error('Menu Escape did not close the drawer and restore scrolling.');
     options.log(
+      'renderer Menu search focus passed: full rounded search field, icon and input, no inner ring, no layout shift, blur cleanup, desktop and mobile drawer',
+    );
+    options.log(
       'renderer Menu compiled viewports passed: ' +
         JSON.stringify({ desktop: desktopViewport, mobile: mobileViewport }),
     );
   } finally {
     await setDesktopViewport(window);
   }
+  await stopPreviewSmoke(window);
   await click('button[aria-label="Design"]');
   const tree = `[role="treeitem"][data-component-id=${JSON.stringify(id)}]`;
   await click(tree);
@@ -498,6 +574,7 @@ async function runMenuSmokeWorkflow(
  const toggle=menu.querySelector('[data-menu-item="workspace"]');if(toggle.getAttribute('aria-expanded')!=='false')return {error:'Submenu initially expanded'};
  toggle.click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
  const submenu=menu.querySelector('.wr-menu-submenu');const r=submenu.getBoundingClientRect();
+ (${assertMenuIconGeometry})(menu);
  if(!(${matchesProjectScrollbar})(submenu))return {error:'Submenu scrollbar'};
  const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
  const visible=submenu.matches(':popover-open') && submenu.dataset.openDirection==='up' && r.left>=0 && r.top>=0 && r.right<=innerWidth && r.bottom<=innerHeight && submenu.contains(hit);
@@ -526,6 +603,7 @@ async function runMenuSmokeWorkflow(
   options.log(
     'renderer Menu horizontal flyouts passed: bottom docking, top-layer geometry, visible hit area, ArrowDown/Escape and focus restoration',
   );
+  await stopPreviewSmoke(window);
   await click('button[aria-label="Design"]');
   await click(tree);
   for (let index = 0; index < 8; index++) {
@@ -544,6 +622,240 @@ async function runMenuSmokeWorkflow(
   await click(root);
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  // Exercise the same Menu interactions through a dragged reusable placement.
+  // Temporary documents keep authored smoke handlers out of the original page.
+  const resourceRow = (name: string): string =>
+    `[...document.querySelectorAll('.wr-page-row')].find(row => row.querySelector('span:last-child')?.textContent?.trim() === ${JSON.stringify(name)})`;
+  const createDocument = async (kind: 'page' | 'reusable', name: string): Promise<void> => {
+    window.webContents.send(
+      'webrad:menu-command',
+      kind === 'page' ? 'project.addPage' : 'project.addReusableElement',
+    );
+    await ready(`document.querySelector('[role="dialog"] input') !== null`);
+    await evaluate(
+      `(() => {const input=document.querySelector('[role="dialog"] input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${JSON.stringify(name)});input.dispatchEvent(new Event('input',{bubbles:true}));${kind === 'reusable' ? "const select=document.querySelector('[role=dialog] select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(select,'navigation-menu');select.dispatchEvent(new Event('change',{bubbles:true}));" : ''}})()`,
+    );
+    await ready(
+      `document.querySelector('[role="dialog"] input')?.value === ${JSON.stringify(name)}`,
+    );
+    await click('[role="dialog"] button[type="submit"]');
+    await ready(`${resourceRow(name)}?.getAttribute('aria-selected') === 'true'`);
+  };
+  const authorItemClick = async (handlerName: string, code: string): Promise<void> => {
+    await click('button[role="tab"][aria-label="Events"]');
+    const row = `[...document.querySelectorAll('.wr-inspector-event-row')].find(row => row.querySelector('label')?.textContent === 'OnItemClick')`;
+    await ready(`${row} !== undefined`);
+    await evaluate(`${row}.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
+    await ready(monacoHandlerInputReadyExpression(handlerName));
+    const senderType = handlerName.startsWith('Menu1') ? 'WebMenu' : 'WebReusableElement';
+    await ready(
+      `document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160),' ').includes(${JSON.stringify(`sender: ${senderType}, event: CustomEvent<WebMenuItemEvent>`)}) === true`,
+    );
+    await window.webContents.insertText(code + '\n');
+    await ready(
+      `document.querySelector('.monaco-editor')?.textContent?.includes('menuInteractionOrder') === true`,
+    );
+    await click('button[aria-label="Design"]');
+  };
+  const smokePageName = 'MenuInteractionSmoke';
+  const smokeMenuName = 'SharedMenuInteractionSmoke';
+  await createDocument('page', smokePageName);
+  await createDocument('reusable', smokeMenuName);
+  await click('[role="treeitem"][aria-label="Menu1"]');
+  await authorItemClick(
+    'Menu1ItemClick',
+    "document.documentElement.dataset.menuInteractionOrder = 'internal:' + event.detail.itemId; if (event.detail.itemId === 'home') event.preventDefault();",
+  );
+  await evaluate(`${resourceRow(smokePageName)}.click()`);
+  await ready(`document.querySelector('.wr-page-surface') !== null`);
+  await evaluate(`(async () => {
+    const button=[...document.querySelectorAll('.wr-palette-item')]
+      .find(item=>item.querySelector('.wr-palette-item-caption')?.textContent.trim()==='Button');
+    if (!(button instanceof HTMLButtonElement)) throw new Error('Missing Button drag source.');
+    const dataTransfer=new DataTransfer();
+    const surface=document.querySelector('.wr-design-overlay');
+    const count=surface.querySelectorAll('.wr-design-hit').length;
+    button.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer}));
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const bounds=surface.getBoundingClientRect();
+    surface.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer,clientX:bounds.left+40,clientY:bounds.top+60}));
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const feedback=surface.querySelector('.wr-insertion-feedback');
+    const ghost=feedback?.querySelector('.wr-drop-ghost');
+    if (!(ghost instanceof HTMLElement) || ghost.getBoundingClientRect().width<=0 ||
+        getComputedStyle(ghost).borderTopStyle!=='dashed' ||
+        getComputedStyle(ghost).borderTopColor!=='rgb(251, 191, 36)' ||
+        feedback.querySelector('.wr-drop-caption') !== null ||
+        !feedback.getAttribute('aria-label')?.includes('Button') ||
+        surface.querySelectorAll('.wr-design-hit').length!==count)
+      throw new Error('Palette drag lacks the visible component footprint or inserted before drop.');
+    window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+    button.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer}));
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    if (surface.querySelector('.wr-insertion-feedback') ||
+        surface.querySelectorAll('.wr-design-hit').length!==count)
+      throw new Error('Escape did not cancel palette feedback without inserting.');
+  })()`);
+  const placementIds: string[] = [];
+  for (let index = 0; index < 2; index++) {
+    await evaluate(
+      `(async () => {
+        const row=${resourceRow(smokeMenuName)};
+        const dataTransfer=new DataTransfer();
+        row.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer}));
+        const surface=document.querySelector('.wr-design-overlay');
+        const bounds=surface.getBoundingClientRect();
+        const coordinates={clientX:bounds.left+10,clientY:bounds.top+10};
+        const count=surface.querySelectorAll('.wr-design-hit').length;
+        surface.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer,...coordinates}));
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        const feedback=surface.querySelector('.wr-insertion-feedback');
+        const highlight=feedback?.querySelector('.wr-drop-parent-highlight');
+        const parentId=document.querySelector('.wr-page-surface [data-designer-parent-id]')?.dataset.designerParentId;
+        if (!feedback || feedback.dataset.dropParentId!==parentId || feedback.dataset.dropValid!=='true' ||
+            !(highlight instanceof HTMLElement) || highlight.getBoundingClientRect().width<=0 ||
+            getComputedStyle(highlight).borderTopStyle!=='solid' ||
+            getComputedStyle(highlight).borderTopColor!=='rgb(251, 191, 36)' ||
+            getComputedStyle(feedback).pointerEvents!=='none' ||
+            feedback.querySelector('.wr-drop-caption') !== null ||
+            !feedback.getAttribute('aria-label')?.includes(${JSON.stringify(smokeMenuName)}) ||
+            surface.querySelectorAll('.wr-design-hit').length!==count)
+          throw new Error('Reusable drag lacks visible parent feedback or mutates the canvas before drop.');
+        surface.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer,...coordinates}));
+        row.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer}));
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        if (surface.querySelector('.wr-insertion-feedback'))
+          throw new Error('Insertion feedback remained after drop.');
+      })()`,
+    );
+    await ready(
+      `document.querySelector('.wr-inspector-selection strong')?.textContent === 'Reusable${String(index + 1)}'`,
+    );
+    const placementId = await evaluate(
+      `document.querySelector('.wr-inspector-selection')?.getAttribute('title')`,
+    );
+    if (typeof placementId !== 'string') throw new Error('Dragged Menu has no placement ID.');
+    placementIds.push(placementId);
+    await click('button[role="tab"][aria-label="Events"]');
+    await ready(
+      `[...document.querySelectorAll('.wr-inspector-event-row label')].map(label=>label.textContent).sort().join(',') === 'OnBrandClick,OnClose,OnCollapseChange,OnItemClick,OnItemToggle,OnOpen,OnSearch,OnSelectionChange,OnUserClick'`,
+    );
+    await authorItemClick(
+      `Reusable${String(index + 1)}ItemClick`,
+      "document.documentElement.dataset.menuInteractionOrder += ':page:' + sender.id + ':' + event.detail.itemId + ':' + String(event.defaultPrevented); event.preventDefault();",
+    );
+  }
+  options.log(
+    'renderer Designer insertion feedback passed: palette footprint, reusable parent outline and name, no insertion before drop, Escape cancellation and cleanup',
+  );
+  await click('button[aria-label="Save (Ctrl+S)"]');
+  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  const interactionSession = await loadProjectFiles(options.projectPath);
+  const interactionPage = interactionSession.project.pages.find(
+    (candidate) => candidate.name === smokePageName,
+  );
+  const interactionMenu = interactionSession.project.reusableElements.find(
+    (candidate) => candidate.name === smokeMenuName,
+  );
+  if (
+    !interactionMenu?.components.some(
+      (candidate) =>
+        candidate.type === 'WebMenu' && candidate.events.OnItemClick === 'Menu1ItemClick',
+    ) ||
+    !placementIds.every((placementId, index) =>
+      interactionPage?.components.some(
+        (candidate) =>
+          candidate.id === placementId &&
+          candidate.events.OnItemClick === `Reusable${String(index + 1)}ItemClick`,
+      ),
+    )
+  )
+    throw new Error('Reusable Menu Interaction bindings were not saved.');
+  const previousInteractionPreview = await evaluate(
+    `document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src') ?? ''`,
+  );
+  await ready(`document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled === false`);
+  await evaluate(
+    `window.dispatchEvent(new KeyboardEvent('keydown',{key:'F9',bubbles:true,cancelable:true}))`,
+  );
+  await ready(
+    `(() => {const src=document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src');return Boolean(src && src !== ${JSON.stringify(previousInteractionPreview)});})()`,
+  );
+  const interactionUrl = await evaluate(
+    `document.querySelector('iframe[title="WebRAD application preview"]').getAttribute('src')`,
+  );
+  const interactionFrameRoot = new URL('./', String(interactionUrl)).href;
+  const findInteractionFrame = (candidate: WebFrameMain): WebFrameMain | undefined =>
+    candidate.url.startsWith(interactionFrameRoot)
+      ? candidate
+      : candidate.frames.map(findInteractionFrame).find((child) => child !== undefined);
+  const interactionDeadline = Date.now() + 10000;
+  let interactionsPassed = false;
+  for (;;) {
+    const interactionFrame = findInteractionFrame(window.webContents.mainFrame);
+    if (interactionFrame) {
+      interactionsPassed =
+        (await interactionFrame.executeJavaScript(
+          `(() => {
+            if (typeof Navigate !== 'function') return false;
+            Navigate(${JSON.stringify(smokePageName)});
+            const placements = ${JSON.stringify(placementIds)}.map(id =>
+              document.querySelector('[data-webrad-id="' + id + '"]'));
+            if (placements.some(host => !host?.querySelector('[data-menu-item="home"]')))
+              throw new Error('Compiled reusable Menu placements are missing');
+            for (const host of placements) {
+              const menu = host.querySelector('.wr-webmenu');
+              const selection = () => menu.querySelector('[aria-current="page"]')?.getAttribute('data-menu-item') ?? null;
+              const selected = selection();
+              for (const itemId of ['home', 'settings']) {
+                document.documentElement.dataset.menuInteractionOrder = '';
+                menu.querySelector('[data-menu-item="' + itemId + '"]').click();
+                const expected = 'internal:' + itemId + ':page:' + host.dataset.webradId + ':' + itemId + ':' + String(itemId === 'home');
+                if (document.documentElement.dataset.menuInteractionOrder !== expected)
+                  throw new Error('Menu handler order/isolation: ' + document.documentElement.dataset.menuInteractionOrder);
+                if (selection() !== selected)
+                  throw new Error('Menu cancellation did not preserve selection');
+              }
+              for (let cycle = 0; cycle < 4; cycle++) {
+                for (const collapsed of [true, false]) {
+                  menu.querySelector('[data-menu-action="collapse"]').click();
+                  if (menu.dataset.menuCollapsed !== String(collapsed))
+                    throw new Error('Reusable Menu collapse state did not change');
+                  (${assertMenuIconGeometry})(menu);
+                }
+              }
+            }
+            return true;
+          })()`,
+          true,
+        )) === true;
+      if (interactionsPassed) break;
+    }
+    if (Date.now() >= interactionDeadline) break;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  if (!interactionsPassed) throw new Error('Reusable Menu Interaction Preview did not become ready.');
+  options.log(
+    'renderer reusable Menu Interaction passed: nine Inspector events, typed page/internal authoring, persisted bindings, compiled F9 internal-before-page order, two isolated placements and cancellation in either handler',
+  );
+  await stopPreviewSmoke(window);
+  for (const name of [smokePageName, smokeMenuName]) {
+    await evaluate(`${resourceRow(name)}.click()`);
+    await ready(
+      `document.querySelector('[aria-label="Delete selected project item"]')?.title === ${JSON.stringify(`Delete ${name}`)}`,
+    );
+    await evaluate(
+      `(() => {const original=window.confirm;window.confirm=()=>true;try{document.querySelector('[aria-label="Delete selected project item"]').click();}finally{window.confirm=original;}})()`,
+    );
+    await ready(`${resourceRow(name)} === undefined`);
+  }
+  await evaluate(`${resourceRow(page.name)}.click()`);
+  await click('button[aria-label="Design"]');
+  await click('button[aria-label="Save (Ctrl+S)"]');
+  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  options.log(
+    'renderer Menu icon geometry passed: configured SVG size, 16px disclosures, repeated desktop and reusable collapse/expand, mobile trigger/drawer, horizontal flyouts and theme changes',
+  );
   options.log(
     `renderer Menu Inspector and F9 passed: project scrollbar, Light/Dark switch configuration and local preview, persisted themeToggle, desktop/mobile application theme and focus, header icon opposite logo, nested items, persistence, desktop collapse/selection, mobile viewport, modal focus/Escape, undo; screenshot ${screenshot}`,
   );

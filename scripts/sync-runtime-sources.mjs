@@ -117,6 +117,7 @@ const timerTypings =
 
 const sourceFiles = [
   'menu.ts',
+  'menu-events.ts',
   'menu-layout.ts',
   'menu-popovers.ts',
   'reusable-menu-layout.ts',

@@ -194,6 +194,8 @@ const bridge: WebRadBridge = {
   },
   lifecycle: {
     setDirty: (dirty: boolean) => ipcRenderer.send('webrad:lifecycle:set-dirty', dirty),
+    setPreviewMode: (active) =>
+      ipcRenderer.invoke('webrad:lifecycle:set-preview-mode', active) as Promise<void>,
   },
   platform: process.platform,
 };

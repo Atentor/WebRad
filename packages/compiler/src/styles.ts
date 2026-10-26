@@ -51,7 +51,6 @@ export const GENERATED_APP_CSS = `${APP_BASE_CSS}\n${WEBRAD_COMPONENT_CSS}\n${WE
 const CONTROL_CLASS_PREFIXES: Readonly<Record<string, string>> = {
   'wr-panel-progress': 'WebPanel',
   'wr-progress-': 'WebProgressBar',
-  'wr-icon-graphic': 'WebIcon',
   'wr-button-': 'WebButton',
   'wr-popup-': 'WebPopup',
   'wr-menu-': 'WebMenu',
@@ -76,6 +75,8 @@ export function selectComponentCss(
       .list()
       .map((definition) => [`wr-${definition.type.toLowerCase()}`, definition.type]),
   );
+  // Shared graphics such as wr-icon-graphic are not owned by WebIcon. Their
+  // containing control owns each selector, including Menu sizing/state rules.
   const owner = (className: string): string | undefined =>
     primaryClasses.get(className) ??
     Object.entries(CONTROL_CLASS_PREFIXES).find(([prefix]) => className.startsWith(prefix))?.[1];

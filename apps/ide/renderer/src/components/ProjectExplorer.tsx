@@ -4,6 +4,7 @@ import { useRef, useState, type DragEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
 import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
+import { hideNativeDesignerDragImage, setDesignerDragPayload } from './designer-drag-data';
 
 interface ProjectExplorerProps {
   project: WebRadProject | null;
@@ -335,7 +336,10 @@ export function ProjectExplorer({
                         reusableElement.id,
                       );
                       event.dataTransfer.setData('text/plain', reusableElement.name);
+                      setDesignerDragPayload({ kind: 'reusable', id: reusableElement.id });
+                      hideNativeDesignerDragImage(event.dataTransfer);
                     }}
+                    onDragEnd={() => setDesignerDragPayload(null)}
                     onDoubleClick={() => onOpenReusableElement?.(reusableElement.id)}
                     onClick={() => onOpenReusableElement?.(reusableElement.id)}
                     onKeyDown={(event) => {

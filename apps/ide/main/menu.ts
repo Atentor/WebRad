@@ -2,6 +2,20 @@ import { app, type BrowserWindow, Menu, type MenuItemConstructorOptions, shell }
 import type { IdeCommand } from '../shared/contracts';
 import { EXTERNAL_LINKS } from '../shared/external-links';
 
+const applicationMenus = new WeakMap<BrowserWindow, Menu>();
+
+export function setPreviewMenuMode(window: BrowserWindow, preview: boolean): void {
+  const menu = applicationMenus.get(window);
+  if (menu === undefined || window.isDestroyed()) return;
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(preview ? null : menu);
+  } else {
+    // Detach it as well as hiding it, so Alt cannot reveal the menu in Preview.
+    window.setMenu(preview ? null : menu);
+    window.setMenuBarVisibility(!preview);
+  }
+}
+
 function commandItem(
   window: BrowserWindow,
   label: string,
@@ -84,6 +98,7 @@ export function installApplicationMenu(window: BrowserWindow): void {
       label: 'Run',
       submenu: [
         commandItem(window, 'Run', 'run.run', 'F9'),
+        commandItem(window, 'Stop Preview', 'run.stop'),
         { type: 'separator' },
         commandItem(window, 'Start / Continue Debugging', 'debug.start', 'F5'),
         commandItem(window, 'Pause', 'debug.pause'),
@@ -113,5 +128,7 @@ export function installApplicationMenu(window: BrowserWindow): void {
     },
   ];
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  const menu = Menu.buildFromTemplate(template);
+  applicationMenus.set(window, menu);
+  Menu.setApplicationMenu(menu);
 }

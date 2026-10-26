@@ -8,6 +8,7 @@ import {
 import { useMemo, useState, type DragEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
+import { hideNativeDesignerDragImage, setDesignerDragPayload } from './designer-drag-data';
 export const WEBRAD_COMPONENT_DRAG_TYPE = 'application/x-webrad-component';
 export const WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE = 'application/x-webrad-reusable-element';
 export interface ToolPaletteProps {
@@ -62,6 +63,8 @@ function beginComponentDrag(
   event.dataTransfer.effectAllowed = 'copy';
   event.dataTransfer.setData(WEBRAD_COMPONENT_DRAG_TYPE, definition.type);
   event.dataTransfer.setData('text/plain', definition.type);
+  setDesignerDragPayload({ kind: 'component', type: definition.type });
+  hideNativeDesignerDragImage(event.dataTransfer);
 }
 export function ToolPalette({
   selectedType = null,
@@ -157,6 +160,7 @@ export function ToolPalette({
                             onSelect(definition.type);
                             beginComponentDrag(event, definition);
                           }}
+                          onDragEnd={() => setDesignerDragPayload(null)}
                         >
                           <span
                             className="wr-palette-item-icon"

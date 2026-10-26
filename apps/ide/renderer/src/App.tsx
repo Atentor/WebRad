@@ -23,7 +23,7 @@ import {
   SelectionManager,
   SendToBackCommand,
   normalizeTopLevelIds,
-  snapPoint,
+  projectInsertionBounds,
 } from '@webrad/designer';
 import {
   componentRegistry,
@@ -115,7 +115,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { IdeShell } from './components/IdeShell';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import { ObjectInspector } from './components/ObjectInspector';
-import { PreviewPane } from './components/PreviewPane';
+import { PreviewWorkspace } from './components/PreviewWorkspace';
 import { ProjectExplorer } from './components/ProjectExplorer';
 import { normalizeHistoryDocument } from './state/project-history';
 import { ProjectSettingsDialog } from './components/ProjectSettingsDialog';
@@ -236,6 +236,7 @@ export function App(): ReactElement {
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>('page');
   const [activeView, setActiveView] = useState<ViewMode>('design');
   const [selectedPaletteType, setSelectedPaletteType] = useState<string | null>(null);
+  const cancelPaletteInsertion = useCallback(() => setSelectedPaletteType(null), []);
   const [styleComponentType, setStyleComponentType] = useState('WebPage');
   const [zoom, setZoom] = useState(100);
   const [viewportName, setViewportName] = useState<DesignerViewportName>('desktop');
@@ -247,6 +248,11 @@ export function App(): ReactElement {
   const [monacoMarkers, setMonacoMarkers] = useState<readonly MonacoMarkerLike[]>([]);
   const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>('output');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewActive, setPreviewActive] = useState(false);
+  const previewActiveRef = useRef(false);
+  const previewBuildPendingRef = useRef(false);
+  const previewSaveContextRef = useRef<{ projectId: string; rootPath: string } | null>(null);
+  const previewReturnFocusRef = useRef<HTMLElement | null>(null);
   const [compiledStylesCss, setCompiledStylesCss] = useState('');
   const [building, setBuilding] = useState(false);
   const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
@@ -377,7 +383,7 @@ export function App(): ReactElement {
       : currentRowGroup(currentRowBindingsComponent, activePage?.components ?? []);
   const codeEditorVisible =
     activeWorkspace === 'page' &&
-    activeView !== 'preview' &&
+    !previewActive &&
     (activeSourceFile !== undefined || (activePage !== null && activeView === 'code'));
 
   const addOutput = useCallback((category: string, message: string): void => {
@@ -402,6 +408,12 @@ export function App(): ReactElement {
     },
     [addOutput],
   );
+
+  useEffect(() => {
+    void window.webrad.lifecycle.setPreviewMode(previewActive).catch((error: unknown) => {
+      reportError(error, 'IPC');
+    });
+  }, [previewActive, reportError]);
 
   const activateProjectSession = useCallback(
     (session: ProjectSession): void => {
@@ -430,6 +442,8 @@ export function App(): ReactElement {
       selectionManager.clear();
       designerController.clear();
       setPreviewUrl(null);
+      previewActiveRef.current = false;
+      setPreviewActive(false);
       setCompiledStylesCss('');
       setBuildDiagnostics([]);
       setMonacoMarkers([]);
@@ -493,13 +507,26 @@ export function App(): ReactElement {
 
   const observedProjectRevisionRef = useRef(projectState.revision);
   useEffect(() => {
-    if (observedProjectRevisionRef.current === projectState.revision) return;
-    observedProjectRevisionRef.current = projectState.revision;
+    const current = projectController.getSnapshot();
+    if (observedProjectRevisionRef.current === current.revision) return;
+    observedProjectRevisionRef.current = current.revision;
+    const saveContext = previewSaveContextRef.current;
+    // Save may prune empty handlers. That clean revision belongs to this run;
+    // authored edits and project changes must still invalidate it.
+    if (
+      saveContext !== null &&
+      !current.dirty &&
+      current.project?.id === saveContext.projectId &&
+      current.rootPath === saveContext.rootPath
+    )
+      return;
     buildRequestRef.current += 1;
-    setBuilding(false);
+    if (!previewBuildPendingRef.current) setBuilding(false);
     setBuildDiagnostics([]);
     setPreviewUrl(null);
-  }, [projectState.revision]);
+    previewActiveRef.current = false;
+    setPreviewActive(false);
+  }, [projectController, projectState.revision]);
 
   useEffect(() => {
     selectionManager.retain(new Set(activePage?.components.map((component) => component.id) ?? []));
@@ -569,7 +596,12 @@ export function App(): ReactElement {
   );
 
   const addComponentAt = useCallback(
-    (type: string, point: { x: number; y: number }, requestedParentId: string): void => {
+    (
+      type: string,
+      point: { x: number; y: number },
+      requestedParentId: string,
+      beforeComponentId?: string | null,
+    ): void => {
       if (!activePage) return;
       try {
         const definition = requireComponentDefinition(type);
@@ -587,25 +619,28 @@ export function App(): ReactElement {
           document.querySelector<HTMLElement>('.wr-page-surface'),
           zoom / 100,
         );
-        const snapped = project?.settings.snapToGrid
-          ? snapPoint(point, project.settings.gridSize)
-          : point;
-        const x = appearsOnCanvas
-          ? Math.max(0, Math.min(snapped.x, parentBounds.width - definition.defaultBounds.width))
-          : 0;
-        const y = appearsOnCanvas
-          ? Math.max(0, Math.min(snapped.y, parentBounds.height - definition.defaultBounds.height))
-          : 0;
+        const bounds = projectInsertionBounds(
+          appearsOnCanvas ? point : { x: 0, y: 0 },
+          definition.defaultBounds,
+          parentBounds,
+          project?.settings.snapToGrid ? project.settings.gridSize : undefined,
+        );
         const createdNode = componentRegistry.createComponent(type, {
           existingNames: activePage.components,
           parentId,
-          x,
-          y,
+          x: bounds.x,
+          y: bounds.y,
         }) as ComponentNode;
         const node = definition.visual
           ? applyDefaultComponentStyle(createdNode, project?.styles ?? [])
           : createdNode;
-        commitDesignerCommand(new AddComponentCommand(node, { parentId }));
+        const siblingIndex = beforeComponentId ? parent.children.indexOf(beforeComponentId) : -1;
+        commitDesignerCommand(
+          new AddComponentCommand(node, {
+            parentId,
+            ...(siblingIndex >= 0 ? { siblingIndex } : {}),
+          }),
+        );
         setSelectedPaletteType(null);
         selectionManager.selectSingle(node.id);
         addOutput('DESIGNER', `Added ${node.name}.`);
@@ -621,6 +656,7 @@ export function App(): ReactElement {
       reusableElementId: string,
       point: { x: number; y: number },
       requestedParentId: string,
+      beforeComponentId?: string | null,
     ): void => {
       const reusable = project?.reusableElements.find((item) => item.id === reusableElementId);
       if (!project || !activePage || !reusable) {
@@ -638,16 +674,17 @@ export function App(): ReactElement {
           document.querySelector<HTMLElement>('.wr-page-surface'),
           zoom / 100,
         );
-        const snapped = project.settings.snapToGrid
-          ? snapPoint(point, project.settings.gridSize)
-          : point;
-        const x = Math.max(0, Math.min(snapped.x, parentBounds.width - reusable.width));
-        const y = Math.max(0, Math.min(snapped.y, parentBounds.height - reusable.height));
+        const bounds = projectInsertionBounds(
+          point,
+          reusable,
+          parentBounds,
+          project.settings.snapToGrid ? project.settings.gridSize : undefined,
+        );
         const node = componentRegistry.createComponent('WebReusableElement', {
           existingNames: activePage.components,
           parentId: requestedParentId,
-          x,
-          y,
+          x: bounds.x,
+          y: bounds.y,
           width: reusable.width,
           height: reusable.height,
           props: { reusableElementId },
@@ -659,7 +696,13 @@ export function App(): ReactElement {
             item: { ...reusableRoot.layout.item },
           },
         };
-        commitDesignerCommand(new AddComponentCommand(placement, { parentId: requestedParentId }));
+        const siblingIndex = beforeComponentId ? parent.children.indexOf(beforeComponentId) : -1;
+        commitDesignerCommand(
+          new AddComponentCommand(placement, {
+            parentId: requestedParentId,
+            ...(siblingIndex >= 0 ? { siblingIndex } : {}),
+          }),
+        );
         selectionManager.selectSingle(node.id);
         addOutput('DESIGNER', `Added reusable component ${node.name}.`);
       } catch (error) {
@@ -970,9 +1013,13 @@ export function App(): ReactElement {
       if (activeDocumentKind === null) return;
       try {
         const component = getComponent(activePage, componentId);
-        const eventDefinition = componentRegistry
-          .get(component.type)
-          ?.events.find((candidate) => candidate.name === eventName);
+        const definition = componentRegistry.get(component.type);
+        const eventDefinition = (
+          definition?.eventsForNode?.(component, {
+            document: activePage,
+            reusableElements: project?.reusableElements,
+          }) ?? definition?.events
+        )?.find((candidate) => candidate.name === eventName);
         const handlerName =
           component.events[eventName] ?? eventHandlerName(pageClassName(component.name), eventName);
         const key = sourceKey(activePage, activeDocumentKind);
@@ -1779,21 +1826,58 @@ export function App(): ReactElement {
     (currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined) ||
     comboBoxConfiguratorComponent !== null;
 
+  const stopPreview = useCallback((): void => {
+    previewActiveRef.current = false;
+    setPreviewActive(false);
+    setPreviewUrl(null);
+    const returnFocus = previewReturnFocusRef.current;
+    previewReturnFocusRef.current = null;
+    window.requestAnimationFrame(() => {
+      if (returnFocus?.isConnected) returnFocus.focus();
+    });
+  }, []);
+
   const runProject = useCallback(async (): Promise<void> => {
-    if (!projectState.project || !projectState.rootPath) return;
-    if (building || debugBusy || deploy.busy || nativeBuild.busy) return;
-    await debugCommand('stop');
-    const requestId = (buildRequestRef.current += 1);
+    const initial = projectController.getSnapshot();
+    if (!initial.project || !initial.rootPath) return;
+    if (
+      previewActiveRef.current ||
+      previewBuildPendingRef.current ||
+      building ||
+      debugBusy ||
+      deploy.busy ||
+      nativeBuild.busy
+    )
+      return;
+    previewReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    previewActiveRef.current = true;
+    previewBuildPendingRef.current = true;
+    previewSaveContextRef.current = { projectId: initial.project.id, rootPath: initial.rootPath };
+    setPreviewActive(true);
+    setPreviewUrl(null);
+    let requestId = (buildRequestRef.current += 1);
     setBuilding(true);
     setBuildDiagnostics([]);
-    setBottomPanelTab('build');
-    setVisiblePanels((current) => ({ ...current, output: true }));
     addOutput('COMPILER', 'Build started.');
     try {
+      await debugCommand('stop');
+      if (!previewActiveRef.current) return;
       await projectController.save();
       const current = projectController.getSnapshot();
       if (!current.project || !current.rootPath) throw new Error('The project is no longer open.');
-      if (requestId !== buildRequestRef.current) return;
+      if (
+        requestId !== buildRequestRef.current ||
+        !previewActiveRef.current ||
+        current.project.id !== initial.project.id ||
+        current.rootPath !== initial.rootPath
+      )
+        return;
+      // Accept the saved model before issuing the build, including when its
+      // revision effect has not run yet. Later edits retain normal invalidation.
+      observedProjectRevisionRef.current = current.revision;
+      previewSaveContextRef.current = null;
+      requestId = (buildRequestRef.current += 1);
       const buildRevision = current.revision;
       const buildRootPath = current.rootPath;
       const result = await window.webrad.build.run({
@@ -1804,6 +1888,7 @@ export function App(): ReactElement {
       const latest = projectController.getSnapshot();
       if (
         requestId !== buildRequestRef.current ||
+        !previewActiveRef.current ||
         latest.rootPath !== buildRootPath ||
         latest.revision !== buildRevision
       ) {
@@ -1813,24 +1898,34 @@ export function App(): ReactElement {
       setBuildDiagnostics(result.diagnostics);
       if (result.success && result.previewUrl) {
         setPreviewUrl(result.previewUrl);
-        setActiveView('preview');
         addOutput('COMPILER', `Build completed in ${result.outputDirectory ?? 'dist'}.`);
       } else {
         setPreviewUrl(null);
+        if (!result.diagnostics.some((diagnostic) => diagnostic.category === 'error')) {
+          setBuildDiagnostics([
+            ...result.diagnostics,
+            { category: 'error', message: 'The compiler did not produce a runnable preview.' },
+          ]);
+        }
         setVisiblePanels((currentPanels) => ({ ...currentPanels, output: true }));
         setBottomPanelTab('problems');
         addOutput('COMPILER', 'Build failed. See Problems for details.');
       }
     } catch (error) {
-      if (requestId === buildRequestRef.current) reportError(error, 'COMPILER');
+      if (requestId === buildRequestRef.current && previewActiveRef.current) {
+        setBuildDiagnostics([{ category: 'error', message: asError(error).message }]);
+        setVisiblePanels((current) => ({ ...current, output: true }));
+        setBottomPanelTab('problems');
+        reportError(error, 'COMPILER');
+      }
     } finally {
-      if (requestId === buildRequestRef.current) setBuilding(false);
+      previewSaveContextRef.current = null;
+      previewBuildPendingRef.current = false;
+      setBuilding(false);
     }
   }, [
     addOutput,
     projectController,
-    projectState.project,
-    projectState.rootPath,
     reportError,
     building,
     debugBusy,
@@ -1841,6 +1936,8 @@ export function App(): ReactElement {
 
   const executeCommand = useCallback(
     (command: IdeCommand, target?: 'designer'): void => {
+      // Native menu commands must not reach the hidden authoring workspace.
+      if (previewActiveRef.current && command !== 'run.stop' && command !== 'file.exit') return;
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
       if (
         modalOpen &&
@@ -1919,7 +2016,7 @@ export function App(): ReactElement {
           if (activeWorkspace === 'page') setActiveView('code');
           break;
         case 'view.preview':
-          if (activeWorkspace === 'page') setActiveView('preview');
+          void runProject();
           break;
         case 'view.projectExplorer':
           setVisiblePanels((current) => ({ ...current, explorer: !current.explorer }));
@@ -1951,6 +2048,9 @@ export function App(): ReactElement {
         case 'project.build':
         case 'run.run':
           void runProject();
+          break;
+        case 'run.stop':
+          if (previewActiveRef.current) stopPreview();
           break;
         case 'project.deploy':
           void deployProject();
@@ -2016,6 +2116,7 @@ export function App(): ReactElement {
       pasteSelection,
       redo,
       runProject,
+      stopPreview,
       deployProject,
       deploy.busy,
       openBuildApplication,
@@ -2077,6 +2178,7 @@ export function App(): ReactElement {
         event.isComposing ||
         event.repeat ||
         modalOpen ||
+        previewActiveRef.current ||
         activeWorkspace !== 'page' ||
         activePage === null ||
         activeSourceFile ||
@@ -2363,10 +2465,6 @@ export function App(): ReactElement {
         onDeleteStyle={deleteStyle}
       />
     </ErrorBoundary>
-  ) : activeView === 'preview' && (activeAsset || activeSourceFile) ? (
-    <ErrorBoundary area="Preview">
-      <PreviewPane url={previewUrl} running={building} diagnostics={buildDiagnostics} />
-    </ErrorBoundary>
   ) : activeAsset ? (
     <ProjectAssetPreview asset={activeAsset} />
   ) : activeSourceFile ? (
@@ -2413,6 +2511,7 @@ export function App(): ReactElement {
         settings={project?.settings ?? DEFAULT_PROJECT_SETTINGS}
         selectedIds={selection.ids}
         selectedPaletteType={selectedPaletteType}
+        onCancelInsertion={cancelPaletteInsertion}
         zoom={zoom}
         onSelect={(ids, primaryId) => selectionManager.set(ids, primaryId)}
         onAddComponent={addComponentAt}
@@ -2435,7 +2534,7 @@ export function App(): ReactElement {
         showToolbar={false}
       />
     </ErrorBoundary>
-  ) : activeView === 'code' ? (
+  ) : (
     <ErrorBoundary area="Monaco">
       <CodeEditor
         sourcePath={activeSourceKey ?? undefined}
@@ -2474,10 +2573,6 @@ export function App(): ReactElement {
         onCursorChange={setCursor}
         onSave={() => void saveProject()}
       />
-    </ErrorBoundary>
-  ) : (
-    <ErrorBoundary area="Preview">
-      <PreviewPane url={previewUrl} running={building} diagnostics={buildDiagnostics} />
     </ErrorBoundary>
   );
 
@@ -2524,9 +2619,11 @@ export function App(): ReactElement {
         })}
       </style>
       <div
-        className="wr-ide-modal-host"
-        inert={modalOpen ? true : undefined}
-        aria-hidden={modalOpen ? true : undefined}
+        className={
+          previewActive ? 'wr-ide-modal-host wr-ide-preview-suspended' : 'wr-ide-modal-host'
+        }
+        inert={modalOpen || previewActive ? true : undefined}
+        aria-hidden={modalOpen || previewActive ? true : undefined}
       >
         <IdeShell
           toolbar={
@@ -2866,6 +2963,15 @@ export function App(): ReactElement {
           }
         />
       </div>
+      {previewActive && (
+        <PreviewWorkspace
+          projectName={project?.name ?? 'Application'}
+          url={previewUrl}
+          building={building}
+          diagnostics={buildDiagnostics}
+          onStop={stopPreview}
+        />
+      )}
       {updates.state.status === 'installing' && <UpdateInstallingDialog />}
       {aboutDialogOpen && <AboutDialog onClose={() => setAboutDialogOpen(false)} />}
 

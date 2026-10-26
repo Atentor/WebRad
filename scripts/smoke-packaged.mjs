@@ -186,6 +186,11 @@ try {
               'renderer Timer Inspector and Interact passed:',
               'renderer Lucide Icons Inspector and F9 passed:',
               'renderer Menu Inspector and F9 passed: project scrollbar, Light/Dark switch configuration and local preview, persisted themeToggle, desktop/mobile application theme and focus, header icon opposite logo,',
+              'renderer reusable Menu Interaction passed:',
+              'renderer Designer insertion feedback passed:',
+              'renderer Menu icon geometry passed:',
+              'renderer Menu search Enter passed:',
+              'renderer Menu search focus passed:',
               'renderer Menu configurator layout passed:',
               'renderer Menu canvas geometry passed:',
               'renderer Menu compiled viewports passed:',
@@ -231,6 +236,7 @@ try {
               'renderer F9 preview passed: Olá Ada',
               'renderer Designer/Preview button style parity passed / page available width',
               'renderer Preview isolation passed:',
+              'renderer exclusive Preview and Stop passed:',
             ];
   const missingEvidence = [...requiredEvidence, 'renderer workflow completed'].filter(
     (entry) => !log.includes(entry),

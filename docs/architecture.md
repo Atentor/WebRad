@@ -132,9 +132,26 @@ At renderer startup, `ProjectController.restoreLastProject()` invokes the narrow
 
 The controller caches the restore promise for React StrictMode and ignores a restored session superseded by manual project operations. A restored session activates the usual entry page and starts clean, using saved project files and authored source. Closing a project releases its filesystem capability while retaining its last-opened preference for the next application launch. This application preference does not change the version 2 Project Model or generated browser applications.
 
+## Preview window menu
+
+The dedicated Preview hides the native IDE menu throughout compilation and
+execution. A narrow `lifecycle.setPreviewMode(boolean)` preload method updates
+the menu in main through an IPC handler restricted to the trusted IDE main frame
+and exactly one boolean argument. Windows/Linux detach the window menu so Alt
+cannot reveal it; macOS temporarily clears the application menu. Leaving Preview
+restores the original menu, as does renderer startup or a renderer crash. The
+Preview bar and Stop control remain available. Existing Electron smoke checks
+require the native menu to be absent in Preview and restored after Stop.
+
 ## Designer model
 
-The IDE workspace follows the supplied Bubble Designer reference with a 42px top toolbar, a 40px activity rail, a Builder/Responsive sidebar, a central canvas, and a full-height Inspector. Open-document tabs, the selected-component chip, zoom, save state, diagnostic counts, and Preview actions belong to the toolbar. Activity buttons invoke the existing Design, Code, Preview, Project Explorer, Styles, Project Settings, and Output operations. Output starts collapsed and opens for build activity or diagnostics; its dock remains below the compact nonvisual tray in the editor column.
+The IDE workspace follows the supplied Bubble Designer reference with a 42px top toolbar, a 40px activity rail, a Builder/Responsive sidebar, a central canvas, and a full-height Inspector. Open-document tabs, the selected-component chip, zoom, save state, diagnostic counts, and Preview actions belong to the toolbar. Activity buttons invoke Project Explorer, Styles, Project Settings, RestGo, and Output operations. Output starts collapsed and opens for diagnostics; its dock remains below the compact nonvisual tray in the editor column.
+
+Preview, F9, and View > Preview all save and compile the current application into an exclusive workspace. The generated application fills the window below a 42px Preview bar containing the project name and a visible red **Stop** button. The authoring shell stays mounted at its original dimensions to retain Monaco view state, Designer geometry, selection, document, workspace, and panel sizes, but is invisible, inert, and hidden from accessibility navigation. Native IDE commands and F12 cannot return to editing while Preview is active. Stop removes the iframe and restores the authoring workspace and prior focus; it also works during compilation, and a late result cannot reopen Preview. An already running compilation finishes in the background before another Preview build can start. Build errors appear in Preview, with full Problems available after Stop. Preview state is ephemeral and does not change the persisted Project Model. The separate debugging workflow remains unchanged.
+
+Preview preparation tracks its project ID and root while saving. A clean revision produced by pruning empty handlers in that same Save is accepted as part of the run; the build captures its revision after Save completes. Revision invalidation reads the current Project Controller snapshot so a delayed React effect cannot discard that accepted revision. Authored edits, project replacement and Stop still invalidate the pending Preview, and later build results cannot reopen it.
+
+Reusable Menu event relaying lives in the internal runtime module `menu-events.ts`. It retains per-element bindings and disposal without exporting a relay helper through `@webrad/runtime` or its public Menu subpath; Monaco and authored code use the registered typed Menu events.
 
 Builder projects the active document's element hierarchy above the Registry-backed assets palette. Hierarchy order comes from the root node and each node's `children`, never from coordinates or component names. The tree, canvas, selected-component chip, and Inspector consume the same ordered stable-ID selection, including explicit root selection. Tree search, keyboard navigation, collapse, and multiselection operate on this projection without copying or rewriting component nodes. A later canvas selection reveals its collapsed ancestors. Palette captions and icons resolve through the central Component Registry.
 
@@ -146,7 +163,7 @@ The page surface renders real component DOM from the same browser-safe property 
 
 Authored child hosts carry ephemeral `data-designer-parent-id` metadata, including empty Registry-owned containers. The browser-only `designer-host-geometry.ts` measures that host's content origin, borders, scrolling and available dimensions at the current zoom. Drops, drag, keyboard movement and resize use these measurements and the projected selection size, including intrinsic sizing and margins. The workbench persists the already-constrained movement delta rather than constraining it again against saved fallback dimensions; reusable definition internals remain encapsulated. Resize handles appear only for axes whose visible dimensions are controlled by bounds. Flow containers expose trailing edges for those axes; automatic sizing and anchored layouts use Inspector layout controls rather than gestures that would write invisible changes.
 
-Designer history compares each immutable model projection with its current command state once and reuses that result until either changes. Opening an already-bound event is navigation and creates no additional history entry. Native edit commands resolve against the visible workspace and current focus through `workbench-commands.ts`; modal dialogs block both menu commands and F9/F12 shortcuts. The document's Design/Code tabs sit above the central editor. Unmodified F12 toggles these views for pages and reusable components in the window capture phase, including while Monaco is focused; modified F12 combinations remain available to the editor. Source-only documents and assets keep the Code control to return from Preview, with Design disabled and no F12 toggle. Styles and RestGo omit this navigation.
+Designer history compares each immutable model projection with its current command state once and reuses that result until either changes. Opening an already-bound event is navigation and creates no additional history entry. Native edit commands resolve against the visible workspace and current focus through `workbench-commands.ts`; modal dialogs block both menu commands and F9/F12 shortcuts. The document's Design/Code tabs sit above the central editor. Unmodified F12 toggles these views for pages and reusable components in the window capture phase, including while Monaco is focused; modified F12 combinations remain available to the editor. Source-only documents and assets keep the Code control, with Design disabled and no F12 toggle. Styles and RestGo omit this navigation. All workspaces return from the exclusive Preview through Stop.
 
 Designer commands apply the Project Model's canonical projection with the current
 page/reusable context before entering history. Automatic layout changes retain
@@ -168,6 +185,30 @@ DOM-less nonvisual nodes remain children of the page in the Project Model but ar
 
 Component IDs are immutable. Names are validated TypeScript identifiers unique within a page. Version 2 removes page-level `layoutMode`: each component persists a container mode (`fixed`, `align-to-parent`, `row`, or `column`) plus item sizing, constraints, anchors, and insets. `bounds` remains the deterministic geometry fallback for fixed-size axes. In a fixed container, `stretch` preserves the component's `x`/`y` as its leading offset and uses the matching trailing inset; `fit-content` preserves that leading offset and grows around rendered content rather than shrinking descendants. The shared browser projection uses intrinsic sizing for flow content and observes fixed/anchored child envelopes for dynamic growth, with min/max constraints applied only as bounds. An in-flow reusable definition receives the same intrinsic bootstrapping only until a placement maximum applies; an explicit maximum always caps the definition root as well. The Designer keeps derived sizes local to each physical reusable placement, allowing nested instances of the same template to remain independent. These derived dimensions stay in the projection, never in the model. Runtime and Designer implementations must derive their layout from this shared Project Model contract rather than retaining independent layout state.
 
+Palette and reusable drags share transient insertion feedback. The Designer
+highlights the destination container and projects a dashed
+component footprint for fixed placement. The footprint and the actual creation
+command use `projectInsertionBounds` from `@webrad/designer` for grid snapping
+and clamping against the measured child host, including zoom and scroll offsets.
+Registered automatic layouts retain the destination contour instead of an
+incorrect fixed-size footprint. Row and Column containers show an insertion
+line; dropping creates the component at the indicated sibling
+index in one `AddComponentCommand`, preserving ordinary undo/redo.
+
+`useDesignerDropFeedback` batches feedback to animation frames and invalidates it
+when the document or viewport changes. Leaving the target clears its decoration;
+Escape, drag end, drop, blur, and document hiding clear the gesture and disarm
+palette insertion. Native protected dragover data is resolved from the current
+internal drag descriptor; drop reads the real DataTransfer payload again. None
+of this hover state is persisted. The information card and the native snapshot
+of the dragged palette/Explorer item are suppressed; destination names and placement
+details remain available to assistive technology. Footprint text and borders retain
+readable screen sizes across zoom levels and use IDE theme colors. Tray-authored components
+highlight the nonvisual tray, and self-referencing reusable drops receive an
+invalid-state hint. The existing Electron Menu smoke checks palette footprint,
+reusable parent feedback, pre-drop immutability and cancellation, with required
+evidence in both smoke runners. These changes introduce no Project Model format change.
+
 ## Reusable visual components
 
 Reusable Components follow the same model-first boundary. The project manifest owns a `reusableElements` collection of page-shaped definitions, each with a `WebPanel` root; they are not routes. Each definition has deterministic generated and authored TypeScript companions under `reusables/`, just as pages do under `pages/`. The Registry supplies one visual, childless `WebReusableElement` wrapper type. A wrapper is placed in a page or another definition through its `reusableElementId` property, while the definition remains the sole owner of its child hierarchy. The Designer renders that reference in place, opens the definition with Design, Code, and Preview views, and exposes draggable definitions through Project Explorer. No IDE view reconstructs a reusable by copying its children into the placement node.
@@ -179,6 +220,17 @@ At runtime, `mountPage()` expands definitions after compilation and before DOM c
 Instance geometry belongs to the `WebReusableElement` wrapper, not the definition. In-flow instances use the normal shared responsive-layout projection. A wrapper with `placement: "floating"` instead projects as a fixed viewport overlay with its own horizontal/vertical viewport anchors, bounds offsets, and z-index; it leaves the shared definition and its layout untouched. The runtime hosts floating instance DOM in a page-owned sibling overlay layer outside the styled page tree, so transforms or clipping on a panel cannot turn the fixed placement into a parent-relative element. The definition root fills the wrapper, which preserves its visual composition at every placement size.
 
 Every physical reusable placement receives its own authored class instance after the page mounts. Its generated class exposes the definition's visual controls (including a tray-authored `WebPopup`), creates any DOM-less nonvisual services, and binds persisted events exactly as a page-generated class does. Event handlers and instance fields are therefore isolated per placement. `this.name` continues to identify the reusable definition root, while readonly `this.pageName` identifies the containing page for inline, nested, and floating placements. Generated code receives an explicit template-to-physical component-ID map, rather than relying on the scoped-ID string format, so an unusual ID collision cannot bind a handler to the wrong element. Definition children remain encapsulated: a host page can address only the wrapper, while the reusable's own authored class addresses its descendants.
+
+Reusable Menu placements expose their internal Menu interactions through the
+Registry's contextual `eventsForNode` metadata. Inspector authoring and compiler
+event validation resolve the same metadata against the saved reusable definition.
+The runtime associates each internal Menu with its physical placement host and
+dispatches each interaction locally before relaying the same cancelable event to
+that host. Page handlers receive a typed `WebReusableElement` sender and the
+original Menu detail type. This keeps internal-before-placement invocation
+independent of construction/listener order, preserves cancellation before
+automatic navigation, and avoids bubbling Menu events into unrelated controls.
+The mounted placement releases the relay with its layout bindings.
 
 ## Internal page navigation
 

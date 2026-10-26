@@ -19,7 +19,11 @@ childProcess.execFileSync = (command, arguments_) => {
           sha: process.env.WEBRAD_RELEASE_TEST_TAG_SHA || process.env.GITHUB_SHA,
         },
       });
-    if (arguments_[1].includes('/actions/workflows/release.yml/runs?')) {
+    if (
+      ['release', 'validate', 'security'].some((workflow) =>
+        arguments_[1].includes(`/actions/workflows/${workflow}.yml/runs?`),
+      )
+    ) {
       if (process.env.WEBRAD_RELEASE_TEST_RUNS_FAILURE) throw new Error('Actions API failed.');
       return (
         process.env.WEBRAD_RELEASE_TEST_RUNS ||

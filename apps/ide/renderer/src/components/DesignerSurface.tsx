@@ -16,6 +16,7 @@ import {
   normalizeBounds,
   normalizeTopLevelIds,
   resizeBounds,
+  projectInsertionBounds,
   unionBounds,
   type Point,
   type MovementConstraint,
@@ -53,7 +54,14 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
+import { WEBRAD_COMPONENT_DRAG_TYPE, WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
+import { getDesignerDragPayload, type DesignerDragPayload } from './designer-drag-data';
+import { useDesignerDropFeedback } from './useDesignerDropFeedback';
+import {
+  DesignerInsertionFeedback,
+  type DesignerInsertionPreview,
+} from './DesignerInsertionFeedback';
+import { designerInsertionBounds } from './designer-insertion-bounds';
 import { useDesignerAvailableWidth } from './useDesignerAvailableWidth';
 import { useDesignerPointerInteraction } from './useDesignerPointerInteraction';
 import { measureDesignerChildrenHost, measureDesignerNodeMargins } from './designer-host-geometry';
@@ -72,10 +80,21 @@ interface DesignerSurfaceProps {
   compiledStylesCss?: string;
   selectedIds: readonly string[];
   selectedPaletteType: string | null;
+  onCancelInsertion?: () => void;
   zoom: number;
   onSelect: (ids: readonly string[], primaryId?: string) => void;
-  onAddComponent: (type: string, point: Point, parentId: string) => void;
-  onAddReusableElement?: (reusableElementId: string, point: Point, parentId: string) => void;
+  onAddComponent: (
+    type: string,
+    point: Point,
+    parentId: string,
+    beforeComponentId?: string | null,
+  ) => void;
+  onAddReusableElement?: (
+    reusableElementId: string,
+    point: Point,
+    parentId: string,
+    beforeComponentId?: string | null,
+  ) => void;
   onMoveComponents: (ids: readonly string[], delta: Point) => void;
   /**
    * The host owns the structural command. `beforeComponentId` is null when the
@@ -1312,6 +1331,7 @@ export function DesignerSurface({
   compiledStylesCss = '',
   selectedIds,
   selectedPaletteType,
+  onCancelInsertion,
   zoom,
   onSelect,
   onAddComponent,
@@ -1341,6 +1361,10 @@ export function DesignerSurface({
     [page, zoom, viewportName, availableWidth, settings, selectedPaletteType],
   );
   const pointerInteraction = useDesignerPointerInteraction<Interaction>(interactionContext);
+  const dropFeedback = useDesignerDropFeedback<DesignerInsertionPreview>(
+    interactionContext,
+    onCancelInsertion,
+  );
   const { interaction } = pointerInteraction;
   const setViewportName = (value: ViewportName): void => {
     setLocalViewportName(value);
@@ -1639,7 +1663,13 @@ export function DesignerSurface({
     };
   };
 
-  const insertionTarget = (point: Point): { parentId: string; point: Point } => {
+  const insertionTarget = (point: Point): {
+    parentId: string;
+    point: Point;
+    origin: Point;
+    beforeComponentId?: string | null;
+    indicatorBounds?: Bounds;
+  } => {
     const candidates = [...layout]
       .reverse()
       .filter(
@@ -1654,24 +1684,183 @@ export function DesignerSurface({
       x: parent?.absoluteBounds.x ?? 0,
       y: parent?.absoluteBounds.y ?? 0,
     };
+    const targetParent = byId.get(parentId);
+    const reorder =
+      targetParent === undefined
+        ? undefined
+        : reorderTargetForPoint(targetParent, [], point, layoutById);
+    const flow = targetParent !== undefined && isFlowMode(targetParent.layout.container.mode);
+    const padding = targetParent?.layout.container;
+    const emptyIndicator =
+      !flow || targetParent === undefined
+        ? undefined
+        : {
+            x: origin.x + (padding?.paddingLeft ?? 0),
+            y: origin.y + (padding?.paddingTop ?? 0),
+            width:
+              padding?.mode === 'row'
+                ? 4 / scale
+                : Math.max(
+                    24,
+                    (host?.bounds.width ?? targetParent.bounds.width) -
+                      (padding?.paddingLeft ?? 0) - (padding?.paddingRight ?? 0),
+                  ),
+            height: padding?.mode === 'row' ? 32 : 4 / scale,
+          };
     return {
       parentId,
       point: { x: Math.max(0, point.x - origin.x), y: Math.max(0, point.y - origin.y) },
+      origin,
+      ...(flow
+        ? {
+            beforeComponentId: reorder?.beforeComponentId ?? null,
+            indicatorBounds: reorder?.indicatorBounds ?? emptyIndicator,
+          }
+        : {}),
     };
   };
 
+  const insertionPreview = (
+    payload: DesignerDragPayload,
+    point: Point,
+  ): DesignerInsertionPreview | null => {
+    const reusable = payload.kind === 'reusable' ? reusableElementsById.get(payload.id) : undefined;
+    const definition = componentRegistry.get(
+      payload.kind === 'component' ? payload.type : 'WebReusableElement',
+    );
+    if (
+      definition === undefined ||
+      definition.type === 'WebPage' ||
+      (payload.kind === 'reusable' && reusable === undefined)
+    )
+      return null;
+    const tray = resolveComponentDesignerPresentation(definition) === 'tray';
+    const target: ReturnType<typeof insertionTarget> = tray
+      ? { parentId: page.rootComponentId, point: { x: 0, y: 0 }, origin: { x: 0, y: 0 } }
+      : insertionTarget(point);
+    const parent = byId.get(target.parentId);
+    if (parent === undefined) return null;
+    const bounds = projectInsertionBounds(
+      target.point,
+      reusable ?? definition.defaultBounds,
+      designerInsertionBounds(parent, page, surfaceRef.current, scale),
+      settings.snapToGrid ? settings.gridSize : undefined,
+    );
+    const path: string[] = [];
+    let ancestor: ComponentNode | undefined = parent;
+    const visited = new Set<string>();
+    while (ancestor !== undefined && !visited.has(ancestor.id)) {
+      visited.add(ancestor.id);
+      path.unshift(ancestor.name);
+      ancestor = ancestor.parentId === null ? undefined : byId.get(ancestor.parentId);
+    }
+    const invalid = payload.kind === 'reusable' && payload.id === page.id;
+    const before = target.beforeComponentId ? byId.get(target.beforeComponentId) : undefined;
+    const flow = !tray && isFlowMode(parent.layout.container.mode);
+    const automatic =
+      definition.automaticLayout?.(
+        componentRegistry.createComponent(definition.type, {
+          id: 'designer-insertion-preview',
+          parentId: parent.id,
+          ...(reusable ? { props: { reusableElementId: reusable.id } } : {}),
+        }),
+        { document: page, reusableElements },
+      ) === true;
+    const rowHost =
+      componentRegistry.get(parent.type)?.designerChildHost === 'repeating-row'
+        ? measureDesignerChildrenHost(surfaceRef.current, parent.id, scale)
+        : undefined;
+    const detail = invalid
+      ? 'A reusable cannot contain itself'
+      : tray
+        ? 'Add to the nonvisual tray'
+        : automatic
+          ? 'Automatic placement'
+          : flow
+            ? `${parent.layout.container.mode === 'row' ? 'Row' : 'Column'} · ${before ? `Before ${before.name}` : 'At the end'}`
+            : `X ${Math.round(bounds.x)} · Y ${Math.round(bounds.y)}${settings.snapToGrid ? ` · Grid ${settings.gridSize}` : ''}`;
+    return {
+      parentId: parent.id,
+      parentBounds: rowHost
+        ? { ...rowHost.bounds, x: rowHost.origin.x, y: rowHost.origin.y }
+        : (layoutById.get(parent.id)?.absoluteBounds ?? {
+            x: 0,
+            y: 0,
+            width: viewportWidth,
+            height: viewportHeight,
+          }),
+      parentPath: tray ? 'Nonvisual Components' : path.join(' › '),
+      componentLabel: reusable?.name ?? definition.displayName,
+      detail,
+      ...(!tray && !invalid && !flow && !automatic
+        ? {
+            ghostBounds: {
+              ...bounds,
+              x: bounds.x + target.origin.x,
+              y: bounds.y + target.origin.y,
+            },
+          }
+        : {}),
+      ...(!tray && !invalid && flow ? { indicatorBounds: target.indicatorBounds } : {}),
+      tray,
+      invalid,
+    };
+  };
+
+  const dragPayload = (event: DragEvent<HTMLDivElement>): DesignerDragPayload | null => {
+    const reusableId = event.dataTransfer.getData(WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE);
+    if (reusableId) return { kind: 'reusable', id: reusableId };
+    const type = event.dataTransfer.getData(WEBRAD_COMPONENT_DRAG_TYPE);
+    if (type) return { kind: 'component', type };
+    const supported = Array.from(event.dataTransfer.types ?? []).some(
+      (type) => type === WEBRAD_COMPONENT_DRAG_TYPE || type === WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE,
+    );
+    return supported ? getDesignerDragPayload() : null;
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>): void => {
+    const payload = dragPayload(event);
+    const preview = payload === null ? null : insertionPreview(payload, eventPoint(event));
+    if (preview === null) {
+      dropFeedback.clear();
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = preview.invalid ? 'none' : 'copy';
+    dropFeedback.show(preview);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>): void => {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))
+      return;
+    const rectangle = event.currentTarget.getBoundingClientRect();
+    if (
+      event.clientX > rectangle.left && event.clientX < rectangle.right &&
+      event.clientY > rectangle.top && event.clientY < rectangle.bottom
+    )
+      return;
+    dropFeedback.clear();
+  };
+
   const insertAt = (type: string, point: Point): void => {
+    dropFeedback.clear();
     if (appearsInDesignerTray(type)) {
       onAddComponent(type, { x: 0, y: 0 }, page.rootComponentId);
       return;
     }
     const target = insertionTarget(point);
-    onAddComponent(type, target.point, target.parentId);
+    if (target.beforeComponentId !== undefined)
+      onAddComponent(type, target.point, target.parentId, target.beforeComponentId);
+    else onAddComponent(type, target.point, target.parentId);
   };
 
   const insertReusableElementAt = (reusableElementId: string, point: Point): void => {
+    dropFeedback.clear();
+    if (reusableElementId === page.id) return;
     const target = insertionTarget(point);
-    onAddReusableElement?.(reusableElementId, target.point, target.parentId);
+    if (target.beforeComponentId !== undefined)
+      onAddReusableElement?.(reusableElementId, target.point, target.parentId, target.beforeComponentId);
+    else onAddReusableElement?.(reusableElementId, target.point, target.parentId);
   };
 
   const activateComponent = (componentId: string): void => {
@@ -2063,19 +2252,25 @@ export function DesignerSurface({
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>): void => {
+    const payload = dragPayload(event);
+    dropFeedback.clear();
+    if (payload === null) return;
+    const preview = insertionPreview(payload, eventPoint(event));
+    if (preview === null || preview.invalid) return;
     event.preventDefault();
     const reusableElementId = event.dataTransfer.getData(WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE);
     if (reusableElementId.length > 0) {
       insertReusableElementAt(reusableElementId, eventPoint(event));
       return;
     }
-    const type = event.dataTransfer.getData('application/x-webrad-component');
+    const type = event.dataTransfer.getData(WEBRAD_COMPONENT_DRAG_TYPE);
     if (type) insertAt(type, eventPoint(event));
   };
 
   const handleNonvisualDrop = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault();
-    const type = event.dataTransfer.getData('application/x-webrad-component');
+    dropFeedback.clear();
+    const type = event.dataTransfer.getData(WEBRAD_COMPONENT_DRAG_TYPE);
     if (appearsInDesignerTray(type)) {
       onAddComponent(type, { x: 0, y: 0 }, page.rootComponentId);
     }
@@ -2224,11 +2419,22 @@ export function DesignerSurface({
             <div
               className="wr-design-overlay"
               onPointerDown={startMarquee}
-              onPointerMove={updateInteraction}
+              onPointerMove={(event) => {
+                updateInteraction(event);
+                if (pointerInteraction.get() === null && selectedPaletteType && event.buttons === 0) {
+                  const preview = insertionPreview(
+                    { kind: 'component', type: selectedPaletteType },
+                    eventPoint(event),
+                  );
+                  if (preview) dropFeedback.show(preview);
+                }
+              }}
+              onPointerLeave={() => dropFeedback.clear()}
               onPointerUp={finishInteraction}
               onPointerCancel={(event) => pointerInteraction.cancelPointer(event.pointerId)}
               onLostPointerCapture={(event) => pointerInteraction.cancelPointer(event.pointerId)}
-              onDragOver={(event) => event.preventDefault()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
               {layout.map(({ node, absoluteBounds, order }) => {
@@ -2272,6 +2478,9 @@ export function DesignerSurface({
                   </div>
                 );
               })}
+              {dropFeedback.feedback && !dropFeedback.feedback.tray && (
+                <DesignerInsertionFeedback preview={dropFeedback.feedback} scale={scale} />
+              )}
               {reorderIndicator && (
                 <div
                   className="wr-flow-drop-indicator"
@@ -2299,8 +2508,14 @@ export function DesignerSurface({
         </div>
       </div>
       <div
-        className="wr-nonvisual-tray"
-        onDragOver={(event) => event.preventDefault()}
+        className={`wr-nonvisual-tray${dropFeedback.feedback?.tray ? ' wr-nonvisual-tray-drop-active' : ''}`}
+        onDragOver={(event) => {
+          const payload = dragPayload(event);
+          if (payload?.kind === 'component' && appearsInDesignerTray(payload.type))
+            handleDragOver(event);
+          else dropFeedback.clear();
+        }}
+        onDragLeave={handleDragLeave}
         onDrop={handleNonvisualDrop}
       >
         <div className="wr-nonvisual-tray-header" id="wr-nonvisual-tray-heading">

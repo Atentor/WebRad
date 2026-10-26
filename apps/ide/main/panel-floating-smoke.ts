@@ -1,4 +1,5 @@
 import type { BrowserWindow, WebFrameMain } from 'electron';
+import { stopPreviewSmoke } from './preview-workspace-smoke';
 import { loadProjectFiles } from './project-files';
 
 const field = (label: string) => `(() => {
@@ -203,6 +204,7 @@ export async function runPanelFloatingSmoke(
     Reflect.get(evidence, 'delta') !== 120
   )
     throw new Error(`Panel did not scroll with the page: ${JSON.stringify(evidence)}`);
+  await stopPreviewSmoke(window);
   await click('button[aria-label="Design"]');
   await click(`[role="treeitem"][data-component-id=${JSON.stringify(id)}]`);
   await click('button[role="tab"][aria-label="Properties"]');
