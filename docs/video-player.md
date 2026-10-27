@@ -1,85 +1,133 @@
 # Video Player
 
-O estilo **Default Video Player** segue Aurora: fundo em degradê Graphite/Ink, borda Sky/Lavender de 1 px, cantos de 6 px, texto branco e sombra suave. Hover aumenta a sombra; foco nos controles mostra um anel azul; desabilitado reduz a opacidade. As cores ficam vinculadas à paleta do projeto. O estilo usa `contain` e posição central para preservar o enquadramento do vídeo.
+**Video Player** is a visual **Standard** component backed by `WebVideoPlayer` and
+bundled Shaka Player. The embedded snapshot currently records Shaka **5.3.2** in
+`packages/compiler/src/shaka-sources.generated.json`. Applications using the
+component include its JavaScript, control CSS, and
+`assets/licenses/Shaka-Player-Apache-2.0.txt`, without a CDN or Electron/Node.js.
 
-Projetos antigos que ainda não possuem esse estilo recebem a definição ao abrir, disponível para seleção em **Style** e aplicada automaticamente aos novos Video Players. Estilos e vínculos já salvos são preservados.
+The protected **Default Video Player** style supplies its surface, border,
+corners, interaction states, and centered `contain` fit. Missing defaults are
+restored on project load with deterministic identities; existing styles and
+bindings are preserved. New players use the default. See [themes](themes.md) for
+current theme behavior and legacy style preservation.
 
-`Video Player` é um componente visual da paleta **Standard**. A classe `WebVideoPlayer` usa [Shaka Player 5.2.13](https://github.com/shaka-project/shaka-player/releases/tag/v5.2.13), o último release estável verificado em 12/10/2026. Quando utilizado, a aplicação exportada inclui o JavaScript, o CSS dos controles e `assets/licenses/Shaka-Player-Apache-2.0.txt`; não depende de CDN, Electron ou Node.js.
+## Sizing and sources
 
-Em **Properties → Video → Aspect ratio**, escolha `none` (padrão), `16:9` (horizontal) ou `9:16` (vertical). Uma proporção fixa calcula a altura a partir da largura responsiva do componente, tanto no Designer quanto no Preview e na aplicação exportada. Configure a largura como **Stretch** para acompanhar o espaço do container. A proporção fixa tem precedência sobre altura, limites verticais, stretch vertical e crescimento vertical; `none` restaura essas regras salvas. O ajuste do conteúdo continua sendo controlado por **Object fit**.
+In **Properties → Video → Aspect ratio**, select `none` (default), `16:9`, or
+`9:16`. A fixed ratio derives height from responsive width in Designer, Preview,
+and exports. **Stretch** width follows available container space. The ratio
+overrides saved vertical height, limits, stretch, and growth without deleting
+those rules; `none` restores them. **Object fit** controls content framing.
+The typed property is also available as `VideoPlayer1.aspectRatio`.
 
-A mesma propriedade é tipada no código: `VideoPlayer1.aspectRatio = '16:9'` ou `this.VideoPlayer1.aspectRatio = '9:16'`. Para voltar ao dimensionamento livre, atribua `'none'`.
-
-Adicione `VideoPlayer1` à página. Para um vídeo RestGo já convertido:
+For a processed RestGo video:
 
 ```ts
 try {
-  await VideoPlayer1.LoadRestGo('ID-DO-VIDEO');
+  await VideoPlayer1.LoadRestGo('VIDEO-ID');
   await VideoPlayer1.Play();
-} catch (erro) {
-  Message(erro instanceof Error ? erro.message : String(erro));
+} catch (error) {
+  Message(error instanceof Error ? error.message : String(error));
 }
 ```
 
-O RestGo deve estar configurado na conexão do projeto. O carregamento consulta primeiro o descritor público; quando o vídeo exige autenticação, utiliza a sessão Authentication compartilhada. Também é possível selecionar explicitamente `LoadRestGo(id, { public: true })` ou `{ public: false }`. Vídeos privados exigem login do dono; o componente não substitui a sessão por token administrativo ou token de API.
+Configure the project RestGo connection first. Loading tries the public descriptor,
+then the shared Authentication session when required. Explicit
+`LoadRestGo(id, { public: true })` or `{ public: false }` selects the route. Private
+videos require an authorized owner session, without administrative/API-token fallback.
 
-Para conectar upload e reprodução:
+To connect upload and playback:
 
 ```ts
-const arquivo = await VideoUpload1.OpenFile();
-if (!arquivo) return;
+const file = await VideoUpload1.OpenFile();
+if (!file) return;
 const video = await VideoUpload1.SendToRestGO({ isPublic: false });
-// Faça login antes do envio. Se o processamento automático estiver desabilitado,
-// execute RestGO.videos.process(video.id) explicitamente.
+// Sign in before upload. If automatic processing is disabled on the server,
+// explicitly call RestGO.videos.process(video.id).
 await VideoUpload1.WaitUntilReady({ timeoutMs: 600_000 });
 await this.VideoPlayer1.LoadRestGo(video.id);
 await this.VideoPlayer1.Play();
 ```
 
-Upload não carrega nem reproduz automaticamente. Reprodução após uma operação longa pode exigir outra interação do usuário; `Play()` retorna a rejeição de autoplay para tratamento. `autoplay` é `false` por padrão. Uma rejeição de autoplay mantém a fonte carregada, permitindo nova tentativa.
+Upload never starts playback automatically. A long operation may require a fresh
+user activation before `Play()`. Autoplay defaults to false; rejection leaves
+the source loaded for another attempt.
 
-No Inspector, **Video source** permite **None (load by code)**, **RestGo video** com ID, ou **HLS / DASH URL** com manifesto HTTP(S). Edite o rascunho e clique **Apply source**; alterações são persistidas no Project Model e participam de undo/redo. Fonte persistida carrega no runtime; no Designer o componente só mostra a representação, sem solicitar playlist, segmento ou iniciar playback. URLs YouTube são rejeitadas: a proposta não inclui iframe, extração de streams ou outro provedor.
+The **Video source** editor offers **None (load by code)**, **RestGo video** with
+ID, or **HLS / DASH URL**. **Apply source** commits an undoable model change.
+Saved sources load at runtime; Designer renders a representation without fetching
+playlists/segments or playing media. YouTube URLs are rejected; iframe embedding
+and stream extraction are outside this contract.
 
 ```ts
-await VideoPlayer1.LoadUrl('https://cdn.exemplo.com/master.m3u8', { format: 'hls' });
-await VideoPlayer1.LoadUrl('https://cdn.exemplo.com/manifest.mpd', { format: 'dash' });
+await VideoPlayer1.LoadUrl('https://cdn.example.com/master.m3u8', { format: 'hls' });
+await VideoPlayer1.LoadUrl('https://cdn.example.com/manifest.mpd', { format: 'dash' });
 ```
 
-URLs externas recebem transporte sem cookies ou credenciais RestGo. Configure URLs finais: redirecionamentos são rejeitados. Uma página HTTPS precisa de mídia HTTPS e CORS compatível.
+External URLs receive no cookies or RestGo credentials. Use final URLs without
+redirects. HTTPS applications need compatible HTTPS media and CORS.
 
-| Propriedade                                        | Uso                                                                                                   |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `source`                                           | `null`, `{ kind: 'restgo', videoId }` ou `{ kind: 'url', url, format }`, com formato `hls` ou `dash`. |
-| `controls`                                         | Exibe os controles acessíveis e localizados do Shaka.                                                 |
-| `autoplay`, `muted`, `loop`, `playsInline`         | Comportamento de reprodução; autoplay depende da política do navegador.                               |
-| `volume`                                           | Valor entre 0 e 1.                                                                                    |
-| `playbackRate`                                     | Número positivo.                                                                                      |
-| `objectFit`, `poster`                              | Ajuste da imagem e poster opcional. Estilos do projeto também controlam object-fit/posição.           |
-| `quality`                                          | `'auto'` ou qualidade numérica presente no vídeo carregado.                                           |
-| `state`, `error`                                   | Estado e último erro, somente leitura.                                                                |
-| `duration`, `currentTime`, `buffered`, `isPlaying` | Projeções da mídia real, somente leitura.                                                             |
-| `availableQualities`, `currentQuality`             | Variantes reproduzíveis e qualidade efetiva, somente leitura.                                         |
+## Public API
+
+| Property                                           | Meaning                                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `source`                                           | `null`, `{ kind: 'restgo', videoId }`, or `{ kind: 'url', url, format }` with `hls`/`dash`. |
+| `controls`                                         | Accessible, localized Shaka controls.                                                       |
+| `autoplay`, `muted`, `loop`, `playsInline`         | Playback preferences subject to browser policy.                                             |
+| `volume`                                           | Number from 0 to 1.                                                                         |
+| `playbackRate`                                     | Positive number.                                                                            |
+| `objectFit`, `poster`                              | Content fit and optional poster; styles can also set fit/position.                          |
+| `quality`                                          | `'auto'` or a numeric quality present in loaded media.                                      |
+| `state`, `error`                                   | Read-only state and last error.                                                             |
+| `duration`, `currentTime`, `buffered`, `isPlaying` | Read-only projections of actual media.                                                      |
+| `availableQualities`, `currentQuality`             | Read-only available variants and effective quality.                                         |
 
 ```ts
 VideoPlayer1.Pause();
-VideoPlayer1.Seek(20); // Segundos dentro da duração do vídeo
-VideoPlayer1.Stop(); // Pausa e volta ao início, preservando a fonte
-
-const qualidade = VideoPlayer1.availableQualities[0];
-if (qualidade) VideoPlayer1.SetQuality(qualidade.quality);
+VideoPlayer1.Seek(20); // Seconds within media duration.
+VideoPlayer1.Stop(); // Pause and rewind, retaining the source.
+const quality = VideoPlayer1.availableQualities[0];
+if (quality) VideoPlayer1.SetQuality(quality.quality);
 VideoPlayer1.SetQuality('auto');
-
 await VideoPlayer1.Unload();
 ```
 
-Qualidades manuais vêm das tracks reais do Shaka. No RestGo, dimensões são relacionadas à qualidade nominal do descritor, inclusive para vídeos verticais. Não são inventadas opções 1080p/1440p. O Inspector inicia com Auto; a seleção manual fica disponível no menu do player ou por `SetQuality()`. O evento informa qualidade solicitada e efetiva; o buffer e a rede podem atrasar a mudança visual. Legendas/idiomas aparecem conforme trilhas existentes; o módulo RestGo não fornece upload de legendas. Fullscreen e PiP dependem das capacidades/permissões do navegador.
+Manual qualities come from actual Shaka tracks. RestGo dimensions map to nominal
+descriptor qualities, including portrait video; unavailable variants are not
+invented. Inspector starts at Auto; choose manual quality through player controls
+or `SetQuality()`. Events report requested/effective quality; buffering/network
+can delay the visible change. Captions/languages reflect existing tracks; the
+RestGo module does not upload subtitles. Fullscreen/PiP depend on browser support.
 
-Eventos tipados: `OnLoaded`, `OnPlay`, `OnPause`, `OnEnded`, `OnTimeUpdate`, `OnBuffering`, `OnQualityChange` e `OnError`. Métodos e detalhes recebem completion, hover, assinaturas e diagnósticos por `VideoPlayer1` e `this.VideoPlayer1`. Cada posicionamento reutilizável possui seu próprio elemento, player, observadores e estado.
+Typed events are `OnLoaded`, `OnPlay`, `OnPause`, `OnEnded`, `OnTimeUpdate`,
+`OnBuffering`, `OnQualityChange`, and `OnError`. Bare and `this` access expose
+completion, hover, signatures, and diagnostics. Each reusable placement owns its
+media element, player, observers, and state.
 
-O SDK `videos.getMedia()` valida origem e prefixo `/videos/{id}/hls/...` antes do transporte efetivo. O plugin de rede do Shaka usa essa ponte para todas as playlists e segmentos privados, incluindo Range, com JWT atual, renovação coordenada em 401, `credentials: 'omit'` e `redirect: 'error'`. URLs externas ou de outro vídeo são rejeitadas sem encaminhar credenciais; 403 encerra playback com erro. Não há cache offline persistente. Logout/troca de usuário interrompe requisições e limpa mídia/thumbnail sob controle do componente. Thumbnail privada é baixada pelo SDK como Blob, e a URL de objeto é revogada. Ausência de thumbnail (404) não impede reprodução.
+## Private media and lifecycle
 
-A reprodução privada exige MSE/MMS. O componente rejeita ambientes sem essa capacidade e também rejeita um carregamento que termine no modo nativo `src=`; o elemento nativo não permite inserir Authorization em cada requisição. Vídeos públicos podem usar o caminho nativo compatível. Safari/iOS não foram validados neste checkout; suporte privado depende de MSE/MMS e dos codecs disponíveis. Não há fallback que publique um vídeo privado.
+`videos.getMedia()` validates origin and `/videos/{id}/hls/...` prefix before
+transport. Shaka's network plugin uses it for private playlists/segments, including
+Range, current JWT, coordinated refresh on 401, omitted cookies, and rejected
+redirects. External/other-video URLs never receive credentials; 403 stops playback.
+Logout/user changes abort requests and clear controlled media/thumbnails. Private
+thumbnails use SDK Blob downloads with revoked object URLs. Missing thumbnails
+(404) do not block playback. There is no persistent offline cache.
 
-Troca de fonte e `Unload()` abortam a operação anterior e aguardam destruição antes de anexar outro player. `dispose()` interrompe I/O, remove eventos/filtros/observadores, revoga poster Blob e destrói overlay/player uma única vez. O overlay da versão 5.2.13 é o dono da destruição do Shaka Player. O bundle usa transmuxing local, sem depender de um worker hospedado externamente.
+Private playback requires MSE/MMS. Unsupported environments and a fallback ending
+in native `src=` mode are rejected because native requests cannot carry per-request
+Authorization. Public videos may use native playback. Safari/iOS remain unverified
+in this checkout; private support depends on MSE/MMS and codecs. There is no
+fallback that publishes private media.
 
-Validação real disponível em `tests/video-player.browser.test.ts`, ativada por `WEBRAD_BROWSER_PATH`: aplicação compilada em iframe Preview, HLS/MPEG-TS, DASH com áudio/vídeo, avanço de tempo, play/pausa/seek/fim, Auto/manual, JWT em playlists/segmentos privados, refresh, cookies omitidos, bloqueio de URI externa/redirecionamento, logout e revogação, descarte e isolamento de dois reutilizáveis. O servidor do teste reproduz o contrato RestGo e usa pequenos assets oficiais de teste do Shaka. Essa evidência não inclui conversão FFmpeg em uma instância RestGo real nem execução em Safari/Linux.
+Source changes and `Unload()` abort prior work and await destruction before
+attaching a new player. `dispose()` stops I/O, removes handlers/filters/observers,
+revokes Blob posters, and destroys overlay/player once. The overlay owns player
+destruction. Transmuxing is bundled locally without an external hosted worker.
+
+Existing `tests/video-player.browser.test.ts`, enabled with `WEBRAD_BROWSER_PATH`,
+exercises compiled iframe Preview, HLS/MPEG-TS, audiovisual DASH, playback/seek/end,
+quality, private JWT/refresh, transport restrictions, logout/revocation, disposal,
+and reusable isolation. Its local protocol server and official Shaka fixtures do
+not establish FFmpeg conversion on a real RestGo server or Safari/Linux execution.

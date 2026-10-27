@@ -1,71 +1,58 @@
-# Panel flutuante
+# Floating Panel
 
-No Object Inspector do **Panel**, configure **Placement** como `floating` para
-sobrepor o conteúdo da página sem ocupar espaço no layout do container pai.
-O Panel acompanha a rolagem da página. `in-flow` mantém o comportamento normal
-do layout. Projetos antigos sem essa propriedade continuam em `in-flow`.
+Set a Panel's **Placement** to `floating` in the Object Inspector to overlay page
+content without reserving space in its parent layout. It follows page scrolling.
+`in-flow` retains normal container layout and is the fallback for older projects.
 
-- **Floating alignment**: `none`, `top`, `bottom`, `left`, `right` ou `client`.
-- **Floating horizontal anchor**: `left`, `center` ou `right`, quando o alinhamento não fixa esse eixo.
-- **Floating vertical anchor**: `top`, `center` ou `bottom`, quando o alinhamento não fixa esse eixo.
-- **Floating layer**: inteiro que controla o `z-index`, inicialmente `100`.
+- **Floating alignment**: `none`, `top`, `bottom`, `left`, `right`, or `client`.
+- **Floating horizontal anchor**: `left`, `center`, or `right` on an unaligned axis.
+- **Floating vertical anchor**: `top`, `center`, or `bottom` on an unaligned axis.
+- **Floating layer**: integer `z-index`, initially `100`.
 
-Com `top`, `bottom`, `left` ou `right`, o Panel se posiciona junto à borda
-escolhida. O alinhamento define a posição, sem substituir **Responsive width**
-e **Responsive height**: `fixed` usa a dimensão salva, `stretch` usa o espaço
-disponível da página e `fit-content` acompanha o conteúdo, inclusive alterações
-nos filhos. Limites mínimo/máximo, margens, offsets e layout dos filhos continuam
-ativos. O tamanho final permanece ancorado à borda escolhida.
+Edge alignments control position while preserving **Responsive width** and
+**Responsive height**: `fixed` uses the saved dimension, `stretch` uses available
+page space, and `fit-content` follows content, including child changes. Minimum
+and maximum sizes, margins, offsets, and child layout still apply. The resulting
+size remains anchored to the selected edge.
 
-`client` usa a origem da área da página e também respeita essas configurações.
-Para preencher a página inteira, configure os dois eixos como `stretch`; limites
-e margens continuam sendo aplicados. Esses modos acompanham a rolagem e ficam
-sobrepostos, sem reservar espaço para outros Panels. Grow/shrink continuam
-pertencendo à distribuição de espaço entre irmãos no fluxo, portanto não
-distribuem espaço na camada sobreposta.
+`client` uses the page origin with the same sizing rules. Set both axes to
+`stretch` to fill the page, subject to limits and margins. Floating Panels overlay
+other content; grow/shrink distribute space only among in-flow siblings.
 
-No Designer, apenas eixos configurados como `fixed` oferecem alças de
-redimensionamento; a borda alinhada permanece presa. `none` restaura o
-posicionamento livre. Projetos sem `floatingAlignment` usam `none`.
+The Designer offers resize handles only on `fixed` axes and retains the aligned
+edge. `none`, also the fallback for missing `floatingAlignment`, restores free
+positioning. X/Y then represent edge distances or center offsets according to the
+anchors. Responsive modes still apply. The Designer supports selection, movement,
+resizing, and child editing in the overlay.
 
-No modo `none`, as coordenadas X/Y representam distâncias às bordas da página, ou deslocamentos
-em relação ao centro, conforme as âncoras. Os modos responsivos continuam ativos
-também no posicionamento livre. O Designer permite selecionar,
-mover, redimensionar e editar seus filhos nessa posição sobreposta.
-
-As propriedades também estão disponíveis nas instâncias tipadas do código de
-página e de reusable, com acesso direto ou por `this`:
+Page and reusable instances expose the same typed properties:
 
 ```ts
 Panel1.placement = 'floating';
 Panel1.floatingAlignment = 'top';
 
-// Usa a área cliente; Stretch nos dois eixos preenche a página.
+// Stretch on both axes fills the page's client area.
 Panel1.floatingAlignment = 'client';
 
-// Retorna ao posicionamento livre com âncoras.
+// Return to free positioning with anchors.
 Panel1.floatingAlignment = 'none';
 this.Panel1.floatingHorizontalAnchor = 'right';
 Panel1.floatingVerticalAnchor = 'bottom';
 Panel1.floatingZIndex = 200;
 
-// Devolve o mesmo Panel e seus filhos ao container original.
+// Return the same Panel and its children to its original container.
 Panel1.placement = 'in-flow';
 ```
 
-O modelo persiste essas opções em `ComponentNode.props`, sem alterar a versão
-do formato. O Registry registra a capacidade `supportsFloatingPlacement` e as
-propriedades do Inspector. O runtime projeta Panels flutuantes com
-`position: absolute` em uma camada interna da página, fora dos containers
-intermediários, evitando que seus transforms e overflow recortem o Panel.
-O ciclo de vida da página mantém a camada junto de seu conteúdo. Reusable
-Components conservam seu posicionamento flutuante fixo à viewport.
+Options persist in `ComponentNode.props` without a format-version change. The
+Registry declares `supportsFloatingPlacement` and Inspector metadata. Runtime
+Panels use `position: absolute` in an internal page layer outside intermediate
+containers, avoiding their transforms and overflow clipping. The layer follows
+the page lifecycle. Floating reusable components retain viewport-fixed placement.
 
-`tests/panel-floating.test.ts` cobre persistência, validação, compatibilidade,
-API tipada, completion/hover/diagnósticos e execução compilada. O teste Chromium
-`tests/panel-floating.browser.test.ts` cobre o Designer real, Preview e aplicação
-exportada, com rolagem, âncoras e mudança de Placement. O smoke Electron cobre
-inserção pela paleta, edição/salvamento no Inspector, projeção no Designer,
-F9 e rolagem da página. O smoke foi atualizado para também percorrer os novos
-alinhamentos no Inspector. Os novos modos foram implementados sem execução
-de testes, smokes ou builds, conforme a política de validação por solicitação.
+Existing coverage lives in `tests/panel-floating.test.ts` (model, Registry,
+language API, and compilation) and `tests/panel-floating.browser.test.ts`
+(Designer, Preview, export, scrolling, anchors, and placement). The Electron smoke
+covers palette insertion, Inspector persistence, projection, F9, scrolling, and
+alignment interactions. The later alignment modes were implemented without
+running validation; these coverage descriptions are not new execution evidence.

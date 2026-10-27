@@ -1,128 +1,109 @@
 # File Upload
 
-**File Upload** é um componente **não visual**, disponível na paleta
-**Nonvisual** e na bandeja do Designer. Ele utiliza o cliente compartilhado
-do SDK RestGO. Configure **RestGo integration > Connection** e autentique o
-usuário com `RestGO.login()` antes de enviar arquivos.
+**File Upload** is a nonvisual component in the **Nonvisual** palette and Designer
+tray. It uses the shared RestGo SDK client. Configure **RestGo integration →
+Connection** and authenticate with `RestGO.login()` before uploading.
 
-## Abrir um arquivo
+## Select a file
 
-Em um evento de clique, com o componente chamado `FileUpload1`:
+Call from a user interaction, with a component named `FileUpload1`:
 
 ```ts
-const arquivo = await FileUpload1.OpenFile();
-if (!arquivo) return; // Seleção cancelada.
+const file = await FileUpload1.OpenFile();
+if (!file) return; // Selection cancelled.
 
-const nome: string = arquivo.name;
-const caminho: string | null = arquivo.path;
-const tamanho: number = arquivo.size; // Bytes.
-const extensao: string = arquivo.extension; // Por exemplo, '.pdf'.
+const name: string = file.name;
+const path: string | null = file.path;
+const size: number = file.size; // Bytes.
+const extension: string = file.extension; // For example, '.pdf'.
 ```
 
-`OpenFile()` abre o seletor nativo, sem enviar o arquivo. Deve ser chamado
-diretamente de uma interação do usuário, conforme as regras do navegador.
-Cancelar retorna `null` e preserva uma seleção anterior. `this.FileUpload1`
-oferece a mesma API tipada, inclusive em componentes reutilizáveis.
+`OpenFile()` opens the browser file picker without uploading. Cancellation returns
+`null` and preserves an earlier selection. `this.FileUpload1` provides the same
+typed API, including in reusable components.
 
-O retorno `WebFileUploadSelection` contém `name`, `path`, `size` e `extension`.
-`path` é o caminho relativo informado pelo navegador, ou `null`. Na seleção
-comum de um arquivo, o caminho absoluto do computador não é disponibilizado;
-o componente não retorna um caminho fictício. Essa restrição pertence ao
-[seletor de arquivos do navegador](<https://html.spec.whatwg.org/multipage/input.html#file-upload-state-(type=file)>).
-A extensão inclui o ponto e é convertida para minúsculas; arquivos sem extensão
-retornam `''`. `accept` filtra o seletor, por exemplo `.pdf,image/*`.
+`WebFileUploadSelection` contains `name`, `path`, `size`, and `extension`. `path`
+is a browser-provided relative path or `null`, never a fabricated absolute local
+path. This follows the [browser file picker contract](<https://html.spec.whatwg.org/multipage/input.html#file-upload-state-(type=file)>).
+Extensions include the dot and use lowercase; extensionless files return `''`.
+`accept`, for example `.pdf,image/*`, filters the picker.
 
-## Enviar ao RestGO
+## Upload to RestGo
 
-Depois de selecionar, chame o envio no mesmo evento ou em outro botão:
+After selecting, upload in the same handler or through another button:
 
 ```ts
 try {
-  const arquivo = await FileUpload1.SendToRestGO({ isPublic: false });
-  Message(`Arquivo ${arquivo.id}: ${arquivo.url}`);
+  const result = await FileUpload1.SendToRestGO({ isPublic: false });
+  Message(`File ${result.id}: ${result.url}`);
 } catch (error) {
   Message(error instanceof Error ? error.message : String(error));
 }
 ```
 
-Use `isPublic: true` para público e `false` para privado. Quando omitido,
-utiliza a propriedade **Public file** do Inspector, cujo padrão é `false`.
-As opções também aceitam `name` para o nome no Storage e `signal` para cancelamento.
-Chamadas simultâneas compartilham o envio em andamento.
+`isPublic` overrides the Inspector's **Public file** setting, which defaults to
+`false`. Options also accept Storage `name` and an abort `signal`. Concurrent calls
+share the active upload.
 
-`SendToRestGO()` retorna `WebFileUploadResult`, com **todos os campos de arquivo
-da API RestGO**: `id`, `ownerId?`, `ownerEmail?`, `originalName`, `contentType`,
-`sizeBytes`, `isPublic`, `createdAt`, `updatedAt` e `downloadUrl`. O componente
-preserva os metadados recebidos e acrescenta `url`, a URL absoluta de download,
-incluindo um eventual prefixo de proxy na conexão. Não altera `downloadUrl`.
+`WebFileUploadResult` preserves all RestGo file metadata: `id`, `ownerId?`,
+`ownerEmail?`, `originalName`, `contentType`, `sizeBytes`, `isPublic`, `createdAt`,
+`updatedAt`, and `downloadUrl`. It adds `url`, an absolute download URL preserving
+any reverse-proxy prefix, without changing `downloadUrl`.
 
-Arquivos privados continuam exigindo autorização do dono para download.
-Possuir a URL não concede acesso. Use `RestGO.storage.download(arquivo.id)`
-para ler o conteúdo pela sessão atual. O token de APIs dinâmicas não substitui
-o JWT exigido pelo Storage.
+A private URL does not grant access. Use `RestGO.storage.download(result.id)`
+with the owner's authorized session. A dynamic API token does not replace the
+JWT required by Storage.
 
-## Progresso no Object Inspector e no Monaco
+## Progress in the Inspector and Monaco
 
-Selecione o componente na bandeja, abra **Interaction** e dê duplo clique em
-**OnProgress**. O editor cria um método tipado com `percentage`, `loaded`,
-`total` e `lengthComputable` disponíveis no evento. Por exemplo, se existir
-um componente `Label1` na página:
+Select the tray component, open **Interaction**, and double-click **OnProgress**.
+The generated handler receives `sender: WebFileUpload` and
+`event: CustomEvent<WebFileUploadProgressEventDetail>`, exposing `percentage`,
+`loaded`, `total`, and `lengthComputable` in `event.detail`. With an existing
+`Label1`, its body can update the caption:
 
 ```ts
-public async FileUpload1Progress(
-  sender: WebFileUpload,
-  event: CustomEvent<WebFileUploadProgressEventDetail>,
-): Promise<void> {
-  const { percentage } = event.detail;
-  Label1.caption = percentage === null
-    ? 'Enviando...'
-    : `${Math.round(percentage)}%`;
-}
+const { percentage } = event.detail;
+Label1.caption = percentage === null ? 'Uploading...' : `${Math.round(percentage)}%`;
 ```
 
-O evento recebe bytes medidos pelo navegador. `loaded` é a quantidade enviada,
-`total` é o total informado ou `null`, e `percentage` é um número de 0 a 100
-ou `null` quando o total não puder ser medido. Os bytes incluem o multipart.
-O valor também pode ser lido em `FileUpload1.progress`.
+Measurements come from the browser and include the entire multipart body.
+`loaded` is bytes sent; `total` and `percentage` are `null` when the total is
+unknown. Otherwise, percentage ranges from 0 to 100. The current value is also
+available as `FileUpload1.progress`.
 
-O SDK usa progresso real de `XMLHttpRequest.upload` em envios entre origens
-HTTP(S), sem cookies da sessão administrativa. Na mesma origem, em ambientes
-sem XHR ou com `fetch` personalizado, mantém o transporte `fetch` e informa
-progresso indeterminado; não estima porcentagens intermediárias. Após a resposta
-de sucesso do servidor, o componente confirma `100` no evento. Durante uma
-transferência medida, 100% pode chegar antes dessa resposta; use **OnSuccess**
-para confirmar que o arquivo foi armazenado.
+The SDK uses `XMLHttpRequest.upload` for cross-origin HTTP(S) progress without
+administrative-session cookies. Same-origin requests, environments without XHR,
+and custom `fetch` clients retain fetch transport and report indeterminate
+progress. Intermediate percentages are never simulated. A successful server
+response confirms 100%; measured 100% can arrive earlier, so use **OnSuccess** to
+confirm server storage.
 
-Use a URL final da instância RestGO, sem redirecionamentos. O transporte XHR
-rejeita uma resposta com URL final diferente, mas pode seguir o redirecionamento
-antes dessa verificação. As regras completas estão no
-[README do SDK](../packages/restgo-sdk/README.md#storage).
+Configure the final RestGo URL without redirects. XHR can follow a redirect before
+the SDK rejects a different final URL. See the [SDK transport rules](../packages/restgo-sdk/README.md#storage).
 
-## Estado e eventos
+## State and events
 
-| API            | Comportamento                                                             |
-| -------------- | ------------------------------------------------------------------------- |
-| `accept`       | Filtro do seletor; não substitui validação do servidor.                   |
-| `enabled`      | Habilita a seleção e o início do envio.                                   |
-| `isPublic`     | Visibilidade padrão, privada inicialmente.                                |
-| `selectedFile` | `File` selecionado ou `null`, somente leitura.                            |
-| `selection`    | Metadados da seleção ou `null`, somente leitura.                          |
-| `fileName`     | Nome selecionado, somente leitura.                                        |
-| `uploading`    | Envio em andamento, somente leitura.                                      |
-| `progress`     | Porcentagem atual ou `null`, somente leitura.                             |
-| `result`       | Último resultado de envio ou `null`, somente leitura.                     |
-| `lastError`    | Último erro ou `null`, somente leitura.                                   |
-| `Clear()`      | Limpa seleção e estado e aborta o envio; não exclui arquivos do servidor. |
+| API            | Behavior                                                     |
+| -------------- | ------------------------------------------------------------ |
+| `accept`       | Picker filter; does not replace server validation.           |
+| `enabled`      | Enables selection and starting an upload.                    |
+| `isPublic`     | Default visibility, initially private.                       |
+| `selectedFile` | Read-only selected `File` or `null`.                         |
+| `selection`    | Read-only selection metadata or `null`.                      |
+| `fileName`     | Read-only selected name.                                     |
+| `uploading`    | Read-only upload-in-progress flag.                           |
+| `progress`     | Read-only percentage or `null`.                              |
+| `result`       | Read-only last upload result or `null`.                      |
+| `lastError`    | Read-only last error or `null`.                              |
+| `Clear()`      | Clear selection/state and abort upload; retain remote files. |
 
-**OnChange** recebe a seleção ou `null`; **OnProgress** recebe a medição;
-**OnSuccess** recebe todos os metadados do resultado; **OnError** recebe o erro;
-**OnComplete** recebe `{ result, error }`. Falhas de `SendToRestGO()` também
-rejeitam a promessa. Seleção, requisição e progresso pertencem a cada instância;
-arquivos e respostas não são salvos no projeto. O descarte da página ou do
-reutilizável libera a seleção, cancela envios e remove as associações de eventos.
+**OnChange** receives selection or `null`; **OnProgress** receives measurements;
+**OnSuccess** receives complete result metadata; **OnError** receives the error;
+**OnComplete** receives `{ result, error }`. Upload failures also reject the
+`SendToRestGO()` promise. Selection, request, and progress belong to each instance
+and are not persisted. Disposing the page/reusable releases selection, cancels
+uploads, and removes event subscriptions.
 
-O contrato atual utiliza `OpenFile()`, `SendToRestGO()` e `Clear()`.
-Propriedades visuais e estilos não integram o componente não visual.
-Não há aliases, conversão de arquivos ou camada de compatibilidade com
-o antigo File Upload visual. O código TypeScript autoral permanece separado
-dos arquivos gerados.
+The public methods are `OpenFile()`, `SendToRestGO()`, and `Clear()`. This
+nonvisual component has no visual properties, styles, file conversion, or aliases.

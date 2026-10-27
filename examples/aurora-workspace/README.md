@@ -1,77 +1,69 @@
 # Aurora Workspace
 
-Sem conexão RestGO, o Menu exibe o perfil de exemplo **Demo user**, editável em
-**Brand & user**. Com RestGO configurado, ele acompanha o usuário autenticado
-ou mostra **Guest** quando não há sessão. Clique no perfil para abrir a conta.
+Open [AuroraWorkspace.wrproj](AuroraWorkspace.wrproj) in the IDE and press **F9**.
+The same project is available under **New Project → Examples & Tutorial**; each
+new project receives independent IDs/files. Use **Stop** to return from Preview.
 
-Em **Reusable Components**, abra **AuroraMenu** para editar o menu compartilhado
-pelas 13 páginas. Cada página usa uma instância `Navigation`; alterações na
-definição refletem em todas elas. **FeatureCard** continua sendo o cartão
-reutilizável independente, com seu próprio progresso.
+The example contains 20 visual and five nonvisual component types across 13
+pages, using the original **Default** styles. Group has no style; reusable
+placements project their definition's Panel/child styles. Authored `pages/*.ts`
+and `reusables/*.ts` remain separate from `*.generated.ts`; visual models live in
+`.wrproj` and `.wrpage` files.
 
-Os cartões reutilizáveis usam ProgressBar em anel (`dunnet`). Na página Data,
-as linhas alternam barra (`bars`), anel e círculo preenchido (`circus`), usando
-o campo `progressFormat` do JSON por meio do binding de Current row. Os valores
-continuam ligados ao progresso de cada projeto.
+## Shared navigation and layout
 
-A largura responsiva da página considera o espaço da barra vertical, evitando
-uma barra horizontal causada pela rolagem vertical no Preview e na aplicação
-gerada.
+Open **Reusable Components → AuroraMenu** to edit navigation shared by all pages.
+Each uses a `Navigation` placement. **FeatureCard** remains a separate reusable
+with isolated progress. Without RestGo, Menu shows the editable **Demo user**
+profile under **Brand & user**. With RestGo, it follows the authenticated user or
+shows **Guest**. Clicking the profile opens the account flow.
 
-Abra [AuroraWorkspace.wrproj](AuroraWorkspace.wrproj) pela IDE e pressione **F9**
-para explorar o projeto. O mesmo exemplo está disponível em **New Project >
-Aurora Workspace**; cada criação recebe IDs e arquivos próprios.
+The vertical Menu occupies the left side. `PageContent` and the `AuroraSidebar`
+Unit adjust content clearance for desktop/mobile navigation. Native control
+layout is preserved, top-level Panels use available width, and long messages use
+read-only Default Text Areas. Page width accounts for vertical scrollbars to
+avoid horizontal overflow in Preview/exports.
 
-O projeto usa os 20 componentes visuais e os cinco não visuais do catálogo,
-em 13 páginas, e somente os estilos
-**Default** originais. Group não possui estilo; as instâncias reutilizáveis
-projetam o Default Panel e os estilos dos filhos de sua definição.
+FeatureCards use ring ProgressBars (`dunnet`). Data rows alternate `bars`,
+`dunnet`, and filled `circus` using the JSON `progressFormat` field through Current
+Row bindings, while retaining each project's progress value.
 
-O Menu fica na lateral esquerda, na vertical. O grupo `PageContent` mantém o
-conteúdo ao lado dele; a Unit `AuroraSidebar` ajusta o espaço no Preview quando
-o Menu usa seu controle mobile. Os controles preservam seu layout nativo, os
-painéis principais ocupam a largura disponível e as mensagens longas usam Text
-Areas somente de leitura, com o estilo Default.
+## Pages
 
-| Página                             | Demonstração                                                                                                                                                                                                           |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Overview (`index`)                 | Page, Menu, Panel, Group, Label, Button, Icons, ProgressBar e duas instâncias de Reusable Component. O botão de cada FeatureCard altera apenas seu próprio progresso.                                                  |
-| Forms                              | Edit, Text Area, Check Box, Toggle, Combo Box e List Box. **Review profile** abre o Popup com os valores atuais; **Restore example values** restaura os exemplos. Nenhum perfil é enviado a um servidor.               |
-| Data                               | Data Grid e Repeating Group alimentados pelo mesmo JSON local através de um API Client. Clique em uma célula ou em **Select this project** para mostrar o projeto selecionado. **Reload example data** relê o arquivo. |
-| Media                              | Image com ilustração SVG local, Icons com favorito interativo e Video Player. **Load sample video** carrega o trecho DASH; use os controles do player e **Stop playback**.                                             |
-| Nonvisual > API Client / PokeAPI   | Consome a [PokéAPI v2](https://pokeapi.co/docs/v2) com operações tipadas, listagem paginada de 12 Pokémon, busca por nome/ID, detalhes e cache em memória. Requer internet.                                            |
-| Nonvisual > Timer                  | Intervalo e Loop editáveis, Start/Stop/Restart, contador e progresso atualizados pelos eventos reais. Para ao sair da página.                                                                                          |
-| Nonvisual > File / Video Upload    | Seleção local de arquivos/vídeos, envio privado explícito ao RestGO, progresso real e pausa/retomada/cancelamento de vídeo. Configure sua conexão RestGO e entre com uma conta para enviar.                            |
-| Nonvisual > Report Builder         | Parâmetros de título, destinatário e observações; prévia modal e download de um PDF real, gerado no navegador.                                                                                                         |
-| RestGO > Registration / Sign in    | Cadastro real, senhas confirmadas, login e Remember; cadastro não inicia sessão automaticamente.                                                                                                                       |
-| RestGO > Email / Password recovery | Confirmação de e-mail por token, pedido de recuperação e redefinição com nova senha.                                                                                                                                   |
-| RestGO > Profile / Avatar          | Perfil protegido por OnUnauthenticated, consulta do usuário e envio/remoção do avatar.                                                                                                                                 |
-| RestGO > Session / Logout          | CurrentUser, validação, renovação, expiração, eventos e logout sem exibir tokens.                                                                                                                                      |
-| `404`                              | Página de rota desconhecida com Menu e retorno à visão geral.                                                                                                                                                          |
+| Page                               | Demonstration                                                                                                                                                  |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview (`index`)                 | Page, Menu, Panel, Group, Label, Button, Icons, ProgressBar, and two isolated FeatureCards.                                                                    |
+| Forms                              | Edit, Text Area, Check Box, Toggle, Combo Box, List Box; Review profile opens a Popup and Restore example values resets local fields. No profile data is sent. |
+| Data                               | Data Grid and Repeating Group share local JSON through API Client; cell/row selection and Reload example data work locally.                                    |
+| Media                              | Local SVG Image, interactive favorite Icons, DASH sample Video Player, and Stop playback.                                                                      |
+| Nonvisual → API Client / PokeAPI   | Typed [PokéAPI v2](https://pokeapi.co/docs/v2) calls, 12-item pagination, name/ID search, details, and session memory cache; internet required.                |
+| Nonvisual → Timer                  | Editable interval/loop, Start/Stop/Restart, event-driven counter/progress; stops on page hide.                                                                 |
+| Nonvisual → File / Video Upload    | Local selection, explicit private RestGo upload, real progress, video pause/resume/cancel; requires your connection/login to send.                             |
+| Nonvisual → Report Builder         | Title/recipient/notes parameters, real in-browser PDF modal preview and download.                                                                              |
+| RestGO → Registration / Sign in    | Real registration with password confirmation, login, and Remember; registration does not log in automatically.                                                 |
+| RestGO → Email / Password recovery | Token confirmation, recovery request, and password reset.                                                                                                      |
+| RestGO → Profile / Avatar          | OnUnauthenticated protection, user lookup, avatar upload/removal.                                                                                              |
+| RestGO → Session / Logout          | CurrentUser, validation, refresh, expiration, events, logout; tokens are not displayed.                                                                        |
+| `404`                              | Unknown-route page with Menu and return to Overview.                                                                                                           |
 
-Os fontes em `pages/*.ts` e `reusables/FeatureCard.ts` são editáveis e separados
-dos arquivos `*.generated.ts`. O modelo visual permanece em `.wrproj` e `.wrpage`.
+## Data, services, and media
 
-Os dados, a imagem, o manifesto DASH, os quatro segmentos de mídia e a atribuição
-estão em `assets/imported/`. São recursos do projeto, incluídos também no export.
-Data e Media usam recursos locais; a página Pokemon acessa a PokéAPI pública e
-mantém as respostas bem-sucedidas em memória durante a sessão da página. Nenhuma
-consulta a essa API inicia sem um clique. A seleção de arquivos funciona sem
-servidor; o envio usa sua própria conexão RestGO e a sessão do usuário. A senha
-de login é limpa após a tentativa e não faz parte do modelo salvo. Timer e Report
-Builder funcionam sem servidor. As novas páginas ficam na seção **Nonvisual**.
+Data, SVG, DASH manifest, four media segments, and attribution live under
+`assets/imported/` and are included in exports. Data/Media, Timer, Report Builder,
+and local file selection work without a backend. PokéAPI starts only on explicit
+action and caches successful responses for the page session.
 
-A seção exclusiva **RestGO** usa sua configuração em **RestGo integration >
-Connection**. Seus cadastros, e-mails e sessões são reais; o servidor precisa
-permitir cadastro público e estar configurado para enviar e-mails. O menu passa
-a refletir a identidade autenticada, compartilhada também com os uploads. Nome
-e e-mail do perfil são somente leitura; o SDK permite alterar o avatar. Veja
-[o fluxo completo da conta](../../docs/aurora-restgo-account.md).
+Uploads and account operations use your **RestGo integration → Connection** and
+application session. Registration, email, and sessions are real; the server must
+permit public registration and have email delivery configured. Login passwords
+are cleared after attempts and never saved in the model. Menu reflects the same
+identity used by uploads. Profile name/email are read-only; avatar changes use
+the SDK. See the [account-flow guide](../../docs/aurora-restgo-account.md).
 
-O trecho de dez segundos do Sintel é creditado à Blender Foundation sob CC BY 3.0.
-Preserve [aurora-media-license.txt](assets/imported/aurora-media-license.txt) com a
-mídia ao compartilhar ou exportar esta demonstração. A ilustração e os registros
-JSON foram criados para este repositório, sob a licença MIT.
+The ten-second Sintel excerpt is credited to Blender Foundation under CC BY 3.0.
+Keep [aurora-media-license.txt](assets/imported/aurora-media-license.txt) with
+redistributed/exported media. The SVG and JSON records are repository-authored
+MIT assets.
 
-Este exemplo foi materializado pelos mesmos geradores usados na criação de
-projetos. Testes, smokes, typecheck e builds não foram executados nesta alteração.
+The example is materialized through normal project generators. Its documentation
+update does not establish new test, smoke, typecheck, or build results.

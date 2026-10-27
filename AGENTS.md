@@ -33,6 +33,7 @@ These rules apply to the entire repository.
 - When coverage for a new component or public component API is requested, include generated instance types, Monaco member completion and invalid-use diagnostics, runtime behavior, and compiled Preview/F9 execution as appropriate to the requested scope.
 - Distinguish implementation completion from verification. If validation was not requested, deliver the implementation and record that checks were not run; do not automatically execute them to satisfy a `DONE` label.
 - Update `PLANS.md` as work advances. Update relevant files under `docs/` whenever architecture or persistent formats change.
+- Maintain repository documentation, contribution guidance, and documentation examples in English. Preserve actual public API identifiers when translating examples.
 - Do not leave placeholder UI or fake operations presented as working functionality.
 
 ## Repository workflow

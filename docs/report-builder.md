@@ -1,114 +1,193 @@
 # Report Builder
 
-`WebReportBuilder` é um componente não visual da categoria **Nonvisual**. Dê dois cliques nele no Designer, ou use **Report template** no Inspector, para abrir o construtor maximizado.
+`WebReportBuilder` is a **Nonvisual** component. Double-click it in the Designer
+or use **Report template** in the Inspector to open the maximized editor.
+The versioned JSON template persists in `props.reportTemplate`. **Save template**
+applies an undoable project change; **Cancel** discards the draft. Save the project
+to persist it. **Export JSON** writes a portable `.report.json` file. **Import JSON**
+and **Import URL** validate the replacement before changing the draft.
 
-O modelo é um documento JSON versionado, salvo em `props.reportTemplate` pelo Project Model. **Save template** aplica a edição ao projeto como uma operação com undo/redo; **Cancel** descarta o rascunho. O arquivo do projeto persiste o modelo ao salvar normalmente. **Export JSON** salva um arquivo `.report.json` independente, que pode ser importado em outro relatório ou carregado pela aplicação em execução. **Import JSON** e **Import URL** validam o modelo antes de substituir o rascunho.
+## Editor
 
-## Construtor
+Elements are **Text**, **Image**, **Line**, **Group**, and **Repeater**. Text sources
+include constants, parameters, API Client response fields, current-row fields,
+and page number/count. Images accept fixed URLs, parameters, or fields; PDF
+rendering supports PNG/JPEG, including data URLs. Lines are graphic elements.
 
-O conjunto contém **Text**, **Image**, **Line**, **Group** e **Repeater**. O texto pode ser fixo, um parâmetro, um campo da resposta de um ApiClient, um campo do registro atual ou o número/total de páginas. Imagens aceitam uma URL fixa, um parâmetro ou um campo; a geração suporta PNG e JPEG, incluindo data URLs. Linhas são elementos gráficos.
+**Title**, **Detail**, and **Summary** appear once in the document flow. **Page
+header** and **Page footer** reserve space on every page. Repeaters expand list
+records and can contain nested Repeaters with their own **Header**, **Row template**,
+and **Footer**. Key grouping and aggregate functions are not implemented.
 
-As bandas **Title**, **Detail** e **Summary** aparecem uma vez no fluxo. **Page header** e **Page footer** são reservadas e repetidas em cada página. Os campos do Repeater se repetem para os registros de uma lista. Cada Repeater pode conter outros Repeaters e suas próprias seções **Header**, **Row template** e **Footer**. Agrupamentos por chave e totalizadores não fazem parte deste componente.
+The editor anchors Page footer to the paper's bottom margin for the selected
+size, orientation, zoom, and band height. Summary follows Detail immediately;
+unused space remains between Summary and Page footer, matching PDF flow.
 
-No canvas, **Page footer** fica no fim da folha, junto à margem inferior, mesmo quando as outras bandas ocupam pouco espaço. Sua posição acompanha o tamanho do papel, a orientação, o zoom e a altura configurada para a banda, como no PDF.
-
-No editor, **Summary** fica logo após **Detail**, no fluxo do relatório. O espaço livre fica entre **Summary** e **Page footer**.
-
-Arraste um componente da paleta e solte sobre uma banda ou seção do Repeater para inseri-lo na posição escolhida. Clicar na paleta não insere componentes. **Edit row template**, **Edit header**, **Edit footer** e a árvore **Report outline** selecionam as seções, inclusive nos níveis internos. O destino recebe um destaque durante o arraste. Repeaters continuam indisponíveis nas bandas Page header/Page footer. A posição respeita o zoom, a rolagem e os limites da banda ou seção. O canvas mantém o magnetismo de **8 px a 100%**, acompanhando o zoom, sem exibir a grade de fundo. Inserção e movimento encaixam a posição na grade local; o redimensionamento encaixa as bordas direita e inferior, respeitando os limites disponíveis. A geometria continua salva em milímetros (8 px equivalem a 8/3 mm na escala do editor). A origem da lista e os campos são escolhidos entre os schemas salvos dos ApiClients do documento. Essa seleção não executa requisições. É possível mover/redimensionar no canvas, editar posição e tamanho livremente no Inspector e usar as setas para ajustes finos em passos de 0,5 mm; Shift usa 5 mm. A edição tem undo/redo próprio até salvar.
+Drag palette elements into a band or Repeater section. Palette clicks do not
+insert elements. **Edit row template**, **Edit header**, **Edit footer**, and
+**Report outline** select nested sections. Drop highlighting identifies the target.
+Repeaters are unavailable in page headers/footers. Coordinates respect zoom,
+scrolling, and section bounds. Insertion/movement snap to an invisible **8 px grid
+at 100%**; resizing snaps right/bottom edges. Stored geometry uses millimeters
+(8 px equals 8/3 mm in the editor). Inspector coordinates remain freely editable;
+arrow keys move by 0.5 mm, or 5 mm with Shift. Editing has its own undo/redo until
+saved. List and field choices come from saved API Client schemas and never execute
+requests.
 
 ### Group
 
-**Group** organiza componentes em um contêiner único. Arraste Text, Image, Line, Repeater ou outro Group para dentro dele; as posições X/Y são relativas ao Group. Ele também pode ser inserido nas colunas de Header/Footer e no modelo de linha de um Repeater. Os filhos herdam o registro atual e seus campos, sem criar uma nova fonte de dados. As restrições de Repeater em Page header/Page footer continuam válidas dentro de Groups.
+**Group** contains Text, Image, Line, Repeater, or nested Groups with local X/Y
+coordinates. It also works in Repeater row templates and header/footer columns.
+Children inherit the current record without creating a data source. Repeater
+restrictions still apply inside Groups in page headers/footers.
 
-Em **Group appearance**, configure fundo ou transparência, cor, espessura e estilo sólido/tracejado da borda e **Group corner radius**. Espessura e raio usam milímetros e acompanham o zoom. A borda ocupa a área interna do Group sem deslocar os filhos. O raio é limitado visualmente à metade da largura/altura; os componentes internos mantêm suas próprias caixas, sem recorte pelos cantos. **Edit group contents**, a etiqueta no canvas e a árvore selecionam o conteúdo; **Back to group** retorna ao contêiner. Movimentação, redimensionamento, duplicação e undo/redo preservam a árvore e os vínculos.
+**Group appearance** sets transparent/solid backgrounds, border color, width,
+solid/dashed style, and **Group corner radius**. Width/radius use millimeters and
+follow zoom. Borders render inside without moving children. Radius is visually
+limited to half the width/height; children retain rectangular boxes without corner
+clipping. **Edit group contents**, the canvas label, and outline enter the group;
+**Back to group** returns to its container. Move, resize, duplicate, and undo/redo
+preserve the tree and bindings.
 
-O JSON usa `type: 'group'`, `children` e `appearance` opcional (`backgroundColor`, `borderColor`, `borderWidth`, `borderStyle`, `borderRadius`), mantendo `schemaVersion: 1`. Sem aparência explícita, o fundo é transparente, a borda é sólida de 0,2 mm e o raio é zero. O PDF desenha fundo e cantos como vetores, antes dos filhos. Se houver Repeater dentro do Group, sua altura no PDF cresce com os registros; esse Group completo é mantido na mesma página e precisa caber na área imprimível.
+JSON uses `type: 'group'`, `children`, and optional `appearance` with
+`backgroundColor`, `borderColor`, `borderWidth`, `borderStyle`, and `borderRadius`,
+retaining `schemaVersion: 1`. Defaults are transparent background, solid 0.2 mm
+border, and zero radius. PDF backgrounds/corners are vector graphics drawn before
+children. Nested Repeaters can expand a Group's PDF height; the complete Group
+stays on one page and must fit the printable area.
 
-### Seções, aparência e registros do Repeater
+### Repeater sections, appearance, and records
 
-Ative **Header** e **Footer** no Inspector e configure suas alturas. O Header é impresso uma vez antes dos registros daquele Repeater; o Footer, uma vez depois, inclusive quando a lista está vazia. Eles são diferentes do cabeçalho/rodapé de página. A altura principal do componente continua sendo a altura do modelo de um registro; o canvas soma as alturas das três seções e amplia os contêineres necessários ao adicionar seções.
+Enable **Header**/**Footer** and set their heights in the Inspector. Each prints
+once before/after that Repeater's records, even for an empty list. They differ
+from page headers/footers. The main component height remains one row-template
+height; the canvas adds section heights and expands containers as necessary.
 
-**Header columns** e **Footer columns** definem de 1 a 24 colunas independentes, cada seção com seu próprio **column gap** em milímetros. Arraste os componentes para a coluna desejada; cada coluna tem conteúdo próprio, impresso uma única vez na seção. No Inspector de um componente dessas seções, **Column** permite transferi-lo para outra coluna. As coordenadas X/Y são locais à coluna. Alterar a quantidade ou o espaçamento ajusta as larguras dos filhos; ao reduzir a quantidade, o conteúdo das colunas removidas é preservado abaixo das colunas restantes, com ampliação da altura quando necessária. Undo/redo preserva toda a operação.
+**Header columns** and **Footer columns** independently define 1–24 columns and
+millimeter **column gaps**. Each column owns content printed once per section.
+Drop into a column or use **Column** to move an element. Coordinates are column
+local. Changing count/gaps adjusts child widths. Removing columns retains their
+content below remaining content and increases section height as needed. Undo/redo
+preserves the complete change.
 
-**Columns** define de 1 a 24 colunas. **Row gap** e **Column gap** controlam os espaçamentos. **Fill order** permite preencher por linhas ou descer pelas colunas. **Rows per block** limita as linhas de cada bloco antes de iniciar o próximo; zero distribui todos os registros pelas colunas configuradas. Todas as colunas do corpo mostram projeções editáveis do mesmo modelo de registro. É possível arrastar componentes para qualquer coluna; a posição é calculada dentro da célula escolhida, e a edição atualiza o modelo comum. O projeto mantém uma única árvore de filhos com IDs estáveis, usada pelos registros no PDF. Header/Footer continuam com conteúdos próprios por coluna. Alterar a quantidade de colunas ou seu espaçamento ajusta proporcionalmente a geometria dos filhos da linha, preservando IDs e vínculos.
+Body **Columns** also accepts 1–24. **Row gap**/**Column gap** set spacing.
+**Fill order** fills across rows or down columns; **Rows per block** limits each
+block, with zero distributing all records across the configured columns. Body
+columns are editable projections of one shared row tree. Dropping into any cell
+updates that common template using cell-local coordinates. The project preserves
+stable child IDs. Header/footer columns have independent contents. Column-count
+and gap changes proportionally adapt row child geometry without changing bindings.
 
-Em **Appearance**, configure fundo ou transparência, cor, espessura e estilo sólido/tracejado da borda, divisórias de linhas/colunas, cor e espessura das divisórias. Espessuras e espaçamentos do Repeater usam milímetros. Os valores são projetados no canvas e desenhados como vetores no PDF.
+**Appearance** controls transparent/solid backgrounds, borders, and row/column
+dividers. Widths and gaps use millimeters and render as vectors in the PDF.
+Nested Repeaters can use independent API results or **Parent row list**, with a
+JSON Pointer such as `/orders`. Their body fields use inner records; header/footer
+fields can use the outer record. Schema choices follow the corresponding scope
+without making requests.
 
-Um Repeater interno pode usar uma resposta de API independente ou **Parent row list**, com um JSON Pointer relativo ao registro pai, por exemplo `/orders`. Os campos de sua linha usam o registro da lista interna. Os campos de seu Header/Footer podem usar o registro externo, por exemplo o nome do cliente acima de seus pedidos. O editor oferece as listas e campos do schema correspondente a cada nível. Nenhuma dessas escolhas executa requisições.
+Optional schema-v1 fields are `header`/`footer` (`height`, `elements`, `columns`,
+`columnGap`), `layout` (`columns`, `rows`, `columnGap`, `fill`), `appearance`, and
+`source.scope` (`api`/`row`). Direct header/footer children can set zero-based
+`column`, defaulting to zero. `children` accepts every report element, including
+Repeater. Missing options retain one column, no extra sections, and no painting
+or dividers. Duplication, parameter renaming, and copied API Client remapping
+traverse all sections and nesting levels.
 
-O JSON de template continua em `schemaVersion: 1`, com os campos opcionais `header`/`footer` (`height`, `elements`, `columns`, `columnGap`), `layout` (`columns`, `rows`, `columnGap`, `fill`), `appearance` e `source.scope` (`api`/`row`). Filhos diretos de Header/Footer podem definir `column`, um índice a partir de zero; sua ausência seleciona a primeira coluna. `children` aceita qualquer elemento de relatório, inclusive Repeater. A ausência dos campos mantém a apresentação anterior: uma coluna, sem seções adicionais, sem pintura ou divisórias. Duplicação, renomeação de parâmetros e remapeamento de ApiClients ao copiar componentes percorrem todas as seções e níveis.
+**Parameters** defines names, types, and defaults: text, number, boolean, or ISO
+date text such as `2026-10-14`; null is accepted. Renaming updates draft bindings.
+**Page setup** selects A4/Letter, orientation, and margins. Geometry uses
+millimeters; font size and line width use PDF points.
 
-Em **Parameters**, declare nome, tipo e valor padrão. Os tipos são texto, número, booleano e data. Datas usam texto ISO, como `2026-10-14`; valores nulos são aceitos. Renomear um parâmetro atualiza suas vinculações no rascunho. Em **Page setup**, configure A4/Letter, orientação e margens. A geometria usa milímetros; tamanho de fonte e espessura de linha usam pontos PDF.
+## Generate from code
 
-## Geração pelo código
+Execute API Client operations explicitly first. Generation snapshots successful
+responses and parameters; it never executes or refreshes API Clients.
+With `Title` (text) and `Period` (date) declared in the template:
 
-Execute explicitamente a operação do ApiClient antes de gerar. O ReportBuilder usa uma cópia das respostas concluídas com sucesso e dos parâmetros no início da geração; ele não executa nem atualiza os ApiClients.
-
-Supondo parâmetros `Title` (texto) e `Period` (data) declarados no modelo:
-
-```typescript
+```ts
 await ApiClient1.Load.execute();
-
-ReportBuilder1.Parameters.Set('Title', 'Clientes de São Paulo');
+ReportBuilder1.Parameters.Set('Title', 'Active customers');
 this.ReportBuilder1.Parameters.Set('Period', '2026-10-14');
-
 ReportBuilder1.previewMode = 'modal';
-ReportBuilder1.fileName = 'clientes.pdf';
+ReportBuilder1.fileName = 'customers.pdf';
 const result = await ReportBuilder1.Generate();
-// result.blob: Blob, result.pageCount: number, result.fileName: string
+// result.blob: Blob; result.pageCount: number; result.fileName: string
 ```
 
-O Inspector oferece `previewMode`: `modal`, `new-tab` ou `download`. É possível escolher o destino por chamada:
+`previewMode` supports `modal`, `new-tab`, and `download`, also per call:
 
-```typescript
-await ReportBuilder1.Generate({ previewMode: 'download', fileName: 'clientes.pdf' });
-```
-
-Para gerar os bytes sem abrir a interface:
-
-```typescript
-const result = await ReportBuilder1.GeneratePDF();
+```ts
+await ReportBuilder1.Generate({ previewMode: 'download', fileName: 'customers.pdf' });
+const result = await ReportBuilder1.GeneratePDF(); // Bytes without opening UI.
 const bytes = await result.blob.arrayBuffer();
 ```
 
-`Generate()` deve ser chamado diretamente de uma ação do usuário para abrir uma nova aba. O navegador pode bloquear popups quando o código aguarda outra operação antes da chamada. O runtime reserva a aba antes de gerar o PDF. `ClosePreview()` fecha o modal. Fechar o modal ou descartar o componente libera suas URLs e recursos.
+Call `Generate()` directly from user activation to open a new tab. Awaiting other
+work first can trigger popup blocking. Runtime reserves the tab before PDF
+creation. `ClosePreview()` closes the modal; closing/disposal releases object URLs
+and resources.
 
-`Generate()` e `GeneratePDF()` aceitam `signal: AbortSignal` e `parameters`, com valores apenas para aquela geração. `Parameters.Get(name)` lê o valor atual; `Parameters.Clear(name)` restaura o padrão daquele parâmetro e `Parameters.Clear()` restaura todos.
+Both generation methods accept an abort `signal` and per-call `parameters`.
+`Parameters.Get(name)` reads values; `Parameters.Clear(name)` restores one default,
+and `Parameters.Clear()` restores all. `OnGenerate` receives options and supports
+synchronous `event.preventDefault()`. `OnSuccess` supplies `WebReportResult` in
+`event.detail`; `OnError` supplies an `Error`. Errors also reject the promise.
 
-`OnGenerate` recebe as opções de geração e permite cancelar sincronicamente com `event.preventDefault()`. `OnSuccess` recebe `WebReportResult` em `event.detail`; `OnError` recebe um `Error`. Erros também rejeitam a Promise da geração.
+## External templates and runtime replacement
 
-## Modelos externos e troca em execução
+`LoadTemplate()` accepts an HTTP(S) URL, `Blob`/`File`, `WebReportTemplate` object,
+or JSON text. Validation precedes replacement; failures retain the current
+template. The latest concurrent load wins. JSON is limited to 5 MiB; external URLs
+are subject to CORS.
 
-`LoadTemplate()` aceita uma URL HTTP/HTTPS, um `Blob`/`File`, um objeto `WebReportTemplate` ou texto JSON. A carga é validada antes da troca; um erro mantém o modelo atual. Se duas cargas concorrem, prevalece a mais recente. O componente limita documentos JSON a 5 MiB. URLs externas estão sujeitas ao CORS do servidor.
-
-```typescript
-await ReportBuilder1.LoadTemplate('https://example.com/templates/clientes.report.json');
-ReportBuilder1.Parameters.SetValue('ExternalTitle', 'Clientes ativos');
+```ts
+await ReportBuilder1.LoadTemplate('https://example.com/templates/customers.report.json');
+ReportBuilder1.Parameters.SetValue('ExternalTitle', 'Active customers');
 await ReportBuilder1.Generate();
 ```
 
-`Set`/`Get` têm completion e validação de nomes/tipos derivados dos parâmetros do modelo salvo na IDE. Para parâmetros de um template externo com nomes diferentes, use **`SetValue(name, value)`** e **`GetValue(name)`**: os nomes são dinâmicos e continuam sendo validados pelo modelo carregado em execução. Valores preenchidos pelo código são preservados na troca apenas se o nome e o tipo do parâmetro continuarem iguais.
+`Set`/`Get` offer name/type completion from the IDE's saved template. For external
+parameter names, use `SetValue(name, value)` and `GetValue(name)`, validated against
+the loaded template at runtime. Existing values survive replacement only when
+name and type match. `SaveTemplate()` returns JSON without replacing defaults
+with transient parameter values.
 
-`SaveTemplate()` retorna o modelo atual como texto JSON; valores transitórios preenchidos pelo código não substituem os padrões do template.
+Bindings use stable client/operation IDs. Portable templates can also use component
+names for `apiClientId` and operation names for `operationId`. Generated code
+registers both in page/reusable scope. External templates can bind explicitly:
 
-Os vínculos usam IDs estáveis de ApiClients e operações. Para modelos portáveis, `apiClientId` também aceita o nome do componente, e `operationId` aceita o nome da operação. O código gerado registra ambos no escopo da página ou da instância reutilizável. Um template externo também pode ser associado explicitamente:
-
-```typescript
+```ts
 ReportBuilder1.bindApiClient('Customers', ApiClient1);
 ```
 
-Use URLs absolutas para imagens de modelos hospedados externamente; caminhos relativos são resolvidos a partir da aplicação.
+Use absolute image URLs in hosted templates; relative paths resolve against the
+application, not the template URL.
 
-## Paginação e limites iniciais
+## Pagination and limits
 
-O PDF é gerado no navegador com pdf-lib 1.17.1, incluído no bundle de Preview/Deploy, sem CDN. A aplicação continua sendo uma aplicação web comum. Títulos, resumo e linhas do repetidor são colocados respeitando a área útil; uma linha completa, incluindo suas listas internas expandidas, não é dividida entre páginas. Com várias colunas, a altura da linha usa o maior registro nela. Cabeçalho, rodapé e contagem de páginas são calculados sobre o resultado paginado.
+PDFs are generated in-browser with bundled pdf-lib 1.17.1, without a CDN. Titles,
+summary, and repeated rows respect printable space. A complete row, including
+expanded nested lists, is never split across pages. Multicolumn row height uses
+the tallest record. Headers, footers, and page counts follow final pagination.
 
-Textos quebram em linhas dentro de sua largura. Conteúdo que excede a altura configurada retorna um erro explícito: aumente a altura ou reduza a fonte. Linhas de repetidor maiores que a área útil também são rejeitadas. Coloque elementos fixos acima ou abaixo do Repeater; elementos de uma linha repetida pertencem à sua árvore de filhos. A fonte inicial Helvetica suporta os caracteres da Europa Ocidental, incluindo português; caracteres fora desse conjunto exigem suporte adicional de fontes.
+Text wraps within its width. Content exceeding configured height fails explicitly;
+increase height or reduce font size. Oversized rows also fail. Put fixed elements
+above/below Repeaters; repeated elements belong in their child trees. Initial
+Helvetica supports Western European characters; other scripts require additional
+font support.
 
-O formato suporta até 16 níveis de aninhamento, 100 mil registros expandidos por banda e 10 mil páginas por relatório. Se uma linha com seus grupos internos exceder a área imprimível, a geração retorna um erro explícito. Modelos externos não executam scripts. Respostas HTTP, PDFs gerados, parâmetros preenchidos pelo código e estado de preview são transitórios e não entram no Project Model.
+Limits are 16 nesting levels, 100,000 expanded records per band, and 10,000 pages.
+External templates cannot execute scripts. HTTP results, generated PDFs, runtime
+parameter values, and preview state do not persist in the Project Model.
 
-## Validação
+## Existing verification tooling
 
-`npm run smoke:report-builder` executa o teste nativo com janelas ocultas do Electron, geração de PDF e verificação de isolamento da janela do relatório. Os testes de browser `tests/report-builder.browser.test.ts` e `tests/report-builder-editor.browser.test.ts` usam `WEBRAD_BROWSER_PATH` para um executável Chrome/Chromium e cobrem o PDF compilado e o construtor visual.
+`npm run smoke:report-builder` exercises PDF generation and report-window isolation
+in real Electron. Browser suites `tests/report-builder.browser.test.ts` and
+`tests/report-builder-editor.browser.test.ts` use `WEBRAD_BROWSER_PATH` for Chrome/
+Chromium and cover compiled PDFs and visual editing.
 
-`tests/report-repeater.browser.test.ts` cobre seções aninhadas, campos do pai/filho, aparência, inserção nativa da paleta dentro de um Repeater, salvar/reabrir e geração do mesmo template na Preview compilada. As capturas e o PDF ficam em `out/report-builder-review/nested-*`.
+`tests/report-repeater.browser.test.ts` covers nesting, parent/child fields,
+appearance, native palette insertion, save/reopen, and the same template in
+compiled Preview. Captures/PDF output use `out/report-builder-review/nested-*`.
+Run validation only within the explicitly requested scope.

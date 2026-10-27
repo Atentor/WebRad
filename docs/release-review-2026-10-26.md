@@ -1,149 +1,112 @@
-# Revisão do próximo release — 26/10/2026
+# Release review: 2026-10-26
 
-O checkout local ainda não está pronto para receber a próxima tag. O commit
-`2881db8f8f0ded3ff30f4a5c0e8927ee4d84ccac` tem evidência de CI aprovada e já foi
-publicado como `v0.0.15`, mas as mudanças posteriores de Menu, Designer e Preview
-continuam fora de commit e sem verificação correspondente.
+This is a historical review of the checkout on 2026-10-26. Its findings and run
+results do not certify the current checkout. At review time, commit
+`2881db8f8f0ded3ff30f4a5c0e8927ee4d84ccac` had passed CI and was published as
+`v0.0.15`; later local Menu, Designer, and Preview changes lacked matching evidence.
 
-Esta revisão foi feita por leitura de código, diffs, documentação e resultados
-existentes do GitHub Actions. Não foram executados testes, smokes, typecheck,
-lint, formatação, builds, instalação de dependências ou geração de instaladores.
-Os problemas abaixo foram identificados estaticamente, sem reprodução nesta
-revisão. A etapa original não alterou código de produto ou gates; as correções
-autorizadas posteriormente estão registradas a seguir.
+The original review used source, diffs, documentation, and existing GitHub Actions
+results. It did not execute tests, smokes, checks, builds, dependency installation,
+or installers, and its findings were identified statically. The later authorized
+corrections and failed validation are recorded separately below.
 
-## Validação posterior — reprovada
+## Subsequent validation failed
 
-Após solicitação explícita para executar todos os testes, a rodada de
-26/10/2026 concluiu a suíte portable com Chrome: 1.764 testes aprovados,
-2 reprovados e nenhum ignorado, em 230 arquivos. Dos 13 smokes Electron,
-9 passaram e 4 falharam ao verificar o retorno por Stop do Preview. O typecheck
-apontou 2 erros e a formatação, 6 arquivos. Ícones, fontes incorporadas, lint
-e empacotamento Windows x64 passaram. Não foram feitas correções nesta rodada.
-O relatório completo e os diagnósticos estão em
-`artifacts/test-run-2026-10-26-full/REPORT.md`. O checkout segue reprovado para
-release; a evidência é local Windows, sem confirmação hospedada do commit final.
+On explicit request, the 2026-10-26 Windows portable suite with Chrome completed
+230 files: **1,764 passed, 2 failed, zero skipped**. Nine of 13 Electron smoke
+variants passed; four failed while checking Stop's return from Preview. Typecheck
+reported two errors and formatting six files. Icons, embedded sources, lint, and
+Windows x64 packaging passed. That run applied no fixes.
 
-## Correções aplicadas antes da validação
+Report and diagnostics: `artifacts/test-run-2026-10-26-full/REPORT.md`. This was
+local Windows evidence, without hosted confirmation of the final commit; the
+checkout remained unapproved for release. See [PLANS.md](../PLANS.md) for later
+recorded work.
 
-Os três achados foram corrigidos localmente em 26/10/2026:
+## Corrections implemented before that validation
 
-- F9 distingue a normalização limpa do Save de edições e trocas de projeto,
-  verifica o contexto do projeto e estabelece a revisão do build após o Save.
-  Stop e alterações posteriores continuam invalidando resultados tardios.
-- O relay de eventos foi movido para `packages/runtime/src/menu-events.ts`,
-  módulo interno sem exportação pela API pública ou pelos subpaths do pacote.
-  As fontes incorporadas foram regeneradas com `npm.cmd run runtime:sources`.
-- O preflight e a publicação exigem também a execução elegível mais recente de
-  `validate` e `security` concluída com sucesso no SHA exato. A consulta inclui
-  todas as páginas e bloqueia falhas, cancelamentos e execuções pendentes, sem
-  usar uma aprovação anterior para mascará-los. O modo sem publicação e o gate
-  existente dos quatro ambientes foram preservados.
+All three review findings received local corrections on 2026-10-26:
 
-Foram atualizadas a fixture existente do GitHub CLI e a expectativa existente
-das consultas paginadas, sem criar ou ampliar suítes. Não foram executados testes,
-smokes, verificações de fontes geradas, typecheck, lint, formatação, builds ou
-instaladores. A implementação não estabelece prontidão de release: ainda falta
-validar o checkout e obter aprovação dos workflows no commit final. Não houve
-commit, push, alteração de versão, criação de tag ou publicação.
+- F9 accepts clean Save normalization within the same project preparation context
+  and captures the build revision after Save. Stop, edits, and project changes
+  continue invalidating late results.
+- Menu event relaying moved into private `packages/runtime/src/menu-events.ts`,
+  without a public package/subpath export. Embedded sources were regenerated with
+  `npm.cmd run runtime:sources`.
+- Tag preflight/publication now require the latest eligible successful validate
+  and security runs for the exact SHA, with full pagination. Pending, cancelled,
+  or failed latest runs block despite older success. Four-platform release
+  verification and nonpublishing mode remain intact.
 
-## Achados da revisão original
+The existing GitHub CLI fixture/pagination expectation was updated without
+expanding suites. Implementation itself ran no tests, smokes, checks, builds, or
+installers. No commit, push, version change, tag, or publication was performed
+as part of those local corrections. Implementation and verification are distinct.
 
-### 1. F9 pode cancelar o próprio Preview durante o Save
+## Original findings
 
-Prioridade P2. Em `apps/ide/renderer/src/App.tsx:1841`, o Preview é ativado e o
-identificador do build é capturado antes de `projectController.save()`. O efeito
-de revisão em `App.tsx:508` invalida esse identificador e desativa o Preview
-quando a revisão muda, inclusive durante esse Save.
+### 1. F9 could invalidate itself during Save
 
-O Save pode mudar a revisão legitimamente: `ProjectController.#saveUntilCurrent`
-remove handlers vazios com `pruneEmptyEventHandlers`, e `#acceptSavedSession`
-incrementa a revisão quando o conteúdo retornado difere do conteúdo em memória
-(`apps/ide/renderer/src/state/project-controller.ts:650`).
+Priority P2. The reviewed App.tsx captured a build ID and activated Preview before
+`projectController.save()`. Its revision effect could invalidate that ID and
+leave Preview during the same Save.
 
-Exemplo: criar um handler na Interaction, deixá-lo vazio e pressionar F9 sem
-salvar antes. A limpeza do handler altera a revisão; o Preview pode fechar e o
-build ser abortado ou seu resultado ser descartado. O usuário precisa repetir F9.
+Save legitimately changes revision when `pruneEmptyEventHandlers` removes empty
+handlers and `#acceptSavedSession` accepts normalized content. Creating an empty
+Interaction handler and pressing F9 without saving could therefore abort/discard
+the build and require a second F9.
 
-Correção proposta: estabelecer a revisão de compilação depois do Save e
-distinguir a normalização desse Save das edições ou trocas de projeto que devem
-invalidar a execução. Preservar a proteção contra resultado tardio depois de Stop.
+The correction establishes the revision after Save and distinguishes its clean
+normalization from edits/project replacement, preserving Stop invalidation.
 
-### 2. Nova exportação do runtime não existe no contrato do Monaco
+### 2. A runtime export was absent from Monaco's contract
 
-Prioridade P2. `packages/runtime/src/menu.ts:33` exporta
-`bindWebMenuEventHost`, e `packages/runtime/src/index.ts:3` reexporta todo o
-módulo Menu. Porém, o filtro de declarações em
-`scripts/sync-runtime-sources.mjs:347` aceita somente nomes `WebMenu*` e algumas
-funções explicitamente listadas. A nova função não consta em
-`packages/language/src/menu-typings.generated.json` nem nas declarações manuais.
+Priority P2. `menu.ts` exported `bindWebMenuEventHost`, indirectly exposed by the
+package index. The generation filter in `scripts/sync-runtime-sources.mjs` accepted
+WebMenu-prefixed symbols and an explicit function list, excluding this helper.
+It was therefore absent from `menu-typings.generated.json` and manual declarations.
+Regeneration alone could not restore parity. The selected correction keeps event
+relaying private rather than introducing a new authored API.
 
-Consequência: o pacote real expõe uma função que o código autoral no Monaco não
-consegue importar com o mesmo contrato tipado. Regenerar as fontes sem ajustar
-o filtro não resolve essa divergência.
+### 3. Tag preflight omitted quality/security gates
 
-Correção proposta: manter o relay como implementação interna, sem reexportá-lo
-pela API pública, ou assumir sua API pública e incluir sua declaração no contrato
-do Monaco e nas fontes geradas.
+Priority P2, preexisting automation gap. `requireVerifiedCommit` checked exact-SHA
+release verification but not validate/security. Successful release jobs could
+therefore authorize a tag despite a development smoke or secret-scan failure.
+The checklist required manual review of all three workflows; automation covered
+only part of it. The review did not establish such a failed gate on the cited
+published commit. The correction enforces quality/security too, preserving
+four-platform assembly, permissions, and stable-tag restrictions.
 
-### 3. O preflight não impõe todos os gates exigidos pelo checklist
+## Existing evidence consulted
 
-Prioridade P2; lacuna preexistente de automação. A função
-`requireVerifiedCommit`, em `scripts/release-tools.mjs:106`, consulta somente
-execuções aprovadas de `release.yml` para o SHA exato. O job `publish` depende de
-`preflight` e `assemble`, sem consultar `validate.yml` e `security.yml`.
+These observations belong only to SHA
+`2881db8f8f0ded3ff30f4a5c0e8927ee4d84ccac`:
 
-Assim, uma verificação de release aprovada pode liberar a tag mesmo que o smoke
-de desenvolvimento de `validate` ou o scan de segredos de `security` falhe.
-Essas verificações não são integralmente cobertas pelo workflow de release.
-O checklist exige conferir os três workflows, mas parte dessa obrigação ainda
-depende do mantenedor. Não há evidência de falha desses gates no commit atual.
+| Evidence                                                                                        | Recorded result                                                                               |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [Nonpublishing release 40222242490](https://github.com/Atentor/WebRad/actions/runs/40222242490) | Four builds and assemble passed; publish skipped.                                             |
+| [Validate 40222242485](https://github.com/Atentor/WebRad/actions/runs/40222242485)              | Windows/Linux jobs passed.                                                                    |
+| [Security 40222242515](https://github.com/Atentor/WebRad/actions/runs/40222242515)              | Passed.                                                                                       |
+| [Publication 40225939952](https://github.com/Atentor/WebRad/actions/runs/40225939952)           | Four builds, assemble, and publish passed.                                                    |
+| [Scheduled security 40347945722](https://github.com/Atentor/WebRad/actions/runs/40347945722)    | Passed on 2026-10-26.                                                                         |
+| [Release v0.0.15](https://github.com/Atentor/WebRad/releases/tag/v0.0.15)                       | Published on 2026-10-25 with 11 assets, including platform installers, feeds, and SHA256SUMS. |
 
-Correção proposta: fazer o preflight exigir também os resultados apropriados de
-`validate` e `security` no mesmo SHA, preservando os quatro builds, a montagem,
-as permissões e a restrição de publicações a tags estáveis. Até lá, conferir os
-três workflows manualmente antes de autorizar a tag.
+The published macOS packages were unsigned. Native automatic updates require the
+[documented signing setup](releases.md#optional-macos-signing).
 
-## Evidência existente consultada
+## Packaging and preparation
 
-Todos os resultados desta tabela pertencem ao SHA
-`2881db8f8f0ded3ff30f4a5c0e8927ee4d84ccac`, sem as mudanças locais posteriores.
+Static review found no additional forge.config.ts defect: native dependencies,
+compiler resources, licenses, isolation, and integrity fuses remained configured.
+That does not establish a new package from the reviewed checkout.
+`WebRAD-Dev Setup.exe` and independent local version `0.1.12` were intentional;
+CI stages the official installer/version from its tag. Neither required a local
+version bump. The review's proposed next patch was provisional and must not be
+reused without checking already published versions when publication is authorized.
 
-| Evidência                                                                                          | Resultado observado                                                                                       |
-| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| [Release sem publicação — 40222242490](https://github.com/Atentor/WebRad/actions/runs/40222242490) | Quatro builds e assemble aprovados; publish ignorado, conforme esperado.                                  |
-| [Validate — 40222242485](https://github.com/Atentor/WebRad/actions/runs/40222242485)               | Jobs Windows e Linux aprovados.                                                                           |
-| [Security — 40222242515](https://github.com/Atentor/WebRad/actions/runs/40222242515)               | Workflow aprovado.                                                                                        |
-| [Publicação — 40225939952](https://github.com/Atentor/WebRad/actions/runs/40225939952)             | Quatro builds, assemble e publish aprovados.                                                              |
-| [Security agendado — 40347945722](https://github.com/Atentor/WebRad/actions/runs/40347945722)      | Workflow aprovado em 26/10/2026.                                                                          |
-| [Release v0.0.15](https://github.com/Atentor/WebRad/releases/tag/v0.0.15)                          | Publicado em 25/10/2026 com 11 assets, incluindo instaladores das quatro plataformas, feeds e SHA256SUMS. |
-
-O macOS permanece distribuído sem assinatura, conforme as notas da versão
-publicada; sua atualização automática exige a configuração de assinatura já
-documentada em [releases.md](releases.md).
-
-## Empacotamento e preparação
-
-Não foi identificado um defeito adicional por leitura em `forge.config.ts`.
-As dependências nativas são copiadas no hook de empacotamento; os recursos de
-compilação e licenças estão configurados; os fuses de isolamento e integridade
-continuam habilitados. Isso não comprova um novo pacote do checkout atual.
-
-`WebRAD-Dev Setup.exe` é o nome local intencional. O staging renomeia o Setup
-oficial conforme a tag. A versão local `0.1.12` também é intencionalmente
-independente: o workflow aplica a versão da tag ao checkout temporário. Nenhuma
-dessas diferenças exige aumentar a versão local para preparar a publicação.
-
-Para a próxima versão de patch, `v0.0.16` é uma proposta baseada na última
-publicação consultada; confirmar a versão disponível quando houver autorização
-para publicar. Nenhuma tag foi criada.
-
-Antes da tag: validar as correções, incluir os arquivos novos de implementação
-e smoke junto das alterações rastreadas, e obter evidência no commit final.
-O conjunto novo inclui `PreviewWorkspace`, seu smoke e os módulos de feedback
-de inserção do Designer e o módulo interno `menu-events.ts`; deixar esses arquivos
-fora do commit quebra os imports.
-O checklist de [release](release-checklist.md) define os comandos de validação
-completa quando forem explicitamente solicitados. Depois do envio autorizado,
-aguardar `validate`, `security`, os quatro builds de `release` e `assemble` no
-SHA final antes de criar uma nova tag com autorização para publicação.
+Before a tag, include all implementation/generated/smoke files in the authorized
+commit, including PreviewWorkspace, insertion-feedback modules, and private
+menu-events.ts. Then obtain final-SHA validate, security, all four release builds,
+and assemble evidence. Follow the [release checklist](release-checklist.md);
+complete local verification and publishing each require their requested scope.

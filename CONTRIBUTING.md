@@ -1,60 +1,52 @@
-# Contribuindo com o WebRAD
+# Contributing to WebRAD
 
-Leia as [regras de engenharia](AGENTS.md) e a [arquitetura](docs/architecture.md)
-antes de alterar os limites entre os pacotes. O modelo versionado do projeto é a
-fonte de verdade; Designer e runtime devem permanecer separados.
+Read the [engineering rules](AGENTS.md) and [architecture](docs/architecture.md)
+before changing package boundaries. The versioned Project Model is the source
+of truth; Designer and browser runtime responsibilities must stay separate.
 
-## Preparar o ambiente
+## Set up the environment
 
-Use Node.js 26.12.1 ou mais recente e npm 12.2.1 ou mais recente, conforme
-`engines` e `packageManager` do [package.json](package.json):
+Use Node.js 26.12.1 or newer and npm 12.2.1 or newer, as declared in
+[package.json](package.json):
 
 ```sh
 npm ci
 npm start
 ```
 
-No PowerShell, utilize `npm.cmd` se a política de execução bloquear `npm.ps1`.
-O desenvolvimento e os testes locais não precisam de tokens do GitHub,
-credenciais Apple ou uma instância do RestGo. Testes opcionais que dependem de
-um navegador ou serviço externo informam os seus requisitos no próprio teste.
+On PowerShell, use `npm.cmd` if execution policy blocks `npm.ps1`. Local
+development does not require GitHub tokens, Apple credentials, or a RestGo server.
+Optional tests document their browser or external service requirements.
 
-## Enviar uma alteração
+## Submit a change
 
-1. Descreva o problema em uma issue ou no pull request e mantenha a alteração
-   concentrada nesse problema.
-2. Preserve arquivos TypeScript escritos pelo usuário. Alterações programáticas
-   nesses arquivos devem utilizar a AST do TypeScript.
-3. Atualize a documentação e `PLANS.md` quando o comportamento ou o formato
-   persistente mudar. APIs de componentes precisam manter modelo, Registry,
-   Designer, runtime, Monaco e compilador em paridade.
-4. Execute as verificações antes de enviar:
+1. Describe the problem in an issue or pull request and keep the change focused.
+2. Preserve user-authored TypeScript. Programmatic edits to it must use the
+   TypeScript AST.
+3. Write documentation in English. Update relevant guides and `PLANS.md` when
+   behavior or persistent formats change. Keep component model, Registry,
+   Designer, runtime, Monaco, and compiler contracts aligned.
+4. Before submitting, verify the relevant scope. Runtime changes require
+   regenerating embedded sources with `npm run runtime:sources`. The complete
+   root check is `npm run validate`; interface, runtime, compiler, or Electron
+   changes also need relevant smokes described in the [README](README.md).
+   Agents follow the [explicit validation policy](AGENTS.md#agent-validation-policy)
+   and report unexecuted checks instead of running them automatically.
+5. Explain the resulting behavior, verification performed, and platform limits
+   in the pull request. Distinguish real browser/Electron evidence from code
+   review or tests without a UI. Ordinary contributions do not include installer
+   generation, version bumps, or release publication.
 
-   ```sh
-   npm run runtime:sources
-   npm run validate
-   ```
+Do not commit credentials, customer data, `.env` files, local preferences,
+temporary screenshots, or build artifacts. Use fictional example data. Report
+vulnerabilities through the [security policy](SECURITY.md).
 
-   `validate` verifica ícones, fontes geradas, tipos, lint, testes, formatação e
-   empacotamento para a plataforma atual. Para alterações de interface, runtime,
-   compilação ou Electron, execute também os smokes relevantes descritos no
-   [README](README.md). Informe separadamente o que foi verificado ao vivo e o
-   que foi apenas analisado ou testado sem interface.
+Branch protection, required checks, and private vulnerability reporting are
+GitHub settings that maintainers must review; versioned workflows do not enable
+them automatically.
 
-5. Informe no pull request o comportamento resultante, os testes executados e
-   qualquer limitação de plataforma. Não gere instaladores, incremente versões
-   nem publique releases como parte de uma contribuição comum.
+## License
 
-Não envie credenciais, dados de clientes, arquivos `.env`, preferências locais,
-capturas temporárias ou artefatos de build. Use exemplos fictícios. Relate
-vulnerabilidades conforme a [política de segurança](SECURITY.md).
-
-A proteção de branches, os checks obrigatórios e o relato privado de
-vulnerabilidades são configurações do GitHub que o mantenedor precisa revisar.
-Os workflows versionados não habilitam essas opções automaticamente.
-
-## Licença
-
-As contribuições ao código original do WebRAD são recebidas sob a
-[licença MIT](LICENSE). Ao incorporar código ou arquivos de terceiros, preserve
-os avisos e registre a origem em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Contributions to original WebRAD code are accepted under the [MIT license](LICENSE).
+Preserve third-party notices and record their origins in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

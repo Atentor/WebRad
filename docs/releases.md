@@ -1,95 +1,193 @@
-# Releases e atualizações do WebRad
+# WebRAD releases and updates
 
-O workflow `.github/workflows/release.yml` responde ao envio de tags estáveis `vMAJOR.MINOR.PATCH` ao repositório público **Atentor/WebRad**. Ele gera Windows x64 (Setup/Squirrel), Linux x64 (`.deb` e `.rpm`), macOS Intel x64 e macOS Apple Silicon arm64 (ZIP contendo `WebRad.app`) e publica os arquivos em [Releases do próprio WebRad](https://github.com/Atentor/WebRad/releases). Não há build para iOS.
+`.github/workflows/release.yml` publishes stable lowercase `vMAJOR.MINOR.PATCH`
+tags in **Atentor/WebRad**. It produces Windows x64 Setup/Squirrel, Linux x64
+DEB/RPM, and macOS Intel/Apple Silicon ZIPs containing `WebRad.app`. IDE releases
+do not include iOS; generated application targets are a separate [Native Build](native-build.md)
+feature. Packages are published in [WebRAD Releases](https://github.com/Atentor/WebRad/releases).
 
-A versão local em `package.json` e `package-lock.json` pode permanecer fixa durante o desenvolvimento. `npm run release` é somente um atalho para `npm run make`: gera os instaladores locais com essa versão, sem incrementá-la nem publicar. No Windows, o arquivo local tem o nome fixo `out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`. A versão oficial vem da tag e é aplicada pelo workflow somente no checkout temporário do CI; a etapa de staging publica o instalador como `WebRad-<versão>-win32-x64-Setup.exe`.
+Local `package.json`/lockfile versions can remain fixed during development.
+`npm run release` only aliases `npm run make`, using the local version without
+incrementing or publishing. The local Windows installer is
+`out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`. CI applies the tag version
+only in its temporary checkout and stages the official Setup as
+`WebRad-<version>-win32-x64-Setup.exe`.
 
-## Configuração inicial do GitHub
+## GitHub setup
 
-1. Mantenha **Atentor/WebRad** público e o GitHub Actions habilitado. As tags, o código e os instaladores ficam no mesmo repositório; os arquivos fonte ZIP/TAR oferecidos pelo GitHub correspondem à própria tag do WebRad.
-2. O workflow usa o **`GITHUB_TOKEN`** fornecido automaticamente pelo GitHub Actions. As permissões padrão são **Contents: Read** e **Actions: Read**, esta última para consultar a verificação do commit. Somente o job `publish` recebe **Contents: Write** para criar a Release e anexar os instaladores. Não é necessário criar um token fine-grained para essa publicação.
-3. O destino vem de **`${{ github.repository }}`**, e o mesmo valor é incorporado ao processo principal durante o build. Nenhum token é incorporado ao aplicativo. A variável de Actions antiga `WEBRAD_RELEASE_REPOSITORY` não altera mais o destino; ela e o Secret `WEBRAD_RELEASE_TOKEN` podem ser removidos, pois este workflow não os utiliza.
+Keep the repository public with Actions enabled. Source archives and installers
+belong to the same tag/repository. Workflows use the automatic `GITHUB_TOKEN`,
+with Contents: Read and Actions: Read by default. Only `publish` receives Contents:
+Write. No separate fine-grained publication token is needed.
 
-O job inicial verifica a tag, o acesso do token e a visibilidade pública do próprio repositório antes de iniciar os quatro builds. Nenhum repositório separado de instaladores é necessário.
+The destination is `${{ github.repository }}`, embedded into the main-process
+build without a token. Legacy `WEBRAD_RELEASE_REPOSITORY` and `WEBRAD_RELEASE_TOKEN`
+are unused. Preflight checks the tag, token access, and public repository before
+starting builds. No separate installer repository is required.
 
-## Verificar os quatro sistemas antes de publicar
+## Verify before tagging
 
-O mesmo workflow executa automaticamente sem publicação em cada push de `main`, em pull requests, em branches `codex/verify-release-*` e pelo botão **Run workflow** do GitHub Actions. Esse modo usa a versão temporária `0.0.0` somente no checkout do CI, executa os quatro builds, os smokes do aplicativo e do atualizador, gera todos os instaladores e confere a montagem completa dos artefatos. O resultado fica no artifact `release-assembled`; nenhuma tag ou Release é criada. A execução manual estará disponível quando a definição atualizada estiver na branch padrão.
+The release workflow also runs without publishing on pushes to `main` and
+`codex/verify-release-*`, pull requests, and manual dispatch. It uses temporary
+version `0.0.0`, runs all four builds, application/updater smokes, installer
+creation, and complete assembly. Output is the `release-assembled` artifact;
+`publish` is skipped, and no tag or Release is created.
 
-Antes de criar a tag, aguarde uma verificação completa bem-sucedida no **mesmo SHA**, por push de `main`/`codex/verify-release-*` ou execução manual. O preflight da tag confere o SHA resolvido pela API e exige essa evidência, consultando todas as páginas de execuções. Também exige que a execução elegível mais recente de cada workflow `validate` e `security` esteja concluída com sucesso nesse SHA; uma execução pendente, cancelada ou falha bloqueia a publicação mesmo quando existe aprovação anterior. Para esses dois gates, contam os pushes de `main`/`codex/verify-release-*` e execuções manuais; `security` também considera o scan agendado na `main`. Pushes de tags e pull requests não satisfazem os gates: o merge temporário de um PR pode ser diferente do commit final. Runs de outra tag ou commits anteriores não substituem a verificação de release do SHA final. A consulta é repetida antes da publicação e não ocorre no modo sem publicação. Se a tag chegar antes de a verificação terminar, aguarde o sucesso e reexecute o workflow da tag. Veja o [checklist para agentes e mantenedores](release-checklist.md).
+A tag requires successful nonpublishing verification of its **exact SHA** from
+an eligible branch push or manual run. Pull-request merge commits do not certify
+the final commit. Preflight resolves the SHA through the API and paginates runs.
+The latest eligible `validate` and `security` runs for that SHA must also have
+completed successfully. Pending, cancelled, or failed latest runs block publication
+even if an older run passed. Eligible quality/security runs are branch pushes or
+manual runs; scheduled main security scans also count. Tag/PR runs do not replace
+these gates. All three gates are rechecked before publication, without gating
+nonpublishing verification itself. See the [release checklist](release-checklist.md).
 
-A montagem usa um token somente de leitura. O job de publicação recebe permissão de escrita apenas em pushes de tags, depois da montagem aprovada; o script também recusa publicação quando `WEBRAD_RELEASE_VERIFY_ONLY` está ativo. Um novo commit em uma branch de verificação substitui sua execução anterior. Tags diferentes compilam de forma independente; somente os jobs de publicação são serializados, com uma fila de até 100 execuções pendentes, sem descartar a publicação anterior quando outra tag chega. Uma reexecução de uma tag antiga mantém o commit original e não aplica correções posteriores.
+Assembly uses read-only permissions. Publication requires a stable tag, successful
+assembly, and no `WEBRAD_RELEASE_VERIFY_ONLY` flag. A new verification-branch commit
+supersedes its earlier run. Tags build independently; publication jobs serialize
+with up to 100 pending entries without cancelling earlier publications. Rerunning
+an old tag uses its original code, not subsequent fixes.
 
-## Publicar uma versão
+## Publish a version
 
-O histórico público da `main` tem um novo ponto inicial em 17 de outubro de 2026, com a versão do código preservada em `0.1.11`. Crie novas tags a partir dessa `main`; não restaure tags ou branches do histórico anterior. Veja [o ponto inicial e as orientações para clones existentes](history-baseline.md).
+After the authorized commit is pushed and all exact-SHA gates pass, create and
+push a **new** stable tag only with publication authorization. Choose a version
+higher than every previously distributed version, including releases from the
+former repository. Do not reuse or move an existing tag. The tag must point to
+main or an ancestor. CI applies it to the root manifest/lockfile before dependency
+installation, without creating commits or invoking local `npm run release`.
 
-Depois de enviar o commit, confirmar `validate`, `security` e a verificação completa de `release` no SHA final, e obter autorização para publicar, crie e envie uma nova tag:
+For clones predating the public-history baseline of 2026-10-17, start from a fresh
+clone and transfer only reviewed changes onto current main. Do not merge old
+history, restore retired tags/branches, or push a mirror. The former baseline
+migration guide has been consolidated here. History rewrites cannot guarantee
+removal from existing clones, caches, or read-only pull-request references.
 
-```powershell
-git tag v0.1.12
-git push origin v0.1.12
-```
+Each platform job checks icons/generated sources, strict types, lint, formatting,
+portable tests, packaging, and packaged application smoke. The updater smoke uses
+a test backend without installing software on the runner. Linux prepares both
+development and packaged `chrome-sandbox` helpers. Logs remain outside bundles
+to preserve macOS signatures.
 
-Use uma versão maior que a última publicada, considerando também versões já distribuídas pelo repositório anterior. O preflight exige que a tag aponte para a `main` ou um ancestral dela e rejeita tags fora desse histórico. A tag determina a versão do aplicativo: `scripts/release-tools.mjs prepare` altera `package.json` e a entrada raiz do lockfile **somente no checkout temporário do CI**, antes de instalar dependências e compilar. O workflow não incrementa a versão novamente, não cria commits e não executa `npm run release`.
+Packaging includes `THIRD_PARTY_LICENSES.txt`. For `@img/sharp-libvips-*` packages
+without separate license files, notice generation preserves their README and
+Licensing table. Other dependencies without recognized notices still fail the
+build. Preserve these redistribution notices.
 
-Cada build executa as verificações de ícones/fontes geradas, typecheck estrito, lint, formatação, testes, empacotamento e smoke do aplicativo empacotado. Há também um smoke específico da interface/IPC de atualização usando um backend de teste, sem instalar software no runner. No Linux, o workflow instala o executável de desenvolvimento do Electron sob demanda antes de localizar e configurar os dois helpers `chrome-sandbox`, de desenvolvimento e do pacote. Os smokes escrevem logs fora do bundle, preservando assinaturas macOS.
+`npm run test:portable` runs with TEMP/TMP/TMPDIR through a temporary symlink/junction,
+covering logical/physical path differences such as macOS `/var` and `/private/var`.
+Cross-process fixtures use physical paths while Deploy link protections remain.
+The shared two-worker limit belongs only in `vitest.config.ts`. Real event-loop
+turns in `tests/setup/worker-event-loop.ts` allow worker RPC/reporting between
+synchronous TypeScript cases. Keep the real Node scheduling primitives, including
+with fake timers; do not increase workers or transport deadlines to hide failures.
 
-O empacotamento inclui os avisos de terceiros em `THIRD_PARTY_LICENSES.txt`. Os pacotes nativos `@img/sharp-libvips-*` usados no Linux e no macOS publicam sua tabela de licenças na seção `Licensing` do `README.md`, sem um arquivo `LICENSE` separado; o gerador preserva esse README quando não há outro texto de licença no pacote. Dependências instaladas sem um aviso reconhecido continuam interrompendo o build. A falha `No license text found for @img/sharp-libvips-...` na tag `v0.0.11` veio dessa coleta de avisos, depois dos testes e antes da publicação.
+Every smoke isolates Chromium profile/project state. Uncaught JavaScript errors
+and renderer crashes fail even if later interactions finish. Required
+`renderer workflow completed` appears only after renderer health checks; Forge
+exit zero alone is insufficient. Failures retain raw logs, metadata, and project
+copies under `artifacts/smoke/`, excluding profiles. CI uploads
+`release-smoke-<platform>-<architecture>` or `validation-smoke-<runner>` artifacts.
+Windows/Linux quality jobs remain independent to retain both diagnostics.
 
-Os testes do release e de `npm run validate` usam `npm run test:portable`: a suíte completa roda com `TEMP`, `TMP` e `TMPDIR` apontando para um symlink/junction temporário. Isso verifica em todos os sistemas os casos em que o caminho lógico difere do caminho físico, como `/var` e `/private/var` no macOS. Fixtures e smokes usam o caminho físico para operações que atravessam processos; as proteções de Deploy contra links permanecem ativas. O limite compartilhado é de dois workers, definido somente em `vitest.config.ts`, sem override no workflow. Compilação e reporting em excesso podem interromper a comunicação RPC do Vitest antes do último grupo; os limites dos testes e do RPC não são ampliados para ocultar isso. Para reproduzir somente a montagem/publicação simulada, execute `npm run test:portable -- tests/releases.test.ts tests/release-publication.test.ts`.
+Maintain the actual UI contract in smoke interactions: one active document tab,
+removed Zoom/Arrange controls absent, default Designer scale, and exclusive
+Stop-driven Preview. Monaco checks preserve code, cursor, scroll, native input,
+fonts, and rendered geometry during Design/Code switching. Restore layout after
+the hidden container becomes visible; stale deferred restoration must not override
+event-handler navigation. Rendered lines are compared in visual order because
+Monaco recycles DOM nodes. `tests/monaco-view-state.browser.test.ts` uses real
+Monaco/fonts at three widths when `WEBRAD_BROWSER_PATH` is configured.
 
-O setup compartilhado em `tests/setup/worker-event-loop.ts` permite turnos reais de I/O entre os casos síncronos. Isso impede que a sequência inteira de verificações TypeScript monopolize o worker enquanto respostas de reporting/RPC aguardam atendimento. Ele usa as primitivas reais do Node, preservando testes com timers simulados. A regressão executa o Vitest em processos separados e demonstra que mensagens `MessageChannel` pendentes chegam entre casos com esse setup; o controle sem o setup falha.
+Native cursor cleanup uses Shift+Left and one Backspace for inserted ASCII text,
+retaining exact restoration and all 24 geometry samples. Editor diagnostics
+publish real changes without resending identical lists on every edit.
+Responsive API Client/Data Grid smokes retain exact widths and accept native height
+limits, with a positive temporary `1x1` window minimum on macOS. Diagnostics record
+requested/native/renderer/minimum sizes. `npm run smoke:viewport` probes sandboxed
+Electron resizing on both Macs before the full suite; the full smoke still
+requires 1080/740 px widths.
 
-Cada smoke usa um perfil Chromium temporário, inclusive o fluxo padrão, sem reutilizar dados da instalação do usuário. Exceções JavaScript não capturadas e falhas do processo renderer reprovam o smoke, mesmo quando as interações seguintes terminam. Todos os fluxos exigem `renderer workflow completed`, emitido somente depois de verificar a saúde do renderer; o código zero do Forge sozinho não comprova sucesso. Se falhar, preserva log bruto, metadados da falha e a cópia do projeto em `artifacts/smoke/`, excluindo o perfil Chromium. Os workflows enviam esses arquivos em artifacts `release-smoke-<plataforma>-<arquitetura>` ou `validation-smoke-<runner>`. A validação mantém os dois jobs independentes para preservar os diagnósticos de Windows e Linux. O smoke da barra verifica o contrato atual: uma única aba do documento ativo, ausência dos controles Zoom/Arrange removidos e escala padrão do Designer.
+Development smoke separates cold startup (120 seconds) from the functional
+workflow (120 seconds, 180 for debugger). Timeout terminates the owned process
+tree with bounded cleanup, including pipe-holding descendants: taskkill on Windows,
+isolated process groups on POSIX. Preserve per-interaction limits/evidence and
+report phase, deadline, progress, and cleanup errors. Register Monaco's public
+`dropOrPasteInto` capability before the first editor while semantic TypeScript
+services load asynchronously.
 
-O smoke também verifica cursor, rolagem e código preservados ao alternar entre Design e Code. O wrapper React cria o Monaco em um contêiner oculto: a restauração primeiro mede o contêiner já visível, depois renderiza as linhas iniciais e aplica o viewport salvo. Isso mantém a extensão horizontal de linhas que ficarão fora da área visível. A restauração adiada até as fontes estarem prontas é cancelada quando uma navegação, mudança de cursor, troca de documento ou desmontagem a torna obsoleta. Assim, o duplo clique no Designer ou em um evento do Inspector mantém o cursor dentro do método correspondente, sem retornar à posição salva; o smoke verifica as duas entradas. A comparação do código renderizado ordena as linhas pela posição visual, pois o Monaco pode reciclar os elementos do DOM. A regressão `tests/monaco-view-state.browser.test.ts` reproduz essa montagem oculta com layout automático, fontes e Monaco reais em três larguras; pode ser executada separadamente ao definir `WEBRAD_BROWSER_PATH` para um executável Chromium/Chrome.
+Linux Xvfb uses a private authentication file under RUNNER_TEMP, removed on exit,
+retaining X11 authorization, Electron sandboxing, and the original exit code.
+Assembly checks all four builds, exact file inventories, sizes, SHA-256, and
+`SHA256SUMS`, repeating integrity checks after transfer to publication. It verifies
+the tag exists, creates a draft Release, uploads every asset, then publishes.
+Upload failure retains a recoverable draft; public releases are not overwritten.
+Latest-version comparison paginates all Releases so old tags cannot become latest.
 
-O editor publica mudanças reais de diagnósticos pelos eventos do Monaco e evita republicar a mesma lista em cada edição. Na limpeza do teste de cursor, teclas nativas Shift+Left selecionam exatamente os caracteres ASCII adicionados pelo teste, e um único Backspace remove essa seleção. Isso preserva a linha original nos três sistemas e evita centenas de edições intermediárias na mesma rajada de entrada. As 24 amostras de alinhamento, a restauração exata do código, os prazos e as tolerâncias permanecem ativos.
+## Installed application behavior
 
-As variantes responsivas da API Client mantêm a largura solicitada e aguardam o renderer acompanhar a altura real permitida pela janela nativa. Assim, uma tela menor no runner macOS continua verificando colunas, empilhamento, conteúdo, rodapé e ausência de overflow, sem exigir uma altura que o sistema operacional limita. Nos testes da API Client e Data Grid, o mínimo temporário da janela é explicitamente positivo (`1x1`): no Electron 43, `0x0` não remove o mínimo anterior da janela Cocoa, embora a consulta lógica reporte zero. Falhas de redimensionamento registram as dimensões solicitadas, nativas, do renderer e o mínimo informado pelo Electron.
+- Public metadata is checked about 15 seconds after startup and every six hours.
+  **Help → Check for Updates...** checks immediately without downloading, including
+  with no project open.
+- **Update** appears beside Beta only after confirming a newer release. Clicking
+  downloads; the label stays Update, with tooltip progress and duplicate actions
+  blocked. Before installation, the IDE saves the latest project edits. Unsaved
+  changes in any window block restart; save failure leaves the update retryable.
+- **Windows Setup/Squirrel:** validates and installs the NuGet update, then restarts
+  through `quitAndInstall()`. Portable copies need initial Setup installation.
+- **Linux packages:** the executable must belong to `webrad`. APT, DNF, or Zypper
+  installs a verified DEB/RPM using pkexec/polkit authorization. Cancel/failure
+  keeps the IDE open. No downloaded privileged shell script is executed.
+- **Signed macOS:** Squirrel.Mac uses architecture-specific ZIP/feed when both
+  installed and incoming versions have Developer ID signatures.
+- **Unsigned macOS:** verified ZIP download is revealed in Finder for manual
+  replacement in Applications. System protections remain intact.
+- **Portable/unsupported Linux:** downloads an installer for manual installation.
+  Development and ordinary smokes do not check real updates.
 
-`npm run smoke:viewport` verifica diretamente o redimensionamento em um Electron com sandbox, sem compilar o IDE. O workflow executa essa checagem nos dois Macs logo após `npm ci`, antes da suíte completa, para detectar restrições nativas cedo. O smoke completo continua verificando as larguras exatas de 1080 e 740 pixels.
+Builds without this updater need an initial installer update. Older builds pointing
+to `Atentor/WebRad-Releases` retain that embedded destination; install a release
+from `Atentor/WebRad` once to migrate. The workflow does not transfer/delete old
+releases.
 
-O smoke de desenvolvimento separa a inicialização fria do Forge/Vite da execução das verificações: até 120 segundos para carregar o renderer e, depois, 120 segundos para o fluxo funcional (180 no debugger). Ao atingir o prazo, encerra a árvore própria de processos do Forge/Electron com tempo limitado, incluindo descendentes que mantêm pipes abertos: `taskkill /PID /T /F` no Windows e um grupo isolado no POSIX. Os limites de cada interação e as evidências obrigatórias permanecem ativos; falhas informam a fase, o prazo, o último progresso e erros de limpeza. O setup granular do Monaco registra estaticamente o recurso público `dropOrPasteInto` antes do primeiro editor, preservando os serviços necessários quando o TypeScript é carregado sob demanda e o editor é recriado.
+## Optional macOS signing
 
-Nos smokes Linux, cada execução do Xvfb recebe um arquivo de autenticação privado criado por `mktemp` em `RUNNER_TEMP`, removido ao encerrar o passo. Isso evita a limpeza do diretório temporário interno do `xvfb-run` que falhou no runner, preservando a autorização X11, o sandbox do Electron e o código de saída do teste. Erros do servidor virtual são enviados ao log do passo.
+Without Apple credentials, both macOS artifacts are unsigned and release notes
+say so. Signed distribution/native automatic updates require a Developer ID
+Application certificate and these repository Secrets:
 
-A publicação exige os quatro builds completos e confere tamanho e SHA-256 dos pacotes recebidos dos jobs. Depois da transferência dos artefatos para o job de publicação, repete a validação dos pacotes e exige o conjunto exato de arquivos e o `SHA256SUMS` correspondente, incluindo Setup, feeds e metadados auxiliares. Confirma que a tag já existe no repositório, cria uma Release em rascunho, envia todos os arquivos e só então a torna pública. Uma falha de upload deixa o rascunho para uma nova execução; uma Release já pública não é sobrescrita. Uma tag antiga não substitui a versão mais recente; essa comparação consulta todas as páginas de Releases existentes.
+| Secret                        | Content                                           |
+| ----------------------------- | ------------------------------------------------- |
+| `APPLE_CERTIFICATE_BASE64`    | Base64 `.p12` containing certificate/private key. |
+| `APPLE_CERTIFICATE_PASSWORD`  | `.p12` password.                                  |
+| `APPLE_SIGNING_IDENTITY`      | Full Developer ID Application identity.           |
+| `APPLE_ID`                    | Notarization Apple account.                       |
+| `APPLE_APP_SPECIFIC_PASSWORD` | Account app-specific password.                    |
+| `APPLE_TEAM_ID`               | Apple team identifier.                            |
 
-## Comportamento na aplicação
+CI imports into a temporary keychain and removes it afterward. Forge uses hardened
+runtime, versioned entitlements, and notarization. Incomplete signing credentials
+fail with a configuration diagnostic. Migration from unsigned to signed requires
+one manual replacement.
 
-- O WebRad instalado verifica metadados públicos aproximadamente 15 segundos após iniciar e a cada seis horas. **Help → Check for Updates...** permite consultar imediatamente, inclusive sem projeto aberto. A consulta não baixa instaladores.
-- Somente após confirmar uma versão maior no GitHub, aparece **Update** na barra superior, junto ao indicador Beta. O botão fica oculto durante a consulta, quando a versão já está atualizada ou quando a consulta falha. O clique inicia o download; o nome permanece **Update**, com progresso no tooltip e bloqueio de novos cliques durante download/instalação. Antes da instalação, o IDE salva o estado mais recente do projeto, incluindo edições feitas durante o download, e solicita a instalação pelo processo principal. Alterações pendentes em qualquer janela impedem o reinício. Se salvar falhar, a atualização pronta permanece disponível para tentar novamente.
-- **Windows instalado por Setup/Squirrel:** o atualizador nativo baixa o pacote NuGet, valida o protocolo Squirrel, instala e reinicia pelo `quitAndInstall()`. Uma cópia portátil deve ser instalada pelo Setup antes de usar esse mecanismo.
-- **Linux instalado por pacote:** o executável precisa pertencer ao pacote `webrad`. São suportados APT para `.deb` e DNF/Zypper para `.rpm`, com `pkexec` e um agente de autenticação polkit disponíveis no desktop. O WebRad baixa o pacote correspondente, confere SHA-256/tamanho, solicita autorização do sistema, aguarda o gerenciador de pacotes e reinicia após sucesso. Cancelar a autorização ou falhar a instalação informa o erro e mantém o IDE aberto. Não é executado shell nem um script baixado com privilégios.
-- **macOS com Developer ID:** quando a versão instalada e a nova versão são assinadas, usa Squirrel.Mac para baixar, instalar e reiniciar. São selecionados ZIP e feed próprios de cada arquitetura.
-- **macOS sem Developer ID:** **Update** oferece download manual, explicado no tooltip. O ZIP é baixado e verificado, e sua localização é exibida no Finder. Substitua `WebRad.app` em Applications manualmente. O macOS pode bloquear a execução de um aplicativo não assinado. Não há alteração das proteções do sistema pelo WebRad.
-- **Linux portátil ou sem gerenciador suportado:** oferece download do instalador para instalação manual. Execuções em desenvolvimento e smokes normais não verificam atualizações reais.
+## Distribution contract
 
-As versões anteriores a esta implementação precisam receber a primeira atualização pelo instalador, pois ainda não possuem o atualizador.
+Public releases contain installers, `RELEASES`, Squirrel `.nupkg`,
+`webrad-darwin-x64.json`, `webrad-darwin-arm64.json`, `webrad-update.json`, and
+`SHA256SUMS`. Manifest format 1 records version, date, platform/architecture/format,
+filename, size, SHA-256, and macOS signing status. Mac feeds use
+`currentRelease`/`releases`/`updateTo`. The application fetches
+`https://github.com/Atentor/WebRad/releases/latest/download/webrad-update.json`
+and pins downloads to its concrete tag.
 
-Versões já instaladas que consultam `Atentor/WebRad-Releases` continuam usando o endereço incorporado naquele build. Para migrar, instale uma vez a nova versão disponível nas Releases de **Atentor/WebRad**. A partir desse build, as verificações e os downloads usam o próprio repositório WebRad. O workflow não transfere nem apaga Releases antigas do repositório anterior.
+Preload exposes only update `getState()`, `check()`, `download()`, `install()`,
+and state subscriptions. IPC validates trusted origin/main frame and accepts no
+renderer-supplied URL, path, token, or command. Downloads require HTTPS and validate
+every redirect against GitHub asset hosts with time/size bounds. Windows/signed
+macOS also retain native updater checks. This feature belongs to the desktop IDE;
+exported applications contain no Electron updater dependency.
 
-## Assinatura macOS opcional
-
-Sem conta Apple, os dois builds macOS geram ZIPs não assinados, e a Release informa essa condição. Para habilitar distribuição assinada e atualização automática nativa, obtenha um certificado **Developer ID Application** pelo Apple Developer Program e configure estes Secrets em **Atentor/WebRad**:
-
-| Secret                        | Conteúdo                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `APPLE_CERTIFICATE_BASE64`    | Certificado com chave privada, exportado em `.p12`, codificado em base64 |
-| `APPLE_CERTIFICATE_PASSWORD`  | Senha do `.p12`                                                          |
-| `APPLE_SIGNING_IDENTITY`      | Identidade completa `Developer ID Application: ... (TEAMID)`             |
-| `APPLE_ID`                    | Conta Apple usada para notarização                                       |
-| `APPLE_APP_SPECIFIC_PASSWORD` | Senha específica de aplicativo da conta Apple                            |
-| `APPLE_TEAM_ID`               | Identificador do time Apple                                              |
-
-O workflow importa o certificado em um keychain temporário e o remove ao terminar. Forge assina com hardened runtime, usa os entitlements versionados e solicita notarização. Se um certificado for fornecido sem as outras credenciais, o build falha com indicação da configuração faltante. A passagem de uma instalação não assinada para uma assinada exige uma primeira substituição manual.
-
-## Contrato de distribuição
-
-A Release pública contém os instaladores, `RELEASES`, o pacote Squirrel `.nupkg`, `webrad-darwin-x64.json`, `webrad-darwin-arm64.json`, `webrad-update.json` e `SHA256SUMS`. O manifest `webrad-update.json`, versão de formato 1, identifica versão estável, data e targets por plataforma, arquitetura, formato, nome de arquivo, tamanho, SHA-256 e indicador de assinatura macOS. Os feeds macOS usam o formato estático Squirrel (`currentRelease`/`releases`/`updateTo`). O aplicativo consulta `https://github.com/Atentor/WebRad/releases/latest/download/webrad-update.json` e fixa os downloads na tag concreta encontrada.
-
-A ponte preload expõe somente `getState()`, `check()`, `download()`, `install()` e uma assinatura de estados. IPC valida a origem e o frame principal confiável; não aceita URL, caminho, token ou comando vindo do renderer. Downloads próprios aceitam HTTPS e validam cada redirecionamento para os hosts de assets do GitHub, com limites de tempo/tamanho. Windows e macOS assinados usam as verificações dos atualizadores nativos. Esse recurso pertence ao IDE desktop; os projetos e as aplicações web exportadas não recebem dependências do Electron ou do atualizador.
-
-Referências: [Electron autoUpdater](https://www.electronjs.org/docs/latest/api/auto-updater), [assinatura macOS no Forge](https://www.electronforge.io/guides/code-signing/code-signing-macos), [feed Squirrel.Mac](https://github.com/Squirrel/Squirrel.Mac#update-file-json-format).
+References: [Electron autoUpdater](https://www.electronjs.org/docs/latest/api/auto-updater),
+[Forge macOS signing](https://www.electronforge.io/guides/code-signing/code-signing-macos),
+[Squirrel.Mac feed](https://github.com/Squirrel/Squirrel.Mac#update-file-json-format).

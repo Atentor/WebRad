@@ -1,28 +1,26 @@
-# Segurança
+# Security
 
-## Relatar uma vulnerabilidade
+## Report a vulnerability
 
-Não publique credenciais, dados pessoais, arquivos de clientes ou detalhes de
-exploração em uma issue pública.
+Do not publish credentials, personal data, customer files, or exploit details in
+a public issue. Use **Report a vulnerability** in the repository's
+[security area](https://github.com/Atentor/WebRad/security/advisories/new) when
+private reporting is enabled. If unavailable, open an issue requesting a private
+contact channel without including vulnerability details.
 
-Use a opção **Report a vulnerability** na
-[área de segurança do repositório](https://github.com/Atentor/WebRad/security/advisories/new)
-quando o relato privado estiver habilitado. Se essa opção estiver indisponível,
-abra uma issue pedindo um canal privado, sem incluir os detalhes da falha.
+Include the affected version or commit, operating system, a minimal reproduction
+using fictional data, and the observed impact in your private report. Revoke or
+rotate exposed credentials at their source service.
 
-Inclua no relato privado a versão ou commit, o sistema operacional, uma
-reprodução mínima com dados fictícios e o impacto observado. Credenciais que
-tenham sido expostas devem ser revogadas ou rotacionadas no serviço de origem.
+## Updates and application boundaries
 
-## Atualizações
+Fixes are developed on `main`. Older releases do not have guaranteed security
+maintenance; use the latest available release.
 
-As correções são desenvolvidas na branch `main`. Versões anteriores não têm
-manutenção de segurança garantida; use a versão mais recente disponível.
+The Electron renderer must keep `nodeIntegration: false`,
+`contextIsolation: true`, and `sandbox: true`. Native access uses typed preload
+APIs and main-process IPC validation.
 
-O renderer do Electron deve manter `nodeIntegration: false`,
-`contextIsolation: true` e `sandbox: true`. Acesso nativo passa por preload
-tipado e validação de IPC no processo principal.
-
-Valores salvos em projetos, variáveis `Env` e tokens de aplicação exportados
-podem aparecer no JavaScript do navegador. Credenciais administrativas e
-segredos de servidor não devem fazer parte de projetos ou aplicações geradas.
+Project values, `Env` variables, and exported application API tokens can appear
+in browser JavaScript. Administrative credentials and server secrets must stay
+outside projects and generated applications.

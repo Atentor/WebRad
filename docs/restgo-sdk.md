@@ -1,400 +1,436 @@
-# SDK nativo do RestGO
+# RestGo SDK
 
-O serviço `RestGO.videos` oferece upload resumível em blocos binários, retomada verificada, biblioteca, metadados, tarefas e descritores HLS. A classe não visual `WebVideoUpload` integra esse serviço ao Designer, Monaco e Preview, com limites opcionais de arquivo e duração. Consulte [Video Upload](video-upload.md) para métodos, eventos, checkpoint e exemplos. Essas rotas usam a sessão Authentication, nunca o token de API da aplicação.
+`@webrad/restgo-sdk` uses standard browser APIs (`fetch`, `FormData`, `Blob`) for
+authentication, Storage, videos, and dynamic APIs. Preview and compiled applications
+share the client without Electron or Node.js. Public registration requires the
+server to allow `POST /auth/users` without `Authorization`.
 
-O pacote `@webrad/restgo-sdk` utiliza `fetch`, `FormData`, `Blob` e APIs padrão do navegador para autenticação, Storage e APIs dinâmicas. O Preview e a aplicação compilada utilizam o mesmo cliente, sem dependências de Electron ou Node.js. O SDK está preparado para cadastro público; a instância RestGo precisa permitir `POST /auth/users` sem `Authorization` para esse fluxo funcionar.
+`RestGO.videos` provides resumable binary uploads, verified checkpoints, library,
+metadata, jobs, and HLS descriptors. The nonvisual `WebVideoUpload` integrates it
+with Designer, Monaco, and Preview. These routes use the Authentication session,
+never the application API token. See [Video Upload](video-upload.md).
 
-## Configuração no WebRAD
+## WebRAD configuration
 
-Abra **RestGo integration** pelo ícone de banco no menu vertical esquerdo. A seção **Connection** reúne a configuração usada pelo SDK e uma conexão administrativa exclusiva do WebRAD.
+Open **RestGo integration** through the database icon in the activity rail.
+**Connection** separates application SDK settings from IDE administration.
 
-- Ative **Enable native RestGO integration** e informe a URL HTTP(S) da instância. Um caminho de reverse proxy, como `https://exemplo.com/backend`, é preservado.
-- Deixe **Application API token** vazio para cadastro e login públicos. O campo é opcional para APIs dinâmicas que precisam de token de API; nesse caso, informe o valor sem `Bearer`. Ele é salvo em `settings.restGo.apiToken` e usado como `Authorization: <token>` em chamadas automáticas a essas APIs quando não existe sessão. Cadastro e login não o enviam.
-- Escolha a versão de cada requisição no API Client e, opcionalmente, o slug do banco padrão na conexão.
-- Configure persistência em armazenamento local, armazenamento da aba ou memória. A chave deve distinguir aplicações hospedadas na mesma origem.
-- Clique em **Save changes** e salve o projeto normalmente. A conexão é persistida em `settings.restGo` no arquivo `.wrproj`.
+- Enable **Enable native RestGO integration** and enter the HTTP(S) instance URL.
+  Reverse-proxy prefixes, such as `https://example.com/backend`, are preserved.
+- Leave **Application API token** empty for public registration/login. Set it
+  without `Bearer` only for dynamic APIs needing an application token. It persists
+  as `settings.restGo.apiToken` and is visible in browser JavaScript.
+- Choose request versions in API Client; optionally set a default database slug.
+- Choose local, session, or memory storage and a key distinguishing applications
+  sharing an origin.
+- Click **Save changes**, then save the project. Settings persist in `.wrproj`
+  under `settings.restGo`.
 
-O compilador configura `RestGO` antes de construir as páginas. Esse cliente é compartilhado entre os eventos e as navegações da aplicação. Acessá-lo com a integração desativada gera `RestGoNotConfiguredError`, com indicação de onde configurá-la.
+The compiler configures the shared `RestGO` client before constructing pages.
+Access while disabled throws `RestGoNotConfiguredError` with configuration guidance.
+Automatic dynamic-API authorization uses `Bearer <JWT>` during a session and the
+raw configured API token otherwise, including after logout. Rejection never
+triggers a fallback to a different credential type.
 
-As chamadas a APIs dinâmicas com autorização automática usam o JWT da sessão como `Authorization: Bearer <JWT>` quando o usuário está autenticado. Sem sessão, incluindo após logout, usam o token configurado sem `Bearer`. Não há repetição com outro tipo de credencial após rejeição. Cadastro (`POST /auth/users`) e login (`POST /auth/token`) sempre omitem `Authorization`, inclusive quando existe token configurado ou sessão. Falhas nessas operações não encerram uma sessão válida. `POST /auth/refresh` e as operações públicas de recuperação/confirmação também não enviam esse header; operações protegidas preservam o contrato do endpoint.
+Registration, login, refresh, and public recovery/confirmation calls omit
+`Authorization`, even with an existing session/token. Failures of public calls
+do not end a valid session. Keep `RESTGO_AUTHORIZATION` and administrative secrets
+on the server; an application token is part of exported project code.
 
-O token configurado é incluído no projeto, no Preview e no JavaScript gerado, ficando acessível no navegador. Utilize um token de API apropriado para a aplicação; mantenha `RESTGO_AUTHORIZATION` e outras credenciais administrativas no servidor.
+## Endpoint administration in the IDE
 
-## Administração de endpoints dentro do IDE
+Set a separate administrative API token in **Connection**. **Connect** checks
+permission against the saved integration URL. Apply URL changes before connecting.
+The token stays in Electron's main process. Optional remembering uses encrypted
+OS storage in the local IDE profile; without secure storage it remains temporary.
+**Disconnect** removes the remembered credential. It never enters `.wrproj`,
+API Client operations, Preview, or Build.
 
-Na seção **Connection**, informe separadamente um API Token do RestGo com permissão administrativa. **Connect** verifica essa permissão antes de guardar a credencial. A conexão administrativa usa a URL salva para a integração; alterações na URL precisam ser aplicadas antes de conectar.
+In **Endpoints**, edit a slug/version and HTTP methods using parameterized SQL
+or an existing API Operation. Saving writes to the server. Publishing binds the
+group to an existing database, selects JWT/API Token/public access, and activates
+required records. Group methods share publication/authentication policy. These
+remote operations take effect immediately; local Designer undo covers project
+components only.
 
-O token administrativo permanece no processo principal do Electron. Por padrão, vale somente durante a sessão do IDE. A opção de lembrar a conexão grava somente a credencial criptografada pelo armazenamento seguro do sistema operacional no perfil local do WebRAD; quando a criptografia segura não está disponível, a conexão permanece temporária. **Disconnect** também remove a credencial lembrada. Esse token nunca entra no `.wrproj`, nas operações do API Client, no Preview ou no Build.
+Published endpoints restore **Database** and **Required credential**. With multiple
+publications, the configured default database is preferred, otherwise the first.
+Selecting another database loads its saved authentication policy.
+**Published APIs** lists routes, database, version, method, authentication, and
+availability. Only active routes with active database/endpoint and any required
+API Operation can be imported.
 
-Em **Endpoints**, crie ou edite um slug e uma versão, configure os métodos HTTP com SQL parametrizado ou selecione uma API Operation existente. Salvar persiste os endpoints na instância. Publicar vincula o grupo de slug/versão a um banco existente, define JWT, API Token ou acesso público e ativa os registros necessários. Os métodos do grupo compartilham a publicação e a política de autenticação segundo o contrato do RestGo. Alterações de estado e publicação afetam a instância imediatamente; o histórico local do Designer cobre apenas alterações dos componentes do projeto.
+Add/open an **API Client** and choose **Import from RestGo**. Import preserves
+IDs/existing operations, fills routes, versions, methods, and inputs, and prevents
+duplicates. Each client has one authentication mode; use separate clients for
+different modes. Converting a custom client needs explicit confirmation in the
+editor. Routes escaping the integration URL are rejected.
 
-Ao abrir um endpoint já publicado, **Database** e **Required credential** vêm preenchidos com os valores salvos. Se houver várias publicações, o editor prioriza o banco padrão configurado na conexão; caso contrário, usa a primeira publicação. Selecionar outro banco carrega a política de autenticação já salva para ele.
+The importer can reconnect using **Administrative API token** without closing or
+losing request drafts. A rejected credential stops indicating an active connection;
+transient network/server failures preserve it. Remembering still requires secure
+storage. See [import synchronization](api-client.md#updating-imported-restgo-apis)
+for updating existing operations across open/closed pages and reusables.
 
-**Published APIs** lista as rotas com banco, versão, método, autenticação e disponibilidade. Somente rotas ativas, com banco e endpoint ativos e API Operation disponível quando necessária, podem ser importadas. A busca ajuda a localizar APIs existentes.
+| API Client connection                        | Credential policy                                          |
+| -------------------------------------------- | ---------------------------------------------------------- |
+| RestGo JWT Authentication (`restgo-session`) | Current validated session; no API-token fallback.          |
+| RestGO API Token (`restgo-api-token`)        | Raw `settings.restGo.apiToken`, including while signed in. |
+| RestGO Public (`restgo-public`)              | No Authorization or cookies.                               |
 
-Abra um componente **API Client** na página ou componente reutilizável e use **Import from RestGo** para selecionar as APIs publicadas. Para um cliente novo, adicione primeiro o componente pelo Designer. O importador preserva identificadores e operações existentes, preenche rota, versão, método e parâmetros de entrada e evita duplicar a mesma rota. Um cliente usa um único modo de autenticação; APIs com modos diferentes ficam em clientes separados. Converter um cliente personalizado exige confirmação explícita no importador do editor, e rotas que escapem da URL da integração são rejeitadas.
+These modes fix the integration base URL, manage Authorization, use browser fetch,
+respect CORS, and reject redirects. Response fields are inferred from a real test
+request. Response samples, selected files, and temporary credentials are not saved.
 
-Se o acesso administrativo estiver desconectado ou o RestGo rejeitar a credencial, o importador permite informar outro **Administrative API token** e conectar sem fechar o editor. As requisições em edição são preservadas. A credencial recusada deixa de indicar uma conexão ativa; falhas temporárias de rede ou servidor não encerram o acesso. O token continua restrito ao IDE, com a opção de lembrar disponível somente quando há armazenamento seguro.
+Body templates support `<name>` placeholders, for example
+`{"customerId": <customerId>}`. **Body** discovers inputs and stores their types;
+repeated names share an input and removed placeholders remove it. Test values
+remain in memory. At runtime, pass `parameters` to `execute()`; substitution
+preserves numbers, booleans, objects, arrays, and null, and JSON-escapes strings.
+It does not change authentication mode.
 
-As conexões **RestGo JWT Authentication** (`restgo-session`), **RestGO API Token** (`restgo-api-token`) e **RestGO Public** (`restgo-public`) fixam a URL da integração e administram o header Authorization. JWT exige a sessão atual e nunca recorre a outro token. API Token usa exclusivamente `settings.restGo.apiToken`, sem `Bearer`, mesmo com usuário autenticado. Público omite Authorization e cookies. Todos os modos enviam requisições pelo `fetch` do navegador, preservam CORS e recusam redirecionamentos. Campos da resposta são inferidos após uma chamada real no editor; amostras, uploads e credenciais temporárias não são persistidos.
+## Development login in API Client
 
-O corpo do API Client aceita placeholders `<nome>`, como `{"idinstancia": <idinstancia>, "chave": <chave>}`. A aba **Body** mostra os parâmetros automaticamente e permite definir tipo e valor de teste. Um nome repetido utiliza uma só entrada; remover o placeholder remove sua linha. Tipos são salvos com o template, enquanto os valores de teste ficam em memória. Na aplicação, passe os valores em `ApiClient1.execute('PutKey', { parameters: { idinstancia: 42, chave: 'valor' } })`. A substituição preserva números, booleanos, objetos, arrays e null, e escapa textos como JSON. Esses parâmetros não alteram o modo de autenticação.
+After saving connection settings, use **Development login** under **Application
+SDK**, then **Sign in for development** with an application user's credentials.
+No administrative connection is needed.
 
-## Login de desenvolvimento no API Client
+**Remember development login on this device** encrypts JWT, refresh token, and
+expiration dates in the OS-backed local IDE profile. Passwords are never stored.
+Without secure storage, credentials last until the window closes. Sessions are
+keyed by normalized instance URL, including proxy prefix, in
+`restgo-development-credentials`, separate from administrative credentials.
 
-Salvar alterações nos endpoints e usar **Refresh** sincroniza os clientes importados já existentes no projeto. Isso inclui query e JSON, preservando IDs, nomes, valores e o contrato de resposta. A reimportação atualiza a mesma operação. Consulte [Atualização de APIs importadas](api-client.md#atualizacao-de-apis-importadas-do-restgo) para persistência, histórico e casos que exigem ajuste manual.
+With **RestGo JWT Authentication**, leave **Test JWT** empty. Before each test,
+the IDE validates `/auth/session`, attempts `/auth/refresh` after 401, and serializes
+rotation between windows. Definitive rejection removes saved credentials;
+transient failures retain them. An explicit Test JWT overrides the session only
+in that editor. Other connection modes retain their own policies.
 
-Em **RestGo integration → Connection**, salve a configuração da conexão e use **Development login**, abaixo de **Application SDK**. Informe o e-mail e a senha de um usuário Authentication da aplicação e clique em **Sign in for development**. Não é necessário conectar um token administrativo para esse login.
+**Sign out and forget session** attempts remote logout and always removes the
+local copy. Authentication uses validated main-process IPC without cookies or
+redirects; endpoint tests still execute in the browser with CORS. Development
+credentials never enter project files, Preview, or Build. Applications have their
+own login flow.
 
-**Remember development login on this device** guarda somente o JWT, o refresh token e suas datas de expiração, com a criptografia do sistema operacional no perfil local do IDE. A senha não é salva. Sem armazenamento seguro, a sessão fica apenas em memória até fechar a janela. As sessões são separadas pela URL normalizada da instância, incluindo o caminho do reverse proxy, e ficam em `restgo-development-credentials`, separadas das credenciais administrativas.
+## Login and session
 
-No API Client, selecione **RestGo JWT Authentication** e deixe **Test JWT** vazio. Antes de cada teste, o IDE valida a sessão em `/auth/session` e, se rejeitada com 401, tenta renová-la em `/auth/refresh`, serializando a rotação entre janelas. Uma rejeição definitiva remove a sessão salva; falhas transitórias de rede preservam as credenciais. Um **Test JWT** preenchido substitui a sessão somente nesse editor. Os modos **RestGO Public**, **RestGO API Token** e **Custom API** mantêm suas próprias regras de autenticação.
-
-**Sign out and forget session** tenta revogar a sessão em `/auth/logout` e remove a cópia local mesmo se o servidor estiver indisponível. A autenticação acontece no processo principal por IPC validado, sem cookies ou redirecionamentos; as chamadas de teste aos endpoints continuam no navegador, com CORS. As credenciais de desenvolvimento não entram no `.wrproj`, nas páginas, no Preview ou no Build. A aplicação continua usando seu próprio fluxo de login.
-
-## Login e sessão
-
-Em um método de evento da página:
+With components named `Email` and `Password` and a destination page `Home`:
 
 ```ts
-const log = await RestGO.login(this.Email.text.trim(), this.Senha.text, true);
-
-if (!log.sucess) {
-  Message(log.error.message);
+const login = await RestGO.login(this.Email.text.trim(), this.Password.text, true);
+if (!login.sucess) {
+  Message(login.error.message);
   return;
 }
-
-Message(`Olá, ${log.data.user.fullName}`);
-Navigate('PageHome');
+Message(`Hello, ${login.data.user.fullName}`);
+Navigate('Home');
 ```
 
-Os componentes `Email` e `Senha` desse exemplo devem existir na página; `PageHome` é a página de destino após o login. O terceiro parâmetro é `remember`, opcional e `false` por padrão. Ele é enviado ao RestGO, que determina a validade do JWT e do refresh token conforme sua configuração. A persistência no navegador continua sendo definida em Project Settings.
+The public result field is spelled **`sucess`**. `RestGoLoginResult` discriminates
+success and failure: `data.user` is available on success, `error.message` on failure.
+Failed login returns `sucess: false` even if an earlier session is still valid.
+The optional third argument, `remember`, defaults to `false`; the server determines
+credential lifetime, while Project Settings controls browser persistence.
 
-`login()` retorna `{ sucess, data, error }`. O campo `sucess` é sempre booleano: `true` quando esse login autentica o usuário e retorna uma sessão válida, ou `false` em falhas de autenticação, rede, resposta inválida ou cancelamento. O tipo público `RestGoLoginResult` permite acessar `log.data.user` diretamente em `if (log.sucess)` e `log.error.message` no ramo de falha. A verificação existente por `error` também continua funcionando. Um login malsucedido retorna `sucess: false` mesmo quando existe uma sessão anterior ainda válida.
+| Shortcut                            | Result in `data`                         |
+| ----------------------------------- | ---------------------------------------- |
+| `login(email, password, remember?)` | Authenticated session, user, and tokens. |
+| `logout()`                          | Session revocation result.               |
+| `getSession()`                      | Server-validated session or `null`.      |
+| `getUser()`                         | Server-validated user or `null`.         |
+| `refreshSession()`                  | Rotated session and credentials.         |
+| `onAuthStateChange(callback)`       | Directly returns `{ unsubscribe }`.      |
 
-Para apenas entrar e navegar, o evento pode ser escrito assim:
-
-```ts
-const { error } = await RestGO.login(this.Email.text.trim(), this.Senha.text);
-if (error) Message(error.message);
-else Navigate('PageHome');
-```
-
-Os atalhos abaixo utilizam a mesma sessão, persistência e renovação automática do cliente `RestGO` e também estão disponíveis em clientes criados com `createClient()`:
-
-| Atalho                                     | Resultado em `data`                           |
-| ------------------------------------------ | --------------------------------------------- |
-| `RestGO.login(email, password, remember?)` | Sessão autenticada, incluindo `user` e tokens |
-| `RestGO.logout()`                          | Resultado da revogação da sessão              |
-| `RestGO.getSession()`                      | Sessão validada no servidor ou `null`         |
-| `RestGO.getUser()`                         | Usuário validado no servidor ou `null`        |
-| `RestGO.refreshSession()`                  | Sessão e credenciais rotacionadas             |
-| `RestGO.onAuthStateChange(callback)`       | Retorna `{ unsubscribe }` diretamente         |
-
-As operações assíncronas retornam `{ data, error }`; o atalho `login()` também inclui `sucess`, com os tipos do SDK no autocompletar. Um erro de rede é um erro de consulta, e não prova de que o usuário saiu. Os métodos em `RestGO.auth` também permanecem disponíveis. Login não escolhe uma página de destino: o código do evento usa `Navigate()` para isso.
+Async methods return `{ data, error }`; `login()` also includes `sucess`. The same
+shortcuts exist on clients created with `createClient()`, alongside `auth` methods.
+Navigation is explicit application logic; login does not choose a page.
 
 ```ts
-const initial = await RestGO.auth.ready;
+await RestGO.auth.ready;
 const { data: session, error } = await RestGO.getSession();
 const { data: user } = await RestGO.getUser();
-
 const subscription = RestGO.onAuthStateChange((event, currentSession) => {
-  // Atualize a interface conforme a sessão validada e o evento recebido.
+  // Update the UI from the validated session and event.
 });
-
 subscription.unsubscribe();
 await RestGO.logout();
 ```
 
-`auth.ready` conclui a validação inicial das credenciais persistidas, renovando primeiro um JWT expirado quando existe refresh token. `getSession()` consulta `GET /auth/session` e retorna a identidade atual do servidor, ou `null` quando não há sessão. `expiresAt` agenda a renovação, mas não comprova que a sessão continua válida. Logout, alterações administrativas, redefinição de senha e reinício do RestGO podem revogar uma sessão antes desse horário.
+`auth.ready` validates restored credentials, refreshing an expired JWT first when
+possible. `getSession()` calls `GET /auth/session`. `expiresAt` schedules refresh;
+it does not prove current server validity. Logout, administration, password reset,
+and backend restart can revoke a session earlier.
 
-O SDK normaliza os erros em `{ data, error }`. `error` contém `message`, `code`, `status`, detalhes e `retryAfterMs` quando disponíveis. Falhas de rede, 429 e respostas 5xx preservam a credencial para uma nova tentativa. Um 401 que invalida o JWT tenta renovar a sessão; um 401 no refresh remove a sessão. Falhas em login, chamadas públicas e chamadas com token de API não removem uma sessão válida. Em um endpoint dinâmico, um 401 usando JWT leva à revalidação da sessão, pois o endpoint pode exigir outra modalidade de credencial.
+Errors include `message`, `code`, `status`, details, and `retryAfterMs` when
+available. Network failures, 429, and 5xx retain credentials. Authoritative JWT
+401 attempts refresh; refresh 401 clears the session. Dynamic endpoint JWT 401
+revalidates the session because the endpoint may require a different credential.
+A network error alone never proves logout. Restored identity comes from server
+validation; blocked/disabled persistent storage falls back to memory.
 
-A persistência guarda a credencial e seus metadados, vinculados à instância. A identidade restaurada vem da validação do servidor. O armazenamento em memória funciona quando a persistência está desativada ou o navegador bloqueia o acesso ao armazenamento.
+## Authentication events in Interaction
 
-## Eventos de autenticação em Interaction
+Select a page in **Builder**, open **Interaction → RestGO**, and double-click
+**OnLogin**, **OnLogout**, or **OnUnauthenticated**. WebRAD creates a typed handler
+and persists its association. Enable the integration to receive notifications.
 
-Selecione a página no **Builder**, abra **Interaction** e, no grupo **RestGO**, dê dois cliques em **OnLogin**, **OnLogout** ou **OnUnauthenticated**. O WebRAD cria o método TypeScript e salva a associação no Project Model. Os eventos com dados do usuário também recebem o import do tipo de detalhe. A conexão precisa estar ativada em Project Settings para receber notificações.
+`OnLogin` supplies `event.detail.user` after login or when showing a page with an
+existing authenticated session; the latter sets `restored: true`. Validation or
+refresh of that session does not repeat login. `OnLogout` supplies the previous
+user after confirmed logout/revocation. Network errors do not emit logout. Hidden,
+closed, or disposed pages stop observing; reusable observers last while mounted.
+User detail contains identity only, without tokens:
 
-`OnLogin` recebe `event.detail.user` quando o login é concluído ou quando uma página é exibida com uma sessão autenticada já existente. `event.detail.restored` é `true` neste segundo caso. A validação e a renovação de token da mesma sessão não repetem o evento. `OnLogout` recebe o último usuário autenticado quando o SDK confirma logout ou revogação. Uma falha de rede não dispara logout. Páginas escondidas, fechadas ou descartadas param de observar a sessão; elementos reutilizáveis com esses eventos associados observam enquanto estão montados.
+| Field                 | Type             | Meaning              |
+| --------------------- | ---------------- | -------------------- |
+| `user.id`             | `string`         | User ID.             |
+| `user.fullName`       | `string`         | Full name.           |
+| `user.email`          | `string`         | Email address.       |
+| `user.avatarUrl`      | `string \| null` | Optional avatar URL. |
+| `user.active`         | `boolean`        | Active account.      |
+| `user.emailConfirmed` | `boolean`        | Confirmed email.     |
 
-Os dois eventos fornecem apenas a identidade, sem tokens:
+### Detecting unauthenticated users
 
-| Campo                 | Tipo             | Valor                    |
-| --------------------- | ---------------- | ------------------------ |
-| `user.id`             | `string`         | ID do usuário            |
-| `user.fullName`       | `string`         | Nome completo            |
-| `user.email`          | `string`         | E-mail                   |
-| `user.avatarUrl`      | `string \| null` | URL do avatar, se houver |
-| `user.active`         | `boolean`        | Conta ativa              |
-| `user.emailConfirmed` | `boolean`        | E-mail confirmado        |
-
-### Detectar ausência de usuário automaticamente
-
-`OnUnauthenticated` dispara quando uma página é exibida sem sessão autenticada confirmada ou quando o SDK confirma que a sessão terminou, incluindo logout e revogação. Ele funciona mesmo quando a página nunca recebeu `OnLogin`. O evento recebe somente `sender`, sem exigir um usuário anterior.
-
-Nas páginas que exigem login, crie o evento por **Interaction > RestGO > OnUnauthenticated** e coloque no corpo do método:
-
-```ts
-Navigate('PageLogin');
-```
-
-Substitua `PageLogin` pelo nome da página de login do projeto. Ela permite a entrada sem sessão; associe o redirecionamento às páginas que precisam de autenticação.
-
-O runtime consulta a sessão ao exibir a página, a cada 30 segundos enquanto a aba está visível e ao retornar o foco ou a visibilidade da aba. Há um único timer por cliente compartilhado, e consultas concorrentes compartilham a validação do SDK. Logout confirmado dispara imediatamente; revogações no servidor são detectadas na próxima verificação ou operação autenticada. A renovação continua sendo tentada antes de concluir que uma credencial rejeitada encerrou a sessão.
-
-O evento é emitido uma vez por período sem autenticação naquela página. Verificações repetidas não repetem o evento; um novo login permite uma nova notificação se a sessão terminar novamente. Esconder e exibir a página inicia uma nova observação. A página libera a assinatura ao esconder, fechar ou ser descartada; o monitor compartilhado termina quando o último observador sai. Integração desativada e erros de rede/429/5xx não são confirmação de ausência de sessão e não disparam o evento. Uma validação inicial que falha por rede também não gera um falso redirecionamento.
-
-### Guardar os dados do usuário em variáveis
-
-Para usar os valores somente dentro do evento, crie variáveis locais:
+`OnUnauthenticated` fires when a page appears without a confirmed session or the
+SDK confirms session termination, even without a preceding OnLogin. It receives
+only `sender`. On protected pages, its body can redirect:
 
 ```ts
-const { user } = event.detail;
-const usuarioId = user.id;
-const usuarioNome = user.fullName;
-const usuarioEmail = user.email;
-Message(`Olá, ${usuarioNome}`);
+Navigate('Login');
 ```
 
-Para acessá-los em outros métodos da mesma página, declare campos dentro da classe, fora dos métodos, e preencha-os no evento. Exemplo completo para uma página chamada `PageMain`:
+Keep the login page accessible without a session. Runtime checks on page display,
+every 30 seconds while visible, and on focus/visibility return. One timer per
+shared client and shared concurrent validation avoid duplicate requests. Confirmed
+logout notifies immediately; server revocation is detected by the next check or
+protected operation after any refresh attempt.
+
+Notification occurs once per unauthenticated period per page. New login allows
+another notification after termination; hide/show starts a new observation.
+Disposal releases subscriptions and the last observer stops monitoring. Disabled
+integration, network errors, 429/5xx, and failed initial network validation do not
+emit false unauthenticated redirects.
+
+### Keeping user data in page fields
+
+Local variables last for the handler. Declare fields on the page class when other
+methods need the values, and populate/clear them in the handlers created by
+Interaction. Keep handler names consistent with saved associations:
 
 ```ts
 import type { WebPage, WebPageLoginEventDetail, WebPageLogoutEventDetail } from '@webrad/runtime';
 import { PageMainGenerated } from './PageMain.generated';
 
 export class PageMain extends PageMainGenerated {
-  private usuarioId = '';
-  private usuarioNome = '';
-  private usuarioEmail = '';
+  private userId = '';
+  private userName = '';
+  private userEmail = '';
 
   public async PageMainLogin(
     sender: WebPage,
     event: CustomEvent<WebPageLoginEventDetail>,
   ): Promise<void> {
-    const { user } = event.detail;
-    this.usuarioId = user.id;
-    this.usuarioNome = user.fullName;
-    this.usuarioEmail = user.email;
+    this.userId = event.detail.user.id;
+    this.userName = event.detail.user.fullName;
+    this.userEmail = event.detail.user.email;
   }
 
   public async PageMainLogout(
     sender: WebPage,
     event: CustomEvent<WebPageLogoutEventDetail>,
   ): Promise<void> {
-    this.usuarioId = '';
-    this.usuarioNome = '';
-    this.usuarioEmail = '';
+    this.userId = '';
+    this.userName = '';
+    this.userEmail = '';
   }
 }
 ```
 
-Edite os métodos criados por Interaction no arquivo da página; mantenha os outros métodos existentes. Os nomes dos métodos precisam coincidir com as associações em Interaction. Campos da classe duram enquanto aquela instância da página existe e são recriados ao navegar. O SDK compartilha a sessão entre páginas e preenche o `OnLogin` da próxima página com o usuário atual.
+This example assumes a page named `PageMain`; use your page's generated base class
+and Interaction handler names. Preserve its other methods. Interaction creates
+the corresponding runtime type imports. Fields last for that page instance and are recreated on navigation.
+The SDK shares the session; the next page receives its current user through
+OnLogin. `await RestGO.getUser()` fetches a current server-validated identity
+outside these events.
 
-Para consultar o usuário em qualquer outro evento ou atualizar os valores a partir do servidor:
-
-```ts
-const { data: user, error } = await RestGO.getUser();
-if (error) {
-  Message(error.message);
-  return;
-}
-if (!user) return; // Não existe sessão autenticada.
-
-this.usuarioId = user.id;
-this.usuarioNome = user.fullName;
-this.usuarioEmail = user.email;
-```
-
-## Acesso direto ao usuário atual
-
-Use `RestGO.CurrentUser` para ler a identidade atual sem `await`:
+## Reading CurrentUser
 
 ```ts
-const usuario = RestGO.CurrentUser;
-if (usuario) {
-  Message(usuario.nome);
-  // usuario.email, usuario.id, usuario.emailconfirmed, usuario.ativo
+const user = RestGO.CurrentUser;
+if (user) {
+  Message(user.nome);
+  // Also: user.email, user.id, user.emailconfirmed, user.ativo.
 }
 ```
 
-As propriedades são somente leitura: `nome`, `email` e `id` são strings;
-`emailconfirmed` e `ativo` são booleanos. O objeto é uma cópia imutável da
-última identidade confirmada pelo servidor. Cada leitura acompanha o estado
-atual do SDK; uma variável já capturada mantém os valores daquele momento.
-Login, restauração validada, renovação e validação da sessão atualizam a
-identidade; logout ou revogação confirmada a limpam. Falhas de rede preservam
-a última identidade confirmada.
+The existing API retains these property names: `nome`, `email`, and `id` are
+read-only strings; `emailconfirmed` and `ativo` are booleans. Each access returns
+an immutable snapshot of the last server-confirmed identity. A captured variable
+retains that snapshot. Login, validated restore, refresh, and validation update
+it; confirmed logout/revocation clears it. Network failures retain identity.
 
-Sem sessão ou enquanto a restauração inicial está pendente, retorna `null`.
-Para aguardar a restauração, use `await RestGO.auth.ready`. A leitura não faz
-requisições nem comprova que a sessão ainda é válida no servidor; para buscar
-dados atualizados e validar a sessão, use `await RestGO.getUser()`.
-O mesmo acesso está disponível nos clientes criados por `createClient()`.
+It returns `null` without a session or during initial restoration. Await
+`RestGO.auth.ready` to wait for restoration. Reading does not make a request or
+prove current server validity; use `getUser()` for that. Independent clients
+expose the same property.
 
-## Renovação da sessão
+## Session refresh
 
-Login e refresh retornam `token`, `expiresAt`, `refreshToken`, `refreshExpiresAt` e `user`. O SDK salva as quatro propriedades da credencial em um único registro e renova automaticamente antes da expiração do JWT. Também renova antes de uma chamada protegida com JWT expirado ou após uma rejeição autoritativa com 401. A chamada rejeitada pode ser repetida uma vez com o novo JWT, preservando JSON, multipart e download binário. Falhas de rede ou 5xx não provocam repetição de operações de escrita.
+Login/refresh returns `token`, `expiresAt`, `refreshToken`, `refreshExpiresAt`, and
+`user`. Credentials persist in one record. Refresh happens before expiration,
+before protected calls with expired JWTs, and after authoritative 401. A rejected
+protected call may retry once with the new JWT, preserving JSON, multipart, or
+binary downloads. Network/5xx failures do not automatically replay writes.
 
-```ts
-const { data: renewedSession, error } = await RestGO.refreshSession();
+`POST /auth/refresh` sends only `{ refreshToken }`, without password or Authorization.
+Each refresh consumes the old token. Concurrent calls share refresh. Clients/tabs
+sharing local storage, instance URL, and storage key coordinate through Web Locks
+and reread credentials after acquiring the lock.
 
-const subscription = RestGO.onAuthStateChange((event, session) => {
-  if (event === 'TOKEN_REFRESHED' && session) {
-    // A identidade atual também vem do servidor durante a renovação.
-  }
-});
-```
+Shared local-storage refresh requires Web Locks in HTTPS or localhost. Otherwise
+`REFRESH_LOCK_UNAVAILABLE` preserves the session without consuming the token; use
+session or memory storage. Manually copying tokens to separate stores/processes
+requires external coordination. Network/429/5xx refresh failures back off from
+1–60 seconds and respect a longer `Retry-After`. Expired, consumed, or revoked
+refresh tokens require login. A lost response after rotation can also require
+login. Legacy sessions without refresh remain valid until rejected. RestGo keeps
+session digests in memory, so backend restart requires login.
 
-`POST /auth/refresh` recebe somente `{ refreshToken }` no corpo JSON, sem senha, JWT ou token administrativo. Cada renovação consome o refresh token anterior e fornece um novo. As chamadas concorrentes no mesmo cliente compartilham a renovação. Clientes e abas que usam armazenamento local com a mesma URL/chave são coordenados por Web Locks e releem a credencial depois de obter o lock.
+`remember` lifetime remains server-controlled. Logout waits for active rotation
+and revokes the current session. Independent clients can set
+`autoRefreshToken: false` for manual control. `client.dispose()` stops timers/listeners without logout;
+runtime disposes the client when replacing the connection.
 
-Armazenamento local compartilhado exige Web Locks em um contexto seguro, como HTTPS ou localhost. Sem essa API, a renovação retorna `REFRESH_LOCK_UNAVAILABLE` e preserva a sessão; escolha armazenamento da aba ou memória nesse ambiente. Se copiar um refresh token para outros processos ou contextos com armazenamento separado, coordene o uso externamente: o servidor não permite reutilização.
+## Registration, recovery, confirmation, and avatars
 
-Falhas de rede, 429 e 5xx usam intervalos de tentativa crescentes, de 1 até 60 segundos, respeitando um `Retry-After` maior. Um refresh expirado, consumido ou revogado retorna 401 e exige novo login. Se o servidor concluir a rotação e a resposta se perder, o token antigo já terá sido consumido. Sessões anteriores sem refresh continuam sendo validadas como antes; um novo login obtém o par completo. O RestGO mantém sessões e digests em memória, portanto um reinício do backend também exige novo login.
+| Method                                                                    | Server contract                                                                 |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `auth.signUp({ email, password, fullName?, active? })`                    | Public `POST /auth/users`; returns a user without automatic login.              |
+| `auth.setSession({ token, expiresAt, refreshToken?, refreshExpiresAt? })` | Validate through `GET /auth/session`; refresh fields must be supplied together. |
+| `auth.resetPasswordForEmail(email, { url? })`                             | `POST /auth/password-reset/request`.                                            |
+| `auth.confirmPasswordReset({ token, password })`                          | `POST /auth/password-reset/confirm`.                                            |
+| `auth.confirmEmail(token)`                                                | `POST /auth/email-confirmation/confirm`.                                        |
+| `auth.uploadAvatar(blob, { name?, signal? })`                             | Multipart `PUT /auth/avatar` with `file`.                                       |
+| `auth.deleteAvatar()`                                                     | `DELETE /auth/avatar`.                                                          |
 
-`remember` continua sendo determinado pelo servidor, incluindo a validade do refresh token. Logout aguarda uma rotação em andamento e revoga a sessão atual. Em clientes independentes, `autoRefreshToken: false` permite controlar a renovação manualmente. `client.dispose()` encerra timers e listeners sem fazer logout; o runtime chama esse método ao substituir a conexão.
-
-## Cadastro, recuperação, confirmação e avatar
-
-| Método                                                                    | Contrato RestGO                                                                                 |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `auth.signUp({ email, password, fullName?, active? })`                    | `POST /auth/users` sem `Authorization`; requer cadastro público no servidor e não inicia sessão |
-| `auth.setSession({ token, expiresAt, refreshToken?, refreshExpiresAt? })` | Valida em `GET /auth/session`; pode renovar um JWT expirado quando o par de refresh é informado |
-| `auth.resetPasswordForEmail(email, { url? })`                             | `POST /auth/password-reset/request`                                                             |
-| `auth.confirmPasswordReset({ token, password })`                          | `POST /auth/password-reset/confirm`                                                             |
-| `auth.confirmEmail(token)`                                                | `POST /auth/email-confirmation/confirm`                                                         |
-| `auth.uploadAvatar(blob, { name?, signal? })`                             | `PUT /auth/avatar`, multipart com `file`                                                        |
-| `auth.deleteAvatar()`                                                     | `DELETE /auth/avatar`                                                                           |
-
-`auth.signUp()` não exige token de aplicação e não envia o JWT atual. A instância RestGo deve aceitar cadastro público de usuários comuns em `POST /auth/users`. Até esse ajuste no servidor, o SDK envia a solicitação e retorna o erro HTTP recebido, como 401, sem bloquear localmente com `API_TOKEN_REQUIRED`. O cadastro retorna `{ data, error }` e não faz login automático. A gestão administrativa de contas e o reenvio administrativo de confirmação continuam nas rotas administrativas do RestGo.
-
-```ts
-const { data: usuario, error } = await RestGO.auth.signUp({
-  email: 'ana@exemplo.com',
-  password: 'senha-do-usuario',
-  fullName: 'Ana',
-});
-if (error) Message(error.message);
-```
-
-A recuperação permite `url` HTTP(S) opcional para o destino do link; sem ela, utiliza a URL configurada no RestGO. O envio de e-mail depende do SMTP do servidor. Os tokens de recuperação e confirmação têm uso único. O avatar aceita JPEG, PNG e WebP; o RestGO produz uma imagem pública JPEG de 512 × 512 pixels e retorna `avatarUrl`.
+Registration never sends an existing JWT/API token and does not locally require
+`API_TOKEN_REQUIRED`. A server disallowing public registration returns its HTTP
+error, such as 401. Administrative user management/confirmation resend remain
+server administration APIs. Recovery supports an optional HTTP(S) link destination;
+otherwise it uses server settings and SMTP. Recovery/confirmation tokens are
+single-use. Avatars accept JPEG/PNG/WebP; RestGo produces public 512×512 JPEG images.
+OAuth and general self-service profile editing are outside this contract.
 
 ## Storage
 
-Para seleção e envio por código, use o componente não visual
-[File Upload](file-upload.md). `OpenFile()` retorna os metadados locais;
-`SendToRestGO()` retorna todos os campos de arquivo da API e a URL absoluta.
-O evento `OnProgress` permite atualizar outros componentes pelo Monaco.
+[File Upload](file-upload.md) offers typed selection, sending, and progress events.
+For direct SDK use:
 
 ```ts
 const uploaded = await RestGO.storage.upload(file, {
-  name: 'documento.pdf',
+  name: 'document.pdf',
   isPublic: false,
 });
 if (uploaded.error) throw uploaded.error;
-
-const metadata = await RestGO.storage.get(uploaded.data.id);
 const download = await RestGO.storage.download(uploaded.data.id);
 if (download.error) throw download.error;
 const objectUrl = URL.createObjectURL(download.data);
-// Use objectUrl na interface e libere-o com URL.revokeObjectURL quando terminar.
+// Display the object URL, then revoke it when finished.
 ```
 
-| Método                                                               | Operação                                                                |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `storage.list({ page?, pageSize?, q?, ownerId?, signal? })`          | Lista arquivos próprios e preserva o envelope de paginação do RestGO    |
-| `storage.upload(blob, { name?, isPublic?, ownerId?, signal? })`      | Envia um arquivo multipart                                              |
-| `storage.get(id)`                                                    | Consulta metadados privados                                             |
-| `storage.update(id, { file?, name?, isPublic?, ownerId?, signal? })` | Atualiza metadados e/ou conteúdo                                        |
-| `storage.remove(id)`                                                 | Exclui o arquivo; sucesso 204 retorna `data: null`                      |
-| `storage.download(id, { range?, public?, signal? })`                 | Retorna `Blob`; permite Range e download público sem JWT                |
-| `storage.getPublicUrl(id)`                                           | Constrói `{ data: { publicUrl }, error: null }` sem solicitar o arquivo |
-| `storage.usage()`                                                    | Retorna espaço utilizado, capacidade e espaço disponível                |
+| Method                                                               | Operation                                                           |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `storage.list({ page?, pageSize?, q?, ownerId?, signal? })`          | List authorized files, preserving the server's pagination envelope. |
+| `storage.upload(blob, { name?, isPublic?, ownerId?, signal? })`      | Multipart upload.                                                   |
+| `storage.get(id)`                                                    | Retrieve metadata.                                                  |
+| `storage.update(id, { file?, name?, isPublic?, ownerId?, signal? })` | Update content/metadata.                                            |
+| `storage.remove(id)`                                                 | Delete; 204 returns `data: null`.                                   |
+| `storage.download(id, { range?, public?, signal? })`                 | Return a Blob; support Range and public downloads.                  |
+| `storage.getPublicUrl(id)`                                           | Build `{ data: { publicUrl }, error: null }` without a request.     |
+| `storage.usage()`                                                    | Used, total, and available space.                                   |
 
-`getPublicUrl()` não torna um arquivo público. O servidor continua verificando `isPublic`. Arquivos privados exigem JWT do dono ou autorização administrativa; tokens de API dinâmica não autorizam Storage. `ownerId` não amplia os direitos do usuário. O RestGO bloqueia a alteração de arquivos de avatar pelas rotas genéricas de Storage.
+Public URLs do not change permissions. Private files require the owner's JWT or
+server-authorized administration; dynamic API tokens do not authorize Storage.
+`ownerId` does not expand rights. Generic Storage routes cannot modify avatars.
+Upload/update progress reports `loaded`, `total`, `percentage`, and `lengthComputable`
+for the complete multipart body. See [transport and redirect limits](../packages/restgo-sdk/README.md#storage).
 
-`storage.upload()` e `storage.update()` aceitam `onUploadProgress`, com
-`loaded`, `total`, `percentage` e `lengthComputable`. O SDK mede o multipart
-pelo XHR em envios entre origens HTTP(S), sem cookies. Na mesma origem, sem XHR
-ou com `fetch` personalizado, conserva `credentials: 'omit'` e informa
-`percentage: null`. Use a URL final do RestGo: XHR pode seguir redirecionamentos
-antes de o SDK rejeitar uma URL final diferente. Sem acompanhamento de progresso,
-o transporte `fetch` continua usando `redirect: 'error'`. Consulte as
-[regras de progresso do SDK](../packages/restgo-sdk/README.md#storage).
+## Dynamic APIs and API Operations
 
-## APIs dinâmicas e API Operations
-
-O SDK chama endpoints publicados em `/v{versao}/{banco}/{endpoint}`. API Operations utilizam essas mesmas rotas. Defina um tipo para o conteúdo retornado:
+Published routes use `/v{version}/{database}/{endpoint}`. API Operations use the
+same routes; endpoint/database names and response fields must match your server:
 
 ```ts
-interface Cliente {
+interface Customer {
   id: number;
-  nome: string;
+  name: string;
 }
-
 const result = await RestGO.api
-  .from('clientes')
-  .endpoint<Cliente[]>('listar')
-  .get({ query: { ativo: true }, page: 1, pagination: 'simple' });
-
+  .from('customers')
+  .endpoint<Customer[]>('list')
+  .get({ query: { active: true }, page: 1, pagination: 'simple' });
 if (result.error) throw result.error;
-const clientes = result.data;
-const temMais = result.has_more;
+const customers = result.data;
+const hasMore = result.has_more;
 
-// Utiliza o banco padrão configurado no projeto.
-await RestGO.api.endpoint('cadastrar').post({ nome: 'Maria' });
+await RestGO.api.endpoint('create').post({ name: 'Anna' }); // Default database.
 ```
 
-`get`, `post`, `put`, `patch`, `delete`, `head`, `options` e `request` utilizam os métodos HTTP publicados no RestGO. `data` contém o conteúdo do envelope do servidor. `page`, `total_pages`, `has_more` e `next_cursor` permanecem disponíveis no resultado quando o servidor os retorna.
+`get`, `post`, `put`, `patch`, `delete`, `head`, `options`, and `request` use published
+methods. Results preserve `page`, `total_pages`, `has_more`, and `next_cursor`.
+Pagination supports `exact`, `simple`, and `cursor`. Cursor requires a unique,
+stable, non-null SQL column; subsequent requests retain endpoint, method, column,
+and filters. Supply `cursorColumn` and the previous `next_cursor`. JSON inputs
+override query inputs with the same names. Version is set per endpoint/call.
 
-```ts
-const page = await RestGO.api.from('clientes').endpoint<Cliente[]>('listar').get({
-  pagination: 'cursor',
-  cursorColumn: 'id',
-  cursor: previousCursor,
-});
-```
+`auth: 'auto'` chooses session then explicitly configured API token. Select
+`'session'`, `'apiToken'`, or `'none'` to fix the mode. A token-authenticated endpoint
+with JWT disabled still requires its API token; that setting alone does not imply
+anonymous public access.
 
-Os modos de paginação são `exact`, `simple` e `cursor`. Cursor exige coluna única, estável e não nula definida no SQL; a chamada seguinte mantém endpoint, método, coluna e filtros. Os parâmetros JSON prevalecem sobre valores homônimos da query, conforme o contrato do RestGO. A versão pode ser escolhida na criação do endpoint ou nas opções da chamada.
+## API Client with the authenticated user
 
-`auth: 'auto'` utiliza o JWT quando disponível e, na ausência dele, o token de API configurado explicitamente. Use `auth: 'session'`, `'apiToken'` ou `'none'` para escolher a modalidade. Um endpoint RestGO com autenticação JWT habilitada exige JWT; um endpoint com essa autenticação desabilitada exige token de API. Essa opção do servidor não significa acesso público anônimo.
+Choose **Connection → RestGo JWT Authentication** in API Client. Integration must
+be enabled. Base URL is fixed to the shared connection, including proxy prefix;
+relative `/v1/customers/list` stays beneath that prefix.
 
-## API Client vinculado ao usuário autenticado
+Before a request, the component obtains the shared validated session and sends
+`Authorization: Bearer <JWT>`, refreshing as needed. Logout/no session prevents
+the request without API-token fallback. Endpoint 401 becomes an HTTP error without
+automatically replaying a possibly mutating operation.
 
-No configurador do componente **API Client**, selecione **Connection > RestGo JWT Authentication**. A integração nativa deve estar habilitada. A URL base é a mesma de **RestGo integration**, incluindo um eventual prefixo de proxy, e não pode ser alterada nesse componente. O endpoint é relativo à base; por exemplo, `/v1/clientes/listar` com a base `https://api.exemplo.com/backend` chama `https://api.exemplo.com/backend/v1/clientes/listar`.
+Custom headers cannot replace JWT. Absolute endpoints, base changes, prefix escape,
+and redirects are blocked. Method, other headers, query, body, and timeout remain
+configurable. GET/HEAD have no body; CONNECT/TRACE/TRACK are browser-forbidden.
+`head()`, `options()`, and `request()` remain available. Editor Test JWT and
+multipart files are temporary; Preview/exports use the actual application session.
+Pass `FormData` as `body` for uploads and let the browser set its boundary.
 
-```ts
-const login = await RestGO.login(email, senha);
-if (login.error) throw login.error;
-
-// LoadCustomers é uma operação configurada no componente.
-const clientes = await this.ApiClient1.execute('LoadCustomers', {
-  query: { ativo: true },
-});
-```
-
-Antes de cada chamada, o API Client consulta a sessão compartilhada pelo SDK e envia o JWT vigente em `Authorization: Bearer <JWT>`. A validação pode renovar a sessão pelo contrato normal de refresh. Logout ou ausência de sessão impedem a chamada; esse vínculo não utiliza o token bruto de API. Uma resposta 401 do endpoint é entregue como erro HTTP, sem repetir automaticamente uma operação que pode alterar dados.
-
-Headers personalizados não substituem o JWT. URLs absolutas, mudança de base, escape do prefixo e redirecionamentos são bloqueados. Os métodos, headers adicionais, query, corpo e timeout continuam configuráveis. GET e HEAD não aceitam corpo; CONNECT, TRACE e TRACK são proibidos pelo navegador. `head()`, `options()` e `request()` também estão disponíveis no componente.
-
-O editor da IDE tem um campo **Test authentication > Test JWT** para testes diretos. Esse JWT e arquivos escolhidos para multipart existem apenas em memória durante o diálogo, sem serem salvos no projeto ou incorporados ao código gerado. O Preview e a aplicação usam a sessão real de `RestGO`. Para upload na aplicação, passe um `FormData` como `body` da operação; o navegador define o boundary multipart.
-
-## Uso independente
+## Independent usage
 
 ```ts
 import { createClient } from '@webrad/restgo-sdk';
-
-const restgo = createClient('https://api.exemplo.com', {
+const client = createClient('https://api.example.com', {
   apiVersion: 1,
-  defaultDatabase: 'clientes',
+  defaultDatabase: 'customers',
   persistSession: true,
   sessionStorage: 'local',
-  storageKey: 'portal-cliente-restgo',
+  storageKey: 'customer-portal-restgo',
 });
-
-await restgo.auth.signInWithPassword({ email, password });
+await client.auth.signInWithPassword({ email, password });
 ```
 
-O pacote é um workspace fonte TypeScript deste repositório, sem publicação automática no npm. O compilador do WebRAD resolve seu import diretamente e inclui o código na aplicação. As opções permitem injetar `fetch` para testes ou outros ambientes compatíveis.
+This is a source workspace, not an automatically published npm package. WebRAD's
+compiler resolves and bundles it directly. A custom `fetch` can be injected.
+The [package README](../packages/restgo-sdk/README.md) covers standalone setup.
 
-As chamadas são feitas diretamente pelo navegador, com autenticação por headers. O transporte `fetch` utiliza `credentials: 'omit'`; o progresso de upload entre origens utiliza XHR com `withCredentials: false`, conforme as regras de Storage acima. O CORS do RestGO aceita origens HTTP/HTTPS válidas, responde ao preflight `OPTIONS` antes da autenticação e expõe `Retry-After`; origens `null`, `file://` ou com esquemas personalizados são rejeitadas. O Preview e a IDE empacotada usam origens HTTP locais separadas em `127.0.0.1` para permitir esses fluxos sem um proxy de requisições ou desativar a segurança do Electron. A porta é definida por execução da IDE. APIs com uma lista restrita de origens precisam permitir a origem local recebida; proxies na frente do RestGO também precisam preservar os headers de CORS. Publique a aplicação gerada em HTTP/HTTPS. OAuth, MFA, Realtime e consulta arbitrária a tabelas exigiriam novos contratos no backend.
+Requests use headers without administrative cookies. Fetch uses
+`credentials: 'omit'`; measured cross-origin uploads use XHR with `withCredentials: false`.
+RestGo CORS accepts valid HTTP(S) origins, handles OPTIONS before authentication,
+and exposes Retry-After. Null, file, and custom-scheme origins are rejected.
+Preview and packaged IDE use separate local HTTP origins on `127.0.0.1`, with a
+port selected per run. Restricted APIs must allow the received origin, and proxies
+must preserve CORS headers. Serve generated applications over HTTP/HTTPS. OAuth,
+MFA, Realtime, and arbitrary table access require additional backend contracts.
