@@ -57,6 +57,12 @@ async function captureProcesses(rootPid, directory) {
     }) ?? descendants.find((entry) => entry.pid === rootPid);
   const native = descendants.filter((entry) => path.basename(entry.command) === 'esbuild');
   const targets = [...(browser ? [{ ...browser, role: 'main' }] : [])];
+  const compilerParents = new Set(native.map((entry) => entry.parent));
+  for (const entry of descendants) {
+    if (compilerParents.has(entry.pid) && entry.pid !== browser?.pid) {
+      targets.push({ ...entry, role: 'compiler' });
+    }
+  }
   for (const entry of native) targets.push({ ...entry, role: 'esbuild' });
   await Promise.allSettled(
     targets.map(async (entry) => {

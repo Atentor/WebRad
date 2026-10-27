@@ -11,7 +11,7 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron';
 import { z } from 'zod';
-import { compileProject } from '@webrad/compiler';
+import { compileProject } from './compiler-service';
 import {
   buildNativeApplication,
   checkNativePrerequisites,

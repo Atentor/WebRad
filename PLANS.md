@@ -5,6 +5,33 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## Isolate IDE compilation after 71c9f3d: 2026-10-27
+
+[Release 40592211180](https://github.com/Atentor/WebRad/actions/runs/40592211180)
+passed Windows, Linux and macOS ARM64; quality/security passed. Intel again failed,
+this time on horizontal Menu F9. Bitmap delivery was stopped, but native bundling
+remained pending for 15,700 ms after 2,909 ms of preparation. The mitigation is
+insufficient and has been removed. Do not claim the offscreen hypothesis was the
+exclusive proven cause. Original log is retained under
+`artifacts/github-actions-71c9f3d-20261027/`.
+
+Move the IDE's compiler execution into one owned utility process with a separate
+V8 heap/event loop. Preview, Debug, Deploy, Native frontend generation, live styles
+and smoke fixture compilation use typed request/result/progress contracts and a
+sequential queue. Preserve the public Node compiler API, strict diagnostics,
+source caches, native dependencies, resource environment and browser-only output.
+Main keeps trust/root checks, Save, destination grants and Preview publication.
+Phase logs identify actual compiler PID/CPU/heap/RSS. Outstanding work rejects on
+child crash; shutdown rejects pending calls and terminates the child. Failed calls
+are never retried. Forge builds the separate entry in development and packaging.
+
+Existing IPC test mocks now target the service adapter, preserving their original
+assertions; no test cases were added. Native sampling includes the owned esbuild
+parent when it differs from the browser. The existing functional deadlines, frame
+and screenshot evidence, two Vitest workers, sandbox and release gates remain.
+No local validation was requested or run. Further authorized exact-SHA hosted
+verification is required before claiming this architectural repair is confirmed.
+
 ## Offscreen bitmap allocation during hidden compilation: 2026-10-27
 
 Exact commit `07ae25530435792f60d7bb63453537989ba2751c` again failed only on

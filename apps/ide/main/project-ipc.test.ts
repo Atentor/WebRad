@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => ({
   statePaths: [] as string[],
 }));
 
-vi.mock('@webrad/compiler', () => ({
+vi.mock('./compiler-service', () => ({
   compileProject: mocks.compileProject,
   compileTailwindStyles: vi.fn(),
 }));

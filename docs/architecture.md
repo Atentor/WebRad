@@ -60,6 +60,17 @@ project model -> generated source -> esbuild -> browser-only output
 
 ## Package boundaries
 
+The IDE invokes the public compiler API through an owned Electron utility process
+and typed message ports. Preview, Debug, Deploy, Native frontend compilation and
+live styles run there in sequence, retaining only the compiler's existing bounded
+caches. The main process validates renderer requests, grants filesystem roots,
+saves projects, publishes Preview and writes granted deployments. Compiler CPU,
+heap and RSS diagnostics identify that process. Outstanding requests reject on
+child exit; shutdown terminates the service and no failed build is retried.
+Forge builds the service entry for development and packaging. This is an IDE
+execution boundary: the compiler package remains a Node API and generated
+applications remain ordinary browser output with no Electron dependency.
+
 The compiler retains at most its latest TypeScript Program to reuse parsed
 SourceFiles in compatible repeated builds. Reuse requires the same current
 directory, TypeScript library location, compiler options and root files, plus
@@ -118,7 +129,7 @@ The RestGo activity opens a project-scoped administration workspace with connect
 
 `@webrad/designer` imports published API descriptors into the existing versioned API Client configuration. Component creation and configuration use registry metadata and Designer commands, retaining undo/history, stable IDs and instance typing. The additive `restgo-api-token` and `restgo-public` connection values share the fixed URL/path validation of `restgo-session`. Their browser runtime uses only the application token or anonymous access respectively; session mode retains its JWT-only behavior. Generated runtime sources and Monaco declarations mirror these browser APIs. Server endpoint/publication changes are immediate remote mutations, distinct from the project's local command history.
 
-The browser window uses context isolation, sandboxing, and no Node integration. The preload exposes capability-shaped methods such as `project.open`, `project.save`, `files.read`, and `styles.compile`; it never exposes raw `ipcRenderer`. The style capability accepts only validated project style records and returns CSS for live design-time projection; Tailwind and PostCSS stay in the main process. The main process validates every payload, binds filesystem capabilities to the originating main frame and exact renderer URL, rejects path traversal through links, and revokes roots when a project or window closes. Top-level navigation, redirects, browser-window popups, webviews, and web/device permission requests are denied by default. This does not prevent a generated application from using its own in-document native `<dialog>` through `WebPopup`.
+The browser window uses context isolation, sandboxing, and no Node integration. The preload exposes capability-shaped methods such as `project.open`, `project.save`, `files.read`, and `styles.compile`; it never exposes raw `ipcRenderer`. The style capability accepts only validated project style records and returns CSS for live design-time projection; Tailwind and PostCSS run in the owned compiler process. The main process validates every payload, binds filesystem capabilities to the originating main frame and exact renderer URL, rejects path traversal through links, and revokes roots when a project or window closes. Top-level navigation, redirects, browser-window popups, webviews, and web/device permission requests are denied by default. This does not prevent a generated application from using its own in-document native `<dialog>` through `WebPopup`.
 
 Preview content is served in memory from a dedicated loopback HTTP server on `127.0.0.1` with an ephemeral port, unguessable publication tokens, GET/HEAD-only routes, Host validation, and its own restrictive CSP. Publishing a replacement or closing the owning project/window revokes the previous URL. The iframe retains its HTTP origin for CORS, browser session storage and Web Locks. Its port differs from the IDE renderer's port, so generated code cannot read the parent or access its preload bridge. HTML iframe sandboxing is omitted because it blocks native PDF viewers; Electron's process sandbox, context isolation and disabled Node integration remain enabled. Main-process navigation guards prevent Preview frames from entering the privileged renderer origin, and IPC accepts only the registered IDE main frame at its exact trusted URL. Report popups are limited to Blob URLs from a currently published Preview origin, receive no preload, and cannot create further windows. Electron web security stays enabled. API requests use browser `fetch` directly; there is no main-process request proxy.
 

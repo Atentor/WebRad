@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage } from 'node:http';
 import path from 'node:path';
 
 import { componentRegistry } from '@webrad/component-registry';
-import { compileProjectToMemory } from '@webrad/compiler';
+import { compileProjectToMemory } from './compiler-service';
 import {
   createDefaultApiClientConfiguration,
   createProject,

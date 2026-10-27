@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';
 
-import { compileProjectToMemory } from '@webrad/compiler';
+import { compileProjectToMemory } from './compiler-service';
 import {
   bindComponentEvent,
   createProject,

@@ -51,11 +51,10 @@ until green without investigating the previous failure.
 ## Hidden smoke-window rendering
 
 Keep offscreen rendering for hidden development/packaged smoke windows.
-Stop unused paint-event bitmap delivery with `webContents.stopPainting()`;
-the smoke has no streaming paint consumer. Electron 45's consumer active flag
-is independent from compositor frame scheduling. Preserve direct `capturePage`
-screenshots and all actual frame, cursor, native input, and geometry assertions.
-Do not replace this with disabled offscreen rendering or lower frame rate.
+Stopping bitmap delivery alone did not fix Intel run `40592211180`; that
+mitigation has been removed. Compile through the owned utility process, keeping
+the normal offscreen compositor, direct `capturePage` screenshots, frame/cursor,
+native input and geometry assertions. Do not lower frame rate or change deadlines.
 Ordinary verification must run without a V8 CPU profiler; opt in separately with
 `WEBRAD_SMOKE_CPU_PROFILE=1` when collecting a Menu CPU profile.
 `backgroundThrottling: false` alone does not guarantee normal animation frames.

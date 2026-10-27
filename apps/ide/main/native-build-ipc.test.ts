@@ -33,7 +33,7 @@ vi.mock('electron', () => ({
   shell: { openPath: mocks.open },
   clipboard: { writeText: mocks.copy },
 }));
-vi.mock('@webrad/compiler', () => ({ compileProject: mocks.compile }));
+vi.mock('./compiler-service', () => ({ compileProject: mocks.compile }));
 vi.mock('@webrad/native-build', () => ({
   buildNativeApplication: mocks.native,
   checkNativePrerequisites: mocks.prerequisites,

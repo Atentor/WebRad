@@ -3,6 +3,16 @@
 ComboBox API bindings are validated against the local document's saved response schema, including the client/operation IDs, response list and both item-relative scalar fields. Generated page and reusable wrappers initialize `comboBoxConfig` and the requested `value`, bind the local API Client, and dispose their ComboBox subscriptions with the authored scope. The emitted browser-only runtime projects API results into native select options; Preview uses this same implementation.
 
 The compiler is an independent Node API and has no React or Electron dependency.
+The IDE hosts that API in one owned Electron utility process, built as a separate
+Forge/Vite entry. Preview, Debug, Deploy, Native frontend generation, live styles,
+and smoke fixture compilation share that service. Requests use typed message-port
+contracts and execute sequentially, preserving the latest compatible TypeScript
+graph and Tailwind caches without sharing the UI's V8 heap or event loop.
+The main process retains all trusted-frame/root checks, Save, destination grants,
+Preview publication and deployment writes. It forwards phase/CPU/heap/RSS evidence
+from the actual compiler PID. Crashes reject outstanding work without retrying;
+shutdown rejects pending requests and terminates the owned service. Child processes
+inherit the packaged compiler-resource paths; sandbox/fuse settings remain intact.
 
 Application type checking uses explicit browser libraries and `types: []` so the
 IDE or runner's ancestor `@types` packages cannot inject Node/test globals or an
@@ -42,13 +52,11 @@ from installers as `compiler-diagnostics-*`; they do not enter release assembly.
 Browser profiles and successful project fixtures are not included. CPU profiling
 requires `WEBRAD_SMOKE_CPU_PROFILE=1`; ordinary CI uses no active V8 profiler.
 
-Hidden smoke windows retain their offscreen compositor for real animation frames
-but stop unused paint-event bitmap delivery. Electron otherwise copies native
-pixel buffers and creates NativeImages in the main isolate, generating unrelated
-external-memory/GC pressure while TypeScript and the esbuild bridge run there.
-Screenshots continue to use `capturePage` directly, with all rendered geometry,
-cursor, input and Preview assertions intact. This does not change normal IDE
-window rendering or generated applications.
+Stopping offscreen bitmap delivery alone did not resolve Intel run `40592211180`
+and has been removed. Keep the compositor, screenshots and frame assertions.
+Compiler isolation separates its retained syntax/type graphs and native service
+bridge from main-process rendering, NativeImages and UI automation instead of
+attempting to attribute every pause to an unproven native deadlock.
 
 ## Native frontend target
 
@@ -82,7 +90,7 @@ user-authored application code keeps its own license.
 
 Within page and reusable instance code, `BTNMostrar.caption` and `this.BTNMostrar.caption` address the same component. Type checking uses module-local declarations appended to virtual snapshots, preserving authored line/column positions. After validation, an AST and symbol pass qualifies unshadowed bare names only in the in-memory bundle input, including object shorthand such as `{ EDTNome }`. Lexical bindings win, arrow callbacks retain the receiver, and unsupported instance contexts fail before bundling. Saved source files remain untouched and reusable placements retain independent instances.
 
-Tailwind compilation uses the official PostCSS plugin with source discovery disabled. The compiler resolves the exact saved utility candidates, adds interaction variants for the state-specific groups, imports theme and utilities without Preflight, and places WebRAD defaults in the lower-priority `components` layer. This lets utilities override initial paint properties without resetting the runtime controls. The resulting `app.css` is static; Tailwind, PostCSS, and the native Oxide compiler remain build-time dependencies in the Electron main process and are not shipped to generated browser applications.
+Tailwind compilation uses the official PostCSS plugin with source discovery disabled. The compiler resolves the exact saved utility candidates, adds interaction variants for the state-specific groups, imports theme and utilities without Preflight, and places WebRAD defaults in the lower-priority `components` layer. This lets utilities override initial paint properties without resetting the runtime controls. The resulting `app.css` is static; Tailwind, PostCSS, and the native Oxide compiler remain build-time dependencies in the IDE's owned compiler process and are not shipped to generated browser applications.
 
 The shared [project font catalog](fonts.md) registers matching `font-<id>` theme
 tokens. Designer and application CSS embed the selected families' Latin/Latin

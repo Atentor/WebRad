@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow } from 'electron';
-import { compileProjectToMemory } from '@webrad/compiler';
+import { compileProjectToMemory } from './compiler-service';
 import { popupLayoutEvidence, popupSmokeProject, popupSmokeSources } from './popup-smoke-fixture';
 import { publishPreviewHtml, revokePreview } from './preview-server';
 import { trackSmokeRendererHealth } from './smoke-renderer-health';

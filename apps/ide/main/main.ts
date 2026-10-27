@@ -22,7 +22,7 @@ import {
   type WebFrameMain,
 } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
-import { compileProject } from '@webrad/compiler';
+import { compileProject, stopCompilerService } from './compiler-service';
 import { WEBRAD_FONT_FAMILIES } from '@webrad/runtime/fonts';
 import { resolveCompilerEnvironment } from './compiler-environment';
 import { synchronizeInstallationIcon } from './installation-icon';
@@ -1397,12 +1397,6 @@ async function createWindow(): Promise<BrowserWindow> {
       sandbox: true,
     },
   });
-  if (smokeMode) {
-    // Keep the compositor/animation clock, but do not stream unused full-frame
-    // NativeImages into the main V8 heap. Screenshots use capturePage directly.
-    window.webContents.stopPainting();
-    smokeLog('[IDE] Hidden smoke compositor retained; unused paint bitmap delivery stopped');
-  }
   let rendererSmokeStarted = false;
   const assertRendererHealthy = smokeAutoExit
     ? trackSmokeRendererHealth(window.webContents)
@@ -1444,11 +1438,13 @@ async function createWindow(): Promise<BrowserWindow> {
         smokeLog('renderer workflow completed');
 
         stopSmokeActivity();
+        stopCompilerService();
         app.exit(0);
       })
       .catch((error: unknown) => {
         smokeLog('renderer workflow failed', error);
         stopSmokeActivity();
+        stopCompilerService();
         app.exit(1);
       });
   });
@@ -1528,6 +1524,7 @@ app
     console.error('WebRAD failed to start.', error);
     if (smokeAutoExit) {
       stopSmokeActivity();
+      stopCompilerService();
       app.exit(1);
       return;
     }
@@ -1544,6 +1541,7 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   stopSmokeActivity();
+  stopCompilerService();
   mainWindow = null;
   void Promise.all([closePreviewServer(), closeRendererServer()]).catch((error: unknown) => {
     console.error('[IDE] Failed to close the local application servers.', error);

@@ -10,7 +10,8 @@ import { EXTERNAL_LINKS } from '../shared/external-links';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent, shell } from 'electron';
-import { compileProject, compileTailwindStyles } from '@webrad/compiler';
+import { compileProject, compileTailwindStyles } from './compiler-service';
+import type { CompilerProcessMetrics } from './compiler-process-contracts';
 import { parseComponentStyle, parseProject, PROJECT_THEME_PRESET_IDS } from '@webrad/project-model';
 import { z } from 'zod';
 import type {
@@ -272,15 +273,22 @@ async function buildHandler(
     let lastPhase = 'start';
     let phaseStarted = started;
     let phaseCpu = process.cpuUsage();
-    const progress = (phase: string): void => {
+    let phasePid = process.pid;
+    const progress = (phase: string, metrics?: CompilerProcessMetrics): void => {
       const now = performance.now();
       if (log !== undefined) {
-        const cpu = process.cpuUsage();
-        const memory = process.memoryUsage();
+        const cpu = metrics?.cpu ?? process.cpuUsage();
+        const memory = metrics?.memory ?? process.memoryUsage();
+        const pid = metrics?.pid ?? process.pid;
+        const elapsedCpu =
+          pid === phasePid
+            ? Math.round((cpu.user + cpu.system - phaseCpu.user - phaseCpu.system) / 1000)
+            : 0;
         log(
-          `[COMPILER] Preview ${lastPhase} ended after ${Math.round(now - phaseStarted)}ms; ${phase} started (${Math.round(now - started)}ms total); main CPU ${Math.round((cpu.user + cpu.system - phaseCpu.user - phaseCpu.system) / 1000)}ms, heap ${Math.round(memory.heapUsed / 1048576)}/${Math.round(memory.heapTotal / 1048576)}MiB, RSS ${Math.round(memory.rss / 1048576)}MiB`,
+          `[COMPILER] Preview ${lastPhase} ended after ${Math.round(now - phaseStarted)}ms; ${phase} started (${Math.round(now - started)}ms total); ${pid === process.pid ? 'main' : 'compiler'} CPU ${elapsedCpu}ms, heap ${Math.round(memory.heapUsed / 1048576)}/${Math.round(memory.heapTotal / 1048576)}MiB, RSS ${Math.round(memory.rss / 1048576)}MiB, pid ${pid}`,
         );
         phaseCpu = cpu;
+        phasePid = pid;
       }
       lastPhase = phase;
       phaseStarted = now;
