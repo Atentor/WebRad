@@ -109,14 +109,14 @@ três workflows manualmente antes de autorizar a tag.
 Todos os resultados desta tabela pertencem ao SHA
 `2881db8f8f0ded3ff30f4a5c0e8927ee4d84ccac`, sem as mudanças locais posteriores.
 
-| Evidência | Resultado observado |
-| --- | --- |
-| [Release sem publicação — 40222242490](https://github.com/Atentor/WebRad/actions/runs/40222242490) | Quatro builds e assemble aprovados; publish ignorado, conforme esperado. |
-| [Validate — 40222242485](https://github.com/Atentor/WebRad/actions/runs/40222242485) | Jobs Windows e Linux aprovados. |
-| [Security — 40222242515](https://github.com/Atentor/WebRad/actions/runs/40222242515) | Workflow aprovado. |
-| [Publicação — 40225939952](https://github.com/Atentor/WebRad/actions/runs/40225939952) | Quatro builds, assemble e publish aprovados. |
-| [Security agendado — 40347945722](https://github.com/Atentor/WebRad/actions/runs/40347945722) | Workflow aprovado em 26/10/2026. |
-| [Release v0.0.15](https://github.com/Atentor/WebRad/releases/tag/v0.0.15) | Publicado em 25/10/2026 com 11 assets, incluindo instaladores das quatro plataformas, feeds e SHA256SUMS. |
+| Evidência                                                                                          | Resultado observado                                                                                       |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [Release sem publicação — 40222242490](https://github.com/Atentor/WebRad/actions/runs/40222242490) | Quatro builds e assemble aprovados; publish ignorado, conforme esperado.                                  |
+| [Validate — 40222242485](https://github.com/Atentor/WebRad/actions/runs/40222242485)               | Jobs Windows e Linux aprovados.                                                                           |
+| [Security — 40222242515](https://github.com/Atentor/WebRad/actions/runs/40222242515)               | Workflow aprovado.                                                                                        |
+| [Publicação — 40225939952](https://github.com/Atentor/WebRad/actions/runs/40225939952)             | Quatro builds, assemble e publish aprovados.                                                              |
+| [Security agendado — 40347945722](https://github.com/Atentor/WebRad/actions/runs/40347945722)      | Workflow aprovado em 26/10/2026.                                                                          |
+| [Release v0.0.15](https://github.com/Atentor/WebRad/releases/tag/v0.0.15)                          | Publicado em 25/10/2026 com 11 assets, incluindo instaladores das quatro plataformas, feeds e SHA256SUMS. |
 
 O macOS permanece distribuído sem assinatura, conforme as notas da versão
 publicada; sua atualização automática exige a configuração de assinatura já

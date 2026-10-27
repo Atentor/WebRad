@@ -25,8 +25,18 @@ export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
   )
     throw new Error('Invalid Stop preview coordinates.');
   const coordinates = { x: position.x, y: position.y };
-  window.webContents.sendInputEvent({ type: 'mouseDown', ...coordinates, button: 'left', clickCount: 1 });
-  window.webContents.sendInputEvent({ type: 'mouseUp', ...coordinates, button: 'left', clickCount: 1 });
+  window.webContents.sendInputEvent({
+    type: 'mouseDown',
+    ...coordinates,
+    button: 'left',
+    clickCount: 1,
+  });
+  window.webContents.sendInputEvent({
+    type: 'mouseUp',
+    ...coordinates,
+    button: 'left',
+    clickCount: 1,
+  });
   const deadline = Date.now() + 15000;
   for (;;) {
     if (
@@ -64,21 +74,23 @@ export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
         })()`,
         true,
       );
-      throw new Error(`Stop preview did not restore the IDE: ${JSON.stringify({
-        renderer,
-        menuVisible: window.isMenuBarVisible(),
-        applicationMenu: Menu.getApplicationMenu() !== null,
-        coordinates,
-      })}`);
+      throw new Error(
+        `Stop preview did not restore the IDE: ${JSON.stringify({
+          renderer,
+          menuVisible: window.isMenuBarVisible(),
+          applicationMenu: Menu.getApplicationMenu() !== null,
+          coordinates,
+        })}`,
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
 
 export async function assertExclusivePreviewSmoke(window: BrowserWindow): Promise<void> {
-  if (process.platform === 'darwin'
-    ? Menu.getApplicationMenu() !== null
-    : window.isMenuBarVisible())
+  if (
+    process.platform === 'darwin' ? Menu.getApplicationMenu() !== null : window.isMenuBarVisible()
+  )
     throw new Error('The native IDE menu is visible during Preview.');
   const before: unknown = await window.webContents.executeJavaScript(
     `document.querySelector('.wr-view-tabs [aria-selected="true"]')?.getAttribute('aria-label')`,

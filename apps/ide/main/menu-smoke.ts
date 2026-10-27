@@ -774,7 +774,9 @@ async function runMenuSmokeWorkflow(
   const previousInteractionPreview = await evaluate(
     `document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src') ?? ''`,
   );
-  await ready(`document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled === false`);
+  await ready(
+    `document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled === false`,
+  );
   await evaluate(
     `window.dispatchEvent(new KeyboardEvent('keydown',{key:'F9',bubbles:true,cancelable:true}))`,
   );
@@ -834,7 +836,8 @@ async function runMenuSmokeWorkflow(
     if (Date.now() >= interactionDeadline) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  if (!interactionsPassed) throw new Error('Reusable Menu Interaction Preview did not become ready.');
+  if (!interactionsPassed)
+    throw new Error('Reusable Menu Interaction Preview did not become ready.');
   options.log(
     'renderer reusable Menu Interaction passed: nine Inspector events, typed page/internal authoring, persisted bindings, compiled F9 internal-before-page order, two isolated placements and cancellation in either handler',
   );

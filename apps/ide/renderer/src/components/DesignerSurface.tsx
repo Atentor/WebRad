@@ -1663,7 +1663,9 @@ export function DesignerSurface({
     };
   };
 
-  const insertionTarget = (point: Point): {
+  const insertionTarget = (
+    point: Point,
+  ): {
     parentId: string;
     point: Point;
     origin: Point;
@@ -1703,7 +1705,8 @@ export function DesignerSurface({
                 : Math.max(
                     24,
                     (host?.bounds.width ?? targetParent.bounds.width) -
-                      (padding?.paddingLeft ?? 0) - (padding?.paddingRight ?? 0),
+                      (padding?.paddingLeft ?? 0) -
+                      (padding?.paddingRight ?? 0),
                   ),
             height: padding?.mode === 'row' ? 32 : 4 / scale,
           };
@@ -1845,8 +1848,10 @@ export function DesignerSurface({
       return;
     const rectangle = event.currentTarget.getBoundingClientRect();
     if (
-      event.clientX > rectangle.left && event.clientX < rectangle.right &&
-      event.clientY > rectangle.top && event.clientY < rectangle.bottom
+      event.clientX > rectangle.left &&
+      event.clientX < rectangle.right &&
+      event.clientY > rectangle.top &&
+      event.clientY < rectangle.bottom
     )
       return;
     dropFeedback.clear();
@@ -1869,7 +1874,12 @@ export function DesignerSurface({
     if (reusableElementId === page.id) return;
     const target = insertionTarget(point);
     if (target.beforeComponentId !== undefined)
-      onAddReusableElement?.(reusableElementId, target.point, target.parentId, target.beforeComponentId);
+      onAddReusableElement?.(
+        reusableElementId,
+        target.point,
+        target.parentId,
+        target.beforeComponentId,
+      );
     else onAddReusableElement?.(reusableElementId, target.point, target.parentId);
   };
 
@@ -2431,7 +2441,11 @@ export function DesignerSurface({
               onPointerDown={startMarquee}
               onPointerMove={(event) => {
                 updateInteraction(event);
-                if (pointerInteraction.get() === null && selectedPaletteType && event.buttons === 0) {
+                if (
+                  pointerInteraction.get() === null &&
+                  selectedPaletteType &&
+                  event.buttons === 0
+                ) {
                   const preview = insertionPreview(
                     { kind: 'component', type: selectedPaletteType },
                     eventPoint(event),

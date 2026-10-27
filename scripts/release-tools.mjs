@@ -142,9 +142,7 @@ function requireVerifiedCommit() {
     throw new Error('Set GITHUB_SHA to the exact release commit before checking its verification.');
   const verified = verificationRuns(commit, 'release', true).find(
     (run) =>
-      isVerificationRun(run, commit) &&
-      run.status === 'completed' &&
-      run.conclusion === 'success',
+      isVerificationRun(run, commit) && run.status === 'completed' && run.conclusion === 'success',
   );
   if (!verified)
     throw new Error(

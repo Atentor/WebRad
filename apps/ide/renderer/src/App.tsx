@@ -1877,7 +1877,7 @@ export function App(): ReactElement {
       // revision effect has not run yet. Later edits retain normal invalidation.
       observedProjectRevisionRef.current = current.revision;
       previewSaveContextRef.current = null;
-      requestId = (buildRequestRef.current += 1);
+      requestId = buildRequestRef.current += 1;
       const buildRevision = current.revision;
       const buildRootPath = current.rootPath;
       const result = await window.webrad.build.run({
