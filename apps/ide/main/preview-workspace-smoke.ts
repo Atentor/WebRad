@@ -1,13 +1,11 @@
 import { Menu, type BrowserWindow } from 'electron';
+import { isPreviewMenuMode } from './menu';
 
 function nativeMenuMatchesPreviewMode(window: BrowserWindow, preview: boolean): boolean {
+  if (!isPreviewMenuMode(window, preview)) return false;
   if (process.platform === 'darwin') return (Menu.getApplicationMenu() === null) === preview;
-  const menuAttached = window.getMenu() !== null;
   // Smoke windows stay hidden, so verify menu visibility only for visible windows.
-  return (
-    menuAttached === !preview &&
-    (!window.isVisible() || window.isMenuBarVisible() === !preview)
-  );
+  return !window.isVisible() || window.isMenuBarVisible() === !preview;
 }
 
 /** Stop through the visible control, including when focus belongs to the application iframe. */
@@ -85,7 +83,8 @@ export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
       throw new Error(
         `Stop preview did not restore the IDE: ${JSON.stringify({
           renderer,
-          menuAttached: window.getMenu() !== null,
+          expectedPreviewMenuMode: false,
+          previewMenuModeApplied: isPreviewMenuMode(window, false),
           menuVisible: window.isMenuBarVisible(),
           windowVisible: window.isVisible(),
           applicationMenu: Menu.getApplicationMenu() !== null,

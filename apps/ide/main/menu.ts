@@ -3,6 +3,7 @@ import type { IdeCommand } from '../shared/contracts';
 import { EXTERNAL_LINKS } from '../shared/external-links';
 
 const applicationMenus = new WeakMap<BrowserWindow, Menu>();
+const previewMenuModes = new WeakMap<BrowserWindow, boolean>();
 
 export function setPreviewMenuMode(window: BrowserWindow, preview: boolean): void {
   const menu = applicationMenus.get(window);
@@ -14,6 +15,11 @@ export function setPreviewMenuMode(window: BrowserWindow, preview: boolean): voi
     window.setMenu(preview ? null : menu);
     window.setMenuBarVisibility(!preview);
   }
+  previewMenuModes.set(window, preview);
+}
+
+export function isPreviewMenuMode(window: BrowserWindow, preview: boolean): boolean {
+  return previewMenuModes.get(window) === preview;
 }
 
 function commandItem(
@@ -130,5 +136,6 @@ export function installApplicationMenu(window: BrowserWindow): void {
 
   const menu = Menu.buildFromTemplate(template);
   applicationMenus.set(window, menu);
+  previewMenuModes.set(window, false);
   Menu.setApplicationMenu(menu);
 }
