@@ -3,6 +3,21 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+/** Keep measured slow successes too; otherwise successful cleanup discards the evidence. */
+export async function preserveMacOSSmokeDiagnostics(logPath, artifactRoot) {
+  if (process.platform !== 'darwin') return;
+  const source = path.join(path.dirname(logPath), 'native-diagnostics');
+  try {
+    await fs.access(source);
+    await fs.mkdir(artifactRoot, { recursive: true });
+    await fs.cp(source, path.join(artifactRoot, 'native-diagnostics'), { recursive: true });
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      process.stderr.write(`[IDE] Could not preserve macOS compiler diagnostics: ${error}\n`);
+    }
+  }
+}
+
 function execute(file, args, timeout) {
   return new Promise((resolve, reject) => {
     execFile(file, args, { timeout, maxBuffer: 2 * 1024 * 1024 }, (error, stdout) => {

@@ -119,6 +119,16 @@ regression coverage when requested; update existing expectations when necessary.
 After correction, verify the final commit on all required platforms. Local Windows
 results do not prove Linux/macOS, publication, installed updates, or native WebViews.
 
+### Slow-success evidence: 9b11a9a (2026-10-27)
+
+All four platform builds passed [release 40587121234](https://github.com/Atentor/WebRad/actions/runs/40587121234),
+including Intel's Menu/reusable F9 and update smoke; quality/security passed.
+A reusable bundle still consumed 4,339 ms, with substantial main CPU/heap change.
+The diagnostic change is not a proven permanent correction. Preserve successful
+macOS measurements and their packaged main source map before temporary cleanup.
+Upload `compiler-diagnostics-*` separately from assembly's release artifacts;
+retain existing failure artifacts and all functional requirements.
+
 ### Native report collection follow-up: 7067bd3 (2026-10-27)
 
 [Release 40545084526](https://github.com/Atentor/WebRad/actions/runs/40545084526)

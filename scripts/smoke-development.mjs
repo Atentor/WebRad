@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { waitForDevelopmentSmoke } from './smoke-process.mjs';
+import { preserveMacOSSmokeDiagnostics } from './smoke-macos-diagnostics.mjs';
 
 const forgeCli = path.resolve(
   'node_modules',
@@ -254,6 +255,10 @@ try {
     );
   }
 
+  await preserveMacOSSmokeDiagnostics(
+    logPath,
+    path.resolve('artifacts', 'smoke', 'development', smokeVariant),
+  );
   process.stdout.write(log);
 } catch (error) {
   await preserveFailureDiagnostics(error).catch((diagnosticError) => {

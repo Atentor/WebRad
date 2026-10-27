@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { waitForSmokeProcess } from './smoke-process.mjs';
+import { preserveMacOSSmokeDiagnostics } from './smoke-macos-diagnostics.mjs';
 
 const packageMetadata = JSON.parse(await fs.readFile(path.resolve('package.json'), 'utf8'));
 const productName = packageMetadata.productName;
@@ -254,6 +255,10 @@ try {
     );
   }
 
+  await preserveMacOSSmokeDiagnostics(
+    logPath,
+    path.resolve('artifacts', 'smoke', 'packaged', smokeVariant),
+  );
   process.stdout.write(log);
 } catch (error) {
   await preserveFailureDiagnostics(error).catch((diagnosticError) => {

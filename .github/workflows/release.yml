@@ -165,6 +165,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Preserve macOS compiler measurements
+        if: always() && runner.os == 'macOS'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: compiler-diagnostics-${{ matrix.arch }}
+          path: artifacts/smoke/**/native-diagnostics/**
+          if-no-files-found: ignore
+          retention-days: 7
+
   assemble:
     needs: [preflight, build]
     runs-on: ubuntu-24.04

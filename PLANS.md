@@ -5,6 +5,23 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## Keep slow-success evidence: 9b11a9a, 2026-10-27
+
+Exact commit `9b11a9a98717bfbf0bc314daf6f74836bf6a0ffd` passed all four
+platform builds in [release 40587121234](https://github.com/Atentor/WebRad/actions/runs/40587121234),
+including Intel's complete Menu/reusable F9 and update smoke. Quality and security
+passed. Intel's reusable bundle still took 4,339 ms, with 3,446 ms of main CPU,
+heap dropping from 405 to 218 MiB and RSS rising to 1,813 MiB. A diagnostic-only
+change and one green run do not establish a permanent compiler correction.
+
+Successful runners previously removed the profiles/native samples with their
+temporary directories. Preserve existing macOS measurements on success too,
+without preserving browser profiles, projects or changing functional results.
+Upload them under a separate `compiler-diagnostics-*` artifact, outside assembly's
+`release-*-*` pattern. Include the packaged main source map to interpret minified
+CPU frames. Existing failure artifacts remain intact. Another authorized hosted
+execution is needed to retrieve these measurements; no local validation ran.
+
 ## macOS Intel diagnostic follow-up: 7067bd3, 2026-10-27
 
 The authorized hosted run passed Windows, Linux, macOS ARM64, quality and

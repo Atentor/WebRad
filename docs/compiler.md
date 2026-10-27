@@ -36,6 +36,11 @@ before target exit and allows bounded report generation after sampling; this
 diagnostic finalization does not extend any functional deadline. Capture failures
 never replace the original exception.
 
+Successful macOS runs retain existing measurements too, including the packaged
+main-process source map for interpreting CPU frames. CI uploads these separately
+from installers as `compiler-diagnostics-*`; they do not enter release assembly.
+Browser profiles and successful project fixtures are not included.
+
 ## Native frontend target
 
 `CompileProjectOptions.target` accepts the additive `native` destination. Native Build calls the same model validation, generated instance declarations, authored TypeScript checking, browser bundler and asset/license emission as existing builds. The compiler produces ordinary local `index.html`, `assets/app.js`, `assets/app.css` and used resources in memory; it has no Tauri, Rust, Electron or device API dependency.

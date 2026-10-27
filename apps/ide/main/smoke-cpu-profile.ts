@@ -40,6 +40,10 @@ export async function profileMenuSmoke(
         );
         await fs.mkdir(directory, { recursive: true });
         await fs.writeFile(path.join(directory, 'menu-main.cpuprofile'), JSON.stringify(profile));
+        await fs.copyFile(
+          path.join(__dirname, 'main.cjs.map'),
+          path.join(directory, 'main.cjs.map'),
+        );
       }
     } catch (error) {
       log(`[IDE] Menu CPU profile could not be saved: ${String(error)}`);
