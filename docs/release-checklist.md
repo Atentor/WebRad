@@ -119,6 +119,26 @@ regression coverage when requested; update existing expectations when necessary.
 After correction, verify the final commit on all required platforms. Local Windows
 results do not prove Linux/macOS, publication, installed updates, or native WebViews.
 
+### Native scheduler/GC workaround: 41b6f2a (2026-10-27)
+
+[Release verification 40532063982](https://github.com/Atentor/WebRad/actions/runs/40532063982)
+again passed Windows, Linux, and macOS ARM64; quality and security passed.
+Intel job `122287405778` stalled at reusable Menu F9 with the power assertion
+active. Typecheck took 2,447 ms and runtime preparation 55 ms; native bundling
+remained pending for at least 11,102 ms. Saved/disabled Run and the still-building
+Preview rule out an unsubmitted F9; the artifact has no native stack identifying
+the exclusive cause.
+
+The official esbuild 0.28.2 Darwin x64 executable embeds Go 1.26.5. Its blocking
+pipe service is compatible with the known [Go 1.26 scheduler/GC regression](https://github.com/golang/go/issues/81759).
+The compiler temporarily sets `GOMAXPROCS=1` around the synchronous API call
+that spawns this service, restoring the host environment before awaiting. Keep
+this limited to Darwin x64, preserve the pinned dependency and security fixes,
+and do not change test workers, deadlines, strict diagnostics, or required smoke
+evidence. This is an upstream-informed workaround, not a substitute for native
+confirmation. Remove it after an official fixed esbuild toolchain passes on the
+final Intel commit. No local validation was requested or run for this change.
+
 ### Hidden macOS native work and bundle attribution: e1c5294 (2026-10-27)
 
 [Validate 40526361466](https://github.com/Atentor/WebRad/actions/runs/40526361466)

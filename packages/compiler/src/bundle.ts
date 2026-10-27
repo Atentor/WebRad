@@ -4,7 +4,14 @@ import webRadLicense from './license-sources.generated.json';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import type { build as esbuildBuild, Loader, OnLoadResult, Plugin } from 'esbuild';
+import type {
+  build as esbuildBuild,
+  BuildOptions,
+  BuildResult,
+  Loader,
+  OnLoadResult,
+  Plugin,
+} from 'esbuild';
 
 import { fromEsbuildMessage } from './diagnostics.js';
 import runtimeSourcesJson from './runtime-sources.json';
@@ -196,6 +203,24 @@ function relativeOutputPath(outputDirectory: string, fileName: string): string {
   return path.relative(outputDirectory, fileName).replaceAll('\\', '/');
 }
 
+function buildWithNativeRuntime(esbuild: EsbuildApi, options: BuildOptions): Promise<BuildResult> {
+  if (process.platform !== 'darwin' || process.arch !== 'x64') return esbuild.build(options);
+
+  // esbuild 0.28.2 embeds Go 1.26.5. Go issue 81759 describes a scheduler/GC
+  // race with blocking pipes; its single-P configuration avoids that race.
+  // https://github.com/golang/go/issues/81759
+  // The pinned API spawns its service synchronously inside build(). Restore the
+  // host environment before awaiting, so only that native child inherits this.
+  const previous = process.env.GOMAXPROCS;
+  process.env.GOMAXPROCS = '1';
+  try {
+    return esbuild.build(options);
+  } finally {
+    if (previous === undefined) delete process.env.GOMAXPROCS;
+    else process.env.GOMAXPROCS = previous;
+  }
+}
+
 export async function bundleSources(options: BundleOptions): Promise<BundleResult> {
   options.onProgress?.('bundle-load');
   const modulePath = process.env.WEBRAD_ESBUILD_MODULE_PATH;
@@ -208,7 +233,7 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
   options.onProgress?.('bundle-selection');
   const projectPlugin = virtualPlugin(options);
   options.onProgress?.('bundle-build');
-  const result = await esbuild.build({
+  const result = await buildWithNativeRuntime(esbuild, {
     absWorkingDir: process.cwd(),
     assetNames: '[name]-[hash]',
     bundle: true,

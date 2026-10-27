@@ -5,6 +5,47 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## Native esbuild workaround for repeated macOS Intel stalls: 2026-10-27
+
+Inspected exact commit `41b6f2a8c6e521064549155b49d1eb7c9b8b569a`:
+[validate 40532064142](https://github.com/Atentor/WebRad/actions/runs/40532064142)
+and [security 40532064211](https://github.com/Atentor/WebRad/actions/runs/40532064211)
+passed. [Release verification 40532063982](https://github.com/Atentor/WebRad/actions/runs/40532063982)
+again passed Windows x64, Linux x64, and macOS ARM64. macOS Intel job
+`122287405778` failed at the same reusable Menu F9. The macOS activity guard was
+active and released on failure, so it did not resolve the observed stall.
+
+The last compilation completed strict typecheck in 2,447 ms and prepared the
+runtime in 55 ms. Native bundling started at 15:49:26.315 UTC with main-process
+heap 407/452 MiB and RSS 1,116 MiB. No bundle completion arrived before the
+15:49:37.417 UTC timeout; Saved was present, Run was disabled, and Preview was
+still building. The preceding bundle phase took 463 ms. Reviewing the retained
+project found no source-graph explosion, unresolved public imports, or concurrent
+F9 builds.
+
+Read-only inspection of the official `@esbuild/darwin-x64@0.28.2` executable
+confirmed embedded Go `1.26.5`. Upstream [Go issue 81759](https://github.com/golang/go/issues/81759)
+documents a Go 1.26 scheduler/GC race with blocking pipe syscalls; its reproducer
+avoids the race with `GOMAXPROCS=1`. The esbuild service uses blocking stdin/stdout
+pipes and awaits host replies, matching that class of failure. This is stronger
+evidence than the earlier power-management hypothesis, although the failed job
+has no native Go stack proving the exact race.
+
+Applied `GOMAXPROCS=1` only around the synchronous call that starts esbuild on
+Darwin x64. The pinned JavaScript API spawns its native service before returning
+the build Promise; the host environment is restored in `finally` before any
+await, including synchronous errors. Only the native service inherits the limit.
+This preserves esbuild 0.28.2 and its security fixes, all original strict checks,
+browser output, smoke deadlines, and Vitest worker scheduling. Native Go bundling
+on Intel uses one execution slot until an official fixed binary can replace the
+workaround; the other platforms retain their existing behavior.
+
+Original job log, failure archive/project, upstream binary metadata, and diagnosis
+are retained under `artifacts/github-actions-41b6f2a-20261027/`. No local tests,
+validation checks, builds, packaging, workflow reruns, commits, or pushes were
+requested or executed. Confirmation on the final hosted Intel commit is pending;
+remove the workaround only after verifying an updated native toolchain there.
+
 ## Remaining macOS Intel smoke stall for e1c5294: 2026-10-27
 
 Inspected exact commit `e1c5294081dbd3a251246184c03607364ef44a8d`:

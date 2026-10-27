@@ -13,6 +13,23 @@ source/component-type combination. Diagnostics are recalculated for each build.
 The existing progress callback separates bundle loading, runtime selection,
 esbuild execution, and output processing for compilation timing diagnostics.
 
+## Native bundler on macOS Intel
+
+The pinned esbuild 0.28.2 Darwin x64 binary embeds Go 1.26.5. Upstream
+[Go issue 81759](https://github.com/golang/go/issues/81759) describes a scheduler/GC
+race with blocking pipes, the transport used by esbuild's native service. Its
+single-execution-slot configuration avoids that race in the upstream reproducer.
+For Darwin x64, the compiler sets `GOMAXPROCS=1` only while synchronously calling
+the esbuild API that spawns its service. It restores the previous host environment
+in `finally`, before awaiting the returned Promise, so later subprocesses are
+unaffected. Other platforms keep their normal native concurrency.
+
+This is a targeted workaround for repeated native bundle stalls, with an Intel
+performance tradeoff. It preserves strict diagnostics, esbuild security fixes,
+browser output and smoke deadlines. A final-commit hosted Intel run is still
+required; remove it when an official esbuild binary with a fixed Go runtime has
+been verified. No application/runtime or persistent project setting is added.
+
 ## Native frontend target
 
 `CompileProjectOptions.target` accepts the additive `native` destination. Native Build calls the same model validation, generated instance declarations, authored TypeScript checking, browser bundler and asset/license emission as existing builds. The compiler produces ordinary local `index.html`, `assets/app.js`, `assets/app.css` and used resources in memory; it has no Tauri, Rust, Electron or device API dependency.
