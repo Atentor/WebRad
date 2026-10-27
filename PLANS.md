@@ -5,6 +5,24 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## GitHub Actions formatting correction for 6060e02: 2026-10-27
+
+Inspected all six failed jobs for `6060e02352af3f2849af970cc3829816436cc2f5`:
+[validate 40499384581](https://github.com/Atentor/WebRad/actions/runs/40499384581)
+and [release 40499384267](https://github.com/Atentor/WebRad/actions/runs/40499384267).
+Every job stopped on the same Prettier finding in
+`packages/compiler/src/runtime-selection.ts`. Security `40499384381` passed.
+Both quality jobs passed code checks and 1,725 tests with 41 optional skips before
+formatting failed. The four release builds stopped at formatting before their
+portable tests and packaging; no job reached the earlier Electron smoke failures.
+
+Applied Prettier in write mode to that single source file, correcting only the
+line wrapping of `previousAdapterSelection`. The edit command exited successfully;
+no local validation check, test, build, packaging, or smoke was run. The source
+change preserves behavior. Changes remain local without commit, push, or workflow
+rerun. Hosted confirmation of formatting and the earlier smoke fixes is pending.
+Diagnostic excerpts are retained in `artifacts/github-actions-6060e02-20261027/`.
+
 ## GitHub Actions follow-up for 1525042: 2026-10-27
 
 Inspected all six failed jobs and retained their diagnostic archives for
@@ -38,8 +56,9 @@ Implemented locally:
 
 Original archives, retained projects, logs, and diagnosis are under
 `artifacts/github-actions-1525042-20261027/`. No local validation was requested or
-executed. These changes remain local, with no commit, push, workflow rerun, version
-change, or release. Hosted confirmation and later smoke stages remain pending.
+executed during implementation. These changes were subsequently committed as
+`6060e02`; the follow-up above records the formatting blocker. Hosted confirmation
+of the smoke corrections and timing improvement remains pending.
 
 ## GitHub Actions corrections for ba9be66: 2026-10-27
 

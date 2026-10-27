@@ -61,8 +61,7 @@ function runtimeModuleValueExports(
 }
 
 let previousAdapterSelection:
-  | { readonly source: string; readonly types: string; readonly result: string }
-  | undefined;
+  { readonly source: string; readonly types: string; readonly result: string } | undefined;
 
 /** Resolve the public barrel only to the value exports reachable from application code. */
 export function selectRuntimeExports(
