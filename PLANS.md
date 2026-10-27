@@ -5,6 +5,35 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## Offscreen bitmap allocation during hidden compilation: 2026-10-27
+
+Exact commit `07ae25530435792f60d7bb63453537989ba2751c` again failed only on
+Intel in [release 40589301580](https://github.com/Atentor/WebRad/actions/runs/40589301580).
+Quality/security and the other three platform builds passed. This failure was
+the initial page-title F9, before Menu, after typecheck and runtime preparation.
+The bundle remained pending for 26,464 ms. The owned process snapshot showed
+main CPU at 79.2%, software compositor CPU at 82%, main RSS about 1.5 GiB, and
+sleeping esbuild at 0%. Native sampling produced no usable thread stacks; it
+does not prove an exclusive native deadlock. Original logs/samples are retained
+under `artifacts/github-actions-07ae255-20261027/`.
+
+Review of Electron 45's `OffScreenRenderWidgetHostView::OnPaint` and
+`WebContents::OnPaint` found full-frame bitmap copying and NativeImage creation
+on every offscreen paint, even without a JavaScript paint listener. NativeImage
+reports that pixel memory to V8, triggering GC pressure in the same isolate as
+strict TypeScript and the esbuild plugin bridge. This is a concrete unnecessary
+allocation path compatible with the observed CPU/RSS spikes, not a claim that
+the failed native report identified the exclusive cause.
+
+Hidden smoke windows now stop unused paint-event bitmap delivery. Electron's
+SetPainting changes the consumer's active state, separately from compositor
+frame scheduling; keep offscreen rendering and background timer settings.
+Real capturePage screenshots, geometry, Monaco cursor/input/frame evidence,
+Preview, and all deadlines remain required. Normal IDE windows are unchanged.
+V8 profiling is now opt-in via `WEBRAD_SMOKE_CPU_PROFILE=1`, so final hosted
+verification exercises the correction without an active CPU profiler.
+No local validation was requested or run. Native final-commit CI is pending.
+
 ## Keep slow-success evidence: 9b11a9a, 2026-10-27
 
 Exact commit `9b11a9a98717bfbf0bc314daf6f74836bf6a0ffd` passed all four

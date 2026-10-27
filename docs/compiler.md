@@ -39,7 +39,16 @@ never replace the original exception.
 Successful macOS runs retain existing measurements too, including the packaged
 main-process source map for interpreting CPU frames. CI uploads these separately
 from installers as `compiler-diagnostics-*`; they do not enter release assembly.
-Browser profiles and successful project fixtures are not included.
+Browser profiles and successful project fixtures are not included. CPU profiling
+requires `WEBRAD_SMOKE_CPU_PROFILE=1`; ordinary CI uses no active V8 profiler.
+
+Hidden smoke windows retain their offscreen compositor for real animation frames
+but stop unused paint-event bitmap delivery. Electron otherwise copies native
+pixel buffers and creates NativeImages in the main isolate, generating unrelated
+external-memory/GC pressure while TypeScript and the esbuild bridge run there.
+Screenshots continue to use `capturePage` directly, with all rendered geometry,
+cursor, input and Preview assertions intact. This does not change normal IDE
+window rendering or generated applications.
 
 ## Native frontend target
 

@@ -1397,6 +1397,12 @@ async function createWindow(): Promise<BrowserWindow> {
       sandbox: true,
     },
   });
+  if (smokeMode) {
+    // Keep the compositor/animation clock, but do not stream unused full-frame
+    // NativeImages into the main V8 heap. Screenshots use capturePage directly.
+    window.webContents.stopPainting();
+    smokeLog('[IDE] Hidden smoke compositor retained; unused paint bitmap delivery stopped');
+  }
   let rendererSmokeStarted = false;
   const assertRendererHealthy = smokeAutoExit
     ? trackSmokeRendererHealth(window.webContents)

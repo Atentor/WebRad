@@ -51,6 +51,13 @@ until green without investigating the previous failure.
 ## Hidden smoke-window rendering
 
 Keep offscreen rendering for hidden development/packaged smoke windows.
+Stop unused paint-event bitmap delivery with `webContents.stopPainting()`;
+the smoke has no streaming paint consumer. Electron 45's consumer active flag
+is independent from compositor frame scheduling. Preserve direct `capturePage`
+screenshots and all actual frame, cursor, native input, and geometry assertions.
+Do not replace this with disabled offscreen rendering or lower frame rate.
+Ordinary verification must run without a V8 CPU profiler; opt in separately with
+`WEBRAD_SMOKE_CPU_PROFILE=1` when collecting a Menu CPU profile.
 `backgroundThrottling: false` alone does not guarantee normal animation frames.
 Commit `8080ca5` reproduced about one second per frame despite native input taking
 only tens of milliseconds. Preserve real native input, rendered cursor/character

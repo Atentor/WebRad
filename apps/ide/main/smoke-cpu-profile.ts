@@ -13,6 +13,7 @@ export async function profileMenuSmoke(
     process.arch !== 'x64' ||
     !process.argv.includes('--webrad-smoke') ||
     !process.argv.includes('--webrad-smoke-auto-exit') ||
+    process.env.WEBRAD_SMOKE_CPU_PROFILE !== '1' ||
     logArgument === undefined
   ) {
     await run();
