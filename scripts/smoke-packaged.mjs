@@ -190,7 +190,7 @@ try {
               'renderer Designer insertion feedback passed:',
               'renderer Menu icon geometry passed:',
               'renderer Menu search Enter passed:',
-              'renderer Menu search focus passed:',
+              'renderer Menu search focus passed: focused Preview iframe,',
               'renderer Menu configurator layout passed:',
               'renderer Menu canvas geometry passed:',
               'renderer Menu compiled viewports passed:',

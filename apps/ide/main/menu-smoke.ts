@@ -201,22 +201,34 @@ async function runMenuSmokeWorkflow(
       throw new Error('Missing complete Menu search field');
     const previous = document.activeElement;
     const before = field.getBoundingClientRect();
-    input.focus();
+    input.focus({preventScroll: true});
     const outer = getComputedStyle(field);
     const inner = getComputedStyle(input);
     const after = field.getBoundingClientRect();
-    if (document.activeElement !== input || !input.matches(':focus-visible')
-      || !field.matches(':focus-within')
-      || outer.outlineStyle !== 'solid' || outer.outlineWidth !== '2px'
-      || outer.outlineOffset !== '2px' || inner.outlineStyle !== 'none'
-      || inner.outlineWidth !== '0px' || inner.outlineOffset !== '0px'
-      || inner.boxShadow !== 'none' || Math.abs(after.width - before.width) > 0.5
+    const evidence = {
+      documentFocused: document.hasFocus(), inputActive: document.activeElement === input,
+      inputFocused: input.matches(':focus'), inputFocusVisible: input.matches(':focus-visible'),
+      fieldFocusWithin: field.matches(':focus-within'), connected: input.isConnected,
+      mobile: menu.dataset.menuMobile, viewport: {width: innerWidth, height: innerHeight},
+      outer: {style: outer.outlineStyle, width: outer.outlineWidth, offset: outer.outlineOffset,
+        color: outer.outlineColor, accent: outer.getPropertyValue('--wr-menu-accent').trim()},
+      inner: {style: inner.outlineStyle, width: inner.outlineWidth, offset: inner.outlineOffset,
+        shadow: inner.boxShadow},
+      before: before.toJSON(), after: after.toJSON()
+    };
+    if (!evidence.documentFocused || !evidence.inputActive || !evidence.inputFocused
+      || !evidence.inputFocusVisible || !evidence.fieldFocusWithin
+      || evidence.outer.style !== 'solid' || evidence.outer.width !== '2px'
+      || evidence.outer.offset !== '2px' || evidence.inner.style !== 'none'
+      || evidence.inner.width !== '0px' || evidence.inner.offset !== '0px'
+      || evidence.inner.shadow !== 'none' || Math.abs(after.width - before.width) > 0.5
       || Math.abs(after.height - before.height) > 0.5)
-      throw new Error('Menu search focus must surround icon and input without an inner ring or layout shift');
+      throw new Error('Menu search focus must surround icon and input without an inner ring or layout shift: ' + JSON.stringify(evidence));
     input.blur();
     if (getComputedStyle(field).outlineStyle !== 'none')
-      throw new Error('Menu search focus ring remains after blur');
-    if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+      throw new Error('Menu search focus ring remains after blur: ' + JSON.stringify(evidence));
+    if (previous instanceof HTMLElement && previous.isConnected) previous.focus({preventScroll: true});
+    return evidence;
   }`;
   const assertMenuIconGeometry = `(menu) => {
     const icons = [...menu.querySelectorAll('.wr-icon-graphic')];
@@ -353,11 +365,35 @@ async function runMenuSmokeWorkflow(
       : { frame: 'missing' };
     throw new Error('Compiled Menu desktop Preview is not ready: ' + JSON.stringify(evidence));
   }
+  const compiledFrame = frame;
+  const evaluatePreviewCheck = async (source: string): Promise<unknown> => {
+    // Serialize inside the frame: Electron can reject executeJavaScript with a
+    // generic error that omits the assertion and its measurements.
+    const result: unknown = await compiledFrame.executeJavaScript(
+      `(() => { try { return {ok: true, value: (${source})}; }
+      catch (error) { return {ok: false, error: {message: String(error?.message ?? error), stack: String(error?.stack ?? '')}}; } })()`,
+      true,
+    );
+    if (typeof result !== 'object' || result === null || !('ok' in result))
+      throw new Error('Menu Preview check did not return evidence: ' + JSON.stringify(result));
+    if (result.ok !== true || !('value' in result))
+      throw new Error('Menu Preview assertion failed: ' + JSON.stringify(result));
+    return result.value;
+  };
   const desktopViewport = await frame.executeJavaScript(
     '({ width: innerWidth, height: innerHeight })',
     true,
   );
-  const desktop = await frame.executeJavaScript(
+  const focusPreviewFrame = async (): Promise<void> => {
+    // CSS focus pseudo-classes require the active document, not only its stored
+    // activeElement. Match the Icons smoke for this newly compiled iframe.
+    window.webContents.focus();
+    await evaluate(
+      `document.querySelector('iframe[title="WebRAD application preview"]').focus({preventScroll: true})`,
+    );
+  };
+  await focusPreviewFrame();
+  const desktop = await evaluatePreviewCheck(
     `(() => {
     const menu = document.querySelector('[data-webrad-id="${id}"]');
     if (!menu || menu.dataset.menuMobile !== 'false') return {error:'Missing desktop Menu',mobile:menu?.dataset.menuMobile};
@@ -380,7 +416,7 @@ async function runMenuSmokeWorkflow(
     menu.addEventListener('search',onSearch);
     const search=menu.querySelector('.wr-menu-search-input');
     if(!search)return {error:'Missing search'};
-    (${assertMenuSearchFocus})(menu);
+    const searchFocus = (${assertMenuSearchFocus})(menu);
     const count=menu.querySelectorAll('.wr-menu-item').length;
     search.value='external search';search.dispatchEvent(new Event('input',{bubbles:true}));
     if(received.length!==0||menu.querySelectorAll('.wr-menu-item').length!==count)return {error:'Typing must not submit search or filter items',received,count,actual:menu.querySelectorAll('.wr-menu-item').length};
@@ -410,9 +446,8 @@ async function runMenuSmokeWorkflow(
     }
     menu.querySelector('[data-menu-item="home"]').click();
     (${assertMenuIconGeometry})(menu);
-    return {selected:menu.querySelector('[data-menu-item="home"]').getAttribute('aria-current'),children:menu.querySelector('.wr-menu-submenu').children.length};
+    return {selected:menu.querySelector('[data-menu-item="home"]').getAttribute('aria-current'),children:menu.querySelector('.wr-menu-submenu').children.length,searchFocus};
   })()`,
-    true,
   );
   if (
     typeof desktop !== 'object' ||
@@ -420,7 +455,8 @@ async function runMenuSmokeWorkflow(
     !('selected' in desktop) ||
     desktop.selected !== 'page' ||
     !('children' in desktop) ||
-    desktop.children !== 2
+    desktop.children !== 2 ||
+    !('searchFocus' in desktop)
   )
     throw new Error(
       'Menu desktop project scrollbar, collapse, selection or submenu projection failed: ' +
@@ -430,8 +466,7 @@ async function runMenuSmokeWorkflow(
     'renderer Menu search Enter passed: typing/clearing remain silent, Enter submits current or empty text, explicit resubmission, composition/repeat suppression and unchanged items',
   );
   try {
-    window.webContents.focus();
-    await evaluate(`document.querySelector('iframe[title="WebRAD application preview"]').focus()`);
+    await focusPreviewFrame();
     await window.webContents.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
       width: 390,
       height: 844,
@@ -458,13 +493,19 @@ async function runMenuSmokeWorkflow(
       '({ width: innerWidth, height: innerHeight })',
       true,
     );
-    const drawer = await frame.executeJavaScript(
-      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); (${assertMenuIconGeometry})(menu); menu.querySelector('[data-menu-action="open"]').click(); (${assertMenuIconGeometry})(menu); (${assertMenuSearchFocus})(menu); const dialog = menu.querySelector('dialog'); const originalMode = Theme.mode; const originalResolved = Theme.resolvedMode; const themeControl = dialog.querySelector('[data-menu-action="theme"]'); if (!(themeControl instanceof HTMLButtonElement)) return false; themeControl.focus(); themeControl.click(); (${assertMenuIconGeometry})(menu); const themeChanged = Theme.resolvedMode !== originalResolved && dialog.open && document.activeElement === themeControl; Theme.mode = originalMode; return themeChanged && (${matchesProjectScrollbar})(dialog.querySelector('.wr-menu-navigation')) && Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth; })()`,
-      true,
+    const drawer = await evaluatePreviewCheck(
+      `(() => { const menu = document.querySelector('[data-webrad-id="${id}"]'); (${assertMenuIconGeometry})(menu); menu.querySelector('[data-menu-action="open"]').click(); (${assertMenuIconGeometry})(menu); const searchFocus = (${assertMenuSearchFocus})(menu); const dialog = menu.querySelector('dialog'); const originalMode = Theme.mode; const originalResolved = Theme.resolvedMode; const themeControl = dialog.querySelector('[data-menu-action="theme"]'); if (!(themeControl instanceof HTMLButtonElement)) return {passed:false,searchFocus}; themeControl.focus(); themeControl.click(); (${assertMenuIconGeometry})(menu); const themeChanged = Theme.resolvedMode !== originalResolved && dialog.open && document.activeElement === themeControl; Theme.mode = originalMode; return {passed:themeChanged && (${matchesProjectScrollbar})(dialog.querySelector('.wr-menu-navigation')) && Math.abs(menu.getBoundingClientRect().height - 48) <= 1 && dialog.open && dialog.contains(document.activeElement) && document.body.style.overflow === 'hidden' && dialog.getBoundingClientRect().width <= innerWidth,searchFocus}; })()`,
     );
-    if (drawer !== true)
+    if (
+      typeof drawer !== 'object' ||
+      drawer === null ||
+      !('passed' in drawer) ||
+      drawer.passed !== true ||
+      !('searchFocus' in drawer)
+    )
       throw new Error(
-        'Menu mobile drawer lacks project scrollbar, modal focus, viewport sizing or scroll lock.',
+        'Menu mobile drawer lacks project scrollbar, modal focus, viewport sizing or scroll lock: ' +
+          JSON.stringify(drawer),
       );
     await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
       type: 'keyDown',
@@ -485,7 +526,8 @@ async function runMenuSmokeWorkflow(
     if (closed !== true)
       throw new Error('Menu Escape did not close the drawer and restore scrolling.');
     options.log(
-      'renderer Menu search focus passed: full rounded search field, icon and input, no inner ring, no layout shift, blur cleanup, desktop and mobile drawer',
+      'renderer Menu search focus passed: focused Preview iframe, full rounded search field, icon and input, no inner ring, no layout shift, blur cleanup, desktop and mobile drawer; ' +
+        JSON.stringify({ desktop: desktop.searchFocus, mobile: drawer.searchFocus }),
     );
     options.log(
       'renderer Menu compiled viewports passed: ' +

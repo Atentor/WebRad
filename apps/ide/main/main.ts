@@ -11,6 +11,7 @@ import { assertExclusivePreviewSmoke, stopPreviewSmoke } from './preview-workspa
 import { runPanelFloatingSmoke } from './panel-floating-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
+import { inspect } from 'node:util';
 import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
@@ -78,7 +79,10 @@ function verifyApplicationIconResource(): void {
 
 function smokeLog(message: string, error?: unknown): void {
   if (!smokeMode) return;
-  const detail = error instanceof Error ? `\n${error.stack ?? error.message}` : '';
+  const detail =
+    error === undefined
+      ? ''
+      : `\n${error instanceof Error ? (error.stack ?? error.message) : inspect(error, { depth: 4 })}`;
   try {
     appendFileSync(
       process.argv

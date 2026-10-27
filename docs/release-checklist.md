@@ -61,6 +61,27 @@ O preflight da tag confere a ancestralidade em `main` e consulta as verificaçõ
 
 ## Ao investigar uma falha
 
+Nas execuções `40480883364` (validate) e `40480883287` (release) do commit
+`d62b462`, a correção anterior de arraste/formatação passou pelas suítes
+hospedadas: 1.725 testes aprovados e 41 skips opcionais por job. O validate
+completo passou em Windows/Linux; os quatro empacotamentos de release também.
+Os dois smokes de desenvolvimento falharam na verificação de foco da busca do
+Menu. Os quatro smokes empacotados pararam no mesmo trecho desktop, mas seus
+logs não preservaram a exceção original; isso não prova qual predicado falhou.
+
+Antes de verificar `:focus-visible` e `:focus-within`, direcione o foco do
+webContents para o novo iframe compilado, como no smoke dos ícones. Um
+`activeElement` armazenado não substitui a checagem do documento e das
+pseudoclasses de foco. Registre esses estados, os contornos interno/externo,
+o viewport e os retângulos antes/depois, mantendo os 2px externos, zero contorno
+interno, tolerância de 0,5px e limpeza no blur. Os dois runners exigem
+`renderer Menu search focus passed: focused Preview iframe,`. Serialize a
+mensagem e o stack da asserção dentro do frame antes de devolvê-los ao processo
+principal; uma rejeição genérica do Electron pode omitir a causa. O log também
+deve preservar valores lançados que não sejam `instanceof Error`. A alteração
+local ainda exige confirmação nos quatro runners, sem aumentar prazos,
+adicionar tentativas ou alterar o CSS apenas para acomodar um smoke sem foco.
+
 Na validação local de 25/10/2026, o commit `07398e9` parou no lint do preview
 do Menu: o estado local deve reiniciar pela identidade do tema, sem um
 `setState` síncrono no efeito. Os testes dos novos padrões devem exigir as
