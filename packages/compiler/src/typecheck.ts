@@ -65,6 +65,10 @@ export function typecheckSources(
     skipLibCheck: true,
     strict: true,
     target: ts.ScriptTarget.ES2022,
+    // Applications run in a browser. Do not discover the IDE/runner's installed
+    // @types packages (Node, test globals, etc.) through ancestor directories.
+    // Explicit imports and project declarations still participate in checking.
+    types: [],
     useUnknownInCatchVariables: true,
     verbatimModuleSyntax: true,
   };

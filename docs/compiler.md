@@ -4,6 +4,15 @@ ComboBox API bindings are validated against the local document's saved response 
 
 The compiler is an independent Node API and has no React or Electron dependency.
 
+Application type checking uses explicit browser libraries and `types: []` so the
+IDE or runner's ancestor `@types` packages cannot inject Node/test globals or an
+unrelated declaration graph. Explicit imports and project declarations still
+participate in strict checking. Runtime export metadata is reused only for the
+same catalog and exact source text; adapter selection retains only its last exact
+source/component-type combination. Diagnostics are recalculated for each build.
+The existing progress callback separates bundle loading, runtime selection,
+esbuild execution, and output processing for compilation timing diagnostics.
+
 ## Native frontend target
 
 `CompileProjectOptions.target` accepts the additive `native` destination. Native Build calls the same model validation, generated instance declarations, authored TypeScript checking, browser bundler and asset/license emission as existing builds. The compiler produces ordinary local `index.html`, `assets/app.js`, `assets/app.css` and used resources in memory; it has no Tauri, Rust, Electron or device API dependency.

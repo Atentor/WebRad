@@ -5,7 +5,43 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
-## GitHub Actions corrections: 2026-10-27
+## GitHub Actions follow-up for 1525042: 2026-10-27
+
+Inspected all six failed jobs and retained their diagnostic archives for
+`1525042fc4fe31221b6e4100d9f9fd2c1bfe1749`:
+[validate 40494300442](https://github.com/Atentor/WebRad/actions/runs/40494300442)
+and [release 40494300430](https://github.com/Atentor/WebRad/actions/runs/40494300430).
+Code checks, portable tests (1,725 passed, 41 optional skips per suite), and
+packaging passed; security `40494300395` passed. Windows, Linux, and macOS ARM
+packaged smokes passed the previous desktop/mobile search focus assertions.
+
+Implemented locally:
+
+- Apply focus emulation to the exact Preview child target when it owns another
+  renderer process, using an owned flattened debugger session. Development logs
+  still showed an unfocused Preview after activating only the IDE target. Keep
+  real focus/pseudo-class assertions and reset/detach surviving child sessions.
+- Open Project Explorer before looking up project rows, selecting documents,
+  dragging reusable placements, and cleanup. Design selects Builder and unmounts
+  those rows; the three packaged jobs waited for a row in an unmounted Explorer.
+  Return to Builder explicitly when selecting the internal Menu in its tree.
+  Include Explorer rows and dialog fields in timeout diagnostics.
+- Restrict implicit TypeScript globals to browser libraries instead of discovering
+  the IDE/runner's ancestor `@types` packages. Preserve strict checking and explicit
+  imports/declarations. Reuse exact-content runtime export metadata and one adapter
+  transformation without caching programs or diagnostics.
+- Split bundle progress into module loading, runtime selection, esbuild, and output.
+  macOS Intel spent 10,949 ms in typecheck and remained in bundle for 15,086 ms
+  before the first title smoke failed while Preview was still building. The log
+  does not identify the exclusive bundle subphase; speed improvement requires
+  hosted measurement. Preserve the 20-second assertion deadline and real F9.
+
+Original archives, retained projects, logs, and diagnosis are under
+`artifacts/github-actions-1525042-20261027/`. No local validation was requested or
+executed. These changes remain local, with no commit, push, workflow rerun, version
+change, or release. Hosted confirmation and later smoke stages remain pending.
+
+## GitHub Actions corrections for ba9be66: 2026-10-27
 
 Inspected all six failed jobs for `ba9be66b35b0f45beabfebed92b8dea4ad246012`:
 [validate 40490523051](https://github.com/Atentor/WebRad/actions/runs/40490523051)
@@ -29,8 +65,8 @@ Implemented locally in the existing Menu smoke:
 
 All six original diagnostic archives, retained projects, and smoke logs are saved
 under `artifacts/github-actions-ba9be66-20261027/`. No local validation was requested
-or executed for this correction. Changes remain local; successful hosted checks
-on the corrected commit are still required before any release-readiness claim.
+or executed for this correction. These changes were subsequently committed as
+`1525042`; follow-up hosted results and corrections are recorded above.
 
 ## Full test suite: 2026-10-27
 

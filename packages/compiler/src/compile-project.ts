@@ -747,6 +747,7 @@ export async function compileProject(
       sourcemap:
         options.debug || (options.sourcemap ?? (publishing && project.settings.build.sourceMaps)),
       componentTypes: graph.componentTypes,
+      ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
     };
     options.onProgress?.('bundle');
     const bundle = await bundleSources(bundleOptions);

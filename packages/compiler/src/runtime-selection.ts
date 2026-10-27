@@ -3,6 +3,67 @@ import path from 'node:path';
 import type { WebRadProject } from '@webrad/project-model';
 import type { ComponentRegistry } from '@webrad/component-registry';
 
+interface RuntimeModuleExports {
+  readonly source: string;
+  readonly names: ReadonlySet<string>;
+}
+
+// Cache only export metadata, never bound syntax trees or diagnostics. Embedded
+// modules are immutable in the IDE; exact text checks also keep replacement
+// source catalogs correct without retaining their previous contents.
+const runtimeExports = new WeakMap<
+  Readonly<Record<string, string>>,
+  Map<string, RuntimeModuleExports>
+>();
+
+function runtimeModuleValueExports(
+  moduleFile: string,
+  sources: Readonly<Record<string, string>>,
+): ReadonlySet<string> {
+  let modules = runtimeExports.get(sources);
+  if (modules === undefined) {
+    modules = new Map();
+    runtimeExports.set(sources, modules);
+  }
+  const source = sources[moduleFile] ?? '';
+  const previous = modules.get(moduleFile);
+  if (previous?.source === source) return previous.names;
+  const module = ts.createSourceFile(moduleFile, source, ts.ScriptTarget.Latest, true);
+  const names = new Set<string>();
+  for (const statement of module.statements) {
+    if (
+      ts.isExportDeclaration(statement) &&
+      statement.exportClause &&
+      ts.isNamedExports(statement.exportClause) &&
+      !statement.isTypeOnly
+    ) {
+      for (const binding of statement.exportClause.elements)
+        if (!binding.isTypeOnly) names.add(binding.name.text);
+    }
+    if (
+      !ts.canHaveModifiers(statement) ||
+      !ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+    )
+      continue;
+    if (
+      (ts.isClassDeclaration(statement) ||
+        ts.isFunctionDeclaration(statement) ||
+        ts.isEnumDeclaration(statement)) &&
+      statement.name
+    )
+      names.add(statement.name.text);
+    if (ts.isVariableStatement(statement))
+      for (const variable of statement.declarationList.declarations)
+        if (ts.isIdentifier(variable.name)) names.add(variable.name.text);
+  }
+  modules.set(moduleFile, { source, names });
+  return names;
+}
+
+let previousAdapterSelection:
+  | { readonly source: string; readonly types: string; readonly result: string }
+  | undefined;
+
 /** Resolve the public barrel only to the value exports reachable from application code. */
 export function selectRuntimeExports(
   sources: ReadonlyMap<string, string>,
@@ -90,46 +151,14 @@ export function selectRuntimeExports(
       continue;
     const specifier = declaration.moduleSpecifier.text;
     const moduleFile = specifier.replace(/^\.\//u, '').replace(/\.js$/u, '.ts');
-    const moduleExports = new Set<string>();
-    if (declaration.exportClause && ts.isNamedExports(declaration.exportClause)) {
-      for (const binding of declaration.exportClause.elements)
-        if (!binding.isTypeOnly) moduleExports.add(binding.name.text);
-    } else {
-      const module = ts.createSourceFile(
-        moduleFile,
-        runtimeSources[moduleFile] ?? '',
-        ts.ScriptTarget.Latest,
-        true,
-      );
-      for (const statement of module.statements) {
-        if (
-          ts.isExportDeclaration(statement) &&
-          statement.exportClause &&
-          ts.isNamedExports(statement.exportClause) &&
-          !statement.isTypeOnly
-        ) {
-          for (const binding of statement.exportClause.elements)
-            if (!binding.isTypeOnly) moduleExports.add(binding.name.text);
-        }
-        if (
-          !ts.canHaveModifiers(statement) ||
-          !ts
-            .getModifiers(statement)
-            ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
-        )
-          continue;
-        if (
-          (ts.isClassDeclaration(statement) ||
-            ts.isFunctionDeclaration(statement) ||
-            ts.isEnumDeclaration(statement)) &&
-          statement.name
-        )
-          moduleExports.add(statement.name.text);
-        if (ts.isVariableStatement(statement))
-          for (const variable of statement.declarationList.declarations)
-            if (ts.isIdentifier(variable.name)) moduleExports.add(variable.name.text);
-      }
-    }
+    const moduleExports =
+      declaration.exportClause && ts.isNamedExports(declaration.exportClause)
+        ? new Set(
+            declaration.exportClause.elements
+              .filter((binding) => !binding.isTypeOnly)
+              .map((binding) => binding.name.text),
+          )
+        : runtimeModuleValueExports(moduleFile, runtimeSources);
     const selected = [...moduleExports].filter((name) => names.has(name));
     if (selected.length > 0) exportsByModule.set(specifier, new Set(selected));
   }
@@ -146,6 +175,9 @@ export function selectRuntimeExports(
 
 /** Keeps the authored central registry as the source of every selected adapter. */
 export function selectRuntimeAdapters(source: string, componentTypes: ReadonlySet<string>): string {
+  const types = JSON.stringify([...componentTypes].sort());
+  if (previousAdapterSelection?.source === source && previousAdapterSelection.types === types)
+    return previousAdapterSelection.result;
   const file = ts.createSourceFile('render.ts', source, ts.ScriptTarget.Latest, true);
   const transformed = ts.transform(file, [
     (context) => {
@@ -175,7 +207,9 @@ export function selectRuntimeAdapters(source: string, componentTypes: ReadonlySe
     },
   ]);
   try {
-    return ts.createPrinter().printFile(transformed.transformed[0] as ts.SourceFile);
+    const result = ts.createPrinter().printFile(transformed.transformed[0] as ts.SourceFile);
+    previousAdapterSelection = { source, types, result };
+    return result;
   } finally {
     transformed.dispose();
   }

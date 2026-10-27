@@ -10,7 +10,7 @@ import { fromEsbuildMessage } from './diagnostics.js';
 import runtimeSourcesJson from './runtime-sources.json';
 import restGoSourcesJson from './restgo-sources.json';
 import shakaSources from './shaka-sources.generated.json';
-import type { CompileDiagnostic } from './types.js';
+import type { CompileDiagnostic, CompileProjectPhase } from './types.js';
 import { selectRuntimeAdapters, selectRuntimeExports } from './runtime-selection.js';
 import { projectFontLicenseFiles } from './fonts.js';
 
@@ -27,6 +27,7 @@ export interface BundleOptions {
   readonly minify: boolean;
   readonly sourcemap: boolean;
   readonly componentTypes?: ReadonlySet<string>;
+  readonly onProgress?: (phase: CompileProjectPhase) => void;
 }
 
 export interface BundleResult {
@@ -189,6 +190,7 @@ function relativeOutputPath(outputDirectory: string, fileName: string): string {
 }
 
 export async function bundleSources(options: BundleOptions): Promise<BundleResult> {
+  options.onProgress?.('bundle-load');
   const modulePath = process.env.WEBRAD_ESBUILD_MODULE_PATH;
   const moduleSpecifier = modulePath ? pathToFileURL(modulePath).href : 'esbuild';
   const loaded = (await import(/* @vite-ignore */ moduleSpecifier)) as EsbuildApi & {
@@ -196,6 +198,9 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
   };
   const esbuild = typeof loaded.build === 'function' ? loaded : loaded.default;
   if (!esbuild) throw new Error('Unable to load the esbuild JavaScript API.');
+  options.onProgress?.('bundle-selection');
+  const projectPlugin = virtualPlugin(options);
+  options.onProgress?.('bundle-build');
   const result = await esbuild.build({
     absWorkingDir: process.cwd(),
     assetNames: '[name]-[hash]',
@@ -217,7 +222,7 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
     minify: options.minify,
     outdir: path.join(options.outputDirectory, 'assets'),
     platform: 'browser',
-    plugins: [virtualPlugin(options)],
+    plugins: [projectPlugin],
     sourcemap: options.sourcemap ? 'external' : false,
     // The Preview embeds this exact bundle; escape HTML delimiters before mapping it.
     supported: { 'inline-script': true },
@@ -225,6 +230,7 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
     treeShaking: true,
     write: false,
   });
+  options.onProgress?.('bundle-output');
   const files = Object.fromEntries(
     (result.outputFiles ?? []).map((file) => [
       relativeOutputPath(options.outputDirectory, file.path),

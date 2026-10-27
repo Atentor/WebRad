@@ -11,6 +11,11 @@ interface MenuSmokeOptions {
   readonly log: (message: string) => void;
 }
 
+interface MenuSmokeFrameFocus {
+  readonly frame: WebFrameMain;
+  readonly sessionId: string;
+}
+
 async function setDesktopViewport(window: BrowserWindow): Promise<void> {
   await window.webContents.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
     width: 1920,
@@ -26,6 +31,68 @@ export async function runMenuSmoke(
   options: MenuSmokeOptions,
 ): Promise<void> {
   window.webContents.debugger.attach('1.3');
+  const frameFocusSessions: MenuSmokeFrameFocus[] = [];
+  const enableFrameFocus = async (frame: WebFrameMain): Promise<void> => {
+    // A cross-site Preview owns a separate renderer Page. Emulating focus on the
+    // IDE target does not activate that Page's focus controller.
+    if (frame.processId === window.webContents.mainFrame.processId) return;
+    if (frameFocusSessions.some((session) => session.frame === frame)) return;
+    const targets: unknown = await window.webContents.debugger.sendCommand('Target.getTargets', {
+      filter: [{ type: 'iframe' }, { exclude: true }],
+    });
+    if (
+      typeof targets !== 'object' ||
+      targets === null ||
+      !('targetInfos' in targets) ||
+      !Array.isArray(targets.targetInfos)
+    )
+      throw new Error('Menu Preview debugger did not return iframe targets.');
+    const target = targets.targetInfos.find(
+      (candidate: unknown): candidate is { targetId: string; url: string } =>
+        typeof candidate === 'object' &&
+        candidate !== null &&
+        'targetId' in candidate &&
+        typeof candidate.targetId === 'string' &&
+        'url' in candidate &&
+        candidate.url === frame.url,
+    );
+    if (!target)
+      throw new Error(
+        'Menu Preview has no matching cross-process debugger target: ' +
+          JSON.stringify({
+            url: frame.url,
+            processId: frame.processId,
+            mainFrameProcessId: window.webContents.mainFrame.processId,
+            targets: targets.targetInfos,
+          }),
+      );
+    const attached: unknown = await window.webContents.debugger.sendCommand(
+      'Target.attachToTarget',
+      { targetId: target.targetId, flatten: true },
+    );
+    if (
+      typeof attached !== 'object' ||
+      attached === null ||
+      !('sessionId' in attached) ||
+      typeof attached.sessionId !== 'string'
+    )
+      throw new Error('Menu Preview debugger did not return a child session.');
+    frameFocusSessions.push({ frame, sessionId: attached.sessionId });
+    await window.webContents.debugger.sendCommand(
+      'Emulation.setFocusEmulationEnabled',
+      { enabled: true },
+      attached.sessionId,
+    );
+    options.log(
+      'renderer Menu Preview focus target: ' +
+        JSON.stringify({
+          processId: frame.processId,
+          mainFrameProcessId: window.webContents.mainFrame.processId,
+          targetId: target.targetId,
+          separateRenderer: true,
+        }),
+    );
+  };
   try {
     // Hidden offscreen windows cannot acquire native activation reliably on CI.
     // Activate Chromium's page focus lifecycle so real focus pseudo-classes and
@@ -33,17 +100,33 @@ export async function runMenuSmoke(
     await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
       enabled: true,
     });
-    await runMenuSmokeWorkflow(window, options);
+    await runMenuSmokeWorkflow(window, options, enableFrameFocus);
   } finally {
     try {
-      await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
-        enabled: false,
-      });
+      for (const { frame, sessionId } of frameFocusSessions) {
+        // Stopping/recompiling Preview already destroys and detaches its target.
+        if (frame.isDestroyed()) continue;
+        try {
+          await window.webContents.debugger.sendCommand(
+            'Emulation.setFocusEmulationEnabled',
+            { enabled: false },
+            sessionId,
+          );
+        } finally {
+          await window.webContents.debugger.sendCommand('Target.detachFromTarget', { sessionId });
+        }
+      }
     } finally {
       try {
-        await window.webContents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
+        await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+          enabled: false,
+        });
       } finally {
-        window.webContents.debugger.detach();
+        try {
+          await window.webContents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
+        } finally {
+          window.webContents.debugger.detach();
+        }
       }
     }
   }
@@ -52,6 +135,7 @@ export async function runMenuSmoke(
 async function runMenuSmokeWorkflow(
   window: BrowserWindow,
   options: MenuSmokeOptions,
+  enableFrameFocus: (frame: WebFrameMain) => Promise<void>,
 ): Promise<void> {
   const evaluate = (source: string): Promise<unknown> =>
     window.webContents.executeJavaScript(source, true);
@@ -71,6 +155,15 @@ async function runMenuSmokeWorkflow(
       })),
       preview: document.querySelector('.wr-preview-state')?.textContent,
       output: document.querySelector('.wr-bottom-panel')?.textContent,
+      explorer: [...document.querySelectorAll('.wr-page-row')].map(row => ({
+        name: row.textContent?.trim(), selected: row.getAttribute('aria-selected'),
+      })),
+      dialogs: [...document.querySelectorAll('[role="dialog"]')].map(dialog => ({
+        text: dialog.textContent?.slice(0, 2000),
+        inputs: [...dialog.querySelectorAll('input,select')].map(input => ({
+          value: input.value, disabled: input.disabled,
+        })),
+      })),
     })`);
     throw new Error(`Menu smoke timed out: ${source}; evidence: ${JSON.stringify(evidence)}`);
   };
@@ -405,6 +498,7 @@ async function runMenuSmokeWorkflow(
     await evaluate(
       `document.querySelector('iframe[title="WebRAD application preview"]').focus({preventScroll: true})`,
     );
+    await enableFrameFocus(compiledFrame);
   };
   await focusPreviewFrame();
   const desktop = await evaluatePreviewCheck(
@@ -682,7 +776,18 @@ async function runMenuSmokeWorkflow(
   // Temporary documents keep authored smoke handlers out of the original page.
   const resourceRow = (name: string): string =>
     `[...document.querySelectorAll('.wr-page-row')].find(row => row.querySelector('span:last-child')?.textContent?.trim() === ${JSON.stringify(name)})`;
+  const showProjectExplorer = async (): Promise<void> => {
+    await click('button[aria-label="Project Explorer"]');
+    await ready(`document.querySelector('.wr-project-tree') !== null`);
+  };
+  const selectResource = async (name: string): Promise<void> => {
+    await showProjectExplorer();
+    await ready(`${resourceRow(name)} instanceof HTMLElement`);
+    await evaluate(`${resourceRow(name)}.click()`);
+    await ready(`${resourceRow(name)}?.getAttribute('aria-selected') === 'true'`);
+  };
   const createDocument = async (kind: 'page' | 'reusable', name: string): Promise<void> => {
+    await showProjectExplorer();
     window.webContents.send(
       'webrad:menu-command',
       kind === 'page' ? 'project.addPage' : 'project.addReusableElement',
@@ -695,6 +800,7 @@ async function runMenuSmokeWorkflow(
       `document.querySelector('[role="dialog"] input')?.value === ${JSON.stringify(name)}`,
     );
     await click('[role="dialog"] button[type="submit"]');
+    await ready(`document.querySelector('[role="dialog"]') === null`);
     await ready(`${resourceRow(name)}?.getAttribute('aria-selected') === 'true'`);
   };
   const authorItemClick = async (handlerName: string, code: string): Promise<void> => {
@@ -717,12 +823,13 @@ async function runMenuSmokeWorkflow(
   const smokeMenuName = 'SharedMenuInteractionSmoke';
   await createDocument('page', smokePageName);
   await createDocument('reusable', smokeMenuName);
+  await click('button[aria-label="Design"]');
   await click('[role="treeitem"][aria-label="Menu1"]');
   await authorItemClick(
     'Menu1ItemClick',
     "document.documentElement.dataset.menuInteractionOrder = 'internal:' + event.detail.itemId; if (event.detail.itemId === 'home') event.preventDefault();",
   );
-  await evaluate(`${resourceRow(smokePageName)}.click()`);
+  await selectResource(smokePageName);
   await ready(`document.querySelector('.wr-page-surface') !== null`);
   await evaluate(`(async () => {
     const button=[...document.querySelectorAll('.wr-palette-item')]
@@ -754,6 +861,7 @@ async function runMenuSmokeWorkflow(
   })()`);
   const placementIds: string[] = [];
   for (let index = 0; index < 2; index++) {
+    await showProjectExplorer();
     await evaluate(
       `(async () => {
         const row=${resourceRow(smokeMenuName)};
@@ -899,7 +1007,7 @@ async function runMenuSmokeWorkflow(
   );
   await stopPreviewSmoke(window);
   for (const name of [smokePageName, smokeMenuName]) {
-    await evaluate(`${resourceRow(name)}.click()`);
+    await selectResource(name);
     await ready(
       `document.querySelector('[aria-label="Delete selected project item"]')?.title === ${JSON.stringify(`Delete ${name}`)}`,
     );
@@ -908,7 +1016,7 @@ async function runMenuSmokeWorkflow(
     );
     await ready(`${resourceRow(name)} === undefined`);
   }
-  await evaluate(`${resourceRow(page.name)}.click()`);
+  await selectResource(page.name);
   await click('button[aria-label="Design"]');
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);

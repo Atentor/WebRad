@@ -119,6 +119,34 @@ regression coverage when requested; update existing expectations when necessary.
 After correction, verify the final commit on all required platforms. Local Windows
 results do not prove Linux/macOS, publication, installed updates, or native WebViews.
 
+### Preview child focus, Explorer navigation, and compilation: 1525042 (2026-10-27)
+
+Runs [40494300442](https://github.com/Atentor/WebRad/actions/runs/40494300442)
+(validate) and [40494300430](https://github.com/Atentor/WebRad/actions/runs/40494300430)
+(release) passed code checks, portable tests, and packaging; security passed.
+Windows, Linux, and macOS ARM packaged smokes confirmed desktop/mobile Menu focus
+and the corrected invisible-outline assertion. Their next timeout waited for
+`MenuInteractionSmoke` in an unmounted Project Explorer. Design selects Builder;
+open the actual Project Explorer control before querying rows, selecting project
+documents, dragging reusable definitions, or cleanup. Return to Builder for
+component-tree selection. Preserve dialog dismissal/selection assertions and
+record Explorer rows and dialog fields on timeout.
+
+Development still recorded an unfocused Preview. When it owns another renderer
+process, activate its exact iframe debugger target through an owned flattened
+session as well as the IDE target. Chromium focus emulation is page-local. Keep
+real document/input focus, pseudo-classes, native input, isolation, geometry,
+deadlines, and required evidence; reset/detach surviving child sessions in cleanup.
+
+macOS Intel stopped before Menu: first title F9 spent 10,949 ms in typecheck and
+remained in bundle for 15,086 ms before failure, with Saved, disabled Run, and
+Preview still building. Preserve the 20-second assertion budget. Browser compilation
+must not implicitly discover unrelated ancestor `@types` packages. Reuse only
+exact-content runtime metadata/adapter transforms, recalculate strict diagnostics,
+and retain bundle-load/selection/build/output stage logs to distinguish the slow
+subphase. These are source corrections; timing improvement and complete smoke
+success require new hosted evidence. No local validation was requested or run.
+
 ### Menu focus lifecycle and outline measurement: ba9be66 (2026-10-27)
 
 Runs [40490523051](https://github.com/Atentor/WebRad/actions/runs/40490523051)
@@ -138,8 +166,8 @@ interactions, and existing deadlines. Require no visible inner outline using
 its style rather than requiring a zero raw width; retain the raw measurements
 in failure evidence. Preserve offset/shadow checks, the 0.5 px geometry tolerance,
 blur cleanup, and both runners' required focused-iframe evidence. No runtime CSS
-change is needed. Local validation was not requested; hosted confirmation of the
-correction and later smoke stages remains pending.
+change is needed. Local validation was not requested. The 1525042 follow-up above
+records which hosted assertions passed and the remaining failures.
 
 ### Menu search focus diagnostics: d62b462 (2026-10-27)
 

@@ -22,6 +22,10 @@ export type CompileProjectPhase =
   | 'source-generation'
   | 'typecheck'
   | 'bundle'
+  | 'bundle-load'
+  | 'bundle-selection'
+  | 'bundle-build'
+  | 'bundle-output'
   | 'assets'
   | 'write'
   | 'complete';
