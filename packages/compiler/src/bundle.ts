@@ -81,6 +81,13 @@ function virtualPlugin(options: BundleOptions): Plugin {
     runtimeSources,
     sourceCandidatePaths,
   );
+  // Prepare the adapter AST before entering native esbuild RPC callbacks. The
+  // selection phase must account for this synchronous work, not bundle-build.
+  const renderSource = runtimeSources['render.ts'];
+  const selectedRuntimeRender =
+    renderSource !== undefined && options.componentTypes !== undefined
+      ? selectRuntimeAdapters(renderSource, options.componentTypes)
+      : renderSource;
   return {
     name: 'webrad-virtual-project',
     setup(buildContext) {
@@ -167,8 +174,8 @@ function virtualPlugin(options: BundleOptions): Plugin {
           contents:
             args.path === 'index.ts'
               ? selectedRuntimeEntry
-              : args.path === 'render.ts' && options.componentTypes !== undefined
-                ? selectRuntimeAdapters(contents, options.componentTypes)
+              : args.path === 'render.ts' && selectedRuntimeRender !== undefined
+                ? selectedRuntimeRender
                 : contents,
           loader: loaderFor(args.path),
           resolveDir: '/',

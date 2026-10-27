@@ -5,6 +5,46 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## Remaining macOS Intel smoke stall for e1c5294: 2026-10-27
+
+Inspected exact commit `e1c5294081dbd3a251246184c03607364ef44a8d`:
+[validate 40526361466](https://github.com/Atentor/WebRad/actions/runs/40526361466)
+and [security 40526361348](https://github.com/Atentor/WebRad/actions/runs/40526361348)
+passed. [Release verification 40526361351](https://github.com/Atentor/WebRad/actions/runs/40526361351)
+passed Windows x64, Linux x64, and macOS ARM64, including their packaged/update
+smokes and distributables. Only macOS Intel job `122267090601` failed; assembly
+and publication were skipped. This confirms the preceding focus/Explorer fixes
+on those completed workflows without certifying the pending local edits.
+
+The Intel job passed strict checks, tests, packaging, desktop/mobile Menu focus,
+and horizontal flyouts. Its reusable Interaction F9 began at 15:20:46.893 UTC;
+typecheck took 3,538 ms, module loading 1 ms, and runtime selection 37 ms.
+`bundle-build` began at 15:20:50.718 UTC and did not complete before the smoke
+reported the still-building Preview at 15:21:13.253 UTC. Its previous native
+bundle took 915 ms. The original log proves a stall in this phase, but cannot
+distinguish native service latency, scheduling, or main-process work/GC.
+
+Applied a conservative environment mitigation and diagnostic improvements:
+
+- Hold `prevent-app-suspension` only during automated hidden macOS smokes; release
+  it before every explicit exit and on normal quit. Offscreen rendering addresses
+  the renderer; the main/native work also needs an active power assertion. Apple
+  documents hidden apps without IOKit assertions as App Nap candidates. This
+  prevents that known throttling mechanism; App Nap is not a proven exclusive
+  cause of this failure, and hosted Intel confirmation remains pending.
+- Prepare the selected runtime adapter AST during `bundle-selection`, before
+  entering the native esbuild RPC. Plugin source callbacks now return prepared
+  text rather than running that synchronous transform inside `bundle-build`.
+- Log main-process CPU, heap, and RSS with phase timings when diagnostic logging
+  is enabled. Preserve Save, Run-disabled, and iframe URL in Menu timeout evidence.
+  No authored source or credentials are included in these measurements.
+
+Original full job log and failure project/archive are retained under
+`artifacts/github-actions-e1c5294-20261027/`. No tests, validation checks, builds,
+packaging, workflow reruns, commits, or pushes were requested or executed locally.
+Assertions, deadlines, worker limits, renderer isolation, and release gates are
+unchanged. These edits are not yet verified on the hosted macOS Intel runner.
+
 ## GitHub Actions focus and Explorer corrections for 0de22b8: 2026-10-27
 
 Inspected all six failed jobs on `0de22b8c834a18e4bdf536fe64ac8e264be36ef8`:

@@ -271,11 +271,17 @@ async function buildHandler(
     const started = performance.now();
     let lastPhase = 'start';
     let phaseStarted = started;
+    let phaseCpu = process.cpuUsage();
     const progress = (phase: string): void => {
       const now = performance.now();
-      log?.(
-        `[COMPILER] Preview ${lastPhase} ended after ${Math.round(now - phaseStarted)}ms; ${phase} started (${Math.round(now - started)}ms total)`,
-      );
+      if (log !== undefined) {
+        const cpu = process.cpuUsage();
+        const memory = process.memoryUsage();
+        log(
+          `[COMPILER] Preview ${lastPhase} ended after ${Math.round(now - phaseStarted)}ms; ${phase} started (${Math.round(now - started)}ms total); main CPU ${Math.round((cpu.user + cpu.system - phaseCpu.user - phaseCpu.system) / 1000)}ms, heap ${Math.round(memory.heapUsed / 1048576)}/${Math.round(memory.heapTotal / 1048576)}MiB, RSS ${Math.round(memory.rss / 1048576)}MiB`,
+        );
+        phaseCpu = cpu;
+      }
       lastPhase = phase;
       phaseStarted = now;
     };

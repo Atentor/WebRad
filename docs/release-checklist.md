@@ -119,6 +119,32 @@ regression coverage when requested; update existing expectations when necessary.
 After correction, verify the final commit on all required platforms. Local Windows
 results do not prove Linux/macOS, publication, installed updates, or native WebViews.
 
+### Hidden macOS native work and bundle attribution: e1c5294 (2026-10-27)
+
+[Validate 40526361466](https://github.com/Atentor/WebRad/actions/runs/40526361466)
+and [security 40526361348](https://github.com/Atentor/WebRad/actions/runs/40526361348)
+passed. [Release verification 40526361351](https://github.com/Atentor/WebRad/actions/runs/40526361351)
+passed Windows x64, Linux x64, and macOS ARM64. macOS Intel passed its code/tests,
+packaging, Menu focus and horizontal flyouts, then stalled during reusable F9:
+typecheck 3,538 ms, module loading 1 ms, selection 37 ms, followed by at least
+22,535 ms in `bundle-build` with Preview still building. The log does not isolate
+the native service, OS scheduling, or main-thread work/GC as the exclusive cause.
+
+Keep a scoped `prevent-app-suspension` assertion for automated hidden macOS smoke
+work, releasing it on success, functional failure, startup failure, and quit.
+Keep normal IDE power behavior and renderer offscreen settings. macOS considers
+background apps without power assertions eligible for App Nap, which reduces
+CPU priority and timer/I/O activity; see [Apple's App Nap guidance](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/power_efficiency_guidelines_osx/AppNap.html)
+and the [Chromium macOS power assertion implementation](https://raw.githubusercontent.com/chromium/chromium/main/services/device/wake_lock/power_save_blocker/power_save_blocker_mac.cc).
+This is prevention of a known mechanism, not proof that App Nap caused this run.
+
+Prepare adapter selection before native bundle callbacks. Phase diagnostics
+include main-process CPU, heap, and RSS only when logging is enabled; Menu timeout
+evidence also includes Save, Run-disabled, and the iframe URL. Preserve all real
+interactions, focus/geometry assertions, deadlines, and final-commit platform gates.
+No local validation was requested or executed; hosted Intel confirmation remains
+pending for these source changes.
+
 ### Preview focus transfer and Explorer identity: 0de22b8 (2026-10-27)
 
 Runs [40521416402](https://github.com/Atentor/WebRad/actions/runs/40521416402)

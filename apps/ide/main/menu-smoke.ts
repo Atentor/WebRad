@@ -155,6 +155,9 @@ async function runMenuSmokeWorkflow(
         hit: document.querySelector('.wr-design-hit[data-component-id="' + menu.dataset.componentId + '"]')?.getBoundingClientRect().toJSON(),
       })),
       preview: document.querySelector('.wr-preview-state')?.textContent,
+      previewUrl: document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src'),
+      save: document.querySelector('.wr-toolbar-save-state')?.textContent?.trim(),
+      runDisabled: document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled,
       output: document.querySelector('.wr-bottom-panel')?.textContent,
       explorer: [...document.querySelectorAll('.wr-page-row')].map(row => ({
         id: row.getAttribute('data-project-resource-id'),

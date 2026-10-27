@@ -12,7 +12,15 @@ import { runPanelFloatingSmoke } from './panel-floating-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { inspect } from 'node:util';
-import { app, BrowserWindow, nativeImage, net, session, type WebFrameMain } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  nativeImage,
+  net,
+  powerSaveBlocker,
+  session,
+  type WebFrameMain,
+} from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject } from '@webrad/compiler';
 import { WEBRAD_FONT_FAMILIES } from '@webrad/runtime/fonts';
@@ -59,6 +67,7 @@ let mainWindowLifecycleStarted = false;
 const smokeMode = process.argv.includes('--webrad-smoke');
 if (smokeMode) app.disableHardwareAcceleration();
 const smokeAutoExit = process.argv.includes('--webrad-smoke-auto-exit');
+let smokeActivity: number | undefined;
 const smokeProjectArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-project='),
 );
@@ -96,6 +105,13 @@ function smokeLog(message: string, error?: unknown): void {
   } catch {
     // Smoke logging must never affect normal startup.
   }
+}
+
+function stopSmokeActivity(): void {
+  if (smokeActivity === undefined) return;
+  powerSaveBlocker.stop(smokeActivity);
+  smokeActivity = undefined;
+  smokeLog('[IDE] Hidden macOS smoke activity released');
 }
 
 function installPermissionPolicy(): void {
@@ -1417,10 +1433,12 @@ async function createWindow(): Promise<BrowserWindow> {
         assertRendererHealthy?.();
         smokeLog('renderer workflow completed');
 
+        stopSmokeActivity();
         app.exit(0);
       })
       .catch((error: unknown) => {
         smokeLog('renderer workflow failed', error);
+        stopSmokeActivity();
         app.exit(1);
       });
   });
@@ -1452,6 +1470,12 @@ app
   .whenReady()
   .then(async () => {
     smokeLog('app ready');
+    // Offscreen rendering keeps Chromium active, but does not declare the main
+    // process/native bundler's hidden work to macOS power management.
+    if (process.platform === 'darwin' && smokeMode && smokeAutoExit) {
+      smokeActivity = powerSaveBlocker.start('prevent-app-suspension');
+      smokeLog('[IDE] Hidden macOS smoke activity started: prevent-app-suspension');
+    }
     app.dock?.setIcon(applicationWindowIconPath());
     verifyApplicationIconResource();
     installPermissionPolicy();
@@ -1493,6 +1517,7 @@ app
     smokeLog('startup failed', error);
     console.error('WebRAD failed to start.', error);
     if (smokeAutoExit) {
+      stopSmokeActivity();
       app.exit(1);
       return;
     }
@@ -1508,6 +1533,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  stopSmokeActivity();
   mainWindow = null;
   void Promise.all([closePreviewServer(), closeRendererServer()]).catch((error: unknown) => {
     console.error('[IDE] Failed to close the local application servers.', error);
