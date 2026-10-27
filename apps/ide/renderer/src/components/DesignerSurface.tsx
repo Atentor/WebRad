@@ -17,6 +17,7 @@ import {
   normalizeTopLevelIds,
   resizeBounds,
   projectInsertionBounds,
+  collectSubtreeIds,
   unionBounds,
   type Point,
   type MovementConstraint,
@@ -105,6 +106,12 @@ interface DesignerSurfaceProps {
     componentIds: readonly string[],
     beforeComponentId: string | null,
   ) => void;
+  onReparentComponents?: (
+    componentIds: readonly string[],
+    parentId: string,
+    bounds: ReadonlyMap<string, Bounds>,
+    beforeComponentId: string | null,
+  ) => void;
   onResizeComponent: (id: string, bounds: Bounds) => void;
   onDeleteSelection: () => void;
   onCopy: () => void;
@@ -142,6 +149,13 @@ interface ReorderTarget {
   indicatorBounds: Bounds;
 }
 
+interface ReparentTarget {
+  parentId: string;
+  bounds: ReadonlyMap<string, Bounds>;
+  beforeComponentId: string | null;
+  preview: DesignerInsertionPreview;
+}
+
 interface DragInteraction {
   kind: 'drag';
   mode: 'move' | 'reorder';
@@ -149,11 +163,13 @@ interface DragInteraction {
   start: Point;
   ids: readonly string[];
   originalBounds: ReadonlyMap<string, Bounds>;
+  originalAbsoluteBounds: ReadonlyMap<string, Bounds>;
   selectionBounds: Bounds;
   constraints: readonly MovementConstraint[];
   delta: Point;
   activated: boolean;
   reorderTarget?: ReorderTarget;
+  reparentTarget?: ReparentTarget;
 }
 
 interface ResizeInteraction {
@@ -1338,6 +1354,7 @@ export function DesignerSurface({
   onAddReusableElement,
   onMoveComponents,
   onReorderComponents,
+  onReparentComponents,
   onResizeComponent,
   onDeleteSelection,
   onCopy,
@@ -1665,6 +1682,8 @@ export function DesignerSurface({
 
   const insertionTarget = (
     point: Point,
+    excludedIds: ReadonlySet<string> = new Set(),
+    movingIds: readonly string[] = [],
   ): {
     parentId: string;
     point: Point;
@@ -1677,6 +1696,7 @@ export function DesignerSurface({
       .filter(
         (item) =>
           componentRegistry.get(item.node.type)?.canHaveChildren === true &&
+          !excludedIds.has(item.node.id) &&
           pointInside(item.absoluteBounds, point),
       );
     const parent = candidates[0];
@@ -1690,7 +1710,7 @@ export function DesignerSurface({
     const reorder =
       targetParent === undefined
         ? undefined
-        : reorderTargetForPoint(targetParent, [], point, layoutById);
+        : reorderTargetForPoint(targetParent, movingIds, point, layoutById);
     const flow = targetParent !== undefined && isFlowMode(targetParent.layout.container.mode);
     const padding = targetParent?.layout.container;
     const emptyIndicator =
@@ -1720,6 +1740,109 @@ export function DesignerSurface({
             indicatorBounds: reorder?.indicatorBounds ?? emptyIndicator,
           }
         : {}),
+    };
+  };
+
+  const reparentTargetForDrag = (
+    ids: readonly string[],
+    point: Point,
+    delta: Point,
+    originalAbsoluteBounds: ReadonlyMap<string, Bounds>,
+  ): ReparentTarget | undefined => {
+    const nodes = ids
+      .map((id) => byId.get(id))
+      .filter((node): node is ComponentNode => node !== undefined);
+    if (
+      nodes.length !== ids.length ||
+      nodes.some((node) => isFloatingComponent(node) || automaticLayout(node))
+    )
+      return undefined;
+    const sourceParents = new Set(nodes.map((node) => node.parentId));
+    const excludedIds = collectSubtreeIds(page, ids);
+    const target = insertionTarget(point, excludedIds, ids);
+    if (sourceParents.size === 1 && sourceParents.has(target.parentId)) return undefined;
+    const parent = byId.get(target.parentId);
+    if (parent === undefined || componentRegistry.get(parent.type)?.canHaveChildren !== true)
+      return undefined;
+
+    const host = measureDesignerChildrenHost(surfaceRef.current, parent.id, scale);
+    const origin = host?.origin ?? layoutById.get(parent.id)?.absoluteBounds ?? { x: 0, y: 0 };
+    const bounds = new Map<string, Bounds>(
+      nodes.map((node) => {
+        const visual =
+          originalAbsoluteBounds.get(node.id) ??
+          layoutById.get(node.id)?.absoluteBounds ??
+          node.bounds;
+        const margins = measureDesignerNodeMargins(surfaceRef.current, node.id);
+        return [
+          node.id,
+          {
+            ...node.bounds,
+            x: visual.x + delta.x - origin.x - margins.left,
+            y: visual.y + delta.y - origin.y - margins.top,
+          },
+        ] as const;
+      }),
+    );
+    const path: string[] = [];
+    let ancestor: ComponentNode | undefined = parent;
+    const visited = new Set<string>();
+    while (ancestor !== undefined && !visited.has(ancestor.id)) {
+      visited.add(ancestor.id);
+      path.unshift(ancestor.name);
+      ancestor = ancestor.parentId === null ? undefined : byId.get(ancestor.parentId);
+    }
+    const flow = isFlowMode(parent.layout.container.mode);
+    const firstNode = nodes[0];
+    const firstVisual =
+      firstNode === undefined
+        ? undefined
+        : (originalAbsoluteBounds.get(firstNode.id) ??
+          layoutById.get(firstNode.id)?.absoluteBounds ??
+          firstNode.bounds);
+    const rowHost =
+      componentRegistry.get(parent.type)?.designerChildHost === 'repeating-row'
+        ? host
+        : undefined;
+    return {
+      parentId: parent.id,
+      bounds,
+      beforeComponentId: flow ? (target.beforeComponentId ?? null) : null,
+      preview: {
+        parentId: parent.id,
+        parentBounds: rowHost
+          ? { ...rowHost.bounds, x: rowHost.origin.x, y: rowHost.origin.y }
+          : (layoutById.get(parent.id)?.absoluteBounds ?? {
+              x: 0,
+              y: 0,
+              width: viewportWidth,
+              height: viewportHeight,
+            }),
+        parentPath: path.join(' › '),
+        componentLabel:
+          nodes.length === 1 ? (nodes[0]?.name ?? 'Component') : `${nodes.length} components`,
+        detail: flow
+          ? `${parent.layout.container.mode === 'row' ? 'Row' : 'Column'} · ${
+              target.beforeComponentId
+                ? `Before ${byId.get(target.beforeComponentId)?.name ?? 'component'}`
+                : 'At the end'
+            }`
+          : 'Move into this container',
+        ...(!flow && firstVisual !== undefined
+          ? {
+              ghostBounds: {
+                ...firstVisual,
+                x: firstVisual.x + delta.x,
+                y: firstVisual.y + delta.y,
+              },
+            }
+          : {}),
+        ...(flow && target.indicatorBounds !== undefined
+          ? { indicatorBounds: target.indicatorBounds }
+          : {}),
+        tray: false,
+        invalid: false,
+      },
     };
   };
 
@@ -1949,11 +2072,13 @@ export function DesignerSurface({
     // rather than accidentally issuing a MoveCommand for invisible bounds.
     if (!canReorder && !canMove) return;
     const originalBounds = new Map<string, Bounds>();
+    const originalAbsoluteBounds = new Map<string, Bounds>();
     const absolute = ids
       .map((id) => layoutById.get(id))
       .filter((item): item is LayoutNode => item !== undefined)
       .map((item) => {
         originalBounds.set(item.node.id, item.node.bounds);
+        originalAbsoluteBounds.set(item.node.id, item.absoluteBounds);
         return item.absoluteBounds;
       });
     if (absolute.length === 0) return;
@@ -1965,6 +2090,7 @@ export function DesignerSurface({
         start: point,
         ids,
         originalBounds,
+        originalAbsoluteBounds,
         selectionBounds: unionBounds(absolute),
         constraints: movementConstraintsForIds(
           page,
@@ -2094,6 +2220,33 @@ export function DesignerSurface({
     }
     const interaction = active;
     if (interaction.kind === 'drag') {
+      const requestedTarget = reparentTargetForDrag(
+        interaction.ids,
+        current,
+        requested,
+        interaction.originalAbsoluteBounds,
+      );
+      if (requestedTarget !== undefined) {
+        const delta = constrainMovementDelta(interaction.selectionBounds, requested, {
+          snapToGrid: settings.snapToGrid,
+          gridSize: settings.gridSize,
+          containerBounds: { x: 0, y: 0, width: viewportWidth, height: viewportHeight },
+        });
+        const target =
+          reparentTargetForDrag(
+            interaction.ids,
+            current,
+            delta,
+            interaction.originalAbsoluteBounds,
+          ) ?? requestedTarget;
+        return {
+          ...interaction,
+          delta,
+          activated: true,
+          reparentTarget: target,
+          reorderTarget: undefined,
+        };
+      }
       if (interaction.mode === 'reorder') {
         const firstId = interaction.ids[0];
         const dragged = firstId === undefined ? undefined : byId.get(firstId);
@@ -2101,6 +2254,7 @@ export function DesignerSurface({
         return {
           ...interaction,
           activated: true,
+          reparentTarget: undefined,
           reorderTarget:
             parent === undefined
               ? undefined
@@ -2113,7 +2267,7 @@ export function DesignerSurface({
         containerBounds: { x: 0, y: 0, width: viewportWidth, height: viewportHeight },
         constraints: interaction.constraints,
       });
-      return { ...interaction, delta, activated: true };
+      return { ...interaction, delta, activated: true, reparentTarget: undefined };
     } else if (interaction.kind === 'resize') {
       const node = byId.get(interaction.id);
       const resizeOptions = {
@@ -2166,7 +2320,17 @@ export function DesignerSurface({
     pointerInteraction.end(event.pointerId);
     if (interaction.kind !== 'marquee' && !interaction.activated) return;
     if (interaction.kind === 'drag') {
-      if (interaction.mode === 'move' && (interaction.delta.x !== 0 || interaction.delta.y !== 0)) {
+      if (interaction.reparentTarget !== undefined) {
+        onReparentComponents?.(
+          interaction.ids,
+          interaction.reparentTarget.parentId,
+          interaction.reparentTarget.bounds,
+          interaction.reparentTarget.beforeComponentId,
+        );
+      } else if (
+        interaction.mode === 'move' &&
+        (interaction.delta.x !== 0 || interaction.delta.y !== 0)
+      ) {
         const first = interaction.ids[0] === undefined ? undefined : byId.get(interaction.ids[0]);
         onMoveComponents(
           interaction.ids,
@@ -2502,8 +2666,16 @@ export function DesignerSurface({
                   </div>
                 );
               })}
-              {dropFeedback.feedback && !dropFeedback.feedback.tray && (
-                <DesignerInsertionFeedback preview={dropFeedback.feedback} scale={scale} />
+              {dropFeedback.feedback &&
+                !dropFeedback.feedback.tray &&
+                !(interaction?.kind === 'drag' && interaction.reparentTarget !== undefined) && (
+                  <DesignerInsertionFeedback preview={dropFeedback.feedback} scale={scale} />
+                )}
+              {interaction?.kind === 'drag' && interaction.reparentTarget !== undefined && (
+                <DesignerInsertionFeedback
+                  preview={interaction.reparentTarget.preview}
+                  scale={scale}
+                />
               )}
               {reorderIndicator && (
                 <div

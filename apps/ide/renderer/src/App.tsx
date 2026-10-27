@@ -17,6 +17,7 @@ import {
   BringToFrontCommand,
   ChangePropertyCommand,
   MoveCommand,
+  ReparentComponentsCommand,
   ReorderComponentsCommand,
   RemoveComponentCommand,
   ResizeCommand,
@@ -753,6 +754,24 @@ export function App(): ReactElement {
       try {
         commitDesignerCommand(
           new ReorderComponentsCommand(parentId, componentIds, beforeComponentId),
+        );
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [commitDesignerCommand, reportError],
+  );
+
+  const reparentComponents = useCallback(
+    (
+      ids: readonly string[],
+      parentId: string,
+      bounds: ReadonlyMap<string, Bounds>,
+      beforeComponentId: string | null,
+    ): void => {
+      try {
+        commitDesignerCommand(
+          new ReparentComponentsCommand(ids, parentId, bounds, beforeComponentId),
         );
       } catch (error) {
         reportError(error, 'DESIGNER');
@@ -2518,6 +2537,7 @@ export function App(): ReactElement {
         onAddReusableElement={addReusableElementAt}
         onMoveComponents={moveComponents}
         onReorderComponents={reorderComponents}
+        onReparentComponents={reparentComponents}
         onResizeComponent={resizeComponent}
         onDeleteSelection={deleteSelection}
         onCopy={copySelection}

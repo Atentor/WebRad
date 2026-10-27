@@ -626,6 +626,133 @@ export class ReorderComponentsCommand implements Command<PageModel> {
   }
 }
 
+export class ReparentComponentsCommand implements Command<PageModel> {
+  public readonly label = 'Move components to container';
+  readonly #componentIds: readonly string[];
+  readonly #parentId: string;
+  readonly #bounds: ReadonlyMap<string, Bounds>;
+  readonly #beforeComponentId: string | null;
+  #beforeNodes: ReadonlyMap<string, ComponentNode> | null = null;
+  #beforeParents: ReadonlyMap<string, readonly string[]> | null = null;
+  #afterNodes: ReadonlyMap<string, ComponentNode> | null = null;
+  #afterParents: ReadonlyMap<string, readonly string[]> | null = null;
+
+  public constructor(
+    componentIds: string | readonly string[],
+    parentId: string,
+    bounds: ReadonlyMap<string, Bounds>,
+    beforeComponentId: string | null,
+  ) {
+    this.#componentIds = [
+      ...new Set(typeof componentIds === 'string' ? [componentIds] : componentIds),
+    ];
+    if (this.#componentIds.length === 0) {
+      throw new RangeError('At least one component is required to change its parent.');
+    }
+    this.#parentId = parentId;
+    this.#bounds = new Map(
+      [...bounds].map(([id, value]) => {
+        assertValidBounds(value, `bounds.${id}`);
+        return [id, { ...value }] as const;
+      }),
+    );
+    this.#beforeComponentId = beforeComponentId;
+  }
+
+  public execute(page: PageModel): PageModel {
+    if (this.#afterNodes === null || this.#afterParents === null) {
+      const targetParent = findDesignerComponent(page, this.#parentId);
+      const moved = new Set(this.#componentIds);
+      const subtree = collectSubtreeIds(page, this.#componentIds);
+      if (subtree.has(targetParent.id)) {
+        throw new DesignerModelError('A component cannot be moved into itself or its descendants.');
+      }
+      const nodes = this.#componentIds.map((id) => findDesignerComponent(page, id));
+      if (nodes.some(({ id, parentId }) => id === page.rootComponentId || parentId === null)) {
+        throw new DesignerModelError('The page root component cannot be reparented.');
+      }
+      if (this.#componentIds.some((id) => !this.#bounds.has(id))) {
+        throw new DesignerModelError('Every reparented component requires destination bounds.');
+      }
+
+      const parentIds = new Set(
+        nodes.map(({ parentId }) => parentId).filter((id): id is string => id !== null),
+      );
+      parentIds.add(targetParent.id);
+      const beforeParents = new Map<string, readonly string[]>();
+      const afterParents = new Map<string, readonly string[]>();
+      for (const parentId of parentIds) {
+        const parent = findDesignerComponent(page, parentId);
+        beforeParents.set(parent.id, [...parent.children]);
+        const remaining = parent.children.filter((id) => !moved.has(id));
+        if (parent.id === targetParent.id) {
+          const insertionIndex =
+            this.#beforeComponentId === null
+              ? remaining.length
+              : remaining.indexOf(this.#beforeComponentId);
+          if (insertionIndex < 0) {
+            throw new DesignerModelError(
+              `Reparent target "${this.#beforeComponentId}" is not a remaining child of "${parent.id}".`,
+            );
+          }
+          afterParents.set(parent.id, [
+            ...remaining.slice(0, insertionIndex),
+            ...this.#componentIds,
+            ...remaining.slice(insertionIndex),
+          ]);
+        } else {
+          afterParents.set(parent.id, remaining);
+        }
+      }
+
+      const beforeNodes = new Map<string, ComponentNode>();
+      const afterNodes = new Map<string, ComponentNode>();
+      for (const node of nodes) {
+        if (node.parentId === null || !beforeParents.get(node.parentId)?.includes(node.id)) {
+          throw new DesignerModelError(
+            `Component "${node.id}" is not a child of its recorded parent.`,
+          );
+        }
+        const bounds = this.#bounds.get(node.id);
+        if (bounds === undefined) {
+          throw new DesignerModelError(`Missing destination bounds for component "${node.id}".`);
+        }
+        beforeNodes.set(node.id, node);
+        afterNodes.set(node.id, {
+          ...node,
+          parentId: targetParent.id,
+          bounds: { ...bounds },
+        });
+      }
+      this.#beforeNodes = beforeNodes;
+      this.#beforeParents = beforeParents;
+      this.#afterNodes = afterNodes;
+      this.#afterParents = afterParents;
+    }
+
+    const replacements = new Map<string, ComponentNode>();
+    for (const [id, children] of this.#afterParents) {
+      const parent = findDesignerComponent(page, id);
+      replacements.set(id, { ...parent, children });
+    }
+    for (const [id, node] of this.#afterNodes) replacements.set(id, node);
+    return replaceComponentNodes(page, replacements);
+  }
+
+  public undo(page: PageModel): PageModel {
+    if (this.#beforeNodes === null || this.#beforeParents === null) {
+      throw new Error('Cannot undo a ReparentComponentsCommand before it has executed.');
+    }
+    const replacements = new Map<string, ComponentNode>();
+    for (const [id, children] of this.#beforeParents) {
+      const parent = findDesignerComponent(page, id);
+      replacements.set(id, { ...parent, children });
+    }
+    for (const [id, node] of this.#beforeNodes) replacements.set(id, node);
+    return replaceComponentNodes(page, replacements);
+  }
+}
+
 export function isValidComponentName(name: string): boolean {
   return getTypeScriptIdentifierError(name) === undefined;
 }
@@ -677,6 +804,7 @@ export {
   ChangeLayoutPropertyCommand as ChangeLayoutProperty,
   ChangePropertyCommand as ChangeProperty,
   MoveCommand as Move,
+  ReparentComponentsCommand as ReparentComponents,
   ReorderComponentsCommand as ReorderComponents,
   RemoveComponentCommand as RemoveCommand,
   RenameComponentCommand as RenameCommand,
