@@ -5,6 +5,33 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## GitHub Actions corrections: 2026-10-27
+
+Inspected all six failed jobs for `ba9be66b35b0f45beabfebed92b8dea4ad246012`:
+[validate 40490523051](https://github.com/Atentor/WebRad/actions/runs/40490523051)
+and [release 40490523032](https://github.com/Atentor/WebRad/actions/runs/40490523032).
+Both complete quality jobs and all four platform builds passed their code checks,
+portable tests (1,725 passed, 41 optional skips), and application packaging before
+the Electron smokes failed. Security run `40490523125` passed. Release assembly,
+installer generation, and subsequent update checks were skipped after the failure.
+
+Implemented locally in the existing Menu smoke:
+
+- Activate Chromium's page focus lifecycle through the owned CDP session while
+  the workflow runs, then reset it during cleanup. In both development jobs the
+  hidden offscreen document lacked focus despite its stored active input.
+- Require no visible inner outline through `outline-style: none`, retaining the
+  raw computed width as diagnostic evidence. All four packaged jobs had real
+  focus and correct geometry but Chromium reported `3px` for the invisible outline.
+- Preserve actual document/input focus and CSS pseudo-class assertions, the outer
+  2 px ring and offset, inner offset/shadow checks, 0.5 px geometry tolerance,
+  desktop/mobile interactions, blur cleanup, and existing deadlines/evidence.
+
+All six original diagnostic archives, retained projects, and smoke logs are saved
+under `artifacts/github-actions-ba9be66-20261027/`. No local validation was requested
+or executed for this correction. Changes remain local; successful hosted checks
+on the corrected commit are still required before any release-readiness claim.
+
 ## Full test suite: 2026-10-27
 
 Passed locally after the user's explicit request to run all tests:

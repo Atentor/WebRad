@@ -27,12 +27,24 @@ export async function runMenuSmoke(
 ): Promise<void> {
   window.webContents.debugger.attach('1.3');
   try {
+    // Hidden offscreen windows cannot acquire native activation reliably on CI.
+    // Activate Chromium's page focus lifecycle so real focus pseudo-classes and
+    // input events remain available without revealing the automation window.
+    await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+      enabled: true,
+    });
     await runMenuSmokeWorkflow(window, options);
   } finally {
     try {
-      await window.webContents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
+      await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+        enabled: false,
+      });
     } finally {
-      window.webContents.debugger.detach();
+      try {
+        await window.webContents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
+      } finally {
+        window.webContents.debugger.detach();
+      }
     }
   }
 }
@@ -216,11 +228,13 @@ async function runMenuSmokeWorkflow(
         shadow: inner.boxShadow},
       before: before.toJSON(), after: after.toJSON()
     };
+    // outline-style:none paints no ring even when Chromium reports the initial
+    // medium outline-width as 3px. Keep that raw width in the diagnostic evidence.
     if (!evidence.documentFocused || !evidence.inputActive || !evidence.inputFocused
       || !evidence.inputFocusVisible || !evidence.fieldFocusWithin
       || evidence.outer.style !== 'solid' || evidence.outer.width !== '2px'
       || evidence.outer.offset !== '2px' || evidence.inner.style !== 'none'
-      || evidence.inner.width !== '0px' || evidence.inner.offset !== '0px'
+      || evidence.inner.offset !== '0px'
       || evidence.inner.shadow !== 'none' || Math.abs(after.width - before.width) > 0.5
       || Math.abs(after.height - before.height) > 0.5)
       throw new Error('Menu search focus must surround icon and input without an inner ring or layout shift: ' + JSON.stringify(evidence));

@@ -119,7 +119,29 @@ regression coverage when requested; update existing expectations when necessary.
 After correction, verify the final commit on all required platforms. Local Windows
 results do not prove Linux/macOS, publication, installed updates, or native WebViews.
 
-### Menu search focus: d62b462 (2026-10-27)
+### Menu focus lifecycle and outline measurement: ba9be66 (2026-10-27)
+
+Runs [40490523051](https://github.com/Atentor/WebRad/actions/runs/40490523051)
+(validate) and [40490523032](https://github.com/Atentor/WebRad/actions/runs/40490523032)
+(release) passed code checks, portable tests, and packaging before all six Electron
+smokes failed at the first compiled Menu search assertion. Security passed.
+Development logs show `documentFocused: false` and an active input that does not
+match `:focus` or `:focus-visible`; focusing webContents/the iframe alone did not
+activate the hidden document. Packaged logs show real focus, the correct outer
+2 px ring/offset, and unchanged geometry, but an inner computed width of `3px`
+with `outline-style: none` and no shadow. That width draws no inner outline.
+
+The Menu workflow enables `Emulation.setFocusEmulationEnabled` through its owned
+debugger session and resets it in cleanup alongside viewport overrides. Keep the
+window hidden/offscreen, real input and pseudo-class checks, desktop/mobile
+interactions, and existing deadlines. Require no visible inner outline using
+its style rather than requiring a zero raw width; retain the raw measurements
+in failure evidence. Preserve offset/shadow checks, the 0.5 px geometry tolerance,
+blur cleanup, and both runners' required focused-iframe evidence. No runtime CSS
+change is needed. Local validation was not requested; hosted confirmation of the
+correction and later smoke stages remains pending.
+
+### Menu search focus diagnostics: d62b462 (2026-10-27)
 
 Runs `40480883364` (validate) and `40480883287` (release) passed the previous
 Designer/formatting fixes: 1,725 tests and 41 optional skips per hosted suite,
