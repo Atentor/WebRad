@@ -1,5 +1,15 @@
 import { Menu, type BrowserWindow } from 'electron';
 
+function nativeMenuMatchesPreviewMode(window: BrowserWindow, preview: boolean): boolean {
+  if (process.platform === 'darwin') return (Menu.getApplicationMenu() === null) === preview;
+  const menuAttached = window.getMenu() !== null;
+  // Smoke windows stay hidden, so verify menu visibility only for visible windows.
+  return (
+    menuAttached === !preview &&
+    (!window.isVisible() || window.isMenuBarVisible() === !preview)
+  );
+}
+
 /** Stop through the visible control, including when focus belongs to the application iframe. */
 export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
   const position: unknown = await window.webContents.executeJavaScript(
@@ -50,9 +60,7 @@ export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
         })()`,
         true,
       )) === true &&
-      (process.platform === 'darwin'
-        ? Menu.getApplicationMenu() !== null
-        : window.isMenuBarVisible())
+      nativeMenuMatchesPreviewMode(window, false)
     )
       return;
     if (Date.now() >= deadline) {
@@ -77,7 +85,9 @@ export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
       throw new Error(
         `Stop preview did not restore the IDE: ${JSON.stringify({
           renderer,
+          menuAttached: window.getMenu() !== null,
           menuVisible: window.isMenuBarVisible(),
+          windowVisible: window.isVisible(),
           applicationMenu: Menu.getApplicationMenu() !== null,
           coordinates,
         })}`,
@@ -88,9 +98,7 @@ export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
 }
 
 export async function assertExclusivePreviewSmoke(window: BrowserWindow): Promise<void> {
-  if (
-    process.platform === 'darwin' ? Menu.getApplicationMenu() !== null : window.isMenuBarVisible()
-  )
+  if (!nativeMenuMatchesPreviewMode(window, true))
     throw new Error('The native IDE menu is visible during Preview.');
   const before: unknown = await window.webContents.executeJavaScript(
     `document.querySelector('.wr-view-tabs [aria-selected="true"]')?.getAttribute('aria-label')`,
