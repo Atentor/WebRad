@@ -1807,19 +1807,29 @@ export function DesignerSurface({
     };
   };
 
+  const supportsDesignerDrag = (event: DragEvent<HTMLDivElement>): boolean =>
+    Array.from(event.dataTransfer.types ?? []).some(
+      (type) => type === WEBRAD_COMPONENT_DRAG_TYPE || type === WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE,
+    );
+
   const dragPayload = (event: DragEvent<HTMLDivElement>): DesignerDragPayload | null => {
     const reusableId = event.dataTransfer.getData(WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE);
     if (reusableId) return { kind: 'reusable', id: reusableId };
     const type = event.dataTransfer.getData(WEBRAD_COMPONENT_DRAG_TYPE);
     if (type) return { kind: 'component', type };
-    const supported = Array.from(event.dataTransfer.types ?? []).some(
-      (type) => type === WEBRAD_COMPONENT_DRAG_TYPE || type === WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE,
-    );
-    return supported ? getDesignerDragPayload() : null;
+    return supportsDesignerDrag(event) ? getDesignerDragPayload() : null;
   };
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>): void => {
     const payload = dragPayload(event);
+    // Chromium protects the values during native/cross-window dragover. Allow
+    // supported MIME types through, then validate their real values on drop.
+    if (payload === null && supportsDesignerDrag(event)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      dropFeedback.clear();
+      return;
+    }
     const preview = payload === null ? null : insertionPreview(payload, eventPoint(event));
     if (preview === null) {
       dropFeedback.clear();

@@ -24,8 +24,9 @@ export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
     typeof position.y !== 'number'
   )
     throw new Error('Invalid Stop preview coordinates.');
-  window.webContents.sendInputEvent({ type: 'mouseDown', ...position, button: 'left', clickCount: 1 });
-  window.webContents.sendInputEvent({ type: 'mouseUp', ...position, button: 'left', clickCount: 1 });
+  const coordinates = { x: position.x, y: position.y };
+  window.webContents.sendInputEvent({ type: 'mouseDown', ...coordinates, button: 'left', clickCount: 1 });
+  window.webContents.sendInputEvent({ type: 'mouseUp', ...coordinates, button: 'left', clickCount: 1 });
   const deadline = Date.now() + 15000;
   for (;;) {
     if (
@@ -44,7 +45,32 @@ export async function stopPreviewSmoke(window: BrowserWindow): Promise<void> {
         : window.isMenuBarVisible())
     )
       return;
-    if (Date.now() >= deadline) throw new Error('Stop preview did not restore the IDE.');
+    if (Date.now() >= deadline) {
+      const renderer = await window.webContents.executeJavaScript(
+        `(() => {
+          const host = document.querySelector('.wr-ide-modal-host');
+          const stop = document.querySelector('button[aria-label="Stop preview"]');
+          return {
+            host: host instanceof HTMLElement ? {
+              visibility: getComputedStyle(host).visibility, inert: host.inert,
+              width: host.getBoundingClientRect().width
+            } : null,
+            preview: document.querySelector('.wr-preview-workspace') !== null,
+            frame: document.querySelector('iframe[title="WebRAD application preview"]') !== null,
+            focus: document.activeElement?.outerHTML?.slice(0, 500),
+            stop: stop?.getBoundingClientRect().toJSON(),
+            viewport: { width: innerWidth, height: innerHeight }
+          };
+        })()`,
+        true,
+      );
+      throw new Error(`Stop preview did not restore the IDE: ${JSON.stringify({
+        renderer,
+        menuVisible: window.isMenuBarVisible(),
+        applicationMenu: Menu.getApplicationMenu() !== null,
+        coordinates,
+      })}`);
+    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }

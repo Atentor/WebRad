@@ -69,7 +69,9 @@ export async function runProjectResourcesSmoke(
     );
     await click('[role="dialog"] button[type="submit"]');
     await waitFor(
-      "document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea') !== null && document.querySelector('[role=dialog]') === null",
+      `document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea') !== null
+        && document.querySelector('[role=dialog]') === null
+        && document.querySelector('.monaco-editor')?.textContent?.includes(${JSON.stringify(name)}) === true`,
     );
     await window.webContents.executeJavaScript(
       "document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea').focus()",
@@ -86,7 +88,7 @@ export async function runProjectResourcesSmoke(
       keyCode: 'A',
       modifiers: [process.platform === 'darwin' ? 'meta' : 'control'],
     });
-    window.webContents.insertText(source);
+    await window.webContents.insertText(source);
     await waitFor(
       `document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ').includes(${JSON.stringify(kind === 'Model' ? 'Resource Smoke' : 'resourceName')}) === true`,
     );

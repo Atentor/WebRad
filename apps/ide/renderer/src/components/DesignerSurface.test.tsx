@@ -1882,6 +1882,7 @@ describe('DesignerSurface responsive projection', () => {
       fixture.reusableElement.id,
       { x: 100, y: 20 },
       fixture.page.rootComponentId,
+      'second',
     );
   });
 
