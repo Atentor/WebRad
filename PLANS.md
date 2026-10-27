@@ -5,6 +5,43 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## GitHub Actions focus and Explorer corrections for 0de22b8: 2026-10-27
+
+Inspected all six failed jobs on `0de22b8c834a18e4bdf536fe64ac8e264be36ef8`:
+[validate 40521416402](https://github.com/Atentor/WebRad/actions/runs/40521416402)
+and [release 40521416036](https://github.com/Atentor/WebRad/actions/runs/40521416036).
+All six passed strict code checks, formatting, portable tests (1,725 passed,
+41 optional skips per suite), and packaging. Security `40521416216` passed.
+The macOS Intel job also completed: its packaged smoke reached the same Explorer
+cleanup failure as Windows, Linux, and macOS ARM. Assembly and update smokes did
+not run after the failure.
+
+Implemented the two causes shared by those jobs:
+
+- Development Preview is a separate renderer. Enabling its focus emulation after
+  focusing the iframe made `document.hasFocus()` true while input `:focus` and
+  `:focus-visible` stayed false. Transfer focus to the real Stop control, activate
+  the child target, then transfer back to the iframe. Await the browser's focused
+  frame at each transfer within one existing 10-second readiness budget, including
+  the mobile pass. Retain all original focus, outline, geometry, blur, native input,
+  isolation, and required-evidence assertions.
+- All four packaged jobs passed desktop/mobile Menu focus, horizontal flyouts,
+  and reusable Interaction before cleanup could not select `index`. Positional
+  descendant `span:last-child` queries depend on icon markup and the `entry` badge.
+  Expose stable model IDs and a dedicated direct name span in Explorer rows; use
+  one shared lookup contract for Menu, page-title, resource duplication/deletion,
+  and the return from Styles. Prefer known IDs and assert the selected row.
+
+Reviewed subsequent API Client and Popup navigation and current compiler reuse
+without finding another established defect. Original job logs, diagnostic
+excerpts, and downloaded failure projects are retained under
+`artifacts/github-actions-0de22b8-20261027/`.
+
+Implementation remains local. No tests, validation checks, builds, packaging,
+workflow reruns, commits, or pushes were requested or executed. Hosted results
+above describe the original commit, not these edits; successful final-commit
+Windows/Linux/macOS and quality/security verification remains required.
+
 ## GitHub Actions formatting correction for 6060e02: 2026-10-27
 
 Inspected all six failed jobs for `6060e02352af3f2849af970cc3829816436cc2f5`:

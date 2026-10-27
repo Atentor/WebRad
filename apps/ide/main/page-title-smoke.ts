@@ -2,6 +2,7 @@ import type { BrowserWindow, WebFrameMain } from 'electron';
 import { stopPreviewSmoke } from './preview-workspace-smoke';
 
 import { loadProjectFiles } from './project-files';
+import { projectExplorerRowExpression } from './project-explorer-smoke';
 
 interface PageTitleSmokeOptions {
   readonly projectPath: string;
@@ -236,15 +237,17 @@ export async function runPageTitleSmoke(
   const notFoundPage = original.project.pages.find((candidate) => candidate.name === '404');
   if (notFoundPage === undefined) throw new Error('The project has no mandatory 404 page.');
   await click(window, 'button[aria-label="Show pages"]');
+  const notFoundRow = projectExplorerRowExpression({ id: notFoundPage.id });
+  await ready(window, `${notFoundRow} instanceof HTMLElement`);
   await window.webContents.executeJavaScript(
     `(() => {
-    const row = [...document.querySelectorAll('.wr-project-tree .wr-page-row')]
-      .find((row) => row.querySelector('span')?.textContent === '404');
+    const row = ${notFoundRow};
     if (!(row instanceof HTMLElement)) throw new Error('404 is missing from Project Explorer.');
     row.click();
   })()`,
     true,
   );
+  await ready(window, `${notFoundRow}?.getAttribute('aria-selected') === 'true'`);
   await ready(
     window,
     'document.querySelector(\'button[aria-label="Delete selected project item"]\')?.disabled === true',
@@ -265,14 +268,17 @@ export async function runPageTitleSmoke(
   })()`,
   );
   await click(window, 'button[aria-label="Show pages"]');
+  const indexRow = projectExplorerRowExpression({ id: page.id });
+  await ready(window, `${indexRow} instanceof HTMLElement`);
   await window.webContents.executeJavaScript(
     `(() => {
-    const row = [...document.querySelectorAll('.wr-project-tree .wr-page-row')]
-      .find((row) => row.querySelector('span')?.textContent === 'index');
-    row?.click();
+    const row = ${indexRow};
+    if (!(row instanceof HTMLElement)) throw new Error('index is missing from Project Explorer.');
+    row.click();
   })()`,
     true,
   );
+  await ready(window, `${indexRow}?.getAttribute('aria-selected') === 'true'`);
   log(
     'renderer mandatory 404 page passed: protected identity, direct URL fallback, unknown history and Navigate redirected to /404',
   );

@@ -5,6 +5,7 @@ import { stopPreviewSmoke } from './preview-workspace-smoke';
 import { parseWebMenuConfiguration } from '@webrad/runtime/menu-model';
 import { loadProjectFiles } from './project-files';
 import { monacoHandlerInputReadyExpression } from './monaco-smoke-input';
+import { projectExplorerRowExpression } from './project-explorer-smoke';
 
 interface MenuSmokeOptions {
   readonly projectPath: string;
@@ -156,7 +157,9 @@ async function runMenuSmokeWorkflow(
       preview: document.querySelector('.wr-preview-state')?.textContent,
       output: document.querySelector('.wr-bottom-panel')?.textContent,
       explorer: [...document.querySelectorAll('.wr-page-row')].map(row => ({
-        name: row.textContent?.trim(), selected: row.getAttribute('aria-selected'),
+        id: row.getAttribute('data-project-resource-id'),
+        name: row.querySelector(':scope > .wr-explorer-name')?.textContent,
+        selected: row.getAttribute('aria-selected'),
       })),
       dialogs: [...document.querySelectorAll('[role="dialog"]')].map(dialog => ({
         text: dialog.textContent?.slice(0, 2000),
@@ -492,13 +495,39 @@ async function runMenuSmokeWorkflow(
     true,
   );
   const focusPreviewFrame = async (): Promise<void> => {
-    // CSS focus pseudo-classes require the active document, not only its stored
-    // activeElement. Match the Icons smoke for this newly compiled iframe.
+    // In an out-of-process iframe, enabling emulation updates document.hasFocus
+    // without refreshing the local FrameSelection. Transfer focus from the IDE
+    // only after emulation is enabled so :focus/:focus-visible update as well.
+    // Use Stop to leave the child first, including on the second (mobile) pass.
+    const focusDeadline = Date.now() + 10000;
+    const waitForFocusedFrame = async (expected: WebFrameMain): Promise<void> => {
+      for (;;) {
+        if (window.webContents.focusedFrame === expected) return;
+        if (Date.now() >= focusDeadline) {
+          const actual = window.webContents.focusedFrame;
+          throw new Error(
+            'Menu Preview frame did not receive focus: ' +
+              JSON.stringify({
+                expected: { processId: expected.processId, routingId: expected.routingId },
+                actual: actual && { processId: actual.processId, routingId: actual.routingId },
+              }),
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    };
     window.webContents.focus();
+    await evaluate(`(() => {
+      const stop = document.querySelector('button[aria-label="Stop preview"]');
+      if (!(stop instanceof HTMLButtonElement)) throw new Error('Missing Preview focus control.');
+      stop.focus({preventScroll: true});
+    })()`);
+    await waitForFocusedFrame(window.webContents.mainFrame);
+    await enableFrameFocus(compiledFrame);
     await evaluate(
       `document.querySelector('iframe[title="WebRAD application preview"]').focus({preventScroll: true})`,
     );
-    await enableFrameFocus(compiledFrame);
+    await waitForFocusedFrame(compiledFrame);
   };
   await focusPreviewFrame();
   const desktop = await evaluatePreviewCheck(
@@ -775,7 +804,7 @@ async function runMenuSmokeWorkflow(
   // Exercise the same Menu interactions through a dragged reusable placement.
   // Temporary documents keep authored smoke handlers out of the original page.
   const resourceRow = (name: string): string =>
-    `[...document.querySelectorAll('.wr-page-row')].find(row => row.querySelector('span:last-child')?.textContent?.trim() === ${JSON.stringify(name)})`;
+    projectExplorerRowExpression(name === page.name ? { id: page.id } : { name });
   const showProjectExplorer = async (): Promise<void> => {
     await click('button[aria-label="Project Explorer"]');
     await ready(`document.querySelector('.wr-project-tree') !== null`);

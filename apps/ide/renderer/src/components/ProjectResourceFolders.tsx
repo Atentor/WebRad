@@ -71,6 +71,7 @@ export function ProjectResourceFolders({
                 {visibleEntries.map((entry) => (
                   <div
                     key={entry.id}
+                    data-project-resource-id={entry.id}
                     role="treeitem"
                     tabIndex={0}
                     aria-selected={activeId === entry.id}
@@ -89,7 +90,7 @@ export function ProjectResourceFolders({
                     <span className="wr-page-icon" aria-hidden="true">
                       <Icon name={label === 'Assets' ? 'file-image' : 'file-code'} />
                     </span>
-                    <span>{entry.label}</span>
+                    <span className="wr-explorer-name">{entry.label}</span>
                   </div>
                 ))}
               </div>

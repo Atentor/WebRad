@@ -3,6 +3,7 @@ import path from 'node:path';
 import { dialog, Menu, type BrowserWindow } from 'electron';
 import { stopPreviewSmoke } from './preview-workspace-smoke';
 import { loadProjectFiles } from './project-files';
+import { projectExplorerRowExpression } from './project-explorer-smoke';
 
 /** Real renderer/Monaco/save/F9 flow using an isolated project and native-picker fixture. */
 export async function runProjectResourcesSmoke(
@@ -188,7 +189,7 @@ export async function runProjectResourcesSmoke(
   })()`);
   window.webContents.insertText('ResourceModel');
   await waitFor(
-    "document.querySelectorAll('[role=tree] .wr-page-row').length === 1 && document.querySelector('[role=tree] .wr-page-row')?.textContent?.includes('ResourceModel') === true",
+    `document.querySelectorAll('.wr-project-tree .wr-page-row').length === 1 && ${projectExplorerRowExpression({ name: 'ResourceModel' })} instanceof HTMLElement`,
   );
   await click('[aria-label="Close project search"]');
   await waitFor(
@@ -201,10 +202,12 @@ export async function runProjectResourcesSmoke(
     "document.querySelector('[role=tree]')?.textContent?.includes('ResourceHelpers') === true",
   );
   log('renderer project Explorer collapse and search passed');
-  await window.webContents.executeJavaScript(
-    `Array.from(document.querySelectorAll('[role=treeitem]')).find(item => item.querySelector('span:last-child')?.textContent === 'ResourceHelpers')?.click()`,
-    true,
-  );
+  const helpers = saved.project.sourceFiles?.find((file) => file.name === 'ResourceHelpers');
+  if (helpers === undefined) throw new Error('Saved ResourceHelpers identity is missing.');
+  const helpersRow = projectExplorerRowExpression({ id: helpers.id });
+  await waitFor(`${helpersRow} instanceof HTMLElement`);
+  await window.webContents.executeJavaScript(`${helpersRow}.click()`, true);
+  await waitFor(`${helpersRow}?.getAttribute('aria-selected') === 'true'`);
   await waitFor(
     `document.querySelector('[aria-label="Duplicate selected project item"]')?.title === 'Duplicate ResourceHelpers'`,
   );
@@ -237,10 +240,14 @@ export async function runProjectResourcesSmoke(
     'ResourceModel',
     'resource-image.png',
   ]) {
-    await window.webContents.executeJavaScript(
-      `Array.from(document.querySelectorAll('[role=treeitem]')).find(item => item.querySelector('span:last-child')?.textContent === ${JSON.stringify(name)})?.click()`,
-      true,
-    );
+    const resource =
+      copied.project.sourceFiles?.find((file) => file.name === name) ??
+      copied.project.assets?.find((asset) => asset.fileName === name);
+    if (resource === undefined) throw new Error(`Saved ${name} identity is missing.`);
+    const row = projectExplorerRowExpression({ id: resource.id });
+    await waitFor(`${row} instanceof HTMLElement`);
+    await window.webContents.executeJavaScript(`${row}.click()`, true);
+    await waitFor(`${row}?.getAttribute('aria-selected') === 'true'`);
     await waitFor(
       `document.querySelector('[aria-label="Delete selected project item"]')?.title === ${JSON.stringify(`Delete ${name}`)}`,
     );
@@ -262,9 +269,7 @@ export async function runProjectResourcesSmoke(
         true,
       );
       if (confirmed !== true) throw new Error(`Missing delete confirmation for ${name}.`);
-      await waitFor(
-        `Array.from(document.querySelectorAll('[role=treeitem]')).some(item => item.querySelector('span:last-child')?.textContent === ${JSON.stringify(name)}) === ${String(!accepted)}`,
-      );
+      await waitFor(`${row} ${accepted ? '===' : '!=='} null`);
     }
   }
   await waitFor("document.querySelector('.wr-page-surface') !== null");

@@ -119,6 +119,37 @@ regression coverage when requested; update existing expectations when necessary.
 After correction, verify the final commit on all required platforms. Local Windows
 results do not prove Linux/macOS, publication, installed updates, or native WebViews.
 
+### Preview focus transfer and Explorer identity: 0de22b8 (2026-10-27)
+
+Runs [40521416402](https://github.com/Atentor/WebRad/actions/runs/40521416402)
+(validate) and [40521416036](https://github.com/Atentor/WebRad/actions/runs/40521416036)
+(release) passed code checks, portable tests, formatting, and packaging. Security
+passed. Both development smokes then recorded `documentFocused: true` and
+`inputActive: true`, but `inputFocused: false` and `inputFocusVisible: false` in
+the separate Preview renderer. All four packaged smokes passed those assertions,
+horizontal flyouts, and reusable Interaction, then failed selecting `index` during
+cleanup; the actual Explorer contained the selected entry page.
+
+For a cross-process Preview, activate the child focus emulation before transferring
+focus into the iframe. First focus the real Stop control to leave any existing
+child focus, then activate the child session, focus the iframe, and observe the
+browser's focused frame. Repeat before mobile checks. Preserve the 10-second
+readiness budget, hidden/offscreen window, all real focus pseudo-classes, outline
+and geometry assertions, native input, cleanup, and required evidence. The relevant
+[Chromium focus controller](https://raw.githubusercontent.com/chromium/chromium/main/third_party/blink/renderer/core/page/focus_controller.cc)
+updates emulated page focus separately from the local frame selection; a fresh
+frame transfer synchronizes both states.
+
+Select Explorer resources through their model IDs (`data-project-resource-id`),
+or their direct `.wr-explorer-name` when discovering a newly created document.
+Do not infer resource names from arbitrary descendant spans or aggregate row
+text: icons and entry badges also contribute descendants/text. Keep the helper
+shared by Menu cleanup, page-title navigation, resource operations, and return
+from Styles; await mounted rows and assert the selected resource.
+
+These are local source corrections. No local validation was requested or run;
+final-commit hosted confirmation on all required platforms remains pending.
+
 ### Preview child focus, Explorer navigation, and compilation: 1525042 (2026-10-27)
 
 Runs [40494300442](https://github.com/Atentor/WebRad/actions/runs/40494300442)

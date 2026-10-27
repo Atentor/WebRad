@@ -266,6 +266,7 @@ export function ProjectExplorer({
                 {pages.map((page) => (
                   <div
                     key={page.id}
+                    data-project-resource-id={page.id}
                     className={`wr-tree-row wr-page-row ${activePageId === page.id ? 'active' : ''}`}
                     role="treeitem"
                     aria-selected={activePageId === page.id}
@@ -298,7 +299,7 @@ export function ProjectExplorer({
                         }}
                       />
                     ) : (
-                      <span>{page.name}</span>
+                      <span className="wr-explorer-name">{page.name}</span>
                     )}
                     {project.entryPage === page.id && <small title="Entry page">entry</small>}
                   </div>
@@ -323,6 +324,7 @@ export function ProjectExplorer({
                 {reusableElements.map((reusableElement) => (
                   <div
                     key={reusableElement.id}
+                    data-project-resource-id={reusableElement.id}
                     className={`wr-tree-row wr-page-row ${
                       activeReusableElementId === reusableElement.id ? 'active' : ''
                     }`}
@@ -365,7 +367,7 @@ export function ProjectExplorer({
                         }}
                       />
                     ) : (
-                      <span>{reusableElement.name}</span>
+                      <span className="wr-explorer-name">{reusableElement.name}</span>
                     )}
                   </div>
                 ))}

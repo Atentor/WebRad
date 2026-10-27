@@ -48,6 +48,7 @@ import {
 import { captureDesignerButtonStyle, assertPreviewButtonStyle } from './component-style-smoke';
 import type { WebRadBridge } from '../shared/contracts';
 import { trackSmokeRendererHealth } from './smoke-renderer-health';
+import { projectExplorerRowExpression } from './project-explorer-smoke';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -1091,9 +1092,17 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     'button[aria-label="Project Explorer"]',
     'Project Explorer after Styles',
   );
+  const projectAfterStyles = await loadProjectFiles(smokeProjectPath);
+  const entryPageRow = projectExplorerRowExpression({ id: projectAfterStyles.project.entryPage });
+  await waitForRendererResult(
+    window,
+    `${entryPageRow} instanceof HTMLElement`,
+    'the entry page in Project Explorer after Styles',
+    (value) => value === true,
+  );
   const pageReopened = (await window.webContents.executeJavaScript(
     `(() => {
-      const page = document.querySelector('.wr-page-row');
+      const page = ${entryPageRow};
       if (!(page instanceof HTMLElement)) return false;
       page.click();
       return true;
@@ -1101,6 +1110,12 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     true,
   )) as unknown;
   if (pageReopened !== true) throw new Error('Renderer smoke could not return from Styles.');
+  await waitForRendererResult(
+    window,
+    `${entryPageRow}?.getAttribute('aria-selected') === 'true'`,
+    'the selected entry page after Styles',
+    (value) => value === true,
+  );
   await waitForRendererString(
     window,
     `document.querySelector('.wr-designer-workspace') === null ? '' : 'ready'`,
