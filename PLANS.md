@@ -5,6 +5,26 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## macOS Intel diagnostic follow-up: 7067bd3, 2026-10-27
+
+The authorized hosted run passed Windows, Linux, macOS ARM64, quality and
+security. [Release 40545084526](https://github.com/Atentor/WebRad/actions/runs/40545084526)
+failed only on Intel (`122333553598`) during the initial Menu F9. At sampling,
+Electron was runnable at 63.9% CPU with 1,578,196 KiB RSS; esbuild was sleeping
+at 0.0% CPU with 51,936 KiB RSS. This snapshot does not prove a Go deadlock.
+The original log/project and process listing are retained under
+`artifacts/github-actions-7067bd3-20261027/`.
+
+Both native samples exceeded the diagnostic subprocess cap before report output.
+Keep the one-second sample, capture symbols before target exit (`-mayDie`), and
+allow bounded report generation to finish after the original functional result.
+This changes only diagnostic finalization, never build or assertion deadlines.
+For the automated Intel Menu workflow, also record a local V8 CPU profile into
+`native-diagnostics/menu-main.cpuprofile` in finally, including functional failure.
+No inspector port is exposed, and profiling errors preserve the original result.
+Native evidence is still required before a source correction can be certified.
+No local validation was requested or run; further hosted execution is authorized.
+
 ## macOS Intel stall: failed workaround and native stack collection, 2026-10-27
 
 Inspected exact commit `47ccce061978ad1d97609219a31a1c2ec547546d` and the supplied

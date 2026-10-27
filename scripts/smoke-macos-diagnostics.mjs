@@ -47,7 +47,13 @@ async function captureProcesses(rootPid, directory) {
     targets.map(async (entry) => {
       const file = path.join(directory, `${entry.role}-${entry.pid}.sample.txt`);
       try {
-        await execute('/usr/bin/sample', [String(entry.pid), '1', '1', '-file', file], 3000);
+        // Symbolication can outlive the sampled process. Keep its symbols and
+        // let report generation finish after failure without extending the smoke.
+        await execute(
+          '/usr/bin/sample',
+          [String(entry.pid), '1', '1', '-mayDie', '-file', file],
+          30000,
+        );
       } catch (error) {
         await fs.writeFile(`${file}.error.txt`, String(error) + '\n');
       }

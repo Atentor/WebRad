@@ -29,6 +29,13 @@ do not replace the functional result. Sampling does not retry builds or extend
 their deadlines. These measurements are required to distinguish main-process
 GC/work, native service work, and blocked transport before choosing another fix.
 
+Intel's automated Menu workflow also saves a V8 CPU profile of the main process
+in that directory, including when the workflow throws. The inspector session is
+local and exposes no listening port. Native sampling captures symbol locations
+before target exit and allows bounded report generation after sampling; this
+diagnostic finalization does not extend any functional deadline. Capture failures
+never replace the original exception.
+
 ## Native frontend target
 
 `CompileProjectOptions.target` accepts the additive `native` destination. Native Build calls the same model validation, generated instance declarations, authored TypeScript checking, browser bundler and asset/license emission as existing builds. The compiler produces ordinary local `index.html`, `assets/app.js`, `assets/app.css` and used resources in memory; it has no Tauri, Rust, Electron or device API dependency.

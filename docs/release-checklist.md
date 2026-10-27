@@ -119,6 +119,18 @@ regression coverage when requested; update existing expectations when necessary.
 After correction, verify the final commit on all required platforms. Local Windows
 results do not prove Linux/macOS, publication, installed updates, or native WebViews.
 
+### Native report collection follow-up: 7067bd3 (2026-10-27)
+
+[Release 40545084526](https://github.com/Atentor/WebRad/actions/runs/40545084526)
+passed three platforms; Intel again stopped during Menu F9. Quality/security
+passed. The process snapshot showed runnable Electron (63.9% CPU, about 1.5 GiB
+RSS) and sleeping esbuild (0% CPU, about 51 MiB RSS), but sample subprocesses
+expired before writing their reports. Retain `-mayDie` and the bounded report
+finalization allowance; neither changes the one-second sampling duration or any
+smoke/build deadline. Intel's automated Menu workflow also writes a local V8 CPU
+profile in finally. Preserve it with `native-diagnostics/`, including on failure;
+profile errors must not replace the original exception or expose a debug port.
+
 ### Failed native workaround and independent stack sampling: 47ccce0 (2026-10-27)
 
 [Release 40538022322](https://github.com/Atentor/WebRad/actions/runs/40538022322)
