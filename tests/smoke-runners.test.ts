@@ -74,7 +74,11 @@ describe.each(['development', 'packaged'] as const)(
             'HelloWebRad.wrproj',
           );
           await fs.writeFile(fixturePath, originalFixture);
-          for (const script of [`smoke-${runner}.mjs`, 'smoke-process.mjs']) {
+          for (const script of [
+            `smoke-${runner}.mjs`,
+            'smoke-process.mjs',
+            'smoke-macos-diagnostics.mjs',
+          ]) {
             await fs.copyFile(
               path.resolve('scripts', script),
               path.join(workspace, 'scripts', script),

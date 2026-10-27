@@ -5,6 +5,44 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## macOS Intel stall: failed workaround and native stack collection, 2026-10-27
+
+Inspected exact commit `47ccce061978ad1d97609219a31a1c2ec547546d` and the supplied
+log. [Validate 40538022323](https://github.com/Atentor/WebRad/actions/runs/40538022323)
+and [security 40538022385](https://github.com/Atentor/WebRad/actions/runs/40538022385)
+passed. [Release 40538022322](https://github.com/Atentor/WebRad/actions/runs/40538022322)
+passed Windows, Linux, and macOS ARM64; Intel job `122308647922` again failed.
+It stopped at the initial Menu F9, before reusable Interaction, so the recurring
+bundle-phase failure is not exclusive to the reusable fixture.
+
+The failed bundle began at 16:25:27.689 UTC after 2,421 ms of strict typecheck and
+74 ms of preparation. It remained pending at 16:25:40.864 UTC, with Saved and
+disabled Run. Earlier in the same process, a completed bundle took 8,380 ms and
+6,623 ms of main-process CPU while the JS heap fell from 409 MiB to 205 MiB.
+That is compatible with significant JavaScript/GC work; the existing brackets
+cannot identify an exclusive native Go deadlock. Both preceding mitigations
+failed to establish a resolution. Removed the ineffective single-P override.
+
+Prepared evidence collection before changing the execution model again:
+
+- The parent smoke runner observes compiler progress. After three seconds in a
+  bundle phase on macOS it collects only the owned process tree, its CPU/RSS,
+  and one-second native samples of Electron and esbuild. It remains independent
+  of the Electron event loop, does not inspect unrelated processes or command
+  arguments, and does not retry builds or change the functional deadlines.
+- Process listing and sampling have bounded subprocess timeouts. Sampling errors
+  are retained as diagnostics without replacing the original result. Finalization
+  waits for an already-started capture before preserving/removing its directory.
+- Both real runners retain `native-diagnostics/` in failure artifacts. Existing
+  isolated-runner fixtures copy the new helper; no test cases were added.
+
+The original full job log is under `artifacts/github-actions-47ccce0-20261027/`.
+This change prepares a diagnostic run; it is not a proven correction of the stall.
+The user subsequently authorized committing/pushing this diagnostic change and
+executing the GitHub CI workflows. Native Intel stack evidence is still required;
+the authorized hosted run will determine the next correction. No local test/build
+matrix has been run as part of this diagnostic change.
+
 ## Native esbuild workaround for repeated macOS Intel stalls: 2026-10-27
 
 Inspected exact commit `41b6f2a8c6e521064549155b49d1eb7c9b8b569a`:

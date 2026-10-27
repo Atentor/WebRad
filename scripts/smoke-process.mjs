@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import process from 'node:process';
 import { clearTimeout, setTimeout } from 'node:timers';
+import { createMacOSBundleDiagnostics } from './smoke-macos-diagnostics.mjs';
 
 /** Terminate only this smoke's owned process tree, including inherited output handles. */
 async function terminateProcessTree(child, processGroup) {
@@ -51,6 +52,7 @@ export function waitForSmokeProcess(
     processGroup = false,
   },
 ) {
+  const diagnostics = createMacOSBundleDiagnostics(child.pid, logPath);
   return new Promise((resolve, reject) => {
     let settled = false;
     let phase = functionalTimeoutMilliseconds === undefined ? 'process' : 'startup';
@@ -71,19 +73,25 @@ export function waitForSmokeProcess(
       if (settled) return;
       settled = true;
       cleanup();
-      if (error !== undefined) {
-        reject(
-          terminationError === undefined
-            ? error
-            : new AggregateError([error, terminationError], 'Smoke failed during process cleanup.'),
-        );
-        return;
-      }
-      resolve({
-        exitCode: processExit?.code ?? (processExit?.signal === null ? 1 : 2),
-        timedOut,
-        lastProgress,
-        ...(terminationError === undefined ? {} : { terminationError: String(terminationError) }),
+      // Finish the already bounded sampling before the runner preserves/removes its files.
+      void diagnostics.finish().then(() => {
+        if (error !== undefined) {
+          reject(
+            terminationError === undefined
+              ? error
+              : new AggregateError(
+                  [error, terminationError],
+                  'Smoke failed during process cleanup.',
+                ),
+          );
+          return;
+        }
+        resolve({
+          exitCode: processExit?.code ?? (processExit?.signal === null ? 1 : 2),
+          timedOut,
+          lastProgress,
+          ...(terminationError === undefined ? {} : { terminationError: String(terminationError) }),
+        });
       });
     };
     const stop = async (error) => {
@@ -123,6 +131,7 @@ export function waitForSmokeProcess(
           throw error;
         });
         if (settled || stopping) return;
+        diagnostics.inspect(log);
         const lines = log.trim().split(/\r?\n/u).filter(Boolean);
         lastProgress = lines.at(-1) ?? lastProgress;
         if (phase === 'startup' && log.includes('renderer loaded:')) {

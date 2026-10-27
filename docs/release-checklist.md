@@ -119,6 +119,26 @@ regression coverage when requested; update existing expectations when necessary.
 After correction, verify the final commit on all required platforms. Local Windows
 results do not prove Linux/macOS, publication, installed updates, or native WebViews.
 
+### Failed native workaround and independent stack sampling: 47ccce0 (2026-10-27)
+
+[Release 40538022322](https://github.com/Atentor/WebRad/actions/runs/40538022322)
+again failed only on Intel, despite the single-P workaround. Quality/security and
+the other three platform builds passed. This time the initial Menu F9 stopped
+before reusable Interaction. Earlier native-build brackets also included
+6,623 ms of main-process CPU and a large JS heap collection. Do not treat the
+previous Go hypothesis as a confirmed root cause; the ineffective restriction
+has been removed.
+
+On macOS the parent runner captures native stacks after a bundle phase remains
+active for three seconds. Only the owned Electron/native child tree is inspected;
+process arguments and unrelated processes are excluded. Keep `native-diagnostics/`
+with the original log and retained project. Each `ps`/`sample` subprocess has its
+own bounded timeout, and capture errors preserve the original functional result.
+An already-started capture completes before artifact preservation. Build/smoke
+deadlines and required behavioral evidence remain unchanged. No local validation
+was requested or run; a native diagnostic execution is needed before claiming
+that this recurring stall is repaired.
+
 ### Native scheduler/GC workaround: 41b6f2a (2026-10-27)
 
 [Release verification 40532063982](https://github.com/Atentor/WebRad/actions/runs/40532063982)

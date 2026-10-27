@@ -59,6 +59,7 @@ async function preserveFailureDiagnostics(error) {
   );
   for (const [source, target] of [
     [logPath, path.join(destination, 'webrad-smoke.log')],
+    [path.join(temporaryRoot, 'native-diagnostics'), path.join(destination, 'native-diagnostics')],
     [projectDirectory, path.join(destination, 'hello-webrad')],
   ]) {
     await fs.cp(source, target, { recursive: true }).catch((copyError) => {

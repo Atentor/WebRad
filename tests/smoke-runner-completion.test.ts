@@ -84,7 +84,11 @@ async function createWorkspace(runner: Runner): Promise<string> {
   await fs.mkdir(path.join(workspace, 'scripts'), { recursive: true });
   await fs.mkdir(path.join(workspace, 'examples', 'hello-webrad'), { recursive: true });
   await fs.writeFile(path.join(workspace, 'examples', 'hello-webrad', 'HelloWebRad.wrproj'), '{}');
-  for (const script of [`smoke-${runner}.mjs`, 'smoke-process.mjs']) {
+  for (const script of [
+    `smoke-${runner}.mjs`,
+    'smoke-process.mjs',
+    'smoke-macos-diagnostics.mjs',
+  ]) {
     await fs.copyFile(path.resolve('scripts', script), path.join(workspace, 'scripts', script));
   }
   await fs.writeFile(path.join(workspace, 'launcher.mjs'), launcher);

@@ -15,20 +15,19 @@ esbuild execution, and output processing for compilation timing diagnostics.
 
 ## Native bundler on macOS Intel
 
-The pinned esbuild 0.28.2 Darwin x64 binary embeds Go 1.26.5. Upstream
-[Go issue 81759](https://github.com/golang/go/issues/81759) describes a scheduler/GC
-race with blocking pipes, the transport used by esbuild's native service. Its
-single-execution-slot configuration avoids that race in the upstream reproducer.
-For Darwin x64, the compiler sets `GOMAXPROCS=1` only while synchronously calling
-the esbuild API that spawns its service. It restores the previous host environment
-in `finally`, before awaiting the returned Promise, so later subprocesses are
-unaffected. Other platforms keep their normal native concurrency.
+Repeated Intel smoke failures have stopped inside the esbuild call after strict
+checking and runtime preparation completed. A Go-runtime hypothesis led to a
+temporary `GOMAXPROCS=1` workaround, but hosted commit `47ccce0` still failed.
+That restriction has been removed; normal native concurrency is restored.
 
-This is a targeted workaround for repeated native bundle stalls, with an Intel
-performance tradeoff. It preserves strict diagnostics, esbuild security fixes,
-browser output and smoke deadlines. A final-commit hosted Intel run is still
-required; remove it when an official esbuild binary with a fixed Go runtime has
-been verified. No application/runtime or persistent project setting is added.
+The smoke runner now samples its own Electron and esbuild descendants when a
+bundle phase remains active for three seconds. Sampling runs in the parent runner,
+independently of Electron's event loop, and records process CPU/RSS plus native
+stacks in `native-diagnostics/`. Failure artifacts preserve those files alongside
+the original smoke log and project. Capture failures are recorded separately and
+do not replace the functional result. Sampling does not retry builds or extend
+their deadlines. These measurements are required to distinguish main-process
+GC/work, native service work, and blocked transport before choosing another fix.
 
 ## Native frontend target
 
