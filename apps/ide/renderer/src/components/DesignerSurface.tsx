@@ -106,6 +106,7 @@ interface DesignerSurfaceProps {
     componentIds: readonly string[],
     beforeComponentId: string | null,
   ) => void;
+  /** Enables cross-container dragging when the host can persist the structural change. */
   onReparentComponents?: (
     componentIds: readonly string[],
     parentId: string,
@@ -1749,6 +1750,9 @@ export function DesignerSurface({
     delta: Point,
     originalAbsoluteBounds: ReadonlyMap<string, Bounds>,
   ): ReparentTarget | undefined => {
+    // Without a structural command, keep both preview and commit on the normal
+    // parent-constrained movement path instead of previewing an unsavable drop.
+    if (onReparentComponents === undefined) return undefined;
     const nodes = ids
       .map((id) => byId.get(id))
       .filter((node): node is ComponentNode => node !== undefined);
@@ -1801,9 +1805,7 @@ export function DesignerSurface({
           layoutById.get(firstNode.id)?.absoluteBounds ??
           firstNode.bounds);
     const rowHost =
-      componentRegistry.get(parent.type)?.designerChildHost === 'repeating-row'
-        ? host
-        : undefined;
+      componentRegistry.get(parent.type)?.designerChildHost === 'repeating-row' ? host : undefined;
     return {
       parentId: parent.id,
       bounds,
