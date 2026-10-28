@@ -58,7 +58,7 @@ const viewSnapshotExpression = `(() => {
     scrollWidth: Number.parseFloat(editor.querySelector('.view-lines')?.style.width ?? '0'),
     scrollHeight: Number.parseFloat(editor.querySelector('.view-lines')?.style.height ?? '0'),
 
-    position: document.querySelector('.wr-status-position')?.getAttribute('aria-label'),
+    position: document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position'),
     firstLine: firstLine?.textContent,
     caretTop: cursor.getBoundingClientRect().top - bounds.top,
     scrollTop: Number.parseFloat(
@@ -161,7 +161,7 @@ export async function runMonacoWorkspaceSmoke(
   sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
   await settle(window);
   const originalEnd: unknown = await window.webContents.executeJavaScript(
-    "document.querySelector('.wr-status-position')?.getAttribute('aria-label')",
+    "document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')",
     true,
   );
   if (typeof originalEnd !== 'string') throw new Error('Monaco original cursor was unavailable.');
@@ -193,7 +193,7 @@ export async function runMonacoWorkspaceSmoke(
   sendKey('Right');
   await settle(window);
   const blockEnd: unknown = await window.webContents.executeJavaScript(
-    "document.querySelector('.wr-status-position')?.getAttribute('aria-label')",
+    "document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')",
     true,
   );
   if (typeof blockEnd !== 'string')
@@ -263,14 +263,14 @@ export async function runMonacoWorkspaceSmoke(
   sendKey('Z', [command]);
   await waitFor(
     window,
-    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(blockEnd)}`,
+    `document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position') === ${JSON.stringify(blockEnd)}`,
     'the cursor after undoing the single marker',
   );
   await settle(window);
   sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
   await waitFor(
     window,
-    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(blockEnd)} && [...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('workspaceSmoke_${String(commentCount - 1)}')) && ![...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes(${JSON.stringify(marker)}))`,
+    `document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position') === ${JSON.stringify(blockEnd)} && [...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('workspaceSmoke_${String(commentCount - 1)}')) && ![...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes(${JSON.stringify(marker)}))`,
     'undo after remount',
   );
   sendKey(
@@ -281,13 +281,13 @@ export async function runMonacoWorkspaceSmoke(
   sendKey(process.platform === 'darwin' ? 'Down' : 'End', [command]);
   await waitFor(
     window,
-    `[...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes(${JSON.stringify(marker)})) && document.querySelector('.wr-status-position')?.getAttribute('aria-label')?.startsWith('Line ${String(markerLine)},') === true`,
+    `[...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes(${JSON.stringify(marker)})) && document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')?.startsWith('Line ${String(markerLine)},') === true`,
     'redo after remount',
   );
   sendKey('Z', [command]);
   await waitFor(
     window,
-    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(blockEnd)}`,
+    `document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position') === ${JSON.stringify(blockEnd)}`,
     'the cursor after final marker undo',
   );
   await settle(window);
@@ -297,13 +297,13 @@ export async function runMonacoWorkspaceSmoke(
   for (let index = 1; index < originalColumn; index += 1) sendKey('Right', ['shift']);
   await waitFor(
     window,
-    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(originalEnd)} && document.querySelector('.wr-status-selection') !== null`,
+    `document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position') === ${JSON.stringify(originalEnd)} && Number(document.querySelector('.monaco-editor')?.getAttribute('data-selection-length')) > 0`,
     'the temporary block selection',
   );
   sendKey('Backspace');
   await waitFor(
     window,
-    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(originalEnd)} && JSON.stringify([...document.querySelectorAll('.monaco-editor .view-lines .view-line')].sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top).map(line => line.textContent)) === ${JSON.stringify(JSON.stringify(originalLines))}`,
+    `document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position') === ${JSON.stringify(originalEnd)} && JSON.stringify([...document.querySelectorAll('.monaco-editor .view-lines .view-line')].sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top).map(line => line.textContent)) === ${JSON.stringify(JSON.stringify(originalLines))}`,
     'the restored authored source',
   );
   log(
@@ -351,8 +351,8 @@ export async function runMonacoWorkspaceSmoke(
         const line = [...document.querySelectorAll('.monaco-editor .view-lines .view-line')]
           .find(node => cursor && Math.abs(node.getBoundingClientRect().top - cursor.getBoundingClientRect().top) < 1);
         return line?.textContent?.includes('Message(') === true &&
-          document.querySelector('.wr-status-position')?.getAttribute('aria-label')?.endsWith('column 5') === true &&
-          document.querySelector('.wr-status-selection') === null &&
+          document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')?.endsWith('column 5') === true &&
+          document.querySelector('.monaco-editor')?.getAttribute('data-selection-length') === '0' &&
           document.activeElement?.closest('.monaco-editor') !== null;
       })()`,
       `the ${entry} event body after font/layout restoration`,

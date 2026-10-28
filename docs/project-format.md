@@ -1,5 +1,10 @@
 # Project format
 
+Panel, Group and HTML optionally store `props.aspectRatio` as `none`, `1:1`,
+`4:3`, `3:4`, `16:9` or `9:16`. Missing values mean free sizing (`none`).
+The ratio does not replace saved `bounds.height` or responsive height rules;
+those values resume when the ratio is disabled. See [Aspect ratios](aspect-ratio.md).
+
 The Project Explorer's **Duplicate selected project item** action copies the active
 page, reusable component, Model, Unit or Asset and opens the copy. Names use the
 first available `Copy`, `Copy2`, etc. suffix (before asset extensions). Documents
@@ -122,6 +127,25 @@ the complete project. Template construction also rejects an incomplete visual
 catalogue so newly registered visuals cannot be silently omitted from the demo.
 
 ## Persisted component metadata
+
+The additive `menus` collection stores shared Menu definitions inline in the
+format-2 manifest. Each definition has the visual-document shape and exactly one
+`WebMenu` root containing its configuration, style reference and shared event
+bindings. Its immutable document ID is referenced by placement
+`props.menuDefinitionId`; placements do not persist a configuration copy.
+Dimensions, margins, anchors, visibility, enabled state and page event bindings
+remain on the placement. The compiler and Designer resolve the shared values
+without changing the saved model. The canonical placement layout is independent
+of shared orientation so definition edits do not reset page command history.
+
+Definitions own `menus/Name.ts` and `menus/Name.generated.ts`. Authored and
+generated files participate in the same owned-file, atomic save/archive and
+Save As workflow as pages and reusable definitions. Renaming retains document,
+root and item IDs and updates the authored class/generated import through the
+TypeScript AST. Duplication assigns new document/root IDs and copies authored
+logic. Loading an older manifest supplies an empty collection; legacy standalone
+Menus and authored reusable compositions are preserved. Deleting a referenced
+definition or saving a missing link is rejected.
 
 `WebMenu.props.configuration` stores a `schemaVersion: 1` menu with stable-ID
 recursive items, brand/profile data, appearance and responsive behavior. Menus

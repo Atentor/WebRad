@@ -153,9 +153,9 @@ export function componentReferenceScope(document: PageModel): ComponentReference
     className: pageClassName(document.name),
     generatedClassName: `${pageClassName(document.name)}Generated`,
     ...(document.components.find((component) => component.id === document.rootComponentId)?.type ===
-    'WebPage'
-      ? {}
-      : { reusable: true }),
+    'WebPanel'
+      ? { reusable: true }
+      : {}),
     componentNames: document.components
       .filter((component) => component.id !== document.rootComponentId)
       .map((component) => component.name),

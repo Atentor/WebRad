@@ -83,6 +83,7 @@ export function pruneEmptyEventHandlers(
       ...project,
       pages: project.pages.map((page) => clean(page, 'pages')),
       reusableElements: project.reusableElements.map((reusable) => clean(reusable, 'reusables')),
+      menus: (project.menus ?? []).map((menu) => clean(menu, 'menus')),
     },
     userSources: sources,
   };

@@ -59,6 +59,7 @@ function validateRegistry(
       document,
       path: ['reusableElements', index] as const,
     })),
+    ...(project.menus ?? []).map((document, index) => ({ document, path: ['menus', index] as const })),
   ];
   for (const { document, path } of documents) {
     const rowHandlerGroups = new Map<string, string>();
@@ -97,7 +98,7 @@ function validateRegistry(
           });
           continue;
         }
-        if (!isValidPropertyValue(property, value, document.components, project.reusableElements)) {
+        if (!isValidPropertyValue(property, value, document.components, project.reusableElements, project.menus)) {
           diagnostics.push({
             category: 'error',
             source: 'registry',
@@ -511,9 +512,14 @@ function isValidPropertyValue(
   value: unknown,
   components: WebRadProject['pages'][number]['components'],
   reusableElements: WebRadProject['reusableElements'],
+  menus: WebRadProject['menus'],
 ): boolean {
   if (property.validateValue) return property.validateValue(value);
   switch (property.type) {
+    case 'menu-definition':
+      return typeof value === 'string' && (menus ?? []).some((menu) => menu.id === value);
+    case 'designer-action':
+      return false;
     case 'report-template':
       try {
         parseReportTemplate(value);

@@ -17,3 +17,4 @@ export * from './report-builder-model.js';
 export * from './report-builder-grid.js';
 export * from './report-builder-tree.js';
 export * from './menu-items.js';
+export * from './menu-definition-command.js';

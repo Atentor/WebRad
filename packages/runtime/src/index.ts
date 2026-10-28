@@ -1,5 +1,6 @@
 export { WebProgressBar } from './progress-bar.js';
 export { WebIcon } from './icon.js';
+export { WebHtml } from './html.js';
 export * from './menu.js';
 export * from './menu-model.js';
 export type { WebIconMode, LucideIconName } from './icon.js';

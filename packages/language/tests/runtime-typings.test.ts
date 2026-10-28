@@ -583,6 +583,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebToggle,
   WebProgressBar,
   WebIcon,
+  WebHtml,
   WebMenu,
   WebComboBox,
   WebDataGrid,
@@ -619,6 +620,7 @@ class EditorPage extends WebPage {
     toggle: WebToggle,
     progressBar: WebProgressBar,
     icon: WebIcon,
+    html: WebHtml,
     menu: WebMenu,
     combo: WebComboBox,
     image: WebImage,
@@ -644,6 +646,7 @@ panel./*@panel*/caption;
     toggle./*@toggle*/checked;
     progressBar./*@progressBar*/value;
     icon./*@icon*/mode;
+    html./*@html*/html;
     menu./*@menu*/configuration;
     checkBox./*@checkBox*/checked;
     combo./*@combo*/items;
@@ -801,6 +804,7 @@ panel./*@panel*/caption;
     const completionMarkerByType: Readonly<Record<string, string>> = {
       WebProgressBar: 'progressBar',
       WebIcon: 'icon',
+      WebHtml: 'html',
       WebMenu: 'menu',
       WebApiClient: 'api',
       WebButton: 'button',

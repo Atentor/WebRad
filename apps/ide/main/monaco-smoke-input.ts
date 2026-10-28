@@ -5,6 +5,6 @@ export function monacoHandlerInputReadyExpression(handlerName: string): string {
     const input = editor?.querySelector('.native-edit-context, textarea.inputarea');
     return input instanceof HTMLElement && document.activeElement === input &&
       editor.textContent?.includes(${JSON.stringify(handlerName)}) === true &&
-      document.querySelector('.wr-status-position')?.getAttribute('aria-label')?.endsWith('column 5') === true;
+      document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')?.endsWith('column 5') === true;
   })()`;
 }

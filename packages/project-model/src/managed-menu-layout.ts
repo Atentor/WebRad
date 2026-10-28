@@ -4,7 +4,7 @@ import {
   reusableMenuNode,
   type RuntimeReusableMenuDefinition,
 } from '@webrad/runtime/menu-layout';
-import { parseWebMenuConfiguration } from '@webrad/runtime/menu-model';
+import { createDefaultWebMenuConfiguration, parseWebMenuConfiguration } from '@webrad/runtime/menu-model';
 import type { RuntimeLayoutNode } from '@webrad/runtime';
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -16,15 +16,23 @@ export function materializeManagedMenuLayouts(input: unknown): unknown {
   if (!record(input) || !Array.isArray(input.reusableElements) || !Array.isArray(input.pages))
     return input;
   const definitions = input.reusableElements.filter(record);
+  const configurationFor = (props: Readonly<Record<string, unknown>>): unknown => {
+    // Shared orientation is a projection. Keep the stored placement canonical
+    // independently so editing a definition cannot reset page command history.
+    return typeof props.menuDefinitionId === 'string'
+      ? { ...createDefaultWebMenuConfiguration(), orientation: 'horizontal' }
+      : props.configuration;
+  };
   const documents = (values: unknown[], embedded: boolean): unknown[] =>
     values.map((value) => {
       if (!record(value) || !Array.isArray(value.components)) return value;
       const definition = value as unknown as RuntimeReusableMenuDefinition;
       const composite = reusableMenuNode(definition);
       const horizontalDefaultHeight =
+        composite?.props?.menuDefinitionId === undefined &&
         composite?.bounds?.height === 640 &&
         composite.layout?.item?.height !== 'fixed' &&
-        (composite.props?.configuration as { orientation?: unknown } | undefined)?.orientation ===
+        (configurationFor(composite.props ?? {}) as { orientation?: unknown } | undefined)?.orientation ===
           'horizontal';
 
       return {
@@ -47,14 +55,16 @@ export function materializeManagedMenuLayouts(input: unknown): unknown {
           if (component.type === 'WebMenu') {
             let configuration;
             try {
-              configuration = parseWebMenuConfiguration(component.props.configuration);
+              configuration = parseWebMenuConfiguration(configurationFor(component.props));
             } catch {
               return component;
             }
             return projectWebMenuLayout(
               {
                 ...component,
-                props: { ...component.props, configuration },
+                props: component.props.menuDefinitionId === undefined
+                  ? { ...component.props, configuration }
+                  : component.props,
               } as unknown as RuntimeLayoutNode,
               Number.POSITIVE_INFINITY,
               { ...configuration, collapsed: false },
@@ -62,7 +72,7 @@ export function materializeManagedMenuLayouts(input: unknown): unknown {
             );
           }
           if (component.type === 'WebReusableElement' && reusableMenuNode(owner)) {
-            const config = reusableMenuNode(owner)?.props?.configuration;
+            const config = configurationFor(reusableMenuNode(owner)?.props ?? {});
             try {
               return projectReusableMenuLayout(node, owner, Number.POSITIVE_INFINITY, {
                 ...parseWebMenuConfiguration(config),

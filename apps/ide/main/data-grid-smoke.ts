@@ -345,7 +345,10 @@ export async function runDataGridConfigurationSmoke(
         `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`,
       );
       await click(window, 'button[aria-label="Save (Ctrl+S)"]');
-      await ready(window, `document.querySelector(".wr-status-ready")?.textContent === "Ready"`);
+      await ready(
+        window,
+        `document.querySelector(".wr-toolbar-save-state")?.textContent?.trim() === "Saved"`,
+      );
       log(
         'renderer Data Grid fixture restored: configuration and insertion undone, original fixture saved',
       );

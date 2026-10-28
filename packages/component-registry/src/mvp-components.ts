@@ -22,6 +22,7 @@ import {
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 import { LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
+import { WEB_ASPECT_RATIOS, normalizeWebAspectRatio } from '@webrad/runtime';
 import {
   PANEL_BACKGROUND_SIZES,
   PANEL_BACKGROUND_POSITIONS,
@@ -130,6 +131,35 @@ function geometryProperties(
       category: 'Behavior',
       source: 'props',
       defaultValue: true,
+    },
+  ];
+}
+
+function aspectRatioGeometryProperties(
+  bounds: DefaultComponentBounds,
+): readonly ComponentPropertyDefinition[] {
+  return [
+    ...geometryProperties(bounds).map((property) =>
+      ['height', 'itemHeight', 'itemMinHeight', 'itemMaxHeight'].includes(property.name)
+        ? {
+            ...property,
+            readOnlyWhen: (props: Readonly<Record<string, unknown>>) =>
+              normalizeWebAspectRatio(props.aspectRatio) !== 'none',
+            description:
+              'A fixed aspect ratio derives height from width. Choose none to edit the saved height rules.',
+          }
+        : property,
+    ),
+    {
+      name: 'aspectRatio',
+      label: 'Aspect ratio',
+      type: 'enum',
+      category: 'Layout',
+      source: 'props',
+      defaultValue: 'none',
+      options: WEB_ASPECT_RATIOS,
+      description:
+        'none allows free dimensions. A fixed ratio derives height from the responsive width.',
     },
   ];
 }
@@ -723,7 +753,16 @@ function floatingPlacementProperties(pageOwned = false): ComponentPropertyDefini
 const webPanel: ComponentDefinition = {
   supportsFloatingPlacement: true,
   automaticLayout: automaticMenuLayout,
-  inspectorProperties: menuInspectorProperties,
+  inspectorProperties: (properties, node, context) =>
+    menuInspectorProperties(properties, node, context).map((property) =>
+      property.name === 'aspectRatio' && node.parentId === null
+        ? {
+            ...property,
+            readOnly: true,
+            description: 'The root fills its owning surface. Configure proportions on child components.',
+          }
+        : property,
+    ),
   designSurface: menuDesignSurface,
   floatingSizing: 'responsive',
   type: 'WebPanel',
@@ -746,6 +785,7 @@ const webPanel: ComponentDefinition = {
   defaultBounds: panelBounds,
   defaults: {
     caption: '',
+    aspectRatio: 'none',
     visible: true,
     collapseWhenHidden: true,
     enabled: true,
@@ -764,7 +804,7 @@ const webPanel: ComponentDefinition = {
     floatingZIndex: 100,
   },
   properties: [
-    ...geometryProperties(panelBounds),
+    ...aspectRatioGeometryProperties(panelBounds),
     ...containerLayoutProperties(),
     captionProperty(''),
     ...floatingPlacementProperties(true),
@@ -876,8 +916,8 @@ const webGroup: ComponentDefinition = {
   canHaveChildren: true,
   defaultEvent: 'OnClick',
   defaultBounds: panelBounds,
-  defaults: { visible: true, collapseWhenHidden: true, enabled: true },
-  properties: [...geometryProperties(panelBounds), ...containerLayoutProperties()],
+  defaults: { visible: true, collapseWhenHidden: true, enabled: true, aspectRatio: 'none' },
+  properties: [...aspectRatioGeometryProperties(panelBounds), ...containerLayoutProperties()],
   events: webPanel.events,
 };
 
@@ -984,6 +1024,65 @@ const webLabel: ComponentDefinition = {
     event('OnMouseEnter', 'Mouse'),
     event('OnMouseLeave', 'Mouse'),
   ],
+};
+
+const webHtml: ComponentDefinition = {
+  type: 'WebHtml',
+  displayName: 'HTML',
+  namePrefix: 'Html',
+  palette: { category: standardCategory, caption: 'HTML' },
+  icon: 'code',
+  visual: true,
+  styleEditor: {
+    essentialProperties: [
+      'backgroundColor',
+      'borderWidth',
+      'borderStyle',
+      'borderColor',
+      'borderRadius',
+      'boxShadow',
+      'opacity',
+      'paddingTop',
+      'paddingRight',
+      'paddingBottom',
+      'paddingLeft',
+    ],
+  },
+  canHaveChildren: false,
+  defaultEvent: 'OnLoad',
+  defaultBounds: { width: 320, height: 180 },
+  defaults: {
+    html: '<p>HTML content</p>',
+    aspectRatio: 'none',
+    title: 'HTML content',
+    visible: true,
+    collapseWhenHidden: true,
+    enabled: true,
+  },
+  properties: [
+    ...aspectRatioGeometryProperties({ width: 320, height: 180 }),
+    {
+      name: 'html',
+      label: 'HTML',
+      type: 'string',
+      multiline: true,
+      category: 'Content',
+      source: 'props',
+      defaultValue: '<p>HTML content</p>',
+      description:
+        'HTML and CSS, or a standalone HTTPS iframe embed. Inline markup scripts do not execute.',
+    },
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+      category: 'Accessibility',
+      source: 'props',
+      defaultValue: 'HTML content',
+      description: 'Accessible name of the embedded HTML document.',
+    },
+  ],
+  events: [event('OnLoad')],
 };
 
 const webEdit: ComponentDefinition = {
@@ -2066,6 +2165,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebGroup',
   'WebReusableElement',
   'WebLabel',
+  'WebHtml',
   'WebEdit',
   'WebTextArea',
   'WebButton',
@@ -2096,6 +2196,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webGroup,
   webReusableElement,
   webLabel,
+  webHtml,
   webEdit,
   webTextArea,
   webButton,

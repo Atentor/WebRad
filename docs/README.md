@@ -16,6 +16,8 @@ Start with the root [README](../README.md) to install the IDE and create a proje
 
 ## Components
 
+- [Aspect ratios](aspect-ratio.md): free or proportional sizing for Panel, Group and HTML
+- [HTML](html.md): embed HTML markup and CSS in an isolated document
 - [Icons](icons.md), [Menu](menu.md), [Timer](timer.md), and [Toggle](toggle.md)
 - [Group](group.md), [Repeating Group](repeating-group.md), and
   [ProgressBar](progress-bar.md)

@@ -115,12 +115,14 @@ export function MenuConfigurationDialog({
   assets,
   onSave,
   onClose,
+  sharedUsage,
 }: {
   readonly component: ComponentNode;
   readonly pages: readonly PageModel[];
   readonly assets: readonly ProjectAsset[];
   readonly onSave: (configuration: WebMenuConfiguration) => void;
   readonly onClose: () => void;
+  readonly sharedUsage?: number;
 }): ReactElement {
   const { mode } = useContext(ProjectThemeContext);
   const titleId = useId();
@@ -252,6 +254,7 @@ export function MenuConfigurationDialog({
           <div>
             <span className="wr-modal-eyebrow">Menu / {component.name}</span>
             <h2 id={titleId}>Configure Menu</h2>
+            {sharedUsage !== undefined && <p>Shared definition · {sharedUsage} placement{sharedUsage === 1 ? '' : 's'}. Saved changes apply to every placement.</p>}
           </div>
           <button
             type="button"

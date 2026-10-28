@@ -5,6 +5,8 @@ import path from 'node:path';
 import type { ComponentRegistry } from '@webrad/component-registry';
 import {
   pageClassName,
+  resolveMenuDocument,
+  menuSourcePath,
   projectThemeRuntimeConfiguration,
   type PageModel,
   type WebRadProject,
@@ -18,6 +20,8 @@ import {
   generateEnvironmentTypings,
   generatePageSource,
   generateReusableElementSource,
+  createUserMenuSource,
+  generateMenuSource,
 } from '@webrad/language';
 
 import runtimeSources from './runtime-sources.json';
@@ -157,11 +161,12 @@ function runtimePageModel(
   styles: WebRadProject['styles'],
   registry: ComponentRegistry,
   reusableElements: WebRadProject['reusableElements'],
+  menus: WebRadProject['menus'],
 ) {
   return {
-    ...runtimeDocumentModel(page, styles, registry),
+    ...runtimeDocumentModel(resolveMenuDocument(page, menus), styles, registry),
     reusableElements: reusableElements.map((reusableElement) =>
-      runtimeDocumentModel(reusableElement, styles, registry),
+      runtimeDocumentModel(resolveMenuDocument(reusableElement, menus), styles, registry),
     ),
   };
 }
@@ -196,7 +201,7 @@ function createEntrySource(
   const routes = project.pages
     .map((page, index) => {
       const model = JSON.stringify(
-        runtimePageModel(page, project.styles, registry, project.reusableElements),
+        runtimePageModel(page, project.styles, registry, project.reusableElements, project.menus),
       );
       return `  {
     id: ${JSON.stringify(page.id)},
@@ -205,6 +210,7 @@ function createEntrySource(
     model: ${model} as unknown as RuntimePageModel,
     createPage: (element: HTMLElement) => new WebRadPage${String(index)}(element),
     createReusableElements,
+    menuFactories,
   }`;
     })
     .join(',\n');
@@ -236,9 +242,11 @@ import type {
   RuntimePageRoute,
   WebComponent,
   WebReusableElementInstance,
+  RuntimeMenuFactory,
 } from '@webrad/runtime';
 ${pageImports}
 ${reusableImports}
+${(project.menus ?? []).map((menu, index) => `import { ${pageClassName(menu.name)} as WebRadMenu${String(index)} } from './menus/${menu.name}';`).join('\n')}
 import './app.css';
 ${componentTypes.has('WebVideoPlayer') ? "import 'shaka-player/dist/controls.css';" : ''}
 
@@ -251,6 +259,10 @@ type ReusableElementFactory = (
 
 const reusableElementFactories: ReadonlyMap<string, ReusableElementFactory> = new Map<string, ReusableElementFactory>([
 ${reusableFactories}
+]);
+
+const menuFactories: ReadonlyMap<string, RuntimeMenuFactory> = new Map<string, RuntimeMenuFactory>([
+${(project.menus ?? []).map((menu, index) => `  [${JSON.stringify(menu.id)}, (element: HTMLElement) => new WebRadMenu${String(index)}(element)],`).join('\n')}
 ]);
 
 ${
@@ -380,7 +392,7 @@ export function createVirtualSourceGraph(
     if (!sources.has(userPath)) sources.set(userPath, createUserPageSource(page));
     sources.set(
       virtualAbsolutePath(generatedSourcePath(page)),
-      generatePageSource(page, { registry }),
+      generatePageSource(page, { registry, menus: project.menus }),
     );
   }
 
@@ -391,8 +403,14 @@ export function createVirtualSourceGraph(
     }
     sources.set(
       virtualAbsolutePath(reusableGeneratedSourcePath(reusableElement)),
-      generateReusableElementSource(reusableElement, { registry }),
+      generateReusableElementSource(reusableElement, { registry, menus: project.menus }),
     );
+  }
+
+  for (const menu of project.menus ?? []) {
+    const userPath = virtualAbsolutePath(menuSourcePath(menu));
+    if (!sources.has(userPath)) sources.set(userPath, createUserMenuSource(menu));
+    sources.set(virtualAbsolutePath(`menus/${menu.name}.generated.ts`), generateMenuSource(menu));
   }
 
   const entryPath = virtualAbsolutePath('entry.ts');
@@ -422,6 +440,7 @@ export function createVirtualSourceGraph(
   );
   sources.set(virtualAbsolutePath('styles.d.ts'), `declare module '*.css';\n`);
   const componentScopes = new Map([
+    ...(project.menus ?? []).map((menu) => [virtualAbsolutePath(menuSourcePath(menu)), componentReferenceScope(menu)] as const),
     ...project.pages.map(
       (page) => [virtualAbsolutePath(pageSourcePath(page)), componentReferenceScope(page)] as const,
     ),

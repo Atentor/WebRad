@@ -51,6 +51,7 @@ const KEY_ORDER = new Map<string, number>(
     'entryPage',
     'pages',
     'reusableElements',
+    'menus',
     'styles',
     'settings',
     'pageFile',

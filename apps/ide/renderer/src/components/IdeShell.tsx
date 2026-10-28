@@ -17,7 +17,6 @@ interface IdeShellProps {
   inspector: ReactNode;
   bottom: ReactNode;
   bottomMinimumHeight?: number;
-  status: ReactNode;
 }
 
 type ResizeTarget = 'left' | 'right' | 'bottom';
@@ -35,12 +34,10 @@ export function IdeShell({
   toolbar,
   explorer,
   palette,
-
   editor,
   inspector,
   bottom,
   bottomMinimumHeight = 96,
-  status,
 }: IdeShellProps): ReactElement {
   const [leftWidth, setLeftWidth] = useState(250);
   const [rightWidth, setRightWidth] = useState(360);
@@ -208,7 +205,6 @@ export function IdeShell({
           </>
         )}
       </div>
-      {status}
     </div>
   );
 }

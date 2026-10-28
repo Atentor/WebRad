@@ -35,7 +35,13 @@ export function PreviewPane({ url, running, diagnostics }: PreviewPaneProps): Re
   // sandbox remains enabled for the entire renderer window.
   return (
     <div className="wr-preview-pane">
-      <iframe title="WebRAD application preview" referrerPolicy="no-referrer" src={url} />
+      <iframe
+        title="WebRAD application preview"
+        referrerPolicy="no-referrer"
+        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+        allowFullScreen
+        src={url}
+      />
     </div>
   );
 }

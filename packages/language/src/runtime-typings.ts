@@ -1,4 +1,5 @@
 import timerTypings from './timer-typings.generated.json';
+import htmlTypings from './html-typings.generated.json';
 import themeTypings from './theme-typings.generated.json';
 import menuTypings from './menu-typings.generated.json';
 import reportBuilderTypings from './report-builder-typings.generated.json';
@@ -26,6 +27,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     set onClick(handler: WebComponentEventHandler<this> | null);
   }
 ${timerTypings.source}
+${htmlTypings.source}
 ${themeTypings.source}
 ${menuTypings.source}
 ${reportBuilderTypings.source}
@@ -188,6 +190,7 @@ ${repeatingGroupTypings.source}
   export const PANEL_BACKGROUND_POSITIONS: readonly ['center', 'top', 'bottom', 'left', 'right', 'left top', 'right top', 'left bottom', 'right bottom'];
   export const PANEL_BACKGROUND_REPEATS: readonly ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'];
   export class WebPanel extends WebComponent<HTMLElement> {
+    aspectRatio: WebAspectRatio;
     floatingAlignment: WebPanelFloatingAlignment;
     placement: 'in-flow' | 'floating';
     floatingHorizontalAnchor: 'left' | 'center' | 'right';
@@ -333,8 +336,12 @@ ${repeatingGroupTypings.source}
   ): RuntimeLayoutProjection;
   export function setRuntimeLayoutAspectRatio(
     element: HTMLElement,
-    ratio: 'none' | '16:9' | '9:16',
+    ratio: WebAspectRatio,
   ): void;
+  export const WEB_ASPECT_RATIOS: readonly ['none', '1:1', '4:3', '3:4', '16:9', '9:16'];
+  export type WebAspectRatio = (typeof WEB_ASPECT_RATIOS)[number];
+  export function normalizeWebAspectRatio(value: unknown): WebAspectRatio;
+  export function getRuntimeLayoutAspectRatio(element: HTMLElement): WebAspectRatio;
   export type RuntimeLayoutNodeProjector = (node: RuntimeLayoutNode) => RuntimeLayoutNode;
   export function setRuntimeLayoutProjection(
     element: HTMLElement,
@@ -670,7 +677,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     register<T extends WebComponent>(type: string, adapter: RuntimeComponentAdapter<T>): this;
     has(type: string): boolean;
     require(type: string): RuntimeComponentAdapter;
-    create(document: Document, node: RuntimeComponentNode): WebComponent;
+    create(document: Document, node: RuntimeComponentNode, menuFactories?: ReadonlyMap<string, RuntimeMenuFactory>): WebComponent;
   }
 
   export const runtimeComponentRegistry: RuntimeComponentRegistry;
@@ -695,7 +702,10 @@ ${WEB_BUTTON_ICON_TYPINGS};
   export interface MountPageOptions {
     readonly replaceHostContents?: boolean;
     readonly registry?: RuntimeComponentRegistry;
+    readonly menuFactories?: ReadonlyMap<string, RuntimeMenuFactory>;
   }
+
+  export type RuntimeMenuFactory = (element: HTMLElement) => WebMenu;
 
   export function mountPage(
     model: RuntimePageModel,
@@ -719,6 +729,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly path?: string;
     readonly createPage: RuntimePageFactory;
     readonly createReusableElements?: RuntimeReusableElementFactory;
+    readonly menuFactories?: ReadonlyMap<string, RuntimeMenuFactory>;
   }
 
   /** Mounts one authored project page at a time and resolves IDs or page names. */

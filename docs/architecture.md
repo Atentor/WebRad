@@ -60,6 +60,18 @@ project model -> generated source -> esbuild -> browser-only output
 
 ## Package boundaries
 
+Native shared Menu definitions are Project Model documents in `menus`, separate
+from reusable visual compositions. A definition has a WebMenu root; placements
+reference it by stable ID. Designer and compiler projections resolve its shared
+configuration/style without persisting copies on placements. Each definition
+generates a WebMenu subclass plus a separate authored class. Route-scoped runtime
+factories construct each physical Menu and initialize it from the saved model
+before authored constructor logic runs. Generated page/reusable code retrieves
+that concrete instance, preserving custom member types and per-placement state.
+Shared event bindings run before containing-document bindings on the same
+cancelable event; lifecycle disposal releases both. Existing reusable Menu
+compositions retain their original classes and expansion contract.
+
 The IDE invokes the public compiler API through an owned Electron utility process
 and typed message ports. Preview, Debug, Deploy, Native frontend compilation and
 live styles run there in sequence, retaining only the compiler's existing bounded
@@ -125,6 +137,16 @@ The main process configures `WEBRAD_TAILWIND_BASE_PATH` to the repository root i
 
 ## Security boundary
 
+The registered [HTML component](html.md) renders authored markup in an opaque-origin
+`srcdoc` iframe with an empty sandbox. A standalone cross-origin HTTPS iframe
+instead becomes the component's direct browser frame, preserving the remote
+origin and referrer needed by embedded players. Only these external documents
+receive sandbox script, same-origin and presentation tokens; inline markup stays
+script-disabled. Designer and Preview CSP allow HTTPS frames; Preview delegates
+media permissions through its outer iframe. The Designer keeps HTML frames inert
+for canvas gestures. IPC still accepts only the trusted IDE main frame at its
+exact renderer URL.
+
 The RestGo activity opens a project-scoped administration workspace with connection settings, endpoint editing and a published API catalog. The RestGo workspace exclusively edits runtime connection settings in `ProjectSettings.restGo`; the administrative credential is separate main-process state and optional OS-encrypted local profile data. The `restgoAdmin` preload capability accepts only typed catalog, endpoint and publication actions, validates every input with strict schemas and reuses the trusted IDE main-frame check. It builds fixed RestGo management routes, limits response size, applies request timeouts and refuses redirects. Catalog projection excludes database passwords. Preview and generated applications have no access to this capability or credential.
 
 `@webrad/designer` imports published API descriptors into the existing versioned API Client configuration. Component creation and configuration use registry metadata and Designer commands, retaining undo/history, stable IDs and instance typing. The additive `restgo-api-token` and `restgo-public` connection values share the fixed URL/path validation of `restgo-session`. Their browser runtime uses only the application token or anonymous access respectively; session mode retains its JWT-only behavior. Generated runtime sources and Monaco declarations mirror these browser APIs. Server endpoint/publication changes are immediate remote mutations, distinct from the project's local command history.
@@ -158,7 +180,7 @@ require the native menu to be absent in Preview and restored after Stop.
 
 The IDE workspace has a compact top toolbar, an activity rail, a Builder/Responsive sidebar, a central canvas, and a full-height Inspector. The toolbar shows the active document, save state, diagnostic counts, and project, history, build, debug, and Preview actions. Design and Code controls switch the authoring view. Activity buttons open Project Explorer, Styles, Project Settings, RestGo, and Output. Output starts collapsed and opens for diagnostics; its dock remains below the compact nonvisual tray in the editor column. Removed Zoom/Arrange toolbar controls are not part of the current workspace contract.
 
-Preview, F9, and View > Preview all save and compile the current application into an exclusive workspace. The generated application fills the window below a 42px Preview bar containing the project name and a visible red **Stop** button. The authoring shell stays mounted at its original dimensions to retain Monaco view state, Designer geometry, selection, document, workspace, and panel sizes, but is invisible, inert, and hidden from accessibility navigation. Native IDE commands and F12 cannot return to editing while Preview is active. Stop removes the iframe and restores the authoring workspace and prior focus; it also works during compilation, and a late result cannot reopen Preview. An already running compilation finishes in the background before another Preview build can start. Build errors appear in Preview, with full Problems available after Stop. Preview state is ephemeral and does not change the persisted Project Model. The separate debugging workflow remains unchanged.
+Preview, F9, and View > Preview all save and compile the current application into an exclusive workspace. The generated application fills the window below a 42px Preview bar containing the project name and a visible red **Stop** button. The bar also offers **Desktop** (available width), **Tablet** (768 px), and **Mobile** (390 px), using the Designer's shared viewport widths. Switching presets resizes the existing iframe so the application's media queries and resize observers respond without recompilation, navigation, or loss of form state. Tablet and Mobile are centered when space permits; narrower windows scroll horizontally to preserve the selected CSS width. The controls collapse to labeled icons in narrow windows. This width selection is independent of the Designer preset, defaults to Desktop for each Preview session, and does not emulate a device's user agent or touch input. The authoring shell stays mounted at its original dimensions to retain Monaco view state, Designer geometry, selection, document, workspace, and panel sizes, but is invisible, inert, and hidden from accessibility navigation. Native IDE commands and F12 cannot return to editing while Preview is active. Stop removes the iframe and restores the authoring workspace and prior focus; it also works during compilation, and a late result cannot reopen Preview. An already running compilation finishes in the background before another Preview build can start. Build errors appear in Preview, with full Problems available after Stop. Preview state is ephemeral and does not change the persisted Project Model. The separate debugging workflow remains unchanged.
 
 Preview preparation tracks its project ID and root while saving. A clean revision produced by pruning empty handlers in that same Save is accepted as part of the run; the build captures its revision after Save completes. Revision invalidation reads the current Project Controller snapshot so a delayed React effect cannot discard that accepted revision. Authored edits, project replacement and Stop still invalidate the pending Preview, and later build results cannot reopen it.
 

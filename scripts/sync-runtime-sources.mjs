@@ -115,6 +115,16 @@ const timerTypings =
     2,
   ) + '\n';
 
+const htmlTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'html-typings.generated.json',
+);
+const htmlTypings =
+  JSON.stringify(createApiClientDeclarations(repositoryRoot, ['html.ts']), null, 2) + '\n';
+
 const sourceFiles = [
   'menu.ts',
   'menu-events.ts',
@@ -146,6 +156,7 @@ const sourceFiles = [
   'controls.ts',
   'progress-bar.ts',
   'icon.ts',
+  'html.ts',
   'lucide-icons.generated.ts',
   'panel-progress.ts',
   'page.ts',
@@ -405,6 +416,7 @@ const outputs = [
     ) + '\n',
   ],
   [timerTypingsPath, timerTypings],
+  [htmlTypingsPath, htmlTypings],
   [videoTypingsPath, videoTypings],
   [outputPath, expected],
   [apiClientTypingsPath, apiClientTypings],

@@ -11,7 +11,7 @@
 }
 
 .wr-ide-shell {
-  grid-template-rows: 42px minmax(0, 1fr) 22px;
+  grid-template-rows: 42px minmax(0, 1fr);
 }
 
 .wr-toolbar {
@@ -1009,6 +1009,12 @@
   resize: vertical;
 }
 
+.wr-object-inspector textarea.wr-inspector-multiline {
+  font-family: var(--wr-font-mono);
+  line-height: 1.5;
+  tab-size: 2;
+}
+
 .wr-object-inspector .wr-inspector-action {
   height: auto;
   min-height: 24px;
@@ -1076,10 +1082,6 @@
   font-size: 11px;
   letter-spacing: 0;
   text-transform: none;
-}
-
-.wr-status-bar {
-  font-size: 11px;
 }
 
 @media (max-width: 1150px) {

@@ -97,7 +97,7 @@ export function selectProjectAssets(
       for (const [property, entry] of Object.entries(value)) collectValue(entry, property);
     }
   };
-  for (const document of [...project.pages, ...project.reusableElements]) {
+  for (const document of [...project.pages, ...project.reusableElements, ...(project.menus ?? [])]) {
     for (const component of document.components) collectValue(component.props);
   }
   for (const style of project.styles) collectValue(style);

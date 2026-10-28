@@ -15,8 +15,6 @@
   --wr-panel-alt: #2d2d2d;
   --wr-toolbar-bg: #333333;
   --wr-activity-bg: #333333;
-  --wr-status-bg: #252526;
-  --wr-status-border: #333333;
   --wr-surface: #2d2d2d;
   --wr-surface-hover: #37373d;
   --wr-input-bg: #3c3c3c;
@@ -44,8 +42,6 @@
   --wr-panel-alt: #f1f3f7;
   --wr-toolbar-bg: #f9fafc;
   --wr-activity-bg: #f9fafc;
-  --wr-status-bg: color-mix(in srgb, var(--wr-panel-bg) 88%, var(--wr-accent));
-  --wr-status-border: color-mix(in srgb, var(--wr-accent) 60%, var(--wr-border));
   --wr-surface: #ffffff;
   --wr-surface-hover: #e9eef5;
   --wr-input-bg: #ffffff;

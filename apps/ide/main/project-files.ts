@@ -4,6 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   assertValidProjectName,
+  menuSourcePath,
   projectSourceFilePath,
   projectAssetPath,
   assembleProject,
@@ -26,6 +27,8 @@ import {
   renamePageUserSource,
   generatePageSource,
   generateReusableElementSource,
+  generateMenuSource,
+  createUserMenuSource,
 } from '@webrad/language';
 import type { ProjectSession, SaveProjectRequest } from '../shared/contracts';
 
@@ -160,6 +163,7 @@ function descriptorPaths(manifest: ProjectManifest): readonly string[] {
       reusableGeneratedSourcePathFor(reusableElement),
       reusableSourcePathFor(reusableElement),
     ]),
+    ...(manifest.menus ?? []).flatMap((menu) => [menuSourcePath(menu), `menus/${menu.name}.generated.ts`]),
   ];
 }
 
@@ -197,7 +201,7 @@ async function withRootOperation<T>(rootPath: string, operation: () => Promise<T
 }
 
 type ArtifactKind =
-  'source' | 'asset' | 'page' | 'generated' | 'code' | 'reusable-generated' | 'reusable-code';
+  'source' | 'asset' | 'page' | 'generated' | 'code' | 'reusable-generated' | 'reusable-code' | 'menu-generated' | 'menu-code';
 
 interface OwnedArtifact {
   readonly projectId: string;
@@ -226,6 +230,10 @@ const PENDING_CLEANUP_PATH = '.webrad/pending-cleanup.json';
 
 function manifestArtifacts(manifest: ProjectManifest): readonly OwnedArtifact[] {
   return [
+    ...(manifest.menus ?? []).flatMap((menu) => [
+      { projectId: manifest.id, pageId: menu.id, kind: 'menu-generated' as const, relativePath: `menus/${menu.name}.generated.ts` },
+      { projectId: manifest.id, pageId: menu.id, kind: 'menu-code' as const, relativePath: menuSourcePath(menu) },
+    ]),
     ...(manifest.sourceFiles ?? []).map((file) => ({
       projectId: manifest.id,
       pageId: file.id,
@@ -326,6 +334,7 @@ function reusableGeneratedSourcePathFor(reusableElement: ReusableElementModel): 
 
 export function defaultUserSources(project: WebRadProject): Record<string, string> {
   return Object.fromEntries([
+    ...(project.menus ?? []).map((menu) => [menuSourcePath(menu), createUserMenuSource(menu)]),
     ...(project.sourceFiles ?? []).map((file) => [
       projectSourceFilePath(file),
       createUserProjectSource(file),
@@ -516,7 +525,7 @@ async function saveProjectFilesUnlocked(
       kind: 'generated',
       relativePath: descriptor.generatedFile,
       targetPath: await resolveInsideProjectSecure(rootPath, descriptor.generatedFile),
-      content: generatePageSource(page),
+      content: generatePageSource(page, { menus: project.menus }),
     });
     const sourceKey = descriptor.codeFile.replaceAll('\\', '/');
     const userFilePath = await resolveInsideProjectSecure(rootPath, descriptor.codeFile);
@@ -583,7 +592,7 @@ async function saveProjectFilesUnlocked(
       kind: 'reusable-generated',
       relativePath: generatedPath,
       targetPath: await resolveInsideProjectSecure(rootPath, generatedPath),
-      content: generateReusableElementSource(reusableElement),
+      content: generateReusableElementSource(reusableElement, { menus: project.menus }),
     });
     const sourceKey = reusableSourcePathFor(reusableElement);
     let userSource = request.userSources[sourceKey];
@@ -615,6 +624,28 @@ async function saveProjectFilesUnlocked(
       targetPath: await resolveInsideProjectSecure(rootPath, sourceKey),
       content: userSource,
     });
+  }
+
+  for (const menu of project.menus ?? []) {
+    const sourceKey = menuSourcePath(menu);
+    let userSource = request.userSources[sourceKey];
+    if (userSource === undefined) {
+      const previous = previousArtifacts.find((artifact) => artifact.pageId === menu.id && artifact.kind === 'menu-code');
+      if (previous) {
+        try { userSource = await fs.readFile(await resolveInsideProjectSecure(rootPath, previous.relativePath), 'utf8'); }
+        catch (error) {
+          if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+        }
+      }
+    }
+    userSource ??= createUserMenuSource(menu);
+    resolvedUserSources[sourceKey] = userSource;
+    for (const entry of [
+      { kind: 'menu-code' as const, relativePath: sourceKey, content: userSource },
+      { kind: 'menu-generated' as const, relativePath: `menus/${menu.name}.generated.ts`, content: generateMenuSource(menu) },
+    ]) {
+      writes.push({ projectId: manifest.id, pageId: menu.id, ...entry, targetPath: await resolveInsideProjectSecure(rootPath, entry.relativePath) });
+    }
   }
 
   for (const file of project.sourceFiles ?? []) {
@@ -718,6 +749,14 @@ async function loadProjectFilesUnlocked(projectFilePath: string): Promise<Projec
         'utf8',
       );
     } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+    }
+  }
+
+  for (const menu of manifest.menus ?? []) {
+    const sourceKey = menuSourcePath(menu);
+    try { userSources[sourceKey] = await fs.readFile(await resolveInsideProjectSecure(rootPath, sourceKey), 'utf8'); }
+    catch (error) {
       if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
     }
   }

@@ -71,7 +71,7 @@ interface CodeEditorProps {
   readonly onBreakpointsMoved?: (breakpoints: readonly DebugBreakpoint[]) => void;
   readonly onSourceChange: (resource: string, value: string) => void;
   readonly onMarkersChange: (markers: readonly monacoApi.editor.IMarker[]) => void;
-  readonly onCursorChange: (status: EditorCursorStatus) => void;
+  readonly onCursorChange?: (status: EditorCursorStatus) => void;
   readonly onSave: () => void;
 }
 
@@ -603,11 +603,18 @@ export function CodeEditor({
     if (position === null) return;
     const selection = editor.getSelection();
     const model = editor.getModel();
-    onCursorChangeRef.current({
+    const selectionLength =
+      selection === null || model === null ? 0 : model.getValueLengthInRange(selection);
+    const domNode = editor.getDomNode();
+    if (domNode !== null) {
+      domNode.dataset.cursorPosition =
+        `Line ${String(position.lineNumber)}, column ${String(position.column)}`;
+      domNode.dataset.selectionLength = String(selectionLength);
+    }
+    onCursorChangeRef.current?.({
       line: position.lineNumber,
       column: position.column,
-      selectionLength:
-        selection === null || model === null ? 0 : model.getValueLengthInRange(selection),
+      selectionLength,
     });
   }, []);
 

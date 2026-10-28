@@ -27,10 +27,56 @@ export interface WebMenuOptions {
 
 const scrollLocks = new WeakMap<Document, { count: number; overflow: string }>();
 const menuInstances = new WeakMap<HTMLElement, WebMenu>();
+const menuInitializers = new WeakMap<HTMLElement, (menu: WebMenu) => void>();
 let menuSequence = 0;
 
 /** Responsive navigation with per-instance state, disclosure submenus and a modal mobile drawer. */
 export class WebMenu extends WebComponent<HTMLElement> {
+  readonly #definitionHandlers = new Map<string, () => void>();
+
+  /** Apply the saved placement before the authored subclass constructor runs. */
+  public static createDefinition(
+    element: HTMLElement,
+    factory: (element: HTMLElement) => WebMenu,
+    initialize: (menu: WebMenu) => void,
+  ): WebMenu {
+    menuInitializers.set(element, initialize);
+    try {
+      return factory(element);
+    } catch (error) {
+      menuInstances.get(element)?.dispose();
+      throw error;
+    } finally {
+      menuInitializers.delete(element);
+    }
+  }
+
+  /** Resolve the concrete authored Menu already mounted for this element. */
+  public static fromElement<T extends WebMenu>(
+    element: HTMLElement,
+    menuClass: new (element: HTMLElement) => T,
+  ): T {
+    const menu = menuInstances.get(element);
+    if (!(menu instanceof menuClass)) throw new Error('The mounted Menu does not match its definition.');
+    return menu;
+  }
+
+  /** Shared handlers precede the containing page's ordinary event bindings. */
+  protected bindDefinitionEvent(eventName: string, handlerName: string): void {
+    const browserEventName = runtimeEventName(eventName);
+    this.#definitionHandlers.get(browserEventName)?.();
+    const listener: EventListener = (event) => {
+      const handler: unknown = Reflect.get(this, handlerName);
+      if (typeof handler === 'function') Reflect.apply(handler, this, [this, event]);
+    };
+    // At-target capture precedes the page's ordinary listener while preserving
+    // the real event target and synchronous preventDefault semantics.
+    this.element.addEventListener(browserEventName, listener, { capture: true });
+    this.#definitionHandlers.set(browserEventName, () =>
+      this.element.removeEventListener(browserEventName, listener, { capture: true }),
+    );
+  }
+
   public override emit(eventName: string, detail?: unknown): boolean {
     const event = new CustomEvent(runtimeEventName(eventName), { cancelable: true, detail });
     this.element.dispatchEvent(event);
@@ -387,6 +433,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
       );
     }
     this.configuration = this.#configuration;
+    menuInitializers.get(element)?.(this);
     queueMicrotask(() => {
       if (!this.#disposed && this.element.isConnected) this.#render();
     });
@@ -634,6 +681,8 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (this.#disposed) return;
     this.close();
     this.#disposed = true;
+    for (const dispose of this.#definitionHandlers.values()) dispose();
+    this.#definitionHandlers.clear();
     this.#themeObserver?.disconnect();
     menuInstances.delete(this.element);
     this.element.removeEventListener('click', this.#onClick);

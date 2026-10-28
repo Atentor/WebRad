@@ -20,4 +20,5 @@ export * from './video-player.js';
 
 export * from './report-builder.js';
 export * from './menu.js';
+export * from './menu-definitions.js';
 export * from './theme-presets.js';

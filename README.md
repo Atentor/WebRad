@@ -35,8 +35,10 @@ application replacement. See [releases and updates](docs/releases.md).
 3. Open **Interaction** and double-click an event to edit its typed handler in
    Monaco. Use **Design**, **Code**, or **F12** to switch views.
 4. Save with **Ctrl+S** (**Cmd+S** on macOS) and press **F9** to run Preview. Preview
-   occupies the workspace and shows the page path, such as `/index`. Use **Stop**
-   to return to authoring. Diagnostics appear in **Output / Problems**.
+   occupies the workspace and shows the page path, such as `/index`. Switch between
+   **Desktop** (available width), **Tablet** (768 px), and **Mobile** (390 px) in the
+   Preview bar to inspect responsive layouts without restarting the application.
+   Use **Stop** to return to authoring. Diagnostics appear in **Output / Problems**.
 5. Configure **Build and publishing** and **PWA and metadata** in **Project
    Settings**. Set **Output Directory** under **Native Application → Build**.
 6. Open **Project → Build Application…** and select **Web/PWA**. Exported files

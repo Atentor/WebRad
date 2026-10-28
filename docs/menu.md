@@ -8,10 +8,28 @@ Open drawers and flyouts inherit live theme changes without rebuilding their
 navigation state. See [Application themes](themes.md).
 
 **Navigation > Menu** provides vertical or horizontal navigation, branding,
-profile photos, Lucide icons and nested items. **Project > Add Reusable Component
+profile photos, Lucide icons and nested items. Drag Menu from the component
+palette, select it and click the canvas, or double-click it to insert. The first
+insertion creates a shared `MainMenu` definition automatically; subsequent
+insertions use the first definition in the project's **Menus** collection.
+Creating a reusable component is unnecessary.
 
-> Responsive menu** creates a shared definition with its own TypeScript class.
-> Instances keep separate selection, expanded state, events and profile state.
+**Add reusable component** creates a blank visual composition. The obsolete
+**Responsive menu** option is no longer offered; with only one available
+template, the dialog omits the Template selector. Existing reusable Menus remain
+supported.
+
+The Inspector's **Menu definition** selector chooses a different definition.
+**New menu…** creates and links an independent definition; **Duplicate menu**
+copies the selected definition and its authored TypeScript, then links the
+placement to the copy. Changing a definition is undoable and preserves the
+placement ID and page event bindings.
+
+The Project Explorer's **Menus** folder opens each definition for Design,
+Interaction and Code. Its toolbar supports adding, duplicating and deleting
+definitions; F2 renames them. A definition cannot be deleted while a page or
+reusable component still references it. Existing standalone Menus and authored
+reusable Menu compositions remain supported without automatic conversion.
 
 ## Automatic placement
 
@@ -55,7 +73,12 @@ runtime share the layout policy and selection geometry.
 ## Configuration
 
 Open **Menu configuration > Configure Menu** or double-click the Menu. Opening
-configuration from a reusable placement edits the shared Menu definition.
+configuration from a shared placement edits its Menu definition. The dialog
+identifies the definition and its placement count. Items, appearance, behavior
+and the selected component style are shared; margins, position, size, visibility
+and enabled state belong to each placement. Open **Edit shared menu** to author
+the definition's interactions, or open it through the Explorer. Shared edits
+have their undo history in the definition document.
 
 - **Items**: stable IDs, icons, descriptions, badges, destinations, visibility,
   disabled state, ordering and nested levels.
@@ -90,10 +113,34 @@ the selected destination exposes aria-current="page".
 
 ## Reuse and TypeScript
 
-The template provides setUser, setItems and selectItem in reusables/Name.ts.
-Existing authored sources are never overwritten. Menu1.member and
-this.Menu1.member provide typed completion and diagnostics; internal references
-are scoped to each placement.
+Each native definition owns `menus/Name.ts` and a separate
+`menus/Name.generated.ts`. Its authored class extends the generated class, which
+extends `WebMenu`: `this` is the Menu itself. Bind shared events on the root in
+Interaction. Custom fields, methods and subscriptions belong to each physical
+placement, and the saved configuration is applied before the authored
+constructor runs. Override `dispose()` and call `super.dispose()` to release
+custom subscriptions.
+
+Page and reusable declarations expose the concrete authored Menu class,
+including its custom public methods. `Menu1.member` and `this.Menu1.member`
+provide completion, hover, signatures and diagnostics through the ordinary
+instance-scoped language contract. Compilation retrieves the existing mounted
+instance rather than constructing another Menu wrapper. Renaming and duplicating
+definitions use TypeScript AST edits for the authored class and generated import;
+existing authored files remain separate from regenerated files.
+
+Every Menu event runs its shared handler first, followed by the handler on the
+containing page or reusable scope. Both receive the same cancelable event. The
+page handler still runs after shared cancellation and sees
+`event.defaultPrevented`. Either handler can synchronously cancel automatic
+selection/navigation. Asynchronous continuations are not awaited. Runtime
+changes to selection, search, expansion, collapse, items or profile affect only
+that physical instance.
+
+Legacy reusable Menu templates keep their `reusables/Name.ts` class, helper
+methods and internal child references. They are not rewritten into native
+definitions because authored constructors and references may depend on that
+composition.
 
 WebMenu and its configuration/item/event types are exported by @webrad/runtime.
 Properties include configuration, items, brand, user, appearance, orientation,
@@ -146,8 +193,18 @@ Collapse/expand, mobile drawers, theme changes and horizontal flyouts preserve
 these dimensions. Existing smoke interactions assert the actual rendered SVG
 geometry across these states; execution requires a validation request.
 
-Project format remains version 2; configuration keeps schemaVersion: 1. Project
-loading normalizes Menus and single-Menu compositions to automatic layout,
+Project format remains version 2; configuration keeps schemaVersion: 1. Native
+definitions are stored once in the manifest's additive `menus` array, whose
+documents have exactly one `WebMenu` root. Placements store only
+`props.menuDefinitionId`, layout and their own event bindings. Designer and the
+compiler resolve configuration and style from that stable reference; the saved
+placement does not contain a configuration copy. Shared orientation and collapse
+are projected without rewriting placement geometry or resetting page history.
+Missing definitions, conflicting
+document identities, invalid styles, invalid theme colors and unknown destination
+pages fail model validation. Older projects load with an empty collection.
+
+Project loading normalizes Menus and single-Menu compositions to automatic layout,
 preserving IDs, content, images, styles and authored TypeScript. Legacy responsive
 settings are replaced. mobileBreakpoint/drawerWidth remain accepted legacy
 fields but normalize to managed defaults; effective drawer size is computed at
@@ -160,7 +217,10 @@ missing destination pages, invalid icons and executable URL protocols. Registry,
 Designer and runtime projections are browser-safe. runtime:sources regenerates
 embedded runtime files and Monaco declarations.
 
-The existing Menu smoke covers editing, saved state, desktop/mobile canvas,
+The existing Menu smoke covers native palette insertion and drag, shared
+definition persistence and authored TypeScript, typed internal/page handlers and
+independent search/collapse in two compiled placements. It also covers editing,
+saved state, desktop/mobile canvas,
 compiled F9, collapse, drawer focus/Escape and horizontal popover geometry,
 visible hit targets and focus restoration. It also creates a reusable Menu and
 two dragged placements through the IDE, authors internal/page typed handlers,

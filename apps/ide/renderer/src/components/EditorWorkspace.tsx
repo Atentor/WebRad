@@ -8,7 +8,7 @@ export interface DocumentTab {
   id: string;
   label: string;
   dirty: boolean;
-  kind: 'page' | 'reusable' | 'code' | 'styles' | 'restgo';
+  kind: 'page' | 'reusable' | 'menu' | 'code' | 'styles' | 'restgo';
 }
 
 interface EditorWorkspaceProps {

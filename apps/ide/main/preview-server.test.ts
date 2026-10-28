@@ -67,7 +67,7 @@ describe('loopback preview server', () => {
     expect(response.headers['content-security-policy']).toContain(
       'connect-src https: http: data: blob:',
     );
-    expect(response.headers['content-security-policy']).toContain('frame-src blob:');
+    expect(response.headers['content-security-policy']).toContain('frame-src blob: https:');
     expect(response.headers['access-control-allow-origin']).toBeUndefined();
   });
 

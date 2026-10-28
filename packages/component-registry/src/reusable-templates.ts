@@ -8,6 +8,8 @@ export interface ReusableComponentTemplate {
   readonly id: string;
   readonly label: string;
   readonly description: string;
+  /** Internal templates may remain available to project factories without appearing in the IDE. */
+  readonly availableInDialog?: boolean;
   readonly create: (name: string) => ReusableElementModel;
   /** Initial source for a new document only; never applied to an existing file. */
   readonly createSource?: (document: ReusableElementModel) => string;
@@ -23,6 +25,7 @@ export const REUSABLE_COMPONENT_TEMPLATES: readonly ReusableComponentTemplate[] 
   {
     id: 'navigation-menu',
     label: 'Responsive menu',
+    availableInDialog: false,
     description:
       'Sidebar, mobile drawer, nested items and a separate TypeScript class for shared behavior.',
     createSource: (document) => {

@@ -288,7 +288,7 @@ export function selectedComponentTypes(
   return new Set([
     ...(selection.dynamicRegistry
       ? registry.list().map((definition) => definition.type)
-      : [...selection.project.pages, ...selection.project.reusableElements].flatMap((document) =>
+      : [...selection.project.pages, ...selection.project.reusableElements, ...(selection.project.menus ?? [])].flatMap((document) =>
           document.components.map((component) => component.type),
         )),
     ...selection.extraComponentTypes,
@@ -304,6 +304,7 @@ export function selectApplicationSources(
     Object.entries(userSources).map(([name, source]) => [name.replaceAll('\\', '/'), source]),
   );
   const retained = new Set<string>();
+  const retainedMenus = new Set<string>();
   const visited = new Set<string>();
   const pending = project.pages.map((document) => `pages/${document.name}.ts`);
   const extraComponentTypes = new Set<string>();
@@ -317,6 +318,13 @@ export function selectApplicationSources(
   };
   const addPlacements = (document: WebRadProject['pages'][number]): void => {
     for (const component of document.components) {
+      if (component.type === 'WebMenu' && typeof component.props.menuDefinitionId === 'string') {
+        const menu = project.menus?.find((entry) => entry.id === component.props.menuDefinitionId);
+        if (menu && !retainedMenus.has(menu.id)) {
+          retainedMenus.add(menu.id);
+          pending.push(`menus/${menu.name}.ts`);
+        }
+      }
       if (typeof component.props.reusableElementId === 'string')
         addDefinition(component.props.reusableElementId);
     }
@@ -339,6 +347,8 @@ export function selectApplicationSources(
     const name = pending[index];
     if (name === undefined || visited.has(name)) continue;
     visited.add(name);
+    const menu = project.menus?.find((entry) => name === `menus/${entry.name}.ts`);
+    if (menu) retainedMenus.add(menu.id);
     const definition = project.reusableElements.find(
       (candidate) => name === `reusables/${candidate.name}.ts`,
     );
@@ -379,6 +389,10 @@ export function selectApplicationSources(
           dynamicRegistry = true;
           pending.push(...normalizedSources.keys());
           for (const reusable of project.reusableElements) addDefinition(reusable.id);
+          for (const menu of project.menus ?? []) {
+            retainedMenus.add(menu.id);
+            pending.push(`menus/${menu.name}.ts`);
+          }
         }
       }
       if (ts.isIdentifier(node)) {
@@ -397,7 +411,7 @@ export function selectApplicationSources(
     retained.has(definition.id),
   );
   const styleIds = new Set(
-    [...project.pages, ...reusableElements].flatMap((document) =>
+    [...project.pages, ...reusableElements, ...(project.menus ?? []).filter((menu) => retainedMenus.has(menu.id))].flatMap((document) =>
       document.components.flatMap((component) =>
         component.styleId === undefined ? [] : [component.styleId],
       ),
@@ -407,6 +421,7 @@ export function selectApplicationSources(
     project: {
       ...project,
       reusableElements,
+      menus: (project.menus ?? []).filter((menu) => retainedMenus.has(menu.id)),
       styles: dynamicRegistry
         ? project.styles
         : project.styles.filter((style) => styleIds.has(style.id)),

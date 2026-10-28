@@ -1349,6 +1349,8 @@ ${WEB_MENU_CSS}
 .wr-reusable-definition-root { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .wr-reusable-definition-root > .wr-component { position: relative !important; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }
+.wr-webhtml { display: block; min-width: 0; min-height: 0; border: 0; background: transparent; }
+.wr-webhtml[inert], .wr-webhtml[aria-disabled='true'] { pointer-events: none; }
 .wr-webpanel { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
 .wr-webpanel:has(> .wr-panel-progress) { position: relative; overflow: var(--wr-panel-overflow, clip); overflow-clip-margin: border-box calc(var(--wr-panel-progress-thickness, 3) * 0.5px); }
 .wr-panel-progress { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2147483647; overflow: visible; pointer-events: none; }

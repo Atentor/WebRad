@@ -1,5 +1,19 @@
 # Component model
 
+Panel, Group and HTML expose `props.aspectRatio` with `none` (free), `1:1`,
+`4:3`, `3:4`, `16:9` and `9:16`. The shared layout projection derives height
+from width while retaining saved height rules for restoration. Typed runtime
+instances expose `aspectRatio: WebAspectRatio`. See [Aspect ratios](aspect-ratio.md).
+
+`WebHtml` stores authored HTML in `props.html` and its accessible frame name in
+`props.title`. Registry string properties can declare `multiline: true` to use
+the Inspector's lossless multiline editor without introducing a new saved value
+type. Designer and browser runtime share the concrete typed `WebHtml` class
+and **OnLoad** event. Ordinary markup uses a script-disabled `srcdoc`; a
+standalone cross-origin HTTPS iframe is projected directly with media permissions
+and an origin-preserving referrer policy for external players. See
+[HTML](html.md) for rendering, style, asset and runtime contracts.
+
 Menus use a Registry-declared automatic layout policy and a reduced Inspector.
 Their standalone and single-Menu reusable placements are always floating, docked
 to the chosen horizontal/vertical sides, with configurable size constraints.
@@ -23,9 +37,12 @@ root style in the Inspector.
 
 `WebMenu` is a registered visual navigation component with a transactional
 tree/appearance/profile/mobile editor and a typed browser runtime. Its saved
-`configuration` is shared by Designer, Preview and export. Reusable project
-templates compose registered components and supply initial TypeScript source for
-a new definition, preserving existing authored files. See [Menu](menu.md).
+`configuration` is shared by Designer, Preview and export. Palette insertion
+creates or reuses a project Menu definition automatically. A placement references
+that definition by stable ID and exposes its concrete authored WebMenu subclass
+in page/reusable code. Definitions own their configuration, style and TypeScript;
+each physical placement owns its runtime state and page events. Legacy standalone
+Menus and authored reusable compositions remain supported. See [Menu](menu.md).
 
 `WebTextArea` exposes **Behavior → Spell Check** in the Inspector (`props.spellCheck`, boolean, default `true`). Disabling it sets the native textarea's `spellcheck` to `false` in Designer and generated browser applications, suppressing the browser's spelling marks. Existing projects that omit the property retain spell checking. The public runtime property `TextArea1.spellCheck` (also `this.TextArea1.spellCheck`) reads or updates the setting as a boolean; for example, `this.TextArea1.spellCheck = false;`. Runtime assignments are transient and do not change the saved Project Model.
 

@@ -24,6 +24,7 @@ export function DocumentTabs(props: DocumentTabsProps): ReactElement {
               name={
                 document.kind === 'code'
                   ? 'file'
+                  : document.kind === 'menu' ? 'menu'
                   : document.kind === 'restgo'
                     ? 'database'
                     : document.kind === 'styles'

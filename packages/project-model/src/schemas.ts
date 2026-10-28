@@ -13,6 +13,7 @@ import {
   validateProjectResourceIds,
 } from './project-resources.js';
 import { z } from 'zod';
+import { validateMenuDefinitions } from './menu-definitions.js';
 import { bindStyleColorsToPalette, paletteColorId } from './color-palette.js';
 import {
   DEFAULT_PROJECT_THEMES,
@@ -673,6 +674,18 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
               message: `Invalid current-row binding: ${issue.message}`,
               path: ['props', 'currentRowBindings', ...issue.path],
             });
+      }
+      if (
+        ['WebPanel', 'WebGroup', 'WebHtml'].includes(component.type) &&
+        component.props.aspectRatio !== undefined &&
+        (typeof component.props.aspectRatio !== 'string' ||
+          !['none', '1:1', '4:3', '3:4', '16:9', '9:16'].includes(component.props.aspectRatio))
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Aspect ratio must be none, 1:1, 4:3, 3:4, 16:9 or 9:16.',
+          path: ['props', 'aspectRatio'],
+        });
       }
       if (component.type === 'WebReportBuilder') {
         const result = ReportBuilderPropertiesSchema.safeParse(component.props);
@@ -1694,7 +1707,7 @@ function validateReusableElementRelationships(
 }
 
 function validateVisualDocumentRelationships(page: PageModel, context: z.RefinementCtx): void {
-  validateDocumentRelationships(page, context, ['WebPage', 'WebPanel']);
+  validateDocumentRelationships(page, context, ['WebPage', 'WebPanel', 'WebMenu']);
 }
 const DocumentModelSchema = z.preprocess(
   materializeLegacyMenuTemplate,
@@ -1717,6 +1730,10 @@ export const PageModelSchema: z.ZodType<PageModel> =
 
 export const ReusableElementModelSchema: z.ZodType<ReusableElementModel> =
   DocumentModelSchema.superRefine(validateReusableElementRelationships);
+
+export const MenuDefinitionModelSchema: z.ZodType<PageModel> = DocumentModelSchema.superRefine(
+  (document, context) => validateDocumentRelationships(document, context, ['WebMenu']),
+);
 
 /**
  * Structural document validation for designer commands before their result is
@@ -1775,6 +1792,7 @@ function validatePaletteReferences(
     readonly styles: readonly ComponentStyleModel[];
     readonly settings: ProjectSettings;
     readonly reusableElements: readonly ReusableElementModel[];
+    readonly menus?: readonly PageModel[];
     readonly pages: readonly unknown[];
   },
   context: z.RefinementCtx,
@@ -1809,8 +1827,8 @@ function validatePaletteReferences(
   });
   walk(project.settings.themes, ['settings', 'themes']);
   walk(project.settings.scrollbar, ['settings', 'scrollbar']);
-  for (const collection of ['pages', 'reusableElements'] as const)
-    project[collection].forEach((page, index) => {
+  for (const collection of ['pages', 'reusableElements', 'menus'] as const)
+    (project[collection] ?? []).forEach((page, index) => {
       if (!isRecord(page) || !Array.isArray(page.components)) return;
       page.components.forEach((node, nodeIndex) => {
         if (isRecord(node)) walk(node.props, [collection, index, 'components', nodeIndex, 'props']);
@@ -1825,6 +1843,7 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
       path: ['entryPage'],
     });
   validateMenuPageReferences(project, context);
+  validateMenuDefinitions(project, context);
   validateProjectResourceIds(project, context);
   validatePaletteReferences(project, context);
   const ids = new Set<string>();
@@ -2150,6 +2169,7 @@ export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
       entryPage: nonEmptyStringSchema,
       pages: z.array(PageModelSchema).min(1),
       reusableElements: z.array(ReusableElementModelSchema),
+      menus: z.array(MenuDefinitionModelSchema).default([]),
       styles: z.array(ComponentStyleSchema),
       sourceFiles: ProjectSourceFilesSchema,
       assets: ProjectAssetsSchema,
@@ -2181,6 +2201,7 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z.preprocess(
       entryPage: nonEmptyStringSchema,
       pages: z.array(PageDescriptorSchema).min(1),
       reusableElements: z.array(ReusableElementModelSchema),
+      menus: z.array(MenuDefinitionModelSchema).default([]),
       styles: z.array(ComponentStyleSchema),
       sourceFiles: ProjectSourceFilesSchema,
       assets: ProjectAssetsSchema,
@@ -2189,6 +2210,7 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z.preprocess(
     })
     .strict()
     .superRefine((manifest, context) => {
+      validateMenuDefinitions(manifest, context);
       validateProjectResourceIds(manifest, context);
       validatePaletteReferences(manifest, context);
       indexComponentStyles(manifest.styles, context);

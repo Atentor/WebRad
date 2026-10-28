@@ -1,6 +1,6 @@
 .wr-ide-shell {
   display: grid;
-  grid-template-rows: 34px minmax(0, 1fr) 25px;
+  grid-template-rows: 34px minmax(0, 1fr);
   width: 100%;
   height: 100%;
   background: var(--wr-bg);
@@ -79,10 +79,6 @@
   height: 20px;
   margin: 0 3px;
   background: color-mix(in srgb, var(--wr-border-strong) 70%, transparent);
-}
-
-.wr-status-spacer {
-  flex: 1;
 }
 
 .wr-workbench {
@@ -417,92 +413,6 @@ button.wr-problem:focus-visible {
 .wr-build-progress .wr-spinner {
   width: 13px;
   height: 13px;
-}
-
-.wr-status-bar {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-  padding: 0 10px;
-  border-top: 1px solid var(--wr-status-border);
-  background: var(--wr-status-bg);
-  color: var(--wr-muted-text);
-  font-size: 12px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  user-select: none;
-}
-
-.wr-status-ready,
-.wr-status-item {
-  display: inline-flex;
-  height: 100%;
-  align-items: center;
-  padding: 0 7px;
-  white-space: nowrap;
-}
-
-.wr-status-ready {
-  color: var(--wr-text);
-}
-
-.wr-status-problems {
-  display: inline-flex;
-  height: 21px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 6px;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-}
-
-.wr-status-problems:hover {
-  background: var(--wr-surface-hover);
-}
-
-.wr-status-problems:focus-visible {
-  outline: 1px solid var(--wr-accent);
-  outline-offset: -1px;
-}
-
-.wr-status-problem {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.wr-status-problem-glyph {
-  display: inline-grid;
-  width: 11px;
-  height: 11px;
-  place-items: center;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.wr-status-problem-error {
-  color: var(--wr-danger);
-}
-
-.wr-status-problem-glyph .wr-icon {
-  width: 12px;
-  height: 12px;
-}
-
-.wr-status-problem-warning {
-  color: var(--wr-warning);
-}
-
-.wr-status-position,
-.wr-status-selection,
-.wr-status-bounds {
-  color: var(--wr-text);
 }
 
 .wr-empty-state {
@@ -2129,6 +2039,29 @@ kbd {
   font-size: 12px;
 }
 
+.wr-preview-viewports {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+
+.wr-preview-viewport-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.wr-preview-viewport-button[aria-pressed='true'] {
+  border-color: var(--wr-accent);
+  background: var(--wr-accent-soft);
+  color: var(--wr-accent);
+}
+
 .wr-preview-stop {
   display: inline-flex;
   align-items: center;
@@ -2156,12 +2089,34 @@ kbd {
 .wr-preview-content {
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
+}
+
+.wr-preview-viewport {
+  height: 100%;
+  margin: 0 auto;
+}
+
+.wr-preview-viewport[data-viewport='tablet'],
+.wr-preview-viewport[data-viewport='mobile'] {
+  box-shadow: 0 0 0 1px var(--wr-border);
+}
+
+@media (max-width: 1000px) {
+  .wr-preview-project,
+  .wr-preview-hint {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
-  .wr-preview-project,
-  .wr-preview-hint {
+  .wr-preview-toolbar {
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .wr-preview-title,
+  .wr-preview-viewport-button span {
     display: none;
   }
 }

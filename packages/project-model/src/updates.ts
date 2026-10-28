@@ -414,6 +414,12 @@ export function removeComponentStyle(projectInput: WebRadProject, styleId: strin
         component.styleId === styleId ? withoutComponentStyle(component) : component,
       ),
     })),
+    menus: project.menus?.map((menu) => ({
+      ...menu,
+      components: menu.components.map((component) =>
+        component.styleId === styleId ? withoutComponentStyle(component) : component,
+      ),
+    })),
     styles: project.styles.filter((style) => style.id !== styleId),
   });
 }
@@ -687,6 +693,13 @@ export function updateProjectSettings(
     reusableElements: project.reusableElements.map((page) => ({
       ...page,
       components: page.components.map((node) => ({
+        ...node,
+        props: detachRemovedThemeColors(node.props, removed),
+      })),
+    })),
+    menus: project.menus?.map((menu) => ({
+      ...menu,
+      components: menu.components.map((node) => ({
         ...node,
         props: detachRemovedThemeColors(node.props, removed),
       })),

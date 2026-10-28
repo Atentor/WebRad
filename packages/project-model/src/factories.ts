@@ -1,4 +1,5 @@
 import { ModelUpdateError, ProjectModelError } from './errors.js';
+import { createDefaultWebMenuConfiguration } from '@webrad/runtime/menu-model';
 import { bindStyleColorsToPalette } from './color-palette.js';
 import { bindDefaultStylesToTheme, bindScrollbarColorsToTheme } from './project-themes.js';
 import { COMPONENT_STYLE_STATE_NAMES, type ProjectPaletteColor } from './types.js';
@@ -34,6 +35,7 @@ import {
   type ComponentStyleStateName,
   type PageDescriptor,
   type PageModel,
+  type MenuDefinitionModel,
   type ReusableElementModel,
   type IdFactory,
   type ProjectManifest,
@@ -47,6 +49,38 @@ export const defaultIdFactory: IdFactory = () => {
   }
   return globalThis.crypto.randomUUID();
 };
+
+/** Creates a shared navigation document whose root is the Menu itself. */
+export function createMenuDefinition(name: string): MenuDefinitionModel {
+  assertValidPageName(name);
+  const rootId = defaultIdFactory();
+  return {
+    formatVersion: CURRENT_PAGE_FORMAT_VERSION,
+    id: defaultIdFactory(),
+    name,
+    caption: name,
+    width: DEFAULT_PAGE_WIDTH,
+    height: DEFAULT_PAGE_HEIGHT,
+    rootComponentId: rootId,
+    components: [
+      {
+        id: rootId,
+        name,
+        type: 'WebMenu',
+        parentId: null,
+        bounds: { x: 0, y: 0, width: 288, height: 640 },
+        layout: createDefaultComponentLayout(),
+        props: {
+          configuration: createDefaultWebMenuConfiguration(),
+          visible: true,
+          enabled: true,
+        },
+        events: {},
+        children: [],
+      },
+    ],
+  };
+}
 
 function resolveFactory(
   options: { readonly idFactory?: IdFactory } | IdFactory | undefined,
@@ -311,6 +345,7 @@ export function projectToManifest(project: WebRadProject): ProjectManifest {
     entryPage: parsed.entryPage,
     pages: parsed.pages.map(createPageDescriptor),
     reusableElements: parsed.reusableElements,
+    menus: parsed.menus,
     styles: parsed.styles,
     sourceFiles: parsed.sourceFiles,
     assets: parsed.assets,
@@ -362,6 +397,7 @@ export function assembleProject(
     entryPage: manifest.entryPage,
     pages,
     reusableElements: manifest.reusableElements,
+    menus: manifest.menus,
     styles: manifest.styles,
     sourceFiles: manifest.sourceFiles,
     assets: manifest.assets,

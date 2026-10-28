@@ -115,7 +115,6 @@ export function installApplicationMenu(window: BrowserWindow): void {
         commandItem(window, 'Restart Debugging', 'debug.restart', 'CmdOrCtrl+Shift+F5'),
       ],
     },
-    { label: 'Component', submenu: [] },
     { label: 'Tools', submenu: [commandItem(window, 'Toggle Theme', 'view.toggleTheme')] },
     {
       label: 'Help',

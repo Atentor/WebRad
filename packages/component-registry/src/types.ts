@@ -8,6 +8,8 @@ export type ComponentPropertyType =
   | 'color'
   | 'component'
   | 'reusable-element'
+  | 'menu-definition'
+  | 'designer-action'
   | 'api-client-config'
   | 'combo-box-config'
   | 'menu-config'
@@ -25,6 +27,7 @@ export type ComponentDesignerAction =
   | 'current-row-bindings'
   | 'combo-box-configurator'
   | 'menu-configurator'
+  | 'menu-definition-edit'
   | 'combo-box-items'
   | 'combo-box-values'
   | 'report-builder';
@@ -41,6 +44,8 @@ export interface ComponentPropertyDefinition {
   readonly inspectorGroup?: string;
   /** Pairs related controls with their labels above the editors. */
   readonly editorLayout?: 'compact';
+  /** Edit a string as multiple lines without splitting or trimming its contents. */
+  readonly multiline?: boolean;
   readonly source?: ComponentPropertySource;
   readonly defaultValue?: unknown;
   /** Fallback derived from saved properties without materializing it in the model. */
@@ -143,6 +148,7 @@ export interface RegisteredVisualDocument {
   readonly height?: number;
 }
 export interface ComponentLayoutContext {
+  readonly menus?: readonly RegisteredVisualDocument[];
   readonly reusableElements?: readonly RegisteredVisualDocument[];
   readonly document?: RegisteredVisualDocument;
 }

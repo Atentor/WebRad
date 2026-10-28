@@ -17,8 +17,8 @@ export const MenuConfigurationSchema = z
   });
 export function validateMenuPageReferences(project: WebRadProject, context: z.RefinementCtx): void {
   const pageIds = new Set(project.pages.map((page) => page.id));
-  for (const collection of ['pages', 'reusableElements'] as const)
-    project[collection].forEach((document, documentIndex) => {
+  for (const collection of ['pages', 'reusableElements', 'menus'] as const)
+    (project[collection] ?? []).forEach((document, documentIndex) => {
       document.components.forEach((component, componentIndex) => {
         if (component.type !== 'WebMenu' || component.props.configuration === undefined) return;
         const parsed = MenuConfigurationSchema.safeParse(component.props.configuration);

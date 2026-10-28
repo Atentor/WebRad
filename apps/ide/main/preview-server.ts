@@ -22,7 +22,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https: http:",
   "font-src 'self' data: https: http:",
   "media-src 'self' data: blob: https: http:",
-  'frame-src blob:',
+  'frame-src blob: https:',
   'connect-src https: http: data: blob:',
   "base-uri 'self'",
   "form-action 'none'",

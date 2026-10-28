@@ -16,6 +16,7 @@ import {
   AddComponentCommand,
   BringToFrontCommand,
   ChangePropertyCommand,
+  ChangeMenuDefinitionCommand,
   MoveCommand,
   ReparentComponentsCommand,
   ReorderComponentsCommand,
@@ -42,6 +43,10 @@ import {
   portableFileNameKey,
   createPage,
   createReusableElement,
+  createMenuDefinition,
+  linkMenuDefinition,
+  resolveMenuDocument,
+  menuSourcePath,
   DEFAULT_PROJECT_SETTINGS,
   projectThemeCss,
   type ResolvedThemeMode,
@@ -63,6 +68,8 @@ import {
 import {
   createUserPageSource,
   createUserReusableElementSource,
+  createUserMenuSource,
+  generateMenuTypings,
   currentRowHandlerType,
   ensureEventHandler,
   eventHandlerName,
@@ -91,7 +98,6 @@ import { ApiClientTesterDialog } from './components/ApiClientTesterDialog';
 import {
   CodeEditor,
   releaseMonacoWorkspace,
-  type EditorCursorStatus,
   type EditorNavigationTarget,
 } from './components/CodeEditor';
 import { DesignerSurface } from './components/DesignerSurface';
@@ -123,7 +129,6 @@ import { ProjectSettingsDialog } from './components/ProjectSettingsDialog';
 import { RestGoWorkspace } from './components/RestGoWorkspace';
 import { RestGoSidebar, type RestGoSection } from './components/RestGoSidebar';
 
-import { StatusBar } from './components/StatusBar';
 import { StylesWorkspace } from './components/StylesWorkspace';
 import { StyleComponentList } from './components/StyleComponentList';
 import { ProjectVisualResources } from './ProjectVisualResources';
@@ -153,11 +158,13 @@ const RESTGO_DOCUMENT_ID = 'webrad:restgo';
 
 type ActiveWorkspace = 'page' | 'styles' | 'restgo';
 
-function sourceKey(page: PageModel, kind: 'page' | 'reusable'): string {
+function sourceKey(page: PageModel, kind: 'page' | 'reusable' | 'menu'): string {
+  if (kind === 'menu') return menuSourcePath(page);
   return kind === 'reusable' ? `reusables/${page.name}.ts` : `pages/${page.name}.ts`;
 }
 
-function createUserSource(page: PageModel, kind: 'page' | 'reusable'): string {
+function createUserSource(page: PageModel, kind: 'page' | 'reusable' | 'menu'): string {
+  if (kind === 'menu') return createUserMenuSource(page);
   return kind === 'reusable' ? createUserReusableElementSource(page) : createUserPageSource(page);
 }
 
@@ -259,6 +266,7 @@ export function App(): ReactElement {
   const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [addDocumentDialogKind, setAddDocumentDialogKind] = useState<AddDocumentKind | null>(null);
+  const [menuPlacementTarget, setMenuPlacementTarget] = useState<{ documentId: string; componentIds: readonly string[] } | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [projectSettingsDialogOpen, setProjectSettingsDialogOpen] = useState(false);
   const [projectSettingsInitialSection, setProjectSettingsInitialSection] = useState<
@@ -283,11 +291,6 @@ export function App(): ReactElement {
   );
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectError, setNewProjectError] = useState<string | null>(null);
-  const [cursor, setCursor] = useState<EditorCursorStatus>({
-    line: 1,
-    column: 1,
-    selectionLength: 0,
-  });
   const [navigateTo, setNavigateTo] = useState<EditorNavigationTarget | null>(null);
   const navigationRequestRef = useRef(0);
   const buildRequestRef = useRef(0);
@@ -307,6 +310,7 @@ export function App(): ReactElement {
       ? null
       : (project?.pages.find((page) => page.id === activePageId) ??
         project?.reusableElements.find((reusableElement) => reusableElement.id === activePageId) ??
+        project?.menus?.find((menu) => menu.id === activePageId) ??
         null);
   const activeSourceFile =
     stylesActive || restGoActive
@@ -321,7 +325,12 @@ export function App(): ReactElement {
       ? null
       : project?.pages.some((page) => page.id === activePage.id)
         ? 'page'
-        : 'reusable';
+        : project?.menus?.some((menu) => menu.id === activePage.id) ? 'menu' : 'reusable';
+  const designerPage = useMemo(() => activePage ? resolveMenuDocument(activePage, project?.menus) : null, [activePage, project?.menus]);
+  const designerReusableElements = useMemo(
+    () => project?.reusableElements.map((document) => resolveMenuDocument(document, project?.menus)),
+    [project?.reusableElements, project?.menus],
+  );
   const selectedComponents = useMemo(
     () => selectionNodes(activePage, selection.ids),
     [activePage, selection.ids],
@@ -346,6 +355,7 @@ export function App(): ReactElement {
   const menuConfiguratorDocument = [
     ...(activePage ? [activePage] : []),
     ...(project?.reusableElements ?? []),
+    ...(project?.menus ?? []),
   ].find((document) =>
     document.components.some((component) => component.id === menuConfiguratorComponentId),
   );
@@ -353,6 +363,14 @@ export function App(): ReactElement {
     menuConfiguratorDocument?.components.find(
       (component) => component.id === menuConfiguratorComponentId,
     ) ?? null;
+  const sharedMenuUsage = project?.menus?.some((menu) => menu.id === menuConfiguratorDocument?.id)
+    ? [...(project?.pages ?? []), ...(project?.reusableElements ?? [])].reduce(
+        (count, document) => count + document.components.filter(
+          (node) => node.props.menuDefinitionId === menuConfiguratorDocument?.id,
+        ).length,
+        0,
+      )
+    : undefined;
   const comboBoxConfiguratorComponent = useMemo(
     () =>
       activePage?.components.find(
@@ -547,6 +565,7 @@ export function App(): ReactElement {
       const document =
         project?.pages.find((page) => page.id === pageId) ??
         project?.reusableElements.find((reusableElement) => reusableElement.id === pageId) ??
+        project?.menus?.find((menu) => menu.id === pageId) ??
         project?.sourceFiles?.find((file) => file.id === pageId) ??
         project?.assets?.find((asset) => asset.id === pageId);
       if (document === undefined) return;
@@ -554,6 +573,7 @@ export function App(): ReactElement {
       setActivePageId(pageId);
       setActiveWorkspace('page');
       setActiveView(project?.sourceFiles?.some((file) => file.id === pageId) ? 'code' : 'design');
+      setSelectedPaletteType(null);
       selectionManager.clear();
     },
     [project, selectionManager],
@@ -577,7 +597,9 @@ export function App(): ReactElement {
   const updateActivePage = useCallback(
     (nextPage: PageModel): void => {
       if (!activePage || nextPage === activePage) return;
-      if (activeDocumentKind === 'reusable') {
+      if (activeDocumentKind === 'menu') {
+        projectController.updateMenu(activePage.id, () => nextPage);
+      } else if (activeDocumentKind === 'reusable') {
         projectController.updateReusableElement(activePage.id, () => nextPage);
       } else {
         projectController.updatePage(activePage.id, () => nextPage);
@@ -603,7 +625,7 @@ export function App(): ReactElement {
       requestedParentId: string,
       beforeComponentId?: string | null,
     ): void => {
-      if (!activePage) return;
+      if (!activePage || activeDocumentKind === 'menu') return;
       try {
         const definition = requireComponentDefinition(type);
         const appearsOnCanvas = resolveComponentDesignerPresentation(definition) === 'canvas';
@@ -626,12 +648,16 @@ export function App(): ReactElement {
           parentBounds,
           project?.settings.snapToGrid ? project.settings.gridSize : undefined,
         );
-        const createdNode = componentRegistry.createComponent(type, {
+        let createdNode = componentRegistry.createComponent(type, {
           existingNames: activePage.components,
           parentId,
           x: bounds.x,
           y: bounds.y,
         }) as ComponentNode;
+        if (type === 'WebMenu') {
+          const menu = projectController.ensureDefaultMenu();
+          createdNode = linkMenuDefinition(createdNode, menu.id);
+        }
         const node = definition.visual
           ? applyDefaultComponentStyle(createdNode, project?.styles ?? [])
           : createdNode;
@@ -649,7 +675,7 @@ export function App(): ReactElement {
         reportError(error, 'DESIGNER');
       }
     },
-    [activePage, addOutput, commitDesignerCommand, project, reportError, selectionManager, zoom],
+    [activePage, activeDocumentKind, addOutput, commitDesignerCommand, project, projectController, reportError, selectionManager, zoom],
   );
 
   const addReusableElementAt = useCallback(
@@ -888,6 +914,22 @@ export function App(): ReactElement {
     (_name: string, value: unknown, definition: ComponentPropertyDefinition): void => {
       if (!activePage || selectedComponents.length === 0) return;
       try {
+        if (definition.type === 'menu-definition' && typeof value === 'string') {
+          const ids = selectedComponents.filter((node) => node.type === 'WebMenu').map((node) => node.id);
+          if (value === 'webrad:new-menu') {
+            setMenuPlacementTarget({ documentId: activePage.id, componentIds: ids });
+            setAddDocumentDialogKind('menu');
+            return;
+          }
+          let menuId = value;
+          if (value === 'webrad:duplicate-menu') {
+            const id = selectedComponents[0]?.props.menuDefinitionId;
+            if (typeof id !== 'string') return;
+            menuId = projectController.duplicateProjectItem(id);
+          }
+          updateActivePage(designerController.execute(activePage, new ChangeMenuDefinitionCommand(ids, menuId)));
+          return;
+        }
         if (
           selectedComponents.length === 1 &&
           selectedComponents[0]?.id === activePage.rootComponentId &&
@@ -895,7 +937,9 @@ export function App(): ReactElement {
           definition.name === 'name' &&
           typeof value === 'string'
         ) {
-          if (activeDocumentKind === 'reusable') {
+          if (activeDocumentKind === 'menu') {
+            projectController.renameMenu(activePage.id, value);
+          } else if (activeDocumentKind === 'reusable') {
             projectController.renameReusableElement(activePage.id, value);
           } else {
             projectController.renamePage(activePage.id, value);
@@ -997,7 +1041,18 @@ export function App(): ReactElement {
             );
           }
         }
-        updateActivePage(designerController.changeStyle(activePage, targets, styleId));
+        const sharedMenuIds = new Set(targets.flatMap((node) =>
+          node.type === 'WebMenu' && typeof node.props.menuDefinitionId === 'string'
+            ? [node.props.menuDefinitionId] : [],
+        ));
+        for (const id of sharedMenuIds) {
+          const menu = project?.menus?.find((entry) => entry.id === id);
+          if (!menu) continue;
+          const root = getComponent(menu, menu.rootComponentId);
+          projectController.updateMenu(id, () => designerController.changeStyle(menu, [root], styleId));
+        }
+        const localTargets = targets.filter((node) => !sharedMenuIds.has(String(node.props.menuDefinitionId)));
+        if (localTargets.length > 0) updateActivePage(designerController.changeStyle(activePage, localTargets, styleId));
       } catch (error) {
         reportError(error, 'DESIGNER');
       }
@@ -1009,6 +1064,8 @@ export function App(): ReactElement {
       reportError,
       selectedComponents,
       updateActivePage,
+      project?.menus,
+      projectController,
     ],
   );
 
@@ -1037,6 +1094,7 @@ export function App(): ReactElement {
           definition?.eventsForNode?.(component, {
             document: activePage,
             reusableElements: project?.reusableElements,
+            menus: project?.menus,
           }) ?? definition?.events
         )?.find((candidate) => candidate.name === eventName);
         const handlerName =
@@ -1103,11 +1161,18 @@ export function App(): ReactElement {
       selectionManager.selectSingle(component.id);
       if (action === 'api-client-tester') {
         setApiClientTesterComponentId(component.id);
+      } else if (action === 'menu-definition-edit') {
+        const menu = project?.menus?.find((entry) => entry.id === component.props.menuDefinitionId);
+        if (menu) {
+          openPage(menu.id);
+          selectionManager.selectSingle(menu.rootComponentId);
+        } else setMenuConfiguratorComponentId(component.id);
       } else if (action === 'menu-configurator') {
         setMenuConfiguratorComponentId(
           menuInspectorTarget(component, {
             document: activePage ?? undefined,
             reusableElements: project?.reusableElements,
+            menus: project?.menus,
           })?.id ?? component.id,
         );
       } else if (action === 'data-grid-configurator') {
@@ -1126,7 +1191,7 @@ export function App(): ReactElement {
         setComboBoxConfiguratorComponentId(component.id);
       }
     },
-    [selectionManager, activePage, project?.reusableElements],
+    [selectionManager, activePage, project?.reusableElements, project?.menus, openPage],
   );
 
   const activateComponent = useCallback(
@@ -1369,7 +1434,8 @@ export function App(): ReactElement {
           'Configure Menu',
           [new ChangePropertyCommand(menuConfiguratorComponent.id, 'configuration', configuration)],
         );
-        if (next.id === activePage.id) updateActivePage(next);
+        if (project?.menus?.some((menu) => menu.id === next.id)) projectController.updateMenu(next.id, () => next);
+        else if (next.id === activePage.id) updateActivePage(next);
         else projectController.updateReusableElement(next.id, () => next);
         setMenuConfiguratorComponentId(null);
       } catch (error) {
@@ -1384,6 +1450,7 @@ export function App(): ReactElement {
       reportError,
       menuConfiguratorDocument,
       projectController,
+      project?.menus,
     ],
   );
 
@@ -1553,6 +1620,32 @@ export function App(): ReactElement {
       const kind = addDocumentDialogKind;
       if (!project || kind === null) return;
       try {
+        if (kind === 'menu') {
+          const menu = createMenuDefinition(name);
+          projectController.addMenu(menu);
+          const target = menuPlacementTarget;
+          if (target) {
+            const current = projectController.getSnapshot().project;
+            const page = current?.pages.find((entry) => entry.id === target.documentId);
+            const reusable = current?.reusableElements.find((entry) => entry.id === target.documentId);
+            const owner = page ?? reusable;
+            if (owner) {
+              const next = designerController.execute(owner, new ChangeMenuDefinitionCommand(target.componentIds, menu.id));
+              if (page) projectController.updatePage(owner.id, () => next);
+              else projectController.updateReusableElement(owner.id, () => next);
+            }
+          } else {
+            setOpenPageIds((current) => [...current, menu.id]);
+            setActivePageId(menu.id);
+            setActiveWorkspace('page');
+            setActiveView('design');
+            selectionManager.clear();
+          }
+          setMenuPlacementTarget(null);
+          setAddDocumentDialogKind(null);
+          addOutput('PROJECT', `Added shared Menu ${name}.`);
+          return;
+        }
         if (kind === 'model' || kind === 'unit') {
           const file = projectController.addSourceFile(kind, name);
           setOpenPageIds((current) => [...current, file.id]);
@@ -1594,7 +1687,7 @@ export function App(): ReactElement {
         reportError(error, 'PROJECT');
       }
     },
-    [addDocumentDialogKind, addOutput, project, projectController, reportError, selectionManager],
+    [addDocumentDialogKind, addOutput, project, projectController, reportError, selectionManager, menuPlacementTarget, designerController],
   );
 
   const importProjectAsset = useCallback(async (): Promise<void> => {
@@ -1657,16 +1750,18 @@ export function App(): ReactElement {
       if (!project) return;
       const source = project.sourceFiles?.find((file) => file.id === id);
       const asset = project.assets?.find((candidate) => candidate.id === id);
-      const name = source?.name ?? asset?.fileName;
+      const menu = project.menus?.find((entry) => entry.id === id);
+      const name = source?.name ?? menu?.name ?? asset?.fileName;
       if (
         !name ||
         !window.confirm(
-          `Delete ${source?.kind ?? 'asset'} ${name} from this project? References in your code will not be changed.`,
+          `Delete ${source?.kind ?? (menu ? 'menu' : 'asset')} ${name} from this project? References in your code will not be changed.`,
         )
       )
         return;
       try {
         if (source) projectController.removeSourceFile(id);
+        else if (menu) projectController.removeMenu(id);
         else projectController.removeAsset(id);
         const fallbackId = project.pages[0]?.id ?? null;
         setOpenPageIds((current) => {
@@ -1680,7 +1775,7 @@ export function App(): ReactElement {
           setActiveView('design');
         }
         selectionManager.clear();
-        addOutput('PROJECT', `Deleted ${source?.kind ?? 'asset'} ${name}.`);
+        addOutput('PROJECT', `Deleted ${source?.kind ?? (menu ? 'menu' : 'asset')} ${name}.`);
       } catch (error) {
         reportError(error, 'PROJECT');
       }
@@ -1740,6 +1835,7 @@ export function App(): ReactElement {
         current.project.reusableElements.find(
           (page) => sourceKey(page, 'reusable') === location.path,
         ) ??
+        current.project.menus?.find((menu) => menuSourcePath(menu) === location.path) ??
         current.project.sourceFiles?.find((file) => projectSourceFilePath(file) === location.path);
       if (!document) return;
       openPage(document.id);
@@ -2243,6 +2339,8 @@ export function App(): ReactElement {
           },
         ];
       const reusableElement = project?.reusableElements.find((candidate) => candidate.id === id);
+      const menu = project?.menus?.find((candidate) => candidate.id === id);
+      if (menu) return [{ id, label: menu.name, dirty: projectState.dirty, kind: 'menu' as const }];
       return reusableElement === undefined
         ? []
         : [
@@ -2313,7 +2411,7 @@ export function App(): ReactElement {
         (page) =>
           [
             sourceUri(projectState.rootPath, project.id, `pages/${page.name}.generated.d.ts`),
-            generatePageTypings(page),
+            generatePageTypings(page, { menus: project.menus }),
           ] as const,
       ),
       ...project.reusableElements.map(
@@ -2324,9 +2422,13 @@ export function App(): ReactElement {
               project.id,
               `reusables/${reusableElement.name}.generated.d.ts`,
             ),
-            generateReusableElementTypings(reusableElement),
+            generateReusableElementTypings(reusableElement, { menus: project.menus }),
           ] as const,
       ),
+      ...(project.menus ?? []).map((menu) => [
+        sourceUri(projectState.rootPath, project.id, `menus/${menu.name}.generated.d.ts`),
+        generateMenuTypings(menu),
+      ] as const),
     ]);
   }, [project, projectState.rootPath]);
 
@@ -2384,11 +2486,12 @@ export function App(): ReactElement {
     (problem: EditorProblem): void => {
       if (!project) return;
       if (problem.range === undefined) {
-        const pageIndex =
-          problem.path?.[0] === 'pages' && typeof problem.path[1] === 'number'
-            ? problem.path[1]
-            : undefined;
-        const page = pageIndex === undefined ? undefined : project.pages[pageIndex];
+        const collection = problem.path?.[0];
+        const documentIndex = typeof problem.path?.[1] === 'number' ? problem.path[1] : undefined;
+        const page = documentIndex === undefined ? undefined
+          : collection === 'menus' ? project.menus?.[documentIndex]
+          : collection === 'reusableElements' ? project.reusableElements[documentIndex]
+          : collection === 'pages' ? project.pages[documentIndex] : undefined;
         if (page === undefined) return;
         openPage(page.id);
         setActiveView('design');
@@ -2430,6 +2533,7 @@ export function App(): ReactElement {
         project.reusableElements.find(
           (candidate) => sourceKey(candidate, 'reusable') === relativePath,
         ) ??
+        project.menus?.find((menu) => menuSourcePath(menu) === relativePath) ??
         project.sourceFiles?.find((file) => projectSourceFilePath(file) === relativePath);
       if (document === undefined) return;
       const resource = sourceUri(projectState.rootPath, project.id, relativePath);
@@ -2458,11 +2562,6 @@ export function App(): ReactElement {
     activePage === null || activeDocumentKind === null
       ? null
       : sourceKey(activePage, activeDocumentKind);
-  const primaryComponentDefinition =
-    primaryComponent === null ? undefined : componentRegistry.get(primaryComponent.type);
-  const primaryComponentAppearsOnCanvas =
-    primaryComponentDefinition !== undefined &&
-    resolveComponentDesignerPresentation(primaryComponentDefinition) === 'canvas';
 
   const pageEditorContent = stylesActive ? (
     <ErrorBoundary area="Styles">
@@ -2515,7 +2614,7 @@ export function App(): ReactElement {
         navigateTo={navigateTo}
         onSourceChange={updateEditorSource}
         onMarkersChange={setMonacoMarkers}
-        onCursorChange={setCursor}
+        
         onSave={() => void saveProject()}
       />
     </ErrorBoundary>
@@ -2523,8 +2622,8 @@ export function App(): ReactElement {
     <ErrorBoundary area="Designer">
       <DesignerSurface
         previewTheme={projectPreviewTheme}
-        page={activePage}
-        reusableElements={project?.reusableElements}
+        page={designerPage ?? activePage}
+        reusableElements={designerReusableElements}
         styles={project?.styles}
         compiledStylesCss={compiledStylesCss}
         settings={project?.settings ?? DEFAULT_PROJECT_SETTINGS}
@@ -2574,7 +2673,7 @@ export function App(): ReactElement {
         theme={theme}
         breadcrumb={[
           project?.name ?? 'Project',
-          activeDocumentKind === 'reusable' ? 'Reusable Components' : 'Pages',
+          activeDocumentKind === 'menu' ? 'Menus' : activeDocumentKind === 'reusable' ? 'Reusable Components' : 'Pages',
           `${activePage.name}.ts`,
         ]}
         extraLibraries={extraLibraries}
@@ -2590,7 +2689,7 @@ export function App(): ReactElement {
             setBottomPanelTab('problems');
           }
         }}
-        onCursorChange={setCursor}
+        
         onSave={() => void saveProject()}
       />
     </ErrorBoundary>
@@ -2617,16 +2716,7 @@ export function App(): ReactElement {
     </>
   );
 
-  const status = !activePage
-    ? ({ kind: 'empty' } as const)
-    : activeView === 'code'
-      ? ({ kind: 'code', ...cursor } as const)
-      : ({
-          kind: 'designer',
-          name: primaryComponent?.name ?? activePage.name,
-          bounds: primaryComponentAppearsOnCanvas ? primaryComponent?.bounds : undefined,
-          zoom,
-        } as const);
+  
   return (
     <ProjectVisualResources
       themes={project?.settings.themes}
@@ -2807,6 +2897,14 @@ export function App(): ReactElement {
                         onAddReusableElement={addReusableElementToProject}
                         onDeleteReusableElement={deleteReusableElement}
                         onRenameReusableElement={renameReusableElement}
+                        activeMenuId={activeDocumentKind === 'menu' ? activePageId : null}
+                        onOpenMenu={openPage}
+                        onAddMenu={() => { setMenuPlacementTarget(null); openAddDocumentDialog('menu'); }}
+                        onDeleteMenu={deleteProjectResource}
+                        onRenameMenu={(id, name) => {
+                          try { projectController.renameMenu(id, name); }
+                          catch (error) { reportError(error, 'PROJECT'); }
+                        }}
                       />
                     </ErrorBoundary>
                   ) : null
@@ -2815,7 +2913,7 @@ export function App(): ReactElement {
             )
           }
           palette={
-            visiblePanels.palette && !restGoActive && !stylesActive ? (
+            visiblePanels.palette && !restGoActive && !stylesActive && activeDocumentKind !== 'menu' ? (
               <ErrorBoundary area="Tool Palette">
                 <ToolPalette
                   compact
@@ -2902,7 +3000,7 @@ export function App(): ReactElement {
             !activeAsset ? (
               <ErrorBoundary area="Object Inspector">
                 <ObjectInspector
-                  selection={selectedComponents}
+                  selection={selectedComponents.map((node) => designerPage?.components.find((entry) => entry.id === node.id) ?? node)}
                   page={activePage}
                   definition={
                     selectedComponents.length === 0 && activePage
@@ -2915,6 +3013,7 @@ export function App(): ReactElement {
                   }
                   availableComponents={activePage?.components}
                   availableReusableElements={project?.reusableElements}
+                  availableMenus={project?.menus}
                   styles={project?.styles}
                   onStyleChange={changeStyle}
                   onPropertyChange={changeProperty}
@@ -2970,17 +3069,6 @@ export function App(): ReactElement {
             ) : null
           }
           bottomMinimumHeight={bottomPanelTab === 'debug' ? 300 : 96}
-          status={
-            <StatusBar
-              status={status}
-              dirty={projectState.dirty}
-              problemCounts={problemCounts}
-              onShowProblems={() => {
-                setVisiblePanels((current) => ({ ...current, output: true }));
-                setBottomPanelTab('problems');
-              }}
-            />
-          }
         />
       </div>
       {previewActive && (
@@ -3020,8 +3108,9 @@ export function App(): ReactElement {
                 .map((file) => file.name),
               ...project.pages.map((page) => page.name),
               ...project.reusableElements.map((reusableElement) => reusableElement.name),
+              ...(project.menus ?? []).map((menu) => menu.name),
             ]);
-            const prefix = { page: 'Page', reusable: 'Reusable', model: 'Model', unit: 'Unit' }[
+            const prefix = { page: 'Page', reusable: 'Reusable', menu: 'Menu', model: 'Model', unit: 'Unit' }[
               addDocumentDialogKind
             ];
             let sequence = addDocumentDialogKind === 'page' ? 2 : 1;
@@ -3040,8 +3129,9 @@ export function App(): ReactElement {
               .map((file) => file.name),
             ...project.pages.map((page) => page.name),
             ...project.reusableElements.map((reusableElement) => reusableElement.name),
+            ...(project.menus ?? []).map((menu) => menu.name),
           ]}
-          onCancel={() => setAddDocumentDialogKind(null)}
+          onCancel={() => { setAddDocumentDialogKind(null); setMenuPlacementTarget(null); }}
           onCreate={submitAddDocument}
         />
       )}
@@ -3093,6 +3183,7 @@ export function App(): ReactElement {
           pages={project?.pages ?? []}
           assets={project?.assets ?? []}
           onSave={saveMenuConfiguration}
+          sharedUsage={sharedMenuUsage}
           onClose={() => setMenuConfiguratorComponentId(null)}
         />
       )}

@@ -7,20 +7,16 @@ import { runDebuggerSmoke } from './debugger-smoke';
 import { runDeploySmoke } from './deploy-smoke';
 import { runNativeBuildSmoke } from './native-build-smoke';
 import { runPageTitleSmoke } from './page-title-smoke';
-import { assertExclusivePreviewSmoke, stopPreviewSmoke } from './preview-workspace-smoke';
+import {
+  assertExclusivePreviewSmoke,
+  assertPreviewViewportsSmoke,
+  stopPreviewSmoke,
+} from './preview-workspace-smoke';
 import { runPanelFloatingSmoke } from './panel-floating-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { inspect } from 'node:util';
-import {
-  app,
-  BrowserWindow,
-  nativeImage,
-  net,
-  powerSaveBlocker,
-  session,
-  type WebFrameMain,
-} from 'electron';
+import { app, BrowserWindow, Menu, nativeImage, net, powerSaveBlocker, session, type WebFrameMain } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject, stopCompilerService } from './compiler-service';
 import { WEBRAD_FONT_FAMILIES } from '@webrad/runtime/fonts';
@@ -42,6 +38,7 @@ import {
 import { runDataGridConfigurationSmoke } from './data-grid-smoke';
 import { runTimerSmoke } from './timer-smoke';
 import { runIconSmoke } from './icon-smoke';
+import { runHtmlSmoke } from './html-smoke';
 import { runMenuSmoke } from './menu-smoke';
 import { profileMenuSmoke } from './smoke-cpu-profile';
 import { runIdeIconsSmoke } from './ide-icons-smoke';
@@ -416,14 +413,14 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
   });
   smokeLog(`renderer Monaco component members passed: ${componentMembers}`);
   const memberPosition = await window.webContents.executeJavaScript(
-    "document.querySelector('.wr-status-position')?.getAttribute('aria-label')",
+    "document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')",
     true,
   );
   sendRendererKey(window, 'Enter');
   await waitForRendererResult(
     window,
     `(() => {
-      const position = document.querySelector('.wr-status-position')?.getAttribute('aria-label');
+      const position = document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position');
       return position?.split(',')[0] === ${JSON.stringify(String(memberPosition).split(',')[0])} &&
         [...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('EDTNome.value')) &&
         document.querySelector('.monaco-editor .suggest-widget.visible') === null;
@@ -443,13 +440,13 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
     10_000,
   );
   const completePosition = await window.webContents.executeJavaScript(
-    "document.querySelector('.wr-status-position')?.getAttribute('aria-label')",
+    "document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')",
     true,
   );
   sendRendererKey(window, 'Enter');
   await waitForRendererResult(
     window,
-    `document.querySelector('.wr-status-position')?.getAttribute('aria-label') === ${JSON.stringify(completePosition)} && document.querySelector('.monaco-editor .suggest-widget.visible') === null`,
+    `document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position') === ${JSON.stringify(completePosition)} && document.querySelector('.monaco-editor .suggest-widget.visible') === null`,
     'Enter closing unchanged completion without inserting a line',
     (value) => value === true,
   );
@@ -843,6 +840,24 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   ) {
     throw new Error(`Renderer shell smoke failed: ${JSON.stringify(shellResult)}`);
   }
+  await waitForRendererResult(
+    window,
+    `(() => {
+      const shell = document.querySelector('.wr-ide-shell');
+      const workbench = shell?.querySelector('.wr-workbench');
+      return shell instanceof HTMLElement && workbench instanceof HTMLElement &&
+        shell.querySelector('footer, .wr-status-bar') === null &&
+        Math.abs(shell.getBoundingClientRect().bottom - workbench.getBoundingClientRect().bottom) < 1;
+    })()`,
+    'the full-height workbench without a footer status bar',
+    (value) => value === true,
+  );
+  smokeLog('renderer footer removal passed: full-height workbench');
+  const applicationMenu = Menu.getApplicationMenu();
+  if (applicationMenu === null || applicationMenu.items.some((item) => item.label === 'Component')) {
+    throw new Error('The application menu must omit the unused Component section.');
+  }
+  smokeLog('renderer application menu cleanup passed: Component absent');
   smokeLog('renderer shell passed');
   await runBugReportSmoke(window);
   smokeLog('renderer bug report and documentation browser links passed');
@@ -1305,6 +1320,10 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     throw new Error(`Renderer Preview isolation failed: ${JSON.stringify(isolation)}`);
   }
   smokeLog(`renderer Preview isolation passed: ${JSON.stringify(isolation)}`);
+  await assertPreviewViewportsSmoke(window, previewFrame);
+  smokeLog(
+    'renderer Preview viewports passed: native Desktop/Tablet/Mobile controls, available/768/390 px widths, iframe media queries and application state preserved',
+  );
   await stopPreviewSmoke(window);
   await waitForRendererResult(
     window,
@@ -1321,6 +1340,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await runDataGridConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runTimerSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runIconSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runHtmlSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await profileMenuSmoke(
     () => runMenuSmoke(window, { projectPath: smokeProjectPath, log: smokeLog }),
     smokeLog,

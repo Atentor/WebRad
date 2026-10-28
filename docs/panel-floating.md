@@ -25,6 +25,11 @@ positioning. X/Y then represent edge distances or center offsets according to th
 anchors. Responsive modes still apply. The Designer supports selection, movement,
 resizing, and child editing in the overlay.
 
+Panel also supports **Aspect ratio** (`none`, `1:1`, `4:3`, `3:4`, `16:9`,
+`9:16`). Fixed ratios derive height from width while retaining the floating
+anchor. Saved height rules resume when the ratio is `none`. See
+[Aspect ratios](aspect-ratio.md).
+
 Page and reusable instances expose the same typed properties:
 
 ```ts

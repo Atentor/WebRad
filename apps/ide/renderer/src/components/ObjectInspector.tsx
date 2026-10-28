@@ -49,6 +49,7 @@ export interface ObjectInspectorProps {
   definition?: ComponentDefinition;
   availableComponents?: readonly ComponentNode[];
   availableReusableElements?: readonly ReusableElementModel[];
+  availableMenus?: readonly PageModel[];
   onPropertyChange: (
     propertyName: string,
     value: unknown,
@@ -115,6 +116,7 @@ function definitionsForSelection(
   registry: ComponentRegistry,
   page?: PageModel | null,
   reusableElements?: readonly ReusableElementModel[],
+  menus?: readonly PageModel[],
 ): readonly ComponentDefinition[] | null {
   const definitions: ComponentDefinition[] = [];
   selection.forEach((component, index) => {
@@ -129,11 +131,13 @@ function definitionsForSelection(
           definition.eventsForNode?.(component, {
             document: page ?? undefined,
             reusableElements,
+            menus,
           }) ?? definition.events,
         properties:
           definition.inspectorProperties?.(definition.properties, component, {
             document: page ?? undefined,
             reusableElements,
+            menus,
           }) ?? definition.properties,
       });
   });
@@ -300,6 +304,7 @@ interface PropertyEditorProps {
   readonly multiple: boolean;
   readonly availableComponents: readonly ComponentNode[];
   readonly availableReusableElements: readonly ReusableElementModel[];
+  readonly availableMenus: readonly PageModel[];
   readonly onChange: (value: unknown) => void;
   readonly onDesignerAction?: (action: ComponentDesignerAction) => void;
   readonly onIconPickerOpenChange?: (open: boolean) => void;
@@ -407,6 +412,7 @@ function PropertyEditor({
   multiple,
   availableComponents,
   availableReusableElements,
+  availableMenus,
   onChange,
   onDesignerAction,
   onIconPickerOpenChange,
@@ -418,6 +424,22 @@ function PropertyEditor({
   const disabled = property.readOnly === true;
 
   switch (property.type) {
+    case 'menu-definition':
+      return (
+        <select id={id} className="wr-inspector-select" value={multiple ? MULTIPLE_OPTION_VALUE : text} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+          {multiple && <option value={MULTIPLE_OPTION_VALUE} disabled>{MULTIPLE_VALUES_LABEL}</option>}
+          {!multiple && !text && <option value="" disabled>Local menu</option>}
+          {availableMenus.map((menu) => <option key={menu.id} value={menu.id}>{menu.name}</option>)}
+          <option value="webrad:new-menu">New menu…</option>
+          {!!text && !multiple && <option value="webrad:duplicate-menu">Duplicate menu</option>}
+        </select>
+      );
+    case 'designer-action':
+      return (
+        <button id={id} type="button" className="wr-inspector-action" aria-label={property.label ?? property.name} disabled={disabled || multiple || property.designerAction === undefined} onClick={() => {
+          if (property.designerAction) onDesignerAction?.(property.designerAction);
+        }}>{property.label ?? property.name}</button>
+      );
     case 'video-source':
       return (
         <VideoPlayerSourceEditor
@@ -429,6 +451,20 @@ function PropertyEditor({
         />
       );
     case 'string':
+      if (property.multiline === true) {
+        return (
+          <textarea
+            id={id}
+            className="wr-inspector-input wr-inspector-multiline"
+            value={text}
+            placeholder={placeholder}
+            readOnly={disabled}
+            spellCheck={false}
+            rows={10}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        );
+      }
       return (
         <input
           id={id}
@@ -701,6 +737,7 @@ interface PropertyRowProps {
   readonly page: PageModel | null | undefined;
   readonly availableComponents: readonly ComponentNode[];
   readonly availableReusableElements: readonly ReusableElementModel[];
+  readonly availableMenus: readonly PageModel[];
   readonly onChange: ObjectInspectorProps['onPropertyChange'];
   readonly onDesignerAction?: ObjectInspectorProps['onDesignerAction'];
   readonly onIconPickerOpenChange?: (open: boolean) => void;
@@ -712,6 +749,7 @@ function PropertyRow({
   page,
   availableComponents,
   availableReusableElements,
+  availableMenus,
   onChange,
   onDesignerAction,
   onIconPickerOpenChange,
@@ -739,6 +777,7 @@ function PropertyRow({
           multiple={multiple}
           availableComponents={availableComponents}
           availableReusableElements={availableReusableElements}
+          availableMenus={availableMenus}
           onChange={(nextValue) => {
             if (property.readOnly !== true) onChange(property.name, nextValue, property);
           }}
@@ -809,6 +848,7 @@ export function ObjectInspector({
   definition,
   availableComponents,
   availableReusableElements = [],
+  availableMenus = [],
   onPropertyChange,
   onEventChange,
   onEventDoubleClick,
@@ -835,8 +875,9 @@ export function ObjectInspector({
         registry,
         page,
         availableReusableElements,
+        availableMenus,
       ),
-    [definition, inspectedSelection, registry, page, availableReusableElements],
+    [definition, inspectedSelection, registry, page, availableReusableElements, availableMenus],
   );
   const componentChoices = availableComponents ?? page?.components ?? inspectedSelection;
   const propertyCategories = useMemo(() => {
@@ -1071,6 +1112,7 @@ export function ObjectInspector({
                                 page={page}
                                 availableComponents={componentChoices}
                                 availableReusableElements={availableReusableElements}
+                                availableMenus={availableMenus}
                                 onChange={onPropertyChange}
                                 onDesignerAction={onDesignerAction}
                                 onIconPickerOpenChange={onIconPickerOpenChange}

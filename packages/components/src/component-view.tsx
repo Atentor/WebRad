@@ -25,7 +25,7 @@ import {
 } from '@webrad/runtime/visual';
 import { getWebRadIconShapes, isWebRadIconName, type WebRadIconShape } from '@webrad/runtime/icons';
 import { bindImageResampling, imagePlaceholderSource } from '@webrad/runtime/image-display';
-import { projectRepeatingGroupRowStyle } from '@webrad/runtime';
+import { WebHtml, projectRepeatingGroupRowStyle } from '@webrad/runtime';
 import {
   Children,
   cloneElement,
@@ -119,6 +119,28 @@ function ImageView({ node, designTime, styleClassName }: ComponentViewProps): Re
             }
           : {}),
       }}
+    />
+  );
+}
+
+function HtmlView({ node, designTime, styleClassName }: ComponentViewProps): ReactElement {
+  const ref = useRef<HTMLIFrameElement>(null);
+  const html = readStringProperty(node, 'html');
+  const title = readStringProperty(node, 'title', 'HTML content');
+  useEffect(() => {
+    if (ref.current === null) return;
+    const component = new WebHtml(ref.current);
+    component.title = title;
+    component.html = html;
+    return () => component.dispose();
+  }, [html, title]);
+  return (
+    <iframe
+      {...sharedAttributes(node, designTime, styleClassName)}
+      ref={ref}
+      title={title}
+      inert={designTime || !readBooleanProperty(node, 'enabled', true)}
+      tabIndex={designTime ? -1 : undefined}
     />
   );
 }
@@ -470,6 +492,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       <span data-webrad-text-content="">{readStringProperty(node, 'caption', 'Label')}</span>
     </span>
   ),
+  WebHtml: HtmlView,
   WebEdit: ({ node, designTime, styleClassName, onEvent }) => (
     <input
       {...sharedAttributes(node, designTime, styleClassName)}

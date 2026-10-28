@@ -11,7 +11,11 @@ import {
   type ReactElement,
 } from 'react';
 
-export type AddDocumentKind = 'page' | 'reusable' | 'model' | 'unit';
+export type AddDocumentKind = 'page' | 'reusable' | 'menu' | 'model' | 'unit';
+
+const REUSABLE_DIALOG_TEMPLATES = REUSABLE_COMPONENT_TEMPLATES.filter(
+  (template) => template.availableInDialog !== false,
+);
 
 interface AddPageDialogProps {
   readonly kind: AddDocumentKind;
@@ -131,20 +135,22 @@ export function AddPageDialog({
           <p id={descriptionId} className="wr-modal-description">
             {kind === 'page'
               ? 'Create a navigable page for this application.'
+              : kind === 'menu'
+                ? 'Create a shared Menu with its own items, appearance and TypeScript. Place it from the component palette.'
               : kind === 'reusable'
                 ? 'Create a shared visual definition that can be dragged into any page.'
                 : kind === 'model'
                   ? 'Create a TypeScript class for application data.'
                   : 'Create a TypeScript module for shared functions and logic.'}
           </p>
-          {kind === 'reusable' && (
+          {kind === 'reusable' && REUSABLE_DIALOG_TEMPLATES.length > 1 && (
             <label className="wr-modal-field">
               <span>Template</span>
               <select
                 value={templateId}
                 onChange={(event) => setTemplateId(event.currentTarget.value)}
               >
-                {REUSABLE_COMPONENT_TEMPLATES.map((template) => (
+                {REUSABLE_DIALOG_TEMPLATES.map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.label}
                   </option>
@@ -152,7 +158,7 @@ export function AddPageDialog({
               </select>
               <small>
                 {
-                  REUSABLE_COMPONENT_TEMPLATES.find((template) => template.id === templateId)
+                  REUSABLE_DIALOG_TEMPLATES.find((template) => template.id === templateId)
                     ?.description
                 }
               </small>

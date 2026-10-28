@@ -1,0 +1,6 @@
+{
+  "source": "/** Isolated markup or a standalone external iframe, with the original HTML preserved. */\nexport class WebHtml extends WebComponent<HTMLIFrameElement> {\n    constructor(element: HTMLElement);\n    /** A fixed ratio derives height from width; none restores the saved height rules. */\n    get aspectRatio(): WebAspectRatio;\n    set aspectRatio(value: WebAspectRatio);\n    /** A fragment or complete HTML document, preserved exactly as authored. */\n    get html(): string;\n    set html(value: string);\n    /** Accessible name for the embedded document. */\n    get title(): string;\n    set title(value: string);\n    get enabled(): boolean;\n    set enabled(value: boolean);\n    clear(): void;\n    set onLoad(handler: WebComponentEventHandler<this> | null);\n}\n",
+  "names": [
+    "WebHtml"
+  ]
+}

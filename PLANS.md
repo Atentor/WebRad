@@ -5,6 +5,138 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## Application menu cleanup: 2026-10-28
+
+Removed the unused, empty Component section from the native application menu.
+The existing Electron shell smoke now asserts its absence, with required
+evidence in both development and packaged runners. Validation was not requested
+or run.
+
+## IDE status bar removal: 2026-10-28
+
+Removed the IDE footer status bar, its component and obsolete component tests,
+styles and theme tokens. The workbench now occupies the released height.
+Existing toolbar save feedback and Problems navigation remain available.
+Electron smoke cursor/selection checks now observe Monaco DOM metadata populated
+from its editor model; rendered caret and source assertions remain intact.
+Both smoke runners require evidence of the absent footer and full-height layout.
+Tests, smokes, typecheck, lint, formatting checks, builds and packaging were not
+requested or run.
+
+## Reusable creation dialog cleanup: 2026-10-28
+
+Removed Responsive menu from the reusable-component creation choices. Its
+internal factory remains available to the existing Aurora project template;
+saved reusable Menus keep their runtime support. The dialog creates a blank
+composition directly and hides Template while only one public choice exists.
+New shared Menus continue to come from the component palette or Menus folder.
+
+Updated the existing Menu Electron workflow to assert the obsolete chooser is
+absent and compose its reusable through the normal Menu palette. Both runners
+retain their required reusable and native Menu evidence. No tests, smokes,
+typecheck, lint, formatting checks, builds or packaging were requested or run.
+
+## Native shared Menu definitions: 2026-10-28
+
+Menu palette insertion now creates or reuses a project-level definition without
+requiring a reusable component. Definitions live in the Explorer's Menus folder,
+own a WebMenu root and authored `menus/Name.ts`, and are referenced by stable ID
+from ordinary WebMenu placements. The Inspector selects, creates, duplicates and
+opens shared definitions. Configuration and style resolve from the definition;
+placement layout, visibility, page handlers and runtime state remain independent.
+Shared configuration dialogs identify their definition and placement count.
+
+Generated page/reusable members use the concrete authored Menu class, including
+custom methods, through the existing implicit-this language contract. Runtime
+factories construct each physical class once, initialize the saved placement
+before its authored constructor, and bind internal handlers before page handlers
+without replacing either or losing synchronous cancellation. Nested reusable and
+repeating-row placements receive the same factory contract and disposal path.
+
+Persistence includes Menu documents and owned generated/authored files in the
+existing atomic save, rename/archive, save-as and reopen lifecycle. Invalid links,
+duplicate identities, destinations, styles and theme colors are rejected. Linked
+placements do not persist configuration copies. Existing local Menus and authored
+reusable Menu compositions remain unchanged. Shared edits use the definition's
+document history; changing the definition of a placement is undoable locally.
+
+Updated the existing Electron Menu workflow and required evidence to cover native
+palette drag, shared persistence, typed internal/page handlers, cancellation and
+independent state in two placements alongside the legacy reusable interactions.
+`npm.cmd run runtime:sources` completed successfully. Tests, smokes, typecheck,
+lint, formatting checks, builds and packaging were not requested or run.
+
+Documentation: [Menu](docs/menu.md), [Project format](docs/project-format.md).
+
+## Panel, Group and HTML aspect ratios: 2026-10-28
+
+Added Registry-backed `aspectRatio` choices `none`, `1:1`, `4:3`, `3:4`, `16:9`
+and `9:16` for Panel, Group and HTML. Missing/initial values mean free sizing.
+The Project Model validates the optional property without a format migration.
+Typed runtime classes, Monaco declarations and embedded sources share the
+`WebAspectRatio` contract. Video Player keeps its existing narrower public enum.
+
+Extended the existing shared layout projection to the additional presets,
+floating Panel anchors and fit-content containers. Width drives height while a
+ratio is active; saved vertical rules remain intact. The Designer disables
+height editors and offers only available horizontal resize handles. Floating
+resize commits retain the free height. Root surfaces keep their existing owner
+sizing contract. Documentation: [Aspect ratios](docs/aspect-ratio.md).
+
+Updated the existing HTML Electron workflow and development/packaged required
+evidence for Panel/Group/HTML ratio selection, free restoration, saved heights,
+resize handles and compiled geometry after runtime width changes. This updates
+smoke definitions only. No tests, smokes, typecheck, lint, formatting checks,
+builds or packaging were requested or run; source regeneration is recorded
+separately from verification.
+
+## HTML component: 2026-10-28
+
+Added the Registry-backed Standard > HTML visual component (`WebHtml`) for HTML
+fragments and complete documents. The Inspector uses generic `multiline` string
+metadata to preserve authored markup, whitespace and CSS in `props.html`; the
+accessible frame name is `props.title`. Existing project serialization and
+history commands remain the source of truth without a format version change.
+
+Designer and browser runtime share script-disabled, opaque-origin `srcdoc`
+rendering for inline markup. Standalone cross-origin HTTPS iframe snippets are
+projected directly as external frames, preserving their media permissions,
+referrer policy and actual remote origin for YouTube-style embeds. IDE/Preview
+CSP permit HTTPS frames; Preview delegates media permissions. Raw markup never
+receives script/same-origin sandbox tokens. Designer frames are inert for canvas
+gestures; runtime enabled state controls interaction. Outer styles remain
+separate from embedded CSS.
+
+The public runtime class exposes `html`, `title`, `clear()` and `onLoad`, with
+generated declarations and embedded runtime sources for Monaco, page/reusable
+instances, compiled Preview and exports. The frame has no access to IDE IPC.
+
+Updated the Electron workflow and development/packaged evidence requirements for
+real HTML palette insertion, multiline editing, saved markup, Designer rendering,
+CSS isolation, compiled F9 sandbox and geometry. The same flow now retains a
+separate HTTPS embed fixture and requires direct
+source, saved markup, sandbox, media permissions and referrer-policy evidence in
+Designer/F9 without relying on provider connectivity or claiming actual playback.
+No tests, smokes, typecheck, lint, formatting checks, builds or packaging were
+requested or run. See [HTML](docs/html.md) for the public contract and limitations.
+
+## Responsive Preview viewports: 2026-10-28
+
+The exclusive Preview toolbar now offers Desktop (available width), Tablet
+(768 px), and Mobile (390 px), reusing the Designer viewport widths. Switching
+resizes the existing application iframe without rebuilding or reloading it.
+Fixed widths center in the available space and remain exact through horizontal
+scrolling when the IDE window is narrower. Compact icon controls retain their
+accessible labels; Stop remains visible. Each Preview session starts at Desktop,
+independently of Designer UI state and without changing the Project Model.
+
+Updated the existing Electron Preview workflow to click the real controls and
+assert selected state, iframe geometry, browser media queries, and preserved
+application document/form state before returning to Desktop and clicking Stop.
+Development and packaged runners require this viewport evidence. No tests,
+smokes, typecheck, lint, formatting checks, builds, or packaging were requested
+or run. Runtime code and persisted formats are unchanged.
+
 ## Isolate IDE compilation after 71c9f3d: 2026-10-27
 
 [Release 40592211180](https://github.com/Atentor/WebRad/actions/runs/40592211180)

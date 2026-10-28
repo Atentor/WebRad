@@ -105,6 +105,21 @@ export function createWebMenuDefinition(
     },
     properties: [
       ...geometry,
+      {
+        name: 'menuDefinitionId',
+        label: 'Menu definition',
+        type: 'menu-definition',
+        category: 'Menu',
+        source: 'props',
+        description: 'Shared configuration and TypeScript; runtime state remains independent for each placement.',
+      },
+      {
+        name: 'editMenuDefinition',
+        label: 'Edit shared menu',
+        type: 'designer-action',
+        category: 'Menu',
+        designerAction: 'menu-definition-edit',
+      },
       MENU_CONFIGURATION_PROPERTY,
       {
         name: 'placement',

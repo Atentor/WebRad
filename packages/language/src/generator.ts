@@ -9,16 +9,19 @@ import {
   RepeatingGroupConfigurationSchema,
   parsePage,
   parseReusableElement,
+  MenuDefinitionModelSchema,
   type ApiClientSchemaNode,
   type ComponentNode,
   type PageModel,
   type ReusableElementModel,
+  type MenuDefinitionModel,
 } from '@webrad/project-model';
 import { COMPONENT_SCOPE_PREFIX, componentReferenceScope } from './component-references.js';
 import { repeatingGroupForComponent } from './repeating-context.js';
 import ts from 'typescript';
 
 export interface GeneratePageOptions {
+  readonly menus?: readonly MenuDefinitionModel[];
   readonly registry?: ComponentRegistry;
   readonly runtimeModule?: string;
   readonly generatedSuffix?: string;
@@ -33,7 +36,7 @@ export interface GeneratedPageArtifacts {
   readonly userSource: string;
 }
 
-type GeneratedDocumentKind = 'page' | 'reusable';
+type GeneratedDocumentKind = 'page' | 'reusable' | 'menu';
 
 export class LanguageGenerationError extends Error {
   public constructor(message: string) {
@@ -323,7 +326,10 @@ function reportTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
   }
   return { declarations, typeByComponentId };
 }
-function documentTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
+function documentTypeDeclarations(
+  page: PageModel,
+  menus: readonly MenuDefinitionModel[] = [],
+): ApiClientTypeDeclarations {
   const api = apiClientTypeDeclarations(page);
   const rows = repeatingGroupTypeDeclarations(page);
   const reports = reportTypeDeclarations(page);
@@ -333,6 +339,12 @@ function documentTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
       ...api.typeByComponentId,
       ...rows.typeByComponentId,
       ...reports.typeByComponentId,
+      ...page.components.flatMap((component) => {
+        const index = menus.findIndex((menu) => menu.id === component.props.menuDefinitionId);
+        return component.type === 'WebMenu' && index >= 0
+          ? [[component.id, `WebRadMenuDefinition${String(index)}`] as const]
+          : [];
+      }),
     ]),
   };
 }
@@ -393,6 +405,11 @@ function componentConstruction(
 ): string {
   const definition = registry.require(component.type);
   if (definition.visual) {
+    if (component.type === 'WebMenu' && typeof component.props.menuDefinitionId === 'string') {
+      const menuType = apiClientTypes.get(component.id);
+      if (menuType === undefined) throw new LanguageGenerationError('Unknown Menu definition.');
+      return `WebMenu.fromElement(this.requireComponentElement(${elementId}), ${menuType})`;
+    }
     return `new ${apiClientTypes.get(component.id) ?? component.type}(this.requireComponentElement(${elementId}))`;
   }
   const typeName = apiClientTypes.get(component.id) ?? component.type;
@@ -448,6 +465,7 @@ function componentInitialization(component: ComponentNode): readonly string[] {
 }
 
 function parseGeneratedDocument(documentInput: PageModel, kind: GeneratedDocumentKind): PageModel {
+  if (kind === 'menu') return MenuDefinitionModelSchema.parse(documentInput);
   return kind === 'page' ? parsePage(documentInput) : parseReusableElement(documentInput);
 }
 
@@ -521,7 +539,7 @@ function generateDocumentSource(
   const components = page.components.filter((component) => component.id !== page.rootComponentId);
   const events = assignedEvents(page);
   const gridBindings = apiListBindings(page);
-  const apiClientTypes = documentTypeDeclarations(page);
+  const apiClientTypes = documentTypeDeclarations(page, options.menus);
   const isReusable = kind === 'reusable';
   const baseClass = isReusable ? 'WebReusableElementInstance' : 'WebPage';
   const constructorParameters = isReusable
@@ -551,6 +569,7 @@ function generateDocumentSource(
       )
       .join(', ')} } from ${quoted(runtimeModule)};`,
     '',
+    ...menuDefinitionImports(page, options.menus, false),
     `export abstract class ${className} extends ${baseClass} {`,
   ];
 
@@ -706,6 +725,62 @@ export function generateReusableElementSource(
   return generateDocumentSource(reusableElementInput, 'reusable', options);
 }
 
+function menuDefinitionImports(
+  document: PageModel,
+  menus: readonly MenuDefinitionModel[] = [],
+  typeOnly: boolean,
+): string[] {
+  return menus.flatMap((menu, index) =>
+    document.components.some(
+      (node) => node.type === 'WebMenu' && node.props.menuDefinitionId === menu.id,
+    )
+      ? [
+          `import ${typeOnly ? 'type ' : ''}{ ${pageClassName(menu.name)} as WebRadMenuDefinition${String(index)} } from '../menus/${menu.name}';`,
+        ]
+      : [],
+  );
+}
+
+/** A Menu definition has a concrete WebMenu root, without a structural wrapper. */
+export function generateMenuSource(menuInput: MenuDefinitionModel): string {
+  const menu = MenuDefinitionModelSchema.parse(menuInput);
+  const root = menu.components.find((node) => node.id === menu.rootComponentId);
+  if (!root || menu.components.length !== 1)
+    throw new LanguageGenerationError('A Menu definition must have one root.');
+  const bindings = Object.entries(root.events).flatMap(([name, handler]) =>
+    handler === null ? [] : [`    this.bindDefinitionEvent(${quoted(name)}, ${quoted(handler)});`],
+  );
+  return [
+    '// Generated by WebRAD. Changes to this file will be replaced.',
+    "import { WebMenu } from '@webrad/runtime';",
+    '',
+    `export abstract class ${generatedClassName(menu, 'Generated')} extends WebMenu {`,
+    '  public constructor(element: HTMLElement) {',
+    '    super(element);',
+    ...bindings,
+    '  }',
+    '}',
+    '',
+  ].join('\n');
+}
+
+export function generateMenuTypings(menuInput: MenuDefinitionModel): string {
+  const menu = MenuDefinitionModelSchema.parse(menuInput);
+  return [
+    '// Generated by WebRAD for editor type information.',
+    `${COMPONENT_SCOPE_PREFIX}${JSON.stringify({ ...componentReferenceScope(menu), generatedClassName: generatedClassName(menu, 'Generated') })}`,
+    "import type { WebMenu } from '@webrad/runtime';",
+    `export declare abstract class ${generatedClassName(menu, 'Generated')} extends WebMenu {`,
+    '  public constructor(element: HTMLElement);',
+    '}',
+    '',
+  ].join('\n');
+}
+
+export function createUserMenuSource(menu: MenuDefinitionModel): string {
+  return createUserDocumentSource(menu, 'menu');
+}
+
 function generateDocumentTypings(
   documentInput: PageModel,
   kind: GeneratedDocumentKind,
@@ -717,7 +792,7 @@ function generateDocumentTypings(
   const runtimeModule = options.runtimeModule ?? '@webrad/runtime';
   const className = generatedClassName(page, options.generatedSuffix ?? 'Generated');
   const components = page.components.filter((component) => component.id !== page.rootComponentId);
-  const apiClientTypes = documentTypeDeclarations(page);
+  const apiClientTypes = documentTypeDeclarations(page, options.menus);
   const isReusable = kind === 'reusable';
   const baseClass = isReusable ? 'WebReusableElementInstance' : 'WebPage';
   const constructorParameters = isReusable
@@ -727,6 +802,7 @@ function generateDocumentTypings(
     '// Generated by WebRAD for editor type information.',
     `${COMPONENT_SCOPE_PREFIX}${JSON.stringify({ ...componentReferenceScope(page), generatedClassName: className })}`,
     `import type { ${runtimeTypes(page, kind).join(', ')} } from ${quoted(runtimeModule)};`,
+    ...menuDefinitionImports(page, options.menus, true),
     '',
     `export declare abstract class ${className} extends ${baseClass} {`,
     ...components.map(

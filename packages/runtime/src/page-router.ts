@@ -1,6 +1,11 @@
 import { Navigate, type NavigateOptions } from './globals.js';
 import type { WebPage, WebReusableElementInstance } from './page.js';
-import { mountPage, type MountedRuntimePage, type RuntimePageModel } from './render.js';
+import {
+  mountPage,
+  type MountedRuntimePage,
+  type RuntimePageModel,
+  type RuntimeMenuFactory,
+} from './render.js';
 
 /** A factory for the authored page class that wraps a mounted page element. */
 export type RuntimePageFactory = (element: HTMLElement) => WebPage;
@@ -24,6 +29,7 @@ export interface RuntimePageRoute {
   readonly createPage: RuntimePageFactory;
   /** Instantiates authored scopes for every reusable placement on this route. */
   readonly createReusableElements?: RuntimeReusableElementFactory;
+  readonly menuFactories?: ReadonlyMap<string, RuntimeMenuFactory>;
 }
 
 interface ActiveRuntimePage {
@@ -265,7 +271,7 @@ export class WebPageRouter {
     }
 
     this.#disposeActivePage();
-    const mounted = mountPage(route.model, this.#host);
+    const mounted = mountPage(route.model, this.#host, { menuFactories: route.menuFactories });
     mounted.element.dataset.webradRoutePath = this.#routePaths.get(route.id) ?? '';
     let page: WebPage;
     let reusableElements: readonly WebReusableElementInstance[] = [];

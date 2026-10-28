@@ -87,7 +87,6 @@ function shell(inspector = true): ReturnType<typeof render> {
       editor={<div>Canvas</div>}
       inspector={inspector ? <div>Inspector</div> : null}
       bottom={null}
-      status={<div>Status</div>}
     />,
   );
 }

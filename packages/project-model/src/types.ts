@@ -335,6 +335,9 @@ export interface PageModel {
  */
 export type ReusableElementModel = PageModel;
 
+/** A shared navigation definition whose root is the Menu itself. */
+export type MenuDefinitionModel = PageModel;
+
 export const PROJECT_ENVIRONMENTS = ['development', 'production'] as const;
 export type ProjectEnvironment = (typeof PROJECT_ENVIRONMENTS)[number];
 
@@ -626,6 +629,8 @@ export interface WebRadProject {
    * their child nodes are not copied into each instance.
    */
   readonly reusableElements: readonly ReusableElementModel[];
+  /** Shared Menu documents; older projects load with an empty collection. */
+  readonly menus?: readonly MenuDefinitionModel[];
   /** Reusable Tailwind styles shared by compatible components across all pages. */
   readonly styles: readonly ComponentStyleModel[];
   readonly sourceFiles?: readonly ProjectSourceFile[];
@@ -655,6 +660,8 @@ export interface ProjectManifest {
    * authored classes use deterministic paths under `reusables/`.
    */
   readonly reusableElements: readonly ReusableElementModel[];
+  /** Menu configuration and shared events are inline; authored code lives under menus/. */
+  readonly menus?: readonly MenuDefinitionModel[];
   /** Styles remain inline because they are small project-level metadata. */
   readonly styles: readonly ComponentStyleModel[];
   readonly sourceFiles?: readonly ProjectSourceFile[];

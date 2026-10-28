@@ -1,5 +1,11 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
-import { getFloatingPanelAlignment, type WebPanelFloatingAlignment } from './layout.js';
+import {
+  getFloatingPanelAlignment,
+  getRuntimeLayoutAspectRatio,
+  setRuntimeLayoutAspectRatio,
+  type WebAspectRatio,
+  type WebPanelFloatingAlignment,
+} from './layout.js';
 import {
   disposePanelProgress,
   projectPanelProgress,
@@ -649,6 +655,14 @@ export class WebListBox extends WebComponent<HTMLSelectElement> {
 }
 
 export class WebPanel extends WebComponent<HTMLElement> {
+  public get aspectRatio(): WebAspectRatio {
+    return getRuntimeLayoutAspectRatio(this.element);
+  }
+
+  public set aspectRatio(value: WebAspectRatio) {
+    setRuntimeLayoutAspectRatio(this.element, value);
+  }
+
   public get floatingAlignment(): WebPanelFloatingAlignment {
     return getFloatingPanelAlignment({
       type: 'WebPanel',

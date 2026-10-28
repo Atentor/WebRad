@@ -34,6 +34,7 @@ import type { ComponentStyleModel } from '@webrad/project-model';
 import { projectThemeCss, type ResolvedThemeMode } from '@webrad/project-model';
 import {
   projectRuntimeLayout,
+  normalizeWebAspectRatio,
   getFloatingPanelAlignment,
   projectFloatingPanelBounds,
   type RuntimeContainerLayout,
@@ -346,6 +347,17 @@ function boundsResizeHandles(
   parentMode: ContainerLayoutMode,
   automatic = false,
 ): readonly ResizeHandle[] {
+  const handles = layoutBoundsResizeHandles(node, parentMode, automatic);
+  return normalizeWebAspectRatio(node.props.aspectRatio) === 'none'
+    ? handles
+    : handles.filter((handle) => handle === 'e' || handle === 'w');
+}
+
+function layoutBoundsResizeHandles(
+  node: ComponentNode,
+  parentMode: ContainerLayoutMode,
+  automatic = false,
+): readonly ResizeHandle[] {
   if (automatic) return [];
   if (usesResponsiveFloatingSize(node)) {
     const handles = getBoundsResizeHandles(node.layout.item, 'fixed');
@@ -512,6 +524,7 @@ function projectItemStyle(
     measuredFitContent?.width !== undefined;
   const useMeasuredHeight =
     supportsDynamicFitMeasurement &&
+    item['aspect-ratio'] === undefined &&
     node.layout.item.height === 'fit-content' &&
     measuredFitContent?.height !== undefined;
   const fitContentStyles = {
@@ -628,6 +641,18 @@ function floatingVisualBounds(
 
 /** Converts an interactive viewport resize back to the persisted anchor offsets. */
 function floatingPersistedBounds(
+  node: ComponentNode,
+  visualBounds: Bounds,
+  designViewport: DesignViewport,
+  original?: Bounds,
+): Bounds {
+  const bounds = floatingUnconstrainedPersistedBounds(node, visualBounds, designViewport, original);
+  return normalizeWebAspectRatio(node.props.aspectRatio) === 'none'
+    ? bounds
+    : { ...bounds, height: node.bounds.height };
+}
+
+function floatingUnconstrainedPersistedBounds(
   node: ComponentNode,
   visualBounds: Bounds,
   designViewport: DesignViewport,

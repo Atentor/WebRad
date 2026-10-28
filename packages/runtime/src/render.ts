@@ -2,6 +2,7 @@ import { projectWebMenuLayout, reusableMenuNode } from './menu-layout.js';
 import { bindReusableMenuLayout } from './reusable-menu-layout.js';
 import { WebProgressBar, projectProgressBar } from './progress-bar.js';
 import { WebIcon, projectIcon } from './icon.js';
+import { WebHtml } from './html.js';
 import { WebMenu } from './menu.js';
 import { createDefaultWebMenuConfiguration, parseWebMenuConfiguration } from './menu-model.js';
 import type { WebComponent } from './component.js';
@@ -48,6 +49,7 @@ import {
   isFloatingLayoutNode,
   getFloatingPanelAlignment,
   bindRuntimeFitContent,
+  normalizeWebAspectRatio,
   resolveRuntimeContainerLayout,
   type RuntimeFitContentBinding,
   type RuntimeComponentLayout,
@@ -225,11 +227,21 @@ export class RuntimeComponentRegistry {
     return adapter;
   }
 
-  public create(document: Document, node: RuntimeComponentNode): WebComponent {
+  public create(
+    document: Document,
+    node: RuntimeComponentNode,
+    menuFactories?: ReadonlyMap<string, RuntimeMenuFactory>,
+  ): WebComponent {
     const adapter = this.require(node.type);
     const element = adapter.createElement(document, node);
-    const component = adapter.createComponent(element);
-    adapter.applyProperties?.(component, node);
+    const menuId = node.type === 'WebMenu' ? node.props.menuDefinitionId : undefined;
+    const menuFactory = typeof menuId === 'string' ? menuFactories?.get(menuId) : undefined;
+    if (typeof menuId === 'string' && !menuFactory)
+      throw new Error(`No factory is registered for Menu definition "${menuId}".`);
+    const component = menuFactory
+      ? WebMenu.createDefinition(element, menuFactory, (menu) => adapter.applyProperties?.(menu, node))
+      : adapter.createComponent(element);
+    if (!menuFactory) adapter.applyProperties?.(component, node);
     return component;
   }
 }
@@ -355,6 +367,7 @@ runtimeComponentRegistry
     createComponent: (element) => new WebPanel(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
+      component.aspectRatio = normalizeWebAspectRatio(node.props.aspectRatio);
       applyFloatingProperties(component, node);
       component.element.dataset.webradPanelStyled = String(node.styleClassName !== undefined);
       component.caption = readStringProperty(node, 'caption');
@@ -379,6 +392,7 @@ runtimeComponentRegistry
     createComponent: (element) => new WebGroup(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
+      component.aspectRatio = normalizeWebAspectRatio(node.props.aspectRatio);
       component.caption = readStringProperty(node, 'caption', node.name);
     },
   })
@@ -421,6 +435,16 @@ runtimeComponentRegistry
         readStringProperty(node, 'text', node.name),
       );
       component.autoSize = readBooleanProperty(node, 'autoSize');
+    },
+  })
+  .register<WebHtml>('WebHtml', {
+    createElement: elementFactory('iframe'),
+    createComponent: (element) => new WebHtml(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.aspectRatio = normalizeWebAspectRatio(node.props.aspectRatio);
+      component.title = readStringProperty(node, 'title', 'HTML content');
+      component.html = readStringProperty(node, 'html');
     },
   })
   .register<WebEdit>('WebEdit', {
@@ -653,7 +677,10 @@ export interface MountedReusableElementInstance {
 export interface MountPageOptions {
   readonly replaceHostContents?: boolean;
   readonly registry?: RuntimeComponentRegistry;
+  readonly menuFactories?: ReadonlyMap<string, RuntimeMenuFactory>;
 }
+
+export type RuntimeMenuFactory = (element: HTMLElement) => WebMenu;
 
 function scopedReusableComponentId(
   scope: string,
@@ -897,6 +924,7 @@ function mountRepeatingGroupRow(
   registry: RuntimeComponentRegistry,
   document: Document,
   pageName: string,
+  menuFactories?: ReadonlyMap<string, RuntimeMenuFactory>,
 ): WebRepeatingGroupRow {
   const scope = `@wr-row:${encodeURIComponent(group.id)}:${String(index)}`;
   const rowElement = document.createElement('div');
@@ -953,7 +981,7 @@ function mountRepeatingGroupRow(
       const node = nodes.get(id);
       if (node === undefined)
         throw new Error(`Repeating Group row references unknown component "${id}".`);
-      const component = registry.create(document, node);
+      const component = registry.create(document, node, menuFactories);
       components.set(id, component);
       applyCurrentRowBindings(component, node.props.currentRowBindings, value);
       const updateBindings = (): void =>
@@ -974,6 +1002,7 @@ function mountRepeatingGroupRow(
             registry,
             document,
             pageName,
+            menuFactories,
           ),
         );
       } else {
@@ -1120,7 +1149,7 @@ export function mountPage(
     const node = nodes.get(nodeId);
     if (node === undefined)
       throw new Error(`Runtime page references unknown component "${nodeId}".`);
-    const component = registry.create(host.ownerDocument, node);
+    const component = registry.create(host.ownerDocument, node, options.menuFactories);
     if (node.reusableRoot === true) {
       // A floating reusable lives in a sibling overlay layer rather than below
       // the page root, so the host page cannot reliably be discovered by
@@ -1139,6 +1168,7 @@ export function mountPage(
           registry,
           host.ownerDocument,
           expandedModel.name,
+          options.menuFactories,
         ),
       );
       return component.element;

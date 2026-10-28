@@ -13,6 +13,18 @@ export type RuntimeLayoutJustifyContent =
 export type RuntimeLayoutAlignItems = 'start' | 'center' | 'end' | 'stretch';
 export type RuntimeLayoutAlignSelf = 'auto' | RuntimeLayoutAlignItems;
 
+export const WEB_ASPECT_RATIOS = ['none', '1:1', '4:3', '3:4', '16:9', '9:16'] as const;
+export type WebAspectRatio = (typeof WEB_ASPECT_RATIOS)[number];
+
+export function normalizeWebAspectRatio(value: unknown): WebAspectRatio {
+  return WEB_ASPECT_RATIOS.find((ratio) => ratio === value) ?? 'none';
+}
+
+function aspectRatioNumber(ratio: Exclude<WebAspectRatio, 'none'>): number {
+  const [width = 1, height = 1] = ratio.split(':').map(Number);
+  return width / height;
+}
+
 export interface RuntimeContainerLayout {
   readonly mode: RuntimeContainerLayoutMode;
   readonly paddingTop: number;
@@ -498,7 +510,20 @@ export function projectFloatingPanelBounds(
 ): RuntimeLayoutBounds | undefined {
   if (!isFloatingLayoutNode(node)) return undefined;
   const horizontal = floatingPanelAxisBounds(floatingPanelAxis(node, true), pageSize.width);
-  const vertical = floatingPanelAxisBounds(floatingPanelAxis(node, false), pageSize.height);
+  const ratio = normalizeWebAspectRatio(node.props?.aspectRatio);
+  const verticalAxis = floatingPanelAxis(node, false);
+  const vertical = floatingPanelAxisBounds(
+    ratio === 'none'
+      ? verticalAxis
+      : {
+          ...verticalAxis,
+          sizing: 'fixed',
+          fixedSize: horizontal.size / aspectRatioNumber(ratio),
+          minimum: 0,
+          maximum: null,
+        },
+    pageSize.height,
+  );
   return {
     x: horizontal.position,
     y: vertical.position,
@@ -703,18 +728,27 @@ function projectAspectRatio(
   parent: RuntimeContainerLayout | undefined,
   styles: Readonly<Record<string, string>>,
 ): Readonly<Record<string, string>> {
-  const ratio = node.props?.aspectRatio;
-  if (ratio !== '16:9' && ratio !== '9:16') return styles;
+  const ratio = normalizeWebAspectRatio(node.props?.aspectRatio);
+  if (ratio === 'none') return styles;
   const item = normalizeItem(node.layout);
   const mode = parent?.mode ?? 'fixed';
-  const flow = mode === 'row' || mode === 'column';
-  const end =
-    mode === 'align-to-parent' && item.verticalAnchor === 'end' && item.height !== 'stretch';
-  const center =
-    mode === 'align-to-parent' && item.verticalAnchor === 'center' && item.height !== 'stretch';
+  const floating = isFloatingLayoutNode(node);
+  const floatingAxis = floating ? floatingPanelAxis(node, false) : undefined;
+  const flow = !floating && (mode === 'row' || mode === 'column');
+  const end = floatingAxis
+    ? floatingAxis.anchor === 'end'
+    : mode === 'align-to-parent' && item.verticalAnchor === 'end' && item.height !== 'stretch';
+  const center = floatingAxis
+    ? floatingAxis.anchor === 'center'
+    : mode === 'align-to-parent' && item.verticalAnchor === 'center' && item.height !== 'stretch';
+  const stretchedRow =
+    flow &&
+    mode === 'row' &&
+    (styles['align-self'] === 'stretch' ||
+      (styles['align-self'] === undefined && parent?.alignItems === 'stretch'));
   return {
     ...styles,
-    'aspect-ratio': ratio === '16:9' ? '16 / 9' : '9 / 16',
+    'aspect-ratio': ratio.replace(':', ' / '),
     height: 'auto',
     'min-height': '0px',
     'max-height': 'none',
@@ -726,16 +760,16 @@ function projectAspectRatio(
         }),
     ...(center
       ? {
-          top: `calc(50% + ${coordinatePixels(item.top)})`,
+          top: floatingAxis
+            ? (styles.top ?? '50%')
+            : `calc(50% + ${coordinatePixels(item.top)})`,
           translate: `${styles.translate?.split(' ')[0] ?? '0'} -50%`,
         }
       : {}),
-    ...(mode === 'column' ? { 'flex-basis': 'auto', 'flex-grow': '0', 'flex-shrink': '0' } : {}),
-    ...(mode === 'row' &&
-    (styles['align-self'] === 'stretch' ||
-      (styles['align-self'] === undefined && parent?.alignItems === 'stretch'))
-      ? { 'align-self': 'flex-start' }
+    ...(flow && mode === 'column'
+      ? { 'flex-basis': 'auto', 'flex-grow': '0', 'flex-shrink': '0' }
       : {}),
+    ...(stretchedRow ? { 'align-self': 'flex-start' } : {}),
   };
 }
 
@@ -785,19 +819,27 @@ export function setRuntimeLayoutProjection(
   return true;
 }
 
-const aspectRatioOverrides = new WeakMap<HTMLElement, 'none' | '16:9' | '9:16'>();
+const aspectRatioOverrides = new WeakMap<HTMLElement, WebAspectRatio>();
 const standaloneRatioStyles = new WeakMap<HTMLElement, readonly [string, string, string][]>();
+
+export function getRuntimeLayoutAspectRatio(element: HTMLElement): WebAspectRatio {
+  return (
+    aspectRatioOverrides.get(element) ??
+    normalizeWebAspectRatio(layoutBindings.get(element)?.node.props?.aspectRatio)
+  );
+}
 
 /** Updates the same structural projection used by the Designer without changing saved rules. */
 export function setRuntimeLayoutAspectRatio(
   element: HTMLElement,
-  ratio: 'none' | '16:9' | '9:16',
+  ratio: WebAspectRatio,
 ): void {
+  if (!WEB_ASPECT_RATIOS.includes(ratio)) throw new TypeError('Invalid aspectRatio.');
   const previousRatio = aspectRatioOverrides.get(element);
   aspectRatioOverrides.set(element, ratio);
   const binding = layoutBindings.get(element);
   if (binding !== undefined) {
-    const projectRatio = (value: 'none' | '16:9' | '9:16' | undefined) =>
+    const projectRatio = (value: WebAspectRatio | undefined) =>
       projectRuntimeLayout(
         layoutProjectors.get(element)?.(
           value === undefined
@@ -821,12 +863,12 @@ export function setRuntimeLayoutAspectRatio(
     }
     return;
   }
-  // A directly constructed player can precede mounting. Preserve its original
+  // A directly constructed component can precede mounting. Preserve its original
   // dimensions until the model-owned layout becomes available.
   if (!standaloneRatioStyles.has(element)) {
     standaloneRatioStyles.set(
       element,
-      ['height', 'aspect-ratio'].map((name) => [
+      ['height', 'aspect-ratio', 'min-height', 'max-height'].map((name) => [
         name,
         element.style.getPropertyValue(name),
         element.style.getPropertyPriority(name),
@@ -839,7 +881,9 @@ export function setRuntimeLayoutAspectRatio(
     standaloneRatioStyles.delete(element);
   } else {
     element.style.setProperty('height', 'auto', 'important');
-    element.style.setProperty('aspect-ratio', ratio === '16:9' ? '16 / 9' : '9 / 16', 'important');
+    element.style.setProperty('aspect-ratio', ratio.replace(':', ' / '), 'important');
+    element.style.setProperty('min-height', '0px', 'important');
+    element.style.setProperty('max-height', 'none', 'important');
   }
 }
 
@@ -996,12 +1040,16 @@ export function measureRuntimeFitContentSize(
   }
   const item = normalizeItem(layout);
   const scale = measurementScale(options);
+  const inlineRatio = target.style.getPropertyValue('aspect-ratio');
+  const fixedRatio =
+    getRuntimeLayoutAspectRatio(target) !== 'none' ||
+    (inlineRatio !== '' && inlineRatio !== 'auto');
   const width =
     item.width === 'fit-content'
       ? contentExtent(target, contentHost, 'horizontal', scale, options?.isLayoutChild)
       : undefined;
   const height =
-    item.height === 'fit-content'
+    item.height === 'fit-content' && !fixedRatio
       ? contentExtent(target, contentHost, 'vertical', scale, options?.isLayoutChild)
       : undefined;
   return {

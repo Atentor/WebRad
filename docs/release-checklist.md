@@ -71,6 +71,14 @@ This does not certify a later commit or Linux/macOS.
 
 ## Before creating a tag
 
+The Menu workflow must retain native shared-definition evidence as well as legacy
+reusable interactions. Both development and packaged runners require
+`renderer native Menu persistence passed:` and
+`renderer native shared Menu Interaction passed:`. These cover the real palette
+drag, definition-owned configuration and TypeScript, typed handlers, compiled
+internal-before-page dispatch/cancellation, and isolated state in two placements.
+Updating smoke definitions does not establish passing execution evidence.
+
 1. With authorization, push the commit to main or `codex/verify-release-*`, or
    open a PR. Release verification performs all four builds, smokes, installers,
    and assembly without publishing. Manual dispatch can verify an existing branch.

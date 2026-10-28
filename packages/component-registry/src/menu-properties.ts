@@ -33,14 +33,18 @@ export function menuInspectorTarget(
   node: RegisteredComponentNode,
   context?: ComponentLayoutContext,
 ): RegisteredComponentNode | undefined {
-  if (node.type === 'WebMenu') return node;
+  if (node.type === 'WebMenu') {
+    const shared = context?.menus?.find((menu) => menu.id === node.props.menuDefinitionId);
+    return shared?.components.find((component) => component.id === shared.rootComponentId) ?? node;
+  }
   const definition =
     node.type === 'WebReusableElement'
       ? context?.reusableElements?.find((item) => item.id === node.props.reusableElementId)
       : context?.document?.rootComponentId === node.id
         ? context.document
         : undefined;
-  return reusableMenuNode(definition) as RegisteredComponentNode | undefined;
+  const menu = reusableMenuNode(definition) as RegisteredComponentNode | undefined;
+  return menu ? menuInspectorTarget(menu, context) : undefined;
 }
 
 export function automaticMenuLayout(
@@ -60,15 +64,19 @@ export function menuInspectorProperties(
   const orientation = (menu.props.configuration as { readonly orientation?: unknown } | undefined)
     ?.orientation;
   const root = context?.document?.rootComponentId === node.id;
+  if (root && node.type === 'WebMenu')
+    return properties.filter((property) => ['name', 'configuration'].includes(property.name));
   const embedded =
     node.type === 'WebMenu' &&
     context?.reusableElements?.some((definition) => reusableMenuNode(definition)?.id === node.id);
   if (embedded)
     return properties.filter((property) =>
-      ['name', 'visible', 'enabled', 'configuration'].includes(property.name),
+      ['name', 'visible', 'enabled', 'configuration', 'menuDefinitionId', 'editMenuDefinition'].includes(property.name),
     );
   const allowed = new Set([
     'name',
+    ...(!root ? ['menuDefinitionId'] : []),
+    ...(!root && typeof node.props.menuDefinitionId === 'string' ? ['editMenuDefinition'] : []),
     'reusableElementId',
     'visible',
     'enabled',

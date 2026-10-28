@@ -1,6 +1,9 @@
 import { type ProjectTemplateId } from '@webrad/component-registry';
 import {
   addComponentStyle,
+  applyDefaultComponentStyle,
+  menuSourcePath,
+  createMenuDefinition,
   bindDefaultStylesToTheme,
   bindScrollbarColorsToTheme,
   projectSourceFilePath,
@@ -25,6 +28,7 @@ import {
   updateReusableElement as updateProjectReusableElement,
   type ComponentStyleModel,
   type PageModel,
+  type MenuDefinitionModel,
   type ProjectSettings,
   type ProjectThemeSettings,
   type ProjectThemePresetId,
@@ -36,6 +40,7 @@ import {
   createUserPageSource,
   createUserProjectSource,
   createUserReusableElementSource,
+  createUserMenuSource,
   renamePageUserSource,
   pruneEmptyEventHandlers,
 } from '@webrad/language';
@@ -200,6 +205,9 @@ export class ProjectController {
     for (const reusableElement of project.reusableElements) {
       userSources[reusableSourcePath(reusableElement.name)] ??=
         createUserReusableElementSource(reusableElement);
+    }
+    for (const menu of project.menus ?? []) {
+      userSources[menuSourcePath(menu)] ??= createUserMenuSource(menu);
     }
     const normalizedSession = { ...session, project, userSources };
     const previousRoot = this.#snapshot.rootPath;
@@ -393,6 +401,67 @@ export class ProjectController {
     this.replaceProject(updateProjectReusableElement(project, reusableElementId, updater));
   }
 
+  public addMenu(menu: MenuDefinitionModel): void {
+    const project = this.#requireProject();
+    const styled = { ...menu, components: menu.components.map((node) => applyDefaultComponentStyle(node, project.styles)) };
+    this.#commitEdit(
+      parseProject({ ...project, menus: [...(project.menus ?? []), styled] }),
+      { ...this.#snapshot.userSources, [menuSourcePath(menu)]: createUserMenuSource(menu) },
+    );
+  }
+
+  public ensureDefaultMenu(): MenuDefinitionModel {
+    const project = this.#requireProject();
+    const existing = project.menus?.[0];
+    if (existing) return existing;
+    const occupied = new Set([
+      ...project.pages, ...project.reusableElements, ...(project.sourceFiles ?? []),
+    ].map((item) => portableFileNameKey(item.name)));
+    let name = 'MainMenu';
+    let sequence = 1;
+    while (occupied.has(portableFileNameKey(name))) name = `MainMenu${String(++sequence)}`;
+    const menu = createMenuDefinition(name);
+    this.addMenu(menu);
+    return this.#snapshot.project?.menus?.find((entry) => entry.id === menu.id) ?? menu;
+  }
+
+  public updateMenu(id: string, updater: (menu: MenuDefinitionModel) => MenuDefinitionModel): void {
+    const project = this.#requireProject();
+    const current = project.menus?.find((menu) => menu.id === id);
+    if (!current) throw new Error('Menu definition does not exist.');
+    const next = updater(current);
+    if (next.id !== current.id || next.rootComponentId !== current.rootComponentId)
+      throw new Error('Menu definition IDs are immutable.');
+    this.replaceProject(parseProject({ ...project, menus: project.menus?.map((menu) => menu.id === id ? next : menu) }));
+  }
+
+  public removeMenu(id: string): void {
+    const project = this.#requireProject();
+    const menu = project.menus?.find((entry) => entry.id === id);
+    if (!menu) throw new Error('Menu definition does not exist.');
+    if ([...project.pages, ...project.reusableElements].some((document) => document.components.some((node) => node.props.menuDefinitionId === id)))
+      throw new Error('This Menu is still used. Remove its placements or choose another definition before deleting it.');
+    const userSources = { ...this.#snapshot.userSources };
+    delete userSources[menuSourcePath(menu)];
+    this.#commitEdit({ ...project, menus: project.menus?.filter((entry) => entry.id !== id) }, userSources);
+  }
+
+  public renameMenu(id: string, name: string): void {
+    const project = this.#requireProject();
+    const menu = project.menus?.find((entry) => entry.id === id);
+    if (!menu) throw new Error('Menu definition does not exist.');
+    if (menu.name === name) return;
+    const oldKey = menuSourcePath(menu);
+    const newKey = menuSourcePath({ name });
+    const next = parseProject({ ...project, menus: project.menus?.map((entry) => entry.id === id
+      ? { ...entry, name, caption: name, components: entry.components.map((node) => ({ ...node, name })) }
+      : entry) });
+    const text = this.#snapshot.userSources[oldKey] ?? createUserMenuSource(menu);
+    const userSources = { ...this.#snapshot.userSources, [newKey]: renamePageUserSource(text, menu.name, name, oldKey).sourceText };
+    delete userSources[oldKey];
+    this.#commitEdit(renameDebugSource(next, oldKey, newKey), userSources);
+  }
+
   public findReusableElement(reusableElementId: string): ReusableElementModel | undefined {
     return this.#snapshot.project?.reusableElements.find(
       (reusableElement) => reusableElement.id === reusableElementId,
@@ -444,13 +513,15 @@ export class ProjectController {
     const asset = project.assets?.find((item) => item.id === id);
     const page = project.pages.find((item) => item.id === id);
     const reusable = project.reusableElements.find((item) => item.id === id);
-    const document = page ?? reusable;
+    const menu = project.menus?.find((item) => item.id === id);
+    const document = page ?? reusable ?? menu;
     const original = document?.name ?? source?.name ?? asset?.fileName;
     if (!original) throw new Error('Select a project item to duplicate.');
     const occupied = new Set(
       [
         ...project.pages.map((item) => item.name),
         ...project.reusableElements.map((item) => item.name),
+        ...(project.menus ?? []).map((item) => item.name),
         ...(project.sourceFiles ?? []).map((item) => item.name),
         ...(project.assets ?? []).map((item) => item.fileName),
       ].map(portableFileNameKey),
@@ -488,11 +559,11 @@ export class ProjectController {
     }
     if (!document) throw new Error('Project document not found.');
     const copy = duplicateDocument(document, name);
-    const oldPath = page ? sourcePath(document.name) : reusableSourcePath(document.name);
-    const newPath = page ? sourcePath(name) : reusableSourcePath(name);
+    const oldPath = menu ? menuSourcePath(document) : page ? sourcePath(document.name) : reusableSourcePath(document.name);
+    const newPath = menu ? menuSourcePath({ name }) : page ? sourcePath(name) : reusableSourcePath(name);
     const text =
       userSources[oldPath] ??
-      (page ? createUserPageSource(document) : createUserReusableElementSource(document));
+      (menu ? createUserMenuSource(document) : page ? createUserPageSource(document) : createUserReusableElementSource(document));
     userSources[newPath] = renamePageUserSource(
       text,
       pageClassName(document.name),
@@ -501,7 +572,8 @@ export class ProjectController {
       document.name,
     ).sourceText;
     this.#commitEdit(
-      page ? addPageToProject(project, copy) : addReusableElementToProject(project, copy),
+      menu ? { ...project, menus: [...(project.menus ?? []), copy] }
+        : page ? addPageToProject(project, copy) : addReusableElementToProject(project, copy),
       userSources,
     );
     return copy.id;

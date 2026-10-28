@@ -22,6 +22,11 @@ interface ProjectExplorerProps {
   onAddReusableElement?: () => void;
   onDeleteReusableElement?: (reusableElementId: string) => void;
   onRenameReusableElement?: (reusableElementId: string, name: string) => void;
+  activeMenuId?: string | null;
+  onOpenMenu?: (id: string) => void;
+  onAddMenu?: () => void;
+  onDeleteMenu?: (id: string) => void;
+  onRenameMenu?: (id: string, name: string) => void;
 }
 
 function FolderGlyph({
@@ -64,6 +69,11 @@ export function ProjectExplorer({
   onAddReusableElement,
   onDeleteReusableElement,
   onRenameReusableElement,
+  activeMenuId,
+  onOpenMenu,
+  onAddMenu,
+  onDeleteMenu,
+  onRenameMenu,
 }: ProjectExplorerProps): ReactElement {
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -74,6 +84,8 @@ export function ProjectExplorer({
   const query = search.trim().toLocaleLowerCase();
   const matches = (name: string): boolean => name.toLocaleLowerCase().includes(query);
   const pages = project?.pages.filter((page) => matches(page.name)) ?? [];
+  const menus = project?.menus?.filter((menu) => matches(menu.name)) ?? [];
+  const menusExpanded = query.length > 0 || !collapsedFolders.has('Menus');
   const reusableElements =
     project?.reusableElements.filter((element) => matches(element.name)) ?? [];
   const pagesExpanded = query.length > 0 || !collapsedFolders.has('Pages');
@@ -87,6 +99,7 @@ export function ProjectExplorer({
     });
   };
   const selectedPage = project?.pages.find((page) => page.id === activePageId);
+  const selectedMenu = project?.menus?.find((menu) => menu.id === activeMenuId);
   const selectedReusable = project?.reusableElements.find(
     (element) => element.id === activeReusableElementId,
   );
@@ -95,10 +108,10 @@ export function ProjectExplorer({
   const selectedResource = selectedSource ?? selectedAsset;
   const selectedName = selectedResource
     ? (selectedSource?.name ?? selectedAsset?.fileName)
-    : (selectedReusable?.name ?? selectedPage?.name);
+    : (selectedMenu?.name ?? selectedReusable?.name ?? selectedPage?.name);
   const canDelete = selectedResource
     ? onDeleteResource !== undefined
-    : selectedReusable
+    : selectedMenu ? onDeleteMenu !== undefined : selectedReusable
       ? onDeleteReusableElement !== undefined
       : selectedPage !== undefined &&
         selectedPage.id !== project?.entryPage &&
@@ -107,6 +120,7 @@ export function ProjectExplorer({
   const deleteSelected = (): void => {
     if (!canDelete) return;
     if (selectedResource) onDeleteResource?.(selectedResource.id);
+    else if (selectedMenu) onDeleteMenu?.(selectedMenu.id);
     else if (selectedReusable) onDeleteReusableElement?.(selectedReusable.id);
     else if (selectedPage) onDeletePage(selectedPage.id);
   };
@@ -125,6 +139,8 @@ export function ProjectExplorer({
     if (editingPageId && draftName.trim()) {
       if (project?.pages.some((page) => page.id === editingPageId)) {
         onRenamePage(editingPageId, draftName.trim());
+      } else if (project?.menus?.some((menu) => menu.id === editingPageId)) {
+        onRenameMenu?.(editingPageId, draftName.trim());
       } else {
         onRenameReusableElement?.(editingPageId, draftName.trim());
       }
@@ -146,7 +162,7 @@ export function ProjectExplorer({
             onClick={() => {
               setSearch('');
               setCollapsedFolders(
-                new Set(['Pages', 'Reusable Components', 'Models', 'Units', 'Assets']),
+                new Set(['Pages', 'Menus', 'Reusable Components', 'Models', 'Units', 'Assets']),
               );
             }}
           >
@@ -178,13 +194,16 @@ export function ProjectExplorer({
           >
             <Icon name="component" />
           </button>
+          <button type="button" title="Add menu" aria-label="Add menu" onClick={onAddMenu} disabled={!project || !onAddMenu}>
+            <Icon name="menu" />
+          </button>
           <button
             type="button"
             title={selectedName ? `Duplicate ${selectedName}` : 'Select an item to duplicate'}
             aria-label="Duplicate selected project item"
             disabled={!onDuplicateItem || !selectedName}
             onClick={() => {
-              const selected = selectedResource ?? selectedReusable ?? selectedPage;
+              const selected = selectedResource ?? selectedMenu ?? selectedReusable ?? selectedPage;
               if (selected) onDuplicateItem?.(selected.id);
             }}
           >
@@ -373,6 +392,30 @@ export function ProjectExplorer({
                 ))}
               </div>
             )}
+            <div className="wr-tree-row wr-folder-row" role="treeitem" aria-expanded={menusExpanded}>
+              <FolderGlyph open={menusExpanded} label="Menus" onToggle={() => toggleFolder('Menus')} />
+              <span>Menus</span><small>{project.menus?.length ?? 0}</small>
+            </div>
+            {menusExpanded && <div role="group" className="wr-tree-group nested">
+              {menus.map((menu) => <div key={menu.id} data-project-resource-id={menu.id}
+                className={`wr-tree-row wr-page-row ${activeMenuId === menu.id ? 'active' : ''}`}
+                role="treeitem" aria-selected={activeMenuId === menu.id} tabIndex={0}
+                onClick={() => onOpenMenu?.(menu.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') onOpenMenu?.(menu.id);
+                  if (event.key === 'F2') beginRename(menu.id, menu.name);
+                  if (event.key === 'Delete') onDeleteMenu?.(menu.id);
+                }}>
+                <Icon name="menu" className="wr-page-icon" />
+                {editingPageId === menu.id ? <input autoFocus aria-label="Menu name" value={draftName}
+                  onChange={(event) => setDraftName(event.target.value)} onBlur={finishRename}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    if (event.key === 'Enter') finishRename();
+                    if (event.key === 'Escape') setEditingPageId(null);
+                  }} /> : <span className="wr-explorer-name">{menu.name}</span>}
+              </div>)}
+            </div>}
             <ProjectResourceFolders
               project={project}
               query={query}
