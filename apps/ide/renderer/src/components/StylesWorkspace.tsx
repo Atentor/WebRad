@@ -15,11 +15,12 @@ import {
   type ResolvedThemeMode,
 } from '@webrad/project-model';
 import { resolveComponentStylePreviewClassName } from '@webrad/runtime/visual';
-import { useId, useMemo, useState, type FormEvent, type ReactElement } from 'react';
+import { useId, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react';
 import { Icon } from './Icon';
 import { VisualStyleEditor } from './VisualStyleEditor';
 import { StylesThemesPanel } from './StylesThemesPanel';
 import { ProjectThemeContext } from '../project-theme';
+import { styleEditorInheritance } from './style-editor-inheritance';
 
 interface StyleStateDefinition {
   readonly key: ComponentStyleStateName;
@@ -137,6 +138,7 @@ function componentGlyph(definition: ComponentDefinition | undefined): ReactEleme
 function StyleNameEditor({ style, styles, onCommit }: StyleNameEditorProps): ReactElement {
   const [draft, setDraft] = useState(style.name);
   const [error, setError] = useState<string | null>(null);
+  const skipBlurCommit = useRef(false);
 
   const commit = (): void => {
     const name = draft.trim();
@@ -170,10 +172,23 @@ function StyleNameEditor({ style, styles, onCommit }: StyleNameEditorProps): Rea
           setDraft(event.target.value);
           setError(null);
         }}
-        onBlur={commit}
+        onFocus={() => {
+          skipBlurCommit.current = false;
+        }}
+        onBlur={() => {
+          if (skipBlurCommit.current) skipBlurCommit.current = false;
+          else commit();
+        }}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') event.currentTarget.blur();
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.blur();
+          }
           if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            skipBlurCommit.current = true;
             setDraft(style.name);
             setError(null);
             event.currentTarget.blur();
@@ -472,7 +487,7 @@ export function StylesWorkspace({
               <>
                 <div className="wr-style-configurator-heading">
                   <StyleNameEditor
-                    key={selectedStyle.id}
+                    key={`${selectedStyle.id}:${selectedStyle.name}`}
                     style={selectedStyle}
                     styles={styles}
                     onCommit={(name) => onUpdateStyle({ ...selectedStyle, name })}
@@ -571,6 +586,12 @@ export function StylesWorkspace({
                     key={`${selectedStyle.id}-${activeState}-${editLayer}`}
                     componentType={selectedStyle.componentType}
                     stateName={activeState}
+                    inheritance={styleEditorInheritance(
+                      selectedStyle,
+                      activeState,
+                      editLayer,
+                      previewTheme,
+                    )}
                     properties={
                       editLayer === 'shared'
                         ? selectedStyle.states[activeState]

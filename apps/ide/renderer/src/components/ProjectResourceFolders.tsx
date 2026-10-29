@@ -1,6 +1,8 @@
-import { projectAssetPath, type WebRadProject } from '@webrad/project-model';
+import type { WebRadProject } from '@webrad/project-model';
 import type { ReactElement } from 'react';
 import { Icon } from './Icon';
+import { ProjectExplorerFolder } from './project-explorer-tree';
+import { projectResourceGroups } from './project-explorer-resources';
 
 export function ProjectResourceFolders({
   project,
@@ -10,6 +12,7 @@ export function ProjectResourceFolders({
   activeId,
   onOpen,
   onDelete,
+  focusedKey,
 }: {
   project: WebRadProject;
   query: string;
@@ -18,66 +21,37 @@ export function ProjectResourceFolders({
   activeId?: string | null;
   onOpen?: (id: string) => void;
   onDelete?: (id: string) => void;
+  focusedKey: string;
 }): ReactElement {
-  const groups = [
-    {
-      label: 'Models',
-      entries: (project.sourceFiles ?? [])
-        .filter((file) => file.kind === 'model')
-        .map((file) => ({ id: file.id, label: file.name, path: `models/${file.name}.ts` })),
-    },
-    {
-      label: 'Units',
-      entries: (project.sourceFiles ?? [])
-        .filter((file) => file.kind === 'unit')
-        .map((file) => ({ id: file.id, label: file.name, path: `units/${file.name}.ts` })),
-    },
-    {
-      label: 'Assets',
-      entries: (project.assets ?? []).map((asset) => ({
-        id: asset.id,
-        label: asset.fileName,
-        path: projectAssetPath(asset),
-      })),
-    },
-  ];
+  const groups = projectResourceGroups(project);
   return (
     <>
       {groups.map(({ label, entries }) => {
-        const expanded = query.length > 0 || !collapsed.has(label);
+        const expanded = !collapsed.has(label);
         const visibleEntries = entries.filter((entry) =>
           entry.label.toLocaleLowerCase().includes(query),
         );
+        if (query && visibleEntries.length === 0) return null;
         return (
-          <div key={label}>
-            <div className="wr-tree-row wr-folder-row" role="treeitem" aria-expanded={expanded}>
-              <button
-                type="button"
-                className="wr-tree-toggle"
-                aria-label={`${expanded ? 'Collapse' : 'Expand'} ${label}`}
-                aria-expanded={expanded}
-                onClick={() => onToggle(label)}
-              >
-                <Icon
-                  name={expanded ? 'chevron-down' : 'chevron-right'}
-                  className="wr-tree-glyph"
-                />
-              </button>
-              <span>{label}</span>
-              <small>{entries.length}</small>
-            </div>
-            {expanded && (
-              <div role="group" className="wr-tree-group nested">
+          <ProjectExplorerFolder key={label} label={label} count={visibleEntries.length}
+            expanded={expanded} tabIndex={focusedKey === `folder:${label}` ? 0 : -1}
+            onToggle={() => onToggle(label)}>
                 {visibleEntries.map((entry) => (
                   <div
                     key={entry.id}
                     data-project-resource-id={entry.id}
+                    data-explorer-key={entry.id}
+                    data-explorer-label={entry.label}
                     role="treeitem"
-                    tabIndex={0}
+                    aria-level={2}
+                    tabIndex={focusedKey === entry.id ? 0 : -1}
                     aria-selected={activeId === entry.id}
                     className={`wr-tree-row wr-page-row ${activeId === entry.id ? 'active' : ''}`}
                     title={entry.path}
-                    onClick={() => onOpen?.(entry.id)}
+                    onClick={(event) => {
+                      event.currentTarget.focus();
+                      onOpen?.(entry.id);
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') onOpen?.(entry.id);
                       if (event.key === 'Delete') {
@@ -93,9 +67,7 @@ export function ProjectResourceFolders({
                     <span className="wr-explorer-name">{entry.label}</span>
                   </div>
                 ))}
-              </div>
-            )}
-          </div>
+          </ProjectExplorerFolder>
         );
       })}
     </>

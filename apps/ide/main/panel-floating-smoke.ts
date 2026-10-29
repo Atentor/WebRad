@@ -44,7 +44,7 @@ export async function runPanelFloatingSmoke(
   const page = before.project.pages.find((p) => p.name === 'index');
   if (!page) throw new Error('Missing Panel smoke page');
   await click(`[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`);
-  const palette = 'button[title="Select Panel; drag or double-click to insert"]';
+  const palette = 'button[data-palette-component-type="WebPanel"]';
   await ready(
     window,
     `document.querySelector(${JSON.stringify(palette)}) instanceof HTMLButtonElement`,

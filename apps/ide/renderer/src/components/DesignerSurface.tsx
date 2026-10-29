@@ -2140,14 +2140,36 @@ export function DesignerSurface({
   const startResize = (
     event: PointerEvent<HTMLDivElement>,
     node: ComponentNode,
-    handle: ResizeHandle,
+    requestedHandle: ResizeHandle,
   ): void => {
+    const availableHandles = boundsResizeHandles(
+      node,
+      parentModeOf(node, byId),
+      automaticLayout(node),
+    );
     if (
       event.button !== 0 ||
       pointerInteraction.get() !== null ||
-      !boundsResizeHandles(node, parentModeOf(node, byId), automaticLayout(node)).includes(handle)
+      !availableHandles.includes(requestedHandle)
     )
       return;
+    // Enlarged targets overlap on small components. Choose by marker distance,
+    // so DOM stacking never makes a diagonal or the middle of an edge unreachable.
+    let handle = requestedHandle;
+    let distance = Number.POSITIVE_INFINITY;
+    const hit = event.currentTarget.closest('.wr-design-hit');
+    for (const target of hit?.querySelectorAll<HTMLElement>('[data-resize-handle]') ?? []) {
+      const candidate = availableHandles.find((value) => value === target.dataset.resizeHandle);
+      const bounds = target.getBoundingClientRect();
+      if (candidate === undefined || bounds.width <= 0 || bounds.height <= 0) continue;
+      const dx = event.clientX - (bounds.left + bounds.width / 2);
+      const dy = event.clientY - (bounds.top + bounds.height / 2);
+      const nextDistance = dx * dx + dy * dy;
+      if (nextDistance < distance) {
+        distance = nextDistance;
+        handle = candidate;
+      }
+    }
     event.stopPropagation();
     event.preventDefault();
     surfaceRef.current?.focus({ preventScroll: true });
@@ -2548,11 +2570,14 @@ export function DesignerSurface({
             data-webrad-theme={previewTheme}
             data-viewport={viewportName}
             data-viewport-width={responsiveWidth}
-            style={{
-              width: viewportWidth,
-              height: viewportHeight,
-              transform: `scale(${scale})`,
-            }}
+            style={
+              {
+                width: viewportWidth,
+                height: viewportHeight,
+                transform: `scale(${scale})`,
+                '--wr-designer-scale': scale,
+              } as CSSProperties
+            }
             tabIndex={0}
             onKeyDown={handleKeyboard}
           >

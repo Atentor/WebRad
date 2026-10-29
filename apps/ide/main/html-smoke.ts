@@ -127,6 +127,104 @@ async function htmlDocument(parent: WebFrameMain): Promise<WebFrameMain> {
   throw new Error('HTML smoke document did not render inside its isolated frame.');
 }
 
+async function runDesignerEditingSmoke(
+  window: BrowserWindow,
+  projectPath: string,
+  root: string,
+  log: (message: string) => void,
+): Promise<void> {
+  const insertListBox = async (): Promise<string> => {
+    await click(window, root);
+    const palette = '[data-palette-component-type="WebListBox"]';
+    await ready(window, `document.querySelector(${JSON.stringify(palette)}) instanceof HTMLButtonElement`);
+    await window.webContents.executeJavaScript(`document.querySelector(${JSON.stringify(palette)}).focus()`, true);
+    window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+    window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+    await ready(window, `document.querySelector('.wr-inspector-selection strong')?.textContent?.startsWith('ListBox') === true`);
+    const id: unknown = await window.webContents.executeJavaScript(`document.querySelector('.wr-inspector-selection')?.getAttribute('title')`, true);
+    if (typeof id !== 'string') throw new Error('Keyboard palette insertion has no component ID.');
+    return id;
+  };
+  const firstId = await insertListBox();
+  await ready(window, `${inspectorField('Selected Index')}?.getAttribute('role') === 'spinbutton'`);
+  const selectedIndex: unknown = await window.webContents.executeJavaScript(`${inspectorField('Selected Index')}.value`, true);
+  await window.webContents.executeJavaScript(`(() => {
+    const input = ${inspectorField('Selected Index')};
+    input.focus();
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`, true);
+  await window.webContents.insertText('-');
+  await ready(window, `${inspectorField('Selected Index')}?.value === '-' && ${inspectorField('Selected Index')}?.dataset.editorDraftPending === 'true'`);
+  const invalidDraftBlocked: unknown = await window.webContents.executeJavaScript(`(() => {
+    const input = ${inspectorField('Selected Index')};
+    return !window.dispatchEvent(new Event('webrad:commit-editor-drafts', { cancelable: true }))
+      && document.activeElement === input;
+  })()`, true);
+  if (invalidDraftBlocked !== true) throw new Error('Invalid numeric draft did not block confirmation while preserving focus.');
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+  await ready(window, `${inspectorField('Selected Index')}?.value === ${JSON.stringify(selectedIndex)}`);
+  await ready(window, `${inspectorField('Items')} instanceof HTMLTextAreaElement`);
+  await window.webContents.executeJavaScript(`(() => {
+    const input = ${inspectorField('Items')}; input.focus(); input.select();
+  })()`, true);
+  await window.webContents.insertText('First');
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+  await ready(window, `${inspectorField('Items')}?.value === 'First\\n'`);
+  await window.webContents.insertText('Second');
+  await ready(window, `${inspectorField('Items')}?.value === 'First\\nSecond'`);
+  await window.webContents.executeJavaScript(`(() => {
+    const input = ${inspectorField('Items')};
+    window.dispatchEvent(new Event('webrad:commit-editor-drafts', { cancelable: true }));
+    if (document.activeElement !== input) throw new Error('Draft commit stole the Inspector focus.');
+  })()`, true);
+  const secondId = await insertListBox();
+  const firstRow = `[role="treeitem"][data-component-id=${JSON.stringify(firstId)}]`;
+  const secondRow = `[role="treeitem"][data-component-id=${JSON.stringify(secondId)}]`;
+  await click(window, firstRow);
+  await window.webContents.executeJavaScript(`document.querySelector(${JSON.stringify(secondRow)}).dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }))`, true);
+  await ready(window, `document.querySelector('.wr-inspector-selection strong')?.textContent === '2 components'`);
+  await click(window, 'button[role="tab"][aria-label="Events"]');
+  await ready(window, `${inspectorField('OnChange')} instanceof HTMLInputElement`);
+  await window.webContents.executeJavaScript(`(() => {
+    const input = ${inspectorField('OnChange')};
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'UxSharedChange');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`, true);
+  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await ready(window, `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  const saved = await loadProjectFiles(projectPath);
+  const nodes = saved.project.pages.flatMap((page) => page.components);
+  const first = nodes.find((node) => node.id === firstId);
+  const second = nodes.find((node) => node.id === secondId);
+  if (JSON.stringify(first?.props.items) !== JSON.stringify(['First', 'Second']) ||
+      first?.events.OnChange !== 'UxSharedChange' || second?.events.OnChange !== 'UxSharedChange') {
+    throw new Error('ListBox draft or selected-component event binding was not saved for both IDs.');
+  }
+  const undo = async (): Promise<void> => {
+    await window.webContents.executeJavaScript(`document.querySelector(${JSON.stringify(root)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`, true);
+    await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))', true);
+  };
+  await click(window, root);
+  await undo();
+  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await ready(window, `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  const undone = await loadProjectFiles(projectPath);
+  if (undone.project.pages.flatMap((page) => page.components).some((node) =>
+    [firstId, secondId].includes(node.id) && node.events.OnChange != null)) {
+    throw new Error('Selected-component event binding did not undo atomically.');
+  }
+  for (let index = 0; index < 3; index++) await undo();
+  await ready(window, `document.querySelector(${JSON.stringify(firstRow)}) === null && document.querySelector(${JSON.stringify(secondRow)}) === null`);
+  await click(window, root);
+  await click(window, 'button[role="tab"][aria-label="Properties"]');
+  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await ready(window, `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  log('renderer UX Designer editing passed: native Enter palette insertion, multiline ListBox draft persisted, incomplete numeric draft canceled, multi-selection events saved for both IDs and undone atomically');
+}
+
 /** Exercise the real palette, multiline Inspector, persistence and compiled Preview. */
 export async function runHtmlSmoke(
   window: BrowserWindow,
@@ -139,6 +237,7 @@ export async function runHtmlSmoke(
   await click(window, 'button[aria-label="Design"]');
   await click(window, root);
   await click(window, 'button[role="tab"][aria-label="Properties"]');
+  await runDesignerEditingSmoke(window, projectPath, root, log);
   const palette = `Array.from(document.querySelectorAll('.wr-palette-item')).find(e => e.querySelector('.wr-palette-item-caption')?.textContent?.trim() === 'HTML')`;
   await ready(window, `${palette} instanceof HTMLElement`);
   await window.webContents.executeJavaScript(
@@ -154,6 +253,16 @@ export async function runHtmlSmoke(
     true,
   );
   if (typeof id !== 'string') throw new Error('HTML insertion has no stable component ID.');
+  await ready(window, `(() => {
+    const handle = document.querySelector('.wr-design-hit.selected [data-resize-handle]');
+    const surface = document.querySelector('.wr-page-surface');
+    if (!(handle instanceof HTMLElement) || !(surface instanceof HTMLElement)) return false;
+    const scale = Number(getComputedStyle(surface).getPropertyValue('--wr-designer-scale'));
+    const bounds = handle.getBoundingClientRect();
+    const marker = getComputedStyle(handle, '::after');
+    return scale > 0 && Math.abs(bounds.width - 24) < 1 && Math.abs(bounds.height - 24) < 1
+      && Math.abs(parseFloat(marker.width) * scale - 7) < 1;
+  })()`);
   const tree = `[role="treeitem"][data-component-id=${JSON.stringify(id)}]`;
   const designer = `[data-component-type="WebHtml"][data-component-id=${JSON.stringify(id)}]`;
   const field = `(() => {
@@ -394,4 +503,5 @@ export async function runHtmlSmoke(
   log(
     'renderer component aspect ratios Inspector and F9 passed: Panel/Group/HTML presets, free restore, saved height preservation, horizontal resize handles, compiled geometry and runtime width changes',
   );
+  log('renderer UX resize targets passed: measured 24px interactive area and 7px visual marker with Designer zoom compensation');
 }

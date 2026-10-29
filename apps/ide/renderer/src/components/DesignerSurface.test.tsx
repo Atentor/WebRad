@@ -1103,6 +1103,7 @@ describe('DesignerSurface responsive projection', () => {
         act(() => notifyResize?.());
         const surface = container.querySelector<HTMLElement>('.wr-page-surface');
         const frame = container.querySelector<HTMLElement>('.wr-page-zoom-frame');
+        expect(surface?.style.getPropertyValue('--wr-designer-scale')).toBe(String(zoom / 100));
         expect((Number.parseFloat(surface?.style.width ?? '') * zoom) / 100).toBeCloseTo(900);
         expect(Number.parseFloat(frame?.style.width ?? '')).toBeCloseTo(900);
 

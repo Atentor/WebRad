@@ -314,6 +314,18 @@ export class DesignerController {
     return this.execute(page, new BindEventCommand(componentId, eventName, handlerName));
   }
 
+  public bindEvents(
+    page: PageModel,
+    componentIds: readonly string[],
+    eventName: string,
+    handlerName: string | null,
+  ): PageModel {
+    const commands = [...new Set(componentIds)]
+      .filter((id) => (getComponent(page, id).events[eventName] ?? null) !== handlerName)
+      .map((id) => new BindEventCommand(id, eventName, handlerName));
+    return commands.length === 0 ? page : this.executeMany(page, 'Bind selected component events', commands);
+  }
+
   public changeStyle(
     page: PageModel,
     selected: readonly ComponentNode[],

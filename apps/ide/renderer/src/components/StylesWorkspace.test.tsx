@@ -336,6 +336,11 @@ describe('StylesWorkspace', () => {
     fireEvent.change(styleName, { target: { value: 'Renamed Future Control' } });
     fireEvent.blur(styleName);
     expect(onUpdateStyle).toHaveBeenCalledWith({ ...style, name: 'Renamed Future Control' });
+    await user.click(styleName);
+    fireEvent.change(styleName, { target: { value: 'Discard this rename' } });
+    await user.keyboard('{Escape}');
+    expect((styleName as HTMLInputElement).value).toBe('Future Control');
+    expect(onUpdateStyle).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: 'Delete Future Control' }));
     expect(onDeleteStyle).toHaveBeenCalledWith(style.id);
@@ -401,6 +406,7 @@ describe('StylesWorkspace', () => {
     const user = userEvent.setup();
     const style = createComponentStyle('Custom Essentials', 'WebButton', {
       idFactory: () => 'custom-essentials',
+      states: { base: { rotate: 15 } },
     });
     const registry = new ComponentRegistry([
       {
@@ -421,10 +427,14 @@ describe('StylesWorkspace', () => {
     expect(screen.getByLabelText('Configure Rotate')).toBeDefined();
     expect(screen.queryByRole('button', { name: /^Appearance,/ })).toBeNull();
     await user.click(screen.getByRole('tab', { name: 'Hover' }));
+    expect(
+      screen.getByRole('button', { name: 'Set Rotate' }).getAttribute('data-style-inherited-from'),
+    ).toBe('Shared / Base');
+    expect(screen.getByRole('button', { name: 'Set Rotate' }).textContent).toContain('15');
     await user.click(screen.getByLabelText('Configure Rotate'));
     expect(onUpdateStyle).toHaveBeenCalledWith({
       ...style,
-      states: { ...style.states, hover: { rotate: 0 } },
+      states: { ...style.states, hover: { rotate: 15 } },
     });
   });
 });

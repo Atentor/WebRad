@@ -1,14 +1,17 @@
 import { useEffect, useRef, type ReactElement } from 'react';
+import type { NativeApplicationSettings } from '@webrad/project-model';
 import type { BuildApplicationController, BuildApplicationState } from '../use-build-application';
-import { BUILD_STAGE_LABELS } from '../build-application-labels';
+import { BUILD_PLATFORM_LABELS, BUILD_STAGE_LABELS } from '../build-application-labels';
 import { Icon } from './Icon';
 
 export function BuildStatusPanel({
   state,
   build,
+  currentTarget,
 }: {
   readonly state: BuildApplicationState;
   readonly build: BuildApplicationController;
+  readonly currentTarget: NativeApplicationSettings['build'];
 }): ReactElement {
   const logsRef = useRef<HTMLPreElement>(null);
   useEffect(() => {
@@ -21,11 +24,18 @@ export function BuildStatusPanel({
       : BUILD_STAGE_LABELS[state.stage];
   const missing =
     state.result?.prerequisites?.checks.filter((check) => check.status !== 'available').length ?? 0;
+  const target = state.target;
+  const previousTarget = target !== undefined && (
+    target.platform !== currentTarget.platform || target.configuration !== currentTarget.configuration ||
+    target.architecture !== currentTarget.architecture || target.bundleFormat !== currentTarget.bundleFormat
+  );
   const description =
     state.stage === 'idle'
       ? 'Your build activity and generated files will appear here.'
       : state.stage === 'failed' && missing > 0
-        ? `Resolve ${missing} ${missing === 1 ? 'missing requirement' : 'missing requirements'} above, then build again.`
+        ? previousTarget
+          ? 'Review the requirements for this previous build target before building it again.'
+          : `Resolve ${missing} ${missing === 1 ? 'missing requirement' : 'missing requirements'} above, then build again.`
         : (state.error ??
           (state.stage === 'completed'
             ? state.exportingCi
@@ -39,10 +49,13 @@ export function BuildStatusPanel({
       className="wr-build-application-status wr-build-card"
       aria-label="Build Status"
       data-stage={state.stage}
+      data-build-platform={target?.platform}
+      data-build-configuration={target?.configuration}
+      data-build-result-current={!previousTarget}
     >
       <div className="wr-build-card-heading">
         <div>
-          <h3>Build Status</h3>
+          <h3>{previousTarget ? 'Previous Build Result' : 'Build Status'}</h3>
           <p role={state.stage === 'failed' || state.error ? 'alert' : undefined}>{description}</p>
         </div>
         <span className="wr-build-status-badge" role="status">
@@ -60,6 +73,17 @@ export function BuildStatusPanel({
           {label}
         </span>
       </div>
+      {target !== undefined && (
+        <p className="wr-build-result-target">
+          <strong>
+            {state.exportingCi ? 'CI export' : 'Build'}: {BUILD_PLATFORM_LABELS[target.platform]}
+            {' · '}{target.configuration === 'release' ? 'Release' : 'Debug'}
+            {' · '}{target.architecture === 'host' ? 'Host architecture' : target.architecture}
+            {' · '}{target.bundleFormat.toUpperCase()}
+          </strong>
+          {previousTarget && <span> Results and output files belong to this previous target.</span>}
+        </p>
+      )}
       {build.busy && <progress aria-label="Build Application progress" />}
       <details className="wr-build-log-disclosure" open={build.busy || undefined}>
         <summary>

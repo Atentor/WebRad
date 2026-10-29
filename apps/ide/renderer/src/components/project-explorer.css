@@ -1,0 +1,68 @@
+.wr-explorer-folder:focus-visible {
+  outline: none;
+}
+
+.wr-explorer-folder:focus-visible > .wr-folder-row,
+.wr-project-tree .wr-page-row:focus-visible {
+  outline: 1px solid var(--wr-accent, #d59b2d);
+  outline-offset: -1px;
+}
+
+.wr-project-search-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 10px 6px;
+  font-size: 11px;
+  color: var(--wr-muted-text);
+}
+
+.wr-project-search-summary button {
+  border: 0;
+  background: transparent;
+  color: var(--wr-text);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.wr-explorer-rename {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 3px 0;
+}
+
+.wr-explorer-rename-fields {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wr-project-tree .wr-explorer-rename-fields input {
+  width: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.wr-explorer-rename-fields button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.wr-explorer-rename-error {
+  color: var(--wr-danger, #f07474);
+  font-size: 11px;
+  white-space: normal;
+}

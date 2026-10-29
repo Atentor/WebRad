@@ -316,6 +316,17 @@ export async function runStylesWorkspaceSmoke(
 
   await selectStyle(window, 'PrimaryButton');
   await assertDefaultFilters(window);
+  await window.webContents.executeJavaScript(
+    `document.querySelector('.wr-style-name-field input').focus()`,
+    true,
+  );
+  await setField(window, '.wr-style-name-field input', 'Discard this smoke rename');
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+  await ready(
+    window,
+    `document.querySelector('.wr-style-name-field input')?.value === 'PrimaryButton' && document.querySelector('.wr-style-list [aria-selected="true"] strong')?.textContent?.trim() === 'PrimaryButton'`,
+  );
   await click(window, '.wr-style-category-summary[aria-label^="Motion,"]');
   await ready(
     window,
@@ -326,6 +337,18 @@ export async function runStylesWorkspaceSmoke(
   await ready(
     window,
     `document.querySelector(${JSON.stringify(labelledControl('Transition duration'))})?.value === '200'`,
+  );
+  await window.webContents.executeJavaScript(
+    `document.querySelector(${JSON.stringify(labelledControl('Transition duration'))}).focus()`,
+    true,
+  );
+  await setField(window, labelledControl('Transition duration'), '');
+  await setField(window, labelledControl('Transition duration'), '-');
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(labelledControl('Transition duration'))})?.value === '200' && document.querySelector(${JSON.stringify(labelledControl('Transition duration'))})?.getAttribute('role') === 'spinbutton'`,
   );
   await setField(window, labelledControl('Transition duration'), '350');
   await click(window, labelledControl('Clear Transition duration'));
@@ -354,6 +377,27 @@ export async function runStylesWorkspaceSmoke(
   await setField(window, searchSelector, 'text color');
   await click(window, labelledControl('Predefined colors for Text color'));
   await click(window, '[aria-label="Use theme text for Text color"]');
+  await setField(window, '[aria-label="Style theme layer"]', 'dark');
+  await setField(window, searchSelector, 'text color');
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(labelledControl('Set Text color'))})?.getAttribute('data-style-inherited-from') === 'Shared / Base'`,
+  );
+  await click(window, labelledControl('Configure Text color'));
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(labelledControl('Text color'))})?.value === '#f1f5f9'`,
+  );
+  await click(window, labelledControl('Clear Text color'));
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(labelledControl('Set Text color'))})?.getAttribute('data-style-inherited-from') === 'Shared / Base'`,
+  );
+  await setField(window, '[aria-label="Style theme layer"]', 'shared');
+  await setField(window, '[aria-label="Styles preview theme"]', 'light');
+  options.log(
+    'renderer UX Styles editing passed: native Escape cancels rename and incomplete numeric drafts; theme override inherits Shared value and origin; clearing restores inheritance',
+  );
   const typography: unknown = await window.webContents.executeJavaScript(`(() => {
     const node = document.querySelector('.wr-style-preview-frame .wr-webpage');
     if (!(node instanceof HTMLElement)) throw new Error('Missing theme typography sample');

@@ -38,7 +38,7 @@ describe('ProjectSettingsDialog', () => {
     expect(screen.getByRole('heading', { name: 'Build and publishing' })).toBeDefined();
     expect(screen.getByRole('textbox', { name: /^Deploy directory/ })).toBeDefined();
     expect(screen.queryByText('Planned options')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Apply changes' })).toBeDefined();
     await user.click(screen.getByRole('tab', { name: 'PWA and metadata' }));
     expect(screen.getByRole('checkbox', { name: 'Enable PWA installation' })).toBeDefined();
   });
@@ -75,7 +75,7 @@ describe('ProjectSettingsDialog', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Include source maps for troubleshooting' }),
     );
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
     expect(onChooseDeployDirectory).toHaveBeenCalledOnce();
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -112,7 +112,7 @@ describe('ProjectSettingsDialog', () => {
       ).toBe('hosting'),
     );
     expect(
-      (screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Apply changes' }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
 
@@ -129,7 +129,7 @@ describe('ProjectSettingsDialog', () => {
       />,
     );
     await user.type(screen.getByRole('textbox', { name: /^Deploy directory/ }), '../hosting');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
     expect(screen.getByRole('alert').textContent).toContain('without . or ..');
     expect(onSave).not.toHaveBeenCalled();
   });
@@ -160,7 +160,7 @@ describe('ProjectSettingsDialog', () => {
     );
     await user.click(screen.getByRole('tab', { name: 'Build and publishing' }));
     await user.type(screen.getByRole('textbox', { name: /^Deploy directory/ }), 'hosting/portal');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         pwa: {
@@ -207,7 +207,7 @@ describe('ProjectSettingsDialog', () => {
     );
     await user.click(screen.getByRole('checkbox', { name: 'Show grid in Designer' }));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Grid size' }), '16');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -267,7 +267,7 @@ describe('ProjectSettingsDialog', () => {
     });
     fireEvent.change(screen.getByLabelText('Corner color'), { target: { value: '#778899' } });
 
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -314,7 +314,7 @@ describe('ProjectSettingsDialog', () => {
     );
     const productionValue = screen.getByRole('textbox', { name: /^Value for Production/ });
     await user.type(productionValue, 'https://api.example.test');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -355,7 +355,7 @@ describe('ProjectSettingsDialog', () => {
     await waitFor(() => {
       expect(screen.getByRole('img', { name: 'Application icon preview' })).toBeDefined();
     });
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -399,7 +399,7 @@ describe('ProjectSettingsDialog', () => {
     await waitFor(() => {
       expect(screen.getByRole('img', { name: 'Social share image preview' })).toBeDefined();
     });
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -463,7 +463,7 @@ describe('ProjectSettingsDialog', () => {
       screen.getByRole('textbox', { name: 'Android Keystore Password Environment Variable' }),
       'ANDROID_KEYSTORE_PASSWORD',
     );
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         nativeApplication: expect.objectContaining({
@@ -500,7 +500,7 @@ describe('ProjectSettingsDialog', () => {
       screen.getByRole('textbox', { name: /^Application Identifier/ }),
       'invalid identifier',
     );
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
     expect(onSave).not.toHaveBeenCalled();
     expect(
       screen.getAllByRole('alert').some((alert) => alert.textContent?.includes('reverse-DNS')),
@@ -516,7 +516,7 @@ describe('ProjectSettingsDialog', () => {
     await waitFor(() =>
       expect(screen.getByRole('img', { name: 'Application Icon preview' })).toBeDefined(),
     );
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         nativeApplication: expect.objectContaining({

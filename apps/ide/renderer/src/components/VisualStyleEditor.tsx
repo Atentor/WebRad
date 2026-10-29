@@ -25,11 +25,14 @@ import {
 import { useId, useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { useProjectColorResolver } from '../project-theme';
 import { ColorInput, ThemeColorButton } from './ColorInput';
+import { DraftNumberInput } from './DraftNumberInput';
+import type { StyleEditorInheritance } from './style-editor-inheritance';
 
 interface VisualStyleEditorProps {
   readonly componentType: string;
   readonly stateName: ComponentStyleStateName;
   readonly properties: ComponentStyleProperties;
+  readonly inheritance?: StyleEditorInheritance;
   readonly onChange: (properties: ComponentStyleProperties) => void;
   readonly definitions?: readonly ComponentStylePropertyDefinition[];
   readonly registry?: ComponentRegistry;
@@ -43,6 +46,8 @@ interface PropertyControlProps {
 
 interface PropertyRowProps extends PropertyControlProps {
   readonly configured: boolean;
+  readonly inheritedFrom: string;
+  readonly inheritedValue: StylePropertyValue;
   readonly onClear: () => void;
   readonly onEnable: () => void;
 }
@@ -339,16 +344,14 @@ function LengthControl({ definition, value, onChange }: PropertyControlProps): R
       )}
       {custom && (
         <div className="wr-style-value-with-unit">
-          <input
-            type="number"
+          <DraftNumberInput
             aria-label={`${definition.label} value`}
             value={customValue.value}
             min={minimum}
             max={editor.max}
             step={editor.step ?? 0.25}
-            onChange={(event) => {
-              const next = event.target.valueAsNumber;
-              if (!Number.isFinite(next)) return;
+            onChange={(next) => {
+              if (next === null) return;
               onChange({
                 value: clamp(next, minimum, editor.max),
                 unit: customValue.unit,
@@ -399,14 +402,16 @@ function NumberControl({ definition, value, onChange }: PropertyControlProps): R
         onChange={(event) => update(event.target.valueAsNumber)}
       />
       <div className="wr-style-number-field">
-        <input
-          type="number"
+        <DraftNumberInput
           aria-label={definition.label}
           value={numericValue}
           min={editor.min}
           max={editor.max}
           step={editor.step}
-          onChange={(event) => update(event.target.valueAsNumber)}
+          integer={editor.integer}
+          onChange={(next) => {
+            if (next !== null) update(next);
+          }}
         />
         {editor.suffix !== undefined && <span>{editor.suffix}</span>}
       </div>
@@ -433,11 +438,15 @@ function PropertyRow({
   definition,
   value,
   configured,
+  inheritedFrom,
+  inheritedValue,
   onChange,
   onClear,
   onEnable,
 }: PropertyRowProps): ReactElement {
   const controlId = useId();
+  const resolveColor = useProjectColorResolver();
+  const inheritedText = styleValueLabel(inheritedValue, definition, resolveColor);
   return (
     <div className={configured ? 'wr-style-property-row configured' : 'wr-style-property-row'}>
       <div className="wr-style-property-label">
@@ -459,7 +468,7 @@ function PropertyRow({
             type="button"
             onClick={onClear}
             aria-label={'Clear ' + definition.label}
-            title={'Use component default for ' + definition.label}
+            title={`Inherit ${inheritedFrom}: ${inheritedText}`}
           >
             Clear
           </button>
@@ -467,15 +476,40 @@ function PropertyRow({
       ) : (
         <button
           type="button"
-          className="wr-style-property-default"
+          className="wr-style-property-default wr-style-property-inheritance"
           onClick={onEnable}
           aria-label={'Set ' + definition.label}
+          data-style-inherited-from={inheritedFrom}
+          title={`Inherited from ${inheritedFrom}: ${inheritedText}. Click to customize.`}
         >
-          Default
+          <small>{inheritedFrom}</small>
+          <span>{inheritedText}</span>
         </button>
       )}
     </div>
   );
+}
+
+function styleValueLabel(
+  value: StylePropertyValue,
+  definition: ComponentStylePropertyDefinition,
+  resolveColor: (value: string) => string,
+): string {
+  if (isLengthValue(value)) return `${String(value.value)} ${value.unit}`;
+  if (isLinearGradientValue(value)) {
+    return `${value.from} → ${value.to}`;
+  }
+  if (definition.editor.kind === 'enum') {
+    return definition.editor.options.find((option) => option.value === value)?.label ?? String(value);
+  }
+  if (definition.editor.kind === 'color' && typeof value === 'string') {
+    const themeRole = themeColorId(value);
+    const customColor = customThemeColorId(value) ?? paletteColorId(value);
+    if (themeRole !== undefined) return `Theme ${themeRole} (${resolveColor(value)})`;
+    if (customColor !== undefined) return `${customColor} (${resolveColor(value)})`;
+  }
+  if (definition.editor.kind === 'number') return `${String(value)}${definition.editor.suffix ?? ''}`;
+  return String(value);
 }
 
 /** Metadata-driven editor for one interaction state of a reusable component style. */
@@ -483,6 +517,7 @@ export function VisualStyleEditor({
   componentType,
   stateName,
   properties,
+  inheritance,
   onChange,
   definitions = COMPONENT_STYLE_PROPERTY_DEFINITIONS,
   registry = defaultComponentRegistry,
@@ -624,15 +659,19 @@ export function VisualStyleEditor({
           >
             {category.definitions.map((propertyDefinition) => {
               const value = properties[propertyDefinition.name];
+              const inheritedValue =
+                inheritance?.properties[propertyDefinition.name] ?? propertyDefinition.defaultValue;
+              const inheritedFrom =
+                inheritance?.sources[propertyDefinition.name] ?? 'Component default';
               return (
                 <PropertyRow
                   key={propertyDefinition.name}
                   definition={propertyDefinition}
                   configured={value !== undefined}
-                  value={value ?? propertyDefinition.defaultValue}
-                  onEnable={() =>
-                    changeProperty(propertyDefinition.name, propertyDefinition.defaultValue)
-                  }
+                  value={value ?? inheritedValue}
+                  inheritedValue={inheritedValue}
+                  inheritedFrom={inheritedFrom}
+                  onEnable={() => changeProperty(propertyDefinition.name, inheritedValue)}
                   onClear={() => changeProperty(propertyDefinition.name, undefined)}
                   onChange={(nextValue) => changeProperty(propertyDefinition.name, nextValue)}
                 />

@@ -60,6 +60,17 @@ project model -> generated source -> esbuild -> browser-only output
 
 ## Package boundaries
 
+Editor drafts are tracked separately from Project Model dirtiness. A narrow,
+trusted-main-frame lifecycle IPC reports whether an editor has pending changes;
+the native close and update guards consider both states without treating a
+project save as a remote endpoint save. Draft state remains temporary and does
+not change the persistent project format. See [IDE workflows](ide-workflows.md).
+
+In-memory Preview publications add a route-only message reporter. Its handshake
+uses the exact parent origin, and the renderer verifies the current iframe,
+publication origin and payload. This instrumentation does not enter compiled
+exports or expose the preload bridge to application code.
+
 Native shared Menu definitions are Project Model documents in `menus`, separate
 from reusable visual compositions. A definition has a WebMenu root; placements
 reference it by stable ID. Designer and compiler projections resolve its shared

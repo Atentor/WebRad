@@ -141,7 +141,55 @@ export async function runNativeBuildSmoke(
   ];
   const nativeScope = '#project-settings-panel-native';
   await click('button[aria-label="Project Settings"]');
+  await setField('#project-settings-panel-general', 'Application name', '');
   await click('#project-settings-tab-native');
+  await click('.wr-project-settings-actions button.primary');
+  await waitFor(`(() => {
+    const invalid = document.querySelector('[data-settings-field="applicationName"] input');
+    const inlineError = document.getElementById(invalid?.getAttribute('aria-describedby'));
+    return document.querySelector('#project-settings-tab-general')?.getAttribute('aria-selected') === 'true'
+      && invalid === document.activeElement && invalid.getAttribute('aria-invalid') === 'true'
+      && inlineError?.textContent.includes('Enter an application name');
+  })()`);
+  await setField('#project-settings-panel-general', 'Application name', original.project.settings.applicationName);
+  await window.webContents.executeJavaScript(`(() => {
+    const tab = document.querySelector('#project-settings-tab-general');
+    tab.focus(); tab.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown', bubbles:true, cancelable:true}));
+  })()`, true);
+  await waitFor(`document.activeElement?.id === 'project-settings-tab-environment'
+    && document.querySelector('#project-settings-tab-environment')?.getAttribute('aria-selected') === 'true'
+    && document.querySelectorAll('.wr-project-settings-dialog [role=tab][tabindex="0"]').length === 1`);
+  for (const [key, section] of [['End', 'pwa'], ['Home', 'general']] as const) {
+    await window.webContents.executeJavaScript(
+      `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(key)}, bubbles:true, cancelable:true}))`,
+      true,
+    );
+    await waitFor(`document.activeElement?.id === 'project-settings-tab-${section}'
+      && document.querySelector('#project-settings-tab-${section}')?.getAttribute('aria-selected') === 'true'`);
+  }
+  await click('#project-settings-tab-native');
+  const originalWidth = original.project.settings.nativeApplication.desktop.width;
+  await setField(nativeScope, 'Initial Width', String(originalWidth + 1));
+  await window.webContents.executeJavaScript(
+    `document.querySelector('.wr-project-settings-dialog').dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true, cancelable:true}))`,
+    true,
+  );
+  await waitFor(`document.querySelector('[role=alertdialog]') !== null
+    && document.activeElement?.textContent.trim() === 'Keep editing'
+    && document.querySelector('.wr-project-settings-dialog')?.inert === true`);
+  await window.webContents.executeJavaScript(
+    `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true, cancelable:true}))`,
+    true,
+  );
+  await waitFor(`document.querySelector('[role=alertdialog]') === null
+    && ${fieldExpression(nativeScope, 'Initial Width')}?.value === ${JSON.stringify(String(originalWidth + 1))}`);
+  await click('button[aria-label="Close project settings"]');
+  await clickButton('Discard changes', '.wr-settings-discard-confirmation');
+  await waitFor("document.querySelector('.wr-project-settings-dialog') === null");
+  await click('button[aria-label="Project Settings"]');
+  await click('#project-settings-tab-native');
+  await waitFor(`${fieldExpression(nativeScope, 'Initial Width')}?.value === ${JSON.stringify(String(originalWidth))}`);
+  log('renderer Project Settings draft protection and validation navigation passed');
   if (screenshotPath !== undefined) {
     if (!path.isAbsolute(screenshotPath))
       throw new Error('Native settings screenshots require an absolute output path.');
@@ -465,6 +513,18 @@ export async function runNativeBuildSmoke(
   if (typeof artifactPath !== 'string' || !artifactPath.startsWith(`${destination}${path.sep}`)) {
     throw new Error(`CI export did not expose its real isolated output: ${String(artifactPath)}`);
   }
+  await setField(buildScope, 'Target Platform', 'linux');
+  await waitFor(`(() => {
+    const status = document.querySelector('${buildScope} [aria-label="Build Status"]');
+    return status?.dataset.buildPlatform === 'windows' && status.dataset.buildResultCurrent === 'false'
+      && status.querySelector('h3')?.textContent === 'Previous Build Result'
+      && status.querySelector('.wr-build-result-target')?.textContent.includes('Windows')
+      && document.querySelector('${buildScope} .wr-build-footer-target')?.textContent.includes('Linux')
+      && document.querySelector('${buildScope} .wr-build-application-artifacts code')?.textContent === ${JSON.stringify(artifactPath)};
+  })()`);
+  await setField(buildScope, 'Target Platform', 'windows');
+  await waitFor(`document.querySelector('${buildScope} [aria-label="Build Status"]')?.dataset.buildResultCurrent === 'true'`);
+  log('renderer Native Build result target attribution passed');
   const html = await fs.readFile(path.join(artifactPath, 'frontend', 'index.html'), 'utf8');
   const script = await fs.readFile(path.join(artifactPath, 'frontend', 'assets', 'app.js'), 'utf8');
   const config = JSON.parse(

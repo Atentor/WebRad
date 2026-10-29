@@ -148,10 +148,20 @@ export function ToolPalette({
                           type="button"
                           className={`wr-palette-item${selected ? ' selected' : ''}`}
                           key={definition.type}
+                          data-palette-component-type={definition.type}
                           draggable
                           aria-pressed={selected}
-                          title={`Select ${definition.displayName}; drag or double-click to insert`}
+                          aria-keyshortcuts="Enter"
+                          title={`Select ${definition.displayName}; drag, double-click or press Enter to insert`}
                           onClick={() => onSelect(definition.type)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (event.repeat) return;
+                            onSelect(definition.type);
+                            onInsert(definition.type);
+                          }}
                           onDoubleClick={() => {
                             onSelect(definition.type);
                             onInsert(definition.type);

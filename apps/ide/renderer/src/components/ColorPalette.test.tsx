@@ -204,7 +204,7 @@ describe('project theme colors', () => {
     expect(screen.queryByRole('tab', { name: 'Color palette' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Predefined colors for Track color' }));
     await user.click(screen.getByRole('button', { name: 'Use theme Blue for Track color' }));
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Apply changes' }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         themes,

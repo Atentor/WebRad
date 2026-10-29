@@ -9,6 +9,8 @@ Start with the root [README](../README.md) to install the IDE and create a proje
   [component model](component-model.md), and [compiler](compiler.md)
 - [Routing and hosting](browser-routing.md), [debugger](debugger.md),
   [themes](themes.md), and [fonts](fonts.md)
+- [IDE editing and navigation](ide-workflows.md): drafts, saving, keyboard controls,
+  validation feedback and Preview recovery
 - [API Client](api-client.md) and [RestGo SDK](restgo-sdk.md)
 - [Aurora Workspace](../examples/aurora-workspace/README.md) and its
   [RestGo account flow](aurora-restgo-account.md)

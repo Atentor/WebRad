@@ -219,7 +219,7 @@ describe('ObjectInspector', () => {
           const sideInput = screen.getByLabelText(
             `Margin ${side.toLowerCase()}`,
           ) as HTMLInputElement;
-          expect(sideInput.type).toBe('number');
+          expect(sideInput.getAttribute('role')).toBe('spinbutton');
           expect(sideInput.value).toBe('0');
           fireEvent.change(sideInput, { target: { value: '12' } });
           expect(onPropertyChange).toHaveBeenLastCalledWith(
@@ -232,7 +232,7 @@ describe('ObjectInspector', () => {
       }
       if (!input) throw new Error('The registered Margin editor is missing.');
       expect(input.closest('details')?.querySelector('summary')?.textContent).toBe('Spacing');
-      expect(input.type).toBe('number');
+      expect(input.getAttribute('role')).toBe('spinbutton');
       expect(input.value).toBe('0');
       fireEvent.change(input, { target: { value: '12' } });
       expect(onPropertyChange).toHaveBeenLastCalledWith(
@@ -310,6 +310,7 @@ describe('ObjectInspector', () => {
       '(multiple values)',
     );
     fireEvent.change(screen.getByLabelText('Margin left'), { target: { value: '3' } });
+    fireEvent.blur(screen.getByLabelText('Margin left'));
     expect(onPropertyChange).toHaveBeenLastCalledWith(
       'marginLeft',
       3,

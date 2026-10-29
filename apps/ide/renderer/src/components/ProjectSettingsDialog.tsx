@@ -26,6 +26,9 @@ import { ProjectSettingsSchema } from '@webrad/project-model';
 import { ProjectBuildSettings } from './ProjectBuildSettings';
 import { ProjectPwaSettings } from './ProjectPwaSettings';
 import { ProjectNativeSettings } from './ProjectNativeSettings';
+import { SettingsField } from './SettingsField';
+import { SettingsValidationContext, type SettingsValidationError } from './settings-validation';
+import './settings-dialog-ux.css';
 
 interface ProjectSettingsDialogProps {
   readonly projectName: string;
@@ -35,6 +38,7 @@ interface ProjectSettingsDialogProps {
   readonly onChooseDeployDirectory?: () => Promise<string | null>;
   readonly onChooseNativeDirectory?: () => Promise<string | null>;
   readonly initialSectionId?: ProjectSettingsSectionId;
+  readonly onPendingChangesChange?: (pending: boolean) => void;
 }
 
 type ProjectSettingsSectionId =
@@ -214,6 +218,8 @@ function includesOption(options: readonly (readonly [string, string])[], value: 
 
 function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean {
   return (
+    left.routingMode !== right.routingMode ||
+    left.routingBasePath !== right.routingBasePath ||
     left.applicationName !== right.applicationName ||
     left.applicationDescription !== right.applicationDescription ||
     left.locale !== right.locale ||
@@ -279,6 +285,17 @@ function settingsChanged(left: ProjectSettings, right: ProjectSettings): boolean
   );
 }
 
+function sectionForField(path: string): ProjectSettingsSectionId {
+  const root = path.split('.')[0];
+  if (root === 'environment' || root === 'environmentVariables') return 'environment';
+  if (root === 'applicationIcon') return 'icons';
+  if (root === 'seo') return 'seo';
+  if (root === 'nativeApplication') return 'native';
+  if (root === 'pwa') return 'pwa';
+  if (root === 'build' || root === 'routingMode' || root === 'routingBasePath') return 'build';
+  return 'general';
+}
+
 export function ProjectSettingsDialog({
   projectName,
   settings,
@@ -287,6 +304,7 @@ export function ProjectSettingsDialog({
   onChooseDeployDirectory,
   onChooseNativeDirectory,
   initialSectionId = 'general',
+  onPendingChangesChange,
 }: ProjectSettingsDialogProps): ReactElement {
   const titleId = useId();
   const descriptionId = useId();
@@ -300,7 +318,12 @@ export function ProjectSettingsDialog({
     useState<ProjectSettingsSectionId>(initialSectionId);
   const { mode } = useContext(ProjectThemeContext);
   const [draft, setDraft] = useState<ProjectSettings>(settings);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<SettingsValidationError | null>(null);
+  const [discardRequested, setDiscardRequested] = useState(false);
+  const keepEditingRef = useRef<HTMLButtonElement>(null);
+  const discardReturnFocusRef = useRef<HTMLElement | null>(null);
+  const discardTitleId = useId();
+  const discardDescriptionId = useId();
   const [iconError, setIconError] = useState<string | null>(null);
   const [socialImageError, setSocialImageError] = useState<string | null>(null);
   const activeSection =
@@ -334,6 +357,43 @@ export function ProjectSettingsDialog({
       if (returnFocus?.isConnected) returnFocus.focus();
     };
   }, []);
+
+  useEffect(() => {
+    onPendingChangesChange?.(hasChanges);
+  }, [hasChanges, onPendingChangesChange]);
+
+  useEffect(() => () => onPendingChangesChange?.(false), [onPendingChangesChange]);
+
+  useEffect(() => {
+    if (discardRequested) keepEditingRef.current?.focus();
+    else if (discardReturnFocusRef.current?.isConnected) discardReturnFocusRef.current.focus();
+  }, [discardRequested]);
+
+  useEffect(() => {
+    if (saveError === null) return;
+    const field = dialogRef.current?.querySelector<HTMLElement>('[data-settings-invalid="true"]');
+    const target = field?.querySelector<HTMLElement>(
+      'input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)',
+    ) ??
+      dialogRef.current?.querySelector<HTMLElement>('[role="tabpanel"]');
+    target?.focus();
+    target?.scrollIntoView?.({ block: 'nearest' });
+  }, [saveError]);
+
+  const requestClose = (): void => {
+    if (!hasChanges) {
+      onClose();
+      return;
+    }
+    discardReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setDiscardRequested(true);
+  };
+
+  const showValidationError = (path: string, message: string): void => {
+    setActiveSectionId(sectionForField(path));
+    setSaveError({ path, message });
+  };
 
   const updateDraft = (patch: Partial<ProjectSettings>): void => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -439,20 +499,25 @@ export function ProjectSettingsDialog({
   const save = (): void => {
     const applicationName = draft.applicationName.trim();
     if (applicationName.length === 0) {
-      setSaveError('Enter an application name.');
+      showValidationError('applicationName', 'Enter an application name.');
       return;
     }
     const scrollbar = draft.scrollbar;
-    if (
-      !isIntegerInRange(scrollbar.width, 6, 32) ||
-      !isIntegerInRange(scrollbar.height, 6, 32) ||
-      !isIntegerInRange(scrollbar.trackBorderWidth, 0, 8) ||
-      !isIntegerInRange(scrollbar.thumbBorderWidth, 0, 8) ||
-      !isIntegerInRange(scrollbar.trackBorderRadius, 0, 64) ||
-      !isIntegerInRange(scrollbar.thumbBorderRadius, 0, 64)
-    ) {
-      setSaveError('Enter whole-pixel scrollbar sizes within the limits shown.');
-      return;
+    for (const [key, minimum, maximum] of [
+      ['width', 6, 32],
+      ['height', 6, 32],
+      ['trackBorderWidth', 0, 8],
+      ['thumbBorderWidth', 0, 8],
+      ['trackBorderRadius', 0, 64],
+      ['thumbBorderRadius', 0, 64],
+    ] as const) {
+      if (!isIntegerInRange(scrollbar[key], minimum, maximum)) {
+        showValidationError(
+          `scrollbar.${key}`,
+          `Enter a whole-pixel value from ${minimum} to ${maximum}.`,
+        );
+        return;
+      }
     }
     const seo = {
       ...draft.seo,
@@ -462,7 +527,10 @@ export function ProjectSettingsDialog({
       socialDescription: draft.seo.socialDescription.trim(),
     };
     if (!isAbsoluteHttpUrl(seo.canonicalUrl)) {
-      setSaveError('Enter an absolute HTTP(S) canonical URL, or leave it empty.');
+      showValidationError(
+        'seo.canonicalUrl',
+        'Enter an absolute HTTP(S) canonical URL, or leave it empty.',
+      );
       return;
     }
     const environmentVariables = draft.environmentVariables.map((variable) => ({
@@ -470,13 +538,19 @@ export function ProjectSettingsDialog({
       name: variable.name.trim(),
     }));
     const variableNames = new Set<string>();
-    for (const variable of environmentVariables) {
+    for (const [index, variable] of environmentVariables.entries()) {
       if (!ENVIRONMENT_VARIABLE_NAME.test(variable.name)) {
-        setSaveError('Use uppercase variable names, such as API_BASE_URL.');
+        showValidationError(
+          `environmentVariables.${index}.name`,
+          'Use uppercase variable names, such as API_BASE_URL.',
+        );
         return;
       }
       if (variableNames.has(variable.name)) {
-        setSaveError(`Variable ${variable.name} is listed more than once.`);
+        showValidationError(
+          `environmentVariables.${index}.name`,
+          `Variable ${variable.name} is listed more than once.`,
+        );
         return;
       }
       variableNames.add(variable.name);
@@ -491,7 +565,11 @@ export function ProjectSettingsDialog({
       restGo: settings.restGo,
     });
     if (!result.success) {
-      setSaveError(result.error.issues[0]?.message ?? 'Review the project settings.');
+      const issue = result.error.issues[0];
+      showValidationError(
+        issue?.path.join('.') ?? 'applicationName',
+        issue?.message ?? 'Review the project settings.',
+      );
       return;
     }
     onSave(result.data);
@@ -501,7 +579,7 @@ export function ProjectSettingsDialog({
     event.stopPropagation();
     if (event.key === 'Escape') {
       event.preventDefault();
-      onClose();
+      requestClose();
       return;
     }
     if (event.key !== 'Tab') return;
@@ -531,6 +609,8 @@ export function ProjectSettingsDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        aria-hidden={discardRequested || undefined}
+        inert={discardRequested}
       >
         <header className="wr-modal-header">
           <div>
@@ -541,7 +621,7 @@ export function ProjectSettingsDialog({
             type="button"
             className="wr-modal-close"
             aria-label="Close project settings"
-            onClick={onClose}
+            onClick={requestClose}
           >
             <Icon name="close" />
           </button>
@@ -556,6 +636,25 @@ export function ProjectSettingsDialog({
               className="wr-project-settings-nav"
               role="tablist"
               aria-label="Project settings sections"
+              aria-orientation="vertical"
+              onKeyDown={(event) => {
+                if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const current = SETTINGS_SECTIONS.findIndex(
+                  (section) => section.id === activeSectionId,
+                );
+                const index = event.key === 'Home'
+                  ? 0
+                  : event.key === 'End'
+                    ? SETTINGS_SECTIONS.length - 1
+                    : (current + (event.key === 'ArrowDown' ? 1 : -1) + SETTINGS_SECTIONS.length) %
+                      SETTINGS_SECTIONS.length;
+                const section = SETTINGS_SECTIONS[index];
+                if (section === undefined) return;
+                setActiveSectionId(section.id);
+                dialogRef.current
+                  ?.querySelector<HTMLElement>(`#project-settings-tab-${section.id}`)?.focus();
+              }}
             >
               {SETTINGS_GROUPS.map((group) => (
                 <div className="wr-project-settings-nav-group" key={group}>
@@ -567,6 +666,7 @@ export function ProjectSettingsDialog({
                       type="button"
                       role="tab"
                       aria-selected={activeSection.id === section.id}
+                      tabIndex={activeSection.id === section.id ? 0 : -1}
                       aria-controls={`project-settings-panel-${section.id}`}
                       className={activeSection.id === section.id ? 'active' : ''}
                       onClick={() => setActiveSectionId(section.id)}
@@ -582,27 +682,30 @@ export function ProjectSettingsDialog({
               id={`project-settings-panel-${activeSection.id}`}
               className="wr-project-settings-panel"
               role="tabpanel"
+              tabIndex={-1}
               aria-labelledby={`project-settings-tab-${activeSection.id}`}
             >
               <div className="wr-project-settings-panel-heading">
                 <Icon name={activeSection.icon} />
                 <div>
-                  <span>Applied to project</span>
+                  <span>Project settings</span>
                   <h3>{activeSection.title}</h3>
                 </div>
               </div>
+              {saveError !== null && sectionForField(saveError.path) === activeSection.id && (
+                <p className="wr-project-settings-error" role="alert">{saveError.message}</p>
+              )}
+              
               {isGeneralSection ? (
                 <>
                   <p>{activeSection.description}</p>
                   <div className="wr-project-settings-fields">
-                    <label className="wr-project-settings-field full-width">
+                    <SettingsField path="applicationName" className="wr-project-settings-field full-width">
                       <span>Application name</span>
                       <input
                         type="text"
                         value={draft.applicationName}
                         maxLength={120}
-                        aria-invalid={saveError !== null}
-                        aria-describedby={saveError === null ? undefined : `${descriptionId}-error`}
                         onChange={(event) =>
                           updateDraft({ applicationName: event.currentTarget.value })
                         }
@@ -610,8 +713,8 @@ export function ProjectSettingsDialog({
                       <small>
                         Used in the browser tab title and generated application metadata.
                       </small>
-                    </label>
-                    <label className="wr-project-settings-field full-width">
+                    </SettingsField>
+                    <SettingsField path="applicationDescription" className="wr-project-settings-field full-width">
                       <span>Description</span>
                       <textarea
                         value={draft.applicationDescription}
@@ -622,8 +725,8 @@ export function ProjectSettingsDialog({
                         }
                       />
                       <small>Optional. Published as the page description.</small>
-                    </label>
-                    <label className="wr-project-settings-field">
+                    </SettingsField>
+                    <SettingsField path="locale" className="wr-project-settings-field">
                       <span>Language and region</span>
                       <select
                         value={draft.locale}
@@ -639,8 +742,8 @@ export function ProjectSettingsDialog({
                         ))}
                       </select>
                       <small>Sets the language attribute of the HTML document.</small>
-                    </label>
-                    <label className="wr-project-settings-field">
+                    </SettingsField>
+                    <SettingsField path="timeZone" className="wr-project-settings-field">
                       <span>Default time zone</span>
                       <select
                         value={draft.timeZone}
@@ -656,13 +759,13 @@ export function ProjectSettingsDialog({
                         ))}
                       </select>
                       <small>Exposed in the generated application as a project preference.</small>
-                    </label>
+                    </SettingsField>
                   </div>
                   <fieldset className="wr-project-settings-designer-options">
                     <legend>Designer</legend>
                     <p>Preferences used while placing and editing components in this project.</p>
                     <div className="wr-project-settings-toggles">
-                      <label>
+                      <SettingsField path="showGrid">
                         <input
                           type="checkbox"
                           checked={draft.showGrid}
@@ -671,8 +774,8 @@ export function ProjectSettingsDialog({
                           }
                         />
                         <span>Show grid in Designer</span>
-                      </label>
-                      <label>
+                      </SettingsField>
+                      <SettingsField path="snapToGrid">
                         <input
                           type="checkbox"
                           checked={draft.snapToGrid}
@@ -681,7 +784,7 @@ export function ProjectSettingsDialog({
                           }
                         />
                         <span>Snap components to grid</span>
-                      </label>
+                      </SettingsField>
                     </div>
                     <label className="wr-project-settings-field grid-size">
                       <span>Grid size</span>
@@ -733,7 +836,7 @@ export function ProjectSettingsDialog({
                         <div className="wr-project-settings-scrollbar-preview-corner" />
                       </div>
                       <div className="wr-project-settings-scrollbar-measurements">
-                        <label className="wr-project-settings-field">
+                        <SettingsField path="scrollbar.width" className="wr-project-settings-field">
                           <span>Vertical width</span>
                           <input
                             type="number"
@@ -746,8 +849,8 @@ export function ProjectSettingsDialog({
                             }
                           />
                           <small>Thickness in pixels for vertical scrollbars.</small>
-                        </label>
-                        <label className="wr-project-settings-field">
+                        </SettingsField>
+                        <SettingsField path="scrollbar.height" className="wr-project-settings-field">
                           <span>Horizontal height</span>
                           <input
                             type="number"
@@ -760,8 +863,8 @@ export function ProjectSettingsDialog({
                             }
                           />
                           <small>Thickness in pixels for horizontal scrollbars.</small>
-                        </label>
-                        <label className="wr-project-settings-field">
+                        </SettingsField>
+                        <SettingsField path="scrollbar.trackBorderWidth" className="wr-project-settings-field">
                           <span>Track border</span>
                           <input
                             type="number"
@@ -776,8 +879,8 @@ export function ProjectSettingsDialog({
                             }
                           />
                           <small>Border thickness in pixels.</small>
-                        </label>
-                        <label className="wr-project-settings-field">
+                        </SettingsField>
+                        <SettingsField path="scrollbar.thumbBorderWidth" className="wr-project-settings-field">
                           <span>Thumb border</span>
                           <input
                             type="number"
@@ -792,8 +895,8 @@ export function ProjectSettingsDialog({
                             }
                           />
                           <small>Border thickness in pixels.</small>
-                        </label>
-                        <label className="wr-project-settings-field">
+                        </SettingsField>
+                        <SettingsField path="scrollbar.trackBorderRadius" className="wr-project-settings-field">
                           <span>Track radius</span>
                           <input
                             type="number"
@@ -808,8 +911,8 @@ export function ProjectSettingsDialog({
                             }
                           />
                           <small>Corner radius in pixels.</small>
-                        </label>
-                        <label className="wr-project-settings-field">
+                        </SettingsField>
+                        <SettingsField path="scrollbar.thumbBorderRadius" className="wr-project-settings-field">
                           <span>Thumb radius</span>
                           <input
                             type="number"
@@ -824,7 +927,7 @@ export function ProjectSettingsDialog({
                             }
                           />
                           <small>Corner radius in pixels.</small>
-                        </label>
+                        </SettingsField>
                       </div>
                     </div>
                     <div className="wr-project-settings-scrollbar-colors">
@@ -870,20 +973,12 @@ export function ProjectSettingsDialog({
                       base thumb colors.
                     </p>
                   </fieldset>
-                  {saveError !== null && (
-                    <div
-                      className="wr-project-settings-error"
-                      id={`${descriptionId}-error`}
-                      role="alert"
-                    >
-                      {saveError}
-                    </div>
-                  )}
+                  
                 </>
               ) : isEnvironmentSection ? (
                 <>
                   <p>{activeSection.description}</p>
-                  <label className="wr-project-settings-field full-width">
+                  <SettingsField path="environment" className="wr-project-settings-field full-width">
                     <span>Environment used for Preview and Build</span>
                     <select
                       value={draft.environment}
@@ -902,7 +997,7 @@ export function ProjectSettingsDialog({
                     <small>
                       The value from this environment is exposed as Env.NAME in the browser.
                     </small>
-                  </label>
+                  </SettingsField>
                   <div className="wr-project-settings-environment-heading">
                     <div>
                       <h4>Variables</h4>
@@ -930,7 +1025,7 @@ export function ProjectSettingsDialog({
                     <div className="wr-project-settings-environment-list">
                       {draft.environmentVariables.map((variable, index) => (
                         <div className="wr-project-settings-environment-row" key={index}>
-                          <label className="wr-project-settings-field">
+                          <SettingsField path={`environmentVariables.${index}.name`} className="wr-project-settings-field">
                             <span>Variable name</span>
                             <input
                               type="text"
@@ -946,8 +1041,8 @@ export function ProjectSettingsDialog({
                                 }));
                               }}
                             />
-                          </label>
-                          <label className="wr-project-settings-field">
+                          </SettingsField>
+                          <SettingsField path={`environmentVariables.${index}.values.${draft.environment}`} className="wr-project-settings-field">
                             <span>
                               Value for{' '}
                               {
@@ -972,7 +1067,7 @@ export function ProjectSettingsDialog({
                                 }));
                               }}
                             />
-                          </label>
+                          </SettingsField>
                           <button
                             type="button"
                             className="wr-project-settings-remove-variable"
@@ -985,15 +1080,7 @@ export function ProjectSettingsDialog({
                       ))}
                     </div>
                   )}
-                  {saveError !== null && (
-                    <div
-                      className="wr-project-settings-error"
-                      id={`${descriptionId}-error`}
-                      role="alert"
-                    >
-                      {saveError}
-                    </div>
-                  )}
+                  
                 </>
               ) : isIconsSection ? (
                 <>
@@ -1067,7 +1154,7 @@ export function ProjectSettingsDialog({
                       until the application has a public address.
                     </p>
                     <div className="wr-project-settings-fields">
-                      <label className="wr-project-settings-field full-width">
+                      <SettingsField path="seo.canonicalUrl" className="wr-project-settings-field full-width">
                         <span>Canonical URL</span>
                         <input
                           type="url"
@@ -1084,8 +1171,8 @@ export function ProjectSettingsDialog({
                         <small>
                           Optional public URL used by canonical and shared-link metadata.
                         </small>
-                      </label>
-                      <label className="wr-project-settings-field full-width">
+                      </SettingsField>
+                      <SettingsField path="seo.keywords" className="wr-project-settings-field full-width">
                         <span>Keywords</span>
                         <input
                           type="text"
@@ -1099,10 +1186,10 @@ export function ProjectSettingsDialog({
                           }
                         />
                         <small>Optional comma-separated terms for search metadata.</small>
-                      </label>
+                      </SettingsField>
                     </div>
                     <div className="wr-project-settings-toggles">
-                      <label>
+                      <SettingsField path="seo.allowIndexing">
                         <input
                           type="checkbox"
                           checked={draft.seo.allowIndexing}
@@ -1113,7 +1200,7 @@ export function ProjectSettingsDialog({
                           }
                         />
                         <span>Allow search engines to index this application</span>
-                      </label>
+                      </SettingsField>
                     </div>
                   </fieldset>
                   <fieldset className="wr-project-settings-seo-options">
@@ -1123,7 +1210,7 @@ export function ProjectSettingsDialog({
                       description when left empty.
                     </p>
                     <div className="wr-project-settings-fields">
-                      <label className="wr-project-settings-field full-width">
+                      <SettingsField path="seo.socialTitle" className="wr-project-settings-field full-width">
                         <span>Share title</span>
                         <input
                           type="text"
@@ -1137,8 +1224,8 @@ export function ProjectSettingsDialog({
                           }
                         />
                         <small>Optional title displayed in link previews.</small>
-                      </label>
-                      <label className="wr-project-settings-field full-width">
+                      </SettingsField>
+                      <SettingsField path="seo.socialDescription" className="wr-project-settings-field full-width">
                         <span>Share description</span>
                         <textarea
                           value={draft.seo.socialDescription}
@@ -1152,7 +1239,7 @@ export function ProjectSettingsDialog({
                           }
                         />
                         <small>Optional description displayed in link previews.</small>
-                      </label>
+                      </SettingsField>
                     </div>
                     <div className="wr-project-settings-social-image-card">
                       <div className="wr-project-settings-social-image-preview">
@@ -1221,15 +1308,7 @@ export function ProjectSettingsDialog({
                       {socialImageError}
                     </div>
                   )}
-                  {saveError !== null && (
-                    <div
-                      className="wr-project-settings-error"
-                      id={`${descriptionId}-error`}
-                      role="alert"
-                    >
-                      {saveError}
-                    </div>
-                  )}
+                  
                 </>
               ) : activeSection.id === 'native' ? (
                 <ProjectNativeSettings
@@ -1241,7 +1320,7 @@ export function ProjectSettingsDialog({
                 />
               ) : isBuildSection ? (
                 <>
-                  <label className="wr-project-settings-field full-width">
+                  <SettingsField path="routingMode" className="wr-project-settings-field full-width">
                     <span>Browser routing</span>
                     <select
                       aria-label="Browser routing"
@@ -1260,8 +1339,8 @@ export function ProjectSettingsDialog({
                       History requires the host to serve index.html for application routes. File
                       URLs use Hash automatically.
                     </small>
-                  </label>
-                  <label className="wr-project-settings-field full-width">
+                  </SettingsField>
+                  <SettingsField path="routingBasePath" className="wr-project-settings-field full-width">
                     <span>Application base path</span>
                     <input
                       aria-label="Application base path"
@@ -1273,7 +1352,7 @@ export function ProjectSettingsDialog({
                     <small>
                       Use / for the domain root, or /myapp/ when publishing in a subdirectory.
                     </small>
-                  </label>
+                  </SettingsField>
 
                   <ProjectBuildSettings
                     value={draft.build}
@@ -1290,33 +1369,79 @@ export function ProjectSettingsDialog({
                   onChange={(pwa) => updateDraft({ pwa })}
                 />
               )}
-              {(isBuildSection || activeSection.id === 'pwa' || activeSection.id === 'native') &&
-                saveError !== null && (
-                  <div
-                    className="wr-project-settings-error"
-                    id={`${descriptionId}-error`}
-                    role="alert"
-                  >
-                    {saveError}
-                  </div>
-                )}
+              
             </section>
           </div>
         </div>
         <footer className="wr-modal-actions wr-project-settings-actions">
-          <button type="button" onClick={onClose}>
+          <span className="wr-settings-apply-note">
+            Apply changes updates this project. Save the project to keep your changes.
+          </span>
+          <button type="button" onClick={requestClose}>
             Cancel
           </button>
           <button type="button" className="primary" disabled={!hasChanges} onClick={save}>
-            Save changes
+            Apply changes
           </button>
         </footer>
       </section>
     </div>
   );
   return (
-    <ProjectThemeContext.Provider value={{ themes: draft.themes, mode }}>
-      {dialog}
-    </ProjectThemeContext.Provider>
+    <SettingsValidationContext.Provider value={saveError}>
+      <ProjectThemeContext.Provider value={{ themes: draft.themes, mode }}>
+        {dialog}
+        {discardRequested && (
+          <div
+            className="wr-modal-backdrop"
+            role="presentation"
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setDiscardRequested(false);
+              } else if (event.key === 'Tab') {
+                const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button');
+                if (event.shiftKey && document.activeElement === buttons[0]) {
+                  event.preventDefault();
+                  buttons[1]?.focus();
+                } else if (!event.shiftKey && document.activeElement === buttons[1]) {
+                  event.preventDefault();
+                  buttons[0]?.focus();
+                }
+              }
+            }}
+          >
+            <section
+              className="wr-modal wr-settings-discard-confirmation"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby={discardTitleId}
+              aria-describedby={discardDescriptionId}
+            >
+              <header className="wr-modal-header">
+                <h2 id={discardTitleId}>Discard unapplied changes?</h2>
+              </header>
+              <p id={discardDescriptionId}>
+                Your changes to project settings have not been applied. Keep editing to retain them.
+              </p>
+              <footer className="wr-modal-actions">
+                <button type="button" onClick={onClose}>
+                  Discard changes
+                </button>
+                <button
+                  ref={keepEditingRef}
+                  type="button"
+                  className="primary"
+                  onClick={() => setDiscardRequested(false)}
+                >
+                  Keep editing
+                </button>
+              </footer>
+            </section>
+          </div>
+        )}
+      </ProjectThemeContext.Provider>
+    </SettingsValidationContext.Provider>
   );
 }

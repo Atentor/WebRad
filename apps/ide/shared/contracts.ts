@@ -19,6 +19,7 @@ export const IDE_COMMANDS = [
   'file.save',
   'file.saveAll',
   'file.exit',
+  'file.reviewPendingChanges',
   'edit.undo',
   'edit.redo',
   'edit.cut',
@@ -177,6 +178,8 @@ export interface WebRadBridge {
   };
   lifecycle: {
     setDirty(dirty: boolean): void;
+    /** Editor drafts are separate from model changes and cannot be saved by Save Project. */
+    setPendingChanges?(pending: boolean): void;
     setPreviewMode(active: boolean): Promise<void>;
   };
   platform: NodeJS.Platform;

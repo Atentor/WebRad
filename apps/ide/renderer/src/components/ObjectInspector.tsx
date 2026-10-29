@@ -16,10 +16,12 @@ import type {
   ReusableElementModel,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES, isWebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
-import { useEffect, useId, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useProjectColorResolver } from '../project-theme';
 import { Icon } from './Icon';
 import { ColorInput, ThemeColorButton } from './ColorInput';
+import { DraftNumberInput } from './DraftNumberInput';
+import { useEditorDraftPending } from './useEditorDraftPending';
 import { ComponentIcon } from './ComponentIcon';
 import { IconPickerDialog } from './IconPickerDialog';
 import { Panel } from './Panel';
@@ -296,6 +298,95 @@ function validPickerColor(value: string): string {
   return /^#[\da-f]{6}$/i.test(value) ? value : '#000000';
 }
 
+interface StringListPropertyEditorProps {
+  readonly id: string;
+  readonly value: unknown;
+  readonly multiple: boolean;
+  readonly readOnly: boolean;
+  readonly onChange: (value: unknown) => void;
+}
+
+function StringListPropertyEditor({
+  id,
+  value,
+  multiple,
+  readOnly,
+  onChange,
+}: StringListPropertyEditorProps): ReactElement {
+  const source = multiple ? '' : Array.isArray(value) ? value.join('\n') : '';
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [draft, setDraft] = useState(source);
+  const [previousSource, setPreviousSource] = useState(source);
+  const [edited, setEdited] = useState(false);
+  const skipBlurCommit = useRef(false);
+  if (source !== previousSource) {
+    setPreviousSource(source);
+    setDraft(source);
+    setEdited(false);
+  }
+  const pending = !readOnly && edited && (multiple || draft !== source);
+  useEditorDraftPending(pending);
+  const commit = (): void => {
+    if (readOnly || !edited) return;
+    const items = draft
+      .split('\n')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    if (!valuesEqual(items, value)) onChange(items);
+    setDraft(items.join('\n'));
+    setEdited(false);
+  };
+  const commitActiveDraft = useEffectEvent(() => {
+    const input = inputRef.current;
+    if (input !== null && document.activeElement === input) commit();
+  });
+  useEffect(() => {
+    const onCommitDrafts = (): void => commitActiveDraft();
+    window.addEventListener('webrad:commit-editor-drafts', onCommitDrafts);
+    return () => window.removeEventListener('webrad:commit-editor-drafts', onCommitDrafts);
+  }, []);
+  return (
+    <textarea
+      id={id}
+      ref={inputRef}
+      className="wr-inspector-input"
+      value={draft}
+      data-editor-draft-pending={pending ? 'true' : undefined}
+      placeholder={multiple ? MULTIPLE_VALUES_LABEL : 'One item per line'}
+      readOnly={readOnly}
+      spellCheck={false}
+      rows={4}
+      onFocus={() => {
+        skipBlurCommit.current = false;
+      }}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        setEdited(true);
+      }}
+      onBlur={() => {
+        if (skipBlurCommit.current) skipBlurCommit.current = false;
+        else commit();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          setDraft(source);
+          setEdited(false);
+          skipBlurCommit.current = true;
+          event.currentTarget.blur();
+        } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          event.stopPropagation();
+          commit();
+          skipBlurCommit.current = true;
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 interface PropertyEditorProps {
   readonly id: string;
   readonly scopeId?: string;
@@ -495,43 +586,26 @@ function PropertyEditor({
         );
       }
       return (
-        <textarea
+        <StringListPropertyEditor
+          key={scopeId ?? id}
           id={id}
-          className="wr-inspector-input"
-          value={multiple ? '' : Array.isArray(value) ? value.join('\n') : ''}
-          placeholder={placeholder ?? 'One item per line'}
+          value={value}
+          multiple={multiple}
           readOnly={disabled}
-          spellCheck={false}
-          rows={4}
-          onChange={(event) =>
-            onChange(
-              event.target.value
-                .split('\n')
-                .map((item) => item.trim())
-                .filter((item) => item.length > 0),
-            )
-          }
+          onChange={onChange}
         />
       );
     case 'number':
       return (
-        <input
+        <DraftNumberInput
+          key={scopeId ?? id}
           id={id}
           className="wr-inspector-input wr-inspector-number"
-          type="number"
-          inputMode="decimal"
-          step="any"
-          value={text}
+          value={multiple ? undefined : typeof value === 'number' || value === null ? value : undefined}
+          nullable={property.nullable}
           placeholder={placeholder}
           readOnly={disabled}
-          onChange={(event) => {
-            if (event.target.value.trim().length === 0) {
-              if (property.nullable === true) onChange(null);
-              return;
-            }
-            const numberValue = Number(event.target.value);
-            if (Number.isFinite(numberValue)) onChange(numberValue);
-          }}
+          onChange={onChange}
         />
       );
     case 'boolean':

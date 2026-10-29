@@ -81,7 +81,7 @@ export function RestGoConnectionPanel({
           </fieldset>
           <div className="wr-restgo-form-actions">
             <span className="wr-restgo-muted">
-              {settingsDirty ? 'Unsaved changes' : 'Configuration saved'}
+              {settingsDirty ? 'Unapplied changes' : 'Configuration matches the project'}
             </span>
             <button
               className="wr-restgo-button is-primary"
@@ -89,9 +89,12 @@ export function RestGoConnectionPanel({
               disabled={busy || !settingsDirty}
             >
               <Icon name="save" />
-              Save configuration
+              Apply configuration
             </button>
           </div>
+          <small className="wr-restgo-muted">
+            Apply updates this project. Save the project (Ctrl+S) to keep configuration changes.
+          </small>
         </form>
         <RestGoDevelopmentLogin
           baseUrl={baseUrl}

@@ -1,3 +1,4 @@
+import { SettingsField } from './SettingsField';
 import {
   getDefaultNativeBundleFormat,
   getNativeArchitectures,
@@ -19,18 +20,20 @@ interface ProjectNativeSettingsProps {
 }
 
 function TextField({
+  path,
   label,
   value,
   onChange,
   help,
 }: {
+  readonly path: string;
   readonly label: string;
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly help?: string;
 }): ReactElement {
   return (
-    <label className="wr-project-settings-field">
+    <SettingsField path={path} className="wr-project-settings-field">
       <span>{label}</span>
       <input
         type="text"
@@ -39,7 +42,7 @@ function TextField({
         onChange={(event) => onChange(event.currentTarget.value)}
       />
       {help !== undefined && <small>{help}</small>}
-    </label>
+    </SettingsField>
   );
 }
 
@@ -231,28 +234,32 @@ export function ProjectNativeSettings({
         <p>Application details shown in the installed app and its package.</p>
         <div className="wr-project-settings-fields">
           <TextField
+            path="nativeApplication.applicationName"
             label="Application Name"
             value={value.applicationName}
             onChange={(applicationName) => patch({ applicationName })}
           />
           <TextField
+            path="nativeApplication.identifier"
             label="Application Identifier"
             value={value.identifier}
             onChange={(identifier) => patch({ identifier })}
             help="Reverse-DNS identifier, for example com.example.application."
           />
           <TextField
+            path="nativeApplication.version"
             label="Version"
             value={value.version}
             onChange={(version) => patch({ version })}
             help="Numeric version, for example 1.0.0."
           />
           <TextField
+            path="nativeApplication.publisher"
             label="Publisher"
             value={value.publisher}
             onChange={(publisher) => patch({ publisher })}
           />
-          <label className="wr-project-settings-field full-width">
+          <SettingsField path="nativeApplication.description" className="wr-project-settings-field full-width">
             <span>Description</span>
             <textarea
               rows={3}
@@ -260,7 +267,7 @@ export function ProjectNativeSettings({
               value={value.description}
               onChange={(event) => patch({ description: event.currentTarget.value })}
             />
-          </label>
+          </SettingsField>
           <NativeImage
             label="Application Icon"
             value={value.icon}
@@ -275,7 +282,7 @@ export function ProjectNativeSettings({
         </legend>
         <p>Packaging preferences used when exporting from Build Application.</p>
         <div className="wr-project-settings-fields">
-          <label className="wr-project-settings-field">
+          <SettingsField path="nativeApplication.build.platform" className="wr-project-settings-field">
             <span>Target Platform</span>
             <select
               value={value.build.platform}
@@ -292,8 +299,8 @@ export function ProjectNativeSettings({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="wr-project-settings-field">
+          </SettingsField>
+          <SettingsField path="nativeApplication.build.architecture" className="wr-project-settings-field">
             <span>Target Architecture</span>
             <select
               value={value.build.architecture}
@@ -324,8 +331,8 @@ export function ProjectNativeSettings({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="wr-project-settings-field">
+          </SettingsField>
+          <SettingsField path="nativeApplication.build.configuration" className="wr-project-settings-field">
             <span>Build Configuration</span>
             <select
               value={value.build.configuration}
@@ -341,8 +348,8 @@ export function ProjectNativeSettings({
               <option value="debug">Debug</option>
               <option value="release">Release</option>
             </select>
-          </label>
-          <label className="wr-project-settings-field">
+          </SettingsField>
+          <SettingsField path="nativeApplication.build.bundleFormat" className="wr-project-settings-field">
             <span>Bundle Format</span>
             <select
               value={value.build.bundleFormat}
@@ -361,8 +368,8 @@ export function ProjectNativeSettings({
                   </option>
                 ))}
             </select>
-          </label>
-          <label className="wr-project-settings-field full-width">
+          </SettingsField>
+          <SettingsField path="nativeApplication.build.outputDirectory" className="wr-project-settings-field full-width">
             <span>Output Directory</span>
             <span className="wr-project-settings-directory">
               <input
@@ -388,7 +395,7 @@ export function ProjectNativeSettings({
               Absolute path or folder relative to the project. Native build intermediates use a
               separate cache.
             </small>
-          </label>
+          </SettingsField>
         </div>
         {directoryError !== null && (
           <div className="wr-project-settings-error" role="alert">
@@ -411,7 +418,7 @@ export function ProjectNativeSettings({
               ['minHeight', 'Minimum Height'],
             ] as const
           ).map(([key, label]) => (
-            <label key={key} className="wr-project-settings-field">
+            <SettingsField path={`nativeApplication.desktop.${key}`} key={key} className="wr-project-settings-field">
               <span>{label}</span>
               <input
                 type="number"
@@ -423,7 +430,7 @@ export function ProjectNativeSettings({
                   patch({ desktop: { ...value.desktop, [key]: Number(event.currentTarget.value) } })
                 }
               />
-            </label>
+            </SettingsField>
           ))}
         </div>
         <div className="wr-project-settings-toggles">
@@ -450,7 +457,7 @@ export function ProjectNativeSettings({
         </legend>
         <p>Display preferences and application icon for Android and iOS.</p>
         <div className="wr-project-settings-fields">
-          <label className="wr-project-settings-field">
+          <SettingsField path="nativeApplication.mobile.orientation" className="wr-project-settings-field">
             <span>Orientation</span>
             <select
               value={value.mobile.orientation}
@@ -468,7 +475,7 @@ export function ProjectNativeSettings({
               <option value="landscape">Landscape</option>
               <option value="auto">Auto</option>
             </select>
-          </label>
+          </SettingsField>
         </div>
         <div className="wr-project-settings-toggles">
           {(
@@ -520,7 +527,7 @@ export function ProjectNativeSettings({
           <span>Network</span>
         </legend>
         <p>Allow the services your application connects to.</p>
-        <label className="wr-project-settings-field full-width">
+        <SettingsField path="nativeApplication.security.networkOrigins" className="wr-project-settings-field full-width">
           <span>Allowed Network Origins</span>
           <textarea
             rows={4}
@@ -544,7 +551,7 @@ export function ProjectNativeSettings({
             One exact HTTP(S) or WS(S) origin per line. Include origins used by authored requests
             and media; no wildcard permissions.
           </small>
-        </label>
+        </SettingsField>
       </fieldset>
       <fieldset className="wr-project-settings-seo-options">
         <legend>
@@ -578,13 +585,14 @@ export function ProjectNativeSettings({
             ] as const
           ).map(([key, label]) => (
             <TextField
+              path={`nativeApplication.signing.${key}`}
               key={key}
               label={label}
               value={value.signing[key]}
               onChange={(text) => patch({ signing: { ...value.signing, [key]: text } })}
             />
           ))}
-          <label className="wr-project-settings-field">
+          <SettingsField path="nativeApplication.signing.iosExportMethod" className="wr-project-settings-field">
             <span>iOS Export Method</span>
             <select
               value={value.signing.iosExportMethod}
@@ -602,7 +610,7 @@ export function ProjectNativeSettings({
               <option value="release-testing">Release testing</option>
               <option value="app-store-connect">App Store Connect</option>
             </select>
-          </label>
+          </SettingsField>
         </div>
       </fieldset>
       {!validation.success && (

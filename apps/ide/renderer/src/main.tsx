@@ -10,6 +10,7 @@ import './theme.css';
 import './layout.css';
 import './panels.css';
 import './designer-chrome.css';
+import './workbench-ux.css';
 
 const iconLink = document.createElement('link');
 iconLink.rel = 'icon';

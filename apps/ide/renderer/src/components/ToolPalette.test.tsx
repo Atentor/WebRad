@@ -24,6 +24,11 @@ describe('ToolPalette compact registry presentation', () => {
     fireEvent.doubleClick(item);
     expect(onSelect).toHaveBeenLastCalledWith('WebProductCatalog');
     expect(onInsert).toHaveBeenLastCalledWith('WebProductCatalog');
+    fireEvent.keyDown(item, { key: 'Enter' });
+    expect(onInsert).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(item, { key: 'Enter', repeat: true });
+    expect(onInsert).toHaveBeenCalledTimes(2);
+    expect(item.getAttribute('aria-keyshortcuts')).toBe('Enter');
   });
   it('filters by search and retains categorized nonvisual tools', () => {
     const { container } = render(<ToolPalette compact onSelect={vi.fn()} onInsert={vi.fn()} />);

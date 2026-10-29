@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type PointerEvent,
+  type KeyboardEvent,
   type ReactElement,
   type ReactNode,
   useEffect,
@@ -134,7 +135,31 @@ export function IdeShell({
     }
   }, []);
 
+  const resizeWithKeyboard = (target: ResizeTarget, event: KeyboardEvent<HTMLDivElement>): void => {
+    const horizontal = target !== 'bottom';
+    const decrease = horizontal ? 'ArrowLeft' : 'ArrowDown';
+    const increase = horizontal ? 'ArrowRight' : 'ArrowUp';
+    if (![decrease, increase, 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const minimum = target === 'left' ? 180 : target === 'right' ? 220 : bottomMinimumHeight;
+    const maximum = target === 'left' ? leftResizeMaximum : target === 'right' ? rightResizeMaximum : 360;
+    const current = target === 'left' ? visibleLeftWidth : target === 'right' ? visibleRightWidth : visibleBottomHeight;
+    const direction = (event.key === increase ? 1 : -1) * (target === 'right' ? -1 : 1);
+    const next = event.key === 'Home' ? minimum : event.key === 'End' ? maximum : current + direction * (event.shiftKey ? 40 : 10);
+    const value = Math.min(maximum, Math.max(minimum, next));
+    if (target === 'left') setLeftWidth(value);
+    else if (target === 'right') setRightWidth(value);
+    else setBottomHeight(value);
+  };
+
   const splitterProps = (target: ResizeTarget) => ({
+    tabIndex: 0,
+    'aria-valuemin': target === 'left' ? 180 : target === 'right' ? 220 : bottomMinimumHeight,
+    'aria-valuemax': target === 'left' ? leftResizeMaximum : target === 'right' ? rightResizeMaximum : 360,
+    'aria-valuenow': Math.round(target === 'left' ? visibleLeftWidth : target === 'right' ? visibleRightWidth : visibleBottomHeight),
+    'aria-valuetext': `${Math.round(target === 'left' ? visibleLeftWidth : target === 'right' ? visibleRightWidth : visibleBottomHeight)} pixels`,
+    onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => resizeWithKeyboard(target, event),
     onPointerDown: (event: PointerEvent<HTMLDivElement>) => beginResize(target, event),
     onPointerMove: continueResize,
     onPointerUp: finishResize,

@@ -187,10 +187,44 @@ export async function runProjectResourcesSmoke(
       closeBounds.right <= inputBounds.right && closeBounds.top >= inputBounds.top &&
       closeBounds.bottom <= inputBounds.bottom;
   })()`);
-  window.webContents.insertText('ResourceModel');
+  await window.webContents.insertText('ResourceModel');
   await waitFor(
     `document.querySelectorAll('.wr-project-tree .wr-page-row').length === 1 && ${projectExplorerRowExpression({ name: 'ResourceModel' })} instanceof HTMLElement`,
   );
+  await waitFor(
+    `document.querySelector('.wr-project-search-summary')?.textContent?.includes('1 matching item') === true
+      && document.querySelectorAll('.wr-project-tree [data-explorer-key][tabindex="0"]').length === 1
+      && document.querySelectorAll('.wr-project-tree [aria-level="1"]').length === 1`,
+  );
+  async function replaceSearch(value: string): Promise<void> {
+    await window.webContents.executeJavaScript(
+      `document.querySelector('[aria-label="Filter project items"]')?.focus()`,
+      true,
+    );
+    window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'A', modifiers: [process.platform === 'darwin' ? 'meta' : 'control'] });
+    window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'A', modifiers: [process.platform === 'darwin' ? 'meta' : 'control'] });
+    await window.webContents.insertText(value);
+  }
+  await replaceSearch('NoSuchProjectResource');
+  await waitFor(
+    `document.querySelector('[data-explorer-no-results]') !== null
+      && document.querySelector('.wr-project-search-summary')?.textContent?.includes('0 matching items') === true
+      && document.querySelectorAll('.wr-project-tree [role="treeitem"]').length === 0`,
+  );
+  await click('.wr-project-search-summary button');
+  await waitFor(`document.activeElement?.getAttribute('aria-label') === 'Filter project items' && document.querySelector('[data-explorer-no-results]') === null`);
+  await replaceSearch('ResourceModel');
+  await waitFor(`${projectExplorerRowExpression({ name: 'ResourceModel' })} instanceof HTMLElement`);
+  await window.webContents.executeJavaScript(`document.querySelector('[data-explorer-key="folder:Models"]')?.focus()`, true);
+  for (const [keyCode, expected] of [['Right', 'ResourceModel'], ['Home', 'Models'], ['End', 'ResourceModel'], ['M', 'Models']] as const) {
+    window.webContents.sendInputEvent({ type: 'keyDown', keyCode });
+    window.webContents.sendInputEvent({ type: 'keyUp', keyCode });
+    await waitFor(`document.activeElement?.getAttribute('data-explorer-label') === ${JSON.stringify(expected)}
+      && document.querySelectorAll('.wr-project-tree [data-explorer-key][tabindex="0"]').length === 1`);
+  }
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Left' });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Left' });
+  await waitFor(`document.activeElement?.getAttribute('aria-expanded') === 'false' && document.querySelectorAll('.wr-project-tree .wr-page-row').length === 0`);
   await click('[aria-label="Close project search"]');
   await waitFor(
     "document.querySelector('[aria-label=\"Filter project items\"]') === null && document.querySelectorAll('[role=tree] .wr-page-row').length === 0",
@@ -202,6 +236,42 @@ export async function runProjectResourcesSmoke(
     "document.querySelector('[role=tree]')?.textContent?.includes('ResourceHelpers') === true",
   );
   log('renderer project Explorer collapse and search passed');
+  const entryName = saved.project.pages.find((page) => page.id === saved.project.entryPage)?.name;
+  if (!entryName) throw new Error('Entry page name is missing.');
+  const entryRow = projectExplorerRowExpression({ id: saved.project.entryPage });
+  await window.webContents.executeJavaScript(`${entryRow}?.click()`, true);
+  await waitFor(`${entryRow}?.getAttribute('aria-selected') === 'true'`);
+  await click('[aria-label="Duplicate selected project item"]');
+  await waitFor(`document.querySelector('.wr-project-tree .wr-page-row.active')?.getAttribute('data-project-resource-id') !== ${JSON.stringify(saved.project.entryPage)}
+    && document.querySelector('[aria-label="Rename selected project item"]')?.disabled === false`);
+  const renameId: unknown = await window.webContents.executeJavaScript(`document.querySelector('.wr-project-tree .wr-page-row.active')?.getAttribute('data-project-resource-id')`);
+  if (typeof renameId !== 'string') throw new Error('Duplicated page identity is missing.');
+  await click('[aria-label="Rename selected project item"]');
+  await waitFor(`document.activeElement?.getAttribute('aria-label') === 'Page name'`);
+  async function renameDraft(value: string): Promise<void> {
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Page name"]')?.focus()`, true);
+    window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'A', modifiers: [process.platform === 'darwin' ? 'meta' : 'control'] });
+    window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'A', modifiers: [process.platform === 'darwin' ? 'meta' : 'control'] });
+    await window.webContents.insertText(value);
+    await click('[aria-label="Apply project item name"]');
+  }
+  await renameDraft(entryName);
+  await waitFor(`document.querySelector('#wr-project-rename-error')?.textContent?.length > 0
+    && document.querySelector('[aria-label="Page name"]')?.value === ${JSON.stringify(entryName)}`);
+  await renameDraft('ResourceRename');
+  const renamedRow = projectExplorerRowExpression({ id: renameId });
+  await waitFor(`${renamedRow}?.querySelector('.wr-explorer-name')?.textContent === 'ResourceRename'
+    && document.querySelector('[aria-label="Page name"]') === null`);
+  const deletedRename: unknown = await window.webContents.executeJavaScript(`(() => {
+    const original = window.confirm;
+    window.confirm = () => true;
+    try { document.querySelector('[aria-label="Delete selected project item"]')?.click(); }
+    finally { window.confirm = original; }
+    return true;
+  })()`, true);
+  if (deletedRename !== true) throw new Error('Renamed page cleanup did not run.');
+  await waitFor(`${renamedRow} === null`);
+  log('renderer project Explorer keyboard, filtered results and inline rename passed');
   const helpers = saved.project.sourceFiles?.find((file) => file.name === 'ResourceHelpers');
   if (helpers === undefined) throw new Error('Saved ResourceHelpers identity is missing.');
   const helpersRow = projectExplorerRowExpression({ id: helpers.id });

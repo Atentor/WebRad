@@ -12,6 +12,7 @@ import { buildRequirementsKey, useBuildRequirements } from '../use-build-require
 import { BuildRequirements } from './BuildRequirements';
 import { BuildStatusPanel } from './BuildStatusPanel';
 import { Icon } from './Icon';
+import './settings-dialog-ux.css';
 
 const PLATFORMS: readonly (readonly [NativeTargetPlatform, string])[] = [
   ['web', 'Web/PWA'],
@@ -106,6 +107,10 @@ export function BuildApplicationDialog({
     void build.run(parsed.data, exportingCi);
   };
   const disabled = build.busy;
+  const previousTarget = state.target !== undefined && (
+    state.target.platform !== draft.build.platform || state.target.configuration !== draft.build.configuration ||
+    state.target.architecture !== draft.build.architecture || state.target.bundleFormat !== draft.build.bundleFormat
+  );
   return (
     <div
       className="wr-modal-backdrop"
@@ -210,7 +215,7 @@ export function BuildApplicationDialog({
               disabled={build.busy}
               onRefresh={requirements.refresh}
             />
-            <BuildStatusPanel state={state} build={build} />
+            <BuildStatusPanel state={state} build={build} currentTarget={draft.build} />
           </div>
           {incompatibleHost && (
             <p className="wr-project-settings-note">
@@ -227,6 +232,7 @@ export function BuildApplicationDialog({
         <footer className="wr-modal-actions">
           <span className="wr-build-footer-target">
             <Icon name="layers" />
+            {previousTarget && <span>Next build:</span>}
             {PLATFORMS.find(([value]) => value === platform)?.[1]}
             <span>·</span>
             {configuration === 'release' ? 'Release' : 'Debug'}
@@ -239,7 +245,7 @@ export function BuildApplicationDialog({
             <>
               {state.result?.success && (
                 <button type="button" onClick={() => void build.openOutput()}>
-                  Open Output Folder
+                  {previousTarget ? 'Open Previous Output Folder' : 'Open Output Folder'}
                 </button>
               )}
               <button
@@ -258,7 +264,7 @@ export function BuildApplicationDialog({
                 disabled={disabled || incompatibleHost}
                 onClick={() => run()}
               >
-                {state.result?.success ? 'Build Again' : 'Build'}
+                {state.result?.success && !previousTarget ? 'Build Again' : 'Build'}
               </button>
             </>
           )}

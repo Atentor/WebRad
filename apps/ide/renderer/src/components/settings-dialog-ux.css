@@ -1,0 +1,47 @@
+.wr-settings-field-error {
+  color: var(--wr-danger, #f87171);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wr-settings-apply-note {
+  flex: 1 1 200px;
+  margin-right: auto;
+  max-width: 340px;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wr-settings-discard-confirmation {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.wr-settings-discard-confirmation > p {
+  margin: 0;
+  padding: 18px 22px;
+  line-height: 1.6;
+}
+
+.wr-settings-discard-confirmation .wr-modal-actions {
+  flex-wrap: wrap;
+}
+
+.wr-menu-removal-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--wr-border);
+}
+
+.wr-menu-removal-notice button {
+  margin-left: auto;
+}
+
+.wr-build-result-target {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}

@@ -11,6 +11,7 @@ export interface BuildApplicationState {
   readonly error?: string;
   readonly exportingCi: boolean;
   readonly cancelling: boolean;
+  readonly target?: NativeApplicationSettings['build'];
 }
 
 interface UseBuildApplicationOptions {
@@ -90,7 +91,8 @@ export function useBuildApplication({
       const requestId = crypto.randomUUID();
       activeRequest.current = requestId;
       cancelRequested.current = false;
-      setState({ stage: 'preparing', logs: [], exportingCi, cancelling: false });
+      const target = { ...settings.build };
+      setState({ stage: 'preparing', logs: [], exportingCi, cancelling: false, target });
       try {
         controller.updateProjectSettings({ nativeApplication: settings });
         await controller.save();
@@ -175,6 +177,7 @@ export function useBuildApplication({
             : result.diagnostics.find((item) => item.category === 'error')?.message,
           exportingCi,
           cancelling: false,
+          target,
         }));
         onResult(result, exportingCi);
       } catch (error) {
@@ -193,6 +196,7 @@ export function useBuildApplication({
           error: message,
           exportingCi,
           cancelling: false,
+          target,
         }));
         onResult(result, exportingCi);
       } finally {

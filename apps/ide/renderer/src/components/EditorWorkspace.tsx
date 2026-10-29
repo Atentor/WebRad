@@ -8,7 +8,7 @@ export interface DocumentTab {
   id: string;
   label: string;
   dirty: boolean;
-  kind: 'page' | 'reusable' | 'menu' | 'code' | 'styles' | 'restgo';
+  kind: 'page' | 'reusable' | 'menu' | 'code' | 'asset' | 'styles' | 'restgo';
 }
 
 interface EditorWorkspaceProps {
@@ -16,6 +16,8 @@ interface EditorWorkspaceProps {
   activeDocumentId: string | null;
   activeView: ViewMode;
   onSelectView: (view: ViewMode) => void;
+  onNewProject?: () => void;
+  onOpenProject?: () => void;
   children: ReactNode;
 }
 
@@ -24,11 +26,13 @@ export function EditorWorkspace({
   activeDocumentId,
   activeView,
   onSelectView,
+  onNewProject,
+  onOpenProject,
   children,
 }: EditorWorkspaceProps): ReactElement {
   const activeDocument = documents.find((document) => document.id === activeDocumentId);
   const stylesDocumentActive =
-    activeDocument?.kind === 'styles' || activeDocument?.kind === 'restgo';
+    activeDocument?.kind === 'styles' || activeDocument?.kind === 'restgo' || activeDocument?.kind === 'asset';
   const hasDocumentViews = activeDocument !== undefined && !stylesDocumentActive;
 
   return (
@@ -55,6 +59,14 @@ export function EditorWorkspace({
               title={label + ' (F12)'}
               aria-keyshortcuts="F12"
               aria-selected={activeView === view}
+              tabIndex={activeView === view ? 0 : -1}
+              onKeyDown={(event) => {
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const view = activeDocument?.kind === 'code' ? 'code' : event.key === 'Home' ? 'design' : event.key === 'End' ? 'code' : activeView === 'design' ? 'code' : 'design';
+                onSelectView(view);
+                event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[aria-label="${view === 'design' ? 'Design' : 'Code'}"]`)?.focus();
+              }}
               onClick={() => onSelectView(view)}
               disabled={view === 'design' && activeDocument?.kind === 'code'}
             >
@@ -78,9 +90,13 @@ export function EditorWorkspace({
             Build browser applications with pages, components, properties, events, and TypeScript.
           </p>
           <div className="wr-welcome-shortcuts">
-            <span>New Project</span>
+            <button type="button" className="wr-welcome-action" aria-label="New Project" onClick={onNewProject}>
+              <Icon name="add" />New Project
+            </button>
             <kbd>Ctrl N</kbd>
-            <span>Open Project</span>
+            <button type="button" className="wr-welcome-action" aria-label="Open Project" onClick={onOpenProject}>
+              <Icon name="folder-open" />Open Project
+            </button>
             <kbd>Ctrl O</kbd>
           </div>
         </div>

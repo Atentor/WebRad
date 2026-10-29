@@ -152,7 +152,7 @@ describe('VisualStyleEditor', () => {
 
     await expandCategory(user, 'Appearance');
     await user.click(screen.getByLabelText('Configure Opacity'));
-    fireEvent.change(screen.getByLabelText('Opacity', { selector: 'input[type="number"]' }), {
+    fireEvent.change(screen.getByLabelText('Opacity', { selector: 'input[role="spinbutton"]' }), {
       target: { value: '65' },
     });
     expect(currentProperties()).toMatchObject({ opacity: 65 });
@@ -197,7 +197,7 @@ describe('VisualStyleEditor', () => {
     await user.selectOptions(screen.getByLabelText('Animation', { selector: 'select' }), 'bounce');
     await user.click(screen.getByLabelText('Configure Transition duration'));
     fireEvent.change(
-      screen.getByLabelText('Transition duration', { selector: 'input[type="number"]' }),
+      screen.getByLabelText('Transition duration', { selector: 'input[role="spinbutton"]' }),
       {
         target: { value: '320' },
       },
@@ -456,7 +456,7 @@ describe('VisualStyleEditor', () => {
     await expandCategory(user, 'Motion');
     expect((screen.getByLabelText('Configure Rotate') as HTMLInputElement).checked).toBe(true);
     expect(
-      (screen.getByLabelText('Rotate', { selector: 'input[type="number"]' }) as HTMLInputElement)
+      (screen.getByLabelText('Rotate', { selector: 'input[role="spinbutton"]' }) as HTMLInputElement)
         .value,
     ).toBe('15');
     await user.click(screen.getByRole('button', { name: 'Clear Rotate' }));

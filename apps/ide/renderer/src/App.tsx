@@ -239,6 +239,10 @@ export function App(): ReactElement {
   const [stylesOpen, setStylesOpen] = useState(false);
   const [restGoOpen, setRestGoOpen] = useState(false);
   const [restGoVisited, setRestGoVisited] = useState(false);
+  const [restGoPendingChanges, setRestGoPendingChanges] = useState(false);
+  const [settingsPendingChanges, setSettingsPendingChanges] = useState(false);
+  const [fieldDraftsPending, setFieldDraftsPending] = useState(false);
+  const pendingFieldIds = useRef(new Set<string>());
   const [restGoSection, setRestGoSection] = useState<RestGoSection>('connection');
 
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>('page');
@@ -302,6 +306,24 @@ export function App(): ReactElement {
     output: false,
   });
   const project = projectState.project;
+  useEffect(() => {
+    const receiveDraftState = (event: Event): void => {
+      if (!(event instanceof CustomEvent)) return;
+      const detail: unknown = event.detail;
+      if (typeof detail !== 'object' || detail === null) return;
+      const id: unknown = Reflect.get(detail, 'id');
+      const pending: unknown = Reflect.get(detail, 'pending');
+      if (typeof id !== 'string' || id.length > 200 || typeof pending !== 'boolean') return;
+      if (pending) pendingFieldIds.current.add(id);
+      else pendingFieldIds.current.delete(id);
+      setFieldDraftsPending(pendingFieldIds.current.size > 0);
+    };
+    window.addEventListener('webrad:editor-draft-state', receiveDraftState);
+    return () => window.removeEventListener('webrad:editor-draft-state', receiveDraftState);
+  }, []);
+  useEffect(() => {
+    window.webrad.lifecycle.setPendingChanges?.(restGoPendingChanges || settingsPendingChanges || fieldDraftsPending);
+  }, [restGoPendingChanges, settingsPendingChanges, fieldDraftsPending]);
   const projectStyles = project?.styles;
   const stylesActive = activeWorkspace === 'styles' && project !== null;
   const restGoActive = activeWorkspace === 'restgo' && project !== null;
@@ -539,6 +561,19 @@ export function App(): ReactElement {
       current.rootPath === saveContext.rootPath
     )
       return;
+    if (previewActiveRef.current) {
+      // A background catalog refresh must not dismiss an exclusive Preview.
+      // Keep an already running snapshot; reject an in-flight outdated build.
+      if (previewBuildPendingRef.current) {
+        buildRequestRef.current += 1;
+        setBuildDiagnostics([{
+          category: 'error',
+          source: 'ide',
+          message: 'The project changed while Preview was building. Use Stop, then start Preview again to include the latest changes.',
+        }]);
+      }
+      return;
+    }
     buildRequestRef.current += 1;
     if (!previewBuildPendingRef.current) setBuilding(false);
     setBuildDiagnostics([]);
@@ -1071,16 +1106,28 @@ export function App(): ReactElement {
 
   const bindEvent = useCallback(
     (eventName: string, handlerName: string | null): void => {
-      if (!activePage || !selection.primaryId) return;
+      if (!activePage) return;
       try {
+        const targets = selectedComponents.length > 0
+          ? selectedComponents
+          : activePage.components.filter((node) => node.id === activePage.rootComponentId);
+        const ids = targets.filter((node) => {
+          const definition = componentRegistry.get(node.type);
+          const events = definition?.eventsForNode?.(node, {
+            document: activePage,
+            reusableElements: project?.reusableElements,
+            menus: project?.menus,
+          }) ?? definition?.events;
+          return events?.some((event) => event.name === eventName);
+        }).map((node) => node.id);
         updateActivePage(
-          designerController.bindEvent(activePage, selection.primaryId, eventName, handlerName),
+          designerController.bindEvents(activePage, ids, eventName, handlerName),
         );
       } catch (error) {
         reportError(error, 'LANGUAGE');
       }
     },
-    [activePage, designerController, reportError, selection.primaryId, updateActivePage],
+    [activePage, designerController, reportError, selectedComponents, updateActivePage, project?.reusableElements, project?.menus],
   );
 
   const createOrOpenEvent = useCallback(
@@ -1459,7 +1506,7 @@ export function App(): ReactElement {
       try {
         projectController.updateProjectSettings(settings);
         setProjectSettingsDialogOpen(false);
-        addOutput('PROJECT', 'Saved general project settings.');
+        addOutput('PROJECT', 'Applied project settings. Save the project to persist them.');
       } catch (error) {
         reportError(error, 'PROJECT');
       }
@@ -1497,13 +1544,18 @@ export function App(): ReactElement {
   );
 
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
-    if (!projectState.dirty) return true;
+    if (!window.dispatchEvent(new Event('webrad:commit-editor-drafts', { cancelable: true }))) return false;
+    if (restGoPendingChanges && !window.confirm('Discard the unapplied RestGo connection or endpoint changes? Save or apply them in RestGo first if you want to keep them.')) {
+      openRestGo();
+      return false;
+    }
+    if (!projectController.getSnapshot().dirty) return true;
     if (window.confirm('Save unsaved changes before continuing?')) {
       await projectController.save();
       return true;
     }
     return window.confirm('Discard the unsaved changes?');
-  }, [projectController, projectState.dirty]);
+  }, [projectController, restGoPendingChanges, openRestGo]);
 
   const openNewProjectDialog = useCallback(async (): Promise<void> => {
     try {
@@ -1553,6 +1605,7 @@ export function App(): ReactElement {
 
   const saveProject = useCallback(async (): Promise<void> => {
     try {
+      if (!window.dispatchEvent(new Event('webrad:commit-editor-drafts', { cancelable: true }))) return;
       const session = await projectController.save();
       if (session) addOutput('PROJECT', `Saved ${session.project.name}.`);
     } catch (error) {
@@ -1735,14 +1788,14 @@ export function App(): ReactElement {
   );
 
   const renamePage = useCallback(
-    (pageId: string, name: string): void => {
+    (pageId: string, name: string): string | void => {
       try {
         projectController.renamePage(pageId, name);
       } catch (error) {
-        reportError(error, 'PROJECT');
+        return asError(error).message;
       }
     },
-    [projectController, reportError],
+    [projectController],
   );
 
   const deleteProjectResource = useCallback(
@@ -1816,14 +1869,14 @@ export function App(): ReactElement {
   );
 
   const renameReusableElement = useCallback(
-    (reusableElementId: string, name: string): void => {
+    (reusableElementId: string, name: string): string | void => {
       try {
         projectController.renameReusableElement(reusableElementId, name);
       } catch (error) {
-        reportError(error, 'PROJECT');
+        return asError(error).message;
       }
     },
-    [projectController, reportError],
+    [projectController],
   );
 
   const navigateDebugLocation = useCallback(
@@ -1953,6 +2006,7 @@ export function App(): ReactElement {
   }, []);
 
   const runProject = useCallback(async (): Promise<void> => {
+    if (!window.dispatchEvent(new Event('webrad:commit-editor-drafts', { cancelable: true }))) return;
     const initial = projectController.getSnapshot();
     if (!initial.project || !initial.rootPath) return;
     if (
@@ -2051,6 +2105,20 @@ export function App(): ReactElement {
 
   const executeCommand = useCallback(
     (command: IdeCommand, target?: 'designer'): void => {
+      if (command === 'file.reviewPendingChanges') {
+        if (previewActiveRef.current) {
+          document.querySelector<HTMLButtonElement>('button[aria-label="Stop preview"]')?.focus();
+          return;
+        }
+        const pendingField = document.querySelector<HTMLElement>('[data-editor-draft-pending="true"]');
+        if (pendingField && pendingField.getClientRects().length > 0 && !pendingField.closest('[inert]')) {
+          pendingField.focus();
+          return;
+        }
+        if (modalOpen) document.querySelector<HTMLButtonElement>('[role="alertdialog"] button, [role="dialog"]:not([inert]) button')?.focus();
+        else openRestGo();
+        return;
+      }
       // Native menu commands must not reach the hidden authoring workspace.
       if (previewActiveRef.current && command !== 'run.stop' && command !== 'file.exit') return;
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
@@ -2178,6 +2246,7 @@ export function App(): ReactElement {
           break;
         case 'debug.start':
           if (!building && !deploy.busy && !nativeBuildBusy && project) {
+            if (!window.dispatchEvent(new Event('webrad:commit-editor-drafts', { cancelable: true }))) break;
             setActiveWorkspace('page');
             setActiveView('code');
             void debugStart();
@@ -2232,6 +2301,7 @@ export function App(): ReactElement {
       redo,
       runProject,
       stopPreview,
+      openRestGo,
       deployProject,
       deploy.busy,
       openBuildApplication,
@@ -2335,7 +2405,7 @@ export function App(): ReactElement {
             id,
             label: sourceFile ? `${sourceFile.name}.ts` : (asset?.fileName ?? ''),
             dirty: projectState.dirty,
-            kind: 'code',
+            kind: sourceFile ? 'code' : 'asset',
           },
         ];
       const reusableElement = project?.reusableElements.find((candidate) => candidate.id === id);
@@ -2365,10 +2435,10 @@ export function App(): ReactElement {
           ]
         : []),
       ...(restGoOpen
-        ? [{ id: RESTGO_DOCUMENT_ID, label: 'RestGo', dirty: false, kind: 'restgo' as const }]
+        ? [{ id: RESTGO_DOCUMENT_ID, label: 'RestGo', dirty: restGoPendingChanges, kind: 'restgo' as const }]
         : []),
     ];
-  }, [openPageIds, project, projectState.dirty, stylesOpen, restGoOpen]);
+  }, [openPageIds, project, projectState.dirty, stylesOpen, restGoOpen, restGoPendingChanges]);
 
   const editorPageComponents = useMemo(
     () =>
@@ -2682,13 +2752,7 @@ export function App(): ReactElement {
         buildProblems={buildProblems}
         navigateTo={navigateTo}
         onSourceChange={updateEditorSource}
-        onMarkersChange={(markers) => {
-          setMonacoMarkers(markers);
-          if (markers.some((marker) => marker.severity >= 4)) {
-            setVisiblePanels((current) => ({ ...current, output: true }));
-            setBottomPanelTab('problems');
-          }
-        }}
+        onMarkersChange={setMonacoMarkers}
         
         onSave={() => void saveProject()}
       />
@@ -2708,6 +2772,7 @@ export function App(): ReactElement {
               onSectionChange={setRestGoSection}
               onSaveSettings={saveRestGoSettings}
               onCatalogChange={synchronizeRestGoClients}
+              onPendingChangesChange={setRestGoPendingChanges}
             />
           </ErrorBoundary>
         </div>
@@ -2800,6 +2865,7 @@ export function App(): ReactElement {
               }
               projectName={project?.name}
               dirty={projectState.dirty}
+              pendingChanges={restGoPendingChanges || settingsPendingChanges || fieldDraftsPending}
               saving={projectState.saving}
               building={building}
               debugStatus={debugState.status}
@@ -2903,7 +2969,7 @@ export function App(): ReactElement {
                         onDeleteMenu={deleteProjectResource}
                         onRenameMenu={(id, name) => {
                           try { projectController.renameMenu(id, name); }
-                          catch (error) { reportError(error, 'PROJECT'); }
+                          catch (error) { return asError(error).message; }
                         }}
                       />
                     </ErrorBoundary>
@@ -2982,6 +3048,8 @@ export function App(): ReactElement {
                 restGoActive ? RESTGO_DOCUMENT_ID : stylesActive ? STYLES_DOCUMENT_ID : activePageId
               }
               activeView={activeView}
+              onNewProject={() => void openNewProjectDialog()}
+              onOpenProject={() => void openProject()}
               onSelectView={(view) => {
                 if (view === 'design' && (activeSourceFile || activeAsset)) return;
                 setActiveWorkspace('page');
@@ -3077,7 +3145,16 @@ export function App(): ReactElement {
           url={previewUrl}
           building={building}
           diagnostics={buildDiagnostics}
-          onStop={stopPreview}
+          onStop={() => {
+            stopPreview();
+            const errors = buildProblems.filter((problem) => problem.category === 'error');
+            if (errors.length > 0) {
+              setVisiblePanels((current) => ({ ...current, output: true }));
+              setBottomPanelTab('problems');
+              const target = errors.find((problem) => problem.range !== undefined || problem.path !== undefined);
+              if (target) window.requestAnimationFrame(() => activateProblem(target));
+            }
+          }}
         />
       )}
       {updates.state.status === 'installing' && <UpdateInstallingDialog />}
@@ -3149,6 +3226,7 @@ export function App(): ReactElement {
             return rootPath ? window.webrad.nativeBuild.chooseDirectory(rootPath) : null;
           }}
           onClose={() => setProjectSettingsDialogOpen(false)}
+          onPendingChangesChange={setSettingsPendingChanges}
           onSave={saveProjectSettings}
         />
       )}

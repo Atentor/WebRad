@@ -2797,6 +2797,8 @@ describe('App MVP integration', () => {
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('tab', { name: 'Code' }));
     await user.click(await screen.findByRole('button', { name: 'Emit editor problem' }));
+    expect(document.querySelector('.wr-bottom-slot')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '1 issues' }));
     const problemsTab = await screen.findByRole('tab', {
       name: /Problems, 1 error, 0 warnings/i,
     });

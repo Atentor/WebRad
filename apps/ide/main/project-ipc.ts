@@ -59,6 +59,7 @@ const compilingWindows = new Set<number>();
 const projectSelectionRevisions = new Map<number, number>();
 const trustedRendererUrls = new Map<number, string>();
 const dirtyWindows = new Set<number>();
+const pendingEditorWindows = new Set<number>();
 const pendingClose = new Set<number>();
 const closeApproved = new Set<number>();
 let registered = false;
@@ -526,7 +527,7 @@ async function compileStylesHandler(
 }
 
 export function hasUnsavedProjectChanges(): boolean {
-  return dirtyWindows.size > 0;
+  return dirtyWindows.size > 0 || pendingEditorWindows.size > 0;
 }
 
 export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: string): void {
@@ -534,8 +535,28 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
   trustedRendererUrls.set(windowId, new URL(trustedRendererUrl).href);
   window.on('close', (event) => {
     const id = windowId;
-    if (closeApproved.delete(id) || !dirtyWindows.has(id)) return;
+    if (closeApproved.delete(id) || (!dirtyWindows.has(id) && !pendingEditorWindows.has(id))) return;
     event.preventDefault();
+    if (pendingEditorWindows.has(id)) {
+      const response = dialog.showMessageBoxSync(window, {
+        type: 'question',
+        title: 'Pending editor changes',
+        message: 'There are unapplied changes in an editor.',
+        detail: 'Return to the editor to apply or save them. Discarding also loses any unsaved project changes.',
+        buttons: ['Return to Editor', 'Discard All Changes', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+      });
+      if (response === 0) window.webContents.send('webrad:menu-command', 'file.reviewPendingChanges');
+      else if (response === 1) {
+        pendingEditorWindows.delete(id);
+        dirtyWindows.delete(id);
+        pendingClose.delete(id);
+        closeApproved.add(id);
+        window.close();
+      }
+      return;
+    }
     const response = dialog.showMessageBoxSync(window, {
       type: 'question',
       title: 'Unsaved changes',
@@ -566,6 +587,7 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
     projectSelectionRevisions.delete(id);
     trustedRendererUrls.delete(id);
     dirtyWindows.delete(id);
+    pendingEditorWindows.delete(id);
     pendingClose.delete(id);
     closeApproved.delete(id);
   });
@@ -701,6 +723,20 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
       throw new Error('Preview mode requires exactly one boolean.');
     setPreviewMenuMode(window, input[0]);
   });
+  ipcMain.on('webrad:lifecycle:set-pending-changes', (event, ...input: unknown[]) => {
+    if (input.length !== 1 || typeof input[0] !== 'boolean') return;
+    let window: BrowserWindow;
+    try {
+      window = requireTrustedSender(event);
+    } catch {
+      return;
+    }
+    const id = window.webContents.id;
+    if (input[0]) {
+      pendingEditorWindows.add(id);
+      pendingClose.delete(id);
+    } else pendingEditorWindows.delete(id);
+  });
   ipcMain.on('webrad:lifecycle:set-dirty', (event, dirty: unknown) => {
     if (typeof dirty !== 'boolean') return;
     let window: BrowserWindow;
@@ -716,7 +752,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
       return;
     }
     dirtyWindows.delete(id);
-    if (pendingClose.delete(id)) {
+    if (pendingClose.delete(id) && !pendingEditorWindows.has(id)) {
       closeApproved.add(id);
       window.close();
     }

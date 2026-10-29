@@ -36,6 +36,7 @@ interface RestGoWorkspaceProps {
   readonly section: RestGoSection;
   readonly onSectionChange?: (section: RestGoSection) => void;
   readonly onSaveSettings: (settings: RestGoProjectSettings) => void | Promise<void>;
+  readonly onPendingChangesChange?: (pending: boolean) => void;
   readonly onCatalogChange?: (
     catalog: RestGoAdminCatalog,
     projectId: string,
@@ -123,6 +124,15 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   }
   const busy = pending !== null || checking;
   const settingsDirty = JSON.stringify(draftSettings) !== JSON.stringify(settings);
+  useEffect(() => {
+    props.onPendingChangesChange?.(settingsDirty || endpointDirty);
+  }, [settingsDirty, endpointDirty, props.onPendingChangesChange]);
+  useEffect(
+    () => () => {
+      props.onPendingChangesChange?.(false);
+    },
+    [props.onPendingChangesChange],
+  );
   const groups = useMemo(() => restGoEndpointGroups(catalog.endpoints), [catalog.endpoints]);
   const visibleGroups = useMemo(
     () =>
@@ -236,11 +246,11 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
     }
     try {
       await perform(
-        'Saving connection settings',
+        'Applying connection settings',
         async () => {
           await onSaveSettings(validation.data);
         },
-        'RestGO application settings saved.',
+        'Configuration applied to the project. Save the project to keep these changes.',
       );
     } catch (reason) {
       setSettingsError(restGoErrorMessage(reason));

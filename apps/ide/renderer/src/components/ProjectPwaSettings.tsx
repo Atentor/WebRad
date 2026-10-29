@@ -1,3 +1,4 @@
+import { SettingsField } from './SettingsField';
 import type { ProjectPwaSettings as PwaSettings } from '@webrad/project-model';
 import type { ReactElement } from 'react';
 
@@ -16,19 +17,19 @@ export function ProjectPwaSettings({
     <>
       <p>Let users install this application on their device and open it from their home screen.</p>
       <div className="wr-project-settings-toggles">
-        <label>
+        <SettingsField path="pwa.enabled">
           <input
             type="checkbox"
             checked={value.enabled}
             onChange={(event) => onChange({ ...value, enabled: event.currentTarget.checked })}
           />
           <span>Enable PWA installation</span>
-        </label>
+        </SettingsField>
       </div>
       <fieldset className="wr-project-settings-seo-options" disabled={!value.enabled}>
         <legend>Installed application</legend>
         <div className="wr-project-settings-fields">
-          <label className="wr-project-settings-field full-width">
+          <SettingsField path="pwa.shortName" className="wr-project-settings-field full-width">
             <span>Short name</span>
             <input
               type="text"
@@ -38,8 +39,8 @@ export function ProjectPwaSettings({
               onChange={(event) => onChange({ ...value, shortName: event.currentTarget.value })}
             />
             <small>Optional label for the home screen. Uses the application name when empty.</small>
-          </label>
-          <label className="wr-project-settings-field">
+          </SettingsField>
+          <SettingsField path="pwa.display" className="wr-project-settings-field">
             <span>Display mode</span>
             <select
               value={value.display}
@@ -51,8 +52,8 @@ export function ProjectPwaSettings({
               <option value="fullscreen">Fullscreen</option>
               <option value="minimal-ui">Minimal browser controls</option>
             </select>
-          </label>
-          <label className="wr-project-settings-field">
+          </SettingsField>
+          <SettingsField path="pwa.orientation" className="wr-project-settings-field">
             <span>Orientation</span>
             <select
               value={value.orientation}
@@ -67,8 +68,8 @@ export function ProjectPwaSettings({
               <option value="portrait">Portrait</option>
               <option value="landscape">Landscape</option>
             </select>
-          </label>
-          <label className="wr-project-settings-field">
+          </SettingsField>
+          <SettingsField path="pwa.themeColor" className="wr-project-settings-field">
             <span>Theme color</span>
             <input
               type="color"
@@ -76,8 +77,8 @@ export function ProjectPwaSettings({
               onChange={(event) => onChange({ ...value, themeColor: event.currentTarget.value })}
             />
             <small>Color for supported browser and application controls.</small>
-          </label>
-          <label className="wr-project-settings-field">
+          </SettingsField>
+          <SettingsField path="pwa.backgroundColor" className="wr-project-settings-field">
             <span>Background color</span>
             <input
               type="color"
@@ -87,17 +88,17 @@ export function ProjectPwaSettings({
               }
             />
             <small>Background used while the installed application starts.</small>
-          </label>
+          </SettingsField>
         </div>
         <div className="wr-project-settings-toggles">
-          <label>
+          <SettingsField path="pwa.offline">
             <input
               type="checkbox"
               checked={value.offline}
               onChange={(event) => onChange({ ...value, offline: event.currentTarget.checked })}
             />
             <span>Keep the application available offline</span>
-          </label>
+          </SettingsField>
         </div>
         <p>
           The application files are available after the first visit. Online services still need an

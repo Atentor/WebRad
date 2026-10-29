@@ -94,6 +94,11 @@ async function saveProject(window: BrowserWindow, projectPath: string): Promise<
     window,
     'document.querySelector(\'.wr-restgo-runtime-settings button[type="submit"]\')?.disabled === true',
   );
+  await rendererReady(
+    window,
+    `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.textContent?.includes('Apply configuration') === true
+      && document.querySelector('.wr-restgo-runtime-settings')?.textContent?.includes('Save the project (Ctrl+S)') === true`,
+  );
   await click(window, 'button[aria-label="Save (Ctrl+S)"]');
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
@@ -155,6 +160,23 @@ export async function runRestGoSettingsSmoke(
   );
   await setField(window, 'RestGO instance URL', 'https://draft.example.test');
   await setField(window, 'Application API token', 'rgo.unsaved-token');
+  await rendererReady(window, `document.querySelector('.wr-toolbar-save-state')?.textContent?.includes('Pending edits') === true`);
+  await window.webContents.executeJavaScript(`(() => {
+    window.__webradRestGoCloseGuard = { original: window.confirm, messages: [] };
+    window.confirm = message => { window.__webradRestGoCloseGuard.messages.push(message); return false; };
+  })()`, true);
+  try {
+    window.webContents.send('webrad:menu-command', 'file.closeProject');
+    await rendererReady(window, `window.__webradRestGoCloseGuard.messages.some(message => message.includes('RestGo'))
+      && document.querySelector('.wr-restgo-workspace') !== null
+      && Array.from(document.querySelectorAll('.wr-restgo-runtime-settings input')).some(input => input.value === 'https://draft.example.test')`);
+  } finally {
+    await window.webContents.executeJavaScript(`(() => {
+      window.confirm = window.__webradRestGoCloseGuard.original;
+      delete window.__webradRestGoCloseGuard;
+    })()`, true);
+  }
+  log('renderer RestGO pending draft close protection passed');
   const manifest = JSON.parse(await fs.readFile(projectPath, 'utf8')) as {
     settings?: { restGo?: Record<string, unknown> };
   };

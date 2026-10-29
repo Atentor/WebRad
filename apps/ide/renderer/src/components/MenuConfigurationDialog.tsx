@@ -16,6 +16,7 @@ import {
   resolveProjectImageSource,
 } from '@webrad/components';
 import './MenuConfigurationDialog.css';
+import './settings-dialog-ux.css';
 import {
   projectAssetPath,
   type ComponentNode,
@@ -39,6 +40,13 @@ import { ColorInput } from './ColorInput';
 import { ProjectThemeContext } from '../project-theme';
 
 type Section = 'Items' | 'Brand & user' | 'Appearance' | 'Behavior & layout';
+
+interface RemovedMenuItem {
+  readonly item: WebMenuItem;
+  readonly parentId: string | null;
+  readonly index: number;
+  readonly activeItemId: string;
+}
 
 function Field({
   label,
@@ -140,6 +148,8 @@ export function MenuConfigurationDialog({
   const [selected, setSelected] = useState(draft.items[0]?.id ?? '');
   const [pickIcon, setPickIcon] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [removedItems, setRemovedItems] = useState<readonly RemovedMenuItem[]>([]);
+  const [restoredItemId, setRestoredItemId] = useState<string | null>(null);
   const flat = flattenMenuItems(draft.items);
   const location = flat.find((entry) => entry.item.id === selected);
   const item = location?.item;
@@ -162,6 +172,11 @@ export function MenuConfigurationDialog({
       if (previous?.isConnected) previous.focus();
     };
   }, []);
+  useEffect(() => {
+    if (restoredItemId === null) return;
+    Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('[data-menu-editor-item]') ?? [])
+      .find((button) => button.dataset.menuEditorItem === restoredItemId)?.focus();
+  }, [restoredItemId]);
   const set = <K extends keyof WebMenuConfiguration>(
     key: K,
     value: WebMenuConfiguration[K],
@@ -193,6 +208,14 @@ export function MenuConfigurationDialog({
     setSelected(entry.id);
   };
   const remove = (): void => {
+    if (location === undefined) return;
+    setRemovedItems((current) => [...current, {
+      item: location.item,
+      parentId: location.parentId,
+      index: location.index,
+      activeItemId: draft.selectedItemId,
+    }]);
+    setRestoredItemId(null);
     const items = editMenuItem(draft.items, selected, () => null);
     const ids = new Set(flattenMenuItems(items).map((entry) => entry.item.id));
     setDraft({
@@ -202,10 +225,46 @@ export function MenuConfigurationDialog({
     });
     setSelected(items[0]?.id ?? '');
   };
+  const undoRemoval = (): void => {
+    const removed = removedItems.at(-1);
+    if (removed === undefined) return;
+    setDraft((current) => {
+      const insert = (siblings: readonly WebMenuItem[]): readonly WebMenuItem[] => {
+        const index = Math.min(removed.index, siblings.length);
+        return [...siblings.slice(0, index), removed.item, ...siblings.slice(index)];
+      };
+      const parentExists = removed.parentId !== null &&
+        flattenMenuItems(current.items).some((entry) => entry.item.id === removed.parentId);
+      const items = parentExists && removed.parentId !== null
+        ? editMenuItem(current.items, removed.parentId, (parent) => ({
+          ...parent,
+          children: insert(parent.children ?? []),
+        }))
+        : insert(current.items);
+      const restoredIds = new Set(flattenMenuItems([removed.item]).map((entry) => entry.item.id));
+      return {
+        ...current,
+        items,
+        selectedItemId: current.selectedItemId === '' && restoredIds.has(removed.activeItemId)
+          ? removed.activeItemId : current.selectedItemId,
+      };
+    });
+    setRemovedItems((current) => current.slice(0, -1));
+    setSection('Items');
+    setSelected(removed.item.id);
+    setRestoredItemId(removed.item.id);
+  };
   const keyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     event.stopPropagation();
     if (event.defaultPrevented) return;
     if (pickIcon) return;
+    const target = event.target;
+    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z' &&
+      target instanceof HTMLElement && !target.closest('input, textarea, select, [contenteditable="true"]') && removedItems.length > 0) {
+      event.preventDefault();
+      undoRemoval();
+      return;
+    }
     if (event.key === 'Escape') {
       event.preventDefault();
       onClose();
@@ -315,6 +374,7 @@ export function MenuConfigurationDialog({
                             type="button"
                             role="listitem"
                             key={entry.id}
+                            data-menu-editor-item={entry.id}
                             className={selected === entry.id ? 'is-selected' : ''}
                             style={{ paddingInlineStart: 10 + depth * 16 }}
                             onClick={() => setSelected(entry.id)}
@@ -806,6 +866,18 @@ export function MenuConfigurationDialog({
             <p className="wr-menu-editor-error" role="alert">
               {error}
             </p>
+          )}
+          {removedItems.length > 0 && (
+            <div className="wr-menu-removal-notice">
+              <span role="status">
+                Removed {removedItems.at(-1)?.item.label || 'menu item'}
+                {flattenMenuItems(removedItems.at(-1)?.item.children ?? []).length > 0
+                  ? ' and its child items.' : '.'}
+              </span>
+              <button type="button" onClick={undoRemoval} aria-label="Undo menu item removal">
+                <Icon name="undo" /> Undo removal
+              </button>
+            </div>
           )}
           <footer className="wr-modal-actions">
             <button type="button" onClick={onClose}>

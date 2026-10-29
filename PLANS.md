@@ -5,6 +5,29 @@ verification records. Detailed contracts belong in the [documentation index](doc
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
 
+## IDE UX improvements: 2026-10-29
+
+Implemented the 19 findings from the approved static UX review: pending RestGo
+and Settings drafts, truthful Apply/Save feedback, ListBox/numeric drafts,
+transactional multiple-selection events, Settings validation navigation, Menu
+subtree undo, nonintrusive live Problems, inline Explorer rename/search feedback,
+keyboard trees/tabs/dividers/palette insertion, Preview error recovery/live route,
+build result attribution, inherited style values, zoom-independent resize targets
+and actionable welcome controls.
+
+Native pending-editor IPC is separate from project dirtiness, including local
+Inspector field drafts. Save/Preview confirm the focused field without stealing
+focus, and invalid numeric input prevents the action with an inline error.
+Preview reporting is injected only into IDE publications with origin/source/payload checks;
+generated exports and the project format are unchanged. Updated existing smoke
+interactions and evidence requirements are definitions, not execution results.
+No tests, smokes, typecheck, lint, formatting commands, builds or packaging were
+requested or run. Source/diff review also corrected contextual reusable events,
+mixed-value cancellation, overlapping resize targets, asset keyboard navigation
+and background project updates that could otherwise dismiss exclusive Preview.
+
+Documentation: [IDE editing and navigation](docs/ide-workflows.md).
+
 ## Application menu cleanup: 2026-10-28
 
 Removed the unused, empty Component section from the native application menu.

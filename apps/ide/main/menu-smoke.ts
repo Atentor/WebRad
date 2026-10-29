@@ -255,6 +255,30 @@ async function runMenuSmokeWorkflow(
       '; screenshot ' +
       editorScreenshot,
   );
+  await click('[data-menu-editor-item="workspace"]');
+  await click('button[aria-label="Remove menu item"]');
+  await ready(`document.querySelector('[data-menu-editor-item="workspace"]') === null
+    && document.querySelector('[data-menu-editor-item="projects"]') === null
+    && document.querySelector('[data-menu-editor-item="team"]') === null`);
+  await input('Label', 'Menu smoke retained edit');
+  await click('button[aria-label="Undo menu item removal"]');
+  await ready(`document.querySelector('[data-menu-editor-item="workspace"]') === document.activeElement
+    && document.querySelector('[data-menu-editor-item="projects"]') !== null
+    && document.querySelector('[data-menu-editor-item="team"]') !== null
+    && document.querySelector('[data-menu-editor-item="home"]')?.textContent.includes('Menu smoke retained edit')`);
+  await click('button[aria-label="Remove menu item"]');
+  await ready(`document.querySelector('[data-menu-editor-item="workspace"]') === null`);
+  await evaluate(`(() => {
+    const button = document.querySelector('button[aria-label="Undo menu item removal"]');
+    button.focus();
+    button.dispatchEvent(new KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true, cancelable:true}));
+  })()`);
+  await ready(`document.querySelector('[data-menu-editor-item="workspace"]') === document.activeElement
+    && document.querySelector('[data-menu-editor-item="projects"]') !== null
+    && document.querySelector('[data-menu-editor-item="team"]') !== null`);
+  await click('[data-menu-editor-item="home"]');
+  await input('Label', 'Menu smoke home');
+  options.log('renderer Menu subtree removal undo passed: button, Ctrl+Z, preserved unrelated edits');
   await evaluate(
     `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(e=>e.textContent==='Behavior & layout').click()`,
   );

@@ -10,6 +10,8 @@ import { runPageTitleSmoke } from './page-title-smoke';
 import {
   assertExclusivePreviewSmoke,
   assertPreviewViewportsSmoke,
+  assertPreviewRouteSmoke,
+  assertPreviewBuildErrorSmoke,
   stopPreviewSmoke,
 } from './preview-workspace-smoke';
 import { runPanelFloatingSmoke } from './panel-floating-smoke';
@@ -383,6 +385,8 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
   sendRendererKey(window, 'Escape');
 
   // Exercise the native TypeScript member provider on a bare component name.
+  if (await window.webContents.executeJavaScript("document.querySelector('.wr-bottom-slot') !== null", true) === true)
+    await clickRendererControl(window, 'button[aria-label="Toggle output"]', 'hide Problems while editing');
   await window.webContents.insertText('EDTNome.va');
   await waitForRendererResult(
     window,
@@ -390,6 +394,13 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
     'the typed bare component member in Monaco',
     (value) => value === true,
   );
+  await waitForRendererResult(
+    window,
+    "Number.parseInt(document.querySelector('.wr-toolbar-issues')?.textContent ?? '0', 10) > 0 && document.querySelector('.wr-bottom-slot') === null",
+    'live diagnostics without reopening Problems',
+    (value) => value === true,
+  );
+  smokeLog('renderer Monaco nonintrusive Problems passed');
   sendRendererKey(window, 'Space', ['control']);
   const componentMembers = await waitForRendererString(
     window,
@@ -898,7 +909,8 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     (value) => value === true,
   );
   smokeLog('renderer About WebRAD modal passed');
-  await clickRendererControl(window, 'button[aria-label="New project (Ctrl+N)"]', 'New project');
+  await clickRendererControl(window, '.wr-welcome-action[aria-label="New Project"]', 'New Project welcome action');
+  smokeLog('renderer welcome project actions passed: New Project click');
   await waitForRendererResult(
     window,
     `(() => {
@@ -983,7 +995,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   if (smokeProjectPath === undefined) return;
   const opened = (await window.webContents.executeJavaScript(
     `(() => {
-      const button = document.querySelector('button[aria-label="Open project (Ctrl+O)"]');
+      const button = document.querySelector('.wr-welcome-action[aria-label="Open Project"]');
       if (!(button instanceof HTMLButtonElement)) return false;
       button.click();
       return true;
@@ -991,6 +1003,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     true,
   )) as unknown;
   if (opened !== true) throw new Error('Renderer smoke could not invoke Open Project.');
+  smokeLog('renderer welcome Open Project action passed');
   await waitForRendererResult(
     window,
     "document.querySelector('.wr-designer-workspace') !== null",
@@ -1075,6 +1088,22 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     throw new Error(`Renderer bottom dock smoke failed: ${JSON.stringify(bottomDock)}`);
   }
   smokeLog('renderer bottom dock passed');
+  const sidebarWidth = await window.webContents.executeJavaScript(`(() => {
+    const splitter = document.querySelector('.wr-splitter-left');
+    if (!(splitter instanceof HTMLElement) || splitter.tabIndex !== 0) throw new Error('Sidebar splitter is not keyboard accessible.');
+    splitter.focus();
+    return Number(splitter.getAttribute('aria-valuenow'));
+  })()`, true) as unknown;
+  if (typeof sidebarWidth !== 'number') throw new Error('Sidebar width is unavailable.');
+  sendRendererKey(window, 'Right');
+  await waitForRendererResult(window,
+    `Number(document.querySelector('.wr-splitter-left')?.getAttribute('aria-valuenow')) === ${sidebarWidth + 10}`,
+    'keyboard sidebar resize', value => value === true);
+  sendRendererKey(window, 'Left');
+  await waitForRendererResult(window,
+    `Number(document.querySelector('.wr-splitter-left')?.getAttribute('aria-valuenow')) === ${sidebarWidth}`,
+    'keyboard sidebar resize restoration', value => value === true);
+  smokeLog('renderer workbench keyboard resizing passed');
   await clickRendererControl(
     window,
     'button[aria-label="Toggle output"]',
@@ -1209,6 +1238,11 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   );
   smokeLog('renderer Monaco passed');
   await runMonacoLanguageSmoke(window);
+  if (smokeProjectPath !== undefined) {
+    await assertPreviewBuildErrorSmoke(window, smokeProjectPath,
+      (key, modifiers) => sendRendererKey(window, key, modifiers));
+    smokeLog('renderer Preview build error recovery passed: diagnostics, Stop, source navigation and restored authored source');
+  }
   await waitForRendererResult(
     window,
     "(() => { const node = document.querySelector('.monaco-editor .monaco-editor-background'); return node instanceof HTMLElement && getComputedStyle(node).backgroundColor === 'rgb(30, 30, 30)'; })()",
@@ -1324,6 +1358,8 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   smokeLog(
     'renderer Preview viewports passed: native Desktop/Tablet/Mobile controls, available/768/390 px widths, iframe media queries and application state preserved',
   );
+  await assertPreviewRouteSmoke(window, previewFrame);
+  smokeLog('renderer Preview route address synchronization passed');
   await stopPreviewSmoke(window);
   await waitForRendererResult(
     window,

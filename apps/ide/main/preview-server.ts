@@ -1,6 +1,7 @@
 import { projectAssetPath, type ProjectAsset } from '@webrad/project-model';
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { previewRouteScript } from '../shared/preview-route';
 
 interface PreviewServer {
   server: Server;
@@ -171,7 +172,7 @@ export async function publishPreviewHtml(
   }
   revokePreview(ownerId);
   const token = randomUUID();
-  previewByToken.set(token, html.replace('<head>', '<head><base href="/' + token + '/">'));
+  previewByToken.set(token, html.replace('<head>', '<head><base href="/' + token + '/">' + previewRouteScript()));
   assetsByToken.set(token, assets);
   tokenByOwner.set(ownerId, token);
   const url = `${origin}/${token}/index.html`;

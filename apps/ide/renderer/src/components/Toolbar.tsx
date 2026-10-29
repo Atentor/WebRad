@@ -18,6 +18,7 @@ interface ToolbarProps extends DocumentTabsProps {
   canRedo: boolean;
   projectName?: string;
   dirty: boolean;
+  pendingChanges?: boolean;
   saving: boolean;
   building: boolean;
   debugStatus: DebugState['status'];
@@ -75,17 +76,20 @@ export function Toolbar(props: ToolbarProps): ReactElement {
         Beta
       </span>
       <span
-        className={props.dirty ? 'wr-toolbar-save-state dirty' : 'wr-toolbar-save-state'}
+        className={props.dirty || props.pendingChanges ? 'wr-toolbar-save-state dirty' : 'wr-toolbar-save-state'}
         aria-live="polite"
+        title={props.pendingChanges ? 'Apply or save the pending editor changes before saving the project.' : undefined}
       >
-        <Icon name={props.dirty ? 'edit' : 'check-circle'} />
+        <Icon name={props.dirty || props.pendingChanges ? 'edit' : 'check-circle'} />
         {props.saving
           ? 'Saving...'
-          : props.dirty
-            ? 'Unsaved'
-            : props.projectName
-              ? 'Saved'
-              : 'No project'}
+          : props.pendingChanges
+            ? 'Pending edits'
+            : props.dirty
+              ? 'Unsaved'
+              : props.projectName
+                ? 'Saved'
+                : 'No project'}
       </span>
       <div className="wr-tool-group" role="group" aria-label="Project actions">
         <ToolButton

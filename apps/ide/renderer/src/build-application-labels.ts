@@ -10,3 +10,12 @@ export const BUILD_STAGE_LABELS = {
   failed: 'Failed',
   cancelled: 'Cancelled',
 } as const;
+
+export const BUILD_PLATFORM_LABELS = {
+  web: 'Web/PWA',
+  windows: 'Windows',
+  linux: 'Linux',
+  macos: 'macOS',
+  android: 'Android',
+  ios: 'iOS',
+} as const;

@@ -1,3 +1,4 @@
+import { SettingsField } from './SettingsField';
 import type { ProjectBuildSettings as BuildSettings } from '@webrad/project-model';
 import { useState, type ReactElement } from 'react';
 
@@ -34,7 +35,7 @@ export function ProjectBuildSettings({
     <>
       <p>Choose where Deploy creates the files ready for static hosting.</p>
       <div className="wr-project-settings-fields">
-        <label className="wr-project-settings-field full-width">
+        <SettingsField path="build.deployDirectory" className="wr-project-settings-field full-width">
           <span>Deploy directory</span>
           <span className="wr-project-settings-directory">
             <input
@@ -61,8 +62,8 @@ export function ProjectBuildSettings({
             An absolute path or a folder relative to the project. Save it once for future
             deployments.
           </small>
-        </label>
-        <label className="wr-project-settings-field full-width">
+        </SettingsField>
+        <SettingsField path="build.environment" className="wr-project-settings-field full-width">
           <span>Deploy environment</span>
           <select
             value={value.environment}
@@ -80,25 +81,25 @@ export function ProjectBuildSettings({
           <small>
             Uses the values configured in Environment variables. Preview keeps its own environment.
           </small>
-        </label>
+        </SettingsField>
       </div>
       <div className="wr-project-settings-toggles">
-        <label>
+        <SettingsField path="build.minify">
           <input
             type="checkbox"
             checked={value.minify}
             onChange={(event) => onChange({ ...value, minify: event.currentTarget.checked })}
           />
           <span>Minify JavaScript and CSS</span>
-        </label>
-        <label>
+        </SettingsField>
+        <SettingsField path="build.sourceMaps">
           <input
             type="checkbox"
             checked={value.sourceMaps}
             onChange={(event) => onChange({ ...value, sourceMaps: event.currentTarget.checked })}
           />
           <span>Include source maps for troubleshooting</span>
-        </label>
+        </SettingsField>
       </div>
       <div className="wr-project-settings-note" role="note">
         Deploy includes only the application code and resources in use. Upload the generated

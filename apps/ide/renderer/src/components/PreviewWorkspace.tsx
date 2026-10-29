@@ -4,6 +4,11 @@ import type { BuildDiagnostic } from '../../../shared/contracts';
 import { Icon, type IconName } from './Icon';
 import { PreviewPane } from './PreviewPane';
 import { ErrorBoundary } from './ErrorBoundary';
+import {
+  PREVIEW_ROUTE_REQUEST,
+  isPreviewRouteMessage,
+  previewPageAddress,
+} from '../../../shared/preview-route';
 
 interface PreviewWorkspaceProps {
   projectName: string;
@@ -19,16 +24,6 @@ const VIEWPORT_ICONS: Record<DesignerViewportName, IconName> = {
   mobile: 'smartphone',
 };
 
-function previewPageAddress(url: string | null): string {
-  if (url === null) return '';
-  const address = new URL(url);
-  // The first segment belongs to the local Preview publication, not the application route.
-  const path = address.hash.startsWith('#/')
-    ? address.hash.slice(1)
-    : '/' + address.pathname.split('/').slice(2).join('/');
-  return path.endsWith('/index.html') ? path.slice(0, -'.html'.length) : path;
-}
-
 export function PreviewWorkspace({
   projectName,
   url,
@@ -37,9 +32,35 @@ export function PreviewWorkspace({
   onStop,
 }: PreviewWorkspaceProps): ReactElement {
   const stopButton = useRef<HTMLButtonElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
   const [viewport, setViewport] = useState<DesignerViewportName>('desktop');
-  const pageAddress = previewPageAddress(url);
+  const [route, setRoute] = useState<{ url: string; path: string } | null>(null);
+  const pageAddress = route?.url === url ? route.path : previewPageAddress(url);
+  const buildFailed = !building && diagnostics.some((item) => item.category === 'error');
+  const requestRoute = (): void => {
+    if (url) {
+      frameRef.current?.contentWindow?.postMessage(
+        { type: PREVIEW_ROUTE_REQUEST },
+        new URL(url).origin,
+      );
+    }
+  };
   useEffect(() => stopButton.current?.focus(), []);
+  useEffect(() => {
+    if (url === null) return;
+    const origin = new URL(url).origin;
+    const receiveRoute = (event: MessageEvent<unknown>): void => {
+      if (
+        event.source !== frameRef.current?.contentWindow ||
+        event.origin !== origin ||
+        !isPreviewRouteMessage(event.data)
+      ) return;
+      setRoute({ url, path: event.data.path });
+    };
+    window.addEventListener('message', receiveRoute);
+    frameRef.current?.contentWindow?.postMessage({ type: PREVIEW_ROUTE_REQUEST }, origin);
+    return () => window.removeEventListener('message', receiveRoute);
+  }, [url]);
 
   return (
     <section className="wr-preview-workspace" aria-label="Application preview">
@@ -88,11 +109,11 @@ export function PreviewWorkspace({
           className="wr-preview-stop"
           type="button"
           aria-label="Stop preview"
-          title="Stop preview and return to the IDE"
+          title={buildFailed ? 'Stop preview and review Problems' : 'Stop preview and return to the IDE'}
           onClick={onStop}
         >
           <Icon name="stop" />
-          <span>Stop</span>
+          <span>{buildFailed ? 'Stop and review errors' : 'Stop'}</span>
         </button>
       </header>
       <main className="wr-preview-content">
@@ -102,7 +123,7 @@ export function PreviewWorkspace({
           style={{ width: DESIGNER_VIEWPORTS[viewport].width ?? '100%' }}
         >
           <ErrorBoundary area="Preview">
-            <PreviewPane url={url} running={building} diagnostics={diagnostics} />
+            <PreviewPane url={url} running={building} diagnostics={diagnostics} frameRef={frameRef} onFrameLoad={requestRoute} />
           </ErrorBoundary>
         </div>
       </main>
