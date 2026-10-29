@@ -5,11 +5,17 @@ interface FrameTarget {
   readonly url: string;
 }
 
+interface FrameTree {
+  readonly frame: { readonly id: string; readonly url: string };
+  readonly childFrames?: readonly FrameTree[];
+}
+
 /** Inspect only the smoke's owned markup without granting scripts to its sandbox. */
 export async function inspectHtmlSmokeDocument(
   window: BrowserWindow,
   parent: WebFrameMain,
   expression: string,
+  onPending?: (detail: unknown) => void,
 ): Promise<unknown> {
   const debuggerClient = window.webContents.debugger;
   const ownedDebugger = !debuggerClient.isAttached();
@@ -43,14 +49,20 @@ export async function inspectHtmlSmokeDocument(
       { nodeId: document.root.nodeId, selector: 'iframe[srcdoc*="html-smoke"]' },
       parentSession,
     )) as { readonly nodeId: number };
-    if (owner.nodeId === 0) return undefined;
+    if (owner.nodeId === 0) {
+      onPending?.({ reason: 'missing-owner', parentUrl: parent.url });
+      return undefined;
+    }
     const described = (await debuggerClient.sendCommand(
       'DOM.describeNode',
       { nodeId: owner.nodeId },
       parentSession,
     )) as { readonly node: { readonly frameId?: string } };
     const frameId = described.node.frameId;
-    if (!frameId) return undefined;
+    if (!frameId) {
+      onPending?.({ reason: 'missing-frame-id', node: described.node });
+      return undefined;
+    }
     // The target ID comes from the owned iframe DOM node, never a global URL match.
     const currentTargets = (await debuggerClient.sendCommand('Target.getTargets', {
       filter: [{ type: 'iframe' }, { exclude: true }],
@@ -58,10 +70,23 @@ export async function inspectHtmlSmokeDocument(
     const separateTarget = currentTargets.targetInfos.some((item) => item.targetId === frameId);
     // A DOM owner can precede its out-of-process target during srcdoc navigation.
     // Let the existing document-readiness budget wait for that target to mount.
-    const sameProcessDocument = parent.frames.some(
-      (frame) => frame.url === 'about:srcdoc' && frame.processId === parent.processId,
-    );
-    if (!separateTarget && !sameProcessDocument) return undefined;
+    const parentTree = (await debuggerClient.sendCommand(
+      'Page.getFrameTree',
+      {},
+      parentSession,
+    )) as { readonly frameTree: FrameTree };
+    const containsFrame = (tree: FrameTree): boolean =>
+      tree.frame.id === frameId || tree.childFrames?.some(containsFrame) === true;
+    const sameProcessDocument = containsFrame(parentTree.frameTree);
+    if (!separateTarget && !sameProcessDocument) {
+      onPending?.({
+        reason: 'missing-frame-target',
+        frameId,
+        targets: currentTargets.targetInfos,
+        tree: parentTree.frameTree,
+      });
+      return undefined;
+    }
     const frameSession = separateTarget ? await attach(frameId) : parentSession;
     const context = (await debuggerClient.sendCommand(
       'Page.createIsolatedWorld',
@@ -81,6 +106,7 @@ export async function inspectHtmlSmokeDocument(
         'HTML smoke inspection failed: ' + JSON.stringify(evaluated.exceptionDetails),
       );
     }
+    onPending?.({ reason: 'evaluated', frameId, result: evaluated.result.value });
     return evaluated.result.value;
   } finally {
     for (const sessionId of sessions.reverse()) {

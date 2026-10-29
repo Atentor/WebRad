@@ -113,8 +113,11 @@ async function htmlDocument(
   window: BrowserWindow,
   parent: WebFrameMain,
 ): Promise<{ executeJavaScript(expression: string, userGesture?: boolean): Promise<unknown> }> {
+  let lastInspection: unknown;
   const executeJavaScript = (expression: string): Promise<unknown> =>
-    inspectHtmlSmokeDocument(window, parent, expression);
+    inspectHtmlSmokeDocument(window, parent, expression, (detail) => {
+      lastInspection = detail;
+    });
   const deadline = Date.now() + 10_000;
   for (;;) {
     if (
@@ -126,7 +129,10 @@ async function htmlDocument(
     if (Date.now() >= deadline) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error('HTML smoke document did not render inside its isolated frame.');
+  throw new Error(
+    'HTML smoke document did not render inside its isolated frame: ' +
+      JSON.stringify(lastInspection),
+  );
 }
 
 async function runDesignerEditingSmoke(

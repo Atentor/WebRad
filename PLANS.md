@@ -46,6 +46,14 @@ budget. An isolated Electron probe exercised five publications with the empty
 sandbox retained; the complete development smoke then passed, including native
 shared Menu persistence/Interaction and the final renderer workflow evidence.
 
+Hosted quality on Linux passed the complete validation but timed out locating the
+initial sandboxed HTML document in development smoke. The HTML inspector now
+uses the debugger frame tree to resolve in-process documents rather than relying
+on the Electron child-frame URL/process projection, and retains the last owner,
+target/tree or evaluation result in timeout diagnostics. Both isolated-process
+and same-process local probes retain the empty sandbox. Hosted confirmation of
+this Linux follow-up remains required; no deadline or assertion was removed.
+
 ## Local release-candidate validation: 2026-10-29
 
 Executed the full requested local Windows candidate sequence against the dirty
