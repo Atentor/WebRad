@@ -83,10 +83,14 @@ try {
     pollMilliseconds: 10,
     processGroup: process.platform !== 'win32',
   });
+  const descendantDeadline = performance.now() + 2_000;
   const descendantClosed =
     scenario === 'descendant-stall'
       ? await new Promise((resolve) => {
-          const timeout = setTimeout(() => resolve(false), 2_000);
+          const timeout = setTimeout(
+            () => resolve(false),
+            Math.max(0, descendantDeadline - performance.now()),
+          );
           void closed.then(() => {
             clearTimeout(timeout);
             resolve(true);
@@ -94,11 +98,33 @@ try {
         })
       : undefined;
   let descendantStopped;
+  let descendantState;
   if (scenario === 'descendant-stall') {
+    if (process.platform === 'linux') {
+      const descendantPid = Number(await fs.readFile(path.join(root, 'descendant-pid'), 'utf8'));
+      // Pipe closure can precede completion of the descendant's final in-flight
+      // write. Observe its kernel state before sampling for any later heartbeat.
+      // A zombie has exited and cannot execute or write, even before PID 1 reaps it.
+      for (;;) {
+        try {
+          const stat = await fs.readFile(`/proc/${String(descendantPid)}/stat`, 'utf8');
+          descendantState = stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0];
+        } catch (error) {
+          if (error.code !== 'ENOENT' && error.code !== 'ESRCH') throw error;
+          descendantState = 'absent';
+        }
+        if (descendantState === 'absent' || descendantState === 'Z' || descendantState === 'X')
+          break;
+        if (performance.now() >= descendantDeadline) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    }
     const heartbeatPath = path.join(root, 'descendant-heartbeat');
     const before = await fs.readFile(heartbeatPath, 'utf8');
     await new Promise((resolve) => setTimeout(resolve, 250));
-    descendantStopped = before === (await fs.readFile(heartbeatPath, 'utf8'));
+    descendantStopped =
+      before === (await fs.readFile(heartbeatPath, 'utf8')) &&
+      (process.platform !== 'linux' || ['absent', 'Z', 'X'].includes(descendantState));
   }
   process.stdout.write(
     JSON.stringify({
@@ -106,7 +132,12 @@ try {
       elapsedMilliseconds: performance.now() - started,
       ...(descendantClosed === undefined
         ? {}
-        : { descendantClosed, descendantStopped, bystanderAlive: bystander.exitCode === null }),
+        : {
+            descendantClosed,
+            descendantStopped,
+            descendantState,
+            bystanderAlive: bystander.exitCode === null,
+          }),
     }),
   );
 } finally {

@@ -81,22 +81,24 @@ export async function inspectHtmlSmokeDocument(
       readonly node: ProtocolNode;
     };
     const owner = described.node;
-    let documentId = owner.contentDocument?.nodeId;
-    if (documentId === undefined || documentId === 0) {
-      const target = (await targets()).find((item) => item.targetId === owner.frameId);
-      if (!target) {
-        onPending({ reason: 'missing-child-document', owner });
-        return undefined;
-      }
+    // Prefer the live child target even if the owner still exposes its previous
+    // in-process document during a srcdoc process transition.
+    const target = (await targets()).find((item) => item.targetId === owner.frameId);
+    let documentId: number | undefined;
+    if (target) {
       session = await attach(target.targetId);
       const document = (await debuggerClient.sendCommand(
         'DOM.getDocument',
         { depth: 0 },
         session,
-      )) as {
-        readonly root: ProtocolNode;
-      };
+      )) as { readonly root: ProtocolNode };
       documentId = document.root.nodeId;
+    } else {
+      documentId = owner.contentDocument?.nodeId;
+    }
+    if (documentId === undefined || documentId === 0) {
+      onPending({ reason: 'missing-child-document', owner });
+      return undefined;
     }
     const ids = await Promise.all(
       ['#html-smoke', '#html-smoke strong', '#html-smoke pre', 'body'].map((selector) =>
@@ -113,7 +115,13 @@ export async function inspectHtmlSmokeDocument(
         { nodeId: documentId },
         session,
       );
-      onPending({ reason: 'missing-content', ids, document });
+      onPending({
+        reason: 'missing-content',
+        mode: target ? 'child-target' : 'embedded-document',
+        frameId: owner.frameId,
+        ids,
+        document,
+      });
       return undefined;
     }
     const text = async (nodeId: number): Promise<string> => {
@@ -169,6 +177,15 @@ export async function inspectHtmlSmokeDocument(
     };
     onPending({ reason: 'inspected', result });
     return result;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      ['Could not find node with given id', 'No frame for given id found'].includes(error.message)
+    ) {
+      onPending({ reason: 'document-navigation', error: error.message });
+      return undefined;
+    }
+    throw error;
   } finally {
     for (const sessionId of sessions.reverse()) {
       if (debuggerClient.isAttached())

@@ -66,6 +66,24 @@ follow-up; exact content, isolation, screenshot and timing requirements remain.
 The complete local development smoke, strict typecheck and focused main-process
 lint passed with the native DOM/CSS inspection in place.
 
+The next hosted Linux release job exposed a process-fixture heartbeat race after
+pipe closure. Its regression now observes the owned descendant's Linux kernel
+exit/zombie state before comparing heartbeat samples, within the existing shared
+two-second cleanup budget. It still requires closed output, a stopped descendant,
+unchanged subsequent heartbeat, a live unrelated process and the original total
+duration bound. No production termination deadline changed. All five focused
+process-deadline tests passed locally; native Linux execution remains required.
+
+For `f609daa`, complete Windows quality and macOS ARM release verification passed.
+Linux development smoke passed; its subsequent packaged smoke read the previous
+`<p>HTML content</p>` document while the iframe already held the new srcdoc. The
+DOM inspector now prioritizes a live child target over an owner's potentially
+stale embedded document during process transitions. Node IDs invalidated by a
+document navigation return to the original readiness loop with diagnostics;
+unrelated protocol failures still propagate. A real content-replacement probe
+and strict typecheck passed locally. This follow-up and the Linux process-fixture
+repair require a fresh exact-SHA hosted run.
+
 ## Local release-candidate validation: 2026-10-29
 
 Executed the full requested local Windows candidate sequence against the dirty
