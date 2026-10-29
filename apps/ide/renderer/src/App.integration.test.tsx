@@ -2209,7 +2209,7 @@ describe('App MVP integration', () => {
     );
     await openCategory('Motion');
     await configure('Scale');
-    fireEvent.change(screen.getByLabelText('Scale', { selector: 'input[type="number"]' }), {
+    fireEvent.change(screen.getByLabelText('Scale', { selector: 'input[role="spinbutton"]' }), {
       target: { value: '105' },
     });
     const buttonPreview = document.querySelector<HTMLElement>(

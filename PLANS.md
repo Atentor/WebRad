@@ -35,6 +35,11 @@ imports. The AST import classifier now retains value imports for static member
 access, alongside constructor and extends references. Strict typecheck passed
 after this repair. Earlier smoke failures and focused test logs remain retained.
 
+The complete local portable rerun passed 1,720 tests with 41 skipped and one
+remaining stale Scale input selector. Updated it to the numeric draft editor's
+`spinbutton` role; the focused style integration workflow then passed. Hosted
+verification must use the resulting follow-up commit rather than the first push.
+
 ## Local release-candidate validation: 2026-10-29
 
 Executed the full requested local Windows candidate sequence against the dirty
