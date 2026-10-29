@@ -62,17 +62,19 @@ export class WebHtml extends WebComponent<HTMLIFrameElement> {
     if (htmlSources.get(this.element) === value) return;
     const embed = externalFrame(value, this.element.ownerDocument);
     htmlSources.set(this.element, value);
-    // Replacements first return to the restrictive empty-document state. Never
-    // grant scripts/same-origin to an authored inline srcdoc document.
+    // Restrict permissions before changing a source. Inline documents never gain
+    // scripts or same-origin access.
     this.element.setAttribute('sandbox', '');
-    this.element.removeAttribute('src');
-    this.element.removeAttribute('srcdoc');
+
     this.element.removeAttribute('allow');
     this.element.allowFullscreen = false;
     this.element.removeAttribute('loading');
     if (embed === undefined) {
       this.element.referrerPolicy = 'no-referrer';
       this.element.srcdoc = value;
+      // Replace inline markup atomically; removing srcdoc first schedules a
+      // competing fallback navigation while the previous document is loading.
+      this.element.removeAttribute('src');
       return;
     }
     // A remote document keeps its actual origin and referrer, which embedded
@@ -89,6 +91,8 @@ export class WebHtml extends WebComponent<HTMLIFrameElement> {
       embed.getAttribute('src') ?? '',
       this.element.ownerDocument.baseURI,
     ).href;
+    // Set the remote destination before releasing srcdoc's source precedence.
+    this.element.removeAttribute('srcdoc');
   }
 
   /** Accessible name for the embedded document. */

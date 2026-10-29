@@ -84,6 +84,16 @@ unrelated protocol failures still propagate. A real content-replacement probe
 and strict typecheck passed locally. This follow-up and the Linux process-fixture
 repair require a fresh exact-SHA hosted run.
 
+`f4090a0` passed the Linux process fixture, but native DOM inspection confirmed
+that the current child target itself retained default HTML after its srcdoc
+attribute changed. The runtime setter now replaces inline srcdoc directly,
+without removing it first and scheduling a competing fallback navigation. When
+switching to HTTPS embeds, it sets the destination before removing srcdoc's
+precedence. Permissions are restricted before either source change; inline
+documents keep an empty sandbox and remote embeds retain their existing token
+allowlist. Regenerated embedded runtime sources and documented replacement
+semantics. Final native confirmation remains required.
+
 ## Local release-candidate validation: 2026-10-29
 
 Executed the full requested local Windows candidate sequence against the dirty

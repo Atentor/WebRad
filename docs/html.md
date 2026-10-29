@@ -36,7 +36,8 @@ Html1.title = 'Welcome information';
 ```
 
 - `html: string` reads or replaces the authored markup. Assigning the same
-  value keeps the current document; changing it loads a new document.
+  value keeps the current document; changing it loads a new document. Inline
+  replacements update `srcdoc` directly, without an intermediate blank navigation.
 - `title: string` reads or changes the frame's accessible name.
 - `clear(): void` replaces the document with empty HTML.
 - **OnLoad** runs when the embedded document finishes loading. Its handler
