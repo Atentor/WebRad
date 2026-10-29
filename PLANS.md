@@ -40,6 +40,12 @@ remaining stale Scale input selector. Updated it to the numeric draft editor's
 `spinbutton` role; the focused style integration workflow then passed. Hosted
 verification must use the resulting follow-up commit rather than the first push.
 
+The HTML document inspector now refreshes child-target availability after reading
+the owner node, handling initial srcdoc mounting within the unchanged readiness
+budget. An isolated Electron probe exercised five publications with the empty
+sandbox retained; the complete development smoke then passed, including native
+shared Menu persistence/Interaction and the final renderer workflow evidence.
+
 ## Local release-candidate validation: 2026-10-29
 
 Executed the full requested local Windows candidate sequence against the dirty

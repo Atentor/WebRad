@@ -52,9 +52,17 @@ export async function inspectHtmlSmokeDocument(
     const frameId = described.node.frameId;
     if (!frameId) return undefined;
     // The target ID comes from the owned iframe DOM node, never a global URL match.
-    const frameSession = targets.targetInfos.some((item) => item.targetId === frameId)
-      ? await attach(frameId)
-      : parentSession;
+    const currentTargets = (await debuggerClient.sendCommand('Target.getTargets', {
+      filter: [{ type: 'iframe' }, { exclude: true }],
+    })) as { readonly targetInfos: readonly FrameTarget[] };
+    const separateTarget = currentTargets.targetInfos.some((item) => item.targetId === frameId);
+    // A DOM owner can precede its out-of-process target during srcdoc navigation.
+    // Let the existing document-readiness budget wait for that target to mount.
+    const sameProcessDocument = parent.frames.some(
+      (frame) => frame.url === 'about:srcdoc' && frame.processId === parent.processId,
+    );
+    if (!separateTarget && !sameProcessDocument) return undefined;
+    const frameSession = separateTarget ? await attach(frameId) : parentSession;
     const context = (await debuggerClient.sendCommand(
       'Page.createIsolatedWorld',
       { frameId, worldName: 'webrad-html-smoke' },
