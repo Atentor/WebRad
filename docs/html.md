@@ -77,6 +77,10 @@ selection, dragging and resizing remain owned by the Designer. In running
 applications, mouse and keyboard events inside the embedded document stay
 inside that document; **OnLoad** is the component's supported event.
 
+Designer and Styles projections create a fresh iframe browsing context when the
+HTML string changes. An older pending document cannot replace the new model
+projection; the component ID, layout and selection remain unchanged.
+
 ## External iframe embeds
 
 Paste a standalone cross-origin HTTPS iframe, such as the YouTube embed below,

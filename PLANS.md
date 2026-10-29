@@ -94,6 +94,20 @@ documents keep an empty sandbox and remote embeds retain their existing token
 allowlist. Regenerated embedded runtime sources and documented replacement
 semantics. Final native confirmation remains required.
 
+`d926370` passed complete non-publishing release verification on Windows x64,
+Linux x64 and both macOS architectures, including assembly. Security passed.
+Quality still failed HTML inspection in Windows development and Linux packaged
+smoke: the owned child document retained default content after the source
+attribute changed. The shared React projection now keys the iframe by its HTML
+source, giving a changed source a fresh browsing context instead of allowing an
+older navigation to commit over it. Its empty sandbox is present at creation;
+stable model IDs, selection and geometry remain projected from the same node.
+Native smoke assertions, required evidence and deadlines remain unchanged.
+This follow-up still requires exact-SHA hosted verification.
+Local strict typecheck, focused lint/formatting and all 19 shared component-view
+tests passed. The complete development smoke, host package build, packaged smoke
+and packaged update smoke also passed with the fresh-context projection.
+
 ## Local release-candidate validation: 2026-10-29
 
 Executed the full requested local Windows candidate sequence against the dirty

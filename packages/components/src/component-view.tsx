@@ -136,6 +136,10 @@ function HtmlView({ node, designTime, styleClassName }: ComponentViewProps): Rea
   }, [html, title]);
   return (
     <iframe
+      // A new source owns a fresh browsing context; an earlier in-flight srcdoc
+      // navigation must not commit over the current model projection.
+      key={html}
+      sandbox=""
       {...sharedAttributes(node, designTime, styleClassName)}
       ref={ref}
       title={title}
