@@ -24,7 +24,8 @@ export function styleEditorInheritance(
   const sources: Partial<Record<ComponentStylePropertyName, string>> = {};
   const apply = (layer: 'shared' | ResolvedThemeMode, state: ComponentStyleStateName): void => {
     if (layer === editLayer && state === stateName) return;
-    const values = layer === 'shared' ? style.states[state] : style.themeOverrides?.[layer]?.[state];
+    const values =
+      layer === 'shared' ? style.states[state] : style.themeOverrides?.[layer]?.[state];
     if (values === undefined) return;
     const source = `${layer === 'shared' ? 'Shared' : layer === 'light' ? 'Light' : 'Dark'} / ${state[0]?.toUpperCase()}${state.slice(1)}`;
     for (const name of Object.keys(values) as ComponentStylePropertyName[]) {

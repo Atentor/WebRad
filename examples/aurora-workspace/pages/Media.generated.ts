@@ -3,6 +3,7 @@
 import {
   WebButton,
   WebGroup,
+  WebHtml,
   WebIcon,
   WebImage,
   WebLabel,
@@ -40,6 +41,15 @@ export abstract class MediaGenerated extends WebPage {
   public readonly VideoAttributionLine4: WebLabel;
   public readonly VideoAttributionLine5: WebLabel;
   public readonly VideoAttributionLine6: WebLabel;
+  public readonly HtmlPanel: WebPanel;
+  public readonly HtmlHeading: WebLabel;
+  public readonly HtmlDescription: WebGroup;
+  public readonly HtmlDescriptionLine1: WebLabel;
+  public readonly HtmlDescriptionLine2: WebLabel;
+  public readonly HtmlDescriptionLine3: WebLabel;
+  public readonly HtmlDescriptionLine4: WebLabel;
+  public readonly HtmlDescriptionLine5: WebLabel;
+  public readonly EmbeddedHtml: WebHtml;
 
   public constructor(element: HTMLElement) {
     super(element);
@@ -121,7 +131,6 @@ export abstract class MediaGenerated extends WebPage {
     this.VideoAttributionLine6 = new WebLabel(
       this.requireComponentElement('085e564c-f2a0-4314-882d-ef6745d18359'),
     );
-
     this.bindGeneratedEvent(this, 'OnHide', 'ReleaseSidebar');
     this.bindGeneratedEvent(this, 'OnShow', 'InitializeSidebar');
     this.bindGeneratedEvent(this.FavoriteIcon, 'OnClick', 'ToggleFavorite');
@@ -130,5 +139,32 @@ export abstract class MediaGenerated extends WebPage {
     this.bindGeneratedEvent(this.DemoVideo, 'OnPlay', 'VideoPlaying');
     this.bindGeneratedEvent(this.LoadVideo, 'OnClick', 'LoadSampleVideo');
     this.bindGeneratedEvent(this.StopVideoButton, 'OnClick', 'StopVideo');
+    this.HtmlPanel = new WebPanel(
+      this.requireComponentElement('36861f10-6aa5-475e-a4e1-e1e0facc7067'),
+    );
+    this.HtmlHeading = new WebLabel(
+      this.requireComponentElement('4c180a05-3dd1-4bba-a14f-bc33859140d9'),
+    );
+    this.HtmlDescription = new WebGroup(
+      this.requireComponentElement('06d610b2-1055-48d9-a6e0-80008956c5c8'),
+    );
+    this.HtmlDescriptionLine1 = new WebLabel(
+      this.requireComponentElement('6c1bf7eb-d985-4337-b290-85cee71e66d4'),
+    );
+    this.HtmlDescriptionLine2 = new WebLabel(
+      this.requireComponentElement('c4593dfc-25af-47d2-8d47-757757ee7330'),
+    );
+    this.HtmlDescriptionLine3 = new WebLabel(
+      this.requireComponentElement('f2b94cd8-e6b7-42e4-b3f3-b9cb58a14e39'),
+    );
+    this.HtmlDescriptionLine4 = new WebLabel(
+      this.requireComponentElement('3c219542-b932-4a53-9c7b-4c955136c097'),
+    );
+    this.HtmlDescriptionLine5 = new WebLabel(
+      this.requireComponentElement('ca0a5238-fd60-4001-a88e-4bd447f63c95'),
+    );
+    this.EmbeddedHtml = new WebHtml(
+      this.requireComponentElement('fab790e5-d16d-40fb-b9bd-915724929dfb'),
+    );
   }
 }

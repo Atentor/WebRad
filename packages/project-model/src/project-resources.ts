@@ -35,7 +35,11 @@ export function validateProjectResourceIds(
   },
   context: z.RefinementCtx,
 ): void {
-  const ids = new Set([...project.pages, ...project.reusableElements, ...(project.menus ?? [])].map((entry) => entry.id));
+  const ids = new Set(
+    [...project.pages, ...project.reusableElements, ...(project.menus ?? [])].map(
+      (entry) => entry.id,
+    ),
+  );
   for (const key of ['sourceFiles', 'assets'] as const) {
     (project[key] ?? []).forEach((entry, index) => {
       if (ids.has(entry.id))

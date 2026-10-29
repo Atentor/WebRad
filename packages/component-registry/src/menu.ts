@@ -111,7 +111,8 @@ export function createWebMenuDefinition(
         type: 'menu-definition',
         category: 'Menu',
         source: 'props',
-        description: 'Shared configuration and TypeScript; runtime state remains independent for each placement.',
+        description:
+          'Shared configuration and TypeScript; runtime state remains independent for each placement.',
       },
       {
         name: 'editMenuDefinition',

@@ -82,7 +82,8 @@ export function RestGoWorkspace(props: RestGoWorkspaceProps): ReactElement {
 }
 
 function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
-  const { projectId, settings, section, onSaveSettings, onCatalogChange } = props;
+  const { projectId, settings, section, onSaveSettings, onCatalogChange, onPendingChangesChange } =
+    props;
   const savedSettingsKey = JSON.stringify(settings);
   const [draftBaseSettings, setDraftBaseSettings] = useState(savedSettingsKey);
   const [draftSettings, setDraftSettings] = useState(settings);
@@ -125,13 +126,13 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   const busy = pending !== null || checking;
   const settingsDirty = JSON.stringify(draftSettings) !== JSON.stringify(settings);
   useEffect(() => {
-    props.onPendingChangesChange?.(settingsDirty || endpointDirty);
-  }, [settingsDirty, endpointDirty, props.onPendingChangesChange]);
+    onPendingChangesChange?.(settingsDirty || endpointDirty);
+  }, [settingsDirty, endpointDirty, onPendingChangesChange]);
   useEffect(
     () => () => {
-      props.onPendingChangesChange?.(false);
+      onPendingChangesChange?.(false);
     },
-    [props.onPendingChangesChange],
+    [onPendingChangesChange],
   );
   const groups = useMemo(() => restGoEndpointGroups(catalog.endpoints), [catalog.endpoints]);
   const visibleGroups = useMemo(

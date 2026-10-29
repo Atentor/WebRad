@@ -535,19 +535,22 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
   trustedRendererUrls.set(windowId, new URL(trustedRendererUrl).href);
   window.on('close', (event) => {
     const id = windowId;
-    if (closeApproved.delete(id) || (!dirtyWindows.has(id) && !pendingEditorWindows.has(id))) return;
+    if (closeApproved.delete(id) || (!dirtyWindows.has(id) && !pendingEditorWindows.has(id)))
+      return;
     event.preventDefault();
     if (pendingEditorWindows.has(id)) {
       const response = dialog.showMessageBoxSync(window, {
         type: 'question',
         title: 'Pending editor changes',
         message: 'There are unapplied changes in an editor.',
-        detail: 'Return to the editor to apply or save them. Discarding also loses any unsaved project changes.',
+        detail:
+          'Return to the editor to apply or save them. Discarding also loses any unsaved project changes.',
         buttons: ['Return to Editor', 'Discard All Changes', 'Cancel'],
         defaultId: 0,
         cancelId: 2,
       });
-      if (response === 0) window.webContents.send('webrad:menu-command', 'file.reviewPendingChanges');
+      if (response === 0)
+        window.webContents.send('webrad:menu-command', 'file.reviewPendingChanges');
       else if (response === 1) {
         pendingEditorWindows.delete(id);
         dirtyWindows.delete(id);

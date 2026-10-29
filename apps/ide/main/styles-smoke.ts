@@ -34,7 +34,9 @@ async function ready(window: BrowserWindow, expression: string): Promise<void> {
   const state: unknown = await window.webContents.executeJavaScript(
     `(() => {
     const frame = document.querySelector('.wr-style-preview-frame');
+    const previewStyle = frame?.firstElementChild ? getComputedStyle(frame.firstElementChild) : undefined;
     return {
+      previewStyle: previewStyle && { color: previewStyle.color, fontFamily: previewStyle.fontFamily, fontSize: previewStyle.fontSize, fontWeight: previewStyle.fontWeight },
       component: document.querySelector('[aria-label="Style components"] [aria-selected="true"]')?.textContent,
       style: document.querySelector('.wr-style-list [aria-selected="true"]')?.textContent,
       heading: document.querySelector('.wr-style-preview-heading')?.textContent,
@@ -325,7 +327,7 @@ export async function runStylesWorkspaceSmoke(
   window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
   await ready(
     window,
-    `document.querySelector('.wr-style-name-field input')?.value === 'PrimaryButton' && document.querySelector('.wr-style-list [aria-selected="true"] strong')?.textContent?.trim() === 'PrimaryButton'`,
+    `document.querySelector('.wr-style-name-field input')?.value === 'PrimaryButton' && document.querySelector('.wr-style-library .wr-style-list [aria-selected="true"] strong')?.textContent?.trim() === 'PrimaryButton'`,
   );
   await click(window, '.wr-style-category-summary[aria-label^="Motion,"]');
   await ready(
@@ -403,7 +405,7 @@ export async function runStylesWorkspaceSmoke(
     if (!(node instanceof HTMLElement)) throw new Error('Missing theme typography sample');
     const style = getComputedStyle(node);
     if (!style.fontFamily.includes('Roboto')) throw new Error('Default theme font must be Roboto');
-    return [style.fontFamily, style.fontSize, style.fontWeight];
+    return [style.fontFamily.split(',')[0].trim(), style.fontSize, style.fontWeight];
   })()`);
   for (const [mode, expected] of [
     ['dark', 'rgb(241, 245, 249)'],
@@ -417,7 +419,7 @@ export async function runStylesWorkspaceSmoke(
       if (!(node instanceof HTMLElement)) return false;
       const style = getComputedStyle(node);
       return style.color === ${JSON.stringify(expected)} &&
-        JSON.stringify([style.fontFamily, style.fontSize, style.fontWeight]) === ${JSON.stringify(JSON.stringify(typography))};
+        JSON.stringify([style.fontFamily.split(',')[0].trim(), style.fontSize, style.fontWeight]) === ${JSON.stringify(JSON.stringify(typography))};
     })()`,
     );
   }

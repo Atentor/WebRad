@@ -760,9 +760,7 @@ function projectAspectRatio(
         }),
     ...(center
       ? {
-          top: floatingAxis
-            ? (styles.top ?? '50%')
-            : `calc(50% + ${coordinatePixels(item.top)})`,
+          top: floatingAxis ? (styles.top ?? '50%') : `calc(50% + ${coordinatePixels(item.top)})`,
           translate: `${styles.translate?.split(' ')[0] ?? '0'} -50%`,
         }
       : {}),
@@ -830,10 +828,7 @@ export function getRuntimeLayoutAspectRatio(element: HTMLElement): WebAspectRati
 }
 
 /** Updates the same structural projection used by the Designer without changing saved rules. */
-export function setRuntimeLayoutAspectRatio(
-  element: HTMLElement,
-  ratio: WebAspectRatio,
-): void {
+export function setRuntimeLayoutAspectRatio(element: HTMLElement, ratio: WebAspectRatio): void {
   if (!WEB_ASPECT_RATIOS.includes(ratio)) throw new TypeError('Invalid aspectRatio.');
   const previousRatio = aspectRatioOverrides.get(element);
   aspectRatioOverrides.set(element, ratio);

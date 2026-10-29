@@ -71,7 +71,14 @@ export function menuInspectorProperties(
     context?.reusableElements?.some((definition) => reusableMenuNode(definition)?.id === node.id);
   if (embedded)
     return properties.filter((property) =>
-      ['name', 'visible', 'enabled', 'configuration', 'menuDefinitionId', 'editMenuDefinition'].includes(property.name),
+      [
+        'name',
+        'visible',
+        'enabled',
+        'configuration',
+        'menuDefinitionId',
+        'editMenuDefinition',
+      ].includes(property.name),
     );
   const allowed = new Set([
     'name',

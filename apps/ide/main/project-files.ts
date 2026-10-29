@@ -163,7 +163,10 @@ function descriptorPaths(manifest: ProjectManifest): readonly string[] {
       reusableGeneratedSourcePathFor(reusableElement),
       reusableSourcePathFor(reusableElement),
     ]),
-    ...(manifest.menus ?? []).flatMap((menu) => [menuSourcePath(menu), `menus/${menu.name}.generated.ts`]),
+    ...(manifest.menus ?? []).flatMap((menu) => [
+      menuSourcePath(menu),
+      `menus/${menu.name}.generated.ts`,
+    ]),
   ];
 }
 
@@ -201,7 +204,15 @@ async function withRootOperation<T>(rootPath: string, operation: () => Promise<T
 }
 
 type ArtifactKind =
-  'source' | 'asset' | 'page' | 'generated' | 'code' | 'reusable-generated' | 'reusable-code' | 'menu-generated' | 'menu-code';
+  | 'source'
+  | 'asset'
+  | 'page'
+  | 'generated'
+  | 'code'
+  | 'reusable-generated'
+  | 'reusable-code'
+  | 'menu-generated'
+  | 'menu-code';
 
 interface OwnedArtifact {
   readonly projectId: string;
@@ -231,8 +242,18 @@ const PENDING_CLEANUP_PATH = '.webrad/pending-cleanup.json';
 function manifestArtifacts(manifest: ProjectManifest): readonly OwnedArtifact[] {
   return [
     ...(manifest.menus ?? []).flatMap((menu) => [
-      { projectId: manifest.id, pageId: menu.id, kind: 'menu-generated' as const, relativePath: `menus/${menu.name}.generated.ts` },
-      { projectId: manifest.id, pageId: menu.id, kind: 'menu-code' as const, relativePath: menuSourcePath(menu) },
+      {
+        projectId: manifest.id,
+        pageId: menu.id,
+        kind: 'menu-generated' as const,
+        relativePath: `menus/${menu.name}.generated.ts`,
+      },
+      {
+        projectId: manifest.id,
+        pageId: menu.id,
+        kind: 'menu-code' as const,
+        relativePath: menuSourcePath(menu),
+      },
     ]),
     ...(manifest.sourceFiles ?? []).map((file) => ({
       projectId: manifest.id,
@@ -630,10 +651,16 @@ async function saveProjectFilesUnlocked(
     const sourceKey = menuSourcePath(menu);
     let userSource = request.userSources[sourceKey];
     if (userSource === undefined) {
-      const previous = previousArtifacts.find((artifact) => artifact.pageId === menu.id && artifact.kind === 'menu-code');
+      const previous = previousArtifacts.find(
+        (artifact) => artifact.pageId === menu.id && artifact.kind === 'menu-code',
+      );
       if (previous) {
-        try { userSource = await fs.readFile(await resolveInsideProjectSecure(rootPath, previous.relativePath), 'utf8'); }
-        catch (error) {
+        try {
+          userSource = await fs.readFile(
+            await resolveInsideProjectSecure(rootPath, previous.relativePath),
+            'utf8',
+          );
+        } catch (error) {
           if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
         }
       }
@@ -642,9 +669,18 @@ async function saveProjectFilesUnlocked(
     resolvedUserSources[sourceKey] = userSource;
     for (const entry of [
       { kind: 'menu-code' as const, relativePath: sourceKey, content: userSource },
-      { kind: 'menu-generated' as const, relativePath: `menus/${menu.name}.generated.ts`, content: generateMenuSource(menu) },
+      {
+        kind: 'menu-generated' as const,
+        relativePath: `menus/${menu.name}.generated.ts`,
+        content: generateMenuSource(menu),
+      },
     ]) {
-      writes.push({ projectId: manifest.id, pageId: menu.id, ...entry, targetPath: await resolveInsideProjectSecure(rootPath, entry.relativePath) });
+      writes.push({
+        projectId: manifest.id,
+        pageId: menu.id,
+        ...entry,
+        targetPath: await resolveInsideProjectSecure(rootPath, entry.relativePath),
+      });
     }
   }
 
@@ -755,8 +791,12 @@ async function loadProjectFilesUnlocked(projectFilePath: string): Promise<Projec
 
   for (const menu of manifest.menus ?? []) {
     const sourceKey = menuSourcePath(menu);
-    try { userSources[sourceKey] = await fs.readFile(await resolveInsideProjectSecure(rootPath, sourceKey), 'utf8'); }
-    catch (error) {
+    try {
+      userSources[sourceKey] = await fs.readFile(
+        await resolveInsideProjectSecure(rootPath, sourceKey),
+        'utf8',
+      );
+    } catch (error) {
       if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
     }
   }

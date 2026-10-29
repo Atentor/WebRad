@@ -82,11 +82,16 @@ Paste a standalone cross-origin HTTPS iframe, such as the YouTube embed below,
 directly into **Content > HTML**:
 
 ```html
-<iframe width="560" height="315"
+<iframe
+  width="560"
+  height="315"
   src="https://www.youtube.com/embed/KyRLjVjPEGo?si=CxPh5GCMooyR4QLk"
-  title="YouTube video player" frameborder="0"
+  title="YouTube video player"
+  frameborder="0"
   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-  referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  referrerpolicy="strict-origin-when-cross-origin"
+  allowfullscreen
+></iframe>
 ```
 
 When the HTML contains only this iframe, apart from whitespace and comments,

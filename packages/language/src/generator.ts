@@ -482,6 +482,7 @@ function normalizeRuntimeImports(text: string): string {
     if (ts.isIdentifier(node)) {
       used.add(node.text);
       if (
+        (ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node) ||
         (ts.isNewExpression(node.parent) && node.parent.expression === node) ||
         (ts.isExpressionWithTypeArguments(node.parent) &&
           ts.isHeritageClause(node.parent.parent) &&

@@ -20,8 +20,11 @@ assets and resources remain unchanged. Save persists the copy normally.
 Tutorial**, each with a visual preview. Its independent **Application theme**
 selector offers **Aurora**, **Prism**, **Flat** and **WebRAD**, each with Light and Dark
 palettes. The choice is materialized into `settings.themes` and Default styles;
-no preset identifier or new project format is required. The Aurora tutorial demonstrates all 20 visual and
-five nonvisual registered components, using only the protected **Default**
+no preset identifier or new project format is required. Template previews follow
+the selected theme. The name, location hint and creation actions remain visible
+while the template/theme options scroll. Creation failures are separate from
+project-name validation. The Aurora tutorial demonstrates the registered visual
+and nonvisual components, using only the protected **Default**
 styles. It creates `index`, `Forms`, `Data`, `Media`, `Pokemon`, `Timer`, `Files`,
 `Reports`, `RestGoAccount`, `RestGoRecovery`, `RestGoProfile`, `RestGoSession`
 and the mandatory `404` page (13 total), plus the
@@ -32,11 +35,39 @@ Default style changed with the Aurora preset; Prism and Flat materialize their
 own Default style appearance. All elements remain editable through the Designer,
 Inspector, Styles and Code.
 
-WebRAD materializes the IDE palette, zero-radius Default styles and scrollbars,
-and Light/Dark typography overrides. The `fontFamily: 'ide'` style value uses
+All project templates and theme presets seed Default Button with left-aligned
+content: the icon precedes the caption, with `justifyContent: 'start'` and
+`textAlign: 'left'`. The existing icon/text gap and vertical centering remain.
+All four presets share Roboto Medium (500) button text and 27px icons. Aurora
+and Prism retain their gradients and adaptive foreground colors; Prism Light
+brightens its violet/coral fills on hover. WebRAD retains neutral IDE button
+fills and uses its editable Selection color for a distinct pressed state.
+This is saved style metadata, so Designer and compiled applications use the
+same alignment and users can customize it in Styles. The bundled examples use
+this alignment as well; existing user projects retain their saved styles.
+
+Cards (Panel) and buttons use 8px corners in every template and theme preset,
+including Data Grid cell buttons. The creation previews and bundled examples
+use the same radius. Other controls retain their theme-specific corners.
+
+WebRAD materializes the IDE palette, square controls and scrollbars, 8px cards
+and buttons, and Light/Dark typography overrides. The `fontFamily: 'ide'` style value uses
 the same system font stack as the IDE, without embedding font binaries. A zero
 component border radius also projects square nested Menu controls and Data Grid
 toggles; nonzero radii retain their normal component appearance.
+
+Flat pairs near-white Light surfaces with neutral graphite Dark surfaces and
+balanced blue accents. Blue buttons share their normal, hover and active colors
+in both modes, with hover lighter than normal. Primary and accent buttons use
+white text in Light and Dark, with Roboto Medium (500) and 27px icons for Default Button.
+Turquoise accents
+and status colors remain vivid,
+with independent Light/Dark colors for text, borders, focus and interaction
+states. Its Default cards and buttons use 8px corners, including Data Grid cell
+buttons; other Flat controls retain 6px corners.
+Surfaces remain solid and shadows are removed. The preset is materialized only
+when creating a project; existing saved theme colors and style values remain
+project-owned.
 
 A materialized copy is available at
 [`examples/aurora-workspace/AuroraWorkspace.wrproj`](../examples/aurora-workspace/AuroraWorkspace.wrproj),
@@ -48,8 +79,18 @@ Box and List Box, with a review button opening a populated native Popup. It does
 not submit profile values to a server. Data uses a real API Client operation to
 load the bundled `aurora-projects.json` asset into a Data Grid and Repeating
 Group, with typed cell/row selection handlers. Media includes a bundled SVG,
-an interactive favorite icon and a playable ten-second local DASH sample in
-Video Player. Menu links use stable page IDs, including its mobile drawer.
+an interactive favorite icon, a playable ten-second local DASH sample in
+Video Player and an HTML component with a local HTML/CSS document. Select
+`EmbeddedHtml` and edit its HTML property to customize the card; its accessible
+title and typed `WebHtml` instance use the ordinary component contract. Menu
+links use stable page IDs, including its mobile drawer.
+
+Menu configuration stores `mobileIconPosition` as `left` or `right`. The Menu
+configuration dialog exposes it under **Behavior & layout → Mobile icon position**.
+It positions the hamburger icon on the selected side of the mobile navigation
+bar, independently of the drawer side. Older configurations without this field
+default to `left`. The modal preview, Designer, compiled Preview and exported
+applications use the same runtime rendering.
 
 The **Nonvisual** menu section opens four additional examples:
 

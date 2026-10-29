@@ -9,20 +9,19 @@ import {
 } from 'react';
 import { useEditorDraftPending } from './useEditorDraftPending';
 
-interface DraftNumberInputProps
-  extends Omit<
-    InputHTMLAttributes<HTMLInputElement>,
-    | 'type'
-    | 'value'
-    | 'defaultValue'
-    | 'onChange'
-    | 'onFocus'
-    | 'onBlur'
-    | 'onKeyDown'
-    | 'min'
-    | 'max'
-    | 'step'
-  > {
+interface DraftNumberInputProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  | 'type'
+  | 'value'
+  | 'defaultValue'
+  | 'onChange'
+  | 'onFocus'
+  | 'onBlur'
+  | 'onKeyDown'
+  | 'min'
+  | 'max'
+  | 'step'
+> {
   readonly value: number | null | undefined;
   readonly onChange: (value: number | null) => void;
   readonly nullable?: boolean;

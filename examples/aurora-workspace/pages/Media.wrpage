@@ -182,7 +182,8 @@
       },
       "children": [
         "9b055a0c-a59a-49eb-bb2f-1b9489e7f1e5",
-        "19afabee-cdfa-4f97-bba1-e95ce4ed908b"
+        "19afabee-cdfa-4f97-bba1-e95ce4ed908b",
+        "36861f10-6aa5-475e-a4e1-e1e0facc7067"
       ]
     },
     {
@@ -1640,6 +1641,543 @@
         "OnMouseLeave": null
       },
       "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "36861f10-6aa5-475e-a4e1-e1e0facc7067",
+      "type": "WebPanel",
+      "name": "HtmlPanel",
+      "parentId": "b2db7244-97c3-4c96-aecf-c50dcd06184d",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 20,
+          "paddingRight": 20,
+          "paddingBottom": 20,
+          "paddingLeft": 20,
+          "gap": 14,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": true,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 440,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "",
+        "enabled": true,
+        "backgroundColor": "transparent",
+        "aspectRatio": "none",
+        "backgroundImage": "",
+        "backgroundPosition": "center",
+        "backgroundRepeat": "no-repeat",
+        "backgroundSize": "cover",
+        "borderColor": "#808080",
+        "collapseWhenHidden": true,
+        "floatingAlignment": "none",
+        "floatingHorizontalAnchor": "left",
+        "floatingVerticalAnchor": "top",
+        "floatingZIndex": 100,
+        "placement": "in-flow",
+        "progressEnabled": false,
+        "progressValue": 0,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebPanel",
+      "children": [
+        "4c180a05-3dd1-4bba-a14f-bc33859140d9",
+        "06d610b2-1055-48d9-a6e0-80008956c5c8",
+        "fab790e5-d16d-40fb-b9bd-915724929dfb"
+      ]
+    },
+    {
+      "id": "4c180a05-3dd1-4bba-a14f-bc33859140d9",
+      "type": "WebLabel",
+      "name": "HtmlHeading",
+      "parentId": "36861f10-6aa5-475e-a4e1-e1e0facc7067",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 30,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "HTML / YOUR OWN MARKUP AND CSS",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "06d610b2-1055-48d9-a6e0-80008956c5c8",
+      "type": "WebGroup",
+      "name": "HtmlDescription",
+      "parentId": "36861f10-6aa5-475e-a4e1-e1e0facc7067",
+      "layout": {
+        "container": {
+          "mode": "column",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fit-content",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 240,
+        "height": 160,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "enabled": true,
+        "aspectRatio": "none",
+        "collapseWhenHidden": true,
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "children": [
+        "6c1bf7eb-d985-4337-b290-85cee71e66d4",
+        "c4593dfc-25af-47d2-8d47-757757ee7330",
+        "f2b94cd8-e6b7-42e4-b3f3-b9cb58a14e39",
+        "3c219542-b932-4a53-9c7b-4c955136c097",
+        "ca0a5238-fd60-4001-a88e-4bd447f63c95"
+      ]
+    },
+    {
+      "id": "6c1bf7eb-d985-4337-b290-85cee71e66d4",
+      "type": "WebLabel",
+      "name": "HtmlDescriptionLine1",
+      "parentId": "06d610b2-1055-48d9-a6e0-80008956c5c8",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Select EmbeddedHtml in the",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "c4593dfc-25af-47d2-8d47-757757ee7330",
+      "type": "WebLabel",
+      "name": "HtmlDescriptionLine2",
+      "parentId": "06d610b2-1055-48d9-a6e0-80008956c5c8",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "Designer and edit its HTML",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "f2b94cd8-e6b7-42e4-b3f3-b9cb58a14e39",
+      "type": "WebLabel",
+      "name": "HtmlDescriptionLine3",
+      "parentId": "06d610b2-1055-48d9-a6e0-80008956c5c8",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "property. The card below",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "3c219542-b932-4a53-9c7b-4c955136c097",
+      "type": "WebLabel",
+      "name": "HtmlDescriptionLine4",
+      "parentId": "06d610b2-1055-48d9-a6e0-80008956c5c8",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "uses local markup and CSS,",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "ca0a5238-fd60-4001-a88e-4bd447f63c95",
+      "type": "WebLabel",
+      "name": "HtmlDescriptionLine5",
+      "parentId": "06d610b2-1055-48d9-a6e0-80008956c5c8",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 80,
+        "height": 24,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "caption": "with no external services.",
+        "enabled": true,
+        "autoSize": false,
+        "collapseWhenHidden": true,
+        "color": "#000000",
+        "visible": true
+      },
+      "events": {
+        "OnClick": null,
+        "OnDblClick": null,
+        "OnMouseEnter": null,
+        "OnMouseLeave": null
+      },
+      "styleId": "cb95d941-4bab-4b56-8db5-1bbf68b5c5d5:default-style:WebLabel",
+      "children": []
+    },
+    {
+      "id": "fab790e5-d16d-40fb-b9bd-915724929dfb",
+      "type": "WebHtml",
+      "name": "EmbeddedHtml",
+      "parentId": "36861f10-6aa5-475e-a4e1-e1e0facc7067",
+      "layout": {
+        "container": {
+          "mode": "fixed",
+          "paddingTop": 0,
+          "paddingRight": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "gap": 0,
+          "wrap": false,
+          "justifyContent": "start",
+          "alignItems": "start"
+        },
+        "item": {
+          "width": "stretch",
+          "height": "fixed",
+          "minWidth": 0,
+          "maxWidth": null,
+          "minHeight": 0,
+          "maxHeight": null,
+          "grow": 0,
+          "shrink": false,
+          "alignSelf": "auto",
+          "horizontalAnchor": "start",
+          "verticalAnchor": "start",
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        }
+      },
+      "bounds": {
+        "width": 320,
+        "height": 210,
+        "x": 0,
+        "y": 0
+      },
+      "props": {
+        "enabled": true,
+        "aspectRatio": "none",
+        "collapseWhenHidden": true,
+        "html": "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <style>\n    * { box-sizing: border-box; }\n    body { margin: 0; padding: 16px; font: 15px/1.5 system-ui, sans-serif; color: #24334d; background: #f5f7fc; }\n    article { max-width: 640px; margin: auto; padding: 20px; border: 1px solid #dbe3f3; border-radius: 8px; background: white; }\n    small { color: #5b48b5; font-weight: 700; letter-spacing: .08em; }\n    h1 { margin: 8px 0; font-size: clamp(20px, 4vw, 28px); line-height: 1.2; }\n    p { margin: 0; color: #52627a; }\n  </style>\n</head>\n<body>\n  <article>\n    <small>HTML + CSS</small>\n    <h1>Make this space your own.</h1>\n    <p>Edit the markup, change the styles and run Preview to see your changes.</p>\n  </article>\n</body>\n</html>",
+        "title": "Editable HTML and CSS example",
+        "visible": true
+      },
+      "events": {
+        "OnLoad": null
+      },
       "children": []
     }
   ]

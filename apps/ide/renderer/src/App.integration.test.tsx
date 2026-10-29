@@ -708,7 +708,7 @@ describe('App MVP integration', () => {
     await user.clear(settings.getByLabelText('Application Name'));
     await user.type(settings.getByLabelText('Application Name'), 'Native Portal');
     await user.click(settings.getByRole('button', { name: 'Choose folder' }));
-    await user.click(settings.getByRole('button', { name: 'Save changes' }));
+    await user.click(settings.getByRole('button', { name: 'Apply changes' }));
     await user.click(screen.getByRole('button', { name: 'Build Application' }));
     const dialog = screen.getByRole('dialog', { name: 'Build Application' });
     const controls = within(dialog);
@@ -1040,7 +1040,7 @@ describe('App MVP integration', () => {
     await user.click(within(settings).getByRole('button', { name: 'Choose folder' }));
     await user.click(within(settings).getByRole('tab', { name: 'PWA and metadata' }));
     await user.click(within(settings).getByLabelText('Enable PWA installation'));
-    await user.click(within(settings).getByRole('button', { name: 'Save changes' }));
+    await user.click(within(settings).getByRole('button', { name: 'Apply changes' }));
     expect(runDeploy).not.toHaveBeenCalled();
     act(() => harness.invokeCommand('project.deploy'));
     await waitFor(() => expect(runDeploy).toHaveBeenCalledOnce());
@@ -1116,7 +1116,9 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
     await screen.findByTitle('RepeatingGroup1: WebRepeatingGroup');
     selectDesignerComponent('RepeatingGroup1: WebRepeatingGroup');
-    await user.dblClick(screen.getByTitle('Select Button; drag or double-click to insert'));
+    await user.dblClick(
+      screen.getByTitle('Select Button; drag, double-click or press Enter to insert'),
+    );
     await screen.findByTitle('Button1: WebButton');
     selectDesignerComponent('RepeatingGroup1: WebRepeatingGroup');
     const overlay = document.querySelector<HTMLElement>('.wr-design-overlay');
@@ -2128,11 +2130,17 @@ describe('App MVP integration', () => {
     expect(screen.queryByRole('treeitem', { name: /index/ })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Expand Pages' }));
     expect(await screen.findByRole('treeitem', { name: /index/ })).toBeDefined();
-    await user.dblClick(screen.getByTitle('Select Button; drag or double-click to insert'));
+    await user.dblClick(
+      screen.getByTitle('Select Button; drag, double-click or press Enter to insert'),
+    );
     await screen.findByTitle('Button1: WebButton');
-    await user.dblClick(screen.getByTitle('Select Button; drag or double-click to insert'));
+    await user.dblClick(
+      screen.getByTitle('Select Button; drag, double-click or press Enter to insert'),
+    );
     await screen.findByTitle('Button2: WebButton');
-    await user.dblClick(screen.getByTitle('Select Label; drag or double-click to insert'));
+    await user.dblClick(
+      screen.getByTitle('Select Label; drag, double-click or press Enter to insert'),
+    );
     await screen.findByTitle('Label1: WebLabel');
     expect(document.querySelector('.wr-inspector-slot')).not.toBeNull();
     expect(screen.getByRole('separator', { name: 'Resize inspector' })).toBeDefined();
@@ -2511,7 +2519,7 @@ describe('App MVP integration', () => {
     await user.clear(applicationName);
     await user.type(applicationName, 'Mvp Portal');
     expect(within(dialog).queryByRole('tab', { name: 'Color palette' })).toBeNull();
-    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Apply changes' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Settings for MvpProject' })).toBeNull();
     });
@@ -2747,9 +2755,9 @@ describe('App MVP integration', () => {
     render(<App />);
     await act(async () => harness.invokeCommand('file.newProject'));
     await screen.findByRole('dialog', { name: 'Create a new project' });
-    expect(
-      screen.getByText(/make a folder with that name inside the selected location/i).textContent,
-    ).toContain('folder with');
+    expect(screen.getByText(/create a folder with this project name/i).textContent).toContain(
+      'folder with',
+    );
     await act(async () => harness.invokeCommand('file.openProject'));
     expect(harness.open).not.toHaveBeenCalled();
     const projectName = screen.getByRole('textbox', { name: 'Project name' });
@@ -2810,9 +2818,7 @@ describe('App MVP integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('mock-monaco').getAttribute('data-navigation-line')).toBe('2');
     });
-    expect(
-      screen.getByRole('button', { name: /Show Problems, 1 error, 0 warnings/i }),
-    ).toBeDefined();
+    expect(screen.getByRole('button', { name: /^1 issues$/i })).toBeDefined();
   });
   it('keeps build diagnostics authoritative and opens their source location', async () => {
     const harness = createBridgeHarness(initialSession());

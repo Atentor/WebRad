@@ -137,11 +137,11 @@ export function AddPageDialog({
               ? 'Create a navigable page for this application.'
               : kind === 'menu'
                 ? 'Create a shared Menu with its own items, appearance and TypeScript. Place it from the component palette.'
-              : kind === 'reusable'
-                ? 'Create a shared visual definition that can be dragged into any page.'
-                : kind === 'model'
-                  ? 'Create a TypeScript class for application data.'
-                  : 'Create a TypeScript module for shared functions and logic.'}
+                : kind === 'reusable'
+                  ? 'Create a shared visual definition that can be dragged into any page.'
+                  : kind === 'model'
+                    ? 'Create a TypeScript class for application data.'
+                    : 'Create a TypeScript module for shared functions and logic.'}
           </p>
           {kind === 'reusable' && REUSABLE_DIALOG_TEMPLATES.length > 1 && (
             <label className="wr-modal-field">

@@ -288,9 +288,11 @@ export function selectedComponentTypes(
   return new Set([
     ...(selection.dynamicRegistry
       ? registry.list().map((definition) => definition.type)
-      : [...selection.project.pages, ...selection.project.reusableElements, ...(selection.project.menus ?? [])].flatMap((document) =>
-          document.components.map((component) => component.type),
-        )),
+      : [
+          ...selection.project.pages,
+          ...selection.project.reusableElements,
+          ...(selection.project.menus ?? []),
+        ].flatMap((document) => document.components.map((component) => component.type))),
     ...selection.extraComponentTypes,
   ]);
 }
@@ -411,7 +413,11 @@ export function selectApplicationSources(
     retained.has(definition.id),
   );
   const styleIds = new Set(
-    [...project.pages, ...reusableElements, ...(project.menus ?? []).filter((menu) => retainedMenus.has(menu.id))].flatMap((document) =>
+    [
+      ...project.pages,
+      ...reusableElements,
+      ...(project.menus ?? []).filter((menu) => retainedMenus.has(menu.id)),
+    ].flatMap((document) =>
       document.components.flatMap((component) =>
         component.styleId === undefined ? [] : [component.styleId],
       ),

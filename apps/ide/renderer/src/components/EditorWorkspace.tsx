@@ -32,7 +32,9 @@ export function EditorWorkspace({
 }: EditorWorkspaceProps): ReactElement {
   const activeDocument = documents.find((document) => document.id === activeDocumentId);
   const stylesDocumentActive =
-    activeDocument?.kind === 'styles' || activeDocument?.kind === 'restgo' || activeDocument?.kind === 'asset';
+    activeDocument?.kind === 'styles' ||
+    activeDocument?.kind === 'restgo' ||
+    activeDocument?.kind === 'asset';
   const hasDocumentViews = activeDocument !== undefined && !stylesDocumentActive;
 
   return (
@@ -63,9 +65,22 @@ export function EditorWorkspace({
               onKeyDown={(event) => {
                 if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
                 event.preventDefault();
-                const view = activeDocument?.kind === 'code' ? 'code' : event.key === 'Home' ? 'design' : event.key === 'End' ? 'code' : activeView === 'design' ? 'code' : 'design';
+                const view =
+                  activeDocument?.kind === 'code'
+                    ? 'code'
+                    : event.key === 'Home'
+                      ? 'design'
+                      : event.key === 'End'
+                        ? 'code'
+                        : activeView === 'design'
+                          ? 'code'
+                          : 'design';
                 onSelectView(view);
-                event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[aria-label="${view === 'design' ? 'Design' : 'Code'}"]`)?.focus();
+                event.currentTarget.parentElement
+                  ?.querySelector<HTMLButtonElement>(
+                    `[aria-label="${view === 'design' ? 'Design' : 'Code'}"]`,
+                  )
+                  ?.focus();
               }}
               onClick={() => onSelectView(view)}
               disabled={view === 'design' && activeDocument?.kind === 'code'}
@@ -90,12 +105,24 @@ export function EditorWorkspace({
             Build browser applications with pages, components, properties, events, and TypeScript.
           </p>
           <div className="wr-welcome-shortcuts">
-            <button type="button" className="wr-welcome-action" aria-label="New Project" onClick={onNewProject}>
-              <Icon name="add" />New Project
+            <button
+              type="button"
+              className="wr-welcome-action"
+              aria-label="New Project"
+              onClick={onNewProject}
+            >
+              <Icon name="add" />
+              New Project
             </button>
             <kbd>Ctrl N</kbd>
-            <button type="button" className="wr-welcome-action" aria-label="Open Project" onClick={onOpenProject}>
-              <Icon name="folder-open" />Open Project
+            <button
+              type="button"
+              className="wr-welcome-action"
+              aria-label="Open Project"
+              onClick={onOpenProject}
+            >
+              <Icon name="folder-open" />
+              Open Project
             </button>
             <kbd>Ctrl O</kbd>
           </div>

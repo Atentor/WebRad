@@ -440,7 +440,9 @@ export function createVirtualSourceGraph(
   );
   sources.set(virtualAbsolutePath('styles.d.ts'), `declare module '*.css';\n`);
   const componentScopes = new Map([
-    ...(project.menus ?? []).map((menu) => [virtualAbsolutePath(menuSourcePath(menu)), componentReferenceScope(menu)] as const),
+    ...(project.menus ?? []).map(
+      (menu) => [virtualAbsolutePath(menuSourcePath(menu)), componentReferenceScope(menu)] as const,
+    ),
     ...project.pages.map(
       (page) => [virtualAbsolutePath(pageSourcePath(page)), componentReferenceScope(page)] as const,
     ),

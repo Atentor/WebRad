@@ -77,4 +77,6 @@ export const WEB_MENU_CSS = `
 .wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-header { max-width: 40%; }
 
 .wr-menu-dialog[data-side='center'] { inset: 0 auto 0 50%; translate: -50% 0; }
+
+.wr-menu-mobile-trigger > .wr-menu-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 `;

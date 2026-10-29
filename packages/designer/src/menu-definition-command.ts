@@ -7,7 +7,10 @@ export class ChangeMenuDefinitionCommand implements Command<PageModel> {
   public readonly label = 'Change Menu definition';
   readonly #before = new Map<string, ComponentNode>();
 
-  public constructor(readonly componentIds: readonly string[], readonly menuId: string) {}
+  public constructor(
+    readonly componentIds: readonly string[],
+    readonly menuId: string,
+  ) {}
 
   public execute(document: PageModel): PageModel {
     const replacements = new Map<string, ComponentNode>();

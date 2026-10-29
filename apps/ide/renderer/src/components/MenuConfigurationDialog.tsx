@@ -174,8 +174,11 @@ export function MenuConfigurationDialog({
   }, []);
   useEffect(() => {
     if (restoredItemId === null) return;
-    Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('[data-menu-editor-item]') ?? [])
-      .find((button) => button.dataset.menuEditorItem === restoredItemId)?.focus();
+    Array.from(
+      dialogRef.current?.querySelectorAll<HTMLButtonElement>('[data-menu-editor-item]') ?? [],
+    )
+      .find((button) => button.dataset.menuEditorItem === restoredItemId)
+      ?.focus();
   }, [restoredItemId]);
   const set = <K extends keyof WebMenuConfiguration>(
     key: K,
@@ -209,12 +212,15 @@ export function MenuConfigurationDialog({
   };
   const remove = (): void => {
     if (location === undefined) return;
-    setRemovedItems((current) => [...current, {
-      item: location.item,
-      parentId: location.parentId,
-      index: location.index,
-      activeItemId: draft.selectedItemId,
-    }]);
+    setRemovedItems((current) => [
+      ...current,
+      {
+        item: location.item,
+        parentId: location.parentId,
+        index: location.index,
+        activeItemId: draft.selectedItemId,
+      },
+    ]);
     setRestoredItemId(null);
     const items = editMenuItem(draft.items, selected, () => null);
     const ids = new Set(flattenMenuItems(items).map((entry) => entry.item.id));
@@ -233,20 +239,24 @@ export function MenuConfigurationDialog({
         const index = Math.min(removed.index, siblings.length);
         return [...siblings.slice(0, index), removed.item, ...siblings.slice(index)];
       };
-      const parentExists = removed.parentId !== null &&
+      const parentExists =
+        removed.parentId !== null &&
         flattenMenuItems(current.items).some((entry) => entry.item.id === removed.parentId);
-      const items = parentExists && removed.parentId !== null
-        ? editMenuItem(current.items, removed.parentId, (parent) => ({
-          ...parent,
-          children: insert(parent.children ?? []),
-        }))
-        : insert(current.items);
+      const items =
+        parentExists && removed.parentId !== null
+          ? editMenuItem(current.items, removed.parentId, (parent) => ({
+              ...parent,
+              children: insert(parent.children ?? []),
+            }))
+          : insert(current.items);
       const restoredIds = new Set(flattenMenuItems([removed.item]).map((entry) => entry.item.id));
       return {
         ...current,
         items,
-        selectedItemId: current.selectedItemId === '' && restoredIds.has(removed.activeItemId)
-          ? removed.activeItemId : current.selectedItemId,
+        selectedItemId:
+          current.selectedItemId === '' && restoredIds.has(removed.activeItemId)
+            ? removed.activeItemId
+            : current.selectedItemId,
       };
     });
     setRemovedItems((current) => current.slice(0, -1));
@@ -259,8 +269,14 @@ export function MenuConfigurationDialog({
     if (event.defaultPrevented) return;
     if (pickIcon) return;
     const target = event.target;
-    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z' &&
-      target instanceof HTMLElement && !target.closest('input, textarea, select, [contenteditable="true"]') && removedItems.length > 0) {
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.shiftKey &&
+      event.key.toLowerCase() === 'z' &&
+      target instanceof HTMLElement &&
+      !target.closest('input, textarea, select, [contenteditable="true"]') &&
+      removedItems.length > 0
+    ) {
       event.preventDefault();
       undoRemoval();
       return;
@@ -313,7 +329,12 @@ export function MenuConfigurationDialog({
           <div>
             <span className="wr-modal-eyebrow">Menu / {component.name}</span>
             <h2 id={titleId}>Configure Menu</h2>
-            {sharedUsage !== undefined && <p>Shared definition · {sharedUsage} placement{sharedUsage === 1 ? '' : 's'}. Saved changes apply to every placement.</p>}
+            {sharedUsage !== undefined && (
+              <p>
+                Shared definition · {sharedUsage} placement{sharedUsage === 1 ? '' : 's'}. Saved
+                changes apply to every placement.
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -755,6 +776,20 @@ export function MenuConfigurationDialog({
                         <option value="horizontal">Horizontal bar</option>
                       </select>
                     </Field>
+                    <Field label="Mobile icon position">
+                      <select
+                        value={draft.mobileIconPosition}
+                        onChange={(event) =>
+                          set(
+                            'mobileIconPosition',
+                            event.currentTarget.value as WebMenuConfiguration['mobileIconPosition'],
+                          )
+                        }
+                      >
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </Field>
                     {(
                       [
                         'collapsible',
@@ -872,7 +907,8 @@ export function MenuConfigurationDialog({
               <span role="status">
                 Removed {removedItems.at(-1)?.item.label || 'menu item'}
                 {flattenMenuItems(removedItems.at(-1)?.item.children ?? []).length > 0
-                  ? ' and its child items.' : '.'}
+                  ? ' and its child items.'
+                  : '.'}
               </span>
               <button type="button" onClick={undoRemoval} aria-label="Undo menu item removal">
                 <Icon name="undo" /> Undo removal

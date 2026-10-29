@@ -74,6 +74,8 @@ export interface WebMenuConfiguration {
   readonly selectedItemId: string;
   /** Browser viewport width in CSS pixels, independent of the sidebar width. */
   readonly mobileBreakpoint: number;
+  /** Side of the hamburger icon in the mobile navigation bar. */
+  readonly mobileIconPosition: 'left' | 'right';
   readonly drawerWidth: number;
   readonly drawerSide: 'left' | 'right';
   readonly closeOnSelect: boolean;
@@ -161,6 +163,7 @@ export function createDefaultWebMenuConfiguration(): WebMenuConfiguration {
     footerText: '',
     selectedItemId: '',
     mobileBreakpoint: 768,
+    mobileIconPosition: 'left',
     drawerWidth: 288,
     drawerSide: 'left',
     closeOnSelect: true,
@@ -282,6 +285,10 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
   const searchMode =
     value.searchMode === undefined ? 'filter' : choice(value, 'searchMode', ['filter', 'event']);
   const themeToggle = value.themeToggle === undefined ? false : value.themeToggle;
+  const mobileIconPosition =
+    value.mobileIconPosition === undefined
+      ? 'left'
+      : choice(value, 'mobileIconPosition', ['left', 'right']);
   if (typeof themeToggle !== 'boolean') fail('themeToggle');
   choice(value, 'drawerSide', ['left', 'right']);
   number(value, 'mobileBreakpoint', 0, 4096);
@@ -371,6 +378,7 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
     ...value,
     searchMode,
     themeToggle,
+    mobileIconPosition,
     mobileBreakpoint: 768,
     drawerWidth: 288,
   }) as unknown as WebMenuConfiguration;

@@ -259,7 +259,10 @@ export function ProjectNativeSettings({
             value={value.publisher}
             onChange={(publisher) => patch({ publisher })}
           />
-          <SettingsField path="nativeApplication.description" className="wr-project-settings-field full-width">
+          <SettingsField
+            path="nativeApplication.description"
+            className="wr-project-settings-field full-width"
+          >
             <span>Description</span>
             <textarea
               rows={3}
@@ -282,7 +285,10 @@ export function ProjectNativeSettings({
         </legend>
         <p>Packaging preferences used when exporting from Build Application.</p>
         <div className="wr-project-settings-fields">
-          <SettingsField path="nativeApplication.build.platform" className="wr-project-settings-field">
+          <SettingsField
+            path="nativeApplication.build.platform"
+            className="wr-project-settings-field"
+          >
             <span>Target Platform</span>
             <select
               value={value.build.platform}
@@ -300,7 +306,10 @@ export function ProjectNativeSettings({
               ))}
             </select>
           </SettingsField>
-          <SettingsField path="nativeApplication.build.architecture" className="wr-project-settings-field">
+          <SettingsField
+            path="nativeApplication.build.architecture"
+            className="wr-project-settings-field"
+          >
             <span>Target Architecture</span>
             <select
               value={value.build.architecture}
@@ -332,7 +341,10 @@ export function ProjectNativeSettings({
               ))}
             </select>
           </SettingsField>
-          <SettingsField path="nativeApplication.build.configuration" className="wr-project-settings-field">
+          <SettingsField
+            path="nativeApplication.build.configuration"
+            className="wr-project-settings-field"
+          >
             <span>Build Configuration</span>
             <select
               value={value.build.configuration}
@@ -349,7 +361,10 @@ export function ProjectNativeSettings({
               <option value="release">Release</option>
             </select>
           </SettingsField>
-          <SettingsField path="nativeApplication.build.bundleFormat" className="wr-project-settings-field">
+          <SettingsField
+            path="nativeApplication.build.bundleFormat"
+            className="wr-project-settings-field"
+          >
             <span>Bundle Format</span>
             <select
               value={value.build.bundleFormat}
@@ -369,7 +384,10 @@ export function ProjectNativeSettings({
                 ))}
             </select>
           </SettingsField>
-          <SettingsField path="nativeApplication.build.outputDirectory" className="wr-project-settings-field full-width">
+          <SettingsField
+            path="nativeApplication.build.outputDirectory"
+            className="wr-project-settings-field full-width"
+          >
             <span>Output Directory</span>
             <span className="wr-project-settings-directory">
               <input
@@ -418,7 +436,11 @@ export function ProjectNativeSettings({
               ['minHeight', 'Minimum Height'],
             ] as const
           ).map(([key, label]) => (
-            <SettingsField path={`nativeApplication.desktop.${key}`} key={key} className="wr-project-settings-field">
+            <SettingsField
+              path={`nativeApplication.desktop.${key}`}
+              key={key}
+              className="wr-project-settings-field"
+            >
               <span>{label}</span>
               <input
                 type="number"
@@ -457,7 +479,10 @@ export function ProjectNativeSettings({
         </legend>
         <p>Display preferences and application icon for Android and iOS.</p>
         <div className="wr-project-settings-fields">
-          <SettingsField path="nativeApplication.mobile.orientation" className="wr-project-settings-field">
+          <SettingsField
+            path="nativeApplication.mobile.orientation"
+            className="wr-project-settings-field"
+          >
             <span>Orientation</span>
             <select
               value={value.mobile.orientation}
@@ -527,7 +552,10 @@ export function ProjectNativeSettings({
           <span>Network</span>
         </legend>
         <p>Allow the services your application connects to.</p>
-        <SettingsField path="nativeApplication.security.networkOrigins" className="wr-project-settings-field full-width">
+        <SettingsField
+          path="nativeApplication.security.networkOrigins"
+          className="wr-project-settings-field full-width"
+        >
           <span>Allowed Network Origins</span>
           <textarea
             rows={4}
@@ -592,7 +620,10 @@ export function ProjectNativeSettings({
               onChange={(text) => patch({ signing: { ...value.signing, [key]: text } })}
             />
           ))}
-          <SettingsField path="nativeApplication.signing.iosExportMethod" className="wr-project-settings-field">
+          <SettingsField
+            path="nativeApplication.signing.iosExportMethod"
+            className="wr-project-settings-field"
+          >
             <span>iOS Export Method</span>
             <select
               value={value.signing.iosExportMethod}

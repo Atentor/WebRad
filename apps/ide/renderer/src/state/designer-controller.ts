@@ -323,7 +323,9 @@ export class DesignerController {
     const commands = [...new Set(componentIds)]
       .filter((id) => (getComponent(page, id).events[eventName] ?? null) !== handlerName)
       .map((id) => new BindEventCommand(id, eventName, handlerName));
-    return commands.length === 0 ? page : this.executeMany(page, 'Bind selected component events', commands);
+    return commands.length === 0
+      ? page
+      : this.executeMany(page, 'Bind selected component events', commands);
   }
 
   public changeStyle(

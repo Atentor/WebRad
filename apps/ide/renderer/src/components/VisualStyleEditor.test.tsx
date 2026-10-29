@@ -456,8 +456,11 @@ describe('VisualStyleEditor', () => {
     await expandCategory(user, 'Motion');
     expect((screen.getByLabelText('Configure Rotate') as HTMLInputElement).checked).toBe(true);
     expect(
-      (screen.getByLabelText('Rotate', { selector: 'input[role="spinbutton"]' }) as HTMLInputElement)
-        .value,
+      (
+        screen.getByLabelText('Rotate', {
+          selector: 'input[role="spinbutton"]',
+        }) as HTMLInputElement
+      ).value,
     ).toBe('15');
     await user.click(screen.getByRole('button', { name: 'Clear Rotate' }));
     expect(currentProperties()).not.toHaveProperty('rotate');

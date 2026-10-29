@@ -837,7 +837,11 @@ panel./*@panel*/caption;
         missingProperties: definition.properties
           .filter((property) => {
             const source = property.source ?? 'props';
-            return source === 'props' || source === 'node' || source === 'bounds';
+            return (
+              property.type !== 'designer-action' &&
+              property.type !== 'menu-definition' &&
+              (source === 'props' || source === 'node' || source === 'bounds')
+            );
           })
           .map((property) => property.name)
           .filter((property) => !available.includes(property)),

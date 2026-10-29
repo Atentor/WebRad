@@ -326,14 +326,24 @@
         "base": {
           "backgroundColor": "#0284c7",
           "borderColor": "transparent",
-          "borderRadius": "lg",
+          "borderRadius": {
+            "value": 8,
+            "unit": "px"
+          },
           "boxShadow": "md",
           "fontWeight": "medium",
           "textColor": "#ffffff",
           "transitionDuration": 200,
           "transitionProperty": "all",
           "transitionTimingFunction": "easeOut",
-          "userSelect": "none"
+          "userSelect": "none",
+          "justifyContent": "start",
+          "textAlign": "left",
+          "buttonIconPosition": "left",
+          "buttonIconSize": {
+            "value": 27,
+            "unit": "px"
+          }
         },
         "hover": {
           "backgroundColor": "#0369a1",

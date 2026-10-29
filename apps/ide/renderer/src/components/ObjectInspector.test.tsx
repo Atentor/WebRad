@@ -263,11 +263,11 @@ describe('ObjectInspector', () => {
       rerender(
         <ObjectInspector
           {...props}
-          selection={[{ ...node, props: { ...node.props, margin: 12, marginLeft: 0 } }]}
+          selection={[{ ...node, props: { ...node.props, margin: 24, marginLeft: 0 } }]}
         />,
       );
       expect((screen.getByLabelText('Margin left') as HTMLInputElement).value).toBe('0');
-      expect((screen.getByLabelText('Margin right') as HTMLInputElement).value).toBe('12');
+      expect((screen.getByLabelText('Margin right') as HTMLInputElement).value).toBe('24');
       if (definition.properties.some((property) => property.name === 'itemAlignSelf')) {
         const alignment = screen.getByLabelText('Item alignment');
         expect((alignment as HTMLSelectElement).value).toBe('auto');

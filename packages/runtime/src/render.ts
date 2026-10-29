@@ -239,7 +239,9 @@ export class RuntimeComponentRegistry {
     if (typeof menuId === 'string' && !menuFactory)
       throw new Error(`No factory is registered for Menu definition "${menuId}".`);
     const component = menuFactory
-      ? WebMenu.createDefinition(element, menuFactory, (menu) => adapter.applyProperties?.(menu, node))
+      ? WebMenu.createDefinition(element, menuFactory, (menu) =>
+          adapter.applyProperties?.(menu, node),
+        )
       : adapter.createComponent(element);
     if (!menuFactory) adapter.applyProperties?.(component, node);
     return component;

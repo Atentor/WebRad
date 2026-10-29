@@ -278,9 +278,26 @@ async function runMenuSmokeWorkflow(
     && document.querySelector('[data-menu-editor-item="team"]') !== null`);
   await click('[data-menu-editor-item="home"]');
   await input('Label', 'Menu smoke home');
-  options.log('renderer Menu subtree removal undo passed: button, Ctrl+Z, preserved unrelated edits');
+  options.log(
+    'renderer Menu subtree removal undo passed: button, Ctrl+Z, preserved unrelated edits',
+  );
   await evaluate(
     `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(e=>e.textContent==='Behavior & layout').click()`,
+  );
+  await evaluate(
+    `(() => { const select = ${field('Mobile icon position')}; if (!(select instanceof HTMLSelectElement) || select.value !== 'left') throw new Error('Missing default left Menu icon option'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'right'); select.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+  );
+  await evaluate(
+    `[...document.querySelectorAll('.wr-menu-editor-preview header button')].find(e=>e.textContent.trim()==='Mobile').click()`,
+  );
+  await ready(`(() => {
+    const trigger = document.querySelector('.wr-menu-editor-preview-surface .wr-menu-mobile-trigger');
+    const icon = trigger?.querySelector('.wr-icon-graphic');
+    const label = trigger?.querySelector('.wr-menu-label');
+    return icon && label && icon.getBoundingClientRect().left >= label.getBoundingClientRect().right;
+  })()`);
+  await evaluate(
+    `[...document.querySelectorAll('.wr-menu-editor-preview header button')].find(e=>e.textContent.trim()==='Desktop').click()`,
   );
   if (
     await evaluate(
@@ -329,12 +346,26 @@ async function runMenuSmokeWorkflow(
   const node = saved.project.pages
     .find((candidate) => candidate.id === page.id)
     ?.components.find((candidate) => candidate.id === id);
-  const sharedDefinition = saved.project.menus?.find((menu) => menu.id === node?.props.menuDefinitionId);
-  const sharedRoot = sharedDefinition?.components.find((component) => component.id === sharedDefinition.rootComponentId);
-  if (!node || !sharedDefinition || !sharedRoot || node.props.configuration !== undefined || !saved.userSources[menuSourcePath(sharedDefinition)]?.includes(`class ${sharedDefinition.name}`))
-    throw new Error('Palette Menu must persist a shared definition reference and a separate authored class.');
+  const sharedDefinition = saved.project.menus?.find(
+    (menu) => menu.id === node?.props.menuDefinitionId,
+  );
+  const sharedRoot = sharedDefinition?.components.find(
+    (component) => component.id === sharedDefinition.rootComponentId,
+  );
+  if (
+    !node ||
+    !sharedDefinition ||
+    !sharedRoot ||
+    node.props.configuration !== undefined ||
+    !saved.userSources[menuSourcePath(sharedDefinition)]?.includes(`class ${sharedDefinition.name}`)
+  )
+    throw new Error(
+      'Palette Menu must persist a shared definition reference and a separate authored class.',
+    );
   const config = parseWebMenuConfiguration(sharedRoot.props.configuration);
-  options.log('renderer native Menu persistence passed: palette insertion, stable definition reference, configuration stored once and separate authored TypeScript');
+  options.log(
+    'renderer native Menu persistence passed: palette insertion, stable definition reference, configuration stored once and separate authored TypeScript',
+  );
   const assertMenuSearchFocus = `(menu) => {
     const input = menu.querySelector('.wr-menu-search-input');
     const field = input?.closest('.wr-menu-search');
@@ -411,6 +442,7 @@ async function runMenuSmokeWorkflow(
     node?.type !== 'WebMenu' ||
     config.items[0]?.label !== 'Menu smoke home' ||
     config.mobileBreakpoint !== 768 ||
+    config.mobileIconPosition !== 'right' ||
     !config.searchable ||
     !config.themeToggle ||
     config.searchMode !== 'event' ||
@@ -659,6 +691,20 @@ async function runMenuSmokeWorkflow(
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     if (!mobile) throw new Error('Menu did not respond to the real mobile viewport.');
+    const mobileIconRight = await frame.executeJavaScript(
+      `(() => {
+        const trigger = document.querySelector('[data-webrad-id="${id}"] .wr-menu-mobile-trigger');
+        const icon = trigger?.querySelector('.wr-icon-graphic');
+        const label = trigger?.querySelector('.wr-menu-label');
+        return Boolean(icon && label && icon.getBoundingClientRect().left >= label.getBoundingClientRect().right);
+      })()`,
+      true,
+    );
+    if (mobileIconRight !== true)
+      throw new Error('Compiled Menu ignored the mobile icon position.');
+    options.log(
+      'renderer Menu mobile icon position passed: modal preview, saved right, compiled mobile geometry',
+    );
     const mobileViewport = await frame.executeJavaScript(
       '({ width: innerWidth, height: innerHeight })',
       true,
@@ -756,9 +802,15 @@ async function runMenuSmokeWorkflow(
     horizontalNode?.props.floatingVerticalAnchor !== 'bottom' ||
     horizontalNode.bounds.height !== 80 ||
     horizontalNode.props.menuDefinitionId !== sharedDefinition.id ||
-    !horizontalSaved.project.menus?.some((menu) => menu.id === sharedDefinition.id &&
-      menu.components.some((component) => component.type === 'WebMenu' &&
-        parseWebMenuConfiguration(component.props.configuration).orientation === 'horizontal'))
+    !horizontalSaved.project.menus?.some(
+      (menu) =>
+        menu.id === sharedDefinition.id &&
+        menu.components.some(
+          (component) =>
+            component.type === 'WebMenu' &&
+            parseWebMenuConfiguration(component.props.configuration).orientation === 'horizontal',
+        ),
+    )
   )
     throw new Error(
       'Horizontal Menu saved layout was not normalized: ' + JSON.stringify(horizontalNode),
@@ -865,7 +917,9 @@ async function runMenuSmokeWorkflow(
       await ready(
         `document.querySelector('[role="dialog"] select') === null && !document.querySelector('[role="dialog"]').textContent.includes('Responsive menu')`,
       );
-      options.log('renderer reusable creation dialog passed: blank composition without the obsolete Responsive menu option or redundant Template selector');
+      options.log(
+        'renderer reusable creation dialog passed: blank composition without the obsolete Responsive menu option or redundant Template selector',
+      );
     }
     await evaluate(
       `(() => {const input=document.querySelector('[role="dialog"] input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${JSON.stringify(name)});input.dispatchEvent(new Event('input',{bubbles:true}));})()`,
@@ -903,8 +957,12 @@ async function runMenuSmokeWorkflow(
   await click('button[aria-label="Design"]');
   // Compose the supported blank reusable through the ordinary Menu palette;
   // the former Responsive menu option is intentionally absent from the dialog.
-  await ready(`[...document.querySelectorAll('.wr-palette-item')].some(item => item.querySelector('.wr-palette-item-caption')?.textContent.trim() === 'Menu')`);
-  await evaluate(`[...document.querySelectorAll('.wr-palette-item')].find(item => item.querySelector('.wr-palette-item-caption')?.textContent.trim() === 'Menu').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+  await ready(
+    `[...document.querySelectorAll('.wr-palette-item')].some(item => item.querySelector('.wr-palette-item-caption')?.textContent.trim() === 'Menu')`,
+  );
+  await evaluate(
+    `[...document.querySelectorAll('.wr-palette-item')].find(item => item.querySelector('.wr-palette-item-caption')?.textContent.trim() === 'Menu').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
+  );
   await ready(`document.querySelector('.wr-inspector-selection strong')?.textContent === 'Menu1'`);
   await click('[role="treeitem"][aria-label="Menu1"]');
   await authorItemClick(
@@ -996,7 +1054,9 @@ async function runMenuSmokeWorkflow(
   );
   const nativePlacementIds: string[] = [];
   for (let index = 0; index < 2; index++) {
-    await ready(`[...document.querySelectorAll('.wr-palette-item')].some(item => item.querySelector('.wr-palette-item-caption')?.textContent.trim() === 'Menu')`);
+    await ready(
+      `[...document.querySelectorAll('.wr-palette-item')].some(item => item.querySelector('.wr-palette-item-caption')?.textContent.trim() === 'Menu')`,
+    );
     await evaluate(`(async () => {
       const item = [...document.querySelectorAll('.wr-palette-item')].find(item => item.querySelector('.wr-palette-item-caption')?.textContent.trim() === 'Menu');
       const surface = document.querySelector('.wr-design-overlay');
@@ -1009,16 +1069,25 @@ async function runMenuSmokeWorkflow(
       surface.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer, ...coordinates }));
       item.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer }));
     })()`);
-    await ready(`document.querySelector('.wr-inspector-selection strong')?.textContent === 'Menu${String(index + 1)}'`);
-    const nativeId = await evaluate(`document.querySelector('.wr-inspector-selection').getAttribute('title')`);
-    if (typeof nativeId !== 'string') throw new Error('Native Menu drag did not create a placement.');
+    await ready(
+      `document.querySelector('.wr-inspector-selection strong')?.textContent === 'Menu${String(index + 1)}'`,
+    );
+    const nativeId = await evaluate(
+      `document.querySelector('.wr-inspector-selection').getAttribute('title')`,
+    );
+    if (typeof nativeId !== 'string')
+      throw new Error('Native Menu drag did not create a placement.');
     nativePlacementIds.push(nativeId);
     if (index === 0) {
       await click('button[role="tab"][aria-label="Properties"]');
       await click('button[aria-label="Configure Menu"]');
       await ready(`document.querySelector('.wr-menu-configuration-dialog') !== null`);
-      await evaluate(`[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(button => button.textContent === 'Behavior & layout').click()`);
-      await evaluate(`(() => { const select = ${field('Desktop orientation')}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'vertical'); select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+      await evaluate(
+        `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(button => button.textContent === 'Behavior & layout').click()`,
+      );
+      await evaluate(
+        `(() => { const select = ${field('Desktop orientation')}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'vertical'); select.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+      );
       await click('.wr-menu-configuration-dialog button[type="submit"]');
       await ready(`document.querySelector('.wr-menu-configuration-dialog') === null`);
     }
@@ -1030,7 +1099,9 @@ async function runMenuSmokeWorkflow(
     if (index === 0) {
       await click('button[role="tab"][aria-label="Properties"]');
       await click('button[aria-label="Edit shared menu"]');
-      await ready(`document.querySelector('.wr-inspector-selection strong')?.textContent === ${JSON.stringify(sharedRoot.name)}`);
+      await ready(
+        `document.querySelector('.wr-inspector-selection strong')?.textContent === ${JSON.stringify(sharedRoot.name)}`,
+      );
       await authorItemClick(
         `${sharedRoot.name}ItemClick`,
         "document.documentElement.dataset.menuInteractionOrder = 'internal:' + event.detail.itemId; this.searchText = event.detail.itemId; if (event.detail.itemId === 'home') event.preventDefault();",
@@ -1048,11 +1119,21 @@ async function runMenuSmokeWorkflow(
   const interactionMenu = interactionSession.project.reusableElements.find(
     (candidate) => candidate.name === smokeMenuName,
   );
-  if (!nativePlacementIds.every((placementId, index) => interactionPage?.components.some((candidate) =>
-    candidate.id === placementId && candidate.type === 'WebMenu' &&
-    candidate.props.menuDefinitionId === sharedDefinition.id && candidate.props.configuration === undefined &&
-    candidate.events.OnItemClick === `Menu${String(index + 1)}ItemClick`,
-  ))) throw new Error('Native Menu placements did not preserve their shared definition and local event bindings.');
+  if (
+    !nativePlacementIds.every((placementId, index) =>
+      interactionPage?.components.some(
+        (candidate) =>
+          candidate.id === placementId &&
+          candidate.type === 'WebMenu' &&
+          candidate.props.menuDefinitionId === sharedDefinition.id &&
+          candidate.props.configuration === undefined &&
+          candidate.events.OnItemClick === `Menu${String(index + 1)}ItemClick`,
+      ),
+    )
+  )
+    throw new Error(
+      'Native Menu placements did not preserve their shared definition and local event bindings.',
+    );
   if (
     !interactionMenu?.components.some(
       (candidate) =>
@@ -1162,10 +1243,13 @@ async function runMenuSmokeWorkflow(
   options.log(
     'renderer reusable Menu Interaction passed: nine Inspector events, typed page/internal authoring, persisted bindings, compiled F9 internal-before-page order, two isolated placements and cancellation in either handler',
   );
-  options.log('renderer native shared Menu Interaction passed: palette drag, shared TypeScript root, typed page handlers, persisted references, compiled F9 internal-before-page order, cancellation, independent search and collapse in two placements');
+  options.log(
+    'renderer native shared Menu Interaction passed: palette drag, shared TypeScript root, typed page handlers, persisted references, compiled F9 internal-before-page order, cancellation, independent search and collapse in two placements',
+  );
   await stopPreviewSmoke(window);
   const createdMenuNames = original.project.menus?.some((menu) => menu.id === sharedDefinition.id)
-    ? [] : [sharedDefinition.name];
+    ? []
+    : [sharedDefinition.name];
   for (const name of [smokePageName, smokeMenuName, ...createdMenuNames]) {
     await selectResource(name);
     await ready(

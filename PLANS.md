@@ -1,9 +1,168 @@
 # WebRAD delivery plan
 
+## Release validation repairs and hosted verification: 2026-10-29
+
+The requested commit/push and GitHub Actions follow-up includes the accumulated
+template, theme, HTML tutorial and Menu changes below. Updated existing tests to
+use Apply changes, keyboard-accessible palette titles, the current project-folder
+hint, issue-count control and Monaco cursor metadata. The runtime completion
+contract excludes design-only Menu definition selection/actions. The Inspector
+margin case now supplies a new authoritative value after its simulated draft
+edits, exercising the intended external-model update.
+
+Preview startup smoke now expects the route synchronization script injected by
+publication. Styles smoke scopes the selected style to its library and compares
+the Roboto face, size and weight across themes while compiler CSS can update the
+fallback stack. Failure diagnostics include computed typography. A real isolated
+Electron probe confirmed that Enter key transitions alone do not insert a newline
+into a textarea; the list-editing smoke now includes the native character event.
+Another isolated Electron probe confirmed that sandboxed inline HTML rejects
+`WebFrameMain.executeJavaScript`. HTML smoke reads the owned iframe through a
+DevTools isolated world instead, locating its target from the parent DOM node
+and cleaning up its sessions. Script permissions and same-origin isolation stay
+unchanged; content, computed CSS, geometry and screenshot requirements remain.
+The HTML declaration generator uses the repository Prettier configuration, so
+generated-source integrity and formatting checks agree. Applied required
+repository formatting and regenerated embedded runtime sources. All existing
+smoke requirements, deadlines, sandboxing and worker limits remain intact.
+
+Hosted verification of the final commit is required before release readiness.
+No publication or tag creation is included in this verification request.
+
+The next development smoke reached shared Menu compilation and exposed a real
+generator error: static `WebMenu.fromElement` calls were classified as type-only
+imports. The AST import classifier now retains value imports for static member
+access, alongside constructor and extends references. Strict typecheck passed
+after this repair. Earlier smoke failures and focused test logs remain retained.
+
+## Local release-candidate validation: 2026-10-29
+
+Executed the full requested local Windows candidate sequence against the dirty
+checkout based on `545a40897cf7968b0313eca624e5d97399e88bc1`. Fixed strict
+style-length narrowing in the project-chooser smoke, Menu callback dependencies,
+RestGO pending-change callback dependencies, and control-character validation
+without disabling lint rules. Icons, generated sources, strict typecheck and lint
+then passed. Portable tests finished with 1,710 passed, 11 failed and 41 skipped
+across 229 files (189 passed, four failed and 36 skipped). Failures cover seven
+App integration cases, two RestGO event-focus fixtures, Menu metadata/completion
+parity and the Inspector margin projection. Separate formatting validation found
+56 files requiring formatting; these were not mass-rewritten.
+
+Packaging completed, but development, packaged and packaged-update smokes all
+stopped at the Preview HTTP HTML comparison: publication now injects the route
+notification script while the expected HTML only injects the base element.
+Their later UI/update interactions did not run. Logs are retained in
+`artifacts-release-{validation,validation-lint-failure,format,build,development,packaged,updates}.log`;
+original smoke logs, metadata and fixture projects are under `artifacts/smoke/`.
+The host uses Node 24.19.0/npm 12.2.0, below the declared Node 26.12.1/npm 12.2.1
+requirements. This candidate is blocked; no installer, tag or publication was
+created. No final-SHA four-platform hosted verification was performed.
+
+## Menu user action icon: 2026-10-29
+
+Replaced the profile row's double chevron with Lucide `user-round-cog`, conveying
+user settings. The shared runtime updates the modal preview, Designer, compiled
+Preview and exported applications. Existing Menu SVG geometry smoke interactions
+continue to cover this icon. Validation was not requested and was not run.
+
+## Menu mobile icon position: 2026-10-29
+
+Added **Behavior & layout → Mobile icon position** to the dedicated Menu dialog,
+with Left/Right choices and a live mobile preview. The saved `mobileIconPosition`
+configuration controls the shared runtime hamburger placement in Designer,
+compiled Preview and browser exports. Missing values default to Left. Updated
+the existing Electron smoke interactions and required development/packaged
+evidence for the modal preview, persistence and compiled mobile geometry.
+Validation was not requested and was not run.
+
 This file tracks current implementation scope, unresolved work, and relevant
 verification records. Detailed contracts belong in the [documentation index](docs/README.md).
 Superseded per-edit notes and early milestone tables remain available in Git
 history. Historical passing results do not certify the current checkout.
+
+## Shared button polish across themes: 2026-10-29
+
+Reviewed Aurora, Prism and WebRAD against the Flat refinements. Moved medium
+button text (500) and 27px icons into the shared Default Button metadata, keeping
+Roboto and existing alignment. Updated the bundled example style libraries.
+Aurora's gradients and adaptive text remain; Prism Light now brightens violet
+and coral on hover. WebRAD keeps neutral IDE fills and uses its existing editable
+Selection color when pressed, separating that state from hover.
+
+No corner radii or Flat colors changed. Existing saved/custom user styles remain
+project-owned. Updated existing model expectations and Electron smoke definitions
+and required evidence for every template/theme presentation, Prism hover, WebRAD
+pressed state and rendered medium-weight Designer/Preview button text. Tests,
+smokes, typecheck, lint, formatting checks, builds and packaging were not
+requested or run.
+
+## Card and button corners: 2026-10-29
+
+Panel cards and buttons now use 8px corners across both project templates and
+all four Light/Dark presets, including Data Grid cell buttons. Prism and WebRAD
+retain their other control appearances. Updated the materialized examples, the
+tutorial's embedded HTML card, creation card previews and picker card shells.
+Existing user projects keep their saved/custom styles.
+
+Updated existing model expectations and Electron smoke definitions/evidence for
+all template/theme radii and rendered 8px Designer/Preview buttons. Tests, smokes,
+typecheck, lint, formatting checks, builds and packaging were not requested or run.
+
+## Template button alignment: 2026-10-29
+
+Default Button now seeds `justifyContent: 'start'` and `textAlign: 'left'`, with
+the icon before the caption. Both project templates and all four theme presets
+inherit the same editable style metadata. The bundled Aurora Workspace and Hello
+WebRAD examples use the same alignment. Icon/text spacing and vertical centering
+remain unchanged, and existing user projects retain their saved style choices.
+
+Updated the existing default-style expectation and Electron smoke definitions
+for all template/theme combinations and rendered Designer/Preview alignment
+parity. Both smoke runners require the updated evidence. Tests, smokes, typecheck,
+lint, formatting checks, builds and packaging were not requested or run.
+
+## Flat theme palette and corners: 2026-10-29
+
+Flat uses near-white Light surfaces and neutral graphite Dark surfaces, with
+balanced blue accents and coordinated text, borders and scrollbars. Blue button
+fills share the same normal, hover and active colors in Light and Dark, with
+hover lighter than normal. Primary and accent buttons use white text in both modes.
+Flat button text uses Roboto Medium (500) for a slightly lighter weight, with
+27px icons in both modes.
+Turquoise accents and status colors retain their vivid palette. New Flat projects
+materialize solid Default styles with 8px card/button corners, including Data Grid
+cell buttons, and 6px corners on other controls.
+Both creation previews reflect the palette and radius. Saved projects keep their
+authored colors and styles.
+
+Updated existing Electron chooser smoke definitions and both runners' evidence
+requirements for white/graphite surfaces, softer blue, brighter hover, preview
+radius and materialized style radii.
+No tests, smokes, typecheck, lint, formatting checks, builds or packaging were
+requested or run.
+
+## Project template polish and HTML example: 2026-10-29
+
+Fixed Examples & Tutorial creation failing its complete-component catalogue
+guard after HTML was registered. Media now includes a local, editable HTML/CSS
+card with a typed WebHtml instance. Updated the materialized example and its
+generated Media declarations while preserving existing component IDs and
+authored sources.
+
+The creation dialog keeps the project name, location hint and actions visible
+while options scroll. Compact template previews follow the selected theme;
+radio labels/descriptions are explicit, and creation errors no longer mark a
+valid project name as invalid or expose Electron's transport prefix. The Blank
+project default and independent Light/Dark theme choices remain available.
+
+Updated the existing Electron chooser smoke and both runners' required evidence
+for template construction, HTML content, theme-aware previews and visible
+creation actions after scrolling. These are definitions, not passing results.
+Source generation for the materialized example completed; tests, smokes,
+typecheck, lint, formatting checks, builds and packaging were not requested or run.
+
+Documentation: [Project format](docs/project-format.md),
+[Tutorial guide](examples/aurora-workspace/README.md).
 
 ## IDE UX improvements: 2026-10-29
 

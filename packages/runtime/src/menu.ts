@@ -57,7 +57,8 @@ export class WebMenu extends WebComponent<HTMLElement> {
     menuClass: new (element: HTMLElement) => T,
   ): T {
     const menu = menuInstances.get(element);
-    if (!(menu instanceof menuClass)) throw new Error('The mounted Menu does not match its definition.');
+    if (!(menu instanceof menuClass))
+      throw new Error('The mounted Menu does not match its definition.');
     return menu;
   }
 
@@ -873,9 +874,14 @@ export class WebMenu extends WebComponent<HTMLElement> {
       trigger.setAttribute('aria-expanded', String(this.#open));
       trigger.setAttribute('aria-haspopup', 'dialog');
       trigger.setAttribute('aria-controls', `${this.#idPrefix}-drawer`);
-      trigger.append(
-        menuElement(document, 'span', 'wr-menu-label', this.#configuration.brand.caption),
+      const label = menuElement(
+        document,
+        'span',
+        'wr-menu-label',
+        this.#configuration.brand.caption,
       );
+      if (this.#configuration.mobileIconPosition === 'right') trigger.prepend(label);
+      else trigger.append(label);
       if (!this.#dialog) {
         this.#dialog = menuElement(document, 'dialog', 'wr-menu-dialog');
         this.#dialog.id = `${this.#idPrefix}-drawer`;

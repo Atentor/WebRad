@@ -4,7 +4,7 @@ Open [AuroraWorkspace.wrproj](AuroraWorkspace.wrproj) in the IDE and press **F9*
 The same project is available under **New Project → Examples & Tutorial**; each
 new project receives independent IDs/files. Use **Stop** to return from Preview.
 
-The example contains 20 visual and five nonvisual component types across 13
+The example contains registered visual and nonvisual component types across 13
 pages, using the original **Default** styles. Group has no style; reusable
 placements project their definition's Panel/child styles. Authored `pages/*.ts`
 and `reusables/*.ts` remain separate from `*.generated.ts`; visual models live in
@@ -35,7 +35,7 @@ Row bindings, while retaining each project's progress value.
 | Overview (`index`)                 | Page, Menu, Panel, Group, Label, Button, Icons, ProgressBar, and two isolated FeatureCards.                                                                    |
 | Forms                              | Edit, Text Area, Check Box, Toggle, Combo Box, List Box; Review profile opens a Popup and Restore example values resets local fields. No profile data is sent. |
 | Data                               | Data Grid and Repeating Group share local JSON through API Client; cell/row selection and Reload example data work locally.                                    |
-| Media                              | Local SVG Image, interactive favorite Icons, DASH sample Video Player, and Stop playback.                                                                      |
+| Media                              | Local SVG Image, interactive favorite Icons, DASH sample Video Player, Stop playback, and an editable local HTML/CSS card.                                     |
 | Nonvisual → API Client / PokeAPI   | Typed [PokéAPI v2](https://pokeapi.co/docs/v2) calls, 12-item pagination, name/ID search, details, and session memory cache; internet required.                |
 | Nonvisual → Timer                  | Editable interval/loop, Start/Stop/Restart, event-driven counter/progress; stops on page hide.                                                                 |
 | Nonvisual → File / Video Upload    | Local selection, explicit private RestGo upload, real progress, video pause/resume/cancel; requires your connection/login to send.                             |
@@ -47,6 +47,11 @@ Row bindings, while retaining each project's progress value.
 | `404`                              | Unknown-route page with Menu and return to Overview.                                                                                                           |
 
 ## Data, services, and media
+
+On Media, select **EmbeddedHtml** in the Designer and edit its **HTML** property
+to change the sample card. Its markup and CSS are saved in the page, require no
+network and remain isolated from application styles. The ordinary `WebHtml`
+instance is available in page code with typed members.
 
 Data, SVG, DASH manifest, four media segments, and attribution live under
 `assets/imported/` and are included in exports. Data/Media, Timer, Report Builder,

@@ -23,10 +23,12 @@ export function ProjectThemePresetPicker({
               name="project-theme"
               value={preset.id}
               checked={value === preset.id}
+              aria-labelledby={'project-theme-' + preset.id + '-label'}
+              aria-describedby={'project-theme-' + preset.id + '-description'}
               onChange={() => onChange(preset.id)}
             />
             <span className="wr-project-template-card">
-              <strong>{preset.label}</strong>
+              <strong id={'project-theme-' + preset.id + '-label'}>{preset.label}</strong>
               <span className="wr-project-theme-preview" aria-hidden="true">
                 {(['light', 'dark'] as const).map((mode) => {
                   const colors = preset.themes.colors;
@@ -49,7 +51,7 @@ export function ProjectThemePresetPicker({
                         style={{
                           background: colors.surface[mode],
                           borderColor: colors.border[mode],
-                          borderRadius: square ? 0 : flat ? 3 : preset.id === 'prism' ? 9 : 5,
+                          borderRadius: 8,
                           boxShadow: flat ? 'none' : '0 3px 8px #00000012',
                         }}
                       >
@@ -77,7 +79,12 @@ export function ProjectThemePresetPicker({
                   );
                 })}
               </span>
-              <span className="wr-project-template-description">{preset.description}</span>
+              <span
+                id={'project-theme-' + preset.id + '-description'}
+                className="wr-project-template-description"
+              >
+                {preset.description}
+              </span>
             </span>
           </label>
         ))}

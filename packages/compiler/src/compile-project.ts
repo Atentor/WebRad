@@ -59,7 +59,10 @@ function validateRegistry(
       document,
       path: ['reusableElements', index] as const,
     })),
-    ...(project.menus ?? []).map((document, index) => ({ document, path: ['menus', index] as const })),
+    ...(project.menus ?? []).map((document, index) => ({
+      document,
+      path: ['menus', index] as const,
+    })),
   ];
   for (const { document, path } of documents) {
     const rowHandlerGroups = new Map<string, string>();
@@ -98,7 +101,15 @@ function validateRegistry(
           });
           continue;
         }
-        if (!isValidPropertyValue(property, value, document.components, project.reusableElements, project.menus)) {
+        if (
+          !isValidPropertyValue(
+            property,
+            value,
+            document.components,
+            project.reusableElements,
+            project.menus,
+          )
+        ) {
           diagnostics.push({
             category: 'error',
             source: 'registry',

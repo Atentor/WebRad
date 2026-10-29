@@ -372,10 +372,10 @@ export function ProjectSettingsDialog({
   useEffect(() => {
     if (saveError === null) return;
     const field = dialogRef.current?.querySelector<HTMLElement>('[data-settings-invalid="true"]');
-    const target = field?.querySelector<HTMLElement>(
-      'input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)',
-    ) ??
-      dialogRef.current?.querySelector<HTMLElement>('[role="tabpanel"]');
+    const target =
+      field?.querySelector<HTMLElement>(
+        'input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)',
+      ) ?? dialogRef.current?.querySelector<HTMLElement>('[role="tabpanel"]');
     target?.focus();
     target?.scrollIntoView?.({ block: 'nearest' });
   }, [saveError]);
@@ -643,17 +643,21 @@ export function ProjectSettingsDialog({
                 const current = SETTINGS_SECTIONS.findIndex(
                   (section) => section.id === activeSectionId,
                 );
-                const index = event.key === 'Home'
-                  ? 0
-                  : event.key === 'End'
-                    ? SETTINGS_SECTIONS.length - 1
-                    : (current + (event.key === 'ArrowDown' ? 1 : -1) + SETTINGS_SECTIONS.length) %
-                      SETTINGS_SECTIONS.length;
+                const index =
+                  event.key === 'Home'
+                    ? 0
+                    : event.key === 'End'
+                      ? SETTINGS_SECTIONS.length - 1
+                      : (current +
+                          (event.key === 'ArrowDown' ? 1 : -1) +
+                          SETTINGS_SECTIONS.length) %
+                        SETTINGS_SECTIONS.length;
                 const section = SETTINGS_SECTIONS[index];
                 if (section === undefined) return;
                 setActiveSectionId(section.id);
                 dialogRef.current
-                  ?.querySelector<HTMLElement>(`#project-settings-tab-${section.id}`)?.focus();
+                  ?.querySelector<HTMLElement>(`#project-settings-tab-${section.id}`)
+                  ?.focus();
               }}
             >
               {SETTINGS_GROUPS.map((group) => (
@@ -693,14 +697,19 @@ export function ProjectSettingsDialog({
                 </div>
               </div>
               {saveError !== null && sectionForField(saveError.path) === activeSection.id && (
-                <p className="wr-project-settings-error" role="alert">{saveError.message}</p>
+                <p className="wr-project-settings-error" role="alert">
+                  {saveError.message}
+                </p>
               )}
-              
+
               {isGeneralSection ? (
                 <>
                   <p>{activeSection.description}</p>
                   <div className="wr-project-settings-fields">
-                    <SettingsField path="applicationName" className="wr-project-settings-field full-width">
+                    <SettingsField
+                      path="applicationName"
+                      className="wr-project-settings-field full-width"
+                    >
                       <span>Application name</span>
                       <input
                         type="text"
@@ -714,7 +723,10 @@ export function ProjectSettingsDialog({
                         Used in the browser tab title and generated application metadata.
                       </small>
                     </SettingsField>
-                    <SettingsField path="applicationDescription" className="wr-project-settings-field full-width">
+                    <SettingsField
+                      path="applicationDescription"
+                      className="wr-project-settings-field full-width"
+                    >
                       <span>Description</span>
                       <textarea
                         value={draft.applicationDescription}
@@ -850,7 +862,10 @@ export function ProjectSettingsDialog({
                           />
                           <small>Thickness in pixels for vertical scrollbars.</small>
                         </SettingsField>
-                        <SettingsField path="scrollbar.height" className="wr-project-settings-field">
+                        <SettingsField
+                          path="scrollbar.height"
+                          className="wr-project-settings-field"
+                        >
                           <span>Horizontal height</span>
                           <input
                             type="number"
@@ -864,7 +879,10 @@ export function ProjectSettingsDialog({
                           />
                           <small>Thickness in pixels for horizontal scrollbars.</small>
                         </SettingsField>
-                        <SettingsField path="scrollbar.trackBorderWidth" className="wr-project-settings-field">
+                        <SettingsField
+                          path="scrollbar.trackBorderWidth"
+                          className="wr-project-settings-field"
+                        >
                           <span>Track border</span>
                           <input
                             type="number"
@@ -880,7 +898,10 @@ export function ProjectSettingsDialog({
                           />
                           <small>Border thickness in pixels.</small>
                         </SettingsField>
-                        <SettingsField path="scrollbar.thumbBorderWidth" className="wr-project-settings-field">
+                        <SettingsField
+                          path="scrollbar.thumbBorderWidth"
+                          className="wr-project-settings-field"
+                        >
                           <span>Thumb border</span>
                           <input
                             type="number"
@@ -896,7 +917,10 @@ export function ProjectSettingsDialog({
                           />
                           <small>Border thickness in pixels.</small>
                         </SettingsField>
-                        <SettingsField path="scrollbar.trackBorderRadius" className="wr-project-settings-field">
+                        <SettingsField
+                          path="scrollbar.trackBorderRadius"
+                          className="wr-project-settings-field"
+                        >
                           <span>Track radius</span>
                           <input
                             type="number"
@@ -912,7 +936,10 @@ export function ProjectSettingsDialog({
                           />
                           <small>Corner radius in pixels.</small>
                         </SettingsField>
-                        <SettingsField path="scrollbar.thumbBorderRadius" className="wr-project-settings-field">
+                        <SettingsField
+                          path="scrollbar.thumbBorderRadius"
+                          className="wr-project-settings-field"
+                        >
                           <span>Thumb radius</span>
                           <input
                             type="number"
@@ -973,12 +1000,14 @@ export function ProjectSettingsDialog({
                       base thumb colors.
                     </p>
                   </fieldset>
-                  
                 </>
               ) : isEnvironmentSection ? (
                 <>
                   <p>{activeSection.description}</p>
-                  <SettingsField path="environment" className="wr-project-settings-field full-width">
+                  <SettingsField
+                    path="environment"
+                    className="wr-project-settings-field full-width"
+                  >
                     <span>Environment used for Preview and Build</span>
                     <select
                       value={draft.environment}
@@ -1025,7 +1054,10 @@ export function ProjectSettingsDialog({
                     <div className="wr-project-settings-environment-list">
                       {draft.environmentVariables.map((variable, index) => (
                         <div className="wr-project-settings-environment-row" key={index}>
-                          <SettingsField path={`environmentVariables.${index}.name`} className="wr-project-settings-field">
+                          <SettingsField
+                            path={`environmentVariables.${index}.name`}
+                            className="wr-project-settings-field"
+                          >
                             <span>Variable name</span>
                             <input
                               type="text"
@@ -1042,7 +1074,10 @@ export function ProjectSettingsDialog({
                               }}
                             />
                           </SettingsField>
-                          <SettingsField path={`environmentVariables.${index}.values.${draft.environment}`} className="wr-project-settings-field">
+                          <SettingsField
+                            path={`environmentVariables.${index}.values.${draft.environment}`}
+                            className="wr-project-settings-field"
+                          >
                             <span>
                               Value for{' '}
                               {
@@ -1080,7 +1115,6 @@ export function ProjectSettingsDialog({
                       ))}
                     </div>
                   )}
-                  
                 </>
               ) : isIconsSection ? (
                 <>
@@ -1154,7 +1188,10 @@ export function ProjectSettingsDialog({
                       until the application has a public address.
                     </p>
                     <div className="wr-project-settings-fields">
-                      <SettingsField path="seo.canonicalUrl" className="wr-project-settings-field full-width">
+                      <SettingsField
+                        path="seo.canonicalUrl"
+                        className="wr-project-settings-field full-width"
+                      >
                         <span>Canonical URL</span>
                         <input
                           type="url"
@@ -1172,7 +1209,10 @@ export function ProjectSettingsDialog({
                           Optional public URL used by canonical and shared-link metadata.
                         </small>
                       </SettingsField>
-                      <SettingsField path="seo.keywords" className="wr-project-settings-field full-width">
+                      <SettingsField
+                        path="seo.keywords"
+                        className="wr-project-settings-field full-width"
+                      >
                         <span>Keywords</span>
                         <input
                           type="text"
@@ -1210,7 +1250,10 @@ export function ProjectSettingsDialog({
                       description when left empty.
                     </p>
                     <div className="wr-project-settings-fields">
-                      <SettingsField path="seo.socialTitle" className="wr-project-settings-field full-width">
+                      <SettingsField
+                        path="seo.socialTitle"
+                        className="wr-project-settings-field full-width"
+                      >
                         <span>Share title</span>
                         <input
                           type="text"
@@ -1225,7 +1268,10 @@ export function ProjectSettingsDialog({
                         />
                         <small>Optional title displayed in link previews.</small>
                       </SettingsField>
-                      <SettingsField path="seo.socialDescription" className="wr-project-settings-field full-width">
+                      <SettingsField
+                        path="seo.socialDescription"
+                        className="wr-project-settings-field full-width"
+                      >
                         <span>Share description</span>
                         <textarea
                           value={draft.seo.socialDescription}
@@ -1308,7 +1354,6 @@ export function ProjectSettingsDialog({
                       {socialImageError}
                     </div>
                   )}
-                  
                 </>
               ) : activeSection.id === 'native' ? (
                 <ProjectNativeSettings
@@ -1320,7 +1365,10 @@ export function ProjectSettingsDialog({
                 />
               ) : isBuildSection ? (
                 <>
-                  <SettingsField path="routingMode" className="wr-project-settings-field full-width">
+                  <SettingsField
+                    path="routingMode"
+                    className="wr-project-settings-field full-width"
+                  >
                     <span>Browser routing</span>
                     <select
                       aria-label="Browser routing"
@@ -1340,7 +1388,10 @@ export function ProjectSettingsDialog({
                       URLs use Hash automatically.
                     </small>
                   </SettingsField>
-                  <SettingsField path="routingBasePath" className="wr-project-settings-field full-width">
+                  <SettingsField
+                    path="routingBasePath"
+                    className="wr-project-settings-field full-width"
+                  >
                     <span>Application base path</span>
                     <input
                       aria-label="Application base path"
@@ -1369,7 +1420,6 @@ export function ProjectSettingsDialog({
                   onChange={(pwa) => updateDraft({ pwa })}
                 />
               )}
-              
             </section>
           </div>
         </div>

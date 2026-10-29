@@ -242,7 +242,7 @@ export function createWebMenuPanel(
     copy.append(menuElement(document, 'strong', 'wr-menu-label', config.user.name));
     if (config.user.description)
       copy.append(menuElement(document, 'small', 'wr-menu-muted', config.user.description));
-    user.append(avatar, copy, createLucideIconElement(document, 'chevrons-up-down'));
+    user.append(avatar, copy, createLucideIconElement(document, 'user-round-cog'));
     panel.append(user);
   }
   if (config.footerText)

@@ -5,7 +5,7 @@ import { loadProjectFiles } from './project-files';
 async function waitForPreviewState(window: BrowserWindow, expression: string): Promise<void> {
   const deadline = Date.now() + 15000;
   for (;;) {
-    if (await window.webContents.executeJavaScript(expression, true) === true) return;
+    if ((await window.webContents.executeJavaScript(expression, true)) === true) return;
     if (Date.now() >= deadline) throw new Error('Preview recovery smoke timed out: ' + expression);
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -18,31 +18,59 @@ export async function assertPreviewBuildErrorSmoke(
   sendKey: (key: string, modifiers?: NonNullable<KeyboardInputEvent['modifiers']>) => void,
 ): Promise<void> {
   window.webContents.send('webrad:menu-command', 'file.save');
-  await waitForPreviewState(window, "document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'");
+  await waitForPreviewState(
+    window,
+    "document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'",
+  );
   const original = await loadProjectFiles(projectPath);
   const focusEditor = async (): Promise<void> => {
-    await window.webContents.executeJavaScript(`document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea')?.focus()`, true);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea')?.focus()`,
+      true,
+    );
     await waitForPreviewState(window, "document.activeElement?.closest('.monaco-editor') !== null");
   };
   const command = process.platform === 'darwin' ? 'meta' : 'control';
   await focusEditor();
   sendKey(process.platform === 'darwin' ? 'Up' : 'Home', [command]);
-  await waitForPreviewState(window, "document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position') === 'Line 1, column 1'");
+  await waitForPreviewState(
+    window,
+    "document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position') === 'Line 1, column 1'",
+  );
   await window.webContents.insertText("const uxPreviewFailure: number = 'ux-preview-error';\n");
-  await waitForPreviewState(window, "[...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('uxPreviewFailure'))");
+  await waitForPreviewState(
+    window,
+    "[...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('uxPreviewFailure'))",
+  );
   await clickPreviewControlSmoke(window, 'button[aria-label="Build and run (F9)"]');
-  await waitForPreviewState(window, "document.querySelector('.wr-preview-state')?.textContent?.includes('Preview build failed') === true && document.querySelector('.wr-preview-diagnostics code')?.textContent?.includes('index.ts') === true");
+  await waitForPreviewState(
+    window,
+    "document.querySelector('.wr-preview-state')?.textContent?.includes('Preview build failed') === true && document.querySelector('.wr-preview-diagnostics code')?.textContent?.includes('index.ts') === true",
+  );
   await stopPreviewSmoke(window);
-  await waitForPreviewState(window, "document.querySelector('.wr-view-tabs [aria-selected=\"true\"]')?.getAttribute('aria-label') === 'Code' && document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')?.startsWith('Line 1,') === true && document.querySelector('.wr-bottom-slot') !== null");
+  await waitForPreviewState(
+    window,
+    "document.querySelector('.wr-view-tabs [aria-selected=\"true\"]')?.getAttribute('aria-label') === 'Code' && document.querySelector('.monaco-editor')?.getAttribute('data-cursor-position')?.startsWith('Line 1,') === true && document.querySelector('.wr-bottom-slot') !== null",
+  );
   await focusEditor();
   sendKey(process.platform === 'darwin' ? 'Up' : 'Home', [command]);
   sendKey('Down', ['shift']);
   sendKey('Backspace');
-  await waitForPreviewState(window, "![...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('uxPreviewFailure'))");
+  await waitForPreviewState(
+    window,
+    "![...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('uxPreviewFailure'))",
+  );
   window.webContents.send('webrad:menu-command', 'file.save');
-  await waitForPreviewState(window, "document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'");
+  await waitForPreviewState(
+    window,
+    "document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'",
+  );
   const restored = await loadProjectFiles(projectPath);
-  if (Object.entries(original.userSources).some(([key, source]) => restored.userSources[key] !== source))
+  if (
+    Object.entries(original.userSources).some(
+      ([key, source]) => restored.userSources[key] !== source,
+    )
+  )
     throw new Error('Preview recovery smoke did not restore the authored source exactly.');
 }
 
@@ -155,19 +183,24 @@ export async function assertPreviewViewportsSmoke(
 }
 
 /** Follow real router changes while retaining the same compiled application document. */
-export async function assertPreviewRouteSmoke(window: BrowserWindow, frame: WebFrameMain): Promise<void> {
+export async function assertPreviewRouteSmoke(
+  window: BrowserWindow,
+  frame: WebFrameMain,
+): Promise<void> {
   const timeOrigin: unknown = await frame.executeJavaScript('performance.timeOrigin', true);
   for (const route of ['404', 'index']) {
     await frame.executeJavaScript(`Navigate(${JSON.stringify(route)}, { replace: true })`, true);
     const deadline = Date.now() + 10000;
     for (;;) {
       const synchronized: unknown = await window.webContents.executeJavaScript(
-        `document.querySelector('input[aria-label="Preview URL"]')?.value === ${JSON.stringify('/' + route)}`, true);
+        `document.querySelector('input[aria-label="Preview URL"]')?.value === ${JSON.stringify('/' + route)}`,
+        true,
+      );
       if (synchronized === true) break;
       if (Date.now() >= deadline) throw new Error('Preview address did not follow route /' + route);
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    if (await frame.executeJavaScript('performance.timeOrigin', true) !== timeOrigin)
+    if ((await frame.executeJavaScript('performance.timeOrigin', true)) !== timeOrigin)
       throw new Error('Preview route synchronization reloaded the application.');
   }
 }

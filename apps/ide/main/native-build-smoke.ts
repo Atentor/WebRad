@@ -151,15 +151,25 @@ export async function runNativeBuildSmoke(
       && invalid === document.activeElement && invalid.getAttribute('aria-invalid') === 'true'
       && inlineError?.textContent.includes('Enter an application name');
   })()`);
-  await setField('#project-settings-panel-general', 'Application name', original.project.settings.applicationName);
-  await window.webContents.executeJavaScript(`(() => {
+  await setField(
+    '#project-settings-panel-general',
+    'Application name',
+    original.project.settings.applicationName,
+  );
+  await window.webContents.executeJavaScript(
+    `(() => {
     const tab = document.querySelector('#project-settings-tab-general');
     tab.focus(); tab.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown', bubbles:true, cancelable:true}));
-  })()`, true);
+  })()`,
+    true,
+  );
   await waitFor(`document.activeElement?.id === 'project-settings-tab-environment'
     && document.querySelector('#project-settings-tab-environment')?.getAttribute('aria-selected') === 'true'
     && document.querySelectorAll('.wr-project-settings-dialog [role=tab][tabindex="0"]').length === 1`);
-  for (const [key, section] of [['End', 'pwa'], ['Home', 'general']] as const) {
+  for (const [key, section] of [
+    ['End', 'pwa'],
+    ['Home', 'general'],
+  ] as const) {
     await window.webContents.executeJavaScript(
       `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(key)}, bubbles:true, cancelable:true}))`,
       true,
@@ -188,7 +198,9 @@ export async function runNativeBuildSmoke(
   await waitFor("document.querySelector('.wr-project-settings-dialog') === null");
   await click('button[aria-label="Project Settings"]');
   await click('#project-settings-tab-native');
-  await waitFor(`${fieldExpression(nativeScope, 'Initial Width')}?.value === ${JSON.stringify(String(originalWidth))}`);
+  await waitFor(
+    `${fieldExpression(nativeScope, 'Initial Width')}?.value === ${JSON.stringify(String(originalWidth))}`,
+  );
   log('renderer Project Settings draft protection and validation navigation passed');
   if (screenshotPath !== undefined) {
     if (!path.isAbsolute(screenshotPath))
@@ -523,7 +535,9 @@ export async function runNativeBuildSmoke(
       && document.querySelector('${buildScope} .wr-build-application-artifacts code')?.textContent === ${JSON.stringify(artifactPath)};
   })()`);
   await setField(buildScope, 'Target Platform', 'windows');
-  await waitFor(`document.querySelector('${buildScope} [aria-label="Build Status"]')?.dataset.buildResultCurrent === 'true'`);
+  await waitFor(
+    `document.querySelector('${buildScope} [aria-label="Build Status"]')?.dataset.buildResultCurrent === 'true'`,
+  );
   log('renderer Native Build result target attribution passed');
   const html = await fs.readFile(path.join(artifactPath, 'frontend', 'index.html'), 'utf8');
   const script = await fs.readFile(path.join(artifactPath, 'frontend', 'assets', 'app.js'), 'utf8');

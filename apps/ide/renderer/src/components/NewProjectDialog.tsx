@@ -29,6 +29,13 @@ function validationMessage(reason: string): string {
   return `${reason.slice(0, 1).toUpperCase()}${reason.slice(1)}.`;
 }
 
+function creationMessage(error: string | null): string | null {
+  const prefix = "Error invoking remote method 'webrad:project:create': ";
+  if (error === null || !error.startsWith(prefix)) return error;
+  const message = error.slice(prefix.length);
+  return message.startsWith('Error: ') ? message.slice('Error: '.length) : message;
+}
+
 export function NewProjectDialog({
   busy,
   error = null,
@@ -75,7 +82,7 @@ export function NewProjectDialog({
     setLocalError(null);
     onCreate(normalizedName, templateId, themePresetId);
   };
-  const displayedError = localError ?? error;
+  const displayedError = localError ?? creationMessage(error);
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     event.stopPropagation();
     if (event.key === 'Escape' && !busy) {
@@ -105,11 +112,12 @@ export function NewProjectDialog({
     <div className="wr-modal-backdrop" role="presentation" onKeyDown={handleKeyDown}>
       <section
         ref={dialogRef}
-        className="wr-modal wr-new-project-dialog"
+        className="wr-modal wr-new-project-dialog wr-project-creation-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        aria-busy={busy}
       >
         <header className="wr-modal-header">
           <div>
@@ -127,57 +135,61 @@ export function NewProjectDialog({
           </button>
         </header>
         <form onSubmit={submit}>
-          <p id={descriptionId} className="wr-modal-description">
-            Choose a project name. WebRAD will then ask where to create it and make a folder with
-            that name inside the selected location.
-          </p>
-          <ProjectTemplatePicker
-            value={templateId}
-            disabled={busy}
-            onChange={(value) => {
-              setTemplateId(value);
-              onClearError();
-            }}
-          />
-          <ProjectThemePresetPicker
-            value={themePresetId}
-            disabled={busy}
-            onChange={(value) => {
-              setThemePresetId(value);
-              onClearError();
-            }}
-          />
-          <label className="wr-modal-field">
-            <span>Project name</span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={name}
-              aria-invalid={displayedError !== null}
-              aria-describedby={displayedError === null ? descriptionId : errorId}
+          <div className="wr-new-project-options">
+            <ProjectTemplatePicker
+              value={templateId}
+              themePresetId={themePresetId}
               disabled={busy}
-              maxLength={80}
-              spellCheck={false}
-              onChange={(event) => {
-                setName(event.currentTarget.value);
-                setLocalError(null);
+              onChange={(value) => {
+                setTemplateId(value);
                 onClearError();
               }}
             />
-          </label>
-          {displayedError !== null && (
-            <div className="wr-modal-error" id={errorId} role="alert">
-              {displayedError}
-            </div>
-          )}
-          <footer className="wr-modal-actions">
-            <button type="button" disabled={busy} onClick={onCancel}>
-              Cancel
-            </button>
-            <button type="submit" className="primary" disabled={busy}>
-              {busy ? 'Creating…' : 'Create project'}
-            </button>
-          </footer>
+            <ProjectThemePresetPicker
+              value={themePresetId}
+              disabled={busy}
+              onChange={(value) => {
+                setThemePresetId(value);
+                onClearError();
+              }}
+            />
+          </div>
+          <div className="wr-new-project-details">
+            <label className="wr-modal-field">
+              <span>Project name</span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={name}
+                aria-invalid={localError !== null}
+                aria-describedby={localError === null ? descriptionId : errorId}
+                disabled={busy}
+                maxLength={80}
+                spellCheck={false}
+                onChange={(event) => {
+                  setName(event.currentTarget.value);
+                  setLocalError(null);
+                  onClearError();
+                }}
+              />
+            </label>
+            <p id={descriptionId} className="wr-modal-description">
+              Choose a location next. WebRAD will create a folder with this project name.
+            </p>
+            {displayedError !== null && (
+              <div className="wr-modal-error" id={errorId} role="alert">
+                {displayedError}
+              </div>
+            )}
+            <footer className="wr-modal-actions">
+              <button type="button" disabled={busy} onClick={onCancel}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" disabled={busy}>
+                {busy ? 'Creating…' : 'Create project'}
+              </button>
+            </footer>
+          </div>
         </form>
       </section>
     </div>

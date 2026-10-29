@@ -172,7 +172,10 @@ export async function publishPreviewHtml(
   }
   revokePreview(ownerId);
   const token = randomUUID();
-  previewByToken.set(token, html.replace('<head>', '<head><base href="/' + token + '/">' + previewRouteScript()));
+  previewByToken.set(
+    token,
+    html.replace('<head>', '<head><base href="/' + token + '/">' + previewRouteScript()),
+  );
   assetsByToken.set(token, assets);
   tokenByOwner.set(ownerId, token);
   const url = `${origin}/${token}/index.html`;

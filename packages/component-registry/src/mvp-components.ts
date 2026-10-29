@@ -759,7 +759,8 @@ const webPanel: ComponentDefinition = {
         ? {
             ...property,
             readOnly: true,
-            description: 'The root fills its owning surface. Configure proportions on child components.',
+            description:
+              'The root fills its owning surface. Configure proportions on child components.',
           }
         : property,
     ),

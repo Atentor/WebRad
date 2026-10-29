@@ -1,6 +1,9 @@
 import type { BrowserWindow, WebFrameMain } from 'electron';
 
 const BUTTON_STYLE_PROPERTIES = [
+  'justifyContent',
+  'textAlign',
+  'flexDirection',
   'fontFamily',
   'fontSize',
   'fontWeight',
@@ -24,6 +27,10 @@ function buttonStyleExpression(
     const button = document.querySelector(${JSON.stringify(selector)});
     if (!(button instanceof HTMLButtonElement)) return '';
     const style = getComputedStyle(button);
+    if (style.fontWeight !== '500') throw new Error('Button text must use medium weight.');
+    if (style.borderRadius !== '8px') throw new Error('Button corners must be 8px.');
+    if (!['flex-start', 'start'].includes(style.justifyContent) || style.textAlign !== 'left' || style.flexDirection !== 'row')
+      throw new Error('Button icon and text are not aligned to the left.');
     if (${JSON.stringify(expectedFontFamily ?? '')} && !style.fontFamily.includes(${JSON.stringify(expectedFontFamily ?? '')}))
       throw new Error('Button font differs from its saved style: ' + style.fontFamily);
     if (${String(checkPageWidth)}) {

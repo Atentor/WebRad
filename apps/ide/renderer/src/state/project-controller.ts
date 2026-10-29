@@ -403,20 +403,25 @@ export class ProjectController {
 
   public addMenu(menu: MenuDefinitionModel): void {
     const project = this.#requireProject();
-    const styled = { ...menu, components: menu.components.map((node) => applyDefaultComponentStyle(node, project.styles)) };
-    this.#commitEdit(
-      parseProject({ ...project, menus: [...(project.menus ?? []), styled] }),
-      { ...this.#snapshot.userSources, [menuSourcePath(menu)]: createUserMenuSource(menu) },
-    );
+    const styled = {
+      ...menu,
+      components: menu.components.map((node) => applyDefaultComponentStyle(node, project.styles)),
+    };
+    this.#commitEdit(parseProject({ ...project, menus: [...(project.menus ?? []), styled] }), {
+      ...this.#snapshot.userSources,
+      [menuSourcePath(menu)]: createUserMenuSource(menu),
+    });
   }
 
   public ensureDefaultMenu(): MenuDefinitionModel {
     const project = this.#requireProject();
     const existing = project.menus?.[0];
     if (existing) return existing;
-    const occupied = new Set([
-      ...project.pages, ...project.reusableElements, ...(project.sourceFiles ?? []),
-    ].map((item) => portableFileNameKey(item.name)));
+    const occupied = new Set(
+      [...project.pages, ...project.reusableElements, ...(project.sourceFiles ?? [])].map((item) =>
+        portableFileNameKey(item.name),
+      ),
+    );
     let name = 'MainMenu';
     let sequence = 1;
     while (occupied.has(portableFileNameKey(name))) name = `MainMenu${String(++sequence)}`;
@@ -432,18 +437,32 @@ export class ProjectController {
     const next = updater(current);
     if (next.id !== current.id || next.rootComponentId !== current.rootComponentId)
       throw new Error('Menu definition IDs are immutable.');
-    this.replaceProject(parseProject({ ...project, menus: project.menus?.map((menu) => menu.id === id ? next : menu) }));
+    this.replaceProject(
+      parseProject({
+        ...project,
+        menus: project.menus?.map((menu) => (menu.id === id ? next : menu)),
+      }),
+    );
   }
 
   public removeMenu(id: string): void {
     const project = this.#requireProject();
     const menu = project.menus?.find((entry) => entry.id === id);
     if (!menu) throw new Error('Menu definition does not exist.');
-    if ([...project.pages, ...project.reusableElements].some((document) => document.components.some((node) => node.props.menuDefinitionId === id)))
-      throw new Error('This Menu is still used. Remove its placements or choose another definition before deleting it.');
+    if (
+      [...project.pages, ...project.reusableElements].some((document) =>
+        document.components.some((node) => node.props.menuDefinitionId === id),
+      )
+    )
+      throw new Error(
+        'This Menu is still used. Remove its placements or choose another definition before deleting it.',
+      );
     const userSources = { ...this.#snapshot.userSources };
     delete userSources[menuSourcePath(menu)];
-    this.#commitEdit({ ...project, menus: project.menus?.filter((entry) => entry.id !== id) }, userSources);
+    this.#commitEdit(
+      { ...project, menus: project.menus?.filter((entry) => entry.id !== id) },
+      userSources,
+    );
   }
 
   public renameMenu(id: string, name: string): void {
@@ -453,11 +472,24 @@ export class ProjectController {
     if (menu.name === name) return;
     const oldKey = menuSourcePath(menu);
     const newKey = menuSourcePath({ name });
-    const next = parseProject({ ...project, menus: project.menus?.map((entry) => entry.id === id
-      ? { ...entry, name, caption: name, components: entry.components.map((node) => ({ ...node, name })) }
-      : entry) });
+    const next = parseProject({
+      ...project,
+      menus: project.menus?.map((entry) =>
+        entry.id === id
+          ? {
+              ...entry,
+              name,
+              caption: name,
+              components: entry.components.map((node) => ({ ...node, name })),
+            }
+          : entry,
+      ),
+    });
     const text = this.#snapshot.userSources[oldKey] ?? createUserMenuSource(menu);
-    const userSources = { ...this.#snapshot.userSources, [newKey]: renamePageUserSource(text, menu.name, name, oldKey).sourceText };
+    const userSources = {
+      ...this.#snapshot.userSources,
+      [newKey]: renamePageUserSource(text, menu.name, name, oldKey).sourceText,
+    };
     delete userSources[oldKey];
     this.#commitEdit(renameDebugSource(next, oldKey, newKey), userSources);
   }
@@ -559,11 +591,23 @@ export class ProjectController {
     }
     if (!document) throw new Error('Project document not found.');
     const copy = duplicateDocument(document, name);
-    const oldPath = menu ? menuSourcePath(document) : page ? sourcePath(document.name) : reusableSourcePath(document.name);
-    const newPath = menu ? menuSourcePath({ name }) : page ? sourcePath(name) : reusableSourcePath(name);
+    const oldPath = menu
+      ? menuSourcePath(document)
+      : page
+        ? sourcePath(document.name)
+        : reusableSourcePath(document.name);
+    const newPath = menu
+      ? menuSourcePath({ name })
+      : page
+        ? sourcePath(name)
+        : reusableSourcePath(name);
     const text =
       userSources[oldPath] ??
-      (menu ? createUserMenuSource(document) : page ? createUserPageSource(document) : createUserReusableElementSource(document));
+      (menu
+        ? createUserMenuSource(document)
+        : page
+          ? createUserPageSource(document)
+          : createUserReusableElementSource(document));
     userSources[newPath] = renamePageUserSource(
       text,
       pageClassName(document.name),
@@ -572,8 +616,11 @@ export class ProjectController {
       document.name,
     ).sourceText;
     this.#commitEdit(
-      menu ? { ...project, menus: [...(project.menus ?? []), copy] }
-        : page ? addPageToProject(project, copy) : addReusableElementToProject(project, copy),
+      menu
+        ? { ...project, menus: [...(project.menus ?? []), copy] }
+        : page
+          ? addPageToProject(project, copy)
+          : addReusableElementToProject(project, copy),
       userSources,
     );
     return copy.id;

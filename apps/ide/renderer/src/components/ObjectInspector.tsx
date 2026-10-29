@@ -16,7 +16,15 @@ import type {
   ReusableElementModel,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES, isWebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
-import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, type ReactElement } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from 'react';
 import { useProjectColorResolver } from '../project-theme';
 import { Icon } from './Icon';
 import { ColorInput, ThemeColorButton } from './ColorInput';
@@ -517,19 +525,46 @@ function PropertyEditor({
   switch (property.type) {
     case 'menu-definition':
       return (
-        <select id={id} className="wr-inspector-select" value={multiple ? MULTIPLE_OPTION_VALUE : text} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
-          {multiple && <option value={MULTIPLE_OPTION_VALUE} disabled>{MULTIPLE_VALUES_LABEL}</option>}
-          {!multiple && !text && <option value="" disabled>Local menu</option>}
-          {availableMenus.map((menu) => <option key={menu.id} value={menu.id}>{menu.name}</option>)}
+        <select
+          id={id}
+          className="wr-inspector-select"
+          value={multiple ? MULTIPLE_OPTION_VALUE : text}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {multiple && (
+            <option value={MULTIPLE_OPTION_VALUE} disabled>
+              {MULTIPLE_VALUES_LABEL}
+            </option>
+          )}
+          {!multiple && !text && (
+            <option value="" disabled>
+              Local menu
+            </option>
+          )}
+          {availableMenus.map((menu) => (
+            <option key={menu.id} value={menu.id}>
+              {menu.name}
+            </option>
+          ))}
           <option value="webrad:new-menu">New menu…</option>
           {!!text && !multiple && <option value="webrad:duplicate-menu">Duplicate menu</option>}
         </select>
       );
     case 'designer-action':
       return (
-        <button id={id} type="button" className="wr-inspector-action" aria-label={property.label ?? property.name} disabled={disabled || multiple || property.designerAction === undefined} onClick={() => {
-          if (property.designerAction) onDesignerAction?.(property.designerAction);
-        }}>{property.label ?? property.name}</button>
+        <button
+          id={id}
+          type="button"
+          className="wr-inspector-action"
+          aria-label={property.label ?? property.name}
+          disabled={disabled || multiple || property.designerAction === undefined}
+          onClick={() => {
+            if (property.designerAction) onDesignerAction?.(property.designerAction);
+          }}
+        >
+          {property.label ?? property.name}
+        </button>
       );
     case 'video-source':
       return (
@@ -601,7 +636,9 @@ function PropertyEditor({
           key={scopeId ?? id}
           id={id}
           className="wr-inspector-input wr-inspector-number"
-          value={multiple ? undefined : typeof value === 'number' || value === null ? value : undefined}
+          value={
+            multiple ? undefined : typeof value === 'number' || value === null ? value : undefined
+          }
           nullable={property.nullable}
           placeholder={placeholder}
           readOnly={disabled}

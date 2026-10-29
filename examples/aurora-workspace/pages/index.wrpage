@@ -420,7 +420,7 @@
         "y": 0
       },
       "props": {
-        "caption": "Explore 20 visual components",
+        "caption": "Explore 21 visual components",
         "enabled": true,
         "autoSize": false,
         "collapseWhenHidden": true,
@@ -2420,7 +2420,7 @@
         "y": 0
       },
       "props": {
-        "caption": "Component, Menu,",
+        "caption": "Component, Menu, ProgressBar,",
         "enabled": true,
         "autoSize": false,
         "collapseWhenHidden": true,
@@ -2478,7 +2478,7 @@
         "y": 0
       },
       "props": {
-        "caption": "ProgressBar, Icons, Image,",
+        "caption": "Icons, Image, HTML, Data Grid,",
         "enabled": true,
         "autoSize": false,
         "collapseWhenHidden": true,
@@ -2536,7 +2536,7 @@
         "y": 0
       },
       "props": {
-        "caption": "Data Grid, Repeating Group",
+        "caption": "Repeating Group and Video",
         "enabled": true,
         "autoSize": false,
         "collapseWhenHidden": true,
@@ -2594,7 +2594,7 @@
         "y": 0
       },
       "props": {
-        "caption": "and Video Player.",
+        "caption": "Player.",
         "enabled": true,
         "autoSize": false,
         "collapseWhenHidden": true,

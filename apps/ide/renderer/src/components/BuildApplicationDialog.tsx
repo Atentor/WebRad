@@ -107,10 +107,12 @@ export function BuildApplicationDialog({
     void build.run(parsed.data, exportingCi);
   };
   const disabled = build.busy;
-  const previousTarget = state.target !== undefined && (
-    state.target.platform !== draft.build.platform || state.target.configuration !== draft.build.configuration ||
-    state.target.architecture !== draft.build.architecture || state.target.bundleFormat !== draft.build.bundleFormat
-  );
+  const previousTarget =
+    state.target !== undefined &&
+    (state.target.platform !== draft.build.platform ||
+      state.target.configuration !== draft.build.configuration ||
+      state.target.architecture !== draft.build.architecture ||
+      state.target.bundleFormat !== draft.build.bundleFormat);
   return (
     <div
       className="wr-modal-backdrop"

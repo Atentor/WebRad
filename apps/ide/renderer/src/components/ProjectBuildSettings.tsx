@@ -35,7 +35,10 @@ export function ProjectBuildSettings({
     <>
       <p>Choose where Deploy creates the files ready for static hosting.</p>
       <div className="wr-project-settings-fields">
-        <SettingsField path="build.deployDirectory" className="wr-project-settings-field full-width">
+        <SettingsField
+          path="build.deployDirectory"
+          className="wr-project-settings-field full-width"
+        >
           <span>Deploy directory</span>
           <span className="wr-project-settings-directory">
             <input

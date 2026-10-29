@@ -19,6 +19,7 @@ import { defaultComponentRegistry } from '../mvp-components.js';
 import { REUSABLE_COMPONENT_TEMPLATES } from '../reusable-templates.js';
 import assets from './aurora-assets.json';
 import { AURORA_DEMO_SOURCES } from './aurora-sources.js';
+import { htmlControls } from './aurora-html.js';
 import {
   fileControls,
   pokemonControls,
@@ -289,7 +290,7 @@ function overview(
         text('CompositionTitle', 'LAYOUT, DATA AND MEDIA', 30),
         paragraph(
           'CompositionList',
-          'Page, Panel, Group, Reusable Component, Menu, ProgressBar, Icons, Image, Data Grid, Repeating Group and Video Player.',
+          'Page, Panel, Group, Reusable Component, Menu, ProgressBar, Icons, Image, HTML, Data Grid, Repeating Group and Video Player.',
         ),
         paragraph(
           'CompositionDetail',
@@ -612,6 +613,7 @@ function mediaControls(): readonly DemoNode[] {
         540,
       ),
     ]),
+    ...htmlControls(),
   ];
 }
 

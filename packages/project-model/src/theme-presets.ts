@@ -37,11 +37,11 @@ const PRISM_THEMES: ProjectThemeSettings = {
     border: pair('#e9d5ff', '#504063'),
     'border-accent': pair('#fecdd3', '#72445f'),
     primary: pair('#7c3aed', '#c4b5fd'),
-    'primary-hover': pair('#6d28d9', '#ddd6fe'),
+    'primary-hover': pair('#8b5cf6', '#ddd6fe'),
     'primary-active': pair('#5b21b6', '#a78bfa'),
     'on-primary': pair('#ffffff', '#231238'),
     accent: pair('#be185d', '#fda4af'),
-    'accent-hover': pair('#9d174d', '#fecdd3'),
+    'accent-hover': pair('#d12d74', '#fecdd3'),
     'accent-active': pair('#831843', '#fb7185'),
     'on-accent': pair('#ffffff', '#361421'),
     focus: pair('#a78bfa', '#c4b5fd'),
@@ -69,41 +69,41 @@ const PRISM_THEMES: ProjectThemeSettings = {
 const FLAT_THEMES: ProjectThemeSettings = {
   ...DEFAULT_PROJECT_THEMES,
   colors: {
-    background: pair('#f5f7f8', '#111819'),
-    'background-end': pair('#f5f7f8', '#111819'),
-    surface: pair('#ffffff', '#1b2527'),
-    'surface-end': pair('#ffffff', '#1b2527'),
-    'surface-muted': pair('#ccdadd', '#3a4d51'),
-    input: pair('#ffffff', '#182123'),
-    'input-end': pair('#ffffff', '#182123'),
-    'control-thumb': pair('#ffffff', '#f0fdfa'),
-    text: pair('#182c30', '#edf5f5'),
-    'text-muted': pair('#52696e', '#adc1c4'),
-    heading: pair('#183f43', '#d5e7e8'),
-    border: pair('#ccdadd', '#3a4d51'),
-    'border-accent': pair('#ccdadd', '#3a4d51'),
-    primary: pair('#0f766e', '#5eead4'),
-    'primary-hover': pair('#115e59', '#99f6e4'),
-    'primary-active': pair('#134e4a', '#2dd4bf'),
-    'on-primary': pair('#ffffff', '#102d2b'),
-    accent: pair('#0369a1', '#7dd3fc'),
-    'accent-hover': pair('#075985', '#bae6fd'),
-    'accent-active': pair('#0c4a6e', '#38bdf8'),
-    'on-accent': pair('#ffffff', '#112b39'),
-    focus: pair('#0d9488', '#5eead4'),
-    'disabled-surface': pair('#e8eff0', '#2b373a'),
-    'disabled-text': pair('#61767a', '#a2b8bc'),
-    success: pair('#15803d', '#86efac'),
-    warning: pair('#a16207', '#fde047'),
-    danger: pair('#b91c1c', '#fca5a5'),
-    overlay: pair('#182c30', '#090f10'),
-    'scrollbar-track': pair('#f5f7f8', '#111819'),
-    'scrollbar-thumb': pair('#b5c9cc', '#486267'),
-    'scrollbar-thumb-hover': pair('#8caaae', '#648489'),
-    'scrollbar-thumb-active': pair('#0f766e', '#5eead4'),
-    'media-background': pair('#263f44', '#263f44'),
-    'media-background-end': pair('#263f44', '#263f44'),
-    'on-media': pair('#ffffff', '#ffffff'),
+    background: pair('#fafbfc', '#202124'),
+    'background-end': pair('#fafbfc', '#202124'),
+    surface: pair('#ffffff', '#292a2e'),
+    'surface-end': pair('#ffffff', '#292a2e'),
+    'surface-muted': pair('#f3f5f7', '#34363b'),
+    input: pair('#ffffff', '#242529'),
+    'input-end': pair('#ffffff', '#242529'),
+    'control-thumb': pair('#ffffff', '#f0f7ff'),
+    text: pair('#172c48', '#edf0f4'),
+    'text-muted': pair('#526784', '#b7bec9'),
+    heading: pair('#17335b', '#e8ecf2'),
+    border: pair('#d7dfe8', '#45474f'),
+    'border-accent': pair('#93b8f5', '#586576'),
+    primary: pair('#3777da', '#3777da'),
+    'primary-hover': pair('#5694e8', '#5694e8'),
+    'primary-active': pair('#1e4fb0', '#1e4fb0'),
+    'on-primary': pair('#ffffff', '#ffffff'),
+    accent: pair('#008577', '#2dd4bf'),
+    'accent-hover': pair('#006e63', '#5eead4'),
+    'accent-active': pair('#00594f', '#14b8a6'),
+    'on-accent': pair('#ffffff', '#ffffff'),
+    focus: pair('#4385e5', '#85beff'),
+    'disabled-surface': pair('#eef1f5', '#303238'),
+    'disabled-text': pair('#667b96', '#9aafcc'),
+    success: pair('#16a34a', '#34d399'),
+    warning: pair('#b45309', '#fbbf24'),
+    danger: pair('#e11d48', '#fb7185'),
+    overlay: pair('#172c48', '#111214'),
+    'scrollbar-track': pair('#fafbfc', '#202124'),
+    'scrollbar-thumb': pair('#becbdb', '#50535c'),
+    'scrollbar-thumb-hover': pair('#9cbbdf', '#6b707b'),
+    'scrollbar-thumb-active': pair('#4385e5', '#85beff'),
+    'media-background': pair('#17335b', '#25262a'),
+    'media-background-end': pair('#17335b', '#25262a'),
+    'on-media': pair('#ffffff', '#edf0f4'),
   },
 };
 
@@ -174,13 +174,13 @@ export const PROJECT_THEME_PRESETS: readonly {
   {
     id: 'flat',
     label: 'Flat',
-    description: 'Clean solid surfaces and teal accents.',
+    description: 'White and graphite surfaces with softer blue accents.',
     themes: FLAT_THEMES,
   },
   {
     id: 'webrad',
     label: 'WebRAD',
-    description: 'The IDE palette, solid surfaces and square corners.',
+    description: 'The IDE palette, solid surfaces and 8px cards and buttons.',
     themes: WEBRAD_THEMES,
   },
 ];
@@ -191,11 +191,14 @@ function presetProperties(
   componentType: string,
   state: ComponentStyleStateName,
 ): ComponentStyleProperties {
+  const cardOrButton = componentType === 'WebPanel' || componentType === 'WebButton';
   if (preset === 'aurora') return properties;
   if (preset === 'prism') {
     return {
       ...properties,
-      ...(properties.borderRadius === undefined ? {} : { borderRadius: { value: 12, unit: 'px' } }),
+      ...(properties.borderRadius === undefined
+        ? {}
+        : { borderRadius: { value: cardOrButton ? 8 : 12, unit: 'px' } }),
       ...(properties.dataGridButtonBorderRadius === undefined
         ? {}
         : { dataGridButtonBorderRadius: { value: 8, unit: 'px' } }),
@@ -203,7 +206,7 @@ function presetProperties(
   }
   const { backgroundGradient, borderGradient, textGradient, ...solid } = properties;
   const square = preset === 'webrad';
-  const radius = square ? 0 : 4;
+  const radius = cardOrButton ? 8 : square ? 0 : 6;
   return {
     ...solid,
     ...(typeof backgroundGradient === 'object' && 'from' in backgroundGradient
@@ -220,7 +223,7 @@ function presetProperties(
       : { borderRadius: { value: radius, unit: 'px' } }),
     ...(properties.dataGridButtonBorderRadius === undefined
       ? {}
-      : { dataGridButtonBorderRadius: { value: radius, unit: 'px' } }),
+      : { dataGridButtonBorderRadius: { value: 8, unit: 'px' } }),
     ...(properties.boxShadow === undefined ? {} : { boxShadow: 'none' }),
     ...(properties.scale === undefined ? {} : { scale: 100 }),
     ...(square && componentType === 'WebButton' && properties.textColor !== undefined
@@ -229,9 +232,11 @@ function presetProperties(
     ...(square && componentType === 'WebButton' && backgroundGradient !== undefined
       ? {
           backgroundColor:
-            state === 'hover' || state === 'active'
-              ? customThemeColorReference('webrad-button-hover')
-              : themeColorReference('surface-muted'),
+            state === 'active'
+              ? customThemeColorReference('webrad-selection')
+              : state === 'hover'
+                ? customThemeColorReference('webrad-button-hover')
+                : themeColorReference('surface-muted'),
         }
       : {}),
     ...(square &&

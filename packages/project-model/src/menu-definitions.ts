@@ -68,7 +68,9 @@ export function validateMenuDefinitions(
   },
   context: z.RefinementCtx,
 ): void {
-  const ids = new Set([...project.pages, ...project.reusableElements].map((document) => document.id));
+  const ids = new Set(
+    [...project.pages, ...project.reusableElements].map((document) => document.id),
+  );
   const names = new Set(
     [...project.pages, ...project.reusableElements].map((document) =>
       portableFileNameKey(document.name),
@@ -99,7 +101,9 @@ export function validateMenuDefinitions(
       });
     if (
       root?.styleId !== undefined &&
-      !project.styles.some((style) => style.id === root.styleId && style.componentType === 'WebMenu')
+      !project.styles.some(
+        (style) => style.id === root.styleId && style.componentType === 'WebMenu',
+      )
     )
       context.addIssue({
         code: 'custom',

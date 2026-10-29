@@ -8,7 +8,9 @@ export function normalizeHistoryDocument(
   if (!project) return document;
   const collection = project.pages.some((page) => page.id === document.id)
     ? 'pages'
-    : project.menus?.some((menu) => menu.id === document.id) ? 'menus' : 'reusableElements';
+    : project.menus?.some((menu) => menu.id === document.id)
+      ? 'menus'
+      : 'reusableElements';
   if (!project[collection]?.some((page) => page.id === document.id)) return document;
   const result = safeParseProject({
     ...project,

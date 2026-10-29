@@ -1,3 +1,4 @@
+import { createProjectFromTemplate } from '@webrad/component-registry';
 import { createUpdateSmokeService, runUpdateSmoke } from './update-smoke';
 import { createApplicationUpdates, scheduleUpdateChecks } from './application-updates';
 import { registerUpdateIpc } from './update-ipc';
@@ -18,7 +19,16 @@ import { runPanelFloatingSmoke } from './panel-floating-smoke';
 import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { inspect } from 'node:util';
-import { app, BrowserWindow, Menu, nativeImage, net, powerSaveBlocker, session, type WebFrameMain } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  nativeImage,
+  net,
+  powerSaveBlocker,
+  session,
+  type WebFrameMain,
+} from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { compileProject, stopCompilerService } from './compiler-service';
 import { WEBRAD_FONT_FAMILIES } from '@webrad/runtime/fonts';
@@ -28,6 +38,7 @@ import { applicationWindowIconPath } from './application-icon';
 import { presentMainWindow } from './main-window-presentation';
 import { installApplicationMenu, setPreviewMenuMode } from './menu';
 import { closePreviewServer, publishPreviewHtml, revokePreview } from './preview-server';
+import { previewRouteScript } from '../shared/preview-route';
 import { closeRendererServer, publishRenderer } from './renderer-server';
 import { installReportPreviewWindows } from './report-preview-windows';
 import { loadProjectFiles } from './project-files';
@@ -158,7 +169,7 @@ async function runPreviewServerSmoke(previewHtml: string | undefined): Promise<v
       responseHtml !==
         previewHtml.replace(
           '<head>',
-          '<head><base href="' + new URL('./', previewUrl).pathname + '">',
+          '<head><base href="' + new URL('./', previewUrl).pathname + '">' + previewRouteScript(),
         ) ||
       !contentSecurityPolicy.includes("script-src 'unsafe-inline'")
     ) {
@@ -385,8 +396,17 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
   sendRendererKey(window, 'Escape');
 
   // Exercise the native TypeScript member provider on a bare component name.
-  if (await window.webContents.executeJavaScript("document.querySelector('.wr-bottom-slot') !== null", true) === true)
-    await clickRendererControl(window, 'button[aria-label="Toggle output"]', 'hide Problems while editing');
+  if (
+    (await window.webContents.executeJavaScript(
+      "document.querySelector('.wr-bottom-slot') !== null",
+      true,
+    )) === true
+  )
+    await clickRendererControl(
+      window,
+      'button[aria-label="Toggle output"]',
+      'hide Problems while editing',
+    );
   await window.webContents.insertText('EDTNome.va');
   await waitForRendererResult(
     window,
@@ -865,7 +885,10 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   );
   smokeLog('renderer footer removal passed: full-height workbench');
   const applicationMenu = Menu.getApplicationMenu();
-  if (applicationMenu === null || applicationMenu.items.some((item) => item.label === 'Component')) {
+  if (
+    applicationMenu === null ||
+    applicationMenu.items.some((item) => item.label === 'Component')
+  ) {
     throw new Error('The application menu must omit the unused Component section.');
   }
   smokeLog('renderer application menu cleanup passed: Component absent');
@@ -909,7 +932,11 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     (value) => value === true,
   );
   smokeLog('renderer About WebRAD modal passed');
-  await clickRendererControl(window, '.wr-welcome-action[aria-label="New Project"]', 'New Project welcome action');
+  await clickRendererControl(
+    window,
+    '.wr-welcome-action[aria-label="New Project"]',
+    'New Project welcome action',
+  );
   smokeLog('renderer welcome project actions passed: New Project click');
   await waitForRendererResult(
     window,
@@ -920,6 +947,11 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
       const cards = [...(dialog?.querySelectorAll('.wr-project-template-grid .wr-project-template-card') ?? [])];
       const themes = [...(dialog?.querySelectorAll('input[name="project-theme"]') ?? [])];
       const bounds = dialog?.getBoundingClientRect();
+      const options = dialog?.querySelector('.wr-new-project-options');
+      const details = dialog?.querySelector('.wr-new-project-details');
+      const name = details?.querySelector('input[type="text"]');
+      const actions = details?.querySelector('.wr-modal-actions')?.getBoundingClientRect();
+      const nameBounds = name?.getBoundingClientRect();
       return dialog?.querySelector('.wr-template-sidebar') !== null && dialog?.textContent?.includes('Examples & Tutorial') === true && blank instanceof HTMLInputElement && blank.checked && template instanceof HTMLInputElement
         && dialog.textContent.includes('Learn WebRAD with editable examples')
         && dialog.textContent.includes('API requests') && dialog.textContent.includes('13 pages') && dialog.textContent.includes('RestGO accounts')
@@ -928,14 +960,140 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
         && cards.length === 2 && cards.every(card => card.getBoundingClientRect().width > 100)
         && themes.length === 4 && themes.map(theme => theme.value).join(',') === 'aurora,prism,flat,webrad'
         && themes[0].checked && dialog.querySelectorAll('.wr-project-theme-sample').length === 8
+        && dialog.querySelectorAll('.wr-project-template-preview[data-theme="aurora"]').length === 2
+        && options instanceof HTMLElement && getComputedStyle(options).overflowY === 'auto'
+        && details instanceof HTMLElement && !options.contains(details)
+        && name instanceof HTMLInputElement && name.getAttribute('aria-invalid') === 'false'
         && bounds !== undefined && bounds.left >= 0 && bounds.right <= innerWidth
         && bounds.top >= 0 && bounds.bottom <= innerHeight
+        && actions !== undefined && actions.height > 0 && actions.bottom <= bounds.bottom
+        && nameBounds !== undefined && nameBounds.top > bounds.top && nameBounds.bottom < actions.top
         && dialog.contains(document.activeElement) && document.querySelector('.wr-ide-modal-host')?.inert === true;
     })()`,
     'the accessible blank/template project chooser',
     (value) => value === true,
   );
-  for (const themeId of ['prism', 'flat', 'webrad', 'aurora']) {
+  const flatProject = createProjectFromTemplate('FlatThemeSmoke', 'blank', 'flat').project;
+  const flatColors = flatProject.settings.themes.colors;
+  if (
+    flatColors.primary.light !== '#3777da' ||
+    flatColors['primary-hover'].light !== '#5694e8' ||
+    flatColors.primary.dark !== '#3777da' ||
+    flatColors['primary-hover'].dark !== '#5694e8' ||
+    flatColors['primary-active'].dark !== flatColors['primary-active'].light ||
+    flatColors['on-primary'].light !== '#ffffff' ||
+    flatColors['on-primary'].dark !== '#ffffff' ||
+    flatColors['on-accent'].light !== '#ffffff' ||
+    flatColors['on-accent'].dark !== '#ffffff'
+  ) {
+    throw new Error('Flat did not materialize its blue button fills and brighter hover colors.');
+  }
+  for (const style of flatProject.styles) {
+    if (style.componentType === 'WebButton' && style.states.base.fontWeight !== 'medium') {
+      throw new Error('Flat buttons did not materialize their medium text weight.');
+    }
+    const buttonIconSize = style.states.base.buttonIconSize;
+    if (
+      style.componentType === 'WebButton' &&
+      (typeof buttonIconSize !== 'object' ||
+        !('value' in buttonIconSize) ||
+        buttonIconSize.value !== 27 ||
+        buttonIconSize.unit !== 'px')
+    ) {
+      throw new Error('Flat buttons did not materialize their 27px icons.');
+    }
+    for (const properties of [
+      ...Object.values(style.states),
+      ...Object.values(style.themeOverrides ?? {}).flatMap((states) =>
+        states === undefined ? [] : Object.values(states),
+      ),
+    ]) {
+      if (properties === undefined) continue;
+      for (const [radius, expectedRadius] of [
+        [properties.borderRadius, ['WebPanel', 'WebButton'].includes(style.componentType) ? 8 : 6],
+        [properties.dataGridButtonBorderRadius, 8],
+      ] as const) {
+        if (
+          radius !== undefined &&
+          (typeof radius !== 'object' ||
+            !('value' in radius) ||
+            radius.value !== expectedRadius ||
+            radius.unit !== 'px')
+        ) {
+          throw new Error('Flat card/button corners must be 8px and other control corners 6px.');
+        }
+      }
+    }
+  }
+  const tutorial = createProjectFromTemplate('TutorialSmoke', 'aurora-workspace');
+  const htmlExample = tutorial.project.pages
+    .find((page) => page.name === 'Media')
+    ?.components.find((component) => component.name === 'EmbeddedHtml');
+  if (
+    htmlExample?.type !== 'WebHtml' ||
+    typeof htmlExample.props.html !== 'string' ||
+    !htmlExample.props.html.includes('Make this space your own.')
+  ) {
+    throw new Error('Examples & Tutorial did not materialize its editable HTML example.');
+  }
+  for (const themeId of ['prism', 'flat', 'webrad', 'aurora'] as const) {
+    for (const templateId of ['blank', 'aurora-workspace'] as const) {
+      const project = createProjectFromTemplate('AlignmentSmoke', templateId, themeId).project;
+      const button = project.styles.find(
+        (style) => style.componentType === 'WebButton' && style.preset === 'default',
+      );
+      if (
+        button?.states.base.justifyContent !== 'start' ||
+        button.states.base.textAlign !== 'left' ||
+        button.states.base.buttonIconPosition !== 'left'
+      ) {
+        throw new Error('Project templates must align button icons and text to the left.');
+      }
+      const iconSize = button.states.base.buttonIconSize;
+      if (
+        button.states.base.fontWeight !== 'medium' ||
+        typeof iconSize !== 'object' ||
+        !('value' in iconSize) ||
+        iconSize.value !== 27 ||
+        iconSize.unit !== 'px'
+      ) {
+        throw new Error('All themes must keep medium button text and 27px icons.');
+      }
+      if (
+        themeId === 'prism' &&
+        (project.settings.themes.colors['primary-hover'].light !== '#8b5cf6' ||
+          project.settings.themes.colors['accent-hover'].light !== '#d12d74')
+      ) {
+        throw new Error('Prism Light must brighten its violet and coral hover colors.');
+      }
+      if (
+        themeId === 'webrad' &&
+        (button.states.active.backgroundColor === button.states.hover.backgroundColor ||
+          button.states.active.backgroundColor === button.states.base.backgroundColor)
+      ) {
+        throw new Error('WebRAD buttons must distinguish pressed, hover and normal fills.');
+      }
+      const card = project.styles.find(
+        (style) => style.componentType === 'WebPanel' && style.preset === 'default',
+      );
+      const grid = project.styles.find(
+        (style) => style.componentType === 'WebDataGrid' && style.preset === 'default',
+      );
+      for (const radius of [
+        button.states.base.borderRadius,
+        card?.states.base.borderRadius,
+        grid?.states.base.dataGridButtonBorderRadius,
+      ]) {
+        if (
+          typeof radius !== 'object' ||
+          !('value' in radius) ||
+          radius.value !== 8 ||
+          radius.unit !== 'px'
+        ) {
+          throw new Error('All project templates must give cards and buttons 8px corners.');
+        }
+      }
+    }
     await clickRendererControl(
       window,
       `input[name="project-theme"][value="${themeId}"]`,
@@ -952,10 +1110,44 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
           && getComputedStyle(samples[0]).color !== getComputedStyle(samples[1]).color
           && surfaces.every(surface => surface instanceof HTMLElement && surface.getBoundingClientRect().width > 20)
           && (!['flat', 'webrad'].includes(${JSON.stringify(themeId)}) || surfaces.every(surface => getComputedStyle(surface).boxShadow === 'none'))
-          && (${JSON.stringify(themeId)} !== 'webrad' || surfaces.every(surface => getComputedStyle(surface).borderRadius === '0px'))
+          && surfaces.every(surface => getComputedStyle(surface).borderRadius === '8px')
           && (${JSON.stringify(themeId)} !== 'webrad' || getComputedStyle(samples[1]).backgroundColor === 'rgb(30, 30, 30)');
       })()`,
       'the selected application theme with Light and Dark samples',
+      (value) => value === true,
+    );
+    await waitForRendererResult(
+      window,
+      `(() => {
+        const dialog = document.querySelector('.wr-project-creation-dialog');
+        const theme = dialog?.querySelector('input[name="project-theme"]:checked');
+        const previews = [...(dialog?.querySelectorAll('.wr-project-template-preview') ?? [])];
+        const samples = [...(theme?.closest('label')?.querySelectorAll('.wr-project-theme-sample') ?? [])];
+        const surfaces = samples.map(sample => sample.querySelector('.wr-project-theme-surface'));
+        const sample = surfaces[0]?.querySelector('i');
+        const user = dialog?.querySelector('.wr-template-user');
+        const options = dialog?.querySelector('.wr-new-project-options');
+        const details = dialog?.querySelector('.wr-new-project-details')?.getBoundingClientRect();
+        const actions = dialog?.querySelector('.wr-modal-actions')?.getBoundingClientRect();
+        if (!(options instanceof HTMLElement) || !(sample instanceof HTMLElement) || !(user instanceof HTMLElement)) return false;
+        options.scrollTop = options.scrollHeight;
+        return previews.length === 2 && previews.every(preview => preview.dataset.theme === theme.value)
+          && getComputedStyle(user).backgroundColor === getComputedStyle(sample).backgroundColor
+          && (theme.value !== 'flat' || (
+            surfaces.every(surface => surface instanceof HTMLElement && getComputedStyle(surface).borderRadius === '8px')
+            && previews.every(preview => getComputedStyle(preview).getPropertyValue('--wr-template-radius').trim() === '8px')
+            && getComputedStyle(sample).backgroundColor === 'rgb(55, 119, 218)'
+            && getComputedStyle(surfaces[0].querySelectorAll('i')[1]).backgroundColor === 'rgb(0, 133, 119)'
+            && getComputedStyle(surfaces[1].querySelector('i')).backgroundColor === 'rgb(55, 119, 218)'
+            && getComputedStyle(samples[0]).backgroundColor === 'rgb(250, 251, 252)'
+            && getComputedStyle(surfaces[0]).backgroundColor === 'rgb(255, 255, 255)'
+            && getComputedStyle(samples[1]).backgroundColor === 'rgb(32, 33, 36)'
+            && getComputedStyle(surfaces[1]).backgroundColor === 'rgb(41, 42, 46)'
+          ))
+          && details !== undefined && actions !== undefined && actions.height > 0
+          && details.top >= 0 && details.bottom <= innerHeight && actions.bottom <= details.bottom;
+      })()`,
+      'template previews following the theme with visible creation actions after scrolling',
       (value) => value === true,
     );
   }
@@ -989,7 +1181,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     (value) => value === true,
   );
   smokeLog(
-    'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu / Aurora, Prism, Flat and WebRAD Light/Dark themes / WebRAD square corners',
+    'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu / Aurora, Prism, Flat and WebRAD Light/Dark themes / WebRAD square controls / theme-aware previews / fixed creation actions / HTML example / Flat white and graphite surfaces, softer blue and 8px cards/buttons / Flat brighter blue hover / left-aligned template buttons / all-theme medium button text and 27px icons / Prism brighter hover / WebRAD pressed state',
   );
 
   if (smokeProjectPath === undefined) return;
@@ -1088,21 +1280,30 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     throw new Error(`Renderer bottom dock smoke failed: ${JSON.stringify(bottomDock)}`);
   }
   smokeLog('renderer bottom dock passed');
-  const sidebarWidth = await window.webContents.executeJavaScript(`(() => {
+  const sidebarWidth = (await window.webContents.executeJavaScript(
+    `(() => {
     const splitter = document.querySelector('.wr-splitter-left');
     if (!(splitter instanceof HTMLElement) || splitter.tabIndex !== 0) throw new Error('Sidebar splitter is not keyboard accessible.');
     splitter.focus();
     return Number(splitter.getAttribute('aria-valuenow'));
-  })()`, true) as unknown;
+  })()`,
+    true,
+  )) as unknown;
   if (typeof sidebarWidth !== 'number') throw new Error('Sidebar width is unavailable.');
   sendRendererKey(window, 'Right');
-  await waitForRendererResult(window,
+  await waitForRendererResult(
+    window,
     `Number(document.querySelector('.wr-splitter-left')?.getAttribute('aria-valuenow')) === ${sidebarWidth + 10}`,
-    'keyboard sidebar resize', value => value === true);
+    'keyboard sidebar resize',
+    (value) => value === true,
+  );
   sendRendererKey(window, 'Left');
-  await waitForRendererResult(window,
+  await waitForRendererResult(
+    window,
     `Number(document.querySelector('.wr-splitter-left')?.getAttribute('aria-valuenow')) === ${sidebarWidth}`,
-    'keyboard sidebar resize restoration', value => value === true);
+    'keyboard sidebar resize restoration',
+    (value) => value === true,
+  );
   smokeLog('renderer workbench keyboard resizing passed');
   await clickRendererControl(
     window,
@@ -1239,9 +1440,12 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   smokeLog('renderer Monaco passed');
   await runMonacoLanguageSmoke(window);
   if (smokeProjectPath !== undefined) {
-    await assertPreviewBuildErrorSmoke(window, smokeProjectPath,
-      (key, modifiers) => sendRendererKey(window, key, modifiers));
-    smokeLog('renderer Preview build error recovery passed: diagnostics, Stop, source navigation and restored authored source');
+    await assertPreviewBuildErrorSmoke(window, smokeProjectPath, (key, modifiers) =>
+      sendRendererKey(window, key, modifiers),
+    );
+    smokeLog(
+      'renderer Preview build error recovery passed: diagnostics, Stop, source navigation and restored authored source',
+    );
   }
   await waitForRendererResult(
     window,
@@ -1274,7 +1478,9 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     'the mounted Preview controls after F9',
   );
   await assertPreviewButtonStyle(previewFrame, designerButtonStyle);
-  smokeLog('renderer Designer/Preview button style parity passed / page available width');
+  smokeLog(
+    'renderer Designer/Preview button style parity passed / page available width / left-aligned button content / 8px button corners / medium button text',
+  );
   const interaction = (await previewFrame.executeJavaScript(
     `(() => {
       globalThis.__webradSmokeMessage = '';

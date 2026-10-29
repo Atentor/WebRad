@@ -12,11 +12,14 @@ import { SettingsValidationContext } from './settings-validation';
 
 function describeControls(children: ReactNode, errorId: string): ReactNode {
   return Children.map(children, (child) => {
-    if (!isValidElement<{
-      children?: ReactNode;
-      'aria-describedby'?: string;
-      'aria-invalid'?: boolean;
-    }>(child)) return child;
+    if (
+      !isValidElement<{
+        children?: ReactNode;
+        'aria-describedby'?: string;
+        'aria-invalid'?: boolean;
+      }>(child)
+    )
+      return child;
     if (typeof child.type === 'string' && ['input', 'select', 'textarea'].includes(child.type)) {
       return cloneElement(child, {
         'aria-invalid': true,

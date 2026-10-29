@@ -500,7 +500,9 @@ function styleValueLabel(
     return `${value.from} → ${value.to}`;
   }
   if (definition.editor.kind === 'enum') {
-    return definition.editor.options.find((option) => option.value === value)?.label ?? String(value);
+    return (
+      definition.editor.options.find((option) => option.value === value)?.label ?? String(value)
+    );
   }
   if (definition.editor.kind === 'color' && typeof value === 'string') {
     const themeRole = themeColorId(value);
@@ -508,7 +510,8 @@ function styleValueLabel(
     if (themeRole !== undefined) return `Theme ${themeRole} (${resolveColor(value)})`;
     if (customColor !== undefined) return `${customColor} (${resolveColor(value)})`;
   }
-  if (definition.editor.kind === 'number') return `${String(value)}${definition.editor.suffix ?? ''}`;
+  if (definition.editor.kind === 'number')
+    return `${String(value)}${definition.editor.suffix ?? ''}`;
   return String(value);
 }
 

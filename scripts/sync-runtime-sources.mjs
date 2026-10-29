@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
+import { format, resolveConfig } from 'prettier';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimeRoot = path.join(repositoryRoot, 'packages', 'runtime', 'src');
@@ -122,8 +123,10 @@ const htmlTypingsPath = path.join(
   'src',
   'html-typings.generated.json',
 );
-const htmlTypings =
-  JSON.stringify(createApiClientDeclarations(repositoryRoot, ['html.ts']), null, 2) + '\n';
+const htmlTypings = await format(
+  JSON.stringify(createApiClientDeclarations(repositoryRoot, ['html.ts']), null, 2),
+  { ...(await resolveConfig(htmlTypingsPath)), filepath: htmlTypingsPath },
+);
 
 const sourceFiles = [
   'menu.ts',

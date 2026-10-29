@@ -4,7 +4,10 @@ import {
   reusableMenuNode,
   type RuntimeReusableMenuDefinition,
 } from '@webrad/runtime/menu-layout';
-import { createDefaultWebMenuConfiguration, parseWebMenuConfiguration } from '@webrad/runtime/menu-model';
+import {
+  createDefaultWebMenuConfiguration,
+  parseWebMenuConfiguration,
+} from '@webrad/runtime/menu-model';
 import type { RuntimeLayoutNode } from '@webrad/runtime';
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -32,8 +35,8 @@ export function materializeManagedMenuLayouts(input: unknown): unknown {
         composite?.props?.menuDefinitionId === undefined &&
         composite?.bounds?.height === 640 &&
         composite.layout?.item?.height !== 'fixed' &&
-        (configurationFor(composite.props ?? {}) as { orientation?: unknown } | undefined)?.orientation ===
-          'horizontal';
+        (configurationFor(composite.props ?? {}) as { orientation?: unknown } | undefined)
+          ?.orientation === 'horizontal';
 
       return {
         ...value,
@@ -62,9 +65,10 @@ export function materializeManagedMenuLayouts(input: unknown): unknown {
             return projectWebMenuLayout(
               {
                 ...component,
-                props: component.props.menuDefinitionId === undefined
-                  ? { ...component.props, configuration }
-                  : component.props,
+                props:
+                  component.props.menuDefinitionId === undefined
+                    ? { ...component.props, configuration }
+                    : component.props,
               } as unknown as RuntimeLayoutNode,
               Number.POSITIVE_INFINITY,
               { ...configuration, collapsed: false },

@@ -124,6 +124,12 @@ These identify past observations rather than current verification.
 
 ## Investigating failures
 
+Inline HTML smoke inspection must keep the empty iframe sandbox. Electron rejects
+`WebFrameMain.executeJavaScript` in that document. Use the smoke-owned DevTools
+isolated world, resolving its target from the parent iframe DOM node and cleaning
+up sessions. Preserve authored-content, computed-style, geometry, screenshot and
+opaque-origin assertions; never grant scripts or same-origin access for a smoke.
+
 Read the first failed step, original functional error, and retained project/logs.
 Missing later evidence usually means those interactions never ran. Distinguish
 functional defects, stale selectors, async races, native window limits, missing

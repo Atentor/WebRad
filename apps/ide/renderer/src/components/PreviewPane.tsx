@@ -39,18 +39,22 @@ export function PreviewPane({
           <>
             <p>Use Stop to return to the IDE and review Problems.</p>
             <ul className="wr-preview-diagnostics">
-              {diagnostics.filter((item) => item.category === 'error').map((item, index) => (
-                <li key={index}>
-                  {item.file && (
-                    <code>
-                      {item.file}
-                      {item.line === undefined ? '' : `:${item.line}`}
-                      {item.line === undefined || item.column === undefined ? '' : `:${item.column}`}
-                    </code>
-                  )}
-                  <span>{item.message}</span>
-                </li>
-              ))}
+              {diagnostics
+                .filter((item) => item.category === 'error')
+                .map((item, index) => (
+                  <li key={index}>
+                    {item.file && (
+                      <code>
+                        {item.file}
+                        {item.line === undefined ? '' : `:${item.line}`}
+                        {item.line === undefined || item.column === undefined
+                          ? ''
+                          : `:${item.column}`}
+                      </code>
+                    )}
+                    <span>{item.message}</span>
+                  </li>
+                ))}
             </ul>
           </>
         )}

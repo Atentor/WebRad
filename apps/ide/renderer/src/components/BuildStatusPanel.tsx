@@ -25,10 +25,12 @@ export function BuildStatusPanel({
   const missing =
     state.result?.prerequisites?.checks.filter((check) => check.status !== 'available').length ?? 0;
   const target = state.target;
-  const previousTarget = target !== undefined && (
-    target.platform !== currentTarget.platform || target.configuration !== currentTarget.configuration ||
-    target.architecture !== currentTarget.architecture || target.bundleFormat !== currentTarget.bundleFormat
-  );
+  const previousTarget =
+    target !== undefined &&
+    (target.platform !== currentTarget.platform ||
+      target.configuration !== currentTarget.configuration ||
+      target.architecture !== currentTarget.architecture ||
+      target.bundleFormat !== currentTarget.bundleFormat);
   const description =
     state.stage === 'idle'
       ? 'Your build activity and generated files will appear here.'
@@ -77,9 +79,12 @@ export function BuildStatusPanel({
         <p className="wr-build-result-target">
           <strong>
             {state.exportingCi ? 'CI export' : 'Build'}: {BUILD_PLATFORM_LABELS[target.platform]}
-            {' · '}{target.configuration === 'release' ? 'Release' : 'Debug'}
-            {' · '}{target.architecture === 'host' ? 'Host architecture' : target.architecture}
-            {' · '}{target.bundleFormat.toUpperCase()}
+            {' · '}
+            {target.configuration === 'release' ? 'Release' : 'Debug'}
+            {' · '}
+            {target.architecture === 'host' ? 'Host architecture' : target.architecture}
+            {' · '}
+            {target.bundleFormat.toUpperCase()}
           </strong>
           {previousTarget && <span> Results and output files belong to this previous target.</span>}
         </p>

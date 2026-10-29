@@ -24,14 +24,15 @@ export function DocumentTabs(props: DocumentTabsProps): ReactElement {
               name={
                 document.kind === 'code' || document.kind === 'asset'
                   ? 'file'
-                  : document.kind === 'menu' ? 'menu'
-                  : document.kind === 'restgo'
-                    ? 'database'
-                    : document.kind === 'styles'
-                      ? 'palette'
-                      : document.kind === 'reusable'
-                        ? 'layers'
-                        : 'home'
+                  : document.kind === 'menu'
+                    ? 'menu'
+                    : document.kind === 'restgo'
+                      ? 'database'
+                      : document.kind === 'styles'
+                        ? 'palette'
+                        : document.kind === 'reusable'
+                          ? 'layers'
+                          : 'home'
               }
             />
             <span>{document.label}</span>

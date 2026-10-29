@@ -23,7 +23,10 @@ export function isPreviewRouteMessage(
     path.length <= 8192 &&
     path.startsWith('/') &&
     !path.startsWith('//') &&
-    !/[\u0000-\u001f\u007f\\]/u.test(path)
+    !Array.from(path).some((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127 || character === '\\';
+    })
   );
 }
 

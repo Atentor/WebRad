@@ -607,8 +607,7 @@ export function CodeEditor({
       selection === null || model === null ? 0 : model.getValueLengthInRange(selection);
     const domNode = editor.getDomNode();
     if (domNode !== null) {
-      domNode.dataset.cursorPosition =
-        `Line ${String(position.lineNumber)}, column ${String(position.column)}`;
+      domNode.dataset.cursorPosition = `Line ${String(position.lineNumber)}, column ${String(position.column)}`;
       domNode.dataset.selectionLength = String(selectionLength);
     }
     onCursorChangeRef.current?.({

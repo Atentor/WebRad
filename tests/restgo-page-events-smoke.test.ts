@@ -27,26 +27,26 @@ it.each(['textarea', 'edit-context'])(
     <button role="tab" aria-label="Events"></button>
     <button aria-label="Save (Ctrl+S)"></button>
     ${['OnLogin', 'OnLogout', 'OnUnauthenticated'].map((name) => `<div class="wr-inspector-event-row"><label>${name}</label></div>`).join('')}
-    <div class="monaco-editor"><span></span>${inputMode === 'textarea' ? '<textarea class="inputarea"></textarea>' : '<div class="native-edit-context" tabindex="0"></div>'}</div>
+    <div class="monaco-editor" data-cursor-position="Line 1, column 1"><span></span>${inputMode === 'textarea' ? '<textarea class="inputarea"></textarea>' : '<div class="native-edit-context" tabindex="0"></div>'}</div>
     <div class="wr-status-position" aria-label="Line 1, column 1"></div>
   `;
     const editor = document.querySelector('.monaco-editor')!;
     const textarea = editor.querySelector<HTMLElement>('textarea, .native-edit-context')!;
     const text = editor.querySelector('span')!;
-    const status = document.querySelector('.wr-status-position')!;
+    const status = document.querySelector('.monaco-editor')!;
     document.querySelectorAll('.wr-inspector-event-row').forEach((row, index) => {
       row.addEventListener('dblclick', () => {
         textarea.blur();
         currentHandler = '';
         text.textContent = '';
-        status.setAttribute('aria-label', 'Line 1, column 1');
+        status.setAttribute('data-cursor-position', 'Line 1, column 1');
         // Monaco exists immediately, but native input is unavailable until navigation finishes.
         timers.push(
           setTimeout(() => {
             currentHandler = handlers[index]!;
             text.textContent = currentHandler;
             textarea.focus();
-            status.setAttribute('aria-label', 'Line 20, column 5');
+            status.setAttribute('data-cursor-position', 'Line 20, column 5');
           }, 100),
         );
       });

@@ -854,7 +854,7 @@
             "to": "#e9d5ff"
           },
           "borderRadius": {
-            "value": 6,
+            "value": 8,
             "unit": "px"
           },
           "borderStyle": "solid",
@@ -1090,7 +1090,7 @@
             "to": "var(--wr-palette-aurora-lavender)"
           },
           "borderRadius": {
-            "value": 6,
+            "value": 8,
             "unit": "px"
           },
           "borderStyle": "solid",
@@ -1102,16 +1102,18 @@
           "buttonContentMode": "text-icon",
           "buttonIconPosition": "left",
           "buttonIconSize": {
-            "value": 16,
+            "value": 27,
             "unit": "px"
           },
           "cursor": "pointer",
           "fontFamily": "sans",
-          "fontWeight": "semibold",
+          "fontWeight": "medium",
           "textColor": "var(--wr-palette-aurora-white)",
           "transitionDuration": 200,
           "transitionProperty": "all",
-          "transitionTimingFunction": "easeOut"
+          "transitionTimingFunction": "easeOut",
+          "justifyContent": "start",
+          "textAlign": "left"
         },
         "hover": {
           "backgroundGradient": {
@@ -1228,7 +1230,7 @@
           "dataGridButtonBackgroundColor": "#e0e7ff",
           "dataGridButtonBorderColor": "#c7d2fe",
           "dataGridButtonBorderRadius": {
-            "value": 6,
+            "value": 8,
             "unit": "px"
           },
           "dataGridButtonBorderStyle": "solid",

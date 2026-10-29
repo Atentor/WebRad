@@ -54,7 +54,8 @@ export function PreviewWorkspace({
         event.source !== frameRef.current?.contentWindow ||
         event.origin !== origin ||
         !isPreviewRouteMessage(event.data)
-      ) return;
+      )
+        return;
       setRoute({ url, path: event.data.path });
     };
     window.addEventListener('message', receiveRoute);
@@ -109,7 +110,9 @@ export function PreviewWorkspace({
           className="wr-preview-stop"
           type="button"
           aria-label="Stop preview"
-          title={buildFailed ? 'Stop preview and review Problems' : 'Stop preview and return to the IDE'}
+          title={
+            buildFailed ? 'Stop preview and review Problems' : 'Stop preview and return to the IDE'
+          }
           onClick={onStop}
         >
           <Icon name="stop" />
@@ -123,7 +126,13 @@ export function PreviewWorkspace({
           style={{ width: DESIGNER_VIEWPORTS[viewport].width ?? '100%' }}
         >
           <ErrorBoundary area="Preview">
-            <PreviewPane url={url} running={building} diagnostics={diagnostics} frameRef={frameRef} onFrameLoad={requestRoute} />
+            <PreviewPane
+              url={url}
+              running={building}
+              diagnostics={diagnostics}
+              frameRef={frameRef}
+              onFrameLoad={requestRoute}
+            />
           </ErrorBoundary>
         </div>
       </main>
