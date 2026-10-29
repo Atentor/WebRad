@@ -17,8 +17,8 @@ fallback stack. Failure diagnostics include computed typography. A real isolated
 Electron probe confirmed that Enter key transitions alone do not insert a newline
 into a textarea; the list-editing smoke now includes the native character event.
 Another isolated Electron probe confirmed that sandboxed inline HTML rejects
-`WebFrameMain.executeJavaScript`. HTML smoke reads the owned iframe through a
-DevTools isolated world instead, locating its target from the parent DOM node
+`WebFrameMain.executeJavaScript`. HTML smoke reads the owned iframe through the
+DevTools DOM/CSS protocol, locating its target from the parent DOM node
 and cleaning up its sessions. Script permissions and same-origin isolation stay
 unchanged; content, computed CSS, geometry and screenshot requirements remain.
 The HTML declaration generator uses the repository Prettier configuration, so
@@ -52,7 +52,19 @@ uses the debugger frame tree to resolve in-process documents rather than relying
 on the Electron child-frame URL/process projection, and retains the last owner,
 target/tree or evaluation result in timeout diagnostics. Both isolated-process
 and same-process local probes retain the empty sandbox. Hosted confirmation of
-this Linux follow-up remains required; no deadline or assertion was removed.
+this Linux follow-up remained required; no deadline or assertion was removed.
+
+Commit `593202f` subsequently passed security and complete release verification
+on Windows x64 and both macOS architectures. Linux packaged smoke and both
+development quality smokes failed because the isolated execution context returned
+no matching heading, despite finding the iframe. Replaced execution-context
+evaluation with native DevTools DOM text, computed CSS and box-model inspection,
+covering both embedded and out-of-process documents. Local probes confirmed the
+same heading, text, colors, four padding edges, nonzero geometry and empty sandbox
+in both process arrangements. Fresh hosted verification is required for this
+follow-up; exact content, isolation, screenshot and timing requirements remain.
+The complete local development smoke, strict typecheck and focused main-process
+lint passed with the native DOM/CSS inspection in place.
 
 ## Local release-candidate validation: 2026-10-29
 

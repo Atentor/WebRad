@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { BrowserWindow, WebFrameMain } from 'electron';
 import { loadProjectFiles } from './project-files';
-import { inspectHtmlSmokeDocument } from './html-smoke-document';
+import { inspectHtmlSmokeDocument, type HtmlSmokeDocument } from './html-smoke-document';
 import { stopPreviewSmoke } from './preview-workspace-smoke';
 
 const html = `<style>
@@ -112,20 +112,14 @@ function findFrame(frame: WebFrameMain, url: string): WebFrameMain | undefined {
 async function htmlDocument(
   window: BrowserWindow,
   parent: WebFrameMain,
-): Promise<{ executeJavaScript(expression: string, userGesture?: boolean): Promise<unknown> }> {
+): Promise<HtmlSmokeDocument> {
   let lastInspection: unknown;
-  const executeJavaScript = (expression: string): Promise<unknown> =>
-    inspectHtmlSmokeDocument(window, parent, expression, (detail) => {
-      lastInspection = detail;
-    });
   const deadline = Date.now() + 10_000;
   for (;;) {
-    if (
-      (await executeJavaScript(
-        `document.querySelector('#html-smoke strong')?.textContent === 'HTML & CSS'`,
-      )) === true
-    )
-      return { executeJavaScript };
+    const document = await inspectHtmlSmokeDocument(window, parent, (detail) => {
+      lastInspection = detail;
+    });
+    if (document?.heading === 'HTML & CSS') return document;
     if (Date.now() >= deadline) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -374,16 +368,14 @@ export async function runHtmlSmoke(
     })()`,
   );
   const designerFrame = await htmlDocument(window, window.webContents.mainFrame);
-  const paint = `(() => {
-    const article = document.querySelector('#html-smoke');
-    const bounds = article?.getBoundingClientRect();
-    return bounds?.width > 0 && bounds?.height > 0
-      && getComputedStyle(document.body).color === 'rgb(17, 34, 51)'
-      && getComputedStyle(document.body).backgroundColor === 'rgb(240, 245, 250)'
-      && getComputedStyle(article).padding === '12px'
-      && article.querySelector('pre')?.textContent === '</script> "quotes" & accents: olá';
-  })()`;
-  if ((await designerFrame.executeJavaScript(paint, true)) !== true)
+  const paint = (document: HtmlSmokeDocument): boolean =>
+    document.width > 0 &&
+    document.height > 0 &&
+    document.color === 'rgb(17, 34, 51)' &&
+    document.backgroundColor === 'rgb(240, 245, 250)' &&
+    document.padding.every((side) => side === '12px') &&
+    document.text === '</script> "quotes" & accents: olá';
+  if (paint(designerFrame) !== true)
     throw new Error('HTML Designer content, CSS or geometry differs from the authored markup.');
   const screenshotPath = path.resolve('node_modules', '.cache', 'webrad-html-designer.png');
   await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
@@ -511,7 +503,7 @@ export async function runHtmlSmoke(
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   const frame = await htmlDocument(window, preview);
-  if ((await frame.executeJavaScript(paint, true)) !== true)
+  if (paint(frame) !== true)
     throw new Error('HTML compiled content or CSS differs from the Designer.');
   const isolated: unknown = await preview.executeJavaScript(
     `(() => {
