@@ -102,6 +102,7 @@ it.runIf(browser !== undefined).each(['fixed', 'dynamic'] as const)(
         write: false,
         outdir: 'bundle',
         platform: 'browser',
+        loader: { '.woff': 'dataurl', '.woff2': 'dataurl' },
         format: 'esm',
         define: { 'process.env.NODE_ENV': '"production"' },
       });

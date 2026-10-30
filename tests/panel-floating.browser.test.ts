@@ -23,6 +23,8 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       entryPoints: ['tests/fixtures/panel-floating-browser.tsx'],
       bundle: true,
       write: false,
+      outdir: 'bundle',
+      loader: { '.woff': 'dataurl', '.woff2': 'dataurl' },
       format: 'iife',
       platform: 'browser',
       define: { 'process.env.NODE_ENV': '"production"' },
@@ -39,9 +41,11 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
           : url === '/index'
             ? compiled.files['index.html']
             : url === '/designer.js'
-              ? bundle.outputFiles[0]!.text
-              : (compiled.files[url.slice(1)] ??
-                `<!doctype html><style>${css}</style><style>${designerCss}</style><div id="root" style="height:900px"></div><iframe id="preview" src="/index.html" style="width:800px;height:500px"></iframe><iframe id="export" src="/index" style="width:800px;height:500px"></iframe><script src="/designer.js"></script>`),
+              ? bundle.outputFiles.find((file) => file.path.endsWith('.js'))!.text
+              : url === '/designer.css'
+                ? bundle.outputFiles.find((file) => file.path.endsWith('.css'))!.text
+                : (compiled.files[url.slice(1)] ??
+                  `<!doctype html><link rel="stylesheet" href="/designer.css"><style>${css}</style><style>${designerCss}</style><div id="root" style="height:900px"></div><iframe id="preview" src="/index.html" style="width:800px;height:500px"></iframe><iframe id="export" src="/index" style="width:800px;height:500px"></iframe><script src="/designer.js"></script>`),
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));

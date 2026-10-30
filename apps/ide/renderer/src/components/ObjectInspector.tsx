@@ -703,6 +703,7 @@ function PropertyEditor({
         <div className="wr-inspector-color-control">
           <div className="wr-inspector-color-editor">
             <ColorInput
+              key={scopeId ?? id}
               className="wr-inspector-color-picker"
               value={validPickerColor(text)}
               disabled={disabled}
@@ -808,6 +809,7 @@ function PropertyEditor({
       );
     }
     case 'combo-box-config':
+    case 'charts-config':
     case 'menu-config':
     case 'report-template':
     case 'repeating-group-config':
@@ -816,6 +818,7 @@ function PropertyEditor({
       const action = property.designerAction;
       const label = {
         'combo-box-config': 'Configure ComboBox',
+        'charts-config': 'Configure Charts',
         'menu-config': 'Configure Menu',
         'report-template': 'Open Report Builder',
         'data-grid-config': 'Configure Data Grid',

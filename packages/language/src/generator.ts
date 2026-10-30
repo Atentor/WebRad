@@ -6,6 +6,7 @@ import {
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
   ComboBoxConfigurationSchema,
+  ChartsConfigurationSchema,
   RepeatingGroupConfigurationSchema,
   parsePage,
   parseReusableElement,
@@ -383,6 +384,28 @@ function apiListBindings(
   });
 }
 
+function apiChartBindings(page: PageModel): readonly {
+  readonly chart: ComponentNode;
+  readonly apiClient: ComponentNode;
+  readonly operationId: string;
+  readonly seriesId: string;
+}[] {
+  return page.components.flatMap((chart) => {
+    if (chart.type !== 'WebCharts') return [];
+    const configuration = ChartsConfigurationSchema.safeParse(chart.props.chartsConfig);
+    if (!configuration.success) return [];
+    return configuration.data.series.flatMap((series) => {
+      if (series.apiClientId === null || series.operationId === null) return [];
+      const apiClient = page.components.find(
+        (component) => component.id === series.apiClientId && component.type === 'WebApiClient',
+      );
+      return apiClient === undefined
+        ? []
+        : [{ chart, apiClient, operationId: series.operationId, seriesId: series.id }];
+    });
+  });
+}
+
 function assertKnownComponentTypes(page: PageModel, registry: ComponentRegistry): void {
   for (const component of page.components) {
     if (!registry.has(component.type)) {
@@ -448,6 +471,10 @@ function componentMemberType(
  * the wrapper's defaults instead of the model-backed Data Grid binding.
  */
 function componentInitialization(component: ComponentNode): readonly string[] {
+  if (component.type === 'WebCharts')
+    return [
+      `    this.${component.name}.chartsConfig = ${JSON.stringify(component.props.chartsConfig)};`,
+    ];
   if (component.type === 'WebRepeatingGroup')
     return [
       `    this.${component.name}.repeatingGroupConfig = ${JSON.stringify(component.props.repeatingGroupConfig)};`,
@@ -540,6 +567,7 @@ function generateDocumentSource(
   const components = page.components.filter((component) => component.id !== page.rootComponentId);
   const events = assignedEvents(page);
   const gridBindings = apiListBindings(page);
+  const chartBindings = apiChartBindings(page);
   const apiClientTypes = documentTypeDeclarations(page, options.menus);
   const isReusable = kind === 'reusable';
   const baseClass = isReusable ? 'WebReusableElementInstance' : 'WebPage';
@@ -627,6 +655,12 @@ function generateDocumentSource(
     if (repeatingGroupForComponent(page, binding.grid.id) !== undefined) continue;
     lines.push(`    this.${binding.grid.name}.bindApiClient(this.${binding.apiClient.name});`);
   }
+  for (const binding of chartBindings) {
+    if (repeatingGroupForComponent(page, binding.chart.id) !== undefined) continue;
+    lines.push(
+      `    this.${binding.chart.name}.bindApiClient(this.${binding.apiClient.name}, ${quoted(binding.operationId)}, ${quoted(binding.seriesId)});`,
+    );
+  }
   if (gridBindings.length > 0 && events.length > 0) lines.push('');
   for (const event of events) {
     if (repeatingGroupForComponent(page, event.component.id) !== undefined) continue;
@@ -649,6 +683,9 @@ function generateDocumentSource(
     const rowListBindings = gridBindings.filter(
       (binding) => repeatingGroupForComponent(page, binding.grid.id)?.id === group.id,
     );
+    const rowChartBindings = chartBindings.filter(
+      (binding) => repeatingGroupForComponent(page, binding.chart.id)?.id === group.id,
+    );
     const nestedGroups = components.filter(
       (component) =>
         component.type === 'WebRepeatingGroup' &&
@@ -665,6 +702,10 @@ function generateDocumentSource(
     for (const binding of rowListBindings)
       lines.push(
         `${indent}  ${rowComponent(binding.grid)}.bindApiClient(this.${binding.apiClient.name});`,
+      );
+    for (const binding of rowChartBindings)
+      lines.push(
+        `${indent}  dispose.push(${rowComponent(binding.chart)}.bindApiClient(this.${binding.apiClient.name}, ${quoted(binding.operationId)}, ${quoted(binding.seriesId)}));`,
       );
     for (const event of rowEvents)
       lines.push(
@@ -697,10 +738,21 @@ function generateDocumentSource(
   const nonvisualComponents = components.filter(
     (component) => !registry.require(component.type).visual,
   );
-  if (boundComboBoxes.length > 0 || nonvisualComponents.length > 0 || rootGroups.length > 0) {
+  const rootCharts = components.filter(
+    (component) =>
+      component.type === 'WebCharts' &&
+      repeatingGroupForComponent(page, component.id) === undefined,
+  );
+  if (
+    boundComboBoxes.length > 0 ||
+    nonvisualComponents.length > 0 ||
+    rootGroups.length > 0 ||
+    rootCharts.length > 0
+  ) {
     lines.push('', '  public override dispose(): void {');
     for (const binding of boundComboBoxes) lines.push(`    this.${binding.grid.name}.dispose();`);
     for (const group of rootGroups) lines.push(`    this.${group.name}.dispose();`);
+    for (const chart of rootCharts) lines.push(`    this.${chart.name}.dispose();`);
     for (const component of nonvisualComponents)
       lines.push(`    this.${component.name}.dispose();`);
     lines.push('    super.dispose();', '  }');

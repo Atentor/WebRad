@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { SettingsValidationContext } from './settings-validation';
+import { NativeColorInput } from './NativeColorInput';
 
 function describeControls(children: ReactNode, errorId: string): ReactNode {
   return Children.map(children, (child) => {
@@ -20,7 +21,10 @@ function describeControls(children: ReactNode, errorId: string): ReactNode {
       }>(child)
     )
       return child;
-    if (typeof child.type === 'string' && ['input', 'select', 'textarea'].includes(child.type)) {
+    if (
+      child.type === NativeColorInput ||
+      (typeof child.type === 'string' && ['input', 'select', 'textarea'].includes(child.type))
+    ) {
       return cloneElement(child, {
         'aria-invalid': true,
         'aria-describedby': [child.props['aria-describedby'], errorId].filter(Boolean).join(' '),

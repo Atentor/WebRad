@@ -161,7 +161,7 @@ describe('project factories', () => {
       cornerColor: 'var(--wr-theme-scrollbar-track)',
     });
     expect(project.pages.map((page) => page.name)).toEqual(['index', '404']);
-    expect(project.styles).toHaveLength(18);
+    expect(project.styles).toHaveLength(19);
     expect(project.styles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ componentType: 'WebPage', preset: 'default' }),
@@ -177,6 +177,7 @@ describe('project factories', () => {
         expect.objectContaining({ componentType: 'WebImage', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebListBox', preset: 'default' }),
         expect.objectContaining({ componentType: 'WebDataGrid', preset: 'default' }),
+        expect.objectContaining({ componentType: 'WebCharts', preset: 'default' }),
       ]),
     );
     expect(project.pages[0]).toMatchObject({

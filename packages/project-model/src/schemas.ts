@@ -27,6 +27,7 @@ import { ApiClientConfigurationSchema } from './api-client.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
 import { CurrentRowBindingsSchema, RepeatingGroupConfigurationSchema } from './repeating-group.js';
 import { ComboBoxConfigurationSchema } from './combo-box.js';
+import { ChartsConfigurationSchema } from './charts.js';
 import { VideoUploadPropertiesSchema } from './video-upload.js';
 import { VideoPlayerPropertiesSchema } from './video-player.js';
 import { defaultComponentStyleId, DEFAULT_COMPONENT_STYLE_DEFINITIONS } from './default-styles.js';
@@ -696,6 +697,18 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
               message: 'Invalid Report Builder configuration: ' + issue.message,
               path: ['props', ...issue.path],
             });
+      }
+      if (component.type === 'WebCharts') {
+        const result = ChartsConfigurationSchema.safeParse(component.props.chartsConfig);
+        if (!result.success) {
+          for (const issue of result.error.issues) {
+            context.addIssue({
+              code: 'custom',
+              message: `Invalid Charts configuration: ${issue.message}`,
+              path: ['props', 'chartsConfig', ...issue.path],
+            });
+          }
+        }
       }
       if (component.type === 'WebVideoUpload' || component.type === 'WebVideoPlayer') {
         const result = (

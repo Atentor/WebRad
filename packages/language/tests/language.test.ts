@@ -11,6 +11,7 @@ import {
   addComponent,
   bindComponentEvent,
   createDefaultComponentLayout,
+  createDefaultChartsConfiguration,
   createReusableElement,
   parsePage,
   type ComponentNode,
@@ -55,6 +56,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-image-logo', type: 'WebImage', name: 'IMGLogo' },
   { id: 'stable-list-box-results', type: 'WebListBox', name: 'LSTResultados' },
   { id: 'data-grid', type: 'WebDataGrid', name: 'DataGrid1' },
+  { id: 'charts', type: 'WebCharts', name: 'Charts1' },
   { id: 'repeating-group', type: 'WebRepeatingGroup', name: 'RepeatingGroup1' },
   { id: 'popup-dialog', type: 'WebPopup', name: 'Popup1' },
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
@@ -119,7 +121,9 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
                     visible: true,
                     enabled: true,
                   }
-                : {},
+                : fixture.type === 'WebCharts'
+                  ? { chartsConfig: createDefaultChartsConfiguration() }
+                  : {},
     events:
       fixture.type === 'WebButton'
         ? { OnClick: 'BTNMostrarClick' }

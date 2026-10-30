@@ -18,6 +18,7 @@ Start with the root [README](../README.md) to install the IDE and create a proje
 
 ## Components
 
+- [Charts](charts.md): eight chart types and up to five API-bound data series
 - [Aspect ratios](aspect-ratio.md): free or proportional sizing for Panel, Group and HTML
 - [HTML](html.md): embed HTML markup and CSS in an isolated document
 - [Icons](icons.md), [Menu](menu.md), [Timer](timer.md), and [Toggle](toggle.md)

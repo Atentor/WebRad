@@ -20,6 +20,7 @@ it.runIf(browserPath !== undefined)(
       write: false,
       format: 'esm',
       platform: 'browser',
+      loader: { '.woff': 'dataurl', '.woff2': 'dataurl' },
       define: { 'process.env.NODE_ENV': '"production"' },
     });
     const javascript = bundle.outputFiles.find((file) => file.path.endsWith('.js'))!.text;

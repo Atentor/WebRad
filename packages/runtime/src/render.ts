@@ -26,6 +26,8 @@ import {
 } from './controls.js';
 import { WebPage } from './page.js';
 import { WebDataGrid, normalizeWebDataGridConfiguration } from './data-grid.js';
+import { WebCharts } from './charts.js';
+import { normalizeWebChartsConfiguration } from './charts-data.js';
 import {
   WebRepeatingGroup,
   applyCurrentRowBindings,
@@ -629,6 +631,14 @@ runtimeComponentRegistry
       } else {
         component.value = readStringProperty(node, 'value');
       }
+    },
+  })
+  .register<WebCharts>('WebCharts', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebCharts(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.chartsConfig = normalizeWebChartsConfiguration(node.props.chartsConfig);
     },
   })
   .register<WebDataGrid>('WebDataGrid', {
@@ -1358,7 +1368,8 @@ export function mountPage(
       for (const dispose of placementDisposers) dispose();
       for (const binding of fitContentBindings.values()) binding.dispose();
       for (const component of components.values())
-        if (component instanceof WebRepeatingGroup) component.dispose();
+        if (component instanceof WebRepeatingGroup || component instanceof WebCharts)
+          component.dispose();
     },
   };
 }

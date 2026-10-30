@@ -54,6 +54,8 @@ export async function runDeploySmoke(
       const prototype = control instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLSelectElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(control, ${JSON.stringify(value)});
       control.dispatchEvent(new Event(control instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
+      if (control instanceof HTMLInputElement && control.type === 'color')
+        control.dispatchEvent(new Event('change', { bubbles: true }));
     })()`,
       true,
     );

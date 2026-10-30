@@ -149,6 +149,8 @@ async function setHex(label: string, color: string): Promise<void> {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
   setter.call(input, color);
   input.dispatchEvent(new Event('input', { bubbles: true }));
+  if (input instanceof HTMLInputElement && input.type === 'color')
+    input.dispatchEvent(new Event('change', { bubbles: true }));
   await tick();
 }
 function popup(): HTMLElement {

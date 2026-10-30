@@ -1,5 +1,114 @@
 # WebRAD delivery plan
 
+## Release corrections and template verification: 2026-10-30
+
+Added the missing API-bound Charts example to the editable Aurora Data page,
+including a typed point-selection handler and tutorial documentation. Preserved
+the template's all-components guard. Browser fixtures now load both WOFF/WOFF2
+fonts and serve extracted Designer CSS. Report Builder color helpers emit the
+final native change before changing selection, and the style workflow expects
+the protected Default Charts style. Resource smoke readiness checks the selected
+document tab instead of requiring a new unit's name inside its empty source.
+Formatted the affected files and regenerated runtime sources/declarations.
+
+Focused browser checks passed for the eight former bundling failures and both
+Report Builder cases. Added explicit template coverage: both templates serialize
+in all four themes, compile and navigate through every page in real Chromium,
+using Preview and exported output. Aurora loads all five bundled chart points
+and executes its typed point handler through native browser input. Template
+verification passed, with screenshots retained under
+artifacts/release-fixes-20261030-200934/templates. Complete npm run validate passed:
+1,763 tests in 230 files, no failures or skips, strict TypeScript, lint, generated
+sources, formatting and Windows x64 packaging. All 13 Electron variants passed,
+including standard development/packaged Charts workflows and both resource
+workflows. Final evidence is in artifacts/release-fixes-20261030-200934/REPORT.md.
+Local Windows validation is complete; exact-SHA hosted verification on all four
+required platforms remains necessary before a release tag. No installer, version
+change, commit, push, tag or publication was performed.
+
+## Full local release-candidate validation: 2026-10-30
+
+Executed the requested complete local matrix on the existing Charts/color-input
+working tree over 28d08ad170fd44dc115cf0d203945b5c4a1f30df, using isolated Node
+26.12.1/npm 12.2.1 and Chrome. Icons, generated sources, strict TypeScript, lint and
+Windows x64 packaging passed. Portable tests completed with 1,750 passed,
+11 failed and no skips across 229 files. Eight browser cases failed fixture
+bundling after Charts introduced font CSS; two Report Builder cases failed color
+assertions; one IDE case expected the previous default-style count. Formatting
+failed in 15 files. Nine of 13 Electron variants passed. Both standard smokes
+stopped because Aurora lacks registered WebCharts; both resource smokes timed out
+waiting for ResourceHelpers inside an editor containing export {};. Later standard
+workflows were not reached. Original diagnostics and projects are retained;
+details and command logs are in
+artifacts/release-validation-20261030-195549/REPORT.md. No product/test corrections,
+installer, version change, commit, push, tag or publication were performed. Release
+remains blocked pending corrections, complete local revalidation and exact-SHA
+hosted verification on all four required native platforms.
+
+## Charts preview stays visible while editing: 2026-10-30
+
+Bounded the Charts dialog body to the available viewport and gave configuration
+controls their own scroll area. Scrolling the fields leaves the preview in place;
+on narrow windows the preview occupies a separate row above the scrollable fields.
+Header and Save/Cancel remain visible. Updated existing Electron smoke geometry
+interactions and required evidence to cover preview position after scrolling the
+controls at desktop/narrow widths and in both themes. Validation was not requested
+or run; rendered geometry verification remains pending.
+
+## Shared native color picker responsiveness: 2026-10-30
+
+Centralized native color inputs across Inspector, Styles, Themes, Menu, Charts,
+project settings and Report Builder. Continuous native input stays local to the
+picker; editor/model updates receive the latest color after 120 ms of inactivity,
+or immediately on native change/blur. This avoids rerendering whole editors and
+rebuilding previews for each drag sample. External values still synchronize;
+unmounting cancels pending work and selection-scoped fields remount on identity
+changes. Theme swatches remain immediate, and PWA fields retain accessible inline
+validation. Updated existing Electron/browser fixture color interactions to emit
+the final native change, including required Charts smoke evidence. No validation
+commands were requested or run; native drag responsiveness remains unverified.
+
+## Charts typography and title icon: 2026-10-30
+
+Added independent general/legend font selectors, general/title/subtitle/legend
+text colors with inheritance resets, and the existing searchable Lucide picker
+for an optional title icon. The shared SVG projection applies these choices in
+Designer, the live editor preview and generated applications. Older chart
+configurations retain inherited appearance through additive optional/defaulted
+fields in schema version 1. The compiler includes selected font faces/licenses;
+design-time previews load local font families. Updated the existing Charts smoke
+interactions and required evidence for colors/fonts, title icon and save/cancel.
+No tests, smokes, typecheck, lint, formatting checks, builds or packaging were
+requested or run. Regenerated runtime sources and Monaco declarations with
+npm run runtime:sources. Runtime/visual verification remains pending.
+
+## Data Grid and Charts component icons: 2026-10-30
+
+Updated the central registry icons: Data Grid uses the Lucide table glyph with
+visible rows and columns; Charts uses combined columns and a trend line. Shared
+component rendering applies both icons consistently in the palette and element
+tree. Updated the existing Electron palette interactions and required development
+and packaged smoke evidence for these glyphs. Validation was not requested or run.
+
+## Charts component: 2026-10-30
+
+Implemented a first-class WebCharts component across the Project Model,
+Registry, Designer, browser runtime, compiler and Monaco. The confirmed limit
+is five independent API-bound series, with multiple response rows per series.
+The editor covers eight chart types, schema-driven label/numeric-value bindings,
+presentation controls and transactional Save/Cancel. Typed point-click events
+carry label, value and stable series identity. Shared SVG rendering covers missing
+categories, negative values, duplicate-label occurrences, keyboard activation,
+accessible data tables and extreme finite measurements. Added the protected,
+theme-linked Default Charts style and chart/client clipboard reference remapping.
+Generated runtime sources and public declarations with npm run runtime:sources;
+reusable instances own their subscriptions. Updated existing component/style
+fixtures and the real development/packaged smoke interactions and required
+evidence for the Charts editor, source limit, save/reopen/cancel and screenshots.
+These smoke changes have not been executed. No tests, smokes, typecheck, lint,
+formatting checks, builds or packaging were requested or run. No commit, push,
+tag, version change or publication was performed.
+
 ## Hosted lint correction: 2026-10-30
 
 Inspected all six failed jobs for 9eb7de75ca9c287b14979d6cf7df020b7c1476fe:

@@ -78,6 +78,8 @@ async function setField(window: BrowserWindow, selector: string, value: string):
     const prototype = control instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLSelectElement.prototype;
     Object.getOwnPropertyDescriptor(prototype, 'value').set.call(control, ${JSON.stringify(value)});
     control.dispatchEvent(new Event(control instanceof HTMLInputElement ? 'input' : 'change', { bubbles: true }));
+    if (control instanceof HTMLInputElement && control.type === 'color')
+      control.dispatchEvent(new Event('change', { bubbles: true }));
   })()`,
     true,
   );

@@ -2,6 +2,7 @@ import {
   createDefaultApiClientConfiguration,
   applyDefaultComponentStyle,
   createDefaultDataGridConfiguration,
+  createDefaultChartsConfiguration,
   createDefaultRepeatingGroupConfiguration,
   createPage,
   createProject,
@@ -290,7 +291,7 @@ function overview(
         text('CompositionTitle', 'LAYOUT, DATA AND MEDIA', 30),
         paragraph(
           'CompositionList',
-          'Page, Panel, Group, Reusable Component, Menu, ProgressBar, Icons, Image, HTML, Data Grid, Repeating Group and Video Player.',
+          'Page, Panel, Group, Reusable Component, Menu, ProgressBar, Icons, Image, HTML, Data Grid, Charts, Repeating Group and Video Player.',
         ),
         paragraph(
           'CompositionDetail',
@@ -433,7 +434,7 @@ function dataControls(): readonly DemoNode[] {
     text('DataHeading', 'PROJECTS / DATA COMPONENTS', 30),
     paragraph(
       'DataIntro',
-      'Data Grid and Repeating Group share the same example projects from a bundled JSON asset, loaded through a real API Client request.',
+      'Data Grid, Charts and Repeating Group share the same example projects from a bundled JSON asset, loaded through a real API Client request.',
     ),
     button('ReloadProjects', 'Reload example data', 'LoadProjects', 'refresh'),
     status('DataStatus', 'Open Preview to load the bundled example projects.', 44),
@@ -466,7 +467,41 @@ function dataControls(): readonly DemoNode[] {
         events: { OnCellClick: 'SelectGridProject' },
       },
     ]),
-    status('SelectedProject', 'Select a grid cell or a repeated card to inspect a project.', 48),
+    panel('ChartsPanel', [
+      text('ChartsHeading', 'CHARTS / PROJECT PROGRESS', 30),
+      {
+        type: 'WebCharts',
+        name: 'ProjectsChart',
+        height: 320,
+        props: {
+          chartsConfig: {
+            ...createDefaultChartsConfiguration(),
+            title: 'Project progress',
+            subtitle: 'Select a bar to inspect a project.',
+            valueSuffix: '%',
+            showLabels: true,
+            series: [
+              {
+                id: defaultIdFactory(),
+                name: 'Progress',
+                color: '#6366f1',
+                apiClientId: clientId,
+                operationId,
+                listPath: '/projects',
+                labelField: '/name',
+                valueField: '/progress',
+              },
+            ],
+          },
+        },
+        events: { OnPointClick: 'SelectChartProject' },
+      },
+    ]),
+    status(
+      'SelectedProject',
+      'Select a grid cell, chart point or repeated card to inspect a project.',
+      48,
+    ),
     panel('RepeaterPanel', [
       text('RepeaterHeading', 'REPEATING GROUP', 48),
       {

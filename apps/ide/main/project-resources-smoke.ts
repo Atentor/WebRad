@@ -72,7 +72,7 @@ export async function runProjectResourcesSmoke(
     await waitFor(
       `document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea') !== null
         && document.querySelector('[role=dialog]') === null
-        && document.querySelector('.monaco-editor')?.textContent?.includes(${JSON.stringify(name)}) === true`,
+        && document.querySelector('.wr-document-tabs [role=tab][aria-selected=true] > button > span')?.textContent === ${JSON.stringify(name + '.ts')}`,
     );
     await window.webContents.executeJavaScript(
       "document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea').focus()",

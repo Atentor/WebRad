@@ -587,6 +587,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebMenu,
   WebComboBox,
   WebDataGrid,
+  WebCharts,
   WebRepeatingGroup,
   WebEdit,
   WebFileUpload,
@@ -626,6 +627,7 @@ class EditorPage extends WebPage {
     image: WebImage,
     list: WebListBox,
     grid: WebDataGrid,
+    charts: WebCharts,
     repeatingGroup: WebRepeatingGroup,
     popup: WebPopup,
     api: WebApiClient,
@@ -653,6 +655,7 @@ panel./*@panel*/caption;
     image./*@image*/objectFit;
     list./*@list*/selectedIndex;
     grid./*@grid*/configuration;
+    charts./*@charts*/chartsConfig;
     repeatingGroup./*@repeatingGroup*/rows;
     popup./*@popup*/modal;
     api./*@api*/request;
@@ -816,6 +819,7 @@ panel./*@panel*/caption;
       WebVideoUpload: 'videoUpload',
       WebVideoPlayer: 'videoPlayer',
       WebDataGrid: 'grid',
+      WebCharts: 'charts',
       WebRepeatingGroup: 'repeatingGroup',
       WebPage: 'page',
       WebImage: 'image',

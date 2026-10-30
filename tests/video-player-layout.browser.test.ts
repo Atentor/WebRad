@@ -129,6 +129,7 @@ export class index extends indexGenerated {
       write: false,
       outdir: 'bundle',
       platform: 'browser',
+      loader: { '.woff': 'dataurl', '.woff2': 'dataurl' },
       format: 'esm',
       define: { 'process.env.NODE_ENV': '"production"' },
     });

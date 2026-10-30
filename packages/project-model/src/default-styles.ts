@@ -401,6 +401,24 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Charts',
+    componentType: 'WebCharts',
+    states: {
+      base: {
+        backgroundColor: '#ffffff',
+        textColor: '#0f172a',
+        borderWidth: px(1),
+        borderStyle: 'solid',
+        borderColor: '#e2e8f0',
+        borderRadius: px(12),
+        boxShadow: 'sm',
+        fontFamily: 'roboto',
+        fontSize: px(12),
+      },
+      disabled: { opacity: 60 },
+    },
+  },
+  {
     name: 'Default Combo Box',
     componentType: 'WebComboBox',
     states: {

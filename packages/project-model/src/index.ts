@@ -1,5 +1,6 @@
 export * from './api-client.js';
 export * from './combo-box.js';
+export * from './charts.js';
 export * from './color-palette.js';
 export * from './project-themes.js';
 export * from './default-styles.js';

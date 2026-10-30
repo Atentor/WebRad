@@ -87,7 +87,7 @@ it.runIf(browser !== undefined)(
         };
         const setValue = async (label: string, value: string): Promise<void> => {
           await evaluate(
-            `(() => { const input = document.querySelector('[aria-label=' + ${JSON.stringify(JSON.stringify(label))} + ']'); const proto = input.tagName === 'SELECT' ? HTMLSelectElement.prototype : input.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event(input.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); })()`,
+            `(() => { const input = document.querySelector('[aria-label=' + ${JSON.stringify(JSON.stringify(label))} + ']'); const proto = input.tagName === 'SELECT' ? HTMLSelectElement.prototype : input.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event(input.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); if (input.type === 'color') input.dispatchEvent(new Event('change', { bubbles: true })); })()`,
           );
         };
         await click('Select Customers');

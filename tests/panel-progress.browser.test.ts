@@ -23,6 +23,8 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
       entryPoints: ['tests/fixtures/panel-progress-browser.tsx'],
       bundle: true,
       write: false,
+      outdir: 'bundle',
+      loader: { '.woff': 'dataurl', '.woff2': 'dataurl' },
       format: 'iife',
       platform: 'browser',
       define: { 'process.env.NODE_ENV': '"production"' },
@@ -30,14 +32,20 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
     const server = createServer((request, response) => {
       response.setHeader(
         'Content-Type',
-        request.url === '/designer.js' ? 'text/javascript' : 'text/html',
+        request.url === '/designer.js'
+          ? 'text/javascript'
+          : request.url === '/designer.css'
+            ? 'text/css'
+            : 'text/html',
       );
       response.end(
         request.url === '/index.html'
           ? compiled.previewHtml
           : request.url === '/designer.js'
-            ? bundle.outputFiles[0]!.text
-            : `<!doctype html><style data-webrad-project-styles>${css}</style><div id="root"></div><script src="/designer.js"></script>`,
+            ? bundle.outputFiles.find((file) => file.path.endsWith('.js'))!.text
+            : request.url === '/designer.css'
+              ? bundle.outputFiles.find((file) => file.path.endsWith('.css'))!.text
+              : `<!doctype html><link rel="stylesheet" href="/designer.css"><style data-webrad-project-styles>${css}</style><div id="root"></div><script src="/designer.js"></script>`,
       );
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));

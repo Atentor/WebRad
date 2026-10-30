@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { reportGroupAppearance, type WebReportGroupElement } from '@webrad/runtime/report-template';
 import { ReportNumberField } from './ReportNumberField';
+import { NativeColorInput } from './NativeColorInput';
 
 interface Props {
   readonly element: WebReportGroupElement;
@@ -29,21 +30,21 @@ export function ReportGroupInspector({ element, onChange, onEdit }: Props): Reac
       {appearance.backgroundColor !== null && (
         <label>
           <span>Background color</span>
-          <input
-            type="color"
+          <NativeColorInput
+            key={element.id}
             aria-label="Report group background color"
             value={appearance.backgroundColor}
-            onChange={(event) => change({ backgroundColor: event.currentTarget.value })}
+            onChange={(backgroundColor) => change({ backgroundColor })}
           />
         </label>
       )}
       <label>
         <span>Border color</span>
-        <input
-          type="color"
+        <NativeColorInput
+          key={element.id}
           aria-label="Report group border color"
           value={appearance.borderColor}
-          onChange={(event) => change({ borderColor: event.currentTarget.value })}
+          onChange={(borderColor) => change({ borderColor })}
         />
       </label>
       <div className="wr-report-field-grid">

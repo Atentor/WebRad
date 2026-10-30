@@ -526,3 +526,23 @@ when loading projects/manifests; custom styles and authored effects are retained
 ## Browser routes
 
 Format v2 settings add `routingMode` (`history` by default, or `hash`) and `routingBasePath` (`/` by default). Page paths are derived from lowercase page names; the mandatory routes are `/index` and `/404`. Loading removes obsolete root `props.routePath` values, preserving component IDs. Custom route configuration is no longer supported. See [Browser routing](browser-routing.md) for path validation, compatibility and hosting requirements.
+
+## Charts
+
+`WebCharts.props.chartsConfig` stores a strict version-1 configuration for eight
+chart types and up to five independently bound series. Each series has a stable
+ID, name, six-digit hexadecimal color and API Client/operation/list/label/value
+JSON Pointer binding. Value fields require a numeric response contract. Titles,
+legend/grid/label settings, smooth/stacked presentation, doughnut hole size,
+number formatting and the empty message belong to this configuration. Responses,
+SVG elements and selected points remain transient. Missing protected Default
+Charts styles are restored through the normal default-style migration, retaining
+custom styles and bindings. This is an additive project-format-v2 extension.
+See [Charts](charts.md).
+
+Chart appearance also accepts optional `fontFamily` and `legendFontFamily`
+(`inherit` or a supported project font ID), nullable `textColor`, `titleColor`,
+`subtitleColor` and `legendColor` (six-digit hex), and nullable `titleIcon`
+(a Lucide icon name). Omitted fields load with inherited typography/colors and
+no icon. These settings remain in `chartsConfig` schema version 1; selected font
+assets belong to generated output and are not duplicated in project JSON.

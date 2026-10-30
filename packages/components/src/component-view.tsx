@@ -4,9 +4,12 @@ import { LucideGraphic } from './lucide-graphic.js';
 import { MenuView } from './menu-view.js';
 import { ProgressBarGraphic } from './progress-bar-graphic.js';
 import { PanelProgressGraphic } from './panel-progress-graphic.js';
+import { ChartsPreview } from './charts-preview.js';
 import { ProjectAssetsContext, resolveProjectImageSource } from './project-assets.js';
 import {
   normalizeDataGridConfiguration,
+  ChartsConfigurationSchema,
+  createDefaultChartsConfiguration,
   normalizeRepeatingGroupConfiguration,
   type Bounds,
   type ComponentNode,
@@ -497,6 +500,17 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
     </span>
   ),
   WebHtml: HtmlView,
+  WebCharts: ({ node, designTime, styleClassName }) => {
+    const parsed = ChartsConfigurationSchema.safeParse(node.props.chartsConfig);
+    return (
+      <div {...sharedAttributes(node, designTime, styleClassName)}>
+        <ChartsPreview
+          configuration={parsed.success ? parsed.data : createDefaultChartsConfiguration()}
+          sample={designTime === true}
+        />
+      </div>
+    );
+  },
   WebEdit: ({ node, designTime, styleClassName, onEvent }) => (
     <input
       {...sharedAttributes(node, designTime, styleClassName)}

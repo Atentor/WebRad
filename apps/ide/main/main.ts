@@ -48,7 +48,7 @@ import {
   runRestGoPageEventsSmoke,
   runRestGoSettingsSmoke,
 } from './restgo-smoke';
-import { runDataGridConfigurationSmoke } from './data-grid-smoke';
+import { runChartsConfigurationSmoke, runDataGridConfigurationSmoke } from './data-grid-smoke';
 import { runTimerSmoke } from './timer-smoke';
 import { runIconSmoke } from './icon-smoke';
 import { runHtmlSmoke } from './html-smoke';
@@ -1590,6 +1590,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await captureDesignerSmokeScreenshot(window);
   await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runDataGridConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runChartsConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runTimerSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runIconSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runHtmlSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });

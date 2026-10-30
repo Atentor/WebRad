@@ -13,6 +13,7 @@ import { REPORT_BAND_LABELS, type ReportRepeaterSection } from '@webrad/designer
 import { ReportNumberField as NumberField } from './ReportNumberField';
 import { ReportRepeaterInspector } from './ReportRepeaterInspector';
 import { ReportGroupInspector } from './ReportGroupInspector';
+import { NativeColorInput } from './NativeColorInput';
 
 interface ReportElementInspectorProps {
   readonly template: WebReportTemplate;
@@ -170,13 +171,11 @@ export function ReportElementInspector({
                 />
                 <label>
                   <span>Color</span>
-                  <input
+                  <NativeColorInput
+                    key={element.id}
                     aria-label="Report text color"
-                    type="color"
                     value={element.color}
-                    onChange={(event) =>
-                      onElementChange({ ...element, color: event.currentTarget.value })
-                    }
+                    onChange={(color) => onElementChange({ ...element, color })}
                   />
                 </label>
               </div>
@@ -213,13 +212,11 @@ export function ReportElementInspector({
               <legend>Line</legend>
               <label>
                 <span>Color</span>
-                <input
+                <NativeColorInput
+                  key={element.id}
                   aria-label="Report line color"
-                  type="color"
                   value={element.color}
-                  onChange={(event) =>
-                    onElementChange({ ...element, color: event.currentTarget.value })
-                  }
+                  onChange={(color) => onElementChange({ ...element, color })}
                 />
               </label>
               <NumberField

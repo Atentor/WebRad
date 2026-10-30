@@ -7,6 +7,7 @@ import apiClientTypings from './api-client-typings.generated.json';
 import videoUploadTypings from './video-upload-typings.generated.json';
 import videoPlayerTypings from './video-player-typings.generated.json';
 import repeatingGroupTypings from './repeating-group-typings.generated.json';
+import chartsTypings from './charts-typings.generated.json';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 import { LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
 
@@ -32,6 +33,7 @@ ${themeTypings.source}
 ${menuTypings.source}
 ${reportBuilderTypings.source}
 ${repeatingGroupTypings.source}
+${chartsTypings.source}
   export interface RestGoRuntimeConfiguration {
     readonly enabled: boolean;
     readonly baseUrl: string;

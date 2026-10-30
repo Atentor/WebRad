@@ -58,6 +58,7 @@ import {
   type ComponentStyleModel,
   type DataGridConfiguration,
   type ComboBoxConfiguration,
+  type ChartsConfiguration,
   type RepeatingGroupConfiguration,
   type CurrentRowBinding,
   normalizeCurrentRowBindings,
@@ -106,6 +107,7 @@ import { DataGridConfigurationDialog } from './components/DataGridConfigurationD
 import { MenuConfigurationDialog } from './components/MenuConfigurationDialog';
 import type { WebMenuConfiguration } from '@webrad/runtime/menu-model';
 import { ComboBoxConfigurationDialog } from './components/ComboBoxConfigurationDialog';
+import { ChartsConfigurationDialog } from './components/ChartsConfigurationDialog';
 import { ComboBoxItemsDialog } from './components/ComboBoxItemsDialog';
 import { RepeatingGroupConfigurationDialog } from './components/RepeatingGroupConfigurationDialog';
 import { ReportBuilderDialog } from './components/ReportBuilderDialog';
@@ -287,6 +289,9 @@ export function App(): ReactElement {
   const [comboBoxConfiguratorComponentId, setComboBoxConfiguratorComponentId] = useState<
     string | null
   >(null);
+  const [chartsConfiguratorComponentId, setChartsConfiguratorComponentId] = useState<string | null>(
+    null,
+  );
   const [dataGridConfiguratorComponentId, setDataGridConfiguratorComponentId] = useState<
     string | null
   >(null);
@@ -413,6 +418,12 @@ export function App(): ReactElement {
       ) ?? null,
     [activePage, comboBoxConfiguratorComponentId],
   );
+  const chartsConfiguratorComponent = useMemo(
+    () =>
+      activePage?.components.find((component) => component.id === chartsConfiguratorComponentId) ??
+      null,
+    [activePage, chartsConfiguratorComponentId],
+  );
   const repeatingGroupConfiguratorComponent = useMemo(
     () =>
       activePage?.components.find(
@@ -510,6 +521,7 @@ export function App(): ReactElement {
       setCurrentRowBindingsComponentId(null);
       setComboBoxConfiguratorComponentId(null);
       setAddDocumentDialogKind(null);
+      setChartsConfiguratorComponentId(null);
       setProjectSettingsDialogOpen(false);
       addOutput('PROJECT', `Opened ${session.project.name}.`);
     },
@@ -1281,6 +1293,8 @@ export function App(): ReactElement {
       } else if (action === 'combo-box-configurator') {
         setComboBoxEditorMode('api');
         setComboBoxConfiguratorComponentId(component.id);
+      } else if (action === 'charts-configurator') {
+        setChartsConfiguratorComponentId(component.id);
       } else if (action === 'combo-box-items' || action === 'combo-box-values') {
         setComboBoxEditorMode(action === 'combo-box-items' ? 'items' : 'values');
         setComboBoxConfiguratorComponentId(component.id);
@@ -1503,6 +1517,30 @@ export function App(): ReactElement {
     ],
   );
 
+  const saveChartsConfiguration = useCallback(
+    (configuration: ChartsConfiguration): void => {
+      if (activePage === null || chartsConfiguratorComponent === null) return;
+      try {
+        const next = designerController.executeMany(activePage, 'Configure Charts', [
+          new ChangePropertyCommand(chartsConfiguratorComponent.id, 'chartsConfig', configuration),
+        ]);
+        updateActivePage(next);
+        setChartsConfiguratorComponentId(null);
+        addOutput('DESIGNER', `Configured Charts ${chartsConfiguratorComponent.name}.`);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [
+      activePage,
+      chartsConfiguratorComponent,
+      designerController,
+      updateActivePage,
+      addOutput,
+      reportError,
+    ],
+  );
+
   const saveComboBoxItems = useCallback(
     (items: readonly string[], values: readonly string[]): void => {
       if (activePage === null || comboBoxConfiguratorComponent === null) return;
@@ -1692,6 +1730,7 @@ export function App(): ReactElement {
       setApiClientTesterComponentId(null);
       setDataGridConfiguratorComponentId(null);
       setComboBoxConfiguratorComponentId(null);
+      setChartsConfiguratorComponentId(null);
       setRepeatingGroupConfiguratorComponentId(null);
       setReportBuilderComponentId(null);
       setCurrentRowBindingsComponentId(null);
@@ -2062,7 +2101,8 @@ export function App(): ReactElement {
     repeatingGroupConfiguratorComponent !== null ||
     reportBuilderComponent !== null ||
     (currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined) ||
-    comboBoxConfiguratorComponent !== null;
+    comboBoxConfiguratorComponent !== null ||
+    chartsConfiguratorComponent !== null;
 
   const stopPreview = useCallback((): void => {
     previewActiveRef.current = false;
@@ -2210,6 +2250,7 @@ export function App(): ReactElement {
           command === 'view.toggleTheme' &&
           (dataGridConfiguratorComponent !== null ||
             comboBoxConfiguratorComponent !== null ||
+            chartsConfiguratorComponent !== null ||
             repeatingGroupConfiguratorComponent !== null ||
             reportBuilderComponent !== null ||
             currentRowBindingsComponent !== null)
@@ -2395,6 +2436,7 @@ export function App(): ReactElement {
       undo,
       dataGridConfiguratorComponent,
       comboBoxConfiguratorComponent,
+      chartsConfiguratorComponent,
       repeatingGroupConfiguratorComponent,
       reportBuilderComponent,
       currentRowBindingsComponent,
@@ -3413,6 +3455,14 @@ export function App(): ReactElement {
           availableComponents={activePage?.components ?? []}
           onClose={() => setCurrentRowBindingsComponentId(null)}
           onSave={saveCurrentRowBindings}
+        />
+      )}
+      {chartsConfiguratorComponent !== null && (
+        <ChartsConfigurationDialog
+          component={chartsConfiguratorComponent}
+          availableComponents={activePage?.components ?? []}
+          onClose={() => setChartsConfiguratorComponentId(null)}
+          onSave={saveChartsConfiguration}
         />
       )}
       {comboBoxConfiguratorComponent !== null && comboBoxEditorMode === 'api' && (

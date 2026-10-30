@@ -10,6 +10,7 @@ import {
 } from '@webrad/project-model';
 import { ProjectThemeContext, useProjectColorResolver } from '../project-theme';
 import { Icon } from './Icon';
+import { NativeColorInput } from './NativeColorInput';
 import '../theme-colors.css';
 
 interface ThemeColorButtonProps {
@@ -158,14 +159,13 @@ export function ColorInput({
   const resolved = resolveColor(value);
   return (
     <span className="wr-color-input">
-      <input
+      <NativeColorInput
         id={id}
         className={className}
-        type="color"
         aria-label={label}
         value={/^#[a-f0-9]{6}$/iu.test(resolved) ? resolved : '#000000'}
         disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.value)}
+        onChange={onChange}
       />
       {showThemeColors && (
         <ThemeColorButton

@@ -14,11 +14,13 @@ import {
   ApiClientConfigurationSchema,
   DataGridConfigurationSchema,
   ComboBoxConfigurationSchema,
+  ChartsConfigurationSchema,
   CurrentRowBindingsSchema,
   RepeatingGroupConfigurationSchema,
   VideoPlayerSourceSchema,
   MenuConfigurationSchema,
   comboBoxSchemaChoices,
+  chartSchemaChoices,
   safeParseProject,
   type ProjectApplicationIcon,
   type ProjectSocialImage,
@@ -212,6 +214,69 @@ function validateRegistry(
         template.bands.forEach((band, index) =>
           validateElements(band.elements, ['bands', index, 'elements']),
         );
+      }
+      if (component.type === 'WebCharts') {
+        const configuration = ChartsConfigurationSchema.safeParse(component.props.chartsConfig);
+        if (!configuration.success) continue;
+        for (const [seriesIndex, binding] of configuration.data.series.entries()) {
+          const bindingPath = [
+            ...path,
+            'components',
+            componentIndex,
+            'props',
+            'chartsConfig',
+            'series',
+            seriesIndex,
+          ];
+          const report = (field: string, message: string): void => {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message,
+              path: [...bindingPath, field],
+            });
+          };
+          const apiClient = document.components.find(
+            (candidate) => candidate.id === binding.apiClientId,
+          );
+          if (apiClient?.type !== 'WebApiClient') {
+            report(
+              'apiClientId',
+              'Each Charts series must reference a WebApiClient in the same document.',
+            );
+            continue;
+          }
+          const apiConfiguration = ApiClientConfigurationSchema.safeParse(
+            apiClient.props.apiClientConfig,
+          );
+          const operation = apiConfiguration.success
+            ? apiConfiguration.data.operations.find(
+                (candidate) => candidate.id === binding.operationId,
+              )
+            : undefined;
+          if (operation === undefined) {
+            report(
+              'operationId',
+              'Charts series must reference an endpoint of the selected WebApiClient.',
+            );
+            continue;
+          }
+          const choices = chartSchemaChoices(operation.responseSchema, binding.listPath);
+          if (!choices.lists.some((choice) => choice.path === binding.listPath)) {
+            report('listPath', 'Charts series must reference a saved response list.');
+            continue;
+          }
+          if (!choices.labels.some((choice) => choice.path === binding.labelField))
+            report(
+              'labelField',
+              'Charts label must reference a scalar field of the selected list item.',
+            );
+          if (!choices.values.some((choice) => choice.path === binding.valueField))
+            report(
+              'valueField',
+              'Charts value must reference a numeric field of the selected list item.',
+            );
+        }
       }
       if (component.type === 'WebComboBox' && component.props.comboBoxConfig == null) {
         const items = component.props.items;
@@ -568,6 +633,8 @@ function isValidPropertyValue(
       return DataGridConfigurationSchema.safeParse(value).success;
     case 'combo-box-config':
       return value === null || ComboBoxConfigurationSchema.safeParse(value).success;
+    case 'charts-config':
+      return ChartsConfigurationSchema.safeParse(value).success;
     case 'repeating-group-config':
       return RepeatingGroupConfigurationSchema.safeParse(value).success;
     case 'current-row-bindings':
@@ -713,11 +780,27 @@ export async function compileProject(
   options.onProgress?.('styles');
   let generatedAppCss: string;
   try {
+    const chartFonts = new Set<string>();
+    for (const document of [
+      ...selected.project.pages,
+      ...selected.project.reusableElements,
+      ...(selected.project.menus ?? []),
+    ]) {
+      for (const component of document.components) {
+        if (component.type !== 'WebCharts') continue;
+        const parsed = ChartsConfigurationSchema.safeParse(component.props.chartsConfig);
+        if (!parsed.success) continue;
+        for (const family of [parsed.data.fontFamily, parsed.data.legendFontFamily]) {
+          if (family !== undefined && family !== 'inherit') chartFonts.add(family);
+        }
+      }
+    }
     generatedAppCss = await compileGeneratedAppStyles(
       selected.project.styles,
       project.settings.scrollbar,
       project.settings.themes,
       selectedComponentTypes(selected, registry),
+      [...chartFonts],
     );
   } catch (error) {
     return failedResult(outputDirectory, [

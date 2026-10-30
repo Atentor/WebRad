@@ -82,6 +82,24 @@ const repeatingGroupTypings =
   JSON.stringify(createApiClientDeclarations(repositoryRoot, ['repeating-group.ts']), null, 2) +
   '\n';
 
+const chartsTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'charts-typings.generated.json',
+);
+const chartsTypings =
+  JSON.stringify(
+    createApiClientDeclarations(repositoryRoot, [
+      'charts-data.ts',
+      'charts-render.ts',
+      'charts.ts',
+    ]),
+    null,
+    2,
+  ) + '\n';
+
 const reportBuilderTypingsPath = path.join(
   repositoryRoot,
   'packages',
@@ -149,6 +167,10 @@ const sourceFiles = [
   'api-client-template.ts',
   'component.ts',
   'combo-box-data.ts',
+  'charts-data.ts',
+  'charts-render.ts',
+  'charts.ts',
+  'fonts.ts',
   'data-grid.ts',
   'repeating-group.ts',
   ...reportSourceNames,
@@ -391,6 +413,7 @@ const outputs = [
   ],
   [reportBuilderTypingsPath, reportBuilderTypings],
   [repeatingGroupTypingsPath, repeatingGroupTypings],
+  [chartsTypingsPath, chartsTypings],
   [playerTypingsPath, playerTypings],
   [
     path.join(repositoryRoot, 'packages', 'compiler', 'src', 'shaka-sources.generated.json'),

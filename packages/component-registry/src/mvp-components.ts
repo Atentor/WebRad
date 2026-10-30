@@ -6,6 +6,7 @@ import {
 } from './menu-properties.js';
 import { projectReusableMenuLayout } from '@webrad/runtime/menu-layout';
 import { webReportBuilder } from './report-builder.js';
+import { createWebChartsDefinition } from './charts.js';
 import { createWebMenuDefinition, MENU_EVENTS } from './menu.js';
 import { componentRegistry, ComponentRegistry } from './registry.js';
 import { organizeInspectorProperty } from './inspector-properties.js';
@@ -2075,7 +2076,7 @@ const webDataGrid: ComponentDefinition = {
   displayName: 'Data Grid',
   namePrefix: 'DataGrid',
   palette: { category: standardCategory, caption: 'Data Grid' },
-  icon: 'component-list-box',
+  icon: 'table',
   visual: true,
   styleEditor: dataGridStyleEditor,
   canHaveChildren: false,
@@ -2166,6 +2167,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebImage',
   'WebListBox',
   'WebDataGrid',
+  'WebCharts',
   'WebRepeatingGroup',
   'WebPopup',
   'WebApiClient',
@@ -2197,6 +2199,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webImage,
   webListBox,
   webDataGrid,
+  createWebChartsDefinition(geometryProperties({ width: 480, height: 320 })),
   webRepeatingGroup,
   webPopup,
   webApiClient,

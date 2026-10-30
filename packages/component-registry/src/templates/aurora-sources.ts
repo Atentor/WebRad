@@ -115,7 +115,7 @@ export class Forms extends FormsGenerated {
 `,
   'pages/Data.ts': `import { bindAuroraSidebar } from '../units/AuroraSidebar';
 import { DataGenerated, type ProjectsRepeaterCurrentRow } from './Data.generated';
-import type { WebButton, WebDataGrid, WebDataGridCellEventDetail } from '@webrad/runtime';
+import type { WebButton, WebCharts, WebChartPointEventDetail, WebDataGrid, WebDataGridCellEventDetail } from '@webrad/runtime';
 
 export class Data extends DataGenerated {
   public async LoadProjects(): Promise<void> {
@@ -133,6 +133,10 @@ export class Data extends DataGenerated {
 
   public SelectGridProject(_sender: WebDataGrid, event: CustomEvent<WebDataGridCellEventDetail>): void {
     this.SelectedProject.value = 'Selected in Data Grid: ' + (event.detail.getValue<string>('name') ?? 'project');
+  }
+
+  public SelectChartProject(_sender: WebCharts, event: CustomEvent<WebChartPointEventDetail>): void {
+    this.SelectedProject.value = 'Selected in Charts: ' + event.detail.label + ' (' + event.detail.value + '%)';
   }
 
   public SelectRepeatedProject(_sender: WebButton, _event: Event, CurrentRow: ProjectsRepeaterCurrentRow): void {

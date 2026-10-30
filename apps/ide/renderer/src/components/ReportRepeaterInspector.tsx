@@ -14,6 +14,7 @@ import {
 import type { ReactElement } from 'react';
 import { ReportApiBinding } from './ReportApiBinding';
 import { ReportNumberField as NumberField } from './ReportNumberField';
+import { NativeColorInput } from './NativeColorInput';
 
 interface Props {
   readonly element: WebReportRepeaterElement;
@@ -277,15 +278,15 @@ export function ReportRepeaterInspector({
           ).map(([label, key]) => (
             <label key={key}>
               <span>{label}</span>
-              <input
-                type="color"
+              <NativeColorInput
+                key={element.id}
                 aria-label={`Report repeater ${label.toLowerCase()}`}
                 disabled={key === 'backgroundColor' && paint.backgroundColor === null}
                 value={paint[key] ?? '#ffffff'}
-                onChange={(event) =>
+                onChange={(color) =>
                   onChange({
                     ...element,
-                    appearance: { ...paint, [key]: event.currentTarget.value },
+                    appearance: { ...paint, [key]: color },
                   })
                 }
               />

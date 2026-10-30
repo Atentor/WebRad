@@ -1,4 +1,5 @@
 import { SettingsField } from './SettingsField';
+import { NativeColorInput } from './NativeColorInput';
 import type { ProjectPwaSettings as PwaSettings } from '@webrad/project-model';
 import type { ReactElement } from 'react';
 
@@ -71,21 +72,17 @@ export function ProjectPwaSettings({
           </SettingsField>
           <SettingsField path="pwa.themeColor" className="wr-project-settings-field">
             <span>Theme color</span>
-            <input
-              type="color"
+            <NativeColorInput
               value={value.themeColor}
-              onChange={(event) => onChange({ ...value, themeColor: event.currentTarget.value })}
+              onChange={(themeColor) => onChange({ ...value, themeColor })}
             />
             <small>Color for supported browser and application controls.</small>
           </SettingsField>
           <SettingsField path="pwa.backgroundColor" className="wr-project-settings-field">
             <span>Background color</span>
-            <input
-              type="color"
+            <NativeColorInput
               value={value.backgroundColor}
-              onChange={(event) =>
-                onChange({ ...value, backgroundColor: event.currentTarget.value })
-              }
+              onChange={(backgroundColor) => onChange({ ...value, backgroundColor })}
             />
             <small>Background used while the installed application starts.</small>
           </SettingsField>

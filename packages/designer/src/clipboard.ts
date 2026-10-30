@@ -1,6 +1,7 @@
 import type { WebReportElement } from '@webrad/runtime/report-template';
 import {
   RepeatingGroupConfigurationSchema,
+  ChartsConfigurationSchema,
   type ComponentNode,
   type PageModel,
   ReportTemplateSchema,
@@ -186,7 +187,7 @@ export function materializePaste(
     return {
       ...cloneComponentNode(source),
       props: remapReportTemplateApiReferences(
-        remapRepeatingGroupApiReference(source.props, idMap),
+        remapChartsApiReferences(remapRepeatingGroupApiReference(source.props, idMap), idMap),
         idMap,
       ),
       id,
@@ -269,6 +270,27 @@ function remapReportTemplateApiReferences(
     },
   };
 }
+function remapChartsApiReferences(
+  props: ComponentNode['props'],
+  idMap: ReadonlyMap<string, string>,
+): ComponentNode['props'] {
+  const parsed = ChartsConfigurationSchema.safeParse(props.chartsConfig);
+  if (!parsed.success) return props;
+  return {
+    ...props,
+    chartsConfig: {
+      ...parsed.data,
+      series: parsed.data.series.map((series) => ({
+        ...series,
+        apiClientId:
+          series.apiClientId === null
+            ? null
+            : (idMap.get(series.apiClientId) ?? series.apiClientId),
+      })),
+    },
+  };
+}
+
 function remapRepeatingGroupApiReference(
   props: ComponentNode['props'],
   idMap: ReadonlyMap<string, string>,

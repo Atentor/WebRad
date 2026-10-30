@@ -217,8 +217,12 @@ function tailwindInput(
   styles: readonly TailwindStyleSource[],
   componentCss?: string,
   includePreviewStates = false,
+  additionalFontFamilies: readonly string[] = [],
 ): string {
-  const candidates = collectTailwindCandidates(styles, includePreviewStates);
+  const candidates = [
+    ...collectTailwindCandidates(styles, includePreviewStates),
+    ...additionalFontFamilies.map((font) => `font-${font}`),
+  ];
   const sourceDirective =
     candidates.length === 0 ? '' : `\n@source inline("${escapeCssString(candidates.join(' '))}");`;
   const components = componentCss === undefined ? '' : `\n@layer components {\n${componentCss}\n}`;
@@ -236,6 +240,7 @@ async function processTailwind(
   styles: readonly TailwindStyleSource[],
   componentCss?: string,
   includePreviewStates = false,
+  additionalFontFamilies: readonly string[] = [],
 ): Promise<string> {
   const result = await postcss([
     tailwindcss({
@@ -243,7 +248,9 @@ async function processTailwind(
       optimize: false,
       transformAssetUrls: false,
     }),
-  ]).process(tailwindInput(styles, componentCss, includePreviewStates), { from: undefined });
+  ]).process(tailwindInput(styles, componentCss, includePreviewStates, additionalFontFamilies), {
+    from: undefined,
+  });
   return result.css;
 }
 
@@ -261,6 +268,7 @@ export function compileGeneratedAppStyles(
   scrollbar: Readonly<ProjectScrollbarStyle> = DEFAULT_PROJECT_SCROLLBAR_STYLE,
   themes: ProjectThemeSettings = DEFAULT_PROJECT_THEMES,
   componentTypes?: ReadonlySet<string>,
+  additionalFontFamilies: readonly string[] = [],
 ): Promise<string> {
   const base =
     componentTypes === undefined
@@ -269,5 +277,7 @@ export function compileGeneratedAppStyles(
   return processTailwind(
     styles,
     `${base}\n${projectScrollbarCss(scrollbar)}\n${projectThemeCss(themes)}`,
+    false,
+    additionalFontFamilies,
   );
 }

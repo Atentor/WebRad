@@ -1,5 +1,12 @@
 # Component model
 
+`WebCharts` registers a typed browser runtime, a shared SVG projection and a
+transactional chart editor. Its `chartsConfig` stores presentation settings and
+up to five independent API Client/endpoint/list/label/value bindings. Numeric
+measurements and scalar labels come from the saved endpoint response contract.
+OnPointClick supplies typed label, value and series metadata. Generated pages
+and reusable placements own and dispose their subscriptions. See [Charts](charts.md).
+
 Panel, Group and HTML expose `props.aspectRatio` with `none` (free), `1:1`,
 `4:3`, `3:4`, `16:9` and `9:16`. The shared layout projection derives height
 from width while retaining saved height rules for restoration. Typed runtime
