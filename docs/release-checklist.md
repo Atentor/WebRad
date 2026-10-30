@@ -124,6 +124,24 @@ These identify past observations rather than current verification.
 
 ## Investigating failures
 
+### Windows loopback navigation: 068dfe8 (2026-10-30)
+
+[Validate 41037777128](https://github.com/Atentor/WebRad/actions/runs/41037777128)
+passed Linux, but Windows packaged smoke failed opening its first Page-title
+Preview with -176 ERR_NO_BUFFER_SPACE after successful compilation (1,733 ms).
+The subsequent empty title and absent later markers are consequences of this
+navigation failure, not evidence that each later workflow independently failed.
+
+Windows startup disables TcpPortRandomizationWin while preserving other feature
+flags. This uses the Windows default port allocator in ordinary IDE and smoke
+sessions, matching the mitigation described in
+[Chromium issue 572515601](https://issuetracker.google.com/issues/572515601).
+This is an upstream-informed mitigation, not confirmed exact-SHA evidence or an
+exclusive root-cause finding without a NetLog. Revisit it after the upstream
+Windows socket fix. Load-failure diagnostics retain the URL and frame identity;
+keep actual navigation, title, mounted-page and routing assertions, unchanged
+deadlines, isolation and the full platform verification gate.
+
 Inline HTML smoke inspection must keep the empty iframe sandbox. Electron rejects
 `WebFrameMain.executeJavaScript` in that document. Use the smoke-owned DevTools
 DOM/CSS protocol to read the document, resolving its target from the parent

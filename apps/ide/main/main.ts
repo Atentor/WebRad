@@ -76,6 +76,16 @@ let mainWindow: BrowserWindow | null = null;
 let pendingMainWindow: Promise<BrowserWindow> | null = null;
 let mainWindowLifecycleStarted = false;
 const smokeMode = process.argv.includes('--webrad-smoke');
+if (process.platform === 'win32') {
+  // Chromium's SO_RANDOMIZE_PORT can fail local IDE/Preview connections with
+  // WSAENOBUFS even when ports remain available: https://crbug.com/572515601.
+  // Use the Windows default allocator until the upstream socket issue is fixed.
+  const disabledFeatures = app.commandLine.getSwitchValue('disable-features');
+  app.commandLine.appendSwitch(
+    'disable-features',
+    [disabledFeatures, 'TcpPortRandomizationWin'].filter(Boolean).join(','),
+  );
+}
 if (smokeMode) app.disableHardwareAcceleration();
 const smokeAutoExit = process.argv.includes('--webrad-smoke-auto-exit');
 let smokeActivity: number | undefined;
@@ -1710,8 +1720,10 @@ async function createWindow(): Promise<BrowserWindow> {
         app.exit(1);
       });
   });
-  window.webContents.on('did-fail-load', (_event, code, description) =>
-    smokeLog(`renderer failed: ${String(code)} ${description}`),
+  window.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) =>
+    smokeLog(
+      `renderer failed: ${String(code)} ${description}; frame=${isMainFrame ? 'main' : 'child'}; url=${url}`,
+    ),
   );
   void window.loadURL(rendererUrl).catch((error: unknown) => smokeLog('loadURL rejected', error));
   smokeLog('BrowserWindow created');

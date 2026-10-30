@@ -1,5 +1,25 @@
 # WebRAD delivery plan
 
+## Hosted Actions follow-up: 2026-10-30
+
+Tracking commit 068dfe86caed5729de79fba55a05a1d80c7aaa15. Security passed;
+release verification 41037777200 passed Windows x64, Linux x64, macOS ARM64 and
+macOS Intel, including packaged/update smokes, distributables and final assembly;
+publication was skipped. Intel portable tests passed after 15m26s.
+Validate 41037777128 passed Linux but
+failed the Windows packaged smoke: compilation completed in 1,733 ms, then the
+Preview navigation failed with Chromium -176 ERR_NO_BUFFER_SPACE. The later
+empty-title assertion is secondary to the failed navigation.
+
+Added a Windows startup mitigation for upstream Chromium issue 572515601:
+disable TcpPortRandomizationWin before app readiness, preserve other disabled
+features, and use the OS default port allocator for ordinary IDE and smoke
+sessions. This matches the upstream loopback failure report; hosted logs alone
+do not establish the exclusive Winsock cause or prove the mitigation. Load-failure
+logs now identify the URL and main/child frame. Retained the original failed
+artifact under artifacts/ci-068dfe8/. No local validation was requested or run;
+no commit, push, tag, version change, installer or publication was performed.
+
 ## Local release-candidate validation: 2026-10-30
 
 The authorized full validation first passed icons, generated sources, strict
