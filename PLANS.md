@@ -1,5 +1,140 @@
 # WebRAD delivery plan
 
+## Local release-candidate validation: 2026-10-30
+
+The authorized full validation first passed icons, generated sources, strict
+TypeScript, lint and 1,720 portable tests (41 browser-dependent skips), then found
+15 formatting issues. Formatted those files and regenerated sources. Enabled the
+installed Chrome for all 1,761 tests; five browser failures exposed stale Apply
+changes/Panel-radius/Monaco-position fixtures and resize handles covering a small
+component's center at reduced zoom. Updated the fixtures to the current product
+contract and bounded resize hit areas to leave the center draggable; all five
+focused native browser cases now pass without relaxed assertions or timeouts.
+Final npm run validate passed all 1,761 tests in 229 files with no skipped tests,
+plus icons, embedded sources, strict TypeScript, lint, formatting and Windows x64
+application packaging. Development, packaged and packaged-update Electron smokes
+passed, including the Menu account controls and compiled runtime workflows.
+Evidence is retained under artifacts/validation-2026-10-30/. The related RestGo
+backend passed go test -count=1 ./... and go vet ./...; its race check cannot start
+with CGO disabled and no C compiler. These are local Windows results only: the
+exact-commit four-platform hosted release gates remain required. No installer,
+version change, commit, tag or publication was performed.
+
+## Persistent project-isolated Preview authentication: 2026-10-29
+
+F9 publications with RestGO persistence/local storage now receive a temporary,
+publication-scoped storage capability. SDK credential metadata is validated and
+saved atomically with OS encryption under the WebRAD profile, keyed by canonical
+project root, project ID, backend URL and storage key. Browser-only storage
+adapters restore it before SDK session initialization, persist token rotations
+synchronously, notify sibling frames without publishing credentials to browser
+storage, and remove the saved entry on logout. Preview ports remain ephemeral;
+Stop/rebuild/window close revoke access, including pending writes, while retaining
+the encrypted session. Session/memory/disabled modes keep their existing behavior.
+When secure OS encryption is unavailable, only isolated main-process memory is
+used and a PREVIEW warning is emitted. Added the typed SDK storage-adapter contract
+and updated architecture/SDK docs and generated sources. Previous port-scoped
+browser sessions require one fresh login; no credentials are migrated across
+projects or placed in project/export files. No tests, smokes, typecheck, lint,
+builds, packaging or restart validation were requested or run.
+
+## Automatic RestGO email confirmation on any page: 2026-10-29
+
+The shared RestGO runtime now captures email_confirmation_token in query strings,
+plain fragments or hash-route parameters before page construction. It strips the
+token without navigation, rejects conflicting duplicate values and confirms once
+per token without requiring a Menu, authored handler or authenticated session.
+Hash routing preserves remaining route parameters. Native runtime messages report
+success/failure using document locale; successful confirmation refreshes an existing
+SDK identity without signing in the link owner. Listeners are disposed when the
+integration is reconfigured. The sibling RestGo handler now updates existing session
+email-confirmation snapshots after its successful database update. Updated runtime
+and account-flow docs and regenerated embedded sources. No tests, smokes, typecheck,
+lint, builds or deployment were requested or run.
+
+## Configurable account email-link destinations: 2026-10-29
+
+Added Email confirmation URL and Password reset URL beside enabled user settings.
+Optional user.emailConfirmationUrl/passwordResetUrl persist absolute HTTP(S)
+destinations without credentials; blank/missing values use the RestGo server
+defaults. Runtime passes the reset URL to resetPasswordForEmail, the confirmation
+URL to resendEmailConfirmation, and emailConfirmationUrl to profile updates so
+automatic confirmation after an email change uses the same destination. Extended
+the SDK and sibling RestGo self-service handlers to accept these optional values,
+reusing existing link builders and fragment-token semantics. Omitted/empty resend
+bodies remain compatible. Updated docs in both repositories and the existing
+Menu smoke interactions/evidence for editing and retaining destinations. Runtime
+and Monaco sources regenerated. No tests, smokes, typecheck, lint, builds or
+deployment were requested or run.
+
+## Compact account editor and footer feedback: 2026-10-29
+
+Reduced the account dialog to 520px with a compact header/segmented tabs, smaller
+photo toolbar, inline email-verification badge and collapsed account metadata.
+Removed redundant opening/synchronization copy. Email-change guidance is shown
+only when needed. Form-associated primary buttons live beside Close in a fixed,
+padded footer; only the body scrolls. Save profile reflects actual draft changes.
+Status/error/success feedback now belongs to the footer and is hidden when idle,
+fixing the unpadded message shown against the dialog edge. Mobile keeps 44px action
+targets, 16px inputs, safe areas and a full-height shell. English/Portuguese copy
+and generated runtime sources are synchronized. Existing Menu smoke option/icon
+contracts remain unchanged; no account-popup runtime or visual validation was
+requested or run. No tests, smokes, typecheck, lint, builds or deployment ran.
+
+## Menu user settings language: 2026-10-29
+
+Added **User settings language** beside enabled user settings in Brand & user,
+with English and Portuguese choices. Optional user.settingsLanguage persists en
+or pt-BR in the shared configuration, defaulting legacy/new Menus to English.
+Localized account-editor copy, buttons, photo flow, account states, feedback,
+validation and SDK error messages, plus the icon accessible label and dialog lang.
+User identity/content remains unchanged. Public types, Monaco and generated runtime
+sources are synchronized. Updated the existing Menu smoke interactions and runner
+evidence for both language choices. No tests, smokes, typecheck, lint or builds
+were requested or run.
+
+## Menu profile icon-only interaction: 2026-10-29
+
+The profile photo/name/description now render as informational content. Only the
+separate accessible settings icon is clickable and keyboard-focusable. It opens
+the built-in account editor when enabled, or raises the existing OnUserClick for
+authored actions otherwise. Removed the profile-wide hover and pointer cursor.
+Updated the existing Menu smoke contract and documentation; regenerated runtime
+sources. No tests, smokes, typecheck, lint or builds were requested or run.
+
+## Account photo picker polish and permission diagnosis: 2026-10-29
+
+Replaced the native file-picker chrome with a themed, keyboard-accessible Choose
+photo button, upload icon and truncated filename with a full-name tooltip. The
+native input remains hidden and continues to feed the existing photo preview/save
+flow. Legacy backend 403 administrator-permission errors now explain that the
+account operation is unavailable on the server, rather than implying the user
+needs administrative privileges. Source inspection confirms the error originates
+in RestGo's administrative authorization middleware; local /auth/profile dispatch
+already precedes that middleware. Focused unauthenticated GET requests to
+https://api.atentor.com/auth/profile and /auth/profile/email-confirmation both
+returned 401, whereas the new handlers reject GET with 405 before authentication.
+Together with the reported authenticated 403, this shows the published instance
+is not serving the new self-service dispatch (outdated backend or proxy routing).
+GET /auth/session returned the expected 401 control response. No credentials or
+account writes were used. Local Docker is unavailable. No backend deployment,
+builds, test suites or visual smokes were run.
+
+## Menu current-account settings: 2026-10-29
+
+Added opt-in user.settings and the Menu configuration option **Enable user settings**.
+It enables the visible RestGO-bound profile and opens a separate native account
+dialog with Profile/Security tabs, mobile full-screen layout, keyboard/focus support,
+photo preview/save/removal, profile/email/password editing, confirmation/reset email
+requests and logout. Account ID/activation/verification are readonly. Credential
+changes require the current password and revoke all sessions. Runtime subscriptions,
+photo object URLs, drafts and pending requests are disposed with the editor/Menu.
+Public typed openUserSettings/closeUserSettings and SDK updateUser/resendEmailConfirmation
+are included in generated sources and Monaco declarations. Added the corresponding
+JWT-only self-service endpoints in the sibling RestGo repository; deployment of that
+backend is required. Updated existing Menu smoke interactions and runner evidence.
+No tests, smokes, typecheck, lint, builds, packaging or deployment were requested/run.
+
 ## Remove custom page Route path: 2026-10-29
 
 Removed Route path from the Page registry/Inspector and creation defaults.

@@ -108,6 +108,74 @@ receives the displayed session profile. In TypeScript, set
 `Menu1.user` and `Menu1.configuration` retain the saved configuration; session
 identity is a runtime projection and is never written into the Project Model.
 
+### Built-in user settings
+
+Enable **Brand & user > User profile > Enable user settings** to add an accessible
+settings button beside the user profile. Enabling it also enables the visible
+profile and RestGO binding; unbinding disables settings. This is opt-in for new
+and existing Menus (`user.settings`, default `false`). Only the settings icon is
+interactive; the photo, name and description are informational and have no hover
+action or keyboard tab stop. With built-in settings enabled, the icon opens the
+account editor. Otherwise, clicking the icon raises `OnUserClick` for authored
+profile actions.
+
+When **Enable user settings** is selected, **User settings language** offers
+**English** (`en`) and **Português** (`pt-BR`). The choice is saved as
+`user.settingsLanguage` in the shared Menu configuration and applies to the
+account dialog, settings-icon accessibility label, validation and feedback/error
+messages in Preview and browser exports. The dialog exposes the matching HTML
+`lang`. Older configurations default to English. Names, email addresses, file
+names and other user data are preserved as authored or returned by the SDK.
+
+With user settings enabled, **Email confirmation URL** and **Password reset URL**
+select the public pages opened from the respective email links. Both accept an
+absolute HTTP(S) URL without embedded credentials; blank uses the RestGO server
+default. They persist as `user.emailConfirmationUrl` and `user.passwordResetUrl`,
+including when settings are temporarily disabled. The confirmation URL applies to
+manual resend and automatic confirmation after profile/email edits; the reset URL
+applies to the editor's password-recovery action. Neither changes the API base URL.
+
+RestGO adds `#email_confirmation_token=...` or `#reset_token=...` to the link. The
+destination must be publicly accessible. Any compiled WebRAD page with RestGO
+enabled automatically consumes `email_confirmation_token` from the URL, confirms
+the email without requiring login and removes the token from the address. No
+page handler or Menu placement is required. Password reset remains an explicit
+`confirmPasswordReset()` flow because it needs a new password. Supply the
+destination page URL, not a token placeholder. Custom confirmation destinations
+require the matching updated RestGo self-service endpoints.
+
+The responsive native dialog has Profile and Security tabs, keyboard navigation,
+focus trapping, status/error messages and full-screen mobile presentation. It
+edits the current user's full name/email, previews and saves/removes their photo,
+changes their password, requests confirmation/reset email and signs out. User ID,
+activation and email-confirmation state are displayed as server-controlled data.
+Changing email or password requires the current password, revokes all sessions
+and asks the user to sign in again. Photo operations are saved separately from
+profile fields. Secrets remain transient and are cleared when the dialog closes.
+
+The compact editor keeps the active form's submit button and Close action in a
+fixed footer while the form body scrolls. Save profile is enabled only when name
+or email differs from the loaded values. The email verification badge sits beside
+the email label; other account metadata is available in collapsed **Account
+details**. Email/password safety guidance appears when changing email. Photo
+selection uses a compact toolbar with separate preview/save/cancel actions.
+Feedback appears inside the padded footer only during requests or after an action;
+there is no persistent synchronization message. Mobile controls retain touch-sized
+targets, safe-area spacing and inputs sized to avoid focus zoom.
+
+This requires the updated RestGo backend exposing `PUT /auth/profile` and
+`POST /auth/profile/email-confirmation`; older backends return a visible error.
+An `administrator permission required` response means the request reached the
+administrative authorization middleware despite a recognized user session. Check
+that the configured instance has the new self-service routes deployed and that
+its proxy forwards them correctly. Granting administrator credentials to the
+application is not a remedy. The editor displays an account-action-unavailable
+message for this legacy response.
+Only the user's JWT session is sent. No administrative API token is used.
+Use typed `Menu1.openUserSettings()` / `Menu1.closeUserSettings()` to control the
+editor when the option is enabled. It is available in compiled Preview and browser
+exports; the Designer/configuration preview remains a sample without account access.
+
 ## Submenus
 
 Vertical/mobile branches expand in the scrollable navigation flow. Horizontal

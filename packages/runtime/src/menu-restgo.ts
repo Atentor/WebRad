@@ -2,9 +2,7 @@ import { isWebMenuLink, type WebMenuUser } from './menu-model.js';
 import { getRestGoClient, RestGoNotConfiguredError } from './restgo.js';
 
 /** Uses the application session, never an IDE development/admin identity. */
-export function bindWebMenuRestGoUser(
-  update: (user: WebMenuUser | null) => void,
-): () => void {
+export function bindWebMenuRestGoUser(update: (user: WebMenuUser | null) => void): () => void {
   let client: ReturnType<typeof getRestGoClient>;
   try {
     client = getRestGoClient();
@@ -22,7 +20,13 @@ export function bindWebMenuRestGoUser(
       if (!active) return;
       update(
         session
-          ? profile(session.user.fullName, session.user.email, session.user.avatarUrl ?? '')
+          ? profile(
+              session.user.fullName,
+              session.user.email,
+              session.user.avatarUrl && isWebMenuLink(session.user.avatarUrl, true)
+                ? new URL(session.user.avatarUrl, client.baseUrl + '/').href
+                : '',
+            )
           : null,
       );
     });

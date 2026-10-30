@@ -32,6 +32,14 @@ export interface WebMenuUser {
   readonly visible: boolean;
   /** Resolve the profile from the project's RestGO session; omitted means manual. */
   readonly bindToCurrentUser?: boolean;
+  /** Open the built-in RestGO account editor from the user settings icon. */
+  readonly settings?: boolean;
+  /** Language of the built-in account editor; omitted means English. */
+  readonly settingsLanguage?: 'en' | 'pt-BR';
+  /** Public page that handles the email-confirmation token; blank uses RestGO defaults. */
+  readonly emailConfirmationUrl?: string;
+  /** Public page that handles the password-reset token; blank uses RestGO defaults. */
+  readonly passwordResetUrl?: string;
   readonly name: string;
   readonly description: string;
   readonly avatar: string;
@@ -181,6 +189,10 @@ export function createDefaultWebMenuConfiguration(): WebMenuConfiguration {
     user: {
       visible: false,
       bindToCurrentUser: false,
+      settings: false,
+      settingsLanguage: 'en',
+      emailConfirmationUrl: '',
+      passwordResetUrl: '',
       name: '',
       description: '',
       avatar: '',
@@ -311,6 +323,26 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
   exact(user, Object.keys(defaults.user), 'user.');
   const bindToCurrentUser = user.bindToCurrentUser === undefined ? false : user.bindToCurrentUser;
   if (typeof bindToCurrentUser !== 'boolean') fail('user.bindToCurrentUser');
+  const settings = user.settings === undefined ? false : user.settings;
+  if (typeof settings !== 'boolean') fail('user.settings');
+  const settingsLanguage =
+    user.settingsLanguage === undefined ? 'en' : choice(user, 'settingsLanguage', ['en', 'pt-BR']);
+  const accountUrl = (key: 'emailConfirmationUrl' | 'passwordResetUrl'): string => {
+    const result = user[key] === undefined ? '' : text(user, key, 4096);
+    if (result === '') return result;
+    if (!isWebMenuLink(result) || !/^https?:\/\/[^/?#]/iu.test(result))
+      return fail(`user.${key} must be an absolute HTTP(S) URL`);
+    try {
+      const url = new URL(result);
+      if (!url.hostname || url.username || url.password)
+        return fail(`user.${key} must not include credentials`);
+    } catch {
+      return fail(`user.${key} must be an absolute HTTP(S) URL`);
+    }
+    return result;
+  };
+  const emailConfirmationUrl = accountUrl('emailConfirmationUrl');
+  const passwordResetUrl = accountUrl('passwordResetUrl');
   exact(appearance, Object.keys(defaults.appearance), 'appearance.');
   if (typeof brand.visible !== 'boolean' || typeof user.visible !== 'boolean') fail('visible');
   for (const key of ['caption', 'subtitle', 'page', 'href']) text(brand, key);
@@ -390,7 +422,14 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
     searchMode,
     themeToggle,
     mobileIconPosition,
-    user: { ...user, bindToCurrentUser },
+    user: {
+      ...user,
+      bindToCurrentUser,
+      settings,
+      settingsLanguage,
+      emailConfirmationUrl,
+      passwordResetUrl,
+    },
     mobileBreakpoint: 768,
     drawerWidth: 288,
   }) as unknown as WebMenuConfiguration;

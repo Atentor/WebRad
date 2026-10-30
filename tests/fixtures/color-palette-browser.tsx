@@ -220,7 +220,7 @@ async function smoke(): Promise<void> {
     (labelled('Track color') as HTMLInputElement).value === '#007acc',
     'Scrollbar choice did not apply',
   );
-  await textButton('Save changes');
+  await textButton('Apply changes');
   await click('Predefined colors for Color color picker');
   await click('Use theme Aurora Blue for Color color picker');
   await textButton('All properties');

@@ -136,6 +136,9 @@ const sourceFiles = [
   'reusable-menu-layout.ts',
   'menu-model.ts',
   'menu-restgo.ts',
+  'menu-user-settings.ts',
+  'menu-user-settings-i18n.ts',
+  'menu-user-settings-css.ts',
   'menu-dom.ts',
   'menu-css.ts',
   'api-client.ts',
@@ -175,6 +178,7 @@ const sourceFiles = [
   'render.ts',
   'restgo.ts',
   'restgo-page-events.ts',
+  'restgo-email-confirmation.ts',
   'visual.ts',
 ];
 

@@ -2,6 +2,13 @@ import { projectAssetPath, type ProjectAsset } from '@webrad/project-model';
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { previewRouteScript } from '../shared/preview-route';
+import {
+  createPreviewRestGoSession,
+  InvalidPreviewSessionError,
+  previewRestGoSessionScript,
+  type PreviewRestGoSession,
+  type PreviewRestGoSessionOptions,
+} from './preview-restgo-session';
 
 interface PreviewServer {
   server: Server;
@@ -12,6 +19,7 @@ const previewByToken = new Map<string, string>();
 const assetsByToken = new Map<string, readonly ProjectAsset[]>();
 const tokenByOwner = new Map<number, string>();
 const urlByOwner = new Map<number, string>();
+const sessionsByToken = new Map<string, { session: PreviewRestGoSession; capability: string }>();
 let serverPromise: Promise<PreviewServer> | undefined;
 let shutdown: Promise<void> | undefined;
 let generation = 0;
@@ -55,6 +63,77 @@ function startPreviewServer(): Promise<PreviewServer> {
     // A hostname which an attacker resolves to loopback must never serve preview HTML.
     if (request.headers.host !== expectedHost) {
       respond(request, response, 'Forbidden', 403, 'text/plain; charset=utf-8');
+      return;
+    }
+    const sessionToken = /^\/([0-9a-f-]{36})\/__restgo-session$/.exec(request.url ?? '')?.[1];
+    if (sessionToken !== undefined) {
+      const access = sessionsByToken.get(sessionToken);
+      if (!access) {
+        respond(request, response, 'Preview expired', 404, 'text/plain');
+        return;
+      }
+      if (
+        request.headers['x-webrad-preview-session'] !== access.capability ||
+        (request.headers.origin !== undefined &&
+          request.headers.origin !== `http://${expectedHost}`)
+      ) {
+        respond(request, response, 'Forbidden', 403, 'text/plain');
+        return;
+      }
+      const complete = (action: () => string | null): void => {
+        if (sessionsByToken.get(sessionToken) !== access) {
+          respond(request, response, 'Preview expired', 404, 'text/plain');
+          return;
+        }
+        try {
+          respond(request, response, JSON.stringify(action()), 200, 'application/json');
+        } catch (error) {
+          respond(
+            request,
+            response,
+            'Session storage unavailable',
+            error instanceof InvalidPreviewSessionError ? 400 : 500,
+            'text/plain',
+          );
+        }
+      };
+      if (request.method === 'GET') complete(() => access.session.read());
+      else if (request.method === 'DELETE')
+        complete(() => {
+          access.session.remove();
+          return null;
+        });
+      else if (request.method === 'PUT') {
+        if (
+          request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
+          'application/json'
+        ) {
+          respond(request, response, 'Expected JSON', 415, 'text/plain');
+          return;
+        }
+        let size = 0;
+        const chunks: Buffer[] = [];
+        request.on('data', (chunk: Buffer) => {
+          size += chunk.length;
+          if (response.writableEnded) return;
+          if (size > 32768) {
+            respond(request, response, 'Session too large', 413, 'text/plain');
+            return;
+          }
+          chunks.push(chunk);
+        });
+        request.on('end', () => {
+          if (!response.writableEnded)
+            complete(() => {
+              access.session.write(Buffer.concat(chunks).toString('utf8'));
+              return null;
+            });
+        });
+        request.on('error', () => response.destroy());
+      } else {
+        response.setHeader('Allow', 'GET, PUT, DELETE');
+        respond(request, response, 'Method not allowed', 405, 'text/plain');
+      }
       return;
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -163,6 +242,7 @@ export async function publishPreviewHtml(
   ownerId: number,
   html: string,
   assets: readonly ProjectAsset[] = [],
+  sessionOptions?: PreviewRestGoSessionOptions,
 ): Promise<string> {
   if (shutdown) await shutdown;
   const publishedGeneration = generation;
@@ -172,9 +252,24 @@ export async function publishPreviewHtml(
   }
   revokePreview(ownerId);
   const token = randomUUID();
+  const session =
+    sessionOptions === undefined ? undefined : createPreviewRestGoSession(sessionOptions);
+  let sessionScript = '';
+  if (session) {
+    if (!session.durable)
+      console.warn(
+        '[PREVIEW] RestGO sessions are isolated in memory because secure OS storage is unavailable.',
+      );
+    const capability = randomUUID();
+    sessionsByToken.set(token, { session, capability });
+    sessionScript = previewRestGoSessionScript(session, `/${token}/__restgo-session`, capability);
+  }
   previewByToken.set(
     token,
-    html.replace('<head>', '<head><base href="/' + token + '/">' + previewRouteScript()),
+    html.replace(
+      '<head>',
+      '<head><base href="/' + token + '/">' + previewRouteScript() + sessionScript,
+    ),
   );
   assetsByToken.set(token, assets);
   tokenByOwner.set(ownerId, token);
@@ -207,6 +302,7 @@ export function isPublishedPreviewUrl(url: string): boolean {
 export function revokePreview(ownerId: number): void {
   const token = tokenByOwner.get(ownerId);
   if (token !== undefined) {
+    sessionsByToken.delete(token);
     previewByToken.delete(token);
     assetsByToken.delete(token);
   }
@@ -219,6 +315,7 @@ export function closePreviewServer(): Promise<void> {
   if (shutdown) return shutdown;
   generation++;
   previewByToken.clear();
+  sessionsByToken.clear();
   assetsByToken.clear();
   tokenByOwner.clear();
   urlByOwner.clear();

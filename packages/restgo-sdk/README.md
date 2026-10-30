@@ -1,9 +1,26 @@
 # RestGo SDK
 
+Self-service profile editing uses `auth.updateUser({ fullName?, email?, password?,
+currentPassword?, emailConfirmationUrl? }, { signal? })` against `PUT /auth/profile`. It returns
+`{ user, sessionRevoked }`: credential changes require the current password and
+revoke all sessions, while profile-only changes emit `USER_UPDATED`.
+`auth.resendEmailConfirmation({ url?, signal? })` requests a confirmation link at
+`POST /auth/profile/email-confirmation`. Both require the matching updated backend
+and a user JWT, never an administrator credential. Activation and confirmation
+are server-controlled. Optional confirmation destinations override the server
+default for that request; `resetPasswordForEmail(email, { url? })` provides the
+equivalent reset destination. See [the SDK guide](../../docs/restgo-sdk.md).
+
 Browser-safe TypeScript client for authentication, Storage, resumable video
 uploads, and published RestGo endpoints. It has no Designer, Electron, or Node.js
 dependency. This package is a source workspace in the WebRAD repository; it is
 not automatically published to npm. WebRAD's compiler resolves its import directly.
+
+Embedding hosts can provide `RestGoClientOptions.storage` implementing the
+browser-safe `RestGoSessionStorageAdapter` (`getItem`, `setItem`, `removeItem`,
+optional `subscribe`). It applies only to persistent local sessions. WebRAD
+Preview uses it for project-isolated, OS-encrypted credential persistence across
+changing loopback ports; ordinary browser clients retain native storage defaults.
 
 ```ts
 import { createClient } from '@webrad/restgo-sdk';

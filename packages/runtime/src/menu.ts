@@ -6,6 +6,7 @@ import { runtimeEventName, WebComponent } from './component.js';
 import { createLucideIconElement } from './icon.js';
 import { Theme } from './theme.js';
 import { bindWebMenuRestGoUser } from './menu-restgo.js';
+import { openWebMenuUserSettings } from './menu-user-settings.js';
 import { applyWebMenuAppearance, createWebMenuPanel, menuButton, menuElement } from './menu-dom.js';
 import {
   createDefaultWebMenuConfiguration,
@@ -222,6 +223,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
 
   #configuration = createDefaultWebMenuConfiguration();
   #unbindRestGoUser: (() => void) | undefined;
+  #closeUserSettings: (() => void) | undefined;
   #restGoUser: WebMenuConfiguration['user'] | null = null;
 
   #syncRestGoUser(): void {
@@ -237,13 +239,22 @@ export class WebMenu extends WebComponent<HTMLElement> {
       this.#unbindRestGoUser = undefined;
       this.#restGoUser = null;
     }
+    if (!this.#configuration.user.settings || !this.#configuration.user.bindToCurrentUser)
+      this.closeUserSettings();
   }
 
   #projectedUser(): WebMenuConfiguration['user'] {
     const user = this.#configuration.user;
     if (!user.bindToCurrentUser || this.#options.interactive === false) return user;
     return this.#restGoUser
-      ? { ...this.#restGoUser, visible: user.visible }
+      ? {
+          ...this.#restGoUser,
+          visible: user.visible,
+          settings: user.settings === true,
+          settingsLanguage: user.settingsLanguage ?? 'en',
+          emailConfirmationUrl: user.emailConfirmationUrl ?? '',
+          passwordResetUrl: user.passwordResetUrl ?? '',
+        }
       : { ...user, visible: false, name: '', description: '', avatar: '', status: 'none' };
   }
   #expanded = new Set<string>();
@@ -312,6 +323,9 @@ export class WebMenu extends WebComponent<HTMLElement> {
         break;
       case 'user':
         this.emit('OnUserClick', { ...this.#projectedUser() });
+        break;
+      case 'user-settings':
+        this.openUserSettings();
         break;
       case 'theme':
         if (this.#options.onThemeToggle) this.#options.onThemeToggle();
@@ -480,6 +494,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
     super.enabled = value;
     this.element.inert = !value;
     if (!value) {
+      this.closeUserSettings();
       this.close();
       this.#expanded.clear();
       this.#render();
@@ -705,10 +720,33 @@ export class WebMenu extends WebComponent<HTMLElement> {
       else this.open();
     } else this.collapsed = !this.collapsed;
   }
+  /** Open the account editor when the saved Menu user settings option is enabled. */
+  public openUserSettings(): void {
+    if (
+      this.#disposed ||
+      this.#options.interactive === false ||
+      !this.enabled ||
+      !this.#configuration.user.settings ||
+      !this.#configuration.user.bindToCurrentUser ||
+      !this.#restGoUser
+    )
+      return;
+    if (this.#closeUserSettings) return;
+    this.close();
+    this.#closeUserSettings = openWebMenuUserSettings(this.element, this.#configuration, () => {
+      this.#closeUserSettings = undefined;
+      this.element.querySelector<HTMLButtonElement>('[data-menu-action="user-settings"]')?.focus();
+    });
+  }
+  public closeUserSettings(): void {
+    this.#closeUserSettings?.();
+    this.#closeUserSettings = undefined;
+  }
   public override dispose(): void {
     if (this.#disposed) return;
     this.close();
     this.#disposed = true;
+    this.closeUserSettings();
     this.#unbindRestGoUser?.();
     this.#unbindRestGoUser = undefined;
     for (const dispose of this.#definitionHandlers.values()) dispose();

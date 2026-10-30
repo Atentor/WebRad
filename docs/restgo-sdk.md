@@ -10,7 +10,83 @@ metadata, jobs, and HLS descriptors. The nonvisual `WebVideoUpload` integrates i
 with Designer, Monaco, and Preview. These routes use the Authentication session,
 never the application API token. See [Video Upload](video-upload.md).
 
+## Self-service account editing
+
+`RestGO.auth.updateUser({ fullName?, email?, password?, currentPassword?, emailConfirmationUrl? }, { signal? })`
+uses authenticated `PUT /auth/profile` and returns `{ user, sessionRevoked }` in the
+standard result. Email/password changes require `currentPassword`, revoke all
+sessions and clear the SDK snapshot. Other successful changes update the snapshot
+and emit `USER_UPDATED`. Only the authenticated identity can be edited; activation,
+permissions and confirmation state cannot be set by the caller.
+
+`RestGO.auth.resendEmailConfirmation({ url?, signal? })` uses authenticated
+`POST /auth/profile/email-confirmation`, sending optional `{ url }` for the public
+confirmation page. `updateUser` accepts optional `emailConfirmationUrl` for the
+automatic confirmation triggered by profile edits. Both use the server's default
+when no URL is provided. Existing
+`uploadAvatar`, `deleteAvatar`, `resetPasswordForEmail` and `logout` complete the
+Menu account editor. Deploy the corresponding RestGo backend changes first;
+these new SDK methods require the self-service endpoints.
+
+`resetPasswordForEmail(email, { url? })` likewise accepts the reset page URL.
+The Menu editor supplies its saved confirmation/reset destinations to these
+methods. RestGO places the token in the URL fragment. Use absolute HTTP(S)
+destinations, without token placeholders.
+
+### Automatic email confirmation on any page
+
+In a compiled WebRAD application with RestGO enabled, every page can receive
+`email_confirmation_token` in its fragment or query string, for example
+`/page2#email_confirmation_token=...` or `/page2?email_confirmation_token=...`.
+The shared integration captures the token before authored page construction,
+removes it with `history.replaceState` and calls `auth.confirmEmail(token)` once.
+No Menu, session or page-specific event handler is needed. Hash-route parameters
+such as `#/page2?email_confirmation_token=...` are also accepted; remaining route
+parameters are preserved. Conflicting duplicate token values are rejected.
+
+The application reports success, an invalid/expired link or a temporary failure
+through the runtime's native browser message convention, in English or Portuguese
+according to the document/project locale. A successful confirmation refreshes an
+existing SDK identity; it never creates a login session or signs in the link's
+owner. Reopening the original email link can retry a temporary failure. Consumed
+tokens are not stored in the Project Model or browser storage. Link listeners are
+replaced when the integration is reconfigured.
+
+This automation belongs to the WebRAD runtime. A standalone SDK client still uses
+`auth.confirmEmail(token)` explicitly. Password reset continues to require a new
+password and `auth.confirmPasswordReset({ token, password })`.
+
 ## WebRAD configuration
+
+### Preview session persistence
+
+With **Persist session** enabled and storage set to **local**, F9 Preview keeps
+the application login across IDE restarts even though its loopback HTTP port and
+publication token change. The main process stores only SDK credential metadata,
+encrypted with the operating system's secure storage, under the WebRAD user
+profile. Entries are isolated by canonical project directory, project ID, RestGO
+server and storage key. They are never written to `.wrproj`, project files or
+exported application assets, and are separate from IDE administrative credentials.
+
+The Preview receives a temporary capability for its own session through its
+existing loopback server. The browser SDK uses a storage adapter; no Electron,
+Node.js or general IDE API is exposed to the generated application. Stop, a new
+publication or closing the IDE revokes that capability while keeping the saved
+session. Successful logout removes the saved credentials, and SDK restoration
+still validates them with RestGO before trusting an identity.
+
+Storage **session**, **memory**, or disabled persistence retains its existing
+behavior. If secure OS encryption is unavailable (including Linux `basic_text`),
+the Preview keeps an isolated in-memory session and reports a categorized warning;
+it never writes unencrypted credentials. Existing logins in old port-scoped browser
+storage are not imported: sign in once after updating. Server revocation, expiry,
+account changes or a RestGO restart can still require a fresh login.
+
+Standalone SDK clients can supply browser-safe `RestGoClientOptions.storage`
+implementing `RestGoSessionStorageAdapter` for persistent local sessions. It has
+`getItem`, `setItem`, `removeItem` and optional `subscribe`; it is ignored for
+session/memory modes or disabled persistence. Ordinary exported applications
+continue to use their own browser storage and receive no Preview capability.
 
 Open **RestGo integration** through the database icon in the activity rail.
 **Connection** separates application SDK settings from IDE administration.

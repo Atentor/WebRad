@@ -1,5 +1,13 @@
+import { WEB_MENU_USER_SETTINGS_CSS } from './menu-user-settings-css.js';
+
 /** Shared by Designer, compiled Preview and ordinary browser exports. */
 export const WEB_MENU_CSS = `
+${WEB_MENU_USER_SETTINGS_CSS}
+.wr-menu-user-row { display: flex; align-items: center; gap: 6px; border-block-start: 1px solid var(--wr-menu-border); }
+.wr-menu-user-row .wr-menu-user { flex: 1 1 auto; border-block-start: 0; }
+.wr-menu-user-settings { width: 44px; height: 44px; }
+.wr-webmenu[data-menu-collapsed='true'] .wr-menu-user-row { flex-direction: column; }
+.wr-webmenu[data-menu-orientation='horizontal'][data-menu-mobile='false'] .wr-menu-user-row { border: 0; }
 .wr-webmenu { min-width: 0; min-height: 0; border: 0; font-family: inherit; }
 .wr-webmenu, .wr-menu-dialog { color: var(--wr-menu-foreground); font-size: var(--wr-menu-font-size); }
 .wr-menu-panel { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; box-sizing: border-box; padding: var(--wr-menu-padding); gap: 16px; background: var(--wr-menu-background); color: var(--wr-menu-foreground); border: 1px solid var(--wr-menu-border); border-radius: inherit; }
@@ -16,7 +24,7 @@ export const WEB_MENU_CSS = `
 .wr-menu-muted, .wr-menu-description { font-size: .82em; color: var(--wr-menu-muted); font-weight: 400; line-height: 1.4; }
 .wr-menu-copy > *, .wr-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wr-menu-icon-button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 8px; border: 0; border-radius: var(--wr-square-radius, var(--wr-menu-item-radius)); background: transparent; color: var(--wr-menu-muted); cursor: pointer; }
-.wr-menu-icon-button:hover, .wr-menu-item:hover, .wr-menu-user:hover { background: var(--wr-menu-hover-background); }
+.wr-menu-icon-button:hover, .wr-menu-item:hover { background: var(--wr-menu-hover-background); }
 .wr-menu-panel :is(button, a, input):not(.wr-menu-search-input):focus-visible, .wr-menu-mobile-trigger:focus-visible { outline: 2px solid var(--wr-menu-accent); outline-offset: 2px; }
 .wr-menu-search { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; min-height: 40px; color: var(--wr-menu-muted); background: var(--wr-menu-hover-background); border: 1px solid var(--wr-menu-border); border-radius: var(--wr-square-radius, var(--wr-menu-item-radius)); }
 .wr-menu-search:focus-within { outline: 2px solid var(--wr-menu-accent); outline-offset: 2px; }
@@ -38,7 +46,7 @@ export const WEB_MENU_CSS = `
 .wr-menu-heading { padding: 16px 10px 6px; font-size: .75em; text-transform: uppercase; letter-spacing: .08em; color: var(--wr-menu-muted); font-weight: 600; }
 .wr-menu-separator { margin: 10px 4px; border-block-start: 1px solid var(--wr-menu-border); }
 .wr-menu-empty { padding: 16px 10px; color: var(--wr-menu-muted); font-size: .9em; }
-.wr-menu-user { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; padding: 12px 6px 4px; width: 100%; min-width: 0; border: 0; border-block-start: 1px solid var(--wr-menu-border); background: transparent; color: inherit; border-radius: 0 0 var(--wr-square-radius, var(--wr-menu-item-radius)) var(--wr-square-radius, var(--wr-menu-item-radius)); cursor: pointer; }
+.wr-menu-user { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; padding: 12px 6px 4px; width: 100%; min-width: 0; border: 0; background: transparent; color: inherit; cursor: default; }
 .wr-menu-avatar { position: relative; display: grid; flex: 0 0 auto; place-items: center; width: 36px; height: 36px; border-radius: var(--wr-square-radius, 50%); color: var(--wr-menu-active-foreground); background: var(--wr-menu-active-background); font-size: 12px; font-weight: 600; }
 .wr-menu-avatar-image { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
 .wr-menu-status { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border: 2px solid var(--wr-menu-background); border-radius: var(--wr-square-radius, 50%); background: var(--wr-theme-success, #22c55e); }

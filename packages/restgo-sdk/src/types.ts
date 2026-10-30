@@ -2,12 +2,22 @@ import type { RestGoError } from './errors';
 
 export type RestGoSessionStorage = 'local' | 'session' | 'memory';
 
+/** Browser-safe durable storage supplied by an embedding host. */
+export interface RestGoSessionStorageAdapter {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+  subscribe?(callback: () => void): () => void;
+}
+
 export interface RestGoClientOptions {
   persistSession?: boolean;
   /** Renew before JWT expiry and retry a rejected session request once. Defaults to true. */
   autoRefreshToken?: boolean;
   sessionStorage?: RestGoSessionStorage;
   storageKey?: string;
+  /** Used only with persistent local sessions; never changes session/memory semantics. */
+  storage?: RestGoSessionStorageAdapter;
   apiVersion?: number;
   defaultDatabase?: string;
   fetch?: typeof fetch;
@@ -73,6 +83,23 @@ export interface RestGoSignUpInput {
   password: string;
   fullName?: string;
   active?: boolean;
+}
+
+/** Self-service fields; activation and confirmation remain server-controlled. */
+export interface RestGoUpdateUserInput {
+  fullName?: string;
+  email?: string;
+  password?: string;
+  /** Required when changing email or password. */
+  currentPassword?: string;
+  /** Optional absolute HTTP(S) destination for a confirmation email after a profile update. */
+  emailConfirmationUrl?: string;
+}
+
+export interface RestGoUpdateUserResult {
+  user: RestGoUser;
+  /** Credential changes revoke all sessions and require a new login. */
+  sessionRevoked: boolean;
 }
 
 export interface RestGoSuccess {

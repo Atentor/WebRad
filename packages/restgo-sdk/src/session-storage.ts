@@ -1,5 +1,5 @@
 import { failure, isRecord, type RestGoResult } from './errors';
-import type { RestGoClientOptions } from './types';
+import type { RestGoClientOptions, RestGoSessionStorageAdapter } from './types';
 
 export interface StoredSession {
   token: string;
@@ -37,7 +37,7 @@ const queues = new Map<string, Promise<void>>();
 
 /** Storage is optional: browser privacy/security settings may deny all access. */
 export class RestGoSessionStore {
-  private storage: Storage | undefined;
+  private storage: RestGoSessionStorageAdapter | undefined;
   private readonly key: string;
   private readonly shared: boolean;
 
@@ -48,6 +48,10 @@ export class RestGoSessionStore {
     this.key = options.storageKey ?? `webrad-restgo:${baseUrl}`;
     this.shared = options.sessionStorage !== 'session';
     if (options.persistSession === false || options.sessionStorage === 'memory') return;
+    if (options.storage && options.sessionStorage !== 'session') {
+      this.storage = options.storage;
+      return;
+    }
     try {
       this.storage =
         options.sessionStorage === 'session' ? globalThis.sessionStorage : globalThis.localStorage;
@@ -102,6 +106,7 @@ export class RestGoSessionStore {
   }
 
   subscribe(callback: () => void): () => void {
+    if (this.storage?.subscribe) return this.storage.subscribe(callback);
     if (!this.storage || typeof window === 'undefined' || !window.addEventListener) return () => {};
     const listener = (event: StorageEvent): void => {
       if (event.storageArea === this.storage && (event.key === this.key || event.key === null))

@@ -663,11 +663,75 @@ export function MenuConfigurationDialog({
                           set('user', {
                             ...draft.user,
                             bindToCurrentUser: event.currentTarget.checked,
+                            settings: event.currentTarget.checked && draft.user.settings === true,
                           })
                         }
                       />{' '}
                       Bind to current RestGO user
                     </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={draft.user.settings === true}
+                        onChange={(event) =>
+                          set('user', {
+                            ...draft.user,
+                            settings: event.currentTarget.checked,
+                            ...(event.currentTarget.checked
+                              ? { visible: true, bindToCurrentUser: true }
+                              : {}),
+                          })
+                        }
+                      />{' '}
+                      Enable user settings
+                    </label>
+                    {draft.user.settings && (
+                      <>
+                        <Field label="User settings language">
+                          <select
+                            value={draft.user.settingsLanguage ?? 'en'}
+                            onChange={(event) =>
+                              set('user', {
+                                ...draft.user,
+                                settingsLanguage: event.currentTarget
+                                  .value as WebMenuConfiguration['user']['settingsLanguage'],
+                              })
+                            }
+                          >
+                            <option value="en">English</option>
+                            <option value="pt-BR">Português</option>
+                          </select>
+                        </Field>
+                        {(['emailConfirmationUrl', 'passwordResetUrl'] as const).map((key) => (
+                          <Field
+                            key={key}
+                            label={
+                              key === 'emailConfirmationUrl'
+                                ? 'Email confirmation URL'
+                                : 'Password reset URL'
+                            }
+                          >
+                            <input
+                              type="url"
+                              maxLength={4096}
+                              value={draft.user[key] ?? ''}
+                              placeholder={
+                                key === 'emailConfirmationUrl'
+                                  ? 'https://app.example.com/confirm-email'
+                                  : 'https://app.example.com/reset-password'
+                              }
+                              onChange={(event) =>
+                                set('user', { ...draft.user, [key]: event.currentTarget.value })
+                              }
+                            />
+                          </Field>
+                        ))}
+                        <p className="wr-modal-description">
+                          Use public pages that handle the confirmation and password reset links.
+                          Leave blank to use the RestGO server defaults.
+                        </p>
+                      </>
+                    )}
                     {(['name', 'description', 'avatar'] as const).map((key) => (
                       <Field
                         label={
@@ -709,7 +773,7 @@ export function MenuConfigurationDialog({
                     <p className="wr-modal-description">
                       {draft.user.bindToCurrentUser
                         ? 'RestGO supplies the signed-in user name, email, photo and online status at runtime. Enable RestGO in the project integration. The profile is hidden without a session. Designer and this preview use the manual values as samples.'
-                        : 'Import images through Project Assets and select their paths here. A profile without a photo uses the user\'s initials. OnUserClick handles profile actions.'}
+                        : "Import images through Project Assets and select their paths here. A profile without a photo uses the user's initials. OnUserClick handles profile actions."}
                     </p>
                   </div>
                 )}

@@ -2368,8 +2368,9 @@ kbd {
 .wr-resize-handle {
   position: absolute;
   z-index: 5;
-  width: calc(24px / var(--wr-designer-scale, 1));
-  height: calc(24px / var(--wr-designer-scale, 1));
+  /* Keep the center draggable when a selected component is small or zoomed out. */
+  width: min(calc(24px / var(--wr-designer-scale, 1)), 80%);
+  height: min(calc(24px / var(--wr-designer-scale, 1)), 80%);
   transform: translate(-50%, -50%);
   border: 0;
   background: transparent;

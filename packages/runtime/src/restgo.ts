@@ -1,6 +1,11 @@
-import { createClient, type RestGoClient } from '@webrad/restgo-sdk';
+import {
+  createClient,
+  type RestGoClient,
+  type RestGoSessionStorageAdapter,
+} from '@webrad/restgo-sdk';
 import { setPageEventBinder } from './page-event-hooks.js';
 import { bindPageRestGoEvents } from './restgo-page-events.js';
+import { bindRestGoEmailConfirmation } from './restgo-email-confirmation.js';
 
 /** Browser-safe projection of the RestGO integration saved in the Project Model. */
 export interface RestGoRuntimeConfiguration {
@@ -23,6 +28,7 @@ export class RestGoNotConfiguredError extends Error {
 
 let projectClient: RestGoClient | null = null;
 let applicationApiToken = '';
+let disposeEmailConfirmation: (() => void) | undefined;
 
 /** Internal browser credential projection; never contains an IDE administrator token. */
 export function getRestGoApplicationToken(): string {
@@ -33,8 +39,25 @@ export function getRestGoApplicationToken(): string {
 /** Creates the one shared client before authored page lifecycle handlers run. */
 export function configureRestGo(configuration: RestGoRuntimeConfiguration): RestGoClient | null {
   setPageEventBinder(bindPageRestGoEvents);
+  disposeEmailConfirmation?.();
+  disposeEmailConfirmation = undefined;
   projectClient?.dispose();
   applicationApiToken = '';
+  const storageRequest: {
+    baseUrl: string;
+    storageKey: string;
+    storage?: RestGoSessionStorageAdapter;
+  } = {
+    baseUrl: configuration.baseUrl,
+    storageKey: configuration.storageKey,
+  };
+  if (
+    configuration.enabled &&
+    configuration.persistSession &&
+    configuration.sessionStorage === 'local' &&
+    typeof window !== 'undefined'
+  )
+    window.dispatchEvent(new CustomEvent('webrad:restgo-storage', { detail: storageRequest }));
   projectClient = configuration.enabled
     ? createClient(configuration.baseUrl, {
         apiToken: configuration.apiToken,
@@ -43,9 +66,12 @@ export function configureRestGo(configuration: RestGoRuntimeConfiguration): Rest
         persistSession: configuration.persistSession,
         sessionStorage: configuration.sessionStorage,
         storageKey: configuration.storageKey,
+        ...(storageRequest.storage ? { storage: storageRequest.storage } : {}),
       })
     : null;
   applicationApiToken = projectClient === null ? '' : (configuration.apiToken ?? '');
+  if (projectClient !== null && typeof window !== 'undefined')
+    disposeEmailConfirmation = bindRestGoEmailConfirmation(projectClient, window);
   return projectClient;
 }
 

@@ -17,6 +17,8 @@ import type {
   RestGoSignUpInput,
   RestGoSuccess,
   RestGoUser,
+  RestGoUpdateUserInput,
+  RestGoUpdateUserResult,
 } from './types';
 
 type AuthListener = (event: RestGoAuthEvent, session: RestGoSession | null) => void;
@@ -594,6 +596,53 @@ export class RestGoAuthClient {
       method: 'POST',
       body: { token },
       auth: 'none',
+    });
+  }
+
+  async updateUser(
+    input: RestGoUpdateUserInput,
+    options: RestGoRequestOptions = {},
+  ): Promise<RestGoResult<RestGoUpdateUserResult>> {
+    await this.ready;
+    if (this.disposed) return this.cancelled();
+    const generation = this.generation;
+    const userId = this.current?.user.id;
+    const result = await this.transport.request<unknown>('/auth/profile', {
+      ...options,
+      method: 'PUT',
+      body: input,
+      auth: 'session',
+      sessionAuthority: true,
+      retryUnauthorized: false,
+    });
+    if (generation !== this.generation || this.current?.user.id !== userId) return this.cancelled();
+    if (result.error) return result;
+    if (
+      !isRecord(result.data) ||
+      !isUser(result.data.user) ||
+      result.data.user.id !== userId ||
+      typeof result.data.sessionRevoked !== 'boolean'
+    )
+      return failure('RestGo returned an invalid profile response.', 'INVALID_RESPONSE');
+    const updated = {
+      user: { ...result.data.user },
+      sessionRevoked: result.data.sessionRevoked,
+    };
+    if (updated.sessionRevoked) this.clear();
+    else if (this.current) this.apply({ ...this.current, user: updated.user }, 'USER_UPDATED');
+    return success(updated);
+  }
+
+  resendEmailConfirmation(
+    options: RestGoRequestOptions & { url?: string } = {},
+  ): Promise<RestGoResult<RestGoSuccess>> {
+    const { url, ...requestOptions } = options;
+    return this.transport.request('/auth/profile/email-confirmation', {
+      ...requestOptions,
+      method: 'POST',
+      body: url ? { url } : {},
+      auth: 'session',
+      sessionAuthority: true,
     });
   }
 

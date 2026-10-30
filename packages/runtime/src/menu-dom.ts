@@ -1,5 +1,6 @@
 import { createLucideIconElement, type LucideIconName } from './icon.js';
 import type { WebMenuConfiguration, WebMenuItem } from './menu-model.js';
+import { webMenuUserSettingsText } from './menu-user-settings-i18n.js';
 
 export interface WebMenuProjection {
   readonly idPrefix: string;
@@ -213,10 +214,7 @@ export function createWebMenuPanel(
   }
   panel.append(nav);
   if (config.user.visible) {
-    const user = menuElement(document, 'button', 'wr-menu-user');
-    user.type = 'button';
-    user.dataset.menuAction = 'user';
-    user.setAttribute('aria-label', config.user.name || 'User profile');
+    const user = menuElement(document, 'div', 'wr-menu-user');
     const avatar = menuElement(document, 'span', 'wr-menu-avatar');
     if (config.user.avatar) {
       const image = menuElement(document, 'img', 'wr-menu-avatar-image');
@@ -242,8 +240,19 @@ export function createWebMenuPanel(
     copy.append(menuElement(document, 'strong', 'wr-menu-label', config.user.name));
     if (config.user.description)
       copy.append(menuElement(document, 'small', 'wr-menu-muted', config.user.description));
-    user.append(avatar, copy, createLucideIconElement(document, 'user-round-cog'));
-    panel.append(user);
+    user.append(avatar, copy);
+    const row = menuElement(document, 'div', 'wr-menu-user-row');
+    const opensSettings = config.user.settings && config.user.bindToCurrentUser;
+    const settings = menuButton(
+      document,
+      opensSettings ? 'user-settings' : 'user',
+      webMenuUserSettingsText(config.user.settingsLanguage)('Account settings'),
+      'user-round-cog',
+    );
+    settings.classList.add('wr-menu-user-settings');
+    if (opensSettings) settings.setAttribute('aria-haspopup', 'dialog');
+    row.append(user, settings);
+    panel.append(row);
   }
   if (config.footerText)
     panel.append(menuElement(document, 'small', 'wr-menu-footer', config.footerText));

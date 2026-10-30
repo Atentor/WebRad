@@ -314,8 +314,7 @@ export function createVirtualSourceGraph(
   const diagnostics: CompileDiagnostic[] = [];
   const routePaths = new Set<string>();
   for (const page of project.pages) {
-    const routePath =
-      page.id === project.entryPage ? '/index' : '/' + page.name.toLowerCase();
+    const routePath = page.id === project.entryPage ? '/index' : '/' + page.name.toLowerCase();
     if (
       !/^\/(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?$/.test(routePath) ||
       routePath.split('/').some((part) => part === 'assets')

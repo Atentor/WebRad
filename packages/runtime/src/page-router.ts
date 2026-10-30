@@ -312,7 +312,9 @@ export class WebPageRouter {
   }
 
   #routeHash(route: RuntimePageRoute): string {
-    return '#' + this.#routePaths.get(route.id);
+    const hash = this.#window.location.hash;
+    const queryIndex = hash.startsWith('#/') ? hash.indexOf('?') : -1;
+    return '#' + this.#routePaths.get(route.id) + (queryIndex >= 0 ? hash.slice(queryIndex) : '');
   }
 
   #routeUrl(route: RuntimePageRoute): string {
@@ -328,7 +330,9 @@ export class WebPageRouter {
     }
     if (!this.#window.location.hash.startsWith('#/')) return undefined;
     try {
-      const destination = decodeURIComponent(this.#window.location.hash.slice(1));
+      const destination = decodeURIComponent(
+        this.#window.location.hash.slice(1).split('?')[0] ?? '',
+      );
       return this.findRoute(destination) ?? this.findRoute(destination.slice(1));
     } catch {
       return undefined;

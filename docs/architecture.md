@@ -1,5 +1,16 @@
 # WebRAD architecture
 
+Preview authentication persistence is owned by the main process. A publication
+may inject a browser-only RestGO storage adapter backed by an OS-encrypted file
+in the WebRAD profile, scoped to canonical project root, project ID, server and
+storage key. It uses a short-lived capability on the existing ephemeral loopback
+server, accepts only bounded SDK session metadata, and is revoked with the
+publication. The SDK still restores/validates identity and coordinates refresh;
+the main process does not proxy application API requests. Session/memory modes
+and ordinary browser exports keep their existing storage behavior. Without secure
+OS encryption, Preview sessions are isolated in main-process memory. See
+[Preview session persistence](restgo-sdk.md#preview-session-persistence).
+
 Application themes are project-owned data, separate from IDE appearance.
 `settings.themes` holds semantic and custom Light/Dark colors and initial/persistence
 options; component styles may add sparse `themeOverrides`. Project Model

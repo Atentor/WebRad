@@ -88,7 +88,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
               repeat: 'no-repeat, no-repeat',
               clip: 'padding-box, border-box',
               border: '1px',
-              radius: '6px',
+              radius: '8px',
             });
             expect(await paint(expression)).toMatchObject({
               image: expect.stringContaining('linear-gradient(to right bottom'),

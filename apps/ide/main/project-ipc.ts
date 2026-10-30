@@ -266,6 +266,7 @@ async function buildHandler(
   event: IpcMainInvokeEvent,
   input: BuildRequest,
   log?: (message: string) => void,
+  userDataPath?: string,
 ): Promise<BuildResponse> {
   const request = buildRequestSchema.parse(input);
   requireGrantedRoot(event, request.rootPath);
@@ -315,7 +316,23 @@ async function buildHandler(
     progress('publish-preview');
     const previewUrl =
       result.success && result.previewHtml
-        ? await publishPreviewHtml(event.sender.id, result.previewHtml, project.assets ?? [])
+        ? await publishPreviewHtml(
+            event.sender.id,
+            result.previewHtml,
+            project.assets ?? [],
+            userDataPath !== undefined &&
+              project.settings.restGo.enabled &&
+              project.settings.restGo.persistSession &&
+              project.settings.restGo.sessionStorage === 'local'
+              ? {
+                  rootPath: request.rootPath,
+                  projectId: project.id,
+                  userDataPath,
+                  baseUrl: project.settings.restGo.baseUrl,
+                  storageKey: project.settings.restGo.storageKey,
+                }
+              : undefined,
+          )
         : undefined;
     progress(result.success ? 'finished' : 'failed');
     return {
@@ -704,7 +721,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   ipcMain.handle('webrad:files:read', readFileHandler);
   ipcMain.handle('webrad:files:write', writeFileHandler);
   ipcMain.handle('webrad:build:run', (event, input) =>
-    buildHandler(event, input, options.compilationLog),
+    buildHandler(event, input, options.compilationLog, options.userDataPath),
   );
   ipcMain.handle('webrad:deploy:choose-directory', async (event, ...input: unknown[]) => {
     if (input.length !== 1)

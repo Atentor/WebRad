@@ -22,9 +22,11 @@ closing Preview is separate from explicit logout.
 1. Open **RestGO > Registration / Sign in** (`RestGoAccount`). Enter the full
    name, email and matching passwords, then choose **Create account**. The
    server creates the account; signup does not create an authenticated session.
-2. If email confirmation is required, use the email delivered by RestGO. Open
-   **Email / Password recovery** (`RestGoRecovery`), paste its confirmation token
-   and choose **Confirm email**. Return to sign in.
+2. If email confirmation is required, open the link delivered by RestGO. Any
+   compiled WebRAD page receives `email_confirmation_token` automatically,
+   confirms the email and removes the token from the URL. The manual **Confirm
+   email** action on **Email / Password recovery** (`RestGoRecovery`) remains
+   available for a pasted token. Return to sign in.
 3. Enter the account email and password, choose whether to remember the session,
    and select **Sign in**. Open **Profile / Avatar** (`RestGoProfile`). The menu
    now shows the authenticated name, email and avatar. Clicking its user area

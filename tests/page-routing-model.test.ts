@@ -47,9 +47,7 @@ describe('page routing configuration', () => {
     const legacy = updateComponentProps(page, page.rootComponentId, {
       routePath: '/admin/clientes',
     });
-    const project = deserializeProject(
-      serializeProject(addPage(createProject('Routes'), legacy)),
-    );
+    const project = deserializeProject(serializeProject(addPage(createProject('Routes'), legacy)));
     const saved = project.pages.find(({ id }) => id === page.id)!;
     expect(saved.components[0]?.props.routePath).toBeUndefined();
     expect(saved.rootComponentId).toBe(page.rootComponentId);

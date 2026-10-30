@@ -301,6 +301,71 @@ async function runMenuSmokeWorkflow(
   options.log(
     'renderer Menu RestGO user binding controls passed: manual default, binding disables profile fields, unbinding preserves manual values',
   );
+  const userSettings = `([...document.querySelectorAll('.wr-menu-editor-fields label')].find(e=>e.textContent.trim()==='Enable user settings')?.querySelector('input'))`;
+  await ready(`${userSettings} instanceof HTMLInputElement && !${userSettings}.checked`);
+  await evaluate(`${userSettings}.click()`);
+  await ready(`${userSettings}?.checked === true && ${userBinding}?.checked === true
+    && ${field('User name')}?.disabled === true`);
+  await ready(`${field('User settings language')}?.value === 'en'`);
+  await evaluate(`(() => {
+    const language = ${field('User settings language')};
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(language, 'pt-BR');
+    language.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await ready(`${field('User settings language')}?.value === 'pt-BR'
+    && document.querySelector('.wr-menu-editor-preview-surface .wr-menu-user-settings')?.getAttribute('aria-label') === 'Configurações da conta'`);
+  await evaluate(`(() => {
+    const language = ${field('User settings language')};
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(language, 'en');
+    language.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await ready(`${field('User settings language')}?.value === 'en'
+    && document.querySelector('.wr-menu-editor-preview-surface .wr-menu-user-settings')?.getAttribute('aria-label') === 'Account settings'`);
+  options.log(
+    'renderer Menu user settings language passed: English default, Portuguese and English accessible icon labels',
+  );
+  await input('Email confirmation URL', 'https://app.example.com/confirm-email');
+  await input('Password reset URL', 'https://app.example.com/reset-password');
+  await evaluate(`${userBinding}.click()`);
+  await ready(`${userSettings}?.checked === false && ${userBinding}?.checked === false`);
+  await evaluate(`${userSettings}.click()`);
+  await ready(`${field('Email confirmation URL')}?.value === 'https://app.example.com/confirm-email'
+    && ${field('Password reset URL')}?.value === 'https://app.example.com/reset-password'`);
+  await evaluate(`${userBinding}.click()`);
+  await ready(`${userSettings}?.checked === false && ${userBinding}?.checked === false`);
+  options.log(
+    'renderer Menu account link URLs passed: editable destinations retained when settings are toggled',
+  );
+  options.log(
+    'renderer Menu user settings option passed: disabled by default, enables current-user binding, unbinding disables settings',
+  );
+  await ready(
+    `document.querySelector('.wr-menu-editor-preview-surface .wr-menu-user-settings') instanceof HTMLButtonElement`,
+  );
+  await evaluate(`(() => {
+    const menu = document.querySelector('.wr-menu-editor-preview-surface .wr-webmenu');
+    const profile = menu.querySelector('.wr-menu-user');
+    const icon = menu.querySelector('.wr-menu-user-settings');
+    if (!(profile instanceof HTMLDivElement) || profile.tabIndex !== -1
+      || profile.hasAttribute('data-menu-action') || profile.querySelector('button,a,input')
+      || getComputedStyle(profile).cursor !== 'default' || !(icon instanceof HTMLButtonElement))
+      throw new Error('Menu profile must be informational with a separate settings button');
+    let clicks = 0;
+    const onUserClick = () => { clicks++; };
+    menu.addEventListener('userclick', onUserClick);
+    try {
+      profile.click();
+      profile.querySelector('.wr-menu-copy').click();
+      if (clicks !== 0) throw new Error('Profile content still triggers user actions');
+      icon.click();
+      if (clicks !== 1) throw new Error('Only the settings icon must trigger the user action');
+    } finally {
+      menu.removeEventListener('userclick', onUserClick);
+    }
+  })()`);
+  options.log(
+    'renderer Menu profile icon-only interaction passed: informational profile, icon action',
+  );
   await evaluate(
     `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(e=>e.textContent==='Behavior & layout').click()`,
   );

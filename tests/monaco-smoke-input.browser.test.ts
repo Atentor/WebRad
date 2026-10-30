@@ -32,8 +32,8 @@ it.runIf(browser !== undefined)(
             value: ${JSON.stringify(handler.sourceText)}, language: 'plaintext',
             editContext: enabled, minimap: { enabled: false },
           });
-          editor.onDidChangeCursorPosition(event => document.querySelector('.wr-status-position')
-            .setAttribute('aria-label', 'Line ' + event.position.lineNumber + ', column ' + event.position.column));
+          editor.onDidChangeCursorPosition(event => editor.getDomNode()
+            .setAttribute('data-cursor-position', 'Line ' + event.position.lineNumber + ', column ' + event.position.column));
           editor.setPosition({ lineNumber: 1, column: 1 });
           document.getElementById('outside').focus();
         };

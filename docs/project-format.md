@@ -189,6 +189,20 @@ Menus and authored reusable compositions are preserved. Deleting a referenced
 definition or saving a missing link is rejected.
 
 Menu profile configuration accepts the optional `user.bindToCurrentUser` boolean.
+The optional `user.settings` boolean defaults to `false` and enables the built-in
+current-account editor. Enabling it in the dialog also enables the visible profile
+and current-user binding. Settings UI, session data, passwords and photo drafts are
+transient runtime state and are never serialized. Menu schema 1 is unchanged.
+The optional `user.settingsLanguage` is `en` or `pt-BR`, defaulting to `en` when
+omitted. It selects the built-in editor language independently of project locale
+and remains saved when user settings are disabled. Invalid language values are
+rejected by the shared parser; Menu schema 1 and project format 2 are unchanged.
+The optional `user.emailConfirmationUrl` and `user.passwordResetUrl` strings
+default to empty and select the account email-link destinations. Nonempty values
+must be absolute HTTP(S) URLs without credentials. Empty values retain server
+defaults. These are public URLs, not credentials or API endpoints; configuration
+persists independently of whether user settings are enabled. Format versions do
+not change.
 Missing values normalize to `false`, preserving manual profiles in older projects.
 When enabled, runtime projects the application's RestGO session into the profile;
 authenticated identity is never serialized. The manual profile values remain saved

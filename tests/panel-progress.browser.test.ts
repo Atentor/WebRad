@@ -83,7 +83,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
             leftOffset: 0,
             topOffset: 0,
             pathBox: { x: 0, y: 0, width: 280, height: 160 },
-            radius: '6px',
+            radius: '8px',
             pointer: 'none',
           });
           const childBounds = () =>
