@@ -145,8 +145,8 @@ async function runMenuSmokeWorkflow(
     const started = Date.now();
     const deadline = started + 10000;
     let lastResult: unknown;
-    let evaluationStarted = started;
-    let evaluationFinished = started;
+    let evaluationStarted: number;
+    let evaluationFinished: number;
     for (;;) {
       evaluationStarted = Date.now();
       lastResult = await evaluate(source);

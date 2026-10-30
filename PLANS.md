@@ -1,5 +1,24 @@
 # WebRAD delivery plan
 
+## Hosted lint correction: 2026-10-30
+
+Inspected all six failed jobs for 9eb7de75ca9c287b14979d6cf7df020b7c1476fe:
+release 41054552210 (four platforms) and validate 41054552244 (Windows/Linux).
+Every job stopped at the same two no-useless-assignment errors in menu-smoke.ts.
+The diagnostic variables were initialized before a loop that always overwrites
+both before any read. Removed only those dead initializers and declared explicit
+number types; the loop assigns them before evaluating timeout evidence. Retained
+strict types, lint rules, smoke deadlines, assertions and compiler changes.
+
+Both runs contain zero artifacts: lint failed before packaging and smoke
+execution. This is a new diagnostic-code regression, not evidence of another
+macOS Preview timeout. Security passed; icons, generated sources and typecheck
+passed before lint in the failed jobs. Saved each failed job's original log and
+run/artifact metadata under artifacts/ci-9eb7de7/. No local validation was
+requested or run. The original Intel timing correction remains unconfirmed until
+the updated commit reaches and passes the native smoke. No commit, push, tag,
+installer or publication was performed.
+
 ## Tagged release Menu compilation follow-up: 2026-10-30
 
 Release 41047683011 for v0.0.19 / 74fb1ed58f66785378373ebfe317da507534eab9
