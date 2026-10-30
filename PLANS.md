@@ -1,5 +1,32 @@
 # WebRAD delivery plan
 
+## Tagged release Menu compilation follow-up: 2026-10-30
+
+Release 41047683011 for v0.0.19 / 74fb1ed58f66785378373ebfe317da507534eab9
+failed only on macOS Intel in the packaged Menu Interaction F9 smoke. Preflight,
+code checks, portable tests and packaging passed; Windows, Linux and macOS ARM
+completed their build jobs. Assembly/publication were skipped. The same SHA's
+earlier branch release verification 41044475333 and both branch/tag validate and
+security runs passed; these do not override the failing tagged smoke.
+
+The failing Preview took 11,007 ms against the unchanged 10-second Menu wait:
+typecheck 5,509 ms, bundle build 1,559 ms and observed bundle-output interval
+3,260 ms. Its later timeout evidence already contained the published Preview URL.
+The successful Intel branch run completed this F9 in 3,751 ms. The logs establish
+a timing failure, not an exclusive native scheduler or bundle-output root cause.
+
+Removed the compiler's unnecessary whole-Program invalidation when root files
+change. Adding the smoke page/reusable had discarded the previous parser graph;
+compatible builds now reuse exact-content SourceFiles while TypeScript reconciles
+the current roots, resolves imports and computes strict diagnostics again. The
+cache still retains only the latest Program and clears the old host capture.
+Menu timeout diagnostics now separate the last poll's result/start/end from the
+later evidence timestamp, without changing waits, assertions or required markers.
+Retained the original diagnostic archive/project under artifacts/ci-74fb1ed/.
+No local validation was requested or run. The correction's native timing and
+full success require hosted verification of the updated commit; no commit, push,
+tag, version change, installer or publication was performed.
+
 ## Hosted Actions follow-up: 2026-10-30
 
 Tracking commit 068dfe86caed5729de79fba55a05a1d80c7aaa15. Security passed;

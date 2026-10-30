@@ -124,6 +124,27 @@ These identify past observations rather than current verification.
 
 ## Investigating failures
 
+### Tagged Menu compilation timeout: 74fb1ed (2026-10-30)
+
+[Tagged release 41047683011](https://github.com/Atentor/WebRad/actions/runs/41047683011)
+passed Windows, Linux and macOS ARM; Intel failed its packaged Menu Interaction
+F9 wait. Compilation/publication took 11,007 ms against the 10-second wait:
+typecheck 5,509 ms, native bundle build 1,559 ms and the observed bundle-output
+interval 3,260 ms. The later failure evidence already showed the published URL.
+The same SHA's [branch verification](https://github.com/Atentor/WebRad/actions/runs/41044475333)
+passed all platforms, with this Intel F9 taking 3,751 ms. Validate/security passed.
+Those successes do not replace the failed tagged execution or prove the exclusive
+cause of the longer native interval.
+
+Root-list changes must not discard otherwise compatible parsed TypeScript files.
+Let createProgram reconcile added/removed documents; reuse only exact-content
+SourceFiles with matching parse settings and compiler environment. Recompute
+strict diagnostics and module resolutions, release the previous host capture and
+retain only the latest Program. Preserve the Menu wait, real compiled interactions,
+evidence markers and platform gates. Timeout diagnostics distinguish the last
+poll's start/end/result from evidence collected later. Local validation was not
+requested; native confirmation of this correction remains pending.
+
 ### Windows loopback navigation: 068dfe8 (2026-10-30)
 
 [Validate 41037777128](https://github.com/Atentor/WebRad/actions/runs/41037777128)

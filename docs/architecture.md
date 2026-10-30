@@ -107,10 +107,13 @@ applications remain ordinary browser output with no Electron dependency.
 
 The compiler retains at most its latest TypeScript Program to reuse parsed
 SourceFiles in compatible repeated builds. Reuse requires the same current
-directory, TypeScript library location, compiler options and root files, plus
+directory, TypeScript library location and compiler options, plus
 identical file content and parse settings. Every build rereads current inputs,
 invalidates module resolutions and computes strict diagnostics and component
-reference lowering again. This is a process-local parsing optimization; neither
+reference lowering again. Adding, removing or renaming project documents does
+not invalidate unchanged parsed files: TypeScript reconciles the current root
+list and module graph, checking changed content and newly missing imports.
+This is a process-local parsing optimization; neither
 diagnostic results nor build outputs are accepted from a previous build.
 The host's temporary reference to the previous Program is cleared in `finally`
 immediately after constructing the new Program. Retaining that closure would

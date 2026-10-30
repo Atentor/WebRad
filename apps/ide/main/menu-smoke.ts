@@ -142,13 +142,21 @@ async function runMenuSmokeWorkflow(
   const evaluate = (source: string): Promise<unknown> =>
     window.webContents.executeJavaScript(source, true);
   const ready = async (source: string): Promise<void> => {
-    const deadline = Date.now() + 10000;
+    const started = Date.now();
+    const deadline = started + 10000;
+    let lastResult: unknown;
+    let evaluationStarted = started;
+    let evaluationFinished = started;
     for (;;) {
-      if ((await evaluate(source)) === true) return;
+      evaluationStarted = Date.now();
+      lastResult = await evaluate(source);
+      evaluationFinished = Date.now();
+      if (lastResult === true) return;
       if (Date.now() >= deadline) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     const evidence = await evaluate(`({
+      observedAt: Date.now(),
       viewport: document.querySelector('[data-viewport]')?.getAttribute('data-viewport-width'),
       menus: [...document.querySelectorAll('[data-designer-node-id] > .wr-webmenu')].map(menu => ({
         mobile: menu.dataset.menuMobile, bounds: menu.getBoundingClientRect().toJSON(),
@@ -172,7 +180,14 @@ async function runMenuSmokeWorkflow(
         })),
       })),
     })`);
-    throw new Error(`Menu smoke timed out: ${source}; evidence: ${JSON.stringify(evidence)}`);
+    throw new Error(
+      `Menu smoke timed out: ${source}; last poll: ${JSON.stringify({
+        result: lastResult,
+        waitStartedAt: started,
+        startedAfterMs: evaluationStarted - started,
+        finishedAfterMs: evaluationFinished - started,
+      })}; evidence: ${JSON.stringify(evidence)}`,
+    );
   };
   const click = async (selector: string): Promise<void> => {
     await ready(`document.querySelector(${JSON.stringify(selector)}) instanceof HTMLElement`);

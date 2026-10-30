@@ -77,8 +77,11 @@ export function typecheckSources(
     process.cwd(),
     process.env.WEBRAD_TYPESCRIPT_LIB_PATH ?? null,
     compilerOptions,
-    rootNames,
   ]);
+  // Adding/removing a page, Menu or reusable changes roots, not the parser
+  // environment. Let createProgram reconcile the new graph while the host reuses
+  // exact-content SourceFiles; discarding the program here reparses the runtime
+  // and browser libraries on the first F9 after every structural project edit.
   let oldProgram =
     previousTypecheck?.environment === environment ? previousTypecheck.program : undefined;
   previousTypecheck = undefined;
