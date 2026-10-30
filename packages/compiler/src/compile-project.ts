@@ -815,12 +815,7 @@ export async function compileProject(
       ...project.settings,
       themeConfiguration: projectThemeRuntimeConfiguration(project.settings.themes, project.id),
       routePaths: project.pages.map((page) =>
-        String(
-          page.id === project.entryPage
-            ? '/index'
-            : page.components.find((node) => node.id === page.rootComponentId)?.props.routePath ||
-                '/' + page.name.toLowerCase(),
-        ),
+        page.id === project.entryPage ? '/index' : '/' + page.name.toLowerCase(),
       ),
       browserTitle:
         typeof entryRoot?.props.browserTitle === 'string' ? entryRoot.props.browserTitle : '',

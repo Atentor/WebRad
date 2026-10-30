@@ -628,11 +628,9 @@ const webPage: ComponentDefinition = {
   type: 'WebPage',
   inspectorProperties: (properties, node) =>
     node.name === 'index' || node.name === '404'
-      ? properties
-          .filter((property) => property.name !== 'routePath')
-          .map((property) =>
-            property.name === 'name' ? { ...property, readOnly: true } : property,
-          )
+      ? properties.map((property) =>
+          property.name === 'name' ? { ...property, readOnly: true } : property,
+        )
       : properties,
   displayName: 'Page',
   namePrefix: 'Page',
@@ -646,7 +644,6 @@ const webPage: ComponentDefinition = {
   defaults: {
     caption: 'Page',
     browserTitle: '',
-    routePath: '',
     visible: true,
     collapseWhenHidden: true,
     enabled: true,
@@ -656,16 +653,6 @@ const webPage: ComponentDefinition = {
     ...geometryProperties(pageBounds),
     ...containerLayoutProperties(),
     captionProperty('Page'),
-    {
-      name: 'routePath',
-      label: 'Route path',
-      description:
-        'URL path, such as /clientes or /admin/clientes. Blank uses the page name in lowercase. Mandatory index and 404 pages use fixed /index and /404 routes. Set before publishing; routes are fixed at compilation.',
-      type: 'string',
-      category: 'Identity',
-      source: 'props',
-      defaultValue: '',
-    },
     {
       name: 'browserTitle',
       label: 'Browser title',

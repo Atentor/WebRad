@@ -97,6 +97,7 @@ function MenuPreview({
       },
       user: {
         ...configuration.user,
+        bindToCurrentUser: false,
         avatar: resolveProjectImageSource(configuration.user.avatar, assets),
       },
     };
@@ -654,6 +655,19 @@ export function MenuConfigurationDialog({
                       />{' '}
                       Show user profile
                     </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={draft.user.bindToCurrentUser === true}
+                        onChange={(event) =>
+                          set('user', {
+                            ...draft.user,
+                            bindToCurrentUser: event.currentTarget.checked,
+                          })
+                        }
+                      />{' '}
+                      Bind to current RestGO user
+                    </label>
                     {(['name', 'description', 'avatar'] as const).map((key) => (
                       <Field
                         label={
@@ -667,6 +681,7 @@ export function MenuConfigurationDialog({
                       >
                         <input
                           value={draft.user[key]}
+                          disabled={draft.user.bindToCurrentUser === true}
                           list={key === 'avatar' ? assetsId : undefined}
                           onChange={(event) =>
                             set('user', { ...draft.user, [key]: event.currentTarget.value })
@@ -677,6 +692,7 @@ export function MenuConfigurationDialog({
                     <Field label="Status">
                       <select
                         value={draft.user.status}
+                        disabled={draft.user.bindToCurrentUser === true}
                         onChange={(event) =>
                           set('user', {
                             ...draft.user,
@@ -691,8 +707,9 @@ export function MenuConfigurationDialog({
                       </select>
                     </Field>
                     <p className="wr-modal-description">
-                      Import images through Project Assets and select their paths here. A profile
-                      without a photo uses the user's initials. OnUserClick handles profile actions.
+                      {draft.user.bindToCurrentUser
+                        ? 'RestGO supplies the signed-in user name, email, photo and online status at runtime. Enable RestGO in the project integration. The profile is hidden without a session. Designer and this preview use the manual values as samples.'
+                        : 'Import images through Project Assets and select their paths here. A profile without a photo uses the user\'s initials. OnUserClick handles profile actions.'}
                     </p>
                   </div>
                 )}

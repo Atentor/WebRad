@@ -92,6 +92,22 @@ have their undo history in the definition document.
 The preview switches between desktop and mobile. Save Menu records one command;
 Cancel and Escape discard the draft. F9 runs the compiled application.
 
+In **Brand & user > User profile**, enable **Show user profile** and **Bind to
+current RestGO user** to use the application's authenticated SDK session. Enable
+and configure the project's RestGO integration first. The profile shows the
+user's full name (or email), email as the description, session photo (or initials)
+and online status. It updates after session restoration, login, user updates and
+logout; without an authenticated session, the profile is hidden. Each mounted
+Menu releases its subscription on disposal. No IDE account is used.
+
+Manual name, description, photo and status controls are disabled while bound,
+but their saved values remain available when binding is turned off. Designer and
+the configuration preview use those manual values as samples. `OnUserClick`
+receives the displayed session profile. In TypeScript, set
+`Menu1.user = { ...Menu1.user, visible: true, bindToCurrentUser: true }`.
+`Menu1.user` and `Menu1.configuration` retain the saved configuration; session
+identity is a runtime projection and is never written into the Project Model.
+
 ## Submenus
 
 Vertical/mobile branches expand in the scrollable navigation flow. Horizontal

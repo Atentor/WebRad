@@ -53,7 +53,6 @@
         "enabled": true,
         "backgroundColor": "#ffffff",
         "browserTitle": "404 - Page not found",
-        "routePath": "/404",
         "visible": true
       },
       "events": {

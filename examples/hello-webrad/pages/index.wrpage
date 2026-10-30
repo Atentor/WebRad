@@ -52,7 +52,6 @@
         "caption": "Olá WebRAD",
         "enabled": true,
         "backgroundColor": "#ffffff",
-        "routePath": "/index",
         "visible": true
       },
       "events": {

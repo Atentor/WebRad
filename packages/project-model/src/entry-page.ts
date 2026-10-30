@@ -46,7 +46,6 @@ export function materializeEntryPage(project: WebRadProject): WebRadProject {
             props: {
               caption: '404',
               browserTitle: '404 - Page not found',
-              routePath: '/404',
               visible: true,
               enabled: true,
               backgroundColor: '#ffffff',
@@ -82,16 +81,20 @@ export function materializeEntryPage(project: WebRadProject): WebRadProject {
   return {
     ...project,
     pages: pages.map((page) => {
-      const name = page.name === '404' ? '404' : page.id === project.entryPage ? 'index' : null;
-      if (name === null) return page;
+      const name = page.id === project.entryPage ? 'index' : page.name;
       return {
         ...page,
         name,
-        components: page.components.map((node) =>
-          node.id !== page.rootComponentId
-            ? node
-            : { ...node, name, props: { ...node.props, routePath: '/' + name } },
-        ),
+        components: page.components.map((node) => {
+          if (node.id !== page.rootComponentId) return node;
+          const props = { ...node.props };
+          delete props.routePath;
+          return {
+            ...node,
+            name: page.id === project.entryPage || page.name === '404' ? name : node.name,
+            props,
+          };
+        }),
       };
     }),
   };

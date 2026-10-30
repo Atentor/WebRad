@@ -206,7 +206,7 @@ function createEntrySource(
       return `  {
     id: ${JSON.stringify(page.id)},
     name: ${JSON.stringify(page.name)},
-    path: ${JSON.stringify(page.id === project.entryPage ? '/index' : page.components.find((node) => node.id === page.rootComponentId)?.props.routePath || `/${page.name.toLowerCase()}`)},
+    path: ${JSON.stringify(page.id === project.entryPage ? '/index' : `/${page.name.toLowerCase()}`)},
     model: ${model} as unknown as RuntimePageModel,
     createPage: (element: HTMLElement) => new WebRadPage${String(index)}(element),
     createReusableElements,
@@ -314,12 +314,9 @@ export function createVirtualSourceGraph(
   const diagnostics: CompileDiagnostic[] = [];
   const routePaths = new Set<string>();
   for (const page of project.pages) {
-    const configured = page.components.find((node) => node.id === page.rootComponentId)?.props
-      .routePath;
     const routePath =
-      page.id === project.entryPage ? '/index' : configured || '/' + page.name.toLowerCase();
+      page.id === project.entryPage ? '/index' : '/' + page.name.toLowerCase();
     if (
-      typeof routePath !== 'string' ||
       !/^\/(?:[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)?$/.test(routePath) ||
       routePath.split('/').some((part) => part === 'assets')
     ) {
@@ -327,7 +324,7 @@ export function createVirtualSourceGraph(
         category: 'error',
         source: 'model',
         message:
-          'Invalid Route path for ' +
+          'Invalid automatic page route for ' +
           page.name +
           ': use / followed by letters, digits, hyphens, underscores and optional path segments; assets is reserved.',
       });
@@ -335,7 +332,7 @@ export function createVirtualSourceGraph(
       diagnostics.push({
         category: 'error',
         source: 'model',
-        message: 'Duplicate Route path: ' + routePath,
+        message: 'Duplicate automatic page route: ' + routePath,
       });
     } else routePaths.add(routePath);
   }

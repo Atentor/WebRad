@@ -1,5 +1,29 @@
 # WebRAD delivery plan
 
+## Remove custom page Route path: 2026-10-29
+
+Removed Route path from the Page registry/Inspector and creation defaults.
+Compiler routes, HTML metadata and runtime projections now use lowercase page
+names, with mandatory /index and /404. Project normalization removes obsolete
+root props.routePath values while preserving IDs and page content. Readonly
+runtime this.routePath continues to report the actual automatic route. Updated
+existing routing fixtures, documentation and Electron Inspector evidence.
+Regenerated runtime sources. No tests, smokes, typecheck, lint or builds were
+requested or run.
+
+## Menu RestGO current-user binding: 2026-10-29
+
+Added **Brand & user > User profile > Bind to current RestGO user**. The optional
+`user.bindToCurrentUser` flag defaults to false for legacy and new configurations.
+Runtime uses the project SDK snapshot/auth notifications to project the user's
+name, email, session photo and online status, hiding the profile without a session.
+Subscriptions are released on unbinding/disposal. Manual values remain saved and
+serve as Designer/configuration-preview samples; session identity is never persisted.
+The public typed Menu configuration and generated runtime/declarations include the
+flag. Updated the existing Electron Menu workflow and required runner evidence for
+the checkbox and manual-field disabling. Runtime sources were regenerated; tests,
+smokes, typecheck, lint and builds were not requested or run.
+
 ## Release validation repairs and hosted verification: 2026-10-29
 
 The requested commit/push and GitHub Actions follow-up includes the accumulated

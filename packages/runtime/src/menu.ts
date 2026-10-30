@@ -5,6 +5,7 @@ import { projectWebMenuLayout, readWebMenuMargins } from './menu-layout.js';
 import { runtimeEventName, WebComponent } from './component.js';
 import { createLucideIconElement } from './icon.js';
 import { Theme } from './theme.js';
+import { bindWebMenuRestGoUser } from './menu-restgo.js';
 import { applyWebMenuAppearance, createWebMenuPanel, menuButton, menuElement } from './menu-dom.js';
 import {
   createDefaultWebMenuConfiguration,
@@ -220,6 +221,31 @@ export class WebMenu extends WebComponent<HTMLElement> {
   }
 
   #configuration = createDefaultWebMenuConfiguration();
+  #unbindRestGoUser: (() => void) | undefined;
+  #restGoUser: WebMenuConfiguration['user'] | null = null;
+
+  #syncRestGoUser(): void {
+    if (this.#disposed) return;
+    if (this.#configuration.user.bindToCurrentUser && this.#options.interactive !== false) {
+      this.#unbindRestGoUser ??= bindWebMenuRestGoUser((user) => {
+        if (JSON.stringify(user) === JSON.stringify(this.#restGoUser)) return;
+        this.#restGoUser = user;
+        this.#render();
+      });
+    } else {
+      this.#unbindRestGoUser?.();
+      this.#unbindRestGoUser = undefined;
+      this.#restGoUser = null;
+    }
+  }
+
+  #projectedUser(): WebMenuConfiguration['user'] {
+    const user = this.#configuration.user;
+    if (!user.bindToCurrentUser || this.#options.interactive === false) return user;
+    return this.#restGoUser
+      ? { ...this.#restGoUser, visible: user.visible }
+      : { ...user, visible: false, name: '', description: '', avatar: '', status: 'none' };
+  }
   #expanded = new Set<string>();
   #selectedItemId = '';
   #collapsed = false;
@@ -285,7 +311,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
         this.collapsed = !this.collapsed;
         break;
       case 'user':
-        this.emit('OnUserClick', { ...this.#configuration.user });
+        this.emit('OnUserClick', { ...this.#projectedUser() });
         break;
       case 'theme':
         if (this.#options.onThemeToggle) this.#options.onThemeToggle();
@@ -463,6 +489,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
     const parsed = parseWebMenuConfiguration(value);
     this.close();
     this.#configuration = parsed;
+    this.#syncRestGoUser();
     this.#selectedItemId = parsed.selectedItemId;
     this.#collapsed = parsed.collapsed;
     this.#query = '';
@@ -682,6 +709,8 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (this.#disposed) return;
     this.close();
     this.#disposed = true;
+    this.#unbindRestGoUser?.();
+    this.#unbindRestGoUser = undefined;
     for (const dispose of this.#definitionHandlers.values()) dispose();
     this.#definitionHandlers.clear();
     this.#themeObserver?.disconnect();
@@ -740,6 +769,7 @@ export class WebMenu extends WebComponent<HTMLElement> {
     if (changes.orientation !== undefined && changes.orientation !== this.orientation)
       this.#expanded.clear();
     this.#configuration = parseWebMenuConfiguration({ ...this.configuration, ...changes });
+    this.#syncRestGoUser();
     this.#render();
   }
   #navigate(page: string, href: string, target?: '_self' | '_blank'): void {
@@ -854,15 +884,19 @@ export class WebMenu extends WebComponent<HTMLElement> {
       this.element.querySelector<HTMLElement>('.wr-menu-navigation')?.scrollTop ?? 0;
     this.#disposePopovers?.();
     this.#disposePopovers = undefined;
-    const panel = createWebMenuPanel(document, this.#configuration, {
-      idPrefix: this.#idPrefix,
-      themeMode: this.#themeMode(),
-      collapsed,
-      mobile,
-      query: this.#query,
-      expanded: this.#expanded,
-      selectedItemId: this.#selectedItemId,
-    });
+    const panel = createWebMenuPanel(
+      document,
+      { ...this.#configuration, user: this.#projectedUser() },
+      {
+        idPrefix: this.#idPrefix,
+        themeMode: this.#themeMode(),
+        collapsed,
+        mobile,
+        query: this.#query,
+        expanded: this.#expanded,
+        selectedItemId: this.#selectedItemId,
+      },
+    );
     if (mobile) {
       const trigger = menuButton(
         document,

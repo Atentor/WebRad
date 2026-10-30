@@ -30,6 +30,8 @@ export interface WebMenuBrand {
 
 export interface WebMenuUser {
   readonly visible: boolean;
+  /** Resolve the profile from the project's RestGO session; omitted means manual. */
+  readonly bindToCurrentUser?: boolean;
   readonly name: string;
   readonly description: string;
   readonly avatar: string;
@@ -176,7 +178,14 @@ export function createDefaultWebMenuConfiguration(): WebMenuConfiguration {
       page: '',
       href: '',
     },
-    user: { visible: false, name: '', description: '', avatar: '', status: 'none' },
+    user: {
+      visible: false,
+      bindToCurrentUser: false,
+      name: '',
+      description: '',
+      avatar: '',
+      status: 'none',
+    },
     appearance: createProjectWebMenuAppearance(),
     items: [
       { id: 'home', label: 'Home', icon: 'house' },
@@ -300,6 +309,8 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
     return fail('brand, user or appearance');
   exact(brand, Object.keys(defaults.brand), 'brand.');
   exact(user, Object.keys(defaults.user), 'user.');
+  const bindToCurrentUser = user.bindToCurrentUser === undefined ? false : user.bindToCurrentUser;
+  if (typeof bindToCurrentUser !== 'boolean') fail('user.bindToCurrentUser');
   exact(appearance, Object.keys(defaults.appearance), 'appearance.');
   if (typeof brand.visible !== 'boolean' || typeof user.visible !== 'boolean') fail('visible');
   for (const key of ['caption', 'subtitle', 'page', 'href']) text(brand, key);
@@ -379,6 +390,7 @@ export function parseWebMenuConfiguration(value: unknown): WebMenuConfiguration 
     searchMode,
     themeToggle,
     mobileIconPosition,
+    user: { ...user, bindToCurrentUser },
     mobileBreakpoint: 768,
     drawerWidth: 288,
   }) as unknown as WebMenuConfiguration;

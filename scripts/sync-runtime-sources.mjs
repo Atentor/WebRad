@@ -135,6 +135,7 @@ const sourceFiles = [
   'menu-popovers.ts',
   'reusable-menu-layout.ts',
   'menu-model.ts',
+  'menu-restgo.ts',
   'menu-dom.ts',
   'menu-css.ts',
   'api-client.ts',

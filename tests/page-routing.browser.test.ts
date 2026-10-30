@@ -4,7 +4,6 @@ import {
   addPage,
   createPage,
   createProject,
-  updateComponentProps,
   updateProjectSettings,
   serializeProject,
   deserializeProject,
@@ -20,10 +19,7 @@ it.runIf(browser !== undefined)(
       routingBasePath: '/portal/',
     });
     const details = createPage('PageDetails');
-    const configured = updateComponentProps(details, details.rootComponentId, {
-      routePath: '/admin/clientes',
-    });
-    const project = deserializeProject(serializeProject(addPage(initial, configured)));
+    const project = deserializeProject(serializeProject(addPage(initial, details)));
     const output = await compileProjectToMemory(project, { userSources: {}, target: 'deploy' });
     expect(output.success, JSON.stringify(output.diagnostics)).toBe(true);
     const previewOutput = await compileProjectToMemory(project, { userSources: {} });
@@ -67,7 +63,7 @@ it.runIf(browser !== undefined)(
           await mounted(details.rootComponentId);
           expect(await evaluate('location.hash')).toBe('');
           const path = await evaluate('location.pathname');
-          expect(String(path)).toMatch(/\/admin\/clientes$/);
+          expect(String(path)).toMatch(/\/pagedetails$/);
           const previousTimeOrigin = await evaluate('performance.timeOrigin');
           await send('Page.reload');
           await expect.poll(() => evaluate('performance.timeOrigin')).not.toBe(previousTimeOrigin);
@@ -78,10 +74,10 @@ it.runIf(browser !== undefined)(
           await mounted(details.rootComponentId);
           await evaluate('Navigate("index", { replace: true })');
           await mounted(project.pages[0]!.rootComponentId);
-          await evaluate("Navigate('/admin/clientes')");
+          await evaluate("Navigate('/pagedetails')");
           await mounted(details.rootComponentId);
         });
-        const direct = new URL('admin/clientes?filter=active', new URL('./', entry)).href;
+        const direct = new URL('pagedetails?filter=active', new URL('./', entry)).href;
         await withChromium(browser!, direct, async (send) => {
           await expect
             .poll(async () => {
@@ -107,24 +103,3 @@ it.runIf(browser !== undefined)(
   },
   120000,
 );
-it('rejects duplicate and unsafe compiled paths', async () => {
-  const initial = createProject('InvalidRoutes');
-  // Use the authored root IDs rather than names when editing route properties.
-  const second = createPage('PageOther');
-  const configured = updateComponentProps(second, second.rootComponentId, {
-    routePath: '/index',
-  });
-  const invalid = await compileProjectToMemory(addPage(initial, configured), { userSources: {} });
-  expect(invalid.success).toBe(false);
-  expect(invalid.diagnostics.some((item) => item.message.includes('Duplicate Route path'))).toBe(
-    true,
-  );
-  for (const routePath of ['/../secret', '/assets/app', '/customers?x=1', '//external', '/a b']) {
-    const changed = updateComponentProps(second, second.rootComponentId, { routePath });
-    const result = await compileProjectToMemory(addPage(initial, changed), { userSources: {} });
-    expect(result.success).toBe(false);
-    expect(result.diagnostics.some((item) => item.message.includes('Invalid Route path'))).toBe(
-      true,
-    );
-  }
-});

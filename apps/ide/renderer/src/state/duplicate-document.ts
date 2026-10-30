@@ -21,10 +21,6 @@ export function duplicateDocument(document: PageModel, name: string): PageModel 
       ...(node.id === document.rootComponentId
         ? {
             name,
-            props: {
-              ...structuredClone(node.props),
-              ...(node.type === 'WebPage' ? { routePath: '' } : {}),
-            },
           }
         : {}),
     })),

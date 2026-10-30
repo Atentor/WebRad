@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { defaultComponentRegistry } from '@webrad/component-registry';
-import { ChangePropertyCommand, CommandHistory } from '@webrad/designer';
 import {
   createPage,
   createProject,
-  deserializePage,
   deserializeProject,
-  serializePage,
   serializeProject,
   updateProjectSettings,
   safeParseProject,
+  addPage,
+  updateComponentProps,
 } from '@webrad/project-model';
 
 describe('page routing configuration', () => {
@@ -38,24 +37,22 @@ describe('page routing configuration', () => {
     }
   });
 
-  it('registers and saves an independent route with undo/redo and stable component identity', () => {
+  it('removes custom route configuration while preserving page identity', () => {
     expect(
       defaultComponentRegistry
         .require('WebPage')
         .properties.find(({ name }) => name === 'routePath'),
-    ).toMatchObject({ label: 'Route path', source: 'props', defaultValue: '' });
+    ).toBeUndefined();
     const page = createPage('PageCustomers');
-    const history = new CommandHistory(page);
-    history.execute(
-      new ChangePropertyCommand(page.rootComponentId, 'routePath', '/admin/clientes'),
+    const legacy = updateComponentProps(page, page.rootComponentId, {
+      routePath: '/admin/clientes',
+    });
+    const project = deserializeProject(
+      serializeProject(addPage(createProject('Routes'), legacy)),
     );
-    const saved = deserializePage(serializePage(history.state));
-    expect(saved.components[0]?.props.routePath).toBe('/admin/clientes');
+    const saved = project.pages.find(({ id }) => id === page.id)!;
+    expect(saved.components[0]?.props.routePath).toBeUndefined();
     expect(saved.rootComponentId).toBe(page.rootComponentId);
     expect(saved.name).toBe('PageCustomers');
-    history.undo();
-    expect(history.state.components[0]?.props.routePath ?? '').toBe('');
-    history.redo();
-    expect(history.state.components[0]?.props.routePath).toBe('/admin/clientes');
   });
 });

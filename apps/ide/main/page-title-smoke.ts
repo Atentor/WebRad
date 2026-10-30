@@ -201,6 +201,14 @@ export async function runPageTitleSmoke(
       ?.components.find((candidate) => candidate.id === rootComponentId);
     if (root?.props.browserTitle !== expected)
       throw new Error(`Page Browser title ${JSON.stringify(expected)} was not saved.`);
+    if (
+      saved.project.pages.some((candidate) =>
+        candidate.components.some(
+          (node) => node.id === candidate.rootComponentId && 'routePath' in node.props,
+        ),
+      )
+    )
+      throw new Error('Page roots still contain obsolete custom route configuration.');
   }
 
   const customTitle = 'WebRAD browser title <Smoke> & "preview"';
@@ -220,7 +228,7 @@ export async function runPageTitleSmoke(
     'document.querySelector(\'button[aria-label="Delete selected project item"]\')?.disabled === true',
   );
   await openPageInspector();
-  log('renderer mandatory index page passed: fixed name, hidden Route path, deletion disabled');
+  log('renderer mandatory index page passed: fixed name, Route path removed, deletion disabled');
   await ready(window, `${browserTitleField}?.value === ''`);
   await setBrowserTitle(window, customTitle);
   await assertSavedTitle(customTitle);
@@ -289,6 +297,9 @@ export async function runPageTitleSmoke(
       `[role="treeitem"][data-component-id=${JSON.stringify(originalSelection)}]`,
     );
   log('renderer History routing F9 passed: clean page URL without hash');
+  log(
+    'renderer Page automatic routes passed: Route path absent, normalized model has no custom paths',
+  );
   log(
     `renderer Page browser title Inspector and F9 passed: custom title saved and rendered; cleared title restored ${JSON.stringify(original.project.settings.applicationName)}`,
   );

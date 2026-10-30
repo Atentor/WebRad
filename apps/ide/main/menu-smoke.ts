@@ -282,6 +282,26 @@ async function runMenuSmokeWorkflow(
     'renderer Menu subtree removal undo passed: button, Ctrl+Z, preserved unrelated edits',
   );
   await evaluate(
+    `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(e=>e.textContent==='Brand & user').click()`,
+  );
+  const userBinding = `([...document.querySelectorAll('.wr-menu-editor-fields label')].find(e=>e.textContent.trim()==='Bind to current RestGO user')?.querySelector('input'))`;
+  await ready(`${userBinding} instanceof HTMLInputElement && !${userBinding}.checked`);
+  await input('User name', 'Menu smoke user');
+  await evaluate(`${userBinding}.click()`);
+  await ready(`${userBinding}?.checked === true
+    && ${field('User name')}?.disabled === true
+    && ${field('User description')}?.disabled === true
+    && ${field('User photo')}?.disabled === true
+    && ${field('Status')}?.disabled === true`);
+  await evaluate(`${userBinding}.click()`);
+  await ready(`${userBinding}?.checked === false
+    && ${field('User name')}?.disabled === false
+    && ${field('User name')}?.value === 'Menu smoke user'
+    && ${field('Status')}?.disabled === false`);
+  options.log(
+    'renderer Menu RestGO user binding controls passed: manual default, binding disables profile fields, unbinding preserves manual values',
+  );
+  await evaluate(
     `[...document.querySelectorAll('.wr-menu-editor-tabs button')].find(e=>e.textContent==='Behavior & layout').click()`,
   );
   await evaluate(

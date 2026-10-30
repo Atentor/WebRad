@@ -176,7 +176,6 @@ export function createDefaultRoot(
     props: {
       caption,
       browserTitle: '',
-      routePath: '',
       visible: true,
       enabled: true,
       backgroundColor: '#ffffff',
