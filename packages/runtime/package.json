@@ -60,7 +60,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@webrad/restgo-sdk": "0.1.0",
-    "lucide": "1.61.0",
+    "lucide": "1.62.0",
     "pdf-lib": "1.17.1",
     "shaka-player": "5.3.2"
   },
