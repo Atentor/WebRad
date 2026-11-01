@@ -87,6 +87,11 @@ ${chartsTypings.source}
   export const WEB_DATA_GRID_HORIZONTAL_ALIGNMENTS: readonly ['start', 'center', 'end'];
   export type WebDataGridHorizontalAlignment = (typeof WEB_DATA_GRID_HORIZONTAL_ALIGNMENTS)[number];
 
+  export const WEB_DATA_GRID_PAGINATION_MODES: readonly ['none', 'client', 'server'];
+  export type WebDataGridPaginationMode = (typeof WEB_DATA_GRID_PAGINATION_MODES)[number];
+
+  export type WebDataGridSortDirection = 'asc' | 'desc';
+
   export interface WebDataGridColumn {
     readonly id: string;
     readonly header: string;
@@ -102,6 +107,8 @@ ${chartsTypings.source}
     readonly flex: number;
     readonly headerAlign: WebDataGridHorizontalAlignment;
     readonly cellAlign: WebDataGridHorizontalAlignment;
+    readonly sortable: boolean;
+    readonly searchable: boolean;
   }
 
   export interface WebDataGridConfiguration {
@@ -126,6 +133,77 @@ ${chartsTypings.source}
     readonly showVerticalLines: boolean;
     readonly emptyMessage: string;
     readonly columns: readonly WebDataGridColumn[];
+    /** none, client (loaded list) or server (re-executes with page/page_size). */
+    readonly pagination: WebDataGridPaginationMode;
+    readonly pageSize: number;
+    readonly pageSizeOptions: readonly number[];
+    readonly showPageSizeSelector: boolean;
+    readonly searchEnabled: boolean;
+    readonly searchPlaceholder: string;
+    readonly sortEnabled: boolean;
+    readonly exportEnabled: boolean;
+    readonly serverSearchParameter: string;
+    readonly serverSortParameter: string;
+    readonly serverDirectionParameter: string;
+    readonly totalPagesPath: string;
+    readonly totalRowsPath: string;
+  }
+
+  /** A column accepted by the configuration setter; sort and search flags default to true. */
+  export type WebDataGridColumnInput = Omit<WebDataGridColumn, 'sortable' | 'searchable'> &
+    Partial<Pick<WebDataGridColumn, 'sortable' | 'searchable'>>;
+
+  /** A configuration accepted by the setter; paging, sort, search and export options are optional. */
+  export type WebDataGridConfigurationInput = Omit<
+    WebDataGridConfiguration,
+    | 'columns'
+    | 'pagination'
+    | 'pageSize'
+    | 'pageSizeOptions'
+    | 'showPageSizeSelector'
+    | 'searchEnabled'
+    | 'searchPlaceholder'
+    | 'sortEnabled'
+    | 'exportEnabled'
+    | 'serverSearchParameter'
+    | 'serverSortParameter'
+    | 'serverDirectionParameter'
+    | 'totalPagesPath'
+    | 'totalRowsPath'
+  > &
+    Partial<
+      Pick<
+        WebDataGridConfiguration,
+        | 'pagination'
+        | 'pageSize'
+        | 'pageSizeOptions'
+        | 'showPageSizeSelector'
+        | 'searchEnabled'
+        | 'searchPlaceholder'
+        | 'sortEnabled'
+        | 'exportEnabled'
+        | 'serverSearchParameter'
+        | 'serverSortParameter'
+        | 'serverDirectionParameter'
+        | 'totalPagesPath'
+        | 'totalRowsPath'
+      >
+    > & {
+      readonly columns: readonly WebDataGridColumnInput[];
+    };
+
+  /** Current page, sort and search of a grid, sent with its query events. */
+  export interface WebDataGridQueryState {
+    /** One-based page number. */
+    readonly page: number;
+    readonly pageSize: number;
+    readonly pageCount: number;
+    /** Rows after search, or the server-reported total; null when unknown. */
+    readonly totalRows: number | null;
+    readonly sortColumnId: string | null;
+    readonly sortField: string | null;
+    readonly sortDirection: WebDataGridSortDirection | null;
+    readonly search: string;
   }
 
   export interface WebDataGridCellEventDetail {
@@ -139,11 +217,43 @@ ${chartsTypings.source}
 
   export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridConfiguration;
 
+  /** Case- and accent-insensitive text used by the client-side search. */
+  export function normalizeDataGridSearchText(value: string): string;
+
+  /** Sorts nulls last, numbers numerically, dd/mm/yyyy dates by date and text with the locale. */
+  export function compareDataGridValues(left: unknown, right: unknown, collator: Intl.Collator): number;
+
   export class WebDataGrid extends WebComponent<HTMLDivElement> {
     constructor(element: HTMLElement);
-    configuration: WebDataGridConfiguration;
-    dataGridConfig: WebDataGridConfiguration;
+    get configuration(): WebDataGridConfiguration;
+    set configuration(value: WebDataGridConfigurationInput);
+    get dataGridConfig(): WebDataGridConfiguration;
+    set dataGridConfig(value: WebDataGridConfigurationInput);
     bindApiClient(apiClient: WebApiClient | null): void;
+    /** One-based page currently shown. */
+    page: number;
+    pageSize: number;
+    readonly pageCount: number;
+    /** Text applied by the search box. */
+    searchText: string;
+    readonly queryState: WebDataGridQueryState;
+    /** Rows rendered on the current page, after search and sort. */
+    readonly visibleRows: readonly unknown[];
+    /** All rows matching the search, sorted; in server mode, the current page. */
+    readonly filteredRows: readonly unknown[];
+    goToPage(page: number): void;
+    firstPage(): void;
+    previousPage(): void;
+    nextPage(): void;
+    lastPage(): void;
+    /** Sorts by column ID, header or Field; without a direction it toggles asc, desc, none. */
+    sortBy(column: string | null, direction?: WebDataGridSortDirection): void;
+    clearSort(): void;
+    search(text: string): void;
+    /** Server mode: re-executes the bound operation with the current page, sort and search. */
+    refresh(): Promise<void>;
+    /** Returns the CSV; with a file name the browser also downloads it. */
+    exportCsv(fileName?: string): string;
   }
 
   /** Base browser-side wrapper shared by every visual WebRAD component. */

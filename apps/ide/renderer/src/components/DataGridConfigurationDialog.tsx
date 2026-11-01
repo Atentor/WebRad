@@ -11,6 +11,7 @@ import {
   type DataGridColumnWidthMode,
   type DataGridConfiguration,
   type DataGridHorizontalAlignment,
+  type DataGridPaginationMode,
   type DataGridRowHeightMode,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES, webRadIconLabel } from '@webrad/runtime/icons';
@@ -52,6 +53,23 @@ const HORIZONTAL_ALIGNMENT_LABELS: Readonly<Record<DataGridHorizontalAlignment, 
   center: 'Center',
   end: 'End',
 };
+
+const PAGINATION_LABELS: Readonly<Record<DataGridPaginationMode, string>> = {
+  none: 'Off (show every row)',
+  client: 'Client (pages the loaded list)',
+  server: 'Server (RestGO/HexAPI page and page_size)',
+};
+
+/** Parses "10, 25, 50" into unique, ascending page sizes between 1 and 1000. */
+function parsePageSizeOptions(text: string): readonly number[] {
+  const values = text
+    .split(/[\s,;]+/u)
+    .map((part) => Number(part))
+    .filter((value) => Number.isInteger(value) && value >= 1 && value <= 1_000);
+  return [...new Set(values)].sort((left, right) => left - right).slice(0, 12);
+}
+
+const QUERY_PARAMETER_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/u;
 
 function createStableId(prefix: string): string {
   const suffix =
@@ -291,8 +309,23 @@ export function DataGridConfigurationDialog({
     });
   };
 
+  const serverParameters = [
+    draft.serverSearchParameter,
+    draft.serverSortParameter,
+    draft.serverDirectionParameter,
+  ];
+  const queryOptionsValid =
+    serverParameters.every(
+      (name) => QUERY_PARAMETER_PATTERN.test(name) && name !== 'page' && name !== 'page_size',
+    ) &&
+    new Set(serverParameters).size === serverParameters.length &&
+    [draft.totalPagesPath, draft.totalRowsPath].every(
+      (path) => path.length === 0 || path.startsWith('/'),
+    );
+
   const save = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    if (!queryOptionsValid) return;
     onSave({
       ...draft,
       columns: reconcileColumnFieldPaths(draft.columns, operation?.responseSchema, draft.listPath),
@@ -689,6 +722,196 @@ export function DataGridConfigurationDialog({
 
             <section
               className="wr-data-grid-configuration-section"
+              aria-labelledby={`${titleId}-query`}
+            >
+              <h3 id={`${titleId}-query`}>Paging, sorting and search</h3>
+              <div className="wr-data-grid-configuration-fields three-columns">
+                <label>
+                  <span>Pagination</span>
+                  <select
+                    aria-label="Data Grid pagination"
+                    value={draft.pagination}
+                    onChange={(event) => {
+                      const pagination = event.currentTarget.value as DataGridPaginationMode;
+                      updateDraft((current) => ({ ...current, pagination }));
+                    }}
+                  >
+                    {Object.entries(PAGINATION_LABELS).map(([mode, label]) => (
+                      <option key={mode} value={mode}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Rows per page</span>
+                  <NumericInput
+                    ariaLabel="Data Grid rows per page"
+                    min={1}
+                    max={1_000}
+                    value={draft.pageSize}
+                    onValueChange={(pageSize) => {
+                      if (pageSize === null) return;
+                      updateDraft((current) => ({
+                        ...current,
+                        pageSize,
+                        pageSizeOptions: current.pageSizeOptions.includes(pageSize)
+                          ? current.pageSizeOptions
+                          : [...current.pageSizeOptions, pageSize]
+                              .sort((left, right) => left - right)
+                              .slice(0, 12),
+                      }));
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Page size choices</span>
+                  <input
+                    aria-label="Data Grid page size choices"
+                    defaultValue={draft.pageSizeOptions.join(', ')}
+                    key={draft.pageSizeOptions.join(',')}
+                    spellCheck={false}
+                    onBlur={(event) => {
+                      const options = parsePageSizeOptions(event.currentTarget.value);
+                      updateDraft((current) => ({
+                        ...current,
+                        pageSizeOptions:
+                          options.length === 0
+                            ? [current.pageSize]
+                            : options.includes(current.pageSize)
+                              ? options
+                              : [...options, current.pageSize]
+                                  .sort((left, right) => left - right)
+                                  .slice(0, 12),
+                      }));
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Search placeholder</span>
+                  <input
+                    aria-label="Data Grid search placeholder"
+                    disabled={!draft.searchEnabled}
+                    maxLength={256}
+                    placeholder="Localized default"
+                    value={draft.searchPlaceholder}
+                    onChange={(event) => {
+                      const searchPlaceholder = event.currentTarget.value;
+                      updateDraft((current) => ({ ...current, searchPlaceholder }));
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="wr-data-grid-configuration-toggles">
+                <fieldset className="wr-data-grid-toggle-group">
+                  <legend>Tools</legend>
+                  <label>
+                    <input
+                      aria-label="Enable Data Grid search"
+                      checked={draft.searchEnabled}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const searchEnabled = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, searchEnabled }));
+                      }}
+                    />
+                    <span>Search box</span>
+                  </label>
+                  <label>
+                    <input
+                      aria-label="Enable Data Grid sorting"
+                      checked={draft.sortEnabled}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const sortEnabled = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, sortEnabled }));
+                      }}
+                    />
+                    <span>Sort by clicking headers</span>
+                  </label>
+                  <label>
+                    <input
+                      aria-label="Enable Data Grid CSV export"
+                      checked={draft.exportEnabled}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const exportEnabled = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, exportEnabled }));
+                      }}
+                    />
+                    <span>CSV export button</span>
+                  </label>
+                  <label>
+                    <input
+                      aria-label="Show Data Grid page size selector"
+                      checked={draft.showPageSizeSelector}
+                      disabled={draft.pagination === 'none'}
+                      type="checkbox"
+                      onChange={(event) => {
+                        const showPageSizeSelector = event.currentTarget.checked;
+                        updateDraft((current) => ({ ...current, showPageSizeSelector }));
+                      }}
+                    />
+                    <span>Page size selector</span>
+                  </label>
+                </fieldset>
+              </div>
+              {draft.pagination === 'server' && (
+                <>
+                  <p className="wr-data-grid-configuration-hint">
+                    The grid re-executes the operation with page, page_size and the parameters
+                    below, and reads page totals from the response envelope.
+                  </p>
+                  <div className="wr-data-grid-configuration-fields five-columns">
+                    {(
+                      [
+                        ['serverSearchParameter', 'Search parameter'],
+                        ['serverSortParameter', 'Sort parameter'],
+                        ['serverDirectionParameter', 'Direction parameter'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <label key={key}>
+                        <span>{label}</span>
+                        <input
+                          aria-label={`Data Grid ${label.toLowerCase()}`}
+                          aria-invalid={!QUERY_PARAMETER_PATTERN.test(draft[key])}
+                          maxLength={64}
+                          spellCheck={false}
+                          value={draft[key]}
+                          onChange={(event) => {
+                            const value = event.currentTarget.value.trim();
+                            updateDraft((current) => ({ ...current, [key]: value }));
+                          }}
+                        />
+                      </label>
+                    ))}
+                    {(
+                      [
+                        ['totalPagesPath', 'Total pages field'],
+                        ['totalRowsPath', 'Total rows field'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <label key={key}>
+                        <span>{label}</span>
+                        <input
+                          aria-label={`Data Grid ${label.toLowerCase()}`}
+                          maxLength={4_096}
+                          spellCheck={false}
+                          value={draft[key]}
+                          onChange={(event) => {
+                            const value = event.currentTarget.value.trim();
+                            updateDraft((current) => ({ ...current, [key]: value }));
+                          }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+
+            <section
+              className="wr-data-grid-configuration-section"
               aria-labelledby={`${titleId}-columns`}
             >
               <div className="wr-data-grid-configuration-section-heading">
@@ -1020,6 +1243,36 @@ export function DataGridConfigurationDialog({
                         </select>
                       </label>
                     </div>
+                    {(draft.sortEnabled || draft.searchEnabled) && (
+                      <div className="wr-data-grid-configuration-toggles">
+                        <label>
+                          <input
+                            aria-label={`Sortable Data Grid column ${String(index + 1)}`}
+                            checked={column.sortable}
+                            disabled={!draft.sortEnabled}
+                            type="checkbox"
+                            onChange={(event) => {
+                              const sortable = event.currentTarget.checked;
+                              updateColumn(index, (current) => ({ ...current, sortable }));
+                            }}
+                          />
+                          <span>Sortable</span>
+                        </label>
+                        <label>
+                          <input
+                            aria-label={`Searchable Data Grid column ${String(index + 1)}`}
+                            checked={column.searchable}
+                            disabled={!draft.searchEnabled}
+                            type="checkbox"
+                            onChange={(event) => {
+                              const searchable = event.currentTarget.checked;
+                              updateColumn(index, (current) => ({ ...current, searchable }));
+                            }}
+                          />
+                          <span>Included in search</span>
+                        </label>
+                      </div>
+                    )}
                   </section>
                 ))}
               </div>
@@ -1029,7 +1282,7 @@ export function DataGridConfigurationDialog({
             <button type="button" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="primary">
+            <button type="submit" className="primary" disabled={!queryOptionsValid}>
               Save Data Grid
             </button>
           </footer>

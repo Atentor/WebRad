@@ -2099,7 +2099,7 @@ const webDataGrid: ComponentDefinition = {
       source: 'props',
       defaultValue: createDefaultDataGridConfiguration(),
       description:
-        'Configure the source, columns, responsive widths, row sizing, and cell layout in the Data Grid editor.',
+        'Configure the source, columns, responsive widths, row sizing, cell layout, paging, sorting, search, and CSV export in the Data Grid editor.',
       designerAction: 'data-grid-configurator',
     },
   ],
@@ -2108,6 +2108,21 @@ const webDataGrid: ComponentDefinition = {
       eventDetailType: 'WebDataGridCellEventDetail',
       eventDetailProperties: ['column', 'rowIndex', 'columnIndex', 'value', 'getValue'],
     }),
+    ...(['OnPageChange', 'OnSortChange', 'OnSearch', 'OnQueryChange'] as const).map((name) =>
+      event(name, 'Data', {
+        eventDetailType: 'WebDataGridQueryState',
+        eventDetailProperties: [
+          'page',
+          'pageSize',
+          'pageCount',
+          'totalRows',
+          'sortColumnId',
+          'sortField',
+          'sortDirection',
+          'search',
+        ],
+      }),
+    ),
   ],
 };
 

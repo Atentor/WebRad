@@ -1380,8 +1380,28 @@ ${WEB_MENU_CSS}
 .wr-webvideoplayer > video { display: block; width: 100%; height: 100%; }
 .wr-video-designer-preview { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; pointer-events: none; font-size: 13px; }
 .wr-video-designer-preview > span:first-child { font-size: 36px; }
-.wr-webdatagrid { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); display: block; overflow: hidden; border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); color: inherit; }
-.wr-data-grid-scroll { width: 100%; height: 100%; overflow: auto; }
+.wr-webdatagrid { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); color: inherit; }
+.wr-data-grid-scroll { flex: 1 1 auto; width: 100%; height: 100%; min-height: 0; overflow: auto; }
+.wr-data-grid-toolbar, .wr-data-grid-pager { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: var(--wr-data-grid-toolbar-padding-y, 6px) var(--wr-data-grid-toolbar-padding-x, 8px); font-size: var(--wr-data-grid-toolbar-font-size, .9em); }
+.wr-data-grid-toolbar { justify-content: space-between; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+.wr-data-grid-pager { justify-content: space-between; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+.wr-data-grid-search { display: flex; flex: 1 1 200px; max-width: 360px; }
+.wr-data-grid-search-input, .wr-data-grid-page-size > select { box-sizing: border-box; min-width: 0; border: 1px solid var(--wr-control-border, #9da9b8); border-radius: var(--wr-data-grid-control-radius, 6px); background: var(--wr-data-grid-control-background, transparent); color: inherit; font: inherit; padding: 4px 8px; }
+.wr-data-grid-search-input { width: 100%; }
+.wr-data-grid-page-size { display: inline-flex; align-items: center; gap: 6px; }
+.wr-data-grid-info { color: var(--wr-data-grid-info-text-color, inherit); opacity: .85; }
+.wr-data-grid-pages { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.wr-data-grid-page-button, .wr-data-grid-export { min-width: 2em; border: 1px solid var(--wr-data-grid-button-border-color, #c7d2fe); border-radius: var(--wr-data-grid-control-radius, 6px); background: var(--wr-data-grid-page-background-color, transparent); color: inherit; cursor: pointer; font: inherit; padding: 3px 8px; }
+.wr-data-grid-export { background: var(--wr-data-grid-button-background-color, #e0e7ff); color: var(--wr-data-grid-button-text-color, #1e3a8a); font-weight: 600; }
+.wr-data-grid-page-current { border-color: var(--wr-data-grid-page-current-background-color, var(--wr-accent, #2563eb)); background: var(--wr-data-grid-page-current-background-color, var(--wr-accent, #2563eb)); color: var(--wr-data-grid-page-current-text-color, #ffffff); font-weight: 600; }
+.wr-data-grid-page-button:disabled { cursor: default; opacity: .45; }
+.wr-data-grid-page-button:focus-visible, .wr-data-grid-export:focus-visible, .wr-data-grid-sort-button:focus-visible, .wr-data-grid-search-input:focus-visible { outline: 2px solid var(--wr-accent, #4da3ff); outline-offset: 1px; }
+.wr-data-grid-sort-button { display: inline-flex; max-width: 100%; align-items: center; gap: .4em; border: 0; background: none; color: inherit; cursor: pointer; font: inherit; padding: 0; text-align: inherit; }
+.wr-data-grid-header-cell[style*='text-align: center'] .wr-data-grid-sort-button { justify-content: center; }
+.wr-data-grid-sort-caption { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wr-data-grid-sort-indicator { flex: none; font-size: .75em; opacity: .55; }
+.wr-data-grid-header-cell[aria-sort='ascending'] .wr-data-grid-sort-indicator, .wr-data-grid-header-cell[aria-sort='descending'] .wr-data-grid-sort-indicator { opacity: 1; }
+.wr-webdatagrid[aria-busy='true'] .wr-data-grid-body { opacity: .6; transition: opacity .15s; }
 .wr-data-grid-content { width: 100%; min-width: var(--wr-data-grid-min-width, 0); }
 .wr-data-grid-row { display: grid; grid-template-columns: var(--wr-data-grid-columns); min-width: var(--wr-data-grid-min-width, 0); }
 .wr-data-grid-cell { box-sizing: border-box; min-width: 0; min-height: 0; padding: var(--wr-data-grid-cell-padding-y, 8px) var(--wr-data-grid-cell-padding-x, 10px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

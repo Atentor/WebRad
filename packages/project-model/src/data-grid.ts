@@ -21,6 +21,17 @@ export type DataGridRowHeightMode = (typeof DATA_GRID_ROW_HEIGHT_MODES)[number];
 export const DATA_GRID_HORIZONTAL_ALIGNMENTS = ['start', 'center', 'end'] as const;
 export type DataGridHorizontalAlignment = (typeof DATA_GRID_HORIZONTAL_ALIGNMENTS)[number];
 
+/**
+ * Where paging, sorting and searching happen. `client` works on the full list
+ * already loaded by the bound operation; `server` re-executes the operation with
+ * `page`, `page_size`, sort and search query parameters and reads the
+ * `total_pages` metadata of the RestGO/HexAPI envelope.
+ */
+export const DATA_GRID_PAGINATION_MODES = ['none', 'client', 'server'] as const;
+export type DataGridPaginationMode = (typeof DATA_GRID_PAGINATION_MODES)[number];
+
+export const DATA_GRID_PAGE_SIZE_MAX = 1_000;
+
 /** One repeated grid cell, optionally bound to a field relative to the selected list item. */
 export interface DataGridColumn {
   readonly id: string;
@@ -46,6 +57,10 @@ export interface DataGridColumn {
   readonly flex: number;
   readonly headerAlign: DataGridHorizontalAlignment;
   readonly cellAlign: DataGridHorizontalAlignment;
+  /** Lets the user sort by this column when sorting is enabled on the grid. */
+  readonly sortable: boolean;
+  /** Includes this column in the grid's search box when search is enabled. */
+  readonly searchable: boolean;
 }
 
 /**
@@ -77,6 +92,27 @@ export interface DataGridConfiguration {
   readonly showVerticalLines: boolean;
   readonly emptyMessage: string;
   readonly columns: readonly DataGridColumn[];
+  readonly pagination: DataGridPaginationMode;
+  readonly pageSize: number;
+  /** Choices offered by the page size selector; always includes `pageSize`. */
+  readonly pageSizeOptions: readonly number[];
+  readonly showPageSizeSelector: boolean;
+  readonly searchEnabled: boolean;
+  /** Empty uses the localized default placeholder. */
+  readonly searchPlaceholder: string;
+  readonly sortEnabled: boolean;
+  /** Shows a button that downloads the filtered and sorted rows as CSV. */
+  readonly exportEnabled: boolean;
+  /** Server mode: query parameter that receives the search text. */
+  readonly serverSearchParameter: string;
+  /** Server mode: query parameter that receives the sorted column field name. */
+  readonly serverSortParameter: string;
+  /** Server mode: query parameter that receives `asc` or `desc`. */
+  readonly serverDirectionParameter: string;
+  /** Server mode: JSON Pointer to the total page count in the response envelope. */
+  readonly totalPagesPath: string;
+  /** Server mode: optional JSON Pointer to the total row count (HexAPI `/total`). */
+  readonly totalRowsPath: string;
 }
 
 const stableIdSchema = z.string().trim().min(1).max(200);
@@ -88,6 +124,12 @@ const pointerSchema = z
   });
 const pixelSchema = z.number().finite().min(0).max(10_000);
 const positivePixelSchema = z.number().finite().min(1).max(10_000);
+const pageSizeSchema = z.number().int().min(1).max(DATA_GRID_PAGE_SIZE_MAX);
+// Server-side names never start with "_": HexAPI reserves that prefix for
+// values injected from the authenticated session.
+const queryParameterSchema = z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,63}$/u, {
+  message: 'A Data Grid query parameter must start with a letter and use letters, digits or "_".',
+});
 
 export const DataGridColumnSchema: z.ZodType<DataGridColumn> = z
   .object({
@@ -109,6 +151,9 @@ export const DataGridColumnSchema: z.ZodType<DataGridColumn> = z
     flex: z.number().finite().min(0.1).max(100),
     headerAlign: z.enum(DATA_GRID_HORIZONTAL_ALIGNMENTS),
     cellAlign: z.enum(DATA_GRID_HORIZONTAL_ALIGNMENTS),
+    // Defaults keep v2 columns saved before sort/search compatible.
+    sortable: z.boolean().default(true),
+    searchable: z.boolean().default(true),
   })
   .strict()
   .superRefine((column, context) => {
@@ -145,6 +190,21 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
     showVerticalLines: z.boolean(),
     emptyMessage: z.string().max(4_096),
     columns: z.array(DataGridColumnSchema).min(1).max(50),
+    // Paging, sorting, searching and export were added to v2 with defaults
+    // that reproduce the earlier behaviour, so saved grids stay valid.
+    pagination: z.enum(DATA_GRID_PAGINATION_MODES).default('none'),
+    pageSize: pageSizeSchema.default(10),
+    pageSizeOptions: z.array(pageSizeSchema).min(1).max(12).default([10, 25, 50, 100]),
+    showPageSizeSelector: z.boolean().default(true),
+    searchEnabled: z.boolean().default(false),
+    searchPlaceholder: z.string().max(256).default(''),
+    sortEnabled: z.boolean().default(false),
+    exportEnabled: z.boolean().default(false),
+    serverSearchParameter: queryParameterSchema.default('q'),
+    serverSortParameter: queryParameterSchema.default('sort'),
+    serverDirectionParameter: queryParameterSchema.default('dir'),
+    totalPagesPath: pointerSchema.default('/total_pages'),
+    totalRowsPath: pointerSchema.default('/total'),
   })
   .strict()
   .superRefine((configuration, context) => {
@@ -153,6 +213,29 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
         code: 'custom',
         message: 'Data Grid columnCount must equal the number of configured columns.',
         path: ['columnCount'],
+      });
+    }
+    if (new Set(configuration.pageSizeOptions).size !== configuration.pageSizeOptions.length) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Data Grid page size options must be unique.',
+        path: ['pageSizeOptions'],
+      });
+    }
+    const queryParameters = [
+      configuration.serverSearchParameter,
+      configuration.serverSortParameter,
+      configuration.serverDirectionParameter,
+    ];
+    if (
+      new Set(queryParameters).size !== queryParameters.length ||
+      queryParameters.some((name) => name === 'page' || name === 'page_size')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'Data Grid server search, sort and direction parameters must be distinct and cannot be "page" or "page_size".',
+        path: ['serverSearchParameter'],
       });
     }
     if (
@@ -245,6 +328,22 @@ const LegacyDataGridConfigurationSchema: z.ZodType<LegacyDataGridConfiguration> 
     });
   });
 
+const DATA_GRID_QUERY_DEFAULTS = {
+  pagination: 'none',
+  pageSize: 10,
+  pageSizeOptions: [10, 25, 50, 100],
+  showPageSizeSelector: true,
+  searchEnabled: false,
+  searchPlaceholder: '',
+  sortEnabled: false,
+  exportEnabled: false,
+  serverSearchParameter: 'q',
+  serverSortParameter: 'sort',
+  serverDirectionParameter: 'dir',
+  totalPagesPath: '/total_pages',
+  totalRowsPath: '/total',
+} as const satisfies Partial<DataGridConfiguration>;
+
 function migrateLegacyDataGridConfiguration(value: unknown): unknown {
   const legacy = LegacyDataGridConfigurationSchema.safeParse(value);
   if (!legacy.success) return value;
@@ -263,6 +362,7 @@ function migrateLegacyDataGridConfiguration(value: unknown): unknown {
     showHorizontalLines: true,
     showVerticalLines: false,
     emptyMessage: 'No data',
+    ...DATA_GRID_QUERY_DEFAULTS,
     columns: legacy.data.columns.map((column) => ({
       ...column,
       fixedCaption: '',
@@ -274,6 +374,8 @@ function migrateLegacyDataGridConfiguration(value: unknown): unknown {
       flex: 1,
       headerAlign: 'start',
       cellAlign: 'start',
+      sortable: true,
+      searchable: true,
     })),
   } satisfies DataGridConfiguration;
 }
@@ -309,6 +411,8 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
   showHorizontalLines: true,
   showVerticalLines: false,
   emptyMessage: 'No data',
+  ...DATA_GRID_QUERY_DEFAULTS,
+  pageSizeOptions: [...DATA_GRID_QUERY_DEFAULTS.pageSizeOptions],
   columns: [
     {
       id: 'column-1',
@@ -325,6 +429,8 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       flex: 1,
       headerAlign: 'start',
       cellAlign: 'start',
+      sortable: true,
+      searchable: true,
     },
     {
       id: 'column-2',
@@ -341,6 +447,8 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       flex: 1,
       headerAlign: 'start',
       cellAlign: 'start',
+      sortable: true,
+      searchable: true,
     },
     {
       id: 'column-3',
@@ -357,6 +465,8 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
       flex: 1,
       headerAlign: 'start',
       cellAlign: 'start',
+      sortable: true,
+      searchable: true,
     },
   ],
 } satisfies DataGridConfiguration);

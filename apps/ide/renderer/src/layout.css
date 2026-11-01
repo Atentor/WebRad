@@ -6401,3 +6401,14 @@ kbd {
   width: 14px;
   height: 14px;
 }
+
+.wr-data-grid-configuration-hint {
+  margin: 10px 0 6px;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.wr-data-grid-configuration-fields input[aria-invalid='true'] {
+  border-color: var(--wr-danger, #ef4444);
+}

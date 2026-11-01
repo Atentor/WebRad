@@ -684,6 +684,27 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
         role="grid"
         aria-label={node.name}
       >
+        {(configuration.searchEnabled || configuration.exportEnabled) && (
+          <div className="wr-data-grid-toolbar" data-webrad-data-grid-preview="toolbar">
+            {configuration.searchEnabled && (
+              <span className="wr-data-grid-search">
+                <input
+                  aria-label="Search"
+                  className="wr-data-grid-search-input"
+                  placeholder={configuration.searchPlaceholder || 'Search…'}
+                  readOnly
+                  tabIndex={-1}
+                  type="search"
+                />
+              </span>
+            )}
+            {configuration.exportEnabled && (
+              <button className="wr-data-grid-export" tabIndex={-1} type="button">
+                Export CSV
+              </button>
+            )}
+          </div>
+        )}
         <div className="wr-data-grid-scroll">
           <div
             className={contentClassName}
@@ -704,7 +725,20 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
                     role="columnheader"
                     style={{ textAlign: column.headerAlign }}
                   >
-                    {column.header}
+                    {configuration.sortEnabled &&
+                    column.sortable &&
+                    column.fieldPath.length > 0 &&
+                    column.cellKind !== 'button' &&
+                    column.cellKind !== 'image' ? (
+                      <span className="wr-data-grid-sort-button">
+                        <span className="wr-data-grid-sort-caption">{column.header}</span>
+                        <span aria-hidden="true" className="wr-data-grid-sort-indicator">
+                          ↕
+                        </span>
+                      </span>
+                    ) : (
+                      column.header
+                    )}
                   </div>
                 ))}
               </div>
@@ -784,6 +818,35 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
             )}
           </div>
         </div>
+        {configuration.pagination !== 'none' && (
+          <div className="wr-data-grid-pager" data-webrad-data-grid-preview="pager">
+            <span className="wr-data-grid-info">
+              {configuration.pagination === 'server' ? 'Server paging' : 'Client paging'} ·{' '}
+              {configuration.pageSize} rows per page
+            </span>
+            {configuration.showPageSizeSelector && configuration.pageSizeOptions.length > 1 && (
+              <span className="wr-data-grid-page-size">
+                <select aria-label="Rows per page" disabled value={configuration.pageSize}>
+                  {configuration.pageSizeOptions.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            )}
+            <span className="wr-data-grid-pages">
+              {['«', '‹', '1', '2', '3', '›', '»'].map((label, index) => (
+                <span
+                  className={`wr-data-grid-page-button${index === 2 ? ' wr-data-grid-page-current' : ''}`}
+                  key={index}
+                >
+                  {label}
+                </span>
+              ))}
+            </span>
+          </div>
+        )}
       </div>
     );
   },

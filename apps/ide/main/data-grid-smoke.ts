@@ -21,6 +21,13 @@ const toggleValues = [
   ['Show Data Grid horizontal lines', 'showHorizontalLines', false],
   ['Show Data Grid vertical lines', 'showVerticalLines', true],
 ] as const;
+const queryToggleValues = [
+  ['Enable Data Grid search', 'searchEnabled', true],
+  ['Enable Data Grid sorting', 'sortEnabled', true],
+  ['Enable Data Grid CSV export', 'exportEnabled', true],
+  ['Show Data Grid page size selector', 'showPageSizeSelector', true],
+  ['Sortable Data Grid column 1', 'sortable', false],
+] as const;
 
 function labelledControl(label: string): string {
   return `${dialogSelector} [aria-label=${JSON.stringify(label)}]`;
@@ -109,12 +116,18 @@ async function assertSavedEditor(window: BrowserWindow): Promise<void> {
     ['Footer for Data Grid column 1', '3 records'],
     ['Width mode for Data Grid column 1', 'fixed'],
     ['Fixed width for Data Grid column 1', '240'],
+    ['Data Grid pagination', 'server'],
+    ['Data Grid rows per page', '25'],
+    ['Data Grid page size choices', '10, 25, 50, 100'],
+    ['Data Grid search parameter', 'busca'],
+    ['Data Grid sort parameter', 'ordem'],
+    ['Data Grid direction parameter', 'direcao'],
   ];
   await ready(
     window,
     `(() => {
       const fields = ${JSON.stringify(fields)};
-      const toggles = ${JSON.stringify(toggleValues)};
+      const toggles = ${JSON.stringify([...toggleValues, ...queryToggleValues])};
       const control = (label) => document.querySelector(${JSON.stringify(dialogSelector)} + ' [aria-label="' + label + '"]');
       return fields.every(([label, value]) => control(label)?.value === value) &&
         toggles.every(([label, , checked]) => control(label)?.checked === checked) &&
@@ -293,6 +306,30 @@ export async function runDataGridConfigurationSmoke(
       ['Footer for Data Grid column 1', '3 records'],
     ] as const)
       await setField(window, label, value);
+    // Paging, sorting, search and export: invalid server parameter names block Save.
+    await setField(window, 'Data Grid pagination', 'client');
+    await setField(window, 'Data Grid rows per page', '25');
+    for (const [label] of queryToggleValues.slice(0, 4)) {
+      await setChecked(window, label, false);
+      await setChecked(window, label, true);
+    }
+    await setChecked(window, 'Sortable Data Grid column 1', false);
+    await setField(window, 'Data Grid pagination', 'server');
+    await setField(window, 'Data Grid search parameter', 'page');
+    await ready(
+      window,
+      `document.querySelector('.wr-data-grid-configuration-actions button.primary')?.disabled === true`,
+    );
+    for (const [label, value] of [
+      ['Data Grid search parameter', 'busca'],
+      ['Data Grid sort parameter', 'ordem'],
+      ['Data Grid direction parameter', 'direcao'],
+    ] as const)
+      await setField(window, label, value);
+    await ready(
+      window,
+      `document.querySelector('.wr-data-grid-configuration-actions button.primary')?.disabled === false`,
+    );
     await click(window, labelledControl('Button icon for Data Grid column 1'));
     await click(window, '.wr-icon-picker-dialog [data-icon-picker-option="check"]');
     await ready(window, `document.querySelector('.wr-icon-picker-dialog') === null`);
@@ -318,7 +355,7 @@ export async function runDataGridConfigurationSmoke(
     await click(window, 'button[aria-label="Close Data Grid configuration"]');
     if (errors.length > 0) throw new Error(`Data Grid renderer errors: ${errors.join('\n')}`);
     log(
-      `renderer Data Grid configuration passed: table palette icon; 2 rounds of all 8 toggles; row/column modes; cell kinds and icon picker; save, reopen, cancel; screenshots ${screenshots.join(', ')}`,
+      `renderer Data Grid configuration passed: table palette icon; 2 rounds of all 8 toggles; row/column modes; cell kinds and icon picker; paging/sort/search/export options and server parameter validation; save, reopen, cancel; screenshots ${screenshots.join(', ')}`,
     );
   } finally {
     if (gridId !== undefined && !window.isDestroyed()) {

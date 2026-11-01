@@ -42,7 +42,9 @@ import {
   type RuntimeComponentLayout,
   type RuntimeComponentNode,
   type WebDataGridCellEventDetail,
-  type WebDataGridConfiguration,
+  type WebDataGridColumnInput,
+  type WebDataGridConfigurationInput,
+  type WebDataGridQueryState,
   type RuntimePageModel,
 } from '../src/index.js';
 import { resolveDataGridColumnTrackWidths } from '../src/visual.js';
@@ -3263,7 +3265,7 @@ describe('WebDataGrid', () => {
       fieldPath: string,
     ): WebDataGrid => {
       const grid = new WebDataGrid(host);
-      const configuration: WebDataGridConfiguration = {
+      const configuration: WebDataGridConfigurationInput = {
         schemaVersion: 2,
         apiClientId: 'customers-api',
         operationId: 'load-customers',
@@ -3338,5 +3340,333 @@ describe('WebDataGrid', () => {
       namesHost.remove();
       statusesHost.remove();
     }
+  });
+
+  describe('paging, sorting, search and export', () => {
+    const people = [
+      { nome: 'Érica', cidade: 'Indaiatuba', abertura: '05/01/2024', ativo: true },
+      { nome: 'ana', cidade: 'Campinas', abertura: '12/12/2023', ativo: false },
+      { nome: 'Bruno', cidade: 'Salto', abertura: null, ativo: true },
+      { nome: 'Carlos', cidade: 'Itu', abertura: '01/02/2024', ativo: false },
+      { nome: '=cmd', cidade: 'Elias Fausto', abertura: '03/03/2022', ativo: true },
+    ];
+
+    function peopleClient(fetchMock: typeof fetch): WebApiClient {
+      return new WebApiClient({
+        id: 'people-api',
+        fetch: fetchMock,
+        apiClientConfig: {
+          schemaVersion: 1,
+          defaultHeaders: [],
+          timeoutMs: 30_000,
+          operations: [
+            {
+              id: 'load-people',
+              name: 'LoadPeople',
+              method: 'GET',
+              path: 'https://api.example.test/v1/sigat/pessoas',
+              headers: [],
+              query: [],
+              body: { kind: 'none', content: '' },
+              credentials: 'omit',
+              timeoutMs: null,
+              responseSchema: {
+                version: 1,
+                root: {
+                  id: 'response',
+                  name: 'Response',
+                  path: '',
+                  kind: 'object',
+                  fieldType: 'object',
+                  nullable: false,
+                  children: [
+                    {
+                      id: 'data',
+                      name: 'data',
+                      path: '/data',
+                      kind: 'list',
+                      fieldType: 'list',
+                      nullable: false,
+                      children: [],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    function column(id: string, header: string, fieldPath: string): WebDataGridColumnInput {
+      return {
+        id,
+        header,
+        fieldPath,
+        cellKind: 'text',
+        fixedCaption: '',
+        buttonIcon: null,
+        footer: '',
+        widthMode: 'dynamic',
+        width: 180,
+        minWidth: 96,
+        maxWidth: null,
+        flex: 1,
+        headerAlign: 'start',
+        cellAlign: 'start',
+      };
+    }
+
+    function peopleGrid(options: Partial<WebDataGridConfigurationInput>): {
+      readonly host: HTMLDivElement;
+      readonly grid: WebDataGrid;
+    } {
+      document.documentElement.lang = 'pt-BR';
+      const host = document.createElement('div');
+      document.body.append(host);
+      const grid = new WebDataGrid(host);
+      host.dataset.webradName = 'Pessoas';
+      grid.dataGridConfig = {
+        schemaVersion: 2,
+        apiClientId: 'people-api',
+        operationId: 'load-people',
+        listPath: '/data',
+        columnCount: 3,
+        showHeader: true,
+        stickyHeader: true,
+        showFooter: false,
+        stickyFooter: true,
+        rowHeightMode: 'dynamic',
+        fixedRowHeight: 40,
+        minRowHeight: 36,
+        maxRowHeight: null,
+        cellPaddingHorizontal: 10,
+        cellPaddingVertical: 8,
+        wrapText: false,
+        stripedRows: false,
+        showHorizontalLines: true,
+        showVerticalLines: false,
+        emptyMessage: 'Nada',
+        columns: [
+          column('nome', 'Nome', '/nome'),
+          column('cidade', 'Cidade', '/cidade'),
+          column('abertura', 'Abertura', '/abertura'),
+        ],
+        ...options,
+      };
+      return { host, grid };
+    }
+
+    const firstColumn = (host: HTMLElement): string[] =>
+      Array.from(
+        host.querySelectorAll('.wr-data-grid-body-row > .wr-data-grid-cell:first-child'),
+        (cell) => cell.textContent ?? '',
+      );
+
+    it('keeps earlier v2 grids unpaged and accepts configurations without the new options', () => {
+      const configuration = normalizeWebDataGridConfiguration({ columns: [{ id: 'a' }] });
+      expect(configuration.pagination).toBe('none');
+      expect(configuration.searchEnabled).toBe(false);
+      expect(configuration.sortEnabled).toBe(false);
+      expect(configuration.columns[0]?.sortable).toBe(true);
+      expect(
+        normalizeWebDataGridConfiguration({ pageSize: 7, pageSizeOptions: [50, 10, 10] })
+          .pageSizeOptions,
+      ).toEqual([7, 10, 50]);
+      expect(
+        normalizeWebDataGridConfiguration({ serverSortParameter: '_usuario' }).serverSortParameter,
+      ).toBe('sort');
+    });
+
+    it('pages, sorts and searches the loaded list on the client', async () => {
+      const fetchMock = vi.fn<typeof fetch>(
+        async () =>
+          new Response(JSON.stringify({ success: true, data: people }), {
+            headers: { 'content-type': 'application/json' },
+          }),
+      );
+      const api = peopleClient(fetchMock);
+      const { host, grid } = peopleGrid({
+        pagination: 'client',
+        pageSize: 2,
+        pageSizeOptions: [2, 5],
+        searchEnabled: true,
+        sortEnabled: true,
+      });
+      const events: string[] = [];
+      for (const name of ['OnPageChange', 'OnSortChange', 'OnSearch', 'OnQueryChange']) {
+        grid.bindEvent(name, (_sender, event) => {
+          const detail = (event as CustomEvent<WebDataGridQueryState>).detail;
+          events.push(`${name}:${String(detail.page)}/${String(detail.pageCount)}`);
+        });
+      }
+      grid.bindApiClient(api);
+      await api.execute('LoadPeople');
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(firstColumn(host)).toEqual(['Érica', 'ana']);
+      expect(grid.pageCount).toBe(3);
+      expect(host.querySelector('.wr-data-grid-info')?.textContent).toBe(
+        'Mostrando 1 a 2 de 5 registros',
+      );
+
+      host.querySelector<HTMLButtonElement>('[aria-label="Próxima página"]')?.click();
+      expect(firstColumn(host)).toEqual(['Bruno', 'Carlos']);
+      expect(host.querySelector('[aria-current="page"]')?.textContent).toBe('2');
+      expect(events).toEqual(['OnPageChange:2/3', 'OnQueryChange:2/3']);
+
+      host.querySelector<HTMLButtonElement>('.wr-data-grid-sort-button')?.click();
+      expect(grid.queryState).toMatchObject({
+        page: 1,
+        sortColumnId: 'nome',
+        sortField: 'nome',
+        sortDirection: 'asc',
+      });
+      expect(firstColumn(host)).toEqual(['=cmd', 'ana']);
+      expect(host.querySelector('.wr-data-grid-header-cell')?.getAttribute('aria-sort')).toBe(
+        'ascending',
+      );
+
+      grid.sortBy('Abertura', 'desc');
+      expect(firstColumn(host)).toEqual(['Carlos', 'Érica']);
+      grid.lastPage();
+      // Rows without a value stay last whatever the direction.
+      expect(firstColumn(host)).toEqual(['Bruno']);
+
+      grid.search('erica indaia');
+      expect(firstColumn(host)).toEqual(['Érica']);
+      expect(grid.page).toBe(1);
+      expect(host.querySelector<HTMLInputElement>('.wr-data-grid-search-input')?.value).toBe(
+        'erica indaia',
+      );
+
+      grid.search('');
+      const select = host.querySelector<HTMLSelectElement>('.wr-data-grid-page-size select');
+      expect(Array.from(select?.options ?? [], (option) => option.value)).toEqual(['2', '5']);
+      if (select !== null) {
+        select.value = '5';
+        select.dispatchEvent(new Event('change'));
+      }
+      expect(grid.visibleRows).toHaveLength(5);
+      expect(host.querySelectorAll('.wr-data-grid-page-button:not(:disabled)')).toHaveLength(1);
+      grid.dispose();
+      host.remove();
+    });
+
+    it('keeps the search box focused while typing', async () => {
+      vi.useFakeTimers();
+      try {
+        const api = peopleClient(
+          vi.fn<typeof fetch>(
+            async () =>
+              new Response(JSON.stringify({ success: true, data: people }), {
+                headers: { 'content-type': 'application/json' },
+              }),
+          ),
+        );
+        const { host, grid } = peopleGrid({ searchEnabled: true });
+        grid.bindApiClient(api);
+        await api.execute('LoadPeople');
+        const input = host.querySelector<HTMLInputElement>('.wr-data-grid-search-input');
+        expect(input?.placeholder).toBe('Pesquisar…');
+        input?.focus();
+        if (input !== null && input !== undefined) {
+          input.value = 'salto';
+          input.dispatchEvent(new Event('input'));
+        }
+        vi.advanceTimersByTime(200);
+        expect(firstColumn(host)).toEqual(['Bruno']);
+        expect(document.activeElement).toBe(input);
+        grid.dispose();
+        host.remove();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('re-executes the bound operation with page, sort and search in server mode', async () => {
+      const fetchMock = vi.fn<typeof fetch>(async (input) => {
+        const url = new URL(input instanceof Request ? input.url : String(input));
+        const page = Number(url.searchParams.get('page') ?? '1');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: [people[page - 1]],
+            page,
+            page_size: 1,
+            total_pages: 4,
+            total: 4,
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        );
+      });
+      const api = peopleClient(fetchMock);
+      const { host, grid } = peopleGrid({
+        pagination: 'server',
+        pageSize: 1,
+        sortEnabled: true,
+        searchEnabled: true,
+        serverSearchParameter: 'busca',
+      });
+      grid.bindApiClient(api);
+      await vi.waitFor(() => {
+        expect(firstColumn(host)).toEqual(['Érica']);
+      });
+      const firstCall = fetchMock.mock.calls[0];
+      const firstUrl = new URL(String(firstCall?.[0]));
+      expect(firstUrl.searchParams.get('page')).toBe('1');
+      expect(firstUrl.searchParams.get('page_size')).toBe('1');
+      expect(new Headers(firstCall?.[1]?.headers).get('X-RestGo-Pagination')).toBe('exact');
+      expect(host.querySelector('.wr-data-grid-info')?.textContent).toBe(
+        'Mostrando 1 a 1 de 4 registros',
+      );
+
+      grid.nextPage();
+      await vi.waitFor(() => {
+        expect(firstColumn(host)).toEqual(['ana']);
+      });
+      grid.sortBy('cidade', 'desc');
+      grid.search('itu');
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(4);
+      });
+      const lastUrl = new URL(String(fetchMock.mock.calls[3]?.[0]));
+      expect(Object.fromEntries(lastUrl.searchParams)).toEqual({
+        page: '1',
+        page_size: '1',
+        busca: 'itu',
+        sort: 'cidade',
+        dir: 'desc',
+      });
+      grid.dispose();
+      host.remove();
+    });
+
+    it('exports searched rows as CSV and neutralizes spreadsheet formulas', async () => {
+      const api = peopleClient(
+        vi.fn<typeof fetch>(
+          async () =>
+            new Response(JSON.stringify({ success: true, data: people }), {
+              headers: { 'content-type': 'application/json' },
+            }),
+        ),
+      );
+      const { host, grid } = peopleGrid({ exportEnabled: true, pagination: 'client', pageSize: 1 });
+      grid.bindApiClient(api);
+      await api.execute('LoadPeople');
+      expect(host.querySelector('.wr-data-grid-export')?.textContent).toBe('Exportar CSV');
+      const csv = grid.exportCsv();
+      expect(csv.split('\r\n')).toEqual([
+        'Nome;Cidade;Abertura',
+        'Érica;Indaiatuba;05/01/2024',
+        'ana;Campinas;12/12/2023',
+        'Bruno;Salto;',
+        'Carlos;Itu;01/02/2024',
+        "'=cmd;Elias Fausto;03/03/2022",
+        '',
+      ]);
+      grid.dispose();
+      host.remove();
+    });
   });
 });

@@ -1,5 +1,20 @@
 # WebRAD delivery plan
 
+## Data Grid paging, sorting, search, and CSV export: 2026-11-01
+
+Added client and server paging, header sorting, accent-insensitive search, and
+formula-safe CSV export to `WebDataGrid` without changing the v2 contract
+version: new configuration and column fields have defaults that keep earlier
+grids unpaged. Server mode re-executes the bound operation with `page`,
+`page_size`, sort, direction, and search query parameters plus
+`X-RestGo-Pagination: exact`, and reads `total_pages`/`total`. The setter
+accepts `WebDataGridConfigurationInput`, so existing page code that assigns a
+full earlier configuration still compiles. New runtime API, events, Monaco
+declarations, registry events, Designer preview, IDE dialog section, Electron
+smoke interactions, and [guide](docs/data-grid-paging.md) were updated together.
+Runtime tests cover client paging/sorting/search, focus retention while typing,
+server query parameters, and CSV output.
+
 ## Release corrections and template verification: 2026-10-30
 
 Added the missing API-bound Charts example to the editable Aurora Data page,
