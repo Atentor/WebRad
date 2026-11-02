@@ -1,5 +1,24 @@
 # WebRAD delivery plan
 
+## Hosted bcae7aa follow-up: 2026-11-02
+
+Monitoring validate `41447975967`, release verification `41447975955` and security
+`41447975951` for the exact pushed commit `bcae7aab0680eee834f870a52f3d5c74d774d170`.
+All three workflows have now finished. Security passed. All four release
+platforms passed strict types and lint, then failed `format:check` on the call
+in `native-build-smoke.ts`, before portable tests, packaging or Electron smokes.
+Both quality jobs passed 203 test files / 1,769 tests, with 38 files / 43 tests
+skipped, then failed the same formatting gate. Assemble/publication were skipped
+and the release run produced no artifacts. Applied the repository's Prettier
+formatting to that file without changing behavior or capture budgets. The six
+original job logs and final report are retained under `artifacts/ci-bcae7aa/`.
+These runs do not confirm the native screenshot correction because no Electron
+smoke was reached.
+
+No local validation, commit, push, tag or publication was requested or performed
+for this follow-up. Formatting the identified source is the corrective edit;
+the hosted result still refers to the uncorrected commit until a new push.
+
 ## macOS Intel v0.0.22 screenshot failure: 2026-11-02
 
 Investigated tagged release run `41443336802` at `e5c54af`. Windows, Linux and

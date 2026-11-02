@@ -71,7 +71,11 @@ export async function runNativeBuildSmoke(
   }
 
   async function capturePresentedPage(): Promise<NativeImage> {
-    return capturePresentedSmokePage(window, Math.min(deadline, Date.now() + 15_000), 'Native Build');
+    return capturePresentedSmokePage(
+      window,
+      Math.min(deadline, Date.now() + 15_000),
+      'Native Build',
+    );
   }
   const original = await loadProjectFiles(projectPath);
   const matrix = [
