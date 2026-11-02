@@ -1,5 +1,15 @@
 # WebRAD delivery plan
 
+## Project Settings discard confirmation polish: 2026-11-02
+
+Refined the confirmation with consistent 24 px horizontal spacing, a compact
+title, muted description, and an inset action footer using existing theme
+surfaces. Buttons retain their labels and behavior, with a visible keyboard
+focus ring. The shared Electron smoke now requires inset actions, minimum button
+height and no horizontal overflow; both runners retain the existing draft
+protection evidence. Validation was not requested and was not run; rendered
+appearance remains unverified.
+
 ## Hosted 7e5d5fa RestGO readiness race: 2026-11-02
 
 Reviewed all jobs of validate `41453460002`, security `41453459874` and release

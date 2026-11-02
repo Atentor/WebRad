@@ -17,14 +17,45 @@
   width: min(440px, calc(100vw - 32px));
 }
 
+.wr-settings-discard-confirmation > .wr-modal-header {
+  padding: 22px 24px 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.wr-settings-discard-confirmation > .wr-modal-header h2 {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
 .wr-settings-discard-confirmation > p {
   margin: 0;
-  padding: 18px 22px;
+  padding: 12px 24px 22px;
+  color: var(--wr-muted-text);
+  font-size: 13px;
   line-height: 1.6;
 }
 
 .wr-settings-discard-confirmation .wr-modal-actions {
   flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--wr-border);
+  background: var(--wr-panel-alt);
+}
+
+.wr-settings-discard-confirmation .wr-modal-actions button {
+  min-height: 34px;
+  height: auto;
+  padding: 7px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wr-settings-discard-confirmation .wr-modal-actions button:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 3px;
 }
 
 .wr-menu-removal-notice {

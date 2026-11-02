@@ -16,6 +16,12 @@ mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
 
+Project Settings draft-protection evidence must include the discard confirmation
+with both actions inset from its edges, buttons at least 34 px tall, no horizontal
+overflow, initial focus on Keep editing, and working Escape/discard behavior.
+Both runners exercise this through the shared native-build smoke and retain
+`renderer Project Settings draft protection and validation navigation passed`.
+
 Packages / NPM has a scoped real Electron flow in both development and packaged
 runners: pass `--webrad-smoke-packages` to the existing root smoke script.
 It requires real public registry access and external Node.js 20+/NPM 10+ on PATH.

@@ -134,6 +134,18 @@ export async function runNativeBuildSmoke(
   await waitFor(`document.querySelector('[role=alertdialog]') !== null
     && document.activeElement?.textContent.trim() === 'Keep editing'
     && document.querySelector('.wr-project-settings-dialog')?.inert === true`);
+  await waitFor(`(() => {
+    const dialog = document.querySelector('.wr-settings-discard-confirmation');
+    const footer = dialog?.querySelector('.wr-modal-actions');
+    if (!dialog || !footer) return false;
+    const bounds = dialog.getBoundingClientRect();
+    const actions = [...footer.querySelectorAll('button')];
+    return actions.length === 2 && actions.every((button) => {
+      const rect = button.getBoundingClientRect();
+      return rect.left >= bounds.left + 20 && rect.right <= bounds.right - 20
+        && rect.bottom <= bounds.bottom - 12 && rect.height >= 34;
+    }) && dialog.scrollWidth <= dialog.clientWidth;
+  })()`);
   await window.webContents.executeJavaScript(
     `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true, cancelable:true}))`,
     true,
