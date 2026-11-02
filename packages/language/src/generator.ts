@@ -20,6 +20,7 @@ import {
 import { COMPONENT_SCOPE_PREFIX, componentReferenceScope } from './component-references.js';
 import { repeatingGroupForComponent } from './repeating-context.js';
 import ts from 'typescript';
+import { pageParameterProperties, pageParameterTypeName } from './navigation-typings.js';
 
 export interface GeneratePageOptions {
   readonly menus?: readonly MenuDefinitionModel[];
@@ -570,7 +571,11 @@ function generateDocumentSource(
   const chartBindings = apiChartBindings(page);
   const apiClientTypes = documentTypeDeclarations(page, options.menus);
   const isReusable = kind === 'reusable';
-  const baseClass = isReusable ? 'WebReusableElementInstance' : 'WebPage';
+  const baseClass = isReusable
+    ? 'WebReusableElementInstance'
+    : kind === 'page'
+      ? `WebPage<${pageParameterTypeName(page)}>`
+      : 'WebPage';
   const constructorParameters = isReusable
     ? 'element: HTMLElement, instanceId: string, componentElements: ReadonlyMap<string, WebComponent>, componentIds: ReadonlyMap<string, string>'
     : 'element: HTMLElement';
@@ -599,6 +604,14 @@ function generateDocumentSource(
       .join(', ')} } from ${quoted(runtimeModule)};`,
     '',
     ...menuDefinitionImports(page, options.menus, false),
+    ...(kind === 'page'
+      ? [
+          `export interface ${pageParameterTypeName(page)} {`,
+          ...pageParameterProperties(page, false).map((line) => `  ${line}`),
+          '}',
+          '',
+        ]
+      : []),
     `export abstract class ${className} extends ${baseClass} {`,
   ];
 
@@ -847,7 +860,11 @@ function generateDocumentTypings(
   const components = page.components.filter((component) => component.id !== page.rootComponentId);
   const apiClientTypes = documentTypeDeclarations(page, options.menus);
   const isReusable = kind === 'reusable';
-  const baseClass = isReusable ? 'WebReusableElementInstance' : 'WebPage';
+  const baseClass = isReusable
+    ? 'WebReusableElementInstance'
+    : kind === 'page'
+      ? `WebPage<${pageParameterTypeName(page)}>`
+      : 'WebPage';
   const constructorParameters = isReusable
     ? 'element: HTMLElement, instanceId: string, componentElements: ReadonlyMap<string, WebComponent>, componentIds: ReadonlyMap<string, string>'
     : 'element: HTMLElement';
@@ -857,6 +874,14 @@ function generateDocumentTypings(
     `import type { ${runtimeTypes(page, kind).join(', ')} } from ${quoted(runtimeModule)};`,
     ...menuDefinitionImports(page, options.menus, true),
     '',
+    ...(kind === 'page'
+      ? [
+          `export interface ${pageParameterTypeName(page)} {`,
+          ...pageParameterProperties(page, false).map((line) => `  ${line}`),
+          '}',
+          '',
+        ]
+      : []),
     `export declare abstract class ${className} extends ${baseClass} {`,
     ...components.map(
       (component) =>

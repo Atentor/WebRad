@@ -1,4 +1,6 @@
 import type { ProjectSourceFile, ProjectAsset } from './project-resources.js';
+import type { PageParameterDefinition } from './page-parameters.js';
+import type { ProjectPackages } from './packages.js';
 import {
   DEFAULT_PROJECT_THEMES,
   type ProjectThemeSettings,
@@ -325,6 +327,8 @@ export interface PageModel {
   readonly height: number;
   readonly components: readonly ComponentNode[];
   readonly rootComponentId: string;
+  /** Declared URL inputs for a navigable page; absent in legacy documents. */
+  readonly parameters?: readonly PageParameterDefinition[];
 }
 
 /**
@@ -617,6 +621,7 @@ export interface ProjectDebuggerSettings {
 }
 
 export interface WebRadProject {
+  readonly packages?: ProjectPackages;
   readonly formatVersion: ProjectFormatVersion;
   readonly id: string;
   readonly name: string;
@@ -650,6 +655,7 @@ export interface PageDescriptor {
 
 /** Disk manifest. Page contents live in the descriptor's `.wrpage` file. */
 export interface ProjectManifest {
+  readonly packages?: ProjectPackages;
   readonly formatVersion: ProjectFormatVersion;
   readonly id: string;
   readonly name: string;

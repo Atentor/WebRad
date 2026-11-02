@@ -3,7 +3,16 @@ import Editor, { loader } from '@monaco-editor/react';
 import * as monacoApi from 'monaco-editor/editor';
 import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 import tsWorker from '../typescript.worker?worker';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+  type ReactElement,
+} from 'react';
+import { PackageDefinitionDialog, type PackageDefinitionTarget } from './PackageDefinitionDialog';
 import { observeMonacoFontMetrics } from '../monaco-font-metrics';
 import { registerMonacoContextEnter } from '../monaco-context-enter';
 import { synchronizeMonacoModel } from '../monaco-model-sync';
@@ -101,6 +110,39 @@ interface ModelSubscription {
   content: string;
 }
 
+/** Navigation is scoped to one declaration snapshot and creates no Monaco models. */
+class PackageDefinitionNavigation {
+  readonly #libraries: ReadonlyMap<string, string>;
+  readonly #listeners = new Set<() => void>();
+  #target: PackageDefinitionTarget | null = null;
+  constructor(libraries: Readonly<Record<string, string>>) {
+    this.#libraries = new Map(
+      Object.entries(libraries).map(([uri, source]) => [canonicalResource(uri), source]),
+    );
+  }
+  readonly getSnapshot = (): PackageDefinitionTarget | null => this.#target;
+  readonly subscribe = (listener: () => void): (() => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+  readonly close = (): void => {
+    this.#target = null;
+    for (const listener of this.#listeners) listener();
+  };
+  open(resource: string, selection?: monacoApi.IRange | monacoApi.IPosition): boolean {
+    const content = this.#libraries.get(resource);
+    if (
+      content === undefined ||
+      !resource.startsWith('file:///node_modules/') ||
+      !/\.d\.[cm]?ts$/.test(resource)
+    )
+      return false;
+    this.#target = { resource, content, selection };
+    for (const listener of this.#listeners) listener();
+    return true;
+  }
+}
+
 function markerSeverity(category: EditorProblem['category']): monacoApi.MarkerSeverity {
   if (category === 'error') return monacoApi.MarkerSeverity.Error;
   if (category === 'warning') return monacoApi.MarkerSeverity.Warning;
@@ -135,6 +177,7 @@ function clearBuildMarkers(): void {
 // The workbench owns this lifecycle boundary alongside the editor component.
 // eslint-disable-next-line react-refresh/only-export-components
 export function releaseMonacoWorkspace(): void {
+  window.dispatchEvent(new Event('webrad:release-monaco-workspace'));
   clearBuildMarkers();
   for (const resource of [...managedModelUris]) disposeManagedModel(resource);
   modelViewStates.clear();
@@ -211,6 +254,8 @@ function editorOptions(label: string): monacoApi.editor.IStandaloneEditorConstru
       seedSearchStringFromSelection: 'selection',
     },
     fixedOverflowWidgets: true,
+    // Standalone theme variables cannot reach Monaco's fixed body-level shadow menus.
+    useShadowDOM: false,
     folding: true,
     foldingHighlight: true,
     foldingImportsByDefault: true,
@@ -323,6 +368,30 @@ export function CodeEditor({
   onSave,
 }: CodeEditorProps): ReactElement {
   const editorRef = useRef<monacoApi.editor.IStandaloneCodeEditor | null>(null);
+  const definitionEditorRef = useRef<monacoApi.editor.IStandaloneCodeEditor | null>(null);
+  const definitionNavigation = useMemo(
+    () => new PackageDefinitionNavigation(extraLibraries),
+    [extraLibraries],
+  );
+  const definitionNavigationRef = useRef(definitionNavigation);
+  const definitionTarget = useSyncExternalStore(
+    definitionNavigation.subscribe,
+    definitionNavigation.getSnapshot,
+    definitionNavigation.getSnapshot,
+  );
+  useLayoutEffect(() => {
+    definitionNavigationRef.current = definitionNavigation;
+  }, [definitionNavigation]);
+  const acceptDefinitionEditor = useCallback(
+    (editor: monacoApi.editor.IStandaloneCodeEditor | null): void => {
+      definitionEditorRef.current = editor;
+    },
+    [],
+  );
+  const closeDefinition = useCallback((): void => {
+    definitionNavigation.close();
+    editorRef.current?.focus();
+  }, [definitionNavigation]);
   const viewRestorationRef = useRef<monacoApi.IDisposable | null>(null);
   const hoverContextRef = useRef<DebugHoverContext | null>(null);
   const editorDisposablesRef = useRef<monacoApi.IDisposable[]>([]);
@@ -689,6 +758,13 @@ export function CodeEditor({
     const completionSession = ++completionSessionRef.current;
     for (const disposable of editorDisposablesRef.current) disposable.dispose();
     editorDisposablesRef.current = [
+      monacoApi.editor.registerEditorOpener({
+        openCodeEditor(source, resource, selection) {
+          if (source !== editorRef.current && source !== definitionEditorRef.current) return false;
+          const key = canonicalResource(resource.toString());
+          return definitionNavigationRef.current.open(key, selection);
+        },
+      }),
       registerMonacoContextEnter(editor),
       observeMonacoFontMetrics(editor),
       monacoApi.languages.registerHoverProvider(
@@ -845,6 +921,12 @@ export function CodeEditor({
   }, [extraLibraries]);
 
   useEffect(() => {
+    const release = definitionNavigation.close;
+    window.addEventListener('webrad:release-monaco-workspace', release);
+    return () => window.removeEventListener('webrad:release-monaco-workspace', release);
+  }, [definitionNavigation]);
+
+  useEffect(() => {
     synchronizeBuildMarkers(buildProblems);
   }, [buildProblems]);
 
@@ -948,6 +1030,14 @@ export function CodeEditor({
           defaultValue={value}
         />
       </div>
+      {definitionTarget && (
+        <PackageDefinitionDialog
+          target={definitionTarget}
+          theme={theme}
+          onClose={closeDefinition}
+          onEditorMount={acceptDefinitionEditor}
+        />
+      )}
     </section>
   );
 }

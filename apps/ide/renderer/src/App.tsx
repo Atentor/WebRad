@@ -5,6 +5,8 @@ import { ProjectAssetPreview } from './components/ProjectAssetPreview';
 import { AboutDialog } from './components/AboutDialog';
 import { DeployDialog } from './components/DeployDialog';
 import { useDeploy } from './use-deploy';
+import { useProjectPackages } from './use-project-packages';
+import { PackagesDialog } from './components/PackagesDialog';
 import { useBuildApplication } from './use-build-application';
 import { BuildApplicationDialog } from './components/BuildApplicationDialog';
 import type { NativeBuildResponse } from '../../shared/native-build-contracts';
@@ -17,6 +19,7 @@ import {
   BringToFrontCommand,
   ChangePropertyCommand,
   ChangeMenuDefinitionCommand,
+  ChangePageParametersCommand,
   MoveCommand,
   ReparentComponentsCommand,
   ReorderComponentsCommand,
@@ -63,6 +66,7 @@ import {
   type CurrentRowBinding,
   normalizeCurrentRowBindings,
   type PageModel,
+  type PageParameterDefinition,
   type ProjectSettings,
   type RestGoProjectSettings,
 } from '@webrad/project-model';
@@ -75,6 +79,7 @@ import {
   ensureEventHandler,
   eventHandlerName,
   generateEnvironmentTypings,
+  generateNavigationTypings,
   generatePageTypings,
   generateReusableElementTypings,
   generateRuntimeTypings,
@@ -105,9 +110,12 @@ import { DesignerSurface } from './components/DesignerSurface';
 import { AddPageDialog, type AddDocumentKind } from './components/AddPageDialog';
 import { DataGridConfigurationDialog } from './components/DataGridConfigurationDialog';
 import { MenuConfigurationDialog } from './components/MenuConfigurationDialog';
+import { LoginConfigurationDialog } from './components/LoginConfigurationDialog';
+import type { WebLoginConfiguration } from '@webrad/runtime/login-model';
 import type { WebMenuConfiguration } from '@webrad/runtime/menu-model';
 import { ComboBoxConfigurationDialog } from './components/ComboBoxConfigurationDialog';
 import { ChartsConfigurationDialog } from './components/ChartsConfigurationDialog';
+import { PageParametersDialog } from './components/PageParametersDialog';
 import { ComboBoxItemsDialog } from './components/ComboBoxItemsDialog';
 import { RepeatingGroupConfigurationDialog } from './components/RepeatingGroupConfigurationDialog';
 import { ReportBuilderDialog } from './components/ReportBuilderDialog';
@@ -285,6 +293,9 @@ export function App(): ReactElement {
   const [menuConfiguratorComponentId, setMenuConfiguratorComponentId] = useState<string | null>(
     null,
   );
+  const [loginConfiguratorComponentId, setLoginConfiguratorComponentId] = useState<string | null>(
+    null,
+  );
   const [comboBoxEditorMode, setComboBoxEditorMode] = useState<'api' | 'items' | 'values'>('api');
   const [comboBoxConfiguratorComponentId, setComboBoxConfiguratorComponentId] = useState<
     string | null
@@ -292,6 +303,7 @@ export function App(): ReactElement {
   const [chartsConfiguratorComponentId, setChartsConfiguratorComponentId] = useState<string | null>(
     null,
   );
+  const [parametersPageId, setParametersPageId] = useState<string | null>(null);
   const [dataGridConfiguratorComponentId, setDataGridConfiguratorComponentId] = useState<
     string | null
   >(null);
@@ -314,6 +326,7 @@ export function App(): ReactElement {
     output: false,
   });
   const project = projectState.project;
+  const parametersPage = project?.pages.find((page) => page.id === parametersPageId) ?? null;
   useEffect(() => {
     const receiveDraftState = (event: Event): void => {
       if (!(event instanceof CustomEvent)) return;
@@ -390,6 +403,10 @@ export function App(): ReactElement {
       null
     );
   }, [activePage, dataGridConfiguratorComponentId]);
+  const loginConfiguratorComponent =
+    activePage?.components.find(
+      (component) => component.id === loginConfiguratorComponentId && component.type === 'WebLogin',
+    ) ?? null;
   const menuConfiguratorDocument = [
     ...(activePage ? [activePage] : []),
     ...(project?.reusableElements ?? []),
@@ -515,6 +532,7 @@ export function App(): ReactElement {
       setBottomPanelTab('output');
       setApiClientTesterComponentId(null);
       setMenuConfiguratorComponentId(null);
+      setLoginConfiguratorComponentId(null);
       setDataGridConfiguratorComponentId(null);
       setRepeatingGroupConfiguratorComponentId(null);
       setReportBuilderComponentId(null);
@@ -522,6 +540,7 @@ export function App(): ReactElement {
       setComboBoxConfiguratorComponentId(null);
       setAddDocumentDialogKind(null);
       setChartsConfiguratorComponentId(null);
+      setParametersPageId(null);
       setProjectSettingsDialogOpen(false);
       addOutput('PROJECT', `Opened ${session.project.name}.`);
     },
@@ -985,12 +1004,15 @@ export function App(): ReactElement {
 
   const changeProperty = useCallback(
     (_name: string, value: unknown, definition: ComponentPropertyDefinition): void => {
-      if (!activePage || selectedComponents.length === 0) return;
+      if (!activePage) return;
+      const root = activePage.components.find(
+        (component) => component.id === activePage.rootComponentId,
+      );
+      const targets = selectedComponents.length > 0 ? selectedComponents : root ? [root] : [];
+      if (targets.length === 0) return;
       try {
         if (definition.type === 'menu-definition' && typeof value === 'string') {
-          const ids = selectedComponents
-            .filter((node) => node.type === 'WebMenu')
-            .map((node) => node.id);
+          const ids = targets.filter((node) => node.type === 'WebMenu').map((node) => node.id);
           if (value === 'webrad:new-menu') {
             setMenuPlacementTarget({ documentId: activePage.id, componentIds: ids });
             setAddDocumentDialogKind('menu');
@@ -998,7 +1020,7 @@ export function App(): ReactElement {
           }
           let menuId = value;
           if (value === 'webrad:duplicate-menu') {
-            const id = selectedComponents[0]?.props.menuDefinitionId;
+            const id = targets[0]?.props.menuDefinitionId;
             if (typeof id !== 'string') return;
             menuId = projectController.duplicateProjectItem(id);
           }
@@ -1008,8 +1030,8 @@ export function App(): ReactElement {
           return;
         }
         if (
-          selectedComponents.length === 1 &&
-          selectedComponents[0]?.id === activePage.rootComponentId &&
+          targets.length === 1 &&
+          targets[0]?.id === activePage.rootComponentId &&
           definition.source === 'node' &&
           definition.name === 'name' &&
           typeof value === 'string'
@@ -1023,9 +1045,7 @@ export function App(): ReactElement {
           }
           return;
         }
-        updateActivePage(
-          designerController.changeProperty(activePage, selectedComponents, definition, value),
-        );
+        updateActivePage(designerController.changeProperty(activePage, targets, definition, value));
       } catch (error) {
         reportError(error, 'DESIGNER');
       }
@@ -1266,7 +1286,10 @@ export function App(): ReactElement {
   const runDesignerAction = useCallback(
     (action: ComponentDesignerAction, component: ComponentNode): void => {
       selectionManager.selectSingle(component.id);
-      if (action === 'api-client-tester') {
+      if (action === 'page-parameters') {
+        if (activePage && component.id === activePage.rootComponentId)
+          setParametersPageId(activePage.id);
+      } else if (action === 'api-client-tester') {
         setApiClientTesterComponentId(component.id);
       } else if (action === 'menu-definition-edit') {
         const menu = project?.menus?.find((entry) => entry.id === component.props.menuDefinitionId);
@@ -1284,6 +1307,8 @@ export function App(): ReactElement {
         );
       } else if (action === 'data-grid-configurator') {
         setDataGridConfiguratorComponentId(component.id);
+      } else if (action === 'login-configurator') {
+        setLoginConfiguratorComponentId(component.id);
       } else if (action === 'repeating-group-configurator') {
         setRepeatingGroupConfiguratorComponentId(component.id);
       } else if (action === 'report-builder') {
@@ -1321,6 +1346,19 @@ export function App(): ReactElement {
       }
     },
     [activePage, createOrOpenEvent, reportError, runDesignerAction],
+  );
+
+  const savePageParameters = useCallback(
+    (parameters: readonly PageParameterDefinition[]): void => {
+      if (!activePage || activePage.id !== parametersPageId) return;
+      try {
+        commitDesignerCommand(new ChangePageParametersCommand(parameters));
+        setParametersPageId(null);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [activePage, parametersPageId, commitDesignerCommand, reportError],
   );
 
   const saveApiClientConfiguration = useCallback(
@@ -1588,6 +1626,22 @@ export function App(): ReactElement {
     ],
   );
 
+  const saveLoginConfiguration = useCallback(
+    (configuration: WebLoginConfiguration): void => {
+      if (!activePage || !loginConfiguratorComponent) return;
+      try {
+        const next = designerController.executeMany(activePage, 'Configure Login', [
+          new ChangePropertyCommand(loginConfiguratorComponent.id, 'configuration', configuration),
+        ]);
+        updateActivePage(next);
+        setLoginConfiguratorComponentId(null);
+      } catch (error) {
+        reportError(error, 'DESIGNER');
+      }
+    },
+    [activePage, loginConfiguratorComponent, designerController, updateActivePage, reportError],
+  );
+
   const saveProjectSettings = useCallback(
     (settings: ProjectSettings): void => {
       try {
@@ -1712,6 +1766,7 @@ export function App(): ReactElement {
       if (!(await prepareToReplaceProject())) return;
       projectController.close();
       setMenuConfiguratorComponentId(null);
+      setLoginConfiguratorComponentId(null);
       releaseMonacoWorkspace();
       setOpenPageIds([]);
       setActivePageId(null);
@@ -1731,6 +1786,7 @@ export function App(): ReactElement {
       setDataGridConfiguratorComponentId(null);
       setComboBoxConfiguratorComponentId(null);
       setChartsConfiguratorComponentId(null);
+      setParametersPageId(null);
       setRepeatingGroupConfiguratorComponentId(null);
       setReportBuilderComponentId(null);
       setCurrentRowBindingsComponentId(null);
@@ -2086,17 +2142,28 @@ export function App(): ReactElement {
     onResult: acceptDeployResult,
   });
   const { run: deployProject } = deploy;
+  const packageOperationsBlocked =
+    building || debugBusy || debugActive || nativeBuild.busy || deploy.busy || previewActive;
+  const packages = useProjectPackages({
+    controller: projectController,
+    snapshot: projectState,
+    blocked: packageOperationsBlocked,
+  });
+  const { show: showPackages } = packages;
   const modalOpen =
     updates.state.status === 'installing' ||
     aboutDialogOpen ||
+    parametersPage !== null ||
     newProjectDialogOpen ||
     addDocumentDialogKind !== null ||
     iconPickerOpen ||
     projectSettingsDialogOpen ||
+    packages.open ||
     nativeBuild.state !== null ||
     deploy.state !== null ||
     apiClientTesterComponent !== null ||
     menuConfiguratorComponent !== null ||
+    loginConfiguratorComponent !== null ||
     dataGridConfiguratorComponent !== null ||
     repeatingGroupConfiguratorComponent !== null ||
     reportBuilderComponent !== null ||
@@ -2243,6 +2310,7 @@ export function App(): ReactElement {
       }
       // Native menu commands must not reach the hidden authoring workspace.
       if (previewActiveRef.current && command !== 'run.stop' && command !== 'file.exit') return;
+      if (document.querySelector('[data-package-definition-dialog]') !== null) return;
       // Native menu accelerators bypass the inert workbench and DOM event propagation.
       if (
         modalOpen &&
@@ -2351,6 +2419,9 @@ export function App(): ReactElement {
         case 'project.importAsset':
           void importProjectAsset();
           break;
+        case 'project.packages':
+          showPackages();
+          break;
         case 'project.build':
         case 'run.run':
           void runProject();
@@ -2413,6 +2484,7 @@ export function App(): ReactElement {
       addReusableElementToProject,
       openAddDocumentDialog,
       importProjectAsset,
+      showPackages,
       activeWorkspace,
       activePage,
       activeView,
@@ -2490,6 +2562,7 @@ export function App(): ReactElement {
         event.isComposing ||
         event.repeat ||
         modalOpen ||
+        document.querySelector('[data-package-definition-dialog]') !== null ||
         previewActiveRef.current ||
         activeWorkspace !== 'page' ||
         activePage === null ||
@@ -2606,7 +2679,12 @@ export function App(): ReactElement {
   const extraLibraries = useMemo<Readonly<Record<string, string>>>(() => {
     if (!project) return Object.freeze({}) as Readonly<Record<string, string>>;
     return Object.fromEntries([
+      ...Object.entries(packages.packageLibraries),
       ['file:///node_modules/@webrad/runtime/index.d.ts', generateRuntimeTypings()],
+      [
+        sourceUri(projectState.rootPath, project.id, 'webrad-navigation.d.ts'),
+        generateNavigationTypings(project.pages),
+      ],
       [
         sourceUri(projectState.rootPath, project.id, 'webrad-environment.d.ts'),
         generateEnvironmentTypings(project.settings.environmentVariables),
@@ -2637,7 +2715,7 @@ export function App(): ReactElement {
           ] as const,
       ),
     ]);
-  }, [project, projectState.rootPath]);
+  }, [project, projectState.rootPath, packages.packageLibraries]);
 
   const buildProblems = useMemo(
     () =>
@@ -2930,6 +3008,7 @@ export function App(): ReactElement {
 
   return (
     <ProjectVisualResources
+      styles={project?.styles ?? []}
       themes={project?.settings.themes}
       themeMode={projectPreviewTheme}
       assets={project?.assets ?? []}
@@ -3071,6 +3150,10 @@ export function App(): ReactElement {
                     <ErrorBoundary area="Project Explorer">
                       <ProjectExplorer
                         project={project}
+                        packages={packages.status?.dependencies}
+                        packageOperationsDisabled={packageOperationsBlocked || packages.busy}
+                        onManagePackages={packages.show}
+                        onPackageOperation={(action, name) => void packages.run(action, name)}
                         activeResourceId={stylesActive || restGoActive ? null : activePageId}
                         onOpenResource={openPage}
                         onDeleteResource={deleteProjectResource}
@@ -3397,6 +3480,13 @@ export function App(): ReactElement {
           onSave={saveProjectSettings}
         />
       )}
+      {packages.open && project !== null && (
+        <PackagesDialog
+          projectName={project.name}
+          controller={packages}
+          blocked={packageOperationsBlocked}
+        />
+      )}
       {deploy.state !== null && <DeployDialog state={deploy.state} onClose={deploy.close} />}
       {nativeBuild.state !== null && project !== null && (
         <BuildApplicationDialog
@@ -3432,6 +3522,15 @@ export function App(): ReactElement {
           onClose={() => setMenuConfiguratorComponentId(null)}
         />
       )}
+      {loginConfiguratorComponent !== null && (
+        <LoginConfigurationDialog
+          key={loginConfiguratorComponent.id}
+          component={loginConfiguratorComponent}
+          restGoEnabled={project?.settings.restGo.enabled === true}
+          onSave={saveLoginConfiguration}
+          onClose={() => setLoginConfiguratorComponentId(null)}
+        />
+      )}
       {repeatingGroupConfiguratorComponent !== null && (
         <RepeatingGroupConfigurationDialog
           component={repeatingGroupConfiguratorComponent}
@@ -3463,6 +3562,14 @@ export function App(): ReactElement {
           availableComponents={activePage?.components ?? []}
           onClose={() => setChartsConfiguratorComponentId(null)}
           onSave={saveChartsConfiguration}
+        />
+      )}
+      {parametersPage !== null && (
+        <PageParametersDialog
+          key={parametersPage.id}
+          page={parametersPage}
+          onClose={() => setParametersPageId(null)}
+          onSave={savePageParameters}
         />
       )}
       {comboBoxConfiguratorComponent !== null && comboBoxEditorMode === 'api' && (

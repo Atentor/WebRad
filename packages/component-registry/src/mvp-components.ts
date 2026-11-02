@@ -8,6 +8,7 @@ import { projectReusableMenuLayout } from '@webrad/runtime/menu-layout';
 import { webReportBuilder } from './report-builder.js';
 import { createWebChartsDefinition } from './charts.js';
 import { createWebMenuDefinition, MENU_EVENTS } from './menu.js';
+import { createWebLoginDefinition } from './login.js';
 import { componentRegistry, ComponentRegistry } from './registry.js';
 import { organizeInspectorProperty } from './inspector-properties.js';
 import { CURRENT_ROW_BINDINGS_PROPERTY } from './current-row-bindings.js';
@@ -664,6 +665,16 @@ const webPage: ComponentDefinition = {
       defaultValue: '',
     },
     {
+      name: 'parameters',
+      label: 'Parameters',
+      description: 'Declare typed inputs received when navigating to this page.',
+      type: 'page-parameters',
+      category: 'Navigation',
+      source: 'page',
+      designerAction: 'page-parameters',
+      defaultValue: [],
+    },
+    {
       name: 'backgroundColor',
       label: 'Background Color',
       type: 'color',
@@ -675,6 +686,10 @@ const webPage: ComponentDefinition = {
   events: [
     event('OnCreate'),
     event('OnShow'),
+    event('OnParametersChanged', 'Navigation', {
+      eventDetailType: 'PageParametersChangedEventDetail',
+      eventDetailProperties: ['previous'],
+    }),
     event('OnHide'),
     event('OnResize'),
     event('OnLogin', 'RestGO', {
@@ -970,6 +985,7 @@ const webReusableElement: ComponentDefinition = {
 
 const webLabel: ComponentDefinition = {
   type: 'WebLabel',
+  inspectorProperties: (properties) => properties.filter((property) => property.name !== 'color'),
   displayName: 'Label',
   namePrefix: 'Label',
   palette: { category: standardCategory, caption: 'Label' },
@@ -986,10 +1002,22 @@ const webLabel: ComponentDefinition = {
     enabled: true,
     color: '#000000',
     autoSize: true,
+    textWrap: 'none',
   },
   properties: [
     ...geometryProperties(labelBounds),
     captionProperty('Label'),
+    {
+      name: 'textWrap',
+      label: 'Text wrap',
+      type: 'enum',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'none',
+      options: ['none', 'word', 'break-word', 'character'],
+      description:
+        'None: single line. Word: between words. Break-word: also split words wider than the Label. Character: at any character. Auto Size keeps the width and fits the height when wrapping.',
+    },
     {
       name: 'color',
       label: 'Color',
@@ -2163,6 +2191,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebProgressBar',
   'WebIcon',
   'WebMenu',
+  'WebLogin',
   'WebComboBox',
   'WebImage',
   'WebListBox',
@@ -2195,6 +2224,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webProgressBar,
   webIcon,
   createWebMenuDefinition(geometryProperties({ width: 288, height: 640 })),
+  createWebLoginDefinition(geometryProperties({ width: 420, height: 400 })),
   webComboBox,
   webImage,
   webListBox,

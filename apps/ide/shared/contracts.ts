@@ -1,5 +1,6 @@
 import { type ProjectTemplateId } from '@webrad/component-registry';
 import type { UpdateBridge } from './update-contracts';
+import type { PackagesBridge } from './package-contracts';
 import type { NativeBuildBridge } from './native-build-contracts';
 import type { ExternalLinkTarget } from './external-links';
 import type { RestGoAdminBridge } from './restgo-admin';
@@ -39,6 +40,7 @@ export const IDE_COMMANDS = [
   'project.addModel',
   'project.addUnit',
   'project.importAsset',
+  'project.packages',
   'project.build',
   'project.buildApplication',
   'project.deploy',
@@ -141,6 +143,7 @@ export interface CompileStylesResponse {
 }
 
 export interface WebRadBridge {
+  readonly packages: PackagesBridge;
   readonly nativeBuild: NativeBuildBridge;
   readonly updates: UpdateBridge;
   readonly debugger: DebugBridge;

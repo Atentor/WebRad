@@ -6,6 +6,7 @@ import {
 import { setPageEventBinder } from './page-event-hooks.js';
 import { bindPageRestGoEvents } from './restgo-page-events.js';
 import { bindRestGoEmailConfirmation } from './restgo-email-confirmation.js';
+import { bindLoginRecoveryLinks } from './login-recovery.js';
 
 /** Browser-safe projection of the RestGO integration saved in the Project Model. */
 export interface RestGoRuntimeConfiguration {
@@ -29,6 +30,7 @@ export class RestGoNotConfiguredError extends Error {
 let projectClient: RestGoClient | null = null;
 let applicationApiToken = '';
 let disposeEmailConfirmation: (() => void) | undefined;
+let disposeRecoveryLinks: (() => void) | undefined;
 
 /** Internal browser credential projection; never contains an IDE administrator token. */
 export function getRestGoApplicationToken(): string {
@@ -41,6 +43,8 @@ export function configureRestGo(configuration: RestGoRuntimeConfiguration): Rest
   setPageEventBinder(bindPageRestGoEvents);
   disposeEmailConfirmation?.();
   disposeEmailConfirmation = undefined;
+  disposeRecoveryLinks?.();
+  disposeRecoveryLinks = typeof window === 'undefined' ? undefined : bindLoginRecoveryLinks(window);
   projectClient?.dispose();
   applicationApiToken = '';
   const storageRequest: {

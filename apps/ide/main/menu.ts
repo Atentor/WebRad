@@ -96,6 +96,7 @@ export function installApplicationMenu(window: BrowserWindow): void {
         commandItem(window, 'Add Model', 'project.addModel'),
         commandItem(window, 'Add Unit', 'project.addUnit'),
         commandItem(window, 'Import Asset\u2026', 'project.importAsset'),
+        commandItem(window, 'Packages', 'project.packages'),
         { type: 'separator' },
         commandItem(window, 'Build Application…', 'project.buildApplication'),
       ],

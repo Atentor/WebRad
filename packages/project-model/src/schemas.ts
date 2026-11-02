@@ -1,4 +1,8 @@
 import { materializeEntryPage } from './entry-page.js';
+import { PageParametersSchema } from './page-parameters.js';
+import { ProjectPackagesSchema } from './packages.js';
+import { parseWebLoginConfiguration } from '@webrad/runtime/login-model';
+import { validateLoginStyleReferences } from './login-styles.js';
 import { materializeManagedMenuLayouts } from './managed-menu-layout.js';
 import { materializeResponsiveMenuLayouts } from './menu-layout-migration.js';
 import { ReportBuilderPropertiesSchema } from './report-builder.js';
@@ -399,7 +403,14 @@ function materializeProjectDefaults(input: unknown): unknown {
         palette.success ? palette.data : [],
       ).styles,
     );
-    styles = normalizeDefaultStyleFonts(menuStyles);
+    const loginStyles = materializeComponentDefaultStyle(
+      candidate.id,
+      menuStyles,
+      'WebLogin',
+      ['WebMenu'],
+      palette.success ? palette.data : [],
+    ).styles;
+    styles = normalizeDefaultStyleFonts(loginStyles);
   }
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;
@@ -665,6 +676,17 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
               message: issue.message,
               path: ['props', 'configuration', ...issue.path],
             });
+      }
+      if (component.type === 'WebLogin' && component.props.configuration !== undefined) {
+        try {
+          parseWebLoginConfiguration(component.props.configuration);
+        } catch (error) {
+          context.addIssue({
+            code: 'custom',
+            message: error instanceof Error ? error.message : 'Invalid Login configuration.',
+            path: ['props', 'configuration'],
+          });
+        }
       }
       if (component.props.currentRowBindings !== undefined) {
         const result = CurrentRowBindingsSchema.safeParse(component.props.currentRowBindings);
@@ -1588,6 +1610,12 @@ function validateDocumentRelationships(
   });
 
   const root = byId.get(page.rootComponentId);
+  if (page.parameters?.length && root?.type !== 'WebPage')
+    context.addIssue({
+      code: 'custom',
+      path: ['parameters'],
+      message: 'Only navigable pages declare page parameters.',
+    });
   if (root === undefined) {
     context.addIssue({
       code: 'custom',
@@ -1734,6 +1762,7 @@ const DocumentModelSchema = z.preprocess(
       height: positiveDimensionSchema,
       components: z.array(ComponentNodeSchema).min(1),
       rootComponentId: nonEmptyStringSchema,
+      parameters: PageParametersSchema.optional(),
     })
     .strict(),
 );
@@ -1857,6 +1886,7 @@ function validateProjectRelationships(project: WebRadProject, context: z.Refinem
     });
   validateMenuPageReferences(project, context);
   validateMenuDefinitions(project, context);
+  validateLoginStyleReferences(project, context);
   validateProjectResourceIds(project, context);
   validatePaletteReferences(project, context);
   const ids = new Set<string>();
@@ -2186,6 +2216,7 @@ export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
       styles: z.array(ComponentStyleSchema),
       sourceFiles: ProjectSourceFilesSchema,
       assets: ProjectAssetsSchema,
+      packages: ProjectPackagesSchema.optional(),
       debugger: ProjectDebuggerSettingsSchema.optional(),
       settings: ProjectSettingsSchema,
     })
@@ -2218,6 +2249,7 @@ export const ProjectManifestSchema: z.ZodType<ProjectManifest> = z.preprocess(
       styles: z.array(ComponentStyleSchema),
       sourceFiles: ProjectSourceFilesSchema,
       assets: ProjectAssetsSchema,
+      packages: ProjectPackagesSchema.optional(),
       debugger: ProjectDebuggerSettingsSchema.optional(),
       settings: ProjectSettingsSchema,
     })

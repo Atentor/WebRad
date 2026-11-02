@@ -1,9 +1,12 @@
+import { normalizeLabelTextWrap } from './visual.js';
 import { projectWebMenuLayout, reusableMenuNode } from './menu-layout.js';
 import { bindReusableMenuLayout } from './reusable-menu-layout.js';
 import { WebProgressBar, projectProgressBar } from './progress-bar.js';
 import { WebIcon, projectIcon } from './icon.js';
 import { WebHtml } from './html.js';
 import { WebMenu } from './menu.js';
+import { WebLogin } from './login.js';
+import { createDefaultWebLoginConfiguration, parseWebLoginConfiguration } from './login-model.js';
 import { createDefaultWebMenuConfiguration, parseWebMenuConfiguration } from './menu-model.js';
 import type { WebComponent } from './component.js';
 import {
@@ -64,6 +67,7 @@ import {
   readStringProperty,
   readStringListProperty,
   tokenizeTailwindClasses,
+  type RuntimeComponentStyle,
   PANEL_BACKGROUND_SIZES,
   PANEL_BACKGROUND_POSITIONS,
   PANEL_BACKGROUND_REPEATS,
@@ -112,6 +116,7 @@ export interface RuntimeComponentNode {
   readonly children: readonly string[];
   /** Resolved at compile time so generated apps do not ship a Tailwind runtime. */
   readonly styleClassName?: string;
+  readonly embeddedStyleCatalog?: readonly RuntimeComponentStyle[];
   readonly menuEmbedded?: boolean;
 }
 
@@ -320,6 +325,18 @@ function popupChildrenHost(component: WebPopup): HTMLElement {
 export const runtimeComponentRegistry = new RuntimeComponentRegistry();
 
 runtimeComponentRegistry
+  .register<WebLogin>('WebLogin', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebLogin(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      component.styleCatalog = node.embeddedStyleCatalog ?? [];
+      component.configuration =
+        node.props.configuration === undefined
+          ? createDefaultWebLoginConfiguration()
+          : parseWebLoginConfiguration(node.props.configuration);
+    },
+  })
   .register<WebMenu>('WebMenu', {
     createElement: elementFactory('div'),
     createComponent: (element) => new WebMenu(element),
@@ -437,6 +454,9 @@ runtimeComponentRegistry
         'caption',
         readStringProperty(node, 'text', node.name),
       );
+      if (node.props.textWrap !== undefined) {
+        component.textWrap = normalizeLabelTextWrap(node.props.textWrap);
+      }
       component.autoSize = readBooleanProperty(node, 'autoSize');
     },
   })
@@ -1368,7 +1388,11 @@ export function mountPage(
       for (const dispose of placementDisposers) dispose();
       for (const binding of fitContentBindings.values()) binding.dispose();
       for (const component of components.values())
-        if (component instanceof WebRepeatingGroup || component instanceof WebCharts)
+        if (
+          component instanceof WebRepeatingGroup ||
+          component instanceof WebCharts ||
+          component instanceof WebLogin
+        )
           component.dispose();
     },
   };

@@ -215,10 +215,12 @@ describe('project theme colors', () => {
 
   it('applies theme colors through every registered color property in the Inspector', () => {
     for (const definition of defaultComponentRegistry.list()) {
-      const colorProperties = definition.properties.filter((property) => property.type === 'color');
+      const node = defaultComponentRegistry.createComponent(definition.type);
+      const inspectorProperties =
+        definition.inspectorProperties?.(definition.properties, node, {}) ?? definition.properties;
+      const colorProperties = inspectorProperties.filter((property) => property.type === 'color');
       if (colorProperties.length === 0) continue;
       const onPropertyChange = vi.fn();
-      const node = defaultComponentRegistry.createComponent(definition.type);
       render(
         <ProjectThemeContext.Provider value={context}>
           <ObjectInspector

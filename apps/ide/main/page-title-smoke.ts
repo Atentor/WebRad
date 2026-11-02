@@ -69,6 +69,28 @@ async function setBrowserTitle(window: BrowserWindow, value: string): Promise<vo
   await ready(window, `${browserTitleField}?.value === ${JSON.stringify(value)}`);
 }
 
+async function setParameterField(
+  window: BrowserWindow,
+  label: string,
+  value: string,
+): Promise<void> {
+  const selector = `.wr-page-parameters-dialog [aria-label=${JSON.stringify(label)}]`;
+  await ready(window, `document.querySelector(${JSON.stringify(selector)}) !== null`);
+  await window.webContents.executeJavaScript(
+    `(() => {
+    const input = document.querySelector(${JSON.stringify(selector)});
+    const prototype = input instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(prototype, 'value').set.call(input, ${JSON.stringify(value)});
+    input.dispatchEvent(new Event(input instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
+  })()`,
+    true,
+  );
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(value)}`,
+  );
+}
+
 function findFrame(frame: WebFrameMain, url: string): WebFrameMain | undefined {
   if (frame.url === url) return frame;
   for (const child of frame.frames) {
@@ -127,6 +149,20 @@ export async function assertPreviewTitle(
         if (actualTitle === title && Reflect.get(evidence, 'mounted') === true) {
           const routeEvidence: unknown = await frame.executeJavaScript(
             `(async () => {
+              const root = document.querySelector('[data-webrad-route-path="/index"]');
+              const changes = [];
+              root.addEventListener('webrad:parameters-changed', event => changes.push(event.detail));
+              Navigate('index', { params: { smokeParameterId: 123 } });
+              const first = changes[0];
+              const preservedRoot = root === document.querySelector('[data-webrad-route-path="/index"]');
+              Navigate('/index?smokeParameterId=456', { replace: true });
+              const second = changes[1];
+              let invalidRejected = false;
+              try { Navigate('index', { params: { smokeParameterId: 'invalid' } }); }
+              catch (error) { invalidRejected = error.name === 'PageParameterError'; }
+              const parameters = first?.previous.smokeParameterId === 7 && first?.params.smokeParameterId === 123
+                && second?.params.smokeParameterId === 456 && preservedRoot && invalidRejected
+                && new URL(location.href).searchParams.get('smokeParameterId') === '456';
               Navigate('index', { replace: true });
               const missing = new URL(location.href);
               missing.pathname = missing.pathname.replace(/index$/, 'missing-smoke-page');
@@ -140,14 +176,15 @@ export async function assertPreviewTitle(
               Navigate(new URL('missing-smoke-page', document.baseURI), { replace: true });
               const internalNotFound = location.pathname.endsWith('/404') &&
                 document.querySelector('[data-webrad-route-path="/404"]') !== null;
-              Navigate('index', { replace: true });
-              return { hash: location.hash, path: location.pathname, notFound, internalNotFound, directFallback };
+              Navigate('index', { replace: true, params: { smokeParameterId: 7 } });
+              return { hash: location.hash, path: location.pathname, parameters, notFound, internalNotFound, directFallback };
             })()`,
             true,
           );
           if (
             typeof routeEvidence !== 'object' ||
             routeEvidence === null ||
+            Reflect.get(routeEvidence, 'parameters') !== true ||
             Reflect.get(routeEvidence, 'directFallback') !== true ||
             Reflect.get(routeEvidence, 'notFound') !== true ||
             Reflect.get(routeEvidence, 'internalNotFound') !== true ||
@@ -229,9 +266,71 @@ export async function runPageTitleSmoke(
   );
   await openPageInspector();
   log('renderer mandatory index page passed: fixed name, Route path removed, deletion disabled');
+  if (page.parameters?.some((parameter) => parameter.name === 'smokeParameterId'))
+    throw new Error('The routing smoke parameter is already present in the fixture.');
+  const parameterNumber = (page.parameters?.length ?? 0) + 1;
+  const parameterLabel = `Parameter ${String(parameterNumber)}`;
+  await click(window, 'button[aria-label="Configure Parameters"]');
+  await click(window, 'button[aria-label="Add parameter"]');
+  await setParameterField(window, `${parameterLabel} name`, 'smokeParameterId');
+  await setParameterField(window, `${parameterLabel} type`, 'number');
+  await click(window, `.wr-page-parameters-dialog [aria-label="${parameterLabel} required"]`);
+  await click(window, `.wr-page-parameters-dialog [aria-label="${parameterLabel} use default"]`);
+  await setParameterField(window, `${parameterLabel} default value`, '7');
+  await click(window, '.wr-page-parameters-dialog button[type="submit"]');
+  await ready(window, 'document.querySelector(".wr-page-parameters-dialog") === null');
+  await click(window, 'button[aria-label="Undo (Ctrl+Z)"]');
+  await click(window, 'button[aria-label="Configure Parameters"]');
+  await ready(
+    window,
+    `document.querySelectorAll('.wr-page-parameters-table tbody tr').length === ${String(parameterNumber - 1)}`,
+  );
+  await click(window, 'button[aria-label="Close page parameters"]');
+  await click(window, 'button[aria-label="Redo (Ctrl+Y)"]');
+  await click(window, 'button[aria-label="Configure Parameters"]');
+  await ready(
+    window,
+    `document.querySelectorAll('.wr-page-parameters-table tbody tr').length === ${String(parameterNumber)}`,
+  );
+  await click(window, 'button[aria-label="Add parameter"]');
+  await click(window, 'button[aria-label="Close page parameters"]');
+  await click(window, 'button[aria-label="Configure Parameters"]');
+  await ready(
+    window,
+    `document.querySelectorAll('.wr-page-parameters-table tbody tr').length === ${String(parameterNumber)}`,
+  );
+  await click(window, 'button[aria-label="Close page parameters"]');
   await ready(window, `${browserTitleField}?.value === ''`);
+  // The root has a tree row but no child hit overlay. Use the tree's normal
+  // selection toggle to exercise the Inspector's implicit Page target.
+  await openPageInspector();
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(rootSelector)})?.getAttribute('aria-selected') === 'true'`,
+  );
+  await window.webContents.executeJavaScript(
+    `(() => {
+      const root = document.querySelector(${JSON.stringify(rootSelector)});
+      if (!(root instanceof HTMLElement)) throw new Error('Page root is not selected.');
+      root.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0, ctrlKey: true }));
+    })()`,
+    true,
+  );
+  await ready(
+    window,
+    `document.querySelectorAll('[role="treeitem"][data-component-id][aria-selected="true"], .wr-design-hit.selected').length === 0`,
+  );
   await setBrowserTitle(window, customTitle);
   await assertSavedTitle(customTitle);
+  const configured = (await loadProjectFiles(projectPath)).project.pages
+    .find((candidate) => candidate.id === pageId)
+    ?.parameters?.find((parameter) => parameter.name === 'smokeParameterId');
+  if (
+    configured?.type !== 'number' ||
+    configured.required !== true ||
+    configured.defaultValue !== 7
+  )
+    throw new Error('The page parameter schema was not persisted by the Inspector.');
   await assertPreviewTitle(window, customTitle, page.rootComponentId);
   await stopPreviewSmoke(window);
 
@@ -287,6 +386,19 @@ export async function runPageTitleSmoke(
     true,
   );
   await ready(window, `${indexRow}?.getAttribute('aria-selected') === 'true'`);
+  await openPageInspector();
+  await click(window, 'button[aria-label="Configure Parameters"]');
+  await click(window, `button[aria-label="Remove parameter ${String(parameterNumber)}"]`);
+  await click(window, '.wr-page-parameters-dialog button[type="submit"]');
+  await assertSavedTitle('');
+  const restored = (await loadProjectFiles(projectPath)).project.pages.find(
+    (candidate) => candidate.id === pageId,
+  );
+  if (JSON.stringify(restored?.parameters ?? []) !== JSON.stringify(page.parameters ?? []))
+    throw new Error('The page parameter smoke did not restore the original declaration.');
+  log(
+    'renderer Page parameters Inspector and F9 passed: typed defaults, save/cancel, undo/redo, destination URL, same-page change and invalid required value',
+  );
   log(
     'renderer mandatory 404 page passed: protected identity, direct URL fallback, unknown history and Navigate redirected to /404',
   );

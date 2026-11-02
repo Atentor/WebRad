@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { createUpdateTestBridge } from '../../shared/update-test-bridge';
+import { createPackageTestBridge } from '../../shared/package-test-bridge';
 import { createUserPageSource } from '@webrad/language';
 import { componentRegistry } from '@webrad/component-registry';
 import { StrictMode } from 'react';
@@ -238,6 +239,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     };
   });
   const bridge = {
+    packages: createPackageTestBridge(),
     updates: createUpdateTestBridge(),
     debugger: createDebugTestBridge(),
     restgoDevelopment: {
@@ -2116,6 +2118,11 @@ describe('App MVP integration', () => {
   });
   it('creates, reuses, filters, persists, previews, and removes component styles', async () => {
     const harness = createBridgeHarness(initialSession());
+    const initialStyles = harness.persisted().project.styles;
+    const initialStyleCount = initialStyles.length;
+    const initialDefaultStyleCount = initialStyles.filter(
+      (style) => style.preset === 'default',
+    ).length;
     Object.defineProperty(window, 'webrad', {
       configurable: true,
       value: harness.bridge,
@@ -2320,7 +2327,7 @@ describe('App MVP integration', () => {
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const savedWithStyles = harness.persisted().project;
-    expect(savedWithStyles.styles).toHaveLength(22);
+    expect(savedWithStyles.styles).toHaveLength(initialStyleCount + 3);
     const primaryStyle = savedWithStyles.styles.find((style) => style.name === 'Primary Button');
     const mutedStyle = savedWithStyles.styles.find((style) => style.name === 'Muted Label');
     const pageStyle = savedWithStyles.styles.find((style) => style.name === 'Page Surface');
@@ -2356,15 +2363,19 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
     await waitFor(() => {
       const styles = harness.persisted().project.styles;
-      expect(styles).toHaveLength(21);
-      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(19);
+      expect(styles).toHaveLength(initialStyleCount + 2);
+      expect(styles.filter((style) => style.preset === 'default')).toHaveLength(
+        initialDefaultStyleCount,
+      );
       expect(styles.some((style) => style.name === 'Primary Button')).toBe(false);
       expect(styles.some((style) => style.name === 'Muted Label')).toBe(true);
       expect(styles.some((style) => style.name === 'Page Surface')).toBe(true);
     });
     const savedAfterDelete = harness.persisted().project;
-    expect(savedAfterDelete.styles).toHaveLength(21);
-    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(19);
+    expect(savedAfterDelete.styles).toHaveLength(initialStyleCount + 2);
+    expect(savedAfterDelete.styles.filter((style) => style.preset === 'default')).toHaveLength(
+      initialDefaultStyleCount,
+    );
     expect(
       savedAfterDelete.pages[0]?.components
         .filter((component) => component.type === 'WebButton')

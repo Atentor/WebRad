@@ -43,6 +43,14 @@ export function restGoAccountControls(): readonly DemoNode[] {
     'RESTGO / ACCOUNT ACCESS',
     'Create a user, confirm its email when required by your server, then sign in. Registration does not sign you in automatically. The same session is shared with uploads and all other RestGO pages.',
     [
+      panel('LoginTemplateExample', [
+        text('LoginTemplateHeading', 'CONFIGURABLE LOGIN TEMPLATE', 28),
+        paragraph(
+          'LoginTemplateHint',
+          'Double-click Login to customize login, registration, recovery, appearance and Panel or Popup behavior. It uses the project RestGo connection; recovery email requires SMTP on that server.',
+        ),
+        { type: 'WebLogin', name: 'AccountLoginTemplate', height: 400 },
+      ]),
       panel('RegisterPanel', [
         text('RegisterHeading', 'CREATE AN ACCOUNT', 28),
         text('RegisterNameLabel', 'Full name', 26),

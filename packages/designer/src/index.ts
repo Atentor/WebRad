@@ -4,6 +4,7 @@ export * from './restgo-api-import.js';
 export * from './restgo-api-sync.js';
 export * from './command-history.js';
 export * from './commands.js';
+export * from './page-parameters-command.js';
 export * from './geometry.js';
 export * from './insertion.js';
 export * from './model-utils.js';

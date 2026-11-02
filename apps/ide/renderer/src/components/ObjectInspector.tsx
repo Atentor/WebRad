@@ -808,18 +808,22 @@ function PropertyEditor({
         </button>
       );
     }
+    case 'page-parameters':
     case 'combo-box-config':
     case 'charts-config':
     case 'menu-config':
+    case 'login-config':
     case 'report-template':
     case 'repeating-group-config':
     case 'current-row-bindings':
     case 'data-grid-config': {
       const action = property.designerAction;
       const label = {
+        'page-parameters': 'Configure Parameters',
         'combo-box-config': 'Configure ComboBox',
         'charts-config': 'Configure Charts',
         'menu-config': 'Configure Menu',
+        'login-config': 'Configure Login',
         'report-template': 'Open Report Builder',
         'data-grid-config': 'Configure Data Grid',
         'repeating-group-config': 'Configure Repeating Group',

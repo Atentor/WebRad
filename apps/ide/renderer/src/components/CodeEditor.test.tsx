@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -317,6 +317,7 @@ const mocks = vi.hoisted(() => {
     const actions = new Map<string, { readonly run: () => void }>();
     const findRun = vi.fn();
     const editor = {
+      dispose: vi.fn(),
       actions,
       addAction: vi.fn((action: { readonly id: string; readonly run: () => void }) => {
         actions.set(action.id, action);
@@ -367,6 +368,7 @@ const mocks = vi.hoisted(() => {
       layout: vi.fn(),
       render: vi.fn(),
       revealRangeInCenter: vi.fn(),
+      revealPositionInCenter: vi.fn(),
       restoreViewState: vi.fn(),
       saveViewState: vi.fn(() => ({
         cursorState: [],
@@ -382,9 +384,36 @@ const mocks = vi.hoisted(() => {
         if (action === 'redo') currentModel?.redo();
       }),
       setSelection: vi.fn(),
+      setPosition: vi.fn(),
     };
     return editor;
   };
+
+  const registerEditorOpener = vi.fn(
+    (opener: {
+      openCodeEditor(
+        source: unknown,
+        resource: MockUri,
+        selection?: MockRange | { lineNumber: number; column: number },
+      ): boolean;
+    }) => {
+      void opener;
+      return disposable();
+    },
+  );
+  const createStandaloneEditor = vi.fn(
+    (
+      host: HTMLElement,
+      options: {
+        model: ReturnType<typeof createModelImplementation>;
+        readOnly: boolean;
+        domReadOnly: boolean;
+      },
+    ) => {
+      void host;
+      return createEditor(options.model.uri.toString());
+    },
+  );
 
   return {
     MockRange,
@@ -397,6 +426,7 @@ const mocks = vi.hoisted(() => {
     completion,
     configureMonaco,
     createEditor,
+    createStandaloneEditor,
     createModel,
     editorProps: undefined as MockEditorProps | undefined,
     getModel,
@@ -416,6 +446,7 @@ const mocks = vi.hoisted(() => {
       this.editorProps = undefined;
     },
     registerCompletionItemProvider,
+    registerEditorOpener,
     setModelLanguage,
     setModelMarkers,
     synchronizeMonacoExtraLibraries,
@@ -437,6 +468,8 @@ vi.mock('@monaco-editor/react', () => ({
 
 vi.mock('monaco-editor/editor', () => ({
   editor: {
+    registerEditorOpener: mocks.registerEditorOpener,
+    create: mocks.createStandaloneEditor,
     remeasureFonts: vi.fn(),
     TrackedRangeStickiness: { NeverGrowsWhenTypingAtEdges: 1 },
     MouseTargetType: { GUTTER_GLYPH_MARGIN: 2 },
@@ -541,6 +574,86 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('CodeEditor professional Monaco workspace', () => {
+  it('opens only the requested package declaration read-only, navigates across libraries and disposes owned models on close', () => {
+    const dayjs = 'file:///node_modules/dayjs/index.d.ts';
+    const axios = 'file:///node_modules/axios/index.d.ts';
+    const props = codeEditorProps({
+      extraLibraries: {
+        [dayjs]: 'export declare function dayjs(): void;',
+        [axios]: 'export declare const axios: object;',
+      },
+    });
+    render(<CodeEditor {...props} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    const opener = mocks.registerEditorOpener.mock.calls.at(-1)?.[0];
+    if (!opener) throw new Error('Package definition opener missing');
+    expect(mocks.models.has(dayjs)).toBe(false);
+    expect(mocks.models.has(axios)).toBe(false);
+    expect(opener.openCodeEditor({}, mocks.parseUri(dayjs))).toBe(false);
+    const range = new mocks.MockRange(1, 25, 1, 30);
+    act(() => {
+      expect(opener.openCodeEditor(editor, mocks.parseUri(dayjs), range)).toBe(true);
+    });
+    expect(screen.getByRole('dialog').textContent).toContain('dayjs/index.d.ts');
+    expect(mocks.createStandaloneEditor.mock.calls[0]?.[1]).toMatchObject({
+      readOnly: true,
+      domReadOnly: true,
+      useShadowDOM: false,
+    });
+    const firstEditor = mocks.createStandaloneEditor.mock.results[0]?.value;
+    expect(firstEditor?.setSelection).toHaveBeenCalledWith(range);
+    expect(mocks.models.get(dayjs)?.getValue()).toBe(props.extraLibraries[dayjs]);
+    expect(mocks.models.has(axios)).toBe(false);
+    act(() => {
+      expect(
+        opener.openCodeEditor(firstEditor, mocks.parseUri(axios), { lineNumber: 1, column: 22 }),
+      ).toBe(true);
+    });
+    expect(firstEditor?.dispose).toHaveBeenCalledOnce();
+    expect(mocks.models.has(dayjs)).toBe(false);
+    expect(mocks.models.has(axios)).toBe(true);
+    const secondEditor = mocks.createStandaloneEditor.mock.results[1]?.value;
+    expect(secondEditor?.setPosition).toHaveBeenCalledWith({ lineNumber: 1, column: 22 });
+    fireEvent.click(screen.getByRole('button', { name: 'Close package declaration' }));
+    expect(secondEditor?.dispose).toHaveBeenCalledOnce();
+    expect(mocks.models.has(axios)).toBe(false);
+    expect(editor.focus).toHaveBeenCalled();
+    expect(mocks.models.get(CANONICAL_MAIN_RESOURCE)?.getValue()).toBe(props.value);
+    expect(props.onSourceChange).not.toHaveBeenCalled();
+    expect(props.onSave).not.toHaveBeenCalled();
+  });
+
+  it('closes stale declarations after library updates and workspace release without reopening old snapshots', () => {
+    const resource = 'file:///node_modules/dayjs/index.d.ts';
+    const libraries = { [resource]: 'export declare const version: 1;' };
+    const props = codeEditorProps({ extraLibraries: libraries });
+    const view = render(<CodeEditor {...props} />);
+    const editor = mocks.createEditor(CANONICAL_MAIN_RESOURCE);
+    mocks.editorProps?.onMount?.(editor);
+    const opener = mocks.registerEditorOpener.mock.calls.at(-1)?.[0];
+    if (!opener) throw new Error('Package definition opener missing');
+    act(() => {
+      opener.openCodeEditor(editor, mocks.parseUri(resource));
+    });
+    const declarationModel = mocks.models.get(resource);
+    view.rerender(
+      <CodeEditor {...props} extraLibraries={{ [resource]: 'export declare const version: 2;' }} />,
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(declarationModel?.dispose).toHaveBeenCalledOnce();
+    view.rerender(<CodeEditor {...props} extraLibraries={libraries} />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    act(() => {
+      opener.openCodeEditor(editor, mocks.parseUri(resource));
+    });
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    const lastEditor = mocks.createStandaloneEditor.mock.results.at(-1)?.value;
+    act(() => releaseMonacoWorkspace());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(lastEditor?.dispose).toHaveBeenCalledOnce();
+    expect(props.onSourceChange).not.toHaveBeenCalled();
+  });
   it('renders verified, pending, disabled and execution decorations without changing source and toggles via gutter and native action', () => {
     const onToggleBreakpoint = vi.fn();
     const props = codeEditorProps({
@@ -674,6 +787,7 @@ describe('CodeEditor professional Monaco workspace', () => {
       theme: 'webrad-dark',
     });
     expect(mocks.editorProps?.options).toMatchObject({
+      useShadowDOM: false,
       acceptSuggestionOnEnter: 'on',
       bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: true },
       cursorBlinking: 'blink',

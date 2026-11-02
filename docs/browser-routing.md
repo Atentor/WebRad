@@ -15,7 +15,73 @@ Every project has a mandatory initial page named `index`, with fixed route `/ind
 
 Project loading removes legacy root `props.routePath` values; custom paths are no longer used. The authored root exposes the actual automatic path as read-only `this.routePath: string`. Use `Navigate` to navigate. Existing Hash links using page names or IDs remain readable in Hash mode.
 
-`Navigate(destination, { replace: true })` replaces the current history entry. `newWindow` and `target` produce the corresponding route URL. External destinations retain normal browser navigation. Existing query parameters are preserved for internal navigation.
+`Navigate(destination, { replace: true })` replaces the current history entry. `newWindow` and `target` produce the corresponding route URL. External destinations retain normal browser navigation.
+
+## Page parameters
+
+Select the destination page root, then **Properties > Navigation > Parameters >
+Configure Parameters**. Each row declares a unique name, a `string`, `number` or
+`boolean` type, whether a value is required, and an optional typed default.
+Save applies one undoable model edit; Cancel leaves the page unchanged. Save the
+project to persist the declaration in its page document.
+
+For a page named `PageDetails`, declare a required numeric `id` and an optional
+string `name`. Send values from an event in another page:
+
+```typescript
+Navigate('PageDetails', {
+  params: { id: 123, name: 'Maria' },
+});
+```
+
+The destination becomes `/pagedetails?id=123&name=Maria`, or
+`#/pagedetails?id=123&name=Maria` in Hash mode. The router encodes values and
+validates them before constructing the authored page. Links opened directly,
+refresh, new windows and Back/Forward read the same URL contract. No browser
+storage or global page-instance variables are involved.
+
+Read the immutable values in the destination's instance code, including field
+initializers, `OnCreate` and `OnShow`:
+
+```typescript
+const id: number = params.id;
+const name: string = params.name ?? '';
+```
+
+`this.params.id` is also valid. The bare `params` name uses the shared
+instance-scoped TypeScript contract: local variables, parameters and imports
+retain normal lexical precedence. Monaco completes page names, declared input
+names and `params` members. Both Monaco and compilation reject missing required
+inputs, undeclared input names and incompatible types for literal page names,
+IDs and automatic paths. A dynamically computed destination or URL is checked
+at runtime.
+
+Optional inputs without a default have `undefined` in their output type. A
+default makes an input optional when sending and defined when receiving, even
+when Required is selected. Numbers must be finite decimal values; booleans use
+`true` or `false`. Missing required values, invalid required values and repeated
+declared values throw `PageParameterError`, which identifies the page and input.
+For programmatic navigation this happens before changing the URL or disposing
+the active page. Invalid optional values use their configured default, or
+`undefined`. Unknown URL fields remain in the URL but are excluded from a
+declared page's typed context.
+
+Sending `params` replaces the previous query by default. An explicit query in a
+destination, such as `Navigate('/pagedetails?id=123')`, is also honored.
+`paramsHandling: 'merge'` retains existing fields and applies the supplied ones;
+an explicit `undefined` removes a field. `paramsHandling: 'preserve'` keeps the
+current query and ignores supplied values. For compatibility, a call with neither
+`params`, an explicit query nor a handling option retains the previous query.
+Use `{ params: {} }` to clear it when the destination has no required inputs.
+
+Changing only parameters on the current page retains its instance and emits
+**Interaction > Navigation > OnParametersChanged** after updating `params`.
+`event.detail.previous` and `event.detail.params` contain the previous and next
+snapshots. It does not repeat `OnCreate` or `OnShow` for an already visible page.
+
+The IDE generates `webrad-navigation.d.ts` from all page declarations and narrows
+each generated page's inherited `params` type. The same declarations and browser
+runtime are used by compiled Preview/F9 and generated applications.
 
 ## Page not found
 

@@ -18,6 +18,7 @@ const EVENT_NAME_MAP: Readonly<Record<string, string>> = Object.freeze({
   OnChange: 'change',
   OnClick: 'click',
   OnCreate: 'webrad:create',
+  OnParametersChanged: 'webrad:parameters-changed',
   OnDblClick: 'dblclick',
   OnFocus: 'focus',
   OnHide: 'webrad:hide',

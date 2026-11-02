@@ -1,5 +1,323 @@
 # WebRAD delivery plan
 
+## Release-candidate validation: 2026-11-02
+
+Full local validation and corrective work were explicitly requested. Preserve the
+existing uncommitted Packages, Login, routing, compiler and editor work. Use the
+repository's Node 26.12.1/NPM 12.2.1 toolchain, Chrome-enabled portable tests and
+the existing two-worker configuration. Execute validate and real development,
+packaged and updater smokes; include the scoped Packages workflows affected by
+the latest UI edits. Record failures, corrections and final evidence under
+`artifacts/release-readiness-2026-11-02/`. Execution is in progress; no passing
+result or cross-platform release readiness is implied. Tags, publication and
+version changes remain outside this local validation task.
+
+The initial Chrome-enabled portable run reported 1,795 passing and 17 failing
+tests. Corrected canonical-path handling in compiler package boundaries and
+Monaco declaration snapshots, restored the missing public Label wrap helper
+declarations, and updated existing Login/style/navigation/color fixtures for the
+current product contract. All 115 tests in the nine affected files passed on the
+linked-temp rerun. The complete corrected validation and Electron evidence are
+still in progress.
+
+The complete validate then passed all 1,812 tests with no skips, formatting,
+strict checks and Windows x64 packaging. Real Electron execution exposed stale
+Label/Page-root selectors and Login fixture preconditions: inspect visuals by
+stable ID outside the selection overlay, toggle the root through its actual tree
+row, seed/restore missing default styles only in the isolated legacy fixture,
+and use an anonymous memory-only client for visual geometry independently of the
+existing authentication HTTP fixture. Measure the visible email input and await
+its real CSS size transitions before checking mobile touch sizing. Preserve all
+deadlines and requirements; retain computed-style/geometry diagnostics on failure.
+The final complete `npm run validate` after these corrections passed 241 files /
+1,812 tests with Chrome enabled and zero skips, plus strict types, lint, icons,
+generated-source checks, formatting and Windows x64 packaging. All eleven smoke
+flows passed: development/packaged standard, packaged updater, development/packaged
+Packages, debugger, project resources, Web/PWA deploy, Native Build UI/export,
+native viewport and ReportBuilder Electron. Production audit found zero
+vulnerabilities. Logs, original failure diagnostics and the result matrix are in
+`artifacts/release-readiness-2026-11-02/REPORT.md`. No commit, push, tag, version
+increment, installer or published release was produced. These working-tree
+Windows results do not replace final-SHA hosted validate/security and all four
+native release platforms; actual Tauri WebViews and installed updates remain
+outside this local evidence.
+
+## Compact Packages dialog for notebooks: 2026-11-02
+
+Preserved the Packages panel design while bounding the dialog to 940 by 600 px
+and the available viewport. Reduced header/footer padding, field spacing, card
+padding and log height. The body now uses a bounded flex layout; package lists
+scroll inside their panels instead of increasing the dialog's natural height.
+Header and footer remain outside the scrolling body. Narrow screens keep stacked
+panels and body scrolling for access to all controls.
+
+Updated the existing real Electron smoke and both runners' required evidence for
+1366x768 and 1280x720 notebook geometry, visible actions and list scrolling,
+retaining the narrow-screen assertions. Validation was not requested and was not
+run for this change.
+
+## Packages dialog visual polish: 2026-11-02
+
+Separated manual installation, installed dependencies and registry search into
+clear, theme-aware surfaces. Added compact section icons/counts and useful empty
+states, balanced field widths, consistent controls and spacing, and a quieter
+operation-log disclosure. Restore is aligned to the left of the footer; Close
+remains on the right. Narrow layouts stack the panels and keep actions reachable.
+
+Updated the existing development/packaged smoke interactions and required
+evidence for the new empty-state panels and narrow geometry. Validation was not
+requested for this visual change and was not run; the earlier NPM implementation
+results below do not validate this new presentation.
+
+## Project Packages / NPM: 2026-11-01
+
+Implemented project-owned manifest/lockfile persistence, controlled
+external NPM operations with lifecycle scripts disabled, Project Packages dialog
+and Explorer actions, installed declaration snapshots for the existing Monaco
+TypeScript service, and isolated esbuild/typecheck resolution shared by Preview,
+Debug and publishing. Existing dirty-worktree features are preserved. Declaration
+navigation uses a lazy read-only Monaco viewer. Existing embedded vendor names
+are explicitly reserved to prevent installing an alternative version that would
+be shadowed by the compiler's retained built-in aliases.
+
+The user explicitly requested integration/regression tests and development and
+packaged IDE evidence. Real NPM installation, restore, update/removal, cancellation,
+isolation and real axios/dayjs browser HTTP execution have passed focused tests.
+The final consolidated suite passed 25 files / 269 tests with no failures or
+skips. Root typecheck, zero-warning lint, runtime-source check and Windows x64
+portable packaging passed. The real development and packaged Electron workflows
+both passed installation/search, Explorer versions, desktop/narrow geometry,
+native menu contrast, typed Monaco completion/hover/diagnostics and read-only
+definitions, Unit/Page F9, Debug breakpoints/value inspection, static Web/PWA,
+reopening, missing dependencies, locked restore, update/removal and unresolved
+imports. Captures and logs are in `artifacts/npm-packages-20261101/REPORT.md`.
+Actual native Tauri execution, other operating systems and hosted exact-commit
+release verification remain unexecuted; no installer or release was produced.
+
+## Login responsive height default: 2026-11-01
+
+New Login placements default to responsive fit-content height. Registry creation
+now honors the registered Responsive width/height property defaults, so the
+Inspector and persisted layout agree without IDE type-specific insertion logic.
+Existing placements retain their authored sizing. Validation was not requested
+and was not run.
+
+## Login submit button alignment: 2026-11-01
+
+The primary Login action uses fit-content width and is horizontally centered
+as a whole inside its panel. Inline important width, maximum width, align-self
+and horizontal margins keep linked Style utilities from stretching or moving
+the button. Caption alignment continues to follow the linked Button Style.
+The existing smoke checks the button's centered position and content-sized width.
+Other Buttons remain unchanged.
+Shared runtime CSS covers Designer, configuration preview and generated apps.
+Runtime sources regenerated; validation was not requested and was not run.
+
+## Preview entry scaffold recovery: 2026-11-01
+
+Added a shared TypeScript AST migration for a partially renamed entry scaffold:
+`pages/index.ts` can still export its former page class even though the model
+already names the entry `index`. Opening and saving now reconcile an unambiguous
+exported class with its matching generated-base import, including an already
+renamed `indexGenerated` base. Preview compilation applies the same migration to
+its in-memory source graph. Current classes, custom exports and ambiguous
+scaffolds are left for normal TypeScript diagnostics; authored methods/comments
+are preserved. Existing legacy source-key and breakpoint migration remains in
+place. No project format change is required.
+
+Code review only. Tests, typecheck, lint, builds and Electron smokes were not
+requested or run. The reported Ubuntu project has not been inspected or executed,
+so confirmation against that exact source and platform remains pending.
+
+## Login internal project Style bindings: 2026-10-31
+
+Replaced the Login Appearance editors with a Styles tab that links every internal
+container, label, field, checkbox, action and feedback message to a compatible
+project Style or None. Save materializes stable IDs through the existing Designer
+command; preview and Inspector use the same style library. Selected Styles own
+paint, typography and interaction states, retaining compact structural defaults
+and 20 px panel padding unless the selected Style explicitly overrides them.
+
+Added Registry-owned embedded-style metadata, generic catalogue projection and
+retention in the compiler, and a shared Designer style context. Runtime classes
+apply the normal utility classes and retain compatible catalogues for authored
+configuration changes. Project validation rejects missing/incompatible IDs;
+deleting a removable Style clears its internal bindings atomically. Saved Login
+configurations without bindings retain legacy paint until their modal is saved.
+No project/configuration version bump is needed. Updated the real Electron smoke
+selectors and required evidence for type filtering, None, persistence and F9.
+Popup configuration previews include the same styled child host and close action
+as the runtime; embedded style retention also covers retained menu definitions.
+
+Runtime sources and Monaco declarations regenerated. Tests, browser/Electron
+smokes, typecheck, lint, formatting checks, builds and packaging were not requested
+and were not run. Visual/runtime verification remains pending.
+
+## Login panel padding: 2026-10-31
+
+Set the default Login panel padding to 20 px on all four sides in desktop and
+mobile. Updated the complete previous compact preset while preserving custom
+spacing combinations, and removed the narrow-container padding cap. Existing
+Electron geometry assertions now require the same 20 px padding in both views.
+Runtime sources/declarations regenerated. Validation was not requested or run.
+
+## Login account recovery: 2026-10-31
+
+Added compact email-request and new-password forms to the Login component,
+using the RestGo SDK's anonymous password-reset endpoints. Recovery has its own
+configuration tab, localized editable texts, enablement, automatic-link control
+and optional return URL. Registry events and the typed runtime/Monaco API cover
+request acceptance, reset completion and programmatic view/link handling.
+
+An internal browser broker captures and cleans reset links before the router
+constructs authored pages, restores Hash route context, preserves other queries
+and delivers only to an eligible placement. Tokens stay outside project data,
+DOM, storage and event payloads and are discarded on hiding/view/configuration
+changes, completion or disposal. Resets validate confirmation, retain server
+error feedback and return to login without creating a session. Older projects
+receive recovery defaults within existing format/configuration versions.
+
+Updated the Aurora example, documentation, generated runtime/declarations and
+existing Electron UI/HTTP-fixture smoke interactions and required evidence.
+Validation was not requested and was not run; real SMTP delivery and a deployed
+RestGo instance have not been exercised.
+
+## Preview authentication investigation: 2026-10-31
+
+Inspected the last-opened project's Connection settings: RestGo and session
+persistence are enabled with local storage. Its current project/backend/storage
+scope has no encrypted Preview credential file. That observation alone does not
+identify a storage failure or establish whether a backend rejected a session.
+
+Focused isolated Electron reproductions using the actual Preview server and
+runtime/SDK restored a fixture login after revoking and republishing the Preview,
+including a localhost parent and a separate loopback Preview origin. The Debug
+Preview path omits the persistent session adapter and creates a fresh in-memory
+Electron partition on every execution. Reproducing that lifecycle lost the login
+on the second execution, confirming a debugger persistence defect. The reported
+normal F9 failure remains unconfirmed against the live backend. No application
+code was changed; no full suite, packaging or live credential login was run.
+
+## Compact Login forms: 2026-10-31
+
+Reduced the default template to 14 px typography, 16 px padding, 8 px gaps and
+36 px desktop inputs/buttons. Remember and password visibility share a single
+row, headings/actions have tighter spacing and cards fit their content. New
+placements use 420 by 400 px; the configuration modal retains its wide preview
+and reduces to 620 px height. Narrow/touch layouts preserve 44 px controls and
+16 px input type. Only the complete original spacing preset is normalized to
+the compact defaults; independently customized combinations remain unchanged.
+Updated the Aurora example, protected default style, documentation and existing
+Electron smoke interactions/evidence. Runtime sources and declarations were
+regenerated. Validation was not requested and was not run.
+
+## Login Aurora defaults: 2026-10-31
+
+Replaced the template's flat default paint with Aurora-style surface/input
+gradients, gradient borders, a primary-to-accent button, elevation and hover/focus
+feedback. Gradient endpoints, heading and focus colors use project theme roles
+and remain editable. Legacy customized base colors receive matching solid end
+colors unless endpoints were explicitly saved, preserving authored choices.
+The additive optional settings retain configuration version 1 and project format
+v2. Removed inherited IDE modal padding from the embedded Login form so its
+projection matches runtime spacing. Updated docs and the existing Electron smoke
+appearance/evidence contract. Embedded sources and declarations regenerated;
+validation was not requested and was not run.
+
+## Wider Login configuration preview: 2026-10-31
+
+Balanced the desktop modal columns equally, expanding Preview from 360 px to
+approximately 520 px within the existing modal width. Removed the preview's
+percentage width compensation to keep its scaled surface within the available
+area. Narrow-window stacking is retained. Updated the existing smoke geometry
+contract to require the wider column and no horizontal canvas overflow.
+Validation was not requested and was not run.
+
+## Compact Login configurator: 2026-10-31
+
+Polished only the Login modal: reduced its desktop footprint to 1040 by 680 px,
+compacted the header, tabs and footer, adopted the shared modal close control,
+and arranged settings in two columns. The preview has its own scroll area and
+an editor-only visual scale; saved Login appearance and runtime controls remain
+unchanged. Dedicated container rules preserve a scrollable stacked layout in
+narrow windows. Updated the existing Login Electron smoke geometry/evidence
+contract. Validation was not requested and was not run.
+
+## Configurable Login template: 2026-10-31
+
+Added Authentication > Login with a Registry-owned configurator and a concrete
+typed WebLogin runtime composed from Panel, Label, Edit, Button and CheckBox.
+The agreed first-version scope is email/password login and registration only,
+with customization through the modal. Panel/Popup presentation, fields, English
+and Portuguese texts, theme-aware colors, typography, spacing, remember behavior,
+optional post-registration login and post-login hiding are saved in a version-1
+configuration inside project format v2. Existing projects receive the additive
+protected default Login style without replacing authored styles.
+
+Designer, configuration previews, Monaco, compiled Preview and generated browser
+sources share the contract. Runtime/authored constructors retain one instance per
+physical placement; subscriptions, native dialog state and passwords are disposed
+with it. RestGo startup restoration is awaited, registration remains anonymous by
+default and event payloads exclude credentials/tokens. Added the template to Aurora
+and updated the actual Electron UI/HTTP-fixture smoke interactions and evidence
+requirements in both runners. Documentation records configuration and API behavior.
+
+Required runtime sources and declarations regenerated. Tests, Electron/browser
+smokes, typecheck, lint, formatting checks, builds and packaging were not requested
+and were not run. Runtime and visual verification remain pending.
+
+## Label Inspector color: 2026-10-31
+
+Removed the redundant Color editor from Label through Registry Inspector metadata;
+text color remains configured through Style. Retained the legacy property metadata
+for existing project compatibility. Updated the existing Electron Label selection
+evidence to require the Color field to be absent. Validation was not requested
+and was not run.
+
+## Implicit Page Inspector property edits: 2026-10-31
+
+Property changes now target the active document root when the selection is empty,
+matching the Page properties displayed by the Inspector. This fixes ignored
+Browser title edits and other root properties in that state, including root
+rename and dimension handling. Existing explicit selections remain the targets.
+The existing Page title Electron smoke now deselects the root before editing and
+saving the title, retaining its persistence and compiled F9 assertions.
+Validation was not requested and was not run.
+
+## Label text wrapping: 2026-10-31
+
+Added Registry-owned Text wrap options: none, word, break-word and character.
+The saved property is projected in Designer and browser runtime, with a typed
+WebLabel API and Monaco declarations. Auto Size retains the configured width
+when wrapping and fits the runtime height. Legacy labels without textWrap keep
+their style-driven whitespace behavior. Embedded runtime sources regenerated.
+Validation was not requested and was not run.
+
+## Typed page navigation parameters: 2026-10-31
+
+Implemented page-owned scalar input declarations with required/default settings,
+a Registry-driven Inspector editor, persistence and Designer undo/redo. The
+shared generated navigation map supplies destination-aware `Navigate` inputs to
+Monaco and compilation. Each page receives an immutable concrete `params` type;
+bare `params.id` and explicit `this.params.id` share the existing AST/symbol-based
+instance contract, including lexical shadowing and repeating-row isolation.
+
+The router accepts new query values, serializes typed navigation inputs for
+History/Hash and new-window URLs, validates before programmatic activation and
+installs the context before authored construction and lifecycle events.
+Same-page changes retain the instance and emit OnParametersChanged. Explicit
+values replace previous queries by default; merge/preserve are explicit options,
+and legacy calls without values retain their previous behavior. Updated the real
+Page Inspector Electron smoke interactions and required evidence in both runners.
+Documentation describes the additive page-format-v2 field and public API.
+
+Reviewed the model, runtime, compiler, Monaco and Inspector wiring and regenerated
+embedded runtime sources with npm run runtime:sources. Legacy Hash calls retain
+the original location of their query, while explicit inputs use the route query.
+The mutable context helpers remain internal to the runtime. Tests,
+browser/Electron smokes, typecheck, lint, formatting checks, builds and packaging
+were not requested and have not been run. Runtime/UI verification remains pending.
+
 ## Release corrections and template verification: 2026-10-30
 
 Added the missing API-bound Charts example to the editable Aurora Data page,

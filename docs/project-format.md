@@ -1,5 +1,88 @@
 # Project format
 
+## Packages / NPM
+
+The additive optional top-level `packages` field has its own version:
+
+```json
+{
+  "packages": {
+    "version": 1,
+    "dependencies": { "dayjs": "1.11.13" },
+    "lockfile": null
+  }
+}
+```
+
+After installation, `lockfile` contains the complete NPM lockfile JSON as a
+string. Only registry package names, scoped names, versions/ranges/tags and safe
+version-2/3 lockfiles are accepted. Local/path/URL dependencies and linked
+packages are rejected. Lockfile root dependencies must match the Project Model;
+package paths cannot escape `node_modules`, and resolved tarballs require HTTPS
+without embedded credentials. Limits are 500 direct packages and a 20 MB lockfile.
+
+Saving projects with packages also writes root `package.json` and
+`package-lock.json` projections. `webradProjectId` marks the manifest owner and
+prevents overwriting unrelated manifests. Save As carries the embedded lockfile
+to the new directory; installed `node_modules` is restored explicitly. Projects
+without `packages` keep the existing behavior and format version. Neither
+installed files, registry credentials nor process state are serialized.
+See [Packages / NPM](packages.md).
+
+## Login template configuration
+
+`WebLogin` stores a version-1 `props.configuration` object in format-v2 component
+nodes. The browser-safe parser exported from `@webrad/runtime/login-model`
+validates its behavior, field labels/placeholders, texts and appearance. Unknown
+keys and versions are rejected. Runtime credentials, users, form values and busy
+state are never saved. Standard node IDs, styles, layouts and event bindings keep
+their existing representation; no project-format version change is required.
+See [Login](login.md).
+
+`configuration.styles` optionally maps the registered Login element names to
+compatible project Style IDs or null (None). Empty maps follow the compatible
+protected defaults; missing maps preserve legacy appearance until the editor is
+saved with bindings. Labels/messages use WebLabel styles, fields use WebEdit,
+actions use WebButton, Remember me uses WebCheckBox, and the two containers use
+WebPanel/WebPopup. Missing IDs and type mismatches are project validation errors.
+Style deletion atomically clears matching internal references to null. Compiled
+class catalogues are runtime projections and are not stored in the project file.
+
+The optional `configuration.recovery` object contains `enabled`, `automaticLinks`,
+an HTTP(S) `returnUrl` (blank uses the current application route), and editable
+`texts`. Missing values receive language-specific defaults. It stores no reset
+token. Saved `initialView` additionally accepts `recovery`; the runtime-only `reset`
+view requires an ephemeral token and cannot be selected as the saved initial form.
+This is additive within configuration version 1/project format v2.
+
+## Page navigation inputs
+
+Navigable page documents optionally store a top-level `parameters` array:
+
+```json
+{
+  "parameters": [
+    { "name": "id", "type": "number", "required": true },
+    { "name": "name", "type": "string", "required": false, "defaultValue": "" }
+  ]
+}
+```
+
+This is an additive page-format-v2 field. An absent array preserves legacy
+documents; it is not materialized while loading. There are at most 100 entries,
+with unique TypeScript identifier names of up to 100 characters. Prototype
+member names are rejected. Types are `string`, `number` and `boolean`; a default
+must match its type and numeric defaults must be finite. Only `WebPage`
+documents declare navigation inputs. Definitions are edited through the
+Registry-declared Inspector action and Designer command history. Actual values
+belong to the browser URL and are never persisted as project state.
+
+The compiler and Monaco generate the project navigation input map and the
+destination's immutable `params` type from these definitions. `params` is a
+reserved generated instance member, available with or without `this` in page
+instance code. `webrad-navigation.d.ts` is reserved generated output, separate
+from user-authored TypeScript. See [Browser routing](browser-routing.md).
+
 Panel, Group and HTML optionally store `props.aspectRatio` as `none`, `1:1`,
 `4:3`, `3:4`, `16:9` or `9:16`. Missing values mean free sizing (`none`).
 The ratio does not replace saved `bounds.height` or responsive height rules;
@@ -277,6 +360,14 @@ Both collections default to empty when loading earlier version-2 projects. This 
 
 The `.wrproj` manifest contains the project ID, display name, entry page ID, page descriptors, reusable visual definitions, reusable component styles, source-file descriptors, imported asset snapshots, and settings. A `.wrpage` contains page metadata and component nodes. Component and style references use immutable IDs; names are user-facing labels and are not identities.
 
+Entry-source recovery also handles a partially migrated project whose model and
+filename already use `index` while its exported class still has the former name.
+The shared AST migration recognizes a single named exported class extending its
+matching generated-base import (or the already migrated `indexGenerated` import).
+Opening adapts that source in memory and saving persists it; Preview applies the
+same adaptation to its compilation copy. Current declarations, custom exports
+and ambiguous scaffolds retain normal TypeScript diagnostics.
+
 ## General project settings
 
 `settings` stores the application-facing `applicationName`, `applicationDescription`, `locale`, and `timeZone`, alongside the existing Designer grid settings and `outputDirectory`. The application name is the default document title; the description and locale are emitted to both compiled and Preview HTML as optional description metadata and the `lang` attribute. The configured IANA time zone is emitted as `data-webrad-time-zone` on the root HTML element so generated application code can use the same project default without reading IDE state.
@@ -546,3 +637,13 @@ Chart appearance also accepts optional `fontFamily` and `legendFontFamily`
 (a Lucide icon name). Omitted fields load with inherited typography/colors and
 no icon. These settings remain in `chartsConfig` schema version 1; selected font
 assets belong to generated output and are not duplicated in project JSON.
+
+## Label text wrapping
+
+WebLabel supports optional `props.textWrap`: `none` (single line), `word`
+(between words), `break-word` (also split words wider than the Label), and
+`character` (at any character). New Labels default to `none`; absent values
+preserve legacy style-driven whitespace. Explicit values override style whitespace.
+With `autoSize` enabled, wrapping keeps the configured width and fits runtime
+height; otherwise configured height clips overflowing content. The public
+`WebLabel.textWrap` property uses the exported `WebLabelTextWrap` type.

@@ -585,6 +585,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebIcon,
   WebHtml,
   WebMenu,
+  WebLogin,
   WebComboBox,
   WebDataGrid,
   WebCharts,
@@ -623,6 +624,7 @@ class EditorPage extends WebPage {
     icon: WebIcon,
     html: WebHtml,
     menu: WebMenu,
+    login: WebLogin,
     combo: WebComboBox,
     image: WebImage,
     list: WebListBox,
@@ -650,6 +652,7 @@ panel./*@panel*/caption;
     icon./*@icon*/mode;
     html./*@html*/html;
     menu./*@menu*/configuration;
+    login./*@login*/configuration;
     checkBox./*@checkBox*/checked;
     combo./*@combo*/items;
     image./*@image*/objectFit;
@@ -809,6 +812,7 @@ panel./*@panel*/caption;
       WebIcon: 'icon',
       WebHtml: 'html',
       WebMenu: 'menu',
+      WebLogin: 'login',
       WebApiClient: 'api',
       WebButton: 'button',
       WebCheckBox: 'checkBox',

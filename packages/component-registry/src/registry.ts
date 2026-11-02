@@ -68,6 +68,13 @@ function isSafeIdentifier(value: string): boolean {
 function copyDefinition(definition: ComponentDefinition): ComponentDefinition {
   return {
     ...definition,
+    embeddedStyles:
+      definition.embeddedStyles === undefined
+        ? undefined
+        : {
+            propertyPath: [...definition.embeddedStyles.propertyPath],
+            slots: definition.embeddedStyles.slots.map((slot) => ({ ...slot })),
+          },
     styleDependencies:
       definition.styleDependencies === undefined ? undefined : [...definition.styleDependencies],
     palette: { ...definition.palette },
@@ -120,6 +127,25 @@ function assertUniqueNames(
 }
 
 export function validateComponentDefinition(definition: ComponentDefinition): void {
+  if (definition.embeddedStyles) {
+    const { propertyPath, slots } = definition.embeddedStyles;
+    if (propertyPath.length === 0 || propertyPath.some((key) => !isSafeIdentifier(key)))
+      throw new InvalidComponentDefinitionError(
+        'Embedded styles require a safe, nonempty property path.',
+      );
+    assertUniqueNames(slots, 'Embedded style slot');
+    for (const slot of slots) {
+      if (
+        !isSafeIdentifier(slot.name) ||
+        !isSafeIdentifier(slot.componentType) ||
+        !slot.label.trim() ||
+        (slot.defaultStyle !== undefined && slot.defaultStyle !== 'none')
+      )
+        throw new InvalidComponentDefinitionError(
+          'Embedded style slots require a name, compatible type and label.',
+        );
+    }
+  }
   if (definition.styleDependencies !== undefined) {
     assertUniqueNames(
       definition.styleDependencies.map((name) => ({ name })),
@@ -263,7 +289,13 @@ function createId(): string {
   return globalThis.crypto.randomUUID();
 }
 
-function createDefaultLayout(): RegisteredComponentNode['layout'] {
+function createDefaultLayout(definition: ComponentDefinition): RegisteredComponentNode['layout'] {
+  const sizing = (name: 'itemWidth' | 'itemHeight'): 'fixed' | 'stretch' | 'fit-content' => {
+    const value = definition.properties.find(
+      (property) => property.source === 'layout-item' && property.name === name,
+    )?.defaultValue;
+    return value === 'stretch' || value === 'fit-content' ? value : 'fixed';
+  };
   return {
     container: {
       mode: 'fixed',
@@ -277,8 +309,8 @@ function createDefaultLayout(): RegisteredComponentNode['layout'] {
       alignItems: 'start',
     },
     item: {
-      width: 'fixed',
-      height: 'fixed',
+      width: sizing('itemWidth'),
+      height: sizing('itemHeight'),
       minWidth: 0,
       maxWidth: null,
       minHeight: 0,
@@ -386,7 +418,7 @@ export class ComponentRegistry {
       type,
       name,
       parentId: options.parentId ?? null,
-      layout: createDefaultLayout(),
+      layout: createDefaultLayout(definition),
       bounds: {
         x: options.x ?? 0,
         y: options.y ?? 0,

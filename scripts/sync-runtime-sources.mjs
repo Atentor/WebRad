@@ -159,6 +159,10 @@ const sourceFiles = [
   'menu-user-settings-css.ts',
   'menu-dom.ts',
   'menu-css.ts',
+  'login.ts',
+  'login-model.ts',
+  'login-css.ts',
+  'login-recovery.ts',
   'api-client.ts',
   'api-client-inputs.ts',
   'api-client-accessors.ts',
@@ -166,6 +170,7 @@ const sourceFiles = [
   'api-client-selection.ts',
   'api-client-template.ts',
   'component.ts',
+  'page-parameters.ts',
   'combo-box-data.ts',
   'charts-data.ts',
   'charts-render.ts',
@@ -377,6 +382,22 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [
+    path.join(repositoryRoot, 'packages', 'language', 'src', 'login-typings.generated.json'),
+    JSON.stringify(
+      createApiClientDeclarations(
+        repositoryRoot,
+        ['login-model.ts', 'login.ts'],
+        (name) =>
+          name.startsWith('WebLogin') ||
+          name.startsWith('createDefaultWebLogin') ||
+          name === 'parseWebLoginConfiguration' ||
+          name === 'WEB_LOGIN_STYLE_SLOTS',
+      ),
+      null,
+      2,
+    ) + '\n',
+  ],
   [
     path.join(repositoryRoot, 'packages', 'language', 'src', 'theme-typings.generated.json'),
     JSON.stringify(createApiClientDeclarations(repositoryRoot, ['theme.ts']), null, 2) + '\n',

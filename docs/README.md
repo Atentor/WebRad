@@ -12,12 +12,14 @@ Start with the root [README](../README.md) to install the IDE and create a proje
 - [IDE editing and navigation](ide-workflows.md): drafts, saving, keyboard controls,
   validation feedback and Preview recovery
 - [API Client](api-client.md) and [RestGo SDK](restgo-sdk.md)
+- [Packages / NPM](packages.md): project dependencies, editor types, restore and browser builds
 - [Aurora Workspace](../examples/aurora-workspace/README.md) and its
   [RestGo account flow](aurora-restgo-account.md)
 - [Native Build with Tauri](native-build.md): configuration and verification limits
 
 ## Components
 
+- [Login](login.md): configurable RestGo login, registration and recovery in a Panel or Popup
 - [Charts](charts.md): eight chart types and up to five API-bound data series
 - [Aspect ratios](aspect-ratio.md): free or proportional sizing for Panel, Group and HTML
 - [HTML](html.md): embed HTML markup and CSS in an isolated document

@@ -1,4 +1,6 @@
 import { ProjectResourceFolders } from './ProjectResourceFolders';
+import { ProjectPackagesFolder } from './ProjectPackagesFolder';
+import type { PackageAction, PackageStatus } from '../../../shared/package-contracts';
 import { projectResourceGroups } from './project-explorer-resources';
 import type { WebRadProject } from '@webrad/project-model';
 import { useRef, useState, type DragEvent, type ReactElement } from 'react';
@@ -31,6 +33,10 @@ interface ProjectExplorerProps {
   onAddMenu?: () => void;
   onDeleteMenu?: (id: string) => void;
   onRenameMenu?: (id: string, name: string) => string | void;
+  packages?: PackageStatus['dependencies'];
+  packageOperationsDisabled?: boolean;
+  onManagePackages?: (name?: string) => void;
+  onPackageOperation?: (action: PackageAction, name?: string) => void;
 }
 
 export function ProjectExplorer({
@@ -54,6 +60,10 @@ export function ProjectExplorer({
   onAddMenu,
   onDeleteMenu,
   onRenameMenu,
+  packages,
+  packageOperationsDisabled,
+  onManagePackages,
+  onPackageOperation,
 }: ProjectExplorerProps): ReactElement {
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -80,6 +90,13 @@ export function ProjectExplorer({
   const pagesExpanded = !effectiveCollapsedFolders.has('Pages');
   const reusableElementsExpanded = !effectiveCollapsedFolders.has('Reusable Components');
   const resourceGroups = project ? projectResourceGroups(project) : [];
+  const packageEntries =
+    packages ??
+    Object.entries(project?.packages?.dependencies ?? {}).map(([name, requested]) => ({
+      name,
+      requested,
+      installedVersion: null,
+    }));
   const groups = [
     { label: 'Pages', entries: pages.map((entry) => ({ id: entry.id, label: entry.name })) },
     {
@@ -87,10 +104,22 @@ export function ProjectExplorer({
       entries: reusableElements.map((entry) => ({ id: entry.id, label: entry.name })),
     },
     { label: 'Menus', entries: menus.map((entry) => ({ id: entry.id, label: entry.name })) },
-    ...resourceGroups.map((group) => ({
-      ...group,
-      entries: group.entries.filter((entry) => matches(entry.label)),
-    })),
+    ...resourceGroups.flatMap((group) => [
+      ...(group.label === 'Assets'
+        ? [
+            {
+              label: 'Packages',
+              entries: packageEntries
+                .filter((entry) => matches(entry.name))
+                .map((entry) => ({ id: `package:${entry.name}`, label: entry.name })),
+            },
+          ]
+        : []),
+      {
+        ...group,
+        entries: group.entries.filter((entry) => matches(entry.label)),
+      },
+    ]),
   ];
   const resultCount = groups.reduce((count, group) => count + group.entries.length, 0);
   const visibleKeys = groups.flatMap(({ label, entries }) => {
@@ -275,7 +304,15 @@ export function ProjectExplorer({
             onClick={() => {
               setSearch('');
               setCollapsedFolders(
-                new Set(['Pages', 'Menus', 'Reusable Components', 'Models', 'Units', 'Assets']),
+                new Set([
+                  'Pages',
+                  'Menus',
+                  'Reusable Components',
+                  'Models',
+                  'Units',
+                  'Packages',
+                  'Assets',
+                ]),
               );
             }}
           >
@@ -299,6 +336,15 @@ export function ProjectExplorer({
           </button>
           <button type="button" title="Add page" aria-label="Add page" onClick={onAddPage}>
             <Icon name="add" />
+          </button>
+          <button
+            type="button"
+            title="Manage packages"
+            aria-label="Manage packages"
+            disabled={!project || !onManagePackages}
+            onClick={() => onManagePackages?.()}
+          >
+            <Icon name="download-cloud" />
           </button>
           <button
             type="button"
@@ -571,6 +617,18 @@ export function ProjectExplorer({
             onOpen={onOpenResource}
             onDelete={onDeleteResource}
             focusedKey={rovingKey}
+            packagesFolder={
+              <ProjectPackagesFolder
+                dependencies={packageEntries}
+                query={query}
+                expanded={!effectiveCollapsedFolders.has('Packages')}
+                focusedKey={rovingKey}
+                disabled={packageOperationsDisabled}
+                onToggle={() => toggleFolder('Packages')}
+                onManage={onManagePackages}
+                onRun={onPackageOperation}
+              />
+            }
           />
         </div>
       )}

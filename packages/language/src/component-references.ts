@@ -8,6 +8,8 @@ export interface ComponentReferenceScope {
   readonly generatedModulePath?: string;
   readonly reusable?: boolean;
   readonly componentNames: readonly string[];
+  /** Inherited generated members using the same instance-scoped language contract. */
+  readonly instanceMemberNames?: readonly string[];
   readonly repeatingHandlers?: Readonly<
     Record<
       string,
@@ -70,6 +72,7 @@ export function authoredInstanceMembers(
 function referenceNames(api: typeof ts, sourceFile: ts.SourceFile, scope: ComponentReferenceScope) {
   return new Set([
     ...scope.componentNames,
+    ...(scope.instanceMemberNames ?? []),
     ...authoredInstanceMembers(api, sourceFile, scope).keys(),
   ]);
 }
@@ -131,6 +134,9 @@ function isReadonlyMemberWrite(
 }
 
 export function componentReferenceScope(document: PageModel): ComponentReferenceScope {
+  const rootType = document.components.find(
+    (component) => component.id === document.rootComponentId,
+  )?.type;
   const repeatingHandlers: Record<
     string,
     { currentRowType: string; componentIds: Record<string, string> }
@@ -152,13 +158,11 @@ export function componentReferenceScope(document: PageModel): ComponentReference
     ...(document.name === '404' ? { generatedModulePath: './404.generated' } : {}),
     className: pageClassName(document.name),
     generatedClassName: `${pageClassName(document.name)}Generated`,
-    ...(document.components.find((component) => component.id === document.rootComponentId)?.type ===
-    'WebPanel'
-      ? { reusable: true }
-      : {}),
+    ...(rootType === 'WebPanel' ? { reusable: true } : {}),
     componentNames: document.components
       .filter((component) => component.id !== document.rootComponentId)
       .map((component) => component.name),
+    ...(rootType === 'WebPage' ? { instanceMemberNames: ['params'] } : {}),
     ...(Object.keys(repeatingHandlers).length === 0 ? {} : { repeatingHandlers }),
   };
 }
@@ -183,7 +187,10 @@ export function readComponentReferenceScope(
       ('generatedModulePath' in value && typeof value.generatedModulePath !== 'string') ||
       !('componentNames' in value) ||
       !Array.isArray(value.componentNames) ||
-      !value.componentNames.every((name: unknown) => typeof name === 'string')
+      !value.componentNames.every((name: unknown) => typeof name === 'string') ||
+      ('instanceMemberNames' in value &&
+        (!Array.isArray(value.instanceMemberNames) ||
+          !value.instanceMemberNames.every((name: unknown) => typeof name === 'string')))
     )
       return undefined;
     return value as ComponentReferenceScope;
@@ -241,14 +248,15 @@ export function appendComponentReferenceDeclarations(
   };
   for (const statement of sourceFile.statements) collect(statement);
   const moduleName = JSON.stringify(scope.generatedModulePath ?? `./${scope.className}.generated`);
-  const declarations = scope.componentNames
+  const generatedNames = [...scope.componentNames, ...(scope.instanceMemberNames ?? [])];
+  const declarations = generatedNames
     .filter((name) => !declared.has(name))
     .map(
       (name) =>
         `declare const ${name}: import(${moduleName}).${scope.generatedClassName}[${JSON.stringify(name)}];`,
     );
   for (const [name] of authoredInstanceMembers(api, sourceFile, scope)) {
-    if (!declared.has(name) && !scope.componentNames.includes(name))
+    if (!declared.has(name) && !generatedNames.includes(name))
       declarations.push(`declare let ${name}: ${scope.className}[${JSON.stringify(name)}];`);
   }
   return declarations.length === 0 ? source : `${source}\n${declarations.join('\n')}\nexport {};\n`;

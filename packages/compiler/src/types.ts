@@ -33,6 +33,8 @@ export type CompileProjectPhase =
 export interface CompileProjectOptions {
   readonly outputDirectory: string;
   readonly userSources: Readonly<Record<string, string>>;
+  /** Authorized project dependency directory; never resolve packages from the IDE installation. */
+  readonly packageRoot?: string;
   readonly write?: boolean;
   readonly minify?: boolean;
   readonly sourcemap?: boolean;

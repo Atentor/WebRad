@@ -1,4 +1,5 @@
 import { parseReportTemplate, type WebReportElement } from '@webrad/runtime/report-template';
+import { parseWebLoginConfiguration } from '@webrad/runtime/login-model';
 import { projectAssetPath, projectThemeRuntimeConfiguration } from '@webrad/project-model';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -595,10 +596,18 @@ function isValidPropertyValue(
     case 'menu-definition':
       return typeof value === 'string' && (menus ?? []).some((menu) => menu.id === value);
     case 'designer-action':
+    case 'page-parameters':
       return false;
     case 'report-template':
       try {
         parseReportTemplate(value);
+        return true;
+      } catch {
+        return false;
+      }
+    case 'login-config':
+      try {
+        parseWebLoginConfiguration(value);
         return true;
       } catch {
         return false;
@@ -734,6 +743,18 @@ export async function compileProject(
     ]);
   }
   const outputDirectory = path.resolve(options.outputDirectory);
+  if (
+    options.packageRoot !== undefined &&
+    (!path.isAbsolute(options.packageRoot) || options.packageRoot.includes('\0'))
+  ) {
+    return failedResult(outputDirectory, [
+      {
+        category: 'error',
+        source: 'compiler',
+        message: 'The project packageRoot must be an absolute directory.',
+      },
+    ]);
+  }
   const validation = safeParseProject(projectInput);
   if (!validation.success) {
     return failedResult(
@@ -775,7 +796,7 @@ export async function compileProject(
   if (hasErrors(registryDiagnostics)) return failedResult(outputDirectory, registryDiagnostics);
 
   options.onProgress?.('selection');
-  const selected = selectApplicationSources(project, options.userSources);
+  const selected = selectApplicationSources(project, options.userSources, registry);
 
   options.onProgress?.('styles');
   let generatedAppCss: string;
@@ -828,7 +849,7 @@ export async function compileProject(
     ]);
   }
   options.onProgress?.('typecheck');
-  const checked = typecheckSources(graph.sources, graph.componentScopes);
+  const checked = typecheckSources(graph.sources, graph.componentScopes, options.packageRoot);
   const preBundleDiagnostics = [
     ...registryDiagnostics,
     ...graph.diagnostics,
@@ -847,6 +868,7 @@ export async function compileProject(
       sourcemap:
         options.debug || (options.sourcemap ?? (publishing && project.settings.build.sourceMaps)),
       componentTypes: graph.componentTypes,
+      ...(options.packageRoot === undefined ? {} : { packageRoot: options.packageRoot }),
       ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
     };
     options.onProgress?.('bundle');

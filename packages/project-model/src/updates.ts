@@ -1,6 +1,7 @@
 import { ModelUpdateError } from './errors.js';
 import { applyDefaultComponentStyle } from './default-styles.js';
 import { detachRemovedThemeColors } from './project-themes.js';
+import { detachLoginStyle } from './login-styles.js';
 import {
   assertValidPageName,
   assertValidTypeScriptIdentifier,
@@ -400,25 +401,24 @@ export function removeComponentStyle(projectInput: WebRadProject, styleId: strin
       'Default component styles cannot be removed. Customize them instead.',
     );
   }
+  const clearReference = (component: ComponentNode): ComponentNode =>
+    detachLoginStyle(
+      component.styleId === styleId ? withoutComponentStyle(component) : component,
+      styleId,
+    );
   return parseProject({
     ...project,
     pages: project.pages.map((page) => ({
       ...page,
-      components: page.components.map((component) =>
-        component.styleId === styleId ? withoutComponentStyle(component) : component,
-      ),
+      components: page.components.map(clearReference),
     })),
     reusableElements: project.reusableElements.map((reusableElement) => ({
       ...reusableElement,
-      components: reusableElement.components.map((component) =>
-        component.styleId === styleId ? withoutComponentStyle(component) : component,
-      ),
+      components: reusableElement.components.map(clearReference),
     })),
     menus: project.menus?.map((menu) => ({
       ...menu,
-      components: menu.components.map((component) =>
-        component.styleId === styleId ? withoutComponentStyle(component) : component,
-      ),
+      components: menu.components.map(clearReference),
     })),
     styles: project.styles.filter((style) => style.id !== styleId),
   });

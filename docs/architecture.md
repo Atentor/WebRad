@@ -1,5 +1,67 @@
 # WebRAD architecture
 
+## Project package dependencies
+
+The optional version-1 `project.packages` field stores direct NPM dependencies
+and the complete portable lockfile. The main process projects that state into a
+project-owned root manifest and lockfile; `node_modules` is a restorable local
+artifact. Ownership checks prevent package operations from modifying the IDE's
+manifest or an unrelated repository. Project save, Save As and reopening keep the
+same model contract without requiring a project-format migration.
+
+The typed `packages` preload bridge exposes fixed status, search, operation,
+cancel and declaration-snapshot methods. Main-process IPC validates the trusted
+IDE main frame, active project capability, request shape and package identity.
+Project and window operation guards serialize conflicting saves, builds and NPM
+mutations. Only a discovered external Node executable and NPM CLI are spawned,
+with an argument array, no shell, redacted logs and disabled lifecycle scripts.
+Project application code receives none of these APIs.
+
+`CompileProjectOptions.packageRoot` supplies the authorized project root to the
+existing compiler utility process. TypeScript and esbuild resolve external
+packages only under its `node_modules`; internal virtual modules retain their
+existing plugins and namespaces. Preview, Debug, deploy and Tauri compilation all
+pass the same root. Browser builds reject Node native modules and bundle
+compatible dependencies, CSS and supported static assets.
+
+Monaco retains its existing TypeScript worker and language service. Main-process
+snapshots contain package metadata and the reachable declaration graph, with
+bounded caching and invalidation. The worker presents that snapshot as an
+isolated virtual `node_modules` filesystem and delegates module resolution to
+TypeScript. Package metadata is never parsed as authored TypeScript. No second
+completion engine, renderer filesystem access or runtime Node bridge is added.
+See [Packages / NPM](packages.md).
+
+`WebLogin` is a centrally registered authentication template composed from real
+Panel, Label, Edit, Button and CheckBox runtime objects. The versioned configuration
+lives in the Project Model; its modal commits through Designer commands/history.
+Designer and configuration previews use the same DOM/CSS projection with network
+access disabled. Runtime mounting and generated authored scopes share a concrete
+instance per element through an internal WeakMap. Each instance owns its form,
+native Popup, focus handling, credential clearing and session subscription; only
+the project RestGo client/session is shared. Public declarations are generated
+from TypeScript alongside the embedded runtime sources. See [Login](login.md).
+
+Composite controls can declare `embeddedStyles` metadata in the Component
+Registry: a saved binding-property path and typed element slots. Login uses that
+contract for its per-element Style selectors. The Designer reads the Inspector's
+same project style library through a shared context; the compiler retains the
+compatible styles and resolves their normal utility classes into runtime-only
+catalogue metadata. Runtime Login controls apply the classes to their concrete
+elements, preserving native hover/focus/active/disabled and theme behavior. The
+Project Model validates Login's stable style IDs and clears references on style
+deletion. Legacy paint data remains separate from the new binding mode.
+
+Account recovery uses the SDK's anonymous request/confirm endpoints. An internal
+browser-only recovery broker starts from `configureRestGo` before the page router,
+removes reset secrets from the URL, restores Hash route context and holds a token
+only in memory until one eligible Login placement claims it. Component IDs isolate
+default return links; custom return destinations select an eligible page instance.
+Authored code can explicitly claim links without reading the token. Each Login
+owns its claimed secret, password confirmation, inline feedback and cancellation;
+completion never authenticates. Recovery settings/texts are additive model data,
+while tokens remain outside serialization, DOM attributes, storage and events.
+
 Preview authentication persistence is owned by the main process. A publication
 may inject a browser-only RestGO storage adapter backed by an OS-encrypted file
 in the WebRAD profile, scoped to canonical project root, project ID, server and
@@ -297,6 +359,26 @@ The mounted placement releases the relay with its layout bindings.
 The compiler registers every project page, its runtime visual model, and its authored class in one browser-side `WebPageRouter`. An event handler navigates inside the application with `Navigate('PageName')` or the stable page ID. When the destination exactly matches a registered project page, the generated bootstrap swaps the mounted page without reloading the browser: it emits `OnHide`, removes the previous page and its floating layer, disposes generated bindings, mounts the target, and invokes its normal `OnCreate`/`OnShow` lifecycle. Page-local runtime state is therefore recreated on each route activation.
 
 The canonical internal URL uses History routing over HTTP/HTTPS, with Hash routing available for static hosts and file delivery. Direct links and browser back/forward events resolve through the same router: an empty initial URL opens the mandatory `index` page, while an unmatched URL redirects to the mandatory `404` page at `/404` (or `#/404` in Hash mode). Destinations that do not match a project page retain `Navigate`'s browser behavior, including external URLs and explicit new-window targets.
+
+Page-owned `parameters` definitions are the source of truth for navigation input
+types, defaults and validation. The Registry exposes their configuration action;
+a dedicated Designer command applies the edit with undo/redo. The language
+package generates the same project-wide `WebRadPageParameters` module
+augmentation for Monaco and compilation, plus a concrete parameter interface
+for each generated page class. The shared instance-reference scope declares
+`params` separately from component names, preserving lexical shadowing and
+repeating-row boundaries. Bare references lower through the existing AST and
+symbol analysis; authored source is unchanged.
+
+`WebPageRouter` serializes scalar navigation inputs into the History query or
+Hash route query, validates the destination before programmatic activation and
+installs a frozen parameter context keyed by the physical root element before
+the authored constructor runs. The rendered root and its authored wrapper read
+the same context. Updating parameters on an active route replaces the snapshot
+and emits `OnParametersChanged` without recreating the page. Direct links and
+browser history use the same parser. Runtime code depends only on browser APIs;
+Preview and exported applications consume the same embedded sources. See
+[Browser routing](browser-routing.md) for the input and query-handling contract.
 
 ## IDE themes
 

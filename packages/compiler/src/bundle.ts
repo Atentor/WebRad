@@ -13,6 +13,7 @@ import shakaSources from './shaka-sources.generated.json';
 import type { CompileDiagnostic, CompileProjectPhase } from './types.js';
 import { selectRuntimeAdapters, selectRuntimeExports } from './runtime-selection.js';
 import { projectFontLicenseFiles } from './fonts.js';
+import { projectPackagesPlugin } from './package-plugin.js';
 
 const RUNTIME_NAMESPACE = 'webrad-runtime';
 const RESTGO_NAMESPACE = 'webrad-restgo';
@@ -23,6 +24,7 @@ type EsbuildApi = { build: typeof esbuildBuild };
 export interface BundleOptions {
   readonly sources: ReadonlyMap<string, string>;
   readonly entryPath: string;
+  readonly packageRoot?: string;
   readonly outputDirectory: string;
   readonly minify: boolean;
   readonly sourcemap: boolean;
@@ -91,22 +93,29 @@ function virtualPlugin(options: BundleOptions): Plugin {
   return {
     name: 'webrad-virtual-project',
     setup(buildContext) {
-      buildContext.onResolve({ filter: /^pdf-lib$/ }, () => ({
-        path: 'pdf-lib.esm.min.js',
-        namespace: 'webrad-pdf',
-        sideEffects: false,
-      }));
+      buildContext.onResolve({ filter: /^pdf-lib$/ }, (args) =>
+        args.namespace === 'file'
+          ? undefined
+          : {
+              path: 'pdf-lib.esm.min.js',
+              namespace: 'webrad-pdf',
+              sideEffects: false,
+            },
+      );
       buildContext.onLoad({ filter: /.*/, namespace: 'webrad-pdf' }, () => ({
         contents: pdfSources.javascript,
         loader: 'js',
       }));
       buildContext.onResolve(
         { filter: /^shaka-player\/dist\/(shaka-player\.ui\.js|controls\.css)$/ },
-        (args) => ({
-          path: args.path.endsWith('.css') ? 'controls.css' : 'shaka-player.ui.js',
-          namespace: 'webrad-shaka',
-          sideEffects: args.path.endsWith('.css'),
-        }),
+        (args) =>
+          args.namespace === 'file'
+            ? undefined
+            : {
+                path: args.path.endsWith('.css') ? 'controls.css' : 'shaka-player.ui.js',
+                namespace: 'webrad-shaka',
+                sideEffects: args.path.endsWith('.css'),
+              },
       );
       buildContext.onLoad({ filter: /.*/, namespace: 'webrad-shaka' }, (args) => ({
         contents: args.path.endsWith('.css')
@@ -224,12 +233,22 @@ export async function bundleSources(options: BundleOptions): Promise<BundleResul
       '.png': 'dataurl',
       '.svg': 'dataurl',
       '.webp': 'dataurl',
+      '.avif': 'dataurl',
+      '.ico': 'dataurl',
+      '.woff': 'dataurl',
+      '.woff2': 'dataurl',
+      '.ttf': 'dataurl',
+      '.otf': 'dataurl',
+      '.eot': 'dataurl',
+      '.txt': 'text',
     },
     logLevel: 'silent',
     minify: options.minify,
     outdir: path.join(options.outputDirectory, 'assets'),
     platform: 'browser',
-    plugins: [projectPlugin],
+    plugins: [projectPlugin, projectPackagesPlugin(options.packageRoot)],
+    nodePaths: [],
+    conditions: ['browser'],
     sourcemap: options.sourcemap ? 'external' : false,
     // The Preview embeds this exact bundle; escape HTML delimiters before mapping it.
     supported: { 'inline-script': true },

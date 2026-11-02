@@ -11,6 +11,8 @@ import {
 import { BrowserWindow, type WebFrameMain } from 'electron';
 
 import { publishPreviewHtml, revokePreview } from './preview-server';
+import { defaultComponentRegistry } from '@webrad/component-registry';
+import { createDefaultWebLoginConfiguration } from '@webrad/runtime/login-model';
 import { monacoHandlerInputReadyExpression } from './monaco-smoke-input';
 
 interface RestGoSettingsSmokeOptions {
@@ -312,6 +314,11 @@ export async function runRestGoBrowserSmoke(
   let rotation = 0;
   let accessExpired = false;
   let forcedExpiry = false;
+  let currentPassword = 'senha-de-teste';
+  let recoveryReturnUrl = '';
+  let recoveryToken = '';
+  let recoverySequence = 0;
+  const consumedRecoveryTokens = new Set<string>();
   const token = (): string => `smoke-user-jwt-${String(rotation)}`;
   const refreshToken = (): string => `rgr_${String(rotation).padStart(43, '0')}`;
   const user = {
@@ -428,6 +435,45 @@ export async function runRestGoBrowserSmoke(
       );
       return;
     }
+    if (
+      (route === '/auth/password-reset/request' || route === '/auth/password-reset/confirm') &&
+      request.method === 'POST'
+    ) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array));
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
+      capturedRequest.body = body;
+      if (request.headers.authorization !== undefined) {
+        response.writeHead(400).end(JSON.stringify({ error: 'Recovery must be anonymous' }));
+        return;
+      }
+      if (route.endsWith('/request')) {
+        if (typeof body.email !== 'string' || typeof body.url !== 'string') {
+          response
+            .writeHead(400)
+            .end(JSON.stringify({ error: 'Expected recovery email and return URL' }));
+          return;
+        }
+        recoveryReturnUrl = body.url;
+        recoveryToken = `smoke-password-reset-${++recoverySequence}`;
+      } else {
+        if (body.token !== recoveryToken || consumedRecoveryTokens.has(recoveryToken)) {
+          response
+            .writeHead(400)
+            .end(JSON.stringify({ error: 'Invalid or expired recovery link' }));
+          return;
+        }
+        if (typeof body.password !== 'string' || body.password.length < 8) {
+          response.writeHead(400).end(JSON.stringify({ error: 'Password is too short' }));
+          return;
+        }
+        consumedRecoveryTokens.add(recoveryToken);
+        currentPassword = body.password;
+        revoked = true;
+      }
+      response.end(JSON.stringify({ success: true }));
+      return;
+    }
     if (route === '/auth/token' && request.method === 'POST') {
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array));
@@ -435,7 +481,7 @@ export async function runRestGoBrowserSmoke(
       capturedRequest.body = body;
       if (
         body.email !== user.email ||
-        body.password !== 'senha-de-teste' ||
+        body.password !== currentPassword ||
         request.headers.authorization !== undefined
       ) {
         response.writeHead(401).end(JSON.stringify({ error: 'Invalid credentials' }));
@@ -606,14 +652,53 @@ export async function runRestGoBrowserSmoke(
       'OnLogout',
       'indexLogout',
     );
-    const project = { ...original, pages: [boundPage] };
+    const login = defaultComponentRegistry.createComponent('WebLogin', {
+      name: 'LoginTemplate',
+      parentId: boundPage.rootComponentId,
+      existingNames: boundPage.components,
+      props: { configuration: { ...createDefaultWebLoginConfiguration(), closeOnLogin: false } },
+      events: {
+        OnLogin: 'TemplateLogin',
+        OnRegister: 'TemplateRegistered',
+        OnRecoveryRequested: 'TemplateRecoveryRequested',
+        OnPasswordReset: 'TemplatePasswordReset',
+      },
+    });
+    const loginPage = {
+      ...boundPage,
+      components: [
+        ...boundPage.components.map((node) =>
+          node.id === boundPage.rootComponentId
+            ? { ...node, children: [...node.children, login.id] }
+            : node,
+        ),
+        login,
+      ],
+    };
+    const project = { ...original, pages: [loginPage] };
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail } from '@webrad/runtime';
+        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent } from '@webrad/runtime';
 import { createClient } from '@webrad/restgo-sdk';
 import { indexGenerated } from './index.generated';
 export class index extends indexGenerated {
   private usuarioId = '';
+  public TemplateLogin(sender: WebLogin, event: CustomEvent<WebLoginUserEvent>): void {
+    if (sender !== this.LoginTemplate || this.LoginTemplate.controls.email.value !== event.detail.user.email)
+      throw new Error('Login template lost its concrete mounted instance');
+    this.element.dataset.templateLogin = event.detail.user.id;
+  }
+  public TemplateRegistered(_sender: WebLogin, event: CustomEvent<WebLoginUserEvent>): void {
+    this.element.dataset.templateRegistered = event.detail.user.id;
+  }
+  public TemplateRecoveryRequested(_sender: WebLogin, event: CustomEvent<WebLoginRecoveryEvent>): void {
+    this.element.dataset.templateRecoveryRequested = event.detail.email;
+  }
+  public TemplatePasswordReset(sender: WebLogin): void {
+    if (sender.hasRecoveryToken || sender.controls.password.value || sender.view !== 'login')
+      throw new Error('Password reset retained credentials or the reset form');
+    this.element.dataset.templatePasswordReset = 'true';
+  }
   public indexUnauthenticated(_sender: WebPage): void {
     this.element.dataset.unauthenticatedCount = String(Number(this.element.dataset.unauthenticatedCount ?? 0) + 1);
   }
@@ -629,6 +714,8 @@ export class index extends indexGenerated {
   }
   public constructor(element: HTMLElement) {
     super(element);
+    if (new URL(location.href).searchParams.has('reset_token') || location.hash.includes('reset_token='))
+      throw new Error('Recovery link was not cleaned before authored construction');
     const standalone = createClient(${JSON.stringify(baseUrl)}, { persistSession: false });
     (globalThis as unknown as { createRestGoSmokeClient: typeof createClient }).createRestGoSmokeClient = createClient;
     this.element.dataset.restgoIdentity = String(
@@ -727,6 +814,76 @@ export class index extends indexGenerated {
     }
     if (calls.filter((call) => call === 'GET /v2/demo/list').length !== 2 || rotation !== 2)
       throw new Error('RestGO browser smoke did not retry the expired request exactly once.');
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+      const host = document.querySelector('[data-webrad-name="LoginTemplate"]');
+      host.querySelector('[data-login-action="register"]').click();
+      const set = (name, value) => { const input = host.querySelector('input[name="' + name + '"]'); input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); };
+      set('fullName', 'Conta template'); set('email', 'cadastro@example.test');
+      set('password', 'senha-de-teste'); set('passwordConfirmation', 'different');
+      host.querySelector('.wr-login-submit').click();
+    })()`,
+      true,
+    );
+    await rendererReady(
+      window,
+      `document.querySelector('.wr-login-feedback[data-error="true"]')?.textContent === 'Passwords do not match.'`,
+    );
+    await window.webContents.executeJavaScript(
+      `(() => {
+      document.querySelector('input[name="passwordConfirmation"]').value = 'senha-de-teste';
+      document.querySelector('.wr-login-submit').click();
+    })()`,
+      true,
+    );
+    await rendererReady(
+      window,
+      `document.querySelector('[data-template-registered="registered-user"]') !== null
+      && document.querySelector('.wr-weblogin')?.dataset.loginView === 'login' && !document.querySelector('.wr-login-fields')?.disabled`,
+    );
+    const anonymous = await window.webContents.executeJavaScript(
+      `RestGO.CurrentUser === null && document.querySelector('input[name="password"]').value === ''`,
+      true,
+    );
+    if (anonymous !== true)
+      throw new Error('Login template registration retained a password or started a session.');
+    await window.webContents.executeJavaScript(
+      `(() => {
+      document.querySelector('input[name="email"]').value = 'cliente@example.test';
+      document.querySelector('input[name="password"]').value = 'invalid-password';
+      document.querySelector('.wr-login-submit').click();
+    })()`,
+      true,
+    );
+    await rendererReady(
+      window,
+      `document.querySelector('.wr-login-feedback[data-error="true"]')?.textContent === 'Invalid credentials' && !document.querySelector('.wr-login-fields')?.disabled`,
+    );
+    await window.webContents.executeJavaScript(
+      `(() => {
+      document.querySelector('input[name="password"]').value = 'senha-de-teste';
+      document.querySelector('.wr-login-submit').click();
+    })()`,
+      true,
+    );
+    await rendererReady(
+      window,
+      `document.querySelector('[data-template-login]')?.dataset.templateLogin === RestGO.CurrentUser?.id && RestGO.CurrentUser !== null`,
+    );
+    const cleared = await window.webContents.executeJavaScript(
+      `document.querySelector('input[name="password"]').value === ''`,
+      true,
+    );
+    if (cleared !== true)
+      throw new Error('Login template retained a password after authentication.');
+    await window.webContents.executeJavaScript(
+      `RestGO.logout().then(result => { if (result.error) throw new Error(result.error.message); })`,
+      true,
+    );
+    log(
+      'renderer Login authentication passed: compiled typed instance, confirmation mismatch, anonymous signup, invalid credentials, form login, shared session and cleared passwords; HTTP fixture',
+    );
 
     otherWindow = new BrowserWindow({
       show: false,
@@ -896,6 +1053,138 @@ export class index extends indexGenerated {
     log(`renderer RestGO iframe CORS passed: ${JSON.stringify(iframeEvidence)}`);
     log(
       `renderer RestGO browser passed: real fetch, automatic/manual rotation, single retry, Web Locks across two browser windows, shared logout; ${JSON.stringify(evidence)}`,
+    );
+
+    await window.webContents.executeJavaScript(
+      `(() => {
+      const url = new URL(location.href);
+      url.searchParams.set('recovery_source', 'kept');
+      url.hash = '/index?recovery_context=kept';
+      history.replaceState(null, '', url.href);
+      document.querySelector('[data-login-action="recovery"]').click();
+      document.querySelector('input[name="email"]').value = 'cliente@example.test';
+      document.querySelector('.wr-login-submit').click();
+    })()`,
+      true,
+    );
+    await rendererReady(
+      window,
+      `document.querySelector('[data-template-recovery-requested="cliente@example.test"]') !== null
+      && !document.querySelector('.wr-login-fields').disabled`,
+    );
+    const returnUrl = new URL(recoveryReturnUrl);
+    if (
+      returnUrl.hash ||
+      returnUrl.searchParams.get('recovery_source') !== 'kept' ||
+      returnUrl.searchParams.get('webrad_recovery_route') !== '/index?recovery_context=kept' ||
+      returnUrl.searchParams.get('webrad_recovery_owner') !== login.id
+    )
+      throw new Error(
+        'Login recovery did not preserve the application route and target placement.',
+      );
+    const recoveryLink = new URL(returnUrl);
+    recoveryLink.hash = new URLSearchParams({ reset_token: recoveryToken }).toString();
+    const expiredLink = new URL(returnUrl);
+    expiredLink.hash = 'reset_token=expired-smoke-link';
+    const fillNewPassword = async (password: string, confirmation = password): Promise<void> => {
+      if (!window) throw new Error('Login recovery browser closed.');
+      await window.webContents.executeJavaScript(
+        `(() => {
+        document.querySelector('input[name="password"]').value = ${JSON.stringify(password)};
+        document.querySelector('input[name="passwordConfirmation"]').value = ${JSON.stringify(confirmation)};
+        document.querySelector('.wr-login-submit').click();
+      })()`,
+        true,
+      );
+    };
+    await window.loadURL(expiredLink.href);
+    await rendererReady(
+      window,
+      `document.querySelector('.wr-weblogin')?.dataset.loginView === 'reset'`,
+    );
+    await fillNewPassword('nova-senha-de-teste');
+    await rendererReady(
+      window,
+      `document.querySelector('.wr-login-feedback[data-error="true"]')?.textContent === 'Invalid or expired recovery link'
+      && !document.querySelector('.wr-login-fields').disabled`,
+    );
+    await window.loadURL(recoveryLink.href);
+    await rendererReady(
+      window,
+      `document.querySelector('.wr-weblogin')?.dataset.loginView === 'reset'`,
+    );
+    const protectedLink = await window.webContents.executeJavaScript(
+      `(() => {
+      const url = new URL(location.href);
+      return !url.searchParams.has('reset_token') && !url.searchParams.has('webrad_recovery_owner')
+        && !url.searchParams.has('webrad_recovery_route') && url.hash === '#/index?recovery_context=kept'
+        && !document.documentElement.outerHTML.includes(${JSON.stringify(recoveryToken)})
+        && document.querySelector('input[name="email"]').disabled
+        && document.querySelector('input[name="password"]').autocomplete === 'new-password'
+        && document.querySelector('input[name="passwordConfirmation"]').required;
+    })()`,
+      true,
+    );
+    if (protectedLink !== true)
+      throw new Error(
+        'Login recovery exposed the token, changed route context, or omitted required fields.',
+      );
+    const confirmationsBeforeMismatch = calls.filter(
+      (call) => call === 'POST /auth/password-reset/confirm',
+    ).length;
+    await fillNewPassword('nova-senha-de-teste', 'different-password');
+    await rendererReady(
+      window,
+      `document.querySelector('.wr-login-feedback[data-error="true"]')?.textContent === 'Passwords do not match.'`,
+    );
+    if (
+      calls.filter((call) => call === 'POST /auth/password-reset/confirm').length !==
+      confirmationsBeforeMismatch
+    )
+      throw new Error('Login recovery submitted mismatched passwords.');
+    await fillNewPassword('nova-senha-de-teste');
+    await rendererReady(
+      window,
+      `document.querySelector('[data-template-password-reset="true"]') !== null
+      && document.querySelector('.wr-weblogin')?.dataset.loginView === 'login'
+      && !document.querySelector('.wr-login-fields').disabled`,
+    );
+    const anonymousReset = await window.webContents.executeJavaScript(
+      `RestGO.CurrentUser === null
+      && document.querySelector('input[name="password"]').value === ''`,
+      true,
+    );
+    if (anonymousReset !== true)
+      throw new Error('Password recovery started a session or retained a password.');
+    await window.webContents.executeJavaScript(
+      `(() => {
+      document.querySelector('input[name="email"]').value = 'cliente@example.test';
+      document.querySelector('input[name="password"]').value = 'nova-senha-de-teste';
+      document.querySelector('.wr-login-submit').click();
+    })()`,
+      true,
+    );
+    await rendererReady(
+      window,
+      `document.querySelector('[data-template-login]')?.dataset.templateLogin === RestGO.CurrentUser?.id
+      && RestGO.CurrentUser !== null`,
+    );
+    await window.webContents.executeJavaScript(
+      `RestGO.logout().then(result => { if (result.error) throw new Error(result.error.message); })`,
+      true,
+    );
+    await window.loadURL(recoveryLink.href);
+    await rendererReady(
+      window,
+      `document.querySelector('.wr-weblogin')?.dataset.loginView === 'reset'`,
+    );
+    await fillNewPassword('nova-senha-de-teste');
+    await rendererReady(
+      window,
+      `document.querySelector('.wr-login-feedback[data-error="true"]')?.textContent === 'Invalid or expired recovery link'`,
+    );
+    log(
+      'renderer Login recovery passed: anonymous email request, route/placement preservation, pre-construction URL cleanup, expired and reused links, password confirmation, typed reset event, no automatic session and new-password login; HTTP fixture',
     );
   } finally {
     if (window !== null && !window.isDestroyed()) window.destroy();

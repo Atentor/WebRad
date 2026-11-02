@@ -13,6 +13,12 @@ import {
 
 import { fromTypeScriptDiagnostic } from './diagnostics.js';
 import { RESTGO_ENTRY_PATH, RUNTIME_ENTRY_PATH } from './source-graph.js';
+import {
+  browserPackageError,
+  createPackageBoundary,
+  isNodeBuiltin,
+  isWithinDirectory,
+} from './package-resolution.js';
 import type { CompileDiagnostic } from './types.js';
 
 function canonicalPath(fileName: string): string {
@@ -33,6 +39,7 @@ let previousTypecheck: { readonly environment: string; readonly program: ts.Prog
 export function typecheckSources(
   sources: ReadonlyMap<string, string>,
   componentScopes: ReadonlyMap<string, ComponentReferenceScope> = new Map(),
+  packageRoot?: string,
 ): {
   readonly diagnostics: readonly CompileDiagnostic[];
   readonly sources: ReadonlyMap<string, string>;
@@ -46,6 +53,7 @@ export function typecheckSources(
     lib: ['lib.es2022.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'],
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
+    customConditions: ['browser'],
     noEmit: true,
     noImplicitOverride: true,
     noUncheckedIndexedAccess: true,
@@ -73,8 +81,23 @@ export function typecheckSources(
     verbatimModuleSyntax: true,
   };
   const rootNames = [...scriptRootNames(sources)];
+  const packageBoundary = createPackageBoundary(packageRoot);
+  // Embedded aliases are an implementation detail of shipped WebRAD sources.
+  // An installed package must resolve its own transitive vendor declarations.
+  const installedPackageOptions: ts.CompilerOptions = {
+    ...compilerOptions,
+    paths: Object.fromEntries(
+      Object.entries(compilerOptions.paths ?? {}).filter(
+        ([specifier]) =>
+          !['pdf-lib', '@pdf-lib/standard-fonts', 'shaka-player/dist/shaka-player.ui.js'].includes(
+            specifier,
+          ),
+      ),
+    ),
+  };
   const environment = JSON.stringify([
     process.cwd(),
+    packageBoundary.root ?? null,
     process.env.WEBRAD_TYPESCRIPT_LIB_PATH ?? null,
     compilerOptions,
   ]);
@@ -117,17 +140,50 @@ export function typecheckSources(
   const defaultReadFile = host.readFile.bind(host);
   const defaultDirectoryExists = host.directoryExists?.bind(host);
   const defaultRealpath = host.realpath?.bind(host);
+  const defaultGetDirectories = host.getDirectories?.bind(host);
+  const libraryDirectory =
+    typeScriptLibLocation ?? path.dirname(ts.getDefaultLibFilePath(compilerOptions));
+  const diskPathAllowed = (fileName: string): boolean =>
+    isWithinDirectory(libraryDirectory, fileName) ||
+    packageBoundary.contains(fileName) ||
+    (packageBoundary.root !== undefined &&
+      canonicalPath(fileName) === canonicalPath(path.join(packageBoundary.root, 'package.json')));
   host.fileExists = (fileName) =>
-    virtualSources.has(canonicalPath(fileName)) || defaultFileExists(fileName);
+    virtualSources.has(canonicalPath(fileName)) ||
+    (diskPathAllowed(fileName) && defaultFileExists(fileName));
   host.readFile = (fileName) =>
-    virtualSources.get(canonicalPath(fileName)) ?? defaultReadFile(fileName);
+    virtualSources.get(canonicalPath(fileName)) ??
+    (diskPathAllowed(fileName) ? defaultReadFile(fileName) : undefined);
   host.directoryExists = (directoryName) =>
     virtualDirectories.has(canonicalPath(directoryName)) ||
-    (defaultDirectoryExists?.(directoryName) ?? false);
+    ((diskPathAllowed(directoryName) ||
+      (packageBoundary.root !== undefined &&
+        canonicalPath(directoryName) === canonicalPath(packageBoundary.root))) &&
+      (defaultDirectoryExists?.(directoryName) ?? false));
+  host.getDirectories = (directoryName) =>
+    diskPathAllowed(directoryName) ? (defaultGetDirectories?.(directoryName) ?? []) : [];
   host.realpath = (fileName) =>
     virtualSources.has(canonicalPath(fileName)) || virtualDirectories.has(canonicalPath(fileName))
       ? path.resolve(fileName)
       : (defaultRealpath?.(fileName) ?? fileName);
+  host.resolveModuleNameLiterals = (moduleLiterals, containingFile) =>
+    moduleLiterals.map((literal) => {
+      if (isNodeBuiltin(literal.text)) return { resolvedModule: undefined };
+      const isVirtual = virtualSources.has(canonicalPath(containingFile));
+      const packageImport = !literal.text.startsWith('.') && !path.isAbsolute(literal.text);
+      // Virtual authored files live beside the compiler, not beside their saved
+      // project. Only package resolution uses the authorized project directory.
+      const resolutionFile =
+        isVirtual && packageImport && packageBoundary.root !== undefined
+          ? path.join(packageBoundary.root, '__webrad_project__.ts')
+          : containingFile;
+      return ts.resolveModuleName(
+        literal.text,
+        resolutionFile,
+        packageBoundary.contains(containingFile) ? installedPackageOptions : compilerOptions,
+        host,
+      );
+    });
   // Resolve imports against the current filesystem/virtual graph on every build,
   // including a previously missing module that has since been created.
   host.hasInvalidatedResolutions = () => true;
@@ -197,7 +253,40 @@ export function typecheckSources(
   }
   previousTypecheck = { environment, program };
   return {
-    diagnostics: diagnostics.map(fromTypeScriptDiagnostic),
+    diagnostics: diagnostics.map((diagnostic) => {
+      const converted = fromTypeScriptDiagnostic(diagnostic);
+      if (
+        (diagnostic.code === 2307 || diagnostic.code === 7016 || diagnostic.code === 2591) &&
+        diagnostic.file !== undefined &&
+        diagnostic.start !== undefined
+      ) {
+        const span = diagnostic.file.text.slice(
+          diagnostic.start,
+          diagnostic.start + (diagnostic.length ?? 0),
+        );
+        const quoted = span.startsWith("'") || span.startsWith('"');
+        if (diagnostic.code === 2591 && !quoted) {
+          return {
+            ...converted,
+            message: `The Node.js global "${span}" is unavailable in browser applications. Use browser APIs; Preview, Web/PWA and Tauri do not expose Node.js globals.`,
+          };
+        }
+        const specifier = quoted ? span.slice(1, -1) : span;
+        if (isNodeBuiltin(specifier))
+          return { ...converted, message: browserPackageError(specifier) };
+        if (!specifier.startsWith('.') && !specifier.startsWith('@webrad/')) {
+          return {
+            ...converted,
+            ...(diagnostic.code === 7016 ? { category: 'warning' as const } : {}),
+            message:
+              diagnostic.code === 7016
+                ? `${converted.message} Install this package's declarations (for example its @types package) through Project > Packages for full IntelliSense.`
+                : `${converted.message} Open Project > Packages to install or restore this project's dependencies.`,
+          };
+        }
+      }
+      return converted;
+    }),
     sources: bundleSources,
     sourceEdits,
   };

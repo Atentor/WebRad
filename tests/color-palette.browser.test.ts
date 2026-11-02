@@ -122,7 +122,7 @@ it.runIf(browserPath !== undefined)(
       });
       expect(compiled.success, JSON.stringify(compiled.diagnostics)).toBe(true);
       expect(compiled.files['assets/app.css']).toContain('--wr-theme-custom-aurora-blue: #e11d48');
-      compiledHtml = `${compiled.previewHtml}<script>setInterval(() => { const node = document.querySelector('[data-webrad-id="palette-label"]'); if (node) document.body.dataset.previewEvidence = getComputedStyle(node).color; }, 50);</script>`;
+      compiledHtml = `${compiled.previewHtml}<script>setInterval(() => { const node = document.querySelector('[data-webrad-id="palette-label"]'); if (node) document.body.dataset.previewEvidence = getComputedStyle(node).backgroundColor; }, 50);</script>`;
       const previewOutput = await runBrowser('/index.html');
       expect(/data-preview-evidence="([^"]+)"/.exec(previewOutput)?.[1]).toBe('rgb(225, 29, 72)');
     } finally {

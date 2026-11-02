@@ -4,6 +4,7 @@ import { createApplicationUpdates, scheduleUpdateChecks } from './application-up
 import { registerUpdateIpc } from './update-ipc';
 import { requireTrustedSender, hasUnsavedProjectChanges } from './project-ipc';
 import { runProjectResourcesSmoke } from './project-resources-smoke';
+import { runPackagesSmoke } from './packages-smoke';
 import { runDebuggerSmoke } from './debugger-smoke';
 import { runDeploySmoke } from './deploy-smoke';
 import { runNativeBuildSmoke } from './native-build-smoke';
@@ -52,6 +53,7 @@ import { runChartsConfigurationSmoke, runDataGridConfigurationSmoke } from './da
 import { runTimerSmoke } from './timer-smoke';
 import { runIconSmoke } from './icon-smoke';
 import { runHtmlSmoke } from './html-smoke';
+import { runLoginSmoke } from './login-smoke';
 import { runMenuSmoke } from './menu-smoke';
 import { profileMenuSmoke } from './smoke-cpu-profile';
 import { runIdeIconsSmoke } from './ide-icons-smoke';
@@ -153,6 +155,7 @@ async function runCompilerSmoke(): Promise<string | undefined> {
   try {
     const result = await compileProject(session.project, {
       outputDirectory,
+      packageRoot: session.project.packages === undefined ? undefined : session.rootPath,
       userSources: session.userSources,
     });
     if (!result.success || result.previewHtml === undefined) {
@@ -632,6 +635,9 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
         treeSelected: treeItem?.getAttribute('aria-selected') === 'true',
         inspectorName: name,
         nameEditor,
+        styleOwnsColor: ![...(inspector?.querySelectorAll('label') ?? [])].some(
+          (label) => label.textContent?.trim() === 'Color',
+        ),
         canvasSelected: selectedHit !== null,
       };
     })()`,
@@ -642,9 +648,51 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
       Reflect.get(value, 'treeSelected') === true &&
       Reflect.get(value, 'inspectorName') === 'LBLNome' &&
       Reflect.get(value, 'nameEditor') === true &&
+      Reflect.get(value, 'styleOwnsColor') === true &&
       Reflect.get(value, 'canvasSelected') === true,
   );
   smokeLog(`renderer element tree selection passed: ${JSON.stringify(selectionEvidence)}`);
+  for (const [mode, whiteSpace, wordBreak, overflowWrap] of [
+    ['word', 'pre-wrap', 'normal', 'normal'],
+    ['break-word', 'pre-wrap', 'normal', 'anywhere'],
+    ['character', 'pre-wrap', 'break-all', 'normal'],
+    ['none', 'nowrap', 'normal', 'normal'],
+  ] as const) {
+    await window.webContents.executeJavaScript(`(() => {
+      const label = [...document.querySelectorAll('.wr-object-inspector label')]
+        .find((item) => item.textContent.trim() === 'Text wrap');
+      const select = label?.control;
+      if (!(select instanceof HTMLSelectElement)) throw new Error('Missing Label Text wrap Inspector');
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+      setter.call(select, ${JSON.stringify(mode)});
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await waitForRendererResult(
+      window,
+      `(() => {
+      const selectedId = document.querySelector('.wr-design-hit.selected')?.getAttribute('data-component-id');
+      const label = [...document.querySelectorAll('.wr-page-surface .wr-weblabel')]
+        .find(candidate => candidate.getAttribute('data-component-id') === selectedId);
+      if (!label) return { passed: false, missingLabel: true };
+      const style = getComputedStyle(label);
+      return {
+        passed: style.whiteSpace === ${JSON.stringify(whiteSpace)} &&
+          style.wordBreak === ${JSON.stringify(wordBreak)} &&
+          style.overflowWrap === ${JSON.stringify(overflowWrap)},
+        whiteSpace: style.whiteSpace,
+        wordBreak: style.wordBreak,
+        overflowWrap: style.overflowWrap,
+        inlineStyle: label.getAttribute('style'),
+        inspectorValue: [...document.querySelectorAll('.wr-object-inspector label')]
+          .find(item => item.textContent.trim() === 'Text wrap')?.control?.value,
+      };
+    })()`,
+      `the ${mode} Label text wrapping`,
+      (value) =>
+        typeof value === 'object' && value !== null && Reflect.get(value, 'passed') === true,
+    );
+  }
+  smokeLog('renderer Label text wrap Inspector passed: word, break-word, character, none');
   await clickRendererControl(
     window,
     'button[role="tab"][aria-label="Responsive"], button[role="tab"][data-sidebar-view="responsive"]',
@@ -782,6 +830,10 @@ async function captureDesignerSmokeScreenshot(window: BrowserWindow): Promise<vo
 }
 
 async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
+  if (process.argv.includes('--webrad-smoke-packages') && smokeProjectPath !== undefined) {
+    await runPackagesSmoke(window, smokeProjectPath, smokeLog);
+    return;
+  }
   if (process.argv.includes('--webrad-smoke-updates')) {
     await runUpdateSmoke(window, smokeLog);
     return;
@@ -862,6 +914,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     links: true,
     platform: true,
     project: true,
+    packages: true,
     restgoAdmin: true,
     restgoDevelopment: true,
     styles: true,
@@ -1594,6 +1647,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await runTimerSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runIconSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runHtmlSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runLoginSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await profileMenuSmoke(
     () => runMenuSmoke(window, { projectPath: smokeProjectPath, log: smokeLog }),
     smokeLog,

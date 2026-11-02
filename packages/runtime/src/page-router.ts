@@ -1,4 +1,12 @@
 import { Navigate, type NavigateOptions } from './globals.js';
+import {
+  applyNavigationParameters,
+  getPageParameters,
+  parsePageParameters,
+  setPageParameters,
+  type PageParameterDefinition,
+  type PageParameterValues,
+} from './page-parameters.js';
 import type { WebPage, WebReusableElementInstance } from './page.js';
 import {
   mountPage,
@@ -23,6 +31,7 @@ export interface RuntimePageRoute {
   readonly name: string;
   /** Absolute application-relative path; blank defaults to the lowercase page name. */
   readonly path?: string;
+  readonly parameters?: readonly PageParameterDefinition[];
   /** Runtime projection of the page's visual model. */
   readonly model: RuntimePageModel;
   /** Instantiates the user-authored wrapper after its visual DOM is mounted. */
@@ -202,9 +211,14 @@ export class WebPageRouter {
    * matches, while preserving normal URL and new-window navigation otherwise.
    */
   public navigateBrowser(destination: string | URL, options: NavigateOptions = {}): void {
-    let route = typeof destination === 'string' ? this.findRoute(destination) : undefined;
+    const currentUrl = new URL(this.#window.location.href);
+    const suppliedUrl = new URL(destination, currentUrl);
+    const namedDestination = typeof destination === 'string' ? destination.split('?')[0]! : '';
+    let route = typeof destination === 'string' ? this.findRoute(namedDestination) : undefined;
+    let suppliedSearch = suppliedUrl.search;
+    let explicitSearch = String(destination).split('#')[0]!.includes('?');
     if (route === undefined) {
-      const url = new URL(destination, this.#window.location.href);
+      const url = suppliedUrl;
       const current = this.#window.location;
       const internal =
         url.origin === current.origin &&
@@ -212,17 +226,24 @@ export class WebPageRouter {
         url.pathname.startsWith(this.#basePath) &&
         (url.protocol !== 'file:' || url.pathname === current.pathname);
       if (internal) {
-        const path =
+        const rawPath =
           this.#mode === 'hash' && url.hash !== ''
             ? url.hash.slice(1)
             : '/' + url.pathname.slice(this.#basePath.length).replace(/\/$/, '');
+        const queryIndex = rawPath.indexOf('?');
+        const path = queryIndex < 0 ? rawPath : rawPath.slice(0, queryIndex);
+        if (this.#mode === 'hash' && url.hash !== '') {
+          suppliedSearch = queryIndex < 0 ? url.search : rawPath.slice(queryIndex);
+          explicitSearch = queryIndex >= 0 || url.search !== '';
+        }
         const entryLocation =
           this.#mode === 'hash'
             ? url.hash === '' &&
               (url.pathname === current.pathname || path === '/' || path === '/index.html')
             : path === '/' || path === '/index.html';
         route =
-          this.#paths.get(path) ??
+          this.findRoute(path) ??
+          this.findRoute(path.slice(1)) ??
           (entryLocation ? (this.#entryRoute ?? undefined) : this.#paths.get('/404'));
       }
     }
@@ -230,32 +251,52 @@ export class WebPageRouter {
       Navigate(destination, options);
       return;
     }
-    if (options.newWindow === true || options.target !== undefined) {
-      const url = new URL(this.#window.location.href);
-      if (this.#mode === 'hash') url.hash = this.#routeHash(route);
-      else {
-        url.pathname = this.#routeUrl(route);
-        url.hash = '';
+    const currentSearch = this.#pageSearch(currentUrl);
+    const handling =
+      options.paramsHandling ??
+      (options.params !== undefined || explicitSearch ? 'replace' : 'preserve');
+    const search = new URLSearchParams(
+      handling === 'preserve' || handling === 'merge' ? currentSearch : suppliedSearch,
+    );
+    if (handling === 'merge' && explicitSearch) {
+      const suppliedParameters = new URLSearchParams(suppliedSearch);
+      for (const name of new Set(suppliedParameters.keys())) {
+        search.delete(name);
+        for (const value of suppliedParameters.getAll(name)) search.append(name, value);
       }
-      Navigate(url, options);
+    }
+    if (handling !== 'preserve' && options.params !== undefined)
+      applyNavigationParameters(search, options.params);
+    const parameters = parsePageParameters(route.parameters ?? [], search, route.name);
+    const url = new URL(currentUrl);
+    const query = search.toString();
+    if (this.#mode === 'hash') {
+      const preserveOuterSearch = handling === 'preserve' && !currentUrl.hash.includes('?');
+      if (handling !== 'preserve') url.search = '';
+      const includeRouteQuery =
+        !preserveOuterSearch &&
+        (query.length > 0 || (handling === 'preserve' && currentUrl.hash.includes('?')));
+      url.hash = '#' + this.#routePaths.get(route.id) + (includeRouteQuery ? '?' + query : '');
+    } else {
+      url.pathname = this.#routeUrl(route);
+      url.search = query;
+      url.hash = '';
+    }
+    if (options.newWindow === true || options.target !== undefined) {
+      Navigate(url, {
+        newWindow: options.newWindow,
+        target: options.target,
+        replace: options.replace,
+      });
       return;
     }
-
-    const url =
-      this.#mode === 'hash'
-        ? this.#routeHash(route)
-        : this.#routeUrl(route) + this.#window.location.search;
-    const current =
-      this.#mode === 'hash'
-        ? this.#window.location.hash
-        : this.#window.location.pathname + this.#window.location.search;
-    if (current !== url) {
-      if (options.replace === true)
-        this.#window.history.replaceState(null, '', new URL(url, this.#window.location.href));
-      else if (this.#mode === 'hash') this.#window.location.hash = url;
+    if (currentUrl.href !== url.href) {
+      if (options.replace === true) this.#window.history.replaceState(null, '', url);
+      else if (this.#mode === 'hash' && currentUrl.search === url.search)
+        this.#window.location.hash = url.hash;
       else this.#window.history.pushState(null, '', url);
     }
-    this.navigate(route.id);
+    this.#activate(route, parameters);
   }
 
   /**
@@ -265,14 +306,35 @@ export class WebPageRouter {
   public navigate(destination: string): WebPage {
     const route = this.findRoute(destination);
     if (route === undefined) throw new Error(`No WebRAD page route matches "${destination}".`);
+    const parameters = parsePageParameters(
+      route.parameters ?? [],
+      new URLSearchParams(this.#pageSearch(new URL(this.#window.location.href))),
+      route.name,
+    );
+    return this.#activate(route, parameters);
+  }
+
+  #activate(route: RuntimePageRoute, nextParameters: PageParameterValues): WebPage {
     if (this.#active?.route.id === route.id) {
-      if (!this.#active.page.visible) this.#active.page.show();
-      return this.#active.page;
+      const active = this.#active;
+      const previous = getPageParameters(active.page.element);
+      const changed =
+        Object.keys(previous).length !== Object.keys(nextParameters).length ||
+        Object.keys(nextParameters).some((name) => previous[name] !== nextParameters[name]);
+      if (changed) {
+        setPageParameters(active.page.element, nextParameters);
+        active.page.emit('OnParametersChanged', { previous, params: nextParameters });
+      }
+      if (this.#active === active)
+        this.#window.dispatchEvent(new CustomEvent('webrad:route-change', { detail: route.id }));
+      if (this.#active === active && !active.page.visible) active.page.show();
+      return active.page;
     }
 
     this.#disposeActivePage();
     const mounted = mountPage(route.model, this.#host, { menuFactories: route.menuFactories });
     mounted.element.dataset.webradRoutePath = this.#routePaths.get(route.id) ?? '';
+    setPageParameters(mounted.element, nextParameters);
     let page: WebPage;
     let reusableElements: readonly WebReusableElementInstance[] = [];
     try {
@@ -315,6 +377,14 @@ export class WebPageRouter {
     const hash = this.#window.location.hash;
     const queryIndex = hash.startsWith('#/') ? hash.indexOf('?') : -1;
     return '#' + this.#routePaths.get(route.id) + (queryIndex >= 0 ? hash.slice(queryIndex) : '');
+  }
+
+  #pageSearch(url: URL): string {
+    if (this.#mode === 'hash' && url.hash.startsWith('#/')) {
+      const index = url.hash.indexOf('?');
+      if (index >= 0) return url.hash.slice(index + 1);
+    }
+    return url.search;
   }
 
   #routeUrl(route: RuntimePageRoute): string {

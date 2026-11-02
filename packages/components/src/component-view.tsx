@@ -2,6 +2,7 @@ import { projectProgressBar } from '@webrad/runtime/progress-bar';
 import { projectIcon } from '@webrad/runtime/icon';
 import { LucideGraphic } from './lucide-graphic.js';
 import { MenuView } from './menu-view.js';
+import { LoginView } from './login-view.js';
 import { ProgressBarGraphic } from './progress-bar-graphic.js';
 import { PanelProgressGraphic } from './panel-progress-graphic.js';
 import { ChartsPreview } from './charts-preview.js';
@@ -184,6 +185,13 @@ function sharedAttributes(
   );
   const style = {
     ...paintStyle,
+    ...(visual.style.whiteSpace === undefined
+      ? {}
+      : {
+          whiteSpace: visual.style.whiteSpace,
+          overflowWrap: visual.style.overflowWrap,
+          wordBreak: visual.style.wordBreak,
+        }),
     ...(designTime && node.parentId !== null && Object.keys(margins).length > 0
       ? { marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0 }
       : margins),
@@ -419,6 +427,9 @@ function ProgressBarView({
   );
 }
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
+  WebLogin: ({ node, designTime, styleClassName }) => (
+    <LoginView node={node} attributes={sharedAttributes(node, designTime, styleClassName)} />
+  ),
   WebMenu: ({ node, designTime, styleClassName }) => (
     <MenuView
       node={node}

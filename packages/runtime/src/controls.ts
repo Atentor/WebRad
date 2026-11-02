@@ -13,6 +13,9 @@ import {
 } from './panel-progress.js';
 import {
   projectPanelBackground,
+  projectLabelTextWrap,
+  normalizeLabelTextWrap,
+  type WebLabelTextWrap,
   type WebPanelBackgroundSize,
   type WebPanelBackgroundPosition,
   type WebPanelBackgroundRepeat,
@@ -87,6 +90,20 @@ export class WebLabel extends WebComponent<HTMLElement> {
     this.caption = value;
   }
 
+  public get textWrap(): WebLabelTextWrap {
+    return normalizeLabelTextWrap(this.element.dataset.webradTextWrap);
+  }
+
+  public set textWrap(value: WebLabelTextWrap) {
+    const normalized = normalizeLabelTextWrap(value);
+    this.element.dataset.webradTextWrap = normalized;
+    Object.assign(this.element.style, projectLabelTextWrap(normalized));
+    if (this.autoSize) {
+      this.element.style.width =
+        normalized === 'none' ? 'fit-content' : (this.element.dataset.webradAutoSizeWidth ?? '');
+    }
+  }
+
   public get autoSize(): boolean {
     return this.element.dataset.webradAutoSize === 'true';
   }
@@ -97,7 +114,8 @@ export class WebLabel extends WebComponent<HTMLElement> {
       this.element.dataset.webradAutoSizeWidth = this.element.style.width;
       this.element.dataset.webradAutoSizeHeight = this.element.style.height;
       this.element.dataset.webradAutoSize = 'true';
-      this.element.style.width = 'fit-content';
+      this.element.style.width =
+        this.textWrap === 'none' ? 'fit-content' : (this.element.dataset.webradAutoSizeWidth ?? '');
       this.element.style.height = 'fit-content';
       return;
     }

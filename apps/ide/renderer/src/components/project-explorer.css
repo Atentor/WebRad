@@ -66,3 +66,46 @@
   font-size: 11px;
   white-space: normal;
 }
+
+.wr-explorer-resource-group {
+  display: contents;
+}
+.wr-explorer-package-manage {
+  margin: 5px 10px 7px 28px;
+  font-size: 11px;
+}
+.wr-package-row small {
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 10px;
+  color: var(--wr-muted-text);
+}
+.wr-packages-context-menu {
+  position: fixed;
+  z-index: 1300;
+  display: grid;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-panel-bg, var(--wr-background, #252526));
+  color: var(--wr-text);
+  box-shadow: 0 6px 20px #0004;
+}
+.wr-packages-context-menu button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.wr-packages-context-menu button:hover:not(:disabled),
+.wr-packages-context-menu button:focus-visible {
+  background: var(--wr-hover-bg, #ffffff14);
+  outline: 1px solid var(--wr-accent);
+}
+.wr-packages-context-menu button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

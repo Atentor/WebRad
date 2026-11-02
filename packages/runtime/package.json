@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./login": {
+      "types": "./src/login.ts",
+      "default": "./src/login.ts"
+    },
+    "./login-model": {
+      "types": "./src/login-model.ts",
+      "default": "./src/login-model.ts"
+    },
     "./theme": {
       "types": "./src/theme.ts",
       "default": "./src/theme.ts"

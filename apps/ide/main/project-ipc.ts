@@ -1,5 +1,11 @@
 import { PROJECT_TEMPLATE_IDS } from '@webrad/component-registry';
 import { setPreviewMenuMode } from './menu';
+import {
+  cancelPackagesForOwner,
+  isPackageOperationRunning,
+  isPackageRootBusy,
+  registerPackagesIpc,
+} from './packages-ipc';
 import { readSelectedProjectAsset } from './project-asset';
 import {
   cancelNativeBuildForOwner,
@@ -209,6 +215,10 @@ async function saveProjectHandler(
 ): Promise<ProjectSession> {
   const request = saveProjectSchema.parse(input);
   requireGrantedRoot(event, request.rootPath);
+  if (isPackageOperationRunning(event.sender.id))
+    throw new Error('Wait for the package operation to finish before saving.');
+  if (isPackageRootBusy(request.rootPath))
+    throw new Error("Another window is changing this project's packages.");
   return saveProjectFiles({
     rootPath: request.rootPath,
     project: parseProject(request.project),
@@ -222,6 +232,8 @@ async function saveProjectAsHandler(
 ): Promise<ProjectSession | null> {
   requireTrustedSender(event);
   const request = saveProjectAsSchema.parse(input);
+  if (isPackageOperationRunning(event.sender.id))
+    throw new Error('Wait for the package operation to finish before Save As.');
   const project = parseProject(request.project);
   const parentDirectory = await chooseDirectory('Choose a folder for the WebRAD project');
   if (!parentDirectory) return null;
@@ -238,6 +250,7 @@ async function releaseProjectHandler(event: IpcMainInvokeEvent, input: unknown):
   allowedRoots.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
   openedProjectIds.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
   if (activeProjectRoots.get(window.webContents.id) === normalizedRoot(rootPath)) {
+    cancelPackagesForOwner(window.webContents.id);
     cancelNativeBuildForOwner(window.webContents.id);
     activeProjectRoots.delete(window.webContents.id);
     revokePreview(window.webContents.id);
@@ -257,6 +270,8 @@ async function readFileHandler(event: IpcMainInvokeEvent, input: ReadFileRequest
 async function writeFileHandler(event: IpcMainInvokeEvent, input: WriteFileRequest): Promise<void> {
   const request = writeFileSchema.parse(input);
   requireGrantedRoot(event, request.rootPath);
+  if (isPackageRootBusy(request.rootPath))
+    throw new Error("Wait for this project's package operation to finish before writing files.");
   const target = await resolveInsideProjectSecure(request.rootPath, request.relativePath);
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.writeFile(target, request.content, 'utf8');
@@ -270,6 +285,8 @@ async function buildHandler(
 ): Promise<BuildResponse> {
   const request = buildRequestSchema.parse(input);
   requireGrantedRoot(event, request.rootPath);
+  if (isPackageRootBusy(request.rootPath))
+    throw new Error("Wait for this project's package operation to finish before building.");
   return withCompilation(event.sender.id, async () => {
     const started = performance.now();
     let lastPhase = 'start';
@@ -310,6 +327,7 @@ async function buildHandler(
     );
     const result = await compileProject(project, {
       outputDirectory,
+      packageRoot: project.packages === undefined ? undefined : request.rootPath,
       userSources: request.userSources,
       ...(log === undefined ? {} : { onProgress: progress }),
     });
@@ -345,6 +363,8 @@ async function buildHandler(
 }
 
 async function withCompilation<T>(owner: number, operation: () => Promise<T>): Promise<T> {
+  if (isPackageOperationRunning(owner))
+    throw new Error('Wait for the package operation to finish before building.');
   if (isNativeBuildRunning(owner) || compilingWindows.has(owner) || deployingWindows.has(owner))
     throw new Error('Wait for the application build to finish.');
   compilingWindows.add(owner);
@@ -383,6 +403,8 @@ async function deployHandler(
 ): Promise<DeployResponse> {
   const request = deployRequestSchema.parse(input);
   requireGrantedRoot(event, request.rootPath);
+  if (isPackageRootBusy(request.rootPath) || isPackageOperationRunning(event.sender.id))
+    throw new Error('Wait for the package operation to finish before deploying.');
   const project = parseProject(request.project);
   const id = event.sender.id;
   if (isNativeBuildRunning(id) || compilingWindows.has(id))
@@ -444,6 +466,7 @@ async function deployHandler(
       },
       {
         outputDirectory: destination,
+        packageRoot: savedProject.packages === undefined ? undefined : request.rootPath,
         userSources: request.userSources,
         target: 'deploy',
         minify: project.settings.build.minify,
@@ -506,6 +529,8 @@ async function debugCompileHandler(
   request: DebugStartRequest,
 ): Promise<DebugCompilation> {
   requireGrantedRoot(event, request.rootPath);
+  if (isPackageRootBusy(request.rootPath))
+    throw new Error("Wait for this project's package operation to finish before debugging.");
   return withCompilation(event.sender.id, async () => {
     const project = parseProject(request.project);
     await saveProjectFiles({
@@ -519,6 +544,7 @@ async function debugCompileHandler(
     );
     const result = await compileProject(project, {
       outputDirectory,
+      packageRoot: project.packages === undefined ? undefined : request.rootPath,
       userSources: request.userSources,
       debug: true,
       write: false,
@@ -596,6 +622,7 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
   });
   window.on('closed', () => {
     const id = windowId;
+    cancelPackagesForOwner(id);
     cancelNativeBuildForOwner(id);
     revokePreview(id);
     forgetDebuggerOwner(id);
@@ -624,18 +651,54 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   if (registered) return;
   registered = true;
   registerRestGoAdminIpc(requireTrustedSender, options.userDataPath);
+  registerPackagesIpc({
+    requireTrustedSender,
+    requireProject: (event, rootPath, projectId) => {
+      requireGrantedRoot(event, rootPath);
+      if (
+        activeProjectRoots.get(event.sender.id) !== normalizedRoot(rootPath) ||
+        openedProjectIds.get(event.sender.id)?.get(normalizedRoot(rootPath)) !== projectId
+      )
+        throw new Error('Packages requires the active opened project.');
+    },
+    beforeOperation: (event, rootPath) => {
+      if (
+        isNativeBuildRunning(event.sender.id) ||
+        compilingWindows.has(event.sender.id) ||
+        deployingWindows.has(event.sender.id)
+      )
+        throw new Error('Wait for the application build to finish before changing packages.');
+      for (const [owner, activeRoot] of activeProjectRoots) {
+        if (
+          activeRoot === normalizedRoot(rootPath) &&
+          (isNativeBuildRunning(owner) ||
+            compilingWindows.has(owner) ||
+            deployingWindows.has(owner))
+        )
+          throw new Error(
+            'Another window is building this project. Wait before changing packages.',
+          );
+      }
+      stopDebuggerForOwner(event.sender.id);
+      revokePreview(event.sender.id);
+    },
+  });
   registerDebuggerIpc({ requireTrustedSender, requireGrantedRoot, compile: debugCompileHandler });
   registerNativeBuildIpc({
     inspectionLog: options.nativeInspectionLog,
     userDataPath: options.userDataPath,
     requireTrustedSender,
     beforeBuild: (event) => {
+      if (isPackageOperationRunning(event.sender.id))
+        throw new Error('Wait for the package operation to finish before building.');
       if (deployingWindows.has(event.sender.id) || compilingWindows.has(event.sender.id))
         throw new Error('Wait for the application build to finish.');
       stopDebuggerForOwner(event.sender.id);
     },
     requireProject: (event, rootPath, projectId) => {
       requireGrantedRoot(event, rootPath);
+      if (isPackageRootBusy(rootPath))
+        throw new Error("Wait for this project's package operation to finish before building.");
       if (activeProjectRoots.get(event.sender.id) !== normalizedRoot(rootPath))
         throw new Error('Native Build requires the active opened project.');
       if (
@@ -672,6 +735,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
     // A manual selection supersedes restoration or any earlier pending selection.
     if (session === null || projectSelectionRevisions.get(id) !== revision) return null;
     cancelNativeBuildForOwner(id);
+    cancelPackagesForOwner(id);
     stopDebuggerForOwner(id);
     revokePreview(id);
     grantRoot(event, session.rootPath, session.project.id);

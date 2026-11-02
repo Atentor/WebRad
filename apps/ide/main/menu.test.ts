@@ -12,6 +12,19 @@ import { installApplicationMenu } from './menu';
 import { IDE_COMMANDS } from '../shared/contracts';
 
 describe('application menu', () => {
+  it('opens the native Packages manager from Project', () => {
+    const send = vi.fn();
+    installApplicationMenu({ webContents: { send } } as unknown as BrowserWindow);
+    const template = menu.buildFromTemplate.mock.calls.at(-1)?.[0];
+    const project = template?.find((item) => item.label === 'Project');
+    if (!Array.isArray(project?.submenu)) throw new Error('Missing Project submenu');
+    const packages = project.submenu.find(
+      (item: MenuItemConstructorOptions) => item.label === 'Packages',
+    );
+    (packages?.click as (() => void) | undefined)?.();
+    expect(IDE_COMMANDS).toContain('project.packages');
+    expect(send).toHaveBeenCalledExactlyOnceWith('webrad:menu-command', 'project.packages');
+  });
   it('dispatches the registered About command from Help', () => {
     const send = vi.fn();
     installApplicationMenu({ webContents: { send } } as unknown as BrowserWindow);

@@ -2,7 +2,7 @@ import pdfSources from './pdf-lib-sources.generated.json';
 import shakaSources from './shaka-sources.generated.json';
 import path from 'node:path';
 
-import type { ComponentRegistry } from '@webrad/component-registry';
+import { embeddedComponentStyleCatalog, type ComponentRegistry } from '@webrad/component-registry';
 import {
   pageClassName,
   resolveMenuDocument,
@@ -14,10 +14,12 @@ import {
 import { resolveComponentStyleClassName } from '@webrad/runtime/visual';
 import {
   createUserPageSource,
+  normalizeEntryPageUserSource,
   componentReferenceScope,
   type ComponentReferenceScope,
   createUserReusableElementSource,
   generateEnvironmentTypings,
+  generateNavigationTypings,
   generatePageSource,
   generateReusableElementSource,
   createUserMenuSource,
@@ -84,6 +86,7 @@ function isReservedSourcePath(sourcePath: string): boolean {
       'theme-bootstrap.ts',
       'app.css',
       'webrad-globals.d.ts',
+      'webrad-navigation.d.ts',
       'webrad-environment.d.ts',
       'styles.d.ts',
     ].includes(normalized)
@@ -147,10 +150,16 @@ function runtimeDocumentModel(
           component.styleId === undefined ? undefined : stylesById.get(component.styleId);
         const styleClassName =
           style?.componentType === component.type ? resolveComponentStyleClassName(style) : '';
+        const embeddedStyleCatalog = embeddedComponentStyleCatalog(
+          registry.require(component.type),
+          component,
+          styles,
+        );
         return {
           ...component,
           children: component.children.filter((childId) => visualIds.has(childId)),
           ...(style === undefined ? {} : { styleClassName }),
+          ...(embeddedStyleCatalog === undefined ? {} : { embeddedStyleCatalog }),
         };
       }),
   };
@@ -207,6 +216,7 @@ function createEntrySource(
     id: ${JSON.stringify(page.id)},
     name: ${JSON.stringify(page.name)},
     path: ${JSON.stringify(page.id === project.entryPage ? '/index' : `/${page.name.toLowerCase()}`)},
+    parameters: ${JSON.stringify(page.parameters ?? [])},
     model: ${model} as unknown as RuntimePageModel,
     createPage: (element: HTMLElement) => new WebRadPage${String(index)}(element),
     createReusableElements,
@@ -386,6 +396,15 @@ export function createVirtualSourceGraph(
   for (const page of project.pages) {
     const userPath = virtualAbsolutePath(pageSourcePath(page));
     if (!sources.has(userPath)) sources.set(userPath, createUserPageSource(page));
+    if (page.id === project.entryPage) {
+      const source = sources.get(userPath);
+      if (source !== undefined) {
+        sources.set(
+          userPath,
+          normalizeEntryPageUserSource(source, pageSourcePath(page)).sourceText,
+        );
+      }
+    }
     sources.set(
       virtualAbsolutePath(generatedSourcePath(page)),
       generatePageSource(page, { registry, menus: project.menus }),
@@ -411,7 +430,7 @@ export function createVirtualSourceGraph(
 
   const entryPath = virtualAbsolutePath('entry.ts');
   const stylePath = virtualAbsolutePath('app.css');
-  const selected = selectApplicationSources(project, userSources);
+  const selected = selectApplicationSources(project, userSources, registry);
   const runtimeProject = selected.project;
   const componentTypes = selectedComponentTypes(selected, registry);
   sources.set(
@@ -430,6 +449,10 @@ export function createVirtualSourceGraph(
     `import { Theme } from '@webrad/runtime';\nTheme.configure(${JSON.stringify(projectThemeRuntimeConfiguration(project.settings.themes, project.id))});\nObject.assign(globalThis, { Theme });\n`,
   );
   sources.set(virtualAbsolutePath('webrad-globals.d.ts'), createGlobalTypings());
+  sources.set(
+    virtualAbsolutePath('webrad-navigation.d.ts'),
+    generateNavigationTypings(project.pages),
+  );
   sources.set(
     virtualAbsolutePath('webrad-environment.d.ts'),
     generateEnvironmentTypings(project.settings.environmentVariables),

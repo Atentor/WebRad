@@ -36,7 +36,7 @@ export function Harness(): ReactElement {
       }),
     );
     const page = created.pages[0]!;
-    const label = defaultComponentRegistry.createComponent('WebLabel', {
+    const label = defaultComponentRegistry.createComponent('WebPanel', {
       id: 'palette-label',
       parentId: page.rootComponentId,
     });
@@ -223,8 +223,8 @@ async function smoke(): Promise<void> {
     'Scrollbar choice did not apply',
   );
   await textButton('Apply changes');
-  await click('Predefined colors for Color color picker');
-  await click('Use theme Aurora Blue for Color color picker');
+  await click('Predefined colors for Background Color color picker');
+  await click('Use theme Aurora Blue for Background Color color picker');
   await textButton('All properties');
   const textCategory = document.querySelector<HTMLButtonElement>(
     '.wr-style-category-summary[aria-label^="Text,"]',
@@ -263,8 +263,8 @@ async function smoke(): Promise<void> {
     'Saved settings mismatch',
   );
   assert(
-    project.pages[0]!.components.find((entry) => entry.id === 'palette-label')!.props.color ===
-      customThemeColorReference('aurora-blue'),
+    project.pages[0]!.components.find((entry) => entry.id === 'palette-label')!.props
+      .backgroundColor === customThemeColorReference('aurora-blue'),
     'Inspector choice was not persisted',
   );
   const style = project.styles.find((entry) => entry.componentType === 'WebButton')!;
@@ -293,7 +293,7 @@ async function smoke(): Promise<void> {
     await tick();
   }
   assert(
-    (labelled('Color color picker') as HTMLInputElement).value === '#e11d48',
+    (labelled('Background Color color picker') as HTMLInputElement).value === '#e11d48',
     'Linked Inspector color did not follow palette edit',
   );
   assert(
@@ -302,8 +302,8 @@ async function smoke(): Promise<void> {
     'Linked gradient did not follow palette edit',
   );
   assert(
-    getComputedStyle(document.querySelector('#bound-label [data-component-type="WebLabel"]')!)
-      .color === 'rgb(225, 29, 72)',
+    getComputedStyle(document.querySelector('#bound-label [data-component-type="WebPanel"]')!)
+      .backgroundColor === 'rgb(225, 29, 72)',
     'Designer component did not follow palette edit',
   );
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -318,8 +318,8 @@ async function smoke(): Promise<void> {
   );
   const updated = deserializeProject(document.querySelector('#project')!.textContent!);
   assert(
-    updated.pages[0]!.components.find((entry) => entry.id === 'palette-label')!.props.color ===
-      customThemeColorReference('aurora-blue'),
+    updated.pages[0]!.components.find((entry) => entry.id === 'palette-label')!.props
+      .backgroundColor === customThemeColorReference('aurora-blue'),
     'Palette edit discarded the component link',
   );
   await click('Predefined colors for Background gradient to color');

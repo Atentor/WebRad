@@ -2,6 +2,7 @@ import type { ComponentPropertyDefinition } from '@webrad/component-registry';
 
 const SECTION_ORDER = [
   'Identity',
+  'Navigation',
   'Appearance',
   'Data',
   'Reusable component',

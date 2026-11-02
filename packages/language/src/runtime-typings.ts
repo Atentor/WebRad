@@ -2,6 +2,7 @@ import timerTypings from './timer-typings.generated.json';
 import htmlTypings from './html-typings.generated.json';
 import themeTypings from './theme-typings.generated.json';
 import menuTypings from './menu-typings.generated.json';
+import loginTypings from './login-typings.generated.json';
 import reportBuilderTypings from './report-builder-typings.generated.json';
 import apiClientTypings from './api-client-typings.generated.json';
 import videoUploadTypings from './video-upload-typings.generated.json';
@@ -16,6 +17,12 @@ import restGoTypings from './restgo-typings.generated.json';
 const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'`).join('\n');
 
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
+  export function normalizeLabelTextWrap(value: unknown): WebLabelTextWrap;
+  export function projectLabelTextWrap(value: WebLabelTextWrap): {
+    whiteSpace: 'nowrap' | 'pre-wrap';
+    overflowWrap: 'normal' | 'anywhere';
+    wordBreak: 'normal' | 'break-all';
+  };
   export type LucideIconName = ${LUCIDE_ICON_NAMES.map((name) => `'${name}'`).join(' | ')};
   export type WebIconMode = 'icon' | 'button';
   export class WebIcon extends WebComponent<HTMLButtonElement> {
@@ -31,6 +38,7 @@ ${timerTypings.source}
 ${htmlTypings.source}
 ${themeTypings.source}
 ${menuTypings.source}
+${loginTypings.source}
 ${reportBuilderTypings.source}
 ${repeatingGroupTypings.source}
 ${chartsTypings.source}
@@ -412,16 +420,20 @@ ${chartsTypings.source}
   }
 
   /** Base class for generated and user-authored pages. */
-  export class WebPage extends WebComponentScope {
+  export class WebPage<Parameters extends object = object> extends WebComponentScope {
     /** Browser tab title; blank values retain the application's original title. */
     browserTitle: string;
     readonly routePath: string;
+    readonly params: Readonly<Parameters>;
     layoutMode: WebPageLayoutMode;
     show(): void;
     close(options?: ClosePageOptions): void;
   }
 
+  export type WebLabelTextWrap = 'none' | 'word' | 'break-word' | 'character';
+
   export class WebLabel extends WebComponent<HTMLElement> {
+    textWrap: WebLabelTextWrap;
     caption: string;
     text: string;
     autoSize: boolean;
@@ -601,10 +613,36 @@ ${WEB_BUTTON_ICON_TYPINGS};
     set onChange(handler: WebComponentEventHandler<this> | null);
   }
 
+  export type PageParameterValue = string | number | boolean;
+  export type PageParameterValues = Readonly<Record<string, PageParameterValue | undefined>>;
+  export interface PageParameterDefinition {
+    readonly name: string;
+    readonly type: 'string' | 'number' | 'boolean';
+    readonly required: boolean;
+    readonly defaultValue?: PageParameterValue;
+  }
+  export interface PageParametersChangedEventDetail {
+    readonly previous: PageParameterValues;
+    readonly params: PageParameterValues;
+  }
+  export class PageParameterError extends Error {
+    readonly pageName: string;
+    readonly parameterName: string;
+    constructor(pageName: string, parameterName: string, reason: string);
+  }
+  export interface WebRadPageParameters {}
+  export type PageDestination = keyof WebRadPageParameters | (string & {}) | URL;
+  export type NavigateArguments<Destination extends string | URL> = Destination extends keyof WebRadPageParameters
+    ? {} extends WebRadPageParameters[Destination]
+      ? [options?: Omit<NavigateOptions, 'params'> & { readonly params?: WebRadPageParameters[Destination] }]
+      : [options: Omit<NavigateOptions, 'params'> & { readonly params: WebRadPageParameters[Destination] }]
+    : [options?: NavigateOptions];
   export interface NavigateOptions {
     readonly replace?: boolean;
     readonly newWindow?: boolean;
     readonly target?: string;
+    readonly params?: PageParameterValues;
+    readonly paramsHandling?: 'replace' | 'merge' | 'preserve';
   }
 
   /** Shows a browser message to the application user. */
@@ -615,7 +653,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
    * Navigates an internal project page when its name or ID is provided by a
    * compiled app; otherwise navigates the browser or opens another window.
    */
-  export function Navigate(destination: string | URL, options?: NavigateOptions): void;
+  export function Navigate<Destination extends PageDestination>(destination: Destination, ...args: NavigateArguments<Destination>): void;
   export const message: typeof Message;
   export const confirm: typeof Confirm;
   export const navigate: typeof Navigate;
@@ -631,6 +669,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
   }
 
   export interface RuntimeComponentNode {
+    readonly embeddedStyleCatalog?: readonly RuntimeComponentStyle[];
     readonly id: string;
     readonly templateId?: string;
     readonly reusableRoot?: boolean;
@@ -729,6 +768,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly name: string;
     readonly model: RuntimePageModel;
     readonly path?: string;
+    readonly parameters?: readonly PageParameterDefinition[];
     readonly createPage: RuntimePageFactory;
     readonly createReusableElements?: RuntimeReusableElementFactory;
     readonly menuFactories?: ReadonlyMap<string, RuntimeMenuFactory>;
@@ -808,6 +848,13 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly componentType?: string;
     readonly states: Readonly<Record<ComponentStyleStateName, TailwindStyleProperties>>;
     readonly themeOverrides?: Readonly<Partial<Record<'light' | 'dark', Partial<Record<ComponentStyleStateName, TailwindStyleProperties>>>>>;
+  }
+
+  export interface RuntimeComponentStyle {
+    readonly id: string;
+    readonly componentType: string;
+    readonly preset?: string;
+    readonly className: string;
   }
 
   export function tokenizeTailwindClasses(value: string): readonly string[];
@@ -892,6 +939,16 @@ ${WEB_BUTTON_ICON_TYPINGS};
 declare module '@webrad/runtime/theme' {
   export { Theme, WebTheme, THEME_MODES, THEME_COLOR_NAMES, themeColorId, themeColorReference, customThemeColorId, customThemeColorReference, initializeTheme, themeBootstrapSource } from '@webrad/runtime';
   export type { ThemeMode, ResolvedThemeMode, ThemeColorName, ThemeRuntimeConfiguration, ThemeChangeDetail, ThemeChangeHandler } from '@webrad/runtime';
+}
+
+declare module '@webrad/runtime/login' {
+  export { WebLogin } from '@webrad/runtime';
+  export type { WebLoginOptions, WebLoginControls, WebLoginUserEvent, WebLoginErrorEvent, WebLoginViewEvent, WebLoginRecoveryEvent } from '@webrad/runtime';
+}
+
+declare module '@webrad/runtime/login-model' {
+  export { createDefaultWebLoginConfiguration, createDefaultWebLoginRecoveryConfiguration, parseWebLoginConfiguration, WEB_LOGIN_STYLE_SLOTS } from '@webrad/runtime';
+  export type { WebLoginView, WebLoginPresentation, WebLoginField, WebLoginAppearance, WebLoginTexts, WebLoginConfiguration, WebLoginRecoveryConfiguration, WebLoginStyleSlot, WebLoginStyleBindings } from '@webrad/runtime';
 }
 
 declare module '@webrad/runtime/image-display' {

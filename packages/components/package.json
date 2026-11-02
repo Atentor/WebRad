@@ -7,6 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@webrad/component-registry": "*",
     "@webrad/project-model": "*",
     "@webrad/runtime": "0.1.0",
     "react": "19.3.1"

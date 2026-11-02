@@ -23,6 +23,8 @@ function portableSourcePath(source: string): string {
   const virtualMarker = '.webrad-compiler-virtual/';
   const markerOffset = portable.lastIndexOf(virtualMarker);
   if (markerOffset >= 0) return portable.slice(markerOffset + virtualMarker.length);
+  const packageOffset = portable.indexOf('node_modules/');
+  if (packageOffset >= 0) return `__packages/${portable.slice(packageOffset + 13)}`;
   return portable.startsWith('webrad:') ? portable.slice(7) : portable;
 }
 
@@ -124,6 +126,7 @@ export function composeSourceMap(
       portable.startsWith('__runtime/') ||
       portable.startsWith('__restgo/') ||
       portable.startsWith('__vendor/') ||
+      portable.startsWith('__packages/') ||
       portable === 'entry.ts' ||
       portable.endsWith('.generated.ts')
     )

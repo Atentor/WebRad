@@ -16,6 +16,54 @@ mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
 
+Packages / NPM has a scoped real Electron flow in both development and packaged
+runners: pass `--webrad-smoke-packages` to the existing root smoke script.
+It requires real public registry access and external Node.js 20+/NPM 10+ on PATH.
+The flow installs into an isolated temporary project, retains actual NPM logs,
+and exercises the Project menu, dialog geometry, Explorer direct dependencies,
+Monaco completion/hover/strict diagnostics, Unit-to-Page F9 execution, Debug Unit
+breakpoints and value evaluation, static Web/PWA output without Node APIs,
+reopening, lockfile restoration, update, removal and unresolved imports.
+Required evidence prefixes are `renderer Packages dialog passed`,
+`renderer Packages empty layout passed` (framed installed/registry panels,
+manual installation and useful empty-state guidance),
+`renderer Packages notebook layout passed` (1366x768 and 1280x720, a dialog
+bounded to 940x600 px or the available viewport, visible header/footer actions
+and independently scrolling lists),
+`renderer Packages install and Explorer passed`, `renderer Packages native menu passed`,
+`renderer Packages Monaco passed`,
+`renderer Packages Preview passed`, `renderer Packages Debug passed`,
+`renderer Packages Web PWA passed` and `renderer Packages lifecycle passed`.
+Keep uncaught renderer errors fatal. This scoped flow does not certify native
+Tauri execution on other platforms or replace exact-commit release gates.
+
+The Login workflow requires `renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles;`
+in both Electron runners, covering the bounded 1040 by 620 px configurator,
+compact header/close control, two-column settings, visible footer and scaled
+editor-only preview occupying half the desktop body without horizontal overflow,
+plus project Style/None selectors for each internal element, compatible type
+filtering, persisted IDs and the same bindings in Designer/configurator/F9,
+Aurora surface/input/button gradients and shadows,
+preview/runtime form-spacing parity, palette/configuration persistence, Panel, native modal
+Popup and mobile field geometry. The default desktop form uses 14 px type,
+36 px fields, 20 px panel padding on all sides in desktop/mobile, 8 px field gaps
+and a shared remember/password-options row; the
+registration card with the default bound label styles fits within 500 px. Mobile inputs retain at least 44 px touch
+height and 16 px type. `renderer Login authentication passed:` exercises
+the compiled typed template against the existing RestGo HTTP fixture, including
+registration without automatic authentication, mismatch/error feedback, login,
+the shared session and password clearing. Keep the fixture boundary explicit;
+these records do not establish a live RestGo deployment's behavior. The workflow
+must be executed under an explicit validation request before claiming it passed.
+
+`renderer Login recovery passed:` is also required by both runners. The existing
+RestGo HTTP fixture exercises the real recovery forms, anonymous request/confirm
+calls, preserved route/placement, URL cleanup before authored construction,
+expired/reused links, matching-password validation, the typed completion event,
+no automatic session and login with the changed password. The Login UI workflow
+also saves recovery settings and previews both recovery forms, including Popup
+navigation. SMTP delivery and a live RestGo deployment require separate evidence.
+
 1. Preserve the requested product contract. Changes to controls, labels,
    navigation, shortcuts, or layout require reviewing `apps/ide/main/*smoke*.ts`,
    main.ts smoke interactions, and required evidence in both
@@ -71,13 +119,23 @@ This does not certify a later commit or Linux/macOS.
 
 ## Before creating a tag
 
+Page navigation changes must retain `renderer Page parameters Inspector and F9
+passed:` in both development and packaged smoke runners. The existing Page
+Inspector workflow configures a required numeric input with a default, exercises
+Save/Cancel and Undo/Redo, checks persisted declarations and compiled URL input,
+and checks same-page context updates and rejection of an invalid required value.
+It restores the original declaration. The 2026-11-02 local validation passed this
+flow in development and packaged Windows runners; later edits still require new
+execution evidence and final-SHA hosted verification.
+
 The Menu workflow must retain native shared-definition evidence as well as legacy
 reusable interactions. Both development and packaged runners require
 `renderer native Menu persistence passed:` and
 `renderer native shared Menu Interaction passed:`. These cover the real palette
 drag, definition-owned configuration and TypeScript, typed handlers, compiled
 internal-before-page dispatch/cancellation, and isolated state in two placements.
-Updating smoke definitions does not establish passing execution evidence.
+The 2026-11-02 local development and packaged Windows runs passed these workflows.
+Updating definitions afterward still requires new execution evidence.
 
 1. With authorization, push the commit to main or `codex/verify-release-*`, or
    open a PR. Release verification performs all four builds, smokes, installers,
@@ -123,6 +181,28 @@ Related historical incidents: `39987745678` (`be52986`, macOS Intel first title 
 These identify past observations rather than current verification.
 
 ## Investigating failures
+
+### Local release-candidate validation: 2026-11-02
+
+The final Windows working tree passed complete validate (1,812 tests, Chrome
+enabled, zero skips), packaging and eleven Electron smoke flows, including
+development/packaged standard, updater, Packages, debugger, project resources,
+Web/PWA deploy, Native Build UI/export, viewport and ReportBuilder. Production
+dependency audit reported zero vulnerabilities. Evidence and original failures:
+`artifacts/release-readiness-2026-11-02/REPORT.md`.
+
+Package boundaries and declaration snapshots must handle canonical paths for
+projects opened through junctions while rejecting dependency links outside the
+project. Label visuals are separate from selection overlays; Page roots use
+their real tree row. The Login visual workflow seeds/restores missing default
+styles only in its isolated legacy fixture, uses anonymous memory-only startup
+separately from authentication fixtures, inspects visible fields and awaits real
+CSS size transitions before mobile measurements. Keep the original geometry,
+deadlines, uncaught-error failures and platform gates.
+
+These uncommitted Windows results do not certify a final SHA, Linux/macOS,
+installed updates or native Tauri execution. No tag, version change, installer or
+publication accompanied this validation.
 
 ### Tagged Menu compilation timeout: 74fb1ed (2026-10-30)
 

@@ -89,6 +89,7 @@ const GENERATED_PAGE_BASE_MEMBER_NAMES = new Set([
   'marginLeft',
   'name',
   'pageName',
+  'params',
   'propertyIsEnumerable',
   'requireComponentElement',
   'show',

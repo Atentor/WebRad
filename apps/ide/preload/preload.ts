@@ -1,4 +1,11 @@
 import type { UpdateState } from '../shared/update-contracts';
+import type {
+  PackageOperationResult,
+  PackageProgress,
+  PackageSearchResult,
+  PackageStatus,
+  PackageTypesSnapshot,
+} from '../shared/package-contracts';
 import type { NativeBuildProgress, NativeBuildResponse } from '../shared/native-build-contracts';
 import type { NativePrerequisiteReport } from '@webrad/native-build/contracts';
 import type { RestGoDevelopmentStatus } from '../shared/restgo-development';
@@ -36,6 +43,23 @@ import type {
 } from '../shared/contracts';
 
 const bridge: WebRadBridge = {
+  packages: {
+    status: (request) =>
+      ipcRenderer.invoke('webrad:packages:status', request) as Promise<PackageStatus>,
+    run: (request) =>
+      ipcRenderer.invoke('webrad:packages:run', request) as Promise<PackageOperationResult>,
+    search: (request) =>
+      ipcRenderer.invoke('webrad:packages:search', request) as Promise<PackageSearchResult>,
+    cancel: (requestId) => ipcRenderer.invoke('webrad:packages:cancel', requestId) as Promise<void>,
+    types: (request) =>
+      ipcRenderer.invoke('webrad:packages:types', request) as Promise<PackageTypesSnapshot>,
+    subscribe: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: PackageProgress): void =>
+        listener(progress);
+      ipcRenderer.on('webrad:packages:progress', handler);
+      return () => ipcRenderer.removeListener('webrad:packages:progress', handler);
+    },
+  },
   nativeBuild: {
     inspect: (request) =>
       ipcRenderer.invoke(

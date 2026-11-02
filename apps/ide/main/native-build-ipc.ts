@@ -294,6 +294,7 @@ export function registerNativeBuildIpc(options: NativeBuildIpcOptions): void {
       const web = settings.build.platform === 'web';
       const compilation = await compileProject(savedProject, {
         outputDirectory,
+        packageRoot: savedProject.packages === undefined ? undefined : request.rootPath,
         userSources: request.userSources,
         write: false,
         target: web ? 'deploy' : 'native',

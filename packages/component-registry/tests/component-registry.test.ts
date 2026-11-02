@@ -253,7 +253,13 @@ describe('MVP component metadata', () => {
 
   it('keeps palette filtering metadata-driven', () => {
     const registry = createMvpComponentRegistry();
-    expect(registry.categories()).toEqual(['Containers', 'Standard', 'Navigation', 'Nonvisual']);
+    expect(registry.categories()).toEqual([
+      'Containers',
+      'Standard',
+      'Navigation',
+      'Authentication',
+      'Nonvisual',
+    ]);
     expect(registry.listByCategory('Containers').map((item) => item.type)).toEqual([
       'WebPage',
       'WebPanel',

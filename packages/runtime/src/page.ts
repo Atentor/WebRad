@@ -3,6 +3,7 @@ import { WebPanel } from './controls.js';
 import type { RuntimeContainerLayoutMode } from './layout.js';
 import { bindPageIntegrationEvents } from './page-event-hooks.js';
 import { getRepeatingGroupCurrentRow } from './repeating-group.js';
+import { getPageParameters } from './page-parameters.js';
 
 export type { WebPageLoginEventDetail, WebPageLogoutEventDetail } from './restgo-page-events.js';
 
@@ -171,7 +172,7 @@ export class WebReusableElementInstance extends WebComponentScope {
   }
 }
 
-export class WebPage extends WebComponentScope {
+export class WebPage<Parameters extends object = object> extends WebComponentScope {
   readonly #documentTitle: DocumentPageTitle;
   #created = false;
   #restGoEvents: (() => void) | undefined;
@@ -184,6 +185,11 @@ export class WebPage extends WebComponentScope {
   /** Compiled application-relative route path, configured before publication. */
   public get routePath(): string {
     return this.element.dataset.webradRoutePath ?? '';
+  }
+
+  /** Validated, immutable inputs for this physical page activation. */
+  public get params(): Readonly<Parameters> {
+    return getPageParameters(this.element) as unknown as Readonly<Parameters>;
   }
 
   /** Browser tab title; blank values retain the application's original title. */

@@ -1,5 +1,29 @@
 # Compiler
 
+## Project packages
+
+`CompileProjectOptions.packageRoot` optionally names the absolute directory
+containing the saved project's NPM manifest and `node_modules`. The IDE supplies
+it only for projects with a package manifest. Browser type checking and esbuild
+share this isolated root; neither searches the IDE's or an ancestor project's
+installed dependencies. Files and symlinks must remain inside the project's
+dependency tree. Invalid roots produce compiler diagnostics.
+
+The existing virtual project/runtime/RestGo plugins retain ownership of their
+modules. External packages use native TypeScript bundler resolution and esbuild
+browser conditions, including package exports, subpaths, CommonJS and transitive
+dependencies. Browser replacement maps, including disabled Node imports, retain
+their esbuild semantics. Unavailable Node built-ins and globals receive explicit
+browser compatibility diagnostics. Missing declarations remain visible as
+warnings during compilation and TypeScript diagnostics in Monaco; no strict
+compiler option is disabled.
+
+Package CSS joins the application stylesheet, and supported fonts/images use
+data URLs so Preview and static exports keep the same resources. Tree shaking,
+authored Unit/Page source maps and Debug breakpoints retain the existing path
+contract; dependency source maps use the `__packages` prefix. Preview, Web/PWA and
+the Tauri frontend all use this pipeline. See [Packages / NPM](packages.md).
+
 ComboBox API bindings are validated against the local document's saved response schema, including the client/operation IDs, response list and both item-relative scalar fields. Generated page and reusable wrappers initialize `comboBoxConfig` and the requested `value`, bind the local API Client, and dispose their ComboBox subscriptions with the authored scope. The emitted browser-only runtime projects API results into native select options; Preview uses this same implementation.
 
 The compiler is an independent Node API and has no React or Electron dependency.

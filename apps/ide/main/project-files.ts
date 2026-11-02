@@ -25,12 +25,14 @@ import {
   createUserProjectSource,
   createUserReusableElementSource,
   renamePageUserSource,
+  normalizeEntryPageUserSource,
   generatePageSource,
   generateReusableElementSource,
   generateMenuSource,
   createUserMenuSource,
 } from '@webrad/language';
 import type { ProjectSession, SaveProjectRequest } from '../shared/contracts';
+import { assertOwnedPackageManifest, projectPackageManifest } from './package-manifest';
 
 const PROJECT_EXTENSION = '.wrproj';
 
@@ -204,6 +206,7 @@ async function withRootOperation<T>(rootPath: string, operation: () => Promise<T
 }
 
 type ArtifactKind =
+  | 'package'
   | 'source'
   | 'asset'
   | 'page'
@@ -594,6 +597,9 @@ async function saveProjectFilesUnlocked(
       }
     }
     userSource ??= createUserPageSource(page);
+    if (page.id === project.entryPage) {
+      userSource = normalizeEntryPageUserSource(userSource, sourceKey).sourceText;
+    }
     resolvedUserSources[sourceKey] = userSource;
     writes.push({
       projectId: manifest.id,
@@ -713,6 +719,27 @@ async function saveProjectFilesUnlocked(
     });
   }
   const rollbackEntries: RollbackEntry[] = [];
+  if (project.packages !== undefined) {
+    const packagePath = await resolveInsideProjectSecure(rootPath, 'package.json');
+    if (await exists(packagePath))
+      assertOwnedPackageManifest(await fs.readFile(packagePath, 'utf8'), project.id);
+    for (const [relativePath, content] of [
+      ['package.json', projectPackageManifest(project)],
+      ...(project.packages.lockfile === null
+        ? []
+        : [['package-lock.json', project.packages.lockfile]]),
+    ]) {
+      if (relativePath === undefined || content === undefined) continue;
+      writes.push({
+        projectId: project.id,
+        pageId: project.id,
+        kind: 'package',
+        relativePath,
+        targetPath: await resolveInsideProjectSecure(rootPath, relativePath),
+        content,
+      });
+    }
+  }
   const cleanupPaths = artifactsToArchive
     .filter((artifact) => !currentByPath.has(pathKey(artifact.relativePath)))
     .map((artifact) => artifact.relativePath);
@@ -834,6 +861,10 @@ async function loadProjectFilesUnlocked(projectFilePath: string): Promise<Projec
         },
       };
     }
+  }
+  const entrySource = userSources['pages/index.ts'];
+  if (entrySource !== undefined) {
+    userSources['pages/index.ts'] = normalizeEntryPageUserSource(entrySource).sourceText;
   }
   return { rootPath, projectFilePath: absoluteProjectFile, project, userSources };
 }

@@ -1,7 +1,11 @@
 import ts from 'typescript';
 import path from 'node:path';
 import type { WebRadProject } from '@webrad/project-model';
-import type { ComponentRegistry } from '@webrad/component-registry';
+import {
+  defaultComponentRegistry,
+  embeddedComponentStyleCatalog,
+  type ComponentRegistry,
+} from '@webrad/component-registry';
 
 interface RuntimeModuleExports {
   readonly source: string;
@@ -247,7 +251,9 @@ export function usesRestGo(
     [...project.pages, ...project.reusableElements].some((document) =>
       document.components.some(
         (component) =>
-          ['WebApiClient', 'WebFileUpload', 'WebVideoUpload'].includes(component.type) ||
+          ['WebApiClient', 'WebFileUpload', 'WebVideoUpload', 'WebLogin'].includes(
+            component.type,
+          ) ||
           ['OnLogin', 'OnLogout', 'OnUnauthenticated'].some(
             (event) => component.events[event] != null,
           ),
@@ -301,6 +307,7 @@ export function selectedComponentTypes(
 export function selectApplicationSources(
   project: WebRadProject,
   userSources: Readonly<Record<string, string>>,
+  registry: ComponentRegistry = defaultComponentRegistry,
 ): ApplicationSelection {
   const normalizedSources = new Map(
     Object.entries(userSources).map(([name, source]) => [name.replaceAll('\\', '/'), source]),
@@ -423,6 +430,18 @@ export function selectApplicationSources(
       ),
     ),
   );
+  for (const document of [
+    ...project.pages,
+    ...reusableElements,
+    ...(project.menus ?? []).filter((menu) => retainedMenus.has(menu.id)),
+  ]) {
+    for (const node of document.components) {
+      const definition = registry.get(node.type);
+      if (!definition) continue;
+      for (const style of embeddedComponentStyleCatalog(definition, node, project.styles) ?? [])
+        styleIds.add(style.id);
+    }
+  }
   return {
     project: {
       ...project,

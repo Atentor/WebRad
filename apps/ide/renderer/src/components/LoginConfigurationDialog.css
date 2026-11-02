@@ -1,0 +1,268 @@
+/* Keep Login density independent of the larger Menu editor's container rules. */
+.wr-modal.wr-login-configuration-dialog {
+  container: wr-login-configuration / inline-size;
+  width: min(1040px, calc(100vw - 40px));
+  height: min(620px, calc(100dvh - 40px));
+  max-height: calc(100dvh - 40px);
+}
+
+.wr-login-configuration-dialog > .wr-modal-header {
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.wr-login-configuration-dialog > .wr-modal-header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wr-login-configuration-dialog > .wr-modal-header h2 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.wr-login-configuration-dialog > .wr-modal-header p {
+  max-width: 200px;
+  margin: 0;
+  padding: 2px 7px;
+  overflow: hidden;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-login-configuration-dialog > .wr-menu-editor-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wr-login-configuration-dialog .wr-menu-editor-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  padding: 10px 14px;
+}
+
+.wr-login-configuration-dialog .wr-menu-editor-tabs > button {
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
+.wr-login-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.wr-login-editor-fields .wr-menu-editor-field {
+  gap: 5px;
+}
+
+.wr-login-editor-fields .wr-menu-editor-field > :is(input, select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 5px;
+  background-color: var(--wr-input-bg);
+  color: var(--wr-text);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.wr-login-editor-fields .wr-menu-editor-field > select {
+  padding-right: 28px;
+}
+
+.wr-login-editor-fields textarea {
+  resize: vertical;
+}
+
+.wr-login-editor-fields textarea:focus-visible,
+.wr-login-editor-preview > header select:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+
+.wr-login-editor-fields > fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+}
+
+.wr-login-editor-fields > fieldset > legend {
+  padding-inline: 4px;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.wr-login-editor-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.wr-login-editor-check input {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--wr-accent);
+}
+
+.wr-login-editor-check:has(input:disabled) {
+  color: var(--wr-muted-text);
+  cursor: default;
+}
+
+.wr-login-editor-fields[data-section='Texts'] > .wr-menu-editor-field:first-child,
+.wr-login-editor-fields[data-section='Recovery'] > .wr-menu-editor-field:has(> input[type='url']),
+.wr-login-editor-hint {
+  grid-column: 1 / -1;
+}
+
+.wr-login-editor-hint {
+  margin: 2px 0 0;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.wr-login-editor-preview {
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.wr-login-editor-preview > header {
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.wr-login-editor-preview > header > div {
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+}
+
+.wr-login-editor-preview > header select {
+  min-width: 0;
+  height: 26px;
+  padding: 2px 5px;
+  border: 1px solid var(--wr-control-border);
+  border-radius: 4px;
+  background: var(--wr-input-bg);
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.wr-login-editor-preview-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* The IDE's unlayered modal form padding must not change the runtime projection. */
+.wr-login-editor-preview .wr-login-form {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scale only this inert preview; saved application typography stays intact. */
+.wr-login-editor-preview-surface {
+  box-sizing: border-box;
+  width: 100%;
+  margin-inline: auto;
+  padding: 10px;
+  border: 1px solid var(--wr-border);
+  border-radius: 8px;
+  color: var(--wr-theme-text);
+  background: var(--wr-theme-background);
+  zoom: 0.85;
+}
+
+.wr-login-editor-preview-surface[data-mobile='true'] {
+  width: 320px;
+  max-width: 100%;
+}
+
+.wr-login-configuration-dialog > .wr-modal-actions {
+  flex: 0 0 auto;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--wr-border);
+}
+
+.wr-login-configuration-dialog > .wr-modal-actions button {
+  min-height: 32px;
+  padding: 5px 14px;
+  border-radius: 5px;
+}
+
+@container wr-login-configuration (max-width: 800px) {
+  .wr-login-configuration-dialog > .wr-menu-editor-body {
+    display: block;
+    overflow: auto;
+    scrollbar-width: thin;
+  }
+
+  .wr-login-configuration-dialog .wr-menu-editor-content {
+    overflow: visible;
+  }
+
+  .wr-login-editor-preview {
+    border-inline-start: 0;
+    border-top: 1px solid var(--wr-border);
+  }
+
+  .wr-login-editor-preview-canvas {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 400px;
+    max-height: 440px;
+    margin-inline: auto;
+  }
+}
+
+@container wr-login-configuration (max-width: 480px) {
+  .wr-login-editor-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .wr-login-configuration-dialog > .wr-modal-header > div {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+}

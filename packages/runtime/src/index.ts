@@ -1,8 +1,13 @@
 export { WebProgressBar } from './progress-bar.js';
+/** Project-generated navigation schemas augment this public interface. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration merging is intentional.
+export interface WebRadPageParameters {}
 export { WebIcon } from './icon.js';
 export { WebHtml } from './html.js';
 export * from './menu.js';
 export * from './menu-model.js';
+export * from './login.js';
+export * from './login-model.js';
 export type { WebIconMode, LucideIconName } from './icon.js';
 export type { WebProgressBarFormat } from './progress-bar.js';
 export * from './api-client.js';
@@ -24,6 +29,13 @@ export * from './video-player.js';
 export * from './controls.js';
 export * from './page.js';
 export * from './page-router.js';
+export { PageParameterError } from './page-parameters.js';
+export type {
+  PageParameterDefinition,
+  PageParameterValue,
+  PageParameterValues,
+  PageParametersChangedEventDetail,
+} from './page-parameters.js';
 export * from './globals.js';
 export * from './layout.js';
 export * from './render.js';

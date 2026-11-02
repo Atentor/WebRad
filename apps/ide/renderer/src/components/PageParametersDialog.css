@@ -1,0 +1,63 @@
+.wr-page-parameters-dialog {
+  width: min(840px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+}
+
+.wr-page-parameters-dialog form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wr-page-parameters-content {
+  padding: 16px 20px;
+  overflow: auto;
+  min-height: 0;
+}
+
+.wr-page-parameters-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.wr-page-parameters-table-scroll {
+  overflow-x: auto;
+}
+
+.wr-page-parameters-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.wr-page-parameters-table th {
+  text-align: left;
+  font-weight: 500;
+}
+
+.wr-page-parameters-table th,
+.wr-page-parameters-table td {
+  padding: 6px;
+}
+
+.wr-page-parameters-table td:first-child {
+  min-width: 150px;
+}
+
+.wr-page-parameters-table .wr-inspector-input,
+.wr-page-parameters-table .wr-inspector-select {
+  width: 100%;
+}
+
+.wr-page-parameters-table td:nth-child(3),
+.wr-page-parameters-table td:nth-child(4) {
+  text-align: center;
+}
+
+.wr-page-parameters-dialog .wr-modal-actions {
+  flex-shrink: 0;
+}

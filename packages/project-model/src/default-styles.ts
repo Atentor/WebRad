@@ -380,6 +380,14 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Login',
+    componentType: 'WebLogin',
+    states: {
+      base: { borderWidth: px(0), fontFamily: 'roboto', fontSize: px(14) },
+      disabled: { opacity: 60 },
+    },
+  },
+  {
     name: 'Default ProgressBar',
     componentType: 'WebProgressBar',
     states: {

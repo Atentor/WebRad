@@ -10,10 +10,12 @@ export type ComponentPropertyType =
   | 'reusable-element'
   | 'menu-definition'
   | 'designer-action'
+  | 'page-parameters'
   | 'api-client-config'
   | 'combo-box-config'
   | 'charts-config'
   | 'menu-config'
+  | 'login-config'
   | 'data-grid-config'
   | 'repeating-group-config'
   | 'current-row-bindings'
@@ -22,6 +24,7 @@ export type ComponentPropertyType =
 
 /** Named design-time actions kept in the Component Registry metadata. */
 export type ComponentDesignerAction =
+  | 'page-parameters'
   | 'api-client-tester'
   | 'data-grid-configurator'
   | 'repeating-group-configurator'
@@ -29,6 +32,7 @@ export type ComponentDesignerAction =
   | 'combo-box-configurator'
   | 'charts-configurator'
   | 'menu-configurator'
+  | 'login-configurator'
   | 'menu-definition-edit'
   | 'combo-box-items'
   | 'combo-box-values'
@@ -155,6 +159,16 @@ export interface ComponentLayoutContext {
   readonly document?: RegisteredVisualDocument;
 }
 export interface ComponentDefinition {
+  /** Styles used by the registered control's internal, typed visual elements. */
+  readonly embeddedStyles?: {
+    readonly propertyPath: readonly string[];
+    readonly slots: readonly {
+      readonly name: string;
+      readonly label: string;
+      readonly componentType: string;
+      readonly defaultStyle?: 'none';
+    }[];
+  };
   /** Pure state-dependent footprint shared with the browser runtime. */
   readonly projectLayout?: <T extends RegisteredComponentNode>(
     node: T,

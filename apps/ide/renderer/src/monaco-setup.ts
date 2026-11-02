@@ -232,6 +232,7 @@ export function configureMonaco(): void {
   typescriptApi.typescriptDefaults.setCompilerOptions({
     allowNonTsExtensions: true,
     allowSyntheticDefaultImports: true,
+    customConditions: ['browser'],
     esModuleInterop: true,
     forceConsistentCasingInFileNames: true,
     jsx: typescriptApi.JsxEmit.ReactJSX,
@@ -244,6 +245,7 @@ export function configureMonaco(): void {
     skipLibCheck: true,
     strict: true,
     target: SCRIPT_TARGET_ES2022,
+    types: [],
     useUnknownInCatchVariables: true,
     verbatimModuleSyntax: true,
   });

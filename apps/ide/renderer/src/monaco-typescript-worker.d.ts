@@ -18,6 +18,14 @@ declare module 'monaco-editor/languages/features/typescript/ts.worker.js' {
     getScriptSnapshot(fileName: string): tsApi.IScriptSnapshot | undefined;
     getScriptVersion(fileName: string): string;
     getExtraLibs(): Record<string, { readonly content: string; readonly version: number }>;
+    getCompilationSettings(): tsApi.CompilerOptions;
+    getScriptFileNames(): string[];
+    getScriptKind(fileName: string): tsApi.ScriptKind;
+    readFile(path: string): string | undefined;
+    fileExists(path: string): boolean;
+    updateExtraLibs(
+      libraries: Record<string, { readonly content: string; readonly version: number }>,
+    ): Promise<void>;
     getLanguageService(): tsApi.LanguageService;
     getQuickInfoAtPosition(
       fileName: string,

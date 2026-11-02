@@ -47,12 +47,102 @@ export class ComponentTypeScriptWorker extends TypeScriptWorker {
   private readonly snapshotCache = new Map<string, ComponentDocumentSnapshot>();
   private readonly mirrorModelIds = new WeakMap<object, number>();
   private nextMirrorModelId = 1;
+  private fileIndex:
+    | {
+        readonly libraries: ReturnType<TypeScriptWorker['getExtraLibs']>;
+        readonly files: readonly string[];
+        readonly directories: ReadonlyMap<string, ReadonlySet<string>>;
+      }
+    | undefined;
 
   public constructor(
     private readonly context: TypeScriptWorkerContext,
     data: unknown,
   ) {
     super(context, data);
+  }
+
+  /** Package files are a bounded main-process snapshot, never renderer filesystem access. */
+  private packagePath(fileName: string): string {
+    const marker = fileName.indexOf('/node_modules/');
+    if (marker >= 0) return `file://${fileName.slice(marker)}`;
+    return fileName.endsWith('/node_modules') ? 'file:///node_modules' : fileName;
+  }
+
+  private libraryIndex() {
+    const libraries = this.getExtraLibs();
+    if (this.fileIndex?.libraries === libraries) return this.fileIndex;
+    const files = Object.keys(libraries);
+    const directories = new Map<string, Set<string>>();
+    for (const name of files) {
+      let child = name.slice(0, name.lastIndexOf('/'));
+      if (!directories.has(child)) directories.set(child, new Set());
+      while (child.lastIndexOf('/') >= 'file://'.length) {
+        const slash = child.lastIndexOf('/');
+        const parent = child.slice(0, slash);
+        const children = directories.get(parent) ?? new Set<string>();
+        children.add(child.slice(slash + 1));
+        directories.set(parent, children);
+        child = parent;
+      }
+    }
+    this.fileIndex = { libraries, files, directories };
+    return this.fileIndex;
+  }
+
+  public override getScriptFileNames(): string[] {
+    // package.json participates in resolution but must not be parsed as a TS root.
+    return super.getScriptFileNames().filter((name) => !name.endsWith('.json'));
+  }
+
+  public override readFile(fileName: string): string | undefined {
+    return super.readFile(this.packagePath(fileName));
+  }
+
+  public override fileExists(fileName: string): boolean {
+    return super.fileExists(this.packagePath(fileName));
+  }
+
+  public directoryExists(directory: string): boolean {
+    const path = this.packagePath(directory).replace(/\/$/, '');
+    const prefix = `${path}/`;
+    return (
+      this.libraryIndex().directories.has(path) ||
+      this.context.getMirrorModels().some((model) => model.uri.toString().startsWith(prefix))
+    );
+  }
+
+  public getDirectories(directory: string): string[] {
+    return [
+      ...(this.libraryIndex().directories.get(this.packagePath(directory).replace(/\/$/, '')) ??
+        []),
+    ];
+  }
+
+  public readDirectory(directory: string, extensions?: readonly string[]): string[] {
+    const prefix = `${this.packagePath(directory).replace(/\/$/, '')}/`;
+    return this.libraryIndex().files.filter(
+      (name) =>
+        name.startsWith(prefix) &&
+        (!extensions || extensions.some((extension) => name.endsWith(extension))),
+    );
+  }
+
+  public resolveModuleNames(
+    moduleNames: string[],
+    containingFile: string,
+  ): (tsApi.ResolvedModule | undefined)[] {
+    return moduleNames.map((name) => {
+      const external = !name.startsWith('.') && !name.startsWith('/') && !name.startsWith('#');
+      // An authored file can have a Windows, UNC or in-memory URI. The isolated
+      // package tree has one stable URI on every host; nested package resolution
+      // still begins at its actual declaration to preserve dependency versions.
+      const origin =
+        external && !containingFile.includes('/node_modules/')
+          ? 'file:///__webrad_packages__.ts'
+          : containingFile;
+      return ts.resolveModuleName(name, origin, this.getCompilationSettings(), this).resolvedModule;
+    });
   }
 
   private scope(fileName: string) {

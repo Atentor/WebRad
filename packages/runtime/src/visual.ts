@@ -1,5 +1,14 @@
 import { WEB_MENU_CSS } from './menu-css.js';
+import { WEB_LOGIN_CSS } from './login-css.js';
 import { themeColorId, customThemeColorId, type ResolvedThemeMode } from './theme.js';
+
+/** Compiled project styles that embedded controls can resolve without shipping a CSS compiler. */
+export interface RuntimeComponentStyle {
+  readonly id: string;
+  readonly componentType: string;
+  readonly preset?: string;
+  readonly className: string;
+}
 /**
  * Browser-safe visual contract shared by the generated runtime and design-time
  * projections. Layout positioning and designer interaction intentionally stay
@@ -1193,7 +1202,28 @@ export function resolveThemedStyle(
 
 export type VisualSizingMode = 'bounds' | 'fill';
 
+export type WebLabelTextWrap = 'none' | 'word' | 'break-word' | 'character';
+
+export function normalizeLabelTextWrap(value: unknown): WebLabelTextWrap {
+  return value === 'word' || value === 'break-word' || value === 'character' ? value : 'none';
+}
+
+export function projectLabelTextWrap(value: WebLabelTextWrap): {
+  whiteSpace: 'nowrap' | 'pre-wrap';
+  overflowWrap: 'normal' | 'anywhere';
+  wordBreak: 'normal' | 'break-all';
+} {
+  return {
+    whiteSpace: value === 'none' ? 'nowrap' : 'pre-wrap',
+    overflowWrap: value === 'break-word' ? 'anywhere' : 'normal',
+    wordBreak: value === 'character' ? 'break-all' : 'normal',
+  };
+}
+
 export interface ComponentVisualStyle {
+  readonly whiteSpace?: 'nowrap' | 'pre-wrap';
+  readonly overflowWrap?: 'normal' | 'anywhere';
+  readonly wordBreak?: 'normal' | 'break-all';
   readonly width: string;
   readonly height: string;
   readonly margin?: string;
@@ -1283,6 +1313,9 @@ export function projectComponentVisual(
       ? { margin: `${String(margin)}px` }
       : {}),
     ...margins,
+    ...(source.type === 'WebLabel' && source.props.textWrap !== undefined
+      ? projectLabelTextWrap(normalizeLabelTextWrap(source.props.textWrap))
+      : {}),
     ...(backgroundColor.length > 0 ? { backgroundColor } : {}),
     ...(color.length > 0 ? { color } : {}),
     ...(borderColor.length > 0
@@ -1337,6 +1370,7 @@ export const WEBRAD_PROJECT_CSS = /* @__PURE__ */ `
 /** Shared component styling. Hosts may override the custom properties to theme it. */
 export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
 ${WEB_MENU_CSS}
+${WEB_LOGIN_CSS}
 .wr-component { --webrad-border-gradient-surface: transparent; box-sizing: border-box; font: inherit; }
 .wr-component[hidden] { display: none !important; }
 [data-webrad-clickable]:not(:disabled):not([aria-disabled="true"]),
@@ -1349,6 +1383,7 @@ ${WEB_MENU_CSS}
 .wr-reusable-definition-root { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .wr-reusable-definition-root > .wr-component { position: relative !important; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }
+.wr-weblabel > [data-webrad-text-content] { min-width: 0; max-width: 100%; }
 .wr-webhtml { display: block; min-width: 0; min-height: 0; border: 0; background: transparent; }
 .wr-webhtml[inert], .wr-webhtml[aria-disabled='true'] { pointer-events: none; }
 .wr-webpanel { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
