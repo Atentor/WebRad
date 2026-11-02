@@ -1,5 +1,26 @@
 # WebRAD delivery plan
 
+## macOS Intel v0.0.22 screenshot failure: 2026-11-02
+
+Investigated tagged release run `41443336802` at `e5c54af`. Windows, Linux and
+macOS ARM64 passed; Intel passed portable tests and packaging, then stopped in
+Charts with Electron's `UnknownVizError` during screenshot readback. Later smoke
+requirements were never reached, and assemble/publication were skipped. Original
+failure diagnostics are retained locally under `artifacts/ci-v0.0.22/`.
+
+Extracted Native Build's existing presented-frame capture into a shared smoke
+helper and applied it to Data Grid/Charts. Observe a temporary pixel and its
+removal in real compositor frames, then save the delivered image directly;
+DOM animation-frame callbacks alone cannot establish presentation readiness.
+Keep hidden offscreen rendering, geometry/focus/scroll assertions, empty-image
+failures and existing native budgets. Both runners require presented Charts
+screenshots and preserve cached PNG evidence on failure. No retries or relaxed
+functional requirements were added. The original log does not isolate why Viz
+failed, so this change still needs native Intel confirmation.
+
+No tests, builds, formatting checks or smokes were requested or run for this
+correction. No commit, push, tag, version change or publication was performed.
+
 ## Release-candidate validation: 2026-11-02
 
 Full local validation and corrective work were explicitly requested. Preserve the

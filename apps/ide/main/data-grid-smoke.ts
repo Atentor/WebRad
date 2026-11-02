@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { BrowserWindow } from 'electron';
 
 import { loadProjectFiles } from './project-files';
+import { capturePresentedSmokePage } from './smoke-capture';
 
 interface DataGridSmokeOptions {
   readonly projectPath: string;
@@ -184,10 +185,7 @@ async function captureConfiguration(
   await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
   window.webContents.invalidate();
   await paint(window);
-  const screenshot = await window.webContents.capturePage(undefined, {
-    stayHidden: true,
-    stayAwake: true,
-  });
+  const screenshot = await capturePresentedSmokePage(window, Date.now() + 10_000, screenshotPath);
   if (screenshot.isEmpty()) throw new Error('Data Grid smoke screenshot was empty.');
   await fs.writeFile(screenshotPath, screenshot.toPNG());
   return screenshotPath;
@@ -562,10 +560,12 @@ export async function runChartsConfigurationSmoke(
         await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
         window.webContents.invalidate();
         await paint(window);
-        const screenshot = await window.webContents.capturePage(undefined, {
-          stayHidden: true,
-          stayAwake: true,
-        });
+        log(`renderer Charts screenshot started: ${screenshotPath}`);
+        const screenshot = await capturePresentedSmokePage(
+          window,
+          Date.now() + 10_000,
+          screenshotPath,
+        );
         if (screenshot.isEmpty()) throw new Error('Charts smoke screenshot was empty.');
         await fs.writeFile(screenshotPath, screenshot.toPNG());
         screenshots.push(screenshotPath);
@@ -573,6 +573,9 @@ export async function runChartsConfigurationSmoke(
     }
     log(
       'renderer Charts fixed preview scrolling passed: desktop/narrow; Light/Dark; controls scroll independently',
+    );
+    log(
+      'renderer Charts presented screenshots passed: desktop/narrow; Light/Dark; fresh marker-free frames',
     );
     await click(window, `${chartsDialog} button.primary`);
     await ready(window, `document.querySelector(${JSON.stringify(chartsDialog)}) === null`);

@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { dialog, Menu, type BrowserWindow, type NativeImage } from 'electron';
 import { loadProjectFiles } from './project-files';
+import { capturePresentedSmokePage } from './smoke-capture';
 
 interface NativeBuildSmokeOptions {
   readonly projectPath: string;
@@ -70,65 +71,7 @@ export async function runNativeBuildSmoke(
   }
 
   async function capturePresentedPage(): Promise<NativeImage> {
-    // A DOM frame can finish before Chromium presents it, and invalidate() may
-    // deliver a previously queued frame or no new frame for an unchanged page.
-    // A temporary pixel provides a real paint fence: first observe its frame,
-    // then remove it and deliver only the next frame with the pixel absent.
-    const markerId = 'webrad-smoke-paint-marker';
-    const removeMarker = `document.getElementById('${markerId}')?.remove()`;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    let stopFrames: (() => void) | undefined;
-    try {
-      return await new Promise<NativeImage>((resolve, reject) => {
-        let markerPresented = false;
-        timeout = setTimeout(
-          () => reject(new Error('Native Build screenshot did not receive its paint fence.')),
-          Math.max(1, Math.min(15_000, deadline - Date.now())),
-        );
-        const onFrame = (frame: NativeImage) => {
-          if (frame.isEmpty()) {
-            reject(new Error('Native Build screenshot was empty.'));
-            return;
-          }
-          const pixel = frame.crop({ x: 0, y: 0, width: 1, height: 1 }).toBitmap();
-          // Pure green has the same byte order in both RGBA and BGRA bitmaps.
-          const hasMarker =
-            pixel[0] === 0 && pixel[1] === 255 && pixel[2] === 0 && pixel[3] === 255;
-          if (!markerPresented) {
-            if (hasMarker) {
-              markerPresented = true;
-              void window.webContents.executeJavaScript(removeMarker).catch(reject);
-            }
-            return;
-          }
-          if (!hasMarker) resolve(frame);
-        };
-        const onPaint = (
-          _event: Electron.Event,
-          _dirty: Electron.Rectangle,
-          frame: NativeImage,
-        ): void => onFrame(frame);
-        stopFrames = window.webContents.isOffscreen()
-          ? () => window.webContents.off('paint', onPaint)
-          : () => window.webContents.endFrameSubscription();
-        if (window.webContents.isOffscreen()) window.webContents.on('paint', onPaint);
-        else window.webContents.beginFrameSubscription(false, onFrame);
-        void window.webContents
-          .executeJavaScript(
-            `(() => {
-              const marker = document.createElement('div');
-              marker.id = '${markerId}';
-              marker.style.cssText = 'all: initial; position: fixed; left: 0; top: 0; width: 2px; height: 2px; background: #00ff00; z-index: 2147483647; pointer-events: none;';
-              document.body.append(marker);
-            })()`,
-          )
-          .catch(reject);
-      });
-    } finally {
-      clearTimeout(timeout);
-      stopFrames?.();
-      await window.webContents.executeJavaScript(removeMarker).catch(() => undefined);
-    }
+    return capturePresentedSmokePage(window, Math.min(deadline, Date.now() + 15_000), 'Native Build');
   }
   const original = await loadProjectFiles(projectPath);
   const matrix = [

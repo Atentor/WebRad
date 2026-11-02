@@ -98,10 +98,29 @@ until green without investigating the previous failure.
 
 ## Hidden smoke-window rendering
 
+### Charts screenshot readback: v0.0.22 (2026-11-02)
+
+[Tagged release 41443336802](https://github.com/Atentor/WebRad/actions/runs/41443336802)
+at `e5c54af` passed Windows, Linux and macOS ARM64. Intel passed code checks,
+portable tests and packaging, then Charts failed with `UnknownVizError`.
+[Electron 45's capture implementation](https://github.com/electron/electron/blob/v45.0.0/shell/browser/api/electron_api_web_contents.cc)
+maps this error to failed Viz surface readback; it does not establish a Charts
+model/geometry defect or identify the exclusive native cause.
+
+Data Grid/Charts now share Native Build's presented-frame capture in
+`apps/ide/main/smoke-capture.ts`. Observe a temporary pixel in an actual frame,
+remove it, and save the following marker-free bitmap from offscreen `paint`
+(or a frame subscription for an ordinary window). Do not substitute DOM readiness
+or an old queued frame, retry failed capture, skip screenshots, or relax geometry,
+focus, scrolling, image validity or smoke deadlines. Both runners additionally
+require `renderer Charts presented screenshots passed:` and preserve
+`webrad-*.png` evidence from the appropriate process working directory on failure.
+Native Intel confirmation remains pending; no local validation was requested.
+
 Keep offscreen rendering for hidden development/packaged smoke windows.
 Stopping bitmap delivery alone did not fix Intel run `40592211180`; that
 mitigation has been removed. Compile through the owned utility process, keeping
-the normal offscreen compositor, direct `capturePage` screenshots, frame/cursor,
+the normal offscreen compositor, real presented screenshots, frame/cursor,
 native input and geometry assertions. Do not lower frame rate or change deadlines.
 Ordinary verification must run without a V8 CPU profiler; opt in separately with
 `WEBRAD_SMOKE_CPU_PROFILE=1` when collecting a Menu CPU profile.

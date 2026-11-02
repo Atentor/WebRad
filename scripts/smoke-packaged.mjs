@@ -48,6 +48,7 @@ const smokeVariant = packagesSmoke
           : 'standard';
 
 async function preserveFailureDiagnostics(error) {
+  const screenshotDirectory = path.join(packageDirectory, 'node_modules', '.cache');
   const artifactRoot = path.resolve('artifacts', 'smoke', 'packaged', smokeVariant);
   await fs.mkdir(artifactRoot, { recursive: true });
   const destination = await fs.mkdtemp(path.join(artifactRoot, 'failure-'));
@@ -70,6 +71,7 @@ async function preserveFailureDiagnostics(error) {
     [logPath, path.join(destination, 'webrad-smoke.log')],
     [path.join(temporaryRoot, 'native-diagnostics'), path.join(destination, 'native-diagnostics')],
     [projectDirectory, path.join(destination, 'hello-webrad')],
+    [screenshotDirectory, path.join(destination, 'screenshots')],
     ...(packagesSmoke
       ? [
           [
@@ -79,9 +81,17 @@ async function preserveFailureDiagnostics(error) {
         ]
       : []),
   ]) {
-    await fs.cp(source, target, { recursive: true }).catch((copyError) => {
-      if (copyError.code !== 'ENOENT') throw copyError;
-    });
+    await fs
+      .cp(source, target, {
+        recursive: true,
+        filter: (entry) =>
+          source !== screenshotDirectory ||
+          entry === source ||
+          /^webrad-.*\.png$/u.test(path.basename(entry)),
+      })
+      .catch((copyError) => {
+        if (copyError.code !== 'ENOENT') throw copyError;
+      });
   }
   process.stderr.write(`[IDE] Packaged smoke diagnostics preserved: ${destination}\n`);
 }
@@ -266,6 +276,7 @@ try {
                 'renderer Charts configuration passed: chart-no-axes-combined palette icon;',
                 'renderer Charts typography and title icon passed: native color input/change;',
                 'renderer Charts fixed preview scrolling passed:',
+                'renderer Charts presented screenshots passed:',
                 'renderer Charts fixture restored:',
                 'renderer API Client designer passed:',
                 'renderer API Client body parameter hint passed',
