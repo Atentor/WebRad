@@ -30,14 +30,40 @@ async function ready(window: BrowserWindow, expression: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   const evidence: unknown = await window.webContents.executeJavaScript(
-    `({
-      viewport: { width: innerWidth, height: innerHeight },
-      dialog: document.querySelector('.wr-api-client-dialog') !== null,
-      method: document.querySelector('[aria-label="Method"]')?.value,
-      notes: [...document.querySelectorAll('.wr-api-client-dialog [role="note"], .wr-api-client-dialog [role="alert"]')].map(note => note.textContent),
-      buttons: [...document.querySelectorAll('.wr-api-client-dialog button')].map(button => ({ label: button.getAttribute('aria-label'), text: button.textContent?.trim(), disabled: button.disabled })),
-      focused: document.activeElement?.getAttribute('aria-label'),
-    })`,
+    `(() => {
+      const workspace = document.querySelector('.wr-restgo-workspace');
+      const configuration = document.querySelector('.wr-restgo-runtime-settings');
+      const enabled = configuration?.querySelector('input[type="checkbox"]');
+      const instance = configuration?.querySelector('input[type="url"]');
+      const development = document.querySelector('.wr-restgo-development-login');
+      const fieldset = development?.querySelector('fieldset');
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        dialog: document.querySelector('.wr-api-client-dialog') !== null,
+        method: document.querySelector('[aria-label="Method"]')?.value,
+        notes: [...document.querySelectorAll('.wr-api-client-dialog [role="note"], .wr-api-client-dialog [role="alert"]')].map(note => note.textContent),
+        buttons: [...document.querySelectorAll('.wr-api-client-dialog button')].map(button => ({ label: button.getAttribute('aria-label'), text: button.textContent?.trim(), disabled: button.matches(':disabled') })),
+        focused: document.activeElement?.getAttribute('aria-label'),
+        restGo: {
+          mounted: workspace !== null,
+          hidden: workspace !== null && workspace.closest('[hidden]') !== null,
+          busy: workspace?.getAttribute('aria-busy'),
+          applicationEnabled: enabled?.checked,
+          instanceUrl: instance?.value,
+          toggleDisabled: enabled?.matches(':disabled'),
+          applyDisabled: configuration?.querySelector('button[type="submit"]')?.matches(':disabled'),
+          configurationApplied: configuration?.textContent.includes('Configuration matches the project'),
+          projectedInstance: document.querySelector('.wr-restgo-sidebar-instance small')?.textContent,
+          projectedEnabled: document.querySelector('.wr-restgo-sidebar-instance .wr-restgo-dot')?.classList.contains('is-active'),
+          alerts: [...document.querySelectorAll('.wr-restgo-workspace [role="alert"], .wr-error-boundary')].map(element => element.textContent),
+          developmentPresent: development !== null,
+          developmentBusy: development?.getAttribute('aria-busy'),
+          developmentFieldsetPresent: fieldset !== null && fieldset !== undefined,
+          developmentDisabled: fieldset?.matches(':disabled'),
+          developmentConnected: development !== null && development.querySelector('[role="status"]') !== null,
+        },
+      };
+    })()`,
     true,
   );
   throw new Error(
@@ -50,7 +76,7 @@ async function click(window: BrowserWindow, selector: string): Promise<void> {
     window,
     `(() => {
     const control = document.querySelector(${JSON.stringify(selector)});
-    if (!(control instanceof HTMLElement) || control.disabled) return false;
+    if (!(control instanceof HTMLElement) || control.matches(':disabled')) return false;
     control.click();
     return true;
   })()`,
@@ -62,7 +88,7 @@ async function setControl(window: BrowserWindow, selector: string, value: string
     window,
     `(() => {
     const control = document.querySelector(${JSON.stringify(selector)});
-    if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)) return false;
+    if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) || control.matches(':disabled') || control.readOnly) return false;
     const prototype = control instanceof HTMLInputElement ? HTMLInputElement.prototype
       : control instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLTextAreaElement.prototype;
     Object.getOwnPropertyDescriptor(prototype, 'value').set.call(control, ${JSON.stringify(value)});
@@ -70,6 +96,10 @@ async function setControl(window: BrowserWindow, selector: string, value: string
     control.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   })()`,
+  );
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(value)}`,
   );
 }
 
@@ -83,7 +113,7 @@ async function clickText(
     `(() => {
     const control = Array.from(document.querySelectorAll(${JSON.stringify(`${scope} button, ${scope} summary`)}))
       .find((candidate) => candidate.getAttribute('aria-label') === ${JSON.stringify(text)} || candidate.textContent.trim() === ${JSON.stringify(text)});
-    if (!(control instanceof HTMLElement) || control.disabled) return false;
+    if (!(control instanceof HTMLElement) || control.matches(':disabled')) return false;
     control.click();
     return true;
   })()`,
@@ -501,35 +531,45 @@ export async function runApiClientDesignerSmoke(
     await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
     await click(window, 'button[aria-label="RestGo integration"]');
     await click(window, '.wr-restgo-sidebar button:first-child');
+    const enableSelector =
+      '.wr-restgo-runtime-settings .wr-restgo-settings-group input[type="checkbox"]';
     await ready(
       window,
       `(() => {
-      const label = Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label')).find((item) => item.textContent.includes('Enable native RestGO integration'));
-      const control = label?.querySelector('input');
-      if (!(control instanceof HTMLInputElement)) return false;
-      if (!control.checked) control.click();
-      return true;
-    })()`,
+        const control = document.querySelector(${JSON.stringify(enableSelector)});
+        return control instanceof HTMLInputElement && !control.matches(':disabled');
+      })()`,
     );
+    const enabled: unknown = await window.webContents.executeJavaScript(
+      `document.querySelector(${JSON.stringify(enableSelector)})?.checked`,
+      true,
+    );
+    if (enabled !== true) await click(window, enableSelector);
     await ready(
       window,
-      `(() => {
-      const label = Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label')).find((item) => item.querySelector('span')?.textContent.trim() === 'RestGO instance URL');
-      const control = label?.querySelector('input');
-      if (!(control instanceof HTMLInputElement)) return false;
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(control, ${JSON.stringify(baseUrl)});
-      control.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
-    })()`,
+      `document.querySelector(${JSON.stringify(enableSelector)})?.checked === true`,
     );
+    await setControl(window, '.wr-restgo-runtime-settings input[type="url"]', baseUrl);
     await click(window, '.wr-restgo-runtime-settings button[type="submit"]');
+    // A disabled Apply button can mean pending work. Require the committed
+    // Project Model projection and the completed workspace before using auth.
     await ready(
       window,
-      `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.disabled === true`,
+      `document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'
+        && document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.matches(':disabled') === true
+        && document.querySelector('.wr-restgo-runtime-settings')?.textContent.includes('Configuration matches the project') === true
+        && document.querySelector('.wr-restgo-sidebar-instance .wr-restgo-dot')?.classList.contains('is-active') === true
+        && document.querySelector('.wr-restgo-sidebar-instance small')?.textContent === ${JSON.stringify(baseUrl)}
+        && document.querySelector('.wr-restgo-runtime-settings input[type="url"]')?.value === ${JSON.stringify(baseUrl)}
+        && document.querySelector('.wr-restgo-workspace [role="alert"]') === null`,
     );
     await ready(
       window,
-      `document.querySelector('.wr-restgo-development-login fieldset')?.disabled === false`,
+      `document.querySelector('.wr-restgo-development-login')?.getAttribute('aria-busy') === 'false'
+        && document.querySelector('.wr-restgo-development-login fieldset')?.matches(':disabled') === false`,
+    );
+    log(
+      'renderer RestGO development connection passed: enabled SDK, expected instance URL and settled configuration',
     );
     await window.webContents.executeJavaScript(
       `document.querySelector('.wr-restgo-development-login').scrollIntoView({ block: 'center' })`,

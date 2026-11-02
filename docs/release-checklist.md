@@ -98,6 +98,33 @@ until green without investigating the previous failure.
 
 ## Hidden smoke-window rendering
 
+### RestGO development connection readiness: 7e5d5fa (2026-11-02)
+
+[Release verification 41453459804](https://github.com/Atentor/WebRad/actions/runs/41453459804)
+passed Linux and both macOS architectures, including Intel's Charts captures.
+Validate/security also passed. Only packaged Windows failed: API Client timed
+out waiting for an enabled development-login fieldset after the Menu workflow.
+The old API-dialog-only diagnostics did not capture the RestGO form state, so
+they cannot prove whether it was missing, busy, disabled or already signed in.
+
+Check effective `:disabled` state before interacting with form controls. A
+disabled ancestor fieldset also disables controls whose own `.disabled` remains
+false, and native `.click()` then does nothing; see the
+[HTML disabled-control definition](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#concept-fe-disabled)
+and [click algorithm](https://html.spec.whatwg.org/multipage/interaction.html#dom-click).
+Confirm the integration checkbox after activation and the edited URL before
+Apply. A disabled Apply button alone does not establish completion: require
+`aria-busy="false"`, configuration matching the project, and the expected enabled
+flag/URL in the model-backed sidebar projection before using development login.
+
+Both Electron runners require `renderer RestGO development connection passed:`
+alongside the existing login/refresh/override/isolation/logout evidence. Preserve
+the ten-second per-step limits and original authentication assertions. Timeout
+evidence includes the actual workspace, configuration and development-login
+presence/busy/disabled states without collecting password or token input values.
+No local validation was requested; confirmation on a corrected hosted commit is
+still required.
+
 ### Charts screenshot readback: v0.0.22 (2026-11-02)
 
 [Tagged release 41443336802](https://github.com/Atentor/WebRad/actions/runs/41443336802)

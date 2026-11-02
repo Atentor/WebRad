@@ -60,7 +60,7 @@ async function click(window: BrowserWindow, selector: string): Promise<void> {
     window,
     `(() => {
       const button = document.querySelector(${JSON.stringify(selector)});
-      if (!(button instanceof HTMLElement) || button.disabled) return false;
+      if (!(button instanceof HTMLElement) || button.matches(':disabled')) return false;
       button.click();
       return true;
     })()`,
@@ -68,21 +68,55 @@ async function click(window: BrowserWindow, selector: string): Promise<void> {
 }
 
 async function setField(window: BrowserWindow, label: string, value: string): Promise<void> {
-  const updated: unknown = await window.webContents.executeJavaScript(
+  await rendererReady(
+    window,
     `(() => {
       const label = Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label'))
         .find((item) => item.querySelector('span')?.textContent?.trim() === ${JSON.stringify(label)});
       const control = label?.querySelector('input, select');
-      if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) return false;
+      if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement) || control.matches(':disabled')) return false;
       const prototype = control instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLSelectElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(control, ${JSON.stringify(value)});
       control.dispatchEvent(new Event('input', { bubbles: true }));
       control.dispatchEvent(new Event('change', { bubbles: true }));
       return true;
     })()`,
-    true,
   );
-  if (updated !== true) throw new Error(`RestGO settings smoke could not edit ${label}.`);
+  await rendererReady(
+    window,
+    `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label'))
+      .find((item) => item.querySelector('span')?.textContent?.trim() === ${JSON.stringify(label)})
+      ?.querySelector('input, select')?.value === ${JSON.stringify(value)}`,
+  );
+}
+
+async function setIntegrationEnabled(window: BrowserWindow, enabled: boolean): Promise<void> {
+  const selector = '.wr-restgo-runtime-settings .wr-restgo-settings-group input[type="checkbox"]';
+  await rendererReady(
+    window,
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(selector)});
+      if (!(control instanceof HTMLInputElement) || control.matches(':disabled')) return false;
+      if (control.checked !== ${String(enabled)}) control.click();
+      return control.checked === ${String(enabled)};
+    })()`,
+  );
+  await rendererReady(
+    window,
+    `document.querySelector(${JSON.stringify(selector)})?.checked === ${String(enabled)}`,
+  );
+}
+
+async function configurationApplied(window: BrowserWindow, enabled: boolean): Promise<void> {
+  await rendererReady(
+    window,
+    `document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'
+      && document.querySelector('.wr-restgo-runtime-settings')?.textContent.includes('Configuration matches the project') === true
+      && document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.matches(':disabled') === true
+      && document.querySelector('.wr-restgo-sidebar-instance .wr-restgo-dot')?.classList.contains('is-active') === ${String(enabled)}
+      && document.querySelector('.wr-restgo-sidebar-instance small')?.textContent === 'https://restgo.example.test/backend'
+      && document.querySelector('.wr-restgo-workspace [role="alert"]') === null`,
+  );
 }
 
 async function openSettings(window: BrowserWindow): Promise<void> {
@@ -92,10 +126,7 @@ async function openSettings(window: BrowserWindow): Promise<void> {
 
 async function saveProject(window: BrowserWindow, projectPath: string): Promise<void> {
   await click(window, '.wr-restgo-runtime-settings button[type="submit"]');
-  await rendererReady(
-    window,
-    'document.querySelector(\'.wr-restgo-runtime-settings button[type="submit"]\')?.disabled === true',
-  );
+  await configurationApplied(window, true);
   await rendererReady(
     window,
     `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.textContent?.includes('Apply configuration') === true
@@ -135,10 +166,7 @@ export async function runRestGoSettingsSmoke(
   { projectPath, log }: RestGoSettingsSmokeOptions,
 ): Promise<void> {
   await openSettings(window);
-  await window.webContents.executeJavaScript(
-    `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label')).find(label => label.textContent?.includes('Enable native RestGO integration'))?.querySelector('input')?.click()`,
-    true,
-  );
+  await setIntegrationEnabled(window, true);
   await setField(window, 'RestGO instance URL', 'https://restgo.example.test/backend');
   await setField(window, 'Application API token', 'rgo.settings-smoke');
   await setField(window, 'Default database slug', 'clientes');
@@ -201,15 +229,9 @@ export async function runRestGoSettingsSmoke(
     throw new Error('Unapplied workspace edits changed the saved RestGO settings.');
   await setField(window, 'RestGO instance URL', 'https://restgo.example.test/backend');
   await setField(window, 'Application API token', 'rgo.settings-smoke');
-  await window.webContents.executeJavaScript(
-    `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label')).find(label => label.textContent?.includes('Enable native RestGO integration'))?.querySelector('input')?.click()`,
-    true,
-  );
+  await setIntegrationEnabled(window, false);
   await click(window, '.wr-restgo-runtime-settings button[type="submit"]');
-  await rendererReady(
-    window,
-    `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.disabled === true`,
-  );
+  await configurationApplied(window, false);
   await click(window, 'button[aria-label="Project Explorer"]');
   log(
     `renderer RestGO workspace passed: save, disk persistence, reopen and unapplied draft isolation; screenshot ${screenshotPath}`,

@@ -281,6 +281,7 @@ try {
                 'renderer API Client designer passed:',
                 'renderer API Client body parameter hint passed',
                 'renderer RestGO development login passed:',
+                'renderer RestGO development connection passed:',
                 'renderer RestGO API Client synchronization passed:',
                 'renderer API Client browser passed:',
                 'renderer Popup responsive layout passed:',

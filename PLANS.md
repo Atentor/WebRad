@@ -1,5 +1,40 @@
 # WebRAD delivery plan
 
+## Hosted 7e5d5fa RestGO readiness race: 2026-11-02
+
+Reviewed all jobs of validate `41453460002`, security `41453459874` and release
+`41453459804` at exact commit `7e5d5fa7a9f80143febc7c71675a55a0cf195800`.
+Validate/security passed. Linux and both macOS release jobs passed, including
+Intel's four Charts presented screenshots and complete packaged/update workflows.
+Only Windows release failed, after Charts and Menu succeeded: API Client waited
+for an enabled development-login fieldset. Its timeout evidence described only
+the already-closed API Client dialog, so it did not distinguish a missing login
+form, disabled integration, pending status or an unexpected saved session.
+
+Found a concrete readiness defect in the smoke: integration setup returned
+success after calling `.click()` without checking the checkbox result, and
+control helpers read only the own `disabled` property. A disabled fieldset can
+disable descendants whose own `disabled` is false; Chromium ignores their clicks.
+Also, a disabled Apply button could represent pending work instead of an applied
+configuration. This explains a possible skipped activation without proving the
+exclusive original runtime state, which the old diagnostics did not capture.
+
+API Client and the companion RestGO settings flow now respect effective
+`:disabled` state, await edited values/checked state, and require settled
+configuration with the enabled flag and expected instance URL projected from
+the Project Model before continuing. Both runners require the new development
+connection evidence while retaining login, renewal, synchronization, credential
+isolation and logout requirements. Timeouts now report RestGO workspace, model
+projection, draft, busy and development-form states without input credentials.
+No deadlines, retries, security settings or product behavior were changed.
+
+Original logs, Windows screenshots/project and a detailed report are preserved
+under `artifacts/ci-7e5d5fa/`. No local tests, checks, builds or smokes were
+requested or run. Source edits were formatted as part of the correction; no
+commit, push, tag, version change or publication was performed. A native hosted
+run of the corrected commit remains necessary before claiming this race solved
+in execution or the release ready.
+
 ## Hosted bcae7aa follow-up: 2026-11-02
 
 Monitoring validate `41447975967`, release verification `41447975955` and security
