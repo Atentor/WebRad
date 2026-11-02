@@ -125,6 +125,9 @@ function enumProperty(
 
 function defaultEnumValue(name: ComponentStylePropertyName, fallback: string): string {
   switch (name) {
+    case 'fontFamily':
+      return 'roboto';
+
     case 'borderStyle':
     case 'outlineStyle':
       return 'solid';
@@ -186,8 +189,8 @@ function lengthProperty(
 function defaultLengthValue(name: ComponentStylePropertyName): StylePropertyValue {
   if (name === 'width' || name === 'height') return 'auto';
   if (name.startsWith('max')) return 'full';
-  if (name === 'fontSize') return { value: 16, unit: 'px' };
-  if (name === 'lineHeight') return { value: 24, unit: 'px' };
+  if (name === 'fontSize') return { value: 14, unit: 'px' };
+  if (name === 'lineHeight') return { value: 20, unit: 'px' };
   if (name.startsWith('padding') || name.endsWith('Gap') || name === 'gap') {
     return { value: 8, unit: 'px' };
   }
@@ -488,7 +491,7 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ['sans', 'Sans serif'],
     ['serif', 'Serif'],
     ['mono', 'Monospace'],
-    ['ide', 'WebRAD IDE (system)'],
+    ['ide', 'WebRAD IDE (Roboto)'],
     ...WEBRAD_FONT_FAMILIES.map((font) => [font.id, font.label] as const),
   ]),
   lengthProperty('fontSize', 'Font size', 'Typography', { units: ['px', 'rem'], min: 0 }),

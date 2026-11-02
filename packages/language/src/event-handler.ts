@@ -15,6 +15,8 @@ export interface EventHandlerRequest {
   readonly eventType?: ComponentEventDefinition['eventType'];
   /** Optional runtime detail type for the generated CustomEvent parameter. */
   readonly eventDetailType?: string;
+  /** Generated document type used as the runtime detail's generic argument. */
+  readonly eventDetailTypeArgument?: string;
   /** Optional event detail fields to destructure in the generated handler body. */
   readonly eventDetailProperties?: readonly string[];
   /** Generated document alias for a repeating row's third event argument. */
@@ -197,6 +199,7 @@ function createMethod(
   asynchronous: boolean,
   currentRowType: string | undefined,
   nativeEventType: string,
+  eventDetailTypeArgument: ts.TypeNode | undefined,
 ): ts.MethodDeclaration {
   const eventDetailDestructuring =
     eventDetailProperties === undefined || eventDetailProperties.length === 0
@@ -260,7 +263,10 @@ function createMethod(
               ts.factory.createIdentifier('event'),
               undefined,
               ts.factory.createTypeReferenceNode('CustomEvent', [
-                ts.factory.createTypeReferenceNode(eventDetailTypeName),
+                ts.factory.createTypeReferenceNode(
+                  eventDetailTypeName,
+                  eventDetailTypeArgument === undefined ? undefined : [eventDetailTypeArgument],
+                ),
               ]),
               undefined,
             ),
@@ -386,7 +392,69 @@ export function findEventHandler(
   return method === undefined ? undefined : locationOf(sourceFile, method);
 }
 
-/** Inserts one handler using TypeScript AST positions, or returns its existing navigation target. */
+function eventDetailModule(request: EventHandlerRequest): string {
+  const fileName = request.fileName?.replaceAll('\\', '/').split('/').at(-1);
+  return `./${fileName?.endsWith('.ts') ? fileName.slice(0, -3) : request.className}.generated`;
+}
+
+function eventDetailArgument(request: EventHandlerRequest): ts.ImportTypeNode | undefined {
+  return request.eventDetailTypeArgument === undefined
+    ? undefined
+    : ts.factory.createImportTypeNode(
+        ts.factory.createLiteralTypeNode(
+          ts.factory.createStringLiteral(eventDetailModule(request)),
+        ),
+        undefined,
+        ts.factory.createIdentifier(request.eventDetailTypeArgument),
+      );
+}
+
+function needsDetailArgument(
+  parameter: ts.ParameterDeclaration,
+  sourceFile: ts.SourceFile,
+  request: EventHandlerRequest,
+): boolean {
+  const type = parameter.type;
+  if (
+    request.eventDetailTypeArgument === undefined ||
+    request.eventDetailType === undefined ||
+    type === undefined ||
+    !ts.isTypeReferenceNode(type) ||
+    !ts.isIdentifier(type.typeName) ||
+    type.typeName.text !== 'CustomEvent'
+  )
+    return false;
+  const detail = type.typeArguments?.[0];
+  if (detail === undefined) return false;
+  const localName =
+    importedLocalName(sourceFile, request.eventDetailType) ?? request.eventDetailType;
+  const matchesDetail =
+    (ts.isTypeReferenceNode(detail) &&
+      ts.isIdentifier(detail.typeName) &&
+      detail.typeName.text === localName) ||
+    (ts.isImportTypeNode(detail) &&
+      ts.isLiteralTypeNode(detail.argument) &&
+      ts.isStringLiteral(detail.argument.literal) &&
+      detail.argument.literal.text === '@webrad/runtime' &&
+      detail.qualifier !== undefined &&
+      ts.isIdentifier(detail.qualifier) &&
+      detail.qualifier.text === request.eventDetailType);
+  if (!matchesDetail || (!ts.isTypeReferenceNode(detail) && !ts.isImportTypeNode(detail)))
+    return false;
+  const argument = detail.typeArguments?.[0];
+  if (argument === undefined) return true;
+  // Preserve explicitly authored row types; refresh only our generated document alias.
+  return (
+    ts.isImportTypeNode(argument) &&
+    ts.isLiteralTypeNode(argument.argument) &&
+    ts.isStringLiteral(argument.argument.literal) &&
+    argument.argument.literal.text === eventDetailModule(request) &&
+    (argument.qualifier === undefined ||
+      !ts.isIdentifier(argument.qualifier) ||
+      argument.qualifier.text !== request.eventDetailTypeArgument)
+  );
+}
+
 function ensureHandlerEventParameter(
   sourceText: string,
   sourceFile: ts.SourceFile,
@@ -402,17 +470,23 @@ function ensureHandlerEventParameter(
 
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
   const detailName = request.eventDetailType;
+  const argument = eventDetailArgument(request);
+  const typeArguments = argument === undefined ? undefined : [argument];
   const detailType =
     detailName === undefined
       ? undefined
       : detailName === 'Error'
         ? ts.factory.createTypeReferenceNode('Error')
         : importedLocalName(sourceFile, detailName) !== undefined
-          ? ts.factory.createTypeReferenceNode(importedLocalName(sourceFile, detailName)!)
+          ? ts.factory.createTypeReferenceNode(
+              importedLocalName(sourceFile, detailName)!,
+              typeArguments,
+            )
           : ts.factory.createImportTypeNode(
               ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral('@webrad/runtime')),
               undefined,
               ts.factory.createIdentifier(detailName),
+              typeArguments,
             );
   const eventType =
     detailType === undefined
@@ -473,6 +547,7 @@ function ensureHandlerEventParameter(
   } else if (
     parameter !== undefined &&
     (parameter.type === undefined ||
+      needsDetailArgument(parameter, sourceFile, request) ||
       (ts.isTypeReferenceNode(parameter.type) &&
         ts.isIdentifier(parameter.type.typeName) &&
         parameter.type.typeName.text === 'Event' &&
@@ -498,6 +573,7 @@ function ensureHandlerEventParameter(
   return updated;
 }
 
+/** Inserts or repairs a handler signature through the AST, preserving its authored body. */
 export function ensureEventHandler(
   sourceText: string,
   request: EventHandlerRequest,
@@ -509,6 +585,11 @@ export function ensureEventHandler(
     ...request,
     eventType: request.eventType ?? metadata?.eventType ?? 'Event',
     eventDetailType: request.eventDetailType ?? metadata?.eventDetailType,
+    eventDetailTypeArgument:
+      request.eventDetailTypeArgument ??
+      (metadata?.eventDetailTypeArgumentSuffix === undefined
+        ? undefined
+        : request.componentName + metadata.eventDetailTypeArgumentSuffix),
     eventDetailProperties: request.eventDetailProperties ?? metadata?.eventDetailProperties,
   };
   const methodName =
@@ -522,6 +603,8 @@ export function ensureEventHandler(
   if (request.eventDetailType !== undefined) {
     assertIdentifier(request.eventDetailType, 'Event detail type');
   }
+  if (request.eventDetailTypeArgument !== undefined)
+    assertIdentifier(request.eventDetailTypeArgument, 'Event detail type argument');
   if (request.currentRowType !== undefined)
     assertIdentifier(request.currentRowType, 'Current row type');
   if (request.eventDetailProperties !== undefined) {
@@ -777,6 +860,7 @@ export function ensureEventHandler(
           `./${request.className}.generated`,
         ) ?? request.currentRowType),
     request.eventType ?? 'Event',
+    eventDetailArgument(request),
   );
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
   const indent = insertionIndent(sourceText, declaration);

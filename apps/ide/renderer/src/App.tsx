@@ -1236,6 +1236,10 @@ export function App(): ReactElement {
           eventName,
           eventType: eventDefinition?.eventType,
           eventDetailType: eventDefinition?.eventDetailType,
+          eventDetailTypeArgument:
+            eventDefinition?.eventDetailTypeArgumentSuffix === undefined
+              ? undefined
+              : component.name + eventDefinition.eventDetailTypeArgumentSuffix,
           eventDetailProperties: eventDefinition?.eventDetailProperties,
           currentRowType: currentRowHandlerType(activePage, component.id),
           handlerName,

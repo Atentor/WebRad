@@ -1999,7 +1999,7 @@ describe('App MVP integration', () => {
       'Mock Monaco editor',
     )) as HTMLTextAreaElement;
     expect(gridEventEditor.value).toContain(
-      'async DataGrid1CellClick(sender: WebDataGrid, event: CustomEvent<WebDataGridCellEventDetail>): Promise<void>',
+      'async DataGrid1CellClick(sender: WebDataGrid, event: CustomEvent<WebDataGridCellEventDetail<import("./index.generated").DataGrid1RowValue>>): Promise<void>',
     );
     expect(gridEventEditor.value).toContain(
       'const { column, rowIndex, columnIndex, value, getValue } = event.detail;',

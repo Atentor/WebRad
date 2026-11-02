@@ -1,5 +1,30 @@
 # Component model
 
+Data Grid `OnCellClick` handlers support typed access to other fields in the
+clicked row through `getValue.fieldName`. The generator exports a
+`GridNameRowValue` alias from the grid's selected API operation and saved
+response-list contract, including nested objects, lists and nullable fields.
+Registry metadata specializes `WebDataGridCellEventDetail<TRow>` when creating
+or reopening the interaction, preserving the existing handler body. Monaco
+uses these generated declarations for field completion, hover and invalid-field
+diagnostics; compiled Preview and generated applications use the same contract.
+Without a saved response schema the row type remains `unknown`.
+
+```ts
+const { getValue } = event.detail;
+Message(getValue.name);
+Message(getValue.customer?.name);
+// Existing callable access remains available, including JSON Pointers.
+Message(getValue('name'));
+Message(getValue('/customer/name'));
+```
+
+Use API field names rather than column captions. Fields with spaces or other
+non-identifier characters support bracket access, such as `getValue['full name']`.
+Existing handlers receive the generated row type when reopened from the Events
+Inspector; explicitly authored custom row type arguments are preserved. The
+row accessor is local to the clicked row and physical reusable placement.
+
 `WebCharts` registers a typed browser runtime, a shared SVG projection and a
 transactional chart editor. Its `chartsConfig` stores presentation settings and
 up to five independent API Client/endpoint/list/label/value bindings. Numeric

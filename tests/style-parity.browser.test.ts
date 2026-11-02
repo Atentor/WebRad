@@ -361,7 +361,7 @@ it.runIf(browserPath !== undefined)(
                 if (left[property] !== right[property]) failures.push({ case: fixture.dataset.case, id, property, designer: left[property], preview: right[property] });
               }
               sizes.push([fixture.dataset.case, id, left.fontSize]);
-              if (left.fontSize !== (index === 4 ? '22px' : index === 5 ? '20px' : '16px')) failures.push({ id, unexpectedFontSize: left.fontSize });
+              if (left.fontSize !== (index === 4 ? '22px' : index === 5 ? '20px' : index === 0 ? '15px' : '14px')) failures.push({ id, unexpectedFontSize: left.fontSize });
               const text = designer.querySelector('[data-webrad-text-content]');
               const runtimeText = runtime.querySelector('[data-webrad-text-content]');
               if (text && runtimeText && getComputedStyle(text).fontSize !== frame.contentWindow.getComputedStyle(runtimeText).fontSize) failures.push({ id, text: 'caption font mismatch' });

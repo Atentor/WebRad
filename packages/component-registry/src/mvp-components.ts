@@ -470,7 +470,10 @@ function captionProperty(defaultValue: string): ComponentPropertyDefinition {
 function event(
   name: string,
   category = 'Behavior',
-  codeGeneration: Pick<ComponentEventDefinition, 'eventDetailType' | 'eventDetailProperties'> = {},
+  codeGeneration: Pick<
+    ComponentEventDefinition,
+    'eventDetailType' | 'eventDetailProperties' | 'eventDetailTypeArgumentSuffix'
+  > = {},
 ): ComponentEventDefinition {
   const nativeTypes: Readonly<Record<string, ComponentEventDefinition['eventType']>> = {
     OnKeyDown: 'KeyboardEvent',
@@ -2134,6 +2137,7 @@ const webDataGrid: ComponentDefinition = {
   events: [
     event('OnCellClick', 'Data', {
       eventDetailType: 'WebDataGridCellEventDetail',
+      eventDetailTypeArgumentSuffix: 'RowValue',
       eventDetailProperties: ['column', 'rowIndex', 'columnIndex', 'value', 'getValue'],
     }),
   ],

@@ -1,5 +1,38 @@
 # WebRAD delivery plan
 
+## Typed Data Grid row field access: 2026-11-02
+
+Data Grid cell events expose `getValue.fieldName` alongside the existing
+`getValue('fieldName')` and JSON Pointer calls. Generated page and reusable
+modules derive each grid's `GridNameRowValue` from its selected API operation
+and response-list contract, including nested fields and nullability. Registry
+metadata makes newly created and reopened handlers use that row type through
+`WebDataGridCellEventDetail<TRow>`; AST edits preserve authored handler bodies
+and explicit custom row types. Grids without a saved response contract retain
+unknown row types. Runtime/editor declarations and embedded runtime sources
+are synchronized, and existing handler-signature expectations are updated.
+No tests, typecheck, lint, smokes, builds or packaging were requested or run;
+Monaco and compiled execution remain unverified.
+
+## Default style typography and alignment polish: 2026-11-02
+
+Seeded Default styles now share Roboto at 14px/20px (Button: 15px/20px) across all four theme
+presets, Designer, Styles, Preview and generated applications. Buttons center
+the icon/caption group, use normal weight (400), retain 8px corners and use 22px icons,
+a 6px gap and balanced padding that fits the initial 100 by 36px geometry.
+Fields receive explicit matching typography/padding; labels and checkboxes use
+regular weight, checkbox controls have stable size/margins, Label alignment
+uses the full caption width, and progress/chart text uses the readable baseline.
+The IDE interface now loads bundled Roboto directly; the `ide` font choice and
+new Styles typography values follow that default. Authored code keeps its
+existing monospaced editor font. Saved project typography remains project-owned.
+
+Updated bundled example defaults, existing model/browser expectations, and the
+real Electron template/button interactions and evidence required by both smoke
+runners. Runtime source snapshots are regenerated for the shared CSS/font
+projection. No tests, smokes, typecheck, lint, checks, builds or packaging were
+requested or run. Rendered appearance and geometry remain unverified.
+
 ## Project Settings discard confirmation polish: 2026-11-02
 
 Refined the confirmation with consistent 24 px horizontal spacing, a compact

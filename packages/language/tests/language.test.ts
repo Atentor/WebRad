@@ -762,7 +762,7 @@ export class PageMain {}
     });
 
     expect(edit.sourceText).toContain(
-      'async DataGrid1CellClick(sender: WebDataGrid, event: CustomEvent<WebDataGridCellEventDetail>): Promise<void>',
+      'async DataGrid1CellClick(sender: WebDataGrid, event: CustomEvent<WebDataGridCellEventDetail<import("./PageMain.generated").DataGrid1RowValue>>): Promise<void>',
     );
     expect(edit.sourceText).toContain(
       '\n    const { column, rowIndex, columnIndex, value, getValue } = event.detail;\n  }',

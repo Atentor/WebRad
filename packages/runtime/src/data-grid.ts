@@ -57,15 +57,20 @@ export interface WebDataGridConfiguration {
   readonly columns: readonly WebDataGridColumn[];
 }
 
-export interface WebDataGridCellEventDetail {
+/** Typed row fields with the legacy property-name/JSON Pointer call syntax. */
+export type WebDataGridRowValues<TRow = unknown> = Readonly<TRow> & {
+  <T = unknown>(fieldNameOrPath: string): T | undefined;
+};
+
+export interface WebDataGridCellEventDetail<TRow = unknown> {
   readonly rowIndex: number;
   readonly columnIndex: number;
-  readonly row: unknown;
+  readonly row: TRow;
   readonly column: WebDataGridColumn;
   /** Value bound to the clicked column, or undefined when it has no Field. */
   readonly value: unknown;
-  /** Reads another value from the same row by property name or JSON Pointer. */
-  readonly getValue: <T = unknown>(fieldNameOrPath: string) => T | undefined;
+  /** Reads typed row fields directly, or calls with a property name/JSON Pointer. */
+  readonly getValue: WebDataGridRowValues<TRow>;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -124,6 +129,25 @@ function dataGridRowValue<T = unknown>(row: unknown, fieldNameOrPath: string): T
       ? row[field]
       : undefined;
   return value as T | undefined;
+}
+
+function dataGridRowValues(row: unknown): WebDataGridRowValues {
+  const read = <T = unknown>(fieldNameOrPath: string): T | undefined =>
+    dataGridRowValue<T>(row, fieldNameOrPath);
+  return new Proxy(read, {
+    get(target, property, receiver): unknown {
+      // Own API fields take precedence even for names such as "name" and "length".
+      if (typeof property === 'string') {
+        if (isRecord(row) && Object.hasOwn(row, property)) return row[property];
+        // Do not return the accessor function's own name/arity for missing row fields.
+        if (property === 'name' || property === 'length') return undefined;
+      }
+      return Reflect.get(target, property, receiver);
+    },
+    set: () => false,
+    defineProperty: () => false,
+    deleteProperty: () => false,
+  });
 }
 
 function cellText(value: unknown): string {
@@ -625,8 +649,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
                 row: rowValue,
                 column,
                 value,
-                getValue: <T = unknown>(fieldNameOrPath: string) =>
-                  dataGridRowValue<T>(rowValue, fieldNameOrPath),
+                getValue: dataGridRowValues(rowValue),
               } satisfies WebDataGridCellEventDetail);
             },
             this.#toggles,

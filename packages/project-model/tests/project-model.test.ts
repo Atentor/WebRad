@@ -217,7 +217,7 @@ describe('project factories', () => {
       dataGridButtonBorderRadius: { value: 8, unit: 'px' },
       dataGridButtonPaddingX: { value: 8, unit: 'px' },
       dataGridButtonPaddingY: { value: 4, unit: 'px' },
-      dataGridButtonFontWeight: 'semibold',
+      dataGridButtonFontWeight: 'medium',
       dataGridCheckboxAccentColor: 'var(--wr-theme-primary)',
       dataGridCheckboxSize: { value: 16, unit: 'px' },
       dataGridCheckboxTextColor: 'var(--wr-theme-heading)',
@@ -1652,12 +1652,15 @@ describe('immutable update helpers', () => {
     expect(defaultButton.states.base).toMatchObject({
       borderRadius: { value: 8, unit: 'px' },
       fontFamily: 'roboto',
-      fontWeight: 'medium',
-      justifyContent: 'start',
-      textAlign: 'left',
+      fontWeight: 'normal',
+      justifyContent: 'center',
+      textAlign: 'center',
       buttonContentMode: 'text-icon',
       buttonIconPosition: 'left',
-      buttonIconSize: { value: 27, unit: 'px' },
+      buttonIconSize: { value: 22, unit: 'px' },
+      alignItems: 'center',
+      fontSize: { value: 15, unit: 'px' },
+      lineHeight: { value: 20, unit: 'px' },
     });
     expect(() => removeComponentStyle(project, defaultButton.id)).toThrow(
       'Default component styles cannot be removed',

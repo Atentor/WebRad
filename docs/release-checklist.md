@@ -16,6 +16,15 @@ mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
 
+Default style typography evidence must retain centered Button icon/caption
+content, Roboto 15px/20px normal text (400), 22px icons, and 8px corners in all four
+theme presets and both project templates. The existing Designer/Preview button
+parity flow also compares vertical alignment, typography and spacing. Both
+runners require the updated template-chooser and button-parity evidence strings.
+The bundled examples carry these saved defaults; existing user projects keep
+their authored typography. These smoke definitions have not been executed as
+part of the 2026-11-02 polish.
+
 Project Settings draft-protection evidence must include the discard confirmation
 with both actions inset from its edges, buttons at least 34 px tall, no horizontal
 overflow, initial focus on Keep editing, and working Escape/discard behavior.

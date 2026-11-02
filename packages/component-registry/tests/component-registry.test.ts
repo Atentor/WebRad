@@ -497,6 +497,7 @@ describe('MVP component metadata', () => {
       label: 'OnCellClick',
       category: 'Data',
       eventDetailType: 'WebDataGridCellEventDetail',
+      eventDetailTypeArgumentSuffix: 'RowValue',
       eventDetailProperties: ['column', 'rowIndex', 'columnIndex', 'value', 'getValue'],
     });
   });

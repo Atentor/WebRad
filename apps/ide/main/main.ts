@@ -1052,18 +1052,18 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     throw new Error('Flat did not materialize its blue button fills and brighter hover colors.');
   }
   for (const style of flatProject.styles) {
-    if (style.componentType === 'WebButton' && style.states.base.fontWeight !== 'medium') {
-      throw new Error('Flat buttons did not materialize their medium text weight.');
+    if (style.componentType === 'WebButton' && style.states.base.fontWeight !== 'normal') {
+      throw new Error('Flat buttons did not materialize their normal text weight.');
     }
     const buttonIconSize = style.states.base.buttonIconSize;
     if (
       style.componentType === 'WebButton' &&
       (typeof buttonIconSize !== 'object' ||
         !('value' in buttonIconSize) ||
-        buttonIconSize.value !== 27 ||
+        buttonIconSize.value !== 22 ||
         buttonIconSize.unit !== 'px')
     ) {
-      throw new Error('Flat buttons did not materialize their 27px icons.');
+      throw new Error('Flat buttons did not materialize their 22px icons.');
     }
     for (const properties of [
       ...Object.values(style.states),
@@ -1106,21 +1106,30 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
         (style) => style.componentType === 'WebButton' && style.preset === 'default',
       );
       if (
-        button?.states.base.justifyContent !== 'start' ||
-        button.states.base.textAlign !== 'left' ||
+        button?.states.base.justifyContent !== 'center' ||
+        button.states.base.textAlign !== 'center' ||
         button.states.base.buttonIconPosition !== 'left'
       ) {
-        throw new Error('Project templates must align button icons and text to the left.');
+        throw new Error('Project templates must center button icons and text.');
       }
       const iconSize = button.states.base.buttonIconSize;
       if (
-        button.states.base.fontWeight !== 'medium' ||
+        button.states.base.fontWeight !== 'normal' ||
+        button.states.base.fontFamily !== 'roboto' ||
+        typeof button.states.base.fontSize !== 'object' ||
+        !('value' in button.states.base.fontSize) ||
+        button.states.base.fontSize.value !== 15 ||
+        button.states.base.fontSize.unit !== 'px' ||
+        typeof button.states.base.lineHeight !== 'object' ||
+        !('value' in button.states.base.lineHeight) ||
+        button.states.base.lineHeight.value !== 20 ||
+        button.states.base.lineHeight.unit !== 'px' ||
         typeof iconSize !== 'object' ||
         !('value' in iconSize) ||
-        iconSize.value !== 27 ||
+        iconSize.value !== 22 ||
         iconSize.unit !== 'px'
       ) {
-        throw new Error('All themes must keep medium button text and 27px icons.');
+        throw new Error('All themes must keep normal button text and 22px icons.');
       }
       if (
         themeId === 'prism' &&
@@ -1244,7 +1253,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     (value) => value === true,
   );
   smokeLog(
-    'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu / Aurora, Prism, Flat and WebRAD Light/Dark themes / WebRAD square controls / theme-aware previews / fixed creation actions / HTML example / Flat white and graphite surfaces, softer blue and 8px cards/buttons / Flat brighter blue hover / left-aligned template buttons / all-theme medium button text and 27px icons / Prism brighter hover / WebRAD pressed state',
+    'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu / Aurora, Prism, Flat and WebRAD Light/Dark themes / WebRAD square controls / theme-aware previews / fixed creation actions / HTML example / Flat white and graphite surfaces, softer blue and 8px cards/buttons / Flat brighter blue hover / centered template buttons / all-theme Roboto 15px normal button text and 22px icons / Prism brighter hover / WebRAD pressed state',
   );
 
   if (smokeProjectPath === undefined) return;
@@ -1542,7 +1551,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   );
   await assertPreviewButtonStyle(previewFrame, designerButtonStyle);
   smokeLog(
-    'renderer Designer/Preview button style parity passed / page available width / left-aligned button content / 8px button corners / medium button text',
+    'renderer Designer/Preview button style parity passed / page available width / centered button content / 8px button corners / normal button text',
   );
   const interaction = (await previewFrame.executeJavaScript(
     `(() => {

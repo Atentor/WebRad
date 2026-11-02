@@ -17,6 +17,16 @@ weights in Light and Dark. Presets do not replace style typography. The project
 surface also uses bundled Roboto for text without an explicit font family.
 Explicit font choices and authored per-theme typography overrides remain supported.
 
+New Default styles use 14px text with a 20px line height, with 15px text for
+Button. Buttons center their icon and caption together, use normal weight (400),
+a 22px icon and a 6px gap; fields
+have balanced 6px vertical and 10px horizontal padding. Labels and checkboxes
+use regular weight, while progress and chart text inherit the readable 14px
+baseline. Label text alignment applies across the full caption width. The IDE
+interface and the `ide` font choice also use bundled Roboto. Saved project
+typography and custom font choices are retained; the new seeded dimensions and
+alignment are not a migration of existing styles.
+
 Every preset includes Light and Dark palettes, with both shown in the chooser.
 The selected preset is materialized as ordinary project theme settings and
 editable Default styles. It adds no template dependency or persisted preset ID;

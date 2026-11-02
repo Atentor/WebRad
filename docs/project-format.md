@@ -118,31 +118,38 @@ Default style changed with the Aurora preset; Prism and Flat materialize their
 own Default style appearance. All elements remain editable through the Designer,
 Inspector, Styles and Code.
 
-All project templates and theme presets seed Default Button with left-aligned
-content: the icon precedes the caption, with `justifyContent: 'start'` and
-`textAlign: 'left'`. The existing icon/text gap and vertical centering remain.
-All four presets share Roboto Medium (500) button text and 27px icons. Aurora
+All project templates and theme presets seed Default Button with centered
+content: the icon precedes the caption, with `justifyContent: 'center'`,
+`alignItems: 'center'` and `textAlign: 'center'`. A 6px gap, 22px icon and
+6px vertical / 10px horizontal padding fit the initial 100 by 36px button.
+All four presets share Roboto Normal (400) button text at 15px/20px. Aurora
 and Prism retain their gradients and adaptive foreground colors; Prism Light
 brightens its violet/coral fills on hover. WebRAD retains neutral IDE button
 fills and uses its editable Selection color for a distinct pressed state.
 This is saved style metadata, so Designer and compiled applications use the
 same alignment and users can customize it in Styles. The bundled examples use
 this alignment as well; existing user projects retain their saved styles.
+Other seeded Default styles use Roboto at 14px with a 20px line height, including
+fields, labels, grids, progress indicators and charts. Labels and checkboxes use
+regular weight; captions remain vertically centered, and Label text alignment
+uses its full available width. Fields use 6px vertical and 10px horizontal
+padding, while checkbox controls use a stable 16px square without native margins.
+The shared project surface and new Styles property values use the same typography.
 
 Cards (Panel) and buttons use 8px corners in every template and theme preset,
 including Data Grid cell buttons. The creation previews and bundled examples
 use the same radius. Other controls retain their theme-specific corners.
 
-WebRAD materializes the IDE palette, square controls and scrollbars, 8px cards
-and buttons, and Light/Dark typography overrides. The `fontFamily: 'ide'` style value uses
-the same system font stack as the IDE, without embedding font binaries. A zero
+WebRAD materializes the IDE palette, square controls and scrollbars, and 8px cards
+and buttons. The `fontFamily: 'ide'` style value uses the same bundled Roboto
+family as the IDE interface. A zero
 component border radius also projects square nested Menu controls and Data Grid
 toggles; nonzero radii retain their normal component appearance.
 
 Flat pairs near-white Light surfaces with neutral graphite Dark surfaces and
 balanced blue accents. Blue buttons share their normal, hover and active colors
 in both modes, with hover lighter than normal. Primary and accent buttons use
-white text in Light and Dark, with Roboto Medium (500) and 27px icons for Default Button.
+white text in Light and Dark, with Roboto Normal (400) at 15px/20px and 22px icons for Default Button.
 Turquoise accents
 and status colors remain vivid,
 with independent Light/Dark colors for text, borders, focus and interaction
@@ -530,7 +537,7 @@ Reusable styles are stored inline in the manifest as `styles: ComponentStyleMode
 
 `WebPopup` is an ordinary visual, child-owning `ComponentNode` for serialization and style compatibility, so its `styleId` references a `WebPopup` style exactly as it would for a canvas-presented component. Its `visual: true`, `designerPresentation: "tray"`, and child-container behavior belong to the registered component definition rather than to per-node persisted data: the Designer represents the Popup in the nonvisual tray and opens a centered floating editor when it is selected, while the compiler emits the Popup and its normal child hierarchy in the browser DOM model. The Popup is a pure floating container with one inner child host: it has no `caption` or `message` property, header, or message shell. Its resolved style classes apply directly to the native dialog root through the same visual-style pipeline as every other visual component. The Popup's persisted width and height define the floating window; it has no persisted page position or layout-item behavior. Its saved `layout.container` controls the inner child host, using the same responsive rules as any other container. The runtime turns that DOM node into a native `<dialog>` when shown; browser open/top-layer state is runtime state, not a second persisted page-layout element.
 
-`WebButton` styles collect their icon controls in the `Icon` editor group. The base-state-only presentation properties are `buttonContentMode` (`text`, `text-icon`, or `icon`) and `buttonIconPosition` (`left`, `right`, `top`, or `bottom`); changing a button's content structure on hover or focus would be unstable. `buttonIconColor` and `buttonIconSize` are `WebButton`-only properties available in every style state. Color defaults to `current`, so the icon inherits the text color until overridden; size is an explicit non-negative `px` or `rem` length and defaults to `16px`. The component node owns its individual `icon` prop, selected from the local SVG catalogue shared with the IDE chrome; it defaults to `add` and can be changed independently even when several buttons share a style. The visual picker shows each canonical icon once, searches by icon ID or label, and recognizes common aliases such as `log in` and `door enter`; it includes authentication and door-direction icons such as `login`, `logout`, `door-in`, and `door-out`. New projects set the Default Button presentation to text and icon with a left 16px icon, and icon-only buttons retain their caption as their accessible name.
+`WebButton` styles collect their icon controls in the `Icon` editor group. The base-state-only presentation properties are `buttonContentMode` (`text`, `text-icon`, or `icon`) and `buttonIconPosition` (`left`, `right`, `top`, or `bottom`); changing a button's content structure on hover or focus would be unstable. `buttonIconColor` and `buttonIconSize` are `WebButton`-only properties available in every style state. Color defaults to `current`, so the icon inherits the text color until overridden; size is an explicit non-negative `px` or `rem` length and its property editor starts at `16px`. The component node owns its individual `icon` prop, selected from the local SVG catalogue shared with the IDE chrome; it defaults to `add` and can be changed independently even when several buttons share a style. The visual picker shows each canonical icon once, searches by icon ID or label, and recognizes common aliases such as `log in` and `door enter`; it includes authentication and door-direction icons such as `login`, `logout`, `door-in`, and `door-out`. New projects set the Default Button presentation to centered text and icon with a left 22px icon and 15px Roboto text, and icon-only buttons retain their caption as their accessible name.
 
 `textGradient`, `backgroundGradient`, and `borderGradient` share one safe two-color linear-gradient value: `{ "kind": "linear", "direction": "to-right", "from": "#2563eb", "to": "#7c3aed" }`. Its direction must be one of the eight compass directions from `to-right` through `to-top-right`, and both endpoint colors must be six-digit hexadecimal values. Background and border gradients produce static CSS utilities; text gradients target the component's caption element, preserving its background paint. A border gradient is rendered as two background layers — an inner fill clipped to the padding box and the gradient clipped to the border box — over a transparent solid border. This respects the configured border width and radius on native controls as well as ordinary elements, unlike `border-image`. Text gradients are available to labels, buttons, and checkbox captions. Within one state, each gradient is mutually exclusive with its same-target solid color (`textColor`, `backgroundColor`, or `borderColor`), preventing redundant declarations.
 

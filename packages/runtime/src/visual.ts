@@ -639,9 +639,7 @@ export function resolveStylePropertyCandidate(
     case 'paddingLeft':
       return lengthClass('pl', value);
     case 'fontFamily':
-      return value === 'ide'
-        ? "[font-family:'Segoe_UI_Variable_Text','Segoe_UI',system-ui,-apple-system,sans-serif]"
-        : prefixedEnumClass('font', value);
+      return value === 'ide' ? 'font-roboto' : prefixedEnumClass('font', value);
     case 'fontSize':
       return lengthClass('text', value);
     case 'fontWeight':
@@ -1343,7 +1341,7 @@ export function projectComponentVisual(
 export const WEBRAD_PROJECT_CSS = /* @__PURE__ */ `
 .wr-project-surface, .wr-webpage, .wr-panel-floating-layer {
   color-scheme: light dark;
-  font: 400 16px/normal Roboto, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 400 14px/20px Roboto, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: normal;
   word-spacing: normal;
   text-align: start;
@@ -1383,7 +1381,7 @@ ${WEB_LOGIN_CSS}
 .wr-reusable-definition-root { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .wr-reusable-definition-root > .wr-component { position: relative !important; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; }
 .wr-weblabel { display: flex; align-items: center; color: inherit; overflow: hidden; white-space: nowrap; }
-.wr-weblabel > [data-webrad-text-content] { min-width: 0; max-width: 100%; }
+.wr-weblabel > [data-webrad-text-content] { min-width: 0; width: 100%; max-width: 100%; }
 .wr-webhtml { display: block; min-width: 0; min-height: 0; border: 0; background: transparent; }
 .wr-webhtml[inert], .wr-webhtml[aria-disabled='true'] { pointer-events: none; }
 .wr-webpanel { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); padding: 6px; overflow: hidden; }
@@ -1399,6 +1397,7 @@ ${WEB_LOGIN_CSS}
 .wr-webedit:focus, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
 .wr-webtextarea { resize: none; }
 .wr-webbutton { --webrad-border-gradient-surface: var(--wr-button-bg, #343b49); display: inline-flex; align-items: center; justify-content: center; gap: .45em; border: 1px solid var(--wr-control-border, #677184); border-radius: 4px; background: var(--wr-button-bg, #343b49); color: inherit; padding: 4px 12px; }
+.wr-button-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .wr-webbutton:hover:not(:disabled) { --webrad-border-gradient-surface: var(--wr-button-hover, #414a5a); background: var(--wr-button-hover, #414a5a); }
 .wr-button-icon { display: block; width: 1em; height: 1em; flex: none; }
 .wr-webicon { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; padding: 0; border: 0; background: transparent; color: inherit; overflow: hidden; }
@@ -1409,7 +1408,9 @@ ${WEB_LOGIN_CSS}
 .wr-webicon:disabled { cursor: not-allowed; }
 .wr-button-content-text .wr-button-icon { display: none; }
 .wr-button-icon-left { flex-direction: row; }
-.wr-webcheckbox { display: flex; align-items: center; gap: 7px; }
+.wr-webcheckbox { display: flex; align-items: center; gap: 8px; }
+.wr-webcheckbox > input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--wr-accent, #2563eb); }
+.wr-webcheckbox > [data-webrad-checkbox-caption] { min-width: 0; }
 .wr-webimage { display: block; object-fit: contain; border: 1px dashed var(--wr-control-border, #677184); color: var(--wr-muted-text, #8e98aa); }
 .wr-webvideoplayer { display: block; position: relative; overflow: hidden; min-width: 0; min-height: 0; background: #111827; color: #fff; }
 .wr-webvideoplayer > video { display: block; width: 100%; height: 100%; }

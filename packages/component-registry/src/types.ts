@@ -84,6 +84,8 @@ export interface ComponentEventDefinition {
   readonly eventType?: 'Event' | 'KeyboardEvent' | 'MouseEvent' | 'FocusEvent' | 'InputEvent';
   /** Runtime detail type supplied through the generated CustomEvent parameter. */
   readonly eventDetailType?: string;
+  /** Component-name suffix for a generated document type argument (for example RowValue). */
+  readonly eventDetailTypeArgumentSuffix?: string;
   /** Detail fields introduced as local constants in a newly generated handler. */
   readonly eventDetailProperties?: readonly string[];
 }

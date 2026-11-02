@@ -56,7 +56,15 @@
           "toggleThumbColor": "var(--wr-palette-aurora-white)",
           "transitionDuration": 200,
           "transitionProperty": "all",
-          "transitionTimingFunction": "easeOut"
+          "transitionTimingFunction": "easeOut",
+          "fontSize": {
+            "value": 14,
+            "unit": "px"
+          },
+          "lineHeight": {
+            "value": 20,
+            "unit": "px"
+          }
         },
         "hover": {
           "boxShadow": "md"
@@ -115,14 +123,18 @@
           },
           "fontFamily": "roboto",
           "fontSize": {
-            "value": 12,
+            "value": 14,
             "unit": "px"
           },
-          "fontWeight": "semibold",
+          "fontWeight": "medium",
           "progressColor": "var(--wr-palette-aurora-blue)",
           "progressThickness": 8,
           "progressTrackColor": "#e2e8f0",
-          "textColor": "var(--wr-palette-aurora-ink)"
+          "textColor": "var(--wr-palette-aurora-ink)",
+          "lineHeight": {
+            "value": 20,
+            "unit": "px"
+          }
         },
         "hover": {},
         "focus": {},
@@ -149,7 +161,15 @@
             "unit": "px"
           },
           "fontFamily": "roboto",
-          "textColor": "var(--wr-palette-aurora-blue)"
+          "textColor": "var(--wr-palette-aurora-blue)",
+          "fontSize": {
+            "value": 14,
+            "unit": "px"
+          },
+          "lineHeight": {
+            "value": 20,
+            "unit": "px"
+          }
         },
         "hover": {},
         "focus": {},
@@ -176,7 +196,15 @@
             "unit": "px"
           },
           "boxShadow": "none",
-          "fontFamily": "roboto"
+          "fontFamily": "roboto",
+          "fontSize": {
+            "value": 14,
+            "unit": "px"
+          },
+          "lineHeight": {
+            "value": 20,
+            "unit": "px"
+          }
         },
         "hover": {},
         "focus": {},
@@ -209,7 +237,11 @@
             "value": 14,
             "unit": "px"
           },
-          "textColor": "var(--wr-palette-aurora-graphite)"
+          "textColor": "var(--wr-palette-aurora-graphite)",
+          "lineHeight": {
+            "value": 20,
+            "unit": "px"
+          }
         },
         "hover": {},
         "focus": {},
@@ -252,7 +284,15 @@
           "textColor": "var(--wr-palette-aurora-white)",
           "transitionDuration": 200,
           "transitionProperty": "shadow",
-          "transitionTimingFunction": "easeOut"
+          "transitionTimingFunction": "easeOut",
+          "fontSize": {
+            "value": 14,
+            "unit": "px"
+          },
+          "lineHeight": {
+            "value": 20,
+            "unit": "px"
+          }
         },
         "hover": {
           "boxShadow": "md"
@@ -310,7 +350,15 @@
           "textColor": "#0f172a",
           "transitionDuration": 200,
           "transitionProperty": "all",
-          "transitionTimingFunction": "easeOut"
+          "transitionTimingFunction": "easeOut",
+          "fontSize": {
+            "value": 14,
+            "unit": "px"
+          },
+          "lineHeight": {
+            "value": 20,
+            "unit": "px"
+          }
         },
         "hover": {},
         "focus": {},
@@ -331,17 +379,48 @@
             "unit": "px"
           },
           "boxShadow": "md",
-          "fontWeight": "medium",
+          "fontWeight": "normal",
           "textColor": "#ffffff",
           "transitionDuration": 200,
           "transitionProperty": "all",
           "transitionTimingFunction": "easeOut",
           "userSelect": "none",
-          "justifyContent": "start",
-          "textAlign": "left",
+          "justifyContent": "center",
+          "textAlign": "center",
           "buttonIconPosition": "left",
           "buttonIconSize": {
-            "value": 27,
+            "value": 22,
+            "unit": "px"
+          },
+          "fontFamily": "roboto",
+          "fontSize": {
+            "value": 15,
+            "unit": "px"
+          },
+          "lineHeight": {
+            "value": 20,
+            "unit": "px"
+          },
+          "alignItems": "center",
+          "gap": {
+            "value": 6,
+            "unit": "px"
+          },
+          "whiteSpace": "nowrap",
+          "paddingTop": {
+            "value": 6,
+            "unit": "px"
+          },
+          "paddingBottom": {
+            "value": 6,
+            "unit": "px"
+          },
+          "paddingLeft": {
+            "value": 10,
+            "unit": "px"
+          },
+          "paddingRight": {
+            "value": 10,
             "unit": "px"
           }
         },

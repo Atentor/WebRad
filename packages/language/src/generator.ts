@@ -257,12 +257,18 @@ function apiInputRecord(name: string, fields: readonly (readonly [string, string
       ];
 }
 
-function repeatingGroupTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
+function boundRowTypeDeclarations(
+  page: PageModel,
+  componentType: 'WebRepeatingGroup' | 'WebDataGrid',
+): ApiClientTypeDeclarations {
   const declarations: string[] = [];
   const typeByComponentId = new Map<string, string>();
   for (const group of page.components) {
-    if (group.type !== 'WebRepeatingGroup') continue;
-    const config = RepeatingGroupConfigurationSchema.safeParse(group.props.repeatingGroupConfig);
+    if (group.type !== componentType) continue;
+    const config =
+      componentType === 'WebDataGrid'
+        ? DataGridConfigurationSchema.safeParse(group.props.dataGridConfig)
+        : RepeatingGroupConfigurationSchema.safeParse(group.props.repeatingGroupConfig);
     const api = config.success
       ? page.components.find((component) => component.id === config.data.apiClientId)
       : undefined;
@@ -292,10 +298,13 @@ function repeatingGroupTypeDeclarations(page: PageModel): ApiClientTypeDeclarati
     declarations.push(
       ...builder.declarations,
       `export type ${group.name}RowValue = ${itemType};`,
-      `export type ${group.name}CurrentRow = WebRepeatingGroupCurrentRow<${group.name}RowValue>;`,
+      ...(componentType === 'WebRepeatingGroup'
+        ? [`export type ${group.name}CurrentRow = WebRepeatingGroupCurrentRow<${group.name}RowValue>;`]
+        : []),
       '',
     );
-    typeByComponentId.set(group.id, `WebRepeatingGroup<${group.name}RowValue>`);
+    if (componentType === 'WebRepeatingGroup')
+      typeByComponentId.set(group.id, `WebRepeatingGroup<${group.name}RowValue>`);
   }
   return { declarations, typeByComponentId };
 }
@@ -333,10 +342,16 @@ function documentTypeDeclarations(
   menus: readonly MenuDefinitionModel[] = [],
 ): ApiClientTypeDeclarations {
   const api = apiClientTypeDeclarations(page);
-  const rows = repeatingGroupTypeDeclarations(page);
+  const rows = boundRowTypeDeclarations(page, 'WebRepeatingGroup');
+  const gridRows = boundRowTypeDeclarations(page, 'WebDataGrid');
   const reports = reportTypeDeclarations(page);
   return {
-    declarations: [...api.declarations, ...rows.declarations, ...reports.declarations],
+    declarations: [
+      ...api.declarations,
+      ...rows.declarations,
+      ...gridRows.declarations,
+      ...reports.declarations,
+    ],
     typeByComponentId: new Map([
       ...api.typeByComponentId,
       ...rows.typeByComponentId,

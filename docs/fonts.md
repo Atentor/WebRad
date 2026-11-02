@@ -42,6 +42,12 @@ retain their styles and component bindings. This catalog serves browser visual
 styles; Report Builder's PDF text continues to use its documented PDF font
 contract.
 
+Roboto is the default for every seeded visual style and for the IDE interface.
+The shared project surface uses 14px text with a 20px line height, matching new
+Styles typography property values. The `ide` family ID resolves to bundled
+Roboto as well. Explicit generic or named font choices remain available, and
+existing saved style sizes and weights are not replaced by the new defaults.
+
 `@webrad/runtime/fonts` owns the shared family catalog. Project-model metadata
 uses it for the validated enum and the generic visual editor renders those
 choices. The existing runtime style resolver emits `font-<id>` utilities, while

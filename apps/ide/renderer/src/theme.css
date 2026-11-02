@@ -4,7 +4,7 @@
 :root,
 [data-theme='dark'] {
   color-scheme: dark;
-  --wr-font-ui: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --wr-font-ui: 'Roboto', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --wr-font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
   --wr-font-size-ui: 13px;
   --wr-font-size-secondary: 12px;

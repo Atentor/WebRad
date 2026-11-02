@@ -19,7 +19,7 @@ it('validates and persists bundled fonts in every style state while keeping gene
     { value: 'sans', label: 'Sans serif' },
     { value: 'serif', label: 'Serif' },
     { value: 'mono', label: 'Monospace' },
-    { value: 'ide', label: 'WebRAD IDE (system)' },
+    { value: 'ide', label: 'WebRAD IDE (Roboto)' },
     ...WEBRAD_FONT_FAMILIES.map((font) => ({ value: font.id, label: font.label })),
   ]);
   let project = createProject('Fonts');

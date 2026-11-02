@@ -136,13 +136,17 @@ ${chartsTypings.source}
     readonly columns: readonly WebDataGridColumn[];
   }
 
-  export interface WebDataGridCellEventDetail {
+  export type WebDataGridRowValues<TRow = unknown> = Readonly<TRow> & {
+    <T = unknown>(fieldNameOrPath: string): T | undefined;
+  };
+
+  export interface WebDataGridCellEventDetail<TRow = unknown> {
     readonly rowIndex: number;
     readonly columnIndex: number;
-    readonly row: unknown;
+    readonly row: TRow;
     readonly column: WebDataGridColumn;
     readonly value: unknown;
-    readonly getValue: <T = unknown>(fieldNameOrPath: string) => T | undefined;
+    readonly getValue: WebDataGridRowValues<TRow>;
   }
 
   export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridConfiguration;
