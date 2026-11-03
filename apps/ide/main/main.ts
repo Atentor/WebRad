@@ -321,8 +321,9 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
   const highlightingEvidence = await waitForRendererResult(
     window,
     `(() => {
-      const editor = document.querySelector('.monaco-editor');
+      const editor = document.querySelector('.wr-code-workspace .wr-monaco-host .monaco-editor');
       if (!(editor instanceof HTMLElement)) return null;
+      const modelHost = editor.closest('[data-mode-id]');
       const lines = [...editor.querySelectorAll('.view-lines .view-line')];
       const tokens = [...editor.querySelectorAll('.view-lines span[class*="mtk"]')]
         .filter((node) => node instanceof HTMLElement)
@@ -339,8 +340,8 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
         tokens.some((token) => token.text.trim() === keyword && token.tokenClass.length > 0),
       );
       return {
-        languageId: editor.getAttribute('data-mode-id'),
-        resource: editor.querySelector('[data-uri]')?.getAttribute('data-uri') ?? null,
+        languageId: modelHost?.getAttribute('data-mode-id') ?? null,
+        resource: editor.getAttribute('data-uri'),
         visibility: {
           document: document.visibilityState,
           focused: document.hasFocus(),

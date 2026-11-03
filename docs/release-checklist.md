@@ -243,6 +243,21 @@ These identify past observations rather than current verification.
 
 ## Investigating failures
 
+### Native Monaco smoke attribute ownership: 70dbbec (2026-11-03)
+
+[Release 41613804410](https://github.com/Atentor/WebRad/actions/runs/41613804410)
+and [validate 41613804463](https://github.com/Atentor/WebRad/actions/runs/41613804463)
+show healthy TypeScript syntax, but the new language assertion reads null.
+Monaco's caller container owns `data-mode-id`; its child `.monaco-editor` View
+owns `data-uri`. Sample the primary Code workspace, get the former from the
+view's nearest owning ancestor and the latter from the view itself. Keep all
+language, token/color, keyword, inlay-hint and deadline requirements. Do not
+remove the assertion or supply synthetic attributes to accommodate this error.
+
+See the [review](ci-review-2026-11-03-70dbbec.md) and retained
+`artifacts/ci-70dbbec/`. These workflows stop before Login; a corrected final
+SHA must execute the remaining supported workflows before release readiness.
+
 ### Login mobile typography and Monaco startup: fbd7d0e (2026-11-03)
 
 All six native jobs passed code checks, formatting, portable tests and packaging

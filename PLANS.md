@@ -1,5 +1,28 @@
 # WebRAD delivery plan
 
+## Hosted 70dbbec Monaco smoke ownership: 2026-11-03
+
+Tracked release `41613804410`, validate `41613804463` and security `41613804433`
+at exact commit `70dbbec44d04e2bb79ce3d512cfbcabbfdc4028a`. All jobs finished:
+security and release preflight passed; all six native jobs passed code checks, formatting, portable tests and
+packaging before the shared Monaco smoke stopped them. Syntax evidence is now
+healthy: 46 spans, four syntax classes, seven colors and all expected keywords.
+The failure is the added language check returning null from the wrong DOM node.
+
+Monaco writes native `data-mode-id` on the caller container and `data-uri` on
+its child View root. The smoke now scopes to the main Code workspace, obtains
+language from that view's nearest owning container, and reads resource on the
+view itself. The TypeScript language assertion, original highlighting checks
+and 20-second deadline remain intact. Both runners share the correction.
+
+The [review](docs/ci-review-2026-11-03-70dbbec.md) documents the confirmed smoke
+regression and source fix. Original logs/artifacts are retained under
+`artifacts/ci-70dbbec/`, including all six downloaded/extracted archives.
+These failed runs did not reach Login or later workflows; assembly was skipped.
+The correction needs a new approved push and final-SHA hosted verification;
+monitoring the original SHA does not validate local edits. No local test,
+build, smoke, tag, version change or publication accompanies the source fix.
+
 ## Hosted fbd7d0e Electron corrections: 2026-11-03
 
 Reviewed all eleven jobs in release `41569409213`, validate `41569409180` and
