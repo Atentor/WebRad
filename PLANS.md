@@ -1,5 +1,30 @@
 # WebRAD delivery plan
 
+## Hosted d9207b2 validation corrections: 2026-11-02
+
+Reviewed all eleven jobs in release `41547033292`, validate `41547033369` and
+security `41547033332` for exact commit
+`d9207b26d1d313bfd2014208ad01bb3a68ae5bcf`. Both security jobs and release preflight
+passed. All four release targets passed generated-source, strict TypeScript and
+lint checks, then stopped at formatting in `component-registry/src/registry.ts`
+and `language/src/generator.ts`. Applied Prettier to those two files.
+
+Both quality jobs reported the same single language-test failure: 1,768 tests
+passed, one failed and 43 were skipped per host. The registry-wide Interaction
+fixture omitted `Audit.generated`, now referenced by Data Grid's generated row
+type argument. It now supplies real model-generated document declarations and
+uses matching component names, preserving the exact diagnostic expectations,
+all registered events, native completions and hover checks.
+
+The [detailed review](docs/ci-review-2026-11-02-d9207b2.md) records the individual
+jobs, causes, corrections and evidence limits. Six original decoded failure
+logs, job metadata and empty artifact inventories are retained under
+`artifacts/ci-d9207b2/`. Packaging, application smokes and assembly were not
+reached in the hosted runs. No local tests or validation checks were requested
+or run; source formatting was a corrective write. Changes remain local, with no
+commit, push, tag, version change or publication. A corrected final SHA still
+requires hosted verification.
+
 ## Typed Data Grid row field access: 2026-11-02
 
 Data Grid cell events expose `getValue.fieldName` alongside the existing

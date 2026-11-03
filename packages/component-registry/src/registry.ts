@@ -232,7 +232,8 @@ export function validateComponentDefinition(definition: ComponentDefinition): vo
     const detailProperties = event.eventDetailProperties ?? [];
     if (
       event.eventDetailTypeArgumentSuffix !== undefined &&
-      (event.eventDetailType === undefined || !isSafeIdentifier(event.eventDetailTypeArgumentSuffix))
+      (event.eventDetailType === undefined ||
+        !isSafeIdentifier(event.eventDetailTypeArgumentSuffix))
     ) {
       throw new InvalidComponentDefinitionError(
         `Event "${event.name}" detail type argument requires a detail type and a TypeScript-safe suffix.`,

@@ -299,7 +299,9 @@ function boundRowTypeDeclarations(
       ...builder.declarations,
       `export type ${group.name}RowValue = ${itemType};`,
       ...(componentType === 'WebRepeatingGroup'
-        ? [`export type ${group.name}CurrentRow = WebRepeatingGroupCurrentRow<${group.name}RowValue>;`]
+        ? [
+            `export type ${group.name}CurrentRow = WebRepeatingGroupCurrentRow<${group.name}RowValue>;`,
+          ]
         : []),
       '',
     );

@@ -507,6 +507,15 @@ export class ${document.name} extends ${document.name}Generated {
 
 describe('event handler AST editing', () => {
   it('provides a real typed event, native completions and invalid-member diagnostics for every registered Interaction', () => {
+    const page = testPage();
+    const auditPage = {
+      ...page,
+      name: 'Audit',
+      components: page.components.map((component) => ({
+        ...component,
+        name: component.id === page.rootComponentId ? 'Audit' : `${component.type}1`,
+      })),
+    };
     const events = defaultComponentRegistry
       .list()
       .flatMap((component) => component.events.map((event) => ({ component, event })));
@@ -514,7 +523,7 @@ describe('event handler AST editing', () => {
     for (const { component, event } of events) {
       const edit = ensureEventHandler(source, {
         className: 'Audit',
-        componentName: 'Component1',
+        componentName: `${component.type}1`,
         componentType: component.type,
         eventName: event.name,
         handlerName: `Audit${component.type}${event.name}`,
@@ -527,6 +536,7 @@ describe('event handler AST editing', () => {
     const fileName = '/webrad-language-test/Audit.ts';
     const service = createLanguageService({
       [fileName]: source,
+      '/webrad-language-test/Audit.generated.d.ts': generatePageTypings(auditPage),
       '/webrad-language-test/runtime.d.ts': generateRuntimeTypings(),
     });
     try {
