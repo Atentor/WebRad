@@ -61,7 +61,9 @@ New placements use a 420 px fixed width and responsive fit-content height; the
 initial saved bounds are 420 by 400 px before content measurement. Existing
 placements retain their authored sizing. Long registration forms can scroll.
 Narrow containers and touch devices retain 44 px controls and at least 16 px
-input type. The original complete spacing preset is upgraded to these defaults;
+input type, including inputs bound to a project Style with a smaller font size.
+Larger authored input sizes remain effective, and desktop fields keep their
+selected typography. The original complete spacing preset is upgraded to these defaults;
 independently customized spacing combinations are preserved.
 Use stretch width or responsive anchors to fit the available page space; internal
 fields fill the template width. Long registration forms scroll within its bounds.

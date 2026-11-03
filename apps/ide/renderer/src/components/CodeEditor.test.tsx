@@ -768,6 +768,7 @@ describe('CodeEditor professional Monaco workspace', () => {
     );
 
     expect(mocks.createModel).toHaveBeenCalledTimes(2);
+    expect(mocks.configureMonaco).toHaveBeenCalledBefore(mocks.createModel);
     expect(mocks.models.get(CANONICAL_MAIN_RESOURCE)?.getLanguageId()).toBe('typescript');
     expect(mocks.models.get(CANONICAL_OTHER_RESOURCE)?.getValue()).toBe(
       'export class PageOther {}',
@@ -775,7 +776,7 @@ describe('CodeEditor professional Monaco workspace', () => {
 
     expect(mocks.editorProps?.beforeMount).toBeTypeOf('function');
     mocks.editorProps?.beforeMount?.({});
-    expect(mocks.configureMonaco).toHaveBeenCalledOnce();
+    expect(mocks.configureMonaco).toHaveBeenCalled();
     expect(mocks.synchronizeMonacoExtraLibraries).toHaveBeenCalledWith(props.extraLibraries);
     expect(mocks.editorProps).toMatchObject({
       defaultLanguage: 'typescript',

@@ -991,6 +991,7 @@ function resolveComponentStyleStateClassNamesInternal(
   rootPaintProperties: TailwindStyleProperties | null | undefined = properties,
   forceBackgroundReset = false,
   panelBackground = false,
+  editFontSize = false,
 ): readonly string[] {
   if (properties === undefined || properties === null || typeof properties !== 'object') return [];
   const rootPaint =
@@ -1016,7 +1017,12 @@ function resolveComponentStyleStateClassNamesInternal(
       }
       continue;
     }
-    const candidateExpression = resolveStylePropertyCandidate(propertyName, value);
+    // Composite forms can establish a responsive minimum without replacing
+    // the field's authored size or its theme and interaction-state overrides.
+    const candidateExpression =
+      editFontSize && propertyName === 'fontSize' && isStyleLengthValue(value)
+        ? `text-[length:max(var(--wr-edit-min-font-size,0px),${formatNumber(value.value)}${value.unit})]`
+        : resolveStylePropertyCandidate(propertyName, value);
     appendCandidateExpression(resolved, seen, candidateExpression);
     if (panelBackground && propertyName === 'overflow') {
       appendCandidateExpression(
@@ -1112,6 +1118,7 @@ export function resolveComponentStyleClassNames(
       effective,
       stateName !== 'base' && requiresBackgroundReset(base, selected, effective),
       style?.componentType === 'WebPanel',
+      style?.componentType === 'WebEdit',
     );
     for (const candidate of candidates) {
       for (const variant of variants) {
@@ -1173,6 +1180,7 @@ export function resolveComponentStylePreviewClassName(
       effective,
       false,
       style?.componentType === 'WebPanel',
+      style?.componentType === 'WebEdit',
     ),
   ];
   if (style?.componentType === 'WebPanel' && !hasRootPaintProperties(effective))

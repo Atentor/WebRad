@@ -1,7 +1,7 @@
 import * as monacoApi from 'monaco-editor/editor';
 import { useEffect, useId, useRef, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
-import { webradMonacoTheme } from '../monaco-setup';
+import { configureMonaco, webradMonacoTheme } from '../monaco-setup';
 import { Icon } from './Icon';
 import './PackageDefinitionDialog.css';
 
@@ -26,6 +26,7 @@ export function PackageDefinitionDialog({
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!host.current) return;
+    configureMonaco();
     const uri = monacoApi.Uri.parse(target.resource);
     const existing = monacoApi.editor.getModel(uri);
     const model = existing ?? monacoApi.editor.createModel(target.content, 'typescript', uri);

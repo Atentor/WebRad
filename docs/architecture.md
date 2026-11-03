@@ -32,6 +32,14 @@ TypeScript. Package metadata is never parsed as authored TypeScript. No second
 completion engine, renderer filesystem access or runtime Node bridge is added.
 See [Packages / NPM](packages.md).
 
+Monaco syntax setup precedes model creation in both the project workspace and
+package-definition viewer. Project synchronization can run before the React
+editor loader reaches `beforeMount`, so each model-creation boundary calls the
+same idempotent setup. TypeScript metadata, its official Monarch grammar and
+language configuration have one eager registration; semantic TypeScript
+services and workers activate lazily. No private Monaco API or renderer-global
+model handle is required.
+
 `WebLogin` is a centrally registered authentication template composed from real
 Panel, Label, Edit, Button and CheckBox runtime objects. The versioned configuration
 lives in the Project Model; its modal commits through Designer commands/history.
@@ -51,6 +59,15 @@ catalogue metadata. Runtime Login controls apply the classes to their concrete
 elements, preserving native hover/focus/active/disabled and theme behavior. The
 Project Model validates Login's stable style IDs and clears references on style
 deletion. Legacy paint data remains separate from the new binding mode.
+
+Structured WebEdit font-size utilities combine the authored size with the
+optional `--wr-edit-min-font-size` CSS floor. Login sets that floor to 16 px in
+narrow containers and on coarse-pointer devices. The later utilities layer
+therefore preserves the responsive minimum while retaining larger authored
+sizes, theme overrides and interaction states. Outside those Login conditions,
+the floor defaults to zero and the authored size remains effective. Designer,
+configuration previews and compiled browser output share this projection; saved
+Style values and the project format do not change.
 
 Account recovery uses the SDK's anonymous request/confirm endpoints. An internal
 browser-only recovery broker starts from `configureRestGo` before the page router,

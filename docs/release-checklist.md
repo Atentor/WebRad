@@ -52,7 +52,7 @@ and independently scrolling lists),
 Keep uncaught renderer errors fatal. This scoped flow does not certify native
 Tauri execution on other platforms or replace exact-commit release gates.
 
-The Login workflow requires `renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles;`
+The Login workflow requires `renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles; mobile fields at least 16px type and 44px height;`
 in both Electron runners, covering the bounded 1040 by 620 px configurator,
 compact header/close control, two-column settings, visible footer and scaled
 editor-only preview occupying half the desktop body without horizontal overflow,
@@ -242,6 +242,34 @@ Related historical incidents: `39987745678` (`be52986`, macOS Intel first title 
 These identify past observations rather than current verification.
 
 ## Investigating failures
+
+### Login mobile typography and Monaco startup: fbd7d0e (2026-11-03)
+
+All six native jobs passed code checks, formatting, portable tests and packaging
+in [release 41569409213](https://github.com/Atentor/WebRad/actions/runs/41569409213)
+and [validate 41569409180](https://github.com/Atentor/WebRad/actions/runs/41569409180).
+Five Electron workflows failed Login's 16 px mobile font minimum: the explicit
+14 px Default Edit utility overrode the earlier component-layer rule. Structured
+WebEdit font-size candidates now honor Login's responsive CSS floor while
+retaining larger authored sizes and desktop/theme/state typography. Keep the
+real 16 px/44 px assertions, exact geometry and updated Login evidence in both
+runners; embedded runtime sources must include this projection.
+
+Linux packaged stopped earlier at neutral Monaco syntax tokens. Project effects
+can run before the React loader's setup; the normal App open path also
+preconfigures Monaco, so this does not establish the original failure's cause.
+Enforce setup at model-creation boundaries and keep a single eager grammar
+registration with lazy semantic services. Retain native TypeScript language,
+syntax token/color assertions and the 20-second deadline. Timeout evidence now
+includes language, resource, visibility, focus and editor geometry. The original
+artifact lacks internal tokenizer state, so the exclusive native cause remains
+unproven and corrected hosted execution remains required.
+
+All six archives and decoded logs are retained in `artifacts/ci-fbd7d0e/`; see
+the [detailed review](ci-review-2026-11-03-fbd7d0e.md). No local validation was
+requested or run. Packaging the original SHA does not certify later smokes,
+updates, distributables or assembly; the final corrected SHA still needs the
+full hosted gate.
 
 ### Local release-candidate validation: 2026-11-02
 

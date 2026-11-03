@@ -49,12 +49,12 @@ export const WEB_LOGIN_CSS = `
 .wr-weblogin[data-login-styling='legacy'] .wr-login-dialog::backdrop { background: rgb(0 0 0 / .5); }
 
 @container wr-login (max-width: 400px) {
-  .wr-login-input, .wr-login-input.wr-webedit { min-height: max(var(--wr-login-fieldHeight), 44px); font-size: max(16px, 1em); }
+  .wr-login-input, .wr-login-input.wr-webedit { --wr-edit-min-font-size: 16px; min-height: max(var(--wr-login-fieldHeight), 44px); font-size: max(16px, 1em); }
   .wr-login-submit, .wr-login-submit.wr-webbutton { min-height: max(var(--wr-login-fieldHeight), 44px); }
   .wr-login-link, .wr-login-close, .wr-login-remember { min-height: 44px; }
 }
 @media (pointer: coarse) {
-  .wr-login-input, .wr-login-input.wr-webedit { min-height: max(var(--wr-login-fieldHeight), 44px); font-size: max(16px, 1em); }
+  .wr-login-input, .wr-login-input.wr-webedit { --wr-edit-min-font-size: 16px; min-height: max(var(--wr-login-fieldHeight), 44px); font-size: max(16px, 1em); }
   .wr-login-submit, .wr-login-submit.wr-webbutton { min-height: max(var(--wr-login-fieldHeight), 44px); }
   .wr-login-link, .wr-login-close, .wr-login-remember { min-height: 44px; }
 }

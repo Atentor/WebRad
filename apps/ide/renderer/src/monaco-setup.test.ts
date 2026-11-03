@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
     getCompletionsAtPosition,
     getTypeScriptWorker,
     registrations,
+    registerLanguage: vi.fn(),
     setCompilerOptions: vi.fn(),
     setDiagnosticsOptions: vi.fn(),
     setEagerModelSync: vi.fn(),
@@ -42,6 +43,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('monaco-editor/editor', () => ({
   editor: { defineTheme: mocks.defineTheme },
   languages: {
+    register: mocks.registerLanguage,
     setLanguageConfiguration: mocks.setLanguageConfiguration,
     setMonarchTokensProvider: mocks.setMonarchTokensProvider,
   },
@@ -81,7 +83,6 @@ vi.mock('monaco-editor/features/suggest/register', () => ({}));
 vi.mock('monaco-editor/features/tokenization/register', () => ({}));
 vi.mock('monaco-editor/features/unicodeHighlighter/register', () => ({}));
 vi.mock('monaco-editor/features/wordHighlighter/register', () => ({}));
-vi.mock('monaco-editor/languages/definitions/typescript/register', () => ({}));
 vi.mock('monaco-editor/languages/definitions/typescript/typescript', () => ({
   conf: mocks.typeScriptLanguageConfiguration,
   language: mocks.typeScriptLanguage,
@@ -127,6 +128,12 @@ describe('Monaco setup', () => {
     expect(webradMonacoTheme('dark')).toBe(WEBRAD_MONACO_DARK_THEME);
     expect(webradMonacoTheme('light')).toBe(WEBRAD_MONACO_LIGHT_THEME);
     expect(mocks.defineTheme).toHaveBeenCalledTimes(2);
+    expect(mocks.registerLanguage).toHaveBeenCalledExactlyOnceWith({
+      id: 'typescript',
+      extensions: ['.ts', '.tsx', '.cts', '.mts'],
+      aliases: ['TypeScript', 'ts', 'typescript'],
+      mimetypes: ['text/typescript'],
+    });
     expect(mocks.setLanguageConfiguration).toHaveBeenCalledExactlyOnceWith(
       'typescript',
       mocks.typeScriptLanguageConfiguration,

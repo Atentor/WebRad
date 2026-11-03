@@ -311,6 +311,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
       Number(Reflect.get(value, 'tokens')) >= 4 &&
       Number(Reflect.get(value, 'tokenClasses')) >= 3 &&
       Number(Reflect.get(value, 'colors')) >= 3 &&
+      Reflect.get(value, 'languageId') === 'typescript' &&
       Array.isArray(keywords) &&
       keywords.includes('import') &&
       Reflect.get(value, 'pageClass') === true &&
@@ -338,6 +339,16 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
         tokens.some((token) => token.text.trim() === keyword && token.tokenClass.length > 0),
       );
       return {
+        languageId: editor.getAttribute('data-mode-id'),
+        resource: editor.querySelector('[data-uri]')?.getAttribute('data-uri') ?? null,
+        visibility: {
+          document: document.visibilityState,
+          focused: document.hasFocus(),
+          editorWidth: editor.clientWidth,
+          editorHeight: editor.clientHeight,
+          display: getComputedStyle(editor).display,
+          visibility: getComputedStyle(editor).visibility,
+        },
         lines: lines.length,
         tokens: tokens.length,
         tokenClasses: tokenClasses.length,

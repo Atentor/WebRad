@@ -424,6 +424,6 @@ export async function runLoginSmoke(
   });
   await reloadProject();
   log(
-    `renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles; palette, compatible per-element Style/None bindings and persistence, native Popup modal and close, Panel, 390px mobile fields; screenshot ${screenshot}`,
+    `renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles; mobile fields at least 16px type and 44px height; palette, compatible per-element Style/None bindings and persistence, native Popup modal and close, Panel, 390px viewport; screenshot ${screenshot}`,
   );
 }

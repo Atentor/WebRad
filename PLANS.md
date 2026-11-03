@@ -1,5 +1,38 @@
 # WebRAD delivery plan
 
+## Hosted fbd7d0e Electron corrections: 2026-11-03
+
+Reviewed all eleven jobs in release `41569409213`, validate `41569409180` and
+security `41569409165` at exact commit
+`fbd7d0ee04794c4962483a47ab9aa884da6aa4f2`. All six native jobs passed code checks,
+formatting, portable tests (1,769 passed, 43 skipped) and application packaging.
+The previous Interaction fixture and formatting corrections passed. Security
+and release preflight passed. Downloaded all six smoke artifacts and retained
+original logs, models, screenshots and metadata in `artifacts/ci-fbd7d0e/`.
+
+Five jobs failed the same Login mobile assertion: Default Edit's 14 px utility
+overrode the template's 16 px floor through CSS layer ordering. WebEdit's shared
+structured font-size projection now combines authored sizes with a responsive
+floor set only by Login, preserving larger custom sizes, desktop typography,
+theme/state behavior and saved model values. Regenerated embedded runtime
+sources and updated the existing Login evidence required by both runners.
+
+Linux packaged stopped earlier with neutral Monaco syntax tokens. CodeEditor
+now enforces configuration before project-model creation, including effects
+that run before the React loader's `beforeMount`. The normal App open path can
+already preconfigure Monaco; this is initialization hardening, not proof of the
+original Linux cause. A single eager owner registers the
+TypeScript metadata and official grammar; semantic services remain lazy. Existing
+smoke diagnostics include model language and editor visibility. Original
+artifacts do not prove the exclusive tokenizer state; hosted confirmation is
+still required. Assertions, deadlines, strictness and platform gates remain.
+
+The [detailed review](docs/ci-review-2026-11-03-fbd7d0e.md) records each job,
+artifact, cause and evidence limit. No local tests, checks, builds, packaging or
+smokes were requested or run. These source corrections remain uncommitted; no
+push, tag, version change, installer or publication was performed. Final-SHA
+hosted verification and assembly remain required before release.
+
 ## Hosted d9207b2 validation corrections: 2026-11-02
 
 Reviewed all eleven jobs in release `41547033292`, validate `41547033369` and

@@ -37,7 +37,6 @@ import 'monaco-editor/features/suggest/register';
 import 'monaco-editor/features/tokenization/register';
 import 'monaco-editor/features/unicodeHighlighter/register';
 import 'monaco-editor/features/wordHighlighter/register';
-import 'monaco-editor/languages/definitions/typescript/register';
 import {
   conf as typeScriptLanguageConfiguration,
   language as typeScriptLanguage,
@@ -220,6 +219,15 @@ export function webradMonacoTheme(theme: 'dark' | 'light'): WebRadMonacoTheme {
 
 export function configureMonaco(): void {
   if (configured) return;
+
+  // Register the metadata without a second, lazy exclusive tokenizer factory.
+  // Keep one synchronous owner for syntax tokens; semantic services stay lazy.
+  monacoApi.languages.register({
+    id: 'typescript',
+    extensions: ['.ts', '.tsx', '.cts', '.mts'],
+    aliases: ['TypeScript', 'ts', 'typescript'],
+    mimetypes: ['text/typescript'],
+  });
 
   monacoApi.editor.defineTheme(WEBRAD_MONACO_DARK_THEME, DARK_THEME);
   monacoApi.editor.defineTheme(WEBRAD_MONACO_LIGHT_THEME, LIGHT_THEME);

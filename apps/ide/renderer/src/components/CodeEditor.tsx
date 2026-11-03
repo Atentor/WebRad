@@ -575,6 +575,10 @@ export function CodeEditor({
   }, []);
 
   const synchronizeProjectModels = useCallback((): boolean => {
+    // Effects can synchronize project sources while the React editor loader is
+    // still pending. Install the grammar before creating the first model, not
+    // only from the editor's later beforeMount callback.
+    configureMonaco();
     const canonicalSources = new Map(
       Object.entries(projectSourcesRef.current).map(([resource, content]) => [
         canonicalResource(resource),
