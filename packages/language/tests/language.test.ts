@@ -45,6 +45,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-label-status', type: 'WebLabel', name: 'LBLStatus' },
   { id: 'stable-html', type: 'WebHtml', name: 'Html1' },
   { id: 'stable-edit-name', type: 'WebEdit', name: 'EDTNome' },
+  { id: 'stable-date', type: 'WebDate', name: 'Date1' },
   { id: 'stable-text-area-notes', type: 'WebTextArea', name: 'MEMNotas' },
   { id: 'button-show', type: 'WebButton', name: 'BTNMostrar' },
   { id: 'stable-check-box-active', type: 'WebCheckBox', name: 'CHKAtivo' },

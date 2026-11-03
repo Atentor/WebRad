@@ -282,6 +282,7 @@ function materializeComponentDefaultStyle(
   componentType: string,
   precedingTypes: readonly string[],
   colors?: readonly ProjectPaletteColor[],
+  inheritPaintFrom?: string,
 ): DefaultStyleMaterialization {
   const existingDefault = styles.find((style) => isDefaultStyleForComponent(style, componentType));
   if (existingDefault !== undefined) {
@@ -304,20 +305,29 @@ function materializeComponentDefaultStyle(
   const styleId = uniqueDefaultStyleId(projectId, definition.componentType, occupiedIds);
   const styleName = uniqueDefaultStyleName(definition.name, occupiedNames);
   const states = materializeDefaultStyleStates(definition.states);
+  const paintSource =
+    inheritPaintFrom === undefined
+      ? undefined
+      : styles.find((style) => isDefaultStyleForComponent(style, inheritPaintFrom));
   const defaultStyle = {
     id: styleId,
     name: styleName,
     componentType: definition.componentType,
     preset: 'default' as const,
     states:
-      colors === undefined
-        ? states
-        : Object.fromEntries(
-            COMPONENT_STYLE_STATE_NAMES.map((state) => [
-              state,
-              bindStyleColorsToPalette(states[state], colors),
-            ]),
-          ),
+      isRecord(paintSource) && isRecord(paintSource.states)
+        ? structuredClone(paintSource.states)
+        : colors === undefined
+          ? states
+          : Object.fromEntries(
+              COMPONENT_STYLE_STATE_NAMES.map((state) => [
+                state,
+                bindStyleColorsToPalette(states[state], colors),
+              ]),
+            ),
+    ...(isRecord(paintSource) && paintSource.themeOverrides !== undefined
+      ? { themeOverrides: structuredClone(paintSource.themeOverrides) }
+      : {}),
   };
   const precedingIndex = precedingTypes
     .map((type) => styles.findIndex((style) => isDefaultStyleForComponent(style, type)))
@@ -410,7 +420,15 @@ function materializeProjectDefaults(input: unknown): unknown {
       ['WebMenu'],
       palette.success ? palette.data : [],
     ).styles;
-    styles = normalizeDefaultStyleFonts(loginStyles);
+    const dateStyles = materializeComponentDefaultStyle(
+      candidate.id,
+      loginStyles,
+      'WebDate',
+      ['WebEdit'],
+      palette.success ? palette.data : [],
+      'WebEdit',
+    ).styles;
+    styles = normalizeDefaultStyleFonts(dateStyles);
   }
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;

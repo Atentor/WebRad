@@ -591,6 +591,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebCharts,
   WebRepeatingGroup,
   WebEdit,
+  WebDate,
   WebFileUpload,
   WebTimer,
   WebVideoUpload,
@@ -612,6 +613,7 @@ class EditorPage extends WebPage {
     reusable: WebReusableElement,
     label: WebLabel,
     edit: WebEdit,
+    date: WebDate,
     timer: WebTimer,
     fileUpload: WebFileUpload,
     videoUpload: WebVideoUpload,
@@ -641,6 +643,7 @@ panel./*@panel*/caption;
     reusable./*@reusable*/placement;
     label./*@label*/autoSize;
     edit./*@edit*/inputType;
+    date./*@date*/datetime;
     timer./*@timer*/Start;
     fileUpload./*@fileUpload*/upload;
     videoUpload./*@videoUpload*/SendToRestGO;
@@ -818,6 +821,7 @@ panel./*@panel*/caption;
       WebCheckBox: 'checkBox',
       WebComboBox: 'combo',
       WebEdit: 'edit',
+      WebDate: 'date',
       WebTimer: 'timer',
       WebFileUpload: 'fileUpload',
       WebVideoUpload: 'videoUpload',

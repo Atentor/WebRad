@@ -1,5 +1,6 @@
 import timerTypings from './timer-typings.generated.json';
 import htmlTypings from './html-typings.generated.json';
+import dateTypings from './date-typings.generated.json';
 import themeTypings from './theme-typings.generated.json';
 import menuTypings from './menu-typings.generated.json';
 import loginTypings from './login-typings.generated.json';
@@ -36,6 +37,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   }
 ${timerTypings.source}
 ${htmlTypings.source}
+${dateTypings.source}
 ${themeTypings.source}
 ${menuTypings.source}
 ${loginTypings.source}

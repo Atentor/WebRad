@@ -241,7 +241,9 @@ function presetProperties(
       : {}),
     ...(square &&
     borderGradient !== undefined &&
-    ['WebButton', 'WebEdit', 'WebTextArea', 'WebComboBox', 'WebListBox'].includes(componentType)
+    ['WebButton', 'WebEdit', 'WebDate', 'WebTextArea', 'WebComboBox', 'WebListBox'].includes(
+      componentType,
+    )
       ? { borderColor: themeColorReference('border-accent') }
       : {}),
   };

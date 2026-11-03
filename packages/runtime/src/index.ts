@@ -4,6 +4,7 @@ export { WebProgressBar } from './progress-bar.js';
 export interface WebRadPageParameters {}
 export { WebIcon } from './icon.js';
 export { WebHtml } from './html.js';
+export * from './date.js';
 export * from './menu.js';
 export * from './menu-model.js';
 export * from './login.js';

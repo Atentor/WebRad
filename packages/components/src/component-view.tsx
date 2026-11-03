@@ -29,7 +29,7 @@ import {
 } from '@webrad/runtime/visual';
 import { getWebRadIconShapes, isWebRadIconName, type WebRadIconShape } from '@webrad/runtime/icons';
 import { bindImageResampling, imagePlaceholderSource } from '@webrad/runtime/image-display';
-import { WebHtml, projectRepeatingGroupRowStyle } from '@webrad/runtime';
+import { WebHtml, WebDate, configureWebDate, projectRepeatingGroupRowStyle } from '@webrad/runtime';
 import {
   Children,
   cloneElement,
@@ -150,6 +150,26 @@ function HtmlView({ node, designTime, styleClassName }: ComponentViewProps): Rea
       inert={designTime || !readBooleanProperty(node, 'enabled', true)}
       tabIndex={designTime ? -1 : undefined}
     />
+  );
+}
+
+function DateView({ node, designTime, styleClassName, onEvent }: ComponentViewProps): ReactElement {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current === null) return;
+    const component = new WebDate(ref.current);
+    configureWebDate(component, node.props, node.name);
+    component.enabled = readBooleanProperty(node, 'enabled', true);
+    component.tabIndex = designTime ? -1 : readIntegerProperty(node, 'tabIndex', 0);
+    if (!designTime) {
+      for (const name of ['OnChange', 'OnInput', 'OnFocus', 'OnBlur'] as const) {
+        component.bindEvent(name, () => onEvent?.(name, node));
+      }
+    }
+    return () => component.dispose();
+  }, [node, designTime, onEvent]);
+  return (
+    <div {...sharedAttributes(node, designTime, styleClassName)} ref={ref} inert={designTime} />
   );
 }
 
@@ -511,6 +531,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
     </span>
   ),
   WebHtml: HtmlView,
+  WebDate: DateView,
   WebCharts: ({ node, designTime, styleClassName }) => {
     const parsed = ChartsConfigurationSchema.safeParse(node.props.chartsConfig);
     return (

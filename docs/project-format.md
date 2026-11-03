@@ -1,5 +1,18 @@
 # Project format
 
+## Date input
+
+`WebDate` is an additive registered component within the existing project/page
+format versions. Its ordinary property bag stores `mode` (`date`/`datetime`),
+`dateFormat` (`dd/MM/yyyy`, `MM/dd/yyyy`, `yyyy-MM-dd`), `showSeconds`, `showCalendar`,
+`value`, `min`, `max`, `required`, `readOnly`, `placeholder` and `accessibleLabel`,
+along with shared visual/layout properties. Date values and limits are empty
+strings or local ISO calendar strings (`YYYY-MM-DD` or
+`YYYY-MM-DDTHH:mm[:ss]`); no `Date` objects or time-zone offsets are serialized.
+Missing options follow registry/runtime defaults. Incomplete editing drafts and
+calendar popup state are transient. The loader materializes only a missing
+protected **Default Date** style with a collision-safe stable ID. See [Date](date.md).
+
 ## Packages / NPM
 
 The additive optional top-level `packages` field has its own version:

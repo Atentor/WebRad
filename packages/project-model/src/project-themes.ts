@@ -243,7 +243,7 @@ export function bindStyleColorsToTheme(
         ].includes(resolved)
       ) {
         const page = componentType === 'WebPage';
-        const field = ['WebEdit', 'WebTextArea', 'WebComboBox', 'WebListBox'].includes(
+        const field = ['WebEdit', 'WebDate', 'WebTextArea', 'WebComboBox', 'WebListBox'].includes(
           componentType,
         );
         role = page

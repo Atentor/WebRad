@@ -4,6 +4,7 @@ import { bindReusableMenuLayout } from './reusable-menu-layout.js';
 import { WebProgressBar, projectProgressBar } from './progress-bar.js';
 import { WebIcon, projectIcon } from './icon.js';
 import { WebHtml } from './html.js';
+import { WebDate, configureWebDate } from './date.js';
 import { WebMenu } from './menu.js';
 import { WebLogin } from './login.js';
 import { createDefaultWebLoginConfiguration, parseWebLoginConfiguration } from './login-model.js';
@@ -468,6 +469,14 @@ runtimeComponentRegistry
       component.aspectRatio = normalizeWebAspectRatio(node.props.aspectRatio);
       component.title = readStringProperty(node, 'title', 'HTML content');
       component.html = readStringProperty(node, 'html');
+    },
+  })
+  .register<WebDate>('WebDate', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebDate(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      configureWebDate(component, node.props, node.name);
     },
   })
   .register<WebEdit>('WebEdit', {

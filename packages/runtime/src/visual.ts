@@ -1401,8 +1401,44 @@ ${WEB_LOGIN_CSS}
 .wr-webpopup { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); border: 1px solid var(--wr-control-border, #677184); border-radius: 8px; background: var(--wr-control-surface, #262b35); color: inherit; overflow: hidden; padding: 0; }
 .wr-webpopup::backdrop { background: color-mix(in srgb, var(--wr-theme-overlay, #0f172a) 48%, transparent); }
 .wr-popup-children { box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: auto; }
-.wr-webedit, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { --webrad-border-gradient-surface: var(--wr-input-bg, #11151c); border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
-.wr-webedit:focus, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
+.wr-webedit, .wr-webdate, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { --webrad-border-gradient-surface: var(--wr-input-bg, #11151c); border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
+.wr-webedit:focus, .wr-webdate:focus-within, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
+.wr-webdate { display: flex; align-items: center; gap: 6px; position: relative; min-width: 0; }
+.wr-webdate .wr-date-input { appearance: none; width: 100%; min-width: 0; height: 100%; flex: 1; padding: 0; margin: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; text-align: inherit; }
+.wr-webdate .wr-date-input::placeholder { color: currentColor; opacity: .55; }
+.wr-webdate .wr-date-button { display: inline-flex; position: relative; align-items: center; justify-content: center; flex: 0 0 24px; width: 24px; height: 100%; padding: 0; border: 0; border-radius: 3px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.wr-webdate .wr-date-button[hidden] { display: none; }
+.wr-webdate .wr-date-button svg { width: 18px; height: 18px; }
+.wr-webdate .wr-date-button:focus-visible { outline: 2px solid var(--wr-accent, #4da3ff); outline-offset: 1px; }
+.wr-webdate .wr-date-button[aria-disabled="true"] { cursor: default; opacity: .5; }
+.wr-date-calendar { position: fixed; inset: auto; z-index: 2147483000; box-sizing: border-box; width: 260px; max-width: calc(100vw - 16px); margin: 0; padding: 10px; overflow: auto; border: 1px solid var(--wr-theme-border, #cbd5e1); border-radius: 8px; box-shadow: 0 8px 24px #0003; background: var(--wr-theme-surface, #ffffff); color: var(--wr-theme-text, #0f172a); font-family: inherit; font-size: 14px; line-height: 1.4; text-align: start; direction: ltr; }
+.wr-date-calendar[hidden] { display: none !important; }
+.wr-date-calendar::backdrop { background: transparent; }
+.wr-date-calendar button, .wr-date-calendar input, .wr-date-calendar select { box-sizing: border-box; min-width: 0; font: inherit; color: inherit; }
+.wr-date-calendar button { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 3px 5px; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
+.wr-date-calendar button:not(:disabled):hover { background: var(--wr-theme-surface-muted, #f1f5f9); }
+.wr-date-calendar button:focus-visible, .wr-date-calendar input:focus-visible, .wr-date-calendar select:focus-visible { outline: 2px solid var(--wr-theme-focus, #2563eb); outline-offset: -1px; }
+.wr-date-calendar button:disabled { opacity: .35; cursor: default; }
+.wr-date-calendar input, .wr-date-calendar select { width: 100%; border: 1px solid var(--wr-theme-border, #cbd5e1); border-radius: 4px; background: var(--wr-theme-input, #ffffff); padding: 3px; }
+.wr-date-calendar-header { display: grid; grid-template-columns: 26px minmax(0, 1fr) 64px 26px; align-items: center; gap: 3px; margin-bottom: 8px; }
+.wr-date-calendar-header button svg { width: 16px; height: 16px; }
+.wr-date-calendar-header select { padding-inline: 1px; }
+.wr-date-calendar-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+.wr-date-calendar-week > span { display: flex; justify-content: center; align-items: center; min-height: 30px; }
+.wr-date-calendar-week [role="columnheader"] { font-size: 12px; opacity: .7; }
+.wr-date-calendar-week button { width: 100%; height: 30px; padding: 2px; font-variant-numeric: tabular-nums; }
+.wr-date-calendar-week button[data-outside-month="true"] { opacity: .55; }
+.wr-date-calendar-week button[aria-current="date"] { box-shadow: inset 0 0 0 1px var(--wr-theme-primary, #2563eb); }
+.wr-date-calendar-week [aria-selected="true"] button, .wr-date-calendar-week [aria-selected="true"] button:hover { background: var(--wr-theme-primary, #2563eb); color: var(--wr-theme-on-primary, #ffffff); opacity: 1; }
+.wr-date-calendar-week [aria-selected="true"] button:disabled { opacity: .35; }
+.wr-date-calendar-time { display: flex; gap: 8px; margin-top: 8px; }
+.wr-date-calendar-time label { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; font-size: 12px; }
+.wr-date-calendar-time input { min-height: 30px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.wr-date-calendar-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.wr-date-calendar-footer button { color: var(--wr-theme-primary, #2563eb); }
+.wr-date-calendar-footer [data-date-apply] { background: var(--wr-theme-primary, #2563eb); color: var(--wr-theme-on-primary, #ffffff); }
+.wr-date-calendar-footer [data-date-apply]:not(:disabled):hover { background: var(--wr-theme-primary-hover, #1d4ed8); }
+.wr-webdate[aria-invalid="true"] { outline: 1px solid var(--wr-theme-danger, #dc2626); outline-offset: 1px; }
 .wr-webtextarea { resize: none; }
 .wr-webbutton { --webrad-border-gradient-surface: var(--wr-button-bg, #343b49); display: inline-flex; align-items: center; justify-content: center; gap: .45em; border: 1px solid var(--wr-control-border, #677184); border-radius: 4px; background: var(--wr-button-bg, #343b49); color: inherit; padding: 4px 12px; }
 .wr-button-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

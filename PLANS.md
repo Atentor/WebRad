@@ -1,5 +1,68 @@
 # WebRAD delivery plan
 
+## Date calendar minimum popup width: 2026-11-03
+
+Added a 260px minimum only to the calendar popup so narrow date inputs do not
+squeeze the month/year controls or overlap day cells. The input keeps its saved
+width; the popup starts at the same left edge and grows to the right as needed.
+Existing viewport width limits still apply on very small screens. Updated the
+existing smoke geometry contract and documentation; regenerated runtime sources
+and declarations. No tests, smokes, builds or validation commands were requested
+or run.
+
+## Date calendar aligned to both field edges: 2026-11-03
+
+The user confirmed the component-owned calendar works and requested its left
+edge line up with the date field as well. The popup now measures the entire
+field, adopts its width and starts at its left edge, so both edges align. It
+opens below the field's full height and retains viewport clamping, vertical
+flipping and scroll/resize positioning. Updated both runners' required evidence
+and the existing Date interaction to compare the actual open popup's left/right
+edges and width with the field at the existing 1.5 px tolerance. Updated docs
+and regenerated embedded sources/declarations. No tests, smokes, builds or
+validation commands were requested or run; this refinement remains unverified.
+
+## Date calendar right alignment: 2026-11-03
+
+The user's follow-up screenshot shows the native popup still left-aligned; the
+previous RTL-anchor workaround did not fix the behavior. Chromium's temporal
+input implementation derives internal direction from locale, so an input `dir`
+attribute is insufficient. Replaced the opaque native picker with a component-
+owned calendar whose measured right edge aligns with the icon button. It uses
+the Popover top layer, viewport clamping/vertical flipping and scroll/resize
+repositioning, with month/year/day/keyboard navigation, Today/Clear, datetime
+fields and Apply, existing limits, events, focus handling and disposal.
+
+The public `showPicker()` and typed Date APIs stay compatible. Calendar drafts
+remain transient; project formats do not change. Both Electron runners now require
+the actual open popup's measured right edge, viewport containment, native Space
+opening and day/time commit evidence, replacing the insufficient direction-only
+assertion. Updated documentation and embedded runtime sources. No tests, smokes,
+builds or validation commands were requested or run; the replacement's rendered
+geometry and execution remain unverified.
+
+## Complete Date component: 2026-11-03
+
+Added the centrally registered `WebDate` / **Date** palette control, Inspector
+date/datetime modes, three display masks, native calendar selection, optional
+seconds, initial value, inclusive limits, required/read-only/disabled states,
+accessibility and inherited field styles. Local ISO strings remain distinct
+from displayed drafts and typed `.date` / `.datetime` (`Date | null`) accessors.
+Calendar/time parsing rejects rollovers and nonexistent local date-times;
+programmatic access includes validity, clear, current date/time and picker APIs.
+
+Designer and runtime share the projection, with one instance per element to
+preserve configuration through generated page/reusable construction. Added the
+protected Default Date style, additive loading defaults, all theme presets,
+compiler CSS ownership, generated Monaco declarations and embedded sources.
+Updated existing registry-wide language fixtures and default-style count to
+match the new component. Both Electron runners require a Date palette/Inspector,
+persistence, native F9 typing, validity/event, geometry and Undo interaction.
+See [Date](docs/date.md) for the public contract and [Project format](docs/project-format.md)
+for persistence. Runtime source regeneration is an implementation step; no tests,
+typecheck, lint, formatting checks, smokes, builds or packaging were requested or
+run. Runtime and visual execution remain unverified. Changes remain local.
+
 ## Hosted 70dbbec Monaco smoke ownership: 2026-11-03
 
 Tracked release `41613804410`, validate `41613804463` and security `41613804433`

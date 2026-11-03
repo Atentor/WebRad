@@ -19,6 +19,7 @@ Start with the root [README](../README.md) to install the IDE and create a proje
 
 ## Components
 
+- [Date](date.md): masked date/date-time input, calendar aligned to the field, limits and typed values
 - [Login](login.md): configurable RestGo login, registration and recovery in a Panel or Popup
 - [Charts](charts.md): eight chart types and up to five API-bound data series
 - [Aspect ratios](aspect-ratio.md): free or proportional sizing for Panel, Group and HTML

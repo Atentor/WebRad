@@ -1,5 +1,12 @@
 # Component model
 
+`WebDate` exposes concrete `date` and `datetime` properties typed as `Date | null`,
+alongside a canonical local ISO `value` and masked draft `text`. Inspector metadata
+persists date/datetime mode, display format, precision and validation constraints.
+Typed page/reusable references use the shared instance-scoped language contract,
+supporting both `Date1.date` and `this.Date1.datetime` without component globals.
+See [Date](date.md).
+
 Data Grid `OnCellClick` handlers support typed access to other fields in the
 clicked row through `getValue.fieldName`. The generator exports a
 `GridNameRowValue` alias from the grid's selected API operation and saved

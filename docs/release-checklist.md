@@ -16,6 +16,21 @@ mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
 
+Both runners require `renderer Date Inspector and F9 passed:` and
+`renderer Date popup field alignment passed:`. The shared real IDE interaction
+inserts Date, reviews date-only defaults, changes to datetime, positions it with
+room for field alignment and saves the canonical value. It compares Designer/F9
+field paint and unclipped input/icon geometry, opens the actual calendar through
+native Space activation, and measures the open popup's left/right edges and width
+against the complete date field with a 260px popup-only minimum (1.5 px
+tolerance). Narrow fields retain their own width while the popup starts at the
+same left edge. Evidence also requires placement below it, viewport containment and lack of
+internal clipping. It selects a day and applies it while preserving time, then
+checks native text typing, masking, Input/Change delivery, impossible-date
+rejection and Undo of four model commands. An anchor direction flag is not
+popup-alignment evidence. Preserve the stable ID, existing deadlines and fatal
+renderer error handling. These interactions have not been executed for this change.
+
 Default style typography evidence must retain centered Button icon/caption
 content, Roboto 15px/20px normal text (400), 22px icons, and 8px corners in all four
 theme presets and both project templates. The existing Designer/Preview button

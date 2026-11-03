@@ -1,5 +1,20 @@
 # WebRAD architecture
 
+`WebDate` is a registry-owned masked date/date-time field with a browser-only
+runtime class. Designer projection and runtime mounting share `configureWebDate`
+and the same DOM/CSS, parser and mask. Canonical local ISO values are separate
+from transient display drafts and typed `Date | null` accessors. A WeakMap keeps
+authored and mounted wrappers on one instance per element; reusable placements
+remain isolated. The existing declaration/source synchronizer emits its Monaco
+API and embedded browser sources. See [Date](date.md).
+
+Its calendar is an internal browser-only `DateCalendar` popup, positioned from
+the full field and popup rectangles. It matches the field width with a 260px
+popup-only minimum, keeping the left edges aligned for narrow fields. Popover
+top-layer rendering avoids ancestor clipping; scroll/viewport handlers update
+the position and disposal removes the popup and listeners. Calendar drafts do
+not change the component value or dispatch public events until committed.
+
 ## Project package dependencies
 
 The optional version-1 `project.packages` field stores direct NPM dependencies

@@ -188,6 +188,9 @@ const sourceFiles = [
   'video-player-shaka.ts',
   'video-player.ts',
   'controls.ts',
+  'date.ts',
+  'date-value.ts',
+  'date-calendar.ts',
   'progress-bar.ts',
   'icon.ts',
   'html.ts',
@@ -382,6 +385,19 @@ const publicExportDeclaration = ts
 const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclarations}\n${publicExportDeclaration}\n}\n`;
 
 const outputs = [
+  [
+    path.join(repositoryRoot, 'packages', 'language', 'src', 'date-typings.generated.json'),
+    JSON.stringify(
+      createApiClientDeclarations(
+        repositoryRoot,
+        ['date-value.ts', 'date.ts'],
+        (name) =>
+          name.startsWith('WebDate') || name === 'configureWebDate' || name === 'isWebDateValue',
+      ),
+      null,
+      2,
+    ) + '\n',
+  ],
   [
     path.join(repositoryRoot, 'packages', 'language', 'src', 'login-typings.generated.json'),
     JSON.stringify(
