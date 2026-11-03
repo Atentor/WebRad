@@ -1,5 +1,75 @@
 # WebRAD delivery plan
 
+## Project resources smoke focus correction: 2026-11-03
+
+Investigated both resources failures from the authorized release validation.
+The packaged Unit retained `export {};` after native insertion; a focused
+diagnostic run recorded an inactive page focus controller despite the Monaco
+input being `activeElement`. Resources now scope Chromium focus emulation to the
+workflow and restore it in `finally`, matching the existing Packages/Menu setup.
+They await actual focused input and native Select All before replacing authored
+text, and native field selection/value before applying an inline rename. Exact
+saved Model/Unit comparisons, stable renamed IDs, duplicate-name rejection, all
+resource/Preview/persistence assertions and existing deadlines remain intact.
+Both runners require the more specific native-input evidence. Timeout diagnostics
+include focus, selection/cursor, rename draft/error and resource identities.
+
+Corrected development and rebuilt packaged resources flows passed, including
+exact authored-file contents, F9, stable-ID rename, duplication and confirmed
+deletion/persistence. Strict typecheck, lint and Windows packaging also passed.
+The final development/packaged evidence strings passed, and all 11 existing
+smoke-runner contract tests passed with linked temporary paths. Logs are retained
+under `artifacts/resource-smoke-fixes-20261103/`. Earlier failed artifacts remain
+available. This focused correction does not replace final-SHA hosted release
+gates or claim a new full-suite run after the smoke-only changes.
+
+## Full local release validation: 2026-11-03
+
+The user requested the complete local test battery before preparing a release.
+Validation uses isolated Node 26.12.1/npm 12.2.1, Chrome, the existing two-worker
+limit and linked temporary paths. The first browser-enabled run passed 1,809
+tests and exposed three failures: Aurora lacked WebDate, the ProgressBar fixture
+expected obsolete 12px text, and the default-button typography fixture omitted
+its default style binding. Added Date to the new-project form, summary and reset;
+updated the existing fixtures. All four focused cases then passed.
+
+Generated JSON now uses the repository Prettier configuration before writing or
+checking, correcting the Date declaration formatting failure without changing
+the declarations. Corrected `npm run validate` passed all 1,812 tests in 241 files
+with no skips, generated-source checks, strict typecheck, lint, formatting and
+Windows x64 packaging. The extended smoke matrix completed 15 flows: 13 passed.
+Development and packaged standard, updates, packages, deploy and native-build UI
+flows passed, as did debugger, native viewport and ReportBuilder flows. Both
+resources flows failed: development timed out renaming a duplicated page to
+ResourceRename; packaged saved the Unit with its original `export {};` still
+appended to the inserted source. The retained files prove a content mismatch,
+not a missing save. Those failures initially blocked local release approval;
+the focused correction and verification are recorded in the entry above.
+No blind reruns or deadline/evidence reductions were made.
+Logs and command results are retained under
+`artifacts/release-validation-20261103-190603/`. No commit, push, version change,
+installer, tag or publication is authorized by this validation request. Local
+Windows results cannot certify the final SHA on Linux or either macOS target.
+
+## Customizable Edit masks: 2026-11-03
+
+Added an opt-in Input mask Inspector section to Edit, with a pattern, letter-case
+conversion and JSON custom character tokens. The bounded browser-only engine
+supports Unicode rules, escaped literals, optional groups, repetitions and
+alternatives. One typed WebEdit instance per element preserves configuration
+through mounted/generated construction. Typing/paste, selection, separator
+deletion, composition and programmatic values share the same formatter;
+`rawValue`, `maskComplete` and `maskError` expose the runtime state. Existing
+unmasked fields retain their defaults. JSON drafts stay outside the Project Model
+until valid and committed. Registry metadata, compiler diagnostics, generated
+Monaco declarations and embedded browser sources carry the same contract.
+
+Documented the additive property format and Monaco examples. Updated the real
+Electron interaction and both runners' required evidence for Inspector settings,
+custom tokens, persistence and compiled native input. Source regeneration is an
+implementation step. No tests, smokes, typecheck, lint, formatting checks, builds
+or packaging were requested or run; runtime and rendered behavior are unverified.
+
 ## Date calendar minimum popup width: 2026-11-03
 
 Added a 260px minimum only to the calendar popup so narrow date inputs do not

@@ -619,6 +619,8 @@ function isValidPropertyValue(
       return typeof value === 'string';
     case 'string-list':
       return Array.isArray(value) && value.every((item) => typeof item === 'string');
+    case 'json':
+      return value !== null && typeof value === 'object';
     case 'number':
       return typeof value === 'number' && Number.isFinite(value);
     case 'boolean':

@@ -188,6 +188,8 @@ const sourceFiles = [
   'video-player-shaka.ts',
   'video-player.ts',
   'controls.ts',
+  'edit.ts',
+  'edit-mask.ts',
   'date.ts',
   'date-value.ts',
   'date-calendar.ts',
@@ -386,6 +388,14 @@ const sdkTypings = `declare module '@webrad/restgo-sdk' {\n${rolledUpDeclaration
 
 const outputs = [
   [
+    path.join(repositoryRoot, 'packages', 'language', 'src', 'edit-typings.generated.json'),
+    JSON.stringify(
+      createApiClientDeclarations(repositoryRoot, ['edit-mask.ts', 'edit.ts']),
+      null,
+      2,
+    ) + '\n',
+  ],
+  [
     path.join(repositoryRoot, 'packages', 'language', 'src', 'date-typings.generated.json'),
     JSON.stringify(
       createApiClientDeclarations(
@@ -544,6 +554,15 @@ outputs.push([
     2,
   ) + '\n',
 ]);
+
+for (const output of outputs) {
+  const [fileName, contents] = output;
+  if (path.extname(fileName) !== '.json') continue;
+  output[1] = await format(contents, {
+    ...(await resolveConfig(fileName)),
+    filepath: fileName,
+  });
+}
 
 if (globalThis.process.argv.includes('--check')) {
   for (const [fileName, contents] of outputs) {

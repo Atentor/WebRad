@@ -1,6 +1,7 @@
 import timerTypings from './timer-typings.generated.json';
 import htmlTypings from './html-typings.generated.json';
 import dateTypings from './date-typings.generated.json';
+import editTypings from './edit-typings.generated.json';
 import themeTypings from './theme-typings.generated.json';
 import menuTypings from './menu-typings.generated.json';
 import loginTypings from './login-typings.generated.json';
@@ -38,6 +39,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
 ${timerTypings.source}
 ${htmlTypings.source}
 ${dateTypings.source}
+${editTypings.source}
 ${themeTypings.source}
 ${menuTypings.source}
 ${loginTypings.source}
@@ -443,19 +445,6 @@ ${chartsTypings.source}
     caption: string;
     text: string;
     autoSize: boolean;
-  }
-
-  export type WebInputType = 'text' | 'password' | 'email' | 'number' | 'search' | 'tel' | 'url';
-
-  export class WebEdit extends WebComponent<HTMLInputElement> {
-    constructor(element: HTMLElement);
-    value: string;
-    placeholder: string;
-    readOnly: boolean;
-    inputType: WebInputType;
-    clear(): void;
-    set onChange(handler: WebComponentEventHandler<this> | null);
-    set onInput(handler: WebComponentEventHandler<this> | null);
   }
 
   export class WebTextArea extends WebComponent<HTMLTextAreaElement> {

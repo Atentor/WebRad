@@ -74,7 +74,8 @@ export class Forms extends FormsGenerated {
     this.SummaryPreferences.value = 'Email updates: ' + (this.UpdatesCheck.checked ? 'yes' : 'no')
       + ' / Available: ' + (this.AvailableToggle.checked ? 'yes' : 'no');
     this.SummaryInterest.caption = 'Favorite feature: ' + this.InterestList.value;
-    this.SummaryNotes.value = 'Notes: ' + this.NotesEdit.value;
+    this.SummaryNotes.value = 'Start date: ' + (this.StartDate.value || 'not selected')
+      + '\\nNotes: ' + this.NotesEdit.value;
     this.ProfilePopup.show();
     this.FormStatus.value = 'Summary prepared from your current values. Nothing was sent to a server.';
   }
@@ -85,6 +86,7 @@ export class Forms extends FormsGenerated {
     this.NameEdit.value = 'Alex Morgan';
     this.EmailEdit.value = 'alex@example.com';
     this.TeamCombo.selectedIndex = 1;
+    this.StartDate.value = '2026-11-03';
     this.UpdatesCheck.checked = true;
     this.AvailableToggle.checked = true;
     this.InterestList.selectedIndex = 0;

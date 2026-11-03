@@ -16,6 +16,15 @@ mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
 
+Both runners require `renderer Edit mask Inspector and F9 passed:`. The shared
+real IDE interaction inserts Edit, checks opt-in Inspector defaults, saves a
+pattern with an optional group and a custom uppercase hexadecimal token, and
+compares Designer/compiled text. Native Chromium input must format before input
+handlers observe it; Backspace after a separator must delete the preceding
+editable character and retain the caret. Preserve input/change delivery, saved
+model checks, Undo cleanup and fatal renderer-error handling. This interaction
+has not been executed for the Edit mask change.
+
 Both runners require `renderer Date Inspector and F9 passed:` and
 `renderer Date popup field alignment passed:`. The shared real IDE interaction
 inserts Date, reviews date-only defaults, changes to datetime, positions it with
@@ -127,6 +136,26 @@ error and `artifacts/smoke/` raw log, metadata, and retained project. Do not rer
 until green without investigating the previous failure.
 
 ## Hidden smoke-window rendering
+
+### Project resources native selection: 2026-11-03
+
+Both resources runners require focused native Monaco input and observed Select
+All before replacing Model/Unit text, followed by exact saved-file comparisons.
+Inline rename must observe native selection and the requested draft before Apply,
+reject an occupied name and retain the renamed page ID. Keep all existing import,
+F9, keyboard/search, duplication, deletion and persistence evidence and deadlines.
+
+Hidden/offscreen Resources windows use the same Chromium focus emulation as the
+Packages/Menu workflows, restored in `finally`. DOM `activeElement` alone does
+not establish an active page focus controller. Diagnostics retain actual page
+focus, selection length/cursor, rename draft/error and resource-row identities.
+The original packaged failure retained the inserted Unit followed by `export {};`;
+it proves a content mismatch rather than an absent disk write. The original
+development failure timed out on the renamed row. A focused diagnostic run then
+recorded `document.hasFocus() === false` despite an active Monaco input. The
+corrected development and rebuilt packaged resources workflows passed locally on
+Windows, including exact source, F9 and Explorer persistence. This focused
+evidence does not replace final-SHA hosted platform verification.
 
 ### RestGO development connection readiness: 7e5d5fa (2026-11-02)
 

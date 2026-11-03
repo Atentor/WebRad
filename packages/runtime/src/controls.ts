@@ -128,63 +128,8 @@ export class WebLabel extends WebComponent<HTMLElement> {
   }
 }
 
-export type WebInputType = 'text' | 'password' | 'email' | 'number' | 'search' | 'tel' | 'url';
-
-function inputElement(element: HTMLElement): HTMLInputElement {
-  if (!(element instanceof HTMLInputElement))
-    throw new TypeError('WebEdit requires an input element.');
-  return element;
-}
-
-export class WebEdit extends WebComponent<HTMLInputElement> {
-  public constructor(element: HTMLElement) {
-    super(inputElement(element));
-  }
-
-  public get value(): string {
-    return this.element.value;
-  }
-
-  public set value(value: string) {
-    this.element.value = value;
-  }
-
-  public get placeholder(): string {
-    return this.element.placeholder;
-  }
-
-  public set placeholder(value: string) {
-    this.element.placeholder = value;
-  }
-
-  public get readOnly(): boolean {
-    return this.element.readOnly;
-  }
-
-  public set readOnly(value: boolean) {
-    this.element.readOnly = value;
-  }
-
-  public get inputType(): WebInputType {
-    return this.element.type as WebInputType;
-  }
-
-  public set inputType(value: WebInputType) {
-    this.element.type = value;
-  }
-
-  public clear(): void {
-    this.value = '';
-  }
-
-  public set onChange(handler: WebComponentEventHandler<this> | null) {
-    this.bindEvent('OnChange', handler);
-  }
-
-  public set onInput(handler: WebComponentEventHandler<this> | null) {
-    this.bindEvent('OnInput', handler);
-  }
-}
+export { WebEdit } from './edit.js';
+export type { WebInputType } from './edit.js';
 
 export class WebTextArea extends WebComponent<HTMLTextAreaElement> {
   public constructor(element: HTMLElement) {

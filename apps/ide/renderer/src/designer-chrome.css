@@ -1015,6 +1015,23 @@
   tab-size: 2;
 }
 
+.wr-inspector-structured-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.wr-inspector-structured-input small {
+  display: block;
+  margin-top: 4px;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.wr-inspector-structured-input [role='alert'] {
+  color: var(--wr-danger);
+}
+
 .wr-object-inspector .wr-inspector-action {
   height: auto;
   min-height: 24px;

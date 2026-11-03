@@ -1,5 +1,18 @@
 # Project format
 
+## Edit input masks
+
+`WebEdit` adds optional `maskEnabled` (false), `mask` (empty string), `maskCase`
+(`none`, `upper`, `lower`) and `maskTokens` (empty object) to its ordinary property
+bag. Missing values preserve unmasked legacy behavior. Custom token values are
+regex strings or `{ "pattern": "...", "transform": "upper" }` objects. The
+registry validates the bounded pattern grammar and Unicode character rules;
+the compiler rejects invalid saved settings. No functions, regex instances,
+compiled patterns, cursor positions or JSON editor drafts are persisted. The
+stored `value` remains a string and runtime projection formats it without
+rewriting the model. The existing project/page format versions remain unchanged.
+See [Edit masks](edit-mask.md).
+
 ## Date input
 
 `WebDate` is an additive registered component within the existing project/page

@@ -145,12 +145,12 @@ try {
       ]
     : resourceSmoke
       ? [
-          'renderer project Models and Units passed',
+          'renderer project Models and Units passed: focused native input, Select All, exact saved text',
           'renderer project asset import passed',
           'renderer project resources restore and F9 passed',
           'renderer project Explorer collapse and search passed',
           'renderer project Explorer duplication and persistence passed',
-          'renderer project Explorer keyboard, filtered results and inline rename passed',
+          'renderer project Explorer keyboard, filtered results and inline rename passed: native selection and draft, duplicate-name rejection, stable renamed ID',
           'renderer project Explorer confirmed deletion and persistence passed',
         ]
       : [
@@ -202,6 +202,7 @@ try {
           'renderer Lucide Icons Inspector and F9 passed:',
           'renderer HTML Inspector and F9 passed:',
           'renderer Date Inspector and F9 passed:',
+          'renderer Edit mask Inspector and F9 passed:',
           'renderer Date popup field alignment passed:',
           'renderer HTML HTTPS embed projection passed:',
           'renderer component aspect ratios Inspector and F9 passed:',

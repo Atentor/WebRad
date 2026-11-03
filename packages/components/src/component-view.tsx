@@ -29,7 +29,14 @@ import {
 } from '@webrad/runtime/visual';
 import { getWebRadIconShapes, isWebRadIconName, type WebRadIconShape } from '@webrad/runtime/icons';
 import { bindImageResampling, imagePlaceholderSource } from '@webrad/runtime/image-display';
-import { WebHtml, WebDate, configureWebDate, projectRepeatingGroupRowStyle } from '@webrad/runtime';
+import {
+  WebHtml,
+  WebDate,
+  WebEdit,
+  configureWebDate,
+  configureWebEdit,
+  projectRepeatingGroupRowStyle,
+} from '@webrad/runtime';
 import {
   Children,
   cloneElement,
@@ -149,6 +156,29 @@ function HtmlView({ node, designTime, styleClassName }: ComponentViewProps): Rea
       title={title}
       inert={designTime || !readBooleanProperty(node, 'enabled', true)}
       tabIndex={designTime ? -1 : undefined}
+    />
+  );
+}
+
+function EditView({ node, designTime, styleClassName, onEvent }: ComponentViewProps): ReactElement {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current === null) return;
+    const component = new WebEdit(ref.current);
+    configureWebEdit(component, node.props);
+    component.enabled = readBooleanProperty(node, 'enabled', true);
+    if (!designTime) {
+      for (const name of ['OnChange', 'OnInput', 'OnFocus', 'OnBlur'] as const) {
+        component.bindEvent(name, () => onEvent?.(name, node));
+      }
+    }
+    return () => component.dispose();
+  }, [node, designTime, onEvent]);
+  return (
+    <input
+      {...sharedAttributes(node, designTime, styleClassName)}
+      ref={ref}
+      aria-label={readStringProperty(node, 'placeholder', node.name)}
     />
   );
 }
@@ -543,20 +573,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       </div>
     );
   },
-  WebEdit: ({ node, designTime, styleClassName, onEvent }) => (
-    <input
-      {...sharedAttributes(node, designTime, styleClassName)}
-      aria-label={readStringProperty(node, 'placeholder', node.name)}
-      value={readStringProperty(node, 'value')}
-      disabled={!readBooleanProperty(node, 'enabled', true)}
-      placeholder={readStringProperty(node, 'placeholder')}
-      readOnly={readBooleanProperty(node, 'readOnly')}
-      type={readStringProperty(node, 'inputType', 'text')}
-      onChange={() => onEvent?.('OnChange', node)}
-      onFocus={() => onEvent?.('OnFocus', node)}
-      onBlur={() => onEvent?.('OnBlur', node)}
-    />
-  ),
+  WebEdit: EditView,
   WebTextArea: ({ node, designTime, styleClassName, onEvent }) => (
     <textarea
       {...sharedAttributes(node, designTime, styleClassName)}

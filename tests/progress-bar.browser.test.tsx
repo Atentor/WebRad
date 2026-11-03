@@ -84,7 +84,7 @@ it.runIf(process.env.WEBRAD_BROWSER_PATH !== undefined)(
               value: '50',
               text: '25%',
               radius: '6px',
-              fontSize: '12px',
+              fontSize: '14px',
               opacity: '1',
               aspect: format === 'bars' ? 'none' : 'xMidYMid meet',
             });

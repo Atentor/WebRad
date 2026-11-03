@@ -54,6 +54,7 @@ import { runTimerSmoke } from './timer-smoke';
 import { runIconSmoke } from './icon-smoke';
 import { runHtmlSmoke } from './html-smoke';
 import { runDateSmoke } from './date-smoke';
+import { runEditMaskSmoke } from './edit-mask-smoke';
 import { runLoginSmoke } from './login-smoke';
 import { runMenuSmoke } from './menu-smoke';
 import { profileMenuSmoke } from './smoke-cpu-profile';
@@ -1670,6 +1671,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await runIconSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runHtmlSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runDateSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runEditMaskSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runLoginSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await profileMenuSmoke(
     () => runMenuSmoke(window, { projectPath: smokeProjectPath, log: smokeLog }),

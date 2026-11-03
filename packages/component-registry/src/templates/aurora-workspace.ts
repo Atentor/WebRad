@@ -280,7 +280,7 @@ function overview(
         text('ControlsTitle', 'FORM CONTROLS', 30),
         paragraph(
           'ControlsList',
-          'Label, Edit, Text Area, Button, Check Box, Toggle, Combo Box, List Box and Popup.',
+          'Label, Edit, Date, Text Area, Button, Check Box, Toggle, Combo Box, List Box and Popup.',
         ),
         paragraph(
           'ControlsDetail',
@@ -342,6 +342,14 @@ function formControls(): readonly DemoNode[] {
               selectedIndex: 1,
               value: 'development',
             },
+            events: { OnChange: 'PreferenceChanged' },
+          },
+          text('StartDateLabel', 'Start date / Date', 24),
+          {
+            type: 'WebDate',
+            name: 'StartDate',
+            height: 38,
+            props: { value: '2026-11-03', accessibleLabel: 'Start date' },
             events: { OnChange: 'PreferenceChanged' },
           },
           text('NotesLabel', 'Notes / Text Area', 24),

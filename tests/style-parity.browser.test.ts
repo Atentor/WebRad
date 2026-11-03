@@ -12,6 +12,7 @@ import { compileProjectToMemory, compileTailwindStyles } from '@webrad/compiler'
 import {
   addComponent,
   addComponentStyle,
+  applyDefaultComponentStyle,
   createComponentStyle,
   createProject,
   setComponentStyle,
@@ -44,21 +45,24 @@ it.runIf(browserPath !== undefined)(
     ].entries()) {
       page = addComponent(
         page,
-        defaultComponentRegistry.createComponent(type, {
-          id: `control-${String(index)}`,
-          name: `Control${String(index)}`,
-          parentId: page.rootComponentId,
-          x: 24,
-          y: 24 + index * 64,
-          props: {
-            ...(type === 'WebButton' ? { caption: 'Button text', enabled: index !== 4 } : {}),
-            margin: 8 + index,
-            marginTop: 1 + index,
-            marginRight: 12 + index,
-            marginBottom: 3 + index,
-            marginLeft: 4 + index,
-          },
-        }),
+        applyDefaultComponentStyle(
+          defaultComponentRegistry.createComponent(type, {
+            id: `control-${String(index)}`,
+            name: `Control${String(index)}`,
+            parentId: page.rootComponentId,
+            x: 24,
+            y: 24 + index * 64,
+            props: {
+              ...(type === 'WebButton' ? { caption: 'Button text', enabled: index !== 4 } : {}),
+              margin: 8 + index,
+              marginTop: 1 + index,
+              marginRight: 12 + index,
+              marginBottom: 3 + index,
+              marginLeft: 4 + index,
+            },
+          }),
+          project.styles,
+        ),
         page.rootComponentId,
       );
     }

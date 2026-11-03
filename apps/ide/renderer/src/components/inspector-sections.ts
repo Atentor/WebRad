@@ -5,6 +5,7 @@ const SECTION_ORDER = [
   'Navigation',
   'Appearance',
   'Data',
+  'Input mask',
   'Reusable component',
   'Connection',
   'API Client',

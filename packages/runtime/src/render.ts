@@ -5,6 +5,7 @@ import { WebProgressBar, projectProgressBar } from './progress-bar.js';
 import { WebIcon, projectIcon } from './icon.js';
 import { WebHtml } from './html.js';
 import { WebDate, configureWebDate } from './date.js';
+import { configureWebEdit } from './edit.js';
 import { WebMenu } from './menu.js';
 import { WebLogin } from './login.js';
 import { createDefaultWebLoginConfiguration, parseWebLoginConfiguration } from './login-model.js';
@@ -25,7 +26,6 @@ import {
   WebReusableElement,
   WebTextArea,
   type WebImageObjectFit,
-  type WebInputType,
   type WebSelectItem,
 } from './controls.js';
 import { WebPage } from './page.js';
@@ -488,10 +488,7 @@ runtimeComponentRegistry
     createComponent: (element) => new WebEdit(inputElement(element)),
     applyProperties: (component, node) => {
       applyCommon(component, node);
-      component.value = readStringProperty(node, 'value');
-      component.placeholder = readStringProperty(node, 'placeholder');
-      component.readOnly = readBooleanProperty(node, 'readOnly');
-      component.inputType = readStringProperty(node, 'inputType', 'text') as WebInputType;
+      configureWebEdit(component, node.props);
     },
   })
   .register<WebTextArea>('WebTextArea', {

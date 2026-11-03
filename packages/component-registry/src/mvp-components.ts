@@ -24,7 +24,13 @@ import {
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
 import { LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
-import { WEB_ASPECT_RATIOS, normalizeWebAspectRatio, isWebDateValue } from '@webrad/runtime';
+import {
+  WEB_ASPECT_RATIOS,
+  normalizeWebAspectRatio,
+  isWebDateValue,
+  isWebEditMaskPattern,
+  isWebEditMaskTokens,
+} from '@webrad/runtime';
 import {
   PANEL_BACKGROUND_SIZES,
   PANEL_BACKGROUND_POSITIONS,
@@ -1123,6 +1129,10 @@ const webEdit: ComponentDefinition = {
     value: '',
     placeholder: '',
     readOnly: false,
+    maskEnabled: false,
+    mask: '',
+    maskCase: 'none',
+    maskTokens: {},
     visible: true,
     collapseWhenHidden: true,
     enabled: true,
@@ -1163,6 +1173,49 @@ const webEdit: ComponentDefinition = {
       source: 'props',
       defaultValue: 'text',
       options: ['text', 'password', 'email', 'number', 'search', 'tel', 'url'],
+    },
+    {
+      name: 'maskEnabled',
+      label: 'Enable mask',
+      type: 'boolean',
+      category: 'Input mask',
+      source: 'props',
+      defaultValue: false,
+      description: 'Apply the pattern to typing, paste and values assigned by code.',
+    },
+    {
+      name: 'mask',
+      label: 'Mask pattern',
+      type: 'string',
+      category: 'Input mask',
+      source: 'props',
+      defaultValue: '',
+      readOnlyWhen: (props) => props.maskEnabled !== true,
+      validateValue: isWebEditMaskPattern,
+      description:
+        '0: digit; a: letter; *: alphanumeric; #: any character. Use [optional], {min,max}, | alternatives and backslash escapes. Example: (00) 0000[0]-0000.',
+    },
+    {
+      name: 'maskCase',
+      label: 'Letter case',
+      type: 'enum',
+      category: 'Input mask',
+      source: 'props',
+      defaultValue: 'none',
+      options: ['none', 'upper', 'lower'],
+      readOnlyWhen: (props) => props.maskEnabled !== true,
+    },
+    {
+      name: 'maskTokens',
+      label: 'Custom tokens',
+      type: 'json',
+      category: 'Input mask',
+      source: 'props',
+      defaultValue: {},
+      readOnlyWhen: (props) => props.maskEnabled !== true,
+      validateValue: isWebEditMaskTokens,
+      description:
+        'JSON character rules, merged with the built-ins. Example: {"H":{"pattern":"[0-9A-Fa-f]","transform":"upper"}}. Each key is one character; patterns match one complete character.',
     },
   ],
   events: [

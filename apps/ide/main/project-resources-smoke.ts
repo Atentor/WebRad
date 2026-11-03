@@ -12,6 +12,38 @@ export async function runProjectResourcesSmoke(
   log: (message: string) => void,
   screenshotPath?: string,
 ): Promise<void> {
+  const debuggerWasAttached = window.webContents.debugger.isAttached();
+  if (!debuggerWasAttached) window.webContents.debugger.attach('1.3');
+  try {
+    // Hidden offscreen windows need Chromium's page focus lifecycle for native
+    // selection and input, as in the Packages and Menu smoke workflows.
+    await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+      enabled: true,
+    });
+    await runFocusedProjectResourcesSmoke(window, projectPath, log, screenshotPath);
+  } finally {
+    if (
+      !window.isDestroyed() &&
+      !window.webContents.isDestroyed() &&
+      window.webContents.debugger.isAttached()
+    ) {
+      try {
+        await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+          enabled: false,
+        });
+      } finally {
+        if (!debuggerWasAttached) window.webContents.debugger.detach();
+      }
+    }
+  }
+}
+
+async function runFocusedProjectResourcesSmoke(
+  window: BrowserWindow,
+  projectPath: string,
+  log: (message: string) => void,
+  screenshotPath?: string,
+): Promise<void> {
   async function waitFor(expression: string): Promise<void> {
     const deadline = Date.now() + 20_000;
     while (Date.now() < deadline) {
@@ -19,7 +51,27 @@ export async function runProjectResourcesSmoke(
       await new Promise<void>((resolve) => setTimeout(resolve, 50));
     }
     const evidence: unknown = await window.webContents.executeJavaScript(
-      `({ text: document.querySelector('.monaco-editor')?.textContent, focus: document.activeElement?.className, output: document.querySelector('.wr-bottom-panel')?.textContent })`,
+      `(() => {
+        const editor = document.querySelector('.monaco-editor');
+        const rename = document.querySelector('[aria-label="Page name"]');
+        return {
+          text: editor?.textContent,
+          selectionLength: editor?.getAttribute('data-selection-length'),
+          cursor: editor?.getAttribute('data-cursor-position'),
+          focused: document.hasFocus(),
+          focus: document.activeElement?.className,
+          output: document.querySelector('.wr-bottom-panel')?.textContent,
+          rename: rename instanceof HTMLInputElement ? {
+            value: rename.value, start: rename.selectionStart, end: rename.selectionEnd,
+            error: document.querySelector('#wr-project-rename-error')?.textContent,
+          } : null,
+          rows: [...document.querySelectorAll('.wr-project-tree .wr-page-row')].map(row => ({
+            id: row.getAttribute('data-project-resource-id'),
+            label: row.getAttribute('data-explorer-label'),
+            name: row.querySelector(':scope > .wr-explorer-name')?.textContent,
+          })),
+        };
+      })()`,
     );
     log(`Project resources smoke evidence: ${JSON.stringify(evidence)}`);
     throw new Error(`Project resources smoke timed out: ${expression}`);
@@ -79,6 +131,13 @@ export async function runProjectResourcesSmoke(
       true,
     );
     window.webContents.focus();
+    await waitFor(`document.hasFocus() && document.activeElement ===
+      document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea')`);
+    const sourcePath = path.join(
+      path.dirname(projectPath),
+      kind === 'Model' ? 'models' : 'units',
+      `${name}.ts`,
+    );
     window.webContents.sendInputEvent({
       type: 'keyDown',
       keyCode: 'A',
@@ -89,16 +148,12 @@ export async function runProjectResourcesSmoke(
       keyCode: 'A',
       modifiers: [process.platform === 'darwin' ? 'meta' : 'control'],
     });
+    await waitFor(`Number(document.querySelector('.monaco-editor')?.dataset.selectionLength) > 0`);
     await window.webContents.insertText(source);
     await waitFor(
       `document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ').includes(${JSON.stringify(kind === 'Model' ? 'Resource Smoke' : 'resourceName')}) === true`,
     );
     window.webContents.send('webrad:menu-command', 'file.save');
-    const sourcePath = path.join(
-      path.dirname(projectPath),
-      kind === 'Model' ? 'models' : 'units',
-      `${name}.ts`,
-    );
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
       try {
@@ -111,7 +166,9 @@ export async function runProjectResourcesSmoke(
     if ((await fs.readFile(sourcePath, 'utf8')) !== source)
       throw new Error(`Authored ${kind} did not save.`);
   }
-  log('renderer project Models and Units passed');
+  log(
+    'renderer project Models and Units passed: focused native input, Select All, exact saved text',
+  );
 
   const fixturePath = path.join(path.dirname(projectPath), 'resource-image.png');
   const bytes = Buffer.from(
@@ -277,6 +334,10 @@ export async function runProjectResourcesSmoke(
       `document.querySelector('[aria-label="Page name"]')?.focus()`,
       true,
     );
+    window.webContents.focus();
+    await waitFor(
+      `document.hasFocus() && document.activeElement?.getAttribute('aria-label') === 'Page name'`,
+    );
     window.webContents.sendInputEvent({
       type: 'keyDown',
       keyCode: 'A',
@@ -287,7 +348,15 @@ export async function runProjectResourcesSmoke(
       keyCode: 'A',
       modifiers: [process.platform === 'darwin' ? 'meta' : 'control'],
     });
+    await waitFor(`(() => {
+      const input = document.querySelector('[aria-label="Page name"]');
+      return input instanceof HTMLInputElement && input.selectionStart === 0 &&
+        input.selectionEnd === input.value.length;
+    })()`);
     await window.webContents.insertText(value);
+    await waitFor(
+      `document.querySelector('[aria-label="Page name"]')?.value === ${JSON.stringify(value)}`,
+    );
     await click('[aria-label="Apply project item name"]');
   }
   await renameDraft(entryName);
@@ -309,7 +378,9 @@ export async function runProjectResourcesSmoke(
   );
   if (deletedRename !== true) throw new Error('Renamed page cleanup did not run.');
   await waitFor(`${renamedRow} === null`);
-  log('renderer project Explorer keyboard, filtered results and inline rename passed');
+  log(
+    'renderer project Explorer keyboard, filtered results and inline rename passed: native selection and draft, duplicate-name rejection, stable renamed ID',
+  );
   const helpers = saved.project.sourceFiles?.find((file) => file.name === 'ResourceHelpers');
   if (helpers === undefined) throw new Error('Saved ResourceHelpers identity is missing.');
   const helpersRow = projectExplorerRowExpression({ id: helpers.id });

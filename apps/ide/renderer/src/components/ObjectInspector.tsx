@@ -29,6 +29,7 @@ import { useProjectColorResolver } from '../project-theme';
 import { Icon } from './Icon';
 import { ColorInput, ThemeColorButton } from './ColorInput';
 import { DraftNumberInput } from './DraftNumberInput';
+import { InspectorJsonInput } from './InspectorJsonInput';
 import { useEditorDraftPending } from './useEditorDraftPending';
 import { ComponentIcon } from './ComponentIcon';
 import { IconPickerDialog } from './IconPickerDialog';
@@ -523,6 +524,18 @@ function PropertyEditor({
   const disabled = property.readOnly === true;
 
   switch (property.type) {
+    case 'json':
+      return (
+        <InspectorJsonInput
+          key={`${scopeId ?? id}:${JSON.stringify(value)}`}
+          id={id}
+          value={value}
+          disabled={disabled || multiple}
+          validate={property.validateValue}
+          description={property.description}
+          onChange={onChange}
+        />
+      );
     case 'menu-definition':
       return (
         <select
@@ -576,7 +589,7 @@ function PropertyEditor({
           onChange={onChange}
         />
       );
-    case 'string':
+    case 'string': {
       if (property.multiline === true) {
         return (
           <textarea
@@ -591,7 +604,9 @@ function PropertyEditor({
           />
         );
       }
-      return (
+      const invalid =
+        !multiple && property.validateValue !== undefined && !property.validateValue(value);
+      const input = (
         <input
           id={id}
           className="wr-inspector-input"
@@ -601,8 +616,22 @@ function PropertyEditor({
           readOnly={disabled}
           spellCheck={false}
           onChange={(event) => onChange(event.target.value)}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? `${id}-error` : undefined}
         />
       );
+      if (property.validateValue === undefined) return input;
+      return (
+        <div className="wr-inspector-structured-input">
+          {input}
+          {invalid && (
+            <small id={`${id}-error`} role="alert">
+              Invalid value. {property.description}
+            </small>
+          )}
+        </div>
+      );
+    }
     case 'string-list':
       if (property.designerAction !== undefined) {
         const action = property.designerAction;

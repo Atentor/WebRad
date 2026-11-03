@@ -1,6 +1,7 @@
 export type ComponentPropertyType =
   | 'string'
   | 'string-list'
+  | 'json'
   | 'number'
   | 'boolean'
   | 'enum'

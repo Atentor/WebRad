@@ -1,0 +1,18 @@
+{
+  "source": "/** Serializable character rules shared by the Inspector and browser runtime. */\nexport type WebEditMaskCase = 'none' | 'upper' | 'lower';\n\nexport interface WebEditMaskToken {\n    /** A JavaScript Unicode regular expression matching one complete character. */\n    readonly pattern: string;\n    readonly transform?: WebEditMaskCase;\n}\n\nexport type WebEditMaskTokens = Readonly<Record<string, string | WebEditMaskToken>>;\n\nexport const DEFAULT_EDIT_MASK_TOKENS: WebEditMaskTokens;\n\nexport interface EditMaskResult {\n    readonly text: string;\n    readonly raw: string;\n    readonly complete: boolean;\n    /** UTF-16 offsets of editable characters in the formatted value. */\n    readonly positions: readonly {\n        readonly start: number;\n        readonly end: number;\n    }[];\n    /** Formatted caret offsets indexed by source UTF-16 offset. */\n    readonly carets: readonly number[];\n}\n\nexport interface CompiledEditMask {\n    format(value: string, letterCase?: WebEditMaskCase, raw?: boolean): EditMaskResult;\n}\n\nexport function parseWebEditMaskTokens(value: unknown): WebEditMaskTokens;\n\n/** Bounded pattern grammar: literals, escapes, [optional groups], {min,max} and | alternatives. */\nexport function compileEditMask(pattern: string, tokens?: WebEditMaskTokens): CompiledEditMask;\n\nexport function isWebEditMaskPattern(value: unknown): value is string;\n\nexport function isWebEditMaskTokens(value: unknown): value is WebEditMaskTokens;\n\nexport type WebInputType = 'text' | 'password' | 'email' | 'number' | 'search' | 'tel' | 'url';\n\n/** A text field with an optional, dynamically configurable character mask. */\nexport class WebEdit extends WebComponent<HTMLInputElement> {\n    #private;\n    constructor(element: HTMLElement);\n    get value(): string;\n    set value(value: string);\n    /** Accepted characters without mask literals. Assign this when input is known to be raw. */\n    get rawValue(): string;\n    set rawValue(value: string);\n    get maskEnabled(): boolean;\n    set maskEnabled(value: boolean);\n    /** 0 digit, a Unicode letter, * alphanumeric, # any character; escape literals with \\\\. */\n    get mask(): string;\n    set mask(value: string);\n    /** Custom tokens override built-ins. Each pattern matches one whole Unicode character. */\n    get maskTokens(): WebEditMaskTokens;\n    set maskTokens(value: WebEditMaskTokens);\n    get maskCase(): WebEditMaskCase;\n    set maskCase(value: WebEditMaskCase);\n    /** True when an active mask has all its required positions filled. Empty is incomplete. */\n    get maskComplete(): boolean;\n    /** Empty for a valid pattern. Invalid patterns leave the text editable without masking. */\n    get maskError(): string;\n    get placeholder(): string;\n    set placeholder(value: string);\n    get readOnly(): boolean;\n    set readOnly(value: boolean);\n    get inputType(): WebInputType;\n    set inputType(value: WebInputType);\n    clear(): void;\n    set onChange(handler: WebComponentEventHandler<this> | null);\n    set onInput(handler: WebComponentEventHandler<this> | null);\n    dispose(): void;\n}\n\n/** Project-model projection used by Designer, Preview and exported applications. */\nexport function configureWebEdit(component: WebEdit, props: Readonly<Record<string, unknown>>): void;\n",
+  "names": [
+    "CompiledEditMask",
+    "DEFAULT_EDIT_MASK_TOKENS",
+    "EditMaskResult",
+    "WebEdit",
+    "WebEditMaskCase",
+    "WebEditMaskToken",
+    "WebEditMaskTokens",
+    "WebInputType",
+    "compileEditMask",
+    "configureWebEdit",
+    "isWebEditMaskPattern",
+    "isWebEditMaskTokens",
+    "parseWebEditMaskTokens"
+  ]
+}
