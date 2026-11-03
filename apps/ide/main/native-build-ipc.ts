@@ -67,6 +67,7 @@ interface CompletedBuild {
 }
 const active = new Map<number, ActiveBuild>();
 const inspections = new Map<number, AbortController>();
+const inspectionTasks = new Map<number, Promise<unknown>>();
 const completed = new Map<number, Map<string, CompletedBuild>>();
 const workspaceLocks = new Set<string>();
 
@@ -142,10 +143,17 @@ export function registerNativeBuildIpc(options: NativeBuildIpcOptions): void {
     const request = inspectSchema.parse(onlyArgument(input));
     options.requireProject(event, request.rootPath);
     const owner = event.sender.id;
+    const previous = inspectionTasks.get(owner);
     inspections.get(owner)?.abort();
     const controller = new AbortController();
     inspections.set(owner, controller);
-    try {
+    const task = (async () => {
+      // Wait for the cancelled process tree to exit before spawning another
+      // probe. Rapid platform changes otherwise overlap Rustup and taskkill.
+      await previous?.catch(() => undefined);
+      controller.signal.throwIfAborted();
+      options.requireTrustedSender(event);
+      options.requireProject(event, request.rootPath);
       const report = await checkNativePrerequisites(request.settings, {
         signal: controller.signal,
         onLog: options.inspectionLog,
@@ -154,8 +162,13 @@ export function registerNativeBuildIpc(options: NativeBuildIpcOptions): void {
       options.requireTrustedSender(event);
       options.requireProject(event, request.rootPath);
       return report;
+    })();
+    inspectionTasks.set(owner, task);
+    try {
+      return await task;
     } finally {
       if (inspections.get(owner) === controller) inspections.delete(owner);
+      if (inspectionTasks.get(owner) === task) inspectionTasks.delete(owner);
     }
   });
   // Picker capabilities deliberately live only for this IDE session. Saved project paths grant no access.

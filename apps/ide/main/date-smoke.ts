@@ -236,9 +236,13 @@ export async function runDateSmoke(
   await click('button[aria-label="Design"]');
   const tree = `[role="treeitem"][data-component-id=${JSON.stringify(id)}]`;
   await click(tree);
+  // A property may already match the insertion defaults. Undo only this
+  // fixture's commands, using the root row which survives component removal.
   for (let index = 0; index < 4; index++) {
+    if ((await evaluate(`document.querySelector(${JSON.stringify(tree)}) === null`)) === true)
+      break;
     await evaluate(
-      `document.querySelector(${JSON.stringify(tree)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
+      `document.querySelector(${JSON.stringify(root)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
     );
     await evaluate(
       'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
@@ -248,7 +252,11 @@ export async function runDateSmoke(
   await click(root);
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  const restored = await loadProjectFiles(projectPath);
+  const restoredPage = restored.project.pages.find((item) => item.id === page.id);
+  if (JSON.stringify(restoredPage) !== JSON.stringify(page))
+    throw new Error('Date Undo cleanup did not restore the complete original page.');
   log(
-    'renderer Date Inspector and F9 passed: date/datetime modes, mask, persistence, native typing, calendar validation, calendar popup matching both field edges, events, Designer/runtime geometry and undo',
+    'renderer Date Inspector and F9 passed: complete original page restored; date/datetime modes, mask, persistence, native typing, calendar validation, calendar popup matching both field edges, events, Designer/runtime geometry and undo',
   );
 }

@@ -1,5 +1,29 @@
 # WebRAD delivery plan
 
+## Hosted CI corrections for fc40e87: 2026-11-03
+
+Monitored release 41733888779, validate 41733888853 and security 41733888935
+through completion. Security, both quality validate commands and all four release
+code/test/package stages passed. Windows and both macOS release jobs passed;
+Linux packaged and development failed in Date Undo cleanup with a null tree row.
+Windows development exhausted the unchanged 120-second functional deadline after
+Menu, with repeated slow Rust probes and overlapping cancelled inspections.
+
+Date cleanup now dispatches through the surviving page root, stops once its
+component is removed within the existing four-command bound, and compares the
+complete persisted page with the original. Both runners require that evidence.
+Native inspections now await the previous cancelled process tree before starting
+the latest request; superseded queued requests abort before probing. Requirements
+effects follow the toolchain key rather than unrelated settings object identity.
+Check again still performs a fresh inspection. No deadlines, assertions, worker
+limits or release gates were relaxed. Original failed job logs are retained in
+`artifacts/ci-fc40e87/`; see `docs/ci-review-2026-11-03-fc40e87.md`.
+
+These are local corrections, not measured timing improvements or hosted proof.
+No local tests, validation, builds or packaging were requested or run. The exact
+corrected commit still requires native CI confirmation; no commit/push or release
+publication was performed.
+
 ## Project resources smoke focus correction: 2026-11-03
 
 Investigated both resources failures from the authorized release validation.

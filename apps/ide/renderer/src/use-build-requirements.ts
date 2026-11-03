@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { NativeApplicationSettings } from '@webrad/project-model';
 import type { NativePrerequisiteReport } from '@webrad/native-build/contracts';
 import type { NativeBuildResponse } from '../../shared/native-build-contracts';
@@ -39,18 +39,20 @@ export function useBuildRequirements({
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const appliedResult = useRef<string | undefined>(undefined);
   const resultId = result?.requestId;
+  const inspectCurrentSettings = useEffectEvent(() => inspect(settings));
+  const returnedPrerequisites = result?.prerequisites;
 
   useEffect(() => {
     let active = true;
     const returnedReport =
-      result?.prerequisites && result.requestId !== appliedResult.current && submittedKey === key
-        ? result.prerequisites
+      returnedPrerequisites && resultId !== appliedResult.current && submittedKey === key
+        ? returnedPrerequisites
         : undefined;
-    if (returnedReport !== undefined) appliedResult.current = result?.requestId;
+    if (returnedReport !== undefined) appliedResult.current = resultId;
     // Reports from the build's real preflight take precedence once; Check again
     // then inspects the machine afresh, including tools installed after a failure.
     const pending =
-      returnedReport === undefined ? inspect(settings) : Promise.resolve(returnedReport);
+      returnedReport === undefined ? inspectCurrentSettings() : Promise.resolve(returnedReport);
     void pending.then(
       (report) => {
         if (active) setInspection({ key, revision, resultId, report });
@@ -68,7 +70,7 @@ export function useBuildRequirements({
     return () => {
       active = false;
     };
-  }, [inspect, settings, key, revision, resultId, result, submittedKey]);
+  }, [inspect, key, revision, resultId, returnedPrerequisites, submittedKey]);
 
   const current = inspection?.key === key ? inspection : null;
   return {

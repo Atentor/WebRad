@@ -201,7 +201,7 @@ try {
           'renderer Timer Inspector and Interact passed:',
           'renderer Lucide Icons Inspector and F9 passed:',
           'renderer HTML Inspector and F9 passed:',
-          'renderer Date Inspector and F9 passed:',
+          'renderer Date Inspector and F9 passed: complete original page restored;',
           'renderer Edit mask Inspector and F9 passed:',
           'renderer Date popup field alignment passed:',
           'renderer HTML HTTPS embed projection passed:',

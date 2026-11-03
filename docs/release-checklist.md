@@ -287,6 +287,24 @@ These identify past observations rather than current verification.
 
 ## Investigating failures
 
+### Date cleanup and native inspection overlap: fc40e87 (2026-11-03)
+
+[Release 41733888779](https://github.com/Atentor/WebRad/actions/runs/41733888779)
+passed Windows and both macOS targets; Linux failed Date cleanup after popup
+alignment. Both quality validate commands and security passed, but Ubuntu
+development hit a null tree row and Windows development exhausted its 120-second
+budget after Menu. Assembly was skipped. See the
+[review](ci-review-2026-11-03-fc40e87.md) and `artifacts/ci-fc40e87/`.
+
+Date Undo dispatches through the surviving root, stops at component removal within
+four commands and compares the complete saved page with its original. Both runners
+require `renderer Date Inspector and F9 passed: complete original page restored;`.
+Keep native typing, popup geometry, event and invalid-date assertions intact.
+Native inspections must await cancelled process-tree completion before launching
+the latest request, and equivalent settings must not trigger new probes. Preserve
+explicit Check again, cancellation, authorization and tool deadlines. These local
+changes have not been executed; Windows timing improvement remains unverified.
+
 ### Native Monaco smoke attribute ownership: 70dbbec (2026-11-03)
 
 [Release 41613804410](https://github.com/Atentor/WebRad/actions/runs/41613804410)
