@@ -4,6 +4,11 @@ A release is ready only when its exact tagged commit passes the real distributio
 workflow on all four platforms. Local checks do not replace that evidence. This
 checklist complements [AGENTS.md](../AGENTS.md) and the [release guide](releases.md).
 
+Release verification runs portable tests and packaging/smokes in parallel on the
+four native targets. Assembly requires both complete matrices to succeed for the
+same workflow run; neither matrix alone establishes release readiness. This
+workflow change has not yet been verified on hosted runners.
+
 ## Agent execution policy
 
 Run local tests/validation only when the user explicitly requests them. Ordinary

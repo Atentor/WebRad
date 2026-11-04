@@ -46,6 +46,39 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release-tools.mjs preflight
 
+  portable-tests:
+    needs: preflight
+    env:
+      WEBRAD_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+      WEBRAD_RELEASE_VERIFY_ONLY: ${{ needs.preflight.outputs.verify_only }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+          - os: ubuntu-24.04
+          - os: macos-15-intel
+          - os: macos-15
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 26.12.1
+          cache: npm
+      - name: Set build version from release candidate
+        run: node scripts/release-tools.mjs prepare
+      - run: npm install --global npm@12.2.1
+      - run: npm ci
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fakeroot rpm
+      - run: npm run test:portable
+
   build:
     needs: preflight
     env:
@@ -103,7 +136,6 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
-      - run: npm run test:portable
       - name: Package application
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -175,7 +207,7 @@ jobs:
           retention-days: 7
 
   assemble:
-    needs: [preflight, build]
+    needs: [preflight, portable-tests, build]
     runs-on: ubuntu-24.04
     env:
       WEBRAD_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}

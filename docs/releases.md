@@ -64,8 +64,9 @@ history, restore retired tags/branches, or push a mirror. The former baseline
 migration guide has been consolidated here. History rewrites cannot guarantee
 removal from existing clones, caches, or read-only pull-request references.
 
-Each platform job checks icons/generated sources, strict types, lint, formatting,
-portable tests, packaging, and packaged application smoke. The updater smoke uses
+Each platform has parallel jobs for portable tests and for icons/generated sources,
+strict types, lint, formatting, packaging, and packaged application smoke. Assembly
+requires both matrices to pass. The updater smoke uses
 a test backend without installing software on the runner. Linux prepares both
 development and packaged `chrome-sandbox` helpers. Logs remain outside bundles
 to preserve macOS signatures.
@@ -106,7 +107,7 @@ publish real changes without resending identical lists on every edit.
 Responsive API Client/Data Grid smokes retain exact widths and accept native height
 limits, with a positive temporary `1x1` window minimum on macOS. Diagnostics record
 requested/native/renderer/minimum sizes. `npm run smoke:viewport` probes sandboxed
-Electron resizing on both Macs before the full suite; the full smoke still
+Electron resizing on both Macs before packaging; the full smoke still
 requires 1080/740 px widths.
 
 Development smoke separates cold startup (120 seconds) from the functional

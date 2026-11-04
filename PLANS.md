@@ -1,5 +1,16 @@
 # WebRAD delivery plan
 
+## Release workflow feedback time: 2026-11-04
+
+Release verification runs the unchanged portable suite on all four native runners
+in parallel with the four packaging and smoke jobs. Both matrices prepare the same
+release candidate and install dependencies independently. Assembly requires every
+portable-test and build job to succeed, so publication retains the complete gate.
+The additional jobs consume more runner capacity and may be affected by queueing.
+The validate script also checks formatting before the long portable suite to report
+style failures earlier. No validation was requested or run for this change; hosted
+timing and complete native verification remain necessary before release readiness.
+
 ## Local test battery and corrections: 2026-11-04
 
 The user requested the test battery and necessary corrections. The full portable
