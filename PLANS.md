@@ -1,5 +1,30 @@
 # WebRAD delivery plan
 
+## Local test battery and corrections: 2026-11-04
+
+The user requested the test battery and necessary corrections. The full portable
+suite passed all 1,812 tests in 241 files with Chrome enabled, no skips and the
+existing two-worker limit. Icon/runtime-source integrity, strict typecheck and
+lint passed. Formatting found one function signature in ApiClientTesterDialog;
+the repository Prettier corrected it and the full formatting check then passed.
+
+The initial checkout was clean. Windows packaging, standard development/packaged
+smokes, packaged updates and both resources flows passed. The Packages development
+smoke then failed with UnknownVizError when taking its narrow-layout screenshot,
+after actual registry installation and notebook geometry passed. Its screenshots
+now use the existing presented-frame capture shared by Charts and Native Build,
+including diagnostic and native-menu captures. Both runners require explicit
+presented screenshot evidence; geometry, native interactions and deadlines remain
+intact. Corrected development and rebuilt packaged Packages flows passed. All 15
+Electron flows passed across this run: standard, updates, resources, Packages,
+debugger, Web/PWA deploy, Native Build UI/export, viewport and ReportBuilder.
+Final strict typecheck, lint, full formatting and all 16 existing runner/completion
+tests passed after the smoke-only correction; the complete 1,812-test run preceded
+that correction. Original failures and final results are retained under
+`artifacts/test-battery-20261104/`. No installer, version change, commit, push,
+tag or publication is part of this test run. Local results do not replace
+exact-commit hosted platform verification.
+
 ## API Client authorization and response refresh: 2026-11-04
 
 Added a compact Authorization tab for custom APIs: client defaults, per-request

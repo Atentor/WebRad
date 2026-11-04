@@ -304,7 +304,10 @@ function prettifyJsonText(text: string, contentType: string): string | undefined
   }
 }
 
-function testResultBody(text: string, contentType: string): {
+function testResultBody(
+  text: string,
+  contentType: string,
+): {
   readonly bodyText: string;
   readonly bodyTruncated: boolean;
 } {

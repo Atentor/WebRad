@@ -279,6 +279,7 @@ try {
         'renderer Packages empty layout passed',
         'renderer Packages notebook layout passed',
         'renderer Packages native menu passed',
+        'renderer Packages presented screenshots passed:',
         'renderer Packages Monaco passed',
         'renderer Packages Preview passed',
         'renderer Packages Debug passed',

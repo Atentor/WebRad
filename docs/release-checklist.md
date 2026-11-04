@@ -80,6 +80,8 @@ manual installation and useful empty-state guidance),
 bounded to 940x600 px or the available viewport, visible header/footer actions
 and independently scrolling lists),
 `renderer Packages install and Explorer passed`, `renderer Packages native menu passed`,
+`renderer Packages presented screenshots passed:` (desktop, both notebook sizes,
+720px layout and native Monaco menu captured from actual marker-free frames),
 `renderer Packages Monaco passed`,
 `renderer Packages Preview passed`, `renderer Packages Debug passed`,
 `renderer Packages Web PWA passed` and `renderer Packages lifecycle passed`.

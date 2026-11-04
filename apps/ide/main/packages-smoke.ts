@@ -10,6 +10,7 @@ import { getDebugPreviewWindow } from './debugger-ipc';
 import { loadProjectFiles } from './project-files';
 import { projectExplorerRowExpression } from './project-explorer-smoke';
 import { stopPreviewSmoke } from './preview-workspace-smoke';
+import { capturePresentedSmokePage } from './smoke-capture';
 import { trackSmokeRendererHealth } from './smoke-renderer-health';
 
 const unitSource = `import dayjs from 'dayjs';
@@ -76,6 +77,8 @@ export async function runPackagesSmoke(
   try {
     const evaluate = <T = unknown>(source: string): Promise<T> =>
       window.webContents.executeJavaScript(source, true) as Promise<T>;
+    const capturePresentedPage = (label: string) =>
+      capturePresentedSmokePage(window, Date.now() + 10_000, `Packages ${label}`);
     const ready = async (
       expression: string,
       description: string,
@@ -107,11 +110,7 @@ export async function runPackagesSmoke(
       );
       try {
         await fs.mkdir(path.dirname(screenshot), { recursive: true });
-        const capture = await window.webContents.capturePage(undefined, {
-          stayHidden: true,
-          stayAwake: true,
-        });
-        if (capture.isEmpty()) throw new Error('empty screenshot');
+        const capture = await capturePresentedPage('timeout');
         await fs.writeFile(screenshot, capture.toPNG());
         log(`renderer Packages timeout screenshot saved: ${screenshot}`);
       } catch (error) {
@@ -275,14 +274,9 @@ export async function runPackagesSmoke(
     })()`,
         'aligned desktop install and search controls',
       );
-      await evaluate(
-        'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-      );
       await fs.writeFile(
         path.join(screenshotDirectory, 'desktop.png'),
-        (
-          await window.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })
-        ).toPNG(),
+        (await capturePresentedPage('desktop')).toPNG(),
       );
       const bounds = window.getBounds();
       const contentBounds = window.getContentBounds();
@@ -319,14 +313,9 @@ export async function runPackagesSmoke(
             })()`,
             'reachable notebook controls and independently scrolling package lists',
           );
-          await evaluate(
-            'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-          );
           await fs.writeFile(
             path.join(screenshotDirectory, `notebook-${width}-${height}.png`),
-            (
-              await window.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })
-            ).toPNG(),
+            (await capturePresentedPage(`notebook ${width}x${height}`)).toPNG(),
           );
         }
         log(
@@ -347,14 +336,9 @@ export async function runPackagesSmoke(
           })()`,
           'stacked package panels and reachable narrow-screen footer',
         );
-        await evaluate(
-          'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-        );
         await fs.writeFile(
           path.join(screenshotDirectory, 'narrow.png'),
-          (
-            await window.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })
-          ).toPNG(),
+          (await capturePresentedPage('narrow')).toPNG(),
         );
       } finally {
         window.setBounds(bounds);
@@ -459,9 +443,6 @@ export async function runPackagesSmoke(
   })()`,
       'opaque native menu surface and readable Go to Definition action',
     );
-    await evaluate(
-      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-    );
     const nativeMenuScreenshot = path.resolve(
       'artifacts',
       'smoke',
@@ -471,12 +452,13 @@ export async function runPackagesSmoke(
     );
     await fs.writeFile(
       nativeMenuScreenshot,
-      (
-        await window.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })
-      ).toPNG(),
+      (await capturePresentedPage('native Monaco menu')).toPNG(),
     );
     log(
       `renderer Packages native menu passed: themed opaque surface and action contrast >= 4.5; screenshot ${nativeMenuScreenshot}`,
+    );
+    log(
+      'renderer Packages presented screenshots passed: desktop, 1366x768 and 1280x720 notebooks, 720px narrow layout and native Monaco menu; marker-free frames',
     );
     const definitionPoint = await evaluate<{ x: number; y: number }>(`(() => {
       const rect = (${definitionAction}).getBoundingClientRect();
