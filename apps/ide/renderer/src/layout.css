@@ -2319,16 +2319,28 @@ kbd {
   min-height: 0;
 }
 
-.wr-designer-floating-layer {
+.wr-designer-popup-backdrop {
   position: absolute;
   inset: 0;
   z-index: 1;
+  background: color-mix(in srgb, var(--wr-theme-overlay, #0f172a) 48%, transparent);
+  pointer-events: none;
+}
+
+.wr-designer-floating-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   overflow: visible;
   pointer-events: none;
 }
 
+.wr-popup-designer-editor {
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+}
+
 .wr-design-overlay {
-  z-index: 2;
+  z-index: 3;
   touch-action: none;
 }
 

@@ -1,5 +1,32 @@
 # WebRAD delivery plan
 
+## Popup canvas presentation: 2026-11-04
+
+Popup authoring shows a canvas-sized, theme-aware translucent backdrop and a
+floating surface shadow while the Popup or a descendant is selected. The existing
+Designer smoke records centered geometry, backdrop behavior and child insertion;
+this change has not been validated locally.
+
+## API Client editor UX polish: 2026-11-04
+
+Organized the editor into request, settings, response and response-field sections,
+clarified the shared Base URL and endpoint behavior, and added guidance for
+discovering and selecting response fields. Improved typography, focus and compact
+spacing while retaining request editing, authorization, sending and saved schema
+behavior. Extended the existing Electron designer smoke with section, typography,
+viewport and populated-response evidence. No validation, smoke, build or packaging
+was requested or run.
+
+## Inspector visual polish: 2026-11-04
+
+Refined the shared Visual and Interaction Inspector presentation with more
+readable 12 px labels and controls, larger editing targets, clearer section and
+tab states, and keyboard focus indicators. The compact two-column layout and
+component-specific editors remain shared across registry components. Extended
+the existing Electron Interaction smoke and both runners' evidence requirements
+to cover typography, editor size and horizontal layout. No validation, smoke,
+build or packaging was requested or run.
+
 ## Release workflow feedback time: 2026-11-04
 
 Release verification runs the unchanged portable suite on all four native runners

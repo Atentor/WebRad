@@ -31,13 +31,13 @@
 }
 
 .wr-api-client-dialog .wr-api-client-layout {
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: 0;
 }
 
 .wr-api-client-dialog .wr-api-operations {
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  padding: 10px 8px 0;
+  padding: 12px 10px 0;
   border-right: 1px solid var(--wr-border);
   background: var(--wr-bg);
 }
@@ -46,7 +46,8 @@
   padding: 5px 0;
   border: 0;
   font-size: 12px;
-  font-weight: 500;
+  color: var(--wr-text);
+  font-weight: 600;
   letter-spacing: normal;
   text-transform: none;
 }
@@ -63,7 +64,7 @@
   border-radius: 4px;
   background: var(--wr-control-surface);
   color: var(--wr-text);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -74,7 +75,7 @@
 
 .wr-api-client-dialog .wr-api-operation-list {
   padding: 0;
-  gap: 3px;
+  gap: 5px;
 }
 
 .wr-api-client-dialog .wr-api-operation-list button {
@@ -94,7 +95,7 @@
   overflow: hidden;
   color: var(--wr-muted-text);
   font-family: var(--wr-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -104,7 +105,7 @@
   border-radius: 3px;
   background: var(--wr-accent-soft);
   color: var(--wr-accent);
-  font-size: 9px;
+  font-size: 10px;
   text-align: center;
 }
 
@@ -129,13 +130,44 @@
 }
 
 .wr-api-client-dialog .wr-api-request-editor {
-  gap: 16px;
+  gap: 12px;
   padding: 16px;
 }
 
 .wr-api-client-dialog .wr-api-request-top {
   display: grid;
   gap: 12px;
+}
+
+.wr-api-client-dialog
+  :is(.wr-api-request-top, .wr-api-operation-form, .wr-api-test-result, .wr-api-schema-editor) {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-panel-bg);
+}
+
+.wr-api-block-heading {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.wr-api-block-heading h3 {
+  margin: 0;
+  color: var(--wr-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.wr-api-block-heading p,
+.wr-api-connection-hint,
+.wr-api-schema-empty {
+  margin: 0;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .wr-api-client-dialog .wr-api-operation-heading {
@@ -169,6 +201,18 @@
 
 .wr-api-client-dialog .wr-api-connection-fields {
   grid-template-columns: minmax(160px, 0.9fr) minmax(0, 1.5fr);
+  gap: 6px 12px;
+}
+
+.wr-api-connection-fields label > span small {
+  margin-left: 4px;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.wr-api-connection-hint {
+  grid-column: 1 / -1;
 }
 
 .wr-api-client-dialog .wr-api-custom-method {
@@ -176,14 +220,49 @@
 }
 
 .wr-api-client-dialog .wr-api-operation-form {
-  gap: 12px;
-  padding-top: 0;
-  border: 0;
+  gap: 8px;
 }
 
 .wr-api-client-dialog .wr-api-request-tab-panel {
-  min-height: 100px;
-  gap: 14px;
+  min-height: 0;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.wr-api-client-dialog .wr-api-request-tabs {
+  gap: 18px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.wr-api-client-dialog .wr-api-request-tabs button[aria-selected='true'] {
+  font-weight: 650;
+}
+
+.wr-api-client-dialog :is(.wr-api-fields label, .wr-api-body-editor > label, .wr-api-response-body) {
+  font-size: 12px;
+}
+
+.wr-api-client-dialog
+  :is(
+    .wr-api-hint,
+    .wr-api-empty,
+    .wr-api-request-error,
+    .wr-api-upload-count,
+    .wr-api-secret-warning,
+    .wr-api-write-warning
+  ) {
+  font-size: 12px;
+}
+
+.wr-api-client-dialog .wr-api-parameter-list .wr-api-empty {
+  margin: 0;
+  padding: 4px 0;
+}
+
+.wr-api-client-dialog :is(button, summary):focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
 }
 
 .wr-api-authorization-editor {
@@ -256,20 +335,42 @@
   font-size: 11px;
 }
 
-.wr-api-client-dialog .wr-api-test-result,
-.wr-api-client-dialog .wr-api-schema-editor {
-  padding: 14px 0 0;
-  border: 0;
-  border-top: 1px solid var(--wr-border);
-  border-radius: 0;
-  background: transparent;
-}
-
 .wr-api-client-dialog .wr-api-test-result h3 {
   margin: 0 0 4px;
   color: var(--wr-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.wr-api-client-dialog .wr-api-schema-editor .wr-api-section-heading {
+  padding: 0 0 8px;
+  font-size: 13px;
+}
+
+.wr-api-client-dialog .wr-api-schema-editor .wr-api-section-heading small {
   font-size: 12px;
-  font-weight: 500;
+}
+
+.wr-api-client-dialog .wr-api-schema-editor > ul {
+  padding: 0;
+}
+
+.wr-api-client-dialog .wr-api-schema-node-main {
+  min-height: 32px;
+  font-size: 12px;
+}
+
+.wr-api-client-dialog .wr-api-schema-node-main code {
+  font-size: 11px;
+}
+
+.wr-api-client-dialog .wr-api-schema-node-main select {
+  height: 28px;
+}
+
+.wr-api-client-dialog
+  :is(.wr-api-response-status, .wr-api-response-status code, .wr-api-test-result details) {
+  font-size: 12px;
 }
 
 .wr-api-client-dialog .wr-api-client-actions {

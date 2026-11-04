@@ -122,12 +122,50 @@ export async function runTypedKeyboardInteractionSmoke(
   await window.webContents.executeJavaScript(
     `
     document.querySelector('[role="treeitem"][aria-label="EDTNome"]')?.click();
-    document.querySelector('button[role="tab"][aria-label="Events"]')?.click();
+    document.querySelector('button[role="tab"][aria-label="Properties"]')?.click();
   `,
+    true,
+  );
+  await waitFor(
+    window,
+    `document.querySelector('.wr-inspector-selection strong')?.textContent === 'EDTNome' && document.querySelector('.wr-inspector-search input') !== null && document.querySelector('.wr-inspector-row .wr-inspector-input') !== null`,
+    'the visual Inspector',
+  );
+  await window.webContents.executeJavaScript(
+    `(() => {
+      const grid = document.querySelector('.wr-inspector-grid');
+      const label = grid?.querySelector('.wr-inspector-name');
+      const input = grid?.querySelector('.wr-inspector-input');
+      const search = grid?.querySelector('.wr-inspector-search input');
+      const category = grid?.querySelector('.wr-inspector-category-title');
+      const readable = element => element && parseFloat(getComputedStyle(element).fontSize) >= 12;
+      if (!grid || !readable(label) || !readable(input) || !readable(search) || !readable(category)
+        || input.getBoundingClientRect().height < 28 || grid.scrollWidth > grid.clientWidth + 1) {
+        throw new Error('Visual Inspector typography, control size or horizontal layout failed.');
+      }
+      document.querySelector('button[role="tab"][aria-label="Events"]')?.click();
+    })()`,
     true,
   );
   const row = `[...document.querySelectorAll('.wr-inspector-event-row')].find(row => row.querySelector('label')?.textContent === 'OnKeyDown')`;
   await waitFor(window, `${row} !== undefined`, 'the keyboard Interaction');
+  await window.webContents.executeJavaScript(
+    `(() => {
+      const grid = document.querySelector('.wr-inspector-grid');
+      const row = ${row};
+      const label = row?.querySelector('label');
+      const input = row?.querySelector('input');
+      if (!grid || !label || !input || parseFloat(getComputedStyle(label).fontSize) < 12
+        || parseFloat(getComputedStyle(input).fontSize) < 12 || input.getBoundingClientRect().height < 28
+        || grid.scrollWidth > grid.clientWidth + 1) {
+        throw new Error('Interaction Inspector typography, control size or horizontal layout failed.');
+      }
+    })()`,
+    true,
+  );
+  log(
+    'renderer Inspector visual polish passed: readable Visual and Interaction rows and bounded layout',
+  );
   await window.webContents.executeJavaScript(
     `${row}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
     true,

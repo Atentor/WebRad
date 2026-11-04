@@ -314,6 +314,7 @@ try {
                 'renderer Monaco context Enter passed:',
                 'renderer empty event save cleanup passed:',
                 'renderer typed Interaction authoring passed:',
+                'renderer Inspector visual polish passed:',
                 'renderer typed Interaction Preview passed:',
                 'renderer Monaco workspace state passed:',
                 'renderer Monaco workspace restored view:',

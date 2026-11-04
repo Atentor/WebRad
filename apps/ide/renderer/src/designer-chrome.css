@@ -784,7 +784,7 @@
 }
 
 .wr-inspector-layout {
-  grid-template-rows: 34px 30px minmax(0, 1fr);
+  grid-template-rows: 38px 36px minmax(0, 1fr);
 }
 
 .wr-inspector-selection {
@@ -815,36 +815,43 @@
 }
 
 .wr-inspector-selection-info strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .wr-inspector-selection-info > span {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .wr-inspector-tabs {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 9px;
+  padding: 3px 10px;
   background: var(--wr-panel-bg);
 }
 
 .wr-inspector-tabs button {
-  height: 25px;
-  padding: 0 8px;
+  height: 29px;
+  padding: 0 10px;
   border: 0;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .wr-inspector-tabs button.active {
-  background: var(--wr-surface-hover);
+  background: var(--wr-accent-soft);
 }
 
 .wr-inspector-tabs button.active::after {
   display: none;
+}
+
+.wr-inspector-tabs button:focus-visible,
+.wr-inspector-category-title:focus-visible,
+.wr-inspector-search button:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: -2px;
 }
 
 .wr-inspector-category {
@@ -852,24 +859,28 @@
 }
 
 .wr-inspector-category-title {
-  min-height: 27px;
-  padding: 6px 10px 5px;
+  min-height: 30px;
+  padding: 7px 10px 6px;
   color: var(--wr-text);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
 }
 
+.wr-inspector-category-title:hover {
+  background: var(--wr-surface-hover);
+}
+
 .wr-inspector-category-title::marker {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .wr-inspector-category-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 2px;
-  padding: 0 10px 6px;
+  gap: 3px;
+  padding: 0 10px 8px;
 }
 
 .wr-inspector-property-group + .wr-inspector-property-group {
@@ -877,9 +888,9 @@
 }
 
 .wr-inspector-group-title {
-  padding: 2px 10px 4px;
+  padding: 4px 10px;
   color: var(--wr-muted-text);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -890,7 +901,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--wr-border);
   background: var(--wr-panel-bg);
 }
@@ -911,7 +922,7 @@
   background: transparent;
   color: var(--wr-text);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .wr-inspector-search input::-webkit-search-cancel-button {
@@ -945,7 +956,7 @@
   grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
   align-items: center;
   gap: 6px;
-  min-height: 24px;
+  min-height: 28px;
   border: 0;
 }
 
@@ -957,26 +968,26 @@
   display: block;
   padding: 0;
   border: 0;
-  color: var(--wr-muted-text);
-  font-size: 11px;
-  line-height: 1.25;
+  color: var(--wr-text);
+  font-size: 12px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
   white-space: normal;
 }
 
 .wr-inspector-value {
-  min-height: 24px;
+  min-height: 28px;
 }
 
 .wr-inspector-input,
 .wr-inspector-select,
 .wr-inspector-icon-picker,
 .wr-inspector-action {
-  height: 26px;
+  height: 28px;
   border: 1px solid var(--wr-border);
   border-radius: 4px;
   background: var(--wr-input-bg);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .wr-inspector-color-editor .wr-inspector-input {
@@ -984,18 +995,18 @@
 }
 
 .wr-inspector-color-picker {
-  height: 26px;
+  height: 28px;
 }
 
 .wr-inspector-boolean {
-  min-height: 24px;
+  min-height: 28px;
   padding: 0 5px;
 }
 
 .wr-object-inspector
   :is(.wr-inspector-input, .wr-inspector-select, .wr-inspector-icon-picker, .wr-inspector-action) {
-  height: 24px;
-  padding: 2px 6px;
+  height: 28px;
+  padding: 3px 7px;
   border-radius: 3px;
 }
 
@@ -1024,7 +1035,7 @@
   display: block;
   margin-top: 4px;
   color: var(--wr-muted-text);
-  font-size: 11px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
@@ -1034,8 +1045,8 @@
 
 .wr-object-inspector .wr-inspector-action {
   height: auto;
-  min-height: 24px;
-  line-height: 1.25;
+  min-height: 28px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -1061,7 +1072,7 @@
 }
 
 .wr-inspector-boolean span {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .wr-inspector-color-control {
@@ -1070,12 +1081,12 @@
 }
 
 .wr-inspector-color-editor {
-  grid-template-columns: 26px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
 }
 
 .wr-object-inspector .wr-inspector-color-picker {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   margin-left: 0;
 }
 
@@ -1084,8 +1095,8 @@
 }
 
 .wr-object-inspector .wr-theme-color-trigger {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 3px;
 }
 

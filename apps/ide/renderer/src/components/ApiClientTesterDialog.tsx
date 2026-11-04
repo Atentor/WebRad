@@ -838,39 +838,48 @@ export function ApiClientTesterDialog({
                     ) : null}
                   </section>
                 )}
-                {responseSchema !== null && operation !== undefined && (
+                {operation !== undefined && (
                   <section className="wr-api-schema-editor" aria-label="Response definitions">
                     <div className="wr-api-section-heading">
                       <div>
                         <span>Response fields</span>
+                        <small>
+                          Select the fields available to your application and adjust their types.
+                        </small>
                       </div>
                     </div>
-                    <ul>
-                      <SchemaNodeEditor
-                        node={responseSchema.root}
-                        depth={0}
-                        selectedIds={selectedSchemaIds}
-                        ancestorIds={[]}
-                        onSelectedChange={(node, selected, ancestors) => {
-                          setSelectedSchemaIds((current) => {
-                            const next = new Set(current);
-                            if (selected) {
-                              ancestors.forEach((id) => next.add(id));
-                              collectInferredNodeIds(node, next);
-                            } else {
-                              collectInferredNodeIds(node).forEach((id) => next.delete(id));
-                            }
-                            return next;
-                          });
-                        }}
-                        onPatch={(nodeId, patch) => {
-                          setSchema(operation.id, {
-                            ...responseSchema,
-                            root: replaceSchemaNode(responseSchema.root, nodeId, patch),
-                          });
-                        }}
-                      />
-                    </ul>
+                    {responseSchema === null ? (
+                      <p className="wr-api-schema-empty">
+                        Send a request that returns JSON to discover its response fields.
+                      </p>
+                    ) : (
+                      <ul>
+                        <SchemaNodeEditor
+                          node={responseSchema.root}
+                          depth={0}
+                          selectedIds={selectedSchemaIds}
+                          ancestorIds={[]}
+                          onSelectedChange={(node, selected, ancestors) => {
+                            setSelectedSchemaIds((current) => {
+                              const next = new Set(current);
+                              if (selected) {
+                                ancestors.forEach((id) => next.add(id));
+                                collectInferredNodeIds(node, next);
+                              } else {
+                                collectInferredNodeIds(node).forEach((id) => next.delete(id));
+                              }
+                              return next;
+                            });
+                          }}
+                          onPatch={(nodeId, patch) => {
+                            setSchema(operation.id, {
+                              ...responseSchema,
+                              root: replaceSchemaNode(responseSchema.root, nodeId, patch),
+                            });
+                          }}
+                        />
+                      </ul>
+                    )}
                   </section>
                 )}
               </div>

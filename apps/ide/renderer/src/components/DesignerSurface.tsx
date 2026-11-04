@@ -2624,6 +2624,9 @@ export function DesignerSurface({
                 </div>
               </ComponentView>
             )}
+            {floatingContainerEditor !== undefined && (
+              <div className="wr-designer-popup-backdrop" aria-hidden="true" />
+            )}
             <div className="wr-designer-floating-layer" ref={setFloatingHost} />
             {root !== undefined &&
               floatingContainerEditorNode !== undefined &&

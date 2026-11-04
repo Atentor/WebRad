@@ -120,6 +120,10 @@ export function ApiClientRequestEditor({
   return (
     <>
       <div className="wr-api-request-top">
+        <div className="wr-api-block-heading">
+          <h3>Request</h3>
+          <p>Configure the endpoint and send a test request.</p>
+        </div>
         <fieldset
           className="wr-api-editor-fields wr-api-fields wr-api-operation-heading"
           disabled={sending}
@@ -141,6 +145,7 @@ export function ApiClientRequestEditor({
               min="1"
               max={Number.MAX_SAFE_INTEGER}
               placeholder="Auto"
+              title="Optional version for relative endpoints. Absolute URLs require Auto."
               value={operation.apiVersion ?? ''}
               onChange={(event) => {
                 const raw = event.currentTarget.value;
@@ -244,7 +249,9 @@ export function ApiClientRequestEditor({
                 </select>
               </label>
               <label>
-                <span>Base URL</span>
+                <span>
+                  Base URL <small>Shared by requests</small>
+                </span>
                 <input
                   ref={baseUrlRef}
                   aria-label="Base URL"
@@ -256,6 +263,11 @@ export function ApiClientRequestEditor({
                   onChange={(event) => onBaseUrlChange(event.currentTarget.value)}
                 />
               </label>
+              {!bound && (
+                <p className="wr-api-connection-hint">
+                  Relative endpoints use this URL. An absolute endpoint uses its own URL.
+                </p>
+              )}
             </div>
           )}
           {bound && (
@@ -300,6 +312,10 @@ export function ApiClientRequestEditor({
         </fieldset>
       </div>
       <fieldset className="wr-api-editor-fields wr-api-operation-form" disabled={sending}>
+        <div className="wr-api-block-heading">
+          <h3>Request settings</h3>
+          <p>Configure parameters, authorization, headers and body.</p>
+        </div>
         {forbidden && (
           <p className="wr-api-request-error" role="note">
             Browsers prohibit {method} requests. Choose another method to send.

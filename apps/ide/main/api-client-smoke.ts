@@ -145,13 +145,24 @@ async function verifyDialogViewport(window: BrowserWindow, stacked = false): Pro
     const footer = document.querySelector('.wr-api-client-actions');
     const operations = document.querySelector('.wr-api-operations');
     const editor = document.querySelector('.wr-api-request-editor');
+    const request = document.querySelector('.wr-api-request-top');
+    const settings = document.querySelector('.wr-api-operation-form');
+    const schema = document.querySelector('.wr-api-schema-editor');
+    const name = document.querySelector('[aria-label="Operation name"]');
+    const hint = document.querySelector('.wr-api-connection-hint');
     if (!(dialog instanceof HTMLElement) || !(footer instanceof HTMLElement) || !(operations instanceof HTMLElement) || !(editor instanceof HTMLElement)) return false;
+    if (!(request instanceof HTMLElement) || !(settings instanceof HTMLElement) || !(schema instanceof HTMLElement) || !(name instanceof HTMLElement) || !(hint instanceof HTMLElement)) return false;
     const bounds = dialog.getBoundingClientRect();
     const footerBounds = footer.getBoundingClientRect();
     const operationsBounds = operations.getBoundingClientRect();
     const editorBounds = editor.getBoundingClientRect();
+    const requestBounds = request.getBoundingClientRect();
+    const settingsBounds = settings.getBoundingClientRect();
+    const schemaBounds = schema.getBoundingClientRect();
     const arranged = ${String(stacked)} ? operationsBounds.bottom <= editorBounds.top + 1 : operationsBounds.right <= editorBounds.left + 1;
-    return arranged && dialog.scrollWidth <= dialog.clientWidth + 1 && editor.scrollWidth <= editor.clientWidth + 1 && bounds.left >= 0 && bounds.right <= innerWidth + 1 && bounds.top >= 0 && footerBounds.bottom <= innerHeight + 1;
+    const sections = requestBounds.bottom <= settingsBounds.top + 1 && settingsBounds.bottom <= schemaBounds.top + 1;
+    const readable = parseFloat(getComputedStyle(name).fontSize) >= 12 && parseFloat(getComputedStyle(hint).fontSize) >= 12;
+    return arranged && sections && readable && dialog.scrollWidth <= dialog.clientWidth + 1 && editor.scrollWidth <= editor.clientWidth + 1 && bounds.left >= 0 && bounds.right <= innerWidth + 1 && bounds.top >= 0 && footerBounds.bottom <= innerHeight + 1;
   })()`,
   );
 }
@@ -480,6 +491,16 @@ export async function runApiClientDesignerSmoke(
       throw new Error(`API Client generic request mismatch: ${JSON.stringify(calls)}`);
     }
     await ready(window, `document.querySelector('[aria-label="Save data"]') !== null`);
+    await verifyDialogViewport(window);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-api-schema-editor').scrollIntoView({ block: 'center' })`,
+      true,
+    );
+    await capture(window, `${screenshotRoot}-response.png`);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-api-request-editor').scrollTop = 0`,
+      true,
+    );
     await clickText(window, 'Authorization');
     await setControl(window, '[aria-label="Authorization scope"]', 'client');
     await setControl(window, '[aria-label="Authorization type"]', 'basic');
@@ -817,7 +838,7 @@ export async function runApiClientDesignerSmoke(
       'renderer RestGO API Client synchronization passed: edit and save GET/PUT SQL, reconcile existing query/JSON inputs, preserve request name and values, save project and reopen client',
     );
     log(
-      `renderer API Client designer passed: tabs, all methods, light/dark theme, 1080/740 viewport, custom HTTP test, delete final endpoint, save/reopen empty list, recreate endpoint, fixed RestGO URL, Bearer test, safe persistence; screenshots ${screenshotRoot}-custom.png, ${screenshotRoot}-custom-light.png, ${screenshotRoot}-custom-compact.png, ${screenshotRoot}-custom-narrow.png, ${screenshotRoot}-empty.png and ${screenshotRoot}-restgo.png`,
+      `renderer API Client designer passed: request, settings and response layout, readable controls, tabs, all methods, light/dark theme, 1080/740 viewport, custom HTTP test, delete final endpoint, save/reopen empty list, recreate endpoint, fixed RestGO URL, Bearer test, safe persistence; screenshots ${screenshotRoot}-custom.png, ${screenshotRoot}-custom-light.png, ${screenshotRoot}-custom-compact.png, ${screenshotRoot}-custom-narrow.png, ${screenshotRoot}-response.png, ${screenshotRoot}-empty.png and ${screenshotRoot}-restgo.png`,
     );
   } finally {
     await new Promise<void>((resolve, reject) =>

@@ -290,13 +290,73 @@ async function runDesignerEditingSmoke(
   );
   await click(window, root);
   await click(window, 'button[role="tab"][aria-label="Properties"]');
+  const insertFromPalette = async (type: string): Promise<void> => {
+    const selector = `[data-palette-component-type=${JSON.stringify(type)}]`;
+    await ready(
+      window,
+      `document.querySelector(${JSON.stringify(selector)}) instanceof HTMLButtonElement`,
+    );
+    await window.webContents.executeJavaScript(
+      `document.querySelector(${JSON.stringify(selector)}).focus()`,
+      true,
+    );
+    window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+    window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+  };
+  await insertFromPalette('WebPopup');
+  await ready(
+    window,
+    `document.querySelector('.wr-popup-designer-editor [data-component-type="WebPopup"]') !== null`,
+  );
+  const popupId: unknown = await window.webContents.executeJavaScript(
+    `document.querySelector('.wr-popup-designer-editor')?.dataset.designerNodeId`,
+    true,
+  );
+  if (typeof popupId !== 'string') throw new Error('Popup editor has no component ID.');
+  const popupEvidence: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+      const surface = document.querySelector('.wr-page-surface');
+      const backdrop = surface?.querySelector('.wr-designer-popup-backdrop');
+      const editor = surface?.querySelector('.wr-popup-designer-editor');
+      if (!surface || !backdrop || !editor) return null;
+      const s = surface.getBoundingClientRect(), b = backdrop.getBoundingClientRect(), p = editor.getBoundingClientRect();
+      const style = getComputedStyle(backdrop);
+      return { coversCanvas: Math.abs(s.left-b.left) < 1 && Math.abs(s.top-b.top) < 1 && Math.abs(s.width-b.width) < 1 && Math.abs(s.height-b.height) < 1,
+        centered: Math.abs((p.left+p.right)-(s.left+s.right)) < 2 && Math.abs((p.top+p.bottom)-(s.top+s.bottom)) < 2,
+        background: style.backgroundColor, pointerEvents: style.pointerEvents };
+    })()`,
+    true,
+  );
+  if (
+    popupEvidence === null ||
+    typeof popupEvidence !== 'object' ||
+    Reflect.get(popupEvidence, 'coversCanvas') !== true ||
+    Reflect.get(popupEvidence, 'centered') !== true ||
+    Reflect.get(popupEvidence, 'background') === 'rgba(0, 0, 0, 0)' ||
+    Reflect.get(popupEvidence, 'pointerEvents') !== 'none'
+  ) {
+    throw new Error(`Popup canvas presentation failed: ${JSON.stringify(popupEvidence)}`);
+  }
+  await insertFromPalette('WebButton');
+  await ready(
+    window,
+    `document.querySelector('.wr-popup-designer-editor [data-component-type="WebButton"]') !== null && document.querySelector('.wr-designer-popup-backdrop') !== null`,
+  );
+  await click(window, root);
+  await ready(window, `document.querySelector('.wr-designer-popup-backdrop') === null`);
+  await undo();
+  await undo();
+  await ready(
+    window,
+    `document.querySelector('[data-designer-node-id=${JSON.stringify(popupId)}]') === null && document.querySelector('[role="treeitem"][data-component-id=${JSON.stringify(popupId)}]') === null`,
+  );
   await click(window, 'button[aria-label="Save (Ctrl+S)"]');
   await ready(
     window,
     `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
   );
   log(
-    'renderer UX Designer editing passed: native Enter palette insertion, multiline ListBox draft persisted, incomplete numeric draft canceled, multi-selection events saved for both IDs and undone atomically',
+    `renderer UX Designer editing passed: native Enter palette insertion, multiline ListBox draft persisted, incomplete numeric draft canceled, multi-selection events saved for both IDs and undone atomically; Popup canvas backdrop, centered editor, child insertion and dismissal ${JSON.stringify(popupEvidence)}`,
   );
 }
 

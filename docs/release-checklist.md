@@ -21,6 +21,21 @@ mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
 
+The `renderer UX Designer editing passed:` workflow also inserts a Popup through
+the palette, measures its centered editor and canvas-sized translucent backdrop,
+inserts a child while the Popup remains open, and confirms that the backdrop is
+removed when selecting the page. This new Designer evidence has not been run.
+
+The existing `renderer API Client designer passed:` workflow also checks the
+request, settings and response sections, readable controls and bounded layout at
+desktop and notebook widths, and captures the populated response fields. This
+updated UX evidence has not been executed for the API Client polish.
+
+Both runners require `renderer Inspector visual polish passed:`. The existing
+keyboard Interaction flow checks the shared Visual and Interaction typography,
+28 px editors and horizontal layout before creating the typed handler. This
+evidence has not been executed for the Inspector polish.
+
 Both runners require `renderer API Client authorization passed:`,
 `renderer API Client response refresh passed:` and
 `renderer API Client compiled authorization passed:`. The existing API Client
