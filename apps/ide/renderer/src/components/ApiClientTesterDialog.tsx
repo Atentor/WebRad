@@ -295,13 +295,23 @@ function responseJson(text: string, contentType: string): unknown | undefined {
   }
 }
 
-function testResultBody(text: string): {
+function prettifyJsonText(text: string, contentType: string): string | undefined {
+  if (!/[/+]json(?:;|$)/iu.test(contentType) && !/^(?:\[|\{)/u.test(text.trim())) return undefined;
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return undefined;
+  }
+}
+
+function testResultBody(text: string, contentType: string): {
   readonly bodyText: string;
   readonly bodyTruncated: boolean;
 } {
-  if (text.length <= MAX_RESPONSE_PREVIEW_LENGTH) return { bodyText: text, bodyTruncated: false };
+  const bodyText = prettifyJsonText(text, contentType) ?? text;
+  if (bodyText.length <= MAX_RESPONSE_PREVIEW_LENGTH) return { bodyText, bodyTruncated: false };
   return {
-    bodyText: `${text.slice(0, MAX_RESPONSE_PREVIEW_LENGTH)}\n\n… Response preview truncated …`,
+    bodyText: `${bodyText.slice(0, MAX_RESPONSE_PREVIEW_LENGTH)}\n\n… Response preview truncated …`,
     bodyTruncated: true,
   };
 }
@@ -486,8 +496,9 @@ export function ApiClientTesterDialog({
         signal: controller.signal,
       });
       const rawText = await response.text();
-      const preview = testResultBody(rawText);
-      const json = responseJson(rawText, response.headers.get('content-type') ?? '');
+      const contentType = response.headers.get('content-type') ?? '';
+      const preview = testResultBody(rawText, contentType);
+      const json = responseJson(rawText, contentType);
       const result: ApiTestResult = {
         url: response.url || request.url,
         status: response.status,
