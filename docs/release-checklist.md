@@ -16,6 +16,16 @@ mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
 
+Both runners require `renderer API Client authorization passed:`,
+`renderer API Client response refresh passed:` and
+`renderer API Client compiled authorization passed:`. The existing API Client
+workflow configures client-level Basic Auth through the Authorization tab,
+inherits it for a request, compares the real HTTP header, saves/reopens masked
+credentials and changes endpoint to require removal of previous response fields.
+The compiled browser flow uses a saved Basic Auth client and its typed request
+instance against the HTTP fixture, alongside all existing RestGo assertions.
+These interactions have not been executed for the 2026-11-04 changes.
+
 Both runners require `renderer Edit mask Inspector and F9 passed:`. The shared
 real IDE interaction inserts Edit, checks opt-in Inspector defaults, saves a
 pattern with an optional group and a custom uppercase hexadecimal token, and

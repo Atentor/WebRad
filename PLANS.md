@@ -1,5 +1,27 @@
 # WebRAD delivery plan
 
+## API Client authorization and response refresh: 2026-11-04
+
+Added a compact Authorization tab for custom APIs: client defaults, per-request
+inheritance/overrides, No auth, UTF-8 Basic Auth, Bearer Token and API Key in a
+header or query parameter. Optional validated model definitions preserve existing
+projects and manual headers. The editor and browser runtime share authorization
+construction; typed connection/request/active-request properties and per-call
+options support runtime credentials. RestGo managed modes reject custom
+authorization, and conversion clears custom definitions. Credentials configured
+in the editor are explicitly described as project/export data.
+
+Successful Send responses now remove fields absent from the latest JSON sample,
+including nested branches, while retaining matching node identities and edited
+types. Empty/non-JSON successes clear the contract; HTTP/network failures retain
+it. Saving uses the refreshed selection and generated type contract.
+
+Updated the existing Electron API Client workflow and both runners' required
+evidence for Basic Auth inheritance, real HTTP headers, save/reopen, endpoint
+response refresh and compiled browser authorization. Updated the API Client guide
+and synchronized embedded runtime sources and Monaco declarations. No tests,
+smokes, typecheck, lint, validation, builds or packaging were requested or run.
+
 ## Hosted CI corrections for f1dc5cf: 2026-11-03
 
 Inspected all six failed jobs in release 41738666945 and validate 41738666837.

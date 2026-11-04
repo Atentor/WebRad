@@ -186,6 +186,12 @@
   gap: 14px;
 }
 
+.wr-api-authorization-editor {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
 .wr-api-client-dialog .wr-api-empty {
   margin: 8px 0;
 }

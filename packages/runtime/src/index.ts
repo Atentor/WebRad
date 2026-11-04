@@ -14,6 +14,7 @@ export * from './login-model.js';
 export type { WebIconMode, LucideIconName } from './icon.js';
 export type { WebProgressBarFormat } from './progress-bar.js';
 export * from './api-client.js';
+export * from './api-client-authorization.js';
 export * from './api-client-inputs.js';
 export * from './api-client-accessors.js';
 export * from './api-client-template.js';

@@ -5,6 +5,63 @@ reusable component code. Monaco completes requests, parameters, and response
 fields from the saved model. `ApiClient1` and `this.ApiClient1` address the same
 instance; local variables with the same name retain normal TypeScript scope.
 
+## Authorization for custom APIs
+
+Open the API Client and select **Authorization**. **Apply to → Client defaults**
+sets a shared policy; **This request → Inherit from client** uses that policy.
+Each operation can instead select its own **No auth**, **Basic Auth** (username
+and password), **Bearer Token** (token without the `Bearer` prefix), or **API Key**
+(name/value sent in a header or query parameter). **Client defaults → Use manual
+headers** retains existing header-based configurations.
+
+**Send** uses the same browser authorization builder as Preview and generated
+applications. Basic Auth encodes UTF-8 `username:password` as Base64; usernames
+cannot contain a colon, while passwords can. Structured authorization takes
+precedence over manual `Authorization` headers. **No auth** removes that header
+and bypasses the inherited policy. API key query values replace the matching
+query parameter. Cookie policy remains a separate **Options → Credentials** setting.
+
+Authorization definitions are optional `authorization` properties on the client
+configuration and operations in schema version 1. Omitted/null operation values
+inherit; omitted/null client values preserve manual headers. Existing project
+files do not need migration. Save/Cancel, Designer history, project reopening,
+page/reusable generation and typed Monaco access follow the existing configuration
+flow. RestGo modes continue to manage their own authorization; switching or
+converting to RestGo clears custom authorization.
+
+Saved credentials are stored in the project and included in generated browser
+apps. Use values suitable for client-side access, or assign credentials obtained
+at runtime instead of saving them. For example, in page or reusable code:
+
+```ts
+ApiClient1.Connection.Authorization = {
+  type: 'basic',
+  username: 'application-user',
+  password: suppliedPassword,
+};
+ApiClient1.PutKey.Authorization = null; // Inherit the client policy.
+await ApiClient1.PutKey.execute();
+
+ApiClient1.PutKey.Authorization = { type: 'bearer', token: accessToken };
+await ApiClient1.PutKey.execute();
+await ApiClient1.PutKey.execute({ authorization: { type: 'none' } });
+```
+
+These assignments modify only the running instance. `this.ApiClient1` is also
+supported. `ApiClient1.Authorization` addresses the active request, while
+`Connection.Authorization` applies to direct `request`, `get`, `post`, and other
+HTTP helpers too. Per-call authorization overrides the operation and client policy.
+
+## Refreshing response fields
+
+Every successful **Send** refreshes **Response fields** from the latest JSON
+sample, removing old fields and nested branches absent from that response.
+Matching paths/kinds retain their IDs and edited field types. Empty lists have no
+inferred child fields. Successful empty/non-JSON responses clear the field list.
+Failed requests and HTTP error envelopes leave the existing successful contract
+intact. Save persists the refreshed, selected contract and updates generated
+types; Cancel discards it. Any bindings to removed fields must be updated.
+
 ## Updating imported RestGo APIs
 
 Saving an endpoint or refreshing the RestGo catalog synchronizes existing imported
@@ -127,6 +184,8 @@ changes do not rewrite the Designer model or authored TypeScript.
 | `Connection.Timeout`                                | Default timeout in milliseconds.                                    |
 | `Connection.Headers.Name`                           | Shared default header.                                              |
 | `Connection.DefaultHeaders`                         | Read or replace default header definitions.                         |
+| `Connection.Authorization`                          | Read/replace shared authorization; null preserves manual headers.   |
+| `Authorization` / `Requests.Name.Authorization`     | Read/replace operation authorization; null inherits the client.     |
 | `Method`, `Endpoint`, `ApiVersion`                  | Read/write active request settings; also on named requests.         |
 | `Body.Kind` / `Body.Value`                          | Body type and content/template.                                     |
 | `Body.Parameters`                                   | Body parameter definitions.                                         |

@@ -164,6 +164,7 @@ const sourceFiles = [
   'login-css.ts',
   'login-recovery.ts',
   'api-client.ts',
+  'api-client-authorization.ts',
   'api-client-inputs.ts',
   'api-client-accessors.ts',
   'api-client-store.ts',

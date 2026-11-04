@@ -506,6 +506,9 @@ export function ApiClientTesterDialog({
         const schema = reconcileApiClientResponseSchema(inferred, operation.responseSchema);
         setSchema(operation.id, schema);
         setSelectedSchemaIds(collectInferredNodeIds(schema.root));
+      } else if (response.ok) {
+        setSchema(operation.id, null);
+        setSelectedSchemaIds(new Set());
       }
     } catch (caught) {
       const aborted = controller.signal.aborted;

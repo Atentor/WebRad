@@ -140,17 +140,10 @@ function matchingNode(
   );
 }
 
-function hasNodeAtPath(
-  node: ApiClientSchemaNode,
-  candidates: readonly ApiClientSchemaNode[],
-): boolean {
-  return candidates.some((candidate) => candidate.path === node.path);
-}
-
 /**
  * A new sample refreshes the displayed shape but preserves prior IDs and type
- * choices where a path still exists. Missing prior fields remain available so
- * a partial test result does not silently break a saved binding.
+ * choices where a path still exists. Fields absent from the latest successful
+ * sample are removed, including nested fields and children of empty lists.
  */
 export function reconcileApiClientResponseSchema(
   inferred: ApiClientResponseSchema,
@@ -178,10 +171,6 @@ export function reconcileApiClientResponseSchema(
           : matchingNode(child, compatiblePrevious.children),
       ),
     );
-    const preservedChildren =
-      compatiblePrevious === undefined
-        ? []
-        : compatiblePrevious.children.filter((child) => !hasNodeAtPath(child, node.children));
     return {
       ...node,
       ...(compatiblePrevious === undefined
@@ -191,7 +180,7 @@ export function reconcileApiClientResponseSchema(
             fieldType: compatiblePrevious.fieldType,
             nullable: compatiblePrevious.nullable,
           }),
-      children: [...reconciledChildren, ...preservedChildren],
+      children: reconciledChildren,
     };
   };
   return { version: 1, root: reconcile(inferred.root, existing.root) };

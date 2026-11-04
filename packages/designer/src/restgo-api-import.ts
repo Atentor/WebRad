@@ -235,6 +235,7 @@ export function importRestGoPublishedApis(
         }
         return {
           ...operation,
+          ...(operation.authorization == null ? {} : { authorization: null }),
           headers: withoutAuthorization(operation.headers),
           credentials: 'omit',
         };
@@ -311,6 +312,7 @@ export function importRestGoPublishedApis(
   const imported = parseApiClientConfiguration({
     ...configuration,
     connection,
+    ...(configuration.authorization == null ? {} : { authorization: null }),
     defaultHeaders: withoutAuthorization(configuration.defaultHeaders),
     operations,
   });

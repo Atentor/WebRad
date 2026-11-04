@@ -5,6 +5,7 @@ import ts from 'typescript';
 export function createApiClientDeclarations(
   repositoryRoot,
   sourceNames = [
+    'api-client-authorization.ts',
     'api-client-template.ts',
     'api-client-inputs.ts',
     'api-client-accessors.ts',

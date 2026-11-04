@@ -1,4 +1,5 @@
 import type { ApiClientConfiguration, ApiClientOperation } from '@webrad/project-model';
+import { applyApiClientAuthorization } from '@webrad/runtime';
 
 export interface ApiClientTestRequest {
   readonly url: string;
@@ -48,6 +49,13 @@ export function createApiClientTestRequest(
   for (const parameter of [...configuration.defaultHeaders, ...operation.headers]) {
     if (parameter.enabled && parameter.name.trim()) headers.set(parameter.name, parameter.value);
   }
+  const authorization = operation.authorization ?? configuration.authorization;
+  const bound = configuration.connection !== undefined && configuration.connection !== 'custom';
+  if (bound && authorization != null)
+    throw new TypeError('RestGo connections manage authorization automatically.');
+  const authorizedUrl = bound
+    ? parsedUrl.href
+    : applyApiClientAuthorization(parsedUrl.href, headers, authorization);
   let body: BodyInit | undefined;
   switch (operation.body.kind) {
     case 'none':
@@ -82,7 +90,7 @@ export function createApiClientTestRequest(
     }
   }
   return {
-    url: parsedUrl.href,
+    url: authorizedUrl,
     init: { method, headers, body, credentials: operation.credentials },
   };
 }

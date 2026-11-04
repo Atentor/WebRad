@@ -1,5 +1,10 @@
 import { WebApiRequestStore } from './api-client-store.js';
 import { WebApiSelection } from './api-client-selection.js';
+import {
+  applyApiClientAuthorization,
+  normalizeApiClientAuthorization,
+  type WebApiAuthorization,
+} from './api-client-authorization.js';
 import type {
   WebApiBodySettings,
   WebApiCombinedInputs,
@@ -120,6 +125,7 @@ export interface WebApiOperation {
   readonly method: string;
   readonly path: string;
   readonly apiVersion?: number | null;
+  readonly authorization?: WebApiAuthorization | null;
   readonly headers: readonly WebApiParameter[];
   readonly query: readonly WebApiParameter[];
   readonly body: WebApiRequestBody;
@@ -132,6 +138,7 @@ export interface WebApiClientConfiguration {
   readonly schemaVersion: number;
   /** Omitted in existing projects, which continue to use their custom base URL. */
   readonly connection?: WebApiConnection;
+  readonly authorization?: WebApiAuthorization | null;
   readonly defaultHeaders: readonly WebApiParameter[];
   readonly timeoutMs: number;
   readonly operations: readonly WebApiOperation[];
@@ -142,6 +149,8 @@ export interface WebApiRequestOptions extends Omit<RequestInit, 'body' | 'header
   /** Values supplied to <name> placeholders in the configured body for execute(). */
   readonly parameters?: WebApiTemplateValues;
   readonly headers?: HeadersInit;
+  /** Overrides request/client authorization for this call; none explicitly disables it. */
+  readonly authorization?: WebApiAuthorization;
   readonly query?: Readonly<Record<string, QueryValue | readonly QueryValue[]>>;
   readonly signal?: AbortSignal | null;
   /** Cancels the request after this duration without changing the component default. */
@@ -621,6 +630,9 @@ function normalizeOperation(value: unknown, index: number): WebApiOperation | nu
     method: value.method,
     path: typeof value.path === 'string' ? value.path : '',
     apiVersion,
+    ...(value.authorization == null
+      ? {}
+      : { authorization: normalizeApiClientAuthorization(value.authorization) }),
     headers: normalizeParameters(value.headers),
     query: normalizeParameters(value.query),
     body: normalizeBody(value.body),
@@ -642,12 +654,24 @@ function normalizeConfiguration(value: unknown): WebApiClientConfiguration {
   if (!isRecord(value)) {
     return { schemaVersion: 1, defaultHeaders: [], timeoutMs: 30_000, operations: [] };
   }
+  const authorization = normalizeApiClientAuthorization(value.authorization);
+  if (
+    isRestGoConnection(value.connection) &&
+    (authorization !== null ||
+      (Array.isArray(value.operations) &&
+        value.operations.some(
+          (operation: unknown) => isRecord(operation) && operation.authorization != null,
+        )))
+  ) {
+    throw new TypeError('RestGo connections manage authorization automatically.');
+  }
   return {
     schemaVersion: typeof value.schemaVersion === 'number' ? value.schemaVersion : 1,
     ...(isRestGoConnection(value.connection) || value.connection === 'custom'
       ? { connection: value.connection as WebApiConnection }
       : {}),
     defaultHeaders: normalizeParameters(value.defaultHeaders),
+    ...(authorization === null ? {} : { authorization }),
     timeoutMs: finiteTimeout(value.timeoutMs, 30_000),
     operations: Array.isArray(value.operations)
       ? value.operations.flatMap((operation, index) => {
@@ -936,6 +960,12 @@ export class WebApiClient<
   public get Body(): WebApiBodySettings {
     return this.Request.Body;
   }
+  public get Authorization(): WebApiAuthorization | null {
+    return this.Request.Authorization;
+  }
+  public set Authorization(value: WebApiAuthorization | null) {
+    this.Request.Authorization = value;
+  }
   public get Options(): WebApiRequestSettings {
     return this.Request.Options;
   }
@@ -1041,6 +1071,7 @@ export class WebApiClient<
 
     const {
       parameters: _parameters,
+      authorization,
       query: _query,
       timeoutMs,
       responseType: requestedResponseType,
@@ -1050,9 +1081,18 @@ export class WebApiClient<
     void _query;
     void _parameters;
     const boundToRestGo = isRestGoConnection(this.#store.readConfiguration().connection);
+    if (boundToRestGo && authorization !== undefined)
+      throw new TypeError('RestGo connections manage authorization automatically.');
     let url = boundToRestGo
       ? restGoRequestUrl(getRestGoClient().baseUrl, appendQuery(path, options.query))
       : appendQuery(joinUrl(this.#baseUrl, path), options.query);
+    if (!boundToRestGo) {
+      url = applyApiClientAuthorization(
+        url,
+        headers,
+        authorization ?? this.#store.readConfiguration().authorization,
+      );
+    }
     const effectiveTimeout =
       timeoutMs === undefined ? this.#store.readConfiguration().timeoutMs : timeoutMs;
     const timeout = timeoutSignal(signal, effectiveTimeout);
@@ -1209,6 +1249,7 @@ export class WebApiClient<
         apiOperationPath(operation.path, operation.apiVersion),
         operation.query,
       );
+      const authorization = options.authorization ?? operation.authorization;
       const result = await this.request<T>(path, {
         ...options,
         method: options.method ?? operation.method,
@@ -1216,6 +1257,7 @@ export class WebApiClient<
         body,
         credentials: options.credentials ?? operation.credentials,
         timeoutMs,
+        ...(authorization == null ? {} : { authorization }),
       });
       this.#data = { ...this.#data, [stateName()]: result } as Partial<TOutputs>;
       const successState: WebApiOperationState<T> = {

@@ -1,4 +1,5 @@
 import { ApiClientBodyParameters } from './ApiClientBodyParameters';
+import { ApiClientAuthorizationEditor } from './ApiClientAuthorizationEditor';
 import {
   API_CLIENT_BODY_KINDS,
   API_CLIENT_CREDENTIALS,
@@ -13,7 +14,7 @@ import {
 } from '@webrad/project-model';
 import { useId, useState, type ReactElement, type RefObject } from 'react';
 
-const TABS = ['Query parameters', 'Headers', 'Body', 'Options'] as const;
+const TABS = ['Query parameters', 'Authorization', 'Headers', 'Body', 'Options'] as const;
 type Tab = (typeof TABS)[number];
 const BODY_LABELS: Readonly<Record<ApiClientBodyKind, string>> = {
   none: 'None',
@@ -95,13 +96,21 @@ export function ApiClientRequestEditor({
     onConfigurationChange({
       ...configuration,
       connection,
+      ...(connection !== 'custom' && configuration.authorization != null
+        ? { authorization: null }
+        : {}),
       defaultHeaders:
         connection !== 'custom'
           ? withoutAuthorization(configuration.defaultHeaders)
           : configuration.defaultHeaders,
       operations: configuration.operations.map((candidate) =>
         connection !== 'custom'
-          ? { ...candidate, headers: withoutAuthorization(candidate.headers), credentials: 'omit' }
+          ? {
+              ...candidate,
+              ...(candidate.authorization == null ? {} : { authorization: null }),
+              headers: withoutAuthorization(candidate.headers),
+              credentials: 'omit',
+            }
           : candidate,
       ),
     });
@@ -356,6 +365,26 @@ export function ApiClientRequestEditor({
               )}
             </>
           )}
+          {activeTab === 'Authorization' &&
+            (bound ? (
+              <p className="wr-api-empty" role="note">
+                {publicConnection
+                  ? 'RestGO Public sends requests without authorization.'
+                  : tokenConnection
+                    ? 'RestGO API Token uses the application token from RestGo integration.'
+                    : 'RestGo JWT Authentication uses the current user session.'}{' '}
+                Authorization is managed by RestGo integration.
+              </p>
+            ) : (
+              <ApiClientAuthorizationEditor
+                authorization={operation.authorization}
+                defaultAuthorization={configuration.authorization}
+                onChange={(authorization) => onOperationChange({ authorization })}
+                onDefaultChange={(authorization) =>
+                  onConfigurationChange({ ...configuration, authorization })
+                }
+              />
+            ))}
           {activeTab === 'Body' && (
             <>
               <div className="wr-api-body-editor">

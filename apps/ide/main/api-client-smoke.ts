@@ -373,7 +373,17 @@ export async function runApiClientDesignerSmoke(
       response.end(JSON.stringify({ success: true, user: developmentUser }));
       return;
     }
-    response.end(JSON.stringify({ data: [{ id: 42, name: 'Cliente de teste' }] }));
+    response.end(
+      JSON.stringify(
+        route === '/backend/v2/demo/authorization'
+          ? {
+              authorized:
+                request.headers.authorization ===
+                `Basic ${Buffer.from('smoke-user:smoke-password').toString('base64')}`,
+            }
+          : { data: [{ id: 42, name: 'Cliente de teste' }] },
+      ),
+    );
   });
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
@@ -450,7 +460,7 @@ export async function runApiClientDesignerSmoke(
     if (calls.length !== 0)
       throw new Error('API Client sent an HTTP request for a prohibited method.');
     await setControl(window, '[aria-label="Method"]', 'GET');
-    for (const tab of ['Query parameters', 'Headers', 'Body', 'Options']) {
+    for (const tab of ['Query parameters', 'Authorization', 'Headers', 'Body', 'Options']) {
       await clickText(window, tab);
       await ready(
         window,
@@ -469,6 +479,29 @@ export async function runApiClientDesignerSmoke(
     if (calls[0]?.authorization !== undefined || calls[0]?.path !== '/backend/v2/demo/customers') {
       throw new Error(`API Client generic request mismatch: ${JSON.stringify(calls)}`);
     }
+    await ready(window, `document.querySelector('[aria-label="Save data"]') !== null`);
+    await clickText(window, 'Authorization');
+    await setControl(window, '[aria-label="Authorization scope"]', 'client');
+    await setControl(window, '[aria-label="Authorization type"]', 'basic');
+    await setControl(window, '[aria-label="Basic Auth username"]', 'smoke-user');
+    await setControl(window, '[aria-label="Basic Auth password"]', 'smoke-password');
+    await setControl(window, '[aria-label="Authorization scope"]', 'request');
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Authorization type"]').value === 'inherit'`,
+    );
+    await setControl(window, '[aria-label="Path"]', '/v2/demo/authorization');
+    await clickText(window, 'Send test request');
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Save authorized"]') !== null && document.querySelector('[aria-label="Save data"]') === null`,
+    );
+    if (
+      calls.at(-1)?.authorization !==
+      `Basic ${Buffer.from('smoke-user:smoke-password').toString('base64')}`
+    )
+      throw new Error('API Client did not send inherited Basic authorization.');
+    await capture(window, `${screenshotRoot}-authorization.png`);
     await clickText(window, 'Save API Client');
     await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
     const openClient = async (): Promise<void> => {
@@ -484,6 +517,19 @@ export async function runApiClientDesignerSmoke(
       await ready(window, `document.querySelector('.wr-api-client-dialog') !== null`);
     };
     await openClient();
+    await clickText(window, 'Authorization');
+    await setControl(window, '[aria-label="Authorization scope"]', 'client');
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Authorization type"]').value === 'basic' && document.querySelector('[aria-label="Basic Auth username"]').value === 'smoke-user' && document.querySelector('[aria-label="Basic Auth password"]').value === 'smoke-password' && document.querySelector('[aria-label="Basic Auth password"]').type === 'password'`,
+    );
+    await setControl(window, '[aria-label="Authorization type"]', 'inherit');
+    log(
+      'renderer API Client authorization passed: client Basic Auth, inherited request, real HTTP header, save/reopen; masked password',
+    );
+    log(
+      'renderer API Client response refresh passed: changing endpoint removes previous response fields after Send',
+    );
     await clickText(window, 'Remove operation');
     await ready(
       window,
@@ -860,6 +906,17 @@ export async function runApiClientBrowserSmoke(log: (message: string) => void): 
       response.end(JSON.stringify(session()));
       return;
     }
+    if (route === '/backend/v2/demo/basic') {
+      if (
+        request.headers.authorization !==
+        `Basic ${Buffer.from('smoke-user:smoke-password').toString('base64')}`
+      ) {
+        response.writeHead(401).end(JSON.stringify({ error: 'Expected Basic authorization' }));
+        return;
+      }
+      response.end(JSON.stringify({ jwt: request.headers.authorization }));
+      return;
+    }
     if (request.headers.authorization !== `Bearer ${token()}` || loggedOut) {
       response
         .writeHead(401)
@@ -969,6 +1026,19 @@ export async function runApiClientBrowserSmoke(log: (message: string) => void): 
         },
       },
     });
+    const basicComponent = componentRegistry.createComponent('WebApiClient', {
+      id: 'api-client-basic-smoke',
+      name: 'BasicSmoke',
+      parentId: root.id,
+      props: {
+        baseUrl,
+        apiClientConfig: {
+          ...defaultConfiguration,
+          authorization: { type: 'basic', username: 'smoke-user', password: 'smoke-password' },
+          operations: [{ ...template, name: 'BasicRequest', path: '/v2/demo/basic' }],
+        },
+      },
+    });
     const project = {
       ...original,
       pages: [
@@ -977,10 +1047,11 @@ export async function runApiClientBrowserSmoke(log: (message: string) => void): 
           components: [
             ...page.components.map((candidate) =>
               candidate.id === root.id
-                ? { ...root, children: [...root.children, component.id] }
+                ? { ...root, children: [...root.children, component.id, basicComponent.id] }
                 : candidate,
             ),
             component,
+            basicComponent,
           ],
         },
       ],
@@ -993,6 +1064,7 @@ export class index extends indexGenerated {
   public constructor(element: HTMLElement) {
     super(element);
     (globalThis as unknown as { apiSmoke: WebApiClient }).apiSmoke = this.ApiSmoke;
+    (globalThis as unknown as { basicSmoke: WebApiClient }).basicSmoke = this.BasicSmoke;
   }
 }`,
       },
@@ -1013,6 +1085,9 @@ export class index extends indexGenerated {
       const check = (result) => { if (result.error) throw new Error(result.error.message); return result.data; };
       check(await RestGO.login('cliente@example.test', 'senha-de-teste'));
       const client = window.apiSmoke;
+      const basic = await window.basicSmoke.BasicRequest.execute();
+      if (basic.jwt !== ${JSON.stringify(`Basic ${Buffer.from('smoke-user:smoke-password').toString('base64')}`)})
+        throw new Error('Compiled API Client did not apply saved Basic authorization');
       if (client.baseUrl !== ${JSON.stringify(baseUrl)}) throw new Error('Bound API Client did not use the project base URL');
       let locked = false;
       try { client.baseUrl = 'https://escaped.example.test'; } catch { locked = true; }
@@ -1052,7 +1127,9 @@ export class index extends indexGenerated {
       Reflect.get(evidence, 'anonymousRejected') !== true
     )
       throw new Error(`API Client browser evidence mismatch: ${JSON.stringify(evidence)}`);
-    const endpointCalls = calls.filter((call) => call.path.startsWith('/backend/v2/demo/'));
+    const endpointCalls = calls.filter(
+      (call) => call.path.startsWith('/backend/v2/demo/') && call.path !== '/backend/v2/demo/basic',
+    );
     if (
       endpointCalls.length !== methods.length + 2 ||
       endpointCalls.at(-1)?.authorization !== 'Bearer api-client-browser-jwt-1' ||
@@ -1061,6 +1138,9 @@ export class index extends indexGenerated {
       throw new Error(`API Client browser request mismatch: ${JSON.stringify(calls)}`);
     log(
       `renderer API Client browser passed: ${JSON.stringify(evidence)}; ${String(endpointCalls.length)} real authenticated HTTP requests`,
+    );
+    log(
+      'renderer API Client compiled authorization passed: saved Basic Auth, typed request instance and real browser HTTP header',
     );
   } finally {
     browser?.destroy();

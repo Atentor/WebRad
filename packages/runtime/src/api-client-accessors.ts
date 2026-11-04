@@ -11,6 +11,7 @@ import type {
   WebApiResponseSchema,
   WebApiResponseType,
 } from './api-client.js';
+import type { WebApiAuthorization } from './api-client-authorization.js';
 import type {
   WebApiTemplateParameter,
   WebApiTemplateParameterType,
@@ -275,11 +276,13 @@ export class WebApiConnectionSettings<THeaders extends object = Record<string, s
     this.context.writeConfiguration({
       ...configuration,
       connection: value,
+      ...(managed && configuration.authorization != null ? { authorization: null } : {}),
       defaultHeaders: filter(configuration.defaultHeaders),
       operations: configuration.operations.map((operation) => ({
         ...operation,
         headers: filter(operation.headers),
         ...(managed ? { credentials: 'omit' as const } : {}),
+        ...(managed && operation.authorization != null ? { authorization: null } : {}),
       })),
     });
   }
@@ -290,6 +293,14 @@ export class WebApiConnectionSettings<THeaders extends object = Record<string, s
 
   public set BaseURL(value: string) {
     this.context.writeBaseUrl(value);
+  }
+
+  public get Authorization(): WebApiAuthorization | null {
+    return this.context.readConfiguration().authorization ?? null;
+  }
+
+  public set Authorization(value: WebApiAuthorization | null) {
+    this.context.writeConfiguration({ ...this.context.readConfiguration(), authorization: value });
   }
 
   public get Timeout(): number {
@@ -361,6 +372,15 @@ export class WebApiRequest<
 
   public set Method(value: string) {
     this.context.patchOperation(this.ID, { method: value });
+  }
+
+  /** Null inherits the client default; explicit none suppresses Authorization. */
+  public get Authorization(): WebApiAuthorization | null {
+    return this.context.readOperation(this.ID).authorization ?? null;
+  }
+
+  public set Authorization(value: WebApiAuthorization | null) {
+    this.context.patchOperation(this.ID, { authorization: value });
   }
 
   public get Endpoint(): string {

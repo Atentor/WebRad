@@ -50,6 +50,17 @@ export type ApiClientBodyKind = (typeof API_CLIENT_BODY_KINDS)[number];
 export const API_CLIENT_CREDENTIALS = ['omit', 'same-origin', 'include'] as const;
 export type ApiClientCredentials = (typeof API_CLIENT_CREDENTIALS)[number];
 
+export type ApiClientAuthorization =
+  | { readonly type: 'none' }
+  | { readonly type: 'basic'; readonly username: string; readonly password: string }
+  | { readonly type: 'bearer'; readonly token: string }
+  | {
+      readonly type: 'api-key';
+      readonly name: string;
+      readonly value: string;
+      readonly in: 'header' | 'query';
+    };
+
 export const API_CLIENT_SCHEMA_NODE_KINDS = ['field', 'object', 'list'] as const;
 export type ApiClientSchemaNodeKind = (typeof API_CLIENT_SCHEMA_NODE_KINDS)[number];
 
@@ -131,6 +142,8 @@ export interface ApiClientOperation {
   /** Custom connections allow absolute URLs; RestGo-bound paths stay below its base URL. */
   readonly path: string;
   readonly headers: readonly ApiClientParameter[];
+  /** Omitted/null inherits the client default. Explicit none disables authorization. */
+  readonly authorization?: ApiClientAuthorization | null;
   /** RestGO version for this request; omitted/null preserves the literal path. */
   readonly apiVersion?: number | null;
   readonly query: readonly ApiClientParameter[];
@@ -152,6 +165,8 @@ export interface ApiClientConfiguration {
   readonly schemaVersion: typeof API_CLIENT_CONFIGURATION_VERSION;
   /** Omission preserves the legacy custom connection without rewriting persisted data. */
   readonly connection?: ApiClientConnection;
+  /** Omitted/null preserves manually configured authorization headers in older projects. */
+  readonly authorization?: ApiClientAuthorization | null;
   readonly defaultHeaders: readonly ApiClientParameter[];
   readonly timeoutMs: number;
   readonly operations: readonly ApiClientOperation[];
@@ -231,6 +246,56 @@ export const ApiClientParameterSchema: z.ZodType<ApiClientParameter> = z
     enabled: z.boolean(),
   })
   .strict();
+
+const authorizationTextSchema = z
+  .string()
+  .max(32_768)
+  .refine((value) => !/[\r\n]/u.test(value) && !value.includes(String.fromCharCode(0)), {
+    message: 'Authorization values cannot contain line breaks or null characters.',
+  });
+export const ApiClientAuthorizationSchema: z.ZodType<ApiClientAuthorization> = z.discriminatedUnion(
+  'type',
+  [
+    z.object({ type: z.literal('none') }).strict(),
+    z
+      .object({
+        type: z.literal('basic'),
+        username: authorizationTextSchema.refine((value) => !value.includes(':'), {
+          message: 'A Basic Auth username cannot contain a colon.',
+        }),
+        password: authorizationTextSchema,
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal('bearer'),
+        token: authorizationTextSchema.refine((value) => !/\s/u.test(value), {
+          message: 'Enter the Bearer token without its prefix or whitespace.',
+        }),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal('api-key'),
+        name: authorizationTextSchema
+          .min(1)
+          .max(256)
+          .refine((value) => value.trim() === value && value.trim().length > 0),
+        value: authorizationTextSchema,
+        in: z.enum(['header', 'query']),
+      })
+      .strict()
+      .superRefine((definition, context) => {
+        if (definition.in === 'header' && !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u.test(definition.name)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'Enter a valid API key header name.',
+            path: ['name'],
+          });
+        }
+      }),
+  ],
+);
 
 export const ApiClientRequestBodySchema: z.ZodType<ApiClientRequestBody> = z
   .object({
@@ -345,6 +410,7 @@ export const ApiClientOperationSchema: z.ZodType<ApiClientOperation> = z
     path: operationPathSchema,
     apiVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).nullable().optional(),
     headers: z.array(ApiClientParameterSchema).max(200),
+    authorization: ApiClientAuthorizationSchema.nullable().optional(),
     query: z.array(ApiClientParameterSchema).max(200),
     body: ApiClientRequestBodySchema,
     credentials: z.enum(API_CLIENT_CREDENTIALS),
@@ -364,6 +430,7 @@ export const ApiClientConfigurationSchema: z.ZodType<ApiClientConfiguration> = z
   .object({
     schemaVersion: z.literal(API_CLIENT_CONFIGURATION_VERSION),
     connection: z.enum(API_CLIENT_CONNECTIONS).optional(),
+    authorization: ApiClientAuthorizationSchema.nullable().optional(),
     defaultHeaders: z.array(ApiClientParameterSchema).max(200),
     timeoutMs: z.number().int().min(1).max(120_000),
     operations: z.array(ApiClientOperationSchema).max(100),
@@ -371,6 +438,13 @@ export const ApiClientConfigurationSchema: z.ZodType<ApiClientConfiguration> = z
   .strict()
   .superRefine((configuration, context) => {
     const boundToRestGo = isRestGoApiClientConnection(configuration.connection);
+    if (boundToRestGo && configuration.authorization != null) {
+      context.addIssue({
+        code: 'custom',
+        message: 'RestGo connections manage authorization automatically.',
+        path: ['authorization'],
+      });
+    }
     const validateAuthorization = (
       headers: readonly ApiClientParameter[],
       path: readonly (string | number)[],
@@ -389,6 +463,13 @@ export const ApiClientConfigurationSchema: z.ZodType<ApiClientConfiguration> = z
     const operationNames = new Set<string>();
     configuration.operations.forEach((operation, index) => {
       if (boundToRestGo) {
+        if (operation.authorization != null) {
+          context.addIssue({
+            code: 'custom',
+            message: 'RestGo connections manage authorization automatically.',
+            path: ['operations', index, 'authorization'],
+          });
+        }
         validateAuthorization(operation.headers, ['operations', index, 'headers']);
         const pathError = getRestGoApiClientPathError(operation.path);
         if (pathError !== undefined) {

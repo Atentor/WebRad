@@ -1,4 +1,5 @@
 import { copyApiClientInput, getApiClientBodyInputs } from './api-client-inputs.js';
+import { normalizeApiClientAuthorization } from './api-client-authorization.js';
 import type {
   WebApiRequestBody,
   WebApiClientConfiguration,
@@ -124,6 +125,7 @@ export class WebApiRequestStore implements WebApiAccessContext {
     }
     timeout(value.timeoutMs);
     validateFields(value.defaultHeaders);
+    normalizeApiClientAuthorization(value.authorization);
     const ids = new Set<string>();
     const names = new Set<string>();
     for (const operation of value.operations) {
@@ -155,13 +157,17 @@ export class WebApiRequestStore implements WebApiAccessContext {
       }
       validateFields(operation.query);
       validateFields(operation.headers);
+      normalizeApiClientAuthorization(operation.authorization);
       if (bound(value)) this.callbacks.validateEndpoint(operation.path);
     }
     if (
       bound(value) &&
-      [...value.defaultHeaders, ...value.operations.flatMap((operation) => operation.headers)].some(
-        (header) => header.enabled && header.name.toLowerCase() === 'authorization',
-      )
+      (value.authorization != null ||
+        value.operations.some((operation) => operation.authorization != null) ||
+        [
+          ...value.defaultHeaders,
+          ...value.operations.flatMap((operation) => operation.headers),
+        ].some((header) => header.enabled && header.name.toLowerCase() === 'authorization'))
     ) {
       throw new TypeError('RestGo connections manage the Authorization header automatically.');
     }
