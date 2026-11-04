@@ -217,31 +217,40 @@ describe('Native Build IPC', () => {
     expect(mocks.picker).not.toHaveBeenCalled();
   });
 
-  it('aborts a replaced inspection and rejects its stale report without cancelling the replacement', async () => {
-    const pending: { signal: AbortSignal; resolve: (report: NativePrerequisiteReport) => void }[] =
-      [];
+  it('waits for a replaced inspection to settle and rejects its stale report without cancelling the replacement', async () => {
+    const pending: {
+      signal: AbortSignal;
+      resolve: (report: NativePrerequisiteReport) => void;
+    }[] = [];
     mocks.prerequisites.mockImplementation(
-      (_settings: unknown, options: { signal: AbortSignal }) =>
+      (
+        _settings: unknown,
+        options: {
+          signal: AbortSignal;
+        },
+      ) =>
         new Promise<NativePrerequisiteReport>((resolve) => {
           pending.push({ signal: options.signal, resolve });
         }),
     );
     const inspection = { rootPath: root, settings: project.settings.nativeApplication };
-    const first = invoke('inspect', inspection);
-    await vi.waitFor(() => expect(pending).toHaveLength(1));
-    const second = invoke('inspect', inspection);
-    await vi.waitFor(() => expect(pending).toHaveLength(2));
     const report: NativePrerequisiteReport = {
       platform: 'web',
       hostPlatform: process.platform,
       ready: true,
       checks: [],
     };
-    expect(pending[0]?.signal.aborted).toBe(true);
-    expect(pending[1]?.signal.aborted).toBe(false);
+    const first = invoke('inspect', inspection);
     const rejectedFirst = expect(first).rejects.toThrow();
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    const second = invoke('inspect', inspection);
+    await vi.waitFor(() => expect(pending[0]?.signal.aborted).toBe(true));
+    // Cancellation alone must not start another probe before process cleanup settles.
+    expect(pending).toHaveLength(1);
+    expect(mocks.prerequisites).toHaveBeenCalledTimes(1);
     pending[0]?.resolve(report);
     await rejectedFirst;
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
     expect(pending[1]?.signal.aborted).toBe(false);
     pending[1]?.resolve(report);
     await expect(second).resolves.toEqual(report);

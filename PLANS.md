@@ -1,5 +1,26 @@
 # WebRAD delivery plan
 
+## Hosted CI corrections for f1dc5cf: 2026-11-03
+
+Inspected all six failed jobs in release 41738666945 and validate 41738666837.
+Each stopped at the same Native Build IPC fixture: it awaited a second probe
+before settling the cancelled first probe, contrary to the serialized inspection
+contract introduced in f1dc5cf. All six suites reported one failure, 1,768 passes
+and 43 optional skips. Security 41738666918 passed. Packaging and subsequent
+smokes were skipped in these failed runs.
+
+Updated the existing fixture to observe cancellation, assert that only the first
+probe has started, settle it and verify stale-result rejection before awaiting
+the replacement. The replacement must retain its live signal and return its
+actual report. Production serialization, deadlines, assertions and release gates
+remain intact. Original logs are retained under `artifacts/ci-f1dc5cf/`; see
+`docs/ci-review-2026-11-03-f1dc5cf.md`.
+
+No local tests, validation, builds or packaging were requested or run. This is a
+local fixture correction; final-SHA hosted confirmation on all four platforms
+is still required before release readiness. No commit, push, tag, version change,
+installer generation or publication was performed.
+
 ## Hosted CI corrections for fc40e87: 2026-11-03
 
 Monitored release 41733888779, validate 41733888853 and security 41733888935
