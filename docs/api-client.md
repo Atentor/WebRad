@@ -5,6 +5,18 @@ reusable component code. Monaco completes requests, parameters, and response
 fields from the saved model. `ApiClient1` and `this.ApiClient1` address the same
 instance; local variables with the same name retain normal TypeScript scope.
 
+## Diagnosing request failures
+
+When a browser fetch fails, the tester and runtime report the original error,
+HTTP method, request origin, target origin and credentials mode, followed by
+possible causes and steps to investigate. These details do not establish that
+CORS caused the failure: inspect the browser Console and Network tabs for the
+actual cause. The context added by WebRAD excludes URL paths, query parameters,
+headers and request bodies; the original error is preserved as `cause` and may
+contain information supplied by the browser or a custom fetch implementation.
+The server may already have processed a request even if the browser cannot read
+its response. Cancellation, timeouts and received HTTP errors remain distinct.
+
 ## Authorization for custom APIs
 
 Open the API Client and select **Authorization**. **Apply to → Client defaults**

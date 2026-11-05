@@ -1,5 +1,14 @@
 # Release checklist for agents and maintainers
 
+The 2026-11-05 local Windows x64 release battery stopped at Toast documentation
+formatting. The separately executed portable suite reported four failures: Toast
+was absent from the language fixture and was incorrectly treated as a layout
+control in two margin tests, while the API Client test expected an exact message
+without the new diagnostic context. Both standard Electron smokes stopped because
+the Aurora template omitted WebToast. The packaged update smoke passed. The
+subsequent corrections have not been rerun or verified; preserve the full battery
+and hosted exact-commit requirements.
+
 The existing real IDE smoke also exercises Toast palette insertion, duration, position, icon selection, events, style binding, persistence and Undo, and requires `renderer Toast Inspector passed:`. The Styles workspace smoke additionally requires `renderer Toast style preview passed:` with four state icons without backgrounds, dismissal controls, shadow clearance and a screenshot. This new evidence has not been run.
 
 A release is ready only when its exact tagged commit passes the real distribution
@@ -22,6 +31,11 @@ an explicit full-validation request. CI gates and evidence requirements remain
 mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
+
+Both runners require `renderer API Client network diagnostics passed:`. The API
+Client designer smoke exercises a real response without CORS headers and checks
+that the browser failure reports request origins and actionable guidance. This
+evidence has not been run for the diagnostic change.
 
 The `renderer UX Designer editing passed:` workflow also inserts a Popup through
 the palette, measures its centered editor and canvas-sized translucent backdrop,

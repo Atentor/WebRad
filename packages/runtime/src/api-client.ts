@@ -194,6 +194,33 @@ export class WebApiError<TBody = unknown> extends Error {
   }
 }
 
+/** Enriches a browser fetch failure without exposing request headers, body or URL parameters. */
+export function describeApiClientFetchFailure(
+  error: TypeError,
+  url: string,
+  init: RequestInit,
+): TypeError {
+  let targetOrigin = 'unavailable';
+  try {
+    targetOrigin = new URL(url, globalThis.location?.href).origin;
+  } catch {
+    // The browser error remains the source of truth for an invalid URL.
+  }
+  const sourceOrigin = globalThis.location?.origin ?? 'unavailable';
+  const message = [
+    'The browser could not complete the API request or make its response available.',
+    'Original error: ' + error.message,
+    'Method: ' + (init.method ?? 'GET'),
+    'Request origin: ' + sourceOrigin,
+    'Target origin: ' + targetOrigin,
+    'Credentials mode: ' + (init.credentials ?? 'same-origin'),
+    'Possible causes include CORS, a failed preflight (OPTIONS), network or TLS errors, redirects, or browser security policies.',
+    'Check the browser developer tools Console and Network tabs for the actual cause. Verify that the server permits the request origin, method and headers, including on error responses.',
+    'The server may have received or processed the request; check before retrying.',
+  ].join('\n');
+  return new TypeError(message, { cause: error });
+}
+
 export class WebApiTimeoutError extends Error {
   public constructor(
     public readonly timeoutMs: number,
@@ -1119,7 +1146,14 @@ export class WebApiClient<
         init = prepared.init;
       }
       timeout.signal?.throwIfAborted();
-      const response = await this.#fetch(url, init);
+      let response: Response;
+      try {
+        response = await this.#fetch(url, init);
+      } catch (error) {
+        if (!timeout.signal?.aborted && error instanceof TypeError)
+          throw describeApiClientFetchFailure(error, url, init);
+        throw error;
+      }
       const responseBody = await readResponseBody(
         response,
         responseType(requestedResponseType),

@@ -1,5 +1,6 @@
 import { Icon } from './Icon';
 import {
+  describeApiClientFetchFailure,
   getApiClientTemplateParameters,
   parseApiClientTemplateTestValue,
   resolveApiClientBodyTemplate,
@@ -494,10 +495,17 @@ export function ApiClientTesterDialog({
         request = { ...request, url: url.href };
       }
       controller.signal.throwIfAborted();
-      const response = await globalThis.fetch(request.url, {
-        ...request.init,
-        signal: controller.signal,
-      });
+      let response: Response;
+      try {
+        response = await globalThis.fetch(request.url, {
+          ...request.init,
+          signal: controller.signal,
+        });
+      } catch (caught) {
+        if (!controller.signal.aborted && caught instanceof TypeError)
+          throw describeApiClientFetchFailure(caught, request.url, request.init);
+        throw caught;
+      }
       const rawText = await response.text();
       const contentType = response.headers.get('content-type') ?? '';
       const preview = testResultBody(rawText, contentType);
@@ -531,7 +539,14 @@ export function ApiClientTesterDialog({
         : caught instanceof Error
           ? caught.message
           : String(caught);
-      setError(reason);
+      setError(
+        [
+          reason,
+          'Operation: ' + operation.name,
+          'Method: ' + operation.method,
+          'Elapsed time: ' + String(Math.round(performance.now() - startedAt)) + ' ms',
+        ].join('\n'),
+      );
     } finally {
       window.clearTimeout(timeout);
       if (requestAbortRef.current === controller) requestAbortRef.current = null;

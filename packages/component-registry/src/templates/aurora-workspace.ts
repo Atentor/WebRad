@@ -706,7 +706,11 @@ export function createAuroraWorkspace(name: string): {
     composeDemoDocument(
       page,
       base.styles,
-      [navigationPlacement(menu.id), sidebarContent(contents[index] ?? [])],
+      [
+        navigationPlacement(menu.id),
+        sidebarContent(contents[index] ?? []),
+        ...(page.name === 'Timer' ? [{ type: 'WebToast', name: 'DemoToast' }] : []),
+      ],
       {},
       {
         OnShow: 'InitializeSidebar',

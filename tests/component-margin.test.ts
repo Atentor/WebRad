@@ -57,7 +57,10 @@ it('persists spacing and alignment and executes their typed component APIs in co
   );
   const visuals = defaultComponentRegistry
     .list()
-    .filter((definition) => definition.visual && definition.type !== 'WebPage');
+    .filter(
+      (definition) =>
+        definition.visual && definition.type !== 'WebPage' && definition.type !== 'WebToast',
+    );
   for (const definition of visuals) {
     page = addComponent(
       page,

@@ -525,7 +525,10 @@ describe('ApiClientTesterDialog', () => {
     );
     expect((screen.getByLabelText('Test value idinstancia') as HTMLInputElement).value).toBe('');
     await user.click(screen.getByRole('button', { name: 'Send test request' }));
-    await screen.findByText('Enter a test value for <idinstancia>.');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Enter a test value for <idinstancia>.');
+    expect(alert.textContent).toContain('Operation: Request');
+    expect(alert.textContent).toContain('Method: PUT');
     expect(fetch).toHaveBeenCalledOnce();
   });
 });

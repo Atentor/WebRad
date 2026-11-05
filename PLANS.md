@@ -1,5 +1,24 @@
 # WebRAD delivery plan
 
+## Local release validation corrections: 2026-11-05
+
+The Windows x64 release battery stopped at formatting in `docs/toast.md`; the
+portable suite then reported four failures, and both standard Electron smokes
+stopped when the Aurora template lacked WebToast. Added a Toast to the template,
+aligned existing language and margin fixtures with its tray behavior, updated the
+API Client error assertion for its diagnostic context, and corrected the Markdown
+formatting. The packaged update smoke passed before these edits. These corrections
+have not been validated; the complete local battery and hosted exact-commit release
+gates remain necessary.
+
+## API Client network diagnostics: 2026-11-05
+
+Browser fetch failures in the API Client tester and runtime now include request
+origins, method, credentials mode and troubleshooting guidance while retaining
+the original error as the cause. Timeout, cancellation and HTTP response handling
+remain separate. The existing Electron smoke includes a real blocked CORS response;
+runtime sources were regenerated. Validation was not requested or run.
+
 ## Toast component: 2026-11-05
 
 Added a tray-authored viewport Toast with Success, Alert, Danger and Notifier methods, typed states, per-state icons, duration and position, a shared four-state project style, runtime cleanup, and Inspector smoke evidence. Removed the public Show method in favor of the four state methods. Refined the Toast icon, spacing, dismissal affordance and motion, with 22px state icons and no background behind them; reserved unclipped shadow space in the viewport stack and Styles preview. The updated Styles smoke records all four states and shadow clearance. Runtime source snapshots were regenerated. Tests, typechecking, builds and Electron or browser smokes were not requested and have not been run.

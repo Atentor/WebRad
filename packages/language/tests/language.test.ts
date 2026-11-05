@@ -67,6 +67,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'stable-video-upload', type: 'WebVideoUpload', name: 'VideoUpload1' },
   { id: 'stable-video-player', type: 'WebVideoPlayer', name: 'VideoPlayer1' },
   { id: 'stable-report-builder', type: 'WebReportBuilder', name: 'ReportBuilder1' },
+  { id: 'stable-toast', type: 'WebToast', name: 'Toast1' },
 ] as const satisfies readonly MvpComponentFixture[];
 
 function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
@@ -75,7 +76,10 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
   const isPopup = fixture.type === 'WebPopup';
   return {
     ...fixture,
-    parentId: isPanel || isNonvisual || isPopup ? 'page-root' : 'stable-panel-main',
+    parentId:
+      isPanel || isNonvisual || isPopup || fixture.type === 'WebToast'
+        ? 'page-root'
+        : 'stable-panel-main',
     layout: createDefaultComponentLayout(),
     bounds: { x: 16, y: 16, width: 120, height: 32 },
     props:
@@ -137,7 +141,8 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
           (candidate) =>
             candidate.type !== 'WebPanel' &&
             defaultComponentRegistry.require(candidate.type).visual &&
-            candidate.type !== 'WebPopup',
+            candidate.type !== 'WebPopup' &&
+            candidate.type !== 'WebToast',
         ).map((candidate) => candidate.id)
       : [],
   };
@@ -175,6 +180,7 @@ function testPage(): PageModel {
           'stable-file-upload',
           'stable-video-upload',
           'stable-report-builder',
+          'stable-toast',
         ],
       },
       ...MVP_COMPONENT_FIXTURES.map(fixtureComponent),
@@ -288,7 +294,8 @@ describe('page language generation', () => {
         (component) =>
           component.type !== 'WebPanel' &&
           defaultComponentRegistry.require(component.type).visual &&
-          component.type !== 'WebPopup',
+          component.type !== 'WebPopup' &&
+          component.type !== 'WebToast',
       ).map((component) => component.id),
     );
     expect(
@@ -297,7 +304,8 @@ describe('page language generation', () => {
           (component) =>
             component.type !== 'WebPage' &&
             defaultComponentRegistry.require(component.type).visual &&
-            component.type !== 'WebPopup',
+            component.type !== 'WebPopup' &&
+            component.type !== 'WebToast',
         )
         .slice(1)
         .every((component) => component.parentId === panel?.id),

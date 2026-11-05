@@ -206,7 +206,7 @@ describe('ObjectInspector', () => {
         name: `Inspect${definition.type}`,
       });
       rerender(<ObjectInspector {...props} selection={[node]} />);
-      if (!definition.visual) {
+      if (!definition.visual || definition.type === 'WebToast') {
         expect(screen.queryByLabelText('Margin')).toBeNull();
         continue;
       }

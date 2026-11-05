@@ -231,6 +231,7 @@ try {
           'renderer IDE Lucide icons passed:',
           'renderer API Client designer passed:',
           'renderer API Client authorization passed:',
+          'renderer API Client network diagnostics passed:',
           'renderer API Client response refresh passed:',
           'renderer API Client compiled authorization passed:',
           'renderer API Client body parameter hint passed',

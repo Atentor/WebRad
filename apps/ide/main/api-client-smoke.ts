@@ -251,6 +251,15 @@ export async function runApiClientDesignerSmoke(
     user: developmentUser,
   });
   const server = createServer(async (request, response) => {
+    if (request.url === '/backend/v2/demo/no-cors') {
+      calls.push({
+        method: request.method ?? '',
+        path: request.url,
+        authorization: request.headers.authorization,
+      });
+      response.writeHead(200, { 'Content-Type': 'application/json' }).end('{}');
+      return;
+    }
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.setHeader(
       'Access-Control-Allow-Methods',
@@ -497,6 +506,22 @@ export async function runApiClientDesignerSmoke(
       true,
     );
     await capture(window, `${screenshotRoot}-response.png`);
+    await setControl(window, '[aria-label="Path"]', '/v2/demo/no-cors');
+    await clickText(window, 'Send test request');
+    await ready(
+      window,
+      `(() => {
+        const message = document.querySelector('.wr-api-test-result [role="alert"]')?.textContent ?? '';
+        return message.includes('Original error:') && message.includes('Request origin:') &&
+          message.includes('Target origin:') && message.includes('Credentials mode:') &&
+          message.includes('CORS') && message.includes('server may have received');
+      })()`,
+    );
+    if (!calls.some((call) => call.path === '/backend/v2/demo/no-cors'))
+      throw new Error('API Client CORS diagnostic fixture was not reached.');
+    log(
+      'renderer API Client network diagnostics passed: browser-blocked response, origins and guidance',
+    );
     await window.webContents.executeJavaScript(
       `document.querySelector('.wr-api-request-editor').scrollTop = 0`,
       true,

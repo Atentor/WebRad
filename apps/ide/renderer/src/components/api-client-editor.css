@@ -343,6 +343,11 @@
   font-weight: 650;
 }
 
+.wr-api-client-dialog .wr-api-test-result .wr-modal-error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .wr-api-client-dialog .wr-api-schema-editor .wr-api-section-heading {
   padding: 0 0 8px;
   font-size: 13px;
