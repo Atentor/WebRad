@@ -19,7 +19,7 @@ import {
   isNodeBuiltin,
   isWithinDirectory,
 } from './package-resolution.js';
-import type { CompileDiagnostic } from './types.js';
+import type { CompileDiagnostic, CompileProjectPhase } from './types.js';
 
 function canonicalPath(fileName: string): string {
   const resolved = path.resolve(fileName);
@@ -40,6 +40,7 @@ export function typecheckSources(
   sources: ReadonlyMap<string, string>,
   componentScopes: ReadonlyMap<string, ComponentReferenceScope> = new Map(),
   packageRoot?: string,
+  onProgress?: (phase: CompileProjectPhase) => void,
 ): {
   readonly diagnostics: readonly CompileDiagnostic[];
   readonly sources: ReadonlyMap<string, string>;
@@ -211,6 +212,7 @@ export function typecheckSources(
   };
 
   let program: ts.Program;
+  onProgress?.('typecheck-program');
   try {
     program = ts.createProgram({ rootNames, options: compilerOptions, host, oldProgram });
   } finally {
@@ -218,9 +220,11 @@ export function typecheckSources(
     // Release that capture after construction or every build retains its predecessor.
     oldProgram = undefined;
   }
+  onProgress?.('typecheck-diagnostics');
   let diagnostics = [...ts.getPreEmitDiagnostics(program)];
   const bundleSources = new Map(sources);
   const sourceEdits = new Map<string, readonly ComponentReferenceEdit[]>();
+  onProgress?.('typecheck-component-references');
   for (const [fileName, scope] of componentScopes) {
     const sourceFile = program.getSourceFile(fileName);
     const authored = sources.get(fileName);

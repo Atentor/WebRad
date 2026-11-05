@@ -169,6 +169,19 @@ until green without investigating the previous failure.
 
 ## Hidden smoke-window rendering
 
+### macOS Intel packaged smoke deadline: d3c7157
+
+[Release verification 41939715475](https://github.com/Atentor/WebRad/actions/runs/41939715475)
+reached the 240-second global packaged smoke deadline while still progressing.
+Menu and API Client designer evidence passed; the compiled API Client browser
+and later workflow checks were not completed. Multiple Preview typechecks took
+several seconds each. The original log does not identify which typecheck work
+dominates or establish that it alone caused the timeout. Compiler progress now
+separates program construction, TypeScript diagnostics and component-reference
+analysis to support a targeted follow-up. Preserve all smoke evidence and the
+existing deadline. This diagnostic change has not been validated or shown to
+resolve the hosted timeout.
+
 ### Project resources native selection: 2026-11-03
 
 Both resources runners require focused native Monaco input and observed Select

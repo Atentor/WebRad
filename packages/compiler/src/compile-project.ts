@@ -851,7 +851,12 @@ export async function compileProject(
     ]);
   }
   options.onProgress?.('typecheck');
-  const checked = typecheckSources(graph.sources, graph.componentScopes, options.packageRoot);
+  const checked = typecheckSources(
+    graph.sources,
+    graph.componentScopes,
+    options.packageRoot,
+    options.onProgress,
+  );
   const preBundleDiagnostics = [
     ...registryDiagnostics,
     ...graph.diagnostics,

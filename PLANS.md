@@ -1,5 +1,16 @@
 # WebRAD delivery plan
 
+## Hosted macOS Intel smoke timeout: 2026-11-04
+
+Release verification of commit d3c7157 reached the global 240-second packaged
+smoke deadline on macOS Intel while the workflow was still progressing. The
+Menu and API Client designer checks passed; later browser and runtime evidence
+was not reached. Preview typechecking repeatedly took several seconds, but the
+original phase log did not distinguish program creation, diagnostics and
+component-reference analysis. Added separate compiler progress phases to locate
+the work responsible in a future hosted run without changing checks or deadlines.
+This instrumentation is not a confirmed timeout fix and has not been validated.
+
 ## Windows and Linux ARM64 releases: 2026-11-04
 
 Added native ARM64 Windows and Linux runners to both release matrices, with
