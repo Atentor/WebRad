@@ -56,8 +56,11 @@ async function verifyTargets(directory, targets) {
   const expected = [
     'darwin/arm64/mac',
     'darwin/x64/mac',
+    'linux/arm64/deb',
+    'linux/arm64/rpm',
     'linux/x64/deb',
     'linux/x64/rpm',
+    'win32/arm64/squirrel',
     'win32/x64/squirrel',
   ];
   if (
@@ -86,6 +89,7 @@ function publicAssets(version, targets) {
   return new Set([
     'RELEASES',
     `WebRad-${version}-win32-x64-Setup.exe`,
+    `WebRad-${version}-win32-arm64-Setup.exe`,
     'webrad-update.json',
     'webrad-darwin-x64.json',
     'webrad-darwin-arm64.json',
@@ -146,7 +150,7 @@ function requireVerifiedCommit() {
   );
   if (!verified)
     throw new Error(
-      `Commit ${commit} has no successful four-platform release verification. Wait for the release workflow on main or a codex/verify-release-* branch, or run it manually on this exact commit, then rerun this tag workflow. Pull-request runs and other tag releases do not satisfy this gate. See docs/releases.md.`,
+      `Commit ${commit} has no successful six-target release verification. Wait for the release workflow on main or a codex/verify-release-* branch, or run it manually on this exact commit, then rerun this tag workflow. Pull-request runs and other tag releases do not satisfy this gate. See docs/releases.md.`,
     );
   process.stdout.write(
     `Release commit verified by workflow run ${String(verified.id)}: ${commit}\n`,
@@ -228,7 +232,16 @@ async function stage() {
   const version = versionFromTag();
   const platform = process.env.WEBRAD_RELEASE_PLATFORM || process.platform;
   const arch = process.env.WEBRAD_RELEASE_ARCH || process.arch;
-  if (!['win32/x64', 'linux/x64', 'darwin/x64', 'darwin/arm64'].includes(`${platform}/${arch}`))
+  if (
+    ![
+      'win32/x64',
+      'win32/arm64',
+      'linux/x64',
+      'linux/arm64',
+      'darwin/x64',
+      'darwin/arm64',
+    ].includes(`${platform}/${arch}`)
+  )
     throw new Error('Unsupported release build target.');
   const manifest = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
   if (manifest.version !== version)
@@ -269,8 +282,8 @@ async function stage() {
     const expected = `${await hashFile(nupkg, 'sha1')} ${path.basename(nupkg)} ${String((await fs.stat(nupkg)).size)}`;
     if (releaseLine.length !== 1 || releaseLine[0].toLowerCase() !== expected.toLowerCase())
       throw new Error('Squirrel RELEASES does not match the full package.');
-    await target(nupkg, path.basename(nupkg), 'squirrel');
-    await copy(releases, 'RELEASES');
+    await target(nupkg, `${arch === 'arm64' ? 'arm64-' : ''}${path.basename(nupkg)}`, 'squirrel');
+    if (arch === 'x64') await copy(releases, 'RELEASES');
     await copy(
       exactlyOne(files, (file) => file.endsWith('.exe'), 'Windows Setup'),
       `WebRad-${version}-win32-${arch}-Setup.exe`,
@@ -304,8 +317,8 @@ async function assemble() {
   const shards = (await fs.readdir(directory)).filter((name) =>
     /^webrad-target-(win32|linux|darwin)-(x64|arm64)\.json$/.test(name),
   );
-  if (shards.length !== 4)
-    throw new Error('All four release builds are required before publishing.');
+  if (shards.length !== 6)
+    throw new Error('All six release builds are required before publishing.');
   const targets = [];
   for (const name of shards) {
     const shard = JSON.parse(await fs.readFile(path.join(directory, name), 'utf8'));
@@ -374,7 +387,7 @@ async function publish() {
   );
   await fs.writeFile(
     notesPath,
-    `WebRad ${manifest.version}\n\nInstallers for Windows x64, Linux x64 (.deb/.rpm), macOS Intel and macOS Apple Silicon.\n\n${unsignedMac ? 'The macOS builds are unsigned. macOS may block opening them; automatic macOS installation is unavailable until Developer ID signing is configured.\n\n' : ''}SHA-256 checksums are included in SHA256SUMS.\n`,
+    `WebRad ${manifest.version}\n\nInstallers for Windows x64 and ARM64, Linux x64 and ARM64 (.deb/.rpm), macOS Intel and macOS Apple Silicon.\n\n${unsignedMac ? 'The macOS builds are unsigned. macOS may block opening them; automatic macOS installation is unavailable until Developer ID signing is configured.\n\n' : ''}SHA-256 checksums are included in SHA256SUMS.\n`,
   );
   let existing;
   try {

@@ -121,7 +121,9 @@ describe('tagged release assembly', () => {
       await fs.mkdir(publicDirectory);
       for (const [platform, arch] of [
         ['win32', 'x64'],
+        ['win32', 'arm64'],
         ['linux', 'x64'],
+        ['linux', 'arm64'],
         ['darwin', 'x64'],
         ['darwin', 'arm64'],
       ] as const) {
@@ -157,7 +159,15 @@ describe('tagged release assembly', () => {
         JSON.parse(await fs.readFile(path.join(publicDirectory, 'webrad-update.json'), 'utf8')),
       );
       expect(manifest.version).toBe(version);
-      expect(manifest.targets).toHaveLength(5);
+      expect(manifest.targets).toHaveLength(8);
+      expect(
+        manifest.targets.find((target) => target.platform === 'win32' && target.arch === 'x64')
+          ?.file,
+      ).toBe(`webrad-${version}-full.nupkg`);
+      expect(
+        manifest.targets.find((target) => target.platform === 'win32' && target.arch === 'arm64')
+          ?.file,
+      ).toBe(`arm64-webrad-${version}-full.nupkg`);
       expect(
         manifest.targets
           .filter((target) => target.kind === 'mac')

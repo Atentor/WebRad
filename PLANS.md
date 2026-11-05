@@ -1,5 +1,27 @@
 # WebRAD delivery plan
 
+## Windows and Linux ARM64 releases: 2026-11-04
+
+Added native ARM64 Windows and Linux runners to both release matrices, with
+architecture-specific installers, update targets, and complete six-target assembly.
+Windows ARM64 updates use a temporary loopback Squirrel feed backed by the verified
+ARM package; existing x64 feed URLs remain compatible. Updated release documentation
+and existing release fixtures.
+
+The requested local Windows x64 battery passed `npm run validate`, with 1,815 tests
+in 242 files, browser tests enabled, and the existing two-worker limit. Added tests
+for the ARM feed, package response, rejected requests, and cleanup; the focused
+release and updater run passed 39 tests. All 15 Electron smoke flows passed, including
+the packaged update UI fixture. The initial full suite exposed an obsolete API Client
+test expectation after the empty response section was introduced; corrected it while
+retaining the assertion that an HTTP error is not saved as a response schema. The
+initial formatting check also found YAML syntax and formatting issues, now corrected.
+Logs and smoke results are in `artifacts/arm64-test-battery/`.
+
+The update smoke uses a simulated backend and does not install an update. Native
+ARM64 builds, installers and updates and hosted exact-commit six-target verification
+remain unverified; the local x64 run does not establish release readiness.
+
 ## Popup canvas presentation: 2026-11-04
 
 Popup authoring shows a canvas-sized, theme-aware translucent backdrop and a

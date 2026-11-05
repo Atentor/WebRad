@@ -68,7 +68,9 @@ async function assembledRelease(): Promise<{ root: string; assets: string }> {
   await fs.mkdir(assets);
   for (const [platform, arch, kinds] of [
     ['win32', 'x64', ['squirrel']],
+    ['win32', 'arm64', ['squirrel']],
     ['linux', 'x64', ['deb', 'rpm']],
+    ['linux', 'arm64', ['deb', 'rpm']],
     ['darwin', 'x64', ['mac']],
     ['darwin', 'arm64', ['mac']],
   ] as const) {
@@ -94,6 +96,7 @@ async function assembledRelease(): Promise<{ root: string; assets: string }> {
     );
   }
   await fs.writeFile(path.join(assets, 'WebRad-0.2.0-win32-x64-Setup.exe'), 'Windows Setup');
+  await fs.writeFile(path.join(assets, 'WebRad-0.2.0-win32-arm64-Setup.exe'), 'Windows ARM Setup');
   await fs.writeFile(path.join(assets, 'RELEASES'), 'Squirrel update feed');
   run(root, 'assemble');
   return { root, assets };
@@ -154,7 +157,7 @@ describe('release publication boundaries', () => {
       run(root, 'preflight', {
         WEBRAD_RELEASE_TEST_RUNS: JSON.stringify([{ workflow_runs: [verificationRun(candidate)] }]),
       }),
-    ).toThrow('has no successful four-platform release verification');
+    ).toThrow('has no successful six-target release verification');
   });
 
   it('checks all verification pages for the exact candidate SHA', async () => {
@@ -207,7 +210,7 @@ describe('release publication boundaries', () => {
       run(root, 'publish', {
         WEBRAD_RELEASE_TEST_RUNS: JSON.stringify([{ workflow_runs: [] }]),
       }),
-    ).toThrow('has no successful four-platform release verification');
+    ).toThrow('has no successful six-target release verification');
     expect((await calls(root)).some((call) => call[0] === 'release')).toBe(false);
   });
 

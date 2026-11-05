@@ -56,9 +56,17 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            arch: x64
+          - os: windows-11-arm
+            arch: arm64
           - os: ubuntu-24.04
+            arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
           - os: macos-15-intel
+            arch: x64
           - os: macos-15
+            arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -68,6 +76,12 @@ jobs:
         with:
           node-version: 26.12.1
           cache: npm
+          architecture: ${{ matrix.arch }}
+      - name: Verify native Node architecture
+        env:
+          WEBRAD_EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          node -e "if (process.arch !== process.env.WEBRAD_EXPECTED_ARCH) throw new Error('Unexpected Node architecture: ' + process.arch)"
       - name: Set build version from release candidate
         run: node scripts/release-tools.mjs prepare
       - run: npm install --global npm@12.2.1
@@ -91,9 +105,15 @@ jobs:
           - os: windows-latest
             platform: win32
             arch: x64
+          - os: windows-11-arm
+            platform: win32
+            arch: arm64
           - os: ubuntu-24.04
             platform: linux
             arch: x64
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
           - os: macos-15-intel
             platform: darwin
             arch: x64
@@ -109,6 +129,12 @@ jobs:
         with:
           node-version: 26.12.1
           cache: npm
+          architecture: ${{ matrix.arch }}
+      - name: Verify native Node architecture
+        env:
+          WEBRAD_EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          node -e "if (process.arch !== process.env.WEBRAD_EXPECTED_ARCH) throw new Error('Unexpected Node architecture: ' + process.arch)"
       - name: Set build version from release candidate
         run: node scripts/release-tools.mjs prepare
       - run: npm install --global npm@12.2.1

@@ -239,7 +239,8 @@
   font-weight: 650;
 }
 
-.wr-api-client-dialog :is(.wr-api-fields label, .wr-api-body-editor > label, .wr-api-response-body) {
+.wr-api-client-dialog
+  :is(.wr-api-fields label, .wr-api-body-editor > label, .wr-api-response-body) {
   font-size: 12px;
 }
 

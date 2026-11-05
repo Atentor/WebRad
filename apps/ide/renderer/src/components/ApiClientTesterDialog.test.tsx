@@ -447,7 +447,9 @@ describe('ApiClientTesterDialog', () => {
 
     const user = await configureAndSend();
     await screen.findByText('404 Not Found');
-    expect(screen.queryByRole('region', { name: 'Response definitions' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Response definitions' }).textContent).toContain(
+      'Send a request that returns JSON to discover its response fields.',
+    );
     await user.click(screen.getByRole('button', { name: 'Save API Client' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));

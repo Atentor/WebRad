@@ -11,49 +11,65 @@ import {
 } from './update-installers';
 import { releaseAssetUrl, type UpdateManifest, type UpdateTarget } from './update-release';
 import type { UpdateBackend } from './update-service';
+import { createWindowsArmUpdateFeed } from './windows-arm-update-feed';
 
 const execute = promisify(execFile);
 
 function nativeBackend(repository: string): UpdateBackend {
   return {
     mode: 'automatic',
-    async download(manifest) {
-      await new Promise<void>((resolve, reject) => {
-        const cleanup = (): void => {
-          autoUpdater.removeListener('error', failed);
-          autoUpdater.removeListener('update-not-available', unavailable);
-          autoUpdater.removeListener('update-downloaded', downloaded);
-        };
-        const failed = (error: Error): void => {
-          cleanup();
-          reject(error);
-        };
-        const unavailable = (): void =>
-          failed(new Error('The updater could not find this release. Check for updates again.'));
-        const downloaded = (): void => {
-          cleanup();
-          resolve();
-        };
+    async download(manifest, target, progress) {
+      const localFeed =
+        process.platform === 'win32' && process.arch === 'arm64'
+          ? await createWindowsArmUpdateFeed(repository, manifest, target, progress)
+          : undefined;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const cleanup = (): void => {
+            autoUpdater.removeListener('error', failed);
+            autoUpdater.removeListener('update-not-available', unavailable);
+            autoUpdater.removeListener('update-downloaded', downloaded);
+          };
+          const failed = (error: Error): void => {
+            cleanup();
+            reject(error);
+          };
+          const unavailable = (): void =>
+            failed(new Error('The updater could not find this release. Check for updates again.'));
+          const downloaded = (): void => {
+            cleanup();
+            resolve();
+          };
 
-        autoUpdater.on('error', failed);
-        autoUpdater.once('update-not-available', unavailable);
-        autoUpdater.once('update-downloaded', downloaded);
-        try {
-          const feed =
-            process.platform === 'darwin'
-              ? releaseAssetUrl(repository, manifest.version, `webrad-darwin-${process.arch}.json`)
-              : releaseAssetUrl(repository, manifest.version, 'RELEASES').slice(
-                  0,
-                  -'/RELEASES'.length,
-                );
-          autoUpdater.setFeedURL(
-            process.platform === 'darwin' ? { url: feed, serverType: 'json' } : { url: feed },
-          );
-          autoUpdater.checkForUpdates();
-        } catch (error) {
-          failed(error instanceof Error ? error : new Error('Unable to start the native updater.'));
-        }
-      });
+          autoUpdater.on('error', failed);
+          autoUpdater.once('update-not-available', unavailable);
+          autoUpdater.once('update-downloaded', downloaded);
+          try {
+            const feed =
+              process.platform === 'darwin'
+                ? releaseAssetUrl(
+                    repository,
+                    manifest.version,
+                    `webrad-darwin-${process.arch}.json`,
+                  )
+                : (localFeed?.url ??
+                  releaseAssetUrl(repository, manifest.version, 'RELEASES').slice(
+                    0,
+                    -'/RELEASES'.length,
+                  ));
+            autoUpdater.setFeedURL(
+              process.platform === 'darwin' ? { url: feed, serverType: 'json' } : { url: feed },
+            );
+            autoUpdater.checkForUpdates();
+          } catch (error) {
+            failed(
+              error instanceof Error ? error : new Error('Unable to start the native updater.'),
+            );
+          }
+        });
+      } finally {
+        await localFeed?.close();
+      }
     },
     async install() {
       await new Promise<void>((resolve, reject) => {

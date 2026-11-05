@@ -1,11 +1,11 @@
 # Release checklist for agents and maintainers
 
 A release is ready only when its exact tagged commit passes the real distribution
-workflow on all four platforms. Local checks do not replace that evidence. This
+workflow on all six platform and architecture targets. Local checks do not replace that evidence. This
 checklist complements [AGENTS.md](../AGENTS.md) and the [release guide](releases.md).
 
 Release verification runs portable tests and packaging/smokes in parallel on the
-four native targets. Assembly requires both complete matrices to succeed for the
+six native targets. Assembly requires both complete matrices to succeed for the
 same workflow run; neither matrix alone establishes release readiness. This
 workflow change has not yet been verified on hosted runners.
 
@@ -275,9 +275,9 @@ The 2026-11-02 local development and packaged Windows runs passed these workflow
 Updating definitions afterward still requires new execution evidence.
 
 1. With authorization, push the commit to main or `codex/verify-release-*`, or
-   open a PR. Release verification performs all four builds, smokes, installers,
+   open a PR. Release verification performs all six builds, smokes, installers,
    and assembly without publishing. Manual dispatch can verify an existing branch.
-2. Wait for all four builds and assemble, with publish skipped. Check validate
+2. Wait for all six builds and assemble, with publish skipped. Check validate
    and security too, recording the exact SHA and run links.
 3. The verification authorizing a tag must be an eligible branch push/manual run
    on the **same SHA**. A PR's temporary merge commit does not certify the final

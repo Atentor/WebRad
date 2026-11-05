@@ -1,8 +1,8 @@
 # WebRAD releases and updates
 
 `.github/workflows/release.yml` publishes stable lowercase `vMAJOR.MINOR.PATCH`
-tags in **Atentor/WebRad**. It produces Windows x64 Setup/Squirrel, Linux x64
-DEB/RPM, and macOS Intel/Apple Silicon ZIPs containing `WebRad.app`. IDE releases
+tags in **Atentor/WebRad**. It produces Windows x64 and ARM64 Setup/Squirrel,
+Linux x64 and ARM64 DEB/RPM, and macOS Intel/Apple Silicon ZIPs containing `WebRad.app`. IDE releases
 do not include iOS; generated application targets are a separate [Native Build](native-build.md)
 feature. Packages are published in [WebRAD Releases](https://github.com/Atentor/WebRad/releases).
 
@@ -11,7 +11,7 @@ Local `package.json`/lockfile versions can remain fixed during development.
 incrementing or publishing. The local Windows installer is
 `out/make/squirrel.windows/x64/WebRAD-Dev Setup.exe`. CI applies the tag version
 only in its temporary checkout and stages the official Setup as
-`WebRad-<version>-win32-x64-Setup.exe`.
+`WebRad-<version>-win32-<architecture>-Setup.exe`.
 
 ## GitHub setup
 
@@ -29,7 +29,7 @@ starting builds. No separate installer repository is required.
 
 The release workflow also runs without publishing on pushes to `main` and
 `codex/verify-release-*`, pull requests, and manual dispatch. It uses temporary
-version `0.0.0`, runs all four builds, application/updater smokes, installer
+version `0.0.0`, runs all six builds, application/updater smokes, installer
 creation, and complete assembly. Output is the `release-assembled` artifact;
 `publish` is skipped, and no tag or Release is created.
 
@@ -120,7 +120,7 @@ services load asynchronously.
 
 Linux Xvfb uses a private authentication file under RUNNER_TEMP, removed on exit,
 retaining X11 authorization, Electron sandboxing, and the original exit code.
-Assembly checks all four builds, exact file inventories, sizes, SHA-256, and
+Assembly checks all six builds, exact file inventories, sizes, SHA-256, and
 `SHA256SUMS`, repeating integrity checks after transfer to publication. It verifies
 the tag exists, creates a draft Release, uploads every asset, then publishes.
 Upload failure retains a recoverable draft; public releases are not overwritten.
@@ -137,6 +137,10 @@ Latest-version comparison paginates all Releases so old tags cannot become lates
   changes in any window block restart; save failure leaves the update retryable.
 - **Windows Setup/Squirrel:** validates and installs the NuGet update, then restarts
   through `quitAndInstall()`. Portable copies need initial Setup installation.
+  x64 retains the existing public `RELEASES` feed. ARM64 downloads its distinct
+  NuGet asset, verifies its size and SHA-256, and temporarily serves it on a
+  random-token loopback URL for Squirrel; the server and temporary file are removed
+  after the native download completes or fails.
 - **Linux packages:** the executable must belong to `webrad`. APT, DNF, or Zypper
   installs a verified DEB/RPM using pkexec/polkit authorization. Cancel/failure
   keeps the IDE open. No downloaded privileged shell script is executed.
@@ -174,7 +178,8 @@ one manual replacement.
 
 ## Distribution contract
 
-Public releases contain installers, `RELEASES`, Squirrel `.nupkg`,
+Public releases contain installers, the x64 `RELEASES` feed, distinct x64 and
+ARM64 Squirrel `.nupkg` files (the ARM64 asset has an `arm64-` prefix),
 `webrad-darwin-x64.json`, `webrad-darwin-arm64.json`, `webrad-update.json`, and
 `SHA256SUMS`. Manifest format 1 records version, date, platform/architecture/format,
 filename, size, SHA-256, and macOS signing status. Mac feeds use
