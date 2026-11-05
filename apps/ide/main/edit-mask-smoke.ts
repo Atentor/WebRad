@@ -68,7 +68,8 @@ export async function runEditMaskSmoke(
   await text('Mask pattern', 'HH[:HH]');
   await text('Custom tokens', '{"H":{"pattern":"[0-9A-Fa-f]","transform":"upper"}}', true);
   await text('Value', 'ab12');
-  await ready(`document.querySelector(${JSON.stringify(designer)})?.value === 'AB:12'`);
+  await text('Label', 'Account code');
+  await ready(`document.querySelector(${JSON.stringify(designer)})?.querySelector('input')?.value === 'AB:12' && document.querySelector(${JSON.stringify(designer)})?.querySelector('label')?.textContent === 'Account code'`);
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
   const saved = await loadProjectFiles(projectPath);
@@ -80,6 +81,7 @@ export async function runEditMaskSmoke(
     node.props.maskEnabled !== true ||
     node.props.mask !== 'HH[:HH]' ||
     node.props.value !== 'ab12' ||
+    node.props.label !== 'Account code' ||
     JSON.stringify(node.props.maskTokens) !== '{"H":{"pattern":"[0-9A-Fa-f]","transform":"upper"}}'
   )
     throw new Error('Edit mask Inspector settings did not persist.');
@@ -97,6 +99,7 @@ export async function runEditMaskSmoke(
   );
   if (typeof url !== 'string') throw new Error('Edit mask Preview has no URL.');
   const selector = `[data-webrad-id=${JSON.stringify(id)}]`;
+  const inputSelector = `${selector} input`;
   let frame: WebFrameMain | undefined;
   let loaded = false;
   const deadline = Date.now() + 10_000;
@@ -105,7 +108,7 @@ export async function runEditMaskSmoke(
     if (
       frame &&
       (await frame.executeJavaScript(
-        `document.querySelector(${JSON.stringify(selector)})?.value === 'AB:12'`,
+        `document.querySelector(${JSON.stringify(inputSelector)})?.value === 'AB:12' && document.querySelector(${JSON.stringify(selector)})?.querySelector('label')?.textContent === 'Account code'`,
         true,
       )) === true
     ) {
@@ -117,9 +120,12 @@ export async function runEditMaskSmoke(
   if (!frame || !loaded) throw new Error('Compiled Edit mask configuration did not load.');
   await frame.executeJavaScript(
     `(() => {
-    const e = document.querySelector(${JSON.stringify(selector)});
-    const b = e.getBoundingClientRect();
+    const root = document.querySelector(${JSON.stringify(selector)});
+    const e = root.querySelector('input');
+    const label = root.querySelector('label');
+    const b = root.getBoundingClientRect();
     if (b.width <= 0 || b.height <= 0) throw new Error('Compiled Edit has empty geometry.');
+    if (label.control !== e || label.hidden || label.getBoundingClientRect().bottom > b.top + 1) throw new Error('Compiled Edit label is not associated or positioned above the field.');
     e.dataset.maskInputs = '0'; e.dataset.maskChanges = '0';
     e.addEventListener('input', () => { e.dataset.maskInputs = String(Number(e.dataset.maskInputs) + 1); e.dataset.maskObserved = e.value; });
     e.addEventListener('change', () => { e.dataset.maskChanges = String(Number(e.dataset.maskChanges) + 1); });
@@ -132,13 +138,13 @@ export async function runEditMaskSmoke(
     await window.webContents.debugger.sendCommand('Input.insertText', { text: 'cdef' });
     if (
       (await frame.executeJavaScript(
-        `(() => { const e = document.querySelector(${JSON.stringify(selector)}); return e.value === 'CD:EF' && e.dataset.maskObserved === 'CD:EF' && Number(e.dataset.maskInputs) > 0; })()`,
+        `(() => { const e = document.querySelector(${JSON.stringify(inputSelector)}); return e.value === 'CD:EF' && e.dataset.maskObserved === 'CD:EF' && Number(e.dataset.maskInputs) > 0; })()`,
         true,
       )) !== true
     )
       throw new Error('Edit native input/custom token formatting failed.');
     await frame.executeJavaScript(
-      `document.querySelector(${JSON.stringify(selector)}).setSelectionRange(3, 3)`,
+      `document.querySelector(${JSON.stringify(inputSelector)}).setSelectionRange(3, 3)`,
       true,
     );
     await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
@@ -155,7 +161,7 @@ export async function runEditMaskSmoke(
     });
     if (
       (await frame.executeJavaScript(
-        `(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.blur(); return e.value === 'CE:F' && e.selectionStart === 1 && Number(e.dataset.maskChanges) > 0; })()`,
+        `(() => { const e = document.querySelector(${JSON.stringify(inputSelector)}); e.blur(); return e.value === 'CE:F' && e.selectionStart === 1 && Number(e.dataset.maskChanges) > 0; })()`,
         true,
       )) !== true
     )
@@ -167,7 +173,7 @@ export async function runEditMaskSmoke(
   await click('button[aria-label="Design"]');
   const tree = `[role="treeitem"][data-component-id=${JSON.stringify(id)}]`;
   await click(tree);
-  for (let index = 0; index < 5; index++) {
+  for (let index = 0; index < 6; index++) {
     await evaluate(
       `document.querySelector(${JSON.stringify(tree)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
     );
@@ -180,6 +186,6 @@ export async function runEditMaskSmoke(
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
   log(
-    'renderer Edit mask Inspector and F9 passed: activation, optional groups, custom Unicode token rules, case conversion, saved model, Designer/compiled text, native input, separator deletion, caret, events and undo',
+    'renderer Edit mask Inspector and F9 passed: activation, optional groups, custom Unicode token rules, case conversion, saved model, accessible label, Designer/compiled text, native input, separator deletion, caret, events and undo',
   );
 }

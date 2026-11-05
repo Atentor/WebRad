@@ -659,6 +659,39 @@ export function resolveStylePropertyCandidate(
       return mappedEnumClass(value, FONT_STYLE_CLASSES);
     case 'whiteSpace':
       return mappedEnumClass(value, WHITE_SPACE_CLASSES);
+    case 'editLabelPosition':
+      return mappedEnumClass(value, {
+        top: '[--wr-edit-label-top:auto] [--wr-edit-label-bottom:calc(100%_+_var(--wr-edit-label-gap,4px))] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
+        bottom: '[--wr-edit-label-top:calc(100%_+_var(--wr-edit-label-gap,4px))] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
+        left: '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:auto] [--wr-edit-label-right:calc(100%_+_var(--wr-edit-label-gap,4px))] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
+        right: '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:calc(100%_+_var(--wr-edit-label-gap,4px))] [--wr-edit-label-right:auto] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
+      });
+    case 'editLabelAlign':
+      return cssVariableClass('--wr-edit-label-align', stringValue(value));
+    case 'editLabelFontWeight': {
+      const weight = stringValue(value);
+      return cssVariableClass('--wr-edit-label-font-weight', weight === undefined ? undefined : DATA_GRID_FONT_WEIGHT_VALUES[weight]);
+    }
+    case 'editLabelColor':
+    case 'editLabelBackgroundColor':
+      return cssVariableClass(propertyName === 'editLabelColor' ? '--wr-edit-label-color' : '--wr-edit-label-background', cssColorValue(value));
+    case 'editLabelGap':
+    case 'editLabelOffsetX':
+    case 'editLabelOffsetY':
+    case 'editLabelFontSize':
+    case 'editLabelLineHeight':
+    case 'editLabelLetterSpacing':
+    case 'editLabelPaddingX':
+    case 'editLabelPaddingY':
+    case 'editLabelBorderRadius': {
+      const names: Readonly<Record<string, string>> = {
+        editLabelGap: 'gap', editLabelOffsetX: 'offset-x', editLabelOffsetY: 'offset-y',
+        editLabelFontSize: 'font-size', editLabelLineHeight: 'line-height',
+        editLabelLetterSpacing: 'letter-spacing', editLabelPaddingX: 'padding-x',
+        editLabelPaddingY: 'padding-y', editLabelBorderRadius: 'border-radius',
+      };
+      return cssVariableClass(`--wr-edit-label-${names[propertyName]}`, cssLengthValue(value));
+    }
     case 'buttonContentMode':
       return mappedEnumClass(value, {
         text: '[&_.wr-button-icon]:hidden',
@@ -1428,7 +1461,12 @@ ${WEB_LOGIN_CSS}
 .wr-webpopup::backdrop { background: color-mix(in srgb, var(--wr-theme-overlay, #0f172a) 48%, transparent); }
 .wr-popup-children { box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: auto; }
 .wr-webedit, .wr-webdate, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { --webrad-border-gradient-surface: var(--wr-input-bg, #11151c); border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
-.wr-webedit:focus, .wr-webdate:focus-within, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
+.wr-webedit:focus, .wr-webedit:focus-within, .wr-webdate:focus-within, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
+.wr-webedit:not(input) { position: relative; min-width: 0; min-height: 0; }
+.wr-webedit .wr-edit-input { display: block; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; padding: 0; margin: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; text-align: inherit; }
+.wr-webedit .wr-edit-input::placeholder { color: currentColor; opacity: .55; }
+.wr-webedit .wr-edit-label { position: absolute; top: var(--wr-edit-label-top, auto); bottom: var(--wr-edit-label-bottom, calc(100% + var(--wr-edit-label-gap, 4px))); left: var(--wr-edit-label-left, 0px); right: var(--wr-edit-label-right, 0px); transform: translate(var(--wr-edit-label-offset-x, 0px), calc(var(--wr-edit-label-center-y, 0%) + var(--wr-edit-label-offset-y, 0px))); width: var(--wr-edit-label-width, 100%); max-width: 100%; box-sizing: border-box; color: var(--wr-edit-label-color, light-dark(#2e2e2e, #d4d4d4)); background: var(--wr-edit-label-background, transparent); font-size: var(--wr-edit-label-font-size, 14px); font-weight: var(--wr-edit-label-font-weight, 400); line-height: var(--wr-edit-label-line-height, 20px); letter-spacing: var(--wr-edit-label-letter-spacing, normal); padding: var(--wr-edit-label-padding-y, 0px) var(--wr-edit-label-padding-x, 0px); border-radius: var(--wr-edit-label-border-radius, 0px); text-align: var(--wr-edit-label-align, start); overflow-wrap: anywhere; }
+.wr-webedit .wr-edit-label[hidden] { display: none; }
 .wr-webdate { display: flex; align-items: center; gap: 6px; position: relative; min-width: 0; }
 .wr-webdate .wr-date-input { appearance: none; width: 100%; min-width: 0; height: 100%; flex: 1; padding: 0; margin: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; text-align: inherit; }
 .wr-webdate .wr-date-input::placeholder { color: currentColor; opacity: .55; }

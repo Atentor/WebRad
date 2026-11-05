@@ -1,5 +1,15 @@
 # WebRAD architecture
 
+WebEdit stores its optional `label` in the component properties and projects it
+to a native label associated with its internal input. Edit styles own label
+placement, alignment, gap, offsets, colors, typography, padding and corners; the
+label is positioned outside the field bounds, so authors must reserve room in
+their layouts. Empty labels remain hidden and preserve existing projects' field
+geometry. The runtime class exposes the same text as `Edit1.label`.
+For a mounted Edit, `element` is now the field container; the native input is its
+child. Legacy wrappers constructed directly from an input remain supported, but
+need a container to display a label.
+
 `WebDate` is a registry-owned masked date/date-time field with a browser-only
 runtime class. Designer projection and runtime mounting share `configureWebDate`
 and the same DOM/CSS, parser and mask. Canonical local ISO values are separate

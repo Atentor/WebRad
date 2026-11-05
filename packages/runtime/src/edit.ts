@@ -10,10 +10,13 @@ import {
 
 export type WebInputType = 'text' | 'password' | 'email' | 'number' | 'search' | 'tel' | 'url';
 
-const instances = new WeakMap<HTMLInputElement, WebEdit>();
+const instances = new WeakMap<HTMLElement, WebEdit>();
+let nextEditLabelId = 0;
 
 /** A text field with an optional, dynamically configurable character mask. */
-export class WebEdit extends WebComponent<HTMLInputElement> {
+export class WebEdit extends WebComponent<HTMLElement> {
+  readonly #input!: HTMLInputElement;
+  readonly #label?: HTMLLabelElement;
   #maskEnabled = false;
   #mask = '';
   #maskTokens: WebEditMaskTokens = {};
@@ -25,20 +28,43 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
   readonly #listeners: (() => void)[] = [];
 
   public constructor(element: HTMLElement) {
-    if (!(element instanceof HTMLInputElement))
-      throw new TypeError('WebEdit requires an input element.');
     super(element);
     const existing = instances.get(element);
     if (existing !== undefined) return existing;
     instances.set(element, this);
-    this.#inputType = element.type as WebInputType;
+    if (element instanceof HTMLInputElement) {
+      this.#input = element;
+    } else {
+      const input = element.ownerDocument.createElement('input');
+      input.type = 'text';
+      input.className = 'wr-edit-input';
+      input.id = `webrad-edit-input-${++nextEditLabelId}`;
+      const label = element.ownerDocument.createElement('label');
+      label.className = 'wr-edit-label';
+      label.htmlFor = input.id;
+      label.hidden = true;
+      element.replaceChildren(input, label);
+      this.#input = input;
+      this.#label = label;
+      element.tabIndex = -1;
+      for (const [from, to] of [['focusin', 'focus'], ['focusout', 'blur']] as const) {
+        const listener = (event: Event): void => {
+          const relatedTarget = event instanceof FocusEvent ? event.relatedTarget : null;
+          if (relatedTarget instanceof Node && element.contains(relatedTarget)) return;
+          element.dispatchEvent(new FocusEvent(to, { relatedTarget }));
+        };
+        element.addEventListener(from, listener);
+        this.#listeners.push(() => element.removeEventListener(from, listener));
+      }
+    }
+    this.#inputType = this.#input.type as WebInputType;
     this.#listen('compositionstart', () => {
       this.#composing = true;
     });
     this.#listen('compositionend', () => {
       this.#composing = false;
       if (this.#applyInput())
-        this.element.dispatchEvent(
+        this.#input.dispatchEvent(
           new InputEvent('input', { bubbles: true, inputType: 'insertCompositionText' }),
         );
     });
@@ -51,8 +77,8 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
 
   #listen(name: string, listener: EventListener): void {
     // Format before authored handlers observe the native event, regardless of wrapper order.
-    this.element.addEventListener(name, listener, true);
-    this.#listeners.push(() => this.element.removeEventListener(name, listener, true));
+    this.#input.addEventListener(name, listener, true);
+    this.#listeners.push(() => this.#input.removeEventListener(name, listener, true));
   }
 
   get #active(): CompiledEditMask | undefined {
@@ -73,7 +99,7 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
 
   #syncType(): void {
     // Native number/email/url sanitization and selection APIs conflict with arbitrary literals.
-    this.element.type =
+    this.#input.type =
       this.#active && !['password', 'search', 'tel'].includes(this.#inputType)
         ? 'text'
         : this.#inputType;
@@ -82,15 +108,15 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
   #applyInput(): boolean {
     const mask = this.#active;
     if (!mask) return false;
-    const previous = this.element.value;
-    const start = this.element.selectionStart,
-      end = this.element.selectionEnd;
-    const direction = this.element.selectionDirection ?? 'none';
+    const previous = this.#input.value;
+    const start = this.#input.selectionStart,
+      end = this.#input.selectionEnd;
+    const direction = this.#input.selectionDirection ?? 'none';
     const result = mask.format(previous, this.#maskCase);
     if (result.text === previous) return false;
-    this.element.value = result.text;
+    this.#input.value = result.text;
     if (start !== null && end !== null)
-      this.element.setSelectionRange(
+      this.#input.setSelectionRange(
         result.carets[start] ?? result.text.length,
         result.carets[end] ?? result.text.length,
         direction,
@@ -110,8 +136,8 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
       !['deleteContentBackward', 'deleteContentForward'].includes(event.inputType)
     )
       return;
-    const start = this.element.selectionStart,
-      end = this.element.selectionEnd;
+    const start = this.#input.selectionStart,
+      end = this.#input.selectionEnd;
     if (start === null || end === null) return;
     const current = mask.format(this.value, this.#maskCase);
     const backward = event.inputType === 'deleteContentBackward';
@@ -133,20 +159,20 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
       .filter((_, index) => !indices.has(index))
       .join('');
     const next = mask.format(raw, this.#maskCase, true);
-    this.element.value = next.text;
+    this.#input.value = next.text;
     const before = removed[0]?.index ?? 0;
     const caret = before === 0 ? 0 : (next.positions[before - 1]?.end ?? next.text.length);
-    this.element.setSelectionRange(caret, caret);
-    this.element.dispatchEvent(
+    this.#input.setSelectionRange(caret, caret);
+    this.#input.dispatchEvent(
       new InputEvent('input', { bubbles: true, inputType: event.inputType }),
     );
   }
 
   public get value(): string {
-    return this.element.value;
+    return this.#input.value;
   }
   public set value(value: string) {
-    this.element.value = this.#active?.format(value, this.#maskCase).text ?? value;
+    this.#input.value = this.#active?.format(value, this.#maskCase).text ?? value;
   }
 
   /** Accepted characters without mask literals. Assign this when input is known to be raw. */
@@ -154,7 +180,7 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
     return this.#active?.format(this.value, this.#maskCase).raw ?? this.value;
   }
   public set rawValue(value: string) {
-    this.element.value = this.#active?.format(value, this.#maskCase, true).text ?? value;
+    this.#input.value = this.#active?.format(value, this.#maskCase, true).text ?? value;
   }
 
   public get maskEnabled(): boolean {
@@ -207,16 +233,16 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
     return this.#maskError;
   }
   public get placeholder(): string {
-    return this.element.placeholder;
+    return this.#input.placeholder;
   }
   public set placeholder(value: string) {
-    this.element.placeholder = value;
+    this.#input.placeholder = value;
   }
   public get readOnly(): boolean {
-    return this.element.readOnly;
+    return this.#input.readOnly;
   }
   public set readOnly(value: boolean) {
-    this.element.readOnly = value;
+    this.#input.readOnly = value;
   }
   public get inputType(): WebInputType {
     return this.#inputType;
@@ -224,6 +250,36 @@ export class WebEdit extends WebComponent<HTMLInputElement> {
   public set inputType(value: WebInputType) {
     this.#inputType = value;
     this.#syncType();
+  }
+  /** Visible, accessible field label. An empty string hides it. */
+  public get label(): string {
+    return this.#label?.textContent ?? '';
+  }
+  public set label(value: string) {
+    if (this.#label === undefined) {
+      if (value !== '') throw new TypeError('A visible label requires a WebEdit container element.');
+      return;
+    }
+    this.#label.textContent = value;
+    this.#label.hidden = value.length === 0;
+    if (value.length > 0) this.#input.removeAttribute('aria-label');
+    else this.#input.setAttribute('aria-label', this.name || this.placeholder || 'Edit');
+  }
+  public override get enabled(): boolean {
+    return !this.#input.disabled;
+  }
+  public override set enabled(value: boolean) {
+    super.enabled = value;
+    this.#input.disabled = !value;
+  }
+  public override get tabIndex(): number {
+    return this.#input.tabIndex;
+  }
+  public override set tabIndex(value: number) {
+    this.#input.tabIndex = value;
+  }
+  public override focus(options?: FocusOptions): void {
+    this.#input.focus(options);
   }
   public clear(): void {
     this.value = '';
@@ -260,5 +316,6 @@ export function configureWebEdit(
   component.maskEnabled = props.maskEnabled === true;
   component.value = typeof props.value === 'string' ? props.value : '';
   component.placeholder = typeof props.placeholder === 'string' ? props.placeholder : '';
+  component.label = typeof props.label === 'string' ? props.label : '';
   component.readOnly = props.readOnly === true;
 }

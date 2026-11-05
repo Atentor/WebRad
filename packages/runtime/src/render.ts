@@ -160,11 +160,6 @@ export interface RuntimeComponentAdapter<T extends WebComponent = WebComponent> 
   readonly disposeOnUnmount?: boolean;
 }
 
-function inputElement(element: HTMLElement): HTMLInputElement {
-  if (!(element instanceof HTMLInputElement)) throw new TypeError('Expected an input element.');
-  return element;
-}
-
 function buttonElement(element: HTMLElement): HTMLButtonElement {
   if (!(element instanceof HTMLButtonElement)) throw new TypeError('Expected a button element.');
   return element;
@@ -515,12 +510,8 @@ runtimeComponentRegistry
     },
   })
   .register<WebEdit>('WebEdit', {
-    createElement: (document) => {
-      const element = document.createElement('input');
-      element.type = 'text';
-      return element;
-    },
-    createComponent: (element) => new WebEdit(inputElement(element)),
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebEdit(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
       configureWebEdit(component, node.props);

@@ -1121,13 +1121,15 @@ const webEdit: ComponentDefinition = {
   visual: true,
   styleEditor: {
     ...inputStyleEditor,
-    previewProps: { value: 'Sample text' },
+    essentialProperties: [...inputStyleEditor.essentialProperties, 'editLabelPosition', 'editLabelAlign', 'editLabelGap', 'editLabelColor', 'editLabelFontSize', 'editLabelFontWeight'],
+    previewProps: { value: 'Sample text', label: 'Label' },
   },
   canHaveChildren: false,
   defaultEvent: 'OnChange',
   defaultBounds: editBounds,
   defaults: {
     value: '',
+    label: '',
     placeholder: '',
     readOnly: false,
     maskEnabled: false,
@@ -1142,6 +1144,10 @@ const webEdit: ComponentDefinition = {
   properties: [
     ...geometryProperties(editBounds),
     tabIndexProperty(),
+    {
+      name: 'label', label: 'Label', type: 'string', category: 'Appearance', source: 'props',
+      defaultValue: '', description: 'Optional accessible label for this field.',
+    },
     {
       name: 'value',
       label: 'Value',

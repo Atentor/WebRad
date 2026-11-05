@@ -53,6 +53,7 @@ const CONTROL_CLASS_PREFIXES: Readonly<Record<string, string>> = {
   'wr-panel-progress': 'WebPanel',
   'wr-progress-': 'WebProgressBar',
   'wr-button-': 'WebButton',
+  'wr-edit-': 'WebEdit',
   'wr-date-': 'WebDate',
   'wr-popup-': 'WebPopup',
   'wr-menu-': 'WebMenu',

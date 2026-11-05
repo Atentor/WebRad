@@ -805,10 +805,11 @@ describe('browser runtime', () => {
     expect(label.width).toBe(80);
     expect(label.height).toBe(24);
 
-    const edit = new WebEdit(document.createElement('input'));
+    const editInput = document.createElement('input');
+    const edit = new WebEdit(editInput);
     edit.inputType = 'email';
     expect(edit.inputType).toBe('email');
-    expect(edit.element.type).toBe('email');
+    expect(editInput.type).toBe('email');
 
     const textArea = new WebTextArea(document.createElement('textarea'));
     textArea.rows = 7;

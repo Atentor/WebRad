@@ -62,10 +62,14 @@ The compiled browser flow uses a saved Basic Auth client and its typed request
 instance against the HTTP fixture, alongside all existing RestGo assertions.
 These interactions have not been executed for the 2026-11-04 changes.
 
+Both runners require `renderer Edit label style preview passed:` for the style
+editor's position control and right-positioned label in the live preview. This
+new evidence has not been run.
+
 Both runners require `renderer Edit mask Inspector and F9 passed:`. The shared
 real IDE interaction inserts Edit, checks opt-in Inspector defaults, saves a
 pattern with an optional group and a custom uppercase hexadecimal token, and
-compares Designer/compiled text. Native Chromium input must format before input
+compares Designer/compiled text and the accessible label above the field. Native Chromium input must format before input
 handlers observe it; Backspace after a separator must delete the preceding
 editable character and retain the caret. Preserve input/change delivery, saved
 model checks, Undo cleanup and fatal renderer-error handling. This interaction

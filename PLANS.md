@@ -1,5 +1,15 @@
 # WebRAD delivery plan
 
+## Edit label: 2026-11-05
+
+Added an optional accessible Edit label, a typed runtime property, shared
+Designer/runtime rendering and label controls in Edit styles. The default
+places a normal label above the field; positions, alignment, spacing, offsets,
+colors and typography are configurable. Updated the existing Edit smoke for the
+composite field and label. Validation was not requested or run.
+The label defaults to #2e2e2e in light mode and #d4d4d4 in dark mode, including
+in existing styles without an explicit label color.
+
 ## Local release validation corrections: 2026-11-05
 
 The Windows x64 release battery stopped at formatting in `docs/toast.md`; the

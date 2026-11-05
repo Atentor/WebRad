@@ -1807,6 +1807,11 @@ button.wr-problem:focus-visible {
   width: min(100%, 484px);
 }
 
+.wr-style-preview-frame:has(> .wr-webedit) {
+  min-height: 120px;
+  padding: 32px 48px;
+}
+
 .wr-style-preview-unavailable {
   max-width: 300px;
   color: var(--wr-muted-text);

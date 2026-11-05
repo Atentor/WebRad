@@ -42,6 +42,7 @@ const GROUP_ORDER = [
   'Appearance',
   'Panel progress',
   'Text',
+  'Edit label',
   'Spacing',
   'Icon',
   'Image',

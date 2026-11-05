@@ -293,6 +293,30 @@ export async function runStylesWorkspaceSmoke(
           && control.value.includes('Sample text');
       })()`,
       );
+      if (componentName === 'Edit') {
+        await setField(window, searchSelector, 'label position');
+        const configure = labelledControl('Configure Label position');
+        const position = labelledControl('Label position');
+        await ready(window, `document.querySelector(${JSON.stringify(configure)}) !== null`);
+        const configured: unknown = await window.webContents.executeJavaScript(
+          `document.querySelector(${JSON.stringify(configure)}).checked`, true,
+        );
+        if (configured !== true) await click(window, configure);
+        const previousPosition: unknown = await window.webContents.executeJavaScript(
+          `document.querySelector(${JSON.stringify(position)}).value`, true,
+        );
+        if (typeof previousPosition !== 'string') throw new Error('Missing Edit label position.');
+        await setField(window, position, 'right');
+        await ready(window, `(() => {
+          const field = document.querySelector('.wr-style-preview-frame .wr-webedit');
+          const label = field?.querySelector('.wr-edit-label');
+          return label?.textContent === 'Label' && label.getBoundingClientRect().left >= field.getBoundingClientRect().right;
+        })()`);
+        await setField(window, position, previousPosition);
+        if (configured !== true) await click(window, labelledControl('Clear Label position'));
+        await setField(window, searchSelector, '');
+        options.log('renderer Edit label style preview passed: label position controls and right placement');
+      }
     } finally {
       if (needsSampleStyle === true) {
         await window.webContents.executeJavaScript(

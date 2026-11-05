@@ -955,13 +955,14 @@ export class index extends indexGenerated {
       apiBaseUrl: 'https://api.example.test/v1',
       environmentBaseUrl: 'https://api.production.example.test',
     });
-    const editElement = dom.window.document.querySelector('[data-webrad-id="edit-name"]');
+    const editRoot = dom.window.document.querySelector('[data-webrad-id="edit-name"]');
+    const editElement = editRoot?.querySelector('input');
     expect(editElement).toBeInstanceOf(dom.window.HTMLInputElement);
-    if (!(editElement instanceof dom.window.HTMLInputElement)) {
+    if (!(editElement instanceof dom.window.HTMLInputElement) || !(editRoot instanceof dom.window.HTMLElement)) {
       throw new TypeError('Compiled WebEdit did not render an input element.');
     }
     expect(editElement.value).toBe('Ada');
-    expect(editElement.style.left).toBe('36px');
+    expect(editRoot.style.left).toBe('36px');
     dom.window.close();
   });
   it('embeds the same browser-safe component stylesheet used by the designer projection', async () => {

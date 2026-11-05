@@ -296,6 +296,7 @@ try {
                 'renderer Popup responsive layout passed:',
                 'renderer unified themes Styles passed:',
                 'renderer Toast style preview passed:',
+                'renderer Edit label style preview passed:',
                 'renderer UX Styles editing passed:',
                 'renderer UX Designer editing passed:',
                 'renderer UX resize targets passed:',

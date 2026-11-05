@@ -161,12 +161,13 @@ function HtmlView({ node, designTime, styleClassName }: ComponentViewProps): Rea
 }
 
 function EditView({ node, designTime, styleClassName, onEvent }: ComponentViewProps): ReactElement {
-  const ref = useRef<HTMLInputElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (ref.current === null) return;
     const component = new WebEdit(ref.current);
     configureWebEdit(component, node.props);
     component.enabled = readBooleanProperty(node, 'enabled', true);
+    component.tabIndex = designTime ? -1 : readIntegerProperty(node, 'tabIndex', 0);
     if (!designTime) {
       for (const name of ['OnChange', 'OnInput', 'OnFocus', 'OnBlur'] as const) {
         component.bindEvent(name, () => onEvent?.(name, node));
@@ -175,10 +176,10 @@ function EditView({ node, designTime, styleClassName, onEvent }: ComponentViewPr
     return () => component.dispose();
   }, [node, designTime, onEvent]);
   return (
-    <input
+    <div
       {...sharedAttributes(node, designTime, styleClassName)}
+      data-webrad-name={node.name}
       ref={ref}
-      aria-label={readStringProperty(node, 'placeholder', node.name)}
     />
   );
 }

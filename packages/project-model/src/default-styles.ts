@@ -125,6 +125,12 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     componentType: 'WebEdit',
     states: {
       base: {
+        editLabelPosition: 'top',
+        editLabelAlign: 'start',
+        editLabelGap: px(4),
+        editLabelFontSize: px(14),
+        editLabelFontWeight: 'normal',
+        editLabelLineHeight: px(20),
         backgroundGradient: fieldSurface,
         borderWidth: px(1),
         borderStyle: 'solid',

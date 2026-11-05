@@ -742,9 +742,9 @@ export class WebLogin extends WebComponent<HTMLElement> {
       toggle.caption = config.texts.showPassword;
       toggle.element.setAttribute('aria-pressed', 'false');
       toggle.element.addEventListener('click', () => {
-        const show = password.element.type === 'password';
-        password.element.type = show ? 'text' : 'password';
-        confirmation.element.type = show ? 'text' : 'password';
+        const show = password.inputType === 'password';
+        password.inputType = show ? 'text' : 'password';
+        confirmation.inputType = show ? 'text' : 'password';
         toggle.caption = show ? config.texts.hidePassword : config.texts.showPassword;
         toggle.element.setAttribute('aria-pressed', String(show));
       });
