@@ -1,3 +1,4 @@
+import { WebToast } from './toast.js';
 import { normalizeLabelTextWrap } from './visual.js';
 import { projectWebMenuLayout, reusableMenuNode } from './menu-layout.js';
 import { bindReusableMenuLayout } from './reusable-menu-layout.js';
@@ -155,6 +156,8 @@ export interface RuntimeComponentAdapter<T extends WebComponent = WebComponent> 
   readonly getChildrenHost?: (component: T, node: RuntimeComponentNode) => HTMLElement;
   /** False for browser-owned overlays that must not receive page layout CSS. */
   readonly participatesInLayout?: boolean;
+  /** Release resources when a mounted page or row is removed. */
+  readonly disposeOnUnmount?: boolean;
 }
 
 function inputElement(element: HTMLElement): HTMLInputElement {
@@ -415,6 +418,38 @@ runtimeComponentRegistry
       applyCommon(component, node);
       component.aspectRatio = normalizeWebAspectRatio(node.props.aspectRatio);
       component.caption = readStringProperty(node, 'caption', node.name);
+    },
+  })
+  .register<WebToast>('WebToast', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebToast(element),
+    participatesInLayout: false,
+    disposeOnUnmount: true,
+    applyProperties: (component, node) => {
+      applyCommon(component, node, { participatesInLayout: false });
+      component.element.classList.add('wr-toast-host');
+      Object.assign(component.element.style, {
+        background: 'transparent',
+        border: '0',
+        boxShadow: 'none',
+        padding: '0',
+      });
+      component.duration = readIntegerProperty(node, 'duration', 4000);
+      const position = readStringProperty(node, 'position', 'top-right');
+      try {
+        component.position = position as WebToast['position'];
+      } catch {
+        component.position = 'top-right';
+      }
+      for (const [state, property] of [
+        ['sucess', 'sucessIcon'],
+        ['alert', 'alertIcon'],
+        ['danger', 'dangerIcon'],
+        ['notifier', 'notifierIcon'],
+      ] as const) {
+        const value = node.props[state + 'Icon'];
+        if (value === '' || isWebRadIconName(value)) component[property] = value;
+      }
     },
   })
   .register<WebPopup>('WebPopup', {
@@ -1393,13 +1428,16 @@ export function mountPage(
       for (const dispose of reusableLayoutDisposers) dispose();
       for (const dispose of placementDisposers) dispose();
       for (const binding of fitContentBindings.values()) binding.dispose();
-      for (const component of components.values())
+      for (const [id, component] of components) {
+        const node = nodes.get(id);
         if (
           component instanceof WebRepeatingGroup ||
           component instanceof WebCharts ||
-          component instanceof WebLogin
+          component instanceof WebLogin ||
+          (node !== undefined && registry.require(node.type).disposeOnUnmount === true)
         )
           component.dispose();
+      }
     },
   };
 }

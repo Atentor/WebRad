@@ -1803,6 +1803,10 @@ button.wr-problem:focus-visible {
   overflow: hidden;
 }
 
+.wr-style-preview-frame:has(> .wr-toast-preview) {
+  width: min(100%, 484px);
+}
+
 .wr-style-preview-unavailable {
   max-width: 300px;
   color: var(--wr-muted-text);

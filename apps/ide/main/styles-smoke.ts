@@ -92,7 +92,13 @@ async function setField(window: BrowserWindow, selector: string, value: string):
 
 async function selectStyle(window: BrowserWindow, name: string): Promise<void> {
   const componentName =
-    name === 'Default Popup' ? 'Popup' : name === 'PrimaryButton' ? 'Button' : 'Page';
+    name === 'Default Toast'
+      ? 'Toast'
+      : name === 'Default Popup'
+        ? 'Popup'
+        : name === 'PrimaryButton'
+          ? 'Button'
+          : 'Page';
   await window.webContents.executeJavaScript(
     `(() => {
       const option = Array.from(document.querySelectorAll('[aria-label="Style components"] [role="option"]'))
@@ -303,6 +309,78 @@ export async function runStylesWorkspaceSmoke(
       }
     }
   }
+  await selectStyle(window, 'Default Toast');
+  await ready(
+    window,
+    `(() => {
+    const cards = [...document.querySelectorAll('.wr-style-preview-frame .wr-toast-item')];
+    return cards.length === 4 && cards.every(card => getComputedStyle(card).boxShadow !== 'none' && card.querySelector('.wr-toast-icon') !== null);
+  })()`,
+  );
+  const toastPreview: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+      const frame = document.querySelector('.wr-style-preview-frame');
+      const preview = frame?.querySelector('.wr-toast-preview');
+      const cards = [...(preview?.querySelectorAll('.wr-toast-item') ?? [])];
+      if (!(frame instanceof HTMLElement) || !(preview instanceof HTMLElement) || cards.length !== 4) return null;
+      const bounds = frame.getBoundingClientRect();
+      const states = ['sucess', 'alert', 'danger', 'notifier'];
+      return cards.map((card, index) => {
+        const item = card.getBoundingClientRect();
+        const icon = card.querySelector('.wr-toast-icon');
+        const button = card.querySelector('.wr-toast-close');
+        return {
+          state: card.dataset.toastState, expected: states[index],
+          shadow: getComputedStyle(card).boxShadow,
+          left: item.left - bounds.left, right: bounds.right - item.right,
+          top: item.top - bounds.top, bottom: bounds.bottom - item.bottom,
+          icon: icon instanceof SVGElement && Math.abs(icon.getBoundingClientRect().width - 22) < 0.1 && Math.abs(icon.getBoundingClientRect().height - 22) < 0.1 && getComputedStyle(icon).backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(icon).backgroundImage === 'none',
+          dismiss: button instanceof HTMLButtonElement && button.querySelector('svg') !== null,
+        };
+      });
+    })()`,
+    true,
+  );
+  if (
+    !Array.isArray(toastPreview) ||
+    toastPreview.length !== 4 ||
+    toastPreview.some(
+      (item: {
+        state: string;
+        expected: string;
+        shadow: string;
+        left: number;
+        right: number;
+        top: number;
+        bottom: number;
+        icon: boolean;
+        dismiss: boolean;
+      }) =>
+        item.state !== item.expected ||
+        item.shadow === 'none' ||
+        Math.min(item.left, item.right, item.top, item.bottom) < 30 ||
+        !item.icon ||
+        !item.dismiss,
+    )
+  )
+    throw new Error(
+      'Toast Styles preview clips the shadow or is missing its icon and close button: ' +
+        JSON.stringify(toastPreview),
+    );
+  const toastScreenshot = path.resolve('node_modules', '.cache', 'toast-styles-polish.png');
+  await fs.mkdir(path.dirname(toastScreenshot), { recursive: true });
+  window.webContents.invalidate();
+  await paint(window);
+  const toastCapture = await window.webContents.capturePage(undefined, {
+    stayHidden: true,
+    stayAwake: true,
+  });
+  if (toastCapture.isEmpty()) throw new Error('Toast Styles screenshot is empty.');
+  await fs.writeFile(toastScreenshot, toastCapture.toPNG());
+  options.log(
+    'renderer Toast style preview passed: four states, icons, dismiss controls and uncut shadow space; screenshot=' +
+      toastScreenshot,
+  );
   await selectStyle(window, 'Default Popup');
   await assertDefaultFilters(window);
   const essentialCount = await propertyCount(window);

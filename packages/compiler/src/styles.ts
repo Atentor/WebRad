@@ -49,6 +49,7 @@ export const GENERATED_APP_CSS = `${APP_BASE_CSS}\n${WEBRAD_COMPONENT_CSS}\n${WE
 
 /** Secondary DOM classes are owned by the same centrally registered runtime control. */
 const CONTROL_CLASS_PREFIXES: Readonly<Record<string, string>> = {
+  'wr-toast-': 'WebToast',
   'wr-panel-progress': 'WebPanel',
   'wr-progress-': 'WebProgressBar',
   'wr-button-': 'WebButton',

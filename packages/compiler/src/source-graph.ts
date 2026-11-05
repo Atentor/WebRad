@@ -127,6 +127,13 @@ declare global {
 }
 
 export {};
+
+declare global {
+  const Sucess: typeof import('@webrad/runtime').Sucess;
+  const Alert: typeof import('@webrad/runtime').Alert;
+  const Danger: typeof import('@webrad/runtime').Danger;
+  const Notifier: typeof import('@webrad/runtime').Notifier;
+}
 `;
 }
 
@@ -446,7 +453,7 @@ export function createVirtualSourceGraph(
   sources.set(stylePath, generatedAppCss);
   sources.set(
     virtualAbsolutePath('theme-bootstrap.ts'),
-    `import { Theme } from '@webrad/runtime';\nTheme.configure(${JSON.stringify(projectThemeRuntimeConfiguration(project.settings.themes, project.id))});\nObject.assign(globalThis, { Theme });\n`,
+    `import { Theme, Sucess, Alert, Danger, Notifier } from '@webrad/runtime';\nTheme.configure(${JSON.stringify(projectThemeRuntimeConfiguration(project.settings.themes, project.id))});\nObject.assign(globalThis, { Theme, Sucess, Alert, Danger, Notifier });\n`,
   );
   sources.set(virtualAbsolutePath('webrad-globals.d.ts'), createGlobalTypings());
   sources.set(

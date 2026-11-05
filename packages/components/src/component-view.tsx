@@ -291,6 +291,31 @@ function renderWebRadIconShape(shape: WebRadIconShape, index: number): ReactElem
   );
 }
 
+function ToastPreviewIcon({
+  name,
+  className,
+}: {
+  readonly name: string;
+  readonly className?: string;
+}): ReactElement {
+  const iconName = isWebRadIconName(name) ? name : 'info';
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
+      {getWebRadIconShapes(iconName).map((shape, index) => renderWebRadIconShape(shape, index))}
+    </svg>
+  );
+}
+
 function ButtonIcon({
   name,
   className = '',
@@ -477,6 +502,45 @@ function ProgressBarView({
   );
 }
 const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
+  WebToast: ({ node, designTime, styleClassName }) => (
+    <div
+      {...sharedAttributes(node, designTime)}
+      className="wr-toast-preview"
+      style={{ width: 'min(100%, 444px)', height: 'auto' }}
+      aria-label="Toast style preview"
+    >
+      {(
+        [
+          { state: 'sucess', label: 'Success', property: 'sucessIcon', icon: 'check-circle' },
+          { state: 'alert', label: 'Alert', property: 'alertIcon', icon: 'warning' },
+          { state: 'danger', label: 'Danger', property: 'dangerIcon', icon: 'alert-circle' },
+          { state: 'notifier', label: 'Notifier', property: 'notifierIcon', icon: 'info' },
+        ] as const
+      ).map(({ state, label, property, icon }) => {
+        const value = node.props[property];
+        const name = value === '' ? '' : isWebRadIconName(value) ? value : icon;
+        return (
+          <div
+            key={state}
+            className={['wr-toast-item', styleClassName ?? ''].join(' ')}
+            data-toast-state={state}
+            style={{ animation: 'none' }}
+          >
+            {name !== '' && <ToastPreviewIcon name={name} className="wr-toast-icon" />}
+            <span className="wr-toast-message">{label} message</span>
+            <button
+              type="button"
+              className="wr-toast-close"
+              aria-label="Dismiss notification"
+              tabIndex={-1}
+            >
+              <ToastPreviewIcon name="close" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  ),
   WebLogin: ({ node, designTime, styleClassName }) => (
     <LoginView node={node} attributes={sharedAttributes(node, designTime, styleClassName)} />
   ),

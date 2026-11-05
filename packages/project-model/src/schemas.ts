@@ -428,7 +428,15 @@ function materializeProjectDefaults(input: unknown): unknown {
       palette.success ? palette.data : [],
       'WebEdit',
     ).styles;
-    styles = normalizeDefaultStyleFonts(dateStyles);
+    styles = normalizeDefaultStyleFonts(
+      materializeComponentDefaultStyle(
+        candidate.id,
+        dateStyles,
+        'WebToast',
+        ['WebPopup'],
+        palette.success ? palette.data : [],
+      ).styles,
+    );
   }
   const applicationName =
     typeof candidate.name === 'string' ? candidate.name : DEFAULT_PROJECT_SETTINGS.applicationName;

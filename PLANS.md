@@ -1,5 +1,9 @@
 # WebRAD delivery plan
 
+## Toast component: 2026-11-05
+
+Added a tray-authored viewport Toast with Success, Alert, Danger and Notifier methods, typed states, per-state icons, duration and position, a shared four-state project style, runtime cleanup, and Inspector smoke evidence. Removed the public Show method in favor of the four state methods. Refined the Toast icon, spacing, dismissal affordance and motion, with 22px state icons and no background behind them; reserved unclipped shadow space in the viewport stack and Styles preview. The updated Styles smoke records all four states and shadow clearance. Runtime source snapshots were regenerated. Tests, typechecking, builds and Electron or browser smokes were not requested and have not been run.
+
 ## Hosted macOS Intel smoke timeout: 2026-11-04
 
 Release verification of commit d3c7157 reached the global 240-second packaged

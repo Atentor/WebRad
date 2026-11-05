@@ -1,3 +1,4 @@
+import { runToastSmoke } from './toast-smoke';
 import { createProjectFromTemplate } from '@webrad/component-registry';
 import { createUpdateSmokeService, runUpdateSmoke } from './update-smoke';
 import { createApplicationUpdates, scheduleUpdateChecks } from './application-updates';
@@ -1668,6 +1669,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await runDataGridConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runChartsConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runTimerSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runToastSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runIconSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runHtmlSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runDateSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });

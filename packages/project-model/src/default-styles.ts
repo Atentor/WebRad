@@ -658,6 +658,31 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
       },
     },
   },
+  {
+    name: 'Default Toast',
+    componentType: 'WebToast',
+    states: {
+      base: {
+        fontFamily: 'roboto',
+        fontSize: px(14),
+        lineHeight: px(20),
+        borderRadius: px(10),
+        boxShadow: 'md',
+        toastSucessBackgroundColor: '#ecfdf5',
+        toastSucessTextColor: '#065f46',
+        toastSucessBorderColor: '#a7f3d0',
+        toastAlertBackgroundColor: '#fffbeb',
+        toastAlertTextColor: '#92400e',
+        toastAlertBorderColor: '#fde68a',
+        toastDangerBackgroundColor: '#fef2f2',
+        toastDangerTextColor: '#991b1b',
+        toastDangerBorderColor: '#fecaca',
+        toastNotifierBackgroundColor: '#eff6ff',
+        toastNotifierTextColor: '#1e40af',
+        toastNotifierBorderColor: '#bfdbfe',
+      },
+    },
+  },
 ] as const satisfies readonly DefaultComponentStyleDefinition[];
 
 /** A deterministic ID lets a project recreate its seeded library predictably. */

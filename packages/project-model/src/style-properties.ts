@@ -1073,6 +1073,54 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ],
     ['WebImage', 'WebVideoPlayer'],
   ),
+  colorProperty('toastSucessBackgroundColor', 'Sucess Background color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastSucessTextColor', 'Sucess Text color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastSucessBorderColor', 'Sucess Border color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastAlertBackgroundColor', 'Alert Background color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastAlertTextColor', 'Alert Text color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastAlertBorderColor', 'Alert Border color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastDangerBackgroundColor', 'Danger Background color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastDangerTextColor', 'Danger Text color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastDangerBorderColor', 'Danger Border color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastNotifierBackgroundColor', 'Notifier Background color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastNotifierTextColor', 'Notifier Text color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
+  colorProperty('toastNotifierBorderColor', 'Notifier Border color', 'Colors', {
+    componentTypes: ['WebToast'],
+    stateNames: ['base'],
+  }),
 ];
 
 export const COMPONENT_STYLE_PROPERTY_DEFINITION_BY_NAME: ReadonlyMap<

@@ -7,7 +7,7 @@ it('exposes Margin on every visual component, including tray visuals, and keeps 
     const sides = component.properties.filter((property) =>
       ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'].includes(property.name),
     );
-    if (component.visual) {
+    if (component.visual && component.type !== 'WebToast') {
       expect(margins).toEqual([
         expect.objectContaining({
           label: 'Margin',
@@ -153,7 +153,7 @@ describe('MVP component metadata', () => {
       expect(component.defaultBounds.width).toBeGreaterThan(0);
       expect(component.defaultBounds.height).toBeGreaterThan(0);
       expect(component.properties.some((property) => property.name === 'name')).toBe(true);
-      if (component.visual) {
+      if (component.visual && component.type !== 'WebToast') {
         expect(component.properties.some((property) => property.name === 'width')).toBe(true);
         if (component.type !== 'WebReusableElement') {
           expect(component.events.length).toBeGreaterThan(0);
@@ -274,6 +274,7 @@ describe('MVP component metadata', () => {
       'WebFileUpload',
       'WebVideoUpload',
       'WebReportBuilder',
+      'WebToast',
     ]);
   });
 

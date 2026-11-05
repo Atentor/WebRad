@@ -286,6 +286,18 @@ export const COMPONENT_STYLE_PROPERTY_NAMES = [
   'dataGridCheckboxGap',
   'objectFit',
   'objectPosition',
+  'toastSucessBackgroundColor',
+  'toastSucessTextColor',
+  'toastSucessBorderColor',
+  'toastAlertBackgroundColor',
+  'toastAlertTextColor',
+  'toastAlertBorderColor',
+  'toastDangerBackgroundColor',
+  'toastDangerTextColor',
+  'toastDangerBorderColor',
+  'toastNotifierBackgroundColor',
+  'toastNotifierTextColor',
+  'toastNotifierBorderColor',
 ] as const;
 
 export type ComponentStylePropertyName = (typeof COMPONENT_STYLE_PROPERTY_NAMES)[number];

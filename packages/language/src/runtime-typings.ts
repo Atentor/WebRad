@@ -25,6 +25,25 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     overflowWrap: 'normal' | 'anywhere';
     wordBreak: 'normal' | 'break-all';
   };
+  export const Sucess: 'Sucess';
+  export const Alert: 'Alert';
+  export const Danger: 'Danger';
+  export const Notifier: 'Notifier';
+  export type WebToastState = typeof Sucess | typeof Alert | typeof Danger | typeof Notifier;
+  export type WebToastPosition = 'top-left' | 'top-center' | 'top-right' | 'middle-left' | 'middle-center' | 'middle-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  export interface WebToastEventDetail { readonly message: string; readonly state: WebToastState; }
+  export class WebToast extends WebComponent {
+    duration: number;
+    position: WebToastPosition;
+    sucessIcon: WebButtonIcon | ''; alertIcon: WebButtonIcon | ''; dangerIcon: WebButtonIcon | ''; notifierIcon: WebButtonIcon | '';
+    Success(message: string): void;
+    Alert(message: string): void;
+    Danger(message: string): void;
+    Notifier(message: string): void;
+    Clear(): void;
+    set onShow(handler: WebComponentEventHandler<this> | null);
+    set onClose(handler: WebComponentEventHandler<this> | null);
+  }
   export type LucideIconName = ${LUCIDE_ICON_NAMES.map((name) => `'${name}'`).join(' | ')};
   export type WebIconMode = 'icon' | 'button';
   export class WebIcon extends WebComponent<HTMLButtonElement> {
@@ -962,6 +981,11 @@ declare const Navigate: typeof import('@webrad/runtime').Navigate;
 declare const Theme: typeof import('@webrad/runtime').Theme;
 /** The RestGO client configured in Project Settings, shared by all pages. */
 declare const RestGO: import('@webrad/restgo-sdk').RestGoClient;
+
+declare const Sucess: typeof import('@webrad/runtime').Sucess;
+declare const Alert: typeof import('@webrad/runtime').Alert;
+declare const Danger: typeof import('@webrad/runtime').Danger;
+declare const Notifier: typeof import('@webrad/runtime').Notifier;
 `;
 
 const COMPLETE_RUNTIME_TYPINGS = `${RUNTIME_TYPINGS}\n${restGoTypings}`;

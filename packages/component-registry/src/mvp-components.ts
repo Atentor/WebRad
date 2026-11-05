@@ -1,3 +1,4 @@
+import { webToast } from './toast.js';
 import {
   automaticMenuLayout,
   menuInspectorProperties,
@@ -2410,6 +2411,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebVideoUpload',
   'WebVideoPlayer',
   'WebReportBuilder',
+  'WebToast',
 ] as const;
 
 export type MvpComponentType = (typeof MVP_COMPONENT_TYPES)[number];
@@ -2444,6 +2446,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webVideoUpload,
   webVideoPlayer,
   webReportBuilder,
+  webToast,
 ];
 
 componentRegistry.registerMany(
@@ -2451,7 +2454,9 @@ componentRegistry.registerMany(
     ...definition,
     properties: [
       ...definition.properties,
-      ...(definition.visual ? [CURRENT_ROW_BINDINGS_PROPERTY] : []),
+      ...(definition.visual && definition.supportsCurrentRowBindings !== false
+        ? [CURRENT_ROW_BINDINGS_PROPERTY]
+        : []),
     ].map(organizeInspectorProperty),
   })),
 );

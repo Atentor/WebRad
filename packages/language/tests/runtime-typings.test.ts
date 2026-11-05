@@ -594,6 +594,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebDate,
   WebFileUpload,
   WebTimer,
+  WebToast,
   WebVideoUpload,
   WebVideoPlayer,
   WebPage,
@@ -615,6 +616,7 @@ class EditorPage extends WebPage {
     edit: WebEdit,
     date: WebDate,
     timer: WebTimer,
+    toast: WebToast,
     fileUpload: WebFileUpload,
     videoUpload: WebVideoUpload,
     videoPlayer: WebVideoPlayer,
@@ -645,6 +647,7 @@ panel./*@panel*/caption;
     edit./*@edit*/inputType;
     date./*@date*/datetime;
     timer./*@timer*/Start;
+    toast./*@toast*/Success;
     fileUpload./*@fileUpload*/upload;
     videoUpload./*@videoUpload*/SendToRestGO;
     videoPlayer./*@videoPlayer*/LoadRestGo;
@@ -823,6 +826,7 @@ panel./*@panel*/caption;
       WebEdit: 'edit',
       WebDate: 'date',
       WebTimer: 'timer',
+      WebToast: 'toast',
       WebFileUpload: 'fileUpload',
       WebVideoUpload: 'videoUpload',
       WebVideoPlayer: 'videoPlayer',

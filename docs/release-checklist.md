@@ -1,5 +1,7 @@
 # Release checklist for agents and maintainers
 
+The existing real IDE smoke also exercises Toast palette insertion, duration, position, icon selection, events, style binding, persistence and Undo, and requires `renderer Toast Inspector passed:`. The Styles workspace smoke additionally requires `renderer Toast style preview passed:` with four state icons without backgrounds, dismissal controls, shadow clearance and a screenshot. This new evidence has not been run.
+
 A release is ready only when its exact tagged commit passes the real distribution
 workflow on all six platform and architecture targets. Local checks do not replace that evidence. This
 checklist complements [AGENTS.md](../AGENTS.md) and the [release guide](releases.md).

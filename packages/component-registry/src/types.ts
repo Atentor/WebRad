@@ -199,6 +199,10 @@ export interface ComponentDefinition {
   readonly visual: boolean;
   /** Structural containers may opt out of project visual styles. */
   readonly supportsStyles?: boolean;
+  /** Controls whether row field bindings are offered for this visual. */
+  readonly supportsCurrentRowBindings?: boolean;
+  /** The generated page or reusable instance owns this visual runtime resource. */
+  readonly disposeWithDocument?: boolean;
   /** Visual style shortcuts; the complete property catalog remains available. */
   readonly styleEditor?: ComponentStyleEditorMetadata;
   /**

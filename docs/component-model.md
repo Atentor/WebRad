@@ -1,5 +1,7 @@
 # Component model
 
+`WebToast` is a tray-authored visual overlay with one project style for its four notification states, typed page and reusable instances, and scoped cleanup. See [Toast](toast.md).
+
 `WebDate` exposes concrete `date` and `datetime` properties typed as `Date | null`,
 alongside a canonical local ISO `value` and masked draft `text`. Inspector metadata
 persists date/datetime mode, display format, precision and validation constraints.

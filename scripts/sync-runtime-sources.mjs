@@ -181,6 +181,8 @@ const sourceFiles = [
   'repeating-group.ts',
   ...reportSourceNames,
   'timer.ts',
+  'toast.ts',
+  'toast-css.ts',
   'theme.ts',
   'file-upload.ts',
   'video-file-selection.ts',

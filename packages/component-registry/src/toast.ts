@@ -1,0 +1,103 @@
+﻿import { WEBRAD_ICON_NAMES } from '@webrad/runtime/icons';
+import type { ComponentDefinition, ComponentPropertyDefinition } from './types.js';
+
+const icon = (name: string, label: string, defaultValue: string): ComponentPropertyDefinition => ({
+  name,
+  label,
+  type: 'icon',
+  category: 'Icons',
+  source: 'props',
+  defaultValue,
+  options: ['', ...WEBRAD_ICON_NAMES],
+  description: 'Icon shown for this state. An empty value hides the icon.',
+});
+
+export const webToast: ComponentDefinition = {
+  type: 'WebToast',
+  displayName: 'Toast',
+  namePrefix: 'Toast',
+  palette: { category: 'Nonvisual', caption: 'Toast' },
+  icon: 'bell',
+  visual: true,
+  supportsCurrentRowBindings: false,
+  disposeWithDocument: true,
+  designerPresentation: 'tray',
+  canHaveChildren: false,
+  defaultEvent: 'OnShow',
+  defaultBounds: { width: 340, height: 64 },
+  styleEditor: {
+    essentialProperties: [
+      'fontFamily',
+      'fontSize',
+      'borderRadius',
+      'boxShadow',
+      'toastSucessBackgroundColor',
+      'toastSucessTextColor',
+      'toastAlertBackgroundColor',
+      'toastAlertTextColor',
+      'toastDangerBackgroundColor',
+      'toastDangerTextColor',
+      'toastNotifierBackgroundColor',
+      'toastNotifierTextColor',
+    ],
+  },
+  defaults: {
+    duration: 4000,
+    position: 'top-right',
+    sucessIcon: 'check-circle',
+    alertIcon: 'warning',
+    dangerIcon: 'alert-circle',
+    notifierIcon: 'info',
+  },
+  properties: [
+    { name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' },
+    {
+      name: 'duration',
+      label: 'Duration (ms)',
+      type: 'number',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: 4000,
+      description: 'Time visible in milliseconds. Zero keeps the notification until dismissed.',
+      validateValue: (value) =>
+        typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 2147483647,
+    },
+    {
+      name: 'position',
+      label: 'Position',
+      type: 'enum',
+      category: 'Behavior',
+      source: 'props',
+      defaultValue: 'top-right',
+      options: [
+        'top-left',
+        'top-center',
+        'top-right',
+        'middle-left',
+        'middle-center',
+        'middle-right',
+        'bottom-left',
+        'bottom-center',
+        'bottom-right',
+      ],
+    },
+    icon('sucessIcon', 'Sucess icon', 'check-circle'),
+    icon('alertIcon', 'Alert icon', 'warning'),
+    icon('dangerIcon', 'Danger icon', 'alert-circle'),
+    icon('notifierIcon', 'Notifier icon', 'info'),
+  ],
+  events: [
+    {
+      name: 'OnShow',
+      category: 'Toast',
+      eventDetailType: 'WebToastEventDetail',
+      eventDetailProperties: ['message', 'state'],
+    },
+    {
+      name: 'OnClose',
+      category: 'Toast',
+      eventDetailType: 'WebToastEventDetail',
+      eventDetailProperties: ['message', 'state'],
+    },
+  ],
+};

@@ -766,7 +766,10 @@ function generateDocumentSource(
       repeatingGroupForComponent(page, component.id) === undefined,
   );
   const nonvisualComponents = components.filter(
-    (component) => !registry.require(component.type).visual,
+    (component) =>
+      !registry.require(component.type).visual ||
+      (registry.require(component.type).disposeWithDocument === true &&
+        repeatingGroupForComponent(page, component.id) === undefined),
   );
   const rootCharts = components.filter(
     (component) =>

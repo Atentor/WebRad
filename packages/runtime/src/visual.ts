@@ -1,3 +1,4 @@
+import { WEB_TOAST_CSS } from './toast-css.js';
 import { WEB_MENU_CSS } from './menu-css.js';
 import { WEB_LOGIN_CSS } from './login-css.js';
 import { themeColorId, customThemeColorId, type ResolvedThemeMode } from './theme.js';
@@ -790,6 +791,30 @@ export function resolveStylePropertyCandidate(
     }
     case 'progressColor':
       return cssVariableClass('--wr-progress-color', cssColorValue(value));
+    case 'toastSucessBackgroundColor':
+      return cssVariableClass('--wr-toast-sucess-background', cssColorValue(value));
+    case 'toastSucessTextColor':
+      return cssVariableClass('--wr-toast-sucess-text', cssColorValue(value));
+    case 'toastSucessBorderColor':
+      return cssVariableClass('--wr-toast-sucess-border', cssColorValue(value));
+    case 'toastAlertBackgroundColor':
+      return cssVariableClass('--wr-toast-alert-background', cssColorValue(value));
+    case 'toastAlertTextColor':
+      return cssVariableClass('--wr-toast-alert-text', cssColorValue(value));
+    case 'toastAlertBorderColor':
+      return cssVariableClass('--wr-toast-alert-border', cssColorValue(value));
+    case 'toastDangerBackgroundColor':
+      return cssVariableClass('--wr-toast-danger-background', cssColorValue(value));
+    case 'toastDangerTextColor':
+      return cssVariableClass('--wr-toast-danger-text', cssColorValue(value));
+    case 'toastDangerBorderColor':
+      return cssVariableClass('--wr-toast-danger-border', cssColorValue(value));
+    case 'toastNotifierBackgroundColor':
+      return cssVariableClass('--wr-toast-notifier-background', cssColorValue(value));
+    case 'toastNotifierTextColor':
+      return cssVariableClass('--wr-toast-notifier-text', cssColorValue(value));
+    case 'toastNotifierBorderColor':
+      return cssVariableClass('--wr-toast-notifier-border', cssColorValue(value));
     case 'panelProgressColor':
       return cssVariableClass('--wr-panel-progress-color', cssColorValue(value));
     case 'panelProgressTrackColor':
@@ -1375,6 +1400,7 @@ export const WEBRAD_PROJECT_CSS = /* @__PURE__ */ `
 `.trim();
 /** Shared component styling. Hosts may override the custom properties to theme it. */
 export const WEBRAD_COMPONENT_CSS = /* @__PURE__ */ `
+${WEB_TOAST_CSS}
 ${WEB_MENU_CSS}
 ${WEB_LOGIN_CSS}
 .wr-component { --webrad-border-gradient-surface: transparent; box-sizing: border-box; font: inherit; }

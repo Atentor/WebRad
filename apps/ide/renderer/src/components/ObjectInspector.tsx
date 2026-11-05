@@ -493,6 +493,14 @@ function IconPropertyEditor({
           renderIcon={renderIcon}
           libraryLabel={property.iconLibrary === 'lucide' ? 'Lucide / Icons' : undefined}
           selected={iconName}
+          onClear={
+            property.options?.includes('')
+              ? () => {
+                  onChange('');
+                  closePicker();
+                }
+              : undefined
+          }
           onClose={closePicker}
           onSelect={(icon) => {
             onChange(icon);
