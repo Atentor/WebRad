@@ -1,5 +1,12 @@
 # WebRAD delivery plan
 
+## Hosted formatting failure: 2026-11-06
+
+Release and validation runs for d30c8ca stopped at Prettier on seven files.
+Formatted those files and synchronized the generated runtime sources. Packaging
+and Electron smokes were skipped by those jobs; the corrections have not been
+validated locally or on a new hosted commit.
+
 ## Test battery corrections: 2026-11-05
 
 Aligned the style property names with their definitions, kept Edit's essential

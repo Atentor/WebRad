@@ -958,7 +958,10 @@ export class index extends indexGenerated {
     const editRoot = dom.window.document.querySelector('[data-webrad-id="edit-name"]');
     const editElement = editRoot?.querySelector('input');
     expect(editElement).toBeInstanceOf(dom.window.HTMLInputElement);
-    if (!(editElement instanceof dom.window.HTMLInputElement) || !(editRoot instanceof dom.window.HTMLElement)) {
+    if (
+      !(editElement instanceof dom.window.HTMLInputElement) ||
+      !(editRoot instanceof dom.window.HTMLElement)
+    ) {
       throw new TypeError('Compiled WebEdit did not render an input element.');
     }
     expect(editElement.value).toBe('Ada');

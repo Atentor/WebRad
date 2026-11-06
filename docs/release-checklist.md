@@ -1,5 +1,10 @@
 # Release checklist for agents and maintainers
 
+The d30c8ca release and validation jobs stopped at formatting in seven files,
+before packaging and Electron smokes. Those files were formatted and generated
+runtime sources synchronized locally. A new exact-commit hosted run is required
+to establish the results of the remaining release stages.
+
 The Windows development smoke passed after updating the composite Edit selectors
 and routing native pointer and keyboard input to the Preview's debugger target.
 The packaged and update smokes and other native platforms remain unverified for

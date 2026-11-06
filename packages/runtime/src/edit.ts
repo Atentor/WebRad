@@ -56,7 +56,10 @@ export class WebEdit extends WebComponent<HTMLElement> {
       this.#input = input;
       this.#label = label;
       element.tabIndex = -1;
-      for (const [from, to] of [['focusin', 'focus'], ['focusout', 'blur']] as const) {
+      for (const [from, to] of [
+        ['focusin', 'focus'],
+        ['focusout', 'blur'],
+      ] as const) {
         const listener = (event: Event): void => {
           const relatedTarget = event instanceof FocusEvent ? event.relatedTarget : null;
           if (relatedTarget instanceof Node && element.contains(relatedTarget)) return;
@@ -266,7 +269,8 @@ export class WebEdit extends WebComponent<HTMLElement> {
   }
   public set label(value: string) {
     if (this.#label === undefined) {
-      if (value !== '') throw new TypeError('A visible label requires a WebEdit container element.');
+      if (value !== '')
+        throw new TypeError('A visible label requires a WebEdit container element.');
       return;
     }
     this.#label.textContent = value;

@@ -1154,8 +1154,13 @@ const webEdit: ComponentDefinition = {
     ...geometryProperties(editBounds),
     tabIndexProperty(),
     {
-      name: 'label', label: 'Label', type: 'string', category: 'Appearance', source: 'props',
-      defaultValue: '', description: 'Optional accessible label for this field.',
+      name: 'label',
+      label: 'Label',
+      type: 'string',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: '',
+      description: 'Optional accessible label for this field.',
     },
     {
       name: 'icon',

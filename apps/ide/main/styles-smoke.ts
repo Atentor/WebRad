@@ -299,19 +299,24 @@ export async function runStylesWorkspaceSmoke(
         const position = labelledControl('Label position');
         await ready(window, `document.querySelector(${JSON.stringify(configure)}) !== null`);
         const configured: unknown = await window.webContents.executeJavaScript(
-          `document.querySelector(${JSON.stringify(configure)}).checked`, true,
+          `document.querySelector(${JSON.stringify(configure)}).checked`,
+          true,
         );
         if (configured !== true) await click(window, configure);
         const previousPosition: unknown = await window.webContents.executeJavaScript(
-          `document.querySelector(${JSON.stringify(position)}).value`, true,
+          `document.querySelector(${JSON.stringify(position)}).value`,
+          true,
         );
         if (typeof previousPosition !== 'string') throw new Error('Missing Edit label position.');
         await setField(window, position, 'right');
-        await ready(window, `(() => {
+        await ready(
+          window,
+          `(() => {
           const field = document.querySelector('.wr-style-preview-frame .wr-webedit');
           const label = field?.querySelector('.wr-edit-label');
           return label?.textContent === 'Label' && label.getBoundingClientRect().left >= field.getBoundingClientRect().right;
-        })()`);
+        })()`,
+        );
         await setField(window, position, previousPosition);
         if (configured !== true) await click(window, labelledControl('Clear Label position'));
         await setField(window, searchSelector, 'icon position');
@@ -319,15 +324,20 @@ export async function runStylesWorkspaceSmoke(
         const iconPosition = labelledControl('Icon position');
         await ready(window, `document.querySelector(${JSON.stringify(iconConfigure)}) !== null`);
         const iconConfigured: unknown = await window.webContents.executeJavaScript(
-          `document.querySelector(${JSON.stringify(iconConfigure)}).checked`, true,
+          `document.querySelector(${JSON.stringify(iconConfigure)}).checked`,
+          true,
         );
         if (iconConfigured !== true) await click(window, iconConfigure);
         const previousIconPosition: unknown = await window.webContents.executeJavaScript(
-          `document.querySelector(${JSON.stringify(iconPosition)}).value`, true,
+          `document.querySelector(${JSON.stringify(iconPosition)}).value`,
+          true,
         );
-        if (typeof previousIconPosition !== 'string') throw new Error('Missing Edit icon position.');
+        if (typeof previousIconPosition !== 'string')
+          throw new Error('Missing Edit icon position.');
         await setField(window, iconPosition, 'right');
-        await ready(window, `(() => {
+        await ready(
+          window,
+          `(() => {
           const field = document.querySelector('.wr-style-preview-frame .wr-webedit');
           const icon = field?.querySelector('.wr-edit-icon');
           const input = field?.querySelector('.wr-edit-input');
@@ -338,11 +348,14 @@ export async function runStylesWorkspaceSmoke(
           const edgeGap = fieldBounds.right - iconBounds.right - parseFloat(style.borderRightWidth);
           const expectedGap = Math.max(0, parseFloat(style.paddingRight) - 4);
           return iconBounds.left >= input.getBoundingClientRect().right && Math.abs(edgeGap - expectedGap) <= 1.5;
-        })()`);
+        })()`,
+        );
         await setField(window, iconPosition, previousIconPosition);
         if (iconConfigured !== true) await click(window, labelledControl('Clear Icon position'));
         await setField(window, searchSelector, '');
-        options.log('renderer Edit label style preview passed: label and icon position controls and right placement');
+        options.log(
+          'renderer Edit label style preview passed: label and icon position controls and right placement',
+        );
       }
     } finally {
       if (needsSampleStyle === true) {

@@ -662,7 +662,8 @@ export function resolveStylePropertyCandidate(
     case 'editIconPosition':
       return mappedEnumClass(value, {
         left: '[--wr-edit-icon-order:-1] [--wr-edit-icon-margin-left:calc(0px_-_min(4px,var(--wr-edit-padding-left,7px)))] [--wr-edit-icon-margin-right:0px]',
-        right: '[--wr-edit-icon-order:1] [--wr-edit-icon-margin-left:0px] [--wr-edit-icon-margin-right:calc(0px_-_min(4px,var(--wr-edit-padding-right,7px)))]',
+        right:
+          '[--wr-edit-icon-order:1] [--wr-edit-icon-margin-left:0px] [--wr-edit-icon-margin-right:calc(0px_-_min(4px,var(--wr-edit-padding-right,7px)))]',
       });
     case 'editIconSize':
       return cssVariableClass('--wr-edit-icon-size', cssLengthValue(value));
@@ -673,19 +674,27 @@ export function resolveStylePropertyCandidate(
     case 'editLabelPosition':
       return mappedEnumClass(value, {
         top: '[--wr-edit-label-top:auto] [--wr-edit-label-bottom:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
-        bottom: '[--wr-edit-label-top:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
+        bottom:
+          '[--wr-edit-label-top:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
         left: '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:auto] [--wr-edit-label-right:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
-        right: '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-right:auto] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
+        right:
+          '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-right:auto] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
       });
     case 'editLabelAlign':
       return cssVariableClass('--wr-edit-label-align', stringValue(value));
     case 'editLabelFontWeight': {
       const weight = stringValue(value);
-      return cssVariableClass('--wr-edit-label-font-weight', weight === undefined ? undefined : DATA_GRID_FONT_WEIGHT_VALUES[weight]);
+      return cssVariableClass(
+        '--wr-edit-label-font-weight',
+        weight === undefined ? undefined : DATA_GRID_FONT_WEIGHT_VALUES[weight],
+      );
     }
     case 'editLabelColor':
     case 'editLabelBackgroundColor':
-      return cssVariableClass(propertyName === 'editLabelColor' ? '--wr-edit-label-color' : '--wr-edit-label-background', cssColorValue(value));
+      return cssVariableClass(
+        propertyName === 'editLabelColor' ? '--wr-edit-label-color' : '--wr-edit-label-background',
+        cssColorValue(value),
+      );
     case 'editLabelGap':
     case 'editLabelOffsetX':
     case 'editLabelOffsetY':
@@ -696,10 +705,15 @@ export function resolveStylePropertyCandidate(
     case 'editLabelPaddingY':
     case 'editLabelBorderRadius': {
       const names: Readonly<Record<string, string>> = {
-        editLabelGap: 'gap', editLabelOffsetX: 'offset-x', editLabelOffsetY: 'offset-y',
-        editLabelFontSize: 'font-size', editLabelLineHeight: 'line-height',
-        editLabelLetterSpacing: 'letter-spacing', editLabelPaddingX: 'padding-x',
-        editLabelPaddingY: 'padding-y', editLabelBorderRadius: 'border-radius',
+        editLabelGap: 'gap',
+        editLabelOffsetX: 'offset-x',
+        editLabelOffsetY: 'offset-y',
+        editLabelFontSize: 'font-size',
+        editLabelLineHeight: 'line-height',
+        editLabelLetterSpacing: 'letter-spacing',
+        editLabelPaddingX: 'padding-x',
+        editLabelPaddingY: 'padding-y',
+        editLabelBorderRadius: 'border-radius',
       };
       return cssVariableClass(`--wr-edit-label-${names[propertyName]}`, cssLengthValue(value));
     }
@@ -1095,8 +1109,10 @@ function resolveComponentStyleStateClassNamesInternal(
     appendCandidateExpression(resolved, seen, candidateExpression);
     if (
       editFontSize &&
-      (propertyName === 'paddingLeft' || propertyName === 'paddingRight' ||
-        propertyName === 'paddingTop' || propertyName === 'paddingBottom')
+      (propertyName === 'paddingLeft' ||
+        propertyName === 'paddingRight' ||
+        propertyName === 'paddingTop' ||
+        propertyName === 'paddingBottom')
     ) {
       const paddingVariables = {
         paddingLeft: '--wr-edit-padding-left',

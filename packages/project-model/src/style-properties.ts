@@ -548,21 +548,77 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     ['breakSpaces', 'Break spaces'],
   ]),
 
-  enumProperty('editLabelPosition', 'Label position', 'Edit label', [
-    ['top', 'Above'], ['bottom', 'Below'], ['left', 'Left'], ['right', 'Right'],
-  ], ['WebEdit'], ['base']),
-  enumProperty('editLabelAlign', 'Label alignment', 'Edit label', [
-    ['start', 'Start'], ['center', 'Center'], ['end', 'End'],
-  ], ['WebEdit']),
-  lengthProperty('editLabelGap', 'Label gap', 'Edit label', { units: ['px', 'rem'], min: 0, defaultValue: { value: 2, unit: 'px' }, componentTypes: ['WebEdit'] }),
-  lengthProperty('editLabelOffsetX', 'Label horizontal offset', 'Edit label', { units: ['px', 'rem'], allowNegative: true, componentTypes: ['WebEdit'] }),
-  lengthProperty('editLabelOffsetY', 'Label vertical offset', 'Edit label', { units: ['px', 'rem'], allowNegative: true, componentTypes: ['WebEdit'] }),
-  colorProperty('editLabelColor', 'Label color', 'Edit label', { defaultValue: '#2e2e2e', componentTypes: ['WebEdit'] }),
-  colorProperty('editLabelBackgroundColor', 'Label background', 'Edit label', { defaultValue: 'transparent', componentTypes: ['WebEdit'] }),
-  lengthProperty('editLabelFontSize', 'Label font size', 'Edit label', { units: ['px', 'rem'], min: 0, defaultValue: { value: 14, unit: 'px' }, componentTypes: ['WebEdit'] }),
-  enumProperty('editLabelFontWeight', 'Label font weight', 'Edit label', [
-    ['thin', 'Thin (100)'], ['extralight', 'Extra light (200)'], ['light', 'Light (300)'], ['normal', 'Normal (400)'], ['medium', 'Medium (500)'], ['semibold', 'Semi bold (600)'], ['bold', 'Bold (700)'], ['extrabold', 'Extra bold (800)'], ['black', 'Black (900)'],
-  ], ['WebEdit']),
+  enumProperty(
+    'editLabelPosition',
+    'Label position',
+    'Edit label',
+    [
+      ['top', 'Above'],
+      ['bottom', 'Below'],
+      ['left', 'Left'],
+      ['right', 'Right'],
+    ],
+    ['WebEdit'],
+    ['base'],
+  ),
+  enumProperty(
+    'editLabelAlign',
+    'Label alignment',
+    'Edit label',
+    [
+      ['start', 'Start'],
+      ['center', 'Center'],
+      ['end', 'End'],
+    ],
+    ['WebEdit'],
+  ),
+  lengthProperty('editLabelGap', 'Label gap', 'Edit label', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 2, unit: 'px' },
+    componentTypes: ['WebEdit'],
+  }),
+  lengthProperty('editLabelOffsetX', 'Label horizontal offset', 'Edit label', {
+    units: ['px', 'rem'],
+    allowNegative: true,
+    componentTypes: ['WebEdit'],
+  }),
+  lengthProperty('editLabelOffsetY', 'Label vertical offset', 'Edit label', {
+    units: ['px', 'rem'],
+    allowNegative: true,
+    componentTypes: ['WebEdit'],
+  }),
+  colorProperty('editLabelColor', 'Label color', 'Edit label', {
+    defaultValue: '#2e2e2e',
+    componentTypes: ['WebEdit'],
+  }),
+  colorProperty('editLabelBackgroundColor', 'Label background', 'Edit label', {
+    defaultValue: 'transparent',
+    componentTypes: ['WebEdit'],
+  }),
+  lengthProperty('editLabelFontSize', 'Label font size', 'Edit label', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 14, unit: 'px' },
+    componentTypes: ['WebEdit'],
+  }),
+  enumProperty(
+    'editLabelFontWeight',
+    'Label font weight',
+    'Edit label',
+    [
+      ['thin', 'Thin (100)'],
+      ['extralight', 'Extra light (200)'],
+      ['light', 'Light (300)'],
+      ['normal', 'Normal (400)'],
+      ['medium', 'Medium (500)'],
+      ['semibold', 'Semi bold (600)'],
+      ['bold', 'Bold (700)'],
+      ['extrabold', 'Extra bold (800)'],
+      ['black', 'Black (900)'],
+    ],
+    ['WebEdit'],
+  ),
   lengthProperty('editLabelLineHeight', 'Label line height', 'Edit label', {
     units: ['px', 'rem'],
     min: 0,
@@ -570,10 +626,26 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     defaultValue: 'normal',
     componentTypes: ['WebEdit'],
   }),
-  lengthProperty('editLabelLetterSpacing', 'Label letter spacing', 'Edit label', { units: ['px', 'rem'], allowNegative: true, componentTypes: ['WebEdit'] }),
-  lengthProperty('editLabelPaddingX', 'Label horizontal padding', 'Edit label', { units: ['px', 'rem'], min: 0, componentTypes: ['WebEdit'] }),
-  lengthProperty('editLabelPaddingY', 'Label vertical padding', 'Edit label', { units: ['px', 'rem'], min: 0, componentTypes: ['WebEdit'] }),
-  lengthProperty('editLabelBorderRadius', 'Label corner radius', 'Edit label', { units: ['px', 'rem'], min: 0, componentTypes: ['WebEdit'] }),
+  lengthProperty('editLabelLetterSpacing', 'Label letter spacing', 'Edit label', {
+    units: ['px', 'rem'],
+    allowNegative: true,
+    componentTypes: ['WebEdit'],
+  }),
+  lengthProperty('editLabelPaddingX', 'Label horizontal padding', 'Edit label', {
+    units: ['px', 'rem'],
+    min: 0,
+    componentTypes: ['WebEdit'],
+  }),
+  lengthProperty('editLabelPaddingY', 'Label vertical padding', 'Edit label', {
+    units: ['px', 'rem'],
+    min: 0,
+    componentTypes: ['WebEdit'],
+  }),
+  lengthProperty('editLabelBorderRadius', 'Label corner radius', 'Edit label', {
+    units: ['px', 'rem'],
+    min: 0,
+    componentTypes: ['WebEdit'],
+  }),
 
   enumProperty(
     'editIconPosition',
