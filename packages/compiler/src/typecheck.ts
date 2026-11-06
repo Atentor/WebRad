@@ -221,7 +221,26 @@ export function typecheckSources(
     oldProgram = undefined;
   }
   onProgress?.('typecheck-diagnostics');
-  let diagnostics = [...ts.getPreEmitDiagnostics(program)];
+  // Match getPreEmitDiagnostics for this noEmit program while reporting the
+  // individual stages. Keep the same sorting and deduplication as TypeScript.
+  onProgress?.('typecheck-diagnostics-options');
+  const optionDiagnostics = [
+    ...program.getConfigFileParsingDiagnostics(),
+    ...program.getOptionsDiagnostics(),
+  ];
+  onProgress?.('typecheck-diagnostics-syntactic');
+  const syntacticDiagnostics = program.getSyntacticDiagnostics();
+  onProgress?.('typecheck-diagnostics-global');
+  const globalDiagnostics = program.getGlobalDiagnostics();
+  onProgress?.('typecheck-diagnostics-semantic');
+  let diagnostics = [
+    ...ts.sortAndDeduplicateDiagnostics([
+      ...optionDiagnostics,
+      ...syntacticDiagnostics,
+      ...globalDiagnostics,
+      ...program.getSemanticDiagnostics(),
+    ]),
+  ];
   const bundleSources = new Map(sources);
   const sourceEdits = new Map<string, readonly ComponentReferenceEdit[]>();
   onProgress?.('typecheck-component-references');

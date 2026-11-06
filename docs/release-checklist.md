@@ -1,5 +1,17 @@
 # Release checklist for agents and maintainers
 
+Tag v0.0.27 at df7dd20 passed validate, security, six portable jobs and five
+release builds; release run 42199526517 failed the macOS Intel packaged Icons
+F9 wait while Preview was still collecting TypeScript diagnostics. The retained
+smoke artifact contains the project and original log. The same commit's main
+verification passed the Icons F9 interaction with diagnostics taking 4,361 ms;
+the tag run was still in that phase after more than eight seconds. Assembly,
+the Intel update smoke and publication did not run. Progress now separates
+options, syntactic, global and semantic diagnostics without omitting checks.
+This instrumentation is unvalidated and is not a proven performance correction.
+Retain all deadlines and assertions and use new native evidence to isolate the
+slow work before changing diagnostic behavior.
+
 For a004818, release run 42154900972 passed all six portable jobs and five
 builds. macOS Intel failed in Forge packaging with `TypeError: fetch failed`,
 without a URL or underlying cause in the log; its packaged and update smokes

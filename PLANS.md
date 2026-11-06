@@ -1,5 +1,15 @@
 # WebRAD delivery plan
 
+## v0.0.27 macOS Intel Preview timeout: 2026-11-06
+
+Tag release run 42199526517 failed while the Icons F9 Preview was collecting
+TypeScript diagnostics. The same commit's main verification passed, including
+that interaction. Split diagnostic progress into options, syntactic, global and
+semantic stages while retaining the complete sorted and deduplicated diagnostics.
+This is instrumentation, not a demonstrated performance fix; preserve the smoke
+deadline and obtain native hosted evidence before drawing further conclusions.
+Local validation was not requested or run.
+
 ## macOS Intel packaging failure: 2026-11-06
 
 For a004818, hosted validate, security, all portable jobs, and five release
