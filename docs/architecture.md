@@ -4,11 +4,24 @@ WebEdit stores its optional `label` in the component properties and projects it
 to a native label associated with its internal input. Edit styles own label
 placement, alignment, gap, offsets, colors, typography, padding and corners; the
 label is positioned outside the field bounds, so authors must reserve room in
-their layouts. Empty labels remain hidden and preserve existing projects' field
+their layouts. Label height fits its content and its default line height is
+normal; authored line heights remain configurable. Empty labels remain hidden and preserve existing projects' field
 geometry. The runtime class exposes the same text as `Edit1.label`.
 For a mounted Edit, `element` is now the field container; the native input is its
 child. Legacy wrappers constructed directly from an input remain supported, but
 need a container to display a label.
+
+WebEdit also accepts an optional `icon` from the Button icon catalogue. Its
+Inspector property and typed `Edit1.icon` API use the same saved value; an empty
+string removes it. The Edit style controls its left/right position, size, gap and
+color. The icon moves up to 4 px toward its selected edge, limited by the field's
+padding, without changing the configured gap between icon and text. Without an
+`OnIconClick` handler, it is decorative and does not intercept pointer events.
+Binding the event or setting `onIconClick` turns it
+into a native button with pointer, keyboard, hover and focus behavior. The
+optional `iconAccessibleLabel` supplies its action name; otherwise it uses the
+icon and field names. The icon shares the field's content space with the native
+input. Direct input-only wrappers require a container to display it.
 
 `WebDate` is a registry-owned masked date/date-time field with a browser-only
 runtime class. Designer projection and runtime mounting share `configureWebDate`

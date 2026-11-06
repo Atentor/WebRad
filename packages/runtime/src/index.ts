@@ -6,6 +6,7 @@ export { WebIcon } from './icon.js';
 export { WebHtml } from './html.js';
 export * from './date.js';
 export { configureWebEdit } from './edit.js';
+export type { WebEditIcon } from './edit.js';
 export * from './edit-mask.js';
 export * from './menu.js';
 export * from './menu-model.js';

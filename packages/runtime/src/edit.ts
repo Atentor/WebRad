@@ -1,4 +1,6 @@
 import { WebComponent, type WebComponentEventHandler } from './component.js';
+import type { WebButtonIcon } from './controls.js';
+import { createWebRadIconElement, isWebRadIconName } from './icons.js';
 import {
   compileEditMask,
   isWebEditMaskTokens,
@@ -9,6 +11,8 @@ import {
 } from './edit-mask.js';
 
 export type WebInputType = 'text' | 'password' | 'email' | 'number' | 'search' | 'tel' | 'url';
+/** An empty string removes the icon. */
+export type WebEditIcon = WebButtonIcon | '';
 
 const instances = new WeakMap<HTMLElement, WebEdit>();
 let nextEditLabelId = 0;
@@ -17,6 +21,11 @@ let nextEditLabelId = 0;
 export class WebEdit extends WebComponent<HTMLElement> {
   readonly #input!: HTMLInputElement;
   readonly #label?: HTMLLabelElement;
+  #icon: WebEditIcon = '';
+  #iconElement: SVGSVGElement | HTMLButtonElement | undefined;
+  #iconClickHandler: WebComponentEventHandler<this> | null = null;
+  #iconClickDispose: (() => void) | undefined;
+  #iconAccessibleLabel = '';
   #maskEnabled = false;
   #mask = '';
   #maskTokens: WebEditMaskTokens = {};
@@ -264,6 +273,58 @@ export class WebEdit extends WebComponent<HTMLElement> {
     this.#label.hidden = value.length === 0;
     if (value.length > 0) this.#input.removeAttribute('aria-label');
     else this.#input.setAttribute('aria-label', this.name || this.placeholder || 'Edit');
+    this.#syncIconButton();
+  }
+  /** Icon shown inside the field. An empty string removes it. */
+  public get icon(): WebEditIcon {
+    return this.#icon;
+  }
+  public set icon(value: WebEditIcon) {
+    if (value !== '' && !isWebRadIconName(value)) throw new TypeError('Invalid Edit icon.');
+    if (value !== '' && this.element instanceof HTMLInputElement)
+      throw new TypeError('A visible icon requires a WebEdit container element.');
+    this.#icon = value;
+    this.#renderIcon();
+  }
+  /** Accessible name of the clickable icon; empty uses the icon and field names. */
+  public get iconAccessibleLabel(): string {
+    return this.#iconAccessibleLabel;
+  }
+  public set iconAccessibleLabel(value: string) {
+    this.#iconAccessibleLabel = value;
+    this.#syncIconButton();
+  }
+  #syncIconButton(): void {
+    if (!(this.#iconElement instanceof HTMLButtonElement)) return;
+    this.#iconElement.disabled = !this.enabled;
+    this.#iconElement.tabIndex = this.tabIndex < 0 ? -1 : 0;
+    this.#iconElement.setAttribute(
+      'aria-label',
+      this.#iconAccessibleLabel.trim() ||
+        `${this.#icon.replaceAll('-', ' ')}: ${this.label || this.name || 'Edit'}`,
+    );
+  }
+  #renderIcon(): void {
+    this.#iconElement?.remove();
+    this.#iconElement = undefined;
+    if (this.#icon === '') return;
+    const graphic = createWebRadIconElement(this.element.ownerDocument, this.#icon);
+    graphic.classList.add('wr-edit-icon');
+    graphic.dataset.webradEditIcon = this.#icon;
+    if (this.#iconClickHandler === null) {
+      this.#iconElement = graphic;
+    } else {
+      const button = this.element.ownerDocument.createElement('button');
+      button.type = 'button';
+      button.className = 'wr-edit-icon-action';
+      button.append(graphic);
+      button.addEventListener('click', (event) => {
+        if (this.enabled) void this.#iconClickHandler?.(this, event);
+      });
+      this.#iconElement = button;
+      this.#syncIconButton();
+    }
+    this.element.append(this.#iconElement);
   }
   public override get enabled(): boolean {
     return !this.#input.disabled;
@@ -271,12 +332,14 @@ export class WebEdit extends WebComponent<HTMLElement> {
   public override set enabled(value: boolean) {
     super.enabled = value;
     this.#input.disabled = !value;
+    this.#syncIconButton();
   }
   public override get tabIndex(): number {
     return this.#input.tabIndex;
   }
   public override set tabIndex(value: number) {
     this.#input.tabIndex = value;
+    this.#syncIconButton();
   }
   public override focus(options?: FocusOptions): void {
     this.#input.focus(options);
@@ -290,8 +353,37 @@ export class WebEdit extends WebComponent<HTMLElement> {
   public set onInput(handler: WebComponentEventHandler<this> | null) {
     this.bindEvent('OnInput', handler);
   }
+  /** Binds the icon action, enabling its native button and hover feedback. */
+  public set onIconClick(
+    handler: ((sender: this, event: MouseEvent) => void | Promise<void>) | null,
+  ) {
+    this.bindEvent(
+      'OnIconClick',
+      handler === null ? null : (sender, event) => handler(sender, event as MouseEvent),
+    );
+  }
+
+  public override bindEvent(
+    eventName: string,
+    handler: WebComponentEventHandler<this> | null,
+  ): () => void {
+    if (eventName !== 'OnIconClick') return super.bindEvent(eventName, handler);
+    this.#iconClickDispose?.();
+    this.#iconClickHandler = handler;
+    this.#renderIcon();
+    if (handler === null) return () => undefined;
+    const dispose = (): void => {
+      if (this.#iconClickDispose !== dispose) return;
+      this.#iconClickDispose = undefined;
+      this.#iconClickHandler = null;
+      this.#renderIcon();
+    };
+    this.#iconClickDispose = dispose;
+    return dispose;
+  }
 
   public override dispose(): void {
+    this.#iconClickDispose?.();
     for (const remove of this.#listeners) remove();
     this.#listeners.length = 0;
     instances.delete(this.element);
@@ -317,5 +409,8 @@ export function configureWebEdit(
   component.value = typeof props.value === 'string' ? props.value : '';
   component.placeholder = typeof props.placeholder === 'string' ? props.placeholder : '';
   component.label = typeof props.label === 'string' ? props.label : '';
+  component.iconAccessibleLabel =
+    typeof props.iconAccessibleLabel === 'string' ? props.iconAccessibleLabel : '';
+  component.icon = isWebRadIconName(props.icon) ? props.icon : '';
   component.readOnly = props.readOnly === true;
 }

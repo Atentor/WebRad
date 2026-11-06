@@ -659,12 +659,23 @@ export function resolveStylePropertyCandidate(
       return mappedEnumClass(value, FONT_STYLE_CLASSES);
     case 'whiteSpace':
       return mappedEnumClass(value, WHITE_SPACE_CLASSES);
+    case 'editIconPosition':
+      return mappedEnumClass(value, {
+        left: '[--wr-edit-icon-order:-1] [--wr-edit-icon-margin-left:calc(0px_-_min(4px,var(--wr-edit-padding-left,7px)))] [--wr-edit-icon-margin-right:0px]',
+        right: '[--wr-edit-icon-order:1] [--wr-edit-icon-margin-left:0px] [--wr-edit-icon-margin-right:calc(0px_-_min(4px,var(--wr-edit-padding-right,7px)))]',
+      });
+    case 'editIconSize':
+      return cssVariableClass('--wr-edit-icon-size', cssLengthValue(value));
+    case 'editIconGap':
+      return cssVariableClass('--wr-edit-icon-gap', cssLengthValue(value));
+    case 'editIconColor':
+      return cssVariableClass('--wr-edit-icon-color', cssColorValue(value));
     case 'editLabelPosition':
       return mappedEnumClass(value, {
-        top: '[--wr-edit-label-top:auto] [--wr-edit-label-bottom:calc(100%_+_var(--wr-edit-label-gap,4px))] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
-        bottom: '[--wr-edit-label-top:calc(100%_+_var(--wr-edit-label-gap,4px))] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
-        left: '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:auto] [--wr-edit-label-right:calc(100%_+_var(--wr-edit-label-gap,4px))] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
-        right: '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:calc(100%_+_var(--wr-edit-label-gap,4px))] [--wr-edit-label-right:auto] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
+        top: '[--wr-edit-label-top:auto] [--wr-edit-label-bottom:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
+        bottom: '[--wr-edit-label-top:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:0px] [--wr-edit-label-right:0px] [--wr-edit-label-width:100%] [--wr-edit-label-center-y:0%]',
+        left: '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:auto] [--wr-edit-label-right:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
+        right: '[--wr-edit-label-top:50%] [--wr-edit-label-bottom:auto] [--wr-edit-label-left:calc(100%_+_var(--wr-edit-label-gap,2px))] [--wr-edit-label-right:auto] [--wr-edit-label-width:max-content] [--wr-edit-label-center-y:-50%]',
       });
     case 'editLabelAlign':
       return cssVariableClass('--wr-edit-label-align', stringValue(value));
@@ -1082,6 +1093,23 @@ function resolveComponentStyleStateClassNamesInternal(
         ? `text-[length:max(var(--wr-edit-min-font-size,0px),${formatNumber(value.value)}${value.unit})]`
         : resolveStylePropertyCandidate(propertyName, value);
     appendCandidateExpression(resolved, seen, candidateExpression);
+    if (
+      editFontSize &&
+      (propertyName === 'paddingLeft' || propertyName === 'paddingRight' ||
+        propertyName === 'paddingTop' || propertyName === 'paddingBottom')
+    ) {
+      const paddingVariables = {
+        paddingLeft: '--wr-edit-padding-left',
+        paddingRight: '--wr-edit-padding-right',
+        paddingTop: '--wr-edit-padding-top',
+        paddingBottom: '--wr-edit-padding-bottom',
+      } as const;
+      appendCandidateExpression(
+        resolved,
+        seen,
+        cssVariableClass(paddingVariables[propertyName], cssLengthValue(value)),
+      );
+    }
     if (panelBackground && propertyName === 'overflow') {
       appendCandidateExpression(
         resolved,
@@ -1463,9 +1491,18 @@ ${WEB_LOGIN_CSS}
 .wr-webedit, .wr-webdate, .wr-webtextarea, .wr-webcombobox, .wr-weblistbox { --webrad-border-gradient-surface: var(--wr-input-bg, #11151c); border: 1px solid var(--wr-control-border, #677184); border-radius: 3px; background: var(--wr-input-bg, #11151c); color: inherit; padding: 5px 7px; outline: none; }
 .wr-webedit:focus, .wr-webedit:focus-within, .wr-webdate:focus-within, .wr-webtextarea:focus, .wr-webcombobox:focus, .wr-weblistbox:focus { border-color: var(--wr-accent, #4da3ff); box-shadow: 0 0 0 1px var(--wr-accent, #4da3ff); }
 .wr-webedit:not(input) { position: relative; min-width: 0; min-height: 0; }
+.wr-webedit:not(input):has(> :is(.wr-edit-icon, .wr-edit-icon-action)) { display: flex; align-items: center; gap: var(--wr-edit-icon-gap, 4px); }
 .wr-webedit .wr-edit-input { display: block; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; padding: 0; margin: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; text-align: inherit; }
+.wr-webedit:has(> :is(.wr-edit-icon, .wr-edit-icon-action)) .wr-edit-input { flex: 1 1 0%; }
+.wr-webedit .wr-edit-icon { display: block; order: var(--wr-edit-icon-order, -1); flex: 0 0 auto; width: var(--wr-edit-icon-size, 24px); height: var(--wr-edit-icon-size, 24px); max-width: 100%; max-height: calc(100% + min(2px, var(--wr-edit-padding-top, 5px), var(--wr-edit-padding-bottom, 5px))); color: var(--wr-edit-icon-color, light-dark(#64748b, currentColor)); pointer-events: none; }
+.wr-webedit .wr-edit-icon-action { display: inline-flex; align-items: center; justify-content: center; order: var(--wr-edit-icon-order, -1); flex: 0 0 auto; width: var(--wr-edit-icon-size, 24px); height: var(--wr-edit-icon-size, 24px); max-width: 100%; max-height: calc(100% + min(2px, var(--wr-edit-padding-top, 5px), var(--wr-edit-padding-bottom, 5px))); padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--wr-edit-icon-color, light-dark(#64748b, currentColor)); cursor: pointer; }
+.wr-webedit > :is(.wr-edit-icon, .wr-edit-icon-action) { margin-left: var(--wr-edit-icon-margin-left, calc(0px - min(4px, var(--wr-edit-padding-left, 7px)))); margin-right: var(--wr-edit-icon-margin-right, 0px); }
+.wr-webedit .wr-edit-icon-action > .wr-edit-icon { width: 100%; height: 100%; color: inherit; }
+.wr-webedit .wr-edit-icon-action:hover:not(:disabled) > .wr-edit-icon { color: color-mix(in srgb, currentColor 50%, var(--wr-theme-primary, #2563eb)); }
+.wr-webedit .wr-edit-icon-action:focus-visible { outline: 2px solid var(--wr-theme-focus, #2563eb); outline-offset: 2px; }
+.wr-webedit .wr-edit-icon-action:disabled { cursor: default; }
 .wr-webedit .wr-edit-input::placeholder { color: currentColor; opacity: .55; }
-.wr-webedit .wr-edit-label { position: absolute; top: var(--wr-edit-label-top, auto); bottom: var(--wr-edit-label-bottom, calc(100% + var(--wr-edit-label-gap, 4px))); left: var(--wr-edit-label-left, 0px); right: var(--wr-edit-label-right, 0px); transform: translate(var(--wr-edit-label-offset-x, 0px), calc(var(--wr-edit-label-center-y, 0%) + var(--wr-edit-label-offset-y, 0px))); width: var(--wr-edit-label-width, 100%); max-width: 100%; box-sizing: border-box; color: var(--wr-edit-label-color, light-dark(#2e2e2e, #d4d4d4)); background: var(--wr-edit-label-background, transparent); font-size: var(--wr-edit-label-font-size, 14px); font-weight: var(--wr-edit-label-font-weight, 400); line-height: var(--wr-edit-label-line-height, 20px); letter-spacing: var(--wr-edit-label-letter-spacing, normal); padding: var(--wr-edit-label-padding-y, 0px) var(--wr-edit-label-padding-x, 0px); border-radius: var(--wr-edit-label-border-radius, 0px); text-align: var(--wr-edit-label-align, start); overflow-wrap: anywhere; }
+.wr-webedit .wr-edit-label { position: absolute; top: var(--wr-edit-label-top, auto); bottom: var(--wr-edit-label-bottom, calc(100% + var(--wr-edit-label-gap, 2px))); left: var(--wr-edit-label-left, 0px); right: var(--wr-edit-label-right, 0px); transform: translate(var(--wr-edit-label-offset-x, 0px), calc(var(--wr-edit-label-center-y, 0%) + var(--wr-edit-label-offset-y, 0px))); width: var(--wr-edit-label-width, 100%); height: fit-content; max-width: 100%; box-sizing: border-box; color: var(--wr-edit-label-color, light-dark(#2e2e2e, #d4d4d4)); background: var(--wr-edit-label-background, transparent); font-size: var(--wr-edit-label-font-size, 14px); font-weight: var(--wr-edit-label-font-weight, 400); line-height: var(--wr-edit-label-line-height, normal); letter-spacing: var(--wr-edit-label-letter-spacing, normal); padding: var(--wr-edit-label-padding-y, 0px) var(--wr-edit-label-padding-x, 0px); border-radius: var(--wr-edit-label-border-radius, 0px); text-align: var(--wr-edit-label-align, start); overflow-wrap: anywhere; }
 .wr-webedit .wr-edit-label[hidden] { display: none; }
 .wr-webdate { display: flex; align-items: center; gap: 6px; position: relative; min-width: 0; }
 .wr-webdate .wr-date-input { appearance: none; width: 100%; min-width: 0; height: 100%; flex: 1; padding: 0; margin: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; text-align: inherit; }

@@ -69,7 +69,19 @@ export async function runEditMaskSmoke(
   await text('Custom tokens', '{"H":{"pattern":"[0-9A-Fa-f]","transform":"upper"}}', true);
   await text('Value', 'ab12');
   await text('Label', 'Account code');
-  await ready(`document.querySelector(${JSON.stringify(designer)})?.querySelector('input')?.value === 'AB:12' && document.querySelector(${JSON.stringify(designer)})?.querySelector('label')?.textContent === 'Account code'`);
+  await click('.wr-inspector-icon-picker[aria-label="Icon"]');
+  await click('[data-icon-picker-option="search"]');
+  await ready(`document.querySelector(${JSON.stringify(designer)})?.querySelector('input')?.value === 'AB:12' && document.querySelector(${JSON.stringify(designer)})?.querySelector('label')?.textContent === 'Account code' && document.querySelector(${JSON.stringify(designer)})?.querySelector('[data-webrad-edit-icon="search"]') !== null`);
+  await ready(`document.querySelector(${JSON.stringify(designer)})?.querySelector('.wr-edit-icon-action') === null`);
+  await click('button[role="tab"][aria-label="Events"]');
+  const eventRow = `[...document.querySelectorAll('.wr-inspector-event-row')].find(row => row.querySelector('label')?.textContent === 'OnIconClick')`;
+  await ready(`${eventRow} !== undefined`);
+  await evaluate(`${eventRow}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+  await ready(`document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ').includes('sender: WebEdit, event: MouseEvent') === true`);
+  await window.webContents.insertText("sender.value = 'face';");
+  await ready(`document.querySelector('.monaco-editor')?.textContent?.includes("sender.value = 'face'") === true`);
+  await click('button[aria-label="Design"]');
+  await ready(`document.querySelector(${JSON.stringify(designer)})?.querySelector('.wr-edit-icon-action') instanceof HTMLButtonElement`);
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
   const saved = await loadProjectFiles(projectPath);
@@ -82,6 +94,8 @@ export async function runEditMaskSmoke(
     node.props.mask !== 'HH[:HH]' ||
     node.props.value !== 'ab12' ||
     node.props.label !== 'Account code' ||
+    node.props.icon !== 'search' ||
+    typeof node.events.OnIconClick !== 'string' ||
     JSON.stringify(node.props.maskTokens) !== '{"H":{"pattern":"[0-9A-Fa-f]","transform":"upper"}}'
   )
     throw new Error('Edit mask Inspector settings did not persist.');
@@ -123,9 +137,22 @@ export async function runEditMaskSmoke(
     const root = document.querySelector(${JSON.stringify(selector)});
     const e = root.querySelector('input');
     const label = root.querySelector('label');
+    const icon = root.querySelector('[data-webrad-edit-icon="search"]');
+    const iconButton = root.querySelector('.wr-edit-icon-action');
     const b = root.getBoundingClientRect();
     if (b.width <= 0 || b.height <= 0) throw new Error('Compiled Edit has empty geometry.');
-    if (label.control !== e || label.hidden || label.getBoundingClientRect().bottom > b.top + 1) throw new Error('Compiled Edit label is not associated or positioned above the field.');
+    if (label.control !== e || label.hidden || label.getBoundingClientRect().bottom > b.top + 1 || label.scrollHeight > label.clientHeight + 1) throw new Error('Compiled Edit label is clipped, not associated or not positioned above the field.');
+    const iconBounds = icon?.getBoundingClientRect();
+    const inputBounds = e.getBoundingClientRect();
+    if (!iconBounds || !(iconButton instanceof HTMLButtonElement) || !iconButton.getAttribute('aria-label') || icon.getAttribute('aria-hidden') !== 'true' || iconBounds.width <= 0 || iconBounds.left < b.left || iconBounds.right > inputBounds.left || inputBounds.right > b.right) throw new Error('Compiled Edit icon is missing, inaccessible or overlaps the input.');
+    const fieldStyle = getComputedStyle(root);
+    const topPadding = parseFloat(fieldStyle.paddingTop);
+    const bottomPadding = parseFloat(fieldStyle.paddingBottom);
+    const availableIconHeight = root.clientHeight - topPadding - bottomPadding + Math.min(2, topPadding, bottomPadding);
+    if (Math.abs(iconBounds.height - Math.min(iconBounds.width, availableIconHeight)) > 1.5 || iconBounds.top < b.top || iconBounds.bottom > b.bottom) throw new Error('Compiled Edit icon is vertically clipped or outside its field.');
+    const edgeGap = iconBounds.left - b.left - parseFloat(fieldStyle.borderLeftWidth);
+    const expectedGap = Math.max(0, parseFloat(fieldStyle.paddingLeft) - 4);
+    if (Math.abs(edgeGap - expectedGap) > 1.5) throw new Error('Compiled Edit icon did not move toward the left edge.');
     e.dataset.maskInputs = '0'; e.dataset.maskChanges = '0';
     e.addEventListener('input', () => { e.dataset.maskInputs = String(Number(e.dataset.maskInputs) + 1); e.dataset.maskObserved = e.value; });
     e.addEventListener('change', () => { e.dataset.maskChanges = String(Number(e.dataset.maskChanges) + 1); });
@@ -135,6 +162,22 @@ export async function runEditMaskSmoke(
   );
   window.webContents.debugger.attach('1.3');
   try {
+    const offset = await evaluate(`(() => { const r = document.querySelector('iframe[title="WebRAD application preview"]').getBoundingClientRect(); return { x: r.left, y: r.top }; })()`);
+    const iconGeometry: unknown = await frame.executeJavaScript(`(() => { const button = document.querySelector(${JSON.stringify(selector)}).querySelector('.wr-edit-icon-action'); const r = button.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, color: getComputedStyle(button.querySelector('.wr-edit-icon')).color, background: getComputedStyle(button).backgroundColor }; })()`, true);
+    if (typeof offset !== 'object' || offset === null || typeof iconGeometry !== 'object' || iconGeometry === null) throw new Error('Edit icon geometry is unavailable.');
+    const x = Number(Reflect.get(offset, 'x')) + Number(Reflect.get(iconGeometry, 'x'));
+    const y = Number(Reflect.get(offset, 'y')) + Number(Reflect.get(iconGeometry, 'y'));
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    const hovered: unknown = await frame.executeJavaScript(`(() => { const button = document.querySelector(${JSON.stringify(selector)}).querySelector('.wr-edit-icon-action'); return { color: getComputedStyle(button.querySelector('.wr-edit-icon')).color, background: getComputedStyle(button).backgroundColor }; })()`, true);
+    if (typeof hovered !== 'object' || hovered === null || Reflect.get(hovered, 'color') === Reflect.get(iconGeometry, 'color') || Reflect.get(hovered, 'background') !== Reflect.get(iconGeometry, 'background')) throw new Error('Edit icon hover must change only the icon color.');
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+    if ((await frame.executeJavaScript(`document.querySelector(${JSON.stringify(inputSelector)}).value`, true)) !== 'FA:CE') throw new Error('Edit icon click handler did not run.');
+    await frame.executeJavaScript(`(() => { document.querySelector(${JSON.stringify(inputSelector)}).value = ''; document.querySelector(${JSON.stringify(selector)}).querySelector('.wr-edit-icon-action').focus(); })()`, true);
+    await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    if ((await frame.executeJavaScript(`document.querySelector(${JSON.stringify(inputSelector)}).value`, true)) !== 'FA:CE') throw new Error('Edit icon keyboard activation did not run.');
+    await frame.executeJavaScript(`(() => { const e = document.querySelector(${JSON.stringify(inputSelector)}); e.focus(); e.select(); })()`, true);
     await window.webContents.debugger.sendCommand('Input.insertText', { text: 'cdef' });
     if (
       (await frame.executeJavaScript(
@@ -173,7 +216,7 @@ export async function runEditMaskSmoke(
   await click('button[aria-label="Design"]');
   const tree = `[role="treeitem"][data-component-id=${JSON.stringify(id)}]`;
   await click(tree);
-  for (let index = 0; index < 6; index++) {
+  for (let index = 0; index < 8; index++) {
     await evaluate(
       `document.querySelector(${JSON.stringify(tree)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
     );
@@ -186,6 +229,6 @@ export async function runEditMaskSmoke(
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
   log(
-    'renderer Edit mask Inspector and F9 passed: activation, optional groups, custom Unicode token rules, case conversion, saved model, accessible label, Designer/compiled text, native input, separator deletion, caret, events and undo',
+    'renderer Edit mask Inspector and F9 passed: activation, mask and saved model, accessible label, typed icon Interaction, hover, pointer and keyboard activation, icon geometry, Designer/compiled text, native input, separator deletion, caret, events and undo',
   );
 }

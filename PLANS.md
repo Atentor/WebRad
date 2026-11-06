@@ -1,5 +1,27 @@
 # WebRAD delivery plan
 
+## Edit icon Interaction: 2026-11-05
+
+Added the typed OnIconClick Interaction and an accessible optional action name.
+An icon with a bound handler becomes a native button with hover and keyboard
+focus feedback; an unbound icon remains decorative. Updated the Edit smoke for
+Interaction authoring, compiled pointer and keyboard activation, and hover.
+The icon gap defaults to 4 px, and hover changes the icon color without
+adding a background.
+The icon is shifted up to 4 px toward its chosen edge, bounded by the field's
+configured padding so it stays inside the border.
+Validation was not requested or run.
+
+## Edit icon: 2026-11-05
+
+Added an optional decorative icon to Edit with Inspector selection and removal,
+typed runtime/Monaco access, and style controls for position, size, gap and
+color. Designer, compiled runtime, generated sources and existing Electron
+smoke interactions were updated. Validation was not requested or run.
+The default icon size is 24 px, with up to 2 px of vertical padding available
+so the standard field does not clamp it to 22 px. It uses a softer gray in light mode; explicitly
+configured style sizes and colors are preserved.
+
 ## Edit label: 2026-11-05
 
 Added an optional accessible Edit label, a typed runtime property, shared
@@ -9,6 +31,9 @@ colors and typography are configurable. Updated the existing Edit smoke for the
 composite field and label. Validation was not requested or run.
 The label defaults to #2e2e2e in light mode and #d4d4d4 in dark mode, including
 in existing styles without an explicit label color.
+The default gap between the label and field is 2 px.
+The label uses fit-content height and normal line height by default; saved
+explicit line heights remain available as style choices.
 
 ## Local release validation corrections: 2026-11-05
 

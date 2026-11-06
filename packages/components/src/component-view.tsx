@@ -50,7 +50,14 @@ import {
 } from 'react';
 
 export type ComponentEventName =
-  'OnClick' | 'OnChange' | 'OnInput' | 'OnFocus' | 'OnBlur' | 'OnMouseEnter' | 'OnMouseLeave';
+  | 'OnClick'
+  | 'OnIconClick'
+  | 'OnChange'
+  | 'OnInput'
+  | 'OnFocus'
+  | 'OnBlur'
+  | 'OnMouseEnter'
+  | 'OnMouseLeave';
 
 export interface ComponentViewProps {
   node: ComponentNode;
@@ -168,6 +175,11 @@ function EditView({ node, designTime, styleClassName, onEvent }: ComponentViewPr
     configureWebEdit(component, node.props);
     component.enabled = readBooleanProperty(node, 'enabled', true);
     component.tabIndex = designTime ? -1 : readIntegerProperty(node, 'tabIndex', 0);
+    if (typeof node.events.OnIconClick === 'string' && node.events.OnIconClick.trim() !== '') {
+      component.bindEvent('OnIconClick', () => {
+        if (!designTime) onEvent?.('OnIconClick', node);
+      });
+    }
     if (!designTime) {
       for (const name of ['OnChange', 'OnInput', 'OnFocus', 'OnBlur'] as const) {
         component.bindEvent(name, () => onEvent?.(name, node));
