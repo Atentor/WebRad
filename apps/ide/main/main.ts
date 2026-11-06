@@ -1559,7 +1559,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await waitForPreviewFrameResult(
     previewFrame,
     `(() =>
-      document.querySelector('[data-webrad-name="EDTNome"]') instanceof HTMLInputElement &&
+      document.querySelector('[data-webrad-name="EDTNome"] input') instanceof HTMLInputElement &&
       document.querySelector('[data-webrad-name="BTNMostrar"]') instanceof HTMLButtonElement
     )()`,
     'the mounted Preview controls after F9',
@@ -1572,7 +1572,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     `(() => {
       globalThis.__webradSmokeMessage = '';
       globalThis.alert = (message) => { globalThis.__webradSmokeMessage = String(message); };
-      const edit = document.querySelector('[data-webrad-name="EDTNome"]');
+      const edit = document.querySelector('[data-webrad-name="EDTNome"] input');
       const button = document.querySelector('[data-webrad-name="BTNMostrar"]');
       if (!(edit instanceof HTMLInputElement)) return { error: 'EDTNome was not mounted.' };
       if (!(button instanceof HTMLButtonElement)) return { error: 'BTNMostrar was not mounted.' };
@@ -1606,7 +1606,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   smokeLog('renderer F9 preview passed: Olá Ada; Tailwind style applied');
   const keyboardInteraction = await previewFrame.executeJavaScript(
     `(() => {
-    const edit = document.querySelector('[data-webrad-name="EDTNome"]');
+    const edit = document.querySelector('[data-webrad-name="EDTNome"] input');
     if (!(edit instanceof HTMLInputElement)) return false;
     const event = new KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true });
     const dispatched = edit.dispatchEvent(event);

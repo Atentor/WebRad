@@ -131,7 +131,7 @@ export async function assertPreviewViewportsSmoke(
   const stateExpression = `JSON.stringify({
     timeOrigin: performance.timeOrigin,
     url: location.href,
-    value: document.querySelector('[data-webrad-name="EDTNome"]')?.value
+    value: document.querySelector('[data-webrad-name="EDTNome"] input')?.value
   })`;
   const initialState: unknown = await frame.executeJavaScript(stateExpression, true);
   const desktopWidth: unknown = await window.webContents.executeJavaScript('innerWidth', true);

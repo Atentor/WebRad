@@ -1,5 +1,15 @@
 # WebRAD delivery plan
 
+## Test battery corrections: 2026-11-05
+
+Aligned the style property names with their definitions, kept Edit's essential
+style shortcuts within the curated catalog limit, and updated compiler and
+Electron smoke interactions for the composite Edit. The portable suite passed
+1,772 tests, with 43 browser tests run separately and passed in Chrome. The
+development, debugger, resources, packages, Report Builder and native viewport
+Electron smokes also passed on Windows. The packaged and update smokes and other
+native platforms were not verified.
+
 ## Edit icon Interaction: 2026-11-05
 
 Added the typed OnIconClick Interaction and an accessible optional action name.

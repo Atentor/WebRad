@@ -478,7 +478,7 @@ export class index extends indexGenerated {
       '[data-webrad-id="button-show"]',
     );
     const edit = dom.window.document.querySelector<HTMLInputElement>(
-      '[data-webrad-id="edit-name"]',
+      '[data-webrad-id="edit-name"] input',
     );
     const root = dom.window.document.querySelector<HTMLElement>('[data-field-name]');
     expect(edit?.value).toBe('Ada');

@@ -1,5 +1,10 @@
 # Release checklist for agents and maintainers
 
+The Windows development smoke passed after updating the composite Edit selectors
+and routing native pointer and keyboard input to the Preview's debugger target.
+The packaged and update smokes and other native platforms remain unverified for
+these changes.
+
 The 2026-11-05 local Windows x64 release battery stopped at Toast documentation
 formatting. The separately executed portable suite reported four failures: Toast
 was absent from the language fixture and was incorrectly treated as a layout

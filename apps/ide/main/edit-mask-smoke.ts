@@ -78,8 +78,9 @@ export async function runEditMaskSmoke(
   await ready(`${eventRow} !== undefined`);
   await evaluate(`${eventRow}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
   await ready(`document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ').includes('sender: WebEdit, event: MouseEvent') === true`);
+  await ready(`(() => { const editor = document.querySelector('.monaco-editor'); const input = editor?.querySelector('.native-edit-context, textarea.inputarea'); return input instanceof HTMLElement && document.activeElement === input && editor?.getAttribute('data-cursor-position')?.endsWith('column 5') === true; })()`);
   await window.webContents.insertText("sender.value = 'face';");
-  await ready(`document.querySelector('.monaco-editor')?.textContent?.includes("sender.value = 'face'") === true`);
+  await ready(`document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ').includes("sender.value = 'face'") === true`);
   await click('button[aria-label="Design"]');
   await ready(`document.querySelector(${JSON.stringify(designer)})?.querySelector('.wr-edit-icon-action') instanceof HTMLButtonElement`);
   await click('button[aria-label="Save (Ctrl+S)"]');
@@ -161,24 +162,71 @@ export async function runEditMaskSmoke(
     true,
   );
   window.webContents.debugger.attach('1.3');
+  let frameSession: string | undefined;
   try {
+    if (frame.processId !== window.webContents.mainFrame.processId) {
+      const targets = (await window.webContents.debugger.sendCommand('Target.getTargets', {
+        filter: [{ type: 'iframe' }, { exclude: true }],
+      })) as { targetInfos: { targetId: string; url: string }[] };
+      const target = targets.targetInfos.find((candidate) => candidate.url === frame.url);
+      if (!target) throw new Error('Edit Preview has no matching debugger target.');
+      const attached = (await window.webContents.debugger.sendCommand('Target.attachToTarget', {
+        targetId: target.targetId,
+        flatten: true,
+      })) as { sessionId: string };
+      frameSession = attached.sessionId;
+    }
+    await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+      enabled: true,
+    });
+    if (frameSession)
+      await window.webContents.debugger.sendCommand(
+        'Emulation.setFocusEmulationEnabled',
+        { enabled: true },
+        frameSession,
+      );
     const offset = await evaluate(`(() => { const r = document.querySelector('iframe[title="WebRAD application preview"]').getBoundingClientRect(); return { x: r.left, y: r.top }; })()`);
     const iconGeometry: unknown = await frame.executeJavaScript(`(() => { const button = document.querySelector(${JSON.stringify(selector)}).querySelector('.wr-edit-icon-action'); const r = button.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, color: getComputedStyle(button.querySelector('.wr-edit-icon')).color, background: getComputedStyle(button).backgroundColor }; })()`, true);
     if (typeof offset !== 'object' || offset === null || typeof iconGeometry !== 'object' || iconGeometry === null) throw new Error('Edit icon geometry is unavailable.');
     const x = Number(Reflect.get(offset, 'x')) + Number(Reflect.get(iconGeometry, 'x'));
     const y = Number(Reflect.get(offset, 'y')) + Number(Reflect.get(iconGeometry, 'y'));
-    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-    const hovered: unknown = await frame.executeJavaScript(`(() => { const button = document.querySelector(${JSON.stringify(selector)}).querySelector('.wr-edit-icon-action'); return { color: getComputedStyle(button.querySelector('.wr-edit-icon')).color, background: getComputedStyle(button).backgroundColor }; })()`, true);
-    if (typeof hovered !== 'object' || hovered === null || Reflect.get(hovered, 'color') === Reflect.get(iconGeometry, 'color') || Reflect.get(hovered, 'background') !== Reflect.get(iconGeometry, 'background')) throw new Error('Edit icon hover must change only the icon color.');
-    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+    const mousePosition = {
+      x: frameSession ? Number(Reflect.get(iconGeometry, 'x')) : x,
+      y: frameSession ? Number(Reflect.get(iconGeometry, 'y')) : y,
+    };
+    await window.webContents.debugger.sendCommand(
+      'Input.dispatchMouseEvent',
+      { type: 'mouseMoved', ...mousePosition },
+      frameSession,
+    );
+    await frame.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`, true);
+    const hovered: unknown = await frame.executeJavaScript(`(() => { const button = document.querySelector(${JSON.stringify(selector)}).querySelector('.wr-edit-icon-action'); return { color: getComputedStyle(button.querySelector('.wr-edit-icon')).color, background: getComputedStyle(button).backgroundColor, hovered: button.matches(':hover'), hit: document.elementFromPoint(${Number(Reflect.get(iconGeometry, 'x'))}, ${Number(Reflect.get(iconGeometry, 'y'))})?.outerHTML.slice(0, 300) }; })()`, true);
+    if (typeof hovered !== 'object' || hovered === null || Reflect.get(hovered, 'color') === Reflect.get(iconGeometry, 'color') || Reflect.get(hovered, 'background') !== Reflect.get(iconGeometry, 'background')) throw new Error(`Edit icon hover must change only the icon color: ${JSON.stringify({ offset, iconGeometry, hovered })}`);
+    await window.webContents.debugger.sendCommand(
+      'Input.dispatchMouseEvent',
+      { type: 'mousePressed', ...mousePosition, button: 'left', clickCount: 1 },
+      frameSession,
+    );
+    await window.webContents.debugger.sendCommand(
+      'Input.dispatchMouseEvent',
+      { type: 'mouseReleased', ...mousePosition, button: 'left', clickCount: 1 },
+      frameSession,
+    );
     if ((await frame.executeJavaScript(`document.querySelector(${JSON.stringify(inputSelector)}).value`, true)) !== 'FA:CE') throw new Error('Edit icon click handler did not run.');
     await frame.executeJavaScript(`(() => { document.querySelector(${JSON.stringify(inputSelector)}).value = ''; document.querySelector(${JSON.stringify(selector)}).querySelector('.wr-edit-icon-action').focus(); })()`, true);
-    await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-    await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    await window.webContents.debugger.sendCommand(
+      'Input.dispatchKeyEvent',
+      { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r' },
+      frameSession,
+    );
+    await window.webContents.debugger.sendCommand(
+      'Input.dispatchKeyEvent',
+      { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 },
+      frameSession,
+    );
     if ((await frame.executeJavaScript(`document.querySelector(${JSON.stringify(inputSelector)}).value`, true)) !== 'FA:CE') throw new Error('Edit icon keyboard activation did not run.');
     await frame.executeJavaScript(`(() => { const e = document.querySelector(${JSON.stringify(inputSelector)}); e.focus(); e.select(); })()`, true);
-    await window.webContents.debugger.sendCommand('Input.insertText', { text: 'cdef' });
+    await window.webContents.debugger.sendCommand('Input.insertText', { text: 'cdef' }, frameSession);
     if (
       (await frame.executeJavaScript(
         `(() => { const e = document.querySelector(${JSON.stringify(inputSelector)}); return e.value === 'CD:EF' && e.dataset.maskObserved === 'CD:EF' && Number(e.dataset.maskInputs) > 0; })()`,
@@ -195,13 +243,13 @@ export async function runEditMaskSmoke(
       key: 'Backspace',
       code: 'Backspace',
       windowsVirtualKeyCode: 8,
-    });
+    }, frameSession);
     await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
       type: 'keyUp',
       key: 'Backspace',
       code: 'Backspace',
       windowsVirtualKeyCode: 8,
-    });
+    }, frameSession);
     if (
       (await frame.executeJavaScript(
         `(() => { const e = document.querySelector(${JSON.stringify(inputSelector)}); e.blur(); return e.value === 'CE:F' && e.selectionStart === 1 && Number(e.dataset.maskChanges) > 0; })()`,
@@ -210,7 +258,19 @@ export async function runEditMaskSmoke(
     )
       throw new Error('Edit separator deletion, caret or change delivery failed.');
   } finally {
-    window.webContents.debugger.detach();
+    try {
+      if (frameSession) {
+        await window.webContents.debugger.sendCommand(
+          'Emulation.setFocusEmulationEnabled',
+          { enabled: false },
+          frameSession,
+        );
+        await window.webContents.debugger.sendCommand('Target.detachFromTarget', { sessionId: frameSession });
+      }
+      await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', { enabled: false });
+    } finally {
+      window.webContents.debugger.detach();
+    }
   }
   await stopPreviewSmoke(window);
   await click('button[aria-label="Design"]');
