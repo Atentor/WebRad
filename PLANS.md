@@ -1,5 +1,13 @@
 # WebRAD delivery plan
 
+## macOS Intel packaging failure: 2026-11-06
+
+For a004818, hosted validate, security, all portable jobs, and five release
+builds passed. macOS Intel stopped while Forge copied packaging files with
+`TypeError: fetch failed`; its log did not identify the URL or underlying cause.
+No smoke diagnostics were produced. Retry the failed hosted job when authorized
+and retain the exact-commit release gates; no source fix is established yet.
+
 ## Hosted formatting failure: 2026-11-06
 
 Release and validation runs for d30c8ca stopped at Prettier on seven files.

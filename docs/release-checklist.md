@@ -1,5 +1,12 @@
 # Release checklist for agents and maintainers
 
+For a004818, release run 42154900972 passed all six portable jobs and five
+builds. macOS Intel failed in Forge packaging with `TypeError: fetch failed`,
+without a URL or underlying cause in the log; its packaged and update smokes
+were skipped and no failure diagnostics artifact was produced. Validate and
+security passed. Do not infer a product defect or weaken gates from this error;
+retry the failed hosted job when authorized and inspect any subsequent failure.
+
 The d30c8ca release and validation jobs stopped at formatting in seven files,
 before packaging and Electron smokes. Those files were formatted and generated
 runtime sources synchronized locally. A new exact-commit hosted run is required
