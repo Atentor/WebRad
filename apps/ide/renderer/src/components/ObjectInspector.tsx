@@ -61,6 +61,8 @@ export interface ObjectInspectorProps {
   availableComponents?: readonly ComponentNode[];
   availableReusableElements?: readonly ReusableElementModel[];
   availableMenus?: readonly PageModel[];
+  /** Current project integration state; omitted when the host has no project context. */
+  restGoEnabled?: boolean;
   onPropertyChange: (
     propertyName: string,
     value: unknown,
@@ -1004,6 +1006,7 @@ export function ObjectInspector({
   availableComponents,
   availableReusableElements = [],
   availableMenus = [],
+  restGoEnabled,
   onPropertyChange,
   onEventChange,
   onEventDoubleClick,
@@ -1059,6 +1062,15 @@ export function ObjectInspector({
     [definitions],
   );
   const primaryComponent = inspectedSelection.at(-1);
+  const integrationWarnings = [
+    ...new Set(
+      (definitions ?? []).flatMap((item) =>
+        (item.inspectorIntegrationRequirements ?? [])
+          .filter((requirement) => requirement.integration === 'restgo' && restGoEnabled === false)
+          .map((requirement) => requirement.message),
+      ),
+    ),
+  ];
   const primaryDefinition =
     primaryComponent === undefined
       ? definition
@@ -1107,7 +1119,9 @@ export function ObjectInspector({
       {primaryComponent === undefined ? (
         <div className="wr-inspector-empty">Select a component to inspect its properties.</div>
       ) : (
-        <div className="wr-inspector-layout">
+        <div
+          className={`wr-inspector-layout${integrationWarnings.length > 0 ? ' has-integration-warning' : ''}`}
+        >
           <div className="wr-inspector-selection" title={primaryComponent.id}>
             <span className="wr-inspector-selection-icon" data-icon={primaryDefinition?.icon}>
               <ComponentIcon icon={primaryDefinition?.icon ?? 'component'} />
@@ -1126,6 +1140,14 @@ export function ObjectInspector({
               )}
             </div>
           </div>
+
+          {integrationWarnings.length > 0 && (
+            <div className="wr-inspector-integration-warning" role="status">
+              {integrationWarnings.map((message) => (
+                <div key={message}>{message}</div>
+              ))}
+            </div>
+          )}
 
           <div className="wr-inspector-tabs" role="tablist" aria-label="Inspector view">
             <button

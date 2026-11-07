@@ -162,6 +162,11 @@ export interface ComponentLayoutContext {
   readonly document?: RegisteredVisualDocument;
 }
 export interface ComponentDefinition {
+  /** Project integrations required by this component, shown in the Inspector when inactive. */
+  readonly inspectorIntegrationRequirements?: readonly {
+    readonly integration: 'restgo';
+    readonly message: string;
+  }[];
   /** Styles used by the registered control's internal, typed visual elements. */
   readonly embeddedStyles?: {
     readonly propertyPath: readonly string[];
@@ -197,6 +202,8 @@ export interface ComponentDefinition {
   readonly icon: string;
   /** Whether the component owns a browser DOM projection at runtime. */
   readonly visual: boolean;
+  /** Give a nonvisual component a persistent ID specific to each reusable placement. */
+  readonly instanceScopedRuntimeId?: boolean;
   /** Structural containers may opt out of project visual styles. */
   readonly supportsStyles?: boolean;
   /** Controls whether row field bindings are offered for this visual. */

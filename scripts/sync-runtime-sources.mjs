@@ -134,6 +134,22 @@ const timerTypings =
     2,
   ) + '\n';
 
+const paymentsTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'payments-typings.generated.json',
+);
+const paymentsTypings =
+  JSON.stringify(
+    createApiClientDeclarations(repositoryRoot, ['payments-types.ts', 'payments.ts'], (name) =>
+      name.startsWith('WebPayments'),
+    ),
+    null,
+    2,
+  ) + '\n';
+
 const htmlTypingsPath = path.join(
   repositoryRoot,
   'packages',
@@ -181,6 +197,12 @@ const sourceFiles = [
   'repeating-group.ts',
   ...reportSourceNames,
   'timer.ts',
+  'payments-types.ts',
+  'payments-checkpoint.ts',
+  'payments-observation.ts',
+  'payments-storage.ts',
+  'payments-actions.ts',
+  'payments.ts',
   'toast.ts',
   'toast-css.ts',
   'theme.ts',
@@ -497,6 +519,7 @@ const outputs = [
     ) + '\n',
   ],
   [timerTypingsPath, timerTypings],
+  [paymentsTypingsPath, paymentsTypings],
   [htmlTypingsPath, htmlTypings],
   [videoTypingsPath, videoTypings],
   [outputPath, expected],

@@ -234,6 +234,8 @@ try {
                 'renderer Page parameters Inspector and F9 passed:',
                 'renderer Panel floating Inspector and F9 passed:',
                 'renderer Timer Inspector and Interact passed:',
+                'renderer Payments Inspector and Interact passed:',
+                'renderer Payments compiled runtime passed:',
                 'renderer Toast Inspector passed:',
                 'renderer Lucide Icons Inspector and F9 passed:',
                 'renderer HTML Inspector and F9 passed:',

@@ -437,6 +437,9 @@ export async function runApiClientDesignerSmoke(
       `(() => {
       const item = document.querySelector('.wr-nonvisual-item[aria-label$=", API Client"]');
       if (!(item instanceof HTMLElement)) return false;
+      const trayIcon = item.querySelector('.wr-nonvisual-item-icon svg');
+      const paletteIcon = Array.from(document.querySelectorAll('.wr-palette-item')).find((button) => button.textContent.trim() === 'API Client')?.querySelector('svg');
+      if (!trayIcon || !paletteIcon || trayIcon.getAttribute('data-lucide-icon') !== paletteIcon.getAttribute('data-lucide-icon')) throw new Error('Nonvisual tray icon does not match the palette');
       item.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
       return true;
     })()`,

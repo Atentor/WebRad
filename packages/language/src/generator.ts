@@ -462,11 +462,11 @@ function componentConstruction(
       return [name, projection ? projection(value) : value];
     }),
   );
-  return `new ${typeName}(${JSON.stringify({
-    ...props,
-    id: component.id,
-    name: component.name,
-  })})${component.type === 'WebApiClient' ? '.withRequests()' : ''}`;
+  const configuration =
+    elementId === quoted(component.id) || !definition.instanceScopedRuntimeId
+      ? JSON.stringify({ ...props, id: component.id, name: component.name })
+      : `{...${JSON.stringify({ ...props, name: component.name })},id:JSON.stringify([this.instanceId,${quoted(component.id)}])}`;
+  return `new ${typeName}(${configuration})${component.type === 'WebApiClient' ? '.withRequests()' : ''}`;
 }
 
 function componentMemberType(

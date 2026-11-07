@@ -5,15 +5,15 @@ export const WEB_LOGIN_CSS = `
 .wr-weblogin[data-login-presentation='popup'][data-login-design='false']:not([hidden]) { display: contents !important; }
 .wr-login-panel, .wr-login-panel.wr-webpanel { box-sizing: border-box; position: relative; width: 100%; max-width: var(--wr-login-maxWidth); margin-inline: auto; padding: var(--wr-login-padding); font-size: 14px; line-height: 1.4; }
 .wr-login-panel *, .wr-login-panel *::before, .wr-login-panel *::after { box-sizing: border-box; }
-.wr-login-title { margin: 0 0 4px; font-size: 1.35em; line-height: 1.3; overflow-wrap: anywhere; }
-.wr-login-subtitle { margin: 0 0 12px; font-size: .93em; line-height: 1.4; overflow-wrap: anywhere; }
+.wr-login-title { margin: 0 0 6px; font-size: 1.45em; font-weight: 700; letter-spacing: -.025em; line-height: 1.25; overflow-wrap: anywhere; }
+.wr-login-subtitle { margin: 0 0 18px; font-size: .95em; line-height: 1.5; overflow-wrap: anywhere; }
 .wr-login-fields { display: flex; flex-direction: column; gap: var(--wr-login-gap); border: 0; padding: 0; margin: 0; min-width: 0; }
 .wr-login-panel > .wr-login-form { display: block; margin: 0; padding: 0; }
 .wr-login-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.wr-login-label { font-size: .9em; font-weight: 500; }
-.wr-login-input, .wr-login-input.wr-webedit { width: 100%; min-width: 0; min-height: var(--wr-login-fieldHeight); padding: 6px 10px; font: inherit; line-height: 1.4; }
+.wr-login-label { font-size: .9em; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+.wr-login-input, .wr-login-input.wr-webedit { --wr-edit-icon-size: 18px; --wr-edit-icon-gap: 9px; --wr-edit-icon-margin-left: 0px; width: 100%; min-width: 0; min-height: var(--wr-login-fieldHeight); padding: 8px 12px; font: inherit; line-height: 1.4; }
 .wr-login-submit, .wr-login-link, .wr-login-close { font: inherit; cursor: pointer; overflow-wrap: anywhere; white-space: normal; touch-action: manipulation; }
-.wr-login-submit, .wr-login-submit.wr-webbutton { align-self: center; margin-inline: auto; width: fit-content; max-width: 100%; min-height: var(--wr-login-fieldHeight); padding: 6px 12px; }
+.wr-login-submit, .wr-login-submit.wr-webbutton { align-self: center; margin-inline: auto; width: fit-content; max-width: 100%; min-height: var(--wr-login-fieldHeight); padding: 8px 18px; font-weight: 600; }
 .wr-login-link, .wr-login-close { min-height: 30px; padding: 4px 6px; font-size: .93em; }
 .wr-login-link:not([data-login-styled='true']), .wr-login-close:not([data-login-styled='true']) { border: 0; background: transparent; color: var(--wr-theme-primary); }
 .wr-login-options { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
@@ -23,7 +23,7 @@ export const WEB_LOGIN_CSS = `
 .wr-login-feedback { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
 .wr-login-feedback[data-error='true']:not([data-login-styled='true']) { color: var(--wr-theme-danger); }
 .wr-login-panel [hidden] { display: none !important; }
-.wr-login-panel :is(input, button):not([data-login-styled='true']):focus-visible { outline: 2px solid var(--wr-theme-focus); outline-offset: 2px; }
+.wr-login-panel :is(input, button):not(.wr-edit-input):not([data-login-styled='true']):focus-visible { outline: 2px solid var(--wr-theme-focus); outline-offset: 2px; }
 .wr-login-fields:disabled { opacity: .65; }
 .wr-login-fields:disabled button { cursor: default; }
 .wr-login-dialog, .wr-login-dialog.wr-webpopup { max-width: min(var(--wr-login-maxWidth), calc(100vw - 24px)); width: 100%; max-height: calc(100dvh - 24px); padding: 0; overflow: auto; }
@@ -44,7 +44,7 @@ export const WEB_LOGIN_CSS = `
 .wr-weblogin[data-login-styling='legacy'] :is(.wr-login-link, .wr-login-close) { color: var(--wr-login-primary); }
 .wr-weblogin[data-login-styling='legacy'] .wr-login-remember input { accent-color: var(--wr-login-primary); }
 .wr-weblogin[data-login-styling='legacy'] .wr-login-feedback[data-error='true'] { color: var(--wr-login-error); }
-.wr-weblogin[data-login-styling='legacy'] :is(input, button):focus-visible { outline: 2px solid var(--wr-login-focus, var(--wr-login-primary)); outline-offset: 2px; }
+.wr-weblogin[data-login-styling='legacy'] :is(input, button):not(.wr-edit-input):focus-visible, .wr-weblogin[data-login-styling='legacy'] .wr-login-input:has(> .wr-edit-input:focus-visible) { outline: 2px solid var(--wr-login-focus, var(--wr-login-primary)); outline-offset: 2px; }
 .wr-weblogin[data-login-styling='legacy'] .wr-login-dialog { border: 0; border-radius: var(--wr-login-borderRadius); }
 .wr-weblogin[data-login-styling='legacy'] .wr-login-dialog::backdrop { background: rgb(0 0 0 / .5); }
 

@@ -5,6 +5,20 @@ authentication, Storage, videos, and dynamic APIs. Preview and compiled applicat
 share the client without Electron or Node.js. Public registration requires the
 server to allow `POST /auth/users` without `Authorization`.
 
+`RestGO.payments.gateway(slug)` provides customer-only `createCheckout`,
+`getOperation`, `listOperations`, and `cancelSubscription` for Stripe/Asaas.
+These use the Authentication session exclusively and accept HTTP 202 as success.
+`WebPayments` adds one-call `Pay(sourceKey)`, `Subscribe(sourceKey)`, and
+`Checkout(sourceKey)` flows that automatically recover/save the attempt, wait for
+checkout and open it. Default persistence uses browser storage and purchase-scoped
+Web Locks; automatic return recovery only restores/queries/observes and never
+POSTs or redirects. `Resume`, `Refresh`, history pagination, current-subscription
+cancellation and `WaitForConfirmation` keep normal frontend code concise.
+`autoResume`, `autoWatch`, and `persistAttempts` default to true. Direct SDK use
+remains a lower-level transport API with caller-managed attempts; SDK
+`createCheckout` never opens a browser window. See [Payments](payments.md) for the
+full component API and TypeScript examples.
+
 `RestGO.videos` provides resumable binary uploads, verified checkpoints, library,
 metadata, jobs, and HLS descriptors. The nonvisual `WebVideoUpload` integrates it
 with Designer, Monaco, and Preview. These routes use the Authentication session,

@@ -44,7 +44,7 @@ export async function runLoginSmoke(
         fields: [...(modal?.querySelectorAll('.wr-login-editor-fields > .wr-menu-editor-field') ?? [])]
           .map(node => node.getBoundingClientRect().toJSON()),
         bodyWidth: body && [body.clientWidth, body.scrollWidth], canvasWidth: canvas && [canvas.clientWidth, canvas.scrollWidth],
-        button: style('.wr-login-submit'), input: style('.wr-login-input[name="email"]'),
+        button: style('.wr-login-submit'), input: style('.wr-login-input:has(input[name="email"])'),
         form: style('.wr-login-form'), surface: style('.wr-login-editor-preview-surface') };
     })()`);
     const screenshot = path.resolve('node_modules/.cache/webrad-login-failure.png');
@@ -123,6 +123,29 @@ export async function runLoginSmoke(
     throw new Error('Login style binding smoke requires the project default styles.');
   const root = `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`;
   const dialog = '.wr-login-configuration-dialog';
+  // Exercise the same composed Edit controls in the Designer and compiled app.
+  const fieldAppearance = `(root => {
+    const expected = { fullName: 'user', email: 'mail', password: 'lock', passwordConfirmation: 'lock' };
+    return Object.entries(expected).every(([name, iconName]) => {
+      const input = root.querySelector('input[name="' + name + '"]');
+      const edit = input?.closest('.wr-login-input.wr-webedit');
+      const row = edit?.closest('.wr-login-field');
+      const label = row?.querySelector(':scope > .wr-edit-label');
+      const icon = edit?.querySelector(':scope > svg.wr-edit-icon');
+      if (!input || !edit || !row || !label || !icon || row.hidden) return false;
+      const fieldBounds = edit.getBoundingClientRect();
+      const labelBounds = label.getBoundingClientRect();
+      const iconBounds = icon.getBoundingClientRect();
+      const inputBounds = input.getBoundingClientRect();
+      return label.textContent.trim().length > 0 && label.htmlFor === input.id
+        && icon.dataset.webradEditIcon === iconName && icon.getAttribute('aria-hidden') === 'true'
+        && labelBounds.width > 0 && labelBounds.height > 0
+        && labelBounds.bottom <= fieldBounds.top + 1
+        && iconBounds.width > 0 && iconBounds.height > 0
+        && iconBounds.left >= fieldBounds.left - 1 && iconBounds.right <= inputBounds.left + 1
+        && iconBounds.top >= fieldBounds.top - 1 && iconBounds.bottom <= fieldBounds.bottom + 1;
+    });
+  })`;
   const tab = async (name: string): Promise<void> => {
     await evaluate(
       `[...document.querySelectorAll('${dialog} nav button')].find(button => button.textContent === ${JSON.stringify(name)}).click()`,
@@ -178,7 +201,7 @@ export async function runLoginSmoke(
         && sampleStyle.backgroundImage.includes('linear-gradient')
         && sampleStyle.boxShadow !== 'none'
         && sample.dataset.loginStyleId === ${JSON.stringify(buttonStyle.id)}
-        && getComputedStyle(modal.querySelector('.wr-login-input[name="email"]')).backgroundImage.includes('linear-gradient')
+        && getComputedStyle(modal.querySelector('.wr-login-input:has(input[name="email"])')).backgroundImage.includes('linear-gradient')
         && getComputedStyle(modal.querySelector('.wr-login-form')).padding === '0px'
         && getComputedStyle(modal.querySelector('.wr-login-editor-preview-surface')).zoom === '0.85';
     })()`);
@@ -197,7 +220,7 @@ export async function runLoginSmoke(
   await tab('Styles');
   await field('Email input', '');
   await ready(
-    `document.querySelector('${dialog} .wr-login-input[name="email"]')?.dataset.loginStyled === undefined`,
+    `document.querySelector('${dialog} .wr-login-input:has(input[name="email"])')?.dataset.loginStyled === undefined`,
   );
   await field('Email input', editStyle.id);
   await field('Title', labelStyle.id);
@@ -208,7 +231,7 @@ export async function runLoginSmoke(
     const select = modal.querySelector('select[aria-label="Style for Login Email input"]');
     return !modal.querySelector('input[type="color"]')
       && ![...select.options].some(option => option.value === ${JSON.stringify(panelStyle.id)})
-      && modal.querySelector('.wr-login-input[name="email"]').dataset.loginStyleId === ${JSON.stringify(editStyle.id)}
+      && modal.querySelector('.wr-login-input:has(input[name="email"])').dataset.loginStyleId === ${JSON.stringify(editStyle.id)}
       && modal.querySelector('.wr-login-title').dataset.loginStyleId === ${JSON.stringify(labelStyle.id)};
   })()`);
   await tab('Recovery');
@@ -232,6 +255,10 @@ export async function runLoginSmoke(
   if (capture.isEmpty()) throw new Error('Login configuration screenshot is empty.');
   await fs.writeFile(screenshot, capture.toPNG());
   await saveConfiguration();
+  await ready(`(() => {
+    const panel = document.querySelector('.wr-weblogin[data-component-id=${JSON.stringify(panelId)}]');
+    return panel !== null && ${fieldAppearance}(panel);
+  })()`);
   const popupId = await insert();
   await field('Presentation', 'popup');
   await ready(`(() => {
@@ -318,6 +345,7 @@ export async function runLoginSmoke(
       const buttonBounds = panel.querySelector('.wr-login-submit').getBoundingClientRect();
       const panelBounds = panel.querySelector('.wr-login-panel').getBoundingClientRect();
       return { passed: !reopened.open && title.textContent === 'Login smoke registration'
+        && ${fieldAppearance}(panel)
         && panel.querySelector('input[name="fullName"]').required
         && panel.querySelector('.wr-login-panel').dataset.loginStyleId === ${JSON.stringify(panelStyle.id)}
         && field.dataset.loginStyleId === ${JSON.stringify(editStyle.id)}
@@ -335,7 +363,7 @@ export async function runLoginSmoke(
         && getComputedStyle(panel.querySelector('.wr-login-panel')).padding === '20px'
         && panel.querySelector('.wr-login-panel').getBoundingClientRect().height <= 500
         && panel.querySelector('.wr-login-options .wr-login-link') !== null,
-        evidence: { open: reopened.open, title: title.textContent,
+        evidence: { open: reopened.open, title: title.textContent, fieldAppearance: ${fieldAppearance}(panel),
           fullNameRequired: panel.querySelector('input[name="fullName"]').required,
           panelStyleId: panel.querySelector('.wr-login-panel').dataset.loginStyleId,
           inputStyleId: field.dataset.loginStyleId, titleStyleId: title.dataset.loginStyleId,
@@ -365,29 +393,125 @@ export async function runLoginSmoke(
       throw new Error(
         `Compiled Login Panel differs from its saved configuration: ${JSON.stringify(result)}`,
       );
+    // The Preview may live in a separate Chromium target. Enable its real focus
+    // lifecycle before checking the nested input's :focus-visible styling.
+    const debuggerWasAttached = window.webContents.debugger.isAttached();
+    if (!debuggerWasAttached) window.webContents.debugger.attach('1.3');
+    let frameSession: string | undefined;
+    try {
+      await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+        enabled: true,
+      });
+      window.webContents.focus();
+      await evaluate(
+        `document.querySelector('button[aria-label="Stop preview"]').focus({preventScroll: true})`,
+      );
+      const focusDeadline = Date.now() + 10_000;
+      while (
+        window.webContents.focusedFrame !== window.webContents.mainFrame &&
+        Date.now() < focusDeadline
+      )
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      if (window.webContents.focusedFrame !== window.webContents.mainFrame)
+        throw new Error('Login Preview did not release focus to the IDE.');
+      if (frame.processId !== window.webContents.mainFrame.processId) {
+        const targets = (await window.webContents.debugger.sendCommand('Target.getTargets', {
+          filter: [{ type: 'iframe' }, { exclude: true }],
+        })) as { targetInfos: { targetId: string; url: string }[] };
+        const target = targets.targetInfos.find((candidate) => candidate.url === frame?.url);
+        if (!target) throw new Error('Login Preview has no matching debugger target.');
+        const attached = (await window.webContents.debugger.sendCommand('Target.attachToTarget', {
+          targetId: target.targetId,
+          flatten: true,
+        })) as { sessionId: string };
+        frameSession = attached.sessionId;
+        await window.webContents.debugger.sendCommand(
+          'Emulation.setFocusEmulationEnabled',
+          { enabled: true },
+          frameSession,
+        );
+      }
+      await evaluate(`document.querySelector('${previewSelector}').focus({preventScroll: true})`);
+      while (window.webContents.focusedFrame !== frame && Date.now() < focusDeadline)
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      if (window.webContents.focusedFrame !== frame)
+        throw new Error('Login Preview frame did not receive focus.');
+      const focus = await frame.executeJavaScript(
+        `(async () => {
+          const panel = document.querySelector('[data-webrad-id=${JSON.stringify(panelId)}]');
+          const input = panel.querySelector('input[name="password"]');
+          const field = input.closest('.wr-login-input');
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          const before = field.getBoundingClientRect();
+          const idle = getComputedStyle(field);
+          const idlePaint = [idle.borderColor, idle.boxShadow, idle.outlineStyle];
+          input.focus({preventScroll: true});
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          const outer = getComputedStyle(field), inner = getComputedStyle(input);
+          const after = field.getBoundingClientRect();
+          const evidence = { documentFocused: document.hasFocus(), inputActive: document.activeElement === input,
+            inputFocused: input.matches(':focus'), inputFocusVisible: input.matches(':focus-visible'),
+            fieldFocusWithin: field.matches(':focus-within'), idlePaint,
+            outer: {borderColor: outer.borderColor, shadow: outer.boxShadow, outlineStyle: outer.outlineStyle},
+            inner: {outlineStyle: inner.outlineStyle, outlineWidth: inner.outlineWidth, shadow: inner.boxShadow},
+            before: before.toJSON(), after: after.toJSON() };
+          return { passed: evidence.documentFocused && evidence.inputActive && evidence.inputFocused
+            && evidence.inputFocusVisible && evidence.fieldFocusWithin
+            && inner.outlineStyle === 'none' && inner.boxShadow === 'none'
+            && (outer.borderColor !== idlePaint[0] || outer.boxShadow !== idlePaint[1] || outer.outlineStyle !== idlePaint[2])
+            && Math.abs(after.width - before.width) <= 0.5 && Math.abs(after.height - before.height) <= 0.5,
+            evidence };
+        })()`,
+        true,
+      );
+      if (typeof focus !== 'object' || focus === null || Reflect.get(focus, 'passed') !== true)
+        throw new Error(
+          `Login Edit focus differs from the composed field contract: ${JSON.stringify(focus)}`,
+        );
+    } finally {
+      try {
+        if (frameSession) {
+          await window.webContents.debugger.sendCommand(
+            'Emulation.setFocusEmulationEnabled',
+            { enabled: false },
+            frameSession,
+          );
+          await window.webContents.debugger.sendCommand('Target.detachFromTarget', {
+            sessionId: frameSession,
+          });
+        }
+        await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+          enabled: false,
+        });
+      } finally {
+        if (!debuggerWasAttached) window.webContents.debugger.detach();
+      }
+    }
     await click('.wr-preview-viewports button[aria-label="Mobile"]');
     const mobile = await frame.executeJavaScript(
       `(async () => {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const panel = document.querySelector('[data-webrad-id=${JSON.stringify(panelId)}]');
       const input = panel.querySelector('input[name="email"]');
+      const edit = input.closest('.wr-login-input');
       const original = [panel.style.getPropertyValue('width'), panel.style.getPropertyPriority('width')];
       panel.style.setProperty('width', '280px', 'important');
       try {
         await new Promise(resolve => requestAnimationFrame(resolve));
         // Project input styles transition size changes. Measure the settled
         // mobile controls after those real CSS animations finish.
-        await Promise.all(input.getAnimations().map(animation => animation.finished));
+        await Promise.all([...input.getAnimations(), ...edit.getAnimations()].map(animation => animation.finished));
         const body = panel.querySelector('.wr-login-panel');
         return { passed: innerWidth === 390 && body.scrollWidth <= body.clientWidth + 1
           && getComputedStyle(body).padding === '20px'
-          && input.getBoundingClientRect().width <= body.getBoundingClientRect().width
+          && edit.getBoundingClientRect().width <= body.getBoundingClientRect().width
           && parseFloat(getComputedStyle(input).fontSize) >= 16
-          && parseFloat(getComputedStyle(input).minHeight) >= 44,
+          && edit.getBoundingClientRect().height >= 44,
           evidence: { width: innerWidth, bodyWidth: [body.clientWidth, body.scrollWidth],
-            padding: getComputedStyle(body).padding, inputWidth: input.getBoundingClientRect().width,
+            padding: getComputedStyle(body).padding, inputWidth: edit.getBoundingClientRect().width,
             panelWidth: body.getBoundingClientRect().width, fontSize: getComputedStyle(input).fontSize,
-            minHeight: getComputedStyle(input).minHeight } };
+            fieldHeight: edit.getBoundingClientRect().height } };
       } finally { panel.style.setProperty('width', original[0], original[1]); }
     })()`,
       true,
@@ -424,6 +548,6 @@ export async function runLoginSmoke(
   });
   await reloadProject();
   log(
-    `renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles; mobile fields at least 16px type and 44px height; palette, compatible per-element Style/None bindings and persistence, native Popup modal and close, Panel, 390px viewport; screenshot ${screenshot}`,
+    `renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles; mobile fields at least 16px type and 44px height; Edit labels, icons and focus; palette, compatible per-element Style/None bindings and persistence, native Popup modal and close, Panel, 390px viewport; screenshot ${screenshot}`,
   );
 }

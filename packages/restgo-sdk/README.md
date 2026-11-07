@@ -12,9 +12,22 @@ default for that request; `resetPasswordForEmail(email, { url? })` provides the
 equivalent reset destination. See [the SDK guide](../../docs/restgo-sdk.md).
 
 Browser-safe TypeScript client for authentication, Storage, resumable video
-uploads, and published RestGo endpoints. It has no Designer, Electron, or Node.js
+uploads, customer payments, and published RestGo endpoints. It has no Designer, Electron, or Node.js
 dependency. This package is a source workspace in the WebRAD repository; it is
 not automatically published to npm. WebRAD's compiler resolves its import directly.
+
+`client.payments.gateway(slug)` supports `createCheckout`, `getOperation`,
+`listOperations`, and `cancelSubscription` through the customer Authentication
+session. It never falls back to an application API token. Preserve the checkout
+idempotency key before sending the first request; HTTP 202 means preparation is
+still pending. For ordinary WebRAD page code, the nonvisual component provides
+`Payments1.Pay(sourceKey)` or `Payments1.Subscribe(sourceKey)` as one-call flows,
+including durable attempt recovery, readiness and checkout opening. Its
+`autoResume`, `autoWatch`, and `persistAttempts` defaults are true; automatic
+resumption queries saved operations without POSTing or redirecting. The component
+also simplifies refresh, confirmation, history and current-subscription
+cancellation. Direct SDK use remains caller-orchestrated and never opens checkout.
+See [Payments](../../docs/payments.md) for the full API and examples.
 
 Embedding hosts can provide `RestGoClientOptions.storage` implementing the
 browser-safe `RestGoSessionStorageAdapter` (`getItem`, `setItem`, `removeItem`,

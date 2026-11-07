@@ -1,5 +1,15 @@
 # Release checklist for agents and maintainers
 
+On 2026-11-07, local Windows x64 validation on the uncommitted checkout based on
+`6a562bda75a0d745594dff7f2604fa21c791c0a0` passed 242 test files and 1,815 tests
+with Chrome enabled and no skips, as well as typecheck, lint, formatting, source
+checks and packaging. All 15 local Electron smoke flows passed after correcting
+reusable nonvisual IDs, Aurora's Payments component and Login registration
+spacing. Logs and the original Login failure are retained under
+`artifacts/release-battery-20261107-162417/` and `artifacts/smoke/`.
+This checkout is not an exact hosted commit; updates and Payments were exercised
+with fixtures rather than an installed update or live provider.
+
 Tag v0.0.27 at df7dd20 passed validate, security, six portable jobs and five
 release builds; release run 42199526517 failed the macOS Intel packaged Icons
 F9 wait while Preview was still collecting TypeScript diagnostics. The retained
@@ -60,6 +70,21 @@ an explicit full-validation request. CI gates and evidence requirements remain
 mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
+
+Both runners require `renderer Payments Inspector and Interact passed:` and
+`renderer Payments compiled runtime passed:`. The existing nonvisual Inspector
+flow inserts Payments, edits gateway/mode, checks the three default-on automation
+settings and all thirteen events, checks the RestGo integration warning against
+the fixture's project setting in both Inspector tabs and its absence for Timer, saves its
+strict authoring properties, and restores the fixture through Undo. The existing
+RestGO browser flow compiles concrete payment instances and a typed Interaction
+handler against a local HTTP fixture: one-call Pay/Subscribe, native navigation
+interception for the fixture checkout, pending HTTP 202, original idempotency key,
+automatic durable recovery, checkout readiness versus financial confirmation,
+history accumulation, synchronization, selected subscription cancellation and
+logout cleanup.
+The fixture performs no live provider charge and does not certify provider/webhook
+behavior. These updated interactions have not been executed for this change.
 
 Both runners require `renderer API Client network diagnostics passed:`. The API
 Client designer smoke exercises a real response without CORS headers and checks
@@ -169,7 +194,10 @@ editor-only preview occupying half the desktop body without horizontal overflow,
 plus project Style/None selectors for each internal element, compatible type
 filtering, persisted IDs and the same bindings in Designer/configurator/F9,
 Aurora surface/input/button gradients and shadows,
-preview/runtime form-spacing parity, palette/configuration persistence, Panel, native modal
+associated Edit labels and decorative field icons with unclipped geometry in Designer
+and F9, real compiled password input focus with the project Style's visible outer
+indicator and no inner outline or shadow, preview/runtime form-spacing parity,
+palette/configuration persistence, Panel, native modal
 Popup and mobile field geometry. The default desktop form uses 14 px type,
 36 px fields, 20 px panel padding on all sides in desktop/mobile, 8 px field gaps
 and a shared remember/password-options row; the
@@ -180,6 +208,8 @@ registration without automatic authentication, mismatch/error feedback, login,
 the shared session and password clearing. Keep the fixture boundary explicit;
 these records do not establish a live RestGo deployment's behavior. The workflow
 must be executed under an explicit validation request before claiming it passed.
+The Edit label and icon evidence has been updated but has not been executed.
+The compiled Edit focus evidence has also been updated and has not been executed.
 
 `renderer Login recovery passed:` is also required by both runners. The existing
 RestGo HTTP fixture exercises the real recovery forms, anonymous request/confirm

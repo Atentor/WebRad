@@ -8,3 +8,14 @@ export type { RestGoErrorCode, RestGoResult } from './errors';
 export type * from './types';
 export * from './video-types';
 export { RestGoVideosClient, RestGoVideoUploadsClient } from './videos';
+export { RestGoPaymentsClient, RestGoPaymentGatewayClient } from './payments';
+export type * from './payments-types';
+export {
+  isRestGoCheckoutInput,
+  isRestGoCheckoutURL,
+  isRestGoGatewaySlug,
+  isRestGoPaymentMode,
+  isRestGoPaymentOperation,
+  isRestGoPaymentOperationList,
+  isRestGoPaymentUUID,
+} from './payments-validation';

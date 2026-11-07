@@ -1122,11 +1122,14 @@ button.wr-problem:focus-visible {
   width: 27px;
   height: 27px;
   place-items: center;
-  border-radius: 5px;
-  background: var(--wr-accent-soft);
   color: var(--wr-accent);
   font-size: 15px;
   font-weight: 750;
+}
+
+.wr-style-list > button > .wr-style-component-glyph .wr-icon {
+  width: 19px;
+  height: 19px;
 }
 
 .wr-style-list > button > span:last-child {
@@ -2880,6 +2883,7 @@ kbd {
 .wr-about-website {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
   margin-top: 18px;
   padding: 14px;

@@ -251,7 +251,7 @@ export function usesRestGo(
     [...project.pages, ...project.reusableElements].some((document) =>
       document.components.some(
         (component) =>
-          ['WebApiClient', 'WebFileUpload', 'WebVideoUpload', 'WebLogin'].includes(
+          ['WebApiClient', 'WebFileUpload', 'WebVideoUpload', 'WebLogin', 'WebPayments'].includes(
             component.type,
           ) ||
           ['OnLogin', 'OnLogout', 'OnUnauthenticated'].some(

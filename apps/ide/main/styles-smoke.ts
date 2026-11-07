@@ -104,6 +104,9 @@ async function selectStyle(window: BrowserWindow, name: string): Promise<void> {
       const option = Array.from(document.querySelectorAll('[aria-label="Style components"] [role="option"]'))
         .find((item) => item.querySelector('strong')?.textContent?.trim() === ${JSON.stringify(componentName)});
       if (!(option instanceof HTMLButtonElement)) throw new Error('Missing style component');
+      const glyph = option.querySelector('.wr-style-component-glyph');
+      if (!glyph || !glyph.querySelector('svg') || getComputedStyle(glyph).backgroundColor !== 'rgba(0, 0, 0, 0)')
+        throw new Error('Styles component icon must have a transparent background');
       option.click();
     })()`,
     true,

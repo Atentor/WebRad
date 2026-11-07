@@ -710,6 +710,7 @@ export function createAuroraWorkspace(name: string): {
         navigationPlacement(menu.id),
         sidebarContent(contents[index] ?? []),
         ...(page.name === 'Timer' ? [{ type: 'WebToast', name: 'DemoToast' }] : []),
+        ...(page.name === 'RestGoSession' ? [{ type: 'WebPayments', name: 'DemoPayments' }] : []),
       ],
       {},
       {

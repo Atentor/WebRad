@@ -281,6 +281,17 @@
   background: var(--wr-accent);
 }
 
+.wr-inspector-integration-warning {
+  margin: 8px 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--wr-warning) 45%, var(--wr-border));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--wr-warning) 10%, var(--wr-panel-bg));
+  color: var(--wr-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .wr-inspector-grid {
   min-width: 0;
   min-height: 0;

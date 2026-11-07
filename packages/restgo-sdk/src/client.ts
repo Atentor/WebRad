@@ -2,6 +2,7 @@ import { RestGoApiClient, type RestGoEndpoint, type RestGoEndpointOptions } from
 import { RestGoAuthClient } from './auth';
 import { RestGoStorageClient } from './storage';
 import { RestGoVideosClient } from './videos';
+import { RestGoPaymentsClient } from './payments';
 import { RestGoTransport } from './transport';
 import type { RestGoResult } from './errors';
 import type {
@@ -18,6 +19,7 @@ export class RestGoClient {
   readonly auth: RestGoAuthClient;
   readonly storage: RestGoStorageClient;
   readonly videos: RestGoVideosClient;
+  readonly payments: RestGoPaymentsClient;
   readonly api: RestGoApiClient;
   readonly baseUrl: string;
 
@@ -27,6 +29,7 @@ export class RestGoClient {
     this.auth = new RestGoAuthClient(transport, options);
     this.storage = new RestGoStorageClient(transport);
     this.videos = new RestGoVideosClient(transport);
+    this.payments = new RestGoPaymentsClient(transport);
     this.api = new RestGoApiClient(transport);
   }
 

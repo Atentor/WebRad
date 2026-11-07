@@ -31,6 +31,15 @@ let projectClient: RestGoClient | null = null;
 let applicationApiToken = '';
 let disposeEmailConfirmation: (() => void) | undefined;
 let disposeRecoveryLinks: (() => void) | undefined;
+const clientListeners = new Set<(client: RestGoClient | null) => void>();
+
+/** Internal browser-runtime lifecycle hook for services bound to the project client. */
+export function subscribeRestGoClient(listener: (client: RestGoClient | null) => void): () => void {
+  clientListeners.add(listener);
+  return () => {
+    clientListeners.delete(listener);
+  };
+}
 
 /** Internal browser credential projection; never contains an IDE administrator token. */
 export function getRestGoApplicationToken(): string {
@@ -46,6 +55,8 @@ export function configureRestGo(configuration: RestGoRuntimeConfiguration): Rest
   disposeRecoveryLinks?.();
   disposeRecoveryLinks = typeof window === 'undefined' ? undefined : bindLoginRecoveryLinks(window);
   projectClient?.dispose();
+  projectClient = null;
+  for (const listener of [...clientListeners]) listener(null);
   applicationApiToken = '';
   const storageRequest: {
     baseUrl: string;
@@ -76,6 +87,7 @@ export function configureRestGo(configuration: RestGoRuntimeConfiguration): Rest
   applicationApiToken = projectClient === null ? '' : (configuration.apiToken ?? '');
   if (projectClient !== null && typeof window !== 'undefined')
     disposeEmailConfirmation = bindRestGoEmailConfirmation(projectClient, window);
+  for (const listener of [...clientListeners]) listener(projectClient);
   return projectClient;
 }
 

@@ -1,4 +1,5 @@
 import timerTypings from './timer-typings.generated.json';
+import paymentsTypings from './payments-typings.generated.json';
 import htmlTypings from './html-typings.generated.json';
 import dateTypings from './date-typings.generated.json';
 import editTypings from './edit-typings.generated.json';
@@ -56,6 +57,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
     set onClick(handler: WebComponentEventHandler<this> | null);
   }
 ${timerTypings.source}
+${paymentsTypings.source}
 ${htmlTypings.source}
 ${dateTypings.source}
 ${editTypings.source}

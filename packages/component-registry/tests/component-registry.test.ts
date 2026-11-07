@@ -135,6 +135,7 @@ describe('MVP component metadata', () => {
         (type) =>
           ![
             'WebTimer',
+            'WebPayments',
             'WebApiClient',
             'WebFileUpload',
             'WebVideoUpload',
@@ -271,6 +272,7 @@ describe('MVP component metadata', () => {
       'WebPopup',
       'WebApiClient',
       'WebTimer',
+      'WebPayments',
       'WebFileUpload',
       'WebVideoUpload',
       'WebReportBuilder',

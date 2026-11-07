@@ -411,30 +411,69 @@
 .wr-nonvisual-tray {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-height: 0;
-  padding: 6px 12px;
+  padding: 5px 12px;
   border-top: 1px solid var(--wr-border);
   background: var(--wr-panel-alt);
 }
 
 .wr-nonvisual-tray-header {
-  flex: none;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   padding: 0;
   border: 0;
   background: transparent;
   font-size: 10px;
 }
 
+.wr-nonvisual-tray-header strong {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.wr-nonvisual-tray-header span {
+  align-self: center;
+  min-width: 20px;
+  border: 1px solid var(--wr-border);
+  border-radius: 10px;
+}
+
 .wr-nonvisual-tray-items {
   min-height: 0;
   padding: 0;
   flex: 1;
+  gap: 6px;
 }
 
 .wr-nonvisual-item {
-  min-height: 36px;
-  padding: 3px 8px;
+  width: auto;
+  max-width: 200px;
+  height: 38px;
+  min-height: 38px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 6px;
+}
+
+.wr-nonvisual-item:focus-visible {
+  outline: 2px solid var(--wr-selection);
+  outline-offset: -2px;
+}
+
+.wr-nonvisual-item-icon {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+}
+
+.wr-nonvisual-item-icon .wr-icon {
+  width: 21px;
+  height: 21px;
 }
 
 .wr-nonvisual-item small {
@@ -785,6 +824,10 @@
 
 .wr-inspector-layout {
   grid-template-rows: 38px 36px minmax(0, 1fr);
+}
+
+.wr-inspector-layout.has-integration-warning {
+  grid-template-rows: 38px auto 36px minmax(0, 1fr);
 }
 
 .wr-inspector-selection {

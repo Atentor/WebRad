@@ -4,6 +4,8 @@ Drag **Authentication > Login** from the palette. Double-click the component or
 choose **Login configuration > Configure Login** in the Inspector. Login is a
 ready-to-use template built from the existing Panel, Label, Edit, Button and
 CheckBox runtime classes. Its internal elements are configured through the modal.
+Fields use Edit's associated labels and decorative icons, while their label and
+input Styles remain independently configurable.
 
 Login includes email/password sign-in, account registration and password recovery.
 Enable **RestGo integration** and configure **Connection** for Preview and generated

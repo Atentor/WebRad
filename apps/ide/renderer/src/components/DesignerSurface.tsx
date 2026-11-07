@@ -56,6 +56,7 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { ComponentIcon } from './ComponentIcon';
 import { WEBRAD_COMPONENT_DRAG_TYPE, WEBRAD_REUSABLE_ELEMENT_DRAG_TYPE } from './ToolPalette';
 import { getDesignerDragPayload, type DesignerDragPayload } from './designer-drag-data';
 import { useDesignerDropFeedback } from './useDesignerDropFeedback';
@@ -2813,7 +2814,7 @@ export function DesignerSurface({
                   onKeyDown={handleKeyboard}
                 >
                   <span className="wr-nonvisual-item-icon" data-icon={definition.icon}>
-                    {definition.palette.caption.slice(0, 1).toLocaleUpperCase()}
+                    <ComponentIcon icon={definition.icon} />
                   </span>
                   <span className="wr-nonvisual-item-text">
                     <strong>{node.name}</strong>

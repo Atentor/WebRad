@@ -363,7 +363,7 @@ export class WebLogin extends WebComponent<HTMLElement> {
   }
   #focus(): void {
     if (this.#interactive)
-      (this.#view === 'reset' ? this.#controls.password : this.#controls.email).element.focus();
+      (this.#view === 'reset' ? this.#controls.password : this.#controls.email).focus();
   }
   #clearPasswords(): void {
     this.#controls.password.value = '';
@@ -478,7 +478,7 @@ export class WebLogin extends WebComponent<HTMLElement> {
       this.#controls.password.value !== this.#controls.passwordConfirmation.value
     ) {
       this.#message(config.texts.passwordMismatch, true);
-      this.#controls.passwordConfirmation.element.focus();
+      this.#controls.passwordConfirmation.focus();
       return;
     }
     const revision = this.#revision;
@@ -576,7 +576,7 @@ export class WebLogin extends WebComponent<HTMLElement> {
           this.#render(input.email);
           this.#message(config.texts.registered);
           this.emit('OnViewChange', { view: 'login' });
-          this.#controls.password.element.focus();
+          this.#controls.password.focus();
           return;
         }
       }
@@ -665,30 +665,32 @@ export class WebLogin extends WebComponent<HTMLElement> {
     form.append(fields);
     const field = (
       key: 'email' | 'password' | 'fullName' | 'passwordConfirmation',
-      type: string,
+      type: 'text' | 'email' | 'password',
       autocomplete: string,
       shown: boolean,
       required: boolean,
     ): WebEdit => {
-      const label = element('label', 'wr-login-field');
-      const caption = new WebLabel(
-        element('span', 'wr-login-label', `${key}Label` as WebLoginStyleSlot),
-      );
-      caption.caption = config[key].label;
-      const input = element('input', 'wr-login-input', key);
-      input.type = type;
+      const fieldElement = element('div', 'wr-login-field');
+      const edit = new WebEdit(element('div', 'wr-login-input wr-webedit', key));
+      const input = edit.element.querySelector<HTMLInputElement>('.wr-edit-input')!;
+      const label = edit.element.querySelector<HTMLLabelElement>('.wr-edit-label')!;
       input.name = key;
       input.autocomplete = autocomplete as AutoFill;
       input.id = `${this.#prefix}-${key}`;
       input.required = required && shown;
       input.disabled = !shown;
-      input.placeholder = config[key].placeholder;
-      input.setAttribute('aria-label', config[key].label || key);
-      const edit = new WebEdit(input);
+      edit.inputType = type;
+      edit.placeholder = config[key].placeholder;
+      edit.label = config[key].label;
+      if (!config[key].label) input.setAttribute('aria-label', key);
+      edit.icon = key === 'email' ? 'mail' : key === 'fullName' ? 'user' : 'lock';
       label.htmlFor = input.id;
-      label.append(caption.element, input);
-      label.hidden = !shown;
-      fields.append(label);
+      label.classList.add('wr-login-label');
+      label.dataset.loginStyleSlot = `${key}Label`;
+      // Keep the Edit's own associated label while preserving Login's independent label style slot.
+      fieldElement.append(label, edit.element);
+      fieldElement.hidden = !shown;
+      fields.append(fieldElement);
       return edit;
     };
     const fullName = field(

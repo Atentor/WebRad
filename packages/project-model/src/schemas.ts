@@ -34,6 +34,7 @@ import { ComboBoxConfigurationSchema } from './combo-box.js';
 import { ChartsConfigurationSchema } from './charts.js';
 import { VideoUploadPropertiesSchema } from './video-upload.js';
 import { VideoPlayerPropertiesSchema } from './video-player.js';
+import { PaymentsPropertiesSchema } from './payments.js';
 import { defaultComponentStyleId, DEFAULT_COMPONENT_STYLE_DEFINITIONS } from './default-styles.js';
 import { ProjectValidationError } from './errors.js';
 import { getNativeArchitectures, getNativeBundleFormats } from './native-application.js';
@@ -758,11 +759,17 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
           }
         }
       }
-      if (component.type === 'WebVideoUpload' || component.type === 'WebVideoPlayer') {
+      if (
+        component.type === 'WebVideoUpload' ||
+        component.type === 'WebVideoPlayer' ||
+        component.type === 'WebPayments'
+      ) {
         const result = (
-          component.type === 'WebVideoUpload'
-            ? VideoUploadPropertiesSchema
-            : VideoPlayerPropertiesSchema
+          component.type === 'WebPayments'
+            ? PaymentsPropertiesSchema
+            : component.type === 'WebVideoUpload'
+              ? VideoUploadPropertiesSchema
+              : VideoPlayerPropertiesSchema
         ).safeParse(component.props);
         if (!result.success)
           for (const issue of result.error.issues) {

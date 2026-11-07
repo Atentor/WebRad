@@ -1,7 +1,7 @@
 import type { BrowserWindow } from 'electron';
 import { loadProjectFiles } from './project-files';
 
-/** Exercises the registry-driven Timer tray, Inspector and Interact in the real IDE. */
+/** Exercises registry-driven nonvisual services in the real IDE. */
 export async function runTimerSmoke(
   window: BrowserWindow,
   options: { projectPath: string; log: (message: string) => void },
@@ -33,6 +33,7 @@ export async function runTimerSmoke(
     `Array.from(document.querySelectorAll('.wr-palette-item')).find(e => e.querySelector('.wr-palette-item-caption')?.textContent?.trim() === 'Timer').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
   );
   await ready(`document.querySelector('.wr-inspector-selection strong')?.textContent === 'Timer1'`);
+  await ready(`document.querySelector('.wr-inspector-integration-warning') === null`);
   const id = await evaluate(
     `document.querySelector('.wr-inspector-selection').getAttribute('title')`,
   );
@@ -80,5 +81,75 @@ export async function runTimerSmoke(
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
   options.log(
     'renderer Timer Inspector and Interact passed: palette, interval, loop, enabled, events, persistence and undo',
+  );
+
+  await ready(
+    `Array.from(document.querySelectorAll('.wr-palette-item')).some(e => e.querySelector('.wr-palette-item-caption')?.textContent?.trim() === 'Payments')`,
+  );
+  await evaluate(
+    `Array.from(document.querySelectorAll('.wr-palette-item')).find(e => e.querySelector('.wr-palette-item-caption')?.textContent?.trim() === 'Payments').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
+  );
+  await ready(
+    `document.querySelector('.wr-inspector-selection strong')?.textContent === 'Payments1'`,
+  );
+  const integrationWarning = original.project.settings.restGo.enabled
+    ? `document.querySelector('.wr-inspector-integration-warning') === null`
+    : `document.querySelector('.wr-inspector-integration-warning')?.textContent?.includes('Payments requires RestGo integration') === true`;
+  await ready(integrationWarning);
+  const paymentsId = await evaluate(
+    `document.querySelector('.wr-inspector-selection').getAttribute('title')`,
+  );
+  if (typeof paymentsId !== 'string') throw new Error('Payments has no stable ID.');
+  await ready(
+    `${field('Gateway slug')}?.value === '' && ${field('Mode')}?.value === 'payment' && ${field('Enabled')}?.checked === true && ${field('Auto resume')}?.checked === true && ${field('Auto watch')}?.checked === true && ${field('Persist attempts')}?.checked === true && ${field('Poll interval (ms)')}?.value === '2000' && ${field('Poll timeout (ms)')}?.value === '60000'`,
+  );
+  await evaluate(
+    `(() => { const input = ${field('Gateway slug')}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'customer-payments'); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+  );
+  await ready(`${field('Gateway slug')}?.value === 'customer-payments'`);
+  await evaluate(
+    `(() => { const input = ${field('Mode')}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(input, 'subscription'); input.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+  );
+  await ready(`${field('Mode')}?.value === 'subscription'`);
+  await click('button[role="tab"][aria-label="Events"]');
+  await ready(integrationWarning);
+  await ready(
+    `['OnPaymentSucceeded', 'OnSubscriptionActivated', 'OnSubscriptionCanceled', 'OnCheckoutCreated', 'OnCheckoutReady', 'OnCheckoutOpened', 'OnOperationChange', 'OnSynchronizationChange', 'OnHistoryChange', 'OnStateChange', 'OnRestored', 'OnError', 'OnRequestComplete'].every(name => [...document.querySelectorAll('.wr-inspector-event-row label')].some(e => e.textContent?.trim() === name))`,
+  );
+  await click('button[aria-label="Save (Ctrl+S)"]');
+  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  const paymentsSession = await loadProjectFiles(options.projectPath);
+  const payments = paymentsSession.project.pages
+    .find((item) => item.id === page.id)
+    ?.components.find((item) => item.id === paymentsId);
+  if (
+    payments?.type !== 'WebPayments' ||
+    payments.props.gatewaySlug !== 'customer-payments' ||
+    payments.props.mode !== 'subscription' ||
+    payments.props.pollInterval !== 2000 ||
+    payments.props.pollTimeout !== 60000 ||
+    payments.props.autoResume !== true ||
+    payments.props.autoWatch !== true ||
+    payments.props.persistAttempts !== true ||
+    payments.props.enabled !== true
+  )
+    throw new Error('Payments Inspector values were not saved.');
+  const paymentsTree = `[role="treeitem"][data-component-id=${JSON.stringify(paymentsId)}]`;
+  await click(paymentsTree);
+  for (let index = 0; index < 3; index++) {
+    await evaluate(
+      `document.querySelector(${JSON.stringify(paymentsTree)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
+    );
+    await evaluate(
+      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+    );
+  }
+  await ready(`document.querySelector(${JSON.stringify(paymentsTree)}) === null`);
+  await click(root);
+  await click('button[role="tab"][aria-label="Properties"]');
+  await click('button[aria-label="Save (Ctrl+S)"]');
+  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  options.log(
+    'renderer Payments Inspector and Interact passed: integration warning, nonvisual palette, gateway, mode, automatic recovery and observation defaults, thirteen typed events, persistence and undo',
   );
 }

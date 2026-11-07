@@ -14,6 +14,7 @@ import { componentRegistry, ComponentRegistry } from './registry.js';
 import { organizeInspectorProperty } from './inspector-properties.js';
 import { CURRENT_ROW_BINDINGS_PROPERTY } from './current-row-bindings.js';
 import { webVideoUpload } from './video-upload.js';
+import { webPayments } from './payments.js';
 import {
   createDefaultApiClientConfiguration,
   parseApiClientConfiguration,
@@ -2447,6 +2448,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebPopup',
   'WebApiClient',
   'WebTimer',
+  'WebPayments',
   'WebFileUpload',
   'WebVideoUpload',
   'WebVideoPlayer',
@@ -2482,6 +2484,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webPopup,
   webApiClient,
   webTimer,
+  webPayments,
   webFileUpload,
   webVideoUpload,
   webVideoPlayer,

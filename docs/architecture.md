@@ -473,6 +473,35 @@ Filesystem paths remain native inside Electron and are converted to URI/path for
 
 ## RestGO integration
 
+`RestGO.payments` extends the browser-only SDK with gateway-scoped customer
+checkout, operation, history, and subscription-cancellation routes. It explicitly
+uses session authentication and shares the existing transport/renewal behavior.
+Trusted prices, ownership, provider credentials, workers, webhooks and result
+synchronization remain on RestGo. Successful HTTP 202 represents preparation,
+independent of financial status and database synchronization markers.
+
+`WebPayments` is a centrally registered nonvisual `WebNonvisualComponent`.
+`Pay`, `Subscribe`, and configured-mode `Checkout` coordinate session restoration,
+durable recovery, checkout creation/readiness, and opening the provider URL from
+one explicit authored action. Automatic resume never creates a charge or
+redirects. Refresh, history accumulation, selected cancellation, confirmation and
+observation share workflow ownership and typed state/semantic events. Duplicate
+matching actions share a promise; purchase-scoped browser/custom locks coordinate
+attempt creation across instances/tabs. Storage failure/corruption never silently
+replaces the idempotency key. Default browser storage contains only versioned
+recovery data, with runtime-only custom adapters available.
+
+Only gateway slug, mode, enabled/polling settings, and default-on persistence,
+resume and observation belong in format-v2 props; strict parsing rejects runtime,
+credential and checkpoint fields. The generic generator constructs/disposes
+typed instances and scopes nonvisual runtime identities by reusable placement.
+Attempt keys bind API/customer/gateway/source/mode; automatic recent-attempt
+lookup is additionally instance-scoped. Explicit cross-page resume can fall back
+to the gateway/customer's recent attempt. Monaco declarations and embedded sources
+are generated from TypeScript. Browser-runtime client/auth subscriptions cancel
+obsolete workflows on connection/identity changes without an Electron bridge.
+See [Payments](payments.md) for navigation/Preview limitations and examples.
+
 `WebFileUpload` is a registered nonvisual `WebNonvisualComponent` service with `OpenFile()` and `SendToRestGO()` methods. It owns a hidden native chooser only while selecting, returns name/available relative path/byte size/extension, and keeps browser `File` objects and request state local to each instance. The existing component-property model persists only the filter, enabled state and default visibility. Upload results preserve all RestGO Storage metadata and add an absolute URL retaining the connection prefix; private-file authorization is unchanged. Registry-owned `OnProgress` metadata scaffolds typed percentage/byte fields in Monaco so authored code can update other components. The shared SDK measures actual cross-origin XHR upload progress with credentials disabled; same-origin/unsupported/custom-fetch calls retain cookie-omitting fetch and indeterminate progress. XHR can follow redirects before final-URL rejection, so configured instance URLs must be final. Generated page/reusable classes construct nonvisual services from saved properties and dispose them with their scope, cancelling chooser/upload state and event subscriptions. No visual rendering or style is emitted for File Upload.
 
 `RestGoClient.CurrentUser` projects the SDK's last server-confirmed identity as a readonly, frozen snapshot with `nome`, `email`, `id`, `emailconfirmed`, and `ativo`. The authentication service owns the projection, so shared runtime and standalone clients follow the same login, restoration, refresh, validation and termination state. Reads do not issue requests, expose credentials, trust persisted identity, or assert current server validity. The value is null before successful restoration, without a session, and after disposal; transient errors preserve confirmed identity. Existing `getUser()` remains the server-validation API.

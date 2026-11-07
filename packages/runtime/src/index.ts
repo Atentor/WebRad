@@ -48,6 +48,8 @@ export { configureRestGo, getRestGoClient, RestGO, RestGoNotConfiguredError } fr
 export type { RestGoRuntimeConfiguration } from './restgo.js';
 export * from './visual.js';
 export * from './timer.js';
+export * from './payments-types.js';
+export * from './payments.js';
 export * from './theme.js';
 
 export * from './toast.js';

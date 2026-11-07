@@ -352,6 +352,43 @@ export async function runRestGoBrowserSmoke(
     emailConfirmed: true,
   };
   const fileId = '00000000-0000-4000-8000-000000000002';
+  const paymentAttempts = new Map<
+    string,
+    {
+      id: string;
+      sourceKey: string;
+      mode: 'payment' | 'subscription';
+      idempotencyKey: string;
+      reads: number;
+      canceled: boolean;
+      opened: boolean;
+      confirmationReads: number;
+    }
+  >();
+  const paymentNavigations: string[] = [];
+  const paymentHistoryCursors: string[] = [];
+  const historicalPaymentId = '00000000-0000-4000-8000-000000000009';
+  const paymentResponse = (slug: string) => {
+    const attempt = paymentAttempts.get(slug);
+    if (!attempt) throw new Error('Missing payment fixture attempt.');
+    const ready = attempt.reads >= 2;
+    const settled = attempt.opened && attempt.reads >= 3;
+    return {
+      id: attempt.id,
+      mode: attempt.mode,
+      status: settled ? (attempt.mode === 'payment' ? 'succeeded' : 'active') : 'pending',
+      checkoutState: ready ? 'completed' : 'pending',
+      checkoutUrl: ready && !settled ? `https://checkout.example.test/${slug}` : undefined,
+      synchronizationPending: settled && attempt.confirmationReads < 2,
+      providerName: slug === 'stripe-smoke' ? 'stripe' : 'asaas',
+      provider: {
+        status: settled ? (attempt.mode === 'payment' ? 'succeeded' : 'active') : 'pending',
+        subscriptionId: settled && attempt.mode === 'subscription' ? 'sub_fixture' : undefined,
+        periodEnd: settled && attempt.mode === 'subscription' ? '2030-01-01T00:00:00Z' : undefined,
+        cancelAtPeriodEnd: attempt.canceled,
+      },
+    };
+  };
   const session = () => ({
     token: token(),
     expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
@@ -556,6 +593,114 @@ export async function runRestGoBrowserSmoke(
       response.writeHead(401).end(JSON.stringify({ error: 'Invalid session' }));
       return;
     }
+    if (route.startsWith('/payment/')) {
+      const parts = route.split('/');
+      const slug = parts[2] ?? '';
+      if (slug !== 'stripe-smoke' && slug !== 'asaas-smoke') {
+        response.writeHead(404).end(JSON.stringify({ error: 'Unknown gateway' }));
+        return;
+      }
+      if (request.method === 'POST' && parts[3] === 'checkouts') {
+        const chunks: Buffer[] = [];
+        for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array));
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
+        capturedRequest.body = body;
+        const mode = slug === 'stripe-smoke' ? 'payment' : 'subscription';
+        const sourceKey = mode === 'payment' ? '9007199254740993' : 'subscription-order';
+        if (
+          Object.keys(body).length !== 3 ||
+          body.sourceKey !== sourceKey ||
+          body.mode !== mode ||
+          typeof body.idempotencyKey !== 'string'
+        ) {
+          response.writeHead(400).end(JSON.stringify({ error: 'Invalid customer checkout input' }));
+          return;
+        }
+        const prior = paymentAttempts.get(slug);
+        if (prior && prior.idempotencyKey !== body.idempotencyKey) {
+          response
+            .writeHead(409)
+            .end(JSON.stringify({ error: 'Checkout retry changed idempotency key' }));
+          return;
+        }
+        if (!prior)
+          paymentAttempts.set(slug, {
+            id:
+              mode === 'payment'
+                ? '00000000-0000-4000-8000-000000000010'
+                : '00000000-0000-4000-8000-000000000011',
+            sourceKey,
+            mode,
+            idempotencyKey: body.idempotencyKey,
+            reads: 0,
+            canceled: false,
+            opened: false,
+            confirmationReads: 0,
+          });
+        const operation = paymentResponse(slug);
+        response
+          .writeHead(operation.checkoutState === 'pending' ? 202 : 200)
+          .end(JSON.stringify(operation));
+        return;
+      }
+      const attempt = paymentAttempts.get(slug);
+      if (!attempt) {
+        response.writeHead(404).end(JSON.stringify({ error: 'Unknown operation' }));
+        return;
+      }
+      if (request.method === 'GET' && parts.length === 4 && parts[3] === 'operations') {
+        const cursor =
+          new URL(request.url ?? '/', 'http://localhost').searchParams.get('before') ?? '';
+        paymentHistoryCursors.push(cursor);
+        if (cursor !== '' && cursor !== attempt.id) {
+          response.writeHead(400).end(JSON.stringify({ error: 'Invalid history cursor' }));
+          return;
+        }
+        const operation = paymentResponse(slug);
+        response.end(
+          JSON.stringify({
+            data:
+              cursor === ''
+                ? [{ ...operation, checkoutUrl: undefined }]
+                : [
+                    {
+                      ...operation,
+                      id: historicalPaymentId,
+                      status: 'succeeded',
+                      checkoutState: 'completed',
+                      checkoutUrl: undefined,
+                      synchronizationPending: false,
+                      provider: { status: 'succeeded', cancelAtPeriodEnd: false },
+                    },
+                  ],
+            nextCursor: cursor === '' ? attempt.id : '',
+          }),
+        );
+        return;
+      }
+      if (parts[3] !== 'operations' || parts[4] !== attempt.id) {
+        response.writeHead(404).end(JSON.stringify({ error: 'Operation ownership mismatch' }));
+        return;
+      }
+      if (request.method === 'POST' && parts[5] === 'cancel') {
+        if (attempt.mode !== 'subscription' || !attempt.opened || attempt.reads < 3) {
+          response.writeHead(409).end(JSON.stringify({ error: 'Subscription unavailable' }));
+          return;
+        }
+        attempt.canceled = true;
+      } else if (request.method === 'GET' && parts.length === 5) {
+        attempt.reads++;
+        if (attempt.opened && attempt.reads >= 3) attempt.confirmationReads++;
+      } else {
+        response.writeHead(404).end(JSON.stringify({ error: 'Unknown payment action' }));
+        return;
+      }
+      const operation = paymentResponse(slug);
+      response
+        .writeHead(operation.checkoutState === 'pending' ? 202 : 200)
+        .end(JSON.stringify(operation));
+      return;
+    }
     if (route === '/auth/session') response.end(JSON.stringify({ success: true, user }));
     else if (route === '/auth/logout' && request.method === 'POST') {
       revoked = true;
@@ -686,25 +831,116 @@ export async function runRestGoBrowserSmoke(
         OnPasswordReset: 'TemplatePasswordReset',
       },
     });
+    const paymentComponents = ['stripe-smoke', 'asaas-smoke'].map((gatewaySlug, index) =>
+      defaultComponentRegistry.createComponent('WebPayments', {
+        name: `Payments${index + 1}`,
+        parentId: boundPage.rootComponentId,
+        existingNames: [...boundPage.components, login],
+        props: { gatewaySlug, mode: index === 0 ? 'payment' : 'subscription', autoResume: false },
+        events: {
+          OnOperationChange: 'PaymentChanged',
+          OnPaymentSucceeded: 'PaymentSucceeded',
+          OnSubscriptionActivated: 'SubscriptionActivated',
+          OnSubscriptionCanceled: 'SubscriptionCanceled',
+          OnCheckoutOpened: 'CheckoutOpened',
+          OnHistoryChange: 'HistoryChanged',
+          OnRestored: 'PaymentRestored',
+        },
+      }),
+    );
     const loginPage = {
       ...boundPage,
       components: [
         ...boundPage.components.map((node) =>
           node.id === boundPage.rootComponentId
-            ? { ...node, children: [...node.children, login.id] }
+            ? {
+                ...node,
+                children: [
+                  ...node.children,
+                  login.id,
+                  ...paymentComponents.map((component) => component.id),
+                ],
+              }
             : node,
         ),
         login,
+        ...paymentComponents,
       ],
     };
     const project = { ...original, pages: [loginPage] };
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent } from '@webrad/runtime';
+        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent, type WebPayments, type WebPaymentsOperationEventDetail, type WebPaymentsCheckoutEventDetail, type WebPaymentsHistoryEventDetail, type WebPaymentsResumeEventDetail } from '@webrad/runtime';
 import { createClient } from '@webrad/restgo-sdk';
 import { indexGenerated } from './index.generated';
 export class index extends indexGenerated {
   private usuarioId = '';
+  public PaymentChanged(sender: WebPayments, event: CustomEvent<WebPaymentsOperationEventDetail>): void {
+    if (sender !== this.Payments1 && sender !== this.Payments2) throw new Error('Payments lost its concrete scoped instance');
+    if (event.detail.operation) this.element.dataset.paymentStatus = event.detail.operation.status;
+  }
+  public PaymentSucceeded(sender: WebPayments, event: CustomEvent<WebPaymentsCheckoutEventDetail>): void {
+    if (sender !== this.Payments1 || event.detail.operation.status !== 'succeeded') throw new Error('Payment success event lost its concrete instance/state');
+    this.element.dataset.paymentSucceeded = 'true';
+  }
+  public SubscriptionActivated(sender: WebPayments, event: CustomEvent<WebPaymentsCheckoutEventDetail>): void {
+    if (sender !== this.Payments2 || event.detail.operation.status !== 'active') throw new Error('Subscription activation event mismatch');
+    this.element.dataset.subscriptionActivated = 'true';
+  }
+  public SubscriptionCanceled(sender: WebPayments, event: CustomEvent<WebPaymentsCheckoutEventDetail>): void {
+    if (sender !== this.Payments2 || !event.detail.operation.provider.cancelAtPeriodEnd) throw new Error('Subscription cancellation event mismatch');
+    this.element.dataset.subscriptionCanceled = 'true';
+  }
+  public CheckoutOpened(sender: WebPayments, event: CustomEvent<WebPaymentsCheckoutEventDetail>): void {
+    if ((sender !== this.Payments1 && sender !== this.Payments2) || !event.detail.operation.checkoutUrl) throw new Error('Checkout navigation event mismatch');
+    this.element.dataset.checkoutsOpened = String(Number(this.element.dataset.checkoutsOpened ?? 0) + 1);
+  }
+  public HistoryChanged(sender: WebPayments, event: CustomEvent<WebPaymentsHistoryEventDetail>): void {
+    if (sender !== this.Payments1 || sender.history !== event.detail.items || sender.hasMore !== event.detail.hasMore) throw new Error('History event/cache mismatch');
+    this.element.dataset.historyChanges = String(Number(this.element.dataset.historyChanges ?? 0) + 1);
+  }
+  public PaymentRestored(sender: WebPayments, event: CustomEvent<WebPaymentsResumeEventDetail>): void {
+    if (sender !== this.Payments1 || event.detail.automatic || event.detail.checkpoint.operationId !== event.detail.operation?.id) throw new Error('Explicit automatic-storage recovery event mismatch');
+    this.element.dataset.paymentRestored = 'true';
+  }
+  private async ExercisePayments(): Promise<void> {
+    const first = Payments1.Pay('9007199254740993', { interval: 1, timeout: 5000 });
+    const same = this.Payments1.Pay('9007199254740993', { interval: 1, timeout: 5000 });
+    if (first !== same) throw new Error('Duplicate Pay calls were not coalesced');
+    const [operation, duplicate] = await Promise.all([first, same]);
+    if (operation.id !== duplicate.id || operation.mode !== 'payment' || operation.checkoutState !== 'completed' || !operation.checkoutUrl || operation.status !== 'pending')
+      throw new Error('One-call Pay did not preserve checkout readiness versus financial success');
+    const originalKey = Payments1.attempt?.idempotencyKey;
+    if (!originalKey || Number(this.element.dataset.checkoutsOpened) !== 1) throw new Error('Pay did not persist and open exactly one checkout');
+    this.Payments1.Clear();
+    const restored = await Payments1.Resume('9007199254740993', { watch: false, timeout: 5000 });
+    if (restored?.id !== operation.id || Payments1.attempt?.idempotencyKey !== originalKey || this.element.dataset.paymentRestored !== 'true')
+      throw new Error('Automatic checkpoint storage did not recover the original attempt');
+    const refreshed = await Payments1.Refresh();
+    if (refreshed?.id !== operation.id) throw new Error('Selected-operation refresh mismatch');
+    const confirmed = await Payments1.WaitForConfirmation({ interval: 1, timeout: 5000, waitForSynchronization: true });
+    if (confirmed.status !== 'succeeded' || confirmed.synchronizationPending || Payments1.status !== 'succeeded' || this.element.dataset.paymentSucceeded !== 'true')
+      throw new Error('Payment confirmation/source synchronization event mismatch');
+    const replay = await this.Payments1.Pay('9007199254740993', { timeout: 5000 });
+    if (replay.id !== operation.id || Payments1.attempt?.idempotencyKey !== originalKey || Number(this.element.dataset.checkoutsOpened) !== 1)
+      throw new Error('Settled Pay created another attempt or reopened checkout');
+    const firstPage = await Payments1.LoadHistory();
+    if (firstPage.length !== 1 || firstPage[0]?.id !== operation.id || firstPage[0]?.checkoutUrl !== undefined || !Payments1.hasMore || Payments1.nextCursor !== operation.id)
+      throw new Error('Automatic history cache/cursor mismatch');
+    const history = await Payments1.LoadMore();
+    if (history.length !== 2 || history[1]?.id !== ${JSON.stringify(historicalPaymentId)} || Payments1.history !== history || Payments1.hasMore || Payments1.nextCursor !== '')
+      throw new Error('LoadMore did not append the final history page');
+    const lastPage = await Payments1.LoadMore();
+    if (lastPage !== history || this.element.dataset.historyChanges !== '2') throw new Error('LoadMore after the last page was not a no-op');
+    const subscription = await this.Payments2.Subscribe('subscription-order', { interval: 1, timeout: 5000 });
+    if (subscription.mode !== 'subscription' || !subscription.checkoutUrl || Number(this.element.dataset.checkoutsOpened) !== 2) throw new Error('Subscribe did not open hosted checkout automatically');
+    const active = await this.Payments2.WaitForConfirmation({ interval: 1, timeout: 5000, waitForSynchronization: true });
+    if (active.status !== 'active' || !this.Payments2.canCancelSubscription || this.element.dataset.subscriptionActivated !== 'true') throw new Error('Subscription confirmation mismatch');
+    const canceled = await this.Payments2.CancelSubscription();
+    if (!canceled.provider.cancelAtPeriodEnd || !canceled.provider.periodEnd || this.Payments2.canCancelSubscription || this.element.dataset.subscriptionCanceled !== 'true')
+      throw new Error('Selected-subscription cancellation lost the paid period or event');
+    this.element.dataset.paymentsComplete = 'true';
+  }
   public TemplateLogin(sender: WebLogin, event: CustomEvent<WebLoginUserEvent>): void {
     if (sender !== this.LoginTemplate || this.LoginTemplate.controls.email.value !== event.detail.user.email)
       throw new Error('Login template lost its concrete mounted instance');
@@ -733,6 +969,8 @@ export class index extends indexGenerated {
     this.element.dataset.logoutUser = event.detail.user.id;
     this.usuarioId = '';
     this.element.dataset.currentUser = this.usuarioId;
+    if (this.Payments1.operation || this.Payments1.attempt || this.Payments2.operation || this.Payments2.attempt)
+      throw new Error('Payments retained another session context after logout');
   }
   public constructor(element: HTMLElement) {
     super(element);
@@ -743,6 +981,15 @@ export class index extends indexGenerated {
     this.element.dataset.restgoIdentity = String(
       RestGO.auth === getRestGoClient().auth && typeof standalone.login === 'function'
     );
+    const paymentsAction = document.createElement('button');
+    paymentsAction.dataset.paymentsExercise = 'true';
+    paymentsAction.textContent = 'Exercise payment HTTP fixture';
+    paymentsAction.addEventListener('click', () => {
+      void this.ExercisePayments().catch((error: unknown) => {
+        this.element.dataset.paymentsError = error instanceof Error ? error.message : String(error);
+      });
+    });
+    this.element.append(paymentsAction);
   }
 }`,
       },
@@ -757,6 +1004,15 @@ export class index extends indexGenerated {
       webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
     });
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    window.webContents.on('will-navigate', (event, navigationUrl) => {
+      const destination = new URL(navigationUrl);
+      if (destination.hostname !== 'checkout.example.test') return;
+      event.preventDefault();
+      const slug = destination.pathname.slice(1);
+      paymentNavigations.push(navigationUrl);
+      const attempt = paymentAttempts.get(slug);
+      if (attempt) attempt.opened = true;
+    });
     const previewUrl = await publishPreviewHtml(ownerId, result.previewHtml);
     await window.loadURL(previewUrl);
     await rendererReady(
@@ -781,6 +1037,11 @@ export class index extends indexGenerated {
         if (!session.refreshToken || !session.refreshExpiresAt) throw new Error('Missing refresh pair');
         const page = document.querySelector('[data-restgo-identity="true"]');
         if (page.dataset.loginUser !== session.user.id) throw new Error('OnLogin did not save the current user');
+        document.querySelector('[data-payments-exercise="true"]').click();
+        const paymentsDeadline = Date.now() + 5000;
+        while (Date.now() < paymentsDeadline && page.dataset.paymentsComplete !== 'true' && !page.dataset.paymentsError)
+          await new Promise(resolve => setTimeout(resolve, 10));
+        if (page.dataset.paymentsComplete !== 'true') throw new Error(page.dataset.paymentsError || 'Compiled Payments did not complete');
         check(await RestGO.auth.signUp({ email: 'outra@example.test', password: 'senha-de-teste' }));
         const events = [];
         const subscription = RestGO.onAuthStateChange((event) => events.push(event));
@@ -819,6 +1080,25 @@ export class index extends indexGenerated {
     ) {
       throw new Error(`RestGO browser smoke failed: ${JSON.stringify(evidence)}`);
     }
+    const paymentRequests = requests.filter((request) => request.route.startsWith('/payment/'));
+    if (
+      paymentRequests.length === 0 ||
+      paymentRequests.some(
+        (request) => !request.authorization?.startsWith('Bearer smoke-user-jwt-'),
+      ) ||
+      !paymentRequests.some((request) => request.route.endsWith('/cancel')) ||
+      paymentRequests.filter((request) => request.route.endsWith('/checkouts')).length !== 2 ||
+      paymentNavigations.length !== 2 ||
+      !paymentNavigations.includes('https://checkout.example.test/stripe-smoke') ||
+      !paymentNavigations.includes('https://checkout.example.test/asaas-smoke') ||
+      paymentHistoryCursors.length !== 2 ||
+      paymentHistoryCursors[0] !== '' ||
+      paymentHistoryCursors[1] !== paymentAttempts.get('stripe-smoke')?.id
+    )
+      throw new Error('Compiled Payments did not use customer-only payment routes.');
+    log(
+      'renderer Payments compiled runtime passed: one-call Pay and Subscribe, native checkout navigation intercepted, duplicate coalescing, HTTP 202, automatic checkpoint persistence and recovery, selected refresh, synchronized confirmation events, cached paginated history and final-page no-op, selected Asaas subscription cancellation and logout cleanup; HTTP fixture',
+    );
     await window.webContents.executeJavaScript(verifyAnonymousToken, true);
 
     for (const call of [

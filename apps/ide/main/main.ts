@@ -991,10 +991,16 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
 const dialog = document.querySelector('[role="dialog"]');
 const icon = dialog?.querySelector('img');
 const bounds = dialog?.getBoundingClientRect();
+const website = dialog?.querySelector('a.wr-about-website');
+const address = website?.querySelector('span');
+const websiteBounds = website?.getBoundingClientRect();
+const addressBounds = address?.getBoundingClientRect();
 return dialog?.textContent?.includes('About WebRAD') === true &&
 dialog.textContent.includes('Powered by') && dialog.textContent.includes('Atentor') &&
 dialog.querySelector('a[href="https://atentor.com"]') !== null &&
 dialog.querySelector('a.wr-about-website[href="https://webrad.atentor.com"]') !== null &&
+websiteBounds !== undefined && addressBounds !== undefined &&
+Math.abs((websiteBounds.left + websiteBounds.right) - (addressBounds.left + addressBounds.right)) < 2 &&
 dialog.textContent.includes('Version ') && bounds !== undefined && bounds.width > 0 && bounds.height > 0 &&
 icon instanceof HTMLImageElement && icon.complete && icon.naturalWidth > 0 &&
 document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(document.activeElement);

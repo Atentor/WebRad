@@ -199,6 +199,8 @@ try {
           'renderer Charts presented screenshots passed:',
           'renderer Charts fixture restored:',
           'renderer Timer Inspector and Interact passed:',
+          'renderer Payments Inspector and Interact passed:',
+          'renderer Payments compiled runtime passed:',
           'renderer Toast Inspector passed:',
           'renderer Lucide Icons Inspector and F9 passed:',
           'renderer HTML Inspector and F9 passed:',

@@ -344,7 +344,7 @@ it('generates typed upload instances and event bindings for pages and reusable p
   );
   const reusable = uploadDocument(true);
   const reusableSource = generateReusableElementSource(reusable);
-  expect(reusableSource).not.toContain('this.componentId("file-upload")');
+  expect(reusableSource).toContain('"id":"file-upload"');
   expect(reusableSource).toContain('new WebFileUpload({');
   expect(reusableSource).toContain('this.FileUpload1.dispose();');
   expect(generateReusableElementTypings(reusable)).toContain(

@@ -1,5 +1,104 @@
 # WebRAD delivery plan
 
+## Release battery corrections: 2026-11-07
+
+The release battery exposed nonvisual reusable IDs being resolved through the
+visual mount map. The registry now opts persistent components into placement-scoped
+IDs while preserving model IDs used by existing API Client bindings. Payments is
+included in the Aurora RestGo session page. The Login label gap was reduced to
+keep its registration card within the existing height contract.
+
+Windows x64 validation passed with Chrome enabled: 242 files and 1,815 tests,
+with no skips, plus typecheck, lint, formatting, generated-source checks and
+packaging. All 15 local Electron smoke flows passed after the fixes. Update
+smokes use a simulated update, and Payments uses an HTTP fixture. Hosted
+six-target verification, an installed update and live payment-provider evidence
+remain separate.
+
+## Login Edit focus: 2026-11-07
+
+Removed the Login-specific focus outline from the inner Edit input so the
+component's outer focus indication remains the sole field indicator. Legacy
+Login styling retains an outline on the Edit container. Updated the existing
+Login Electron interaction for the focus appearance. Validation was not
+requested or run.
+
+## Login field polish: 2026-11-07
+
+Refined the Login form using composite Edit controls with associated labels and
+decorative field icons. The shared runtime projection also updates the Designer
+and configuration preview while retaining the individual project Style bindings,
+password visibility action and responsive field sizing. Updated the existing
+Electron Login interaction for the new field structure. Validation was not
+requested or run.
+
+## About dialog link alignment: 2026-11-07
+
+Centered the website address and icon in the About dialog card. Updated the
+existing Electron smoke interaction to check its alignment. Validation was not
+requested or run.
+
+## Styles component icons: 2026-11-07
+
+Removed the background boxes and enlarged the Styles component list icons while
+keeping the row selection styling. Updated the existing Styles smoke interaction to
+check the icon background. Validation was not requested or run.
+
+## Nonvisual tray polish: 2026-11-07
+
+The Designer tray uses the registered component icon shared with the palette,
+with larger unboxed icons, compact cards, a horizontal header and visible keyboard focus. The existing
+API Client Electron interaction checks icon parity. Validation was not requested
+or run.
+
+## Payments Inspector integration notice: 2026-11-07
+
+The Inspector now displays the registered Payments dependency on RestGo when
+the project's integration is disabled, with guidance to enable and configure it
+in the RestGo sidebar. The notice remains visible across Inspector tabs and for
+mixed selections. Updated the existing nonvisual Electron smoke interaction to
+check the fixture's integration state. Validation was not requested or run.
+
+## Automatic Payments workflows: 2026-11-07
+
+Added one-call `Pay`, `Subscribe` and configured-mode `Checkout`: session
+restoration, durable attempt recovery, original-key checkout creation, readiness
+and explicit-action navigation are coordinated by the component. Matching
+concurrent calls share the full workflow; browser/custom locks serialize the
+same purchase across instances/tabs. Saved attempts are never silently replaced
+after corruption, storage failure, or network uncertainty.
+
+Default-on persistence, resume and observation settings are registry/model-owned.
+Automatic resume restores/queries an existing operation without creating a charge
+or redirecting; explicit Resume can recover a lost response with the original key.
+Refresh, selected-subscription cancellation, history/cursor accumulation and
+mode-aware confirmation coordinate observation internally. Added semantic payment,
+subscription, history and state events plus typed convenience getters. Reusable
+nonvisual identities now use placement-scoped runtime IDs, while model IDs remain
+stable. Updated the existing language/Inspector/browser smoke contracts and the
+English examples. Runtime sources/declarations are regenerated as implementation
+work; tests, smokes, builds, typecheck, lint and formatting checks were not requested
+or executed. Real provider/webhook evidence remains pending.
+
+## RestGO Payments component: 2026-11-07
+
+Implemented the session-only `RestGO.payments` gateway SDK and concrete
+`WebPayments` nonvisual class for Stripe/Asaas checkout, operation queries,
+pagination and subscription cancellation. Server-owned prices/credentials,
+checkout preparation, financial state and database synchronization retain their
+separate contracts, as recorded in [the integration plan](docs/restgo-payments-plan.md).
+The component provides
+typed public APIs/events, explicit navigation, serialized bounded observation,
+checkpoint recovery, and auth/project-client lifecycle cleanup. Added strict
+authoring-only model properties, registry/tray/Inspector/Interaction metadata,
+Monaco declaration generation and compiler RestGO dependency selection. Updated
+existing component enumeration fixtures and both runners' required smoke evidence
+through the existing nonvisual/RestGO workflows. Added the delivered API and
+TypeScript examples in [Payments](docs/payments.md). Runtime/SDK source snapshots
+and declarations were regenerated as implementation work. No tests, builds,
+smokes, typecheck, lint, or formatting checks were requested or run; validation
+and real sandbox provider/webhook confirmation remain pending.
+
 ## v0.0.27 macOS Intel Preview timeout: 2026-11-06
 
 Tag release run 42199526517 failed while the Icons F9 Preview was collecting

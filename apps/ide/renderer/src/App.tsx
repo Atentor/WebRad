@@ -3327,6 +3327,7 @@ export function App(): ReactElement {
                   availableComponents={activePage?.components}
                   availableReusableElements={project?.reusableElements}
                   availableMenus={project?.menus}
+                  restGoEnabled={project?.settings.restGo.enabled}
                   styles={project?.styles}
                   onStyleChange={changeStyle}
                   onPropertyChange={changeProperty}
