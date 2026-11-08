@@ -55,6 +55,7 @@ export function isRestGoCheckoutInput(value: unknown): value is RestGoCheckoutIn
 export function isRestGoPaymentOperation(value: unknown): value is RestGoPaymentOperation {
   if (!isRecord(value) || !isRecord(value.provider)) return false;
   const provider = value.provider;
+  const boleto = value.boleto;
   return (
     isRestGoPaymentUUID(value.id) &&
     isRestGoPaymentMode(value.mode) &&
@@ -64,6 +65,12 @@ export function isRestGoPaymentOperation(value: unknown): value is RestGoPayment
     value.checkoutState.length > 0 &&
     (value.providerName === 'stripe' || value.providerName === 'asaas') &&
     (value.checkoutUrl === undefined || isRestGoCheckoutURL(value.checkoutUrl)) &&
+    (boleto === undefined ||
+      (isRecord(boleto) &&
+        (boleto.dueDate === undefined ||
+          (typeof boleto.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(boleto.dueDate))) &&
+        (boleto.invoiceUrl === undefined || isRestGoCheckoutURL(boleto.invoiceUrl)) &&
+        (boleto.bankSlipUrl === undefined || isRestGoCheckoutURL(boleto.bankSlipUrl)))) &&
     typeof value.synchronizationPending === 'boolean' &&
     (value.synchronizationError === undefined || typeof value.synchronizationError === 'string') &&
     typeof provider.status === 'string' &&

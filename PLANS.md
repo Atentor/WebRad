@@ -137,6 +137,17 @@ with larger unboxed icons, compact cards, a horizontal header and visible keyboa
 API Client Electron interaction checks icon parity. Validation was not requested
 or run.
 
+## Asaas boleto support: 2026-11-08
+
+Expose the optional boleto due date, invoice URL and bank-slip URL returned by
+RestGo as immutable, typed payment operation data. Preserve URL validation and
+allow the available Asaas invoice to open during processing or overdue states.
+Regenerate embedded sources and Monaco declarations, and document recovery and
+the distinction between boleto issuance and financial confirmation. Source
+generation includes its SDK declaration diagnostics; no separate tests, builds,
+smokes or validation commands were requested or run. Live Asaas boleto issuance
+and settlement remain unverified.
+
 ## Payments Inspector integration notice: 2026-11-07
 
 The Inspector now displays the registered Payments dependency on RestGo when

@@ -16,7 +16,11 @@ import type {
 } from './payments-types';
 
 function immutablePaymentOperation(operation: RestGoPaymentOperation): RestGoPaymentOperation {
-  return Object.freeze({ ...operation, provider: Object.freeze({ ...operation.provider }) });
+  return Object.freeze({
+    ...operation,
+    provider: Object.freeze({ ...operation.provider }),
+    ...(operation.boleto === undefined ? {} : { boleto: Object.freeze({ ...operation.boleto }) }),
+  });
 }
 
 /** Customer-only payment routes. Gateway administration stays on the server. */

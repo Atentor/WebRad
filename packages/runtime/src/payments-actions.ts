@@ -40,6 +40,16 @@ export function paymentFailed(operation: RestGoPaymentOperation): boolean {
   ].includes(operation.status);
 }
 
+/** RestGo can expose an Asaas payment link or invoice while settlement is pending or overdue. */
+export function paymentCheckoutStatusOpen(operation: RestGoPaymentOperation): boolean {
+  return (
+    operation.status === 'pending' ||
+    (operation.providerName === 'asaas' &&
+      operation.mode === 'payment' &&
+      (operation.status === 'processing' || operation.status === 'past_due'))
+  );
+}
+
 export function paymentNeedsMonitoring(operation: RestGoPaymentOperation): boolean {
   if (operation.synchronizationPending && !operation.synchronizationError) return true;
   return !paymentConfirmed(operation) && !paymentFailed(operation);
@@ -86,7 +96,7 @@ export async function executePaymentCheckout(
       );
     if (paymentConfirmed(operation) || paymentFailed(operation)) return operation;
     if (
-      operation.status === 'pending' &&
+      paymentCheckoutStatusOpen(operation) &&
       ['pending', 'processing', 'completed'].includes(operation.checkoutState)
     ) {
       actions.state('waiting');
@@ -96,7 +106,11 @@ export async function executePaymentCheckout(
     const latest = actions.checkpoint();
     if (latest) actions.store?.save(latest);
     actions.check();
-    if (options.openCheckout !== false && operation.checkoutUrl && operation.status === 'pending') {
+    if (
+      options.openCheckout !== false &&
+      operation.checkoutUrl &&
+      paymentCheckoutStatusOpen(operation)
+    ) {
       actions.state('opening');
       actions.open();
     }

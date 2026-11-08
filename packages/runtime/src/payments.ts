@@ -20,6 +20,7 @@ import { parsePaymentsCheckpoint } from './payments-checkpoint.js';
 import { PaymentAttemptStore, type PaymentStoreIdentity } from './payments-storage.js';
 import {
   executePaymentCheckout,
+  paymentCheckoutStatusOpen,
   paymentConfirmed,
   paymentFailed,
   paymentNeedsMonitoring,
@@ -214,7 +215,7 @@ export class WebPayments extends WebNonvisualComponent {
   public get canOpenCheckout(): boolean {
     return (
       this.#operation?.checkoutState === 'completed' &&
-      this.#operation.status === 'pending' &&
+      paymentCheckoutStatusOpen(this.#operation) &&
       isRestGoCheckoutURL(this.#operation.checkoutUrl)
     );
   }
@@ -617,7 +618,7 @@ export class WebPayments extends WebNonvisualComponent {
     if (
       !operation ||
       operation.checkoutState !== 'completed' ||
-      operation.status !== 'pending' ||
+      !paymentCheckoutStatusOpen(operation) ||
       !isRestGoCheckoutURL(operation.checkoutUrl)
     )
       throw new WebPaymentsError(
@@ -1269,8 +1270,11 @@ export class WebPayments extends WebNonvisualComponent {
     if (
       operation.checkoutUrl &&
       operation.checkoutState === 'completed' &&
-      operation.status === 'pending' &&
-      (previous?.id !== operation.id || previous.checkoutUrl !== operation.checkoutUrl)
+      paymentCheckoutStatusOpen(operation) &&
+      (previous?.id !== operation.id ||
+        previous.checkoutUrl !== operation.checkoutUrl ||
+        previous.checkoutState !== 'completed' ||
+        !paymentCheckoutStatusOpen(previous))
     )
       this.emit('OnCheckoutReady', { operation } satisfies WebPaymentsCheckoutEventDetail);
     if (version !== this.#version || this.#disposed) return;
@@ -1463,7 +1467,7 @@ export class WebPayments extends WebNonvisualComponent {
             if (
               operation.checkoutUrl &&
               operation.checkoutState === 'completed' &&
-              operation.status === 'pending'
+              paymentCheckoutStatusOpen(operation)
             )
               return operation;
             if (

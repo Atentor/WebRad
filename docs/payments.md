@@ -21,6 +21,40 @@ RestGo reads its price, currency, owner and recurrence from the configured sourc
 The RestGo dashboard owns gateway activation, provider credentials, payment source
 mappings, webhooks, license requirements, and fixed success/cancel destinations.
 
+## Asaas boleto
+
+Configure boleto in the Asaas gateway's payment rules in RestGo. The same
+`Pay(purchaseId)` flow opens the hosted payment link; no payment method or boleto
+configuration is supplied by the component. Asaas subscriptions require a card.
+The customer supplies their details on the hosted page. Once a boleto is issued
+and its webhook is processed, a fresh operation may contain `boleto.dueDate`
+(`YYYY-MM-DD`), `boleto.invoiceUrl`, and `boleto.bankSlipUrl`. Each field is
+optional, and history does not include these details or URLs.
+
+```typescript
+// On the return page, or later when the customer wants to see the boleto:
+const operation = await this.Payments1.Resume(purchaseId, { watch: false });
+if (operation?.boleto) {
+  const { dueDate, invoiceUrl, bankSlipUrl } = operation.boleto;
+  Message([
+    dueDate ? `Due date: ${dueDate}` : '',
+    invoiceUrl ? `Invoice: ${invoiceUrl}` : '',
+    bankSlipUrl ? `Boleto PDF: ${bankSlipUrl}` : '',
+  ].filter(Boolean).join('\n') || 'Boleto details are not available yet.');
+}
+```
+
+Use `Refresh()` to query again if the webhook has not yet supplied the details,
+or `GetOperation(operationId)` when the application has stored an operation ID.
+`checkoutUrl` can change from the payment link to the invoice after issuance;
+`canOpenCheckout` and `OpenCheckout()` also support an available Asaas invoice
+while its payment is processing or overdue. The link and invoice are not proof of
+payment: use `OnPaymentSucceeded` or `status === 'succeeded'` after backend
+confirmation. Boleto settlement can take longer than `pollTimeout`; a local
+observation timeout does not cancel the charge. Resume or refresh later, and rely
+on the backend webhook and server authorization for fulfillment. Ending the
+payment link does not cancel an already issued boleto.
+
 ## Start a payment or subscription
 
 Choose the method for the intended operation:

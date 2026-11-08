@@ -21,6 +21,14 @@ export interface RestGoPaymentProviderState {
   readonly eventType?: string;
 }
 
+/** Asaas boleto details, available after issuance and webhook processing. */
+export interface RestGoPaymentBoleto {
+  /** Calendar date in YYYY-MM-DD format, without a time zone. */
+  readonly dueDate?: string;
+  readonly invoiceUrl?: string;
+  readonly bankSlipUrl?: string;
+}
+
 export interface RestGoPaymentOperation {
   readonly id: string;
   readonly mode: RestGoPaymentMode;
@@ -29,6 +37,7 @@ export interface RestGoPaymentOperation {
   /** Preparation state, independent of financial confirmation. */
   readonly checkoutState: string;
   readonly checkoutUrl?: string;
+  readonly boleto?: RestGoPaymentBoleto;
   readonly synchronizationPending: boolean;
   readonly synchronizationError?: string;
   readonly providerName: RestGoPaymentProvider;
