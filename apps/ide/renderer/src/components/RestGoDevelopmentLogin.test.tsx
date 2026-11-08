@@ -41,9 +41,10 @@ describe('Development login form', () => {
     const user = userEvent.setup();
     render(<RestGoDevelopmentLogin baseUrl={baseUrl} disabled={false} />);
     await screen.findByText('Saved with operating system encryption.');
+    await user.click(screen.getByText('Sign in for development'));
     await user.type(screen.getByLabelText('User email'), 'user@example.test');
     await user.type(screen.getByLabelText('User password'), 'password');
-    await user.click(screen.getByRole('button', { name: 'Sign in for development' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect((await screen.findByRole('status')).textContent).toContain('user@example.test');
     expect(bridge.login).toHaveBeenCalledWith({
       baseUrl,
@@ -53,8 +54,9 @@ describe('Development login form', () => {
     });
     expect(screen.getByText('Session encrypted on this device.')).toBeDefined();
     expect(document.querySelector('input[type="password"]')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Sign out and forget session' }));
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
     await screen.findByLabelText('User password');
+    await user.click(screen.getByText('Sign in for development'));
     expect(bridge.logout).toHaveBeenCalledWith({ baseUrl });
     expect((screen.getByLabelText('User password') as HTMLInputElement).value).toBe('');
     expect(
@@ -69,19 +71,19 @@ describe('Development login form', () => {
     const user = userEvent.setup();
     render(<RestGoDevelopmentLogin baseUrl={baseUrl} disabled={false} />);
     await screen.findByText('Saved with operating system encryption.');
+    await user.click(screen.getByText('Sign in for development'));
     await user.type(screen.getByLabelText('User email'), 'user@example.test');
     await user.type(screen.getByLabelText('User password'), 'wrong-password');
-    await user.click(screen.getByRole('button', { name: 'Sign in for development' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect((await screen.findByRole('alert')).textContent).toBe('Invalid login');
     expect((screen.getByLabelText('User password') as HTMLInputElement).value).toBe('');
   });
 
-  it('requires saved connection settings and skips requests while disabled', () => {
+  it('requires saved connection settings and skips requests while disabled', async () => {
     const bridge = installBridge();
     render(<RestGoDevelopmentLogin baseUrl={baseUrl} disabled />);
     expect(bridge.status).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole('button', { name: 'Sign in for development' }).matches(':disabled'),
-    ).toBe(true);
+    await userEvent.setup().click(screen.getByText('Sign in for development'));
+    expect(screen.getByRole('button', { name: 'Sign in' }).matches(':disabled')).toBe(true);
   });
 });

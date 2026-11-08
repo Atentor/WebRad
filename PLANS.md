@@ -1,5 +1,91 @@
 # WebRAD delivery plan
 
+## Windows release battery: 2026-11-08
+
+On the working tree based on `4a8f43e01b9b0c970f5cf8b98612a9f9b277f9cc`,
+the grouped import tests were aligned with endpoint selection, the catalog hook
+was corrected for React lint rules, and the API Client smoke was updated to
+recognize request tabs with counts. The full Windows x64 validation with Chrome
+passed 242 files and 1,815 tests, and development, packaged and simulated update
+smokes passed. Logs are in `artifacts/release-battery-20261108/`. Native hosted
+verification on the final committed SHA and actual update installation remain
+outstanding.
+
+## RestGO API Client grouped import: 2026-11-08
+
+The import picker groups methods by endpoint slug, database, version and access
+policy. One selected group imports one request, preferring GET for a new group.
+Existing requests retain their selected method when reimported. Available
+methods are selected inside the request editor and loaded again when reopening
+the client. Switching updates the source identity and query/JSON inputs while
+preserving request IDs, names and shared primitive values; the previous method's
+response contract is cleared. Authentication modes remain separate. Catalog
+data and SQL stay in the IDE; the persistent project format is unchanged.
+
+The existing Electron API Client flow is adapted to grouped selection and
+method switching rather than separate GET/PUT import rows. The local release
+battery above covers this working tree.
+
+## RestGO endpoint editor UX: 2026-11-08
+
+RestGO operation progress banners appear only after one second. Busy controls
+still update immediately; completion and workspace disposal cancel the timer.
+The endpoint list combines text search with a database filter that initially
+selects the configured default once the catalog is available. Manual selections
+remain in effect for the workspace session. All databases includes endpoints
+without publications; a database selection includes its inactive publications.
+
+Endpoint details, HTTP method handlers and publication access now have separate
+sections. Methods show their own activation state, a compact SQL preview and an
+explicit action to add a missing handler. SQL editing opens a dedicated dialog
+with a large editor, draft-only Apply SQL, Cancel/Escape, keyboard focus
+containment and return focus. Saving the endpoint remains the server-write step.
+Publications are listed separately; Add publication and Edit access open the
+database/credential form without keeping duplicate controls on screen.
+Publication drafts participate in pending-edit tracking and keep endpoint edits
+disabled until the publication is saved or cancelled.
+The SQL dialog uses up to 1440px of the viewport with 24px side margins. Its
+width rule overrides the shared modal default regardless of stylesheet order.
+SQL text uses JetBrains Mono at 12px with normal width and weight.
+
+The existing API Client Electron flow checks default database filtering, manual
+selection across refresh and combined text search, then SQL cancellation, applying
+GET/PUT drafts, access restoration, modal focus and desktop/narrow geometry,
+while preserving its server-save and imported-client synchronization checks.
+Both runners require the updated endpoint-editor evidence. Validation was not
+requested or run.
+
+## RestGO connection UX: 2026-11-08
+
+The Connection workspace now gives application configuration its own primary
+card, with visible activation, instance URL, API defaults and user session
+settings, and a clear Apply footer. Separate IDE-only cards group administrative
+access and development login, using compact
+connection states, shorter actions, an expandable sign-in form and actionable
+guidance when configuration must be applied first. All three cards occupy a
+single full-width column; related settings and development login fields use two
+columns when space permits and stack on narrow workspaces. Refined section
+headings, field spacing and type sizes preserve readability at wide and narrow
+sizes. Larger, unboxed heading icons identify the three sections. The connected
+administrative card places its connection and actions beside the database,
+endpoint and publication counts on wide workspaces, with
+responsive stacking when space is limited. Project settings and credential
+storage contracts are unchanged.
+
+Published APIs appear in one full-width column, keeping each publication's
+actions, route, authentication and methods together. Publish and Unpublish have
+distinct action colors, icons and endpoint-specific accessible names. The existing
+API Client smoke uses three temporary fixture publications to check both action
+states, their transitions and the desktop and narrow layouts before restoring
+the fixture. In the published list, publication changes update the card without
+a separate success banner; operation errors remain visible. Search focus now
+outlines the complete search field, including its icon. Validation was not
+requested or run.
+
+Updated the existing Electron interactions, required evidence and affected
+development-login tests for the visible sections, action labels and responsive card
+layout. Validation was not requested or run.
+
 ## Release battery corrections: 2026-11-07
 
 The release battery exposed nonvisual reusable IDs being resolved through the

@@ -91,6 +91,8 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   const [status, setStatus] = useState<RestGoAdminStatus | null>(null);
   const [catalog, setCatalog] = useState<RestGoAdminCatalog>(EMPTY_CATALOG);
   const [pending, setPending] = useState<string | null>(null);
+  const [progressVisible, setProgressVisible] = useState(false);
+  const progressTimerRef = useRef<number | null>(null);
   const [checking, setChecking] = useState(Boolean(settings.baseUrl));
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -99,6 +101,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   const [query, setQuery] = useState('');
   const [databaseFilter, setDatabaseFilter] = useState('');
   const [endpointQuery, setEndpointQuery] = useState('');
+  const [endpointDatabaseOverride, setEndpointDatabaseOverride] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<RestGoEndpointGroup | null>(null);
   const [creatingEndpoint, setCreatingEndpoint] = useState(false);
   const [endpointDirty, setEndpointDirty] = useState(false);
@@ -114,6 +117,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
     currentScope.current = scope;
     return () => {
       currentScope.current = '';
+      if (progressTimerRef.current !== null) window.clearTimeout(progressTimerRef.current);
     };
   }, [scope]);
 
@@ -135,15 +139,30 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
     [onPendingChangesChange],
   );
   const groups = useMemo(() => restGoEndpointGroups(catalog.endpoints), [catalog.endpoints]);
-  const visibleGroups = useMemo(
-    () =>
-      groups.filter((group) =>
+  const defaultEndpointDatabase = catalog.bancos.find(
+    (database) => database.slug === settings.defaultDatabase,
+  );
+  const endpointDatabaseFilter =
+    endpointDatabaseOverride ?? (defaultEndpointDatabase ? String(defaultEndpointDatabase.id) : '');
+  const visibleGroups = useMemo(() => {
+    const matchingEndpointIds = endpointDatabaseFilter
+      ? new Set(
+          catalog.publications
+            .filter((publication) => String(publication.idbanco) === endpointDatabaseFilter)
+            .flatMap((publication) =>
+              restGoPublicationEndpoints(catalog, publication).map((endpoint) => endpoint.id),
+            ),
+        )
+      : null;
+    return groups.filter(
+      (group) =>
+        (matchingEndpointIds === null ||
+          group.endpoints.some((endpoint) => matchingEndpointIds.has(endpoint.id))) &&
         `${group.slug} v${String(group.version)} ${group.endpoints.map((endpoint) => endpoint.metodo).join(' ')}`
           .toLowerCase()
           .includes(endpointQuery.trim().toLowerCase()),
-      ),
-    [groups, endpointQuery],
-  );
+    );
+  }, [groups, endpointQuery, endpointDatabaseFilter, catalog]);
   const publishedApis = useMemo(() => restGoCatalogToPublishedApis(catalog), [catalog]);
   const visiblePublications = useMemo(
     () =>
@@ -195,6 +214,12 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   const perform = useCallback(
     async <T,>(label: string, action: () => Promise<T>, success?: string): Promise<T> => {
       const actionScope = currentScope.current;
+      setProgressVisible(false);
+      if (progressTimerRef.current !== null) window.clearTimeout(progressTimerRef.current);
+      const progressTimer = window.setTimeout(() => {
+        if (currentScope.current === actionScope) setProgressVisible(true);
+      }, 1_000);
+      progressTimerRef.current = progressTimer;
       setPending(label);
       setError(null);
       setNotice(null);
@@ -210,7 +235,12 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
         }
         throw reason;
       } finally {
-        if (currentScope.current === actionScope) setPending(null);
+        window.clearTimeout(progressTimer);
+        if (progressTimerRef.current === progressTimer) progressTimerRef.current = null;
+        if (currentScope.current === actionScope) {
+          setPending(null);
+          setProgressVisible(false);
+        }
       }
     },
     [baseUrl],
@@ -457,9 +487,13 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
           });
           await reloadCatalog();
         },
-        active ? 'API publication activated.' : 'API publication deactivated.',
+        section === 'published'
+          ? undefined
+          : active
+            ? 'API publication activated.'
+            : 'API publication deactivated.',
       ),
-    [baseUrl, perform, reloadCatalog],
+    [baseUrl, perform, reloadCatalog, section],
   );
 
   const title = SECTION_TITLES[section];
@@ -501,7 +535,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
           )}
         </div>
       </header>
-      {pending && (
+      {pending && progressVisible && (
         <div className="wr-restgo-progress" role="status">
           <span className="wr-restgo-spinner" />
           {pending}…
@@ -601,11 +635,14 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
           <aside className="wr-restgo-endpoint-list">
             <div className="wr-restgo-endpoint-list-toolbar">
               <strong>
-                Endpoints <small>{groups.length}</small>
+                Endpoints{' '}
+                <small>
+                  {visibleGroups.length} / {groups.length}
+                </small>
               </strong>
               <button
                 type="button"
-                className="wr-restgo-icon-button"
+                className="wr-restgo-button wr-restgo-new-endpoint"
                 title="Create endpoint"
                 aria-label="Create endpoint"
                 disabled={busy || endpointDirty}
@@ -615,6 +652,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
                 }}
               >
                 <Icon name="add" />
+                New
               </button>
             </div>
             <label className="wr-restgo-search">
@@ -626,6 +664,23 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
                 value={endpointQuery}
                 onChange={(event) => setEndpointQuery(event.currentTarget.value)}
               />
+            </label>
+            <label className="wr-restgo-endpoint-database-filter">
+              <span>Database</span>
+              <select
+                aria-label="Filter endpoints by database"
+                value={endpointDatabaseFilter}
+                disabled={busy}
+                onChange={(event) => setEndpointDatabaseOverride(event.currentTarget.value)}
+              >
+                <option value="">All databases</option>
+                {catalog.bancos.map((database) => (
+                  <option key={database.id} value={database.id}>
+                    {database.slug}
+                    {database.slug === settings.defaultDatabase ? ' (default)' : ''}
+                  </option>
+                ))}
+              </select>
             </label>
             {endpointDirty && (
               <p className="wr-restgo-list-note">
@@ -657,7 +712,9 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
             ))}
             {visibleGroups.length === 0 && (
               <p className="wr-restgo-list-note">
-                {groups.length ? 'No matching endpoints.' : 'Create your first endpoint with +.'}
+                {groups.length
+                  ? 'No matching endpoints. Try another database or search.'
+                  : 'Use New to create your first endpoint.'}
               </p>
             )}
           </aside>

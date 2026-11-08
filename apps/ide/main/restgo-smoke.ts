@@ -14,6 +14,8 @@ import { publishPreviewHtml, revokePreview } from './preview-server';
 import { defaultComponentRegistry } from '@webrad/component-registry';
 import { createDefaultWebLoginConfiguration } from '@webrad/runtime/login-model';
 import { monacoHandlerInputReadyExpression } from './monaco-smoke-input';
+import { capturePresentedSmokePage } from './smoke-capture';
+import { resizeSmokeViewport } from './smoke-viewport';
 
 interface RestGoSettingsSmokeOptions {
   readonly projectPath: string;
@@ -72,9 +74,11 @@ async function setField(window: BrowserWindow, label: string, value: string): Pr
     window,
     `(() => {
       const label = Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label'))
-        .find((item) => item.querySelector('span')?.textContent?.trim() === ${JSON.stringify(label)});
+        .find((item) => item.querySelector('input, select')?.getAttribute('aria-label') === ${JSON.stringify(label)}
+          || item.querySelector('span')?.textContent?.trim() === ${JSON.stringify(label)});
       const control = label?.querySelector('input, select');
       if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement) || control.matches(':disabled')) return false;
+      if (control.getClientRects().length === 0) return false;
       const prototype = control instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLSelectElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(control, ${JSON.stringify(value)});
       control.dispatchEvent(new Event('input', { bubbles: true }));
@@ -85,7 +89,8 @@ async function setField(window: BrowserWindow, label: string, value: string): Pr
   await rendererReady(
     window,
     `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings label'))
-      .find((item) => item.querySelector('span')?.textContent?.trim() === ${JSON.stringify(label)})
+      .find((item) => item.querySelector('input, select')?.getAttribute('aria-label') === ${JSON.stringify(label)}
+        || item.querySelector('span')?.textContent?.trim() === ${JSON.stringify(label)})
       ?.querySelector('input, select')?.value === ${JSON.stringify(value)}`,
   );
 }
@@ -111,7 +116,7 @@ async function configurationApplied(window: BrowserWindow, enabled: boolean): Pr
   await rendererReady(
     window,
     `document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'
-      && document.querySelector('.wr-restgo-runtime-settings')?.textContent.includes('Configuration matches the project') === true
+      && document.querySelector('.wr-restgo-runtime-settings')?.textContent.includes('Up to date') === true
       && document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.matches(':disabled') === true
       && document.querySelector('.wr-restgo-sidebar-instance .wr-restgo-dot')?.classList.contains('is-active') === ${String(enabled)}
       && document.querySelector('.wr-restgo-sidebar-instance small')?.textContent === 'https://restgo.example.test/backend'
@@ -122,6 +127,183 @@ async function configurationApplied(window: BrowserWindow, enabled: boolean): Pr
 async function openSettings(window: BrowserWindow): Promise<void> {
   await click(window, 'button[aria-label="RestGo integration"]');
   await click(window, '.wr-restgo-sidebar button:first-child');
+}
+
+async function connectionLayoutEvidence(
+  window: BrowserWindow,
+  screenshotPath: string,
+): Promise<string> {
+  const [originalWidth, originalHeight] = window.getContentSize();
+  const [minimumWidth, minimumHeight] = window.getMinimumSize();
+  if (
+    originalWidth === undefined ||
+    originalHeight === undefined ||
+    minimumWidth === undefined ||
+    minimumHeight === undefined
+  )
+    throw new Error('RestGO Connection smoke could not read the original window dimensions.');
+  const narrowPath = screenshotPath.replace(/\.png$/, '-narrow.png');
+  const toolsPath = screenshotPath.replace(/\.png$/, '-narrow-tools.png');
+  const desktopToolsPath = screenshotPath.replace(/\.png$/, '-desktop-tools.png');
+  const desktopSessionPath = screenshotPath.replace(/\.png$/, '-desktop-session.png');
+  const narrowSessionPath = screenshotPath.replace(/\.png$/, '-narrow-session.png');
+  const desktopLoginPath = screenshotPath.replace(/\.png$/, '-desktop-login.png');
+  const narrowLoginPath = screenshotPath.replace(/\.png$/, '-narrow-login.png');
+  try {
+    window.setMinimumSize(1, 1);
+    for (const [width, height, narrow, outputPath] of [
+      [1440, 900, false, screenshotPath],
+      [900, 800, true, narrowPath],
+    ] as const) {
+      await resizeSmokeViewport(window, { width, height });
+      await rendererReady(
+        window,
+        `(() => {
+          const form = document.querySelector('details.wr-restgo-development-form');
+          const summary = form?.querySelector('summary');
+          if (!(form instanceof HTMLDetailsElement) || !(summary instanceof HTMLElement)) return false;
+          if (!form.open) summary.click();
+          return form.open;
+        })()`,
+      );
+      await rendererReady(
+        window,
+        `(() => {
+          const connection = document.querySelector('.wr-restgo-connection');
+          const body = connection?.closest('.wr-restgo-workspace-body');
+          const application = connection?.querySelector('.wr-restgo-runtime-settings');
+          const tools = connection?.querySelector('.wr-restgo-ide-tools');
+          const admin = tools?.querySelector('.wr-restgo-admin-settings');
+          const login = tools?.querySelector('.wr-restgo-development-login');
+          if (![body, connection, application, tools, admin, login].every(element => element instanceof HTMLElement)) return false;
+          if (application.querySelector('h2')?.textContent !== 'Application connection') return false;
+          if (!application.textContent.includes('Project settings') || !tools.textContent.includes('IDE only')) return false;
+          if (application.contains(admin) || application.contains(login)) return false;
+          const icons = [application, admin, login].map(section => section.querySelector('.wr-restgo-connection-heading > .wr-icon'));
+          if (!icons.every(icon => {
+            if (!(icon instanceof SVGSVGElement)) return false;
+            const bounds = icon.getBoundingClientRect();
+            const style = getComputedStyle(icon);
+            return Math.abs(bounds.width - 24) <= 1 && Math.abs(bounds.height - 24) <= 1
+              && style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.backgroundImage === 'none'
+              && style.padding === '0px' && icon.getAttribute('aria-hidden') === 'true';
+          })) return false;
+          const apiDefaults = application.querySelector('section.wr-restgo-api-defaults');
+          const session = application.querySelector('section.wr-restgo-session-settings');
+          if (!(apiDefaults instanceof HTMLElement) || !(session instanceof HTMLElement)) return false;
+          const loginForm = login.querySelector('details.wr-restgo-development-form');
+          const loginFields = loginForm?.querySelector('.wr-restgo-login-fields');
+          if (!(loginForm instanceof HTMLDetailsElement) || !loginForm.open || !(loginFields instanceof HTMLElement)) return false;
+          const fields = [apiDefaults.querySelector('input[type="password"]'), apiDefaults.querySelector('input[type="text"]'), session.querySelector('select'), session.querySelector('input[type="text"]'), loginFields.querySelector('input[type="email"]'), loginFields.querySelector('input[type="password"]')];
+          if (!fields.every(field => {
+            if (!(field instanceof HTMLElement) || field.getClientRects().length === 0) return false;
+            const label = field.closest('label');
+            return label instanceof HTMLElement && Math.abs(field.getBoundingClientRect().width - label.getBoundingClientRect().width) <= 2;
+          })) return false;
+          const [apiToken, database, storage, storageKey, loginEmail, loginPassword] = fields;
+          const bounds = connection.getBoundingClientRect();
+          const bodyBounds = body.getBoundingClientRect();
+          const bodyStyle = getComputedStyle(body);
+          const paddingLeft = parseFloat(bodyStyle.paddingLeft);
+          const paddingRight = parseFloat(bodyStyle.paddingRight);
+          const availableWidth = body.clientWidth - paddingLeft - paddingRight;
+          const twoColumns = availableWidth >= 760;
+          if ((innerWidth === 1440 && !twoColumns) || (innerWidth === 900 && twoColumns)) return false;
+          const pairMatches = (first, second) => {
+            const left = first.getBoundingClientRect();
+            const right = second.getBoundingClientRect();
+            if (twoColumns) return right.left >= left.right - 1 && Math.abs(right.top - left.top) <= 2 && Math.abs(right.width - left.width) <= 2;
+            return right.top >= left.bottom - 1 && Math.abs(right.left - left.left) <= 2 && Math.abs(right.width - left.width) <= 2;
+          };
+          if (!pairMatches(apiToken, database) || !pairMatches(storage, storageKey) || !pairMatches(loginEmail, loginPassword)) return false;
+          const contentLeft = bodyBounds.left + body.clientLeft + paddingLeft;
+          const fillsAvailableWidth = availableWidth > 0
+            && Math.abs(bounds.left - contentLeft) <= 2
+            && Math.abs(bounds.width - availableWidth) <= 2
+            && body.scrollWidth <= body.clientWidth + 1;
+          const appBounds = application.getBoundingClientRect();
+          const toolsBounds = tools.getBoundingClientRect();
+          const fits = [application, tools, admin, login].every(element => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && Math.abs(rect.left - bounds.left) <= 2 && Math.abs(rect.width - bounds.width) <= 2 && rect.right <= bounds.right + 1 && element.scrollWidth <= element.clientWidth + 1;
+          });
+          const url = application.querySelector('input[type="url"]');
+          if (!(url instanceof HTMLInputElement) || url.value !== 'https://restgo.example.test/backend') return false;
+          const readable = url.getBoundingClientRect().height >= 30 && parseFloat(getComputedStyle(url).fontSize) >= 12;
+          return fillsAvailableWidth && fits && readable && connection.scrollWidth <= connection.clientWidth + 1 && toolsBounds.top >= appBounds.bottom - 1
+            && Math.abs(toolsBounds.left - appBounds.left) <= 1
+            && Math.abs(toolsBounds.width - appBounds.width) <= 1
+            && login.getBoundingClientRect().top >= admin.getBoundingClientRect().bottom - 1;
+        })()`,
+      );
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-login-fields').scrollIntoView({ block: 'center' })`,
+        true,
+      );
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
+      const loginScreenshot = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        `RestGO Connection ${narrow ? 'narrow' : 'desktop'} development login`,
+      );
+      await fs.writeFile(narrow ? narrowLoginPath : desktopLoginPath, loginScreenshot.toPNG());
+      await rendererReady(
+        window,
+        `(() => {
+          const form = document.querySelector('details.wr-restgo-development-form');
+          const summary = form?.querySelector('summary');
+          if (!(form instanceof HTMLDetailsElement) || !(summary instanceof HTMLElement)) return false;
+          if (form.open) summary.click();
+          return !form.open;
+        })()`,
+      );
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-runtime-settings').scrollIntoView({ block: 'start' })`,
+        true,
+      );
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
+      const screenshot = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        `RestGO Connection ${narrow ? 'narrow' : 'desktop'}`,
+      );
+      await fs.writeFile(outputPath, screenshot.toPNG());
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-session-settings').scrollIntoView({ block: 'start' })`,
+        true,
+      );
+      const sessionScreenshot = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        `RestGO Connection ${narrow ? 'narrow' : 'desktop'} user session`,
+      );
+      await fs.writeFile(
+        narrow ? narrowSessionPath : desktopSessionPath,
+        sessionScreenshot.toPNG(),
+      );
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-ide-tools').scrollIntoView({ block: 'start' })`,
+        true,
+      );
+      const toolsScreenshot = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        `RestGO Connection ${narrow ? 'narrow' : 'desktop'} IDE tools`,
+      );
+      await fs.writeFile(narrow ? toolsPath : desktopToolsPath, toolsScreenshot.toPNG());
+    }
+  } finally {
+    try {
+      await resizeSmokeViewport(window, { width: originalWidth, height: originalHeight });
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-runtime-settings')?.scrollIntoView({ block: 'start' })`,
+        true,
+      );
+    } finally {
+      window.setMinimumSize(minimumWidth, minimumHeight);
+    }
+  }
+  return `${narrowPath}, ${desktopSessionPath}, ${narrowSessionPath}, ${desktopToolsPath}, ${toolsPath}, ${desktopLoginPath}, ${narrowLoginPath}`;
 }
 
 async function saveProject(window: BrowserWindow, projectPath: string): Promise<void> {
@@ -166,6 +348,13 @@ export async function runRestGoSettingsSmoke(
   { projectPath, log }: RestGoSettingsSmokeOptions,
 ): Promise<void> {
   await openSettings(window);
+  await rendererReady(
+    window,
+    `document.querySelector('.wr-restgo-api-defaults input[type="password"]')?.getClientRects().length > 0
+      && document.querySelector('.wr-restgo-api-defaults input[type="text"]')?.getClientRects().length > 0
+      && document.querySelector('.wr-restgo-session-settings select')?.getClientRects().length > 0
+      && document.querySelector('.wr-restgo-session-settings input[type="text"]')?.getClientRects().length > 0`,
+  );
   await setIntegrationEnabled(window, true);
   await setField(window, 'RestGO instance URL', 'https://restgo.example.test/backend');
   await setField(window, 'Application API token', 'rgo.settings-smoke');
@@ -177,10 +366,18 @@ export async function runRestGoSettingsSmoke(
     window,
     `Array.from(document.querySelectorAll('.wr-restgo-runtime-settings input')).some(input => input.value === 'https://restgo.example.test/backend')`,
   );
-  const screenshot = await window.webContents.capturePage();
   const screenshotPath = path.resolve('node_modules', '.cache', 'webrad-restgo-settings.png');
-  await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
-  await fs.writeFile(screenshotPath, screenshot.toPNG());
+  await rendererReady(
+    window,
+    `document.querySelector('.wr-restgo-api-defaults input[type="password"]')?.getClientRects().length > 0
+      && document.querySelector('.wr-restgo-api-defaults input[type="text"]')?.getClientRects().length > 0
+      && document.querySelector('.wr-restgo-session-settings select')?.getClientRects().length > 0
+      && document.querySelector('.wr-restgo-session-settings input[type="text"]')?.getClientRects().length > 0`,
+  );
+  const narrowScreenshots = await connectionLayoutEvidence(window, screenshotPath);
+  log(
+    `renderer RestGO connection layout passed: project and IDE cards, unboxed heading icons; visible API defaults and session settings; full-width single-column desktop and narrow geometry; screenshots ${screenshotPath}, ${narrowScreenshots}`,
+  );
   await saveProject(window, projectPath);
   await click(window, 'button[aria-label="Close RestGo"]');
   await openSettings(window);

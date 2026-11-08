@@ -1,5 +1,7 @@
 import { Icon } from './Icon';
 import {
+  groupRestGoPublishedApis,
+  getRestGoGroupImportApi,
   getRestGoPublishedApiConnection,
   isEmptyApiClientConfiguration,
   type RestGoPublishedApi,
@@ -23,7 +25,11 @@ interface Props {
   readonly configuration: ApiClientConfiguration;
   readonly customBaseUrl: string;
   readonly onClose: () => void;
-  readonly onImport: (apis: readonly RestGoPublishedApi[], convertCustom: boolean) => void;
+  readonly onImport: (
+    apis: readonly RestGoPublishedApi[],
+    convertCustom: boolean,
+    catalogApis: readonly RestGoPublishedApi[],
+  ) => void;
 }
 
 const AUTHENTICATION_LABELS = {
@@ -63,20 +69,27 @@ export function RestGoApiPickerDialog({
   const custom = (configuration.connection ?? 'custom') === 'custom';
   const empty = isEmptyApiClientConfiguration(configuration);
   const needsConversion = custom && (!empty || customBaseUrl.trim().length > 0);
+  const groups = useMemo(() => groupRestGoPublishedApis(apis), [apis]);
   const selectedApis = useMemo(
-    () => apis.filter((api) => selectedIds.has(api.id)),
-    [apis, selectedIds],
+    () =>
+      groups
+        .filter((group) => selectedIds.has(group.id))
+        .flatMap((group) => {
+          const api = getRestGoGroupImportApi(group, configuration);
+          return api ? [api] : [];
+        }),
+    [groups, selectedIds, configuration],
   );
   const selectedConnection =
     selectedApis[0] === undefined ? undefined : getRestGoPublishedApiConnection(selectedApis[0]);
-  const visibleApis = useMemo(() => {
+  const visibleGroups = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase();
-    return apis.filter((api) =>
-      `${api.name} ${api.method} ${api.database} ${api.endpoint} v${String(api.apiVersion)}`
+    return groups.filter((group) =>
+      `${group.endpoint} ${group.database} v${String(group.apiVersion)} ${group.apis.map((api) => api.method).join(' ')}`
         .toLocaleLowerCase()
         .includes(needle),
     );
-  }, [apis, search]);
+  }, [groups, search]);
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -230,6 +243,9 @@ export function RestGoApiPickerDialog({
               Refresh
             </button>
           </div>
+          <p className="wr-restgo-api-picker-hint">
+            Choose endpoints here, then select the HTTP method in each API Client request.
+          </p>
           {error !== null && (
             <p className="wr-modal-error" role="alert">
               {error}
@@ -282,43 +298,50 @@ export function RestGoApiPickerDialog({
             </p>
           ) : (
             <div className="wr-restgo-api-picker-list" aria-label="Published RestGo APIs">
-              {visibleApis.map((api) => {
-                const unavailable = incompatible(api);
-                const unavailableId = `${titleId}-unavailable-${api.id}`;
+              {visibleGroups.map((group) => {
+                const unavailable = group.apis.some(incompatible);
+                const unavailableId = `${titleId}-unavailable-${group.apis[0]?.id}`;
                 return (
-                  <label className="wr-restgo-api-picker-row" key={api.id}>
+                  <label className="wr-restgo-api-picker-row" key={group.id}>
                     <input
                       type="checkbox"
-                      aria-label={`Import ${api.method} ${api.database}/${api.endpoint} v${String(api.apiVersion)}`}
+                      aria-label={`Import ${group.database}/${group.endpoint} v${String(group.apiVersion)}`}
                       aria-describedby={unavailable ? unavailableId : undefined}
-                      checked={selectedIds.has(api.id)}
+                      checked={selectedIds.has(group.id)}
                       disabled={unavailable}
                       onChange={(event) => {
                         const checked = event.currentTarget.checked;
                         setSelectedIds((current) => {
                           const next = new Set(current);
-                          if (checked) next.add(api.id);
-                          else next.delete(api.id);
+                          if (checked) next.add(group.id);
+                          else next.delete(group.id);
                           return next;
                         });
                       }}
                     />
-                    <span className={`wr-restgo-method-badge method-${api.method.toLowerCase()}`}>
-                      {api.method}
-                    </span>
                     <span className="wr-restgo-api-picker-details">
                       <span className="wr-restgo-api-picker-heading">
-                        <strong>{api.name}</strong>
+                        <strong>{group.endpoint}</strong>
                         <small>
-                          {api.database} · v{String(api.apiVersion)}
+                          {group.database} · v{String(group.apiVersion)}
                         </small>
                       </span>
                       <code className="wr-restgo-api-picker-route">
-                        /v{String(api.apiVersion)}/{api.database}/{api.endpoint}
+                        /v{String(group.apiVersion)}/{group.database}/{group.endpoint}
                       </code>
+                      <span className="wr-restgo-api-picker-methods" aria-label="Available methods">
+                        {group.apis.map((api) => (
+                          <span
+                            key={api.method}
+                            className={`wr-restgo-method-badge method-${api.method.toLowerCase()}`}
+                          >
+                            {api.method}
+                          </span>
+                        ))}
+                      </span>
                     </span>
                     <span className="wr-restgo-api-picker-auth">
-                      <small>{AUTHENTICATION_LABELS[api.authentication]}</small>
+                      <small>{AUTHENTICATION_LABELS[group.authentication]}</small>
                       {unavailable && (
                         <small
                           className="wr-restgo-api-picker-unavailable"
@@ -332,7 +355,7 @@ export function RestGoApiPickerDialog({
                   </label>
                 );
               })}
-              {visibleApis.length === 0 && error === null && (
+              {visibleGroups.length === 0 && error === null && (
                 <p className="wr-api-empty">
                   {apis.length === 0
                     ? 'No published APIs. Publish an endpoint in RestGo to import it.'
@@ -358,7 +381,7 @@ export function RestGoApiPickerDialog({
         <footer className="wr-modal-actions">
           <span className="wr-restgo-api-picker-count" role="status">
             {selectedApis.length === 0
-              ? 'No requests selected'
+              ? 'No endpoints selected'
               : `${String(selectedApis.length)} selected`}
           </span>
           <button type="button" onClick={onClose}>
@@ -374,11 +397,11 @@ export function RestGoApiPickerDialog({
               selectedApis.length === 0 ||
               (needsConversion && !convertCustom)
             }
-            onClick={() => onImport(selectedApis, convertCustom)}
+            onClick={() => onImport(selectedApis, convertCustom, apis)}
           >
             Import{' '}
             {selectedApis.length > 0
-              ? `${String(selectedApis.length)} request${selectedApis.length === 1 ? '' : 's'}`
+              ? `${String(selectedApis.length)} endpoint${selectedApis.length === 1 ? '' : 's'}`
               : 'APIs'}
           </button>
         </footer>

@@ -13,6 +13,7 @@ import { BrowserWindow } from 'electron';
 
 import { publishPreviewHtml, revokePreview } from './preview-server';
 import { resizeSmokeViewport } from './smoke-viewport';
+import { capturePresentedSmokePage } from './smoke-capture';
 import type { RestGoAdminEndpoint } from '../shared/restgo-admin';
 
 interface ApiClientDesignerSmokeOptions {
@@ -52,7 +53,7 @@ async function ready(window: BrowserWindow, expression: string): Promise<void> {
           instanceUrl: instance?.value,
           toggleDisabled: enabled?.matches(':disabled'),
           applyDisabled: configuration?.querySelector('button[type="submit"]')?.matches(':disabled'),
-          configurationApplied: configuration?.textContent.includes('Configuration matches the project'),
+          configurationApplied: configuration?.textContent.includes('Up to date'),
           projectedInstance: document.querySelector('.wr-restgo-sidebar-instance small')?.textContent,
           projectedEnabled: document.querySelector('.wr-restgo-sidebar-instance .wr-restgo-dot')?.classList.contains('is-active'),
           alerts: [...document.querySelectorAll('.wr-restgo-workspace [role="alert"], .wr-error-boundary')].map(element => element.textContent),
@@ -112,7 +113,8 @@ async function clickText(
     window,
     `(() => {
     const control = Array.from(document.querySelectorAll(${JSON.stringify(`${scope} button, ${scope} summary`)}))
-      .find((candidate) => candidate.getAttribute('aria-label') === ${JSON.stringify(text)} || candidate.textContent.trim() === ${JSON.stringify(text)});
+      .find((candidate) => candidate.getAttribute('aria-label') === ${JSON.stringify(text)} || candidate.textContent.trim() === ${JSON.stringify(text)} ||
+        (candidate.getAttribute('role') === 'tab' && candidate.textContent.trim().replace(/ \\(\\d+\\)$/, '') === ${JSON.stringify(text)}));
     if (!(control instanceof HTMLElement) || control.matches(':disabled')) return false;
     control.click();
     return true;
@@ -167,6 +169,89 @@ async function verifyDialogViewport(window: BrowserWindow, stacked = false): Pro
   );
 }
 
+async function captureAdministrativeLayout(
+  window: BrowserWindow,
+  screenshotRoot: string,
+  baseUrl: string,
+): Promise<void> {
+  const [originalWidth, originalHeight] = window.getContentSize();
+  const [minimumWidth, minimumHeight] = window.getMinimumSize();
+  if (
+    originalWidth === undefined ||
+    originalHeight === undefined ||
+    minimumWidth === undefined ||
+    minimumHeight === undefined
+  ) {
+    throw new Error('RestGO administrative layout smoke could not read window dimensions.');
+  }
+  try {
+    window.setMinimumSize(1, 1);
+    for (const [width, height, wide, suffix] of [
+      [1440, 900, true, ''],
+      [900, 800, false, '-narrow'],
+    ] as const) {
+      await resizeSmokeViewport(window, { width, height });
+      await ready(
+        window,
+        `(() => {
+          const body = document.querySelector('.wr-restgo-workspace-body');
+          const card = document.querySelector('.wr-restgo-admin-settings');
+          const content = card?.querySelector('.wr-restgo-connected-content');
+          const identity = content?.querySelector('.wr-restgo-identity');
+          const summary = content?.querySelector('.wr-restgo-connection-summary');
+          const actions = content?.querySelector('.wr-restgo-admin-actions');
+          if (![body, card, content, identity, summary, actions].every(item => item instanceof HTMLElement)) return false;
+          if (document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') !== 'false') return false;
+          if (!identity.textContent.includes('Connected to RestGO') || identity.querySelector('code')?.textContent !== ${JSON.stringify(baseUrl)}) return false;
+          if (!identity.textContent.includes('Administrative token')) return false;
+          const entries = [...summary.children];
+          const names = ['Databases', 'Endpoints', 'Publications'];
+          if (entries.length !== 3 || !entries.every((entry, index) => entry.textContent.includes(names[index]) && entry.querySelector('strong')?.textContent === '1')) return false;
+          const buttons = [...actions.querySelectorAll('button')];
+          if (!['Refresh catalog', 'Disconnect'].every(name => buttons.some(button => button.textContent.trim() === name && !button.matches(':disabled')))) return false;
+          if (!card.textContent.includes('This token stays in the IDE')) return false;
+          const style = getComputedStyle(body);
+          const availableWidth = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+          if ((availableWidth >= 850) !== ${String(wide)}) return false;
+          const identityRect = identity.getBoundingClientRect();
+          const summaryRect = summary.getBoundingClientRect();
+          const actionsRect = actions.getBoundingClientRect();
+          const arranged = ${String(wide)}
+            ? summaryRect.left >= identityRect.right - 1 && actionsRect.top >= identityRect.bottom - 1 && actionsRect.right <= summaryRect.left + 1
+            : summaryRect.top >= identityRect.bottom - 1 && actionsRect.top >= summaryRect.bottom - 1;
+          const cells = entries.map(entry => entry.getBoundingClientRect());
+          const horizontal = cells[1].left >= cells[0].right - 1 && cells[2].left >= cells[1].right - 1;
+          const readable = entries.every(entry => entry.getBoundingClientRect().height > 0 && parseFloat(getComputedStyle(entry).fontSize) >= 11);
+          const noOverflow = [body, card, content, identity, summary, actions, ...entries].every(item => item.scrollWidth <= item.clientWidth + 1);
+          return arranged && horizontal && readable && noOverflow;
+        })()`,
+      );
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-admin-settings').scrollIntoView({ block: 'start' })`,
+        true,
+      );
+      const outputPath = `${screenshotRoot}-connection-admin-connected${suffix}.png`;
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
+      const screenshot = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        `RestGO administrative connection ${wide ? 'desktop' : 'narrow'}`,
+      );
+      await fs.writeFile(outputPath, screenshot.toPNG());
+    }
+  } finally {
+    try {
+      await resizeSmokeViewport(window, { width: originalWidth, height: originalHeight });
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-admin-settings')?.scrollIntoView({ block: 'start' })`,
+        true,
+      );
+    } finally {
+      window.setMinimumSize(minimumWidth, minimumHeight);
+    }
+  }
+}
+
 async function captureThemeAndViewportVariants(
   window: BrowserWindow,
   screenshotRoot: string,
@@ -216,6 +301,322 @@ async function captureThemeAndViewportVariants(
   }
 }
 
+async function capturePublishedApiLayout(
+  window: BrowserWindow,
+  screenshotRoot: string,
+): Promise<void> {
+  const [originalWidth, originalHeight] = window.getContentSize();
+  const [minimumWidth, minimumHeight] = window.getMinimumSize();
+  if (
+    originalWidth === undefined ||
+    originalHeight === undefined ||
+    minimumWidth === undefined ||
+    minimumHeight === undefined
+  ) {
+    throw new Error('RestGO published APIs smoke could not read window dimensions.');
+  }
+  try {
+    window.setMinimumSize(1, 1);
+    for (const [width, height, suffix] of [
+      [1440, 900, ''],
+      [900, 800, '-narrow'],
+    ] as const) {
+      await resizeSmokeViewport(window, { width, height });
+      await ready(
+        window,
+        `(() => {
+          const body = document.querySelector('.wr-restgo-workspace-body');
+          const list = document.querySelector('.wr-restgo-published:not([hidden]) .wr-restgo-api-cards');
+          if (!(body instanceof HTMLElement) || !(list instanceof HTMLElement)) return false;
+          const cards = [...list.querySelectorAll('.wr-restgo-api-card')];
+          if (cards.length !== 3 || document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') !== 'false') return false;
+          const names = ['anotacoes', 'clientes', 'pedidos'];
+          const listBounds = list.getBoundingClientRect();
+          const arranged = cards.every((card, index) => {
+            if (!(card instanceof HTMLElement)) return false;
+            const rect = card.getBoundingClientRect();
+            const previous = cards[index - 1]?.getBoundingClientRect();
+            const title = card.querySelector('.wr-restgo-api-title h2');
+            const methods = card.querySelectorAll('.wr-restgo-api-method');
+            const buttons = [...card.querySelectorAll('.wr-restgo-api-actions button')];
+            if (buttons.length !== 2 || !(buttons[0] instanceof HTMLButtonElement)) return false;
+            const action = card.querySelector('.wr-restgo-publish-action');
+            const inactive = index === 1;
+            if (!(action instanceof HTMLButtonElement) || action.matches(':disabled')) return false;
+            if (!action.classList.contains(inactive ? 'is-publish' : 'is-unpublish')) return false;
+            if (action.textContent.trim() !== (inactive ? 'Publish' : 'Unpublish')) return false;
+            if (action.getAttribute('aria-label') !== (inactive ? 'Publish ' : 'Unpublish ') + names[index]) return false;
+            if (card.querySelector('.wr-restgo-badge')?.textContent !== (inactive ? 'Unpublished' : 'Ready')) return false;
+            const icon = action.querySelector('.wr-icon');
+            if (!(icon instanceof SVGSVGElement) || icon.getAttribute('aria-hidden') !== 'true'
+              || icon.getAttribute('data-lucide-icon') !== (inactive ? 'cloud-upload' : 'eye-off')) return false;
+            const actionStyle = getComputedStyle(action);
+            const editStyle = getComputedStyle(buttons[0]);
+            if (actionStyle.color === editStyle.color || actionStyle.backgroundColor === editStyle.backgroundColor
+              || action.getBoundingClientRect().height < 30) return false;
+            return title?.textContent === names[index] && methods.length > 0
+              && buttons.length === 2 && buttons.every(button => !button.matches(':disabled'))
+              && card.querySelector('.wr-restgo-api-url')?.getAttribute('title')
+              && Math.abs(rect.left - listBounds.left) <= 1 && Math.abs(rect.width - listBounds.width) <= 1
+              && (!previous || rect.top >= previous.bottom - 1) && card.scrollWidth <= card.clientWidth + 1;
+          });
+          if (!arranged) return false;
+          const firstAction = cards[0].querySelector('.wr-restgo-publish-action');
+          const secondAction = cards[1].querySelector('.wr-restgo-publish-action');
+          if (!(firstAction instanceof HTMLButtonElement) || !(secondAction instanceof HTMLButtonElement)) return false;
+          const firstStyle = getComputedStyle(firstAction);
+          const secondStyle = getComputedStyle(secondAction);
+          if (firstStyle.color === secondStyle.color || firstStyle.backgroundColor === secondStyle.backgroundColor) return false;
+          return listBounds.width > 0 && list.scrollWidth <= list.clientWidth + 1
+            && body.scrollWidth <= body.clientWidth + 1;
+        })()`,
+      );
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-published:not([hidden]) .wr-restgo-api-cards').scrollIntoView({ block: 'start' })`,
+        true,
+      );
+      const outputPath = `${screenshotRoot}-restgo-published${suffix}.png`;
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
+      const screenshot = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        `RestGO published APIs ${suffix ? 'narrow' : 'desktop'}`,
+      );
+      await fs.writeFile(outputPath, screenshot.toPNG());
+      await window.webContents.executeJavaScript(
+        `(() => {
+          const input = document.querySelector('[aria-label="Search published APIs"]');
+          if (input instanceof HTMLInputElement) {
+            input.scrollIntoView({ block: 'center' });
+            input.focus();
+          }
+        })()`,
+        true,
+      );
+      await ready(
+        window,
+        `(() => {
+          const input = document.querySelector('[aria-label="Search published APIs"]');
+          const field = input?.closest('.wr-restgo-search');
+          const icon = field?.querySelector('.wr-icon');
+          if (!(input instanceof HTMLInputElement) || !(field instanceof HTMLElement) || !(icon instanceof SVGSVGElement)) return false;
+          if (document.activeElement !== input || !field.matches(':focus-within')) return false;
+          const outer = getComputedStyle(field);
+          const inner = getComputedStyle(input);
+          const bounds = field.getBoundingClientRect();
+          const iconBounds = icon.getBoundingClientRect();
+          const inputBounds = input.getBoundingClientRect();
+          return outer.outlineStyle === 'solid' && outer.outlineWidth === '2px'
+            && outer.outlineOffset === '-1px' && inner.outlineStyle === 'none' && inner.boxShadow === 'none'
+            && iconBounds.left >= bounds.left && iconBounds.right <= inputBounds.left
+            && inputBounds.right <= bounds.right && bounds.width > 0;
+        })()`,
+      );
+      await setControl(window, '[aria-label="Search published APIs"]', 'clientes');
+      await ready(
+        window,
+        `document.querySelectorAll('.wr-restgo-published:not([hidden]) .wr-restgo-api-card').length === 1 && document.querySelector('.wr-restgo-api-title h2')?.textContent === 'clientes' && document.activeElement === document.querySelector('[aria-label="Search published APIs"]')`,
+      );
+      const focusedPath = `${screenshotRoot}-restgo-published-search-focus${suffix}.png`;
+      const focusedScreenshot = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        `RestGO published search focus ${suffix ? 'narrow' : 'desktop'}`,
+      );
+      await fs.writeFile(focusedPath, focusedScreenshot.toPNG());
+      await setControl(window, '[aria-label="Search published APIs"]', '');
+      await ready(
+        window,
+        `document.querySelectorAll('.wr-restgo-published:not([hidden]) .wr-restgo-api-card').length === 3`,
+      );
+      await window.webContents.executeJavaScript(
+        `document.querySelector('[aria-label="Search published APIs"]')?.blur()`,
+        true,
+      );
+      await ready(
+        window,
+        `(() => {
+          const input = document.querySelector('[aria-label="Search published APIs"]');
+          const field = input?.closest('.wr-restgo-search');
+          return input instanceof HTMLInputElement && field instanceof HTMLElement
+            && document.activeElement !== input && !field.matches(':focus-within')
+            && getComputedStyle(field).outlineStyle === 'none';
+        })()`,
+      );
+    }
+  } finally {
+    try {
+      await resizeSmokeViewport(window, { width: originalWidth, height: originalHeight });
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-published:not([hidden])')?.scrollIntoView({ block: 'start' })`,
+        true,
+      );
+    } finally {
+      window.setMinimumSize(minimumWidth, minimumHeight);
+    }
+  }
+}
+
+async function exerciseRestGoEndpointEditor(
+  window: BrowserWindow,
+  screenshotRoot: string,
+): Promise<void> {
+  const openSql = async (method: string): Promise<void> => {
+    await ready(
+      window,
+      `(() => {
+      const button = document.querySelector('[aria-label="Edit SQL for ${method}"]');
+      if (!(button instanceof HTMLButtonElement) || button.matches(':disabled')) return false;
+      button.focus();
+      button.click();
+      return true;
+    })()`,
+    );
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-sql-dialog textarea')?.getAttribute('aria-label') === 'SQL for ${method}'`,
+    );
+  };
+  await ready(
+    window,
+    `document.querySelector('.wr-restgo-sql-summary') !== null && document.querySelector('.wr-restgo-publication-list') !== null`,
+  );
+  await clickText(window, 'Edit access', '.wr-restgo-publication-editor');
+  await ready(
+    window,
+    `(() => {
+    const form = document.querySelector('.wr-restgo-publication-form');
+    const fields = form?.querySelectorAll('select');
+    return fields?.[0]?.value === '1' && fields?.[1]?.value === 'jwt';
+  })()`,
+  );
+  await clickText(window, 'Cancel edit', '.wr-restgo-publication-editor');
+  await ready(window, `document.querySelector('.wr-restgo-publication-form') === null`);
+  const [originalWidth, originalHeight] = window.getContentSize();
+  const [minimumWidth, minimumHeight] = window.getMinimumSize();
+  if (
+    originalWidth === undefined ||
+    originalHeight === undefined ||
+    minimumWidth === undefined ||
+    minimumHeight === undefined
+  ) {
+    throw new Error('RestGO endpoint editor smoke could not read window dimensions.');
+  }
+  try {
+    window.setMinimumSize(1, 1);
+    for (const [width, height, suffix] of [
+      [1440, 900, ''],
+      [900, 800, '-narrow'],
+    ] as const) {
+      await resizeSmokeViewport(window, { width, height });
+      await ready(
+        window,
+        `(() => {
+        const editor = document.querySelector('.wr-restgo-endpoint-editor');
+        if (!(editor instanceof HTMLElement) || editor.querySelector('textarea')) return false;
+        const sections = [...editor.querySelectorAll('.wr-restgo-editor-section')];
+        const tabs = editor.querySelector('.wr-restgo-method-tabs');
+        return sections.length === 3 && tabs instanceof HTMLElement
+          && tabs.querySelector('[aria-selected="true"]')?.textContent.trim() === 'GET'
+          && editor.querySelector('.wr-restgo-method-heading')?.textContent.includes('Deactivate GET') === true
+          && editor.scrollWidth <= editor.clientWidth + 1
+          && sections.every(section => section.scrollWidth <= section.clientWidth + 1)
+          && document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'
+          && document.querySelector('.wr-restgo-progress') === null;
+      })()`,
+      );
+      await window.webContents.executeJavaScript(
+        `document.querySelector('.wr-restgo-endpoint-editor').scrollIntoView({ block: 'start' })`,
+        true,
+      );
+      const overview = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        'RestGO endpoint overview',
+      );
+      await fs.mkdir(path.dirname(screenshotRoot), { recursive: true });
+      await fs.writeFile(`${screenshotRoot}-endpoint-overview${suffix}.png`, overview.toPNG());
+      await openSql('GET');
+      await setControl(window, '.wr-restgo-sql-dialog textarea', 'SELECT :cancelled_sql');
+      await ready(
+        window,
+        `(() => {
+    const dialog = document.querySelector('.wr-restgo-sql-dialog');
+    const input = dialog?.querySelector('textarea');
+    const footer = dialog?.querySelector('.wr-restgo-sql-footer');
+    if (!(dialog instanceof HTMLElement) || !(input instanceof HTMLTextAreaElement) || !(footer instanceof HTMLElement))
+        return false;
+    const rect = dialog.getBoundingClientRect();
+    const inputRect = input.getBoundingClientRect();
+    const footerRect = footer.getBoundingClientRect();
+    const controls = [...dialog.querySelectorAll('button:not(:disabled), textarea')];
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (!(first instanceof HTMLElement) || !(last instanceof HTMLElement))
+        return false;
+    first.focus();
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+    if (document.activeElement !== last)
+        return false;
+    last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    if (document.activeElement !== first)
+        return false;
+    input.focus();
+    return dialog.getAttribute('aria-modal') === 'true' && document.activeElement === input
+        && rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1
+        && inputRect.height >= 100 && inputRect.width > 0 && inputRect.bottom <= footerRect.top + 1
+        && footerRect.bottom <= rect.bottom + 1 && dialog.scrollWidth <= dialog.clientWidth + 1 && rect.width >= Math.min(1440, innerWidth - 48) - 2;
+})();
+`,
+      );
+      const popup = await capturePresentedSmokePage(
+        window,
+        Date.now() + 10_000,
+        'RestGO SQL editor',
+      );
+      await fs.writeFile(`${screenshotRoot}-sql-editor${suffix}.png`, popup.toPNG());
+      await clickText(window, 'Cancel', '.wr-restgo-sql-dialog');
+      await ready(
+        window,
+        `document.querySelector('.wr-restgo-sql-dialog') === null
+        && document.querySelector('.wr-restgo-sql-preview')?.textContent.includes('cancelled_sql') === false
+        && document.querySelector('.wr-restgo-endpoint-form button[type="submit"]')?.matches(':disabled') === true
+        && document.activeElement?.getAttribute('aria-label') === 'Edit SQL for GET'`,
+      );
+    }
+  } finally {
+    try {
+      await resizeSmokeViewport(window, { width: originalWidth, height: originalHeight });
+    } finally {
+      window.setMinimumSize(minimumWidth, minimumHeight);
+    }
+  }
+  await openSql('GET');
+  await window.webContents.executeJavaScript(
+    `document.querySelector('.wr-restgo-sql-dialog textarea').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))`,
+    true,
+  );
+  await ready(
+    window,
+    `document.querySelector('.wr-restgo-sql-dialog') === null && document.activeElement?.getAttribute('aria-label') === 'Edit SQL for GET'`,
+  );
+  for (const [method, script] of [
+    ['GET', 'SELECT :rgouserid, :pesquisa'],
+    ['PUT', 'SELECT :rgouserid, :caption'],
+  ] as const) {
+    if (method === 'PUT') await clickText(window, 'PUT', '.wr-restgo-method-tabs');
+    await openSql(method);
+    await setControl(window, '.wr-restgo-sql-dialog textarea', script);
+    await clickText(window, 'Apply SQL', '.wr-restgo-sql-dialog');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-sql-dialog') === null
+      && document.querySelector('.wr-restgo-sql-preview')?.textContent === ${JSON.stringify(script)}
+      && document.querySelector('.wr-restgo-endpoint-form button[type="submit"]')?.matches(':disabled') === false`,
+    );
+  }
+}
+
 /** Exercises actual Chromium controls, HTTP tests, and Project Model persistence. */
 export async function runApiClientDesignerSmoke(
   window: BrowserWindow,
@@ -232,6 +633,30 @@ export async function runApiClientDesignerSmoke(
     tipo: 'normal',
     idoperacao: null,
   }));
+  let publishedLayoutFixture = false;
+  let publishedLayoutCustomerActive = true;
+  const publishedLayoutEndpoints: RestGoAdminEndpoint[] = [
+    {
+      id: 13,
+      ativo: true,
+      slug: 'clientes',
+      versao: 1,
+      metodo: 'GET',
+      script: 'SELECT 1',
+      tipo: 'normal',
+      idoperacao: null,
+    },
+    {
+      id: 14,
+      ativo: true,
+      slug: 'pedidos',
+      versao: 1,
+      metodo: 'GET',
+      script: 'SELECT 1',
+      tipo: 'normal',
+      idoperacao: null,
+    },
+  ];
   const developmentUser = {
     id: 'development-user',
     email: 'development@example.test',
@@ -284,13 +709,28 @@ export async function runApiClientDesignerSmoke(
         '/backend/endpoints-bancos',
         '/backend/api-operations',
       ].includes(route) ||
-      route.startsWith('/backend/endpoints/')
+      route.startsWith('/backend/endpoints/') ||
+      route.startsWith('/backend/endpoints-bancos/')
     ) {
       if (request.headers.authorization !== 'rgo.synchronization-smoke') {
         response
           .writeHead(403)
           .end(JSON.stringify({ error: 'Administrative fixture token required' }));
         return;
+      }
+      if (publishedLayoutFixture && request.method === 'POST') {
+        if (route === '/backend/endpoints/13/activate') {
+          response.end('{}');
+          return;
+        }
+        if (
+          route === '/backend/endpoints-bancos/21/activate' ||
+          route === '/backend/endpoints-bancos/21/deactivate'
+        ) {
+          publishedLayoutCustomerActive = route.endsWith('/activate');
+          response.end('{}');
+          return;
+        }
       }
       if (route.startsWith('/backend/endpoints/')) {
         const index = synchronizationEndpoints.findIndex(
@@ -314,7 +754,9 @@ export async function runApiClientDesignerSmoke(
       response.end(
         JSON.stringify(
           route === '/backend/endpoints'
-            ? synchronizationEndpoints
+            ? publishedLayoutFixture
+              ? [...synchronizationEndpoints, ...publishedLayoutEndpoints]
+              : synchronizationEndpoints
             : route === '/backend/bancos'
               ? [
                   {
@@ -341,6 +783,32 @@ export async function runApiClientDesignerSmoke(
                       requiresAuthentication: true,
                       isPublic: false,
                     },
+                    ...(publishedLayoutFixture
+                      ? [
+                          {
+                            id: 21,
+                            ativo: publishedLayoutCustomerActive,
+                            idbanco: 1,
+                            idendpoint: 13,
+                            bancoSlug: 'demo',
+                            endpointSlug: 'clientes',
+                            versao: 1,
+                            requiresAuthentication: false,
+                            isPublic: true,
+                          },
+                          {
+                            id: 22,
+                            ativo: true,
+                            idbanco: 1,
+                            idendpoint: 14,
+                            bancoSlug: 'demo',
+                            endpointSlug: 'pedidos',
+                            versao: 1,
+                            requiresAuthentication: false,
+                            isPublic: false,
+                          },
+                        ]
+                      : []),
                   ]
                 : [],
         ),
@@ -652,7 +1120,7 @@ export async function runApiClientDesignerSmoke(
       window,
       `document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'
         && document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.matches(':disabled') === true
-        && document.querySelector('.wr-restgo-runtime-settings')?.textContent.includes('Configuration matches the project') === true
+        && document.querySelector('.wr-restgo-runtime-settings')?.textContent.includes('Up to date') === true
         && document.querySelector('.wr-restgo-sidebar-instance .wr-restgo-dot')?.classList.contains('is-active') === true
         && document.querySelector('.wr-restgo-sidebar-instance small')?.textContent === ${JSON.stringify(baseUrl)}
         && document.querySelector('.wr-restgo-runtime-settings input[type="url"]')?.value === ${JSON.stringify(baseUrl)}
@@ -665,6 +1133,13 @@ export async function runApiClientDesignerSmoke(
     );
     log(
       'renderer RestGO development connection passed: enabled SDK, expected instance URL and settled configuration',
+    );
+    await click(window, '.wr-restgo-development-form > summary');
+    await ready(
+      window,
+      `document.querySelector('details.wr-restgo-development-form')?.open === true
+        && document.querySelector('.wr-restgo-development-login input[type="email"]')?.getClientRects().length > 0
+        && document.querySelector('.wr-restgo-development-login input[type="password"]')?.getClientRects().length > 0`,
     );
     await window.webContents.executeJavaScript(
       `document.querySelector('.wr-restgo-development-login').scrollIntoView({ block: 'center' })`,
@@ -681,7 +1156,7 @@ export async function runApiClientDesignerSmoke(
       '.wr-restgo-development-login input[type="password"]',
       'development-smoke-password',
     );
-    await clickText(window, 'Sign in for development', '.wr-restgo-development-login');
+    await clickText(window, 'Sign in', '.wr-restgo-development-login');
     await ready(
       window,
       `document.querySelector('.wr-restgo-development-login [role="status"]')?.textContent.includes(${JSON.stringify(developmentUser.email)}) === true`,
@@ -778,7 +1253,7 @@ export async function runApiClientDesignerSmoke(
       window,
       `document.querySelector('.wr-restgo-development-login [role="status"]')?.textContent.includes(${JSON.stringify(developmentUser.email)}) === true`,
     );
-    await clickText(window, 'Sign out and forget session', '.wr-restgo-development-login');
+    await clickText(window, 'Sign out', '.wr-restgo-development-login');
     await ready(
       window,
       `document.querySelector('.wr-restgo-development-login input[type="email"]') !== null && document.querySelector('.wr-restgo-development-login fieldset')?.disabled === false`,
@@ -798,6 +1273,45 @@ export async function runApiClientDesignerSmoke(
       window,
       `document.querySelector('.wr-restgo-status')?.textContent.includes('Admin connected') === true`,
     );
+    await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-restgo-connection').scrollIntoView({ block: 'start' })`,
+      true,
+    );
+    await captureAdministrativeLayout(window, screenshotRoot, baseUrl);
+    log(
+      'renderer RestGO administrative layout passed: connected state, catalog counts, actions and desktop/narrow geometry',
+    );
+    publishedLayoutFixture = true;
+    await click(window, '.wr-restgo-sidebar nav button:nth-child(2)');
+    await clickText(window, 'Refresh', '.wr-restgo-header-tools');
+    await ready(
+      window,
+      `document.querySelectorAll('.wr-restgo-published:not([hidden]) .wr-restgo-api-card').length === 3 && document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'`,
+    );
+    await clickText(window, 'Unpublish', '.wr-restgo-api-card:nth-child(2)');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-api-card:nth-child(2) .wr-restgo-badge')?.textContent === 'Unpublished' && document.querySelector('.wr-restgo-api-card:nth-child(2) .wr-restgo-publish-action')?.textContent.trim() === 'Publish' && document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false' && document.querySelector('.wr-restgo-workspace .wr-restgo-notice') === null && document.querySelector('.wr-restgo-workspace [role=alert]') === null`,
+    );
+    if (publishedLayoutCustomerActive)
+      throw new Error('RestGO fixture publication was not unpublished.');
+    await capturePublishedApiLayout(window, screenshotRoot);
+    await clickText(window, 'Publish', '.wr-restgo-api-card:nth-child(2)');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-api-card:nth-child(2) .wr-restgo-badge')?.textContent === 'Ready' && document.querySelector('.wr-restgo-api-card:nth-child(2) .wr-restgo-publish-action')?.textContent.trim() === 'Unpublish' && document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false' && document.querySelector('.wr-restgo-workspace .wr-restgo-notice') === null && document.querySelector('.wr-restgo-workspace [role=alert]') === null`,
+    );
+    if (!publishedLayoutCustomerActive)
+      throw new Error('RestGO fixture publication was not republished.');
+    publishedLayoutFixture = false;
+    await clickText(window, 'Refresh', '.wr-restgo-header-tools');
+    await ready(
+      window,
+      `document.querySelectorAll('.wr-restgo-published:not([hidden]) .wr-restgo-api-card').length === 1 && document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'`,
+    );
+    log(
+      'renderer RestGO published APIs layout passed: single-column layout, publication action states, search focus and filtering at desktop and narrow widths',
+    );
     await click(window, 'button[aria-label="Project Explorer"]');
     await ready(
       window,
@@ -805,18 +1319,87 @@ export async function runApiClientDesignerSmoke(
     );
     await clickText(window, 'Remove operation');
     await clickText(window, 'Import from RestGo');
-    await click(window, '[aria-label="Import GET demo/anotacoes v1"]');
-    await click(window, '[aria-label="Import PUT demo/anotacoes v1"]');
-    await clickText(window, 'Import 2 requests', '.wr-restgo-api-picker');
+    await ready(
+      window,
+      `document.querySelectorAll('.wr-restgo-api-picker-row').length === 1 && document.querySelectorAll('.wr-restgo-api-picker-methods .wr-restgo-method-badge').length === 2`,
+    );
+    await setControl(window, '[aria-label="Search published RestGo APIs"]', 'PUT');
+    await ready(
+      window,
+      `document.querySelectorAll('.wr-restgo-api-picker-row').length === 1 && document.querySelector('.wr-restgo-api-picker-row')?.textContent.includes('GET') === true`,
+    );
+    await setControl(window, '[aria-label="Search published RestGo APIs"]', '');
+    await capture(window, `${screenshotRoot}-restgo-grouped-import.png`);
+    await click(window, '[aria-label="Import demo/anotacoes v1"]');
+
+    await clickText(window, 'Import 1 endpoint', '.wr-restgo-api-picker');
+    await ready(
+      window,
+      `document.querySelectorAll('.wr-api-operation-list > button').length === 1 && document.querySelector('[aria-label="Method"]')?.value === 'GET' && [...document.querySelectorAll('[aria-label="Method"] option')].map(option => option.value).join(',') === 'GET,PUT'`,
+    );
     await setControl(window, '[aria-label="Operation name"]', 'LoadNotes');
     await setControl(window, '[aria-label="Query parameters value rgouserid"]', 'user-42');
+    await setControl(window, '[aria-label="Method"]', 'PUT');
+    await clickText(window, 'Body');
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Request body"]')?.value.includes('user-42') === true`,
+    );
+    await setControl(window, '[aria-label="Method"]', 'GET');
+    await clickText(window, 'Query parameters');
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Query parameters value rgouserid"]')?.value === 'user-42' && document.querySelectorAll('.wr-api-operation-list > button').length === 1`,
+    );
+    log(
+      'renderer RestGO API Client grouped import passed: one endpoint row, method search, single request, published method selection and shared inputs',
+    );
     await clickText(window, 'Save API Client');
     await click(window, 'button[aria-label="RestGo integration"]');
+    await click(window, '.wr-restgo-sidebar nav button:first-child');
+    const configuredDefaultDatabase: unknown = await window.webContents.executeJavaScript(
+      `document.querySelector('[aria-label="Default database slug"]')?.value`,
+      true,
+    );
+    if (configuredDefaultDatabase !== 'demo') {
+      await setControl(window, '[aria-label="Default database slug"]', 'demo');
+      await click(window, '.wr-restgo-runtime-settings button[type="submit"]');
+      await ready(
+        window,
+        `document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false' && document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.matches(':disabled') === true`,
+      );
+    }
     await click(window, '.wr-restgo-sidebar nav button:nth-child(3)');
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Filter endpoints by database"]')?.value === '1' && document.querySelectorAll('.wr-restgo-endpoint-list-item').length === 1`,
+    );
+    await setControl(window, '[aria-label="Filter endpoints by database"]', '');
+    await clickText(window, 'Refresh', '.wr-restgo-header-tools');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false' && document.querySelector('[aria-label="Filter endpoints by database"]')?.value === ''`,
+    );
+    await setControl(window, '[aria-label="Search endpoints"]', 'no-matching-endpoint');
+    await ready(window, `document.querySelectorAll('.wr-restgo-endpoint-list-item').length === 0`);
+    await setControl(window, '[aria-label="Search endpoints"]', '');
+    await setControl(window, '[aria-label="Filter endpoints by database"]', '1');
+    await ready(window, `document.querySelectorAll('.wr-restgo-endpoint-list-item').length === 1`);
+
     await click(window, '.wr-restgo-endpoint-list-item');
-    await setControl(window, '.wr-restgo-sql', 'SELECT :rgouserid, :pesquisa');
-    await clickText(window, 'PUT', '.wr-restgo-method-tabs');
-    await setControl(window, '.wr-restgo-sql', 'SELECT :rgouserid, :caption');
+    const endpointWritesBeforeSql = calls.filter(
+      (call) => call.method === 'PUT' && call.path.startsWith('/backend/endpoints/'),
+    ).length;
+    await exerciseRestGoEndpointEditor(window, screenshotRoot);
+    if (
+      calls.filter((call) => call.method === 'PUT' && call.path.startsWith('/backend/endpoints/'))
+        .length !== endpointWritesBeforeSql
+    ) {
+      throw new Error('Applying or cancelling SQL wrote to RestGO before Save endpoint.');
+    }
+    log(
+      'renderer RestGO endpoint editor passed: grouped overview, publication access, SQL popup, cancel, Escape, focus, draft-only apply and desktop/narrow screenshots',
+    );
     await clickText(window, 'Save endpoint', '.wr-restgo-endpoint-editor');
     await ready(
       window,
@@ -831,7 +1414,26 @@ export async function runApiClientDesignerSmoke(
       window,
       `document.querySelector('[aria-label="Operation name"]')?.value === 'LoadNotes' && document.querySelector('[aria-label="Query parameters value rgouserid"]')?.value === 'user-42' && document.querySelector('[aria-label="Query parameters name pesquisa"]') !== null && document.querySelector('[aria-label="Query parameters name active"]') === null`,
     );
-    await clickText(window, 'PutAnotacoes PUT');
+    await clickText(window, 'Save API Client');
+    await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+    const getSyncDeadline = Date.now() + 10_000;
+    let getSynchronizedOnDisk = false;
+    while (Date.now() < getSyncDeadline) {
+      const text = await fs.readFile(pagePath, 'utf8');
+      if (text.includes('pesquisa') && text.includes('user-42')) {
+        getSynchronizedOnDisk = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (!getSynchronizedOnDisk)
+      throw new Error('The grouped GET request did not persist synchronized inputs.');
+    await openClient();
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Method"]')?.matches(':disabled') === false && document.querySelector('[aria-label="Method"]')?.value === 'GET'`,
+    );
+    await setControl(window, '[aria-label="Method"]', 'PUT');
     await clickText(window, 'Body');
     await ready(
       window,
@@ -854,7 +1456,13 @@ export async function runApiClientDesignerSmoke(
     while (Date.now() < syncDeadline) {
       const savedPage: unknown = JSON.parse(await fs.readFile(pagePath, 'utf8'));
       const text = JSON.stringify(savedPage);
-      if (text.includes('pesquisa') && text.includes('caption') && text.includes('user-42')) {
+      if (
+        text.includes('caption') &&
+        text.includes('user-42') &&
+        text.includes('"apiId":"20:12"') &&
+        text.includes('"method":"PUT"') &&
+        !text.includes('"name":"pesquisa"')
+      ) {
         synchronizedOnDisk = true;
         break;
       }
@@ -862,6 +1470,24 @@ export async function runApiClientDesignerSmoke(
     }
     if (!synchronizedOnDisk)
       throw new Error('RestGo endpoint changes did not persist in the existing API Client.');
+    await click(window, 'button[aria-label="RestGo integration"]');
+    await clickText(window, 'Refresh', '.wr-restgo-header-tools');
+    await ready(
+      window,
+      `document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'`,
+    );
+    await click(window, 'button[aria-label="Project Explorer"]');
+    await openClient();
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Method"]')?.value === 'PUT' && document.querySelector('[aria-label="Operation name"]')?.value === 'LoadNotes' && document.querySelectorAll('.wr-api-operation-list > button').length === 1`,
+    );
+    await clickText(window, 'Body');
+    await ready(
+      window,
+      `document.querySelector('[aria-label="Request body"]')?.value.includes('caption') === true && document.querySelector('[aria-label="Request body"]')?.value.includes('user-42') === true`,
+    );
+    await clickText(window, 'Save API Client');
     log(
       'renderer RestGO API Client synchronization passed: edit and save GET/PUT SQL, reconcile existing query/JSON inputs, preserve request name and values, save project and reopen client',
     );

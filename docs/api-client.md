@@ -74,6 +74,26 @@ Failed requests and HTTP error envelopes leave the existing successful contract
 intact. Save persists the refreshed, selected contract and updates generated
 types; Cancel discards it. Any bindings to removed fields must be updated.
 
+## Importing RestGo endpoints
+
+**Import from RestGo** shows one item per endpoint slug and database, with its
+available methods displayed together. Versions and authentication policies stay
+separate. Search matches the endpoint, database, version or any of its methods.
+Selecting an item imports one request, initially using GET when available, or
+the first available method. Reimporting keeps an existing request's method.
+
+Choose **Method** inside the API Client request editor to select another
+published method. The request keeps its ID and name, updates its RestGo source
+link and query/JSON inputs, and preserves shared primitive input values. The
+previous method's response contract is cleared; use **Send** to infer the new
+response. Custom bodies that cannot be reconciled require manual adjustment.
+
+The IDE reloads available methods when reopening an imported client. If catalog
+access is unavailable, the saved request remains usable; **Import from RestGo**
+can reconnect administrative access or refresh the catalog. Method selection
+does not execute SQL or send the request, and catalog SQL is never saved into
+the API Client configuration.
+
 ## Updating imported RestGo APIs
 
 Saving an endpoint or refreshing the RestGo catalog synchronizes existing imported
@@ -99,13 +119,14 @@ failures retain saved configuration; results for another project or URL are igno
 ## Development login for JWT endpoint testing
 
 In **RestGo integration → Connection → Development login**, authenticate an
-application user. **Remember development login on this device** stores an encrypted
+application user through **Sign in for development**, then **Sign in**.
+**Remember development login on this device** stores an encrypted
 session, never the password. Without secure storage, the session lasts only while
 the IDE window remains open.
 
 Select **RestGo JWT Authentication** in the API Client editor and leave **Test JWT**
 empty to validate/refresh and use this session for tests. An explicit temporary JWT
-takes precedence. **Sign out and forget session** removes the local login. Neither
+takes precedence. **Sign out** removes the local login. Neither
 this session nor administrative credentials are exported to projects, Preview, or
 Build. See [development login](restgo-sdk.md#development-login-in-api-client).
 

@@ -1,3 +1,4 @@
+export * from './restgo-api-selection.js';
 export * from './clipboard.js';
 export * from './api-client-request.js';
 export * from './restgo-api-import.js';

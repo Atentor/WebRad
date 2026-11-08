@@ -23,6 +23,8 @@ import {
 } from '@webrad/project-model';
 import {
   createApiClientTestRequest,
+  changeRestGoApiClientMethod,
+  getRestGoRequestApis,
   importRestGoPublishedApis,
   type RestGoPublishedApi,
 } from '@webrad/designer';
@@ -45,6 +47,7 @@ import {
 import { createPortal } from 'react-dom';
 import { ApiClientRequestEditor } from './ApiClientRequestEditor';
 import { RestGoApiPickerDialog } from './RestGoApiPickerDialog';
+import { useRestGoApiCatalog } from './useRestGoApiCatalog';
 import './api-client-editor.css';
 
 const MAX_RESPONSE_PREVIEW_LENGTH = 250_000;
@@ -362,12 +365,27 @@ export function ApiClientTesterDialog({
   const restGoBound = (configuration.connection ?? 'custom') !== 'custom';
   const effectiveBaseUrl = restGoBound ? (restGoSettings?.baseUrl ?? '') : baseUrl;
   const restGoAvailable = restGoSettings?.enabled === true && restGoSettings.baseUrl.length > 0;
+  const restGoCatalog = useRestGoApiCatalog(
+    restGoAvailable &&
+      restGoBound &&
+      configuration.operations.some(
+        (candidate) => candidate.restGoSource !== undefined || candidate.id.startsWith('restgo-'),
+      ),
+    restGoSettings?.baseUrl ?? '',
+  );
 
   const operation = useMemo(
     () =>
       configuration.operations.find((candidate) => candidate.id === selectedOperationId) ??
       configuration.operations[0],
     [configuration.operations, selectedOperationId],
+  );
+  const publishedMethodApis = useMemo(
+    () =>
+      operation
+        ? getRestGoRequestApis(restGoCatalog.apis, operation, configuration.connection)
+        : [],
+    [restGoCatalog.apis, operation, configuration.connection],
   );
 
   useEffect(() => {
@@ -620,7 +638,34 @@ export function ApiClientTesterDialog({
 
   const responseSchema = operation?.responseSchema ?? null;
 
-  const importApis = (apis: readonly RestGoPublishedApi[], convertCustom: boolean): void => {
+  const changePublishedMethod = (method: string): void => {
+    if (!operation || operation.method === method) return;
+    const api = publishedMethodApis.find((candidate) => candidate.method === method);
+    if (!api) {
+      setError('Refresh the published methods through Import from RestGo.');
+      return;
+    }
+    try {
+      setConfiguration(changeRestGoApiClientMethod(configuration, operation.id, api));
+      setSelectedSchemaIds(new Set());
+      setTestResult(null);
+      setUploads([]);
+      setTestParameterValues((current) => {
+        const next = new Map(current);
+        next.delete(operation.id);
+        return next;
+      });
+      setError(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const importApis = (
+    apis: readonly RestGoPublishedApi[],
+    convertCustom: boolean,
+    catalogApis: readonly RestGoPublishedApi[],
+  ): void => {
     try {
       const selectedConfiguration: ApiClientConfiguration = {
         ...configuration,
@@ -642,8 +687,13 @@ export function ApiClientTesterDialog({
       const importedOperation =
         next.operations.find(
           (candidate) => !configuration.operations.some((existing) => existing.id === candidate.id),
-        ) ?? next.operations[0];
+        ) ??
+        next.operations.find((candidate) =>
+          apis.some((api) => candidate.restGoSource?.apiId === api.id),
+        ) ??
+        next.operations[0];
       setConfiguration(next);
+      restGoCatalog.acceptApis(catalogApis);
       setBaseUrl('');
       setSelectedOperationId(importedOperation?.id ?? '');
       setSelectedSchemaIds(
@@ -812,6 +862,10 @@ export function ApiClientTesterDialog({
                     renderParameters={(label, parameters, onChange) => (
                       <ParameterList label={label} parameters={parameters} onChange={onChange} />
                     )}
+                    publishedMethods={publishedMethodApis.map((api) => api.method)}
+                    publishedMethodsLoading={restGoCatalog.loading}
+                    publishedMethodsError={restGoCatalog.error}
+                    onPublishedMethodChange={changePublishedMethod}
                   />
                 )}
                 {(error !== null || testResult !== null) && (

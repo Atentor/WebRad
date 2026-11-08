@@ -184,6 +184,12 @@
 .wr-api-client-dialog .wr-api-endpoint-fields {
   grid-template-columns: 112px minmax(0, 1fr);
 }
+.wr-api-client-dialog .wr-api-published-method-hint {
+  margin: 0;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.5;
+}
 
 .wr-api-client-dialog .wr-api-test-actions {
   flex-wrap: nowrap;
@@ -595,7 +601,7 @@
 
   .wr-restgo-api-picker .wr-restgo-api-picker-auth {
     max-width: none;
-    margin-left: 82px;
+    margin-left: 27px;
     text-align: left;
   }
 

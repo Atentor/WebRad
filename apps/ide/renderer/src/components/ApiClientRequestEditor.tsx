@@ -25,6 +25,10 @@ const BODY_LABELS: Readonly<Record<ApiClientBodyKind, string>> = {
 };
 
 interface Props {
+  readonly publishedMethods?: readonly string[];
+  readonly publishedMethodsLoading?: boolean;
+  readonly publishedMethodsError?: string | null;
+  readonly onPublishedMethodChange?: (method: string) => void;
   readonly baseUrl: string;
   readonly baseUrlRef: RefObject<HTMLInputElement | null>;
   readonly configuration: ApiClientConfiguration;
@@ -52,6 +56,10 @@ interface Props {
 }
 
 export function ApiClientRequestEditor({
+  publishedMethods,
+  publishedMethodsLoading,
+  publishedMethodsError,
+  onPublishedMethodChange,
   testParameterValues,
   onTestParameterChange,
   baseUrl,
@@ -80,7 +88,15 @@ export function ApiClientRequestEditor({
   );
   const bound = (configuration.connection ?? 'custom') !== 'custom';
   // Published imports retain this stable ID prefix through renames and persistence.
-  const importedRestGo = bound && operation.id.startsWith('restgo-');
+  const importedRestGo =
+    bound && (operation.restGoSource !== undefined || operation.id.startsWith('restgo-'));
+  const methodChoices = importedRestGo
+    ? publishedMethods?.length
+      ? publishedMethods.includes(operation.method)
+        ? publishedMethods
+        : [operation.method, ...publishedMethods]
+      : [operation.method]
+    : API_CLIENT_HTTP_METHODS;
   const publicConnection = configuration.connection === 'restgo-public';
   const tokenConnection = configuration.connection === 'restgo-api-token';
   const available = restGoSettings?.enabled === true && restGoSettings.baseUrl.length > 0;
@@ -166,9 +182,15 @@ export function ApiClientRequestEditor({
               <span>Method</span>
               <select
                 aria-label="Method"
-                value={customMethod ? '__custom__' : operation.method}
+                value={
+                  importedRestGo ? operation.method : customMethod ? '__custom__' : operation.method
+                }
                 onChange={(event) => {
                   const value = event.currentTarget.value;
+                  if (importedRestGo) {
+                    onPublishedMethodChange?.(value);
+                    return;
+                  }
                   setCustomMethod(value === '__custom__');
                   if (value !== '__custom__')
                     onOperationChange({
@@ -178,13 +200,21 @@ export function ApiClientRequestEditor({
                         : {}),
                     });
                 }}
+                disabled={
+                  importedRestGo && (publishedMethodsLoading === true || !publishedMethods?.length)
+                }
+                aria-describedby={importedRestGo ? `${tabsId}-published-methods` : undefined}
               >
-                {API_CLIENT_HTTP_METHODS.map((value) => (
-                  <option key={value} value={value}>
+                {methodChoices.map((value) => (
+                  <option
+                    key={value}
+                    value={value}
+                    disabled={importedRestGo && !publishedMethods?.includes(value)}
+                  >
                     {value}
                   </option>
                 ))}
-                <option value="__custom__">Custom method</option>
+                {!importedRestGo && <option value="__custom__">Custom method</option>}
               </select>
             </label>
             <label>
@@ -215,8 +245,23 @@ export function ApiClientRequestEditor({
             )}
           </div>
         </div>
+        {importedRestGo && (
+          <p
+            className="wr-api-published-method-hint"
+            id={`${tabsId}-published-methods`}
+            role="status"
+          >
+            {publishedMethodsLoading
+              ? 'Loading published methods...'
+              : publishedMethodsError
+                ? 'Open Import from RestGo to reconnect or refresh the published methods.'
+                : !publishedMethods?.length
+                  ? 'No published methods available. Refresh through Import from RestGo.'
+                  : 'Choose a method published for this endpoint.'}
+          </p>
+        )}
         <fieldset className="wr-api-editor-fields" disabled={sending}>
-          {customMethod && (
+          {customMethod && !importedRestGo && (
             <div className="wr-api-fields wr-api-custom-method">
               <label>
                 <span>Custom method</span>

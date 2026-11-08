@@ -71,6 +71,50 @@ mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
 
+Both runners require `renderer RestGO connection layout passed:`. The existing
+RestGO settings workflow edits the always-visible API defaults and User session
+fields, then checks the separate project configuration and IDE-only
+administration/development cards, unboxed 24 px heading icons, readable controls
+and a single-column panel layout that fills the available content width without
+horizontal overflow. At desktop and narrow sizes it verifies that the API defaults, session settings
+and development-login fields use two columns where the workspace has room and
+one column otherwise, then captures presented frames of the application,
+session and IDE cards and the expanded development login. The API Client
+workflow opens the development-login disclosure and uses the shorter Sign in/Sign
+out actions while retaining session, JWT and password-clearing evidence. Both
+runners also require `renderer RestGO administrative layout passed:`. After a
+real fixture admin connection, that workflow checks the connected URL, catalog
+counts, available actions, horizontal and narrow layouts, and overflow before
+capturing presented frames of the connected administrative card at both sizes.
+Both runners also require `renderer RestGO published APIs layout passed:`. The
+API Client fixture temporarily exposes three publications, then checks that
+their cards fill one column with available actions and no horizontal overflow at
+desktop and narrow sizes. It unpublishes and republishes a fixture API through the
+real controls, checks the status-specific action colors, icons and accessible
+names, verifies that no success banner appears for either transition, captures
+both action states and restores the fixture. It also focuses the published API
+search, checks the complete-field outline and absence of an inner outline,
+filters and clears a query, and captures focus at both workspace sizes.
+These updated interactions have not been executed for this UX change.
+
+Both runners require `renderer RestGO API Client grouped import passed:`. The
+existing API Client flow imports a single grouped endpoint with GET/PUT badges,
+searches by method without splitting its row, then switches methods inside the
+request editor. It checks the single-request count, published method choices,
+shared inputs and a grouped-picker screenshot. The synchronization flow saves
+GET inputs, switches to PUT, saves and refreshes the catalog, and reopens the
+same request with PUT still selected. These interactions have not been run.
+
+Both runners require `renderer RestGO endpoint editor passed:`. The existing
+API Client flow checks the endpoint database default, manual All databases
+selection across refresh and combined search, then the grouped endpoint overview and publication-access
+defaults, waits for loading to finish with no progress banner before overview
+screenshots, opens the SQL dialog at desktop and narrow sizes, checks viewport
+containment and keyboard focus containment/return, cancels edits and closes with
+Escape, then applies GET/PUT drafts. Applying and cancelling must not write to
+RestGO before Save endpoint. The original server-save and imported-client
+synchronization assertions remain required. This updated flow has not been run.
+
 Both runners require `renderer Payments Inspector and Interact passed:` and
 `renderer Payments compiled runtime passed:`. The existing nonvisual Inspector
 flow inserts Payments, edits gateway/mode, checks the three default-on automation

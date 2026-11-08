@@ -53,35 +53,54 @@ export function RestGoConnectionPanel({
   setRemember,
   baseUrl,
 }: Props): ReactElement {
+  const urlDirty = normalizedBaseUrl(draftSettings.baseUrl) !== baseUrl;
+  const developmentDisabledReason = !draftSettings.enabled
+    ? 'Enable RestGO and apply the configuration to test an application login.'
+    : settingsDirty
+      ? 'Apply the application configuration before signing in.'
+      : !baseUrl
+        ? 'Enter the instance URL and apply the configuration before signing in.'
+        : undefined;
   return (
     <div hidden={section !== 'connection'} className="wr-restgo-connection">
-      <div>
-        <form
-          className="wr-restgo-connection-section wr-restgo-runtime-settings"
-          onSubmit={(event) => {
-            void saveSettings(event);
-          }}
-        >
-          <div className="wr-restgo-connection-heading">
-            <div>
-              <h2>Application SDK</h2>
-              <p>Connection and session settings for your application.</p>
-            </div>
+      <form
+        className="wr-restgo-connection-section wr-restgo-runtime-settings"
+        aria-label="Application connection"
+        onSubmit={(event) => {
+          void saveSettings(event);
+        }}
+      >
+        <div className="wr-restgo-connection-heading">
+          <Icon name="globe" />
+          <div>
+            <h2>Application connection</h2>
+            <p>Used by your application in Preview and Build.</p>
           </div>
-          <fieldset disabled={busy} className="wr-restgo-settings-content">
-            <RestGoSettingsSection
-              settings={draftSettings}
-              error={settingsError}
-              errorId="wr-restgo-workspace-settings-error"
-              onChange={(patch) => {
-                setDraftSettings((current) => ({ ...current, ...patch }));
-                setSettingsError(null);
-              }}
-            />
-          </fieldset>
+          <span className="wr-restgo-scope">Project settings</span>
+        </div>
+        <fieldset disabled={busy} className="wr-restgo-settings-content">
+          <RestGoSettingsSection
+            settings={draftSettings}
+            error={settingsError}
+            errorId="wr-restgo-workspace-settings-error"
+            onChange={(patch) => {
+              setDraftSettings((current) => ({ ...current, ...patch }));
+              setSettingsError(null);
+            }}
+          />
+        </fieldset>
+        <div className="wr-restgo-application-footer">
           <div className="wr-restgo-form-actions">
-            <span className="wr-restgo-muted">
-              {settingsDirty ? 'Unapplied changes' : 'Configuration matches the project'}
+            <span
+              className={
+                settingsDirty
+                  ? 'wr-restgo-configuration-state is-dirty'
+                  : 'wr-restgo-configuration-state'
+              }
+              role="status"
+            >
+              <Icon name={settingsDirty ? 'edit' : 'check-circle'} />
+              {settingsDirty ? 'Changes to apply' : 'Up to date'}
             </span>
             <button
               className="wr-restgo-button is-primary"
@@ -92,125 +111,138 @@ export function RestGoConnectionPanel({
               Apply configuration
             </button>
           </div>
-          <small className="wr-restgo-muted">
-            Apply updates this project. Save the project (Ctrl+S) to keep configuration changes.
-          </small>
-        </form>
+          <small>Save the project (Ctrl+S) to keep applied changes.</small>
+        </div>
+      </form>
+      <aside className="wr-restgo-ide-tools" aria-label="Optional IDE tools">
+        <section
+          className="wr-restgo-connection-section wr-restgo-admin-settings"
+          aria-label="Administrative access"
+        >
+          <div className="wr-restgo-connection-heading">
+            <Icon name="shield" />
+            <div>
+              <h2>Administrative access</h2>
+              <p>Manage endpoints and publish APIs.</p>
+            </div>
+            <span className="wr-restgo-scope">IDE only</span>
+          </div>
+          {status?.connected ? (
+            <div className="wr-restgo-connected-content">
+              <div className="wr-restgo-identity">
+                <Icon name="check-circle" />
+                <div>
+                  <strong>Connected to RestGO</strong>
+                  <code>{status.baseUrl}</code>
+                  <small>
+                    {status.storage === 'encrypted'
+                      ? 'Administrative token encrypted on this device.'
+                      : 'Administrative token kept for this IDE session.'}
+                  </small>
+                </div>
+              </div>
+              <div className="wr-restgo-connection-summary">
+                <span>
+                  <strong>{catalog.bancos.length}</strong>Databases
+                </span>
+                <span>
+                  <strong>{groups.length}</strong>Endpoints
+                </span>
+                <span>
+                  <strong>{catalog.publications.length}</strong>Publications
+                </span>
+              </div>
+              <div className="wr-restgo-admin-actions">
+                <button
+                  type="button"
+                  className="wr-restgo-button"
+                  disabled={busy}
+                  onClick={refresh}
+                >
+                  <Icon name="refresh" />
+                  Refresh catalog
+                </button>
+                <button
+                  type="button"
+                  className="wr-restgo-button is-quiet"
+                  disabled={busy || endpointDirty}
+                  title={
+                    endpointDirty
+                      ? 'Save or discard endpoint changes first.'
+                      : 'Disconnect and forget the saved administrative token'
+                  }
+                  onClick={disconnect}
+                >
+                  <Icon name="unlink" />
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form
+              onSubmit={(event) => {
+                void connect(event);
+              }}
+            >
+              <fieldset disabled={busy} className="wr-restgo-admin-fields">
+                <label>
+                  <span>Administrative API token</span>
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    spellCheck={false}
+                    required
+                    maxLength={8192}
+                    value={adminToken}
+                    placeholder="Administrative token, without Bearer"
+                    onChange={(event) => setAdminToken(event.currentTarget.value)}
+                  />
+                  <small>
+                    Use a token with management permission for the application instance URL.
+                  </small>
+                </label>
+                <label className="wr-restgo-toggle">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    disabled={!status?.encryptionAvailable}
+                    onChange={(event) => setRemember(event.currentTarget.checked)}
+                  />
+                  <span>Remember securely on this device</span>
+                </label>
+                <small>
+                  {status?.encryptionAvailable
+                    ? 'Saved with operating system encryption.'
+                    : 'Session only; secure storage is unavailable.'}
+                </small>
+              </fieldset>
+              {(urlDirty || !baseUrl) && (
+                <p className="wr-restgo-inline-note">
+                  {urlDirty
+                    ? 'Apply the instance URL in Application connection before connecting.'
+                    : 'Enter the instance URL in Application connection and apply it first.'}
+                </p>
+              )}
+              <button
+                type="submit"
+                className="wr-restgo-button is-primary"
+                disabled={busy || !baseUrl || !adminToken.trim() || urlDirty}
+              >
+                <Icon name="link" />
+                Connect admin
+              </button>
+            </form>
+          )}
+          <p className="wr-restgo-admin-note">
+            This token stays in the IDE. It is never included in your application.
+          </p>
+        </section>
         <RestGoDevelopmentLogin
           baseUrl={baseUrl}
           disabled={settingsDirty || !draftSettings.enabled}
+          disabledReason={developmentDisabledReason}
         />
-      </div>
-      <section
-        className="wr-restgo-connection-section wr-restgo-admin-settings"
-        aria-label="Administrative access"
-      >
-        <div className="wr-restgo-connection-heading">
-          <div>
-            <h2>Administrative access</h2>
-            <p>Manage endpoints and publish APIs.</p>
-          </div>
-        </div>
-        {status?.connected ? (
-          <div className="wr-restgo-connected-content">
-            <div className="wr-restgo-connected-icon">
-              <Icon name="check-circle" />
-            </div>
-            <strong>Connected to RestGO</strong>
-            <code>{status.baseUrl}</code>
-            <p>
-              {status.storage === 'encrypted'
-                ? 'The administrative credential is encrypted on this device.'
-                : 'The administrative credential is held for this IDE session.'}
-            </p>
-            <div className="wr-restgo-connection-summary">
-              <span>
-                <strong>{catalog.bancos.length}</strong>Databases
-              </span>
-              <span>
-                <strong>{groups.length}</strong>Endpoints
-              </span>
-              <span>
-                <strong>{catalog.publications.length}</strong>Publications
-              </span>
-            </div>
-            <div className="wr-restgo-admin-actions">
-              <button type="button" className="wr-restgo-button" disabled={busy} onClick={refresh}>
-                <Icon name="refresh" />
-                Refresh catalog
-              </button>
-              <button
-                type="button"
-                className="wr-restgo-button"
-                disabled={busy || endpointDirty}
-                title={endpointDirty ? 'Save or discard endpoint changes first.' : undefined}
-                onClick={disconnect}
-              >
-                <Icon name="unlink" />
-                Disconnect and forget token
-              </button>
-            </div>
-          </div>
-        ) : (
-          <form
-            onSubmit={(event) => {
-              void connect(event);
-            }}
-          >
-            <fieldset disabled={busy} className="wr-restgo-admin-fields">
-              <label>
-                <span>Administrative API token</span>
-                <input
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  required
-                  maxLength={8192}
-                  value={adminToken}
-                  placeholder="Raw administrative token, without Bearer"
-                  onChange={(event) => setAdminToken(event.currentTarget.value)}
-                />
-                <small>Use a RestGO token with management permission.</small>
-              </label>
-              <label className="wr-restgo-toggle">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  disabled={!status?.encryptionAvailable}
-                  onChange={(event) => setRemember(event.currentTarget.checked)}
-                />
-                <span>Remember securely on this device</span>
-              </label>
-              <small>
-                {status?.encryptionAvailable
-                  ? 'Saved with operating system encryption.'
-                  : 'Session only; secure storage is unavailable.'}
-              </small>
-            </fieldset>
-            {normalizedBaseUrl(draftSettings.baseUrl) !== baseUrl && (
-              <p className="wr-restgo-inline-note">
-                Save the instance URL above before connecting administrative access.
-              </p>
-            )}
-            <button
-              type="submit"
-              className="wr-restgo-button is-primary"
-              disabled={
-                busy ||
-                !baseUrl ||
-                !adminToken.trim() ||
-                normalizedBaseUrl(draftSettings.baseUrl) !== baseUrl
-              }
-            >
-              <Icon name="link" />
-              Connect
-            </button>
-          </form>
-        )}
-        <p className="wr-restgo-admin-note">
-          This token stays in the IDE and is never included in your project or application.
-        </p>
-      </section>
+      </aside>
     </div>
   );
 }

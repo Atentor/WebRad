@@ -103,18 +103,23 @@ session/memory modes or disabled persistence. Ordinary exported applications
 continue to use their own browser storage and receive no Preview capability.
 
 Open **RestGo integration** through the database icon in the activity rail.
-**Connection** separates application SDK settings from IDE administration.
+**Connection** separates the **Application connection** card from the IDE-only
+**Administrative access** and **Development login** cards. These cards appear
+in one column and fill the available workspace width. Related fields appear side
+by side when space allows and stack in narrow workspaces.
 
-- Enable **Enable native RestGO integration** and enter the HTTP(S) instance URL.
+- Enable **Use RestGO in this application** and enter the HTTP(S) instance URL.
   Reverse-proxy prefixes, such as `https://example.com/backend`, are preserved.
-- Leave **Application API token** empty for public registration/login. Set it
+- Use **API defaults** for the optional **Application API token** and default
+  database slug. Leave the token empty for public registration/login; set it
   without `Bearer` only for dynamic APIs needing an application token. It persists
-  as `settings.restGo.apiToken` and is visible in browser JavaScript.
-- Choose request versions in API Client; optionally set a default database slug.
-- Choose local, session, or memory storage and a key distinguishing applications
-  sharing an origin.
-- Click **Save changes**, then save the project. Settings persist in `.wrproj`
-  under `settings.restGo`.
+  as `settings.restGo.apiToken` and is visible in browser JavaScript. Request
+  versions are chosen in API Client.
+- Use **User session** to choose how long the application remembers users and
+  set a storage key distinguishing applications sharing an origin.
+- Click **Apply configuration**, then save the project (Ctrl+S). Settings persist
+  in `.wrproj` under `settings.restGo`. **Up to date** means the form matches the
+  current project configuration; saving the project keeps applied changes on disk.
 
 The compiler configures the shared `RestGO` client before constructing pages.
 Access while disabled throws `RestGoNotConfiguredError` with configuration guidance.
@@ -129,30 +134,51 @@ on the server; an application token is part of exported project code.
 
 ## Endpoint administration in the IDE
 
-Set a separate administrative API token in **Connection**. **Connect** checks
+Set a separate administrative API token in **Connection**. **Connect admin** checks
 permission against the saved integration URL. Apply URL changes before connecting.
 The token stays in Electron's main process. Optional remembering uses encrypted
 OS storage in the local IDE profile; without secure storage it remains temporary.
 **Disconnect** removes the remembered credential. It never enters `.wrproj`,
 API Client operations, Preview, or Build.
 
-In **Endpoints**, edit a slug/version and HTTP methods using parameterized SQL
-or an existing API Operation. Saving writes to the server. Publishing binds the
-group to an existing database, selects JWT/API Token/public access, and activates
-required records. Group methods share publication/authentication policy. These
-remote operations take effect immediately; local Designer undo covers project
-components only.
+In **Endpoints**, **Endpoint details** identifies the slug/version and **HTTP
+methods** configures each handler. Select a method tab and add its handler if
+needed, then choose **SQL script** or an existing **API Operation**. Saved methods
+show their activation state and a method-specific activation action.
 
-Published endpoints restore **Database** and **Required credential**. With multiple
-publications, the configured default database is preferred, otherwise the first.
-Selecting another database loads its saved authentication policy.
+The endpoint list has a database filter combined with its text search. It
+initially selects the configured default database when that database appears in
+the catalog, and preserves a user's manual selection during the workspace
+session. Database filtering uses publication links, including inactive
+publications. Choose **All databases** to include endpoints without publications.
+
+**Edit SQL** opens a dedicated editor with a compact preview left in the main
+workspace. **Apply SQL** (Ctrl+Enter) updates the endpoint draft; **Cancel** or
+Escape discards unapplied SQL and returns focus to the launch button. **Save
+endpoint** sends every configured method to RestGO. SQL is not executed by this
+editor. Draft edits are included in the IDE's pending-edit tracking.
+
+**Publication & access** lists the endpoint's database publications. Use **Add
+publication** or **Edit access** to open the database and credential form.
+Publishing binds the group to a database, selects JWT/API Token/public access,
+and activates required records. All methods share the publication access policy.
+These remote operations take effect immediately; local Designer undo covers
+project components only.
+
+**Edit access** restores the selected publication's **Database** and **Required
+credential**. Selecting another database loads its saved authentication policy
+when a publication already exists. The initial publication form prefers the
+application's configured default database when that database is active.
 **Published APIs** lists routes, database, version, method, authentication, and
 availability. Only active routes with active database/endpoint and any required
 API Operation can be imported.
 
 Add/open an **API Client** and choose **Import from RestGo**. Import preserves
 IDs/existing operations, fills routes, versions, methods, and inputs, and prevents
-duplicates. Each client has one authentication mode; use separate clients for
+duplicates. The picker groups methods by endpoint slug and database, keeping
+versions and access policies distinct. Select an endpoint once, then choose its
+published **Method** in the request editor. Each client has one authentication
+mode; use separate clients for
 different modes. Converting a custom client needs explicit confirmation in the
 editor. Routes escaping the integration URL are rejected.
 
@@ -181,9 +207,9 @@ It does not change authentication mode.
 
 ## Development login in API Client
 
-After saving connection settings, use **Development login** under **Application
-SDK**, then **Sign in for development** with an application user's credentials.
-No administrative connection is needed.
+After applying connection settings, open **Sign in for development** in the
+separate **Development login** card. Enter an application user's credentials and
+click **Sign in**. No administrative connection is needed.
 
 **Remember development login on this device** encrypts JWT, refresh token, and
 expiration dates in the OS-backed local IDE profile. Passwords are never stored.
@@ -197,7 +223,7 @@ rotation between windows. Definitive rejection removes saved credentials;
 transient failures retain them. An explicit Test JWT overrides the session only
 in that editor. Other connection modes retain their own policies.
 
-**Sign out and forget session** attempts remote logout and always removes the
+**Sign out** attempts remote logout and always removes the
 local copy. Authentication uses validated main-process IPC without cookies or
 redirects; endpoint tests still execute in the browser with CORS. Development
 credentials never enter project files, Preview, or Build. Applications have their

@@ -147,7 +147,23 @@ export function RestGoPublishedApis(props: Props): ReactElement {
                     </button>
                     <button
                       type="button"
-                      className="wr-restgo-button"
+                      className={
+                        publication.ativo
+                          ? 'wr-restgo-button wr-restgo-publish-action is-unpublish'
+                          : 'wr-restgo-button wr-restgo-publish-action is-publish'
+                      }
+                      aria-label={`${publication.ativo ? 'Unpublish' : 'Publish'} ${
+                        publication.endpointSlug || 'API'
+                      }`}
+                      title={
+                        publication.idendpoint === null
+                          ? 'This publication has no linked endpoint.'
+                          : !publication.ativo && !database?.ativo
+                            ? 'Activate the database before publishing.'
+                            : publication.ativo
+                              ? 'Unpublish this API'
+                              : 'Publish this API'
+                      }
                       disabled={
                         busy ||
                         publication.idendpoint === null ||
@@ -159,6 +175,7 @@ export function RestGoPublishedApis(props: Props): ReactElement {
                         );
                       }}
                     >
+                      <Icon name={publication.ativo ? 'eye-off' : 'upload-cloud'} />
                       {publication.ativo ? 'Unpublish' : 'Publish'}
                     </button>
                   </div>

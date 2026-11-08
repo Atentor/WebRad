@@ -161,6 +161,7 @@
   overflow: auto;
   min-height: 0;
   padding: 24px 28px;
+  container: restgo-body / inline-size;
 }
 .wr-restgo-workspace-body.is-endpoints {
   overflow: hidden;
@@ -337,93 +338,247 @@
   }
 }
 .wr-restgo-connection-section {
+  box-sizing: border-box;
   min-width: 0;
-  padding: 0;
+  padding: 24px;
+  border: 1px solid var(--wr-border);
+  border-radius: 10px;
+  background: var(--wr-panel-bg);
 }
 .wr-restgo-connection-heading {
   display: flex;
   align-items: flex-start;
+  gap: 12px;
   margin-bottom: 24px;
 }
+.wr-restgo-connection-heading > .wr-icon {
+  box-sizing: border-box;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  color: var(--wr-accent);
+}
+.wr-restgo-connection-heading > div {
+  flex: 1;
+  min-width: 0;
+}
+.wr-restgo-connection-heading :is(h2, h3) {
+  margin: 0 0 5px;
+  font-size: 15px;
+  line-height: 1.4;
+}
 .wr-restgo-connection-heading p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--wr-muted-text);
   margin: 0;
 }
+.wr-restgo-scope {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+  line-height: 1.4;
+}
 .wr-restgo-connection {
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 48px;
-  max-width: 1100px;
-  margin: 0 auto;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
 }
-.wr-restgo-admin-settings {
-  padding-left: 32px;
-  border-left: 1px solid var(--wr-border);
+.wr-restgo-ide-tools {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
 }
-.wr-restgo-development-login {
-  margin-top: 26px;
-  padding-top: 22px;
-  border-top: 1px solid var(--wr-border);
+.wr-restgo-runtime-settings {
+  overflow: hidden;
+}
+.wr-restgo-connection small {
+  font-size: 12px;
+}
+.wr-restgo-connection :is(input:not([type='checkbox']), select) {
+  box-sizing: border-box;
+  min-height: 36px;
+  font-size: 13px;
 }
 .wr-restgo-development-login > p {
   font-size: 12px;
   margin: 0 0 12px;
 }
-.wr-restgo-development-login > small {
-  display: block;
-  margin-bottom: 18px;
+.wr-restgo-development-login > .wr-restgo-admin-note {
+  margin: 16px 0 0;
+  font-size: 11px;
 }
 .wr-restgo-development-login [role='alert'] {
   color: var(--wr-danger);
+}
+.wr-restgo-development-form > summary {
+  color: var(--wr-text);
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 5px;
+  background: var(--wr-button-bg);
+}
+.wr-restgo-development-form > summary > .wr-icon {
+  width: 15px;
+  height: 15px;
+}
+.wr-restgo-development-form[open] > summary > .wr-icon {
+  transform: rotate(180deg);
+}
+.wr-restgo-development-form > form {
+  padding-top: 18px;
+}
+.wr-restgo-development-form .wr-restgo-admin-fields {
+  margin-bottom: 0;
+}
+.wr-restgo-development-form .wr-restgo-button {
+  justify-self: start;
 }
 .wr-restgo-settings-content {
   margin: 0;
   border: 0;
   padding: 0;
 }
-.wr-restgo-settings-group,
-.wr-restgo-session-settings {
+.wr-restgo-settings-group {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
-.wr-restgo-session-settings {
-  margin-top: 26px;
-  padding-top: 22px;
-  border-top: 1px solid var(--wr-border);
+.wr-restgo-integration-toggle {
+  align-items: flex-start;
+  gap: 10px;
+  padding: 15px 16px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-bg);
 }
-.wr-restgo-session-settings h3 {
+.wr-restgo-workspace .wr-restgo-integration-toggle > input {
+  margin-top: 3px;
+}
+.wr-restgo-toggle-copy {
+  display: grid;
+  gap: 4px;
+}
+.wr-restgo-toggle-copy strong {
+  font-size: 13px;
+  font-weight: 550;
+}
+.wr-restgo-integration-toggle .wr-restgo-toggle-copy small {
+  margin-left: 0;
+}
+.wr-restgo-settings-section {
+  margin-top: 20px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-bg);
+}
+.wr-restgo-settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 5px 5px 0 0;
+  background: var(--wr-panel-alt);
+}
+.wr-restgo-settings-heading h3 {
   margin: 0;
   font-size: 13px;
+  line-height: 1.5;
 }
-.wr-restgo-settings-fields {
+.wr-restgo-settings-heading > span {
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+.wr-restgo-development-form > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 5px;
+}
+.wr-restgo-development-form > summary::-webkit-details-marker {
+  display: none;
+}
+.wr-restgo-development-form > summary:hover {
+  background: var(--wr-surface-hover);
+}
+.wr-restgo-connection :is(summary, button, input, select):focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 2px;
+}
+.wr-restgo-development-form > summary > span:first-child {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 20px;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-.wr-restgo-settings-field {
+.wr-restgo-details-content {
+  display: grid;
+  gap: 20px;
+  padding: 18px 16px;
+  border-top: 1px solid var(--wr-border);
+}
+.wr-restgo-settings-fields,
+.wr-restgo-login-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+}
+.wr-restgo-settings-field,
+.wr-restgo-login-fields > label {
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
 }
-.wr-restgo-settings-field.full-width {
-  grid-column: 1 / -1;
-}
-.wr-restgo-settings-field > span {
-  font-size: 12px;
+.wr-restgo-settings-field > span,
+.wr-restgo-login-fields > label > span {
+  font-size: 13px;
 }
 .wr-restgo-settings-note {
-  margin: 20px 0 0;
-  font-size: 11px;
+  margin: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--wr-border-strong);
+  font-size: 12px;
   color: var(--wr-muted-text);
   line-height: 1.65;
 }
-.wr-restgo-runtime-settings > .wr-restgo-form-actions {
-  margin-top: 20px;
-  padding-top: 0;
+.wr-restgo-application-footer {
+  margin: 24px -24px -24px;
+  padding: 18px 24px;
+  border-top: 1px solid var(--wr-border);
+  background: var(--wr-panel-alt);
+}
+.wr-restgo-application-footer > .wr-restgo-form-actions {
+  margin: 0 0 10px;
+  padding: 0;
   border-top: 0;
+}
+.wr-restgo-configuration-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+.wr-restgo-configuration-state > .wr-icon {
+  width: 14px;
+  height: 14px;
+}
+.wr-restgo-configuration-state.is-dirty {
+  color: var(--wr-warning);
 }
 .wr-restgo-form-actions {
   display: flex;
@@ -448,27 +603,26 @@
 .wr-restgo-admin-fields > label:not(.wr-restgo-toggle) {
   display: grid;
   gap: 7px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .wr-restgo-toggle {
   display: flex;
   gap: 8px;
   align-items: center;
   font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.wr-restgo-toggle > input {
+  flex: 0 0 14px;
 }
 .wr-restgo-toggle small {
   margin-left: auto;
 }
 .wr-restgo-admin-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
   font-size: 11px;
   color: var(--wr-muted-text);
   margin: 18px 0 0;
-}
-.wr-restgo-admin-settings form > .wr-restgo-button {
-  width: 100%;
 }
 .wr-restgo-inline-note {
   padding: 10px 12px;
@@ -487,45 +641,61 @@
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  gap: 10px;
+  gap: 16px;
 }
-.wr-restgo-connected-content > code {
-  overflow-wrap: anywhere;
-  color: var(--wr-muted-text);
-}
-.wr-restgo-connected-content > p {
-  margin: 5px 0 10px;
-  color: var(--wr-muted-text);
-  font-size: 11px;
-}
-.wr-restgo-connected-icon {
+.wr-restgo-identity {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+}
+.wr-restgo-identity > .wr-icon {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
   color: var(--wr-success);
 }
-.wr-restgo-connected-icon > .wr-icon {
-  width: 22px;
-  height: 22px;
+.wr-restgo-identity > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-.wr-restgo-connection-summary {
-  display: flex;
-  flex-wrap: wrap;
-  width: 100%;
-  gap: 12px 18px;
-  margin: 5px 0 16px;
-}
-.wr-restgo-connection-summary > span {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  font-size: 11px;
+.wr-restgo-identity code {
   color: var(--wr-muted-text);
 }
+.wr-restgo-connection-summary {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr));
+  width: 100%;
+  min-width: 0;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-border);
+}
+.wr-restgo-connection-summary > span {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  min-height: 78px;
+  gap: 5px;
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--wr-muted-text);
+  overflow-wrap: anywhere;
+  background: var(--wr-bg);
+}
 .wr-restgo-connection-summary strong {
-  font-size: 13px;
+  font-size: 18px;
+  line-height: 1.2;
   color: var(--wr-text);
   font-weight: 550;
 }
@@ -534,6 +704,11 @@
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: 8px;
+}
+.wr-restgo-button.is-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--wr-muted-text);
 }
 
 .wr-restgo-search {
@@ -546,6 +721,10 @@
   padding: 0 10px;
   background: var(--wr-input-bg);
 }
+.wr-restgo-workspace .wr-restgo-search:focus-within {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: -1px;
+}
 .wr-restgo-search > .wr-icon {
   width: 14px;
   height: 14px;
@@ -556,6 +735,10 @@
   border: 0;
   padding: 8px 0;
   background: transparent;
+}
+.wr-restgo-workspace .wr-restgo-search input:is(:focus, :focus-visible) {
+  outline: none;
+  box-shadow: none;
 }
 .wr-restgo-catalog-tools {
   display: flex;
@@ -577,11 +760,12 @@
 }
 .wr-restgo-api-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 10px;
 }
 .wr-restgo-api-card {
+  min-width: 0;
   border: 1px solid var(--wr-border);
   border-radius: 4px;
   background: var(--wr-panel-bg);
@@ -610,13 +794,36 @@
 }
 .wr-restgo-api-actions {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
   gap: 6px;
 }
 .wr-restgo-api-card .wr-restgo-button {
   padding: 3px 7px;
   font-size: 11px;
   line-height: 16px;
+}
+.wr-restgo-workspace .wr-restgo-publish-action {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-weight: 550;
+}
+.wr-restgo-workspace .wr-restgo-publish-action.is-publish {
+  color: color-mix(in srgb, var(--wr-success) 80%, var(--wr-text));
+  border-color: color-mix(in srgb, var(--wr-success) 45%, var(--wr-border));
+  background: color-mix(in srgb, var(--wr-success) 13%, var(--wr-panel-bg));
+}
+.wr-restgo-workspace .wr-restgo-publish-action.is-publish:hover:enabled {
+  background: color-mix(in srgb, var(--wr-success) 23%, var(--wr-panel-bg));
+}
+.wr-restgo-workspace .wr-restgo-publish-action.is-unpublish {
+  color: color-mix(in srgb, var(--wr-danger) 80%, var(--wr-text));
+  border-color: color-mix(in srgb, var(--wr-danger) 45%, var(--wr-border));
+  background: color-mix(in srgb, var(--wr-danger) 13%, var(--wr-panel-bg));
+}
+.wr-restgo-workspace .wr-restgo-publish-action.is-unpublish:hover:enabled {
+  background: color-mix(in srgb, var(--wr-danger) 23%, var(--wr-panel-bg));
 }
 .wr-restgo-api-meta {
   display: inline-flex;
@@ -646,12 +853,13 @@
 .wr-restgo-api-details {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 0 12px 7px;
 }
 .wr-restgo-api-url {
   display: block;
-  flex: 1;
+  flex: 1 1 240px;
   min-width: 0;
   color: var(--wr-muted-text);
   margin: 0;
@@ -762,6 +970,7 @@
   overscroll-behavior: contain;
   background: var(--wr-bg);
   padding: 16px 14px;
+  border-right: 1px solid var(--wr-border);
 }
 .wr-restgo-endpoint-list-toolbar {
   display: flex;
@@ -778,11 +987,26 @@
   font-weight: normal;
   padding-left: 5px;
 }
+.wr-restgo-new-endpoint {
+  padding: 4px 7px;
+  font-size: 11px;
+}
 .wr-restgo-endpoint-list > .wr-restgo-search {
   margin-bottom: 12px;
   padding: 0 7px;
 }
 .wr-restgo-endpoint-list .wr-restgo-search input {
+  font-size: 11px;
+}
+.wr-restgo-endpoint-database-filter {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--wr-muted-text);
+  font-size: 11px;
+}
+.wr-restgo-endpoint-database-filter select {
+  padding: 7px 8px;
   font-size: 11px;
 }
 .wr-restgo-endpoint-list-item {
@@ -819,6 +1043,10 @@
   background: var(--wr-accent-soft);
   border-color: color-mix(in srgb, var(--wr-accent) 25%, transparent);
 }
+.wr-restgo-endpoint-list-item:focus-visible {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: -1px;
+}
 .wr-restgo-endpoint-list-item:disabled {
   cursor: default;
   opacity: 0.7;
@@ -849,16 +1077,56 @@
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  container: restgo-endpoint / inline-size;
 }
 .wr-restgo-endpoint-editor {
+  display: grid;
+  gap: 20px;
   padding: 22px;
+}
+.wr-restgo-endpoint-form {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.wr-restgo-editor-section {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--wr-border);
+  border-radius: 8px;
+  background: var(--wr-panel-bg);
+}
+.wr-restgo-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.wr-restgo-section-heading h3 {
+  margin: 0 0 5px;
+  font-size: 14px;
+}
+.wr-restgo-section-heading p {
+  margin: 0;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+}
+.wr-restgo-route-preview {
+  max-width: 100%;
+  padding: 7px 9px;
+  border-radius: 4px;
+  color: var(--wr-muted-text);
+  overflow-wrap: anywhere;
+  background: var(--wr-bg);
 }
 .wr-restgo-subheading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 .wr-restgo-subheading p {
   margin: 0;
@@ -870,7 +1138,7 @@
   font-size: 11px;
 }
 .wr-restgo-endpoint-editor > .wr-restgo-alert {
-  margin: 0 0 18px;
+  margin: 0;
 }
 .wr-restgo-fields {
   display: grid;
@@ -878,20 +1146,22 @@
   gap: 15px;
   border: 0;
   padding: 0;
-  margin: 0 0 20px;
+  margin: 0;
 }
 .wr-restgo-fields > label,
-.wr-restgo-method-fields > label {
+.wr-restgo-method-fields > label,
+.wr-restgo-operation-config > label {
   display: grid;
   align-content: start;
   gap: 7px;
   font-size: 12px;
+  min-width: 0;
 }
 .wr-restgo-method-tabs {
   display: flex;
   overflow-x: auto;
   border-bottom: 1px solid var(--wr-border-strong);
-  gap: 2px;
+  gap: 4px;
 }
 .wr-restgo-method-tabs > button {
   display: inline-flex;
@@ -899,11 +1169,11 @@
   justify-content: center;
   gap: 5px;
   font-family: var(--wr-font-mono);
-  font-size: 10px;
+  font-size: 12px;
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  padding: 10px 10px 9px;
+  padding: 11px 12px 10px;
   color: var(--wr-muted-text);
   cursor: pointer;
 }
@@ -923,43 +1193,107 @@
 .wr-restgo-method-panel {
   padding: 18px 0 0;
 }
-.wr-restgo-method-panel > .wr-restgo-toggle {
-  margin-bottom: 15px;
+.wr-restgo-method-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.wr-restgo-method-heading > div {
+  display: grid;
+  gap: 4px;
 }
 .wr-restgo-method-fields {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: 18px;
   border: 0;
   margin: 0;
   padding: 0;
 }
-.wr-restgo-method-fields > label:first-child {
-  max-width: 240px;
+.wr-restgo-operation-config {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
 }
-.wr-restgo-workspace textarea.wr-restgo-sql {
-  min-height: 280px;
-  resize: vertical;
+.wr-restgo-sql-summary {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-bg);
+}
+.wr-restgo-sql-summary > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 12px;
+}
+.wr-restgo-sql-summary > div > button {
+  margin-left: auto;
+}
+.wr-restgo-sql-summary > p {
+  margin: 0;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+}
+.wr-restgo-sql-preview {
+  max-height: 8.25em;
+  margin: 0;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   font-family: var(--wr-font-mono);
   font-size: 12px;
-  line-height: 1.75;
-  tab-size: 2;
-  background: var(--wr-bg);
-  padding: 14px;
+  line-height: 1.65;
 }
 .wr-restgo-method-empty {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 30px;
-  min-height: 250px;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 0;
   color: var(--wr-muted-text);
   font-size: 12px;
 }
 .wr-restgo-method-empty > .wr-icon {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   opacity: 0.5;
+}
+.wr-restgo-method-empty > div {
+  flex: 1;
+  min-width: 150px;
+}
+.wr-restgo-method-empty p {
+  margin: 5px 0 0;
+}
+.wr-restgo-save-bar {
+  margin: 0;
+  padding: 14px 18px;
+  border: 1px solid var(--wr-border);
+  border-radius: 8px;
+  background: var(--wr-panel-alt);
+}
+.wr-restgo-save-state {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 180px;
+  font-size: 12px;
+}
+.wr-restgo-save-bar > button {
+  min-height: 34px;
+}
+.wr-restgo-endpoint-editor .wr-restgo-inline-error {
+  color: var(--wr-danger);
+  font-size: 12px;
 }
 .wr-restgo-operation-parameters {
   padding: 15px;
@@ -987,9 +1321,7 @@
   border-radius: 3px;
 }
 .wr-restgo-publication-editor {
-  margin-top: 30px;
-  padding-top: 24px;
-  border-top: 1px solid var(--wr-border-strong);
+  margin: 0;
 }
 .wr-restgo-publication-editor > p {
   margin: 0 0 20px;
@@ -999,7 +1331,21 @@
 .wr-restgo-publication-list {
   display: grid;
   gap: 8px;
-  margin: 15px 0 22px;
+  margin: 0;
+}
+.wr-restgo-publication-form {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-bg);
+}
+.wr-restgo-publication-form > h4 {
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+.wr-restgo-publication-form .wr-restgo-form-actions > small {
+  margin-right: auto;
 }
 .wr-restgo-publication-row {
   display: flex;
@@ -1030,6 +1376,91 @@
   padding: 5px 7px;
 }
 
+.wr-restgo-sql-backdrop {
+  z-index: 1300;
+}
+.wr-modal.wr-restgo-sql-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1440px, calc(100vw - 48px));
+  max-width: 100%;
+  height: min(760px, calc(100dvh - 48px));
+  min-height: 0;
+}
+.wr-restgo-sql-dialog > .wr-modal-header {
+  flex-shrink: 0;
+}
+.wr-restgo-sql-dialog .wr-restgo-sql-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0;
+  padding: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.wr-restgo-sql-help {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--wr-muted-text);
+}
+.wr-restgo-sql-dialog .wr-restgo-sql {
+  box-sizing: border-box;
+  flex: 1;
+  width: calc(100% - 40px);
+  min-height: 100px;
+  margin: 0 20px;
+  padding: 14px;
+  resize: none;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: 5px;
+  background: var(--wr-bg);
+  color: var(--wr-text);
+  font-family: var(--wr-font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  font-stretch: normal;
+  line-height: 1.65;
+  tab-size: 2;
+}
+.wr-restgo-sql-status {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 20px;
+  font-size: 11px;
+  color: var(--wr-muted-text);
+  flex-shrink: 0;
+}
+.wr-restgo-sql-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--wr-border);
+  flex-shrink: 0;
+}
+.wr-restgo-sql-footer > small {
+  flex: 1;
+  min-width: 200px;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.wr-restgo-sql-footer .wr-modal-actions {
+  margin: 0;
+}
+
+@container restgo-endpoint (min-width: 720px) {
+  .wr-restgo-method-fields {
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  }
+}
+
 .wr-modal-backdrop:has(.wr-restgo-api-picker) {
   z-index: 1300;
 }
@@ -1050,6 +1481,17 @@
   border: 1px solid var(--wr-border-strong);
   border-radius: 4px;
   background: var(--wr-button-bg);
+}
+.wr-restgo-api-picker-hint {
+  margin: 0 0 14px;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+}
+.wr-restgo-api-picker-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 3px;
 }
 .wr-restgo-api-picker-list {
   display: grid;
@@ -1120,14 +1562,6 @@
 }
 
 @media (max-width: 1150px) {
-  .wr-restgo-connection {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .wr-restgo-admin-settings {
-    padding: 24px 0 0;
-    border-left: 0;
-    border-top: 1px solid var(--wr-border);
-  }
   .wr-restgo-catalog-tools {
     flex-wrap: wrap;
   }
@@ -1145,6 +1579,51 @@
   }
   .wr-restgo-subheading {
     flex-wrap: wrap;
+  }
+}
+
+@container restgo-body (min-width: 760px) {
+  .wr-restgo-settings-fields,
+  .wr-restgo-login-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container restgo-body (min-width: 850px) {
+  .wr-restgo-admin-settings .wr-restgo-connected-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-areas:
+      'identity summary'
+      'actions summary';
+    align-items: stretch;
+    gap: 16px 24px;
+  }
+  .wr-restgo-admin-settings .wr-restgo-identity {
+    grid-area: identity;
+  }
+  .wr-restgo-admin-settings .wr-restgo-connection-summary {
+    grid-area: summary;
+  }
+  .wr-restgo-admin-settings .wr-restgo-admin-actions {
+    grid-area: actions;
+    align-self: end;
+  }
+}
+
+@container restgo-body (max-width: 480px) {
+  .wr-restgo-connection-heading {
+    flex-wrap: wrap;
+  }
+  .wr-restgo-connection-heading > div {
+    flex-basis: calc(100% - 36px);
+  }
+  .wr-restgo-connection-heading > .wr-restgo-scope {
+    margin-left: 36px;
+  }
+  .wr-restgo-connection .wr-restgo-button {
+    white-space: normal;
+    text-align: center;
   }
 }
 
@@ -1167,9 +1646,6 @@
   }
   .wr-restgo-endpoints-layout {
     grid-template-columns: 160px minmax(0, 1fr);
-  }
-  .wr-restgo-settings-fields {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 

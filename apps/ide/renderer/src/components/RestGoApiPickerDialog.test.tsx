@@ -117,7 +117,13 @@ function renderPicker(
 ): {
   readonly bridge: Pick<RestGoAdminBridge, 'status' | 'catalog' | 'connect'>;
   readonly onImport: ReturnType<
-    typeof vi.fn<(apis: readonly RestGoPublishedApi[], convertCustom: boolean) => void>
+    typeof vi.fn<
+      (
+        apis: readonly RestGoPublishedApi[],
+        convertCustom: boolean,
+        catalog: readonly RestGoPublishedApi[],
+      ) => void
+    >
   >;
 } {
   const bridge: Pick<RestGoAdminBridge, 'status' | 'catalog' | 'connect'> = {
@@ -140,7 +146,14 @@ function renderPicker(
     configurable: true,
     value: { restgoAdmin: bridge },
   });
-  const onImport = vi.fn<(apis: readonly RestGoPublishedApi[], convertCustom: boolean) => void>();
+  const onImport =
+    vi.fn<
+      (
+        apis: readonly RestGoPublishedApi[],
+        convertCustom: boolean,
+        catalog: readonly RestGoPublishedApi[],
+      ) => void
+    >();
   render(
     <RestGoApiPickerDialog
       restGoSettings={{ ...DEFAULT_REST_GO_PROJECT_SETTINGS, enabled: true, baseUrl }}
@@ -164,22 +177,19 @@ describe('RestGoApiPickerDialog', () => {
     const user = userEvent.setup();
     const { onImport } = renderPicker();
     const jwt = (await screen.findByRole('checkbox', {
-      name: 'Import GET customers/orders v2',
+      name: 'Import customers/orders v2',
     })) as HTMLInputElement;
-    const matchingJwt = screen.getByRole('checkbox', {
-      name: 'Import PUT customers/orders v2',
-    }) as HTMLInputElement;
     const token = screen.getByRole('checkbox', {
-      name: 'Import GET customers/token-orders v4',
+      name: 'Import customers/token-orders v4',
     }) as HTMLInputElement;
     const publicApi = screen.getByRole('checkbox', {
-      name: 'Import GET customers/public-orders v1',
+      name: 'Import customers/public-orders v1',
     }) as HTMLInputElement;
 
     expect(token.disabled).toBe(false);
     expect(publicApi.disabled).toBe(false);
     await user.click(jwt);
-    expect(matchingJwt.disabled).toBe(false);
+    expect(screen.getAllByLabelText('Available methods')[0]?.textContent).toContain('PUT');
     expect(token.disabled).toBe(true);
     expect(publicApi.disabled).toBe(true);
     expect(screen.getAllByText('Separate client required')).toHaveLength(2);
@@ -211,11 +221,9 @@ describe('RestGoApiPickerDialog', () => {
       })),
     };
     const { onImport } = renderPicker(configuration, 'https://custom.example.test');
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Import GET customers/orders v2' }),
-    );
+    await user.click(await screen.findByRole('checkbox', { name: 'Import customers/orders v2' }));
     const importButton = screen.getByRole('button', {
-      name: 'Import 1 request',
+      name: 'Import 1 endpoint',
     }) as HTMLButtonElement;
     const consent = screen.getByRole('checkbox', {
       name: /Use the fixed RestGo URL and authentication/,
@@ -235,47 +243,48 @@ describe('RestGoApiPickerDialog', () => {
     expect(onImport).toHaveBeenCalledWith(
       [expect.objectContaining({ id: '20:11', method: 'GET', apiVersion: 2 })],
       true,
+      expect.arrayContaining([expect.objectContaining({ id: '20:12', method: 'PUT' })]),
     );
     expect(configuration.operations[0]?.headers[0]?.value).toBe('custom-token');
     expect(configuration.operations[0]?.path).toBe('/legacy/orders');
   });
 
-  it('imports same-named GET and PUT selections as distinct versioned request descriptors', async () => {
+  it('imports a grouped endpoint and retains its available methods in the catalog', async () => {
     const user = userEvent.setup();
     const { onImport } = renderPicker();
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Import GET customers/orders v2' }),
-    );
-    await user.click(screen.getByRole('checkbox', { name: 'Import PUT customers/orders v2' }));
-    await user.click(screen.getByRole('button', { name: 'Import 2 requests' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Import customers/orders v2' }));
+    await user.click(screen.getByRole('button', { name: 'Import 1 endpoint' }));
 
     expect(onImport).toHaveBeenCalledTimes(1);
     const imported = onImport.mock.calls[0];
     expect(imported?.[1]).toBe(false);
-    expect(imported?.[0]).toEqual([
-      {
-        id: '20:11',
-        name: 'orders',
-        database: 'customers',
-        endpoint: 'orders',
-        method: 'GET',
-        apiVersion: 2,
-        authentication: 'jwt',
-        kind: 'sql',
-        script: 'SELECT * FROM orders WHERE id = :id',
-      },
-      {
-        id: '20:12',
-        name: 'orders',
-        database: 'customers',
-        endpoint: 'orders',
-        method: 'PUT',
-        apiVersion: 2,
-        authentication: 'jwt',
-        kind: 'sql',
-        script: 'UPDATE orders SET total = :total WHERE id = :id',
-      },
-    ]);
+    expect(imported?.[0]).toEqual([expect.objectContaining({ id: '20:11', method: 'GET' })]);
+    expect(imported?.[2]).toEqual(
+      expect.arrayContaining([
+        {
+          id: '20:11',
+          name: 'orders',
+          database: 'customers',
+          endpoint: 'orders',
+          method: 'GET',
+          apiVersion: 2,
+          authentication: 'jwt',
+          kind: 'sql',
+          script: 'SELECT * FROM orders WHERE id = :id',
+        },
+        {
+          id: '20:12',
+          name: 'orders',
+          database: 'customers',
+          endpoint: 'orders',
+          method: 'PUT',
+          apiVersion: 2,
+          authentication: 'jwt',
+          kind: 'sql',
+          script: 'UPDATE orders SET total = :total WHERE id = :id',
+        },
+      ]),
+    );
   });
 
   it('reconnects rejected administrative access without changing authored request configuration', async () => {
@@ -300,7 +309,7 @@ describe('RestGoApiPickerDialog', () => {
     ).toBe(true);
     await user.type(tokenInput, 'rgo.reconnected-administrator');
     await user.click(screen.getByRole('button', { name: 'Connect' }));
-    await screen.findByRole('checkbox', { name: 'Import GET customers/orders v2' });
+    await screen.findByRole('checkbox', { name: 'Import customers/orders v2' });
     expect(bridge.connect).toHaveBeenCalledWith({
       baseUrl,
       token: 'rgo.reconnected-administrator',
