@@ -1,5 +1,18 @@
 # WebRAD delivery plan
 
+## Windows release battery: 2026-11-08, follow-up
+
+On the working tree based on `9cefb90a13a4ee3e7612de22c2cab9768c96868a`,
+the Payments documentation formatting was corrected. With lockfile dependencies,
+Node 26.13.0, npm 12.2.1 and Chrome, `validate` passed 242 files and 1,815 tests,
+source checks, typecheck, lint, formatting and Windows x64 packaging. Development,
+packaged and simulated update smokes passed, along with 12 supplementary smoke
+flows. The production dependency audit found no vulnerabilities; the complete
+dependency audit reported 27 moderate development dependency findings. Logs are
+in `artifacts/release-battery-20261108/`. Exact-commit hosted verification on all
+six targets, the hosted security workflow and a real update installation remain
+outstanding.
+
 ## Windows release battery: 2026-11-08
 
 On the working tree based on `4a8f43e01b9b0c970f5cf8b98612a9f9b277f9cc`,

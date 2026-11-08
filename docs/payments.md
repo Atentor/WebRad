@@ -36,11 +36,15 @@ optional, and history does not include these details or URLs.
 const operation = await this.Payments1.Resume(purchaseId, { watch: false });
 if (operation?.boleto) {
   const { dueDate, invoiceUrl, bankSlipUrl } = operation.boleto;
-  Message([
-    dueDate ? `Due date: ${dueDate}` : '',
-    invoiceUrl ? `Invoice: ${invoiceUrl}` : '',
-    bankSlipUrl ? `Boleto PDF: ${bankSlipUrl}` : '',
-  ].filter(Boolean).join('\n') || 'Boleto details are not available yet.');
+  Message(
+    [
+      dueDate ? `Due date: ${dueDate}` : '',
+      invoiceUrl ? `Invoice: ${invoiceUrl}` : '',
+      bankSlipUrl ? `Boleto PDF: ${bankSlipUrl}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n') || 'Boleto details are not available yet.',
+  );
 }
 ```
 
