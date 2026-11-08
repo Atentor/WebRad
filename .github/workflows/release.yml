@@ -164,6 +164,7 @@ jobs:
       - run: npm run format:check
       - name: Package application
         env:
+          DEBUG: '@electron/get:index'
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}

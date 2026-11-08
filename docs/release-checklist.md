@@ -1,5 +1,16 @@
 # Release checklist for agents and maintainers
 
+Tag v0.0.31 at `6b8270e69523da6fab9411a136b431d3adebb29f` passed validate,
+security, six portable jobs and five builds. Release run 42530885947 failed
+macOS Intel during Forge's Electron copy with `TypeError: fetch failed`; the
+log did not expose the URL or underlying cause, and no failure artifact existed.
+The Intel packaged and update smokes did not run; assembly and publication were
+skipped. Main verification run 42529122226 passed all six targets and assembly
+on the same commit. Forge now uses the installed Electron package's checksums
+to verify archives without repeatedly downloading the checksum file; scoped
+download diagnostics were added. This change is unvalidated and does not prove
+which request failed. Preserve integrity checks and all native release gates.
+
 On 2026-11-07, local Windows x64 validation on the uncommitted checkout based on
 `6a562bda75a0d745594dff7f2604fa21c791c0a0` passed 242 test files and 1,815 tests
 with Chrome enabled and no skips, as well as typecheck, lint, formatting, source

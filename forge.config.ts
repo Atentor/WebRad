@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { ForgeConfig } from '@electron-forge/shared-types';
-import { promises as fs } from 'node:fs';
+import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -17,6 +17,11 @@ const iconPngPath = path.resolve('Icon.png');
 const jetBrainsMonoLicensePath = path.resolve('licenses', 'JetBrainsMono-OFL.txt');
 
 const productionNodeModulesPath = path.resolve('node_modules');
+// Electron ships checksums for its own version; retain SHA-256 verification
+// without fetching SHASUMS256.txt again when Forge packages a cached archive.
+const electronChecksums = JSON.parse(
+  readFileSync(path.join(productionNodeModulesPath, 'electron', 'checksums.json'), 'utf8'),
+) as Record<string, string>;
 
 function packageDirectory(packageName: string): string {
   return path.join(productionNodeModulesPath, ...packageName.split('/'));
@@ -63,6 +68,7 @@ async function copyNativeRuntimeDependencies(buildPath: string): Promise<void> {
 const config: ForgeConfig = {
   packagerConfig: {
     appBundleId: 'com.atentor.webrad',
+    download: { checksums: electronChecksums },
     ...(process.platform === 'darwin' && process.env.WEBRAD_MAC_SIGNED === 'true'
       ? {
           osxSign: {

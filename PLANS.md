@@ -1,5 +1,22 @@
 # WebRAD delivery plan
 
+## Release v0.0.31 packaging failure: 2026-11-08
+
+Tag run 42530885947 at `6b8270e69523da6fab9411a136b431d3adebb29f` passed all
+six portable jobs and five builds, but macOS Intel failed while copying the
+Electron distribution with `TypeError: fetch failed`. The log did not identify
+the URL or underlying network error, and no failure artifact was produced.
+Assembly and publication were skipped; validate and security passed. The prior
+non-publishing run on the same commit passed all six targets and assembly.
+
+Forge now receives the checksums distributed with the installed Electron package,
+as its installer already does. This preserves archive integrity verification and
+avoids a fresh checksum download for every package, including cache hits. Scoped
+Electron download diagnostics identify cache and download activity in release
+logs. The failing URL was not captured, so this is a preventive correction, not
+proof of the original network failure's cause. These changes have not been
+validated; the final commit still requires all hosted release gates.
+
 ## Windows release battery: 2026-11-08, follow-up
 
 On the working tree based on `9cefb90a13a4ee3e7612de22c2cab9768c96868a`,
