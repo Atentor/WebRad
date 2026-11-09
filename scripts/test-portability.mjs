@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';

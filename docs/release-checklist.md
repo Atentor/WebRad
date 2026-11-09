@@ -1,5 +1,14 @@
 # Release checklist for agents and maintainers
 
+At `bdcdeeb000ffc42de5990786ce294d4223c95382`, all six portable jobs and security
+passed. Release run 42548501419 and validate run 42548501538 stopped all eight
+quality/build jobs at the same `no-undef` error: the portable test diagnostic
+writer used `Buffer` without importing it. The script now imports `Buffer` from
+`node:buffer`. Logs are retained in `artifacts/commit-review-bdcdeeb/`; no workflow
+artifacts existed because packaging and smokes were not reached. This correction
+has not been locally validated; the final commit must pass the complete hosted
+gates before release readiness is claimed.
+
 Tag v0.0.32 at `2d3a7febd932edce71e3f55a75d742fe60fc5ce1` passed all six
 builds, packaged/update smokes and artifact staging in release run 42545283231.
 The Intel portable job failed the first project IPC concurrency case at five

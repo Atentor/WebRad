@@ -1,5 +1,16 @@
 # WebRAD delivery plan
 
+## Portable test diagnostics lint correction: 2026-11-08
+
+Commit `bdcdeeb000ffc42de5990786ce294d4223c95382` passed all six hosted portable
+test jobs and security. All six release build jobs and both validation jobs
+stopped at the same lint error: `Buffer` was used without an explicit import in
+`scripts/test-portability.mjs`. The script now imports it from `node:buffer`,
+following the other Node scripts. Original failed job logs are retained in
+`artifacts/commit-review-bdcdeeb/`. Packaging, smokes and assembly were not reached;
+no workflow artifacts were available. No local validation was requested or run
+for this correction; final-commit hosted verification remains outstanding.
+
 ## Release v0.0.32 test failures: 2026-11-08
 
 Tag run 42545283231 at `2d3a7febd932edce71e3f55a75d742fe60fc5ce1` passed all
