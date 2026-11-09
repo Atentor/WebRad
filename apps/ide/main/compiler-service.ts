@@ -25,6 +25,7 @@ interface Service {
   readonly pending: Map<number, Pending>;
 }
 let service: Service | undefined;
+const fixtureServices = new Set<Service>();
 let sequence = 0;
 let stopped = false;
 
@@ -33,9 +34,8 @@ function fail(service: Service, error: Error): void {
   service.pending.clear();
 }
 
-function compilerService(): Service {
+function createCompilerService(): Service {
   if (stopped) throw new Error('The compiler service is shutting down.');
-  if (service !== undefined) return service;
   const child = utilityProcess.fork(path.join(__dirname, 'compiler-process.cjs'), [], {
     cwd: process.cwd(),
     env: process.env,
@@ -43,7 +43,6 @@ function compilerService(): Service {
     serviceName: 'WebRAD compiler',
   });
   const current: Service = { child, pending: new Map() };
-  service = current;
   child.on('message', (message: CompilerProcessResponse) => {
     const request = current.pending.get(message.id);
     if (request === undefined) return;
@@ -66,19 +65,29 @@ function compilerService(): Service {
   });
   child.once('exit', (code) => {
     if (service === current) service = undefined;
+    fixtureServices.delete(current);
     fail(current, new Error(`The compiler process exited (${String(code)}).`));
   });
   child.once('error', (type, location) => {
     if (service === current) service = undefined;
+    fixtureServices.delete(current);
     fail(current, new Error(`Compiler ${type}: ${location}`));
     child.kill();
   });
   return current;
 }
 
-function send(operation: CompilerOperation, progress?: Progress): Promise<Result> {
+function compilerService(): Service {
+  if (stopped) throw new Error('The compiler service is shutting down.');
+  return (service ??= createCompilerService());
+}
+
+function send(
+  operation: CompilerOperation,
+  progress?: Progress,
+  current = compilerService(),
+): Promise<Result> {
   return new Promise((resolve, reject) => {
-    const current = compilerService();
     const id = ++sequence;
     current.pending.set(id, { resolve, reject, ...(progress === undefined ? {} : { progress }) });
     try {
@@ -100,15 +109,34 @@ export async function compileProject(
   return value;
 }
 
-export function compileProjectToMemory(
+export async function compileProjectToMemory(
   project: WebRadProject,
   options: Omit<CompileProjectMemoryOptions, 'registry' | 'onProgress'>,
 ): Promise<CompileProjectResult> {
-  return compileProject(project, {
-    ...options,
-    outputDirectory: options.outputDirectory ?? path.resolve('.webrad-preview'),
-    write: false,
-  });
+  // Smoke fixtures are independent projects. Keep their compiler graphs out of
+  // the live IDE service so they cannot evict the open project's latest graph.
+  const current = createCompilerService();
+  fixtureServices.add(current);
+  try {
+    const value = await send(
+      {
+        kind: 'project',
+        project,
+        options: {
+          ...options,
+          outputDirectory: options.outputDirectory ?? path.resolve('.webrad-preview'),
+          write: false,
+        },
+      },
+      undefined,
+      current,
+    );
+    if (typeof value === 'string') throw new Error('Unexpected styles result from the compiler.');
+    return value;
+  } finally {
+    fixtureServices.delete(current);
+    current.child.kill();
+  }
 }
 
 export async function compileTailwindStyles(
@@ -121,6 +149,11 @@ export async function compileTailwindStyles(
 
 export function stopCompilerService(): void {
   stopped = true;
+  for (const fixture of fixtureServices) {
+    fail(fixture, new Error('The compiler service is shutting down.'));
+    fixture.child.kill();
+  }
+  fixtureServices.clear();
   if (service === undefined) return;
   const current = service;
   service = undefined;

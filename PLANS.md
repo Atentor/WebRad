@@ -1,5 +1,26 @@
 # WebRAD delivery plan
 
+## Tagged release v0.0.33: macOS Intel Icons F9
+
+Tag `v0.0.33` at `3dc91f391e5bffe79030c4bbb06dabed0ef7c046` failed the
+packaged Intel Icons F9 wait in release run 42598962327. Source generation and
+program construction completed, but semantic diagnostics remained active at
+the existing ten-second deadline. The exact commit passed the earlier main
+verification, including Intel's Icons Preview, so this is an intermittent
+timing failure rather than evidence that tag builds use a different compiler.
+
+The smoke's independent RestGO fixture compiles between the last normal Preview
+and Icons using the live compiler service, replacing its single retained graph.
+The RestGO, API Client and Popup fixture compilations now use short-lived owned
+compiler processes, retaining the real open project's graph and complete
+diagnostics. macOS capture failures now record exit details and attempt a
+direct-child compiler sample if listing the process tree fails. This removes an
+identified source of graph churn, but the failed native sample did not reveal the
+underlying hot operation; native verification is needed before calling the
+timeout fixed. Original logs, project, screenshots and compiler artifacts are
+under `artifacts/release-review-v0.0.33/`. No local validation was requested or
+run. Preserve the existing deadlines, evidence and exact-commit release gates.
+
 ## Icons F9 semantic timeout: f8ea9a6
 
 At `f8ea9a6b8757a4a3e2874b34313542f488a385c2`, validate, security, all six

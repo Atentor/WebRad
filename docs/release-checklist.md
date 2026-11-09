@@ -1,5 +1,17 @@
 # Release checklist for agents and maintainers
 
+Tag `v0.0.33` at `3dc91f391e5bffe79030c4bbb06dabed0ef7c046` failed the
+Intel packaged Icons F9 wait in release run 42598962327 while semantic
+diagnostics were running. The same commit's main release verification passed.
+The smoke's independent RestGO fixture had replaced the live compiler's single
+incremental graph before Icons. Independent smoke fixtures now compile in
+short-lived owned compiler processes, preserving the live Preview graph; no
+diagnostics, smoke assertions or deadlines were removed. Native sampling also
+records process-list errors and attempts a direct-child fallback. The original
+sampling failed, so the expensive semantic operation remains unidentified and
+the correction is not yet verified. Original logs and artifacts are in
+`artifacts/release-review-v0.0.33/`. Keep the exact-commit native release gates.
+
 At `f8ea9a6b8757a4a3e2874b34313542f488a385c2`, validate, security, all six
 portable jobs and five release builds passed. Release run 42557774085 failed
 Intel's Icons F9 wait while semantic diagnostics were still running after at

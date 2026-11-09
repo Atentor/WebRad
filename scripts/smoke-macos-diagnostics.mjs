@@ -20,15 +20,60 @@ export async function preserveMacOSSmokeDiagnostics(logPath, artifactRoot) {
 
 function execute(file, args, timeout) {
   return new Promise((resolve, reject) => {
-    execFile(file, args, { timeout, maxBuffer: 2 * 1024 * 1024 }, (error, stdout) => {
-      if (error) reject(error);
-      else resolve(stdout);
+    execFile(file, args, { timeout, maxBuffer: 2 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        error.stderr = stderr;
+        reject(error);
+      } else resolve(stdout);
     });
   });
 }
 
+function describeError(error) {
+  if (!(error instanceof Error)) return String(error);
+  return JSON.stringify({
+    message: error.message,
+    code: error.code,
+    signal: error.signal,
+    killed: error.killed,
+    stderr: typeof error.stderr === 'string' ? error.stderr.slice(0, 4096) : undefined,
+  });
+}
+
+async function sampleTargets(targets, directory) {
+  await Promise.allSettled(
+    targets.map(async (entry) => {
+      const file = path.join(directory, `${entry.role}-${entry.pid}.sample.txt`);
+      try {
+        // Symbolication can outlive the sampled process. Keep its symbols and
+        // let report generation finish after failure without extending the smoke.
+        await execute(
+          '/usr/bin/sample',
+          [String(entry.pid), '1', '1', '-mayDie', '-file', file],
+          30000,
+        );
+      } catch (error) {
+        await fs.writeFile(`${file}.error.txt`, describeError(error) + '\n');
+      }
+    }),
+  );
+}
+
 async function captureProcesses(rootPid, directory, compilerPid) {
-  const listing = await execute('/bin/ps', ['-axo', 'pid=,ppid=,stat=,pcpu=,rss=,comm='], 2000);
+  let listing;
+  try {
+    listing = await execute('/bin/ps', ['-axo', 'pid=,ppid=,stat=,pcpu=,rss=,comm='], 2000);
+  } catch (error) {
+    await fs.writeFile(path.join(directory, 'process-list-error.txt'), describeError(error) + '\n');
+    // A full process listing can itself stall under load. Sample the compiler
+    // only when a separate, targeted query verifies it is our direct child.
+    if (!Number.isSafeInteger(compilerPid) || compilerPid <= 0) return;
+    const parent = await execute('/bin/ps', ['-o', 'ppid=', '-p', String(compilerPid)], 2000);
+    if (Number(parent.trim()) === rootPid) {
+      await sampleTargets([{ pid: compilerPid, role: 'compiler' }], directory);
+    }
+    return;
+  }
   const processes = listing.split('\n').flatMap((line) => {
     const fields = /^\s*(\d+)\s+(\d+)\s+\S+\s+[\d.,]+\s+\d+\s+(.+)$/u.exec(line);
     return fields
@@ -67,22 +112,7 @@ async function captureProcesses(rootPid, directory, compilerPid) {
     }
   }
   for (const entry of native) targets.push({ ...entry, role: 'esbuild' });
-  await Promise.allSettled(
-    targets.map(async (entry) => {
-      const file = path.join(directory, `${entry.role}-${entry.pid}.sample.txt`);
-      try {
-        // Symbolication can outlive the sampled process. Keep its symbols and
-        // let report generation finish after failure without extending the smoke.
-        await execute(
-          '/usr/bin/sample',
-          [String(entry.pid), '1', '1', '-mayDie', '-file', file],
-          30000,
-        );
-      } catch (error) {
-        await fs.writeFile(`${file}.error.txt`, String(error) + '\n');
-      }
-    }),
-  );
+  await sampleTargets(targets, directory);
 }
 
 /** Observe stalled native work from the runner, even when Electron's event loop is blocked. */
@@ -129,7 +159,7 @@ export function createMacOSBundleDiagnostics(rootPid, logPath) {
         .catch(async (error) => {
           // Diagnostics must preserve the original smoke result, including if sampling fails.
           await fs
-            .writeFile(path.join(directory, 'capture-error.txt'), String(error) + '\n')
+            .writeFile(path.join(directory, 'capture-error.txt'), describeError(error) + '\n')
             .catch(() => undefined);
         })
         .finally(() => {
