@@ -1,5 +1,26 @@
 # WebRAD delivery plan
 
+## Icons F9 semantic timeout: f8ea9a6
+
+At `f8ea9a6b8757a4a3e2874b34313542f488a385c2`, validate, security, all six
+portable jobs and five release builds passed. Release run 42557774085 failed
+the Intel packaged smoke at the existing ten-second Icons F9 wait. Styles' three
+presented screenshots passed and are retained. Preview remained building; its
+semantic-diagnostics phase had run for at least 9,652 ms when the wait failed.
+The unchanged second Preview recorded 34 ms in that phase, while other changed
+Previews took 9,235 ms and 6,743 ms. The log does not identify the affected file
+or signature work responsible for the timeout.
+
+The compiler now reports slow completed affected-file categories without source
+names, using the same TypeScript builder and complete whole-program diagnostics.
+The macOS runner also samples the owned compiler process if semantic diagnostics
+remain active for seven seconds; existing bundle sampling and all deadlines are
+retained. Original logs, the project and screenshots are in
+`artifacts/commit-review-f8ea9a6/`. This is diagnostic instrumentation, not a
+proven performance correction. No local tests or validation were requested or
+run; native final-commit evidence is needed to identify the slow work and assess
+any subsequent correction.
+
 ## Styles presented-frame capture: 2026-11-09
 
 At `15cc23ad26bb10b3b17cbbc5c1d5ce681587dbbd`, validate, security, all six

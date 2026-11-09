@@ -1,5 +1,21 @@
 # Release checklist for agents and maintainers
 
+At `f8ea9a6b8757a4a3e2874b34313542f488a385c2`, validate, security, all six
+portable jobs and five release builds passed. Release run 42557774085 failed
+Intel's Icons F9 wait while semantic diagnostics were still running after at
+least 9,652 ms; the existing ten-second wait was not changed. Styles' three
+presented screenshots passed and are retained. One unchanged Preview's semantic
+phase took 34 ms, while other changed Previews took 9,235 ms and 6,743 ms. The
+log does not identify the expensive affected file or builder operation.
+
+Slow completed TypeScript affected-file categories are now logged without file
+names or source content. After seven seconds in semantic diagnostics, the macOS
+smoke runner samples only its owned compiler process tree and preserves results
+under `native-diagnostics/`; the existing bundle sampling remains. Original
+logs, project and screenshots are in `artifacts/commit-review-f8ea9a6/`. These
+diagnostic changes are unvalidated and do not establish a performance fix. Keep
+all diagnostics, checks, assertions, deadlines and native release gates intact.
+
 At `15cc23ad26bb10b3b17cbbc5c1d5ce681587dbbd`, validate, security, six portable
 jobs and five release builds passed. Release run 42554329686 failed the Intel
 packaged smoke with `UnknownVizError` after unified Styles theme evidence and

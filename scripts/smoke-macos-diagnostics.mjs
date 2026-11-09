@@ -27,7 +27,7 @@ function execute(file, args, timeout) {
   });
 }
 
-async function captureProcesses(rootPid, directory) {
+async function captureProcesses(rootPid, directory, compilerPid) {
   const listing = await execute('/bin/ps', ['-axo', 'pid=,ppid=,stat=,pcpu=,rss=,comm='], 2000);
   const processes = listing.split('\n').flatMap((line) => {
     const fields = /^\s*(\d+)\s+(\d+)\s+\S+\s+[\d.,]+\s+\d+\s+(.+)$/u.exec(line);
@@ -59,7 +59,10 @@ async function captureProcesses(rootPid, directory) {
   const targets = [...(browser ? [{ ...browser, role: 'main' }] : [])];
   const compilerParents = new Set(native.map((entry) => entry.parent));
   for (const entry of descendants) {
-    if (compilerParents.has(entry.pid) && entry.pid !== browser?.pid) {
+    if (
+      (entry.pid === compilerPid || compilerParents.has(entry.pid)) &&
+      entry.pid !== browser?.pid
+    ) {
       targets.push({ ...entry, role: 'compiler' });
     }
   }
@@ -91,24 +94,37 @@ export function createMacOSBundleDiagnostics(rootPid, logPath) {
     inspect(log) {
       if (process.platform !== 'darwin' || !Number.isSafeInteger(rootPid) || rootPid <= 0) return;
       if (pending) return;
-      const phase = log
+      const phases = log
         .split(/\r?\n/u)
-        .filter((line) => line.includes('[COMPILER] Preview ') && line.includes(' started ('))
-        .at(-1);
-      if (!phase?.includes('; bundle-build started (') || phase === capturedPhase) return;
+        .filter((line) => line.includes('[COMPILER] Preview ') && line.includes(' started ('));
+      const latest = phases.at(-1);
+      const semantic = latest?.includes('; typecheck-diagnostics-semantic started (') === true;
+      const bundle = latest?.includes('; bundle-build started (') === true;
+      if (!semantic && !bundle) return;
+      // Completed affected-file categories briefly restart the semantic phase.
+      // Measure from its original entry, not from the latest category marker.
+      const phase = semantic
+        ? phases.findLast(
+            (line) =>
+              line.includes('typecheck-diagnostics-global ended after ') &&
+              line.includes('; typecheck-diagnostics-semantic started ('),
+          )
+        : latest;
+      if (!phase || phase === capturedPhase) return;
       const started = Date.parse(phase.slice(0, 24));
-      if (!Number.isFinite(started) || Date.now() - started < 3000) return;
+      if (!Number.isFinite(started) || Date.now() - started < (semantic ? 7000 : 3000)) return;
       capturedPhase = phase;
       sequence += 1;
       const directory = path.join(
         path.dirname(logPath),
         'native-diagnostics',
-        `bundle-${sequence}`,
+        `${semantic ? 'semantic' : 'bundle'}-${sequence}`,
       );
       pending = (async () => {
         await fs.mkdir(directory, { recursive: true });
         await fs.writeFile(path.join(directory, 'phase.txt'), phase + '\n');
-        await captureProcesses(rootPid, directory);
+        const compilerPid = Number(/; compiler CPU .* pid (\d+)$/u.exec(phase)?.[1]);
+        await captureProcesses(rootPid, directory, compilerPid);
       })()
         .catch(async (error) => {
           // Diagnostics must preserve the original smoke result, including if sampling fails.

@@ -34,6 +34,17 @@ function scriptRootNames(sources: ReadonlyMap<string, string>): readonly string[
   );
 }
 
+function semanticCompletionPhase(affected: ts.SourceFile | ts.Program): CompileProjectPhase {
+  if (!('fileName' in affected)) return 'typecheck-semantic-program-completed';
+  const fileName = affected.fileName.replaceAll('\\', '/');
+  if (fileName.includes('/__runtime/')) return 'typecheck-semantic-runtime-completed';
+  if (fileName.includes('/__restgo/')) return 'typecheck-semantic-sdk-completed';
+  if (fileName.includes('/node_modules/')) return 'typecheck-semantic-package-completed';
+  if (fileName.endsWith('.generated.ts')) return 'typecheck-semantic-generated-completed';
+  if (fileName.endsWith('.d.ts')) return 'typecheck-semantic-declaration-completed';
+  return 'typecheck-semantic-authored-completed';
+}
+
 // Retain only the latest builder. TypeScript invalidates changed files and their
 // dependents; component-reference analysis is still recomputed for every scope.
 let previousTypecheck:
@@ -247,6 +258,19 @@ export function typecheckSources(
   onProgress?.('typecheck-diagnostics-global');
   const globalDiagnostics = program.getGlobalDiagnostics();
   onProgress?.('typecheck-diagnostics-semantic');
+  if (onProgress !== undefined) {
+    // Drain exactly the affected files TypeScript would process itself. Report
+    // only slow completed categories; never expose project file names or source.
+    for (;;) {
+      const started = performance.now();
+      const affected = builder.getSemanticDiagnosticsOfNextAffectedFile();
+      if (affected === undefined) break;
+      if (performance.now() - started >= 250) {
+        onProgress(semanticCompletionPhase(affected.affected));
+        onProgress('typecheck-diagnostics-semantic');
+      }
+    }
+  }
   let diagnostics = [
     ...ts.sortAndDeduplicateDiagnostics([
       ...optionDiagnostics,
