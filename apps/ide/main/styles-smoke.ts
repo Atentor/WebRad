@@ -3,6 +3,7 @@ import path from 'node:path';
 import { THEME_COLOR_NAMES } from '@webrad/project-model';
 
 import type { BrowserWindow } from 'electron';
+import { capturePresentedSmokePage } from './smoke-capture';
 
 interface StylesSmokeOptions {
   readonly log: (message: string) => void;
@@ -246,15 +247,16 @@ scrollingProperties: getComputedStyle(list).overflowY === 'auto'
   const screenshotPath = path.resolve(
     'node_modules',
     '.cache',
-    width === 1275 ? 'styles-polished.png' : 'styles-polished-wide.png',
+    width === 1275 ? 'webrad-styles-polished.png' : 'webrad-styles-polished-wide.png',
   );
   await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
   window.webContents.invalidate();
   await paint(window);
-  const screenshot = await window.webContents.capturePage(undefined, {
-    stayHidden: true,
-    stayAwake: true,
-  });
+  const screenshot = await capturePresentedSmokePage(
+    window,
+    Date.now() + 10_000,
+    `Styles ${String(width)}px`,
+  );
   if (screenshot.isEmpty()) throw new Error('Styles screenshot is empty.');
   await fs.writeFile(screenshotPath, screenshot.toPNG());
   return `${JSON.stringify(geometry)}; screenshot=${screenshotPath}`;
@@ -434,14 +436,15 @@ export async function runStylesWorkspaceSmoke(
       'Toast Styles preview clips the shadow or is missing its icon and close button: ' +
         JSON.stringify(toastPreview),
     );
-  const toastScreenshot = path.resolve('node_modules', '.cache', 'toast-styles-polish.png');
+  const toastScreenshot = path.resolve('node_modules', '.cache', 'webrad-toast-styles-polish.png');
   await fs.mkdir(path.dirname(toastScreenshot), { recursive: true });
   window.webContents.invalidate();
   await paint(window);
-  const toastCapture = await window.webContents.capturePage(undefined, {
-    stayHidden: true,
-    stayAwake: true,
-  });
+  const toastCapture = await capturePresentedSmokePage(
+    window,
+    Date.now() + 10_000,
+    'Toast Styles preview',
+  );
   if (toastCapture.isEmpty()) throw new Error('Toast Styles screenshot is empty.');
   await fs.writeFile(toastScreenshot, toastCapture.toPNG());
   options.log(
@@ -622,5 +625,8 @@ export async function runStylesWorkspaceSmoke(
   }
   options.log(
     `renderer Styles intelligent filtering passed: ${String(essentialCount)}/${String(allCount)} properties; configured uncommon retained; full search/edit/clear/reset passed; ${captures.join('; ')}`,
+  );
+  options.log(
+    'renderer Styles presented screenshots passed: Toast, 1275px and 1600px; newly presented marker-free images',
   );
 }

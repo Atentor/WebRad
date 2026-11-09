@@ -1,5 +1,18 @@
 # Release checklist for agents and maintainers
 
+At `15cc23ad26bb10b3b17cbbc5c1d5ce681587dbbd`, validate, security, six portable
+jobs and five release builds passed. Release run 42554329686 failed the Intel
+packaged smoke with `UnknownVizError` after unified Styles theme evidence and
+before the first resized editor screenshot. No interactive Preview compilation
+had started, so this run does not establish Intel's post-optimization duration.
+Styles and Toast now use `capturePresentedSmokePage`, preserving image validity,
+geometry, controls, viewports and deadlines. Both runners require
+`renderer Styles presented screenshots passed:` for Toast, 1275px and 1600px.
+Their `webrad-*.png` filenames now match failure-artifact retention; the previous
+Toast image was omitted by that filter. Original logs, project and verified
+artifact are in `artifacts/commit-review-15cc23a/`. This correction is unvalidated;
+retain the complete final-commit platform gates.
+
 At `640ff0535a40a5ea6fadbb14adf8cdd9079a0d74`, validate, security, all six
 portable jobs and five release builds passed. Release run 42552208596 failed
 the Intel packaged smoke at its 240-second global deadline while API Client

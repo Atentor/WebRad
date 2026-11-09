@@ -302,6 +302,7 @@ try {
                 'renderer API Client browser passed:',
                 'renderer Popup responsive layout passed:',
                 'renderer unified themes Styles passed:',
+                'renderer Styles presented screenshots passed:',
                 'renderer Toast style preview passed:',
                 'renderer Edit label style preview passed:',
                 'renderer UX Styles editing passed:',

@@ -1,5 +1,22 @@
 # WebRAD delivery plan
 
+## Styles presented-frame capture: 2026-11-09
+
+At `15cc23ad26bb10b3b17cbbc5c1d5ce681587dbbd`, validate, security, all six
+portable jobs and five release builds passed. Release run 42554329686 failed the
+Intel packaged smoke with `UnknownVizError` in the first resized Styles capture,
+before any interactive Preview compilation. The retained artifact contains its
+original log and project; the prior cumulative deadline was not reached.
+
+Styles and Toast now consume the shared presented-frame helper instead of
+requesting a second Viz surface copy through `capturePage`. Empty-image and all
+existing geometry/interaction assertions remain. Screenshots use `webrad-*.png`
+names so both runners retain them on failure. Both runners additionally require
+`renderer Styles presented screenshots passed:` for Toast and both editor widths.
+Original logs and the verified artifact are in `artifacts/commit-review-15cc23a/`.
+No local tests, typecheck, lint, builds or smokes were requested or run. Intel
+capture confirmation and the complete final-commit hosted gates remain pending.
+
 ## macOS Intel cumulative smoke deadline: 640ff05
 
 Release run 42552208596 at `640ff0535a40a5ea6fadbb14adf8cdd9079a0d74` passed
