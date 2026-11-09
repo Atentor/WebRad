@@ -31,6 +31,7 @@ try {
     process.platform === 'win32' ? 'junction' : 'dir',
   );
   process.stdout.write(`[IDE] Testing with linked temporary paths (${process.platform}).\n`);
+  const output = [];
   const child = spawn(process.execPath, [vitest, 'run', ...process.argv.slice(2)], {
     cwd: workspace,
     env: {
@@ -39,13 +40,41 @@ try {
       TMP: linkedDirectory,
       TMPDIR: linkedDirectory,
     },
-    stdio: 'inherit',
+    stdio: ['inherit', 'pipe', 'pipe'],
     windowsHide: true,
+  });
+  child.stdout.on('data', (chunk) => {
+    output.push(chunk);
+    process.stdout.write(chunk);
+  });
+  child.stderr.on('data', (chunk) => {
+    output.push(chunk);
+    process.stderr.write(chunk);
   });
   process.exitCode = await new Promise((resolve, reject) => {
     child.once('error', reject);
-    child.once('exit', (code) => resolve(code ?? 1));
+    child.once('close', (code) => resolve(code ?? 1));
   });
+  if (process.exitCode !== 0) {
+    const diagnostics = path.join(workspace, 'artifacts', 'tests', `portable-${Date.now()}`);
+    await fs.mkdir(diagnostics, { recursive: true });
+    await fs.writeFile(path.join(diagnostics, 'vitest.log'), Buffer.concat(output));
+    await fs.writeFile(
+      path.join(diagnostics, 'environment.json'),
+      JSON.stringify(
+        {
+          platform: process.platform,
+          arch: process.arch,
+          nodeVersion: process.version,
+          exitCode: process.exitCode,
+          arguments: process.argv.slice(2),
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    process.stderr.write(`[IDE] Portable test failure diagnostics: ${diagnostics}\n`);
+  }
 } finally {
   await cleanupTemporaryRoot();
 }

@@ -98,7 +98,7 @@ async function register(userDataPath?: string): Promise<void> {
   registerIpcHandlers(userDataPath === undefined ? {} : { userDataPath });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetModules();
   vi.clearAllMocks();
   mocks.handlers.clear();
@@ -114,6 +114,9 @@ beforeEach(() => {
     files: { 'index.html': '<html>app</html>', 'pages/main.js': 'export {}' },
     binaryFiles: { 'assets/icon.png': Uint8Array.from([0, 255]) },
   });
+  // Load the main-process dependency graph as setup, outside the IPC behavior
+  // deadline. Each case still receives fresh module state and registers handlers.
+  await import('./project-ipc');
 });
 
 afterEach(async () => {

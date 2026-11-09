@@ -17,6 +17,12 @@ using a packaged WebRAD installation. The dialog reports missing tools. WebRAD
 uses the external Node executable and NPM CLI directly, without a shell. It does
 not use Electron as Node or require access to the IDE's development toolchain.
 
+Detection probes the selected external Node executable and reads the NPM version
+from the manifest beside its CLI. It avoids loading the full NPM CLI and workspace
+configuration just to read a version. Failed inspections are not cached; the next
+request inspects the tools again. Install, update, remove and restore still run
+the selected external NPM CLI.
+
 Each project owns its root `package.json`, `package-lock.json` and `node_modules`.
 The versioned Project Model embeds direct dependencies and the lockfile in the
 `.wrproj`. Save As, copying, importing or moving the project therefore retains

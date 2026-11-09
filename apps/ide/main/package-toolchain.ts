@@ -62,7 +62,11 @@ export async function executeNpm(
 let cached: Promise<NpmToolchain> | undefined;
 export async function detectNpmToolchain(refresh = false): Promise<NpmToolchain> {
   if (refresh || cached === undefined) cached = inspectNpmToolchain();
-  return cached;
+  const inspection = cached;
+  const result = await inspection;
+  // A transient inspection failure must not poison later package operations.
+  if (!result.available && cached === inspection) cached = undefined;
+  return result;
 }
 async function inspectNpmToolchain(): Promise<NpmToolchain> {
   const bins = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
@@ -113,7 +117,7 @@ async function inspectNpmToolchain(): Promise<NpmToolchain> {
       });
       const timer = setTimeout(() => {
         child.kill();
-        reject(new Error('Node.js/NPM detection timed out. Check the installed toolchain.'));
+        reject(new Error('Node.js detection timed out after 5000ms. Check the installed toolchain.'));
       }, 5000);
       let output = '';
       child.stdout.on('data', (chunk: Buffer) => {
@@ -130,10 +134,23 @@ async function inspectNpmToolchain(): Promise<NpmToolchain> {
       });
     });
   try {
-    const [nodeVersion, npmVersion] = await Promise.all([
+    // npm --version loads the full CLI and workspace configuration. Its own
+    // version comes from this manifest; read it without starting that machinery.
+    const [nodeVersion, npmManifestText] = await Promise.all([
       inspect(['--version']),
-      inspect([npmCliPath, '--version']),
+      fs.readFile(path.resolve(path.dirname(npmCliPath), '..', 'package.json'), 'utf8'),
     ]);
+    const npmManifest: unknown = JSON.parse(npmManifestText);
+    if (
+      typeof npmManifest !== 'object' ||
+      npmManifest === null ||
+      !('name' in npmManifest) ||
+      npmManifest.name !== 'npm' ||
+      !('version' in npmManifest) ||
+      typeof npmManifest.version !== 'string'
+    )
+      throw new Error('The selected NPM CLI does not have a valid npm package manifest.');
+    const npmVersion = npmManifest.version;
     const nodeMajor = Number(/^v?(\d+)\./.exec(nodeVersion)?.[1] ?? 0);
     const npmMajor = Number(/^(\d+)\./.exec(npmVersion)?.[1] ?? 0);
     if (nodeMajor < 20 || npmMajor < 10)

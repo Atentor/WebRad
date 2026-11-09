@@ -92,6 +92,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends fakeroot rpm
       - run: npm run test:portable
+      - name: Preserve failed portable test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: portable-tests-${{ matrix.os }}-${{ matrix.arch }}
+          path: artifacts/tests/**
+          if-no-files-found: ignore
+          retention-days: 7
 
   build:
     needs: preflight

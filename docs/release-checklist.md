@@ -1,5 +1,19 @@
 # Release checklist for agents and maintainers
 
+Tag v0.0.32 at `2d3a7febd932edce71e3f55a75d742fe60fc5ce1` passed all six
+builds, packaged/update smokes and artifact staging in release run 42545283231.
+The Intel portable job failed the first project IPC concurrency case at five
+seconds; its cold import is now performed in setup. Validate run 42545283302
+failed three Windows NPM integration cases after a five-second toolchain probe
+timed out and cached an unavailable result. Inspection now reads the installed
+NPM manifest instead of starting the full CLI for its version, continues probing
+the external Node executable, and does not cache unavailable results. Linux
+validation and security passed. Assembly and publication were skipped. Original
+logs and the verified Intel artifact are in `artifacts/release-review-v0.0.32/`.
+Both workflows now upload failed portable test output and environment metadata
+from `artifacts/tests/`. These changes are unvalidated; preserve all deadlines,
+assertions, the two-worker limit and final-commit native verification.
+
 Tag v0.0.31 at `6b8270e69523da6fab9411a136b431d3adebb29f` passed validate,
 security, six portable jobs and five builds. Release run 42530885947 failed
 macOS Intel during Forge's Electron copy with `TypeError: fetch failed`; the

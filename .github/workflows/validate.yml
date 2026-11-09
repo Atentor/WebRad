@@ -61,3 +61,11 @@ jobs:
           path: artifacts/smoke/**
           if-no-files-found: ignore
           retention-days: 7
+      - name: Preserve failed portable test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: validation-tests-${{ matrix.os }}
+          path: artifacts/tests/**
+          if-no-files-found: ignore
+          retention-days: 7

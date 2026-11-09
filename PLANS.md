@@ -1,5 +1,30 @@
 # WebRAD delivery plan
 
+## Release v0.0.32 test failures: 2026-11-08
+
+Tag run 42545283231 at `2d3a7febd932edce71e3f55a75d742fe60fc5ce1` passed all
+six builds, packaged/update smokes and artifact staging. The macOS Intel portable
+job failed the first project IPC concurrency test's five-second deadline; its
+cold module import was inside the case. Validate run 42545283302 failed three
+Windows NPM integration cases after toolchain detection timed out and cached its
+negative result. Linux validation and security passed. Assembly and publication
+were skipped. All corresponding main verification jobs had passed on the same
+commit.
+
+Toolchain inspection now probes the external Node executable and reads NPM's
+version from the manifest beside its CLI, avoiding full NPM startup/configuration
+loading just to obtain a version. Unavailable results are not retained in the
+cache. The IPC suite loads fresh modules in setup before each behavior deadline.
+Portable test failures now retain their output and environment metadata, uploaded
+by release and validate workflows. Existing deadlines, assertions, two workers
+and real event-loop turns remain intact.
+
+Original failed logs and the downloaded Intel distribution are retained in
+`artifacts/release-review-v0.0.32/`; its inner ZIP and outer artifact SHA-256
+matched their manifests. No local tests, typecheck, lint, formatting, builds or
+smokes were requested or run for these changes. Native hosted confirmation of
+the corrected commit remains outstanding.
+
 ## Release v0.0.31 packaging failure: 2026-11-08
 
 Tag run 42530885947 at `6b8270e69523da6fab9411a136b431d3adebb29f` passed all
