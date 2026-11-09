@@ -117,7 +117,9 @@ async function inspectNpmToolchain(): Promise<NpmToolchain> {
       });
       const timer = setTimeout(() => {
         child.kill();
-        reject(new Error('Node.js detection timed out after 5000ms. Check the installed toolchain.'));
+        reject(
+          new Error('Node.js detection timed out after 5000ms. Check the installed toolchain.'),
+        );
       }, 5000);
       let output = '';
       child.stdout.on('data', (chunk: Buffer) => {

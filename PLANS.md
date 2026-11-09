@@ -1,5 +1,14 @@
 # WebRAD delivery plan
 
+## Toolchain formatting correction: 2026-11-08
+
+At `e2e481d5b9974bfea1704f63d6a3b9776c393aba`, the completed quality/build jobs
+passed lint and then failed formatting in `apps/ide/main/package-toolchain.ts`.
+Prettier was applied to that file; only the timeout error call's line wrapping
+changed. Original logs are in `artifacts/commit-review-e2e481d/`. Security passed;
+portable jobs and the Windows ARM build were still running at inspection. No
+tests, builds or smokes were run locally for this formatting correction.
+
 ## Portable test diagnostics lint correction: 2026-11-08
 
 Commit `bdcdeeb000ffc42de5990786ce294d4223c95382` passed all six hosted portable

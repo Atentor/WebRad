@@ -1,5 +1,12 @@
 # Release checklist for agents and maintainers
 
+At `e2e481d5b9974bfea1704f63d6a3b9776c393aba`, lint passed and completed jobs
+in release run 42551356519 and validate run 42551356619 failed formatting in
+`apps/ide/main/package-toolchain.ts`. Prettier now wraps the timeout rejection
+call as required. Original logs are in `artifacts/commit-review-e2e481d/`.
+Security passed; the remaining jobs were still running at inspection. This is
+a formatting-only correction; the final commit still requires hosted gates.
+
 At `bdcdeeb000ffc42de5990786ce294d4223c95382`, all six portable jobs and security
 passed. Release run 42548501419 and validate run 42548501538 stopped all eight
 quality/build jobs at the same `no-undef` error: the portable test diagnostic
