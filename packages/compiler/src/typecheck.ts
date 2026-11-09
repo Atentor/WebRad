@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 import ts from 'typescript';
 import {
@@ -33,8 +34,11 @@ function scriptRootNames(sources: ReadonlyMap<string, string>): readonly string[
   );
 }
 
-// Retain only the latest program. Reuse syntax trees, never diagnostic results.
-let previousTypecheck: { readonly environment: string; readonly program: ts.Program } | undefined;
+// Retain only the latest builder. TypeScript invalidates changed files and their
+// dependents; component-reference analysis is still recomputed for every scope.
+let previousTypecheck:
+  | { readonly environment: string; readonly builder: ts.SemanticDiagnosticsBuilderProgram }
+  | undefined;
 
 export function typecheckSources(
   sources: ReadonlyMap<string, string>,
@@ -103,11 +107,11 @@ export function typecheckSources(
     compilerOptions,
   ]);
   // Adding/removing a page, Menu or reusable changes roots, not the parser
-  // environment. Let createProgram reconcile the new graph while the host reuses
+  // environment. Let the builder reconcile the new graph while the host reuses
   // exact-content SourceFiles; discarding the program here reparses the runtime
   // and browser libraries on the first F9 after every structural project edit.
-  let oldProgram =
-    previousTypecheck?.environment === environment ? previousTypecheck.program : undefined;
+  let oldBuilder =
+    previousTypecheck?.environment === environment ? previousTypecheck.builder : undefined;
   previousTypecheck = undefined;
   const host = ts.createCompilerHost(compilerOptions, true);
   const typeScriptLibLocation = process.env.WEBRAD_TYPESCRIPT_LIB_PATH;
@@ -196,7 +200,7 @@ export function typecheckSources(
   ) => {
     const content = host.readFile(fileName);
     if (content === undefined) return undefined;
-    const previous = oldProgram?.getSourceFile(fileName);
+    const previous = oldBuilder?.getSourceFile(fileName);
     const parseOptions =
       typeof languageVersionOrOptions === 'number'
         ? { languageVersion: languageVersionOrOptions, impliedNodeFormat: undefined }
@@ -208,18 +212,28 @@ export function typecheckSources(
       previous.impliedNodeFormat === parseOptions.impliedNodeFormat
     )
       return previous;
-    return ts.createSourceFile(fileName, content, languageVersionOrOptions, true);
+    return Object.assign(ts.createSourceFile(fileName, content, languageVersionOrOptions, true), {
+      // The builder requires versions for every virtual and disk source, including
+      // installed declarations and browser libraries. Hash the bytes read now.
+      version: createHash('sha256').update(content).digest('hex'),
+    });
   };
 
-  let program: ts.Program;
+  let builder: ts.SemanticDiagnosticsBuilderProgram;
   onProgress?.('typecheck-program');
   try {
-    program = ts.createProgram({ rootNames, options: compilerOptions, host, oldProgram });
+    builder = ts.createSemanticDiagnosticsBuilderProgram(
+      rootNames,
+      compilerOptions,
+      host,
+      oldBuilder,
+    );
   } finally {
-    // Program retains its host, whose getSourceFile closure captures oldProgram.
+    // Program retains its host, whose getSourceFile closure captures oldBuilder.
     // Release that capture after construction or every build retains its predecessor.
-    oldProgram = undefined;
+    oldBuilder = undefined;
   }
+  const program = builder.getProgram();
   onProgress?.('typecheck-diagnostics');
   // Match getPreEmitDiagnostics for this noEmit program while reporting the
   // individual stages. Keep the same sorting and deduplication as TypeScript.
@@ -238,7 +252,9 @@ export function typecheckSources(
       ...optionDiagnostics,
       ...syntacticDiagnostics,
       ...globalDiagnostics,
-      ...program.getSemanticDiagnostics(),
+      // No file argument: process every affected file, then collect diagnostics
+      // for the complete program, including unchanged files that still have errors.
+      ...builder.getSemanticDiagnostics(),
     ]),
   ];
   const bundleSources = new Map(sources);
@@ -274,7 +290,7 @@ export function typecheckSources(
     bundleSources.set(fileName, applyComponentReferenceEdits(authored, analysis.edits));
     if (analysis.edits.length > 0) sourceEdits.set(fileName, analysis.edits);
   }
-  previousTypecheck = { environment, program };
+  previousTypecheck = { environment, builder };
   return {
     diagnostics: diagnostics.map((diagnostic) => {
       const converted = fromTypeScriptDiagnostic(diagnostic);

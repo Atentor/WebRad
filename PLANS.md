@@ -1,5 +1,26 @@
 # WebRAD delivery plan
 
+## macOS Intel cumulative smoke deadline: 640ff05
+
+Release run 42552208596 at `640ff0535a40a5ea6fadbb14adf8cdd9079a0d74` passed
+all six portable jobs and five release builds. Intel packaging passed, but its
+standard packaged smoke reached the unchanged 240-second global deadline while
+still progressing through API Client. Both validation jobs and security passed.
+The retained smoke log records 13 Preview semantic-diagnostic passes totaling
+70,780 ms; native bundle builds total 4,775 ms. Assembly and the Intel update
+smoke did not run. Original logs, retained project and screenshots are in
+`artifacts/commit-review-640ff05/`; the downloaded artifact matched its digest.
+
+The compiler now uses TypeScript's semantic builder with current-content SHA-256
+source versions and dependency-aware invalidation. It returns whole-program
+diagnostics, retains one compatible builder, releases predecessor captures and
+recomputes component-reference analysis. Existing strictness, current module
+resolution, assertions, smoke deadlines and worker limits remain intact. This
+targets repeated semantic work identified by the log; it is not yet a measured
+native performance improvement. No tests, typecheck, lint, builds or smokes were
+requested or run locally for this change. Native final-commit confirmation is
+still required.
+
 ## Toolchain formatting correction: 2026-11-08
 
 At `e2e481d5b9974bfea1704f63d6a3b9776c393aba`, the completed quality/build jobs

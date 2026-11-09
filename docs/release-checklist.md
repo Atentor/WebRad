@@ -1,5 +1,19 @@
 # Release checklist for agents and maintainers
 
+At `640ff0535a40a5ea6fadbb14adf8cdd9079a0d74`, validate, security, all six
+portable jobs and five release builds passed. Release run 42552208596 failed
+the Intel packaged smoke at its 240-second global deadline while API Client
+interactions still progressed. The retained log isolates repeated semantic
+diagnostics: 13 Preview passes total 70,780 ms, versus 4,775 ms in native bundle
+builds. No renderer crash preceded the deadline; the subsequent disposed-frame
+error followed termination. The compiler now uses TypeScript's semantic builder,
+versions every current source and rechecks changed files and affected dependents
+before collecting whole-program diagnostics. Scope analysis remains per build,
+only one compatible builder is retained, and predecessor host captures are
+released. This optimization is unvalidated. Preserve strictness, all diagnostics,
+the global and individual smoke deadlines, evidence and native platform gates.
+Original logs, project and screenshots are in `artifacts/commit-review-640ff05/`.
+
 At `e2e481d5b9974bfea1704f63d6a3b9776c393aba`, lint passed and completed jobs
 in release run 42551356519 and validate run 42551356619 failed formatting in
 `apps/ide/main/package-toolchain.ts`. Prettier now wraps the timeout rejection

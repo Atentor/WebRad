@@ -1,5 +1,26 @@
 # WebRAD architecture
 
+## Incremental compiler diagnostics
+
+The compiler utility process retains one compatible TypeScript semantic builder
+between compilations. Every virtual source, installed declaration and TypeScript
+library receives a SHA-256 version from its current content. The host still
+resolves imports against the current graph and filesystem on each compilation.
+TypeScript invalidates changed files and affected dependents; requesting semantic
+diagnostics without a file argument processes every affected file and returns
+diagnostics for the complete program, including unchanged files with errors.
+
+Compiler options, current directory, authorized package root and TypeScript
+library location define compatibility. A different environment discards the
+previous builder. Construction releases the previous host capture to avoid
+retaining a chain of programs. Component-reference analysis, lowering and
+instance-initialization diagnostics are recomputed for every current scope.
+Strictness, diagnostic sorting/deduplication, package boundaries and emitted
+browser sources retain their existing contracts. See the
+[TypeScript builder API](https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API#writing-an-incremental-program-watcher).
+
+## Component projections
+
 WebEdit stores its optional `label` in the component properties and projects it
 to a native label associated with its internal input. Edit styles own label
 placement, alignment, gap, offsets, colors, typography, padding and corners; the
