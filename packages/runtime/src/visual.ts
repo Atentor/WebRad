@@ -1485,6 +1485,10 @@ ${WEB_LOGIN_CSS}
 [data-webrad-clickable]:not(:disabled):not([aria-disabled="true"]),
 [data-webrad-clickable]:not(:disabled):not([aria-disabled="true"]) :where(*):not(:disabled):not([aria-disabled="true"]):not(:is(:disabled, [aria-disabled="true"]) *) { cursor: pointer !important; }
 .wr-webpage { --webrad-border-gradient-surface: var(--wr-page-surface, #ffffff); overflow: hidden; }
+/* A fit-content page can be shorter or narrower than its viewport. Extend its
+   paint behind the viewport without changing the page's layout dimensions. */
+.wr-webpage[data-webrad-page-id] { isolation: isolate; }
+.wr-webpage[data-webrad-page-id]::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: inherit; }
 .wr-webreusableelement { border: 0; background: transparent; overflow: visible; }
 .wr-floating-layer { position: static; width: 0; height: 0; overflow: visible; }
 .wr-panel-floating-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }

@@ -61,6 +61,9 @@ export interface MovementOptions extends GridOptions {
 export interface MovementConstraint {
   readonly bounds: Bounds;
   readonly containerBounds: Bounds;
+  /** Fit-content parents without a maximum can grow on their trailing edge. */
+  readonly growWidth?: boolean;
+  readonly growHeight?: boolean;
 }
 
 export interface ResizeOptions extends GridOptions {
@@ -226,7 +229,7 @@ export function constrainMovementDelta(
     y = snapValue(selectionBounds.y + y, gridSize, origin.y) - selectionBounds.y;
   }
 
-  const constraints =
+  const constraints: readonly MovementConstraint[] =
     options.containerBounds === undefined
       ? (options.constraints ?? [])
       : [
@@ -237,7 +240,7 @@ export function constrainMovementDelta(
   let maximumX = Number.POSITIVE_INFINITY;
   let minimumY = Number.NEGATIVE_INFINITY;
   let maximumY = Number.POSITIVE_INFINITY;
-  for (const { bounds, containerBounds: container } of constraints) {
+  for (const { bounds, containerBounds: container, growWidth, growHeight } of constraints) {
     assertValidBounds(bounds, 'constraint.bounds');
     assertValidBounds(container, 'constraint.containerBounds');
     const [left, right] = movementAxisRange(
@@ -252,10 +255,18 @@ export function constrainMovementDelta(
       container.y,
       container.y + container.height,
     );
-    minimumX = Math.max(minimumX, left);
-    maximumX = Math.min(maximumX, right);
-    minimumY = Math.max(minimumY, top);
-    maximumY = Math.min(maximumY, bottom);
+    // Preserve the current position when content already overflows its parent;
+    // a small drag must not jump to a different point on pointer release.
+    minimumX = Math.max(
+      minimumX,
+      Math.min(0, growWidth ? container.x - bounds.x : left),
+    );
+    maximumX = Math.min(maximumX, growWidth ? Infinity : Math.max(0, right));
+    minimumY = Math.max(
+      minimumY,
+      Math.min(0, growHeight ? container.y - bounds.y : top),
+    );
+    maximumY = Math.min(maximumY, growHeight ? Infinity : Math.max(0, bottom));
   }
 
   // Conflicting containers have no legal shared delta on that axis. Leave the

@@ -292,11 +292,8 @@ function projectContainer(
         ...padding,
       };
     case 'align-to-parent':
-      return { position: 'relative', ...padding };
     case 'fixed':
-      // Fixed containers preserve their component's native paint styles. Padding
-      // has no layout effect on their absolutely positioned children.
-      return { position: 'relative' };
+      return { position: 'relative', ...padding };
   }
 }
 
@@ -363,11 +360,24 @@ function fixedAxisStyles(
 function fixedItemStyles(
   node: RuntimeLayoutNode,
   item: RuntimeLayoutItem,
+  parent: RuntimeContainerLayout | undefined,
 ): Readonly<Record<string, string>> {
   return {
     position: 'absolute',
-    ...fixedAxisStyles('horizontal', item.width, node.bounds.x, item.right, node.bounds.width),
-    ...fixedAxisStyles('vertical', item.height, node.bounds.y, item.bottom, node.bounds.height),
+    ...fixedAxisStyles(
+      'horizontal',
+      item.width,
+      node.bounds.x + (parent?.paddingLeft ?? 0),
+      item.right + (parent?.paddingRight ?? 0),
+      node.bounds.width,
+    ),
+    ...fixedAxisStyles(
+      'vertical',
+      item.height,
+      node.bounds.y + (parent?.paddingTop ?? 0),
+      item.bottom + (parent?.paddingBottom ?? 0),
+      node.bounds.height,
+    ),
     ...minMaxStyles(item),
   };
 }
@@ -568,6 +578,8 @@ function alignAxis(
   before: number,
   after: number,
   fixedSize: number,
+  leadingPadding: number,
+  trailingPadding: number,
 ): AxisProjection {
   const start = axis === 'horizontal' ? 'left' : 'top';
   const end = axis === 'horizontal' ? 'right' : 'bottom';
@@ -576,7 +588,10 @@ function alignAxis(
 
   if (shouldStretch) {
     return {
-      styles: { [start]: coordinatePixels(before), [end]: coordinatePixels(after) },
+      styles: {
+        [start]: coordinatePixels(before + leadingPadding),
+        [end]: coordinatePixels(after + trailingPadding),
+      },
       centeredFitContent: false,
     };
   }
@@ -586,26 +601,29 @@ function alignAxis(
   switch (anchor) {
     case 'end':
       return {
-        styles: { [end]: coordinatePixels(after), ...dimensionStyle },
+        styles: { [end]: coordinatePixels(after + trailingPadding), ...dimensionStyle },
         centeredFitContent: false,
       };
     case 'center':
       if (size === 'fixed') {
         return {
           styles: {
-            [start]: `calc(50% + ${coordinatePixels(before)} - ${pixels(fixedSize / 2)})`,
+            [start]: `calc(50% + ${coordinatePixels(before + (leadingPadding - trailingPadding) / 2)} - ${pixels(fixedSize / 2)})`,
             ...dimensionStyle,
           },
           centeredFitContent: false,
         };
       }
       return {
-        styles: { [start]: `calc(50% + ${coordinatePixels(before)})`, ...dimensionStyle },
+        styles: {
+          [start]: `calc(50% + ${coordinatePixels(before + (leadingPadding - trailingPadding) / 2)})`,
+          ...dimensionStyle,
+        },
         centeredFitContent: true,
       };
     case 'start':
       return {
-        styles: { [start]: coordinatePixels(before), ...dimensionStyle },
+        styles: { [start]: coordinatePixels(before + leadingPadding), ...dimensionStyle },
         centeredFitContent: false,
       };
   }
@@ -614,6 +632,7 @@ function alignAxis(
 function alignedItemStyles(
   node: RuntimeLayoutNode,
   item: RuntimeLayoutItem,
+  parent: RuntimeContainerLayout | undefined,
 ): Readonly<Record<string, string>> {
   const horizontal = alignAxis(
     'horizontal',
@@ -622,6 +641,8 @@ function alignedItemStyles(
     item.left,
     item.right,
     node.bounds.width,
+    parent?.paddingLeft ?? 0,
+    parent?.paddingRight ?? 0,
   );
   const vertical = alignAxis(
     'vertical',
@@ -630,6 +651,8 @@ function alignedItemStyles(
     item.top,
     item.bottom,
     node.bounds.height,
+    parent?.paddingTop ?? 0,
+    parent?.paddingBottom ?? 0,
   );
   return {
     position: 'absolute',
@@ -699,12 +722,12 @@ function projectItem(
   const mode = parent?.mode ?? 'fixed';
   switch (mode) {
     case 'align-to-parent':
-      return alignedItemStyles(node, item);
+      return alignedItemStyles(node, item, parent);
     case 'row':
     case 'column':
       return flowItemStyles(node, mode, item);
     case 'fixed':
-      return fixedItemStyles(node, item);
+      return fixedItemStyles(node, item, parent);
   }
 }
 
@@ -760,7 +783,9 @@ function projectAspectRatio(
         }),
     ...(center
       ? {
-          top: floatingAxis ? (styles.top ?? '50%') : `calc(50% + ${coordinatePixels(item.top)})`,
+          top: floatingAxis
+            ? (styles.top ?? '50%')
+            : `calc(50% + ${coordinatePixels(item.top + ((parent?.paddingTop ?? 0) - (parent?.paddingBottom ?? 0)) / 2)})`,
           translate: `${styles.translate?.split(' ')[0] ?? '0'} -50%`,
         }
       : {}),
@@ -1105,6 +1130,26 @@ export function bindRuntimeFitContent(
     const size = measureRuntimeFitContentSize(target, contentHost, effectiveLayout, options);
     setFitContentDimension(target, 'width', size.width);
     setFitContentDimension(target, 'height', size.height);
+    // A flex item's basis takes precedence over its width or height on the
+    // main axis. Keep it in step with the measured child envelope so a fit
+    // container reserves the space that its children actually occupy.
+    const parent = target.parentElement;
+    const parentStyle =
+      parent === null ? undefined : target.ownerDocument.defaultView?.getComputedStyle(parent);
+    if (parentStyle?.display === 'flex' || parentStyle?.display === 'inline-flex') {
+      const horizontal = parentStyle.flexDirection.startsWith('row');
+      const mainSize = horizontal ? size.width : size.height;
+      const mainMode = horizontal ? effectiveLayout?.item.width : effectiveLayout?.item.height;
+      if (mainMode === 'fit-content' && mainSize !== undefined) {
+        const next = `${String(mainSize)}px`;
+        if (
+          target.style.getPropertyValue('flex-basis') !== next ||
+          target.style.getPropertyPriority('flex-basis') !== 'important'
+        ) {
+          target.style.setProperty('flex-basis', next, 'important');
+        }
+      }
+    }
   };
   const scheduleRefresh = (): void => {
     if (disposed || scheduled) return;

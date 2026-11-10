@@ -1,5 +1,45 @@
 # WebRAD delivery plan
 
+## Designer movement inside containers
+
+Movement constraints now allow unconstrained fit-content parents to grow with
+their children, and preserve the starting position when existing content
+overflows a parent. A zero-size intrinsic child host falls back to its rendered
+container for movement geometry. Flow reordering groups wrapped tracks by their
+visual overlap and sorts items along the flow axis, including mixed child sizes
+and alignment. No validation was requested or run.
+
+## Page background coverage
+
+Mounted pages extend their background behind the viewport when their content
+does not fill it. The background layer leaves fit-content dimensions and child
+layout unchanged. Runtime sources are synchronized; no validation was requested
+or run.
+
+## Padding for positioned containers
+
+Fixed and align-to-parent containers project their children relative to the
+padded content area, including stretch and centered or end anchors. Designer
+insertion and movement use the same content origin and available bounds, while
+fit-content measurement includes the container padding. Saved child coordinates
+remain unchanged. Runtime source generation is synchronized; no validation was
+requested or run.
+
+## Designer fit-content for empty containers
+
+The Designer now measures fit-content axes for empty registered containers as
+well as populated ones. Empty containers in reusable definitions also mount
+their structural child host, so their padding, borders and minimum constraints
+participate in the same measurement as page containers. These measurements
+remain transient and do not change saved bounds. No validation was requested or
+run.
+
+Fit-content containers inside rows and columns also use their measured main-axis
+size as the flex basis in Designer and runtime. This lets the surrounding flow
+reserve the child envelope instead of leaving descendants outside a collapsed
+container. Runtime source generation is kept in sync. This correction has not
+been validated.
+
 ## Tagged release v0.0.33: macOS Intel Icons F9
 
 Tag `v0.0.33` at `3dc91f391e5bffe79030c4bbb06dabed0ef7c046` failed the

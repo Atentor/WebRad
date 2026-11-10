@@ -416,6 +416,7 @@ function movementConstraintsForIds(
   }
   return [...groups].map(([parentId, nodes]) => {
     const host = measureDesignerChildrenHost(surface, parentId, scale);
+    const parent = byId.get(parentId);
     return {
       bounds: unionBounds(
         nodes.map((node) => {
@@ -432,6 +433,9 @@ function movementConstraintsForIds(
         }),
       ),
       containerBounds: host?.bounds ?? getParentContentBounds(page, parentId),
+      growWidth: parent?.layout.item.width === 'fit-content' && parent.layout.item.maxWidth === null,
+      growHeight:
+        parent?.layout.item.height === 'fit-content' && parent.layout.item.maxHeight === null,
     };
   });
 }
@@ -467,6 +471,8 @@ function buildLayout(
   const visitChildren = (parentId: string, origin: Point, depth: number): void => {
     const parent = byId.get(parentId);
     if (!parent) return;
+    const positioned =
+      parent.layout.container.mode === 'fixed' || parent.layout.container.mode === 'align-to-parent';
     for (const childId of parent.children) {
       const child = byId.get(childId);
       const editorBounds =
@@ -476,8 +482,8 @@ function buildLayout(
       if (!child || (!appearsOnDesignerCanvas(child.type) && editorBounds === undefined)) continue;
       const fallback = editorBounds ?? {
         ...child.bounds,
-        x: origin.x + child.bounds.x,
-        y: origin.y + child.bounds.y,
+        x: origin.x + child.bounds.x + (positioned ? parent.layout.container.paddingLeft : 0),
+        y: origin.y + child.bounds.y + (positioned ? parent.layout.container.paddingTop : 0),
       };
       // A floating editor deliberately uses its projected centered bounds.
       // Its children still use measured browser geometry just like canvas nodes.
@@ -531,6 +537,12 @@ function projectItemStyle(
   const fitContentStyles = {
     ...(useMeasuredWidth ? { width: `${String(measuredFitContent.width)}px` } : {}),
     ...(useMeasuredHeight ? { height: `${String(measuredFitContent.height)}px` } : {}),
+    ...(parentContainer?.mode === 'row' && useMeasuredWidth
+      ? { 'flex-basis': `${String(measuredFitContent.width)}px` }
+      : {}),
+    ...(parentContainer?.mode === 'column' && useMeasuredHeight
+      ? { 'flex-basis': `${String(measuredFitContent.height)}px` }
+      : {}),
   };
   if (!isFloatingComponent(node) || usesResponsiveFloatingSize(node)) {
     return reactStyle(
@@ -795,7 +807,9 @@ function fitContentHost(component: HTMLElement, node: ComponentNode): HTMLElemen
 function shouldMeasureDesignerFitContent(node: ComponentNode, isRoot = false): boolean {
   return (
     (!isFloatingComponent(node) || usesResponsiveFloatingSize(node)) &&
-    (isRoot || node.type === 'WebReusableElement' || node.children.length > 0) &&
+    (isRoot ||
+      node.type === 'WebReusableElement' ||
+      componentRegistry.get(node.type)?.canHaveChildren === true) &&
     (node.layout.item.width === 'fit-content' || node.layout.item.height === 'fit-content')
   );
 }
@@ -1093,7 +1107,8 @@ function ReusableDefinitionNode({
     node.type === 'WebReusableElement' && referencedReusableElementId !== undefined
       ? reusableElementsById.get(referencedReusableElementId)
       : undefined;
-  const isContainer = children.length > 0 || reusableElement !== undefined;
+  const supportsChildren = componentRegistry.get(node.type)?.canHaveChildren === true;
+  const isContainer = supportsChildren || reusableElement !== undefined;
   const element = (
     <div
       className={`wr-runtime-node wr-runtime-item-${parentContainer.mode}${
@@ -1131,7 +1146,7 @@ function ReusableDefinitionNode({
             floatingHost={floatingHost}
           />
         ) : (
-          children.length > 0 && (
+          supportsChildren && (
             <div
               className={`wr-runtime-children wr-runtime-children-${node.layout.container.mode}`}
               style={projectChildrenStyle(node)}
@@ -1269,60 +1284,41 @@ function reorderTargetForPoint(
   if (siblings.length === 0) return undefined;
 
   const row = parent.layout.container.mode === 'row';
-  const ordered = [...siblings].sort((left, right) => {
-    const leftCross = row ? left.absoluteBounds.y : left.absoluteBounds.x;
-    const rightCross = row ? right.absoluteBounds.y : right.absoluteBounds.x;
-    if (leftCross !== rightCross) return leftCross - rightCross;
-    const leftMain = row ? left.absoluteBounds.x : left.absoluteBounds.y;
-    const rightMain = row ? right.absoluteBounds.x : right.absoluteBounds.y;
-    return leftMain - rightMain;
-  });
-
-  let before: LayoutNode | undefined;
-  if (!row) {
-    before = ordered.find(
-      (item) => point.y < item.absoluteBounds.y + item.absoluteBounds.height / 2,
-    );
-  } else {
-    const rows: LayoutNode[][] = [];
-    for (const item of ordered) {
-      const currentRow = rows.at(-1);
-      const reference = currentRow?.[0];
-      const sameRow =
-        reference !== undefined &&
-        Math.abs(item.absoluteBounds.y - reference.absoluteBounds.y) <=
-          Math.max(4, Math.min(item.absoluteBounds.height, reference.absoluteBounds.height) / 2);
-      if (!sameRow || currentRow === undefined) rows.push([item]);
-      else currentRow.push(item);
-    }
-    const firstRow = rows[0];
-    const lastRow = rows.at(-1);
-    if (firstRow !== undefined && lastRow !== undefined) {
-      const firstBounds = firstRow[0]?.absoluteBounds;
-      const lastBounds = lastRow.at(-1)?.absoluteBounds;
-      if (firstBounds !== undefined && point.y < firstBounds.y) {
-        before = firstRow[0];
-      } else if (lastBounds !== undefined && point.y <= lastBounds.y + lastBounds.height) {
-        const targetRow = rows.reduce((closest, candidate) => {
-          const closestBounds = closest[0]?.absoluteBounds;
-          const candidateBounds = candidate[0]?.absoluteBounds;
-          if (closestBounds === undefined || candidateBounds === undefined) return closest;
-          const closestDistance = Math.abs(point.y - (closestBounds.y + closestBounds.height / 2));
-          const candidateDistance = Math.abs(
-            point.y - (candidateBounds.y + candidateBounds.height / 2),
-          );
-          return candidateDistance < closestDistance ? candidate : closest;
-        }, firstRow);
-        before = targetRow.find(
-          (item) => point.x < item.absoluteBounds.x + item.absoluteBounds.width / 2,
-        );
-        if (before === undefined) {
-          const rowIndex = rows.indexOf(targetRow);
-          before = rowIndex < rows.length - 1 ? rows[rowIndex + 1]?.[0] : undefined;
-        }
-      }
+  const mainStart = (item: LayoutNode): number =>
+    row ? item.absoluteBounds.x : item.absoluteBounds.y;
+  const mainSize = (item: LayoutNode): number =>
+    row ? item.absoluteBounds.width : item.absoluteBounds.height;
+  const crossStart = (item: LayoutNode): number =>
+    row ? item.absoluteBounds.y : item.absoluteBounds.x;
+  const crossSize = (item: LayoutNode): number =>
+    row ? item.absoluteBounds.height : item.absoluteBounds.width;
+  const tracks: { start: number; end: number; items: LayoutNode[] }[] = [];
+  for (const item of [...siblings].sort((a, b) => crossStart(a) - crossStart(b))) {
+    const start = crossStart(item);
+    const end = start + crossSize(item);
+    const track = tracks.at(-1);
+    // Without wrapping, alignment and different child sizes cannot create a
+    // second row or column. With wrapping, overlapping cross-axis extents
+    // identify the actual visual track rather than comparing top edges.
+    if (track === undefined || (parent.layout.container.wrap && start >= track.end)) {
+      tracks.push({ start, end, items: [item] });
+    } else {
+      track.end = Math.max(track.end, end);
+      track.items.push(item);
     }
   }
+  for (const track of tracks) track.items.sort((a, b) => mainStart(a) - mainStart(b));
+  const cross = row ? point.y : point.x;
+  const main = row ? point.x : point.y;
+  const distance = (track: (typeof tracks)[number]): number =>
+    cross < track.start ? track.start - cross : cross > track.end ? cross - track.end : 0;
+  const targetTrack = tracks.reduce((closest, track) =>
+    distance(track) < distance(closest) ? track : closest,
+  );
+  const trackIndex = tracks.indexOf(targetTrack);
+  const before =
+    targetTrack.items.find((item) => main < mainStart(item) + mainSize(item) / 2) ??
+    tracks[trackIndex + 1]?.items[0];
   if (before !== undefined) {
     const bounds = before.absoluteBounds;
     return {
@@ -1334,7 +1330,7 @@ function reorderTargetForPoint(
     };
   }
 
-  const last = ordered.at(-1);
+  const last = tracks.at(-1)?.items.at(-1);
   if (last === undefined) return undefined;
   const bounds = last.absoluteBounds;
   return {
@@ -1729,11 +1725,13 @@ export function DesignerSurface({
     const parent = candidates[0];
     const parentId = parent?.node.id ?? page.rootComponentId;
     const host = measureDesignerChildrenHost(surfaceRef.current, parentId, scale);
-    const origin = host?.origin ?? {
-      x: parent?.absoluteBounds.x ?? 0,
-      y: parent?.absoluteBounds.y ?? 0,
-    };
     const targetParent = byId.get(parentId);
+    const container = targetParent?.layout.container;
+    const positioned = container?.mode === 'fixed' || container?.mode === 'align-to-parent';
+    const origin = host?.origin ?? {
+      x: (parent?.absoluteBounds.x ?? 0) + (positioned ? (container?.paddingLeft ?? 0) : 0),
+      y: (parent?.absoluteBounds.y ?? 0) + (positioned ? (container?.paddingTop ?? 0) : 0),
+    };
     const reorder =
       targetParent === undefined
         ? undefined
@@ -1796,7 +1794,13 @@ export function DesignerSurface({
       return undefined;
 
     const host = measureDesignerChildrenHost(surfaceRef.current, parent.id, scale);
-    const origin = host?.origin ?? layoutById.get(parent.id)?.absoluteBounds ?? { x: 0, y: 0 };
+    const parentBounds = layoutById.get(parent.id)?.absoluteBounds ?? { x: 0, y: 0 };
+    const container = parent.layout.container;
+    const positioned = container.mode === 'fixed' || container.mode === 'align-to-parent';
+    const origin = host?.origin ?? {
+      x: parentBounds.x + (positioned ? container.paddingLeft : 0),
+      y: parentBounds.y + (positioned ? container.paddingTop : 0),
+    };
     const bounds = new Map<string, Bounds>(
       nodes.map((node) => {
         const visual =

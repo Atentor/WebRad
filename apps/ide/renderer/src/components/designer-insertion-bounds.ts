@@ -17,8 +17,14 @@ export function designerInsertionBounds(
 ): Pick<Bounds, 'width' | 'height'> {
   const measured = measureDesignerChildrenHost(surface, parent.id, scale);
   if (measured !== undefined) return measured.bounds;
-  if (componentRegistry.get(parent.type)?.designerChildHost !== 'repeating-row')
-    return parent.bounds;
+  if (componentRegistry.get(parent.type)?.designerChildHost !== 'repeating-row') {
+    const container = parent.layout.container;
+    if (container.mode !== 'fixed' && container.mode !== 'align-to-parent') return parent.bounds;
+    return {
+      width: Math.max(0, parent.bounds.width - container.paddingLeft - container.paddingRight),
+      height: Math.max(0, parent.bounds.height - container.paddingTop - container.paddingBottom),
+    };
+  }
   const configuration = normalizeRepeatingGroupConfiguration(parent.props.repeatingGroupConfig);
   const childrenBounds = page.components
     .filter((component) => component.parentId === parent.id)

@@ -41,17 +41,54 @@ export function measureDesignerChildrenHost(
   if (host === undefined) return undefined;
   const surfaceBounds = surface.getBoundingClientRect();
   const hostBounds = host.getBoundingClientRect();
-  if (surfaceBounds.width <= 0 || hostBounds.width <= 0 || hostBounds.height <= 0) return undefined;
+  if (surfaceBounds.width <= 0) return undefined;
+  // A fixed child host with fit-content can have a zero intrinsic axis even
+  // though its component has grown around absolutely positioned children.
+  const owner = host.closest<HTMLElement>('[data-component-id]');
+  const ownerBounds = owner?.getBoundingClientRect();
+  const ownerStyle = owner === null || owner === undefined ? undefined : getComputedStyle(owner);
+  const ownerBorder = (value: string | undefined): number =>
+    Math.max(0, Number.parseFloat(value ?? '') || 0);
+  const hostWidth =
+    host.clientWidth ||
+    hostBounds.width / scale ||
+    Math.max(
+      0,
+      ((ownerBounds?.right ?? hostBounds.left) - hostBounds.left) / scale -
+        ownerBorder(ownerStyle?.borderRightWidth),
+    );
+  const hostHeight =
+    host.clientHeight ||
+    hostBounds.height / scale ||
+    Math.max(
+      0,
+      ((ownerBounds?.bottom ?? hostBounds.top) - hostBounds.top) / scale -
+        ownerBorder(ownerStyle?.borderBottomWidth),
+    );
+  if (hostWidth <= 0 || hostHeight <= 0) return undefined;
+  // Fixed and anchored children use coordinates relative to the padded content
+  // area. Flow insertion retains the host origin because its indicators add
+  // padding separately.
+  const positioned =
+    host.classList.contains('wr-runtime-children-fixed') ||
+    host.classList.contains('wr-runtime-children-align-to-parent');
+  const style = positioned ? getComputedStyle(host) : undefined;
+  const padding = (value: string | undefined): number =>
+    Math.max(0, Number.parseFloat(value ?? '') || 0);
+  const left = padding(style?.paddingLeft);
+  const right = padding(style?.paddingRight);
+  const top = padding(style?.paddingTop);
+  const bottom = padding(style?.paddingBottom);
   return {
     origin: {
-      x: (hostBounds.left - surfaceBounds.left) / scale + host.clientLeft - host.scrollLeft,
-      y: (hostBounds.top - surfaceBounds.top) / scale + host.clientTop - host.scrollTop,
+      x: (hostBounds.left - surfaceBounds.left) / scale + host.clientLeft - host.scrollLeft + left,
+      y: (hostBounds.top - surfaceBounds.top) / scale + host.clientTop - host.scrollTop + top,
     },
     bounds: {
       x: 0,
       y: 0,
-      width: host.clientWidth || hostBounds.width / scale,
-      height: host.clientHeight || hostBounds.height / scale,
+      width: Math.max(0, hostWidth - left - right),
+      height: Math.max(0, hostHeight - top - bottom),
     },
   };
 }
