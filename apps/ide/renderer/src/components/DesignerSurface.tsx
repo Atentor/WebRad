@@ -433,7 +433,8 @@ function movementConstraintsForIds(
         }),
       ),
       containerBounds: host?.bounds ?? getParentContentBounds(page, parentId),
-      growWidth: parent?.layout.item.width === 'fit-content' && parent.layout.item.maxWidth === null,
+      growWidth:
+        parent?.layout.item.width === 'fit-content' && parent.layout.item.maxWidth === null,
       growHeight:
         parent?.layout.item.height === 'fit-content' && parent.layout.item.maxHeight === null,
     };
@@ -472,7 +473,8 @@ function buildLayout(
     const parent = byId.get(parentId);
     if (!parent) return;
     const positioned =
-      parent.layout.container.mode === 'fixed' || parent.layout.container.mode === 'align-to-parent';
+      parent.layout.container.mode === 'fixed' ||
+      parent.layout.container.mode === 'align-to-parent';
     for (const childId of parent.children) {
       const child = byId.get(childId);
       const editorBounds =
@@ -1280,7 +1282,10 @@ function reorderTargetForPoint(
   const dragged = new Set(draggedIds);
   const siblings = parent.children
     .map((id) => layoutById.get(id))
-    .filter((item): item is LayoutNode => item !== undefined && !dragged.has(item.node.id));
+    .filter(
+      (item): item is LayoutNode =>
+        item !== undefined && !dragged.has(item.node.id) && !isFloatingComponent(item.node),
+    );
   if (siblings.length === 0) return undefined;
 
   const row = parent.layout.container.mode === 'row';

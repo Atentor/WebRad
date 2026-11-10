@@ -46,5 +46,5 @@ it('uses the responsive row child host measurements at the active zoom', () => {
 it('preserves ordinary container insertion dimensions', () => {
   const { page, group } = fixture();
   const panel = { ...group, type: 'WebPanel' };
-  expect(designerInsertionBounds(panel, page, null, 1)).toBe(panel.bounds);
+  expect(designerInsertionBounds(panel, page, null, 1)).toEqual({ width: 420, height: 320 });
 });

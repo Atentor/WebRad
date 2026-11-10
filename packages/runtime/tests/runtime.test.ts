@@ -1013,7 +1013,13 @@ describe('browser runtime', () => {
       layout: responsiveLayout({}, { width: 'stretch', height: 'fit-content', grow: 2 }),
     };
     const flowProjection = projectRuntimeLayout(flowing, rowParent.container);
-    expect(flowProjection.container).toEqual({ position: 'relative' });
+    expect(flowProjection.container).toEqual({
+      position: 'relative',
+      'padding-top': '0px',
+      'padding-right': '0px',
+      'padding-bottom': '0px',
+      'padding-left': '0px',
+    });
     expect(flowProjection.item).toMatchObject({
       position: 'relative',
       width: 'auto',

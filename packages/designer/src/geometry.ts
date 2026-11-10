@@ -257,15 +257,9 @@ export function constrainMovementDelta(
     );
     // Preserve the current position when content already overflows its parent;
     // a small drag must not jump to a different point on pointer release.
-    minimumX = Math.max(
-      minimumX,
-      Math.min(0, growWidth ? container.x - bounds.x : left),
-    );
+    minimumX = Math.max(minimumX, Math.min(0, growWidth ? container.x - bounds.x : left));
     maximumX = Math.min(maximumX, growWidth ? Infinity : Math.max(0, right));
-    minimumY = Math.max(
-      minimumY,
-      Math.min(0, growHeight ? container.y - bounds.y : top),
-    );
+    minimumY = Math.max(minimumY, Math.min(0, growHeight ? container.y - bounds.y : top));
     maximumY = Math.min(maximumY, growHeight ? Infinity : Math.max(0, bottom));
   }
 

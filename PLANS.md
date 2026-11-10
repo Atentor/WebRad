@@ -1,5 +1,12 @@
 # WebRAD delivery plan
 
+## Full test battery corrections
+
+Flow insertion excludes floating components when determining visual order.
+Layout tests reflect padding on positioned containers and their content bounds.
+Windows validation passed: the full validate script, 1,772 portable tests
+(43 skipped), and development, packaged, and simulated update smokes.
+
 ## Designer movement inside containers
 
 Movement constraints now allow unconstrained fit-content parents to grow with

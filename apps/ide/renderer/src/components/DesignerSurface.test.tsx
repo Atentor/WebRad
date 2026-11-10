@@ -66,7 +66,7 @@ it.each(['fixed', 'align-to-parent', 'row', 'column'] as const)(
     expect(groupElement?.querySelectorAll('[data-webrad-repeating-row]').length).toBe(1);
     expect(host?.dataset.webradRepeatingRow).toBe('template');
     expect(host?.style.height).toBe('160px');
-    expect(host?.style.paddingLeft).toBe(mode === 'fixed' ? '' : '12px');
+    expect(host?.style.paddingLeft).toBe('12px');
     const childElement = host?.querySelector<HTMLElement>('[data-designer-node-id="first"]');
     expect(childElement?.classList.contains(`wr-runtime-item-${mode}`)).toBe(true);
     if (mode === 'row' || mode === 'column') expect(childElement?.style.alignSelf).toBe('flex-end');
