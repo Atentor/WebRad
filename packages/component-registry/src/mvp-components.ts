@@ -2036,7 +2036,7 @@ const webImage: ComponentDefinition = {
       category: 'Appearance',
       source: 'props',
       defaultValue: 'contain',
-      options: ['contain', 'cover', 'fill', 'none', 'scale-down'],
+      options: ['style', 'contain', 'cover', 'fill', 'none', 'scale-down'],
     },
   ],
   events: [event('OnClick'), event('OnLoad'), event('OnError')],

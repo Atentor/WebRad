@@ -615,7 +615,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     objectFit: WebImageObjectFit;
   }
 
-  export type WebImageObjectFit = 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+  export type WebImageObjectFit = 'style' | 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
   export type WebImagePlaceholder = 'image' | 'user';
 
   export class WebListBox extends WebComponent<HTMLSelectElement> {

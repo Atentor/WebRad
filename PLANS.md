@@ -1,5 +1,24 @@
 # WebRAD delivery plan
 
+## Label fit-content text height
+
+Labels with automatic height reserve space when their font exceeds the styled
+line height, avoiding clipped accents and descenders. The Designer and runtime
+share the same rule. Runtime sources are synchronized; no validation was requested
+or run.
+
+## Image object fit precedence
+
+Image object fit can follow its linked style or override it explicitly in the
+Designer and runtime. Runtime sources are synchronized; no validation was
+requested or run.
+
+## Image default border
+
+Images no longer receive a default dashed border when no style is assigned;
+project styles can still define their own borders. Runtime sources are
+synchronized; no validation was requested or run.
+
 ## Full test battery corrections
 
 Flow insertion excludes floating components when determining visual order.

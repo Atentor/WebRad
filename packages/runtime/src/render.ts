@@ -480,6 +480,7 @@ runtimeComponentRegistry
     createComponent: (element) => new WebLabel(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
+      component.element.dataset.webradLabelFitHeight = String(node.layout.item.height === 'fit-content');
       component.caption = readStringProperty(
         node,
         'caption',
@@ -631,10 +632,8 @@ runtimeComponentRegistry
       component.src = readStringProperty(node, 'src');
       component.placeholder = readStringProperty(node, 'placeholder') === 'user' ? 'user' : 'image';
       component.alt = readStringProperty(node, 'alt', node.name);
-      if (node.styleClassName === undefined) {
-        const objectFit = readStringProperty(node, 'objectFit');
-        if (objectFit.length > 0) component.objectFit = objectFit as WebImageObjectFit;
-      }
+      const objectFit = readStringProperty(node, 'objectFit');
+      if (objectFit.length > 0) component.objectFit = objectFit as WebImageObjectFit;
     },
   })
   .register<WebVideoPlayer>('WebVideoPlayer', {

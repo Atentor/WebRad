@@ -606,6 +606,10 @@ Format-v2 manifests may include optional `debugger` metadata with its own `versi
 # Image empty state
 
 `WebImage.props.placeholder` stores the fixed empty-image choice: `image` (default) or `user`.
+`WebImage.props.objectFit` accepts `style`, `contain`, `cover`, `fill`, `none`,
+or `scale-down`. The `style` value delegates to the linked style; the other
+values override its object fit. Without a linked style, `style` uses the
+component's default `contain` rendering. New images default to `contain`.
 Missing values in existing projects use `image`. A null, empty or whitespace-only `src` displays
 the chosen muted gray SVG in Designer and compiled Preview; a nonempty source takes precedence.
 The runtime exposes `placeholder: WebImagePlaceholder` and accepts `src = null`, while reading

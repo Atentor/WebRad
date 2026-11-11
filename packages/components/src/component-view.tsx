@@ -118,6 +118,7 @@ function ImageView({ node, designTime, styleClassName }: ComponentViewProps): Re
     if (ref.current !== null) return bindImageResampling(ref.current);
   }, [source]);
   const attributes = sharedAttributes(node, designTime, styleClassName);
+  const objectFit = readStringProperty(node, 'objectFit', styleClassName ? 'style' : 'contain');
   return (
     <img
       {...attributes}
@@ -127,15 +128,7 @@ function ImageView({ node, designTime, styleClassName }: ComponentViewProps): Re
       src={source}
       style={{
         ...attributes.style,
-        ...(styleClassName === undefined
-          ? {
-              objectFit: readStringProperty(
-                node,
-                'objectFit',
-                'contain',
-              ) as CSSProperties['objectFit'],
-            }
-          : {}),
+        ...(objectFit === 'style' ? {} : { objectFit: objectFit as CSSProperties['objectFit'] }),
       }}
     />
   );
@@ -633,7 +626,12 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
     </section>
   ),
   WebLabel: ({ node, designTime, styleClassName }) => (
-    <span {...sharedAttributes(node, designTime, styleClassName)}>
+    <span
+      {...sharedAttributes(node, designTime, styleClassName)}
+      data-webrad-label-fit-height={
+        node.layout.item.height === 'fit-content' || node.props.autoSize === true ? 'true' : undefined
+      }
+    >
       <span data-webrad-text-content="">{readStringProperty(node, 'caption', 'Label')}</span>
     </span>
   ),

@@ -544,11 +544,11 @@ export class WebImage extends WebComponent<HTMLImageElement> {
   }
 
   public get objectFit(): WebImageObjectFit {
-    return (this.element.style.objectFit || 'contain') as WebImageObjectFit;
+    return (this.element.style.objectFit || 'style') as WebImageObjectFit;
   }
 
   public set objectFit(value: WebImageObjectFit) {
-    this.element.style.objectFit = value;
+    this.element.style.objectFit = value === 'style' ? '' : value;
   }
 
   public override dispose(): void {
@@ -557,7 +557,7 @@ export class WebImage extends WebComponent<HTMLImageElement> {
   }
 }
 
-export type WebImageObjectFit = 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+export type WebImageObjectFit = 'style' | 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
 
 export class WebListBox extends WebComponent<HTMLSelectElement> {
   public constructor(element: HTMLElement) {
