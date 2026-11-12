@@ -629,7 +629,9 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
     <span
       {...sharedAttributes(node, designTime, styleClassName)}
       data-webrad-label-fit-height={
-        node.layout.item.height === 'fit-content' || node.props.autoSize === true ? 'true' : undefined
+        node.layout.item.height === 'fit-content' || node.props.autoSize === true
+          ? 'true'
+          : undefined
       }
     >
       <span data-webrad-text-content="">{readStringProperty(node, 'caption', 'Label')}</span>

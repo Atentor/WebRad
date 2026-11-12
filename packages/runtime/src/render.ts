@@ -480,7 +480,9 @@ runtimeComponentRegistry
     createComponent: (element) => new WebLabel(element),
     applyProperties: (component, node) => {
       applyCommon(component, node);
-      component.element.dataset.webradLabelFitHeight = String(node.layout.item.height === 'fit-content');
+      component.element.dataset.webradLabelFitHeight = String(
+        node.layout.item.height === 'fit-content',
+      );
       component.caption = readStringProperty(
         node,
         'caption',

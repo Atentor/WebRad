@@ -1,5 +1,12 @@
 # WebRAD delivery plan
 
+## GitHub Actions formatting correction
+
+The latest validation and release verification stopped at formatting for the
+component view and runtime renderer. Both files are formatted and the embedded
+runtime sources are synchronized. Local validation was not requested or run;
+packaging and smoke steps require a new hosted run.
+
 ## Label fit-content text height
 
 Labels with automatic height reserve space when their font exceeds the styled
