@@ -109,7 +109,7 @@ events. Duplicate series IDs are invalid. This is an additive project-format-v2
 component; existing project content and user-authored TypeScript stay intact.
 
 Optional `fontFamily` and `legendFontFamily` use a supported font ID or `inherit`;
-`textColor`, `titleColor`, `subtitleColor` and `legendColor` use a six-digit hex
+`textColor`, `titleColor`, `subtitleColor` and `legendColor` use a six- or eight-digit hex
 color or `null` for inheritance. `titleIcon` is a Lucide name or `null`. Existing
 version-1 chart configurations materialize inherited font/color defaults and no
 title icon; no project or chart format-version change is required.

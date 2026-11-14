@@ -1,5 +1,50 @@
 # Release checklist for agents and maintainers
 
+## Local validation on 2026-11-14
+
+Windows x64 validation passed 1,815 tests in 242 files with Chrome enabled and
+no skipped tests, followed by packaging and complete development and packaged
+renderer smokes. All 14 Electron smoke runs passed, including resources, packages,
+debugger, deploy, updates, native-build UI/export and Report Builder. Inspector smoke edits
+now explicitly confirm deferred text/number drafts before synthetic navigation.
+The style-reset smoke creates, applies and undoes a temporary page style when
+the fixture starts without one; alpha assertions compare Chromium's serialized
+color against the expected hex value. Existing assertions and deadlines remain.
+Supplementary results are recorded in `artifacts/local-validation-2026-11-14/`.
+This is local Windows evidence; exact-commit hosted/native platform gates and
+real provider/update installation evidence remain separate.
+
+The bug report Electron smoke also checks that the Beta indicator is visible at
+the start of the toolbar before Web. This interaction has not been run; retain
+the existing evidence and release gates.
+
+The Project Settings Electron smoke checks its position at the bottom of the
+activity bar above Output before opening the dialog. This interaction has not
+been run; retain the existing evidence and release gates.
+
+The Designer editing smoke now opens Chromium's native color picker, changes the
+page background to 50% opacity inside it, requires the actual canvas color and
+undoes the edit. It also edits partial and complete color text, requires one
+swatch, one text field and one palette button in the original row geometry,
+and undoes those edits before opening the native picker. Both runners require
+the original color row evidence. The updated interaction has not been run;
+retain release gates.
+
+The same Designer interaction now reapplies the original page Style over an
+Inspector color override, requires the canvas to return to its styled appearance,
+and undoes the assignment to restore the override. Both smoke runners require
+the style-reset evidence. This interaction has not been run.
+
+The Designer workspace smoke now reselects a component on the canvas while the
+Project Explorer is open and requires its selected tree row to be visible while
+the canvas retains keyboard focus. Both smoke runners require this evidence. The
+updated interaction has not been run; retain all existing native release gates.
+
+The Designer editing smoke now also checks that an Inspector width draft leaves
+the canvas unchanged while typing, applies after a pause and on blur, and can be
+undone. The updated smoke has not been run; retain its existing evidence and
+the native release gates.
+
 Commit `c133ee276fd2309c028ad82006d0642723d5fecb` passed validate, security,
 all six portable jobs and five release builds. Release run 43607366437 failed
 the Intel packaged Menu Interaction Preview wait. Its ten-second wait began

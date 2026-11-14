@@ -1,4 +1,5 @@
-﻿import type { BrowserWindow } from 'electron';
+import { confirmInspectorDrafts } from './smoke-inspector-drafts';
+import type { BrowserWindow } from 'electron';
 import { loadProjectFiles } from './project-files';
 
 /** Exercises Toast insertion, Inspector persistence and cleanup in the real IDE. */
@@ -46,6 +47,7 @@ export async function runToastSmoke(
   await evaluate(
     `(() => { const input = ${field('Duration (ms)')}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '7000'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`,
   );
+  await confirmInspectorDrafts(window);
   await ready(`${field('Duration (ms)')}?.value === '7000'`);
   await evaluate(
     `(() => { const input = ${field('Position')}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(input, 'bottom-left'); input.dispatchEvent(new Event('change', { bubbles: true })); })()`,

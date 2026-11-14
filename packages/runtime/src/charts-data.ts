@@ -108,11 +108,11 @@ function fontFamily(value: unknown): WebChartFontFamily {
 }
 
 function textColor(value: unknown): string | null {
-  return typeof value === 'string' && /^#[\da-f]{6}$/iu.test(value) ? value : null;
+  return typeof value === 'string' && /^#[\da-f]{6}(?:[\da-f]{2})?$/iu.test(value) ? value : null;
 }
 
 export function webChartColor(value: unknown, index = 0): string {
-  return typeof value === 'string' && /^#[\da-f]{6}$/iu.test(value)
+  return typeof value === 'string' && /^#[\da-f]{6}(?:[\da-f]{2})?$/iu.test(value)
     ? value
     : (WEB_CHART_COLORS[index % WEB_CHART_COLORS.length] ?? '#6366f1');
 }
@@ -127,7 +127,7 @@ export function webChartSliceColor(baseColor: string, index: number): string {
       .toString(16)
       .padStart(2, '0');
   };
-  return `#${channel(1)}${channel(3)}${channel(5)}`;
+  return `#${channel(1)}${channel(3)}${channel(5)}${base.slice(7)}`;
 }
 
 export function normalizeWebChartsConfiguration(value: unknown): WebChartsConfiguration {

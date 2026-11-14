@@ -39,15 +39,6 @@ export function ActivityBar(props: ActivityBarProps): ReactElement {
       </button>
       <button
         type="button"
-        aria-label="Project Settings"
-        title="Open Project Settings"
-        disabled={!props.hasProject}
-        onClick={props.onOpenSettings}
-      >
-        <Icon name="settings" />
-      </button>
-      <button
-        type="button"
         aria-label="RestGo integration"
         title="RestGo integration"
         aria-pressed={props.restGoActive === true}
@@ -57,6 +48,15 @@ export function ActivityBar(props: ActivityBarProps): ReactElement {
         <Icon name="database" />
       </button>
       <span className="wr-activity-spacer" />
+      <button
+        type="button"
+        aria-label="Project Settings"
+        title="Open Project Settings"
+        disabled={!props.hasProject}
+        onClick={props.onOpenSettings}
+      >
+        <Icon name="settings" />
+      </button>
       <button
         type="button"
         aria-label="Toggle output"

@@ -310,13 +310,13 @@ function isBackgroundGradientValue(value: unknown): value is BackgroundGradientV
     LINEAR_GRADIENT_DIRECTIONS.has(value.direction as LinearGradientDirection) &&
     'from' in value &&
     typeof value.from === 'string' &&
-    (/^#[\da-f]{6}$/iu.test(value.from) ||
+    (/^#[\da-f]{6}(?:[\da-f]{2})?$/iu.test(value.from) ||
       paletteColorId(value.from) !== undefined ||
       themeColorId(value.from) !== undefined ||
       customThemeColorId(value.from) !== undefined) &&
     'to' in value &&
     typeof value.to === 'string' &&
-    (/^#[\da-f]{6}$/iu.test(value.to) ||
+    (/^#[\da-f]{6}(?:[\da-f]{2})?$/iu.test(value.to) ||
       paletteColorId(value.to) !== undefined ||
       themeColorId(value.to) !== undefined ||
       customThemeColorId(value.to) !== undefined)
@@ -397,7 +397,7 @@ function cssColorValue(value: unknown): string | undefined {
     return value;
   if (value === 'current') return 'currentColor';
   if (value === 'transparent' || value === 'inherit') return value;
-  return /^#[\da-f]{6}$/iu.test(value) ? value.toLowerCase() : undefined;
+  return /^#[\da-f]{6}(?:[\da-f]{2})?$/iu.test(value) ? value.toLowerCase() : undefined;
 }
 
 function cssLengthValue(value: unknown): string | undefined {
@@ -463,7 +463,7 @@ function backgroundColorValue(value: unknown): string | undefined {
     customThemeColorId(value) !== undefined
   )
     return value;
-  if (/^#[\da-f]{6}$/iu.test(value)) return value.toLowerCase();
+  if (/^#[\da-f]{6}(?:[\da-f]{2})?$/iu.test(value)) return value.toLowerCase();
   if (value === 'transparent') return value;
   if (value === 'current') return 'currentColor';
   return undefined;

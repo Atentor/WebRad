@@ -263,6 +263,7 @@ export function App(): ReactElement {
   const [zoom, setZoom] = useState(100);
   const [viewportName, setViewportName] = useState<DesignerViewportName>('desktop');
   const [sidebarMode, setSidebarMode] = useState<DesignerSidebarMode>('builder');
+  const [treeRevealSelection, setTreeRevealSelection] = useState(0);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [projectPreviewTheme, setProjectPreviewTheme] = useState<ResolvedThemeMode>('light');
   const [output, setOutput] = useState<readonly OutputEntry[]>([]);
@@ -2927,7 +2928,13 @@ export function App(): ReactElement {
         selectedPaletteType={selectedPaletteType}
         onCancelInsertion={cancelPaletteInsertion}
         zoom={zoom}
-        onSelect={(ids, primaryId) => selectionManager.set(ids, primaryId)}
+        onSelect={(ids, primaryId) => {
+          selectionManager.set(ids, primaryId);
+          if (ids.length > 0) {
+            setSidebarMode('builder');
+            setTreeRevealSelection((current) => current + 1);
+          }
+        }}
         onAddComponent={addComponentAt}
         onAddReusableElement={addReusableElementAt}
         onMoveComponents={moveComponents}
@@ -3142,6 +3149,7 @@ export function App(): ReactElement {
                     <ElementTree
                       page={activePage}
                       selectedIds={selection.ids}
+                      revealSelection={treeRevealSelection}
                       onSelect={(ids, primaryId) => {
                         setSelectedPaletteType(null);
                         selectionManager.set(ids, primaryId);

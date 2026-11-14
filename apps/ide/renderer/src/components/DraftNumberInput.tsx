@@ -1,4 +1,5 @@
 import {
+  useLayoutEffect,
   useEffect,
   useEffectEvent,
   useId,
@@ -29,6 +30,8 @@ interface DraftNumberInputProps extends Omit<
   readonly max?: number;
   readonly step?: number;
   readonly integer?: boolean;
+  /** Delay publishing edits until the user pauses; other consumers remain immediate. */
+  readonly commitDelay?: number;
 }
 
 function numberText(value: number | null | undefined): string {
@@ -51,6 +54,7 @@ export function DraftNumberInput({
   max,
   step = 1,
   integer = false,
+  commitDelay,
   readOnly,
   disabled,
   'aria-describedby': describedBy,
@@ -64,7 +68,14 @@ export function DraftNumberInput({
   const [lastPublished, setLastPublished] = useState(value);
   const [focusStartValue, setFocusStartValue] = useState(value);
   const [edited, setEdited] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const draftRef = useRef(draft);
+  const editedRef = useRef(false);
   const skipBlurCommit = useRef(false);
+  useLayoutEffect(() => {
+    draftRef.current = draft;
+    editedRef.current = edited;
+  }, [draft, edited]);
 
   if (!Object.is(value, sourceValue)) {
     setSourceValue(value);
@@ -99,25 +110,30 @@ export function DraftNumberInput({
     onChange(next);
   };
   const commit = (): boolean => {
-    if (readOnly || disabled || !edited) return true;
-    if (draft.trim().length === 0 && nullable) {
+    if (readOnly || disabled || !editedRef.current) return true;
+    const currentDraft = draftRef.current;
+    if (currentDraft.trim().length === 0 && nullable) {
       publish(null, true);
       setDraft('');
+      draftRef.current = '';
       setError(null);
       setEdited(false);
+      editedRef.current = false;
       setFocusStartValue(null);
       return true;
     }
-    const next = parsedNumber(draft);
+    const next = parsedNumber(currentDraft);
     if (next === undefined) {
-      setError(draft.trim().length === 0 ? 'Enter a number.' : 'Enter a valid number.');
+      setError(currentDraft.trim().length === 0 ? 'Enter a number.' : 'Enter a valid number.');
       return false;
     }
     const normalized = bounded(next);
     publish(normalized, true);
     setDraft(String(normalized));
+    draftRef.current = String(normalized);
     setError(null);
     setEdited(false);
+    editedRef.current = false;
     setFocusStartValue(normalized);
     return true;
   };
@@ -130,6 +146,14 @@ export function DraftNumberInput({
     window.addEventListener('webrad:commit-editor-drafts', onCommitDrafts);
     return () => window.removeEventListener('webrad:commit-editor-drafts', onCommitDrafts);
   }, []);
+  const commitPausedDraft = useEffectEvent(() => {
+    if (draft.trim().length === 0 ? nullable : parsedNumber(draft) !== undefined) commit();
+  });
+  useEffect(() => {
+    if (commitDelay === undefined || !edited || composing || readOnly || disabled) return;
+    const timer = window.setTimeout(() => commitPausedDraft(), commitDelay);
+    return () => window.clearTimeout(timer);
+  }, [commitDelay, draft, edited, composing, readOnly, disabled]);
 
   return (
     <div className="wr-draft-number">
@@ -157,13 +181,19 @@ export function DraftNumberInput({
         onChange={(event) => {
           const text = event.target.value;
           setDraft(text);
+          draftRef.current = text;
           setError(null);
           if (readOnly || disabled) return;
           setEdited(true);
-          if (text.trim().length === 0 && nullable) publish(null);
-          const next = parsedNumber(text);
-          if (next !== undefined && Object.is(bounded(next), next)) publish(next);
+          editedRef.current = true;
+          if (commitDelay === undefined) {
+            if (text.trim().length === 0 && nullable) publish(null);
+            const next = parsedNumber(text);
+            if (next !== undefined && Object.is(bounded(next), next)) publish(next);
+          }
         }}
+        onCompositionStart={() => setComposing(true)}
+        onCompositionEnd={() => setComposing(false)}
         onBlur={() => {
           if (skipBlurCommit.current) skipBlurCommit.current = false;
           else commit();
@@ -176,8 +206,10 @@ export function DraftNumberInput({
             const original = focusStartValue;
             if (original !== undefined) publish(original, true);
             setDraft(numberText(original));
+            draftRef.current = numberText(original);
             setError(null);
             setEdited(false);
+            editedRef.current = false;
             skipBlurCommit.current = true;
             event.currentTarget.blur();
           } else if (event.key === 'Enter') {
@@ -195,8 +227,10 @@ export function DraftNumberInput({
               Number((current + direction * step * (event.shiftKey ? 10 : 1)).toPrecision(12)),
             );
             setEdited(true);
-            publish(next);
+            editedRef.current = true;
+            if (commitDelay === undefined) publish(next);
             setDraft(String(next));
+            draftRef.current = String(next);
             setError(null);
           }
         }}

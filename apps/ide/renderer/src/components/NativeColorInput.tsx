@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type InputHTMLAttributes, type ReactElement } from 'react';
+import { nativeColorToHex } from './native-color-value';
 
 interface NativeColorInputProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -6,6 +7,7 @@ interface NativeColorInputProps extends Omit<
 > {
   readonly value: string;
   readonly onChange: (color: string) => void;
+  readonly allowAlpha?: boolean;
 }
 
 const COLOR_IDLE_DELAY_MS = 120;
@@ -15,6 +17,7 @@ export function NativeColorInput({
   value,
   onChange,
   disabled,
+  allowAlpha,
   ...props
 }: NativeColorInputProps): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,14 +33,24 @@ export function NativeColorInput({
   useLayoutEffect(() => {
     const input = inputRef.current;
     if (input === null) return;
-    // Do not write acknowledged values back into an open native picker.
-    if (input.value !== value || disabled) {
+    // Acknowledged hex values and Chromium's color(srgb ...) values can differ
+    // in serialization while representing the same 8-bit project color.
+    let sameValue = input.value === value;
+    if (!sameValue && allowAlpha) {
+      const expected = document.createElement('input');
+      expected.type = 'color';
+      expected.setAttribute('alpha', '');
+      expected.value = value;
+      const currentHex = nativeColorToHex(input.value);
+      sameValue = currentHex !== null && currentHex === nativeColorToHex(expected.value);
+    }
+    if (!sameValue || disabled) {
       clearTimeout(timerRef.current);
       pendingRef.current = null;
       publishedRef.current = null;
-      if (input.value !== value) input.value = value;
+      if (!sameValue) input.value = value;
     }
-  }, [value, disabled]);
+  }, [value, disabled, allowAlpha]);
 
   useLayoutEffect(() => {
     const input = inputRef.current;
@@ -73,5 +86,14 @@ export function NativeColorInput({
     };
   }, []);
 
-  return <input {...props} ref={inputRef} type="color" defaultValue={value} disabled={disabled} />;
+  return (
+    <input
+      {...props}
+      {...(allowAlpha ? { alpha: '' } : {})}
+      ref={inputRef}
+      type="color"
+      defaultValue={value}
+      disabled={disabled}
+    />
+  );
 }

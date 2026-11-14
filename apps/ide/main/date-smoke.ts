@@ -1,3 +1,4 @@
+import { confirmInspectorDrafts } from './smoke-inspector-drafts';
 import type { BrowserWindow, WebFrameMain } from 'electron';
 import { loadProjectFiles } from './project-files';
 import { stopPreviewSmoke } from './preview-workspace-smoke';
@@ -60,10 +61,12 @@ export async function runDateSmoke(
   await evaluate(
     `(() => { const input = ${field('Left')}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '160'); input.dispatchEvent(new Event('input', { bubbles: true })); input.blur(); })()`,
   );
+  await confirmInspectorDrafts(window);
   await ready(`${field('Left')}?.value === '160'`);
   await evaluate(
     `(() => { const input = ${field('Value')}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '2026-11-03T14:30'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`,
   );
+  await confirmInspectorDrafts(window);
   await ready(
     `document.querySelector(${JSON.stringify(designer)})?.querySelector('.wr-date-input')?.value === '03/11/2026 14:30'`,
   );

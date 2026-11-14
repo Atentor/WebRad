@@ -285,7 +285,12 @@
 }
 
 .wr-charts-field-pair:has(.wr-charts-color-field) {
-  grid-template-columns: minmax(0, 1fr) 68px;
+  grid-template-columns: minmax(0, 1fr) 92px;
+}
+
+.wr-charts-dialog label.wr-charts-color-field .wr-color-input input[type='color'] {
+  width: 36px;
+  flex: 0 0 36px;
 }
 
 .wr-charts-text-color {
@@ -301,7 +306,7 @@
   flex: 0 0 34px;
 }
 
-.wr-charts-text-color > span {
+.wr-charts-text-color > span:not(.wr-color-input) {
   flex: 1;
   overflow: hidden;
   color: var(--wr-muted-text);
@@ -310,7 +315,7 @@
   white-space: nowrap;
 }
 
-.wr-charts-text-color button {
+.wr-charts-text-color > button {
   padding: 3px 0;
   border: 0;
   background: transparent;
@@ -320,7 +325,7 @@
   cursor: pointer;
 }
 
-.wr-charts-text-color button:disabled {
+.wr-charts-text-color > button:disabled {
   opacity: 0.45;
   cursor: default;
 }

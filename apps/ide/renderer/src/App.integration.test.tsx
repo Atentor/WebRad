@@ -1601,6 +1601,7 @@ describe('App MVP integration', () => {
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'ApiClientes' } });
     await user.click(screen.getByRole('tab', { name: 'Design' }));
     await screen.findByRole('option', { name: 'ApiClientes, API Client' });
+    await user.click(screen.getByLabelText('Base URL'));
     fireEvent.change(screen.getByLabelText('Base URL'), {
       target: { value: 'https://api.example.test/v1' },
     });
@@ -1625,6 +1626,7 @@ describe('App MVP integration', () => {
     expect(screen.queryByLabelText('Upload caption')).toBeNull();
     expect(screen.queryByLabelText('Width')).toBeNull();
     expect((screen.getByLabelText('Public file') as HTMLInputElement).checked).toBe(false);
+    await user.click(screen.getByLabelText('Accepted file types'));
     fireEvent.change(screen.getByLabelText('Accepted file types'), { target: { value: '.pdf' } });
     await user.click(screen.getByLabelText('Public file'));
     await user.click(screen.getByRole('tab', { name: 'Events' }));

@@ -1,3 +1,4 @@
+import { confirmInspectorDrafts } from './smoke-inspector-drafts';
 import type { BrowserWindow, WebFrameMain } from 'electron';
 import { loadProjectFiles } from './project-files';
 import { stopPreviewSmoke } from './preview-workspace-smoke';
@@ -36,6 +37,7 @@ export async function runEditMaskSmoke(
     await evaluate(
       `(() => { const e = ${field(label)}; e.focus(); Object.getOwnPropertyDescriptor(${textarea ? 'HTMLTextAreaElement' : 'HTMLInputElement'}.prototype, 'value').set.call(e, ${JSON.stringify(value)}); e.dispatchEvent(new Event('input', { bubbles: true })); })()`,
     );
+    await confirmInspectorDrafts(window);
     await ready(`${field(label)}?.value === ${JSON.stringify(value)}`);
     await evaluate(`${field(label)}.blur()`);
   };

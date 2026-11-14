@@ -4,7 +4,14 @@ import {
   type ComponentRegistry,
 } from '@webrad/component-registry';
 import type { ComponentNode, PageModel } from '@webrad/project-model';
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactElement,
+} from 'react';
 import { ComponentIcon } from './ComponentIcon';
 import { Icon } from './Icon';
 
@@ -14,6 +21,7 @@ export type ElementTreeEditCommand =
 export interface ElementTreeProps {
   readonly page: PageModel | null;
   readonly selectedIds: readonly string[];
+  readonly revealSelection?: number;
   readonly onSelect: (ids: readonly string[], primaryId?: string) => void;
   readonly registry?: ComponentRegistry;
   readonly onEditCommand?: (command: ElementTreeEditCommand) => void;
@@ -57,27 +65,46 @@ interface SelectionModifiers {
 export function ElementTree({
   page,
   selectedIds,
+  revealSelection = 0,
   onSelect,
   registry = defaultComponentRegistry,
   onEditCommand,
 }: ElementTreeProps): ReactElement {
-  const [search, setSearch] = useState('');
+  const [searchState, setSearchState] = useState({ value: '', selection: '' });
   // A collapse applies to the selection at that moment. A later canvas selection
   // reveals its ancestors without an effect that writes model-derived state.
   const [collapsed, setCollapsed] = useState<ReadonlyMap<string, string>>(() => new Map());
-  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [focused, setFocused] = useState<{ id: string; selectionKey: string } | null>(null);
   const anchorId = useRef<string | null>(null);
   const rowElements = useRef(new Map<string, HTMLDivElement>());
+  const listElement = useRef<HTMLDivElement>(null);
+  const pendingReveal = useRef(false);
   const selectionKey = JSON.stringify(selectedIds);
-  const query = search.trim().toLocaleLowerCase();
+  const collapseKey = `${selectionKey}:${revealSelection}`;
   const rows = useMemo(() => elementRows(page), [page]);
+  const primaryId = selectedIds.at(-1);
+  const searchSelection = JSON.stringify([page?.id, selectionKey, revealSelection]);
+  let search = searchState.value;
+  if (searchState.selection !== searchSelection) {
+    const previousQuery = search.trim().toLocaleLowerCase();
+    const selectionMatches = rows.some((row) => {
+      if (row.node.id !== primaryId && !row.ancestors.includes(primaryId ?? '')) return false;
+      const definition = registry.get(row.node.type);
+      return [row.node.name, row.node.type, definition?.displayName ?? ''].some((value) =>
+        value.toLocaleLowerCase().includes(previousQuery),
+      );
+    });
+    if (primaryId !== undefined && previousQuery.length > 0 && !selectionMatches) search = '';
+    setSearchState({ value: search, selection: searchSelection });
+  }
+  const query = search.trim().toLocaleLowerCase();
   const selectedAncestors = new Set(
     rows.filter((row) => selectedIds.includes(row.node.id)).flatMap((row) => row.ancestors),
   );
   const isExpanded = (id: string): boolean =>
     query.length > 0 ||
     !collapsed.has(id) ||
-    (selectedAncestors.has(id) && collapsed.get(id) !== selectionKey);
+    (selectedAncestors.has(id) && collapsed.get(id) !== collapseKey);
 
   const matches = new Set<string>();
   for (const row of rows) {
@@ -95,16 +122,34 @@ export function ElementTree({
   const visibleRows = rows.filter(
     (row) => matches.has(row.node.id) && row.ancestors.every(isExpanded),
   );
+  const focusedId = focused?.selectionKey === collapseKey ? focused.id : null;
   const activeId =
     (visibleRows.some((row) => row.node.id === focusedId) ? focusedId : null) ??
     [...selectedIds].reverse().find((id) => visibleRows.some((row) => row.node.id === id)) ??
     visibleRows[0]?.node.id;
 
+  useLayoutEffect(() => {
+    pendingReveal.current = primaryId !== undefined;
+  }, [page?.id, primaryId, revealSelection, selectionKey]);
+
+  useLayoutEffect(() => {
+    if (!pendingReveal.current || primaryId === undefined) return;
+    const row = rowElements.current.get(primaryId);
+    const list = listElement.current;
+    if (row === undefined || list === null) return;
+    const rowBounds = row.getBoundingClientRect();
+    const listBounds = list.getBoundingClientRect();
+    if (rowBounds.top < listBounds.top) list.scrollTop += rowBounds.top - listBounds.top;
+    else if (rowBounds.bottom > listBounds.bottom)
+      list.scrollTop += rowBounds.bottom - listBounds.bottom;
+    pendingReveal.current = false;
+  });
+
   const toggleExpanded = (id: string): void => {
     const expanded = isExpanded(id);
     setCollapsed((current) => {
       const next = new Map(current);
-      if (expanded) next.set(id, selectionKey);
+      if (expanded) next.set(id, collapseKey);
       else next.delete(id);
       return next;
     });
@@ -139,7 +184,7 @@ export function ElementTree({
 
   const focusRow = (id: string | undefined): void => {
     if (id === undefined) return;
-    setFocusedId(id);
+    setFocused({ id, selectionKey: collapseKey });
     rowElements.current.get(id)?.focus();
   };
 
@@ -195,11 +240,14 @@ export function ElementTree({
           aria-label="Search elements"
           placeholder="Search elements"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) =>
+            setSearchState({ value: event.target.value, selection: searchSelection })
+          }
           spellCheck={false}
         />
       </div>
       <div
+        ref={listElement}
         className="wr-element-list"
         role="tree"
         aria-label="Page elements"
@@ -229,7 +277,7 @@ export function ElementTree({
               style={{ paddingLeft: 10 + row.depth * 16 }}
               title={`${row.node.name} · ${definition?.displayName ?? row.node.type}`}
               data-component-id={row.node.id}
-              onFocus={() => setFocusedId(row.node.id)}
+              onFocus={() => setFocused({ id: row.node.id, selectionKey: collapseKey })}
               onClick={(event) => {
                 focusRow(row.node.id);
                 select(row.node.id, event);

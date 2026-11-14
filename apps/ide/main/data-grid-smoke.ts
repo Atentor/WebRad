@@ -5,6 +5,7 @@ import type { BrowserWindow } from 'electron';
 
 import { loadProjectFiles } from './project-files';
 import { capturePresentedSmokePage } from './smoke-capture';
+import { colorInputValueMatches } from './smoke-color-input';
 
 interface DataGridSmokeOptions {
   readonly projectPath: string;
@@ -521,10 +522,10 @@ export async function runChartsConfigurationSmoke(
         const legend = svg?.querySelector('[data-chart-legend]');
         return dialog?.querySelector('[aria-label="Chart text font"]')?.value === 'inter' &&
           dialog?.querySelector('[aria-label="Chart legend font"]')?.value === 'poppins' &&
-          dialog?.querySelector('[aria-label="Chart text color"]')?.value === '#cbd5e1' &&
-          dialog?.querySelector('[aria-label="Chart title color"]')?.value === '#38bdf8' &&
-          dialog?.querySelector('[aria-label="Chart subtitle color"]')?.value === '#a5b4fc' &&
-          dialog?.querySelector('[aria-label="Chart legend color"]')?.value === '#fbbf24' &&
+          ${colorInputValueMatches('.wr-charts-dialog [aria-label="Chart text color"]', '#cbd5e1')} &&
+          ${colorInputValueMatches('.wr-charts-dialog [aria-label="Chart title color"]', '#38bdf8')} &&
+          ${colorInputValueMatches('.wr-charts-dialog [aria-label="Chart subtitle color"]', '#a5b4fc')} &&
+          ${colorInputValueMatches('.wr-charts-dialog [aria-label="Chart legend color"]', '#fbbf24')} &&
           svg?.style.fontFamily.includes('Inter') &&
           svg?.style.color === 'rgb(203, 213, 225)' &&
           title?.getAttribute('fill') === '#38bdf8' &&

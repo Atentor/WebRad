@@ -1,5 +1,7 @@
+import { resolveThemedStyle, type TailwindStyleProperties } from '@webrad/runtime/visual';
 import { resolveInspectorLayoutProperty } from '@webrad/component-registry';
 import {
+  inspectorStylePropertyValue,
   defaultComponentRegistry,
   CURRENT_ROW_BINDINGS_PROPERTY,
   getCurrentRowBindableProperties,
@@ -17,6 +19,7 @@ import type {
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES, isWebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
 import {
+  useContext,
   useEffect,
   useEffectEvent,
   useId,
@@ -25,11 +28,12 @@ import {
   useState,
   type ReactElement,
 } from 'react';
-import { useProjectColorResolver } from '../project-theme';
+import { ProjectThemeContext, useProjectColorResolver } from '../project-theme';
 import { Icon } from './Icon';
 import { ColorInput, ThemeColorButton } from './ColorInput';
 import { DraftNumberInput } from './DraftNumberInput';
 import { InspectorJsonInput } from './InspectorJsonInput';
+import { INSPECTOR_COMMIT_DELAY, InspectorTextInput } from './InspectorTextInput';
 import { useEditorDraftPending } from './useEditorDraftPending';
 import { ComponentIcon } from './ComponentIcon';
 import { IconPickerDialog } from './IconPickerDialog';
@@ -252,6 +256,7 @@ function readPropertyValue(
   component: ComponentNode,
   property: ComponentPropertyDefinition,
   page: PageModel | null | undefined,
+  styleBase?: TailwindStyleProperties,
 ): unknown {
   let value: unknown;
   switch (property.source ?? 'props') {
@@ -285,6 +290,9 @@ function readPropertyValue(
     case 'props':
       value = component.props[property.name];
       break;
+  }
+  if (value === undefined && styleBase !== undefined) {
+    value = inspectorStylePropertyValue(property, styleBase);
   }
   return value === undefined
     ? (property.defaultValueWhen?.(component.props) ?? property.defaultValue)
@@ -325,10 +333,6 @@ function editorText(value: unknown, multiple: boolean): string {
   if (multiple || value === null || value === undefined) return '';
   if (Array.isArray(value)) return value.join(', ');
   return String(value);
-}
-
-function validPickerColor(value: string): string {
-  return /^#[\da-f]{6}$/i.test(value) ? value : '#000000';
 }
 
 interface StringListPropertyEditorProps {
@@ -621,49 +625,21 @@ function PropertyEditor({
           onChange={onChange}
         />
       );
-    case 'string': {
-      if (property.multiline === true) {
-        return (
-          <textarea
-            id={id}
-            className="wr-inspector-input wr-inspector-multiline"
-            value={text}
-            placeholder={placeholder}
-            readOnly={disabled}
-            spellCheck={false}
-            rows={10}
-            onChange={(event) => onChange(event.target.value)}
-          />
-        );
-      }
-      const invalid =
-        !multiple && property.validateValue !== undefined && !property.validateValue(value);
-      const input = (
-        <input
+    case 'string':
+      return (
+        <InspectorTextInput
+          key={scopeId ?? id}
           id={id}
-          className="wr-inspector-input"
-          type="text"
           value={text}
+          multiple={multiple}
           placeholder={placeholder}
           readOnly={disabled}
-          spellCheck={false}
-          onChange={(event) => onChange(event.target.value)}
-          aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? `${id}-error` : undefined}
+          multiline={property.multiline}
+          validate={property.validateValue}
+          description={property.description}
+          onChange={onChange}
         />
       );
-      if (property.validateValue === undefined) return input;
-      return (
-        <div className="wr-inspector-structured-input">
-          {input}
-          {invalid && (
-            <small id={`${id}-error`} role="alert">
-              Invalid value. {property.description}
-            </small>
-          )}
-        </div>
-      );
-    }
     case 'string-list':
       if (property.designerAction !== undefined) {
         const action = property.designerAction;
@@ -701,6 +677,7 @@ function PropertyEditor({
             multiple ? undefined : typeof value === 'number' || value === null ? value : undefined
           }
           nullable={property.nullable}
+          commitDelay={INSPECTOR_COMMIT_DELAY}
           placeholder={placeholder}
           readOnly={disabled}
           onChange={onChange}
@@ -766,7 +743,7 @@ function PropertyEditor({
             <ColorInput
               key={scopeId ?? id}
               className="wr-inspector-color-picker"
-              value={validPickerColor(text)}
+              value={text}
               disabled={disabled}
               label={`${property.label ?? property.name} color picker`}
               showThemeColors={false}
@@ -920,12 +897,14 @@ interface PropertyRowProps {
   readonly onChange: ObjectInspectorProps['onPropertyChange'];
   readonly onDesignerAction?: ObjectInspectorProps['onDesignerAction'];
   readonly onIconPickerOpenChange?: (open: boolean) => void;
+  readonly styles: readonly ComponentStyleModel[];
 }
 
 function PropertyRow({
   property,
   selection,
   page,
+  styles,
   availableComponents,
   availableReusableElements,
   availableMenus,
@@ -933,9 +912,18 @@ function PropertyRow({
   onDesignerAction,
   onIconPickerOpenChange,
 }: PropertyRowProps): ReactElement {
+  const { mode } = useContext(ProjectThemeContext);
   const editorId = useId();
   const value = sharedValue(
-    selection.map((component) => readPropertyValue(component, property, page)),
+    selection.map((component) => {
+      const style = styles.find((candidate) => candidate.id === component.styleId);
+      return readPropertyValue(
+        component,
+        property,
+        page,
+        style === undefined ? undefined : resolveThemedStyle(style, mode).states.base,
+      );
+    }),
   );
   const multiple = value === MULTIPLE_VALUES;
 
@@ -950,7 +938,9 @@ function PropertyRow({
       <div className="wr-inspector-value">
         <PropertyEditor
           id={editorId}
-          scopeId={selection.map((component) => component.id).join(':')}
+          scopeId={selection
+            .map((component) => `${component.id}:${component.styleId ?? ''}`)
+            .join(':')}
           property={property}
           value={multiple ? undefined : value}
           multiple={multiple}
@@ -1314,6 +1304,7 @@ export function ObjectInspector({
                                 property={property}
                                 selection={inspectedSelection}
                                 page={page}
+                                styles={styles}
                                 availableComponents={componentChoices}
                                 availableReusableElements={availableReusableElements}
                                 availableMenus={availableMenus}

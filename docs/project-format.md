@@ -1,5 +1,16 @@
 # Project format
 
+## Component Style reassignment
+
+Choosing a component Style replaces `styleId` and removes instance visual
+properties named in the style catalog, the Inspector aliases `color`, `textWrap`
+and `margin`, background image settings and `webradPaintOverrides`. These values
+remain absent in saved nodes so the selected style and its theme/state rules
+control appearance. Inspector editors project compatible base values without
+copying the style into `props`. The operation preserves identity, bounds,
+structural layout, content and events. Undo restores the prior style reference
+and properties together. This behavior uses the existing version-2 schema.
+
 ## Edit input masks
 
 `WebEdit` adds optional `maskEnabled` (false), `mask` (empty string), `maskCase`
@@ -343,9 +354,9 @@ These stable IDs are validated in every style state. Font bytes are compiler
 resources, so this additive catalog requires no format-version change and does
 not rewrite saved styles. See [Project fonts](fonts.md).
 
-`settings.themes` is the single color source in format 2: `{ initialMode: 'light' | 'dark' | 'system', rememberChoice: boolean, colors, customColors }`. `colors` contains every role in `THEME_COLOR_NAMES`, each with `{ light, dark }` values accepting six-digit hexadecimal colors or custom color references. Semantic references use `var(--wr-theme-<role>)`. Roles cannot reference other roles, preventing cycles.
+`settings.themes` is the single color source in format 2: `{ initialMode: 'light' | 'dark' | 'system', rememberChoice: boolean, colors, customColors }`. `colors` contains every role in `THEME_COLOR_NAMES`, each with `{ light, dark }` values accepting six- or eight-digit hexadecimal colors (`#RRGGBB` or `#RRGGBBAA`) or custom color references. Semantic references use `var(--wr-theme-<role>)`. Roles cannot reference other roles, preventing cycles.
 
-`customColors` contains up to 100 `{ id, name, light, dark }` entries. IDs are unique stable lowercase slugs (up to 64 characters), names contain 1–40 characters, and both values are six-digit hexadecimal colors. **Styles > Themes** edits semantic and custom colors together with Save/Cancel. **Same** writes identical values for fixed colors; otherwise Light and Dark are independent. The shared picker writes `var(--wr-theme-custom-<id>)`. Renaming or reordering preserves links; literal edits unlink individual fields. New projects have semantic Default styles; Aurora and Flat start without custom colors, while Prism includes adaptive Coral, Mint and Sunshine colors. Restore Aurora resets semantic roles without replacing custom colors.
+`customColors` contains up to 100 `{ id, name, light, dark }` entries. IDs are unique stable lowercase slugs (up to 64 characters), names contain 1–40 characters, and both values are six- or eight-digit hexadecimal colors. **Styles > Themes** edits semantic and custom colors together with Save/Cancel. **Same** writes identical values for fixed colors; otherwise Light and Dark are independent. The shared picker writes `var(--wr-theme-custom-<id>)`. Renaming or reordering preserves links; literal edits unlink individual fields. New projects have semantic Default styles; Aurora and Flat start without custom colors, while Prism includes adaptive Coral, Mint and Sunshine colors. Restore Aurora resets semantic roles without replacing custom colors.
 
 Legacy `settings.colorPalette` lists of up to ten `{ id, name, color }` entries are consumed on loading and moved to `settings.themes.customColors`, preserving IDs/names with `light = dark = color`. The old property is omitted when saving. Existing `var(--wr-palette-<id>)` references remain supported through aliases to the migrated custom theme variables, including in authored TypeScript. A project with neither Themes nor a palette materializes the legacy Aurora entries and semantic defaults. Invalid legacy entries, duplicate identities, and the obsolete string-array shape are rejected. Missing Themes defaults to initial Light with remembering enabled; saved styles are preserved.
 
@@ -571,7 +582,7 @@ Reusable styles are stored inline in the manifest as `styles: ComponentStyleMode
 
 `WebButton` styles collect their icon controls in the `Icon` editor group. The base-state-only presentation properties are `buttonContentMode` (`text`, `text-icon`, or `icon`) and `buttonIconPosition` (`left`, `right`, `top`, or `bottom`); changing a button's content structure on hover or focus would be unstable. `buttonIconColor` and `buttonIconSize` are `WebButton`-only properties available in every style state. Color defaults to `current`, so the icon inherits the text color until overridden; size is an explicit non-negative `px` or `rem` length and its property editor starts at `16px`. The component node owns its individual `icon` prop, selected from the local SVG catalogue shared with the IDE chrome; it defaults to `add` and can be changed independently even when several buttons share a style. The visual picker shows each canonical icon once, searches by icon ID or label, and recognizes common aliases such as `log in` and `door enter`; it includes authentication and door-direction icons such as `login`, `logout`, `door-in`, and `door-out`. New projects set the Default Button presentation to centered text and icon with a left 22px icon and 15px Roboto text, and icon-only buttons retain their caption as their accessible name.
 
-`textGradient`, `backgroundGradient`, and `borderGradient` share one safe two-color linear-gradient value: `{ "kind": "linear", "direction": "to-right", "from": "#2563eb", "to": "#7c3aed" }`. Its direction must be one of the eight compass directions from `to-right` through `to-top-right`, and both endpoint colors must be six-digit hexadecimal values. Background and border gradients produce static CSS utilities; text gradients target the component's caption element, preserving its background paint. A border gradient is rendered as two background layers — an inner fill clipped to the padding box and the gradient clipped to the border box — over a transparent solid border. This respects the configured border width and radius on native controls as well as ordinary elements, unlike `border-image`. Text gradients are available to labels, buttons, and checkbox captions. Within one state, each gradient is mutually exclusive with its same-target solid color (`textColor`, `backgroundColor`, or `borderColor`), preventing redundant declarations.
+`textGradient`, `backgroundGradient`, and `borderGradient` share one safe two-color linear-gradient value: `{ "kind": "linear", "direction": "to-right", "from": "#2563eb", "to": "#7c3aed" }`. Its direction must be one of the eight compass directions from `to-right` through `to-top-right`, and endpoints accept six- or eight-digit hexadecimal values and theme references. Background and border gradients produce static CSS utilities; text gradients target the component's caption element, preserving its background paint. A border gradient is rendered as two background layers — an inner fill clipped to the padding box and the gradient clipped to the border box — over a transparent solid border. This respects the configured border width and radius on native controls as well as ordinary elements, unlike `border-image`. Text gradients are available to labels, buttons, and checkbox captions. Within one state, each gradient is mutually exclusive with its same-target solid color (`textColor`, `backgroundColor`, or `borderColor`), preventing redundant declarations.
 
 The metadata-driven style editor and compiler share one pure property-to-utility generator; users never need to author Tailwind class strings. The compiler converts saved values into exact Tailwind candidates and automatically applies the appropriate variants to `hover`, `focus`, `active`, and `disabled`. Focus also targets compound controls through `focus-within`, while disabled targets native `:disabled` and the common `aria-disabled` root contract. Tailwind source discovery is disabled, so generated CSS contains only the project catalog's candidates plus Tailwind theme variables. Preflight is intentionally omitted to preserve WebRAD component semantics. Generated applications receive static CSS and have no Tailwind runtime dependency.
 
@@ -681,7 +692,7 @@ Format v2 settings add `routingMode` (`history` by default, or `hash`) and `rout
 
 `WebCharts.props.chartsConfig` stores a strict version-1 configuration for eight
 chart types and up to five independently bound series. Each series has a stable
-ID, name, six-digit hexadecimal color and API Client/operation/list/label/value
+ID, name, six- or eight-digit hexadecimal color and API Client/operation/list/label/value
 JSON Pointer binding. Value fields require a numeric response contract. Titles,
 legend/grid/label settings, smooth/stacked presentation, doughnut hole size,
 number formatting and the empty message belong to this configuration. Responses,
@@ -692,7 +703,7 @@ See [Charts](charts.md).
 
 Chart appearance also accepts optional `fontFamily` and `legendFontFamily`
 (`inherit` or a supported project font ID), nullable `textColor`, `titleColor`,
-`subtitleColor` and `legendColor` (six-digit hex), and nullable `titleIcon`
+`subtitleColor` and `legendColor` (six- or eight-digit hex), and nullable `titleIcon`
 (a Lucide icon name). Omitted fields load with inherited typography/colors and
 no icon. These settings remain in `chartsConfig` schema version 1; selected font
 assets belong to generated output and are not duplicated in project JSON.

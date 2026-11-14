@@ -132,6 +132,15 @@ function labelled(label: string): HTMLElement {
   if (element === null) throw new Error(`Missing ${label}`);
   return element;
 }
+function colorValueMatches(label: string, color: string): boolean {
+  const input = labelled(label);
+  if (!(input instanceof HTMLInputElement) || input.type !== 'color') return false;
+  const expected = document.createElement('input');
+  expected.type = 'color';
+  if (input.hasAttribute('alpha')) expected.setAttribute('alpha', '');
+  expected.value = color;
+  return input.value === expected.value;
+}
 async function click(label: string): Promise<void> {
   labelled(label).click();
   await tick();
@@ -218,10 +227,7 @@ async function smoke(): Promise<void> {
   );
   await click('Predefined colors for Track color');
   await click('Use theme Aurora Blue for Track color');
-  assert(
-    (labelled('Track color') as HTMLInputElement).value === '#007acc',
-    'Scrollbar choice did not apply',
-  );
+  assert(colorValueMatches('Track color', '#007acc'), 'Scrollbar choice did not apply');
   await textButton('Apply changes');
   await click('Predefined colors for Background Color color picker');
   await click('Use theme Aurora Blue for Background Color color picker');
@@ -293,12 +299,12 @@ async function smoke(): Promise<void> {
     await tick();
   }
   assert(
-    (labelled('Background Color color picker') as HTMLInputElement).value === '#e11d48',
+    colorValueMatches('Background Color color picker', '#e11d48'),
     'Linked Inspector color did not follow palette edit',
   );
   assert(
-    (labelled('Background gradient from color') as HTMLInputElement).value === '#e11d48' &&
-      (labelled('Background gradient to color') as HTMLInputElement).value === '#e11d48',
+    colorValueMatches('Background gradient from color', '#e11d48') &&
+      colorValueMatches('Background gradient to color', '#e11d48'),
     'Linked gradient did not follow palette edit',
   );
   assert(

@@ -64,7 +64,7 @@ const chartFont = z
   .default('inherit');
 const chartTextColor = z
   .string()
-  .regex(/^#[\da-f]{6}$/iu)
+  .regex(/^#[\da-f]{6}(?:[\da-f]{2})?$/iu)
   .nullable()
   .default(null);
 const pointer = z
@@ -79,7 +79,9 @@ export const ChartSeriesConfigurationSchema: z.ZodType<ChartSeriesConfiguration>
   .object({
     id: z.string().min(1).max(128),
     name: z.string().trim().min(1).max(120),
-    color: z.string().regex(/^#[\da-f]{6}$/iu, 'Use a six-digit hexadecimal color.'),
+    color: z
+      .string()
+      .regex(/^#[\da-f]{6}(?:[\da-f]{2})?$/iu, 'Use a six- or eight-digit hexadecimal color.'),
     apiClientId: reference,
     operationId: reference,
     listPath: pointer,

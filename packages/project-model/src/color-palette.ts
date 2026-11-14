@@ -18,7 +18,8 @@ export function resolvePaletteColor(value: string, colors: readonly ProjectPalet
 export function projectColorPaletteCss(colors: readonly ProjectPaletteColor[]): string {
   const declarations = colors.map((entry) => {
     paletteColorReference(entry.id);
-    if (!/^#[0-9a-fA-F]{6}$/.test(entry.color)) throw new Error('Invalid palette color.');
+    if (!/^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/.test(entry.color))
+      throw new Error('Invalid palette color.');
     return `  --wr-palette-${entry.id}: ${entry.color};`;
   });
   return `:root {\n${declarations.join('\n')}\n}`;

@@ -1,3 +1,4 @@
+import { confirmInspectorDrafts } from './smoke-inspector-drafts';
 import { capturePresentedSmokePage } from './smoke-capture';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -320,6 +321,7 @@ export async function runLineSmoke(
       })()`,
       true,
     );
+    await confirmInspectorDrafts(window);
     await ready(window, `${field(label)}?.value === ${JSON.stringify(value)}`);
   }
   await window.webContents.executeJavaScript(

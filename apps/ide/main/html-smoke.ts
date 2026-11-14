@@ -1,3 +1,4 @@
+import { projectExplorerRowExpression } from './project-explorer-smoke';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { BrowserWindow, WebFrameMain } from 'electron';
@@ -135,6 +136,290 @@ async function runDesignerEditingSmoke(
   root: string,
   log: (message: string) => void,
 ): Promise<void> {
+  const undo = async (): Promise<void> => {
+    await window.webContents.executeJavaScript(
+      `document.querySelector(${JSON.stringify(root)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
+      true,
+    );
+    await window.webContents.executeJavaScript(
+      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+      true,
+    );
+  };
+  await click(window, root);
+  const originalBackground: unknown = await window.webContents.executeJavaScript(
+    `${inspectorField('Background Color')}?.value`,
+    true,
+  );
+  if (typeof originalBackground !== 'string')
+    throw new Error('Page background color is unavailable.');
+  const pickerSelector = 'input[type="color"][aria-label="Background Color color picker"]';
+  const colorRowContract = `(() => {
+    const picker = document.querySelector(${JSON.stringify(pickerSelector)});
+    const row = picker?.closest('.wr-inspector-color-control');
+    const editor = row?.querySelector('.wr-inspector-color-editor');
+    const text = editor?.querySelector('input[type="text"]');
+    const palette = row?.querySelector('.wr-theme-color-trigger');
+    if (!(picker instanceof HTMLInputElement) || !(text instanceof HTMLInputElement) ||
+        !(palette instanceof HTMLButtonElement)) return false;
+    const swatchBounds = picker.getBoundingClientRect();
+    const textBounds = text.getBoundingClientRect();
+    const paletteBounds = palette.getBoundingClientRect();
+    return row.querySelectorAll('input[type="color"]').length === 1 &&
+      editor.querySelectorAll('input[type="text"]').length === 1 &&
+      row.querySelectorAll('.wr-theme-color-trigger').length === 1 &&
+      editor.querySelectorAll('button').length === 0 &&
+      !text.hasAttribute('data-editor-draft-pending') &&
+      swatchBounds.width === 28 && textBounds.width > 28 &&
+      Math.abs(swatchBounds.top - textBounds.top) < 1 &&
+      textBounds.left >= swatchBounds.right - 1 &&
+      paletteBounds.left >= textBounds.right - 1;
+  })()`;
+  for (const colorText of ['#f', '#ff0000']) {
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const input = ${inspectorField('Background Color')};
+        input.focus();
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(colorText)});
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`,
+      true,
+    );
+    await ready(
+      window,
+      `${inspectorField('Background Color')}?.value === ${JSON.stringify(colorText)}`,
+    );
+    await ready(window, colorRowContract);
+  }
+  await undo();
+  await undo();
+  await ready(
+    window,
+    `${inspectorField('Background Color')}?.value === ${JSON.stringify(originalBackground)}`,
+  );
+  await ready(window, colorRowContract);
+  await ready(
+    window,
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(pickerSelector)});
+      return input instanceof HTMLInputElement && input.hasAttribute('alpha') &&
+        !input.closest('.wr-inspector-color-control')?.querySelector('.wr-color-opacity-trigger');
+    })()`,
+  );
+  const point: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+      const input = document.querySelector(${JSON.stringify(pickerSelector)});
+      input.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const rect = input.getBoundingClientRect();
+      const x = Math.round((rect.left + rect.right) / 2);
+      const y = Math.round((rect.top + rect.bottom) / 2);
+      return document.elementFromPoint(x, y) === input ? { x, y } : null;
+    })()`,
+    true,
+  );
+  if (
+    typeof point !== 'object' ||
+    point === null ||
+    typeof Reflect.get(point, 'x') !== 'number' ||
+    typeof Reflect.get(point, 'y') !== 'number'
+  )
+    throw new Error('Page background color picker is not visible.');
+  const pickerPoint = point as { x: number; y: number };
+  const debuggerWasAttached = window.webContents.debugger.isAttached();
+  if (!debuggerWasAttached) window.webContents.debugger.attach('1.3');
+  try {
+    await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+      enabled: true,
+    });
+    window.webContents.focus();
+    window.webContents.sendInputEvent({ type: 'mouseMove', ...pickerPoint });
+    window.webContents.sendInputEvent({
+      type: 'mouseDown',
+      button: 'left',
+      clickCount: 1,
+      ...pickerPoint,
+    });
+    window.webContents.sendInputEvent({
+      type: 'mouseUp',
+      button: 'left',
+      clickCount: 1,
+      ...pickerPoint,
+    });
+    await ready(
+      window,
+      `document.querySelector(${JSON.stringify(pickerSelector)})?.matches(':open') === true`,
+    );
+    await window.webContents.executeJavaScript(
+      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+      true,
+    );
+    const press = async (
+      key: string,
+      code: string,
+      windowsVirtualKeyCode: number,
+      modifiers = 0,
+    ): Promise<void> => {
+      const event = { key, code, windowsVirtualKeyCode, modifiers };
+      await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
+        type: 'rawKeyDown',
+        ...event,
+      });
+      await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
+        type: 'keyUp',
+        ...event,
+      });
+    };
+    // Chromium 156 focuses the color well first; reverse tabbing passes the
+    // format control, RGB channels, and alpha slider to reach alpha percentage.
+    for (let index = 0; index < 6; index += 1) await press('Tab', 'Tab', 9, 8);
+    await press('a', 'KeyA', 65, process.platform === 'darwin' ? 4 : 2);
+    // Page popups receive keyboard events through the owning renderer; IME
+    // insertion targets the page instead of the popup.
+    await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: '5',
+      code: 'Digit5',
+      windowsVirtualKeyCode: 53,
+      text: '50',
+      unmodifiedText: '50',
+    });
+    await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: '5',
+      code: 'Digit5',
+      windowsVirtualKeyCode: 53,
+    });
+    await ready(
+      window,
+      `(() => {
+        const input = ${inspectorField('Background Color')};
+        const picker = document.querySelector(${JSON.stringify(pickerSelector)});
+        const page = document.querySelector('.wr-page-surface .wr-webpage');
+        if (!(input instanceof HTMLInputElement) || !(page instanceof HTMLElement)) return false;
+        const alpha = Number.parseFloat(getComputedStyle(page).backgroundColor.split(',').at(-1));
+        return picker?.matches(':open') === true && /^#[a-f0-9]{6}80$/i.test(input.value) &&
+          Math.abs(alpha - 0.502) < 0.01;
+      })()`,
+    );
+    await ready(window, colorRowContract);
+    await press('Enter', 'Enter', 13);
+    await ready(
+      window,
+      `document.querySelector(${JSON.stringify(pickerSelector)})?.matches(':open') === false`,
+    );
+  } finally {
+    await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+      enabled: false,
+    });
+    if (!debuggerWasAttached) window.webContents.debugger.detach();
+  }
+  await undo();
+  await ready(
+    window,
+    `${inspectorField('Background Color')}?.value === ${JSON.stringify(originalBackground)}`,
+  );
+  const temporaryPageStyle =
+    (await window.webContents.executeJavaScript(`${inspectorField('Style')}?.value`, true)) === '';
+  if (temporaryPageStyle) {
+    await click(window, 'button[aria-label="Styles"]');
+    await click(window, '.wr-style-section-heading button');
+    await window.webContents.executeJavaScript(
+      `(() => {
+      const select = document.querySelector('.wr-style-create-form select');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'WebPage');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`,
+      true,
+    );
+    await window.webContents.executeJavaScript(
+      `(() => {
+      const input = document.querySelector('.wr-style-create-form input');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Inspector Reset Smoke');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`,
+      true,
+    );
+    await click(window, '.wr-style-create-form button[type="submit"]');
+    await click(window, 'button[aria-label="Project Explorer"]');
+    const pageRow = projectExplorerRowExpression({ name: 'index' });
+    await ready(window, `${pageRow} instanceof HTMLElement`);
+    await window.webContents.executeJavaScript(`${pageRow}.click()`, true);
+    await click(window, 'button[aria-label="Design"]');
+    await click(window, root);
+    await window.webContents.executeJavaScript(
+      `(() => {
+      const select = ${inspectorField('Style')};
+      const option = [...select.options].find(option => option.textContent.trim() === 'Inspector Reset Smoke');
+      if (!option) throw new Error('Temporary page Style is unavailable.');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, option.value);
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`,
+      true,
+    );
+    await ready(window, `${inspectorField('Style')}?.value !== ''`);
+  }
+  const styleBackground = await window.webContents.executeJavaScript(
+    `${inspectorField('Background Color')}?.value`,
+    true,
+  );
+  const originalStyle: unknown = await window.webContents.executeJavaScript(
+    `${inspectorField('Style')}?.value`,
+    true,
+  );
+  if (typeof originalStyle !== 'string' || originalStyle.length === 0)
+    throw new Error('Style reset smoke requires the original page style.');
+  const originalCanvas: unknown = await window.webContents.executeJavaScript(
+    `getComputedStyle(document.querySelector('.wr-page-surface .wr-webpage')).backgroundColor`,
+    true,
+  );
+  const selectStyle = async (value: string): Promise<void> => {
+    await window.webContents.executeJavaScript(
+      `(() => {
+        const select = ${inspectorField('Style')};
+        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, ${JSON.stringify(value)});
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      })()`,
+      true,
+    );
+    await ready(window, `${inspectorField('Style')}?.value === ${JSON.stringify(value)}`);
+  };
+  await selectStyle('');
+  await window.webContents.executeJavaScript(
+    `(() => {
+      const input = ${inspectorField('Background Color')};
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '#ff000080');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`,
+    true,
+  );
+  await ready(window, `${inspectorField('Background Color')}?.value === '#ff000080'`);
+  await selectStyle(originalStyle);
+  await ready(
+    window,
+    `${inspectorField('Background Color')}?.value !== '#ff000080' && getComputedStyle(document.querySelector('.wr-page-surface .wr-webpage')).backgroundColor === ${JSON.stringify(originalCanvas)}`,
+  );
+  await undo();
+  await ready(
+    window,
+    `${inspectorField('Style')}?.value === '' && ${inspectorField('Background Color')}?.value === '#ff000080' && getComputedStyle(document.querySelector('.wr-page-surface .wr-webpage')).backgroundColor === (() => { const expected = document.createElement('div'); expected.style.backgroundColor = '#ff000080'; return expected.style.backgroundColor; })()`,
+  );
+  await undo();
+  await undo();
+  await ready(
+    window,
+    `${inspectorField('Style')}?.value === ${JSON.stringify(originalStyle)} && ${inspectorField('Background Color')}?.value === ${JSON.stringify(styleBackground)}`,
+  );
+  if (temporaryPageStyle) {
+    await undo();
+    await undo();
+    await ready(
+      window,
+      `${inspectorField('Style')}?.value === '' && ${inspectorField('Background Color')}?.value === ${JSON.stringify(originalBackground)}`,
+    );
+  }
+  log(
+    'renderer Inspector color opacity passed: original color row, native picker, 50% canvas alpha, style reset and undo',
+  );
   const insertListBox = async (): Promise<string> => {
     await click(window, root);
     const palette = '[data-palette-component-type="WebListBox"]';
@@ -160,6 +445,59 @@ async function runDesignerEditingSmoke(
     return id;
   };
   const firstId = await insertListBox();
+  const canvasNode = `[data-designer-node-id=${JSON.stringify(firstId)}]`;
+  const widthBefore: unknown = await window.webContents.executeJavaScript(
+    `Number(${inspectorField('Width')}.value)`,
+    true,
+  );
+  if (typeof widthBefore !== 'number' || !Number.isFinite(widthBefore))
+    throw new Error('ListBox Inspector width is unavailable.');
+  const canvasWidthBefore: unknown = await window.webContents.executeJavaScript(
+    `document.querySelector(${JSON.stringify(canvasNode)}).getBoundingClientRect().width`,
+    true,
+  );
+  if (typeof canvasWidthBefore !== 'number' || !Number.isFinite(canvasWidthBefore))
+    throw new Error('ListBox canvas width is unavailable.');
+  const canvasWidthDuring: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+      const input = ${inspectorField('Width')}; input.focus();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(String(widthBefore + 37))});
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return document.querySelector(${JSON.stringify(canvasNode)}).getBoundingClientRect().width;
+    })()`,
+    true,
+  );
+  if (canvasWidthDuring !== canvasWidthBefore)
+    throw new Error('Inspector typing changed the canvas before the editing pause.');
+  await ready(
+    window,
+    `${inspectorField('Width')}?.dataset.editorDraftPending !== 'true' && Math.abs(document.querySelector(${JSON.stringify(canvasNode)}).getBoundingClientRect().width - ${JSON.stringify(canvasWidthBefore)}) > 1`,
+  );
+  const canvasWidthAfterPause: unknown = await window.webContents.executeJavaScript(
+    `document.querySelector(${JSON.stringify(canvasNode)}).getBoundingClientRect().width`,
+    true,
+  );
+  if (typeof canvasWidthAfterPause !== 'number')
+    throw new Error('ListBox canvas width after the editing pause is unavailable.');
+  await window.webContents.executeJavaScript(
+    `(() => {
+      const input = ${inspectorField('Width')};
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(String(widthBefore + 55))});
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.blur();
+    })()`,
+    true,
+  );
+  await ready(
+    window,
+    `${inspectorField('Width')}?.dataset.editorDraftPending !== 'true' && Math.abs(document.querySelector(${JSON.stringify(canvasNode)}).getBoundingClientRect().width - ${JSON.stringify(canvasWidthAfterPause)}) > 1`,
+  );
+  await undo();
+  await undo();
+  await ready(
+    window,
+    `${inspectorField('Width')}?.value === ${JSON.stringify(String(widthBefore))}`,
+  );
   await ready(window, `${inspectorField('Selected Index')}?.getAttribute('role') === 'spinbutton'`);
   const selectedIndex: unknown = await window.webContents.executeJavaScript(
     `${inspectorField('Selected Index')}.value`,
@@ -258,16 +596,6 @@ async function runDesignerEditingSmoke(
       'ListBox draft or selected-component event binding was not saved for both IDs.',
     );
   }
-  const undo = async (): Promise<void> => {
-    await window.webContents.executeJavaScript(
-      `document.querySelector(${JSON.stringify(root)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
-      true,
-    );
-    await window.webContents.executeJavaScript(
-      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-      true,
-    );
-  };
   await click(window, root);
   await undo();
   await click(window, 'button[aria-label="Save (Ctrl+S)"]');
@@ -356,7 +684,7 @@ async function runDesignerEditingSmoke(
     `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
   );
   log(
-    `renderer UX Designer editing passed: native Enter palette insertion, multiline ListBox draft persisted, incomplete numeric draft canceled, multi-selection events saved for both IDs and undone atomically; Popup canvas backdrop, centered editor, child insertion and dismissal ${JSON.stringify(popupEvidence)}`,
+    `renderer UX Designer editing passed: native Enter palette insertion, Inspector width applied after pause and blur with canvas and undo evidence, multiline ListBox draft persisted, incomplete numeric draft canceled, multi-selection events saved for both IDs and undone atomically; Popup canvas backdrop, centered editor, child insertion and dismissal ${JSON.stringify(popupEvidence)}`,
   );
 }
 

@@ -107,7 +107,7 @@ export function projectThemeCss(
     THEME_COLOR_NAMES.map((name) => {
       const value = themes.colors[name][mode];
       if (
-        !/^#[a-f0-9]{6}$/iu.test(value) &&
+        !/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/iu.test(value) &&
         paletteColorId(value) === undefined &&
         customThemeColorId(value) === undefined
       )
@@ -117,7 +117,8 @@ export function projectThemeCss(
       .concat(
         themes.customColors.flatMap((entry) => {
           customThemeColorReference(entry.id);
-          if (!/^#[a-f0-9]{6}$/iu.test(entry[mode])) throw new Error('Invalid custom theme color.');
+          if (!/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/iu.test(entry[mode]))
+            throw new Error('Invalid custom theme color.');
           return [
             `--wr-theme-custom-${entry.id}: ${entry[mode]};`,
             `--wr-palette-${entry.id}: var(--wr-theme-custom-${entry.id});`,

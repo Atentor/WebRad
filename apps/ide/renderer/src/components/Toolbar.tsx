@@ -57,6 +57,9 @@ export function Toolbar(props: ToolbarProps): ReactElement {
   const debugStatus = props.debugBusy ? 'starting' : props.debugStatus;
   return (
     <header className="wr-toolbar" role="toolbar" aria-label="Main toolbar">
+      <span className="wr-toolbar-beta" title="WebRAD Beta">
+        Beta
+      </span>
       <span className="wr-toolbar-platform" title={props.projectName ?? 'Browser applications'}>
         <Icon name="monitor" />
         <span>Web</span>
@@ -72,9 +75,6 @@ export function Toolbar(props: ToolbarProps): ReactElement {
       />
       <span className="wr-toolbar-spacer" />
       <UpdateIndicator state={props.updateState} onUpdate={props.onUpdate} />
-      <span className="wr-toolbar-beta" title="WebRAD Beta">
-        Beta
-      </span>
       <span
         className={
           props.dirty || props.pendingChanges

@@ -287,15 +287,23 @@ function applyCommon(
     const value = visual.style[name];
     if (value !== undefined) element.style[name] = value;
   }
-  // A selected Tailwind style owns paint properties. The structural layout is
-  // applied after the hierarchy exists, when each child can read its parent's
-  // persisted container mode.
+  // A selected Tailwind style owns paint unless the Inspector explicitly
+  // overrides it. Layout is applied after the hierarchy exists.
   if (node.styleClassName === undefined) {
     component.backgroundColor = visual.style.backgroundColor ?? '';
     component.color = visual.style.color ?? '';
     component.borderColor = visual.style.borderColor ?? '';
     element.style.borderStyle = visual.style.borderStyle ?? '';
     element.style.borderWidth = visual.style.borderWidth ?? '';
+  } else if (Array.isArray(node.props.webradPaintOverrides)) {
+    if (node.props.webradPaintOverrides.includes('backgroundColor')) {
+      component.backgroundColor = visual.style.backgroundColor ?? '';
+      element.style.backgroundImage = 'none';
+    }
+    if (node.props.webradPaintOverrides.includes('color'))
+      component.color = visual.style.color ?? '';
+    if (node.props.webradPaintOverrides.includes('borderColor'))
+      component.borderColor = visual.style.borderColor ?? '';
   }
   if (node.parentId !== null && options.participatesInLayout !== false) {
     // Preserve the historic registry.create() behavior for callers that create
@@ -400,6 +408,13 @@ runtimeComponentRegistry
         PANEL_BACKGROUND_REPEATS.find((value) => value === node.props.backgroundRepeat) ??
         'no-repeat';
       component.backgroundImage = readStringProperty(node, 'backgroundImage');
+      if (
+        node.styleClassName !== undefined &&
+        Array.isArray(node.props.webradPaintOverrides) &&
+        node.props.webradPaintOverrides.includes('backgroundColor') &&
+        component.backgroundImage.trim() === ''
+      )
+        component.element.style.backgroundImage = 'none';
       component.progressValue =
         typeof node.props.progressValue === 'number' && Number.isFinite(node.props.progressValue)
           ? node.props.progressValue

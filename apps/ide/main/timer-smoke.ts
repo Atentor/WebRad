@@ -43,9 +43,13 @@ export async function runTimerSmoke(
   await ready(
     `${field('Time (ms)')}?.value === '1000' && ${field('Loop')}?.checked === true && ${field('Enabled')}?.checked === false`,
   );
-  await evaluate(
-    `(() => { const input = ${field('Time (ms)')}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '50'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`,
-  );
+  await evaluate(`${field('Time (ms)')}.focus()`);
+  await evaluate(`${field('Time (ms)')}.select()`);
+  await window.webContents.insertText('50');
+  await ready(`${field('Time (ms)')}?.getAttribute('data-editor-draft-pending') === 'true'`);
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+  await ready(`${field('Time (ms)')}?.getAttribute('data-editor-draft-pending') !== 'true'`);
   await ready(`${field('Time (ms)')}?.value === '50'`);
   await click('button[role="tab"][aria-label="Events"]');
   await ready(
@@ -103,9 +107,13 @@ export async function runTimerSmoke(
   await ready(
     `${field('Gateway slug')}?.value === '' && ${field('Mode')}?.value === 'payment' && ${field('Enabled')}?.checked === true && ${field('Auto resume')}?.checked === true && ${field('Auto watch')}?.checked === true && ${field('Persist attempts')}?.checked === true && ${field('Poll interval (ms)')}?.value === '2000' && ${field('Poll timeout (ms)')}?.value === '60000'`,
   );
-  await evaluate(
-    `(() => { const input = ${field('Gateway slug')}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'customer-payments'); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); })()`,
-  );
+  await evaluate(`${field('Gateway slug')}.focus()`);
+  await evaluate(`${field('Gateway slug')}.select()`);
+  await window.webContents.insertText('customer-payments');
+  await ready(`${field('Gateway slug')}?.getAttribute('data-editor-draft-pending') === 'true'`);
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+  await ready(`${field('Gateway slug')}?.getAttribute('data-editor-draft-pending') !== 'true'`);
   await ready(`${field('Gateway slug')}?.value === 'customer-payments'`);
   await evaluate(
     `(() => { const input = ${field('Mode')}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(input, 'subscription'); input.dispatchEvent(new Event('change', { bubbles: true })); })()`,

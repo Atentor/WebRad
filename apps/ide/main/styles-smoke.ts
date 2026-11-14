@@ -4,6 +4,7 @@ import { THEME_COLOR_NAMES } from '@webrad/project-model';
 
 import type { BrowserWindow } from 'electron';
 import { capturePresentedSmokePage } from './smoke-capture';
+import { colorInputValueMatches } from './smoke-color-input';
 
 interface StylesSmokeOptions {
   readonly log: (message: string) => void;
@@ -87,7 +88,7 @@ async function setField(window: BrowserWindow, selector: string, value: string):
   await paint(window);
   await ready(
     window,
-    `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(value)}`,
+    `document.querySelector(${JSON.stringify(selector)})?.type === 'color' ? ${colorInputValueMatches(selector, value)} : document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(value)}`,
   );
 }
 
@@ -547,10 +548,7 @@ export async function runStylesWorkspaceSmoke(
   await click(window, labelledControl('Configure Transition duration'));
   await setField(window, labelledControl('Transition duration'), '200');
   await setField(window, searchSelector, 'background color');
-  await ready(
-    window,
-    `document.querySelector(${JSON.stringify(labelledControl('Background color'))})?.value === '#0284c7'`,
-  );
+  await ready(window, colorInputValueMatches(labelledControl('Background color'), '#0284c7'));
 
   await click(window, labelledControl('Configured'));
   await setField(window, searchSelector, 'transition');
@@ -572,10 +570,7 @@ export async function runStylesWorkspaceSmoke(
     `document.querySelector(${JSON.stringify(labelledControl('Set Text color'))})?.getAttribute('data-style-inherited-from') === 'Shared / Base'`,
   );
   await click(window, labelledControl('Configure Text color'));
-  await ready(
-    window,
-    `document.querySelector(${JSON.stringify(labelledControl('Text color'))})?.value === '#f1f5f9'`,
-  );
+  await ready(window, colorInputValueMatches(labelledControl('Text color'), '#f1f5f9'));
   await click(window, labelledControl('Clear Text color'));
   await ready(
     window,

@@ -46,11 +46,23 @@ predefined-color picker and choose a **Theme color**. Roles include background,
 surface, input, text, muted text, heading, border, primary/accent and their
 interaction states, disabled colors, focus, status colors, overlay, scrollbars
 and media surfaces. Each role has an independent value in each theme. Role
-values may be six-digit hexadecimal colors or links to custom theme colors.
+values may be six- or eight-digit hexadecimal colors or links to custom theme colors.
 **Add color** creates a named custom color with stable identity and separate
 Light/Dark values. **Same** uses one fixed value for both themes; clear it to
 edit Dark independently. The shared picker lists roles and custom colors
 together. Entering a fixed color in an individual property removes its link.
+The Inspector keeps one color swatch, its text value and the theme button in the
+same row. Text edits apply immediately. Opening the swatch opens the native
+color picker, which includes an opacity control from 0% to 100%; changing the
+opacity of a linked color uses the resolved color as a literal. Partially
+transparent values are stored as `#RRGGBBAA`.
+
+Choosing another **Style** clears the component's visual customizations made in
+the Inspector, including colors, background images, margins, text wrapping and
+image fitting. The chosen style supplies the appearance; compatible Inspector
+fields show its base values for the current theme. **None** clears those visual
+customizations and removes the style. Undo restores the previous style and its
+customizations together, including for multiple selected components.
 
 Old `settings.colorPalette` entries are migrated to `settings.themes.customColors`
 with identical Light and Dark values. Existing `var(--wr-palette-<id>)` links

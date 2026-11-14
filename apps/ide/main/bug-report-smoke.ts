@@ -20,6 +20,15 @@ export async function runBugReportSmoke(window: BrowserWindow): Promise<void> {
       window.webContents.executeJavaScript(`(() => {
         const button = document.querySelector('button[aria-label="Report a bug"]');
         const debug = document.querySelector('.wr-toolbar-debug');
+        const toolbar = document.querySelector('.wr-toolbar');
+        const beta = toolbar?.querySelector('.wr-toolbar-beta');
+        const platform = toolbar?.querySelector('.wr-toolbar-platform');
+        if (!(beta instanceof HTMLElement && platform instanceof HTMLElement) ||
+            toolbar.firstElementChild !== beta || beta.nextElementSibling !== platform ||
+            beta.getBoundingClientRect().width <= 0 ||
+            beta.getBoundingClientRect().right > platform.getBoundingClientRect().left) {
+          throw new Error('Beta indicator is not visible at the start of the toolbar.');
+        }
         if (!(button instanceof HTMLButtonElement) || !debug) throw new Error('Bug report button missing.');
         const rect = button.getBoundingClientRect();
         const style = getComputedStyle(button);

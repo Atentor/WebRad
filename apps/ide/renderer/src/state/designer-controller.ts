@@ -1,4 +1,7 @@
-import { resolveInspectorLayoutProperty } from '@webrad/component-registry';
+import {
+  resetComponentStyleOverrides,
+  resolveInspectorLayoutProperty,
+} from '@webrad/component-registry';
 import {
   ChangeLayoutPropertyCommand,
   ChangePropertyCommand,
@@ -62,7 +65,7 @@ class ChangeStyleCommand implements Command<PageModel> {
   public readonly label = 'Change component style';
   readonly #componentIds: ReadonlySet<string>;
   readonly #styleId: string | null;
-  #previous: ReadonlyMap<string, string | undefined> | null = null;
+  #previous: ReadonlyMap<string, ComponentNode> | null = null;
 
   public constructor(componentIds: readonly string[], styleId: string | null) {
     this.#componentIds = new Set(componentIds);
@@ -73,26 +76,32 @@ class ChangeStyleCommand implements Command<PageModel> {
     this.#previous ??= new Map(
       page.components
         .filter((component) => this.#componentIds.has(component.id))
-        .map((component) => [component.id, component.styleId] as const),
+        .map((component) => [component.id, component] as const),
     );
-    return this.#apply(page, () => this.#styleId);
+    return this.#apply(page, (component) =>
+      componentWithStyle(
+        { ...component, props: resetComponentStyleOverrides(component.props) },
+        this.#styleId,
+      ),
+    );
   }
 
   public undo(page: PageModel): PageModel {
-    if (this.#previous === null) throw new Error('Style command has not executed.');
-    return this.#apply(page, (component) => this.#previous?.get(component.id));
+    const previous = this.#previous;
+    if (previous === null) throw new Error('Style command has not executed.');
+    return this.#apply(page, (component) => {
+      const original = previous.get(component.id);
+      return original === undefined
+        ? component
+        : componentWithStyle({ ...component, props: original.props }, original.styleId);
+    });
   }
 
-  #apply(
-    page: PageModel,
-    resolveStyleId: (component: ComponentNode) => string | null | undefined,
-  ): PageModel {
+  #apply(page: PageModel, update: (component: ComponentNode) => ComponentNode): PageModel {
     return parseVisualDocument({
       ...page,
       components: page.components.map((component) =>
-        this.#componentIds.has(component.id)
-          ? componentWithStyle(component, resolveStyleId(component))
-          : component,
+        this.#componentIds.has(component.id) ? update(component) : component,
       ),
     });
   }
@@ -300,6 +309,23 @@ export class DesignerController {
         ];
       });
       return this.executeMany(page, `Change ${property.label ?? property.name}`, changes);
+    }
+    if (
+      property.type === 'color' &&
+      ['backgroundColor', 'borderColor', 'color'].includes(property.name)
+    ) {
+      return this.executeMany(page, `Change ${property.label ?? property.name}`, [
+        new ChangePropertyCommand(ids, property.name, value),
+        ...selected.map((component) => {
+          const existing = component.props.webradPaintOverrides;
+          const overrides = Array.isArray(existing)
+            ? existing.filter((entry): entry is string => typeof entry === 'string')
+            : [];
+          return new ChangePropertyCommand(component.id, 'webradPaintOverrides', [
+            ...new Set([...overrides, property.name]),
+          ]);
+        }),
+      ]);
     }
     return this.execute(page, new ChangePropertyCommand(ids, property.name, value));
   }

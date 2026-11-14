@@ -35,7 +35,7 @@ export function StylesThemesPanel({
         ]
           .filter(
             ({ pair }) =>
-              /^#[a-f0-9]{6}$/iu.test(pair.light) &&
+              /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/iu.test(pair.light) &&
               pair.light.toLowerCase() === pair.dark.toLowerCase(),
           )
           .map(({ key }) => key),

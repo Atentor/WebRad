@@ -39,10 +39,14 @@ describe('ObjectInspector', () => {
     fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'button' } });
     expect(onPropertyChange).toHaveBeenLastCalledWith('mode', 'button', expect.anything());
     fireEvent.change(screen.getByLabelText('Stroke width'), { target: { value: '3' } });
+    expect(onPropertyChange).toHaveBeenLastCalledWith('mode', 'button', expect.anything());
+    fireEvent.blur(screen.getByLabelText('Stroke width'));
     expect(onPropertyChange).toHaveBeenLastCalledWith('strokeWidth', 3, expect.anything());
     fireEvent.change(screen.getByLabelText('Accessible label'), {
       target: { value: 'Take photo' },
     });
+    expect(onPropertyChange).toHaveBeenLastCalledWith('strokeWidth', 3, expect.anything());
+    fireEvent.blur(screen.getByLabelText('Accessible label'));
     expect(onPropertyChange).toHaveBeenLastCalledWith(
       'accessibleLabel',
       'Take photo',
@@ -71,6 +75,7 @@ describe('ObjectInspector', () => {
     fireEvent.change(screen.getByLabelText('Browser title'), {
       target: { value: 'Customer portal' },
     });
+    fireEvent.blur(screen.getByLabelText('Browser title'));
     expect(onPropertyChange).toHaveBeenLastCalledWith(
       'browserTitle',
       'Customer portal',
@@ -83,6 +88,7 @@ describe('ObjectInspector', () => {
       />,
     );
     fireEvent.change(screen.getByLabelText('Browser title'), { target: { value: '' } });
+    fireEvent.blur(screen.getByLabelText('Browser title'));
     expect(onPropertyChange).toHaveBeenLastCalledWith('browserTitle', '', expect.anything());
     view.rerender(<ObjectInspector {...props} selection={[{ ...root, props: {} }]} />);
     expect((screen.getByLabelText('Browser title') as HTMLInputElement).value).toBe('');
@@ -130,6 +136,7 @@ describe('ObjectInspector', () => {
       expect.objectContaining({ source: 'props' }),
     );
     fireEvent.change(screen.getByLabelText('Progress (%)'), { target: { value: '35' } });
+    fireEvent.blur(screen.getByLabelText('Progress (%)'));
     expect(onPropertyChange).toHaveBeenLastCalledWith(
       'progressValue',
       35,
@@ -154,6 +161,7 @@ describe('ObjectInspector', () => {
     fireEvent.change(screen.getByLabelText('Background image'), {
       target: { value: 'assets/imported/background.png' },
     });
+    fireEvent.blur(screen.getByLabelText('Background image'));
     expect(onPropertyChange).toHaveBeenLastCalledWith(
       'backgroundImage',
       'assets/imported/background.png',
@@ -222,6 +230,7 @@ describe('ObjectInspector', () => {
           expect(sideInput.getAttribute('role')).toBe('spinbutton');
           expect(sideInput.value).toBe('0');
           fireEvent.change(sideInput, { target: { value: '12' } });
+          fireEvent.blur(sideInput);
           expect(onPropertyChange).toHaveBeenLastCalledWith(
             `margin${side}`,
             12,
@@ -235,6 +244,7 @@ describe('ObjectInspector', () => {
       expect(input.getAttribute('role')).toBe('spinbutton');
       expect(input.value).toBe('0');
       fireEvent.change(input, { target: { value: '12' } });
+      fireEvent.blur(input);
       expect(onPropertyChange).toHaveBeenLastCalledWith(
         'margin',
         12,
@@ -254,6 +264,7 @@ describe('ObjectInspector', () => {
         ).toBe(true);
         expect(sideInput.value).toBe('12');
         fireEvent.change(sideInput, { target: { value: '0' } });
+        fireEvent.blur(sideInput);
         expect(onPropertyChange).toHaveBeenLastCalledWith(
           `margin${side}`,
           0,
@@ -348,6 +359,7 @@ describe('ObjectInspector', () => {
     fireEvent.change(screen.getByLabelText('Base URL'), {
       target: { value: 'https://custom.example.test' },
     });
+    fireEvent.blur(screen.getByLabelText('Base URL'));
     expect(onPropertyChange).toHaveBeenCalledWith(
       'baseUrl',
       'https://custom.example.test',
@@ -491,6 +503,7 @@ describe('ObjectInspector', () => {
     expect(geometrySection?.open).toBe(false);
     await user.click(geometrySummary);
     fireEvent.change(screen.getByLabelText('Width'), { target: { value: '160' } });
+    fireEvent.blur(screen.getByLabelText('Width'));
     expect(onPropertyChange).toHaveBeenCalledWith(
       'width',
       160,

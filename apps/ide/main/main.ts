@@ -668,6 +668,48 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
       Reflect.get(value, 'canvasSelected') === true,
   );
   smokeLog(`renderer element tree selection passed: ${JSON.stringify(selectionEvidence)}`);
+  await clickRendererControl(window, 'button[aria-label="Show pages"]', 'the Project Explorer');
+  const point = (await waitForRendererResult(
+    window,
+    `(() => {
+      const hit = document.querySelector('.wr-design-hit[data-component-id="hello-webrad-component-label-name-v1"]');
+      if (!(hit instanceof HTMLElement)) return null;
+      hit.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const rect = hit.getBoundingClientRect();
+      const x = Math.round((rect.left + rect.right) / 2);
+      const y = Math.round((rect.top + rect.bottom) / 2);
+      return document.elementFromPoint(x, y)?.closest('.wr-design-hit') === hit ? { x, y } : null;
+    })()`,
+    'the visible LBLNome Designer hit target',
+    (value) => typeof value === 'object' && value !== null,
+  )) as { x: number; y: number };
+  window.webContents.focus();
+  window.webContents.sendInputEvent({ type: 'mouseMove', ...point });
+  window.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...point });
+  window.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...point });
+  const revealEvidence = await waitForRendererResult(
+    window,
+    `(() => {
+      const item = document.querySelector('[role="treeitem"][data-component-id="hello-webrad-component-label-name-v1"]');
+      const list = document.querySelector('.wr-element-list');
+      if (!(item instanceof HTMLElement) || !(list instanceof HTMLElement)) return null;
+      const row = item.getBoundingClientRect();
+      const viewport = list.getBoundingClientRect();
+      return {
+        selected: item.getAttribute('aria-selected') === 'true',
+        visible: row.top >= viewport.top - 1 && row.bottom <= viewport.bottom + 1,
+        canvasFocus: document.activeElement?.classList.contains('wr-page-surface') === true,
+      };
+    })()`,
+    'Designer selection revealed in the element tree',
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      Reflect.get(value, 'selected') === true &&
+      Reflect.get(value, 'visible') === true &&
+      Reflect.get(value, 'canvasFocus') === true,
+  );
+  smokeLog(`renderer Designer selection tree reveal passed: ${JSON.stringify(revealEvidence)}`);
   for (const [mode, whiteSpace, wordBreak, overflowWrap] of [
     ['word', 'pre-wrap', 'normal', 'normal'],
     ['break-word', 'pre-wrap', 'normal', 'anywhere'],
@@ -1747,6 +1789,8 @@ async function createWindow(): Promise<BrowserWindow> {
     icon: applicationWindowIconPath(),
     show: false,
     webPreferences: {
+      // Chromium 156 keeps the native alpha color picker behind this specific feature.
+      enableBlinkFeatures: 'InputTypeColorEnhancements',
       preload: path.join(__dirname, 'preload.cjs'),
       // Smoke windows stay hidden, so keep renderer timers alive for debounced
       // live style compilation while preserving normal Electron throttling.

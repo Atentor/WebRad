@@ -97,6 +97,12 @@ function PanelView({
       style={{
         ...attributes.style,
         ...projectPanelBackground({ ...node.props, backgroundImage }, styleClassName !== undefined),
+        ...(Array.isArray(node.props.webradPaintOverrides) &&
+        node.props.webradPaintOverrides.includes('backgroundColor') &&
+        styleClassName !== undefined &&
+        backgroundImage.trim() === ''
+          ? { backgroundImage: 'none' }
+          : {}),
       }}
       aria-label={readStringProperty(node, 'caption', node.name)}
     >
@@ -229,10 +235,24 @@ function sharedAttributes(
 } {
   const visual = projectComponentVisual(node, 'fill');
   const visible = forceVisible || visual.visible;
+  const paintOverrides = Array.isArray(node.props.webradPaintOverrides)
+    ? node.props.webradPaintOverrides
+    : [];
   const paintStyle =
     styleClassName === undefined
       ? Object.fromEntries(Object.entries(visual.style).filter(([name]) => name !== 'margin'))
-      : { width: visual.style.width, height: visual.style.height };
+      : {
+          width: visual.style.width,
+          height: visual.style.height,
+          ...(paintOverrides.includes('backgroundColor') &&
+          visual.style.backgroundColor !== undefined
+            ? { backgroundColor: visual.style.backgroundColor, backgroundImage: 'none' }
+            : {}),
+          ...(paintOverrides.includes('color') ? { color: visual.style.color } : {}),
+          ...(paintOverrides.includes('borderColor')
+            ? { borderColor: visual.style.borderColor }
+            : {}),
+        };
   // In the Designer, the structural host owns child margins so flex layout
   // measures spacing without moving the fill-sized visual inside that host.
   const margins = Object.fromEntries(

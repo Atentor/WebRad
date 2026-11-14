@@ -7,7 +7,7 @@ import {
 import type { ReactElement } from 'react';
 import { chartSeriesIssue, chartSeriesSource } from './charts-configuration';
 import { Icon } from './Icon';
-import { NativeColorInput } from './NativeColorInput';
+import { ColorInput } from './ColorInput';
 
 interface ChartsSeriesEditorProps {
   readonly series: ChartSeriesConfiguration;
@@ -56,8 +56,9 @@ export function ChartsSeriesEditor({
         </label>
         <label className="wr-charts-color-field">
           <span>Color</span>
-          <NativeColorInput
-            aria-label="Chart series color"
+          <ColorInput
+            label="Chart series color"
+            showThemeColors={false}
             value={series.color}
             onChange={(color) => onChange({ ...series, color })}
           />

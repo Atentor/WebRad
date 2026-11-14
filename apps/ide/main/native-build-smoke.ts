@@ -87,6 +87,19 @@ export async function runNativeBuildSmoke(
     { platform: 'ios', formats: ['ios-app', 'ipa'], host: 'darwin' },
   ];
   const nativeScope = '#project-settings-panel-native';
+  await waitFor(`(() => {
+    const bar = document.querySelector('.wr-activity-bar');
+    const settings = bar?.querySelector('button[aria-label="Project Settings"]');
+    const output = bar?.querySelector('button[aria-label="Toggle output"]');
+    const restGo = bar?.querySelector('button[aria-label="RestGo integration"]');
+    if (!(bar instanceof HTMLElement && settings instanceof HTMLElement &&
+      output instanceof HTMLElement && restGo instanceof HTMLElement)) return false;
+    const barRect = bar.getBoundingClientRect();
+    const settingsRect = settings.getBoundingClientRect();
+    const outputRect = output.getBoundingClientRect();
+    return settings.nextElementSibling === output && restGo.getBoundingClientRect().bottom <= settingsRect.top &&
+      settingsRect.bottom <= outputRect.top && barRect.bottom - outputRect.bottom <= 12;
+  })()`);
   await click('button[aria-label="Project Settings"]');
   await setField('#project-settings-panel-general', 'Application name', '');
   await click('#project-settings-tab-native');

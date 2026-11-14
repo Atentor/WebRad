@@ -4,7 +4,7 @@ import { WEBRAD_FONT_FAMILIES } from '@webrad/runtime/fonts';
 import { LUCIDE_ICON_NAMES } from '@webrad/runtime/icon';
 import { useState, type ReactElement } from 'react';
 import { IconPickerDialog } from './IconPickerDialog';
-import { NativeColorInput } from './NativeColorInput';
+import { ColorInput } from './ColorInput';
 
 interface ChartsTypographyEditorProps {
   readonly configuration: ChartsConfiguration;
@@ -62,8 +62,9 @@ export function ChartsTypographyEditor({
           <label key={key}>
             <span>{label}</span>
             <span className="wr-charts-text-color">
-              <NativeColorInput
-                aria-label={`Chart ${label.toLowerCase()}`}
+              <ColorInput
+                label={`Chart ${label.toLowerCase()}`}
+                showThemeColors={false}
                 value={draft[key] ?? '#64748b'}
                 onChange={(color) => onChange({ ...draft, [key]: color })}
               />

@@ -1,5 +1,76 @@
 # WebRAD delivery plan
 
+## Full local validation (2026-11-14)
+
+Fixed Inspector text and number draft synchronization to update refs in a layout
+effect rather than during render, corrected the six files reported by Prettier,
+and synchronized generated runtime sources. Updated existing integration and
+Electron interactions to focus or confirm Inspector drafts before leaving their
+fields. The style-reset interaction creates a temporary page style through the
+UI when the fixture has none, undoes its edits and removes that style. Alpha
+color assertions use Chromium's serialization of the expected hex color.
+
+Windows x64 validation passed all 1,815 tests across 242 files with Chrome enabled
+and no skipped tests, plus packaging and complete development/packaged renderer
+smokes. All 14 Electron smoke runs passed: seven development variants, six
+packaged variants and Report Builder. Logs and supplementary results are under
+`artifacts/local-validation-2026-11-14/`.
+These local results do not certify hosted CI, other platforms, live providers,
+or installation of a real update.
+
+## Reset instance overrides when choosing a Style
+
+Choosing a component Style clears its instance visual properties, including
+Inspector colors, paint override markers, background images, margins, wrapping
+and image fitting. The selected style supplies the appearance and the Inspector
+projects its compatible base values for the active theme. One undo restores both
+the prior Style and its instance customizations; redo reapplies the reset. The
+shared command covers pages, reusable documents, menus and multi-selection.
+Updated the existing Electron interaction and required evidence. Validation was
+not requested or run.
+
+## Beta indicator placement
+
+The Beta indicator appears first in the toolbar, before Web. The existing
+Electron toolbar interaction checks its position; validation was not requested
+or run.
+
+## Project Settings navigation
+
+Project Settings is at the bottom of the activity bar, immediately above Output.
+The existing Electron settings smoke checks the placement before opening it;
+validation was not requested or run.
+
+## Color transparency
+
+The shared color editor puts opacity inside Chromium's native color picker and
+preserves alpha in component colors, themes, styles, gradients and scrollbars.
+The IDE window enables Chromium's specific experimental color-input feature;
+the Inspector color row retains its original swatch, immediate text input and
+theme button. Restoring the original text input removes the duplicate sibling
+React keys that could leave extra swatches after edits. Other native color
+inputs retain their existing opaque behavior. Explicit Inspector paint edits
+override the selected component's shared style in both
+Designer and browser runtime. Updated Electron smoke interactions; validation
+was not requested or run.
+
+## Designer selection in the element tree
+
+Selecting a Designer component opens Builder and reveals the primary selection in
+the element tree, including collapsed ancestors, filtered items and repeated
+selection. The tree scrolls independently and keeps keyboard focus in the
+Designer. Updated the Electron workspace smoke interaction; validation was not
+requested or run.
+
+## Inspector editing responsiveness
+
+Inspector string and numeric fields keep local drafts while typing and
+apply them on blur, confirmation or a 600 ms pause. Numeric incomplete drafts,
+mixed selections, Escape and explicit project saves retain their draft behavior;
+color text fields and other numeric editors keep their original immediate
+updates. Updated existing Inspector expectations and the real Designer smoke
+to cover canvas updates and undo. Validation was not requested or run.
+
 ## macOS Intel release diagnosis: c133ee2
 
 Release run 43607366437 failed the packaged Menu Interaction Preview wait.

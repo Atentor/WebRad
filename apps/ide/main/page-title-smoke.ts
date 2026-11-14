@@ -1,3 +1,4 @@
+import { confirmInspectorDrafts } from './smoke-inspector-drafts';
 import type { BrowserWindow, WebFrameMain } from 'electron';
 import { stopPreviewSmoke } from './preview-workspace-smoke';
 
@@ -66,6 +67,7 @@ async function setBrowserTitle(window: BrowserWindow, value: string): Promise<vo
     })()`,
     true,
   );
+  await confirmInspectorDrafts(window);
   await ready(window, `${browserTitleField}?.value === ${JSON.stringify(value)}`);
 }
 

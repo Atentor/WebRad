@@ -61,7 +61,7 @@ interface CollapsiblePropertyCategoryProps {
   readonly children: ReactNode;
 }
 
-const HEX_COLOR = /^#[\da-f]{6}$/i;
+const HEX_COLOR = /^#[\da-f]{6}(?:[\da-f]{2})?$/i;
 
 function isLengthValue(value: StylePropertyValue): value is StyleLengthValue {
   return (

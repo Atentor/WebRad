@@ -1,3 +1,4 @@
+import { confirmInspectorDrafts } from './smoke-inspector-drafts';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { BrowserWindow, WebFrameMain } from 'electron';
@@ -457,6 +458,7 @@ async function runMenuSmokeWorkflow(
     await evaluate(
       `(() => {const label=[...document.querySelectorAll('.wr-object-inspector label')].find(e=>e.textContent.trim()===${JSON.stringify(label)});const input=label?.control;if(!(input instanceof HTMLInputElement))throw new Error('Missing Menu margin side');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${JSON.stringify(String(value))});input.dispatchEvent(new Event('input',{bubbles:true}));input.blur();})()`,
     );
+    await confirmInspectorDrafts(window);
   }
   await click('button[aria-label="Save (Ctrl+S)"]');
   await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);

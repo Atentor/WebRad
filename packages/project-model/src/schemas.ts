@@ -827,7 +827,7 @@ export const StyleLengthValueSchema: z.ZodType<StyleLengthValue> = z
 
 const hexColorSchema = z
   .string()
-  .regex(/^#[\da-f]{6}$/iu, 'Expected a six-digit hexadecimal color.');
+  .regex(/^#[\da-f]{6}(?:[\da-f]{2})?$/iu, 'Expected a six- or eight-digit hexadecimal color.');
 
 const paletteLinkedColorSchema = z
   .string()
@@ -1008,7 +1008,7 @@ function validateStylePropertyValue(
   if (editor.kind === 'color') {
     const isKeyword =
       typeof value === 'string' && editor.keywords.some((option) => option.value === value);
-    const isHexColor = typeof value === 'string' && /^#[\da-f]{6}$/iu.test(value);
+    const isHexColor = typeof value === 'string' && /^#[\da-f]{6}(?:[\da-f]{2})?$/iu.test(value);
     if (
       !isKeyword &&
       !isHexColor &&

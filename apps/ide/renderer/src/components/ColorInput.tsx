@@ -11,6 +11,7 @@ import {
 import { ProjectThemeContext, useProjectColorResolver } from '../project-theme';
 import { Icon } from './Icon';
 import { NativeColorInput } from './NativeColorInput';
+import { nativeColorToHex } from './native-color-value';
 import '../theme-colors.css';
 
 interface ThemeColorButtonProps {
@@ -156,16 +157,16 @@ export function ColorInput({
   includeRoles = true,
 }: ColorInputProps): ReactElement {
   const resolveColor = useProjectColorResolver();
-  const resolved = resolveColor(value);
   return (
     <span className="wr-color-input">
       <NativeColorInput
         id={id}
         className={className}
         aria-label={label}
-        value={/^#[a-f0-9]{6}$/iu.test(resolved) ? resolved : '#000000'}
+        allowAlpha
+        value={resolveColor(value)}
         disabled={disabled}
-        onChange={onChange}
+        onChange={(color) => onChange(nativeColorToHex(color) ?? color)}
       />
       {showThemeColors && (
         <ThemeColorButton
