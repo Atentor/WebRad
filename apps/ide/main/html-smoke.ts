@@ -272,7 +272,11 @@ async function runDesignerEditingSmoke(
     // Chromium 156 focuses the color well first; reverse tabbing passes the
     // format control, RGB channels, and alpha slider to reach alpha percentage.
     for (let index = 0; index < 6; index += 1) await press('Tab', 'Tab', 9, 8);
-    await press('a', 'KeyA', 65, process.platform === 'darwin' ? 4 : 2);
+    // CDP key events bypass Cocoa's Cmd+A -> SelectAll translation. The popup
+    // handles Home/Shift+End inside Blink on every platform, so select the
+    // existing percentage before typing instead of appending to it.
+    await press('Home', 'Home', 36);
+    await press('End', 'End', 35, 8);
     // Page popups receive keyboard events through the owning renderer; IME
     // insertion targets the page instead of the popup.
     await window.webContents.debugger.sendCommand('Input.dispatchKeyEvent', {
@@ -289,9 +293,10 @@ async function runDesignerEditingSmoke(
       code: 'Digit5',
       windowsVirtualKeyCode: 53,
     });
-    await ready(
-      window,
-      `(() => {
+    try {
+      await ready(
+        window,
+        `(() => {
         const input = ${inspectorField('Background Color')};
         const picker = document.querySelector(${JSON.stringify(pickerSelector)});
         const page = document.querySelector('.wr-page-surface .wr-webpage');
@@ -300,7 +305,31 @@ async function runDesignerEditingSmoke(
         return picker?.matches(':open') === true && /^#[a-f0-9]{6}80$/i.test(input.value) &&
           Math.abs(alpha - 0.502) < 0.01;
       })()`,
-    );
+      );
+    } catch (error) {
+      const state: unknown = await window.webContents
+        .executeJavaScript(
+          `(() => {
+            const input = ${inspectorField('Background Color')};
+            const picker = document.querySelector(${JSON.stringify(pickerSelector)});
+            const page = document.querySelector('.wr-page-surface .wr-webpage');
+            return {
+              textValue: input?.value ?? null,
+              pickerValue: picker?.value ?? null,
+              pickerOpen: picker?.matches(':open') ?? null,
+              backgroundColor: page ? getComputedStyle(page).backgroundColor : null,
+              activeElement: document.activeElement?.outerHTML?.slice(0, 500) ?? null,
+              documentFocused: document.hasFocus(),
+            };
+          })()`,
+          true,
+        )
+        .catch((inspectionError: unknown) => ({
+          inspectionError: String(inspectionError),
+        }));
+      log(`renderer native color picker opacity state: ${JSON.stringify(state)}`);
+      throw error;
+    }
     await ready(window, colorRowContract);
     await press('Enter', 'Enter', 13);
     await ready(

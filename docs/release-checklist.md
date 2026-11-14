@@ -1,5 +1,27 @@
 # Release checklist for agents and maintainers
 
+## macOS color picker smoke at c8c32ca (2026-11-14)
+
+Release run 43636456438 failed both macOS packaged smokes at the same native
+color picker opacity assertion. The raw CDP Cmd+A event did not supply the native
+edit-command translation needed for macOS Select All. Without replacing the
+existing percentage, typing 50 can produce a value rejected by the popup's
+0-100 guard. Chromium documents the [macOS shortcut requirement](https://chromium.googlesource.com/chromium/src/+/3d3ee67f6904c527aca96b54588cb1008a17b23e).
+
+The smoke now uses Home then Shift+End to select the percentage through
+[Blink's shared key bindings](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/core/editing/editing_behavior.cc).
+The [native alpha control](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/core/html/forms/resources/color_picker.js)
+still receives real keyboard input. Keep the open-popup, 50% Inspector/canvas,
+color-row geometry, undo and style-reset assertions and their original deadlines.
+Failure diagnostics now preserve the original exception alongside picker and
+Inspector values, canvas color and focus. Logs and digest-verified artifacts are
+in `artifacts/commit-review-c8c32ca/`. No local validation was requested or run.
+Require fresh successful native macOS jobs for the corrected commit before
+claiming hosted resolution.
+The original commit passed validate, security, all six portable jobs and all four
+Windows/Linux builds. Assembly and publication were skipped after the two macOS
+smoke failures.
+
 ## Local validation on 2026-11-14
 
 Windows x64 validation passed 1,815 tests in 242 files with Chrome enabled and

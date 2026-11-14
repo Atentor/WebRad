@@ -1,5 +1,22 @@
 # WebRAD delivery plan
 
+## macOS native color picker smoke (2026-11-14)
+
+Release run 43636456438 at c8c32caf68e3d5b0edb8114e41e395cc757488b6
+failed both macOS packaged smokes after opening the native color picker. The
+smoke used a raw CDP Cmd+A event to select the existing opacity percentage.
+Chromium requires native edit-command translation for that macOS shortcut;
+its popup rejects percentages outside 0-100. The interaction now selects the
+percentage with Home and Shift+End, using Blink's shared key bindings, before
+typing 50. It retains the real popup, canvas alpha, Inspector, geometry, undo
+and style-reset assertions and the existing deadline. Failure diagnostics record
+the picker and Inspector values, open state, canvas color and focus, preserving
+the original error. Original logs and verified artifacts are retained under
+`artifacts/commit-review-c8c32ca/`. No local validation was requested or run;
+confirmation on both native macOS runners is pending a fresh corrected commit.
+The inspected commit finished with validate, security, all six portable jobs and
+the four Windows/Linux builds passing; only the two macOS packaged smokes failed.
+
 ## Full local validation (2026-11-14)
 
 Fixed Inspector text and number draft synchronization to update refs in a layout
