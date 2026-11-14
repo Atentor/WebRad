@@ -1,5 +1,17 @@
 # Release checklist for agents and maintainers
 
+Commit `c133ee276fd2309c028ad82006d0642723d5fecb` passed validate, security,
+all six portable jobs and five release builds. Release run 43607366437 failed
+the Intel packaged Menu Interaction Preview wait. Its ten-second wait began
+about 3.8 seconds before compilation started and ended about 5.9 seconds into
+semantic diagnostics. The seven-second semantic sampling threshold missed
+the failure; the artifact contains no native compiler sample. Sampling now
+starts after three seconds for both semantic diagnostics and bundling. This
+diagnostic correction has not been validated and does not establish a Preview
+performance fix. GitHub rejected the attempted job retry with HTTP 403
+(`Resource not accessible by integration`). Retain all deadlines, assertions
+and exact-commit native release gates.
+
 The development and packaged renderer smokes now require Line Inspector/F9 and
 Styles preview evidence, including newly presented screenshots. They exercise
 the saved orientation, label, icon, style and geometry, then restore the

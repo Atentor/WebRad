@@ -142,7 +142,10 @@ export function createMacOSBundleDiagnostics(rootPid, logPath) {
         : latest;
       if (!phase || phase === capturedPhase) return;
       const started = Date.parse(phase.slice(0, 24));
-      if (!Number.isFinite(started) || Date.now() - started < (semantic ? 7000 : 3000)) return;
+      // The ten-second F9 wait also includes renderer dispatch, saving and
+      // program construction. Capture before those costs can exhaust the wait:
+      // c133ee2 ended with only 5.9 seconds spent in semantic diagnostics.
+      if (!Number.isFinite(started) || Date.now() - started < 3000) return;
       capturedPhase = phase;
       sequence += 1;
       const directory = path.join(

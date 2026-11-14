@@ -1,5 +1,19 @@
 # WebRAD delivery plan
 
+## macOS Intel release diagnosis: c133ee2
+
+Release run 43607366437 failed the packaged Menu Interaction Preview wait.
+Validate, security, all six portable jobs and the other five release builds
+passed. The ten-second wait included about 3.8 seconds before compilation
+started; semantic diagnostics had run for about 5.9 seconds at termination.
+The seven-second semantic sampling threshold therefore produced no native
+diagnostics. Sampling now starts after three seconds, as it already did for
+bundling, so a subsequent native run can identify the slow operation. This
+repairs missing diagnostic evidence; the Preview performance failure remains
+unresolved. A retry of the failed job was rejected by GitHub with HTTP 403
+(`Resource not accessible by integration`). Local validation was not requested
+or run. Preserve all smoke deadlines, assertions and exact-commit native gates.
+
 ## Full test battery: 2026-11-14
 
 Added the Line component to the Aurora example and updated the image resampling
