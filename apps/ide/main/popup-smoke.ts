@@ -10,10 +10,16 @@ export async function runPopupLayoutSmoke(
   log: (message: string) => void,
   screenshotPath?: string,
 ): Promise<void> {
+  const started = Date.now();
+  const logPhase = (phase: string): void => {
+    log(`renderer Popup smoke ${phase}: ${String(Date.now() - started)}ms`);
+  };
+  logPhase('compile started');
   const project = popupSmokeProject();
   const result = await compileProjectToMemory(project, {
     userSources: popupSmokeSources,
   });
+  logPhase('compile finished');
   if (!result.success || result.previewHtml === undefined)
     throw new Error(`Popup compilation failed: ${JSON.stringify(result.diagnostics)}`);
   const ownerId = -8;
@@ -21,14 +27,23 @@ export async function runPopupLayoutSmoke(
     show: false,
     width: 363,
     height: 500,
-    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+    webPreferences: {
+      // This hidden fixture needs the same live frames as the IDE smoke window.
+      backgroundThrottling: false,
+      offscreen: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
   });
   const assertHealthy = trackSmokeRendererHealth(browser.webContents);
   try {
     await browser.loadURL(await publishPreviewHtml(ownerId, result.previewHtml));
+    logPhase('loaded');
     await browser.webContents.executeJavaScript(
       `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
     );
+    logPhase('first frame ready');
     let expectedOpens = 0;
     for (const width of [363, 768, 320]) {
       expectedOpens += 1;
@@ -61,6 +76,7 @@ export async function runPopupLayoutSmoke(
         throw new Error(`Popup layout failed at ${String(width)}px: ${JSON.stringify(evidence)}`);
       }
     }
+    logPhase('layouts measured');
     if (screenshotPath) {
       const target = path.join(path.dirname(screenshotPath), 'popup-layout.png');
       await fs.writeFile(target, (await browser.webContents.capturePage()).toPNG());
@@ -91,12 +107,14 @@ export async function runPopupLayoutSmoke(
     })()`,
       true,
     );
+    logPhase('themes checked');
     if (screenshotPath)
       await fs.writeFile(
         path.join(path.dirname(screenshotPath), 'application-theme-dark.png'),
         (await browser.webContents.capturePage()).toPNG(),
       );
     await browser.loadURL(browser.webContents.getURL());
+    logPhase('reloaded');
     const remembered: unknown = await browser.webContents.executeJavaScript(
       `(() => {
       const root = document.querySelector('.wr-webpage');

@@ -1,5 +1,22 @@
 # WebRAD delivery plan
 
+## Windows development smoke Popup rendering (2026-11-14)
+
+At efe20a6c5ea3fdcc271bec93ece27d563d5a63e3, release run 43653046776
+passed all six builds, portable jobs and assembly, confirming the macOS color
+picker correction. Security and Linux validation passed. Windows validation
+run 43653046857 reached its 120-second development smoke deadline after API
+Client evidence, leaving the final Popup/theme checks incomplete. The successful
+packaged Windows run spent another 8.6 seconds on that final segment.
+
+The Popup fixture's hidden BrowserWindow now uses offscreen rendering and disables
+background throttling, matching the main smoke window and keeping its real frame
+waits active. Phase timing logs distinguish compilation, loading, frames, layout,
+themes and reload. The original log does not isolate the active Popup subphase.
+Keep the existing deadline, assertions, compiler isolation and renderer health
+checks. Evidence is retained under `artifacts/commit-review-efe20a6/`. No local
+validation was requested or run; fresh hosted confirmation remains pending.
+
 ## macOS native color picker smoke (2026-11-14)
 
 Release run 43636456438 at c8c32caf68e3d5b0edb8114e41e395cc757488b6
@@ -12,8 +29,8 @@ typing 50. It retains the real popup, canvas alpha, Inspector, geometry, undo
 and style-reset assertions and the existing deadline. Failure diagnostics record
 the picker and Inspector values, open state, canvas color and focus, preserving
 the original error. Original logs and verified artifacts are retained under
-`artifacts/commit-review-c8c32ca/`. No local validation was requested or run;
-confirmation on both native macOS runners is pending a fresh corrected commit.
+`artifacts/commit-review-c8c32ca/`. No local validation was requested or run.
+Both native macOS jobs passed at efe20a6 in release run 43653046776.
 The inspected commit finished with validate, security, all six portable jobs and
 the four Windows/Linux builds passing; only the two macOS packaged smokes failed.
 

@@ -1,5 +1,24 @@
 # Release checklist for agents and maintainers
 
+## Windows development smoke at efe20a6 (2026-11-14)
+
+Release run 43653046776 passed all six builds, all six portable jobs and assembly;
+both macOS color picker interactions passed. Security and Linux validation passed.
+Windows validation run 43653046857 failed at the development smoke's 120-second
+functional deadline, after API Client evidence at 23:38:18.816 UTC. The original
+log does not identify the active subphase after that point. The successful
+packaged Windows run completed its final Popup/theme segment in 8.6 seconds.
+
+The final Popup fixture awaited repeated animation frames in a hidden window
+with default background throttling and no offscreen surface. It now uses the
+same live-frame configuration as the main smoke window and logs elapsed times
+for compilation, loading, first frames, layout, themes and reload. Preserve the
+real frame waits, 363/768/320px geometry, 96px buttons, Popup reopen/state checks,
+theme persistence, renderer health checks and original 120-second deadline.
+Logs and the digest-verified artifact are in `artifacts/commit-review-efe20a6/`.
+No local validation was requested or run; require fresh hosted results for the
+corrected commit before claiming the development smoke failure resolved.
+
 ## macOS color picker smoke at c8c32ca (2026-11-14)
 
 Release run 43636456438 failed both macOS packaged smokes at the same native
