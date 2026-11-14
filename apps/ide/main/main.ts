@@ -51,8 +51,9 @@ import {
   runRestGoSettingsSmoke,
 } from './restgo-smoke';
 import { runChartsConfigurationSmoke, runDataGridConfigurationSmoke } from './data-grid-smoke';
+import { runRepeatingGroupCalculationSmoke } from './repeating-group-smoke';
 import { runTimerSmoke } from './timer-smoke';
-import { runIconSmoke } from './icon-smoke';
+import { runIconSmoke, runLineSmoke } from './icon-smoke';
 import { runHtmlSmoke } from './html-smoke';
 import { runDateSmoke } from './date-smoke';
 import { runEditMaskSmoke } from './edit-mask-smoke';
@@ -1673,9 +1674,11 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   await captureDesignerSmokeScreenshot(window);
   await runRestGoPageEventsSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runDataGridConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runRepeatingGroupCalculationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runChartsConfigurationSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runTimerSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runToastSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  await runLineSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runIconSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runHtmlSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runDateSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });

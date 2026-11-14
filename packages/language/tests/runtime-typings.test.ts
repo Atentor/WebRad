@@ -581,6 +581,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   WebButton,
   WebCheckBox,
   WebToggle,
+  WebLine,
   WebProgressBar,
   WebIcon,
   WebHtml,
@@ -626,6 +627,7 @@ class EditorPage extends WebPage {
     button: WebButton,
     checkBox: WebCheckBox,
     toggle: WebToggle,
+    line: WebLine,
     progressBar: WebProgressBar,
     icon: WebIcon,
     html: WebHtml,
@@ -657,6 +659,7 @@ panel./*@panel*/caption;
     textArea./*@textArea*/rows;
     button./*@button*/caption;
     toggle./*@toggle*/checked;
+    line./*@line*/caption;
     progressBar./*@progressBar*/value;
     icon./*@icon*/mode;
     html./*@html*/html;
@@ -817,6 +820,7 @@ panel./*@panel*/caption;
     );
 
     const completionMarkerByType: Readonly<Record<string, string>> = {
+      WebLine: 'line',
       WebProgressBar: 'progressBar',
       WebIcon: 'icon',
       WebHtml: 'html',

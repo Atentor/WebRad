@@ -719,6 +719,51 @@ export const COMPONENT_STYLE_PROPERTY_DEFINITIONS: readonly ComponentStyleProper
     componentTypes: ['WebToggle', 'WebDataGrid'],
     defaultValue: '#ffffff',
   }),
+  colorProperty('lineColor', 'Line color', 'Colors', {
+    componentTypes: ['WebLine'],
+    defaultValue: 'var(--wr-theme-border)',
+  }),
+  lengthProperty('lineThickness', 'Line thickness', 'Border', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 1, unit: 'px' },
+    componentTypes: ['WebLine'],
+  }),
+  enumProperty(
+    'lineStyle',
+    'Line style',
+    'Border',
+    [
+      ['solid', 'Solid'],
+      ['dashed', 'Dashed'],
+      ['dotted', 'Dotted'],
+      ['double', 'Double'],
+      ['none', 'None'],
+    ],
+    ['WebLine'],
+  ),
+  lengthProperty('lineGap', 'Line content spacing', 'Spacing', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 8, unit: 'px' },
+    componentTypes: ['WebLine'],
+  }),
+  lengthProperty('lineIconSize', 'Line icon size', 'Icon', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 16, unit: 'px' },
+    componentTypes: ['WebLine'],
+  }),
+  colorProperty('lineIconColor', 'Line icon color', 'Icon', {
+    componentTypes: ['WebLine'],
+    defaultValue: 'current',
+  }),
+  lengthProperty('lineContentGap', 'Icon and label spacing', 'Icon', {
+    units: ['px', 'rem'],
+    min: 0,
+    defaultValue: { value: 6, unit: 'px' },
+    componentTypes: ['WebLine'],
+  }),
   colorProperty('progressColor', 'Progress color', 'Colors', {
     componentTypes: ['WebProgressBar'],
     defaultValue: '#2563eb',

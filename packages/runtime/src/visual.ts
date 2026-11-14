@@ -847,6 +847,20 @@ export function resolveStylePropertyCandidate(
         weight === undefined ? undefined : DATA_GRID_FONT_WEIGHT_VALUES[weight],
       );
     }
+    case 'lineColor':
+      return cssVariableClass('--wr-line-color', cssColorValue(value));
+    case 'lineThickness':
+      return cssVariableClass('--wr-line-thickness', cssLengthValue(value));
+    case 'lineStyle':
+      return cssVariableClass('--wr-line-style', stringValue(value));
+    case 'lineGap':
+      return cssVariableClass('--wr-line-gap', cssLengthValue(value));
+    case 'lineIconSize':
+      return cssVariableClass('--wr-line-icon-size', cssLengthValue(value));
+    case 'lineIconColor':
+      return cssVariableClass('--wr-line-icon-color', cssColorValue(value));
+    case 'lineContentGap':
+      return cssVariableClass('--wr-line-content-gap', cssLengthValue(value));
     case 'progressColor':
       return cssVariableClass('--wr-progress-color', cssColorValue(value));
     case 'toastSucessBackgroundColor':
@@ -1621,6 +1635,17 @@ ${WEB_LOGIN_CSS}
 .wr-data-grid-toggle { display: inline-block; width: 48px; height: 24px; vertical-align: middle; margin: 0; border-radius: var(--wr-square-radius, 6px); background: linear-gradient(to bottom, var(--wr-theme-surface-muted, #e2e8f0), var(--wr-theme-border, #cbd5e1)); border-color: var(--wr-theme-border, #bfdbfe); pointer-events: none; }
 .wr-data-grid-toggle[aria-checked='true'] > .wr-toggle-track { background: var(--wr-toggle-checked-color, var(--wr-palette-aurora-blue, #2563eb)); }
 .wr-data-grid-toggle > .wr-toggle-thumb { background: var(--wr-toggle-thumb-color, var(--wr-palette-aurora-white, #ffffff)); }
+
+.wr-webline { display: block; min-width: 0; min-height: 0; background: transparent; }
+.wr-line-layout { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-width: 0; min-height: 0; gap: var(--wr-line-gap, 8px); }
+.wr-line-layout[data-webrad-line-content='false'] { gap: 0; }
+.wr-line-segment { display: block; flex: 1 1 0; min-width: 0; min-height: 0; height: 0; border: 0; border-top: var(--wr-line-thickness, 1px) var(--wr-line-style, solid) var(--wr-line-color, var(--wr-theme-border, #cbd5e1)); }
+.wr-line-center { display: inline-flex; flex: 0 1 auto; align-items: center; justify-content: center; gap: var(--wr-line-content-gap, 6px); min-width: 0; max-width: 100%; white-space: nowrap; }
+.wr-line-caption { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wr-line-icon { display: block; flex: none; width: var(--wr-line-icon-size, 16px); height: var(--wr-line-icon-size, 16px); color: var(--wr-line-icon-color, currentColor); }
+.wr-webline[data-webrad-line-orientation='vertical'] .wr-line-layout { flex-direction: column; }
+.wr-webline[data-webrad-line-orientation='vertical'] .wr-line-segment { width: 0; height: auto; border: 0; border-left: var(--wr-line-thickness, 1px) var(--wr-line-style, solid) var(--wr-line-color, var(--wr-theme-border, #cbd5e1)); }
+.wr-webline[data-webrad-line-orientation='vertical'] .wr-line-center { flex-shrink: 0; max-width: none; }
 
 .wr-webprogressbar { position: relative; display: block; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 6px; background: transparent; }
 .wr-progress-graphic { display: block; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }

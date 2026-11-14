@@ -1,5 +1,47 @@
 # WebRAD delivery plan
 
+## Full test battery: 2026-11-14
+
+Added the Line component to the Aurora example and updated the image resampling
+browser fixture for borderless default images. The Data Grid and Repeating Group
+smokes now undo their generated Monaco edits and verify exact fixture restoration.
+Windows x64 validation passed 1,815 portable tests with Chrome enabled, and all
+15 development, packaged, and specialized Electron smoke flows passed. This
+working-tree evidence does not establish hosted platform gates or a real update
+installation.
+
+## Repeating Group calculated components
+
+Added a context-only `OnCalcRow` interaction for visual row descendants. Each
+physical component receives its typed row after bindings, with a typed
+`setValue` shortcut where the Registry identifies a primary scalar property.
+Row refresh, binding changes, nested scopes, and disposal retain independent
+instances and do not change source data. Updated the real Inspector smoke
+contract and embedded runtime sources; validation was not requested or run.
+
+## Data Grid calculated cells
+
+Added a synchronous, typed `OnCalcCell` interaction with zero-based row and
+column indexes, source-row access, and `setValue` for bound or unbound columns.
+Calculated presentation applies to every cell kind without mutating API data;
+cell clicks retain the original value and expose the displayed input separately.
+Updated the Inspector smoke contract and embedded runtime sources. Validation
+was not requested or run.
+
+## Line component
+
+Added a model-backed Line with horizontal and vertical orientation, optional
+centered text and icon, shared visual styles, a browser runtime class, Monaco
+types, and Designer and compiled Preview projections. Documented its persisted
+properties and updated existing component and Styles smoke contracts. Embedded
+runtime sources were synchronized; validation was not requested or run.
+
+## Menu item identifiers
+
+New menu items derive unique, readable identifiers from their labels while the
+configuration is being edited. Saved identifiers remain stable, and the ID field
+selects its value on focus for copying. Validation was not requested or run.
+
 ## GitHub Actions formatting correction
 
 The latest validation and release verification stopped at formatting for the

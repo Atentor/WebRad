@@ -48,6 +48,20 @@ interface RemovedMenuItem {
   readonly activeItemId: string;
 }
 
+function newItemId(label: string, used: ReadonlySet<string>): string {
+  const base =
+    label
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'item';
+  let id = base;
+  let suffix = 2;
+  while (used.has(id)) id = `${base}-${suffix++}`;
+  return id;
+}
+
 function Field({
   label,
   children,
@@ -137,6 +151,7 @@ export function MenuConfigurationDialog({
   const titleId = useId();
   const assetsId = useId();
   const dialogRef = useRef<HTMLElement>(null);
+  const newItemIds = useRef(new Set<string>());
   const returnFocus = useRef(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
@@ -186,6 +201,24 @@ export function MenuConfigurationDialog({
     value: WebMenuConfiguration[K],
   ): void => setDraft((current) => ({ ...current, [key]: value }));
   const changeItem = (changes: Partial<Omit<WebMenuItem, 'id'>>): void => {
+    if (changes.label !== undefined && newItemIds.current.has(selected)) {
+      const used = new Set(
+        flat.filter((entry) => entry.item.id !== selected).map((entry) => entry.item.id),
+      );
+      for (const removed of removedItems) {
+        for (const entry of flattenMenuItems([removed.item])) used.add(entry.item.id);
+      }
+      const id = newItemId(changes.label, used);
+      newItemIds.current.delete(selected);
+      newItemIds.current.add(id);
+      setDraft({
+        ...draft,
+        selectedItemId: draft.selectedItemId === selected ? id : draft.selectedItemId,
+        items: editMenuItem(draft.items, selected, (entry) => ({ ...entry, ...changes, id })),
+      });
+      setSelected(id);
+      return;
+    }
     setDraft((current) => ({
       ...current,
       selectedItemId:
@@ -200,11 +233,16 @@ export function MenuConfigurationDialog({
     }));
   };
   const add = (nested: boolean): void => {
+    const used = new Set(flat.map((entry) => entry.item.id));
+    for (const removed of removedItems) {
+      for (const entry of flattenMenuItems([removed.item])) used.add(entry.item.id);
+    }
     const entry: WebMenuItem = {
-      id: globalThis.crypto.randomUUID(),
+      id: newItemId('New item', used),
       label: 'New item',
       icon: 'circle',
     };
+    newItemIds.current.add(entry.id);
     setDraft((current) => ({
       ...current,
       items: insertMenuItem(current.items, nested ? selected : null, entry),
@@ -537,7 +575,11 @@ export function MenuConfigurationDialog({
                           </select>
                         </Field>
                         <Field label="Stable item ID">
-                          <input value={item.id} readOnly />
+                          <input
+                            value={item.id}
+                            readOnly
+                            onFocus={(event) => event.currentTarget.select()}
+                          />
                         </Field>
                         <div className="wr-menu-editor-toggles">
                           {(['visible', 'disabled', 'expanded'] as const).map((key) => (
@@ -566,7 +608,8 @@ export function MenuConfigurationDialog({
                         </div>
                         <p className="wr-modal-description">
                           Items without a page or link run OnItemClick. Submenus support up to 12
-                          levels. IDs remain stable when you rename or move an item.
+                          levels. New item IDs follow their labels until saved; saved IDs remain
+                          stable when items are renamed or moved.
                         </p>
                       </div>
                     ) : (

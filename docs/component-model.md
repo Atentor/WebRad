@@ -34,6 +34,33 @@ Existing handlers receive the generated row type when reopened from the Events
 Inspector; explicitly authored custom row type arguments are preserved. The
 row accessor is local to the clicked row and physical reusable placement.
 
+Data Grid `OnCalcCell` runs synchronously for each data cell before it is
+rendered, including columns whose Field is `(no field)`. Its zero-based
+`rowIndex` and `columnIndex` identify the cell; `value` is the original field
+value, `getValue` reads the typed source row, and `setValue` replaces only the
+value rendered by this grid. For example, when the saved response schema contains
+`firstName` and `lastName`, a second text column without a Field can display:
+
+```ts
+const { columnIndex, getValue, setValue } = event.detail;
+if (columnIndex === 1) {
+  setValue(`${getValue.firstName} ${getValue.lastName}`);
+}
+```
+
+Column indexes follow the configured visual order and therefore change when
+columns are reordered. With no `setValue` call, the original rendering remains
+unchanged. A calculated value replaces a button's fixed caption; text and button
+cells display text, image cells use the value as a URL, and checkbox and toggle
+cells use the boolean value. The source row and API response are not changed.
+`OnCellClick` retains the original `value` and exposes the rendered input as
+`displayValue`. The event can run more than once when data or the grid is
+refreshed; keep it fast and free of side effects. Its generated handler is
+synchronous, and a `setValue` call after an `await` has no effect. The runtime
+class also exposes the typed `onCalcCell` setter for programmatic binding.
+Document and row disposal release each grid's API subscription, rendering
+observers, event handlers, and pending calculation refresh.
+
 `WebCharts` registers a typed browser runtime, a shared SVG projection and a
 transactional chart editor. Its `chartsConfig` stores presentation settings and
 up to five independent API Client/endpoint/list/label/value bindings. Numeric
@@ -152,5 +179,10 @@ Panel owns its optional progress overlay as part of the `WebPanel` runtime class
 # Interaction handler arguments
 
 Double-clicking an Interaction generates `(sender, event)` for every registered component event. The sender is the concrete runtime class. Registry `eventType` metadata selects `KeyboardEvent`, `MouseEvent`, `FocusEvent`, `InputEvent` or the default `Event`; `eventDetailType` selects `CustomEvent<T>` instead, retaining registered detail-field constants. Native DOM types and the standard `Error` type require no runtime import. Repeating-row handlers retain their typed `CurrentRow` as the third argument.
+
+Visual descendants of a Repeating Group additionally expose synchronous
+`OnCalcRow`. Its typed `setValue` shortcut, when the component has a primary
+scalar value, and the component's normal `sender` properties operate on that
+physical row after bindings. See [Repeating Group](repeating-group.md).
 
 Reopening an older method or function property adds missing arguments and strengthens an untyped or generic `Event` parameter through TypeScript AST edits. The authored body, existing parameter names, explicit specialized event types and unrelated source remain intact. No project-format migration is required.

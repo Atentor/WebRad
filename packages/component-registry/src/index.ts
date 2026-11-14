@@ -6,5 +6,6 @@ export * from './mvp-components.js';
 export * from './types.js';
 export * from './embedded-styles.js';
 export * from './current-row-bindings.js';
+export * from './row-calculation.js';
 export * from './reusable-templates.js';
 export * from './project-templates.js';

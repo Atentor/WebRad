@@ -601,6 +601,12 @@ function mediaControls(): readonly DemoNode[] {
               objectFit: 'contain',
             },
           },
+          {
+            type: 'WebLine',
+            name: 'FavoritesDivider',
+            height: 32,
+            props: { caption: 'Favorites', icon: 'heart' },
+          },
           row('FavoriteRow', [
             {
               type: 'WebIcon',

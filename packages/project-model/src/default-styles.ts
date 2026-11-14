@@ -488,6 +488,26 @@ export const DEFAULT_COMPONENT_STYLE_DEFINITIONS = [
     },
   },
   {
+    name: 'Default Line',
+    componentType: 'WebLine',
+    states: {
+      base: {
+        lineColor: 'var(--wr-theme-border)',
+        lineThickness: px(1),
+        lineStyle: 'solid',
+        lineGap: px(8),
+        lineIconSize: px(16),
+        lineIconColor: 'current',
+        lineContentGap: px(6),
+        textColor: 'var(--wr-theme-text-muted)',
+        fontFamily: 'roboto',
+        fontSize: px(14),
+        lineHeight: px(20),
+      },
+      disabled: { opacity: 60 },
+    },
+  },
+  {
     name: 'Default ProgressBar',
     componentType: 'WebProgressBar',
     states: {

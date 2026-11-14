@@ -140,17 +140,26 @@ async function run(): Promise<void> {
     assert(getComputedStyle(designer(id)).filter === 'none', `${id}: display blur present`);
   }
   const primary = await pixelData(designer('image'));
-  assert(primary.width === 64 && primary.height === 64, 'Unexpected display bitmap dimensions');
-  for (let y = 0; y < 64; y++) {
-    for (let x = 0; x < 30; x++) {
+  for (const image of [designer('image'), preview('image')]) {
+    const style = image.ownerDocument.defaultView!.getComputedStyle(image);
+    assert(
+      ['border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width'].every(
+        (property) => style.getPropertyValue(property) === '0px',
+      ),
+      'Unstyled image has a border',
+    );
+  }
+  assert(primary.width === 66 && primary.height === 66, 'Unexpected display bitmap dimensions');
+  for (let y = 0; y < 66; y++) {
+    for (let x = 0; x < 31; x++) {
       assert(
-        Math.abs((primary.data[(y * 64 + x) * 4] ?? 0) - 128) <= 1,
+        Math.abs((primary.data[(y * 66 + x) * 4] ?? 0) - 128) <= 1,
         'Fine detail still aliases',
       );
     }
   }
   assert(
-    primary.data[(31 * 64 + 63) * 4] === 0 && primary.data[(32 * 64 + 63) * 4] === 255,
+    primary.data[(32 * 66 + 65) * 4] === 0 && primary.data[(33 * 66 + 65) * 4] === 255,
     'A sharp large edge was blurred',
   );
   for (const id of ['native', 'vector', 'animated', 'remote', 'none']) {
@@ -188,12 +197,12 @@ async function run(): Promise<void> {
   const beforeZoom = designer('image').currentSrc;
   flushSync(() => changeZoom(75));
   await until(() => ready(designer('image')) && designer('image').currentSrc !== beforeZoom);
-  assert((await pixelData(designer('image'))).width === 96, 'Designer zoom bitmap mismatch');
+  assert((await pixelData(designer('image'))).width === 98, 'Designer zoom bitmap mismatch');
   const afterZoom = designer('image').currentSrc;
   flushSync(() => changeZoom(100));
   await until(() => ready(designer('image')) && designer('image').currentSrc !== afterZoom);
   assert(
-    (await pixelData(designer('image'))).width === 128,
+    (await pixelData(designer('image'))).width === 130,
     'Designer restored zoom bitmap mismatch',
   );
 

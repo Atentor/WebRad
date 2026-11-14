@@ -69,6 +69,7 @@ function validateRegistry(
   ];
   for (const { document, path } of documents) {
     const rowHandlerGroups = new Map<string, string>();
+    const contextualRowHandlerTypes = new Map<string, string>();
     for (const [componentIndex, component] of document.components.entries()) {
       const definition = registry.get(component.type);
       if (definition === undefined) {
@@ -138,13 +139,31 @@ function validateRegistry(
           }
         }
       }
+      const rowGroup = repeatingGroupForComponent(document, component.id);
       const events =
         definition.eventsForNode?.(component, {
           document,
           reusableElements: project.reusableElements,
         }) ?? definition.events;
       for (const eventName of Object.keys(component.events)) {
+        const contextualEvent = definition.contextualEvents?.find(
+          (event) => event.name === eventName,
+        );
+        if (
+          component.events[eventName] !== null &&
+          contextualEvent?.requiredContext === 'repeating-row' &&
+          rowGroup === undefined
+        ) {
+          diagnostics.push({
+            category: 'error',
+            source: 'registry',
+            message: `Event "${eventName}" requires a component inside a Repeating Group.`,
+            path: [...path, 'components', componentIndex, 'events', eventName],
+          });
+          continue;
+        }
         if (!events.some((event) => event.name === eventName)) {
+          if (component.events[eventName] === null && contextualEvent !== undefined) continue;
           diagnostics.push({
             category: 'error',
             source: 'registry',
@@ -414,7 +433,6 @@ function validateRegistry(
           });
         }
       }
-      const rowGroup = repeatingGroupForComponent(document, component.id);
       if (rowGroup !== undefined) {
         for (const [eventName, handler] of Object.entries(component.events)) {
           if (handler === null) continue;
@@ -427,6 +445,18 @@ function validateRegistry(
               path: [...path, 'components', componentIndex, 'events', eventName],
             });
           else rowHandlerGroups.set(handler, rowGroup.id);
+          const metadata = definition.contextualEvents?.find((event) => event.name === eventName);
+          if (metadata?.requiredContext === 'repeating-row') {
+            const ownerType = contextualRowHandlerTypes.get(handler);
+            if (ownerType !== undefined && ownerType !== component.type)
+              diagnostics.push({
+                category: 'error',
+                source: 'registry',
+                message: `Handler "${handler}" is assigned to different component types for a repeated-row calculation.`,
+                path: [...path, 'components', componentIndex, 'events', eventName],
+              });
+            else contextualRowHandlerTypes.set(handler, component.type);
+          }
         }
       }
       if (component.type === 'WebRepeatingGroup') {

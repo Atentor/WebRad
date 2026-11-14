@@ -1241,6 +1241,7 @@ export function App(): ReactElement {
               ? undefined
               : component.name + eventDefinition.eventDetailTypeArgumentSuffix,
           eventDetailProperties: eventDefinition?.eventDetailProperties,
+          async: eventDefinition?.async,
           currentRowType: currentRowHandlerType(activePage, component.id),
           handlerName,
           fileName: key,

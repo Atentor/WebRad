@@ -20,6 +20,17 @@ import restGoTypings from './restgo-typings.generated.json';
 const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'`).join('\n');
 
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
+  export type WebLineOrientation = 'horizontal' | 'vertical';
+  export type WebLineIcon = WebButtonIcon | '';
+  export class WebLine extends WebComponent<HTMLElement> {
+    constructor(element: HTMLElement);
+    orientation: WebLineOrientation;
+    caption: string;
+    icon: WebLineIcon;
+    accessibleLabel: string;
+    set onClick(handler: WebComponentEventHandler<this> | null);
+  }
+
   export function normalizeLabelTextWrap(value: unknown): WebLabelTextWrap;
   export function projectLabelTextWrap(value: WebLabelTextWrap): {
     whiteSpace: 'nowrap' | 'pre-wrap';
@@ -165,12 +176,27 @@ ${chartsTypings.source}
     <T = unknown>(fieldNameOrPath: string): T | undefined;
   };
 
+  export interface WebDataGridCalcCellEventDetail<TRow = unknown> {
+    readonly rowIndex: number;
+    readonly columnIndex: number;
+    readonly row: TRow;
+    readonly value: unknown;
+    readonly getValue: WebDataGridRowValues<TRow>;
+    readonly setValue: (value: unknown) => void;
+  }
+
+  export type WebDataGridCalcCellEventHandler<TSender = WebDataGrid, TRow = unknown> = (
+    sender: TSender,
+    event: CustomEvent<WebDataGridCalcCellEventDetail<TRow>>,
+  ) => void;
+
   export interface WebDataGridCellEventDetail<TRow = unknown> {
     readonly rowIndex: number;
     readonly columnIndex: number;
     readonly row: TRow;
     readonly column: WebDataGridColumn;
     readonly value: unknown;
+    readonly displayValue: unknown;
     readonly getValue: WebDataGridRowValues<TRow>;
   }
 
@@ -180,6 +206,7 @@ ${chartsTypings.source}
     constructor(element: HTMLElement);
     configuration: WebDataGridConfiguration;
     dataGridConfig: WebDataGridConfiguration;
+    set onCalcCell(handler: WebDataGridCalcCellEventHandler<this> | null);
     bindApiClient(apiClient: WebApiClient | null): void;
   }
 
@@ -420,6 +447,12 @@ ${chartsTypings.source}
       eventName: string,
       handlerName: string,
       currentRow?: WebRepeatingGroupCurrentRow,
+    ): () => void;
+    protected bindGeneratedRowCalculation(
+      component: WebComponent,
+      handlerName: string,
+      currentRow: WebRepeatingGroupCurrentRow,
+      primaryValue: { readonly property: string; readonly kind: 'string' | 'number' | 'boolean' | 'icon' } | null,
     ): () => void;
     dispose(): void;
   }

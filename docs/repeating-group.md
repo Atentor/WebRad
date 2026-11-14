@@ -42,17 +42,54 @@ Methods and arrow/function property handlers retain the clicked row's component 
 
 Monaco offers completion and diagnostics for saved response fields and typed component members. Generated source and declarations contain row aliases; authored files remain separate. When changing the response list or schema, reopen assigned events to update their generated parameter imports as needed.
 
+## Calculated component values
+
+Select a visual component inside a Repeating Group and create its `OnCalcRow`
+interaction. The synchronous handler runs for that component's physical
+instance in each row, after its `Current row` bindings have been applied and
+before the next paint. It runs again when rows are recreated or that component's
+row bindings are changed. A component nested in another container uses the
+nearest Repeating Group's typed `CurrentRow`.
+
+For a Label, the generated handler declares `value` and `setValue` from the
+event detail. For example, if the response schema has an `active` boolean, add:
+
+```ts
+setValue(CurrentRow.value.active ? 'Active' : 'Inactive');
+```
+
+The shortcut targets the component's primary property and enforces its type:
+Label and Button captions, Image source, Edit/TextArea/Date/ComboBox/ListBox
+value, HTML content and Line caption accept strings; CheckBox and Toggle accept
+booleans; ProgressBar accepts a number; Icons accepts a Lucide icon name.
+`value` is the property's value after bindings and before calculation. A
+component without a primary scalar property,
+such as Panel or Group, still exposes `OnCalcRow` and its typed `sender`, but has
+no `setValue` shortcut. All component properties can be set through `sender`:
+
+```ts
+sender.visible = CurrentRow.value.active;
+```
+
+Leaving a property unchanged retains its bound or static value. Calculated
+component values do not modify the API response or another row. Keep the handler
+fast and synchronous; `setValue` calls after an `await` are ignored. The event
+is available on template descendants, including descendants of nested Panels.
+Moving an assigned calculation outside its Repeating Group requires removing or
+relocating that event binding. The Inspector retains an assigned interaction so
+it can be cleared; the compiler reports the missing row context until then.
+
 ## Runtime and persistence
 
 The public browser class exports `repeatingGroupConfig`, `rows`, `rowCount`, `getRow(index)`, `bindApiClient(client)` and `subscribeRows(listener)`. Setting `rows` also supports authored data using the group's generated row type. Each row exposes its element, typed component lookup and physical component IDs. Every visual instance exposes `currentRowBindings`; removing or replacing a binding restores the previous static value of the removed property, independently in each row.
 
-Format-v2 projects persist a version-1 `props.repeatingGroupConfig` object with the selected API Client/operation IDs, list path, height policy, gap and empty message. Template descendants persist `props.currentRowBindings` as `{ property, fieldPath }[]`. Logical component IDs remain stable; runtime physical IDs distinguish repeated rows and reusable placements. Copying a group together with its API Client remaps the client reference to the copied instance.
+Format-v2 projects persist a version-1 `props.repeatingGroupConfig` object with the selected API Client/operation IDs, list path, height policy, gap and empty message. Template descendants persist `props.currentRowBindings` as `{ property, fieldPath }[]` and `OnCalcRow` as an ordinary component event binding. Calculated values remain transient. Logical component IDs remain stable; runtime physical IDs distinguish repeated rows and reusable placements. Copying a group together with its API Client remaps the client reference to the copied instance.
 
 Row replacement and disposal release event bindings, child component resources, layout observers and reusable instances. Unsubscribing is idempotent, and cleanup continues for remaining row listeners and native component events when an authored disposer throws. Browser runtime code has no Designer, Node.js or Electron dependency.
 
 ## Validation
 
-Coverage includes schema validation and round trips, Registry metadata, command history and clipboard references, row insertion bounds, runtime binding removal and failure-safe teardown, native TypeScript completion/diagnostics and compiled Preview execution. The opt-in Chromium test compares Designer and compiled Preview geometry at 960, 640 and 320 pixels in all four container layout modes with both fixed and automatic row heights, checks fitted group width/height in each mode, and checks per-row method/arrow events, private page state and asynchronous context during reload. It also reviews both editor dialogs at those widths in light/dark themes, checking overflow, footer visibility and initial focus:
+Existing coverage includes schema validation and round trips, Registry metadata, command history and clipboard references, row insertion bounds, runtime binding removal and failure-safe teardown, native TypeScript completion/diagnostics and compiled Preview execution. The `OnCalcRow` addition and its updated Electron interaction have not been validated. The opt-in Chromium test compares Designer and compiled Preview geometry at 960, 640 and 320 pixels in all four container layout modes with both fixed and automatic row heights, checks fitted group width/height in each mode, and checks per-row method/arrow events, private page state and asynchronous context during reload. It also reviews both editor dialogs at those widths in light/dark themes, checking overflow, footer visibility and initial focus:
 
 ```powershell
 $env:WEBRAD_BROWSER_PATH = 'C:\Program Files\Google\Chrome\Application\chrome.exe'

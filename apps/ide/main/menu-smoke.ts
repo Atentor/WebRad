@@ -223,6 +223,24 @@ async function runMenuSmokeWorkflow(
   if (typeof id !== 'string') throw new Error('Menu palette did not create a stable ID.');
   await click('button[aria-label="Configure Menu"]');
   await ready(`document.querySelector('.wr-menu-configuration-dialog') !== null`);
+  await evaluate(
+    `[...document.querySelectorAll('.wr-menu-editor-actions button')].find(e => e.textContent.trim() === 'Add item').click()`,
+  );
+  await input('Label', 'Faturas mensais');
+  await ready(`${field('Stable item ID')}?.value === 'faturas-mensais'`);
+  await evaluate(`${field('Stable item ID')}.focus()`);
+  await ready(
+    `${field('Stable item ID')}.selectionStart === 0 && ${field('Stable item ID')}.selectionEnd === 'faturas-mensais'.length`,
+  );
+  await evaluate(
+    `[...document.querySelectorAll('.wr-menu-editor-actions button')].find(e => e.textContent.trim() === 'Add item').click()`,
+  );
+  await input('Label', 'Faturas mensais');
+  await ready(`${field('Stable item ID')}?.value === 'faturas-mensais-2'`);
+  await click('button[aria-label="Remove menu item"]');
+  await click('[data-menu-editor-item="faturas-mensais"]');
+  await click('button[aria-label="Remove menu item"]');
+  await click('[data-menu-editor-item="home"]');
   await input('Label', 'Menu smoke home');
   const editorGeometry: unknown = await evaluate(
     "(() => {\nconst dialog = document.querySelector('.wr-menu-configuration-dialog');\nconst body = dialog.querySelector('.wr-menu-editor-body');\nconst main = dialog.querySelector('.wr-menu-editor-main');\nconst tree = dialog.querySelector('.wr-menu-editor-tree-panel').getBoundingClientRect();\nconst fields = dialog.querySelector('.wr-menu-editor-fields').getBoundingClientRect();\nconst footer = dialog.querySelector('.wr-modal-actions').getBoundingClientRect();\nconst bounds = dialog.getBoundingClientRect();\nconst tabs = [...dialog.querySelectorAll('.wr-menu-editor-tabs > button')];\nreturn { width: bounds.width, available: innerWidth, mainWidth: main.clientWidth,\n fieldsWidth: fields.width, noOverlap: fields.top >= tree.bottom - 1 || fields.left >= tree.right - 1,\n noHorizontalOverflow: body.scrollWidth <= body.clientWidth + 2,\n readableTabs: tabs.every(tab => tab.getBoundingClientRect().width >= 76 && tab.scrollWidth <= tab.clientWidth + 1),\n visibleFooter: footer.bottom <= bounds.bottom + 1 && footer.top >= bounds.top,\n styledSelect: dialog.querySelector('.wr-menu-editor-field select').getBoundingClientRect().height >= 36 };\n})()",

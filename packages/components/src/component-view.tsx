@@ -1,3 +1,4 @@
+import { projectLine } from '@webrad/runtime/line';
 import { projectProgressBar } from '@webrad/runtime/progress-bar';
 import { projectIcon } from '@webrad/runtime/icon';
 import { LucideGraphic } from './lucide-graphic.js';
@@ -297,7 +298,7 @@ function renderWebRadIconShape(shape: WebRadIconShape, index: number): ReactElem
   );
 }
 
-function ToastPreviewIcon({
+function WebRadPreviewIcon({
   name,
   className,
 }: {
@@ -532,7 +533,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
             data-toast-state={state}
             style={{ animation: 'none' }}
           >
-            {name !== '' && <ToastPreviewIcon name={name} className="wr-toast-icon" />}
+            {name !== '' && <WebRadPreviewIcon name={name} className="wr-toast-icon" />}
             <span className="wr-toast-message">{label} message</span>
             <button
               type="button"
@@ -540,7 +541,7 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
               aria-label="Dismiss notification"
               tabIndex={-1}
             >
-              <ToastPreviewIcon name="close" />
+              <WebRadPreviewIcon name="close" />
             </button>
           </div>
         );
@@ -581,6 +582,33 @@ const renderers: Readonly<Record<string, ComponentRenderer>> = Object.freeze({
       >
         <LucideGraphic icon={state.icon} strokeWidth={state.strokeWidth} />
       </button>
+    );
+  },
+  WebLine: ({ node, designTime, styleClassName, onEvent }) => {
+    const state = projectLine(node.props);
+    const hasContent = state.caption.length > 0 || state.icon !== '';
+    return (
+      <div
+        {...sharedAttributes(node, designTime, styleClassName)}
+        role="separator"
+        aria-orientation={state.orientation}
+        aria-label={state.accessibleLabel.trim() || state.caption.trim() || undefined}
+        data-webrad-line-orientation={state.orientation}
+        onClick={() => onEvent?.('OnClick', node)}
+      >
+        <span className="wr-line-layout" data-webrad-line-content={String(hasContent)}>
+          <span className="wr-line-segment" />
+          {hasContent && (
+            <span className="wr-line-center" aria-hidden="true">
+              {state.icon !== '' && (
+                <WebRadPreviewIcon name={state.icon} className="wr-line-icon" />
+              )}
+              {state.caption.length > 0 && <span className="wr-line-caption">{state.caption}</span>}
+            </span>
+          )}
+          <span className="wr-line-segment" />
+        </span>
+      </div>
     );
   },
   WebProgressBar: ProgressBarView,

@@ -9,6 +9,7 @@ import type {
   CreateRegisteredComponentOptions,
   RegisteredComponentNode,
 } from './types.js';
+import { withRepeatingRowCalculation } from './row-calculation.js';
 
 const TYPE_PATTERN = /^[$A-Z_a-z][$\w]*$/;
 const RESERVED_IDENTIFIERS = new Set([
@@ -101,6 +102,20 @@ function copyDefinition(definition: ComponentDefinition): ComponentDefinition {
       eventDetailProperties:
         event.eventDetailProperties === undefined ? undefined : [...event.eventDetailProperties],
     })),
+    ...(definition.contextualEvents === undefined
+      ? {}
+      : {
+          contextualEvents: definition.contextualEvents.map((event) => ({
+            ...event,
+            eventDetailProperties:
+              event.eventDetailProperties === undefined
+                ? undefined
+                : [...event.eventDetailProperties],
+          })),
+        }),
+    ...(definition.rowCalculationValue === undefined
+      ? {}
+      : { rowCalculationValue: { ...definition.rowCalculationValue } }),
   };
 }
 
@@ -201,7 +216,7 @@ export function validateComponentDefinition(definition: ComponentDefinition): vo
   }
 
   assertUniqueNames(definition.properties, 'Property');
-  assertUniqueNames(definition.events, 'Event');
+  assertUniqueNames([...definition.events, ...(definition.contextualEvents ?? [])], 'Event');
   if (definition.styleEditor !== undefined) {
     assertUniqueNames(
       definition.styleEditor.essentialProperties.map((name) => ({ name })),
@@ -215,7 +230,24 @@ export function validateComponentDefinition(definition: ComponentDefinition): vo
       }
     }
   }
-  for (const event of definition.events) {
+  if (
+    definition.rowCalculationValue !== undefined &&
+    (!definition.visual ||
+      !isSafeIdentifier(definition.rowCalculationValue.property) ||
+      ['__proto__', 'prototype', 'element', 'id', 'name'].includes(
+        definition.rowCalculationValue.property,
+      ) ||
+      !['string', 'number', 'boolean', 'icon'].includes(definition.rowCalculationValue.kind))
+  ) {
+    throw new InvalidComponentDefinitionError('Invalid repeated-row calculation value metadata.');
+  }
+  for (const event of [...definition.events, ...(definition.contextualEvents ?? [])]) {
+    if (event.async !== undefined && typeof event.async !== 'boolean') {
+      throw new InvalidComponentDefinitionError(`Invalid async setting for event "${event.name}".`);
+    }
+    if (event.requiredContext !== undefined && event.requiredContext !== 'repeating-row') {
+      throw new InvalidComponentDefinitionError(`Invalid context for event "${event.name}".`);
+    }
     if (
       event.eventType !== undefined &&
       !['Event', 'KeyboardEvent', 'MouseEvent', 'FocusEvent', 'InputEvent'].includes(
@@ -345,11 +377,12 @@ export class ComponentRegistry {
   }
 
   public register(definition: ComponentDefinition): this {
-    validateComponentDefinition(definition);
-    if (this.#definitions.has(definition.type)) {
-      throw new DuplicateComponentTypeError(definition.type);
+    const registered = withRepeatingRowCalculation(definition);
+    validateComponentDefinition(registered);
+    if (this.#definitions.has(registered.type)) {
+      throw new DuplicateComponentTypeError(registered.type);
     }
-    this.#definitions.set(definition.type, deepFreeze(copyDefinition(definition)));
+    this.#definitions.set(registered.type, deepFreeze(copyDefinition(registered)));
     return this;
   }
 

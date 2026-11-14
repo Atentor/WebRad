@@ -50,6 +50,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'button-show', type: 'WebButton', name: 'BTNMostrar' },
   { id: 'stable-check-box-active', type: 'WebCheckBox', name: 'CHKAtivo' },
   { id: 'stable-toggle', type: 'WebToggle', name: 'Toggle1' },
+  { id: 'stable-line', type: 'WebLine', name: 'Line1' },
   { id: 'stable-progress-bar', type: 'WebProgressBar', name: 'ProgressBar1' },
   { id: 'stable-icon', type: 'WebIcon', name: 'Icon1' },
   { id: 'stable-menu', type: 'WebMenu', name: 'Menu1' },
@@ -555,7 +556,9 @@ describe('event handler AST editing', () => {
       const diagnostics = service.getSemanticDiagnostics(fileName);
       expect(diagnostics.map((item) => item.code)).toEqual(events.map(() => 2339));
       for (const { component, event } of events) {
-        const methodStart = source.indexOf(`async Audit${component.type}${event.name}(`);
+        const methodStart = source.indexOf(
+          `${event.async === false ? '' : 'async '}Audit${component.type}${event.name}(`,
+        );
         const position = source.indexOf('event.preventDefault()', methodStart) + 'event.'.length;
         const completions = service
           .getCompletionsAtPosition(fileName, position, {})

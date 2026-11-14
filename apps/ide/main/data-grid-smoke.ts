@@ -200,6 +200,9 @@ export async function runDataGridConfigurationSmoke(
   const original = await loadProjectFiles(projectPath);
   const page = original.project.pages.find((candidate) => candidate.name === 'index');
   if (page === undefined) throw new Error('Data Grid smoke requires the isolated index fixture.');
+  const originalSource = original.userSources[`pages/${page.name}.ts`];
+  if (originalSource === undefined)
+    throw new Error('Data Grid smoke requires the original authored page source.');
   const bounds = window.getBounds();
   const minimumSize = window.getMinimumSize();
   const wasMaximized = window.isMaximized();
@@ -214,6 +217,8 @@ export async function runDataGridConfigurationSmoke(
   window.webContents.on('console-message', captureError);
   let gridId: string | undefined;
   let saved = false;
+  let eventBound = false;
+  let sourceRestored = true;
   try {
     if (wasMaximized) window.unmaximize();
     // macOS treats 0x0 as unspecified and keeps Cocoa's previous minimum.
@@ -244,6 +249,91 @@ export async function runDataGridConfigurationSmoke(
     if (typeof selected !== 'string' || selected.length === 0)
       throw new Error('Data Grid was not selected after palette insertion.');
     gridId = selected;
+    const gridName: unknown = await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-inspector-selection strong')?.textContent?.trim()`,
+      true,
+    );
+    if (typeof gridName !== 'string' || gridName.length === 0)
+      throw new Error('Data Grid name was unavailable in the Inspector.');
+    await click(window, 'button[role="tab"][aria-label="Events"]');
+    const calcRow = `Array.from(document.querySelectorAll('.wr-inspector-event-row')).find((row) => row.querySelector('label')?.textContent?.trim() === 'OnCalcCell')`;
+    await ready(window, `${calcRow} instanceof HTMLElement`);
+    await ready(
+      window,
+      `Array.from(document.querySelectorAll('.wr-inspector-event-row')).some((row) => row.querySelector('label')?.textContent?.trim() === 'OnCellClick')`,
+    );
+    const interactionScreenshot = path.resolve(
+      'node_modules',
+      '.cache',
+      'webrad-data-grid-calculation-interaction.png',
+    );
+    await fs.mkdir(path.dirname(interactionScreenshot), { recursive: true });
+    window.webContents.invalidate();
+    await paint(window);
+    const interactionImage = await capturePresentedSmokePage(
+      window,
+      Date.now() + 10_000,
+      interactionScreenshot,
+    );
+    if (interactionImage.isEmpty()) throw new Error('Data Grid Interaction screenshot was empty.');
+    await fs.writeFile(interactionScreenshot, interactionImage.toPNG());
+    await window.webContents.executeJavaScript(
+      `${calcRow}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
+      true,
+    );
+    eventBound = true;
+    try {
+      await ready(
+        window,
+        `(() => { const text = document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ') ?? ''; return text.includes(${JSON.stringify(`${gridName}CalcCell(sender: WebDataGrid`)}) && text.includes('WebDataGridCalcCellEventDetail<') && text.includes('columnIndex, value, getValue, setValue') && !text.includes(${JSON.stringify(`async ${gridName}CalcCell`)}); })()`,
+      );
+    } finally {
+      const debuggerWasAttached = window.webContents.debugger.isAttached();
+      if (!debuggerWasAttached) window.webContents.debugger.attach('1.3');
+      try {
+        await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+          enabled: true,
+        });
+        const input = '.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea';
+        await ready(window, `document.querySelector(${JSON.stringify(input)}) !== null`);
+        await window.webContents.executeJavaScript(
+          `document.querySelector(${JSON.stringify(input)}).focus()`,
+          true,
+        );
+        window.webContents.focus();
+        await ready(
+          window,
+          `document.hasFocus() && document.activeElement === document.querySelector(${JSON.stringify(input)})`,
+        );
+        const modifiers: ('meta' | 'control')[] = [
+          process.platform === 'darwin' ? 'meta' : 'control',
+        ];
+        // The generated handler is one Monaco edit; undo restores its exact source
+        // without triggering auto-indentation while retyping the entire document.
+        window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Z', modifiers });
+        window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Z', modifiers });
+        await ready(
+          window,
+          `document.querySelector('.monaco-editor')?.textContent?.includes(${JSON.stringify(`${gridName}CalcCell`)}) !== true`,
+        );
+      } finally {
+        if (!window.webContents.isDestroyed() && window.webContents.debugger.isAttached()) {
+          try {
+            await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+              enabled: false,
+            });
+          } finally {
+            if (!debuggerWasAttached) window.webContents.debugger.detach();
+          }
+        }
+      }
+    }
+    await click(window, 'button[aria-label="Design"]');
+    await click(window, `[role="treeitem"][data-component-id=${JSON.stringify(gridId)}]`);
+    await click(window, 'button[role="tab"][aria-label="Properties"]');
+    log(
+      `renderer Data Grid calculation Interaction passed: OnCalcCell and OnCellClick rows; synchronous typed handler, columnIndex and setValue; screenshot ${interactionScreenshot}`,
+    );
     await openConfiguration(window);
     log('renderer Data Grid smoke configuration opened');
     for (let round = 0; round < 2; round++) {
@@ -328,9 +418,10 @@ export async function runDataGridConfigurationSmoke(
       ) {
         await click(window, 'button[aria-label="Close Data Grid configuration"]');
       }
+      await click(window, 'button[aria-label="Design"]');
       const treeSelector = `[role="treeitem"][data-component-id=${JSON.stringify(gridId)}]`;
       await click(window, treeSelector);
-      for (let undo = 0; undo < (saved ? 2 : 1); undo++) {
+      for (let undo = 0; undo < (saved ? 2 : 1) + (eventBound ? 1 : 0); undo++) {
         await window.webContents.executeJavaScript(
           `document.querySelector(${JSON.stringify(treeSelector)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
           true,
@@ -347,9 +438,12 @@ export async function runDataGridConfigurationSmoke(
         window,
         `document.querySelector(".wr-toolbar-save-state")?.textContent?.trim() === "Saved"`,
       );
-      log(
-        'renderer Data Grid fixture restored: configuration and insertion undone, original fixture saved',
-      );
+      const restored = await loadProjectFiles(projectPath);
+      sourceRestored = restored.userSources[`pages/${page.name}.ts`] === originalSource;
+      if (sourceRestored)
+        log(
+          'renderer Data Grid fixture restored: configuration and insertion undone, original fixture saved',
+        );
     }
     window.webContents.off('console-message', captureError);
     if (!window.isDestroyed()) {
@@ -364,6 +458,8 @@ export async function runDataGridConfigurationSmoke(
       if (wasMaximized) window.maximize();
     }
   }
+  if (!sourceRestored)
+    throw new Error('Data Grid smoke did not restore the authored page source exactly.');
 }
 
 /** Exercises the real Charts editor without executing API requests or retaining fixture edits. */

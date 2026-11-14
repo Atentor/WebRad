@@ -60,6 +60,10 @@
       "types": "./src/progress-bar.ts",
       "default": "./src/progress-bar.ts"
     },
+    "./line": {
+      "types": "./src/line.ts",
+      "default": "./src/line.ts"
+    },
     "./menu-layout": {
       "types": "./src/menu-layout.ts",
       "default": "./src/menu-layout.ts"

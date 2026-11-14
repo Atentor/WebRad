@@ -161,7 +161,7 @@ describe('project factories', () => {
       cornerColor: 'var(--wr-theme-scrollbar-track)',
     });
     expect(project.pages.map((page) => page.name)).toEqual(['index', '404']);
-    expect(project.styles).toHaveLength(22);
+    expect(project.styles).toHaveLength(23);
     expect(project.styles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ componentType: 'WebPage', preset: 'default' }),

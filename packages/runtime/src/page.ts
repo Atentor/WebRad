@@ -2,7 +2,10 @@ import type { WebComponent, WebNonvisualComponent } from './component.js';
 import { WebPanel } from './controls.js';
 import type { RuntimeContainerLayoutMode } from './layout.js';
 import { bindPageIntegrationEvents } from './page-event-hooks.js';
-import { getRepeatingGroupCurrentRow } from './repeating-group.js';
+import {
+  getRepeatingGroupCurrentRow,
+  type WebRepeatingGroupCurrentRow,
+} from './repeating-group.js';
 import { getPageParameters } from './page-parameters.js';
 
 export type { WebPageLoginEventDetail, WebPageLogoutEventDetail } from './restgo-page-events.js';
@@ -107,6 +110,72 @@ export class WebComponentScope extends WebPanel {
     };
     this.#generatedBindings.add(dispose);
     if (component === this) this.onRootGeneratedEventBound(eventName);
+    return dispose;
+  }
+
+  /** Binds calculation after row values are applied and before the next paint. */
+  protected bindGeneratedRowCalculation(
+    component: WebComponent,
+    handlerName: string,
+    currentRow: WebRepeatingGroupCurrentRow,
+    primaryValue: {
+      readonly property: string;
+      readonly kind: 'string' | 'number' | 'boolean' | 'icon';
+    } | null,
+  ): () => void {
+    const unbind = this.bindGeneratedEvent(component, 'OnCalcRow', handlerName, currentRow);
+    let active = true;
+    let calculating = false;
+    let revision = 0;
+    const calculate = (): void => {
+      if (!active || calculating) return;
+      calculating = true;
+      let acceptingValue = true;
+      try {
+        const currentValue =
+          primaryValue === null
+            ? undefined
+            : (Reflect.get(component, primaryValue.property) as unknown);
+        const valueKind = primaryValue?.kind === 'icon' ? 'string' : primaryValue?.kind;
+        if (primaryValue !== null && typeof currentValue !== valueKind)
+          throw new TypeError(`OnCalcRow requires a ${primaryValue.kind} primary property.`);
+        const detail =
+          primaryValue === null
+            ? { rowIndex: currentRow.index }
+            : {
+                rowIndex: currentRow.index,
+                value: currentValue,
+                setValue: (value: unknown): void => {
+                  if (!acceptingValue || !active) return;
+                  if (typeof value !== valueKind)
+                    throw new TypeError(`OnCalcRow setValue expects ${primaryValue.kind}.`);
+                  if (!Reflect.set(component, primaryValue.property, value))
+                    throw new TypeError('OnCalcRow primary property is not writable.');
+                },
+              };
+        component.emit('OnCalcRow', detail);
+      } finally {
+        acceptingValue = false;
+        calculating = false;
+      }
+    };
+    const onBindingsChanged = (): void => {
+      revision += 1;
+      calculate();
+    };
+    component.element.addEventListener('webrad:row-bindings-change', onBindingsChanged);
+    const initialRevision = revision;
+    queueMicrotask(() => {
+      if (active && revision === initialRevision) calculate();
+    });
+    const dispose = (): void => {
+      if (!active) return;
+      active = false;
+      component.element.removeEventListener('webrad:row-bindings-change', onBindingsChanged);
+      unbind();
+      this.#generatedBindings.delete(dispose);
+    };
+    this.#generatedBindings.add(dispose);
     return dispose;
   }
 

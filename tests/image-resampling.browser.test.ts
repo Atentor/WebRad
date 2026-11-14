@@ -254,9 +254,9 @@ export class index extends indexGenerated {
               }
             ).value,
           ).toEqual({
-            cover: [128, 128],
-            contain: [96, 96],
-            rectangular: [128, 74],
+            cover: [132, 132],
+            contain: [100, 100],
+            rectangular: [132, 76],
             native: true,
           });
         },

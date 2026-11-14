@@ -93,13 +93,15 @@ async function setField(window: BrowserWindow, selector: string, value: string):
 
 async function selectStyle(window: BrowserWindow, name: string): Promise<void> {
   const componentName =
-    name === 'Default Toast'
-      ? 'Toast'
-      : name === 'Default Popup'
-        ? 'Popup'
-        : name === 'PrimaryButton'
-          ? 'Button'
-          : 'Page';
+    name === 'Default Line'
+      ? 'Line'
+      : name === 'Default Toast'
+        ? 'Toast'
+        : name === 'Default Popup'
+          ? 'Popup'
+          : name === 'PrimaryButton'
+            ? 'Button'
+            : 'Page';
   await window.webContents.executeJavaScript(
     `(() => {
       const option = Array.from(document.querySelectorAll('[aria-label="Style components"] [role="option"]'))
@@ -378,6 +380,40 @@ export async function runStylesWorkspaceSmoke(
       }
     }
   }
+  await selectStyle(window, 'Default Line');
+  await ready(
+    window,
+    `(() => {
+      const line = document.querySelector('.wr-style-preview-frame .wr-webline');
+      const segments = line?.querySelectorAll('.wr-line-segment');
+      const center = line?.querySelector('.wr-line-center');
+      return line?.getAttribute('aria-orientation') === 'horizontal' && segments?.length === 2 &&
+        center?.querySelector('.wr-line-icon') !== null && center?.textContent === 'Section' &&
+        getComputedStyle(segments[0]).borderTopStyle === 'solid';
+    })()`,
+  );
+  await setField(window, searchSelector, 'line style');
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(labelledControl('Line style'))})?.value === 'solid'`,
+  );
+  await setField(window, labelledControl('Line style'), 'dashed');
+  await ready(
+    window,
+    `getComputedStyle(document.querySelector('.wr-style-preview-frame .wr-line-segment')).borderTopStyle === 'dashed'`,
+  );
+  const lineScreenshotPath = path.resolve('node_modules', '.cache', 'webrad-line-style.png');
+  await fs.mkdir(path.dirname(lineScreenshotPath), { recursive: true });
+  window.webContents.invalidate();
+  await paint(window);
+  const lineScreenshot = await capturePresentedSmokePage(window, Date.now() + 10_000, 'Line style');
+  if (lineScreenshot.isEmpty()) throw new Error('Line style screenshot is empty.');
+  await fs.writeFile(lineScreenshotPath, lineScreenshot.toPNG());
+  await setField(window, labelledControl('Line style'), 'solid');
+  await setField(window, searchSelector, '');
+  options.log(
+    `renderer Line style preview passed: centered icon and label, solid/dashed strokes; screenshot ${lineScreenshotPath}`,
+  );
   await selectStyle(window, 'Default Toast');
   await ready(
     window,

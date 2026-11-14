@@ -199,14 +199,36 @@ function commonProperties(
 
 function commonEvents(
   definitions: readonly ComponentDefinition[],
+  selection: readonly ComponentNode[],
+  components: readonly ComponentNode[],
+  registry: ComponentRegistry,
 ): readonly ComponentEventDefinition[] {
   const first = definitions[0];
   if (first === undefined) return [];
-  return first.events.filter((event) =>
-    definitions
+  return first.events.filter((event) => {
+    if (event.requiredContext === 'repeating-row' && selection.length > 1) {
+      const owner = currentRowGroup(selection[0]!, components, registry);
+      if (
+        owner === undefined ||
+        selection.some(
+          (component) => currentRowGroup(component, components, registry)?.id !== owner.id,
+        )
+      )
+        return false;
+    }
+    return definitions
       .slice(1)
-      .every((definition) => definition.events.some((candidate) => candidate.name === event.name)),
-  );
+      .every((definition) =>
+        definition.events.some(
+          (candidate) =>
+            candidate.name === event.name &&
+            (event.requiredContext === undefined ||
+              (definition.type === first.type &&
+                candidate.requiredContext === event.requiredContext &&
+                candidate.eventDetailType === event.eventDetailType)),
+        ),
+      );
+  });
 }
 
 function resolveInspectedSelection(
@@ -1058,8 +1080,13 @@ export function ObjectInspector({
     );
   }, [definitions, inspectedSelection, componentChoices, registry, searchQuery, page]);
   const eventCategories = useMemo(
-    () => groupByCategory(definitions === null ? [] : commonEvents(definitions)),
-    [definitions],
+    () =>
+      groupByCategory(
+        definitions === null
+          ? []
+          : commonEvents(definitions, inspectedSelection, componentChoices, registry),
+      ),
+    [definitions, inspectedSelection, componentChoices, registry],
   );
   const primaryComponent = inspectedSelection.at(-1);
   const integrationWarnings = [

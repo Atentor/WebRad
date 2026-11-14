@@ -1,3 +1,4 @@
+import { WebLine, projectLine } from './line.js';
 import { WebToast } from './toast.js';
 import { normalizeLabelTextWrap } from './visual.js';
 import { projectWebMenuLayout, reusableMenuNode } from './menu-layout.js';
@@ -597,6 +598,18 @@ runtimeComponentRegistry
       component.checked = readBooleanProperty(node, 'checked');
     },
   })
+  .register<WebLine>('WebLine', {
+    createElement: elementFactory('div'),
+    createComponent: (element) => new WebLine(element),
+    applyProperties: (component, node) => {
+      applyCommon(component, node);
+      const state = projectLine(node.props);
+      component.orientation = state.orientation;
+      component.caption = state.caption;
+      component.icon = state.icon;
+      component.accessibleLabel = state.accessibleLabel;
+    },
+  })
   .register<WebProgressBar>('WebProgressBar', {
     createElement: elementFactory('div'),
     createComponent: (element) => new WebProgressBar(element),
@@ -697,6 +710,7 @@ runtimeComponentRegistry
   .register<WebDataGrid>('WebDataGrid', {
     createElement: elementFactory('div'),
     createComponent: (element) => new WebDataGrid(element),
+    disposeOnUnmount: true,
     applyProperties: (component, node) => {
       applyCommon(component, node);
       component.dataGridConfig = normalizeWebDataGridConfiguration(node.props.dataGridConfig);

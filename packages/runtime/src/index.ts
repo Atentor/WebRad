@@ -1,3 +1,5 @@
+export { WebLine } from './line.js';
+export type { WebLineIcon, WebLineOrientation } from './line.js';
 export { WebProgressBar } from './progress-bar.js';
 /** Project-generated navigation schemas augment this public interface. */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration merging is intentional.

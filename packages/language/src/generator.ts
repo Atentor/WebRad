@@ -737,10 +737,18 @@ function generateDocumentSource(
       lines.push(
         `${indent}  dispose.push(${rowComponent(binding.chart)}.bindApiClient(this.${binding.apiClient.name}, ${quoted(binding.operationId)}, ${quoted(binding.seriesId)}));`,
       );
-    for (const event of rowEvents)
-      lines.push(
-        `${indent}  dispose.push(this.bindGeneratedEvent(${rowComponent(event.component)}, ${quoted(event.eventName)}, ${quoted(event.handlerName)}, ${rowName}));`,
-      );
+    for (const event of rowEvents) {
+      if (event.eventName === 'OnCalcRow') {
+        const primaryValue = registry.require(event.component.type).rowCalculationValue ?? null;
+        lines.push(
+          `${indent}  dispose.push(this.bindGeneratedRowCalculation(${rowComponent(event.component)}, ${quoted(event.handlerName)}, ${rowName}, ${JSON.stringify(primaryValue)}));`,
+        );
+      } else {
+        lines.push(
+          `${indent}  dispose.push(this.bindGeneratedEvent(${rowComponent(event.component)}, ${quoted(event.eventName)}, ${quoted(event.handlerName)}, ${rowName}));`,
+        );
+      }
+    }
     for (const nested of nestedGroups)
       appendRowSubscription(nested, rowComponent(nested), indent + '  ', depth + 1);
     lines.push(

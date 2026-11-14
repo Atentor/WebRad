@@ -218,6 +218,7 @@ const sourceFiles = [
   'date.ts',
   'date-value.ts',
   'date-calendar.ts',
+  'line.ts',
   'progress-bar.ts',
   'icon.ts',
   'html.ts',

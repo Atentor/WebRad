@@ -1,5 +1,11 @@
 # Release checklist for agents and maintainers
 
+The development and packaged renderer smokes now require Line Inspector/F9 and
+Styles preview evidence, including newly presented screenshots. They exercise
+the saved orientation, label, icon, style and geometry, then restore the
+original page. These additions have not been run; retain the existing deadlines
+and native release gates.
+
 Tag `v0.0.33` at `3dc91f391e5bffe79030c4bbb06dabed0ef7c046` failed the
 Intel packaged Icons F9 wait in release run 42598962327 while semantic
 diagnostics were running. The same commit's main release verification passed.
@@ -166,6 +172,19 @@ an explicit full-validation request. CI gates and evidence requirements remain
 mandatory before claiming release readiness or publishing.
 
 ## When changing code or UI
+
+Both runners require `renderer Data Grid calculation Interaction passed:`. The
+existing Data Grid renderer flow opens the Interaction tab, creates the typed,
+synchronous `OnCalcCell` handler, checks its index and value helpers, and restores
+the original source and fixture. Both development and packaged Windows x64
+smokes passed this interaction on 2026-11-14.
+
+Both runners require `renderer Repeating Group calculation Interaction passed:`.
+The renderer inserts a Repeating Group, a nested Panel and Label, checks that
+`OnCalcRow` appears only for the repeated descendant, creates and saves the
+typed synchronous interaction, captures the Inspector and restores the fixture.
+Both development and packaged Windows x64 smokes passed this interaction on
+2026-11-14.
 
 Both runners require `renderer RestGO connection layout passed:`. The existing
 RestGO settings workflow edits the always-visible API defaults and User session

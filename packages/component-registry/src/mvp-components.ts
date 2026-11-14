@@ -44,6 +44,7 @@ import type {
   ComponentPropertyDefinition,
   DefaultComponentBounds,
   ComponentStyleEditorMetadata,
+  ComponentRowCalculationValue,
 } from './types.js';
 
 const standardCategory = 'Standard';
@@ -480,7 +481,11 @@ function event(
   category = 'Behavior',
   codeGeneration: Pick<
     ComponentEventDefinition,
-    'eventDetailType' | 'eventDetailProperties' | 'eventDetailTypeArgumentSuffix'
+    | 'eventDetailType'
+    | 'eventDetailProperties'
+    | 'eventDetailTypeArgumentSuffix'
+    | 'async'
+    | 'description'
   > = {},
 ): ComponentEventDefinition {
   const nativeTypes: Readonly<Record<string, ComponentEventDefinition['eventType']>> = {
@@ -1826,6 +1831,90 @@ const webIcon: ComponentDefinition = {
   ],
 };
 
+const webLine: ComponentDefinition = {
+  type: 'WebLine',
+  displayName: 'Line',
+  namePrefix: 'Line',
+  palette: { category: standardCategory, caption: 'Line' },
+  icon: 'minus',
+  visual: true,
+  canHaveChildren: false,
+  defaultEvent: 'OnClick',
+  defaultBounds: { width: 240, height: 32 },
+  defaults: {
+    orientation: 'horizontal',
+    caption: '',
+    icon: '',
+    accessibleLabel: '',
+    visible: true,
+    collapseWhenHidden: true,
+    enabled: true,
+  },
+  styleEditor: {
+    previewProps: { caption: 'Section', icon: 'info' },
+    essentialProperties: [
+      'lineColor',
+      'lineThickness',
+      'lineStyle',
+      'lineGap',
+      'lineIconSize',
+      'lineIconColor',
+      'lineContentGap',
+      'textColor',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'lineHeight',
+      'letterSpacing',
+      'backgroundColor',
+      'opacity',
+    ],
+  },
+  properties: [
+    ...geometryProperties({ width: 240, height: 32 }),
+    {
+      name: 'orientation',
+      label: 'Orientation',
+      type: 'enum',
+      category: 'Appearance',
+      source: 'props',
+      defaultValue: 'horizontal',
+      options: ['horizontal', 'vertical'],
+      description:
+        'Choose the direction of the separator. Resize the component for the desired length.',
+    },
+    {
+      name: 'caption',
+      label: 'Label',
+      type: 'string',
+      category: 'Content',
+      source: 'props',
+      defaultValue: '',
+      description: 'Optional text centered between the two line segments.',
+    },
+    {
+      name: 'icon',
+      label: 'Icon',
+      type: 'icon',
+      category: 'Content',
+      source: 'props',
+      defaultValue: '',
+      options: ['', ...WEBRAD_ICON_NAMES],
+      description: 'Optional icon centered on the line, alone or with the label.',
+    },
+    {
+      name: 'accessibleLabel',
+      label: 'Accessible label',
+      type: 'string',
+      category: 'Accessibility',
+      source: 'props',
+      defaultValue: '',
+      description: 'Optional screen-reader name. When empty, the visible label is used.',
+    },
+  ],
+  events: [event('OnClick')],
+};
+
 const webProgressBar: ComponentDefinition = {
   type: 'WebProgressBar',
   displayName: 'ProgressBar',
@@ -2351,6 +2440,7 @@ const webDataGrid: ComponentDefinition = {
   palette: { category: standardCategory, caption: 'Data Grid' },
   icon: 'table',
   visual: true,
+  disposeWithDocument: true,
   styleEditor: dataGridStyleEditor,
   canHaveChildren: false,
   defaultEvent: null,
@@ -2377,6 +2467,13 @@ const webDataGrid: ComponentDefinition = {
     },
   ],
   events: [
+    event('OnCalcCell', 'Data', {
+      description: 'Calculate the displayed cell value synchronously, including unbound columns.',
+      eventDetailType: 'WebDataGridCalcCellEventDetail',
+      eventDetailTypeArgumentSuffix: 'RowValue',
+      eventDetailProperties: ['rowIndex', 'columnIndex', 'value', 'getValue', 'setValue'],
+      async: false,
+    }),
     event('OnCellClick', 'Data', {
       eventDetailType: 'WebDataGridCellEventDetail',
       eventDetailTypeArgumentSuffix: 'RowValue',
@@ -2435,6 +2532,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebButton',
   'WebCheckBox',
   'WebToggle',
+  'WebLine',
   'WebProgressBar',
   'WebIcon',
   'WebMenu',
@@ -2471,6 +2569,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webButton,
   webCheckBox,
   webToggle,
+  webLine,
   webProgressBar,
   webIcon,
   createWebMenuDefinition(geometryProperties({ width: 288, height: 640 })),
@@ -2492,9 +2591,30 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webToast,
 ];
 
+/** The primary runtime property offered by setValue in a repeated-row event. */
+const rowCalculationValues: Readonly<Record<string, ComponentRowCalculationValue>> = {
+  WebLabel: { property: 'caption', kind: 'string' },
+  WebHtml: { property: 'html', kind: 'string' },
+  WebEdit: { property: 'value', kind: 'string' },
+  WebDate: { property: 'value', kind: 'string' },
+  WebTextArea: { property: 'value', kind: 'string' },
+  WebButton: { property: 'caption', kind: 'string' },
+  WebCheckBox: { property: 'checked', kind: 'boolean' },
+  WebToggle: { property: 'checked', kind: 'boolean' },
+  WebIcon: { property: 'icon', kind: 'icon' },
+  WebLine: { property: 'caption', kind: 'string' },
+  WebProgressBar: { property: 'value', kind: 'number' },
+  WebComboBox: { property: 'value', kind: 'string' },
+  WebImage: { property: 'src', kind: 'string' },
+  WebListBox: { property: 'value', kind: 'string' },
+};
+
 componentRegistry.registerMany(
   mvpComponentDefinitions.map((definition) => ({
     ...definition,
+    ...(rowCalculationValues[definition.type] === undefined
+      ? {}
+      : { rowCalculationValue: rowCalculationValues[definition.type] }),
     properties: [
       ...definition.properties,
       ...(definition.visual && definition.supportsCurrentRowBindings !== false

@@ -2,6 +2,7 @@ import { WebComponent } from './component.js';
 import type { WebApiClient } from './api-client.js';
 import type { MountedReusableElementInstance } from './render.js';
 import type { RuntimeComponentLayout } from './layout.js';
+import type { LucideIconName } from './icon.js';
 
 export interface WebRepeatingGroupConfiguration {
   readonly schemaVersion: 1;
@@ -22,6 +23,28 @@ export interface WebRepeatingGroupCurrentRow<T = unknown> {
   /** Resolves one concrete instance inside this row, including across awaits. */
   component<C extends WebComponent>(templateId: string): C;
 }
+
+/** Context supplied when a component is calculated for one repeated row. */
+export interface WebRepeatingGroupCalcRowEventDetail {
+  readonly rowIndex: number;
+}
+
+/** A typed shortcut for the component's primary visual property. */
+export interface WebRepeatingGroupCalcRowValueEventDetail<
+  T,
+> extends WebRepeatingGroupCalcRowEventDetail {
+  readonly value: T;
+  readonly setValue: (value: T) => void;
+}
+
+export type WebRepeatingGroupCalcRowStringEventDetail =
+  WebRepeatingGroupCalcRowValueEventDetail<string>;
+export type WebRepeatingGroupCalcRowNumberEventDetail =
+  WebRepeatingGroupCalcRowValueEventDetail<number>;
+export type WebRepeatingGroupCalcRowBooleanEventDetail =
+  WebRepeatingGroupCalcRowValueEventDetail<boolean>;
+export type WebRepeatingGroupCalcRowIconEventDetail =
+  WebRepeatingGroupCalcRowValueEventDetail<LucideIconName>;
 
 export interface WebRepeatingGroupRow<T = unknown> extends WebRepeatingGroupCurrentRow<T> {
   readonly element: HTMLElement;

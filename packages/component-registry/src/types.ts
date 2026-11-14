@@ -89,6 +89,16 @@ export interface ComponentEventDefinition {
   readonly eventDetailTypeArgumentSuffix?: string;
   /** Detail fields introduced as local constants in a newly generated handler. */
   readonly eventDetailProperties?: readonly string[];
+  /** Whether a newly generated handler is declared async. Defaults to true. */
+  readonly async?: boolean;
+  /** A contextual interaction must have this owner to execute. */
+  readonly requiredContext?: 'repeating-row';
+}
+
+/** The scalar property used by a repeated component's calculated-value shortcut. */
+export interface ComponentRowCalculationValue {
+  readonly property: string;
+  readonly kind: 'string' | 'number' | 'boolean' | 'icon';
 }
 
 export interface PaletteMetadata {
@@ -228,6 +238,10 @@ export interface ComponentDefinition {
   readonly defaults: Readonly<Record<string, unknown>>;
   readonly properties: readonly ComponentPropertyDefinition[];
   readonly events: readonly ComponentEventDefinition[];
+  /** Interactions that exist only in a particular component context. */
+  readonly contextualEvents?: readonly ComponentEventDefinition[];
+  /** Optional component property exposed by the repeated-row setValue shortcut. */
+  readonly rowCalculationValue?: ComponentRowCalculationValue;
   /** Registered interactions exposed by a placement's referenced definition. */
   readonly eventsForNode?: (
     node: RegisteredComponentNode,

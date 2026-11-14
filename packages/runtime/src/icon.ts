@@ -122,8 +122,9 @@ export class WebIcon extends WebComponent<HTMLButtonElement> {
         ? null
         : (sender, event) => {
             if (
-              !this.enabled ||
-              ((eventName === 'OnClick' || eventName === 'OnDblClick') && this.mode !== 'button')
+              eventName !== 'OnCalcRow' &&
+              (!this.enabled ||
+                ((eventName === 'OnClick' || eventName === 'OnDblClick') && this.mode !== 'button'))
             )
               return;
             return handler(sender, event);

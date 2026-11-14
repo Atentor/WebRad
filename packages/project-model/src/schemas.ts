@@ -395,10 +395,17 @@ function materializeProjectDefaults(input: unknown): unknown {
       ['WebToggle'],
       palette.success ? palette.data : [],
     ).styles;
+    const lineStyles = materializeComponentDefaultStyle(
+      candidate.id,
+      progressStyles,
+      'WebLine',
+      ['WebLabel'],
+      palette.success ? palette.data : [],
+    ).styles;
     const iconStyles = normalizeIconDefaultFocus(
       materializeComponentDefaultStyle(
         candidate.id,
-        progressStyles,
+        lineStyles,
         'WebIcon',
         ['WebProgressBar'],
         palette.success ? palette.data : [],

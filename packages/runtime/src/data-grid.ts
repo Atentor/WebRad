@@ -1,5 +1,5 @@
 import type { WebApiClient } from './api-client.js';
-import { WebComponent } from './component.js';
+import { WebComponent, type WebComponentEventHandler } from './component.js';
 import { WebToggle } from './controls.js';
 import { createWebRadIconElement, isWebRadIconName, type WebRadIconName } from './icons.js';
 import { resolveDataGridColumnTrackWidths } from './visual.js';
@@ -62,6 +62,23 @@ export type WebDataGridRowValues<TRow = unknown> = Readonly<TRow> & {
   <T = unknown>(fieldNameOrPath: string): T | undefined;
 };
 
+/** Synchronous calculation of one cell's displayed value. */
+export interface WebDataGridCalcCellEventDetail<TRow = unknown> {
+  readonly rowIndex: number;
+  readonly columnIndex: number;
+  readonly row: TRow;
+  /** Original field value, or undefined for an unbound column. */
+  readonly value: unknown;
+  readonly getValue: WebDataGridRowValues<TRow>;
+  /** Replaces the displayed value for this cell without modifying the source row. */
+  readonly setValue: (value: unknown) => void;
+}
+
+export type WebDataGridCalcCellEventHandler<TSender = WebDataGrid, TRow = unknown> = (
+  sender: TSender,
+  event: CustomEvent<WebDataGridCalcCellEventDetail<TRow>>,
+) => void;
+
 export interface WebDataGridCellEventDetail<TRow = unknown> {
   readonly rowIndex: number;
   readonly columnIndex: number;
@@ -69,6 +86,8 @@ export interface WebDataGridCellEventDetail<TRow = unknown> {
   readonly column: WebDataGridColumn;
   /** Value bound to the clicked column, or undefined when it has no Field. */
   readonly value: unknown;
+  /** Value supplied to the cell's renderer, including a calculated replacement. */
+  readonly displayValue: unknown;
   /** Reads typed row fields directly, or calls with a property name/JSON Pointer. */
   readonly getValue: WebDataGridRowValues<TRow>;
 }
@@ -338,10 +357,10 @@ function appendGridCell(
 function dataCell(
   document: Document,
   column: WebDataGridColumn,
-  rowValue: unknown,
+  value: unknown,
   rowIndex: number,
   columnIndex: number,
-  onCellClick: (value: unknown) => void,
+  onCellClick: () => void,
   toggles: WebToggle[],
 ): HTMLDivElement {
   const cell = document.createElement('div');
@@ -351,7 +370,6 @@ function dataCell(
   cell.tabIndex = rowIndex === 0 && columnIndex === 0 ? 0 : -1;
   cell.dataset.webradDataGridColumn = column.id;
   cell.style.textAlign = column.cellAlign;
-  const value = dataGridRowValue(rowValue, column.fieldPath);
   switch (column.cellKind) {
     case 'image': {
       const image = document.createElement('img');
@@ -365,12 +383,7 @@ function dataCell(
       const button = document.createElement('button');
       button.className = 'wr-data-grid-button';
       button.type = 'button';
-      const captionText =
-        column.fixedCaption.length > 0
-          ? column.fixedCaption
-          : column.fieldPath.length > 0
-            ? cellText(value)
-            : '';
+      const captionText = cellText(value);
       if (captionText.length === 0) button.setAttribute('aria-label', column.header || 'Button');
       if (column.buttonIcon !== null) {
         const iconSlot = document.createElement('span');
@@ -439,13 +452,13 @@ function dataCell(
   cell.addEventListener('focus', () => focusDataGridCell(cell));
   cell.addEventListener('click', (event) => {
     if (event.target === cell) focusDataGridCell(cell);
-    onCellClick(value);
+    onCellClick();
   });
   cell.addEventListener('keydown', (event) => {
     if (event.target !== cell) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onCellClick(value);
+      onCellClick();
       return;
     }
     const movement: readonly [number, number] | undefined =
@@ -521,6 +534,8 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   #apiClient: WebApiClient | null = null;
   #unsubscribe: (() => void) | null = null;
   #resizeObserver: ResizeObserver | null = null;
+  #renderGeneration = 0;
+  #disposed = false;
 
   public constructor(element: HTMLElement) {
     if (!(element instanceof HTMLDivElement)) {
@@ -547,12 +562,43 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
     this.configuration = value;
   }
 
+  public set onCalcCell(handler: WebDataGridCalcCellEventHandler<this> | null) {
+    this.bindEvent(
+      'OnCalcCell',
+      handler === null
+        ? null
+        : (sender, event) => handler(sender, event as CustomEvent<WebDataGridCalcCellEventDetail>),
+    );
+  }
+
   public bindApiClient(apiClient: WebApiClient | null): void {
     this.#unsubscribe?.();
     this.#unsubscribe = null;
     this.#apiClient = apiClient;
     if (apiClient !== null) this.#unsubscribe = apiClient.subscribe(() => this.#render());
     this.#render();
+  }
+
+  public override bindEvent(
+    eventName: string,
+    handler: WebComponentEventHandler<this> | null,
+  ): () => void {
+    const unbind = super.bindEvent(eventName, handler);
+    if (eventName !== 'OnCalcCell') return unbind;
+    this.#scheduleRender();
+    return () => {
+      unbind();
+      this.#scheduleRender();
+    };
+  }
+
+  #scheduleRender(): void {
+    const generation = this.#renderGeneration;
+    // Generated handlers are bound during construction; wait until authored
+    // page/reusable fields have initialized, and avoid repeating a newer render.
+    queueMicrotask(() => {
+      if (!this.#disposed && generation === this.#renderGeneration) this.#render();
+    });
   }
 
   #rows(): readonly unknown[] {
@@ -565,6 +611,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   }
 
   #render(): void {
+    this.#renderGeneration += 1;
     for (const toggle of this.#toggles) toggle.dispose();
     this.#toggles = [];
     this.#resizeObserver?.disconnect();
@@ -634,22 +681,44 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       row.className = 'wr-data-grid-row wr-data-grid-body-row';
       row.setAttribute('role', 'row');
       row.setAttribute('aria-rowindex', String(rowIndex + headerRowCount + 1));
+      const getValue = dataGridRowValues(rowValue);
       for (const [columnIndex, column] of configuration.columns.entries()) {
+        const value = dataGridRowValue(rowValue, column.fieldPath);
+        let displayValue = value;
+        let replaced = false;
+        let calculating = true;
+        this.emit('OnCalcCell', {
+          rowIndex,
+          columnIndex,
+          row: rowValue,
+          value,
+          getValue,
+          setValue: (nextValue: unknown): void => {
+            if (!calculating) return;
+            displayValue = nextValue;
+            replaced = true;
+          },
+        } satisfies WebDataGridCalcCellEventDetail);
+        calculating = false;
+        if (!replaced && column.cellKind === 'button' && column.fixedCaption.length > 0) {
+          displayValue = column.fixedCaption;
+        }
         row.append(
           dataCell(
             document,
             column,
-            rowValue,
+            displayValue,
             rowIndex,
             columnIndex,
-            (value) => {
+            () => {
               this.emit('OnCellClick', {
                 rowIndex,
                 columnIndex,
                 row: rowValue,
                 column,
                 value,
-                getValue: dataGridRowValues(rowValue),
+                displayValue,
+                getValue,
               } satisfies WebDataGridCellEventDetail);
             },
             this.#toggles,
@@ -717,6 +786,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   }
 
   public override dispose(): void {
+    this.#disposed = true;
     for (const toggle of this.#toggles) toggle.dispose();
     this.#toggles = [];
     this.#unsubscribe?.();

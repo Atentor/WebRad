@@ -578,9 +578,10 @@ export function ensureEventHandler(
   sourceText: string,
   request: EventHandlerRequest,
 ): EventHandlerEdit {
-  const metadata = defaultComponentRegistry
-    .get(request.componentType)
-    ?.events.find((event) => event.name === request.eventName);
+  const definition = defaultComponentRegistry.get(request.componentType);
+  const metadata = [...(definition?.events ?? []), ...(definition?.contextualEvents ?? [])].find(
+    (event) => event.name === request.eventName,
+  );
   request = {
     ...request,
     eventType: request.eventType ?? metadata?.eventType ?? 'Event',
@@ -591,6 +592,7 @@ export function ensureEventHandler(
         ? undefined
         : request.componentName + metadata.eventDetailTypeArgumentSuffix),
     eventDetailProperties: request.eventDetailProperties ?? metadata?.eventDetailProperties,
+    async: request.async ?? metadata?.async,
   };
   const methodName =
     request.handlerName ?? eventHandlerName(request.componentName, request.eventName);
