@@ -1,4 +1,4 @@
-import { compileProject, compileTailwindStyles } from '@webrad/compiler';
+import { checkProjectTypes, compileProject, compileTailwindStyles } from '@webrad/compiler';
 import type { CompilerProcessRequest, CompilerProcessResponse } from './compiler-process-contracts';
 
 const parent = process.parentPort;
@@ -15,20 +15,22 @@ parent.on('message', (event: Electron.MessageEvent) => {
       const value =
         request.kind === 'styles'
           ? await compileTailwindStyles(request.styles)
-          : await compileProject(request.project, {
-              ...request.options,
-              onProgress: (phase) =>
-                send({
-                  kind: 'progress',
-                  id: request.id,
-                  phase,
-                  metrics: {
-                    pid: process.pid,
-                    cpu: process.cpuUsage(),
-                    memory: process.memoryUsage(),
-                  },
-                }),
-            });
+          : request.kind === 'check'
+            ? checkProjectTypes(request.project, request.options)
+            : await compileProject(request.project, {
+                ...request.options,
+                onProgress: (phase) =>
+                  send({
+                    kind: 'progress',
+                    id: request.id,
+                    phase,
+                    metrics: {
+                      pid: process.pid,
+                      cpu: process.cpuUsage(),
+                      memory: process.memoryUsage(),
+                    },
+                  }),
+              });
       send({ kind: 'result', id: request.id, value });
     } catch (error) {
       send({

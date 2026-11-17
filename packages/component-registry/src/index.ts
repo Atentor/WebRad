@@ -1,4 +1,5 @@
 export * from './style-overrides.js';
+export * from './internal-properties.js';
 export * from './menu-properties.js';
 export * from './layout-inspector.js';
 export * from './errors.js';

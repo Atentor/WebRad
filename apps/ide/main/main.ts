@@ -1,4 +1,5 @@
 import { runToastSmoke } from './toast-smoke';
+import { runCodexPanelSmoke } from './codex-panel-smoke';
 import { createProjectFromTemplate } from '@webrad/component-registry';
 import { createUpdateSmokeService, runUpdateSmoke } from './update-smoke';
 import { createApplicationUpdates, scheduleUpdateChecks } from './application-updates';
@@ -61,6 +62,7 @@ import { runLoginSmoke } from './login-smoke';
 import { runMenuSmoke } from './menu-smoke';
 import { profileMenuSmoke } from './smoke-cpu-profile';
 import { runIdeIconsSmoke } from './ide-icons-smoke';
+import { runWorkbenchResizeSmoke } from './workbench-resize-smoke';
 import { runStylesWorkspaceSmoke } from './styles-smoke';
 import { runPopupLayoutSmoke } from './popup-smoke';
 import { runBugReportSmoke } from './bug-report-smoke';
@@ -936,7 +938,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
           const button = document.querySelector('.wr-toolbar button[aria-label="' + label + '"]');
           return button instanceof HTMLButtonElement ? !button.disabled : null;
         }),
-      workspaceNavigation: ['Project Explorer', 'Styles', 'Project Settings', 'RestGo integration', 'Toggle output']
+      workspaceNavigation: ['Project Explorer', 'Styles', 'Project Settings', 'RestGo integration', 'Codex assistant', 'Toggle output']
       .every(label => document.querySelector('.wr-activity-bar button[aria-label="' + label + '"]') instanceof HTMLButtonElement)
       && document.querySelector('.wr-activity-bar [role="tablist"]') === null
       && document.querySelector('.wr-view-tabs') === null,
@@ -961,6 +963,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   const favicon = Reflect.get(shellResult, 'favicon');
   const bridge = Reflect.get(shellResult, 'bridge');
   const expectedBridge = Object.keys({
+    codex: true,
     nativeBuild: true,
     updates: true,
     debugger: true,
@@ -1014,6 +1017,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   }
   smokeLog('renderer application menu cleanup passed: Component absent');
   smokeLog('renderer shell passed');
+  await runCodexPanelSmoke(window, smokeScreenshotPath);
+  smokeLog('renderer Codex panel passed: native context, model and reasoning controls, suggestions, project context, draft recovery, connection settings and close');
   await runBugReportSmoke(window);
   smokeLog('renderer bug report and documentation browser links passed');
   const loadedIcon = await waitForRendererString(
@@ -1441,6 +1446,11 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     (value) => value === true,
   );
   smokeLog('renderer workbench keyboard resizing passed');
+  await runWorkbenchResizeSmoke(window, {
+    log: smokeLog,
+    waitFor: (expression, description) =>
+      waitForRendererResult(window, expression, description, (value) => value === true),
+  });
   await clickRendererControl(
     window,
     'button[aria-label="Toggle output"]',

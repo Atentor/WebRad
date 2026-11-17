@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import {
   defaultComponentRegistry,
+  getComponentInternalProperties,
   type ComponentPropertyDefinition,
   type ComponentRegistry,
   getCurrentRowBindableProperties,
@@ -34,15 +35,17 @@ import { repeatingGroupForComponent } from '@webrad/language';
 import { bundleSources } from './bundle.js';
 import { fromEsbuildMessage } from './diagnostics.js';
 import { createIndexHtml, createPreviewHtml } from './html.js';
-import { createVirtualSourceGraph } from './source-graph.js';
+import { createVirtualSourceGraph, virtualAbsolutePath } from './source-graph.js';
 import { composeSourceMap, DEBUG_SCRIPT_URL } from './source-maps.js';
 import { compileGeneratedAppStyles } from './styles.js';
 import { typecheckSources } from './typecheck.js';
+import { assistantEventCheckSources } from './assistant-event-checks.js';
 import { selectApplicationSources, selectedComponentTypes } from './runtime-selection.js';
 import { selectProjectAssets } from './asset-selection.js';
 import { createPwaOutput, createPwaRetirementWorker } from './pwa.js';
 import type {
   CompileDiagnostic,
+  CheckProjectTypesOptions,
   CompileProjectMemoryOptions,
   CompileProjectOptions,
   CompileProjectResult,
@@ -90,7 +93,7 @@ function validateRegistry(
         });
       }
       const propertyDefinitions = new Map(
-        definition.properties
+        [...definition.properties, ...getComponentInternalProperties(definition)]
           .filter((property) => (property.source ?? 'props') === 'props')
           .map((property) => [property.name, property]),
       );
@@ -758,6 +761,49 @@ function isBuildFailure(error: unknown): error is BuildFailure {
     Array.isArray(Reflect.get(error, 'errors')) &&
     Array.isArray(Reflect.get(error, 'warnings'))
   );
+}
+
+/** Check an editor proposal without bundling, writing files or loading the app. */
+export function checkProjectTypes(
+  projectInput: unknown,
+  options: CheckProjectTypesOptions,
+): CompileProjectResult {
+  const validation = safeParseProject(projectInput);
+  if (!validation.success) {
+    return failedResult(
+      '',
+      validation.error.issues.map((issue) => ({
+        category: 'error',
+        source: 'model',
+        message: issue.message,
+        path: issue.path.map(String),
+      })),
+    );
+  }
+  const project = validation.data;
+  const diagnostics = [...validateRegistry(project, defaultComponentRegistry)];
+  if (hasErrors(diagnostics)) return failedResult('', diagnostics);
+  const graph = createVirtualSourceGraph(project, options.userSources, defaultComponentRegistry, '');
+  const sources = assistantEventCheckSources(graph.sources, project, options.assistantEvents);
+  const checked = typecheckSources(
+    sources,
+    graph.componentScopes,
+    options.packageRoot,
+    undefined,
+    new Map(
+      Object.entries(options.assistantMethods ?? {}).map(([file, names]) => [
+        virtualAbsolutePath(file),
+        names,
+      ]),
+    ),
+  );
+  diagnostics.push(...graph.diagnostics, ...checked.diagnostics);
+  return {
+    success: !hasErrors(diagnostics),
+    outputDirectory: '',
+    diagnostics,
+    files: {},
+  };
 }
 
 export async function compileProject(

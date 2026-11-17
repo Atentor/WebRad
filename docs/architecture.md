@@ -1,5 +1,82 @@
 # WebRAD architecture
 
+## Codex authoring
+
+Account quota reads use a narrow usage IPC operation and validated app-server
+rate-limit snapshots. Sparse quota notifications trigger canonical refetches;
+unknown window durations are not reinterpreted as five-hour or weekly limits.
+The renderer polls only while the panel has a connected account and labels stale
+or unavailable data. Generation progress uses request-scoped, throttled protocol
+events and a renderer elapsed timer, without forwarding reasoning contents or
+partially decoded proposal JSON. No persistent project format changes are made.
+
+The Component Registry separates public component properties from persisted
+internal properties through `getComponentInternalProperties`. Compiler Registry
+validation consumes both contracts. Internal paint precedence metadata accepts
+only a unique list of supported paint property names on visual components;
+unknown fields and malformed metadata still produce diagnostics. Internal
+properties are absent from Inspector/runtime authoring metadata and are omitted
+from the active document properties sent to Codex. The existing saved property
+bag and format version do not change.
+
+The IDE's Codex integration uses an owned stdio app-server process, an isolated
+Codex profile and a typed preload bridge. Main-process IPC validates the trusted
+main frame, opened project capability, request shape, model and effort catalog.
+Ephemeral proposal threads have no execution environments or project filesystem
+access; the host rejects unexpected tool/approval requests. The browser sign-in
+URL is restricted to supported OpenAI authentication hosts.
+
+Terra and Sol are selected from the app-server's actual model catalog, with the
+reasoning levels advertised for each model. Saved selections are never silently
+replaced. Connection changes, login and generation are serialized per window;
+cancelled discovery cannot revive a superseded connection. Protocol, stream and
+process failures reject pending requests and dispose the owned server.
+
+The context builder projects the current in-memory snapshot into a bounded
+project-wide inventory, active model/source, read-only supplemental document
+models and authored TypeScript, generated instance/navigation contracts and
+public runtime/Registry/style metadata. Dependency declarations and asset
+metadata are references only. AST ranges sanitize recognizable source literals
+without modifying authored files. Environment values and asset bodies are
+excluded. A character budget preserves the complete active/core context and
+reserves space for supplemental visual models; source outlines, document
+structure and inventory-only entries have explicit coverage labels. The
+renderer displays the returned coverage summary. No filesystem tools are given
+to the model.
+
+Codex returns a bounded structured operation plan. A shared pure projection
+resolves component definitions, layout aliases, properties, events and styles
+from existing metadata, maintaining component IDs. `@webrad/language` edits only
+explicitly named class methods through the TypeScript AST. No model-supplied
+source file or project replacement is accepted. The compiler's type-only entry
+point checks the candidate with the same Registry, source graph, concrete
+instance scopes and strict diagnostics as Preview, in a separate owned utility
+process. Proposed bindings are compared with Registry-generated event signatures
+in a type-only virtual source; those signatures never reach authored files.
+Assistant methods receive additional type/DOM policy diagnostics.
+
+Preparation and compiler failures are retained as blocked review proposals
+rather than escaping as unhandled operation errors. A separate validated
+`review` preload operation reruns the same local preparation and type review
+without a provider call. Reviews own a cancellable utility process and a
+two-minute deadline. These checks do not execute application code or establish
+runtime correctness.
+
+Proposal value decoding follows each property's Registry type. Textual values
+accept literal strings as well as the original JSON-string encoding; numbers,
+booleans, arrays and structured configurations still require JSON text. No
+JavaScript evaluation or coercion is used. Structured parse errors identify the
+component/property or style, and decoded values retain the normal Registry and
+model validation path. This keeps the existing operation wire format compatible.
+
+The renderer rejects stale revisions before committing. One Designer command
+retains changed node records, metadata, authored source and newly created styles
+as reversible deltas. Project Controller commits these together through the
+normal validated model/save contract. Undo checks for later source edits and
+external style references before removing assistant-owned styles. Preferences
+and Codex-managed authentication are IDE data; no project format or browser
+runtime dependency is added. See [Codex](codex.md).
+
 ## Incremental compiler diagnostics
 
 The compiler utility process retains one compatible TypeScript semantic builder
@@ -358,6 +435,8 @@ Reusable Menu event relaying lives in the internal runtime module `menu-events.t
 Builder projects the active document's element hierarchy above the Registry-backed assets palette. Hierarchy order comes from the root node and each node's `children`, never from coordinates or component names. The tree, canvas, and Inspector consume the same ordered stable-ID selection, including explicit root selection. Tree search, keyboard navigation, collapse, and multiselection operate on this projection without copying or rewriting component nodes. A canvas selection opens Builder, reveals collapsed ancestors, clears a search that hides the primary selection, and scrolls the tree to that item while preserving keyboard focus. Palette captions and icons resolve through the central Component Registry.
 
 Responsive provides Default, Tablet (768 px), and Mobile (390 px) preview widths. Default observes the Designer scroll host and fills its available content width, excluding padding and the vertical scrollbar, including when the window, sidebars, or zoom change. Content-sized pages retain their model-owned fit-content behavior. The viewport preset, zoom, sidebar navigation, searches, and collapsed UI sections are ephemeral authoring state; they are not written to the Project Model or browser storage. Responsive layout properties edited in the Inspector remain persisted model properties. The Visual and Interaction Inspector tabs expose registered property and event metadata, with independently collapsible categories. All property edits, including names, continue through model commands and preserve component IDs. This workspace refactor does not change the version 2 persisted format or introduce a separate runtime layout model.
+
+Workbench divider drags coalesce pointer movement into one React layout update per animation frame and apply the actual release coordinates synchronously to pending UI state. Default canvas surfaces use a CSS width relative to the scroll host, corrected for zoom, so browser layout follows the dock without rebuilding the Designer component tree on every move. During a dock drag, the workbench's transient resize marker suspends responsive-width state updates, fit-content scans (including reusable placements) and selection geometry measurements. The selection overlay is hidden while an input shield retains the resize cursor over embedded content. The local `webrad:workbench-resize-end` event schedules final measurements after the dock state commits, including when `ResizeObserver` is unavailable. Native cancellation, lost capture, window blur, hidden documents and shell/panel teardown release capture and pending frames. Keyboard sizing, sidebar/canvas limits, explicit viewport widths and content-sized root behavior remain available; none of these transient dock dimensions are persisted in the Project Model.
 
 The page surface renders real component DOM from the same browser-safe property projection and CSS used by the generated runtime. Both project the version 2 `ComponentNode.layout` contract while retaining `bounds` for fixed-layout fallback. A separate design overlay owns hit testing, selection handles, marquee selection, drag, and resize. Pure geometry services calculate deltas, snapping, bounds, and multi-selection transforms. Pointer movement may use transient UI state; a command commits the model once at operation completion.
 

@@ -69,6 +69,7 @@ import { useDesignerAvailableWidth } from './useDesignerAvailableWidth';
 import { useDesignerPointerInteraction } from './useDesignerPointerInteraction';
 import { measureDesignerChildrenHost, measureDesignerNodeMargins } from './designer-host-geometry';
 import { measureDesignerFitContentSize } from './designer-fit-content';
+import { isWorkbenchResizing, WORKBENCH_RESIZE_END } from './workbench-resize';
 
 interface DesignerSurfaceProps {
   previewTheme?: ResolvedThemeMode;
@@ -835,7 +836,7 @@ function useReusableDefinitionFitContentSizes(
   >(() => new Map());
   const measure = useCallback((): void => {
     const definitionRoot = definitionRootRef.current;
-    if (definitionRoot === null) return;
+    if (definitionRoot === null || isWorkbenchResizing(definitionRoot)) return;
     const next = new Map<string, RuntimeFitContentSize>();
     for (const wrapper of definitionRoot.querySelectorAll<HTMLElement>(
       '[data-designer-definition-node-id]',
@@ -880,7 +881,7 @@ function useReusableDefinitionFitContentSizes(
     if (definitionRoot === null) return undefined;
     let scheduled = false;
     const scheduleMeasure = (): void => {
-      if (scheduled) return;
+      if (scheduled || isWorkbenchResizing(definitionRoot)) return;
       scheduled = true;
       queueMicrotask(() => {
         scheduled = false;
@@ -888,6 +889,16 @@ function useReusableDefinitionFitContentSizes(
       });
     };
     const view = definitionRoot.ownerDocument.defaultView;
+    const workbench = definitionRoot.closest('.wr-workbench');
+    let endFrame: number | undefined;
+    const onResizeEnd = (): void => {
+      if (endFrame !== undefined) view?.cancelAnimationFrame(endFrame);
+      endFrame = view?.requestAnimationFrame(() => {
+        endFrame = undefined;
+        measure();
+      });
+    };
+    workbench?.addEventListener(WORKBENCH_RESIZE_END, onResizeEnd);
     const ResizeObserverConstructor = view?.ResizeObserver;
     const resizeObserver =
       ResizeObserverConstructor === undefined
@@ -916,6 +927,8 @@ function useReusableDefinitionFitContentSizes(
     return () => {
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
+      workbench?.removeEventListener(WORKBENCH_RESIZE_END, onResizeEnd);
+      if (endFrame !== undefined) view?.cancelAnimationFrame(endFrame);
     };
   }, [definitionRootRef, measure]);
 
@@ -1544,7 +1557,7 @@ export function DesignerSurface({
 
   const measureLayout = useCallback((): void => {
     const surface = surfaceRef.current;
-    if (!surface) return;
+    if (!surface || isWorkbenchResizing(surface)) return;
     const surfaceBounds = surface.getBoundingClientRect();
     if (surfaceBounds.width <= 0 || surfaceBounds.height <= 0) return;
     const horizontalScale =
@@ -1568,7 +1581,7 @@ export function DesignerSurface({
 
   const measureFitContentSizes = useCallback((): void => {
     const surface = surfaceRef.current;
-    if (!surface) return;
+    if (!surface || isWorkbenchResizing(surface)) return;
     const next = new Map<string, RuntimeFitContentSize>();
     const nodesByDesignerId = new Map<string, HTMLElement>();
     for (const element of surface.querySelectorAll<HTMLElement>('[data-designer-node-id]')) {
@@ -1667,26 +1680,30 @@ export function DesignerSurface({
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
-    if (!surface || typeof ResizeObserver === 'undefined') return undefined;
+    if (!surface) return undefined;
     let frame: number | undefined;
     const scheduleMeasure = (): void => {
-      if (frame !== undefined) return;
+      if (frame !== undefined || isWorkbenchResizing(surface)) return;
       frame = window.requestAnimationFrame(() => {
         frame = undefined;
         measureFitContentSizes();
         measureLayout();
       });
     };
-    const observer = new ResizeObserver(scheduleMeasure);
-    observer.observe(surface);
+    const observer =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(scheduleMeasure);
+    const workbench = surface.closest('.wr-workbench');
+    workbench?.addEventListener(WORKBENCH_RESIZE_END, scheduleMeasure);
+    observer?.observe(surface);
     for (const element of surface.querySelectorAll<HTMLElement>(
       '[data-designer-node-id], [data-designer-definition-node-id]',
     )) {
-      observer.observe(element);
+      observer?.observe(element);
     }
     scheduleMeasure();
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
+      workbench?.removeEventListener(WORKBENCH_RESIZE_END, scheduleMeasure);
       if (frame !== undefined) window.cancelAnimationFrame(frame);
     };
   }, [
@@ -2572,6 +2589,13 @@ export function DesignerSurface({
       <div ref={scrollRef} className="wr-designer-scroll">
         <div
           className="wr-page-zoom-frame"
+          data-workbench-fluid-width={
+            viewport.width === null &&
+            rootSurface?.width === undefined &&
+            root?.layout.item.width !== 'fit-content'
+              ? ''
+              : undefined
+          }
           style={{ width: viewportWidth * scale, height: viewportHeight * scale }}
         >
           <div

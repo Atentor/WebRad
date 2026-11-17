@@ -2,6 +2,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 
 import ts from 'typescript';
+import { assistantMethodDiagnostics } from './assistant-policy.js';
 import {
   analyzeComponentReferences,
   appendComponentReferenceDeclarations,
@@ -56,6 +57,7 @@ export function typecheckSources(
   componentScopes: ReadonlyMap<string, ComponentReferenceScope> = new Map(),
   packageRoot?: string,
   onProgress?: (phase: CompileProjectPhase) => void,
+  assistantMethods: ReadonlyMap<string, readonly string[]> = new Map(),
 ): {
   readonly diagnostics: readonly CompileDiagnostic[];
   readonly sources: ReadonlyMap<string, string>;
@@ -313,6 +315,12 @@ export function typecheckSources(
     diagnostics.push(...analysis.diagnostics);
     bundleSources.set(fileName, applyComponentReferenceEdits(authored, analysis.edits));
     if (analysis.edits.length > 0) sourceEdits.set(fileName, analysis.edits);
+  }
+  for (const [fileName, names] of assistantMethods) {
+    const sourceFile = program.getSourceFile(fileName);
+    if (sourceFile) {
+      diagnostics.push(...assistantMethodDiagnostics(program, sourceFile, new Set(names), componentScopes.get(fileName)?.className));
+    }
   }
   previousTypecheck = { environment, builder };
   return {

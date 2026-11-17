@@ -84,3 +84,17 @@ export interface CompileProjectMemoryOptions extends Omit<
 > {
   readonly outputDirectory?: string;
 }
+
+export interface AssistantEventBinding {
+  readonly componentId: string;
+  readonly eventName: string;
+  readonly method: string;
+}
+
+export interface CheckProjectTypesOptions extends Pick<
+  CompileProjectOptions,
+  'userSources' | 'packageRoot'
+> {
+  readonly assistantMethods?: Readonly<Record<string, readonly string[]>>;
+  readonly assistantEvents?: Readonly<Record<string, readonly AssistantEventBinding[]>>;
+}

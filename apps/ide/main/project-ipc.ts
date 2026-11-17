@@ -1,4 +1,5 @@
 import { PROJECT_TEMPLATE_IDS } from '@webrad/component-registry';
+import { cancelCodexForOwner, registerCodexIpc } from './codex-ipc';
 import { setPreviewMenuMode } from './menu';
 import {
   cancelPackagesForOwner,
@@ -250,6 +251,7 @@ async function releaseProjectHandler(event: IpcMainInvokeEvent, input: unknown):
   allowedRoots.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
   openedProjectIds.get(window.webContents.id)?.delete(normalizedRoot(rootPath));
   if (activeProjectRoots.get(window.webContents.id) === normalizedRoot(rootPath)) {
+    cancelCodexForOwner(window.webContents.id);
     cancelPackagesForOwner(window.webContents.id);
     cancelNativeBuildForOwner(window.webContents.id);
     activeProjectRoots.delete(window.webContents.id);
@@ -622,6 +624,7 @@ export function installDirtyGuard(window: BrowserWindow, trustedRendererUrl: str
   });
   window.on('closed', () => {
     const id = windowId;
+    cancelCodexForOwner(id, true);
     cancelPackagesForOwner(id);
     cancelNativeBuildForOwner(id);
     revokePreview(id);
@@ -651,6 +654,17 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   if (registered) return;
   registered = true;
   registerRestGoAdminIpc(requireTrustedSender, options.userDataPath);
+  registerCodexIpc({
+    requireTrustedSender,
+    userDataPath: options.userDataPath,
+    requireProject: (event, rootPath, projectId) => {
+      requireGrantedRoot(event, rootPath);
+      if (
+        activeProjectRoots.get(event.sender.id) !== normalizedRoot(rootPath) ||
+        openedProjectIds.get(event.sender.id)?.get(normalizedRoot(rootPath)) !== projectId
+      ) throw new Error('Codex requires the active opened WebRAD project.');
+    },
+  });
   registerPackagesIpc({
     requireTrustedSender,
     requireProject: (event, rootPath, projectId) => {
@@ -734,6 +748,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
     const session = await loadSession();
     // A manual selection supersedes restoration or any earlier pending selection.
     if (session === null || projectSelectionRevisions.get(id) !== revision) return null;
+    cancelCodexForOwner(id);
     cancelNativeBuildForOwner(id);
     cancelPackagesForOwner(id);
     stopDebuggerForOwner(id);

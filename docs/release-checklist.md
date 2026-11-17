@@ -1,5 +1,37 @@
 # Release checklist for agents and maintainers
 
+## Workbench dock resizing (2026-11-17)
+
+Both Electron smoke runners now require `renderer workbench pointer resizing
+passed:` alongside the existing keyboard resizing evidence. Native mouse drags
+exercise the left sidebar, right Inspector/Codex slot and Output dock. The
+interaction checks actual intermediate panel dimensions and live CSS canvas
+width, deferred responsive projection, hidden selection overlays during capture,
+release at a coordinate beyond the last movement, measurement/overlay recovery
+and restoration of each original size. Existing keyboard assertions, renderer
+health checks and deadlines remain intact. These interactions have not been run;
+source review does not establish frame-time performance or native platform
+success. Keep the exact-commit release gates.
+
+## Codex authoring panel (2026-11-17)
+
+Both renderer smoke runners now require `renderer Codex panel passed: native
+context, model and reasoning controls, suggestions, project context, draft
+recovery, connection settings and close`.
+The real activity-bar interaction opens the panel and checks visible geometry,
+including alignment of the chat header divider with the editor view tabs,
+two visible account quota tracks in the footer,
+and reopening an archived conversation through the history control,
+with registered conversation and trash SVGs instead of fallback stars,
+empty-prompt send protection, both selectors, allowed Terra/Sol catalog choices,
+suggestion insertion, the project-context disclosure, draft retention across
+close/reopen, clearing, connection settings and closing. When screenshot output is enabled it retains
+`webrad-codex-panel.png` through the existing presented-frame capture helper.
+No sign-in or paid inference is part of that UI smoke. These interactions have
+not been run; account/model acceptance and exact-commit native release gates
+remain separate requirements. Do not bypass existing renderer health checks,
+deadlines, artifact retention or publication gates.
+
 ## Windows development smoke at efe20a6 (2026-11-14)
 
 Release run 43653046776 passed all six builds, all six portable jobs and assembly;

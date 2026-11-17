@@ -42,7 +42,35 @@ import type {
   WriteFileRequest,
 } from '../shared/contracts';
 
+import type { CodexProgress, CodexProposal, CodexStatus, CodexUsage } from '../shared/codex-contracts';
+
 const bridge: WebRadBridge = {
+  codex: {
+    usage: () => ipcRenderer.invoke('webrad:codex:usage') as Promise<CodexUsage>,
+    onUsageChanged: (listener) => {
+      const handler = (): void => listener();
+      ipcRenderer.on('webrad:codex:usage-changed', handler);
+      return () => ipcRenderer.removeListener('webrad:codex:usage-changed', handler);
+    },
+    status: () => ipcRenderer.invoke('webrad:codex:status') as Promise<CodexStatus>,
+    chooseExecutable: () => ipcRenderer.invoke('webrad:codex:choose-executable') as Promise<CodexStatus>,
+    preferences: (preferences) => ipcRenderer.invoke('webrad:codex:preferences', preferences) as Promise<CodexStatus>,
+    login: () => ipcRenderer.invoke('webrad:codex:login') as Promise<void>,
+    cancelLogin: () => ipcRenderer.invoke('webrad:codex:cancel-login') as Promise<void>,
+    generate: (request) => ipcRenderer.invoke('webrad:codex:generate', request) as Promise<CodexProposal>,
+    review: (request) => ipcRenderer.invoke('webrad:codex:review', request) as Promise<CodexProposal>,
+    cancel: (requestId) => ipcRenderer.invoke('webrad:codex:cancel', requestId) as Promise<void>,
+    subscribe: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: CodexProgress): void => listener(progress);
+      ipcRenderer.on('webrad:codex:progress', handler);
+      return () => ipcRenderer.removeListener('webrad:codex:progress', handler);
+    },
+    onAccountChanged: (listener) => {
+      const handler = (): void => listener();
+      ipcRenderer.on('webrad:codex:account-changed', handler);
+      return () => ipcRenderer.removeListener('webrad:codex:account-changed', handler);
+    },
+  },
   packages: {
     status: (request) =>
       ipcRenderer.invoke('webrad:packages:status', request) as Promise<PackageStatus>,

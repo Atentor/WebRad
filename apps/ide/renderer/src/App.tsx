@@ -12,6 +12,8 @@ import { BuildApplicationDialog } from './components/BuildApplicationDialog';
 import type { NativeBuildResponse } from '../../shared/native-build-contracts';
 import { type DesignerViewportName } from '@webrad/designer';
 import { ActivityBar } from './components/ActivityBar';
+import { CodexPanel } from './components/CodexPanel';
+import { useCodex } from './state/useCodex';
 import { DesignerSidebar, type DesignerSidebarMode } from './components/DesignerSidebar';
 import { ElementTree } from './components/ElementTree';
 import {
@@ -247,6 +249,7 @@ export function App(): ReactElement {
   const [openPageIds, setOpenPageIds] = useState<readonly string[]>([]);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [stylesOpen, setStylesOpen] = useState(false);
+  const [codexOpen, setCodexOpen] = useState(false);
   const [restGoOpen, setRestGoOpen] = useState(false);
   const [restGoVisited, setRestGoVisited] = useState(false);
   const [restGoPendingChanges, setRestGoPendingChanges] = useState(false);
@@ -2860,6 +2863,27 @@ export function App(): ReactElement {
       ? null
       : sourceKey(activePage, activeDocumentKind);
 
+  const codexEditingEnabled =
+    activeWorkspace === 'page' &&
+    activePage !== null &&
+    !activeSourceFile &&
+    !activeAsset &&
+    !previewActive &&
+    !building &&
+    !projectState.saving &&
+    !fieldDraftsPending &&
+    !debuggerSession.active &&
+    !debuggerSession.busy;
+  const codex = useCodex(
+    projectController,
+    designerController,
+    projectState,
+    activePage,
+    selection.ids,
+    codexOpen,
+    codexEditingEnabled,
+  );
+
   const pageEditorContent = stylesActive ? (
     <ErrorBoundary area="Styles">
       <StylesWorkspace
@@ -3271,6 +3295,9 @@ export function App(): ReactElement {
           }
           activity={
             <ActivityBar
+              codexActive={codexOpen}
+              codexBusy={codex.busy}
+              onToggleCodex={() => setCodexOpen((current) => !current)}
               stylesActive={stylesActive}
               restGoActive={restGoActive}
               projectActive={!restGoActive && sidebarMode === 'project'}
@@ -3312,11 +3339,22 @@ export function App(): ReactElement {
             </EditorWorkspace>
           }
           inspector={
-            visiblePanels.inspector &&
-            !stylesActive &&
-            !restGoActive &&
-            !activeSourceFile &&
-            !activeAsset ? (
+            codexOpen ? (
+              <ErrorBoundary area="Codex">
+                <CodexPanel
+                  assistant={codex}
+                  page={activePage}
+                  revision={projectState.revision}
+                  selectionCount={selection.ids.length}
+                  editingEnabled={codexEditingEnabled}
+                  onClose={() => setCodexOpen(false)}
+                />
+              </ErrorBoundary>
+            ) : visiblePanels.inspector &&
+              !stylesActive &&
+              !restGoActive &&
+              !activeSourceFile &&
+              !activeAsset ? (
               <ErrorBoundary area="Object Inspector">
                 <ObjectInspector
                   selection={selectedComponents.map(

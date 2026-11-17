@@ -1,4 +1,5 @@
 export * from './event-handler.js';
+export * from './assistant-methods.js';
 export * from './package-imports.js';
 export * from './entry-page-source.js';
 export * from './empty-event-handlers.js';

@@ -108,6 +108,7 @@ function pointer(
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperties(event, {
     pointerId: { value: pointerId },
+    button: { value: 0 },
     clientX: { value: clientX },
     clientY: { value: 0 },
   });
@@ -193,13 +194,16 @@ describe('IdeShell sidebar resizing', () => {
     expect(sidebarWidths()).toEqual({ left: 180, right: 220 });
   });
 
-  it('releases a canceled drag and ignores subsequent or unrelated pointer movement', () => {
+  it('releases a canceled drag and ignores subsequent or unrelated pointer movement', async () => {
     shell();
     const left = screen.getByRole('separator', { name: 'Resize elements sidebar' });
     pointer(left, 'pointerdown', 250, 7);
     pointer(left, 'pointermove', 300, 8);
     expect(sidebarWidths().left).toBe(250);
     pointer(left, 'pointermove', 300, 7);
+    await act(async () => {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    });
     expect(sidebarWidths().left).toBe(300);
     pointer(left, 'pointercancel', 300, 7);
     expect(releaseCapture).toHaveBeenCalledWith(7);

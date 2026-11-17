@@ -325,6 +325,30 @@ export class ProjectController {
     this.#commitEdit(projectInput, this.#snapshot.userSources);
   }
 
+  /** Commit a reviewed document and its authored source/style deltas together. */
+  public commitDocumentChanges(
+    page: PageModel,
+    kind: 'page' | 'reusable' | 'menu',
+    sourcePatch: Readonly<Record<string, string>>,
+    addedStyles: readonly ComponentStyleModel[],
+    removedStyleIds: ReadonlySet<string> = new Set<string>(),
+  ): PageModel {
+    const project = this.#requireProject();
+    const collection = kind === 'page' ? 'pages' : kind === 'menu' ? 'menus' : 'reusableElements';
+    if (!project[collection]?.some((item) => item.id === page.id)) {
+      throw new Error('The document is no longer part of the open project.');
+    }
+    const next = {
+      ...project,
+      [collection]: project[collection]?.map((item) => (item.id === page.id ? page : item)),
+      styles: [...project.styles.filter((style) => !removedStyleIds.has(style.id)), ...addedStyles],
+    };
+    this.#commitEdit(next, { ...this.#snapshot.userSources, ...sourcePatch });
+    const committed = this.#requireProject()[collection]?.find((item) => item.id === page.id);
+    if (!committed) throw new Error('Could not commit the document.');
+    return committed;
+  }
+
   public updateProjectSettings(patch: Partial<ProjectSettings>): void {
     this.replaceProject(updateSettingsInProject(this.#requireProject(), patch));
   }

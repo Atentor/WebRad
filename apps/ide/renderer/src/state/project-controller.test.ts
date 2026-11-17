@@ -1,5 +1,6 @@
 import { createUpdateTestBridge } from '../../../shared/update-test-bridge';
 import { createPackageTestBridge } from '../../../shared/package-test-bridge';
+import { createCodexTestBridge } from '../../../shared/codex-test-bridge';
 import {
   addPage as addPageToProject,
   createPage,
@@ -45,6 +46,7 @@ function projectSession(name: string): ProjectSession {
 }
 function fakeBridge(session: ProjectSession): WebRadBridge {
   return {
+    codex: createCodexTestBridge(),
     updates: createUpdateTestBridge(),
     packages: createPackageTestBridge(),
     debugger: createDebugTestBridge(),

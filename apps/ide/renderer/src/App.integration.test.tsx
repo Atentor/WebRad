@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { createUpdateTestBridge } from '../../shared/update-test-bridge';
 import { createPackageTestBridge } from '../../shared/package-test-bridge';
+import { createCodexTestBridge } from '../../shared/codex-test-bridge';
 import { createUserPageSource } from '@webrad/language';
 import { componentRegistry } from '@webrad/component-registry';
 import { StrictMode } from 'react';
@@ -239,6 +240,7 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     };
   });
   const bridge = {
+    codex: createCodexTestBridge(),
     packages: createPackageTestBridge(),
     updates: createUpdateTestBridge(),
     debugger: createDebugTestBridge(),

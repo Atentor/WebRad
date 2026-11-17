@@ -67,6 +67,10 @@ without a backend; PokéAPI needs internet, and RestGo operations need your serv
   shared styles and application themes. **Project Explorer** organizes pages,
   reusable components, Models, Units, and assets.
 - **F5** starts the [integrated debugger](docs/debugger.md).
+- **Codex assistant** proposes native components, layout, styles and typed code
+  for the active document using broader project context. Sign in with ChatGPT,
+  choose GPT-6.1 Terra or Sol and its available reasoning effort, then review
+  changes before applying. See [Codex](docs/codex.md).
 
 Components are typed instances with completion, hover information, and diagnostics.
 For a button's Interaction handler, the body can read an Edit named `NameEdit`:

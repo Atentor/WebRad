@@ -2,6 +2,7 @@ import type {
   CompileProjectOptions,
   CompileProjectPhase,
   CompileProjectResult,
+  CheckProjectTypesOptions,
 } from '@webrad/compiler';
 import type { ComponentStyleModel, WebRadProject } from '@webrad/project-model';
 
@@ -16,6 +17,11 @@ export type CompilerOperation =
       readonly kind: 'project';
       readonly project: WebRadProject;
       readonly options: CompilerProcessOptions;
+    }
+  | {
+      readonly kind: 'check';
+      readonly project: WebRadProject;
+      readonly options: CheckProjectTypesOptions;
     }
   | { readonly kind: 'styles'; readonly styles: readonly ComponentStyleModel[] };
 export type CompilerProcessRequest = CompilerOperation & { readonly id: number };

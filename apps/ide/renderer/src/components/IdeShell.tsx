@@ -8,6 +8,7 @@ import {
   type ReactNode,
   useEffect,
 } from 'react';
+import { WORKBENCH_RESIZE_END } from './workbench-resize';
 
 interface IdeShellProps {
   toolbar: ReactNode;
@@ -28,6 +29,23 @@ interface ResizeSession {
   startX: number;
   startY: number;
   startValue: number;
+  pendingValue: number;
+  minimum: number;
+  maximum: number;
+  capture: HTMLDivElement;
+}
+
+function pointerResizeValue(
+  session: ResizeSession,
+  event: { clientX: number; clientY: number },
+): number {
+  const delta =
+    session.target === 'left'
+      ? event.clientX - session.startX
+      : session.target === 'right'
+        ? session.startX - event.clientX
+        : session.startY - event.clientY;
+  return Math.min(session.maximum, Math.max(session.minimum, session.startValue + delta));
 }
 
 export function IdeShell({
@@ -45,6 +63,7 @@ export function IdeShell({
   const [bottomHeight, setBottomHeight] = useState(188);
   const visibleBottomHeight = Math.max(bottomHeight, bottomMinimumHeight);
   const resize = useRef<ResizeSession | null>(null);
+  const resizeFrame = useRef<number | undefined>(undefined);
   const workbenchRef = useRef<HTMLDivElement>(null);
   const [workbenchWidth, setWorkbenchWidth] = useState(() => window.innerWidth);
   const availableSidebarWidth = Math.max(
@@ -55,6 +74,51 @@ export function IdeShell({
   const visibleLeftWidth = Math.min(leftWidth, availableSidebarWidth - visibleRightWidth);
   const leftResizeMaximum = Math.min(420, availableSidebarWidth - visibleRightWidth);
   const rightResizeMaximum = Math.min(440, availableSidebarWidth - visibleLeftWidth);
+  const hasInspector = Boolean(inspector);
+  const hasBottom = Boolean(bottom);
+
+  const applyResize = useCallback((target: ResizeTarget, value: number): void => {
+    if (target === 'left') setLeftWidth(value);
+    else if (target === 'right') setRightWidth(value);
+    else setBottomHeight(value);
+  }, []);
+
+  const endResize = useCallback(
+    (commit = true): void => {
+      const session = resize.current;
+      if (session === null) return;
+      resize.current = null;
+      if (resizeFrame.current !== undefined) {
+        window.cancelAnimationFrame(resizeFrame.current);
+        resizeFrame.current = undefined;
+      }
+      if (commit) applyResize(session.target, session.pendingValue);
+      const workbench = workbenchRef.current;
+      if (workbench !== null) {
+        delete workbench.dataset.resizing;
+        // Consumers schedule their final measurements after React commits the grid.
+        workbench.dispatchEvent(new Event(WORKBENCH_RESIZE_END));
+      }
+      if (session.capture.hasPointerCapture(session.pointerId)) {
+        session.capture.releasePointerCapture(session.pointerId);
+      }
+    },
+    [applyResize],
+  );
+
+  useEffect(() => {
+    const finish = (): void => endResize();
+    const onVisibilityChange = (): void => {
+      if (document.hidden) endResize();
+    };
+    window.addEventListener('blur', finish);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('blur', finish);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      endResize(false);
+    };
+  }, [endResize, hasInspector, hasBottom]);
 
   useEffect(() => {
     const workbench = workbenchRef.current;
@@ -80,60 +144,66 @@ export function IdeShell({
 
   const beginResize = useCallback(
     (target: ResizeTarget, event: PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0 || resize.current !== null) return;
+      event.preventDefault();
+      event.currentTarget.focus({ preventScroll: true });
       event.currentTarget.setPointerCapture(event.pointerId);
+      const startValue =
+        target === 'left'
+          ? visibleLeftWidth
+          : target === 'right'
+            ? visibleRightWidth
+            : visibleBottomHeight;
       resize.current = {
         target,
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        startValue:
-          target === 'left'
-            ? visibleLeftWidth
-            : target === 'right'
-              ? visibleRightWidth
-              : visibleBottomHeight,
+        startValue,
+        pendingValue: startValue,
+        minimum: target === 'left' ? 180 : target === 'right' ? 220 : bottomMinimumHeight,
+        maximum:
+          target === 'left' ? leftResizeMaximum : target === 'right' ? rightResizeMaximum : 360,
+        capture: event.currentTarget,
       };
+      if (workbenchRef.current !== null) workbenchRef.current.dataset.resizing = target;
     },
-    [visibleBottomHeight, visibleLeftWidth, visibleRightWidth],
+    [
+      visibleBottomHeight,
+      visibleLeftWidth,
+      visibleRightWidth,
+      bottomMinimumHeight,
+      leftResizeMaximum,
+      rightResizeMaximum,
+    ],
   );
 
   const continueResize = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       const session = resize.current;
       if (!session || session.pointerId !== event.pointerId) return;
-      if (session.target === 'left') {
-        setLeftWidth(
-          Math.min(
-            leftResizeMaximum,
-            Math.max(180, session.startValue + event.clientX - session.startX),
-          ),
-        );
-      } else if (session.target === 'right') {
-        setRightWidth(
-          Math.min(
-            rightResizeMaximum,
-            Math.max(220, session.startValue - event.clientX + session.startX),
-          ),
-        );
-      } else {
-        setBottomHeight(
-          Math.min(
-            360,
-            Math.max(bottomMinimumHeight, session.startValue - event.clientY + session.startY),
-          ),
-        );
-      }
+      const value = pointerResizeValue(session, event);
+      if (value === session.pendingValue) return;
+      session.pendingValue = value;
+      if (resizeFrame.current !== undefined) return;
+      resizeFrame.current = window.requestAnimationFrame(() => {
+        resizeFrame.current = undefined;
+        if (resize.current === session) applyResize(session.target, session.pendingValue);
+      });
     },
-    [leftResizeMaximum, rightResizeMaximum, bottomMinimumHeight],
+    [applyResize],
   );
 
-  const finishResize = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (resize.current?.pointerId !== event.pointerId) return;
-    resize.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }, []);
+  const finishResize = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const session = resize.current;
+      if (session?.pointerId !== event.pointerId) return;
+      // Pointer-up can arrive before the last queued animation frame.
+      if (event.type === 'pointerup') session.pendingValue = pointerResizeValue(session, event);
+      endResize();
+    },
+    [endResize],
+  );
 
   const resizeWithKeyboard = (target: ResizeTarget, event: KeyboardEvent<HTMLDivElement>): void => {
     const horizontal = target !== 'bottom';
@@ -182,6 +252,7 @@ export function IdeShell({
     onPointerMove: continueResize,
     onPointerUp: finishResize,
     onPointerCancel: finishResize,
+    onLostPointerCapture: finishResize,
   });
 
   return (

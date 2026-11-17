@@ -1,5 +1,6 @@
 import { type ProjectTemplateId } from '@webrad/component-registry';
 import type { UpdateBridge } from './update-contracts';
+import type { CodexBridge } from './codex-contracts';
 import type { PackagesBridge } from './package-contracts';
 import type { NativeBuildBridge } from './native-build-contracts';
 import type { ExternalLinkTarget } from './external-links';
@@ -143,6 +144,7 @@ export interface CompileStylesResponse {
 }
 
 export interface WebRadBridge {
+  readonly codex: CodexBridge;
   readonly packages: PackagesBridge;
   readonly nativeBuild: NativeBuildBridge;
   readonly updates: UpdateBridge;

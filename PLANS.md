@@ -1,5 +1,174 @@
 # WebRAD delivery plan
 
+## Smooth workbench dock resizing (2026-11-17)
+
+Left, right (Inspector/Codex) and Output divider drags now coalesce pointer input
+into one layout update per animation frame. Release coordinates are applied even
+when the last frame has not run. Pointer cancellation, lost capture, window blur,
+hidden documents and shell/panel teardown clear capture and pending frames.
+
+Default canvas width follows the dock through CSS at the current zoom. During a
+drag, responsive component projection, fit-content scans (including reusable
+definitions) and selection geometry measurements wait until release. Selection
+overlays are hidden during the gesture; a transient input shield preserves the
+resize cursor and prevents embedded content from intercepting the pointer.
+Fixed viewport presets and content-sized roots retain their sizing contracts.
+Panel dimensions remain ephemeral IDE state, outside the Project Model.
+
+The existing keyboard interaction remains. Both Electron smoke runners now
+require native drags of all three docks, actual intermediate panel/canvas
+geometry, deferred responsive projection, final-coordinate handling and size
+restoration. The existing cancellation unit case was adapted to frame scheduling.
+Only source and diff review were performed; no tests, smokes, typecheck, lint,
+formatting, builds, packaging or frame-time measurements were requested or run.
+
+## Codex quota and live activity (2026-11-17)
+
+The chat footer displays provider-reported used percentages for explicit 300-
+and 10080-minute quota windows, reset times and unavailable/stale states. A
+narrow usage bridge reads account/rateLimits/read, refreshing canonical snapshots
+on sparse account/rateLimits/updated notifications, account changes, request
+transitions and every minute while the panel is open. Quota refresh failures do
+not prevent authoring or infer account entitlement from remaining percentages.
+
+Generation now forwards throttled activity from actual turn/reasoning/message
+events without exposing reasoning text or partial structured JSON. The panel
+shows connection/proposal/review stages, elapsed time, streamed character counts
+and a quiet-period explanation with the existing Stop action. No simulated
+completion percentage or invented work is shown. The existing panel smoke now
+requires two visible footer quota tracks. No tests, builds, smokes, sign-in or
+live quota/inference requests were run; protocol fields were reviewed against
+the locally generated app-server declarations.
+
+## Conversation action icons (2026-11-17)
+
+Replaced unsupported history/trash-2 IDs, which projected as fallback stars,
+with registered messages-square and trash artwork. The existing panel smoke
+checks the resolved SVG IDs for both actions. No validation was requested or run.
+
+## Codex conversation list (2026-11-17)
+
+New conversation now retains the preceding conversation instead of clearing it.
+The header history control lists project-scoped chats with titles, timestamps,
+message counts and the selected chat. Users can reopen or delete a conversation;
+each retains its own draft and AI follow-up context. Switching and deletion are
+blocked during active requests. History stays in IDE session memory, including
+project close/reopen, and is not persisted across application restarts. Each
+project permits up to 100 chats; existing message/context limits still apply.
+No tests, builds or smokes were requested or run.
+
+## Codex header alignment (2026-11-17)
+
+Aligned the Codex header's 36px border-box height with the editor view tabs so
+their bottom dividers form a continuous line. The existing Electron panel smoke
+now checks divider alignment within one CSS pixel. No validation was requested
+or run.
+
+## Codex Sol, project context and reliability (2026-11-17)
+
+Added GPT-6.1 Sol alongside Terra through the actual app-server catalog, retaining
+the reasoning levels returned for each model and explicit unavailable saved
+choices. Hardened generation ownership, cancellation, stream/protocol failures,
+login overlap, connection replacement and atomic preference persistence.
+
+Requests now include the project-wide document/source inventory and bounded
+read-only context from other pages, reusables, menus, Models and Units, with
+import prioritization and explicit full/outline/omitted coverage. Context also
+includes native instance/navigation contracts, themes, dependencies, API
+configuration and asset metadata. Source-only AST snapshots mask recognizable
+credential literals; environment values and asset bodies are excluded. No
+project format or browser runtime dependency changes are required.
+
+Invalid plans remain reviewable with actionable diagnostics. A separate local
+Recheck operation reruns preparation and strict TypeScript review without a
+model call; its utility process supports cancellation and a two-minute deadline.
+The panel retains drafts on failures, scopes bounded conversation memory by
+project folder/ID, rejects late responses and exposes actual context coverage.
+Proposal application, AST edits and undo guards are strengthened, with smoke
+interactions kept aligned with the panel controls.
+
+Completion here records source implementation and review only. No tests,
+typecheck, lint, formatting, builds, smokes, sign-in or live inference were
+requested or run. No claim of universal bug prevention or release readiness
+is made.
+
+## Codex scalar property decoding (2026-11-16)
+
+The proposal adapter previously parsed every `valueJson` string as JSON, so a
+valid literal enum such as `center` failed with an uncaught SyntaxError before
+Registry/type review. Property decoding now follows Registry metadata: text,
+enum, icon, color and reference properties accept literal or JSON-encoded
+strings. Numeric-looking captions remain strings; nullable component references
+retain their existing null behavior. Numbers, booleans, lists and structured
+configuration still require JSON. All resulting values continue through the
+existing property, model, Registry and strict TypeScript checks.
+
+Malformed structured values now identify the affected component/property or
+style instead of leaking a JSON parser exception. Prompt/schema descriptions
+explain the scalar/structured distinction, and renderer error normalization
+removes the Electron invocation wrapper for standard error subclasses as well
+as Error. The operation contract and existing conversation/proposal shapes are
+preserved. No tests, smokes, builds or validation commands were requested or run.
+
+## Internal paint metadata in Codex review and compilation (2026-11-16)
+
+The Designer and Codex color-edit commands persist `webradPaintOverrides` to
+preserve explicit instance paint over a selected Style. Registry validation
+previously rejected that internal field as an unregistered public property,
+blocking Codex proposals and ordinary Preview compilation for affected pages.
+
+The Component Registry now describes persisted internal properties separately
+from public Inspector/runtime authoring metadata. The shared compiler validator
+accepts the paint marker only on visual components, as a unique list containing
+only `backgroundColor`, `color` and `borderColor`. Unknown properties and invalid
+marker values still fail validation. Codex receives public component properties
+without these internal fields in the active document context. Existing style
+reset, rendering, serialization and undo behavior remain intact. No tests,
+typecheck, lint, formatting, builds or smokes were requested or run.
+
+## Codex startup manifest import (2026-11-16)
+
+Corrected the Codex connection's version import to `../../../package.json`,
+matching the existing main-process manifest import. The previous path resolved
+outside the repository to the missing `C:\GitHub\package.json`, preventing the
+main target from being emitted. The reported Electron dialog and existing
+`.vite/build` contents showed the absent `main.cjs`; the correctly configured
+package entry and Forge output naming remain intact. No builds, startup smokes,
+tests or validation commands were requested or run. A fresh normal development
+start is still needed to regenerate the main bundle and confirm startup.
+
+## Codex native authoring integration (2026-11-16)
+
+Added a resizable Codex sidebar with browser-based ChatGPT sign-in, GPT-6.1 Terra
+model discovery and the reasoning levels returned by Codex. The IDE owns an
+isolated app-server profile and stdio connection; credentials remain under
+Codex management. The renderer receives a narrow validated preload bridge.
+
+Requests include the active visual document, selection, authored TypeScript,
+native component metadata, public runtime declarations, styles and recent
+conversation. Common credential/configuration fields are omitted from model
+context. The agent has no environment, project filesystem or tool execution.
+Structured proposals support existing pages, reusable documents and menus:
+component insertion/removal, registered properties and responsive layout,
+native styles, real events and AST-based instance-method edits.
+
+Proposals are checked against the Project Model, Registry and the shared strict
+TypeScript compiler in a separate owned utility process, without bundling or
+writing files. Proposed event bindings use the Inspector's actual generated
+signatures in a temporary virtual source to check method existence and types.
+Additional checks reject type escapes, inferred any, DOM objects
+and embedded-HTML authoring in new methods. Users inspect changes and source
+before applying one reversible Designer history entry. Revision checks reject
+stale proposals; undo retains unrelated edits and refuses conflicting source or
+style changes. Project documents, authored code and styles use the normal save.
+
+Updated the existing Electron smoke flow and development/packaged evidence to
+exercise panel navigation, model/reasoning controls, suggestions, connection
+settings, geometry and closing. Existing bridge fixtures include a disconnected
+Codex surface. No tests, smokes, builds, lint, formatting or typecheck commands
+were requested or run. Account sign-in, model inference and rendered appearance
+still require execution evidence. See [Codex integration](docs/codex.md).
+
 ## Windows development smoke Popup rendering (2026-11-14)
 
 At efe20a6c5ea3fdcc271bec93ece27d563d5a63e3, release run 43653046776

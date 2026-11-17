@@ -4,6 +4,8 @@ import { Icon } from './Icon';
 interface ActivityBarProps {
   stylesActive: boolean;
   restGoActive?: boolean;
+  codexActive?: boolean;
+  codexBusy?: boolean;
   projectActive: boolean;
   hasProject: boolean;
   outputVisible: boolean;
@@ -11,6 +13,7 @@ interface ActivityBarProps {
   onOpenStyles: () => void;
   onOpenSettings: () => void;
   onOpenRestGo?: () => void;
+  onToggleCodex: () => void;
   onToggleOutput: () => void;
 }
 
@@ -48,6 +51,17 @@ export function ActivityBar(props: ActivityBarProps): ReactElement {
         <Icon name="database" />
       </button>
       <span className="wr-activity-spacer" />
+      <button
+        type="button"
+        aria-label="Codex assistant"
+        title={props.codexBusy ? 'Codex is preparing a proposal' : 'Codex assistant'}
+        aria-pressed={props.codexActive === true}
+        aria-busy={props.codexBusy === true}
+        onClick={props.onToggleCodex}
+      >
+        <Icon name="sparkles" />
+        {props.codexBusy && <span className="wr-codex-activity-dot" aria-hidden="true" />}
+      </button>
       <button
         type="button"
         aria-label="Project Settings"

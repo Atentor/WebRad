@@ -4,6 +4,7 @@ import type {
   CompileProjectMemoryOptions,
   CompileProjectPhase,
   CompileProjectResult,
+  CheckProjectTypesOptions,
 } from '@webrad/compiler';
 import type { ComponentStyleModel, WebRadProject } from '@webrad/project-model';
 import type {
@@ -145,6 +146,37 @@ export async function compileTailwindStyles(
   const value = await send({ kind: 'styles', styles });
   if (typeof value !== 'string') throw new Error('Unexpected project result from the compiler.');
   return value;
+}
+
+/** Proposal checks must not evict the live Preview compiler's retained graph. */
+export async function checkProjectTypes(
+  project: WebRadProject,
+  options: CheckProjectTypesOptions,
+  signal: AbortSignal,
+): Promise<CompileProjectResult> {
+  signal.throwIfAborted();
+  const current = createCompilerService();
+  fixtureServices.add(current);
+  const cancel = (): void => {
+    fail(current, new Error('Codex review was canceled.'));
+    current.child.kill();
+  };
+  signal.addEventListener('abort', cancel, { once: true });
+  const timeout = setTimeout(() => {
+    fail(current, new Error('The TypeScript proposal review exceeded two minutes. Reduce the proposal or recheck it before applying.'));
+    current.child.kill();
+  }, 120_000);
+  try {
+    const value = await send({ kind: 'check', project, options }, undefined, current);
+    signal.throwIfAborted();
+    if (typeof value === 'string') throw new Error('Unexpected styles result during proposal review.');
+    return value;
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener('abort', cancel);
+    fixtureServices.delete(current);
+    current.child.kill();
+  }
 }
 
 export function stopCompilerService(): void {
