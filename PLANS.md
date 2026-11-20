@@ -1,5 +1,19 @@
 # WebRAD delivery plan
 
+## macOS Intel shared Menu Preview after 1bfa518 (2026-11-20)
+
+Validate passed on Windows and Ubuntu. The macOS Intel packaged smoke reached
+the shared Menu Preview wait while TypeScript was still checking the project.
+Semantic diagnostics took 9,935 ms and the Preview was published after 11,002 ms.
+The failed step and native samples are retained in `artifacts/ci-1bfa518/`.
+
+Adding the Menu test page changes the generated navigation augmentation of
+`@webrad/runtime`. Start a fresh semantic builder on that contract change while
+keeping exact-content source-tree reuse and fresh module resolution. Ordinary
+edits with the same navigation contract still use incremental diagnostics.
+Keep the real Menu assertions and deadline. Local validation was not requested.
+Hosted Intel timing on the corrected SHA remains pending.
+
 ## Development smoke isolation after 49fe571 (2026-11-20)
 
 On `49fe571`, Windows passed `npm run validate` and exhausted the 120-second

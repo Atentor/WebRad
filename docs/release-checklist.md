@@ -1,5 +1,21 @@
 # Release checklist for agents and maintainers
 
+## macOS Intel shared Menu Preview after 1bfa518 (2026-11-20)
+
+The macOS Intel package launched and reached the shared Menu F9 smoke. Its
+10-second readiness wait expired while Preview was still building. TypeScript
+semantic diagnostics took 9,935 ms and Preview was published at 11,002 ms. The
+native artifact reports active compiler CPU and contains no usable call graph.
+[macOS Intel build job](https://github.com/Atentor/WebRad/actions/runs/44791005250/job/136478463827)
+
+The fixture adds `MenuInteractionSmoke`, changing the generated navigation
+augmentation of `@webrad/runtime`. Use a fresh semantic builder on changes to
+that augmentation to avoid cross-graph declaration signature propagation.
+Reuse exact-content parsed sources and keep current import resolution, strict
+diagnostics, Menu's ten-second wait and all native release gates. Confirm the
+speedup and smoke outcome on the corrected SHA. Evidence is in
+`artifacts/ci-1bfa518/`.
+
 ## Development smoke isolation after 49fe571 (2026-11-20)
 
 Windows quality passed `npm run validate` and reached the 120-second functional

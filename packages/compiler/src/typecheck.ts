@@ -14,7 +14,7 @@ import {
 } from '@webrad/language';
 
 import { fromTypeScriptDiagnostic } from './diagnostics.js';
-import { RESTGO_ENTRY_PATH, RUNTIME_ENTRY_PATH } from './source-graph.js';
+import { NAVIGATION_TYPINGS_PATH, RESTGO_ENTRY_PATH, RUNTIME_ENTRY_PATH } from './source-graph.js';
 import {
   browserPackageError,
   createPackageBoundary,
@@ -302,6 +302,13 @@ export function typecheckSources(
     });
   };
 
+  // The navigation table augments the public runtime module. A page or
+  // parameter change can trigger declaration-shape propagation across that
+  // graph. Start fresh semantic diagnostics while the host reuses matching
+  // parsed files and resolves imports from current sources.
+  const previousNavigation = oldBuilder?.getSourceFile(NAVIGATION_TYPINGS_PATH)?.text;
+  const navigationChanged = previousNavigation !== sources.get(NAVIGATION_TYPINGS_PATH);
+
   let builder: ts.SemanticDiagnosticsBuilderProgram;
   onProgress?.('typecheck-program');
   try {
@@ -309,7 +316,7 @@ export function typecheckSources(
       rootNames,
       compilerOptions,
       host,
-      oldBuilder,
+      navigationChanged ? undefined : oldBuilder,
     );
   } finally {
     // Program retains its host, whose getSourceFile closure captures oldBuilder.

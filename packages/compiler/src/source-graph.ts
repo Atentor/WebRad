@@ -39,6 +39,7 @@ import {
 export const VIRTUAL_ROOT = path.resolve(process.cwd(), '.webrad-compiler-virtual');
 export const RUNTIME_ENTRY_PATH = virtualAbsolutePath('__runtime/index.ts');
 export const RESTGO_ENTRY_PATH = virtualAbsolutePath('__restgo/index.ts');
+export const NAVIGATION_TYPINGS_PATH = virtualAbsolutePath('webrad-navigation.d.ts');
 
 export interface VirtualSourceGraph {
   readonly sources: ReadonlyMap<string, string>;
@@ -456,10 +457,7 @@ export function createVirtualSourceGraph(
     `import { Theme, Sucess, Alert, Danger, Notifier } from '@webrad/runtime';\nTheme.configure(${JSON.stringify(projectThemeRuntimeConfiguration(project.settings.themes, project.id))});\nObject.assign(globalThis, { Theme, Sucess, Alert, Danger, Notifier });\n`,
   );
   sources.set(virtualAbsolutePath('webrad-globals.d.ts'), createGlobalTypings());
-  sources.set(
-    virtualAbsolutePath('webrad-navigation.d.ts'),
-    generateNavigationTypings(project.pages),
-  );
+  sources.set(NAVIGATION_TYPINGS_PATH, generateNavigationTypings(project.pages));
   sources.set(
     virtualAbsolutePath('webrad-environment.d.ts'),
     generateEnvironmentTypings(project.settings.environmentVariables),
