@@ -562,7 +562,13 @@ const outputs = [
   [videoTypingsPath, videoTypings],
   [outputPath, expected],
   [
-    path.join(repositoryRoot, 'packages', 'compiler', 'src', 'embedded-declarations.generated.json'),
+    path.join(
+      repositoryRoot,
+      'packages',
+      'compiler',
+      'src',
+      'embedded-declarations.generated.json',
+    ),
     `${JSON.stringify(embeddedDeclarations, null, 2)}\n`,
   ],
   [apiClientTypingsPath, apiClientTypings],
