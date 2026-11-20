@@ -10,6 +10,41 @@ export async function runWorkbenchResizeSmoke(
   window: BrowserWindow,
   options: WorkbenchResizeSmokeOptions,
 ): Promise<void> {
+  const measureCanvas = `(() => {
+    const surface = document.querySelector('.wr-page-surface');
+    const host = document.querySelector('.wr-designer-scroll');
+    const overlay = document.querySelector('.wr-design-overlay');
+    if (!(surface instanceof HTMLElement) || !(host instanceof HTMLElement) ||
+        !(overlay instanceof HTMLElement)) return null;
+    const hostStyle = getComputedStyle(host);
+    return {
+      viewport: Number(surface.dataset.viewportWidth),
+      scale: Number(getComputedStyle(surface).getPropertyValue('--wr-designer-scale')),
+      available: host.clientWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight),
+      width: surface.getBoundingClientRect().width,
+      fluid: surface.parentElement?.hasAttribute('data-workbench-fluid-width') === true,
+      overlay: getComputedStyle(overlay).visibility,
+    };
+  })()`;
+  const afterPaint = () =>
+    window.webContents.executeJavaScript(
+      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+      true,
+    );
+
+  // The divider's aria value can settle before ResizeObserver has updated the canvas.
+  await afterPaint();
+  await options.waitFor(
+    `(() => {
+      const canvas = ${measureCanvas};
+      return (canvas !== null && canvas.width > 0 && canvas.viewport > 0 &&
+        canvas.overlay === 'visible' &&
+        (!canvas.fluid || (Math.abs(canvas.width - canvas.available) <= 1 &&
+          Math.abs(canvas.viewport * canvas.scale - canvas.available) <= 1))) || { canvas };
+    })()`,
+    'Designer canvas measurement after keyboard resizing',
+  );
+
   const targets = [
     { name: 'left', selector: '.wr-splitter-left', panel: '.wr-left-rail', axis: 'x', sign: 1 },
     {
@@ -30,16 +65,19 @@ export async function runWorkbenchResizeSmoke(
 
   window.webContents.focus();
   for (const target of targets) {
+    const panelDimension = target.axis === 'x' ? 'width' : 'height';
     const measure = `(() => {
       const splitter = document.querySelector(${JSON.stringify(target.selector)});
       if (!(splitter instanceof HTMLElement)) throw new Error('Missing ${target.name} divider.');
       const bounds = splitter.getBoundingClientRect();
       if (bounds.width <= 0 || bounds.height <= 0) throw new Error('Hidden ${target.name} divider.');
-      const value = Number(splitter.getAttribute('aria-valuenow'));
-      const maximum = Number(splitter.getAttribute('aria-valuemax'));
-      return { x: Math.round(bounds.left + bounds.width / 2),
-        y: Math.round(bounds.top + bounds.height / 2), value, maximum,
-        viewport: Number(document.querySelector('.wr-page-surface')?.getAttribute('data-viewport-width')) };
+      return {
+        x: Math.round(bounds.left + bounds.width / 2),
+        y: Math.round(bounds.top + bounds.height / 2),
+        value: Number(splitter.getAttribute('aria-valuenow')),
+        maximum: Number(splitter.getAttribute('aria-valuemax')),
+        viewport: Number(document.querySelector('.wr-page-surface')?.getAttribute('data-viewport-width')),
+      };
     })()`;
     const original = (await window.webContents.executeJavaScript(measure, true)) as {
       x: number;
@@ -82,21 +120,17 @@ export async function runWorkbenchResizeSmoke(
             `(() => {
               const splitter = document.querySelector(${JSON.stringify(target.selector)});
               const panel = document.querySelector(${JSON.stringify(target.panel)});
-              const surface = document.querySelector('.wr-page-surface');
-              const host = document.querySelector('.wr-designer-scroll');
-              const overlay = document.querySelector('.wr-design-overlay');
-              if (!(panel instanceof HTMLElement) || !(surface instanceof HTMLElement) ||
-                  !(host instanceof HTMLElement) || !(overlay instanceof HTMLElement)) return false;
-              const bounds = panel.getBoundingClientRect();
+              const canvas = ${measureCanvas};
               const value = Number(splitter?.getAttribute('aria-valuenow'));
-              const style = getComputedStyle(host);
-              const contentWidth = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-              const fluid = surface.parentElement.hasAttribute('data-workbench-fluid-width');
-              return value === ${start.value + offset} &&
-                Math.abs(bounds.${target.axis === 'x' ? 'width' : 'height'} - value) <= 1 &&
-                Number(surface.dataset.viewportWidth) === ${start.viewport} &&
-                getComputedStyle(overlay).visibility === 'hidden' &&
-                (!fluid || Math.abs(surface.getBoundingClientRect().width - contentWidth) <= 1);
+              const panelSize = panel instanceof HTMLElement ? panel.getBoundingClientRect().${panelDimension} : null;
+              const expected = ${start.value + offset};
+              const expectedViewport = ${start.viewport};
+              const resizing = document.querySelector('.wr-workbench')?.getAttribute('data-resizing');
+              return (canvas !== null && panelSize !== null && value === expected &&
+                Math.abs(panelSize - value) <= 1 && canvas.viewport === expectedViewport &&
+                canvas.overlay === 'hidden' &&
+                (!canvas.fluid || Math.abs(canvas.width - canvas.available) <= 1)) ||
+                { resizing, value, expected, panelSize, expectedViewport, canvas };
             })()`,
             `${target.name} live dock and CSS canvas geometry`,
           );
@@ -115,31 +149,23 @@ export async function runWorkbenchResizeSmoke(
           const workbench = document.querySelector('.wr-workbench');
           const splitter = document.querySelector(${JSON.stringify(target.selector)});
           const panel = document.querySelector(${JSON.stringify(target.panel)});
-          const surface = document.querySelector('.wr-page-surface');
-          const host = document.querySelector('.wr-designer-scroll');
-          const overlay = document.querySelector('.wr-design-overlay');
-          if (!(workbench instanceof HTMLElement) || !(panel instanceof HTMLElement) ||
-              !(surface instanceof HTMLElement) || !(host instanceof HTMLElement) ||
-              !(overlay instanceof HTMLElement)) return false;
+          const canvas = ${measureCanvas};
           const value = Number(splitter?.getAttribute('aria-valuenow'));
-          const bounds = panel.getBoundingClientRect();
-          const style = getComputedStyle(host);
-          const contentWidth = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-          const scale = Number(getComputedStyle(surface).getPropertyValue('--wr-designer-scale'));
-          const fluid = surface.parentElement.hasAttribute('data-workbench-fluid-width');
-          return !workbench.hasAttribute('data-resizing') && value === ${start.value + delta} &&
-            document.activeElement !== splitter && !splitter.matches(':active') &&
-            Math.abs(bounds.${target.axis === 'x' ? 'width' : 'height'} - value) <= 1 &&
-            getComputedStyle(overlay).visibility === 'visible' &&
-            (!fluid || Math.abs(Number(surface.dataset.viewportWidth) * scale - contentWidth) <= 1);
+          const panelSize = panel instanceof HTMLElement ? panel.getBoundingClientRect().${panelDimension} : null;
+          const expected = ${start.value + delta};
+          const resizing = workbench?.getAttribute('data-resizing');
+          const focused = document.activeElement === splitter;
+          const active = splitter?.matches(':active');
+          return (workbench instanceof HTMLElement && resizing === null && canvas !== null &&
+            panelSize !== null && value === expected && !focused && active === false &&
+            Math.abs(panelSize - value) <= 1 && canvas.overlay === 'visible' &&
+            (!canvas.fluid || Math.abs(canvas.viewport * canvas.scale - canvas.available) <= 1)) ||
+            { resizing, value, expected, panelSize, focused, active, canvas };
         })()`,
         `${target.name} final geometry and measurement recovery`,
       );
       window.webContents.sendInputEvent({ type: 'mouseMove', ...point(delta + 8) });
-      await window.webContents.executeJavaScript(
-        'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-        true,
-      );
+      await afterPaint();
       await options.waitFor(
         `(() => {
           const splitter = document.querySelector(${JSON.stringify(target.selector)});

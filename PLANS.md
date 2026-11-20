@@ -1,5 +1,20 @@
 # WebRAD delivery plan
 
+## Ubuntu packaged workbench resize on v0.0.40 (2026-11-20)
+
+The tag's Ubuntu quality job passed validation and the development smoke. Its
+packaged smoke timed out while observing the left divider's first live resize
+sequence. The tag's Linux release build passed the same packaged interaction,
+as did the quality run on the identical `main` SHA. Evidence is retained under
+`artifacts/ci-v0.0.40/`.
+
+Wait for the canvas measurement to catch up after keyboard resizing before
+taking the drag baseline. Exercise native Electron mouse input and keep exact
+divider movement, live canvas width, deferred responsive measurement, release,
+focus and recovery assertions. Report the actual panel and canvas measurements
+on timeout. Verify the hosted release matrix and quality jobs before updating
+`main`.
+
 ## Embedded library declarations after 03c26f1 (2026-11-20)
 
 Both macOS packaged jobs reached the same shared Menu F9 deadline. The fresh

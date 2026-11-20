@@ -1,5 +1,21 @@
 # Release checklist for agents and maintainers
 
+## Ubuntu packaged workbench resize on v0.0.40 (2026-11-20)
+
+The Ubuntu quality job passed `npm run validate` and the development smoke.
+Its packaged smoke reached the existing deadline for the left divider's live
+geometry after keyboard resizing passed. The failure artifact returned a single
+boolean from several geometry checks. The `main` run on `f8dd496` and the tag's
+Linux release build passed the same drag. Original evidence is retained under
+`artifacts/ci-v0.0.40/`.
+[Ubuntu quality job](https://github.com/Atentor/WebRad/actions/runs/44816961474/job/136567659986)
+
+Let the Designer canvas catch up after keyboard resizing before recording the
+starting geometry. Drive the native Electron mouse press, moves and release. A
+failed check records divider value, panel size, canvas width, responsive
+measurement and overlay visibility. Retain the original pointer assertions,
+pass markers and deadlines on every platform.
+
 ## macOS shared Menu Preview after 03c26f1 (2026-11-20)
 
 The packaged ARM64 and Intel smokes both reached the ten-second wait for the
