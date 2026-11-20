@@ -134,11 +134,11 @@ export async function runDebuggerSmoke(
   // did-finish-load can precede React's command subscription. Open the fixture
   // through its real control once mounted, rather than sending an unobserved IPC.
   await waitFor(
-    'document.querySelector(\'button[aria-label="Open project (Ctrl+O)"]\') instanceof HTMLButtonElement',
+    "document.querySelector('button[aria-label=\"Open Project\"]') instanceof HTMLButtonElement",
     'the mounted Open Project control',
   );
   await bridge(
-    'document.querySelector(\'button[aria-label="Open project (Ctrl+O)"]\').click(); true',
+    "document.querySelector('button[aria-label=\"Open Project\"]').click(); true",
   );
   await waitFor(
     "document.querySelector('.wr-page-surface') !== null",
@@ -254,7 +254,7 @@ export async function runDebuggerSmoke(
     );
     window.webContents.send('webrad:menu-command', 'file.save');
     await waitFor(
-      'document.querySelector(".wr-toolbar-save-state")?.textContent.includes("Saved")',
+      "document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'",
       'saved debugger preferences',
     );
     const saved = await loadProjectFiles(projectPath);
@@ -284,7 +284,7 @@ export async function runDebuggerSmoke(
       !(await properties(paused, localScope.objectId)).some((entry) => entry.name === 'counter')
     )
       throw new Error('Local variable scope did not contain counter.');
-    if (!(await bridge<boolean>('document.querySelector(".wr-toolbar") !== null && 1 + 1 === 2')))
+    if (!(await bridge<boolean>("document.querySelector(\".wr-workbench\") !== null && 1 + 1 === 2")))
       throw new Error('IDE renderer did not respond while application was paused.');
     const rejected = await bridge<boolean>(
       `window.webrad.debugger.evaluate({sessionId:${JSON.stringify(paused.sessionId)},frameId:crypto.randomUUID(),expression:'1'}).then(()=>false,()=>true)`,
@@ -359,48 +359,33 @@ export async function runDebuggerSmoke(
       `window.webrad.debugger.evaluate(${JSON.stringify({ sessionId: paused.sessionId, frameId: restartedFrame.id, expression: '1' })}).then(()=>false,()=>true)`,
     );
     if (!staleRejected) throw new Error('Stopped session accepted stale frame capabilities.');
-    await bridge(`document.querySelector('[aria-label="Start debugging (F5)"]').click(); true`);
+    window.webContents.send('webrad:menu-command', 'debug.start');
     await waitFor(
       'window.webrad.debugger.getState().then(state => state.status === "running")',
-      'toolbar debug start',
+      'menu debug start',
     );
-    await waitFor(
-      `document.querySelector('.wr-toolbar-debug.active[data-debug-status="running"]')?.getAttribute('aria-pressed') === 'true' && document.querySelector('.wr-toolbar-debug.active')?.textContent === 'Stop Debug'`,
-      'active debug toolbar feedback',
-    );
-    const colors = await bridge<{ idle: string; active: string }>(
-      `(() => ({ idle: getComputedStyle(document.querySelector('.wr-toolbar-run:not(.wr-toolbar-debug)')).backgroundColor, active: getComputedStyle(document.querySelector('.wr-toolbar-debug')).backgroundColor }))()`,
-    );
-    if (colors.idle === colors.active)
-      throw new Error('Active debugging has no distinct toolbar color.');
-    await bridge(`document.querySelector('.wr-toolbar-debug').click(); true`);
+    await waitFor("document.querySelector('.wr-debug-status-running') !== null", 'running debugger feedback');
+    await bridge(`document.querySelector('.wr-debug-toolbar [title="Stop (Shift+F5)"]').click(); true`);
     await waitFor(
       'window.webrad.debugger.getState().then(state => state.status === "stopped")',
-      'second Debug click stops the running session',
+      'debugger controls stop running session',
     );
     if (getDebugPreviewWindow(window.webContents.id) !== undefined)
-      throw new Error('Toolbar stop left Debug Preview open.');
-    await waitFor(
-      `document.querySelector('.wr-toolbar-debug:not(.active)')?.getAttribute('aria-pressed') === 'false'`,
-      'idle debug toolbar feedback',
-    );
-    await bridge(`document.querySelector('[aria-label="Start debugging (F5)"]').click(); true`);
+      throw new Error('Debugger stop left Debug Preview open.');
+    window.webContents.send('webrad:menu-command', 'debug.start');
     await waitFor(
       'window.webrad.debugger.getState().then(state => state.status === "running")',
-      'toolbar debug start after toggling stop',
+      'menu debug restart',
     );
     await runScenario();
-    paused = await waitPaused('toolbar-started breakpoint');
-    await waitFor(
-      `document.querySelector('.wr-toolbar-debug.active[data-debug-status="paused"]')?.textContent === 'Debug Paused'`,
-      'paused debug toolbar feedback',
-    );
-    await bridge(`document.querySelector('.wr-toolbar-debug').click(); true`);
-    log('renderer debugger toolbar toggle and feedback passed');
+    paused = await waitPaused('menu-started breakpoint');
+    await waitFor("document.querySelector('.wr-debug-status-paused') !== null", 'paused debugger feedback');
+    await bridge(`document.querySelector('.wr-debug-toolbar [title="Stop (Shift+F5)"]').click(); true`);
     await waitFor(
       'window.webrad.debugger.getState().then(state => state.status === "stopped")',
-      'debugger toolbar stop',
+      'debugger controls stop paused session',
     );
+    log('renderer debugger menu and controls passed');
     log('renderer debugger restart and teardown passed');
   } finally {
     clearInterval(progress);

@@ -314,7 +314,7 @@ async function saveProject(window: BrowserWindow, projectPath: string): Promise<
     `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.textContent?.includes('Apply configuration') === true
       && document.querySelector('.wr-restgo-runtime-settings')?.textContent?.includes('Save the project (Ctrl+S)') === true`,
   );
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     const manifest = JSON.parse(await fs.readFile(projectPath, 'utf8')) as unknown;
@@ -389,7 +389,7 @@ export async function runRestGoSettingsSmoke(
   await setField(window, 'Application API token', 'rgo.unsaved-token');
   await rendererReady(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.includes('Pending edits') === true`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state')?.includes('Pending edits') === true`,
   );
   await window.webContents.executeJavaScript(
     `(() => {
@@ -484,7 +484,7 @@ export async function runRestGoPageEventsSmoke(
       );
     }
   }
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   const pagePath = path.join(path.dirname(projectPath), 'pages', 'index.wrpage');
   const sourcePath = path.join(path.dirname(projectPath), 'pages', 'index.ts');
   const deadline = Date.now() + 10_000;

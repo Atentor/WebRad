@@ -5,6 +5,11 @@ page, reusable component or menu. Codex proposes native WebRAD components,
 responsive layout, structured visual styles and typed event methods. Inspect
 the proposal before applying it to the project.
 
+The assistant's instructions identify [the official WebRAD documentation](https://webrad.atentor.com/docs)
+as the reference for documentation and examples. This supplies the reference URL;
+it does not fetch the website or add its contents to the request. Registered
+components and generated public API declarations remain the implementation contract.
+
 ## Connect
 
 1. Install [Codex CLI](https://developers.openai.com/codex/cli) or the Codex IDE
@@ -32,8 +37,8 @@ Example requests:
 
 ## Review and apply
 
-While a request is running, the activity card shows connection, proposal and
-TypeScript review stages, elapsed time and provider activity. Proposal text is
+While a request is running, the activity indicator shows elapsed time and
+provider activity without a stage checklist. Proposal text is
 counted as it arrives; partial JSON and internal reasoning text are not shown.
 After 30 seconds without a new event, a note explains the quiet period. The timer
 does not prove server activity or estimate completion. **Stop** remains available.

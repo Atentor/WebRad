@@ -166,7 +166,7 @@ async function runMenuSmokeWorkflow(
       })),
       preview: document.querySelector('.wr-preview-state')?.textContent,
       previewUrl: document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src'),
-      save: document.querySelector('.wr-toolbar-save-state')?.textContent?.trim(),
+      save: document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state'),
       runDisabled: document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled,
       output: document.querySelector('.wr-bottom-panel')?.textContent,
       explorer: [...document.querySelectorAll('.wr-page-row')].map(row => ({
@@ -460,8 +460,8 @@ async function runMenuSmokeWorkflow(
     );
     await confirmInspectorDrafts(window);
   }
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   const saved = await loadProjectFiles(options.projectPath);
   const node = saved.project.pages
     .find((candidate) => candidate.id === page.id)
@@ -617,7 +617,7 @@ async function runMenuSmokeWorkflow(
     `document.querySelector('iframe[title="WebRAD application preview"]')?.getAttribute('src') ?? ''`,
   );
   await ready(
-    `document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled === false && document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved' && document.querySelector('[role="dialog"]') === null`,
+    `document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled === false && document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved' && document.querySelector('[role="dialog"]') === null`,
   );
   await evaluate(
     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F9', bubbles: true, cancelable: true }))`,
@@ -896,8 +896,8 @@ async function runMenuSmokeWorkflow(
     )
   )
     throw new Error('Menu still exposes manual responsive placement controls.');
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim()==='Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state')==='Saved'`);
   const previousHorizontal = await evaluate(
     `document.querySelector('iframe[title="WebRAD application preview"]')?.src??''`,
   );
@@ -1010,8 +1010,8 @@ async function runMenuSmokeWorkflow(
   }
   await ready(`document.querySelector(${JSON.stringify(tree)}) === null`);
   await click(root);
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   // Exercise the same Menu interactions through a dragged reusable placement.
   // Temporary documents keep authored smoke handlers out of the original page.
   const resourceRow = (name: string): string =>
@@ -1230,8 +1230,8 @@ async function runMenuSmokeWorkflow(
       await selectResource(smokePageName);
     }
   }
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   const interactionSession = await loadProjectFiles(options.projectPath);
   const interactionPage = interactionSession.project.pages.find(
     (candidate) => candidate.name === smokePageName,
@@ -1382,8 +1382,8 @@ async function runMenuSmokeWorkflow(
   }
   await selectResource(page.name);
   await click('button[aria-label="Design"]');
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   options.log(
     'renderer Menu icon geometry passed: configured SVG size, 16px disclosures, repeated desktop and reusable collapse/expand, mobile trigger/drawer, horizontal flyouts and theme changes',
   );

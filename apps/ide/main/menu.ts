@@ -152,6 +152,14 @@ export function installApplicationMenu(window: BrowserWindow): void {
           },
         },
         commandItem(window, 'Check for Updates...', 'help.checkUpdates'),
+        {
+          label: 'Report a bug',
+          click: () => {
+            void shell.openExternal(EXTERNAL_LINKS.issues).catch((error: unknown) => {
+              console.error('[IDE] Failed to open bug reports:', error);
+            });
+          },
+        },
         commandItem(window, 'About WebRAD', 'help.about'),
       ],
     },

@@ -1,5 +1,120 @@
 # Release checklist for agents and maintainers
 
+## OpenAI assistant icon (2026-11-19)
+
+The icon viewport is now `1.5 1.5 13 13` to enlarge the visible symbol by about 23%
+while preserving control dimensions. The existing interaction requires this
+viewport; rendered proportions have not been verified.
+
+The assistant now uses bundled OpenAI Blossom artwork instead of the robot.
+This supersedes earlier robot icon requirements. The existing panel interaction
+requires `data-brand-icon="openai"` in the activity bar and chat header; preserve
+the existing evidence marker and screenshot. Validation was not run.
+
+## Project context disclosure removal (2026-11-19)
+
+The Project context disclosure is intentionally removed from the chat. This
+supersedes earlier disclosure interaction requirements. The existing Codex panel
+interaction now requires its absence; keep the existing evidence marker and
+other interactions. Project context remains part of AI requests. Validation
+was not requested or run.
+
+## Usage reset hints (2026-11-19)
+
+Quota reset dates now appear as native usage-window tooltips. The existing
+Codex panel interaction requires the old reset row to be absent while retaining
+both usage tracks and the existing evidence marker. Validation was not run.
+
+## Minimal Codex chat (2026-11-19)
+
+The existing Codex panel interaction also requires the 8px composer corners,
+borderless suggestion buttons and robot header icon. Retain history, context,
+model/effort selectors, draft recovery, usage tracks, header alignment and the
+existing panel evidence marker and screenshot. These styling changes have not
+been run or visually verified.
+
+## Codex activity icon placement (2026-11-19)
+
+The existing Codex panel interaction now requires its activity action immediately
+after RestGo and before the flexible spacer, including rendered vertical order.
+It also requires the Lucide `bot` SVG for the robot-face activity icon.
+Retain the existing Codex panel evidence marker and screenshot. This updated
+interaction has not been run.
+
+## Button palette icon (2026-11-19)
+
+The existing Panel palette interaction also requires Button's
+`square-mouse-pointer` SVG before inserting the Panel. Preserve the existing
+Panel floating evidence marker. The updated interaction has not been run.
+
+## Panel and Group palette icons (2026-11-19)
+
+The existing Panel floating smoke palette interaction now requires Panel's
+`panel-top` SVG and Group's `group` SVG before inserting the Panel. These
+registry icons replace the shared generic layout glyph. Retain the existing
+Panel floating evidence marker. This interaction has not been run.
+
+## Activity rail background (2026-11-19)
+
+The existing light/dark theme interaction also requires the activity rail's
+computed background to match the adjacent sidebar. It uses the shared panel
+color. The interaction has not been run; retain existing theme evidence markers.
+
+## Sidebar tab appearance (2026-11-19)
+
+The existing document-view geometry interaction now also checks Builder/
+Responsive and Visual/Interaction for adjacent 32px tabs, rounded top corners,
+square bottom corners and a selected surface/bottom border matching their
+content. Their lower edges must meet the container's horizontal border.
+Keep the existing document-view evidence marker. No validation was run;
+rendered appearance remains unverified.
+
+## Editor and Inspector border alignment (2026-11-19)
+
+The existing document-view geometry interaction also requires the Inspector
+selection header to align with the editor view row at both top and bottom,
+with matching 1px bottom borders and border colors. Both rows use the shared
+36px workbench header height, including the integration-warning Inspector
+layout. The interaction has not been executed; rendered alignment remains
+unverified. Retain the existing evidence marker and native release gates.
+
+## Main toolbar removal (2026-11-19)
+
+The entire main toolbar, including Beta, Web, document tab, status and action
+buttons, has been removed. This supersedes older toolbar/Beta requirements below.
+The shell interaction requires its absence and the workbench directly below the
+32px title bar. Existing save waits use the actual shell save-state attribute;
+document identity and dirty state use the editor workspace and Explorer. Save,
+undo, redo and build interactions use menu commands; initial Open Project uses
+the welcome action. Debugger evidence now requires `renderer debugger menu and
+controls passed`, and the workspace marker is `renderer Designer toolbar removal
+passed:` in both applicable runners. Keep Preview toolbar geometry, dirty-dot,
+renderer health, deadlines and native platform gates. These changes have not run.
+
+Preview is now the first activity bar action above Project Explorer and absent
+from the top toolbar. The existing shell smoke checks placement and the disabled
+welcome state. Preview interactions retain the Build and run (F9) accessible
+label and exercise the relocated control. This update has not been executed.
+
+The existing Design/Code geometry interaction also requires two filled unsaved
+dots when the active document is dirty and none when saved, preserving the view
+icons. It also requires computed and rendered 8 x 8px dimensions for all visible
+unsaved dots in document tabs, save status, view tabs and Project Explorer. Visible
+Explorer rows must match their document tab's dirty indicator by stable ID. This updated interaction
+has not been executed.
+
+The existing Preview build-error recovery interaction now opens Project Explorer
+and requires no document dots after Save, only the edited index document marked
+after native Monaco insertion, and no document dots after restoring its exact
+source and after the final Save. Closed dirty documents can retain Explorer dots;
+the geometry interaction compares Explorer rows with tabs only when a tab is open.
+Both runners require the recovery evidence marker ending with `isolated document
+dirty indicators`. These updated interactions have not been run.
+
+Bug report evidence now requires Help > Report a bug to open the existing GitHub
+Issues destination and the former toolbar button to be absent. The existing Beta
+indicator assertions remain. This updated interaction has not been executed.
+
 The Electron shell smoke requires `renderer compact title bar passed: 32px, native
 controls clearance, menu and keyboard access` in both runners. It checks the single
 title row, drag/no-drag regions, clearance for native controls, Alt/heading keyboard

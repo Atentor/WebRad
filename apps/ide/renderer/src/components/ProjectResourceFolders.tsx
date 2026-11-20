@@ -6,6 +6,7 @@ import { projectResourceGroups } from './project-explorer-resources';
 
 export function ProjectResourceFolders({
   project,
+  dirtyDocumentIds,
   query,
   collapsed,
   onToggle,
@@ -16,6 +17,7 @@ export function ProjectResourceFolders({
   packagesFolder,
 }: {
   project: WebRadProject;
+  dirtyDocumentIds?: ReadonlySet<string>;
   query: string;
   collapsed: ReadonlySet<string>;
   onToggle: (label: string) => void;
@@ -74,6 +76,11 @@ export function ProjectResourceFolders({
                     <Icon name={label === 'Assets' ? 'file-image' : 'file-code'} />
                   </span>
                   <span className="wr-explorer-name">{entry.label}</span>
+                  {dirtyDocumentIds?.has(entry.id) && (
+                    <span className="wr-explorer-unsaved" aria-label="Unsaved changes" title="Unsaved changes">
+                      <Icon name="circle" className="wr-unsaved-dot" />
+                    </span>
+                  )}
                 </div>
               ))}
             </ProjectExplorerFolder>

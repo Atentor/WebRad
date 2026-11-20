@@ -1,8 +1,9 @@
 import { projectIcon } from '@webrad/runtime/icon';
 import { createElement, type ReactElement } from 'react';
 import { resolveIdeIcon, type IdeIconName } from '../ide-icons';
+import { OpenAiIcon } from './OpenAiIcon';
 
-export type IconName = IdeIconName;
+export type IconName = IdeIconName | 'openai';
 
 interface IconProps {
   readonly name: IconName;
@@ -11,6 +12,7 @@ interface IconProps {
 
 /** Upstream Lucide artwork for IDE controls, without an icon font or network request. */
 export function Icon({ name, className = '' }: IconProps): ReactElement {
+  if (name === 'openai') return <OpenAiIcon className={className} />;
   const icon = resolveIdeIcon(name);
   const state = projectIcon({ icon });
   return (

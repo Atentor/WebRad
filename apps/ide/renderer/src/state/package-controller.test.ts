@@ -41,6 +41,8 @@ function setup() {
     userSources: {},
     revision: 0,
     dirty: false,
+    dirtyDocumentIds: new Set<string>(),
+    stylesDirty: false,
     saving: false,
     error: null,
   };

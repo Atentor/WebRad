@@ -14,6 +14,7 @@ import './project-explorer.css';
 
 interface ProjectExplorerProps {
   project: WebRadProject | null;
+  dirtyDocumentIds?: ReadonlySet<string>;
   activeResourceId?: string | null;
   onOpenResource?: (id: string) => void;
   onDeleteResource?: (id: string) => void;
@@ -41,6 +42,7 @@ interface ProjectExplorerProps {
 
 export function ProjectExplorer({
   project,
+  dirtyDocumentIds,
   activeResourceId,
   onOpenResource,
   onDeleteResource,
@@ -516,6 +518,11 @@ export function ProjectExplorer({
                 >
                   <Icon name="page" className="wr-page-icon" />
                   {renderName(page.id, page.name, 'Page name')}
+                  {dirtyDocumentIds?.has(page.id) && (
+                    <span className="wr-explorer-unsaved" aria-label="Unsaved changes" title="Unsaved changes">
+                      <Icon name="circle" className="wr-unsaved-dot" />
+                    </span>
+                  )}
                   {project.entryPage === page.id && <small title="Entry page">entry</small>}
                 </div>
               ))}
@@ -568,6 +575,11 @@ export function ProjectExplorer({
                 >
                   <Icon name="component" className="wr-page-icon" />
                   {renderName(reusableElement.id, reusableElement.name, 'Reusable component name')}
+                  {dirtyDocumentIds?.has(reusableElement.id) && (
+                    <span className="wr-explorer-unsaved" aria-label="Unsaved changes" title="Unsaved changes">
+                      <Icon name="circle" className="wr-unsaved-dot" />
+                    </span>
+                  )}
                 </div>
               ))}
             </ProjectExplorerFolder>
@@ -604,12 +616,18 @@ export function ProjectExplorer({
                 >
                   <Icon name="menu" className="wr-page-icon" />
                   {renderName(menu.id, menu.name, 'Menu name')}
+                  {dirtyDocumentIds?.has(menu.id) && (
+                    <span className="wr-explorer-unsaved" aria-label="Unsaved changes" title="Unsaved changes">
+                      <Icon name="circle" className="wr-unsaved-dot" />
+                    </span>
+                  )}
                 </div>
               ))}
             </ProjectExplorerFolder>
           )}
           <ProjectResourceFolders
             project={project}
+            dirtyDocumentIds={dirtyDocumentIds}
             query={query}
             collapsed={effectiveCollapsedFolders}
             onToggle={toggleFolder}

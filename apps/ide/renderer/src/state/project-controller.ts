@@ -46,6 +46,7 @@ import {
 } from '@webrad/language';
 import type { ProjectSession, WebRadBridge } from '../../../shared/contracts';
 import { duplicateDocument } from './duplicate-document';
+import { projectDocumentChanges, type ProjectDocumentBaseline } from './project-document-changes';
 
 export interface ProjectControllerSnapshot {
   readonly session: ProjectSession | null;
@@ -56,6 +57,9 @@ export interface ProjectControllerSnapshot {
   /** Monotonic content revision used to reject stale compiler results. */
   readonly revision: number;
   readonly dirty: boolean;
+  /** Documents whose own content differs from the accepted saved baseline. */
+  readonly dirtyDocumentIds: ReadonlySet<string>;
+  readonly stylesDirty: boolean;
   readonly saving: boolean;
   readonly error: string | null;
 }
@@ -75,6 +79,8 @@ const EMPTY_SNAPSHOT: ProjectControllerSnapshot = Object.freeze({
   userSources: Object.freeze({}),
   revision: 0,
   dirty: false,
+  dirtyDocumentIds: new Set<string>(),
+  stylesDirty: false,
   saving: false,
   error: null,
 });
@@ -112,6 +118,7 @@ export class ProjectController {
   readonly #bridge: WebRadBridge;
   readonly #listeners = new Set<SnapshotListener>();
   #snapshot: ProjectControllerSnapshot = EMPTY_SNAPSHOT;
+  #savedDocuments: ProjectDocumentBaseline | null = null;
   #saveTask: SaveTask | null = null;
   #contextRevision = 0;
   #projectOperationRevision = 0;
@@ -210,6 +217,7 @@ export class ProjectController {
       userSources[menuSourcePath(menu)] ??= createUserMenuSource(menu);
     }
     const normalizedSession = { ...session, project, userSources };
+    this.#savedDocuments = normalizedSession;
     const previousRoot = this.#snapshot.rootPath;
     if (previousRoot && !this.#sameProjectRoot(previousRoot, session.rootPath)) {
       void this.#bridge.project.release(previousRoot);
@@ -225,6 +233,8 @@ export class ProjectController {
       userSources,
       revision: this.#editRevision,
       dirty: false,
+      dirtyDocumentIds: new Set<string>(),
+      stylesDirty: false,
       saving: false,
       error: null,
     };
@@ -239,6 +249,7 @@ export class ProjectController {
     this.#projectOperationRevision += 1;
     this.#editRevision += 1;
     this.#snapshot = { ...EMPTY_SNAPSHOT, revision: this.#editRevision };
+    this.#savedDocuments = null;
     this.#bridge.lifecycle.setDirty(false);
     this.#emit();
   }
@@ -543,6 +554,7 @@ export class ProjectController {
       userSources,
       revision: this.#editRevision,
       dirty: true,
+      ...projectDocumentChanges(this.#snapshot.project, userSources, this.#savedDocuments),
       error: null,
     };
     this.#bridge.lifecycle.setDirty(true);
@@ -822,6 +834,7 @@ export class ProjectController {
       this.#editRevision += 1;
     }
     const normalizedSession = { ...session, project, userSources };
+    this.#savedDocuments = normalizedSession;
     this.#snapshot = {
       session: normalizedSession,
       project,
@@ -830,6 +843,8 @@ export class ProjectController {
       userSources,
       revision: this.#editRevision,
       dirty: false,
+      dirtyDocumentIds: new Set<string>(),
+      stylesDirty: false,
       saving: false,
       error: null,
     };
@@ -869,6 +884,7 @@ export class ProjectController {
       userSources,
       revision: this.#editRevision,
       dirty: true,
+      ...projectDocumentChanges(project, userSources, this.#savedDocuments),
       error: null,
     };
     this.#bridge.lifecycle.setDirty(true);

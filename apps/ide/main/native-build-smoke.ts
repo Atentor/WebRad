@@ -300,7 +300,7 @@ export async function runNativeBuildSmoke(
   await click('.wr-project-settings-actions button.primary');
   await waitFor("document.querySelector('.wr-project-settings-dialog') === null");
   window.webContents.send('webrad:menu-command', 'file.save');
-  await waitFor("document.querySelector('.wr-toolbar-save-state')?.textContent.trim() === 'Saved'");
+  await waitFor("document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'");
   const saved = await loadProjectFiles(projectPath);
   if (
     saved.project.settings.nativeApplication.identifier !== 'com.webrad.smokeapplication' ||
@@ -395,7 +395,7 @@ export async function runNativeBuildSmoke(
       await waitFor(`document.querySelector('${buildScope}') === null`);
       window.webContents.send('webrad:menu-command', 'view.toggleTheme');
       await waitFor(`document.documentElement.dataset.theme === '${theme}'`);
-      await click('button[aria-label="Build Application"]');
+      window.webContents.send('webrad:menu-command', 'project.buildApplication');
       await setField(buildScope, 'Target Platform', 'windows');
 
       await waitFor(`(() => {
@@ -597,5 +597,5 @@ export async function runNativeBuildSmoke(
   await click('.wr-project-settings-actions button.primary');
   await waitFor("document.querySelector('.wr-project-settings-dialog') === null");
   window.webContents.send('webrad:menu-command', 'file.save');
-  await waitFor("document.querySelector('.wr-toolbar-save-state')?.textContent.trim() === 'Saved'");
+  await waitFor("document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'");
 }

@@ -57,38 +57,6 @@ function SourceVersion({ label, source }: { readonly label: string; readonly sou
   );
 }
 
-function ContextDetails({ assistant }: { readonly assistant: CodexAssistant }): ReactElement {
-  const inventory = assistant.contextInventory;
-  const coverage = assistant.contextSummary;
-  return (
-    <details className="wr-codex-project-context">
-      <summary>
-        <Icon name="layers" /><span>Project context</span>
-        <small>{inventory.documents} documents</small><Icon name="chevron-right" />
-      </summary>
-      <div className="wr-codex-context-details">
-        <p>Project structure, related source, reusable components, styles and native APIs inform the proposal. Changes target the open visual document.</p>
-        <dl>
-          <div><dt>Available documents</dt><dd>{inventory.documents}</dd></div>
-          <div><dt>Available source files</dt><dd>{inventory.sources}</dd></div>
-          <div><dt>Asset references</dt><dd>{inventory.assets}</dd></div>
-        </dl>
-        {coverage && (
-          <div className="wr-codex-context-coverage">
-            <strong>Last request</strong>
-            <p>{coverage.documents} documents · {coverage.fullSources} full source files · {coverage.summarizedSources} source summaries</p>
-            {coverage.summarizedDocuments > 0 && <p>{coverage.summarizedDocuments} documents included as structure summaries.</p>}
-            {coverage.limited && (
-              <p className="wr-codex-context-limit">Some project content was summarized or omitted to fit the context budget. {coverage.omittedSources} source files and {coverage.omittedDocuments} document contents omitted.</p>
-            )}
-          </div>
-        )}
-        <p className="wr-codex-context-privacy">Saved connection credentials and asset binary contents are excluded.</p>
-      </div>
-    </details>
-  );
-}
-
 function ProposalReview({
   message, assistant, page, revision, editingEnabled,
 }: Pick<CodexPanelProps, 'assistant' | 'page' | 'revision' | 'editingEnabled'> & { readonly message: CodexMessage }): ReactElement | null {
@@ -197,7 +165,7 @@ export function CodexPanel(props: CodexPanelProps): ReactElement {
       if (event.key === 'Escape') { event.preventDefault(); onClose(); }
     }}>
       <header className="wr-codex-header">
-        <div className="wr-codex-title"><Icon name="sparkles" /><h2>Codex</h2></div>
+        <div className="wr-codex-title"><Icon name="openai" /><h2>Codex</h2></div>
         <div className="wr-codex-header-actions">
           <button type="button" aria-label="Codex conversation history" title="Conversation history" aria-expanded={chatsOpen} onClick={() => setChatsOpen((value) => !value)}><Icon name="messages-square" /></button>
           <button type="button" aria-label="New Codex conversation" title="New conversation" disabled={assistant.busy || (assistant.messages.length === 0 && !draft)} onClick={assistant.clear}><Icon name="square-pen" /></button>
@@ -261,7 +229,7 @@ export function CodexPanel(props: CodexPanelProps): ReactElement {
         )}
         {assistant.messages.length === 0 && (
           <div className="wr-codex-welcome">
-            <div className="wr-codex-welcome-icon"><Icon name="sparkles" /></div>
+            <div className="wr-codex-welcome-icon"><Icon name="openai" /></div>
             <h3>Build with your components.</h3>
             <p>Describe a screen or a change. Codex works with native WebRAD components and typed TypeScript.</p>
             <div className="wr-codex-suggestions">
@@ -280,7 +248,7 @@ export function CodexPanel(props: CodexPanelProps): ReactElement {
 
         {assistant.messages.map((message) => (
           <article key={message.id} className={`wr-codex-message is-${message.role}${message.error ? ' is-error' : ''}`}>
-            <div className="wr-codex-message-author"><Icon name={message.role === 'user' ? 'user-round' : message.error ? 'triangle-alert' : 'sparkles'} /><strong>{message.role === 'user' ? 'You' : 'Codex'}</strong></div>
+            <div className="wr-codex-message-author"><strong>{message.role === 'user' ? 'You' : 'Codex'}</strong></div>
             <p>{message.text}</p>
             <ProposalReview message={message} assistant={assistant} page={page} revision={revision} editingEnabled={editingEnabled} />
           </article>
@@ -293,7 +261,6 @@ export function CodexPanel(props: CodexPanelProps): ReactElement {
         {connected && !assistant.loading && status.models.length > 0 && !assistant.selectedModel && (
           <p className="wr-codex-feedback" role="status">The saved model is unavailable. Choose an available Terra or Sol model below.</p>
         )}
-        <ContextDetails assistant={assistant} />
         <div className="wr-codex-context" title="This is the document Codex may change. The project context is read-only.">
           <Icon name="file-code-2" /><span>{page?.name ?? 'Open a page to begin'}</span>
           {selectionCount > 0 && <small>{selectionCount} selected</small>}

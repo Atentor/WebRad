@@ -434,10 +434,10 @@ export async function runDataGridConfigurationSmoke(
         window,
         `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`,
       );
-      await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+      await window.webContents.send('webrad:menu-command', 'file.save');
       await ready(
         window,
-        `document.querySelector(".wr-toolbar-save-state")?.textContent?.trim() === "Saved"`,
+        `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === "Saved"`,
       );
       const restored = await loadProjectFiles(projectPath);
       sourceRestored = restored.userSources[`pages/${page.name}.ts`] === originalSource;
@@ -714,10 +714,10 @@ export async function runChartsConfigurationSmoke(
         window,
         `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`,
       );
-      await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+      await window.webContents.send('webrad:menu-command', 'file.save');
       await ready(
         window,
-        `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+        `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
       );
       log(
         'renderer Charts fixture restored: configuration and insertion undone, original fixture saved',

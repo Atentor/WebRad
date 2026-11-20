@@ -84,13 +84,10 @@ export async function runEmptyEventCleanupSmoke(
     `document.querySelector('.monaco-editor')?.textContent?.includes('BTNMostrarFocus') === true && ${row}?.querySelector('input')?.value === 'BTNMostrarFocus'`,
     'the created empty focus handler and binding',
   );
-  await window.webContents.executeJavaScript(
-    `document.querySelector('button[aria-label="Save (Ctrl+S)"]').click()`,
-    true,
-  );
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await waitFor(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved' && !document.querySelector('.monaco-editor')?.textContent?.includes('BTNMostrarFocus') && ${row}?.querySelector('input')?.value === ''`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved' && !document.querySelector('.monaco-editor')?.textContent?.includes('BTNMostrarFocus') && ${row}?.querySelector('input')?.value === ''`,
     'Save removing the empty method and Inspector binding',
   );
   const saved = await loadProjectFiles(projectPath);

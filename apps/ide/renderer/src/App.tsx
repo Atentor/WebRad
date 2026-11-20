@@ -146,7 +146,7 @@ import { StylesWorkspace } from './components/StylesWorkspace';
 import { StyleComponentList } from './components/StyleComponentList';
 import { ProjectVisualResources } from './ProjectVisualResources';
 import { ToolPalette } from './components/ToolPalette';
-import { Toolbar } from './components/Toolbar';
+
 import {
   countEditorProblems,
   mergeEditorProblems,
@@ -2605,7 +2605,12 @@ export function App(): ReactElement {
     const pageDocuments: readonly DocumentTab[] = openPageIds.flatMap<DocumentTab>((id) => {
       const page = project?.pages.find((candidate) => candidate.id === id);
       if (page !== undefined) {
-        return [{ id, label: page.name, dirty: projectState.dirty, kind: 'page' as const }];
+        return [{
+          id,
+          label: page.name,
+          dirty: projectState.dirtyDocumentIds.has(id),
+          kind: 'page' as const,
+        }];
       }
       const sourceFile = project?.sourceFiles?.find((candidate) => candidate.id === id);
       const asset = project?.assets?.find((candidate) => candidate.id === id);
@@ -2614,20 +2619,25 @@ export function App(): ReactElement {
           {
             id,
             label: sourceFile ? `${sourceFile.name}.ts` : (asset?.fileName ?? ''),
-            dirty: projectState.dirty,
+            dirty: projectState.dirtyDocumentIds.has(id),
             kind: sourceFile ? 'code' : 'asset',
           },
         ];
       const reusableElement = project?.reusableElements.find((candidate) => candidate.id === id);
       const menu = project?.menus?.find((candidate) => candidate.id === id);
-      if (menu) return [{ id, label: menu.name, dirty: projectState.dirty, kind: 'menu' as const }];
+      if (menu) return [{
+        id,
+        label: menu.name,
+        dirty: projectState.dirtyDocumentIds.has(id),
+        kind: 'menu' as const,
+      }];
       return reusableElement === undefined
         ? []
         : [
             {
               id,
               label: reusableElement.name,
-              dirty: projectState.dirty,
+              dirty: projectState.dirtyDocumentIds.has(id),
               kind: 'reusable' as const,
             },
           ];
@@ -2639,7 +2649,7 @@ export function App(): ReactElement {
             {
               id: STYLES_DOCUMENT_ID,
               label: 'Styles',
-              dirty: projectState.dirty,
+              dirty: projectState.stylesDirty,
               kind: 'styles' as const,
             },
           ]
@@ -2655,7 +2665,15 @@ export function App(): ReactElement {
           ]
         : []),
     ];
-  }, [openPageIds, project, projectState.dirty, stylesOpen, restGoOpen, restGoPendingChanges]);
+  }, [
+    openPageIds,
+    project,
+    projectState.dirtyDocumentIds,
+    projectState.stylesDirty,
+    stylesOpen,
+    restGoOpen,
+    restGoPendingChanges,
+  ]);
 
   const editorPageComponents = useMemo(
     () =>
@@ -3065,86 +3083,22 @@ export function App(): ReactElement {
         className={
           previewActive ? 'wr-ide-modal-host wr-ide-preview-suspended' : 'wr-ide-modal-host'
         }
+        data-project-save-state={
+          projectState.saving
+            ? 'Saving...'
+            : restGoPendingChanges || settingsPendingChanges || fieldDraftsPending
+              ? 'Pending edits'
+              : projectState.dirty
+                ? 'Unsaved'
+                : project
+                  ? 'Saved'
+                  : 'No project'
+        }
+        data-project-issue-count={problemCounts.total}
         inert={modalOpen || previewActive ? true : undefined}
         aria-hidden={modalOpen || previewActive ? true : undefined}
       >
         <IdeShell
-          toolbar={
-            <Toolbar
-              updateState={updates.state}
-              onUpdate={() => {
-                void updates.update();
-              }}
-              onCommand={executeCommand}
-              canSave={project !== null && !projectState.saving}
-              canRun={
-                project !== null &&
-                projectState.rootPath !== null &&
-                !building &&
-                !deploy.busy &&
-                !nativeBuild.busy
-              }
-              canBuildApplication={
-                project !== null &&
-                projectState.rootPath !== null &&
-                !building &&
-                !deploy.busy &&
-                !nativeBuild.busy &&
-                !debugBusy &&
-                !debugActive
-              }
-              documents={documents}
-              activeDocumentId={
-                restGoActive ? RESTGO_DOCUMENT_ID : stylesActive ? STYLES_DOCUMENT_ID : activePageId
-              }
-              onSelectDocument={(id) => {
-                if (id === STYLES_DOCUMENT_ID) openStyles();
-                else if (id === RESTGO_DOCUMENT_ID) openRestGo();
-                else openPage(id);
-              }}
-              onCloseDocument={(id) => {
-                if (id === RESTGO_DOCUMENT_ID) {
-                  setRestGoOpen(false);
-                  if (activeWorkspace === 'restgo') setActiveWorkspace('page');
-                  return;
-                }
-                if (id === STYLES_DOCUMENT_ID) {
-                  setStylesOpen(false);
-                  if (activeWorkspace === 'styles') setActiveWorkspace('page');
-                  return;
-                }
-                setOpenPageIds((current) => {
-                  const remaining = current.filter((candidate) => candidate !== id);
-                  if (activePageId !== id) return remaining;
-                  const nextId = remaining.at(-1) ?? null;
-                  setActivePageId(nextId);
-                  return remaining;
-                });
-              }}
-              canUndo={
-                (activePage !== null || activeSourceFile !== undefined) &&
-                (activeView === 'code' ||
-                  (activePage !== null && designerController.canUndo(activePage)))
-              }
-              canRedo={
-                (activePage !== null || activeSourceFile !== undefined) &&
-                (activeView === 'code' ||
-                  (activePage !== null && designerController.canRedo(activePage)))
-              }
-              projectName={project?.name}
-              dirty={projectState.dirty}
-              pendingChanges={restGoPendingChanges || settingsPendingChanges || fieldDraftsPending}
-              saving={projectState.saving}
-              building={building}
-              debugStatus={debugState.status}
-              debugBusy={debugBusy}
-              issueCount={problemCounts.total}
-              onShowProblems={() => {
-                setVisiblePanels((current) => ({ ...current, output: true }));
-                setBottomPanelTab('problems');
-              }}
-            />
-          }
           explorer={
             stylesActive ? (
               <StyleComponentList
@@ -3194,6 +3148,7 @@ export function App(): ReactElement {
                     <ErrorBoundary area="Project Explorer">
                       <ProjectExplorer
                         project={project}
+                        dirtyDocumentIds={projectState.dirtyDocumentIds}
                         packages={packages.status?.dependencies}
                         packageOperationsDisabled={packageOperationsBlocked || packages.busy}
                         onManagePackages={packages.show}
@@ -3302,6 +3257,15 @@ export function App(): ReactElement {
           }
           activity={
             <ActivityBar
+              canPreview={
+                project !== null &&
+                projectState.rootPath !== null &&
+                !building &&
+                !deploy.busy &&
+                !nativeBuild.busy
+              }
+              building={building}
+              onPreview={() => executeCommand('run.run')}
               codexActive={codexOpen}
               codexBusy={codex.busy}
               onToggleCodex={() => setCodexOpen((current) => !current)}

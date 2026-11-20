@@ -55,8 +55,8 @@ export async function runTimerSmoke(
   await ready(
     `['OnTimer', 'OnStart', 'OnStop'].every(name => [...document.querySelectorAll('.wr-inspector-event-row label')].some(e => e.textContent?.trim() === name))`,
   );
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   const saved = await loadProjectFiles(options.projectPath);
   const timer = saved.project.pages
     .find((item) => item.id === page.id)
@@ -81,8 +81,8 @@ export async function runTimerSmoke(
   await ready(`document.querySelector(${JSON.stringify(tree)}) === null`);
   await click(root);
   await click('button[role="tab"][aria-label="Properties"]');
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   options.log(
     'renderer Timer Inspector and Interact passed: palette, interval, loop, enabled, events, persistence and undo',
   );
@@ -124,8 +124,8 @@ export async function runTimerSmoke(
   await ready(
     `['OnPaymentSucceeded', 'OnSubscriptionActivated', 'OnSubscriptionCanceled', 'OnCheckoutCreated', 'OnCheckoutReady', 'OnCheckoutOpened', 'OnOperationChange', 'OnSynchronizationChange', 'OnHistoryChange', 'OnStateChange', 'OnRestored', 'OnError', 'OnRequestComplete'].every(name => [...document.querySelectorAll('.wr-inspector-event-row label')].some(e => e.textContent?.trim() === name))`,
   );
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   const paymentsSession = await loadProjectFiles(options.projectPath);
   const payments = paymentsSession.project.pages
     .find((item) => item.id === page.id)
@@ -155,8 +155,8 @@ export async function runTimerSmoke(
   await ready(`document.querySelector(${JSON.stringify(paymentsTree)}) === null`);
   await click(root);
   await click('button[role="tab"][aria-label="Properties"]');
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   options.log(
     'renderer Payments Inspector and Interact passed: integration warning, nonvisual palette, gateway, mode, automatic recovery and observation defaults, thirteen typed events, persistence and undo',
   );

@@ -31,7 +31,7 @@ async function ready(window: BrowserWindow, expression: string): Promise<void> {
   const evidence: unknown = await window.webContents.executeJavaScript(`({
     preview: document.querySelector('.wr-preview-state')?.textContent,
     runDisabled: document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled,
-    saveState: document.querySelector('.wr-toolbar-save-state')?.textContent,
+    saveState: document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state'),
     output: document.querySelector('.wr-bottom-panel')?.textContent,
     dialogs: [...document.querySelectorAll('[role="dialog"]')].map(dialog => dialog.textContent),
   })`);
@@ -112,7 +112,7 @@ export async function assertPreviewTitle(
     `(() => {
     const run = document.querySelector('button[aria-label="Build and run (F9)"]');
     return run instanceof HTMLButtonElement && !run.disabled
-      && document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'
+      && document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'
       && document.querySelector('[role="dialog"]') === null;
   })()`,
   );
@@ -229,10 +229,10 @@ export async function runPageTitleSmoke(
   }
 
   async function assertSavedTitle(expected: string): Promise<void> {
-    await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+    await window.webContents.send('webrad:menu-command', 'file.save');
     await ready(
       window,
-      `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+      `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
     );
     const saved = await loadProjectFiles(projectPath);
     const root = saved.project.pages
@@ -281,14 +281,14 @@ export async function runPageTitleSmoke(
   await setParameterField(window, `${parameterLabel} default value`, '7');
   await click(window, '.wr-page-parameters-dialog button[type="submit"]');
   await ready(window, 'document.querySelector(".wr-page-parameters-dialog") === null');
-  await click(window, 'button[aria-label="Undo (Ctrl+Z)"]');
+  await window.webContents.send('webrad:menu-command', 'edit.undo');
   await click(window, 'button[aria-label="Configure Parameters"]');
   await ready(
     window,
     `document.querySelectorAll('.wr-page-parameters-table tbody tr').length === ${String(parameterNumber - 1)}`,
   );
   await click(window, 'button[aria-label="Close page parameters"]');
-  await click(window, 'button[aria-label="Redo (Ctrl+Y)"]');
+  await window.webContents.send('webrad:menu-command', 'edit.redo');
   await click(window, 'button[aria-label="Configure Parameters"]');
   await ready(
     window,

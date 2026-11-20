@@ -25,7 +25,6 @@ it.each(['textarea', 'edit-context'])(
     <button aria-label="Design"></button>
     <button role="treeitem" data-component-id="hello-webrad-component-form-main-v1"></button>
     <button role="tab" aria-label="Events"></button>
-    <button aria-label="Save (Ctrl+S)"></button>
     ${['OnLogin', 'OnLogout', 'OnUnauthenticated'].map((name) => `<div class="wr-inspector-event-row"><label>${name}</label></div>`).join('')}
     <div class="monaco-editor" data-cursor-position="Line 1, column 1"><span></span>${inputMode === 'textarea' ? '<textarea class="inputarea"></textarea>' : '<div class="native-edit-context" tabindex="0"></div>'}</div>
     <div class="wr-status-position" aria-label="Line 1, column 1"></div>
@@ -87,6 +86,7 @@ it.each(['textarea', 'edit-context'])(
       });
       const window = {
         webContents: {
+          send: vi.fn(),
           executeJavaScript: async (expression: string) => globalThis.eval(expression) as unknown,
           insertText,
           focus: vi.fn(),

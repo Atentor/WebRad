@@ -1,6 +1,174 @@
 # WebRAD delivery plan
 
+## Plain chat author labels (2026-11-19)
+
+Removed the icon beside message author names, keeping the plain Codex label.
+Activity-bar, panel header and welcome icons retain their current appearance.
+Validation was not requested or run.
+
+## OpenAI icon optical sizing (2026-11-19)
+
+Reduced the bundled icon's internal viewport padding to enlarge its visible
+artwork by about 23% over the original size, including a further 8% increase
+from the previous adjustment, without changing button or SVG box dimensions. The existing
+Electron panel interaction requires the adjusted viewport. Validation was not
+requested or run; rendered proportions remain unverified.
+
+## OpenAI assistant icon (2026-11-19)
+
+Replaced robot icons in the activity bar, chat header, welcome and assistant
+messages with a bundled OpenAI Blossom SVG from the official ChatGPT favicon.
+The shared IDE icon renderer distinguishes brand artwork from Lucide metadata.
+The existing Electron panel interaction now requires OpenAI brand markers.
+Validation was not requested or run; rendered appearance remains unverified.
+
+## Simplify chat activity (2026-11-19)
+
+Removed the Connect, Prepare proposal and Review TypeScript stage checklist
+from chat activity. The working indicator, elapsed time, provider status,
+quiet-period notice and cancellation remain available. Removed unused stage
+styles. Validation was not requested or run.
+
+## Official documentation reference for Codex (2026-11-19)
+
+Added https://webrad.atentor.com/docs to the assistant's authoring instructions
+as the official documentation and examples reference. The instructions distinguish
+knowing the URL from having read its contents. Existing typed API context and
+connection permissions remain unchanged. Validation was not requested or run.
+
+## Remove the project context disclosure (2026-11-19)
+
+Removed the chat's Project context disclosure and its inventory/coverage copy.
+Project context collection and request behavior remain unchanged. The existing
+Electron interaction now requires the removed disclosure to be absent while
+retaining the other panel interactions. Validation was not requested or run.
+
+## Usage reset hints (2026-11-19)
+
+Moved each reported quota reset timestamp to a native tooltip on its usage
+window, removing the extra line below the bars. Missing or invalid reset dates
+produce no tooltip. The existing Electron interaction requires the absence of
+the old reset row. Validation was not requested or run.
+
+## Minimal Codex chat styling (2026-11-19)
+
+Simplified the chat with unboxed suggestion rows and activity, quieter robot
+identity icons, right-aligned user bubbles and borderless assistant turns.
+Proposal review keeps a subtle outline; the composer uses a single focused
+outline, wrapping controls and a round send action. Context and reported usage
+remain accessible with less footer chrome. Theme tokens and keyboard focus
+indicators remain in use. The existing Electron panel interaction now checks
+the composer, suggestion and header icon styling. Validation was not requested
+or run; rendered appearance remains unverified.
+
+## Codex activity icon in the upper group (2026-11-19)
+
+Moved the Codex assistant action immediately below RestGo, before the flexible
+activity-bar spacer. Settings and Output remain at the bottom. The existing
+Electron Codex panel interaction now requires the upper-group order and rendered
+placement. The action uses the Lucide `bot` robot-face icon instead of sparkles;
+the same interaction requires its SVG identifier. Validation was not requested or run.
+
+## Button palette icon (2026-11-19)
+
+Button now uses Lucide `square-mouse-pointer`, showing a clickable control
+instead of an empty square. Central registry metadata keeps component surfaces
+consistent. The existing container palette smoke interaction also requires this
+Button icon. Validation was not requested or run.
+
+## Distinct Panel and Group icons (2026-11-19)
+
+Panel now uses Lucide `panel-top` to depict a framed container; Group uses
+`group` to depict multiple elements inside grouping corners. Both icons come
+from central registry metadata, keeping palette and other component surfaces
+consistent. The existing Panel Electron palette interaction now requires both
+icons. Validation was not requested or run; rendered appearance is unverified.
+
+## Match activity rail and sidebar backgrounds (2026-11-19)
+
+The activity rail background now references the panel background in both themes,
+matching the adjacent sidebar and Inspector. The existing Electron theme smoke
+also compares the rail color with the sidebar color. Validation was not requested
+or run; rendered colors remain unverified.
+
+## Sidebar tab appearance (2026-11-19)
+
+Builder/Responsive and Visual/Interaction now use the same joined tab appearance
+as Design/Code: 32px tabs with rounded top corners, square bottom corners, shared
+edges and an accent along the selected tab's top. The selected background and
+bottom border match their panel content. The Project Explorer toggle remains a
+separate centered icon. The existing Electron document-view geometry interaction
+also checks both sidebar tab pairs. Validation was not requested or run.
+
+## Align editor and Inspector header borders (2026-11-19)
+
+The editor view row and Inspector selection row now share the same 36px header
+height, including the Inspector layout with integration warnings. This removes
+the former 2px vertical step at their horizontal borders. The existing Electron
+document-view geometry interaction now requires aligned header tops/bottoms and
+matching bottom borders. Validation was not requested or run; rendered alignment
+has not been verified.
+
+## Remove the main toolbar (2026-11-19)
+
+Removed the entire Beta/Web/current-document/action row and its shell slot and
+styles. The workbench now starts directly below the window title bar. Project,
+history, build and debug commands remain available through menus and shortcuts;
+Preview remains first in the activity bar. Explorer opens documents, and Design/
+Code retains document dirty dots. Save/pending state and issue counts remain
+observable as shell data attributes for existing smoke synchronization.
+Existing Electron interactions and integration fixtures now use the remaining
+controls and assert toolbar absence and the reclaimed geometry. No tests, smokes,
+builds or other validation were requested or run.
+
+## Preview first in the activity bar (2026-11-19)
+
+Moved Preview from the top toolbar to the first activity bar position, above
+Project Explorer. It retains the existing run command, F9 shortcut and availability
+conditions, with a building tooltip and busy state. The existing Electron shell
+interaction checks its first position, toolbar absence and disabled welcome state;
+existing Preview click interactions keep the accessible action label. No validation
+was requested or run.
+
+## Unsaved change dots (2026-11-19)
+
+Project Controller now compares each document's model and authored source against
+the normalized load/last successfully saved baseline, using stable IDs and content
+comparison independent of object key order. Pages, reusable components, menus,
+models, units and assets no longer inherit the project's global dirty flag. Styles
+tracks its catalog and theme settings separately. Explorer uses the complete dirty
+ID set, including closed documents; tabs and Design/Code use the same state.
+Returning content to the saved version clears its dot. Load, successful Save/Save
+As and project close reset the baseline; failed or stale saves cannot clear it.
+
+The existing Electron Preview error-recovery interaction now requires a clean
+baseline, only index marked after a native Monaco edit, clean unrelated files and
+no document dots after restoring the source or saving. Existing geometry evidence
+still checks 8px dots and Explorer/tab agreement for open documents. Validation
+was not requested or run.
+
+Generic document, save-status and view icon sizing now excludes unsaved dots,
+allowing their shared 8px dimensions to apply in every location. The existing
+Electron view interaction checks computed and rendered 8px dimensions for all
+visible document, toolbar and view dots. No validation was requested or run.
+
+Unsaved documents use a filled Lucide circle instead of the document asterisk
+and toolbar pencil. Design and Code retain their icons and show the same dot
+while the active document is dirty. Saved documents hide their dots; the toolbar
+retains its existing saved state and pending-edit semantics. Validation was not
+requested or run.
+
+## Bug reports in Help (2026-11-19)
+
+Removed the toolbar bug-report button and moved its GitHub Issues action to
+Help > Report a bug. The existing Electron interaction checks toolbar absence,
+the available Help action and its browser destination, retaining Beta evidence.
+Validation was not requested or run.
+
 ## Compact integrated window title bar (2026-11-19)
+
+Title bar menu hover and open states use square corners. The existing shell smoke
+requires zero radius on all four corners. Validation was not requested or run.
 
 The IDE uses one 32px draggable title bar with its application icon, existing
 application menus. The centered project/application caption has been removed at

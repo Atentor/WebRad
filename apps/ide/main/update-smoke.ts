@@ -56,7 +56,7 @@ export async function runUpdateSmoke(
   window: BrowserWindow,
   log: (message: string) => void,
 ): Promise<void> {
-  await waitFor(window, "!!document.querySelector('.wr-toolbar') && !!window.webrad?.updates");
+  await waitFor(window, "!!document.querySelector('.wr-workbench') && !!window.webrad?.updates");
   if (await window.webContents.executeJavaScript("!!document.querySelector('.wr-toolbar-update')"))
     throw new Error('Update button appeared before a newer release was confirmed.');
   await window.webContents.executeJavaScript('window.webrad.updates.check()', true);

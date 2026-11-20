@@ -39,6 +39,9 @@ export function EditorWorkspace({
 
   return (
     <section
+      aria-label={activeDocument?.label ?? 'Editor workspace'}
+      data-document-id={activeDocumentId ?? undefined}
+      data-document-dirty={activeDocument?.dirty ?? false}
       className={
         hasDocumentViews
           ? 'wr-editor-workspace wr-editor-workspace-with-views'
@@ -87,6 +90,11 @@ export function EditorWorkspace({
             >
               <Icon name={icon} />
               <span>{label}</span>
+              {activeDocument?.dirty && (
+                <span aria-label="Unsaved changes">
+                  <Icon name="circle" className="wr-unsaved-dot" />
+                </span>
+              )}
             </button>
           ))}
         </div>

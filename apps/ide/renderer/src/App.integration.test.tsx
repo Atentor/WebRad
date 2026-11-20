@@ -448,7 +448,7 @@ describe('App MVP integration', () => {
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
       const user = userEvent.setup();
       render(<App />);
-      await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+      await user.keyboard('{Control>}o{/Control}');
       await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
       await user.click(screen.getByRole('treeitem', { name }));
       const trash = screen.getByRole('button', { name: 'Delete selected project item' });
@@ -466,7 +466,7 @@ describe('App MVP integration', () => {
       expect(screen.queryByRole('treeitem', { name })).toBeNull();
       expect(screen.queryByRole('tab', { name: new RegExp(name) })).toBeNull();
       expect(document.querySelector('.wr-page-surface')).not.toBeNull();
-      await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+      await user.keyboard('{Control>}s{/Control}');
       await waitFor(() => expect(harness.save).toHaveBeenCalledOnce());
       const saved = harness.persisted();
       const names = [
@@ -477,7 +477,7 @@ describe('App MVP integration', () => {
       ];
       expect(names).not.toContain(name);
       if (path) expect(saved.userSources[path]).toBeUndefined();
-      await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+      await user.keyboard('{Control>}o{/Control}');
       await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
       expect(screen.queryByRole('treeitem', { name })).toBeNull();
       expect(
@@ -497,7 +497,7 @@ describe('App MVP integration', () => {
       (screen.getByRole('button', { name: 'Delete selected project item' }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     const trash = screen.getByRole('button', { name: 'Delete selected project item' });
     expect((trash as HTMLButtonElement).disabled).toBe(true);
@@ -518,7 +518,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Build Application' }));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     await user.selectOptions(controls.getByLabelText('Target Platform'), 'web');
@@ -545,7 +545,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     expect(harness.bridge.nativeBuild.inspect).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Build Application' }));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
@@ -582,7 +582,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Build Application' }));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     await waitFor(() => expect(pending.length).toBeGreaterThan(0));
@@ -674,7 +674,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Build Application' }));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     const requirements = within(controls.getByRole('region', { name: 'Build Requirements' }));
@@ -707,7 +707,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Settings' }));
     await user.click(screen.getByRole('tab', { name: 'Native Application' }));
     const settings = within(screen.getByRole('dialog', { name: 'Settings for MvpProject' }));
@@ -829,7 +829,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     act(() => harness.invokeCommand('project.buildApplication'));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     await user.selectOptions(controls.getByLabelText('Target Platform'), 'android');
@@ -868,7 +868,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     act(() => harness.invokeCommand('project.buildApplication'));
     const dialog = screen.getByRole('dialog', { name: 'Build Application' });
     const controls = within(dialog);
@@ -899,7 +899,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     act(() => harness.invokeCommand('project.buildApplication'));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     await user.click(controls.getByRole('button', { name: 'Build' }));
@@ -921,7 +921,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     act(() => harness.invokeCommand('project.buildApplication'));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     await user.click(controls.getByRole('button', { name: 'Build' }));
@@ -949,7 +949,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Build Application' }));
     let controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     expect(controls.queryByLabelText('Output Directory')).toBeNull();
@@ -972,7 +972,7 @@ describe('App MVP integration', () => {
       configuredOutputDirectory,
     );
     await user.click(settings.getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Build Application' }));
     controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     await user.click(controls.getByRole('button', { name: 'Build' }));
@@ -1001,7 +1001,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     act(() => harness.invokeCommand('project.buildApplication'));
     const controls = within(screen.getByRole('dialog', { name: 'Build Application' }));
     await user.click(controls.getByRole('button', { name: 'Build' }));
@@ -1038,7 +1038,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     act(() => harness.invokeCommand('project.deploy'));
     const settings = await screen.findByRole('dialog', { name: 'Settings for MvpProject' });
     expect(
@@ -1122,7 +1122,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await screen.findByTitle('RepeatingGroup1: WebRepeatingGroup');
     selectDesignerComponent('RepeatingGroup1: WebRepeatingGroup');
     await user.dblClick(
@@ -1170,7 +1170,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     const trayItem = await screen.findByRole('option', { name: 'ReportBuilder1, Report Builder' });
     fireEvent.doubleClick(trayItem);
     const editor = within(await screen.findByRole('dialog', { name: 'Report template' }));
@@ -1224,7 +1224,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await screen.findByTitle('RepeatingGroup1: WebRepeatingGroup');
     selectDesignerComponent('RepeatingGroup1: WebRepeatingGroup');
     await user.click(screen.getByRole('button', { name: 'Configure Repeating Group' }));
@@ -1268,23 +1268,17 @@ describe('App MVP integration', () => {
       { property: 'caption', fieldPath: '/id' },
     ]);
   }, 15000);
-  it('shows active debug feedback and stops the session when the toolbar button is clicked again', async () => {
+  it('starts and stops debugging through keyboard shortcuts without the main toolbar', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     render(<App />);
     await act(async () => harness.invokeCommand('file.openProject'));
-    fireEvent.click(screen.getByRole('button', { name: 'Start debugging (F5)' }));
-    const stop = await screen.findByRole('button', { name: 'Stop debugging (Shift+F5)' });
-    await waitFor(() => expect(stop.getAttribute('data-debug-status')).toBe('running'));
-    expect(stop.getAttribute('aria-pressed')).toBe('true');
-    expect(stop.classList.contains('active')).toBe(true);
-    expect(stop.textContent).toBe('Stop Debug');
-    fireEvent.click(stop);
+    fireEvent.keyDown(window, { key: 'F5' });
+    await waitFor(() => expect(harness.bridge.debugger.start).toHaveBeenCalledTimes(1));
+    await screen.findByRole('region', { name: 'Code debugger' });
+    expect(screen.queryByRole('toolbar', { name: 'Main toolbar' })).toBeNull();
+    fireEvent.keyDown(window, { key: 'F5', shiftKey: true });
     await waitFor(() => expect(harness.bridge.debugger.command).toHaveBeenCalledWith('stop'));
-    const idle = await screen.findByRole('button', { name: 'Start debugging (F5)' });
-    expect(idle.getAttribute('aria-pressed')).toBe('false');
-    expect(idle.classList.contains('active')).toBe(false);
-    expect(harness.bridge.debugger.start).toHaveBeenCalledTimes(1);
     expect(harness.bridge.debugger.command).not.toHaveBeenCalledWith('resume');
   });
   it('starts debugging with F5, navigates paused frames, persists watches, and dispatches step/stop controls', async () => {
@@ -1327,9 +1321,7 @@ describe('App MVP integration', () => {
     await waitFor(() =>
       expect(screen.getByTestId('mock-monaco').getAttribute('data-navigation-line')).toBe('7'),
     );
-    expect(screen.getByRole('button', { name: 'Stop debugging (Shift+F5)' }).textContent).toBe(
-      'Debug Paused',
-    );
+    expect(document.querySelector('.wr-debug-status-paused')).not.toBeNull();
     fireEvent.change(screen.getByRole('textbox', { name: 'New watch expression' }), {
       target: { value: 'this.name' },
     });
@@ -1348,7 +1340,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.dblClick(screen.getByRole('button', { name: 'Button' }));
     const button = await screen.findByTitle('Button1: WebButton');
     await user.click(screen.getByRole('button', { name: 'Icon' }));
@@ -1376,7 +1368,7 @@ describe('App MVP integration', () => {
     render(<App />);
     fireEvent.keyDown(window, { key: 'F12' });
     expect(screen.queryByRole('tablist', { name: 'Document view' })).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     const navigation = screen.getByRole('tablist', { name: 'Document view' });
     expect(navigation.parentElement?.classList.contains('wr-editor-workspace')).toBe(true);
     expect(navigation.nextElementSibling?.classList.contains('wr-editor-content')).toBe(true);
@@ -1426,7 +1418,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('tab', { name: 'Code' }));
     await user.click(screen.getByRole('button', { name: 'Styles' }));
     const editorCommand = vi.fn();
@@ -1486,7 +1478,7 @@ describe('App MVP integration', () => {
     await waitFor(() => expect(harness.restore).toHaveBeenCalledTimes(1));
     expect(document.querySelector('.wr-welcome-mark')).not.toBeNull();
     expect(document.querySelector('.wr-page-surface')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await waitFor(() => expect(document.querySelector('.wr-page-surface')).not.toBeNull());
     expect(harness.open).toHaveBeenCalledTimes(1);
   });
@@ -1500,7 +1492,7 @@ describe('App MVP integration', () => {
     expect(
       await screen.findByText('Could not reopen the last project: Project is unavailable'),
     ).toBeDefined();
-    await user.click(screen.getByRole('button', { name: 'New project (Ctrl+N)' }));
+    await user.keyboard('{Control>}n{/Control}');
     expect(await screen.findByRole('dialog', { name: 'Create a new project' })).toBeDefined();
   });
   it('creates, designs, generates code, persists, reopens, and runs the browser preview', async () => {
@@ -1513,11 +1505,11 @@ describe('App MVP integration', () => {
     const user = userEvent.setup();
     render(<App />);
     expect(screen.getByRole('heading', { name: 'WebRAD' })).toBeDefined();
-    expect(screen.getByRole('toolbar', { name: 'Main toolbar' })).toBeDefined();
+    expect(screen.queryByRole('toolbar', { name: 'Main toolbar' })).toBeNull();
     expect(document.querySelector('.wr-brand-mark')).toBeNull();
     expect(document.querySelector('.wr-theme-toggle')).toBeNull();
     expect(imageSource('.wr-welcome-mark')).toBe(applicationIconUrl);
-    await user.click(screen.getByRole('button', { name: 'New project (Ctrl+N)' }));
+    await user.keyboard('{Control>}n{/Control}');
     await screen.findByRole('dialog', { name: 'Create a new project' });
     const projectName = screen.getByRole('textbox', { name: 'Project name' });
     await user.clear(projectName);
@@ -1529,9 +1521,7 @@ describe('App MVP integration', () => {
     expect(screen.getAllByText('index').length).toBeGreaterThan(0);
     expect(screen.getByTitle('Entry page')).toBeDefined();
     expect(screen.queryByText('Forms')).toBeNull();
-    expect(
-      within(screen.getByRole('toolbar', { name: 'Main toolbar' })).queryByRole('img'),
-    ).toBeNull();
+    expect(document.querySelector('.wr-toolbar')).toBeNull();
     expect(harness.create).toHaveBeenCalledWith({
       name: 'MvpProject',
       templateId: 'blank',
@@ -1669,7 +1659,7 @@ describe('App MVP integration', () => {
         { name: 'FileUpload1', type: 'WebFileUpload' },
       ]),
     );
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const saved = harness.persisted();
@@ -1735,7 +1725,7 @@ describe('App MVP integration', () => {
     });
     await screen.findByRole('heading', { name: 'WebRAD' });
     expect(harness.release).toHaveBeenCalledWith('C:\\Projects\\MvpProject');
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await screen.findByTitle('BTNMostrar: WebButton');
     await screen.findByRole('option', { name: 'ApiClientes, API Client' });
     await screen.findByRole('option', { name: 'Popup1, Popup' });
@@ -1775,7 +1765,7 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.dblClick(screen.getByRole('button', { name: 'Popup' }));
@@ -1789,7 +1779,7 @@ describe('App MVP integration', () => {
     await waitFor(() => {
       expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Button1');
     });
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const page = harness.persisted().project.pages[0];
@@ -1822,7 +1812,7 @@ describe('App MVP integration', () => {
     );
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.dblClick(screen.getByRole('button', { name: 'API Client' }));
@@ -1852,7 +1842,7 @@ describe('App MVP integration', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'API Client' })).toBeNull();
     });
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const persistedApiClient = harness
@@ -1894,7 +1884,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     fireEvent.doubleClick(await screen.findByTitle('ComboBox1: WebComboBox'));
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Edit Items…' }));
@@ -1903,7 +1893,7 @@ describe('App MVP integration', () => {
     await user.type(editor.getByLabelText('ComboBox Items'), 'Ana{Enter}Bruno');
     await user.type(editor.getByLabelText('ComboBox Values'), '1{Enter}2');
     await user.click(editor.getByRole('button', { name: 'Save' }));
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await waitFor(() =>
       expect(
         harness
@@ -1938,7 +1928,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     const combo = await screen.findByTitle('ComboBox1: WebComboBox');
     fireEvent.doubleClick(combo);
     const editor = within(await screen.findByRole('dialog', { name: 'Configure ComboBox' }));
@@ -1946,7 +1936,7 @@ describe('App MVP integration', () => {
     await user.selectOptions(editor.getByLabelText('ComboBox display field'), '/name');
     await user.selectOptions(editor.getByLabelText('ComboBox key field'), '/id');
     await user.click(editor.getByRole('button', { name: 'Save' }));
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await waitFor(() =>
       expect(
         harness
@@ -1980,7 +1970,7 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.dblClick(screen.getByRole('button', { name: 'Data Grid' }));
@@ -2013,7 +2003,7 @@ describe('App MVP integration', () => {
     expect(gridEventEditor.value).toContain(
       'const { column, rowIndex, columnIndex, value, getValue } = event.detail;',
     );
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const dataGrid = harness
@@ -2035,7 +2025,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.dblClick(screen.getByRole('button', { name: 'Data Grid' }));
@@ -2139,7 +2129,7 @@ describe('App MVP integration', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('button', { name: 'Collapse Pages' }));
@@ -2332,7 +2322,7 @@ describe('App MVP integration', () => {
       false,
     );
     await user.selectOptions(labelStyleSelect, screen.getByRole('option', { name: 'Muted Label' }));
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const savedWithStyles = harness.persisted().project;
@@ -2369,7 +2359,7 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('option', { name: 'Button' }));
     await user.click(screen.getByRole('option', { name: /Primary Button/ }));
     await user.click(screen.getByRole('button', { name: 'Delete Primary Button' }));
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await waitFor(() => {
       const styles = harness.persisted().project.styles;
       expect(styles).toHaveLength(initialStyleCount + 2);
@@ -2400,7 +2390,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     for (const kind of ['model', 'unit'] as const) {
       await act(async () =>
@@ -2429,7 +2419,7 @@ describe('App MVP integration', () => {
               : 'export const suffix = "!";',
         },
       });
-      await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+      await user.keyboard('{Control>}s{/Control}');
       await waitFor(() =>
         expect(
           harness.persisted().userSources[
@@ -2449,7 +2439,7 @@ describe('App MVP integration', () => {
     await user.click(within(duplicate).getByRole('button', { name: 'Add model' }));
     expect(within(duplicate).getByRole('alert').textContent).toContain('already exists');
     await user.click(within(duplicate).getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await user.click(await screen.findByRole('treeitem', { name: 'Helpers' }));
     expect(
@@ -2468,18 +2458,18 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await act(async () => harness.invokeCommand('project.importAsset'));
     expect(await screen.findByRole('img', { name: 'logo.png' })).toBeDefined();
     expect(
       (screen.getByRole('textbox', { name: 'Asset application path' }) as HTMLInputElement).value,
     ).toBe('assets/imported/logo.png');
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await waitFor(() => expect(harness.persisted().project.assets).toEqual([asset]));
     await act(async () => harness.invokeCommand('project.importAsset'));
     expect(harness.bridge.project.importAsset).toHaveBeenCalledTimes(2);
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     expect(harness.persisted().project.assets).toEqual([asset]);
   });
   it('creates additional pages with the Page naming contract', async () => {
@@ -2490,7 +2480,7 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await act(async () => {
@@ -2504,7 +2494,7 @@ describe('App MVP integration', () => {
       expect(screen.queryByRole('dialog', { name: 'Add page' })).toBeNull();
     });
     expect((await screen.findAllByText('Page2')).length).toBeGreaterThan(0);
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     expect(harness.persisted().project.pages.map((page) => page.name)).toEqual([
@@ -2524,7 +2514,7 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByTitle('Open Project Settings'));
@@ -2565,7 +2555,7 @@ describe('App MVP integration', () => {
       '#007acc',
     );
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await waitFor(() =>
       expect(harness.persisted().project.settings.themes.colors.primary).toMatchObject({
         light: '#007acc',
@@ -2585,7 +2575,7 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await act(async () => {
@@ -2598,10 +2588,8 @@ describe('App MVP integration', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Add reusable component' }));
     const projectTree = screen.getByRole('tree', { name: 'MvpProject project' });
     await within(projectTree).findByRole('treeitem', { name: 'CustomerCard', selected: true });
-    const openDocuments = screen.getByRole('tablist', { name: 'Open documents' });
-    expect(
-      within(openDocuments).getByRole('tab', { name: /CustomerCard/, selected: true }),
-    ).toBeDefined();
+
+    expect(screen.getByRole('region', { name: 'CustomerCard' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Code' })).toBeDefined();
     expect(screen.queryByRole('tab', { name: 'Preview' })).toBeNull();
     expect(screen.getByRole('tab', { name: 'Design' })).toBeDefined();
@@ -2653,7 +2641,7 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('tab', { name: 'Properties' }));
     await user.selectOptions(screen.getByLabelText('Responsive width'), 'stretch');
     await user.selectOptions(screen.getByLabelText('Responsive height'), 'fit-content');
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await ensureOutputVisible(user);
     await screen.findByText('Saved MvpProject.');
     const saved = harness.persisted().project;
@@ -2683,7 +2671,7 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('tab', { name: 'Code' }));
@@ -2708,7 +2696,7 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('tab', { name: 'Code' }));
@@ -2730,7 +2718,7 @@ describe('App MVP integration', () => {
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    const trigger = screen.getByRole('button', { name: 'Open project (Ctrl+O)' });
+    const trigger = screen.getByRole('button', { name: 'Open Project' });
     trigger.focus();
     await act(async () => harness.invokeCommand('help.about'));
     const dialog = await screen.findByRole('dialog', { name: 'About WebRAD' });
@@ -2820,13 +2808,13 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('tab', { name: 'Code' }));
     await user.click(await screen.findByRole('button', { name: 'Emit editor problem' }));
     expect(document.querySelector('.wr-bottom-slot')).toBeNull();
-    await user.click(screen.getByRole('button', { name: '1 issues' }));
+    await user.click(screen.getByRole('button', { name: 'Toggle output' }));
     const problemsTab = await screen.findByRole('tab', {
       name: /Problems, 1 error, 0 warnings/i,
     });
@@ -2838,7 +2826,7 @@ describe('App MVP integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('mock-monaco').getAttribute('data-navigation-line')).toBe('2');
     });
-    expect(screen.getByRole('button', { name: /^1 issues$/i })).toBeDefined();
+    expect(document.querySelector('[data-project-issue-count]')?.getAttribute('data-project-issue-count')).toBe('1');
   });
   it('keeps build diagnostics authoritative and opens their source location', async () => {
     const harness = createBridgeHarness(initialSession());
@@ -2863,7 +2851,7 @@ describe('App MVP integration', () => {
     });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     await user.click(screen.getByRole('button', { name: 'Project Explorer' }));
     await screen.findByRole('tree', { name: 'MvpProject project' });
     await user.click(screen.getByRole('button', { name: 'Build and run (F9)' }));
@@ -2877,12 +2865,12 @@ describe('App MVP integration', () => {
     await waitFor(() => expect(editor.getAttribute('data-navigation-line')).toBe('3'));
     expect(screen.getByRole('tab', { name: 'Code' }).getAttribute('aria-selected')).toBe('true');
   });
-  it('keeps the toolbar focused on the current page while preserving component IDs and bounds', async () => {
+  it('preserves component IDs and bounds without the main toolbar', async () => {
     const harness = createBridgeHarness(initialSession());
     Object.defineProperty(window, 'webrad', { configurable: true, value: harness.bridge });
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Open project (Ctrl+O)' }));
+    await user.keyboard('{Control>}o{/Control}');
     const tree = await screen.findByRole('tree', { name: 'Page elements' });
     expect(screen.getByRole('tab', { name: 'Builder' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.queryByRole('tree', { name: 'MvpProject project' })).toBeNull();
@@ -2900,9 +2888,9 @@ describe('App MVP integration', () => {
     });
     expect(renamed.getAttribute('data-component-id')).toBe(componentId);
     expect(document.querySelector('.wr-toolbar-selection')).toBeNull();
-    const documents = within(screen.getByRole('tablist', { name: 'Open documents' }));
-    expect(documents.getAllByRole('tab')).toHaveLength(1);
-    expect(documents.getByRole('tab', { name: /index/ })).toBeDefined();
+
+    expect(document.querySelector('.wr-document-tabs')).toBeNull();
+    expect(screen.getByRole('region', { name: 'index' })).toBeDefined();
     expect(screen.queryByRole('combobox', { name: 'Zoom' })).toBeNull();
     expect(screen.queryByLabelText('Arrange selection')).toBeNull();
     await user.click(within(tree).getByRole('treeitem', { name: 'index' }));
@@ -2937,14 +2925,14 @@ describe('App MVP integration', () => {
     expect(screen.getByRole('tab', { name: 'Code' }).getAttribute('aria-selected')).toBe('true');
     await user.click(screen.getByRole('tab', { name: 'Design' }));
     await user.click(screen.getByRole('treeitem', { name: 'SaveOrder' }));
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await waitFor(() => expect(harness.save).toHaveBeenCalledOnce());
     const frontPage = harness.persisted().project.pages[0];
     expect(
       frontPage?.components.find((component) => component.id === frontPage.rootComponentId)
         ?.children,
     ).toEqual([componentId, labelId]);
-    await user.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+    await user.keyboard('{Control>}s{/Control}');
     await waitFor(() => expect(harness.save).toHaveBeenCalledTimes(2));
     const backPage = harness.persisted().project.pages[0];
     expect(

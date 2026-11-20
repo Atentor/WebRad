@@ -447,7 +447,7 @@ async function runMonacoLanguageSmoke(window: BrowserWindow): Promise<void> {
   );
   await waitForRendererResult(
     window,
-    "Number.parseInt(document.querySelector('.wr-toolbar-issues')?.textContent ?? '0', 10) > 0 && document.querySelector('.wr-bottom-slot') === null",
+    "Number.parseInt(document.querySelector('[data-project-issue-count]')?.getAttribute('data-project-issue-count') ?? '0', 10) > 0 && document.querySelector('.wr-bottom-slot') === null",
     'live diagnostics without reopening Problems',
     (value) => value === true,
   );
@@ -591,21 +591,21 @@ async function clickRendererControl(
 }
 
 async function runDesignerThemeSmoke(window: BrowserWindow): Promise<void> {
-  for (const [theme, toolbarColor, sidebarColor, canvasColor] of [
-    ['light', 'rgb(249, 250, 252)', 'rgb(249, 250, 252)', 'rgb(238, 241, 245)'],
-    ['dark', 'rgb(51, 51, 51)', 'rgb(37, 37, 38)', 'rgb(30, 30, 30)'],
+  for (const [theme, sidebarColor, canvasColor] of [
+    ['light', 'rgb(249, 250, 252)', 'rgb(238, 241, 245)'],
+    ['dark', 'rgb(37, 37, 38)', 'rgb(30, 30, 30)'],
   ] as const) {
     window.webContents.send('webrad:menu-command', 'view.toggleTheme');
     const evidence = await waitForRendererResult(
       window,
-      "(() => { const color = (selector) => { const node = document.querySelector(selector); return node instanceof HTMLElement ? getComputedStyle(node).backgroundColor : ''; }; return { theme: document.documentElement.dataset.theme, toolbar: color('.wr-toolbar'), sidebar: color('.wr-left-rail'), canvas: color('.wr-designer-workspace') }; })()",
+      "(() => { const color = (selector) => { const node = document.querySelector(selector); return node instanceof HTMLElement ? getComputedStyle(node).backgroundColor : ''; }; return { theme: document.documentElement.dataset.theme, activity: color('.wr-activity-bar'), sidebar: color('.wr-left-rail'), canvas: color('.wr-designer-workspace') }; })()",
       'the ' + theme + ' workspace theme and computed colors',
       (value) =>
         typeof value === 'object' &&
         value !== null &&
         Reflect.get(value, 'theme') === theme &&
-        Reflect.get(value, 'toolbar') === toolbarColor &&
         Reflect.get(value, 'sidebar') === sidebarColor &&
+        Reflect.get(value, 'activity') === sidebarColor &&
         Reflect.get(value, 'canvas') === canvasColor,
     );
     smokeLog('renderer ' + theme + ' theme passed: ' + JSON.stringify(evidence));
@@ -631,6 +631,38 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
         const selectedStyle = getComputedStyle(selected);
         const inactiveStyle = getComputedStyle(buttons[1]);
         const contentStyle = getComputedStyle(content);
+        const inspectorHeader = document.querySelector('.wr-inspector-selection');
+        if (!(inspectorHeader instanceof HTMLElement)) return false;
+        const inspectorBounds = inspectorHeader.getBoundingClientRect();
+        const inspectorStyle = getComputedStyle(inspectorHeader);
+        const tabsStyle = getComputedStyle(tabs);
+        const alignedHeaders = Math.abs(inspectorBounds.top - bar.top) < 0.1 &&
+          Math.abs(inspectorBounds.bottom - bar.bottom) < 0.1 &&
+          inspectorStyle.borderBottomWidth === '1px' && tabsStyle.borderBottomWidth === '1px' &&
+          inspectorStyle.borderBottomColor === tabsStyle.borderBottomColor;
+        const sidebarTabsMatch = ['.wr-builder-tabs', '.wr-inspector-tabs'].every(selector => {
+          const group = document.querySelector(selector);
+          const controls = [...(group?.querySelectorAll(':scope > button[role="tab"]') ?? [])];
+          if (!(group instanceof HTMLElement) || controls.length !== 2) return false;
+          const groupBounds = group.getBoundingClientRect();
+          const active = controls.find(button => button.getAttribute('aria-selected') === 'true');
+          if (!active) return false;
+          const activeStyle = getComputedStyle(active);
+          const content = group.nextElementSibling;
+          if (!(content instanceof HTMLElement)) return false;
+          const contentColor = getComputedStyle(content).backgroundColor;
+          const firstBounds = controls[0].getBoundingClientRect();
+          const secondBounds = controls[1].getBoundingClientRect();
+          return Math.abs(secondBounds.left - firstBounds.right) <= 1 &&
+            controls.every(button => {
+              const style = getComputedStyle(button);
+              const bounds = button.getBoundingClientRect();
+              return bounds.height === 32 && Math.abs(bounds.bottom - groupBounds.bottom) < 0.1 &&
+                parseFloat(style.borderTopLeftRadius) > 0 && parseFloat(style.borderTopRightRadius) > 0 &&
+                parseFloat(style.borderBottomLeftRadius) === 0 && parseFloat(style.borderBottomRightRadius) === 0;
+            }) && activeStyle.backgroundColor === contentColor &&
+            activeStyle.borderBottomColor === contentColor && activeStyle.boxShadow !== 'none';
+        });
         const roundedTop = parseFloat(selectedStyle.borderTopLeftRadius) > 0 &&
           parseFloat(selectedStyle.borderTopRightRadius) > 0;
         const squareBottom = parseFloat(selectedStyle.borderBottomLeftRadius) === 0 &&
@@ -638,7 +670,25 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
         const joinedSurface = selectedStyle.backgroundColor === contentStyle.backgroundColor &&
           selectedStyle.borderBottomColor === contentStyle.backgroundColor &&
           inactiveStyle.backgroundColor !== selectedStyle.backgroundColor;
-        return roundedTop && squareBottom && joinedSurface &&
+        const dirty = workspace.getAttribute('data-document-dirty') === 'true';
+        const dots = [...tabs.querySelectorAll('.wr-unsaved-dot')];
+        const dirtyDots = dots.length === (dirty ? 2 : 0) && dots.every(dot =>
+          getComputedStyle(dot).fill === getComputedStyle(dot).color &&
+          getComputedStyle(dot).stroke === 'none');
+        const consistentDotSize = [...document.querySelectorAll(
+          '.wr-view-tabs .wr-unsaved-dot, .wr-project-tree .wr-unsaved-dot',
+        )].every(dot => {
+          const style = getComputedStyle(dot);
+          const bounds = dot.getBoundingClientRect();
+          return style.width === '8px' && style.height === '8px' &&
+            Math.abs(bounds.width - 8) < 0.1 && Math.abs(bounds.height - 8) < 0.1;
+        });
+        const explorerMatchesTabs = [...document.querySelectorAll('.wr-project-tree [data-project-resource-id]')]
+          .every(row => {
+            return row.getAttribute('data-project-resource-id') !== workspace.getAttribute('data-document-id') ||
+              (row.querySelector('.wr-unsaved-dot') !== null) === dirty;
+          });
+        return sidebarTabsMatch && alignedHeaders && dirtyDots && consistentDotSize && explorerMatchesTabs && roundedTop && squareBottom && joinedSurface &&
           Math.abs(first.bottom - body.top) < 1 && Math.abs(last.bottom - body.top) < 1 &&
           Math.abs(last.left - first.right) <= 1 &&
           parseFloat(selectedStyle.borderTopWidth) === 1 &&
@@ -826,18 +876,16 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
   const toolbarEvidence = await waitForRendererResult(
     window,
     `(() => {
-    const toolbar = document.querySelector('.wr-toolbar');
-    const tabs = toolbar?.querySelectorAll('[role="tab"]');
-    const currentTab = tabs?.[0];
+    const workspace = document.querySelector('.wr-editor-workspace');
     const surface = document.querySelector('.wr-page-surface');
     return {
-      currentDocument: currentTab?.textContent?.trim(),
-      singleDocument: tabs?.length === 1 && currentTab?.getAttribute('aria-selected') === 'true',
-      simplifiedControls: toolbar !== null && toolbar.querySelector('select, [aria-label="Arrange selection"], .wr-toolbar-selection') === null,
+      currentDocument: workspace?.getAttribute('aria-label'),
+      singleDocument: Boolean(workspace?.getAttribute('data-document-id')),
+      simplifiedControls: document.querySelector('.wr-toolbar, .wr-document-tabs') === null,
       designerScale: surface instanceof HTMLElement ? surface.style.transform : '',
     };
   })()`,
-    'the current-document toolbar and default Designer scale',
+    'the removed toolbar and default Designer scale',
     (value) =>
       typeof value === 'object' &&
       value !== null &&
@@ -846,7 +894,7 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
       Reflect.get(value, 'designerScale') === 'scale(1)',
   );
   await clickRendererControl(window, 'button[aria-label="Design"]', 'the restored Builder sidebar');
-  smokeLog(`renderer Designer toolbar contract passed: ${JSON.stringify(toolbarEvidence)}`);
+  smokeLog(`renderer Designer toolbar removal passed: ${JSON.stringify(toolbarEvidence)}`);
 
   await runDesignerThemeSmoke(window);
 }
@@ -928,12 +976,12 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   if (process.argv.includes('--webrad-smoke-native-build') && smokeProjectPath !== undefined) {
     await clickRendererControl(
       window,
-      'button[aria-label="Open project (Ctrl+O)"]',
+      "button[aria-label=\"Open Project\"]",
       'Open project',
     );
     await waitForRendererResult(
       window,
-      'document.querySelector(\'button[aria-label="Build Application"]\')?.disabled === false',
+      "document.querySelector('.wr-page-surface') !== null",
       'the opened project Native Build action',
       (value) => value === true,
     );
@@ -948,14 +996,13 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     `(() => ({
       shell: Boolean(document.querySelector('.wr-ide-shell')) && Boolean(document.querySelector('.wr-activity-bar')),
       toolbar: Boolean(document.querySelector('.wr-toolbar')),
-      toolbarActions: ['New project (Ctrl+N)', 'Open project (Ctrl+O)', 'Save (Ctrl+S)', 'Undo (Ctrl+Z)', 'Redo (Ctrl+Y)', 'Build and run (F9)']
-        .map(label => {
-          const button = document.querySelector('.wr-toolbar button[aria-label="' + label + '"]');
-          return button instanceof HTMLButtonElement ? !button.disabled : null;
-        }),
-      workspaceNavigation: ['Project Explorer', 'Styles', 'Project Settings', 'RestGo integration', 'Codex assistant', 'Toggle output']
+      toolbarActions: document.querySelector('.wr-toolbar button') === null,
+      workspaceNavigation: ['Build and run (F9)', 'Project Explorer', 'Styles', 'Project Settings', 'RestGo integration', 'Codex assistant', 'Toggle output']
       .every(label => document.querySelector('.wr-activity-bar button[aria-label="' + label + '"]') instanceof HTMLButtonElement)
       && document.querySelector('.wr-activity-bar [role="tablist"]') === null
+      && document.querySelector('.wr-activity-bar')?.firstElementChild?.getAttribute('aria-label') === 'Build and run (F9)'
+      && document.querySelector('.wr-activity-bar button[aria-label="Build and run (F9)"]')?.disabled === true
+      && document.querySelector('.wr-toolbar button[aria-label="Build and run (F9)"]') === null
       && document.querySelector('.wr-view-tabs') === null,
       toolbarBrandIcon: Boolean(document.querySelector('img.wr-toolbar-mark')),
       toolbarThemeToggle: Boolean(document.querySelector('.wr-theme-toggle')),
@@ -998,8 +1045,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   } satisfies Record<keyof WebRadBridge, true>).sort();
   if (
     shell !== true ||
-    toolbar !== true ||
-    JSON.stringify(toolbarActions) !== JSON.stringify([true, true, false, false, false, false]) ||
+    toolbar !== false ||
+    toolbarActions !== true ||
     workspaceNavigation !== true ||
     toolbarBrandIcon !== false ||
     toolbarThemeToggle !== false ||
@@ -1036,7 +1083,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   await waitForRendererResult(window, `(() => {
     const bar = document.querySelector('.wr-window-titlebar');
     const content = document.querySelector('.wr-window-content');
-    const toolbar = document.querySelector('.wr-toolbar');
+    const toolbar = document.querySelector('.wr-workbench');
     if (!(bar instanceof HTMLElement) || !(content instanceof HTMLElement) || !(toolbar instanceof HTMLElement)) return false;
     const bounds = bar.getBoundingClientRect();
     const menu = bar.querySelector('.wr-window-menu');
@@ -1050,7 +1097,9 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
       (globalThis.webrad.platform === 'darwin' ? menu === null :
         menu instanceof HTMLElement && getComputedStyle(menu).getPropertyValue('-webkit-app-region') === 'no-drag' &&
         buttons.map(button => button.textContent).join(',') === 'File,Edit,Search,View,Project,Run,Tools,Help' &&
-        buttons.every(button => button.getBoundingClientRect().right <= rightEdge));
+        buttons.every(button => button.getBoundingClientRect().right <= rightEdge &&
+          ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius']
+            .every(corner => parseFloat(getComputedStyle(button)[corner]) === 0)));
   })()`, 'the compact title bar and native controls clearance', (value) => value === true);
   if (process.platform !== 'darwin') {
     if (window.isMenuBarVisible()) throw new Error('The native menu must not occupy a second row.');
@@ -1666,7 +1715,7 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
       sendRendererKey(window, key, modifiers),
     );
     smokeLog(
-      'renderer Preview build error recovery passed: diagnostics, Stop, source navigation and restored authored source',
+      'renderer Preview build error recovery passed: diagnostics, Stop, source navigation, restored authored source and isolated document dirty indicators',
     );
   }
   await waitForRendererResult(

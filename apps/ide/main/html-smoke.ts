@@ -9,7 +9,7 @@ import { stopPreviewSmoke } from './preview-workspace-smoke';
 const html = `<style>
 body { margin: 0; color: rgb(17, 34, 51); background: rgb(240, 245, 250); }
 article { padding: 12px; font: 16px sans-serif; }
-.wr-toolbar { display: none !important; }
+
 </style>
 <article id="html-smoke"><strong>HTML &amp; CSS</strong>
 <pre>&lt;/script&gt; "quotes" &amp; accents: olá</pre></article>`;
@@ -607,10 +607,10 @@ async function runDesignerEditingSmoke(
   })()`,
     true,
   );
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   const saved = await loadProjectFiles(projectPath);
   const nodes = saved.project.pages.flatMap((page) => page.components);
@@ -627,10 +627,10 @@ async function runDesignerEditingSmoke(
   }
   await click(window, root);
   await undo();
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   const undone = await loadProjectFiles(projectPath);
   if (
@@ -707,10 +707,10 @@ async function runDesignerEditingSmoke(
     window,
     `document.querySelector('[data-designer-node-id=${JSON.stringify(popupId)}]') === null && document.querySelector('[role="treeitem"][data-component-id=${JSON.stringify(popupId)}]') === null`,
   );
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   log(
     `renderer UX Designer editing passed: native Enter palette insertion, Inspector width applied after pause and blur with canvas and undo evidence, multiline ListBox draft persisted, incomplete numeric draft canceled, multi-selection events saved for both IDs and undone atomically; Popup canvas backdrop, centered editor, child insertion and dismissal ${JSON.stringify(popupEvidence)}`,
@@ -781,7 +781,7 @@ export async function runHtmlSmoke(
       return frame instanceof HTMLIFrameElement && frame.srcdoc === ${JSON.stringify(html)}
         && frame.getAttribute('sandbox') === '' && frame.inert && frame.tabIndex === -1
         && getComputedStyle(frame).pointerEvents === 'none'
-        && document.querySelector('.wr-toolbar')?.getBoundingClientRect().height > 0;
+        && document.querySelector('.wr-workbench')?.getBoundingClientRect().height > 0;
     })()`,
   );
   const designerFrame = await htmlDocument(window, window.webContents.mainFrame);
@@ -856,10 +856,10 @@ export async function runHtmlSmoke(
     true,
   );
   await ready(window, embedProjection(embedDesigner, true));
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   const saved = await loadProjectFiles(projectPath);
   for (const expected of ratios) {
@@ -984,10 +984,10 @@ export async function runHtmlSmoke(
   await ready(window, `document.querySelector(${JSON.stringify(tree)}) === null`);
   await ready(window, `document.querySelector(${JSON.stringify(embedDesigner)}) === null`);
   await click(window, root);
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   log(
     `renderer HTML Inspector and F9 passed: palette, exact multiline persistence, isolated Designer/CSS, compiled sandbox and geometry; screenshot ${screenshotPath}`,

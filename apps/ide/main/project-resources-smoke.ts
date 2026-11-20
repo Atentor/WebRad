@@ -89,8 +89,8 @@ async function runFocusedProjectResourcesSmoke(
     if (!projectMenu?.items.some((item) => item.label === label))
       throw new Error(`Missing Project menu item: ${label}`);
   }
-  await waitFor('document.querySelector(\'button[aria-label="Open project (Ctrl+O)"]\') !== null');
-  await click('button[aria-label="Open project (Ctrl+O)"]');
+  await waitFor("document.querySelector('button[aria-label=\"Open Project\"]') !== null");
+  await click("button[aria-label=\"Open Project\"]");
   await waitFor("document.querySelector('.wr-page-surface') !== null");
   await click('[aria-label="Project Explorer"]');
   await waitFor("document.querySelector('[role=tree]') !== null");
@@ -124,7 +124,7 @@ async function runFocusedProjectResourcesSmoke(
     await waitFor(
       `document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea') !== null
         && document.querySelector('[role=dialog]') === null
-        && document.querySelector('.wr-document-tabs [role=tab][aria-selected=true] > button > span')?.textContent === ${JSON.stringify(name + '.ts')}`,
+        && document.querySelector('.wr-editor-workspace')?.getAttribute('aria-label') === ${JSON.stringify(name + '.ts')}`,
     );
     await window.webContents.executeJavaScript(
       "document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea').focus()",
@@ -190,7 +190,7 @@ async function runFocusedProjectResourcesSmoke(
     dialog.showOpenDialog = originalPicker;
   }
   window.webContents.send('webrad:menu-command', 'file.save');
-  await waitFor("document.querySelector('.wr-toolbar')?.textContent?.includes('*') === false");
+  await waitFor("document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'");
   const saved = await loadProjectFiles(projectPath);
   if (saved.project.sourceFiles?.length !== 2 || saved.project.assets?.length !== 1)
     throw new Error('Resource manifest did not save.');
@@ -395,7 +395,7 @@ async function runFocusedProjectResourcesSmoke(
     `document.querySelector('[aria-label="Delete selected project item"]')?.title === 'Delete ResourceHelpersCopy'`,
   );
   window.webContents.send('webrad:menu-command', 'file.save');
-  await waitFor("document.querySelector('.wr-toolbar')?.textContent?.includes('*') === false");
+  await waitFor("document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'");
   const copied = await loadProjectFiles(projectPath);
   const originalUnit = copied.project.sourceFiles?.find((file) => file.name === 'ResourceHelpers');
   const copiedUnit = copied.project.sourceFiles?.find(
@@ -456,7 +456,7 @@ async function runFocusedProjectResourcesSmoke(
     'document.querySelector(\'[aria-label="Delete selected project item"]\')?.disabled === true',
   );
   window.webContents.send('webrad:menu-command', 'file.save');
-  await waitFor("document.querySelector('.wr-toolbar')?.textContent?.includes('*') === false");
+  await waitFor("document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'");
   const deleted = await loadProjectFiles(projectPath);
   if (deleted.project.sourceFiles?.length !== 0 || deleted.project.assets?.length !== 0)
     throw new Error('Deleted resources returned after save/reopen.');

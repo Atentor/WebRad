@@ -173,7 +173,7 @@ export async function runPackagesSmoke(
     const save = async (): Promise<void> => {
       window.webContents.send('webrad:menu-command', 'file.save');
       await ready(
-        `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+        `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
         'Save completion',
       );
     };
@@ -205,7 +205,7 @@ export async function runPackagesSmoke(
     const menu = Menu.getApplicationMenu()?.items.find((item) => item.label === 'Project')?.submenu;
     if (!menu?.items.some((item) => item.label.replace(/\u2026$/, '') === 'Packages'))
       throw new Error('Missing Project > Packages native menu.');
-    await click('button[aria-label="Open project (Ctrl+O)"]');
+    await click("button[aria-label=\"Open Project\"]");
     await ready(`document.querySelector('.wr-page-surface') !== null`, 'the opened project');
     await openPackages();
     await ready(
@@ -374,7 +374,7 @@ export async function runPackagesSmoke(
     await field('[role="dialog"] input', 'PackageDates');
     await click('[role="dialog"] button[type="submit"]');
     await ready(
-      `document.querySelector('.wr-document-tabs [role=tab][aria-selected=true]')?.textContent?.includes('PackageDates.ts') === true`,
+      `document.querySelector('.wr-editor-workspace')?.getAttribute('aria-label')?.includes('PackageDates.ts') === true`,
       'the new Unit',
     );
     await replaceEditor(unitSource);

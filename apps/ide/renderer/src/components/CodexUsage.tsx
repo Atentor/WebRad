@@ -3,11 +3,11 @@ import type { CodexUsage as Usage, CodexUsageWindow } from '../../../shared/code
 function UsageBar({ label, window }: { readonly label: string; readonly window: CodexUsageWindow | null }) {
   const percent = window ? Math.max(0, Math.min(100, window.usedPercent)) : null;
   const reset = window?.resetsAt ? new Date(window.resetsAt * 1000) : null;
+  const resetHint = reset && Number.isFinite(reset.getTime()) ? `Resets ${reset.toLocaleString()}` : undefined;
   return (
-    <div className="wr-codex-usage-window">
+    <div className="wr-codex-usage-window" title={resetHint}>
       <div><span>{label}</span><strong>{percent === null ? 'Unavailable' : `${Math.round(percent)}% used`}</strong></div>
       {percent === null ? <div className="wr-codex-usage-track is-unavailable" /> : <div className={`wr-codex-usage-track${percent >= 90 ? ' is-high' : ''}`} role="progressbar" aria-label={`${label} limit used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div>}
-      {reset && Number.isFinite(reset.getTime()) && <small title={reset.toLocaleString()}>Resets {reset.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>}
     </div>
   );
 }

@@ -25,14 +25,27 @@ export async function runCodexPanelSmoke(
       const effort = panel?.querySelector('select[aria-label="Reasoning effort"]');
       const send = panel?.querySelector('button[aria-label="Send to Codex"]');
       const button = document.querySelector('button[aria-label="Codex assistant"]');
+      const integration = document.querySelector('button[aria-label="RestGo integration"]');
+      const spacer = document.querySelector('.wr-activity-bar > .wr-activity-spacer');
       if (!(panel instanceof HTMLElement && prompt instanceof HTMLTextAreaElement &&
           model instanceof HTMLSelectElement && effort instanceof HTMLSelectElement &&
           send instanceof HTMLButtonElement && button instanceof HTMLButtonElement)) return false;
       const bounds = panel.getBoundingClientRect();
+      const inUpperGroup = integration instanceof HTMLButtonElement && spacer instanceof HTMLElement &&
+        integration.nextElementSibling === button && button.nextElementSibling === spacer &&
+        button.getBoundingClientRect().top >= integration.getBoundingClientRect().bottom &&
+        button.getBoundingClientRect().bottom <= spacer.getBoundingClientRect().top;
       const promptBounds = prompt.getBoundingClientRect();
+      const composer = panel.querySelector('.wr-codex-composer');
+      const suggestion = panel.querySelector('.wr-codex-suggestions button');
+      const minimalChrome = composer instanceof HTMLElement && suggestion instanceof HTMLButtonElement &&
+        getComputedStyle(composer).borderRadius === '8px' &&
+        getComputedStyle(suggestion).borderTopWidth === '0px' &&
+        panel.querySelector('.wr-codex-title svg')?.getAttribute('data-brand-icon') === 'openai';
       const usage = panel.querySelector('[aria-label="Codex usage limits"]');
       const usageVisible = usage instanceof HTMLElement && usage.getBoundingClientRect().height > 0 &&
         usage.querySelectorAll('.wr-codex-usage-track').length === 2 &&
+        usage.querySelector('.wr-codex-usage-window small') === null &&
         usage.getBoundingClientRect().bottom <= bounds.bottom;
       const header = panel.querySelector('.wr-codex-header');
       const tabs = document.querySelector('.wr-view-tabs');
@@ -41,7 +54,9 @@ export async function runCodexPanelSmoke(
       const allowedModels = [...model.options].every((option) =>
         !option.value || /^gpt-6\\.1-(terra|sol)(?:$|-)/.test(option.value));
       return button.getAttribute('aria-pressed') === 'true' && send.disabled &&
-        allowedModels && aligned && usageVisible &&
+        allowedModels && aligned && usageVisible && inUpperGroup && minimalChrome &&
+        button.querySelector('svg')?.getAttribute('data-brand-icon') === 'openai' &&
+        button.querySelector('svg')?.getAttribute('viewBox') === '1.5 1.5 13 13' &&
         panel.querySelectorAll('.wr-codex-suggestions button').length === 3 &&
         bounds.width >= 220 && bounds.height > 200 &&
         promptBounds.left >= bounds.left && promptBounds.right <= bounds.right &&
@@ -52,14 +67,7 @@ export async function runCodexPanelSmoke(
       const prompt = document.querySelector('.wr-codex-panel textarea');
       return prompt instanceof HTMLTextAreaElement && prompt.value.includes('registration form');
     })()`);
-    await window.webContents.executeJavaScript(`document.querySelector('.wr-codex-project-context > summary').click()`, true);
-    await waitFor(`(() => {
-      const context = document.querySelector('.wr-codex-project-context');
-      const details = context?.querySelector('.wr-codex-context-details');
-      return context instanceof HTMLDetailsElement && context.open &&
-        details instanceof HTMLElement && details.getBoundingClientRect().height > 0 &&
-        details.textContent.includes('Available source files');
-    })()`);
+    await waitFor(`document.querySelector('.wr-codex-project-context') === null`);
     await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Close Codex"]').click()`, true);
     await waitFor(`document.querySelector('.wr-codex-panel') === null`);
     await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Codex assistant"]').click()`, true);

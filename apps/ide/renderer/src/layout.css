@@ -13,6 +13,14 @@
   user-select: none;
 }
 
+.wr-icon.wr-unsaved-dot {
+  width: 8px;
+  height: 8px;
+  fill: currentColor;
+  stroke: none;
+  color: var(--wr-warning);
+}
+
 .wr-window-titlebar[data-platform='darwin'] {
   padding-left: 82px;
   padding-right: 10px;
@@ -35,7 +43,7 @@
 .wr-window-menu button {
   padding: 0 8px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 0;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -59,21 +67,10 @@
 
 .wr-ide-shell {
   display: grid;
-  grid-template-rows: 34px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   width: 100%;
   height: 100%;
   background: var(--wr-bg);
-}
-
-.wr-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 8px;
-  border-bottom: 1px solid var(--wr-border);
-  background: var(--wr-panel-bg);
-  box-shadow: 0 1px 5px color-mix(in srgb, var(--wr-shadow) 70%, transparent);
-  z-index: 5;
 }
 
 .wr-tool-group {
@@ -725,10 +722,6 @@ button.wr-problem:focus-visible {
   height: 15px;
 }
 
-.wr-document-tab em {
-  font-style: normal;
-}
-
 .wr-document-close {
   width: 28px;
   border: 0;
@@ -797,7 +790,7 @@ button.wr-problem:focus-visible {
   box-shadow: inset 0 2px var(--wr-accent);
 }
 
-.wr-view-tabs button .wr-icon {
+.wr-view-tabs button .wr-icon:not(.wr-unsaved-dot) {
   width: 22px;
   height: 22px;
 }

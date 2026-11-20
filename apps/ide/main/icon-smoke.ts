@@ -18,7 +18,7 @@ async function ready(window: BrowserWindow, expression: string): Promise<void> {
   const evidence: unknown = await window.webContents.executeJavaScript(`({
     preview: document.querySelector('.wr-preview-state')?.textContent,
     runDisabled: document.querySelector('button[aria-label="Build and run (F9)"]')?.disabled,
-    saveState: document.querySelector('.wr-toolbar-save-state')?.textContent,
+    saveState: document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state'),
     output: document.querySelector('.wr-bottom-panel')?.textContent,
     dialogs: [...document.querySelectorAll('[role="dialog"]')].map(dialog => dialog.textContent),
   })`);
@@ -126,10 +126,10 @@ export async function runIconSmoke(
     window,
     `document.querySelector(${JSON.stringify(designer)})?.dataset.webradIconMode === 'button'`,
   );
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   const saved = await loadProjectFiles(projectPath);
   const node = saved.project.pages.flatMap((p) => p.components).find((c) => c.id === id);
@@ -154,7 +154,7 @@ export async function runIconSmoke(
     `(() => {
       const run = document.querySelector('button[aria-label="Build and run (F9)"]');
       return run instanceof HTMLButtonElement && !run.disabled
-        && document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'
+        && document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'
         && document.querySelector('[role="dialog"]') === null;
     })()`,
   );
@@ -258,10 +258,10 @@ export async function runIconSmoke(
   }
   await ready(window, `document.querySelector(${JSON.stringify(tree)}) === null`);
   await click(window, root);
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   log(
     `renderer Lucide Icons Inspector and F9 passed: palette, gallery, saved icon/button mode, captionless SVG, native Enter/Space, static default appearance; screenshot ${screenshotPath}`,
@@ -346,10 +346,10 @@ export async function runLineSmoke(
       a.height > 20 && b.height > 20 && Math.abs(a.height - b.height) < 2 && a.bottom <= c.top && c.bottom <= b.top;
   })()`;
   await ready(window, projection(designer));
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   const saved = await loadProjectFiles(projectPath);
   const line = saved.project.pages
@@ -429,10 +429,10 @@ export async function runLineSmoke(
   }
   await ready(window, `document.querySelector(${JSON.stringify(tree)}) === null`);
   await click(window, root);
-  await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   const restored = await loadProjectFiles(projectPath);
   if (

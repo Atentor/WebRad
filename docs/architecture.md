@@ -1,6 +1,28 @@
 # WebRAD architecture
 
+## Unsaved document indicators
+
+Project Controller retains the normalized model and authored sources from load or
+the last accepted successful save as an ephemeral baseline. It compares documents
+by stable ID, using each document's own model and authored source; models, units
+and assets use their corresponding resource content. Equality ignores object key
+insertion order. The Styles document compares the style catalog and theme settings.
+The controller publishes document dirty IDs independently of the project's global
+dirty flag, which also covers project-level edits and deletion. Explorer uses all
+dirty IDs, including closed documents; the editor workspace and view dots share the same
+state. RestGo's pending editor state remains separate. New/renamed documents are
+marked, restoring saved content clears its dot, and only accepted successful saves
+or loading/closing a project reset the baseline. This state is not persisted and
+does not change the Project Model format.
+
 ## IDE window chrome
+
+The main toolbar has been removed. The workbench fills the area directly below
+the title bar without an empty toolbar grid row. Commands remain in application
+menus and keyboard shortcuts; Preview remains first in the activity bar. The
+editor workspace exposes the active document label, stable ID and dirty state;
+the shell exposes save/pending state and diagnostic count as data attributes for
+existing Electron interactions, without adding another visible status row.
 
 The renderer projects a 32px title bar above the workbench and Preview. Electron
 uses a hidden native title bar with native Window Controls Overlay on Windows and
@@ -437,7 +459,7 @@ require the native menu to be absent in Preview and restored after Stop.
 
 ## Designer model
 
-The IDE workspace has a compact top toolbar, an activity rail, a Builder/Responsive sidebar, a central canvas, and a full-height Inspector. The toolbar shows the active document, save state, diagnostic counts, and project, history, build, debug, and Preview actions. Design and Code controls switch the authoring view. Activity buttons open Project Explorer, Styles, Project Settings, RestGo, and Output. Output starts collapsed and opens for diagnostics; its dock remains below the compact nonvisual tray in the editor column. Removed Zoom/Arrange toolbar controls are not part of the current workspace contract.
+The IDE workspace has an activity rail, a Builder/Responsive sidebar, a central canvas, and a full-height Inspector directly below the window title bar. Project Explorer opens documents. Design and Code controls switch the authoring view and retain document dirty indicators. Preview is first in the activity bar, followed by workspace actions including Project Explorer, Styles, Project Settings, RestGo, Codex, and Output. Output starts collapsed and opens for build diagnostics; its dock remains below the compact nonvisual tray in the editor column. Application menus and shortcuts provide project, history, build and debugger commands. The former main toolbar is absent.
 
 Preview, F9, and View > Preview all save and compile the current application into an exclusive workspace. The generated application fills the window below a 42px Preview bar containing the project name and a visible red **Stop** button. The bar also offers **Desktop** (available width), **Tablet** (768 px), and **Mobile** (390 px), using the Designer's shared viewport widths. Switching presets resizes the existing iframe so the application's media queries and resize observers respond without recompilation, navigation, or loss of form state. Tablet and Mobile are centered when space permits; narrower windows scroll horizontally to preserve the selected CSS width. The controls collapse to labeled icons in narrow windows. This width selection is independent of the Designer preset, defaults to Desktop for each Preview session, and does not emulate a device's user agent or touch input. The authoring shell stays mounted at its original dimensions to retain Monaco view state, Designer geometry, selection, document, workspace, and panel sizes, but is invisible, inert, and hidden from accessibility navigation. Native IDE commands and F12 cannot return to editing while Preview is active. Stop removes the iframe and restores the authoring workspace and prior focus; it also works during compilation, and a late result cannot reopen Preview. An already running compilation finishes in the background before another Preview build can start. Build errors appear in Preview, with full Problems available after Stop. Preview state is ephemeral and does not change the persisted Project Model. The separate debugging workflow remains unchanged.
 
@@ -558,7 +580,7 @@ Preview and exported applications consume the same embedded sources. See
 
 ## IDE themes
 
-The dark IDE theme uses neutral graphite surfaces inspired by VS Code's classic dark theme: `#1e1e1e` for the workspace and editor, `#252526` for panels, and `#333333` for the toolbar and activity rail. Application chrome colors are centralized in `theme.css`; the Designer stylesheet supplies layout rather than a second color palette. Monaco uses the matching editor, gutter, widget, and selection colors. Theme switching remains transient IDE state and does not rewrite authored component styles or generated application styling.
+The dark IDE theme uses neutral graphite surfaces inspired by VS Code's classic dark theme: `#1e1e1e` for the workspace and editor, `#252526` for panels, and `#333333` for toolbar surfaces. The activity rail shares the panel background (`#252526` in dark mode) with the adjacent sidebar and Inspector. Application chrome colors are centralized in `theme.css`; the Designer stylesheet supplies layout rather than a second color palette. Monaco uses the matching editor, gutter, widget, and selection colors. Theme switching remains transient IDE state and does not rewrite authored component styles or generated application styling.
 
 ## Commands and selection
 

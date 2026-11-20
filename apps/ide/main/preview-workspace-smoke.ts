@@ -20,9 +20,32 @@ export async function assertPreviewBuildErrorSmoke(
   window.webContents.send('webrad:menu-command', 'file.save');
   await waitForPreviewState(
     window,
-    "document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'",
+    "document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'",
   );
   const original = await loadProjectFiles(projectPath);
+  const entry = original.project.pages.find((page) => page.name === 'index');
+  if (!entry) throw new Error('Missing index document for Preview recovery.');
+  const assertDocumentIndicators = async (dirtyId: string | null): Promise<void> => {
+    await waitForPreviewState(window, `(() => {
+      const expectedId = ${JSON.stringify(dirtyId)};
+      const rows = [...document.querySelectorAll('.wr-project-tree [data-project-resource-id]')];
+      const tabs = [...document.querySelectorAll('.wr-editor-workspace[data-document-id]')];
+      return rows.some(row => row.getAttribute('data-project-resource-id') === ${JSON.stringify(entry.id)}) &&
+        rows.every(row => (row.querySelector('.wr-unsaved-dot') !== null) ===
+          (row.getAttribute('data-project-resource-id') === expectedId)) &&
+        tabs.every(tab => (tab.getAttribute('data-document-dirty') === 'true') ===
+          (tab.getAttribute('data-document-id') === expectedId)) &&
+        document.querySelectorAll('.wr-view-tabs .wr-unsaved-dot').length === (expectedId === null ? 0 : 2);
+    })()`);
+  };
+  await clickPreviewControlSmoke(window, 'button[aria-label="Project Explorer"]');
+  const pagesCollapsed = await window.webContents.executeJavaScript(
+    `document.querySelector('.wr-project-tree button[aria-label="Expand Pages"]') !== null`,
+    true,
+  ) as boolean;
+  if (pagesCollapsed)
+    await clickPreviewControlSmoke(window, '.wr-project-tree button[aria-label="Expand Pages"]');
+  await assertDocumentIndicators(null);
   const focusEditor = async (): Promise<void> => {
     await window.webContents.executeJavaScript(
       `document.querySelector('.monaco-editor .native-edit-context, .monaco-editor textarea.inputarea')?.focus()`,
@@ -42,6 +65,7 @@ export async function assertPreviewBuildErrorSmoke(
     window,
     "[...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('uxPreviewFailure'))",
   );
+  await assertDocumentIndicators(entry.id);
   await clickPreviewControlSmoke(window, 'button[aria-label="Build and run (F9)"]');
   await waitForPreviewState(
     window,
@@ -60,12 +84,14 @@ export async function assertPreviewBuildErrorSmoke(
     window,
     "![...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('uxPreviewFailure'))",
   );
+  await assertDocumentIndicators(null);
   window.webContents.send('webrad:menu-command', 'file.save');
   await waitForPreviewState(
     window,
-    "document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'",
+    "document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'",
   );
   const restored = await loadProjectFiles(projectPath);
+  await assertDocumentIndicators(null);
   if (
     Object.entries(original.userSources).some(
       ([key, source]) => restored.userSources[key] !== source,

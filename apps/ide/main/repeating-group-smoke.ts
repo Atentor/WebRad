@@ -125,10 +125,10 @@ export async function runRepeatingGroupCalculationSmoke(
       window,
       `(() => { const text = document.querySelector('.monaco-editor')?.textContent?.replaceAll(String.fromCharCode(160), ' ') ?? ''; return text.includes('WebRepeatingGroupCalcRowStringEventDetail') && text.includes('rowIndex, value, setValue') && !text.includes(${JSON.stringify(`async ${labelName}CalcRow`)}); })()`,
     );
-    await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+    await window.webContents.send('webrad:menu-command', 'file.save');
     await ready(
       window,
-      `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+      `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
     );
     const saved = await loadProjectFiles(projectPath);
     const nodes = saved.project.pages.find((candidate) => candidate.id === page.id)?.components;
@@ -206,10 +206,10 @@ export async function runRepeatingGroupCalculationSmoke(
           true,
         );
       }
-      await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+      await window.webContents.send('webrad:menu-command', 'file.save');
       await ready(
         window,
-        `document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`,
+        `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
       );
       const restored = await loadProjectFiles(projectPath);
       fixtureRestored =

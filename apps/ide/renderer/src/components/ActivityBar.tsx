@@ -2,6 +2,9 @@ import type { ReactElement } from 'react';
 import { Icon } from './Icon';
 
 interface ActivityBarProps {
+  canPreview: boolean;
+  building: boolean;
+  onPreview: () => void;
   stylesActive: boolean;
   restGoActive?: boolean;
   codexActive?: boolean;
@@ -20,6 +23,17 @@ interface ActivityBarProps {
 export function ActivityBar(props: ActivityBarProps): ReactElement {
   return (
     <nav className="wr-activity-bar" aria-label="Workspace navigation">
+      <button
+        type="button"
+        aria-label="Build and run (F9)"
+        title={props.building ? 'Building Preview...' : 'Preview (F9)'}
+        aria-busy={props.building}
+        aria-keyshortcuts="F9"
+        disabled={!props.canPreview}
+        onClick={props.onPreview}
+      >
+        <Icon name="play" />
+      </button>
       <button
         type="button"
         aria-label="Project Explorer"
@@ -50,7 +64,6 @@ export function ActivityBar(props: ActivityBarProps): ReactElement {
       >
         <Icon name="database" />
       </button>
-      <span className="wr-activity-spacer" />
       <button
         type="button"
         aria-label="Codex assistant"
@@ -59,9 +72,10 @@ export function ActivityBar(props: ActivityBarProps): ReactElement {
         aria-busy={props.codexBusy === true}
         onClick={props.onToggleCodex}
       >
-        <Icon name="sparkles" />
+        <Icon name="openai" />
         {props.codexBusy && <span className="wr-codex-activity-dot" aria-hidden="true" />}
       </button>
+      <span className="wr-activity-spacer" />
       <button
         type="button"
         aria-label="Project Settings"

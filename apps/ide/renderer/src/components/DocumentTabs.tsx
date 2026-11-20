@@ -15,6 +15,7 @@ export function DocumentTabs(props: DocumentTabsProps): ReactElement {
       {props.documents.map((document) => (
         <div
           key={document.id}
+          data-document-id={document.id}
           className={`wr-document-tab ${props.activeDocumentId === document.id ? 'active' : ''}`}
           role="tab"
           aria-selected={props.activeDocumentId === document.id}
@@ -36,7 +37,11 @@ export function DocumentTabs(props: DocumentTabsProps): ReactElement {
               }
             />
             <span>{document.label}</span>
-            {document.dirty && <em aria-label="Unsaved changes">*</em>}
+            {document.dirty && (
+              <span aria-label="Unsaved changes">
+                <Icon name="circle" className="wr-unsaved-dot" />
+              </span>
+            )}
           </button>
           <button
             className="wr-document-close"

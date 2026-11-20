@@ -140,7 +140,7 @@ try {
         'renderer debugger Monaco controls and persistence passed',
         'renderer debugger Monaco variable hover passed',
         'renderer debugger Monaco breakpoint focus passed',
-        'renderer debugger toolbar toggle and feedback passed',
+        'renderer debugger menu and controls passed',
         'renderer debugger restart and teardown passed',
       ]
     : resourceSmoke
@@ -272,7 +272,7 @@ try {
           'renderer Designer selection tree reveal passed:',
           'renderer Label text wrap Inspector passed:',
           'renderer responsive viewport passed:',
-          'renderer Designer toolbar contract passed:',
+          'renderer Designer toolbar removal passed:',
           'renderer bug report and documentation browser links passed',
           'renderer Monaco passed',
           'renderer Monaco nonintrusive Problems passed',
@@ -293,7 +293,7 @@ try {
           'renderer Preview isolation passed:',
           'renderer Preview viewports passed:',
           'renderer Preview route address synchronization passed',
-          'renderer Preview build error recovery passed:',
+          'renderer Preview build error recovery passed: diagnostics, Stop, source navigation, restored authored source and isolated document dirty indicators',
           'renderer exclusive Preview and Stop passed:',
         ];
   const requiredEvidence = packagesSmoke

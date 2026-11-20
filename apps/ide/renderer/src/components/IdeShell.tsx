@@ -11,7 +11,6 @@ import {
 import { WORKBENCH_RESIZE_END } from './workbench-resize';
 
 interface IdeShellProps {
-  toolbar: ReactNode;
   activity: ReactNode;
   explorer: ReactNode;
   palette: ReactNode;
@@ -50,7 +49,6 @@ function pointerResizeValue(
 
 export function IdeShell({
   activity,
-  toolbar,
   explorer,
   palette,
   editor,
@@ -268,7 +266,6 @@ export function IdeShell({
 
   return (
     <div className="wr-ide-shell">
-      {toolbar}
       <div
         className="wr-workbench"
         ref={workbenchRef}

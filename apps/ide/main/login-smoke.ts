@@ -269,8 +269,8 @@ export async function runLoginSmoke(
       && popup.querySelector('[data-webrad-popup-children] .wr-login-panel') !== null;
   })()`);
   await saveConfiguration();
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   const saved = await loadProjectFiles(projectPath);
   const nodes = saved.project.pages.flatMap((entry) => entry.components);
   const panel = nodes.find((node) => node.id === panelId);
@@ -534,8 +534,8 @@ export async function runLoginSmoke(
     await ready(`document.querySelector(${JSON.stringify(tree)}) === null`);
   }
   await click(root);
-  await click('button[aria-label="Save (Ctrl+S)"]');
-  await ready(`document.querySelector('.wr-toolbar-save-state')?.textContent?.trim() === 'Saved'`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
   const restored = await loadProjectFiles(projectPath);
   const seededIds = new Set(missingStyles.map((style) => style.id));
   await saveProjectFiles({

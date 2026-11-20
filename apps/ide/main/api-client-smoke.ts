@@ -1055,7 +1055,7 @@ export async function runApiClientDesignerSmoke(
     await capture(window, `${screenshotRoot}-empty.png`);
     await clickText(window, 'Save API Client');
     await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
-    await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+    await window.webContents.send('webrad:menu-command', 'file.save');
     const emptyPagePath = path.join(path.dirname(projectPath), 'pages', 'index.wrpage');
     const emptyDeadline = Date.now() + 10_000;
     let emptyPersisted = false;
@@ -1206,7 +1206,7 @@ export async function runApiClientDesignerSmoke(
     }
     await clickText(window, 'Save API Client');
     await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
-    await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+    await window.webContents.send('webrad:menu-command', 'file.save');
     const pagePath = path.join(path.dirname(projectPath), 'pages', 'index.wrpage');
     const deadline = Date.now() + 10_000;
     let persisted = false;
@@ -1415,7 +1415,7 @@ export async function runApiClientDesignerSmoke(
       `document.querySelector('[aria-label="Operation name"]')?.value === 'LoadNotes' && document.querySelector('[aria-label="Query parameters value rgouserid"]')?.value === 'user-42' && document.querySelector('[aria-label="Query parameters name pesquisa"]') !== null && document.querySelector('[aria-label="Query parameters name active"]') === null`,
     );
     await clickText(window, 'Save API Client');
-    await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+    await window.webContents.send('webrad:menu-command', 'file.save');
     const getSyncDeadline = Date.now() + 10_000;
     let getSynchronizedOnDisk = false;
     while (Date.now() < getSyncDeadline) {
@@ -1450,7 +1450,7 @@ export async function runApiClientDesignerSmoke(
     );
     await capture(window, `${screenshotRoot}-synchronized.png`);
     await clickText(window, 'Save API Client');
-    await click(window, 'button[aria-label="Save (Ctrl+S)"]');
+    await window.webContents.send('webrad:menu-command', 'file.save');
     const syncDeadline = Date.now() + 10_000;
     let synchronizedOnDisk = false;
     while (Date.now() < syncDeadline) {

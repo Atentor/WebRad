@@ -47,7 +47,7 @@ export async function runPanelFloatingSmoke(
   const palette = 'button[data-palette-component-type="WebPanel"]';
   await ready(
     window,
-    `document.querySelector(${JSON.stringify(palette)}) instanceof HTMLButtonElement`,
+    `document.querySelector(${JSON.stringify(palette)} + ' svg[data-lucide-icon="panel-top"]') !== null && document.querySelector('button[data-palette-component-type="WebGroup"] svg[data-lucide-icon="group"]') !== null && document.querySelector('button[data-palette-component-type="WebButton"] svg[data-lucide-icon="square-mouse-pointer"]') !== null`,
   );
   await execute(
     `document.querySelector(${JSON.stringify(palette)}).dispatchEvent(new MouseEvent('dblclick', { bubbles:true }))`,
@@ -118,10 +118,10 @@ export async function runPanelFloatingSmoke(
  return near(p.right-b.right,24*scale) && near(b.top-p.top,16*scale) && near(p.bottom-b.bottom,32*scale) && ['left','top','width','height'].every(k=>near(b[k],h[k])) && ${field('Left inset')}?.readOnly === true;
  })()`,
   );
-  await click('button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   const saved = await loadProjectFiles(projectPath);
   if (
@@ -218,10 +218,10 @@ export async function runPanelFloatingSmoke(
     `(() => { const e=document.querySelector('[role="treeitem"][data-component-id="${id}"]'); e.focus(); e.dispatchEvent(new KeyboardEvent('keydown',{key:'Delete',bubbles:true,cancelable:true})); })()`,
   );
   await ready(window, `document.querySelector('[data-designer-node-id="${id}"]') === null`);
-  await click('button[aria-label="Save (Ctrl+S)"]');
+  await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(
     window,
-    `document.querySelector('.wr-toolbar-save-state')?.textContent.trim() === 'Saved'`,
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
   );
   log(
     `renderer Panel floating Inspector and F9 passed: top/bottom/left/right/client/none Inspector alignment, active inset coordinates, Stretch height and measured selection; ${JSON.stringify(evidence)}`,

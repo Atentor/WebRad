@@ -1,6 +1,6 @@
 import { Menu, shell, type BrowserWindow } from 'electron';
 
-/** Exercise the real renderer/preload/IPC path without launching a browser during smoke. */
+/** Exercise the Help menu action without launching an external browser during smoke. */
 export async function runBugReportSmoke(window: BrowserWindow): Promise<void> {
   const originalOpen = shell.openExternal;
   const opened: string[] = [];
@@ -18,28 +18,15 @@ export async function runBugReportSmoke(window: BrowserWindow): Promise<void> {
     await Promise.all([
       launched,
       window.webContents.executeJavaScript(`(() => {
-        const button = document.querySelector('button[aria-label="Report a bug"]');
-        const debug = document.querySelector('.wr-toolbar-debug');
-        const toolbar = document.querySelector('.wr-toolbar');
-        const beta = toolbar?.querySelector('.wr-toolbar-beta');
-        const platform = toolbar?.querySelector('.wr-toolbar-platform');
-        if (!(beta instanceof HTMLElement && platform instanceof HTMLElement) ||
-            toolbar.firstElementChild !== beta || beta.nextElementSibling !== platform ||
-            beta.getBoundingClientRect().width <= 0 ||
-            beta.getBoundingClientRect().right > platform.getBoundingClientRect().left) {
-          throw new Error('Beta indicator is not visible at the start of the toolbar.');
-        }
-        if (!(button instanceof HTMLButtonElement) || !debug) throw new Error('Bug report button missing.');
-        const rect = button.getBoundingClientRect();
-        const style = getComputedStyle(button);
-        if (!button.querySelector('svg path') || button.disabled || rect.width < 28 || rect.height < 28 ||
-            rect.right > debug.getBoundingClientRect().left || rect.left < 0 ||
-            style.visibility !== 'visible' || style.display === 'none' ||
-            style.borderTopStyle !== 'solid' || style.backgroundColor === 'rgba(0, 0, 0, 0)') {
-          throw new Error('Bug report button is not visibly highlighted beside Debug.');
-        }
-        button.click();
-      })()`),
+        if (document.querySelector('.wr-toolbar, .wr-toolbar-beta, .wr-document-tabs'))
+          throw new Error('The removed main toolbar must be absent.');
+      })()`).then(() => {
+        const report = Menu.getApplicationMenu()?.items.find((item) => item.label === 'Help')
+          ?.submenu?.items.find((item) => item.label === 'Report a bug');
+        if (!report || !report.enabled || !report.visible)
+          throw new Error('Help > Report a bug is missing or unavailable.');
+        report.click(report, window, {});
+      }),
     ]);
     if (opened.length !== 1 || opened[0] !== 'https://github.com/Atentor/WebRad/issues') {
       throw new Error(`Bug report opened an unexpected destination: ${JSON.stringify(opened)}`);

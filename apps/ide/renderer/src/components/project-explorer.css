@@ -109,3 +109,9 @@
   opacity: 0.45;
   cursor: default;
 }
+.wr-explorer-unsaved {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
