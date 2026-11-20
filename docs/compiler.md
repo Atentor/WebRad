@@ -46,7 +46,12 @@ IDE or runner's ancestor `@types` packages cannot inject Node/test globals or an
 unrelated declaration graph. Explicit imports and project declarations still
 participate in strict checking. Runtime export metadata is reused only for the
 same catalog and exact source text; adapter selection retains only its last exact
-source/component-type combination. Diagnostics are recalculated for each build.
+source/component-type combination. Diagnostics are collected for each build.
+Root-list changes or changed generated wrappers/declarations start a full semantic
+pass with exact-content syntax reuse, avoiding incremental declaration-shape
+propagation through changed generated contracts. Stable contracts retain the
+affected-file builder. Both paths preserve strict checking, current module
+resolution and complete-program diagnostics; neither reuses earlier build output.
 The existing progress callback separates bundle loading, runtime selection,
 esbuild execution, and output processing for compilation timing diagnostics.
 

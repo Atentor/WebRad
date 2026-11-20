@@ -342,6 +342,25 @@ export async function runLoginSmoke(
       const reopened = document.querySelector('.wr-login-dialog');
       reopened.querySelector('.wr-login-close').click();
       const panel = document.querySelector('[data-webrad-id=${JSON.stringify(panelId)}]');
+      // Mode switches transition inherited field styles. Measure the settled
+      // registration panel while retaining the existing exact geometry checks.
+      for (;;) {
+        void panel.offsetWidth;
+        const animations = panel.getAnimations({ subtree: true }).filter(animation =>
+          animation.playState !== 'finished' && animation.playState !== 'idle'
+          && animation.effect?.getComputedTiming().iterations !== Infinity);
+        if (!animations.length) break;
+        let timer;
+        try {
+          await Promise.race([
+            Promise.all(animations.map(animation => animation.finished.catch(() => undefined))),
+            new Promise((_, reject) => { timer = setTimeout(() =>
+              reject(new Error('Login panel style transitions did not settle.')),
+              Math.max(1, ${String(deadline)} - Date.now())); }),
+          ]);
+        } finally { clearTimeout(timer); }
+        if (Date.now() >= ${String(deadline)}) throw new Error('Login panel style transitions exceeded the existing deadline.');
+      }
       const title = panel.querySelector('.wr-login-title');
       const field = panel.querySelector('.wr-login-input');
       const buttonBounds = panel.querySelector('.wr-login-submit').getBoundingClientRect();

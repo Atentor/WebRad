@@ -1,5 +1,27 @@
 # WebRAD delivery plan
 
+## Follow-up repairs for ef60767 (2026-11-20)
+
+Inspected every job in release `44751739125` and validate `44751738790` and
+downloaded all three diagnostic artifacts. All six portable suites, five native
+builds, Linux quality and security passed. Windows now fails a Login assertion
+after the mode-switch transitions, measuring `14.1316px` instead of the required
+`14px`. The existing smoke waits for finite panel animations under its original
+frame deadline, retaining exact geometry, saved-style and focus checks.
+
+Intel now fails the first Page-title F9 after parameter declarations change:
+semantic checking takes 18,236 ms and compilation exceeds 21 seconds. Source
+inspection identifies incremental declaration-shape propagation as avoidable
+work when generated public contracts change; native sampling did not identify
+an exclusive hot function. Reset semantic builder state on root-list or generated
+wrapper/declaration changes while retaining exact-content syntax reuse and full
+strict checking. Stable contracts keep affected-file diagnostics. The temporary
+old-builder capture is still released and only the latest graph is retained.
+No deadlines, assertions, compiler strictness or worker limits changed. Original
+logs/artifacts and the report are in `artifacts/ci-ef60767/`. No local tests or
+validation were requested or run. A fresh native hosted pass and measured
+performance evidence remain required; prior performance changes were insufficient.
+
 ## Hosted smoke timeouts after ccfeeca (2026-11-20)
 
 Inspected the two remaining failed jobs and all three diagnostic artifacts from

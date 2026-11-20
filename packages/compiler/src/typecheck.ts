@@ -120,9 +120,8 @@ export function typecheckSources(
     compilerOptions,
   ]);
   // Adding/removing a page, Menu or reusable changes roots, not the parser
-  // environment. Let the builder reconcile the new graph while the host reuses
-  // exact-content SourceFiles; discarding the program here reparses the runtime
-  // and browser libraries on the first F9 after every structural project edit.
+  // environment. Keep the previous graph available for exact-content SourceFile
+  // reuse even when structural changes require fresh semantic diagnostics.
   let oldBuilder =
     previousTypecheck?.environment === environment ? previousTypecheck.builder : undefined;
   previousTypecheck = undefined;
@@ -232,6 +231,23 @@ export function typecheckSources(
     });
   };
 
+  // A changed generated public contract can make incremental declaration-shape
+  // propagation more expensive than a full semantic pass. Keep exact-content
+  // syntax reuse in the host, but start fresh diagnostics for structural changes.
+  // This checks every source instead of weakening dependency invalidation.
+  const previousRoots = oldBuilder?.getProgram().getRootFileNames();
+  const reuseDiagnostics =
+    previousRoots !== undefined &&
+    previousRoots.length === rootNames.length &&
+    previousRoots.every(
+      (name, index) => canonicalPath(name) === canonicalPath(rootNames[index]!),
+    ) &&
+    [...virtualSources].every(
+      ([fileName, contents]) =>
+        (!fileName.endsWith('.generated.ts') && !fileName.endsWith('.d.ts')) ||
+        oldBuilder?.getSourceFile(fileName)?.text === contents,
+    );
+
   let builder: ts.SemanticDiagnosticsBuilderProgram;
   onProgress?.('typecheck-program');
   try {
@@ -239,7 +255,7 @@ export function typecheckSources(
       rootNames,
       compilerOptions,
       host,
-      oldBuilder,
+      reuseDiagnostics ? oldBuilder : undefined,
     );
   } finally {
     // Program retains its host, whose getSourceFile closure captures oldBuilder.

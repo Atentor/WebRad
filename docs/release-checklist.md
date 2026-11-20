@@ -1,5 +1,26 @@
 # Release checklist for agents and maintainers
 
+## Hosted follow-up: ef60767 (2026-11-20)
+
+Release `44751739125` and validate `44751738790` still have two failing jobs,
+but the failures moved. Windows exits on an actual Login geometry assertion,
+not the runner deadline: its field font is sampled at `14.1316px` during a CSS
+transition. Wait for finite panel animations within the existing frame deadline
+before retaining the exact `14px`, dimensions, styles and modal/focus assertions.
+Keep the existing Login evidence marker in both runners.
+
+Intel fails the first Page-title F9 wait after adding typed page parameters.
+Semantic diagnostics take 18,236 ms; compilation reaches 21,329 ms before Preview
+publication. Native compiler/main sampling times out and yields no usable stacks.
+Generated contract/root changes now start a fresh semantic builder with unchanged
+syntax-tree reuse, avoiding incremental declaration-signature propagation while
+checking the full current graph. Stable contracts still use affected-file checking.
+Do not increase the 20-second Page-title wait or the 120-second runner deadline.
+The earlier compositor/fixture changes did not establish a hosted resolution.
+Original logs, all three diagnostic artifacts and analysis: `artifacts/ci-ef60767/`.
+No local validation was requested or run; native hosted confirmation of the final
+corrected SHA and a measured performance gain remain pending.
+
 ## Remaining hosted smoke timeouts: ccfeeca (2026-11-20)
 
 Release `44747459185` passed all six portable suites and five native builds;
