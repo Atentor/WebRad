@@ -1,5 +1,45 @@
 # WebRAD delivery plan
 
+## Compact integrated window title bar (2026-11-19)
+
+The IDE uses one 32px draggable title bar with its application icon, existing
+application menus. The centered project/application caption has been removed at
+the user's request; the unused background remains draggable. Windows/Linux retain native window controls
+through Electron's overlay and reserve their reported area; macOS keeps native
+traffic lights and the system application menu. Native submenus reuse the central
+menu definitions and accelerators, with a trusted, validated preload bridge for
+popup coordinates and theme synchronization. Alt focuses the menu; arrows navigate
+its headings. F10 retains its debugger meaning. Preview keeps the window controls
+and removes the IDE menu headings while preserving its full remaining viewport.
+
+Existing Electron shell/Preview interactions and both runners now require compact
+geometry, native-controls clearance, native submenu opening/dismissal and keyboard
+access. Existing typed fixtures were updated for the bridge. No tests, smokes,
+builds or rendered visual checks were requested or run.
+
+## Document view tab appearance (2026-11-19)
+
+Design and Code retain their centered placement and existing navigation, with
+adjacent bordered tabs, rounded top corners and an accent along the selected
+tab's top edge. The selected surface joins the editor background at the bottom.
+The existing Electron navigation smoke now checks tab geometry and selected
+surface styling. No validation commands or rendered visual checks were requested
+or run.
+
+## Workbench divider release and focus (2026-11-19)
+
+Pointer resizing no longer forces focus onto the divider. Completing or
+cancelling a pointer gesture clears any focus still on that divider, releases
+capture and removes the resize shield. Native keyboard focus and arrow-key
+resizing remain available outside pointer gestures. Window capture listeners
+handle pointer release/cancellation outside the divider; movement with no held
+buttons also ends a gesture whose release was missed outside the window.
+
+The existing Electron dock interaction now requires no active/focused divider
+after release and unchanged dimensions after moving away without a held button.
+Its evidence marker records those assertions. No tests, smokes, builds or other
+validation commands were requested or run; completion records source review.
+
 ## Smooth workbench dock resizing (2026-11-17)
 
 Left, right (Inspector/Codex) and Output divider drags now coalesce pointer input

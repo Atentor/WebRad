@@ -1,3 +1,62 @@
+.wr-window-titlebar {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding-left: 10px;
+  padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 146px)));
+  background: var(--wr-bg);
+  color: var(--wr-muted-text);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.wr-window-titlebar[data-platform='darwin'] {
+  padding-left: 82px;
+  padding-right: 10px;
+}
+
+.wr-window-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.wr-window-menu {
+  display: flex;
+  align-self: stretch;
+  flex: none;
+  -webkit-app-region: no-drag;
+}
+
+.wr-window-menu button {
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+
+.wr-window-menu button:is(:hover, [aria-expanded='true']):not(:disabled) {
+  background: var(--wr-surface-hover);
+  color: var(--wr-text);
+}
+
+.wr-window-menu button:disabled {
+  opacity: 0.45;
+}
+
+.wr-window-content {
+  position: relative;
+  width: 100%;
+  height: calc(100% - 32px);
+}
+
 .wr-ide-shell {
   display: grid;
   grid-template-rows: 34px minmax(0, 1fr);
@@ -696,9 +755,9 @@ button.wr-problem:focus-visible {
 
 .wr-view-tabs {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  gap: 3px;
+  gap: 0;
   border-bottom: 1px solid var(--wr-border);
   background: var(--wr-panel-bg);
 }
@@ -708,12 +767,14 @@ button.wr-problem:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 72px;
-  height: 28px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
+  position: relative;
+  min-width: 96px;
+  height: 32px;
+  margin-bottom: -1px;
+  padding: 0 16px;
+  border: 1px solid var(--wr-border);
+  border-radius: 5px 5px 0 0;
+  background: var(--wr-panel-alt);
   color: var(--wr-muted-text);
   font-size: 12px;
   font-weight: 550;
@@ -723,10 +784,17 @@ button.wr-problem:focus-visible {
   background: var(--wr-surface-hover);
 }
 
-.wr-view-tabs button[aria-selected='true'] {
+.wr-view-tabs button + button {
+  margin-left: -1px;
+}
+
+.wr-view-tabs button[aria-selected='true'],
+.wr-view-tabs button[aria-selected='true']:hover {
+  z-index: 1;
+  border-bottom-color: var(--wr-bg);
   color: var(--wr-text);
-  background: var(--wr-accent-soft);
-  box-shadow: inset 0 -2px var(--wr-accent);
+  background: var(--wr-bg);
+  box-shadow: inset 0 2px var(--wr-accent);
 }
 
 .wr-view-tabs button .wr-icon {

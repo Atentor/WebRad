@@ -132,6 +132,7 @@ import {
 import { EditorWorkspace, type DocumentTab, type ViewMode } from './components/EditorWorkspace';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { IdeShell } from './components/IdeShell';
+import { WindowTitleBar } from './components/WindowTitleBar';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import { ObjectInspector } from './components/ObjectInspector';
 import { PreviewWorkspace } from './components/PreviewWorkspace';
@@ -3054,6 +3055,12 @@ export function App(): ReactElement {
           layered: true,
         })}
       </style>
+      <WindowTitleBar
+        preview={previewActive}
+        disabled={modalOpen}
+        theme={theme}
+      />
+      <div className="wr-window-content">
       <div
         className={
           previewActive ? 'wr-ide-modal-host wr-ide-preview-suspended' : 'wr-ide-modal-host'
@@ -3640,6 +3647,7 @@ export function App(): ReactElement {
           onSave={saveComboBoxItems}
         />
       )}
+      </div>
     </ProjectVisualResources>
   );
 }

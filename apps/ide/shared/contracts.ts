@@ -7,6 +7,7 @@ import type { ExternalLinkTarget } from './external-links';
 import type { RestGoAdminBridge } from './restgo-admin';
 import type { RestGoDevelopmentBridge } from './restgo-development';
 import type { DebugBridge } from './debugger-contracts';
+import type { ApplicationMenuRequest } from './window-chrome';
 import type {
   ComponentStyleModel,
   ProjectAsset,
@@ -186,6 +187,11 @@ export interface WebRadBridge {
     /** Editor drafts are separate from model changes and cannot be saved by Save Project. */
     setPendingChanges?(pending: boolean): void;
     setPreviewMode(active: boolean): Promise<void>;
+  };
+  chrome: {
+    popupMenu(request: ApplicationMenuRequest): Promise<void>;
+    setTheme(theme: 'dark' | 'light'): Promise<void>;
+    onFocusMenu(listener: () => void): () => void;
   };
   platform: NodeJS.Platform;
 }

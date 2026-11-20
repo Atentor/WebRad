@@ -14,7 +14,7 @@ import { IDE_COMMANDS } from '../shared/contracts';
 describe('application menu', () => {
   it('opens the native Packages manager from Project', () => {
     const send = vi.fn();
-    installApplicationMenu({ webContents: { send } } as unknown as BrowserWindow);
+    installApplicationMenu({ webContents: { send }, setMenuBarVisibility: vi.fn() } as unknown as BrowserWindow);
     const template = menu.buildFromTemplate.mock.calls.at(-1)?.[0];
     const project = template?.find((item) => item.label === 'Project');
     if (!Array.isArray(project?.submenu)) throw new Error('Missing Project submenu');
@@ -27,7 +27,7 @@ describe('application menu', () => {
   });
   it('dispatches the registered About command from Help', () => {
     const send = vi.fn();
-    installApplicationMenu({ webContents: { send } } as unknown as BrowserWindow);
+    installApplicationMenu({ webContents: { send }, setMenuBarVisibility: vi.fn() } as unknown as BrowserWindow);
     const template = menu.buildFromTemplate.mock.calls[0]?.[0];
     const help = template?.find((item) => item.label === 'Help');
     const submenu = help?.submenu;

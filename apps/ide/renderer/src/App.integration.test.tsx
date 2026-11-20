@@ -349,6 +349,11 @@ function createBridgeHarness(seed: ProjectSession): BridgeHarness {
     commands: { subscribe },
     lifecycle: { setDirty, setPreviewMode: vi.fn(async () => undefined) },
     links: { open: vi.fn().mockResolvedValue(undefined) },
+    chrome: {
+      popupMenu: vi.fn(async () => undefined),
+      setTheme: vi.fn(async () => undefined),
+      onFocusMenu: vi.fn(() => () => undefined),
+    },
     platform: 'win32',
   } satisfies WebRadBridge;
   return {

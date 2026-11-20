@@ -251,6 +251,15 @@ const bridge: WebRadBridge = {
     setPreviewMode: (active) =>
       ipcRenderer.invoke('webrad:lifecycle:set-preview-mode', active) as Promise<void>,
   },
+  chrome: {
+    popupMenu: (request) => ipcRenderer.invoke('webrad:chrome:popup-menu', request) as Promise<void>,
+    setTheme: (theme) => ipcRenderer.invoke('webrad:chrome:set-theme', theme) as Promise<void>,
+    onFocusMenu: (listener) => {
+      const handler = (): void => listener();
+      ipcRenderer.on('webrad:chrome:focus-menu', handler);
+      return () => ipcRenderer.removeListener('webrad:chrome:focus-menu', handler);
+    },
+  },
   platform: process.platform,
 };
 

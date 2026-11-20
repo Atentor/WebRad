@@ -122,11 +122,26 @@ export async function runWorkbenchResizeSmoke(
           const scale = Number(getComputedStyle(surface).getPropertyValue('--wr-designer-scale'));
           const fluid = surface.parentElement.hasAttribute('data-workbench-fluid-width');
           return !workbench.hasAttribute('data-resizing') && value === ${start.value + delta} &&
+            document.activeElement !== splitter && !splitter.matches(':active') &&
             Math.abs(bounds.${target.axis === 'x' ? 'width' : 'height'} - value) <= 1 &&
             getComputedStyle(overlay).visibility === 'visible' &&
             (!fluid || Math.abs(Number(surface.dataset.viewportWidth) * scale - contentWidth) <= 1);
         })()`,
         `${target.name} final geometry and measurement recovery`,
+      );
+      window.webContents.sendInputEvent({ type: 'mouseMove', ...point(delta + 8) });
+      await window.webContents.executeJavaScript(
+        'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+        true,
+      );
+      await options.waitFor(
+        `(() => {
+          const splitter = document.querySelector(${JSON.stringify(target.selector)});
+          return splitter instanceof HTMLElement && !splitter.matches(':hover, :active, :focus') &&
+            !document.querySelector('.wr-workbench')?.hasAttribute('data-resizing') &&
+            Number(splitter.getAttribute('aria-valuenow')) === ${start.value + delta};
+        })()`,
+        `${target.name} idle divider without retained focus or further resizing`,
       );
     }
     await options.waitFor(
@@ -135,6 +150,9 @@ export async function runWorkbenchResizeSmoke(
     );
   }
   options.log(
-    'renderer workbench pointer resizing passed: left, right and output; live CSS canvas, deferred measurements, final coordinates and restored sizes',
+    'renderer workbench pointer resizing passed: left, right and output; live CSS canvas, deferred measurements, final coordinates, released focus, idle pointer movement and restored sizes',
+  );
+  options.log(
+    'renderer workbench pointer release passed: no active focus or movement after mouse-up',
   );
 }

@@ -77,8 +77,8 @@ export async function assertPreviewBuildErrorSmoke(
 function nativeMenuMatchesPreviewMode(window: BrowserWindow, preview: boolean): boolean {
   if (!isPreviewMenuMode(window, preview)) return false;
   if (process.platform === 'darwin') return (Menu.getApplicationMenu() === null) === preview;
-  // Smoke windows stay hidden, so verify menu visibility only for visible windows.
-  return !window.isVisible() || window.isMenuBarVisible() === !preview;
+  // The custom title bar keeps the second native menu row hidden in both modes.
+  return !window.isMenuBarVisible();
 }
 
 async function clickPreviewControlSmoke(
@@ -275,13 +275,16 @@ export async function assertExclusivePreviewSmoke(window: BrowserWindow): Promis
       const frame = document.querySelector('iframe[title="WebRAD application preview"]');
       const stop = document.querySelector('button[aria-label="Stop preview"]');
       const address = document.querySelector('input[aria-label="Preview URL"]');
+      const titlebar = document.querySelector('.wr-window-titlebar');
       if (!(host instanceof HTMLElement) || !(frame instanceof HTMLIFrameElement) ||
           !(stop instanceof HTMLButtonElement) || !(address instanceof HTMLInputElement)) return false;
       const rect = frame.getBoundingClientRect();
       return getComputedStyle(host).visibility === 'hidden' && host.inert && host.getAttribute('aria-hidden') === 'true' &&
         host.getBoundingClientRect().width > 0 &&
         Math.abs(rect.left) <= 1 && Math.abs(rect.width - innerWidth) <= 1 &&
-        Math.abs(rect.bottom - innerHeight) <= 1 && Math.abs(rect.top - 42) <= 1 &&
+        Math.abs(rect.bottom - innerHeight) <= 1 && Math.abs(rect.top - 74) <= 1 &&
+        titlebar instanceof HTMLElement && titlebar.getBoundingClientRect().height === 32 &&
+        titlebar.querySelector('.wr-window-menu') === null &&
         stop.getBoundingClientRect().width > 0 &&
         address.readOnly && address.value === '/index' && address.title === '/index' &&
         address.getBoundingClientRect().width > 0 &&

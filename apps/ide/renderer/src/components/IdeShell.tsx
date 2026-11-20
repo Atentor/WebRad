@@ -102,8 +102,22 @@ export function IdeShell({
       if (session.capture.hasPointerCapture(session.pointerId)) {
         session.capture.releasePointerCapture(session.pointerId);
       }
+      if (session.capture.ownerDocument.activeElement === session.capture) {
+        session.capture.blur();
+      }
     },
     [applyResize],
+  );
+
+  const finishResize = useCallback(
+    (event: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY' | 'type'>): void => {
+      const session = resize.current;
+      if (session?.pointerId !== event.pointerId) return;
+      // Pointer-up can arrive before the last queued animation frame.
+      if (event.type === 'pointerup') session.pendingValue = pointerResizeValue(session, event);
+      endResize();
+    },
+    [endResize],
   );
 
   useEffect(() => {
@@ -112,13 +126,17 @@ export function IdeShell({
       if (document.hidden) endResize();
     };
     window.addEventListener('blur', finish);
+    window.addEventListener('pointerup', finishResize, true);
+    window.addEventListener('pointercancel', finishResize, true);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('blur', finish);
+      window.removeEventListener('pointerup', finishResize, true);
+      window.removeEventListener('pointercancel', finishResize, true);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       endResize(false);
     };
-  }, [endResize, hasInspector, hasBottom]);
+  }, [endResize, finishResize, hasInspector, hasBottom]);
 
   useEffect(() => {
     const workbench = workbenchRef.current;
@@ -146,7 +164,6 @@ export function IdeShell({
     (target: ResizeTarget, event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0 || resize.current !== null) return;
       event.preventDefault();
-      event.currentTarget.focus({ preventScroll: true });
       event.currentTarget.setPointerCapture(event.pointerId);
       const startValue =
         target === 'left'
@@ -182,6 +199,11 @@ export function IdeShell({
     (event: PointerEvent<HTMLDivElement>) => {
       const session = resize.current;
       if (!session || session.pointerId !== event.pointerId) return;
+      // Recover if the host missed a release outside the window.
+      if (event.buttons === 0) {
+        endResize();
+        return;
+      }
       const value = pointerResizeValue(session, event);
       if (value === session.pendingValue) return;
       session.pendingValue = value;
@@ -191,18 +213,7 @@ export function IdeShell({
         if (resize.current === session) applyResize(session.target, session.pendingValue);
       });
     },
-    [applyResize],
-  );
-
-  const finishResize = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const session = resize.current;
-      if (session?.pointerId !== event.pointerId) return;
-      // Pointer-up can arrive before the last queued animation frame.
-      if (event.type === 'pointerup') session.pendingValue = pointerResizeValue(session, event);
-      endResize();
-    },
-    [endResize],
+    [applyResize, endResize],
   );
 
   const resizeWithKeyboard = (target: ResizeTarget, event: KeyboardEvent<HTMLDivElement>): void => {

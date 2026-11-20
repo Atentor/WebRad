@@ -1,6 +1,7 @@
 import { app, type BrowserWindow, Menu, type MenuItemConstructorOptions, shell } from 'electron';
 import type { IdeCommand } from '../shared/contracts';
 import { EXTERNAL_LINKS } from '../shared/external-links';
+import type { ApplicationMenuRequest } from '../shared/window-chrome';
 
 const applicationMenus = new WeakMap<BrowserWindow, Menu>();
 const previewMenuModes = new WeakMap<BrowserWindow, boolean>();
@@ -13,13 +14,35 @@ export function setPreviewMenuMode(window: BrowserWindow, preview: boolean): voi
   } else {
     // Detach it as well as hiding it, so Alt cannot reveal the menu in Preview.
     window.setMenu(preview ? null : menu);
-    window.setMenuBarVisibility(!preview);
+    window.setMenuBarVisibility(false);
   }
   previewMenuModes.set(window, preview);
 }
 
 export function isPreviewMenuMode(window: BrowserWindow, preview: boolean): boolean {
   return previewMenuModes.get(window) === preview;
+}
+
+export function popupApplicationMenu(
+  window: BrowserWindow,
+  request: ApplicationMenuRequest,
+): Promise<void> {
+  if (window.isDestroyed() || previewMenuModes.get(window) === true) return Promise.resolve();
+  const submenu = applicationMenus.get(window)?.items.find(
+    (item) => item.label === request.label,
+  )?.submenu;
+  if (submenu === undefined) throw new Error('Unknown application menu.');
+  const bounds = window.getContentBounds();
+  if (request.x < 0 || request.y < 0 || request.x > bounds.width || request.y > bounds.height)
+    throw new Error('Application menu position is outside the window.');
+  return new Promise((resolve) => {
+    submenu.popup({
+      window,
+      x: Math.round(request.x),
+      y: Math.round(request.y),
+      callback: resolve,
+    });
+  });
 }
 
 function commandItem(
@@ -138,4 +161,5 @@ export function installApplicationMenu(window: BrowserWindow): void {
   applicationMenus.set(window, menu);
   previewMenuModes.set(window, false);
   Menu.setApplicationMenu(menu);
+  if (process.platform !== 'darwin') window.setMenuBarVisibility(false);
 }

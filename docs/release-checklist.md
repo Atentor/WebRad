@@ -1,5 +1,32 @@
 # Release checklist for agents and maintainers
 
+The Electron shell smoke requires `renderer compact title bar passed: 32px, native
+controls clearance, menu and keyboard access` in both runners. It checks the single
+title row, drag/no-drag regions, clearance for native controls, Alt/heading keyboard
+navigation and native submenu opening/dismissal from a real renderer click.
+Preview evidence requires the 32px caption above its existing 42px toolbar, hidden
+IDE menu headings, and the application frame filling the remaining height. The
+existing full-window screenshot evidence includes the caption. These updated
+interactions have not been executed; retain native platform and release gates.
+
+## Design/Code tab appearance (2026-11-19)
+
+The existing document view navigation smoke also requires adjacent Design/Code
+tabs aligned with the editor edge, rounded top corners, square bottom corners
+and the selected tab's background and bottom border matching the editor surface.
+Both runners now require the navigation evidence marker. These checks have not
+been run; rendered appearance remains unverified.
+
+## Workbench divider release (2026-11-19)
+
+The existing `renderer workbench pointer resizing passed:` interaction now
+requires each divider to release active/focus state on mouse-up. It then moves
+the native pointer away without a held button, waits real animation frames and
+requires an idle, unfocused divider with unchanged dimensions and no resize
+shield. Both runners additionally require `renderer workbench pointer release
+passed:`. Retain keyboard resizing evidence and all existing deadlines and health
+checks. These additions have not been run.
+
 ## Workbench dock resizing (2026-11-17)
 
 Both Electron smoke runners now require `renderer workbench pointer resizing

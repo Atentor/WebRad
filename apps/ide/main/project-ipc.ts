@@ -1,6 +1,7 @@
 import { PROJECT_TEMPLATE_IDS } from '@webrad/component-registry';
 import { cancelCodexForOwner, registerCodexIpc } from './codex-ipc';
-import { setPreviewMenuMode } from './menu';
+import { popupApplicationMenu, setPreviewMenuMode } from './menu';
+import { APPLICATION_MENU_LABELS } from '../shared/window-chrome';
 import {
   cancelPackagesForOwner,
   isPackageOperationRunning,
@@ -816,6 +817,30 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
     return deployHandler(event, deployRequestSchema.parse(input[0]), deployGrants);
   });
   ipcMain.handle('webrad:styles:compile', compileStylesHandler);
+  ipcMain.handle('webrad:chrome:popup-menu', (event, ...input: unknown[]) => {
+    const window = requireTrustedSender(event);
+    if (input.length !== 1) throw new Error('Application menu requires one request.');
+    const request = z
+      .object({
+        label: z.enum(APPLICATION_MENU_LABELS),
+        x: z.number().finite(),
+        y: z.number().finite(),
+      })
+      .strict()
+      .parse(input[0]);
+    return popupApplicationMenu(window, request);
+  });
+  ipcMain.handle('webrad:chrome:set-theme', (event, ...input: unknown[]) => {
+    const window = requireTrustedSender(event);
+    if (input.length !== 1) throw new Error('Window theme requires one value.');
+    const theme = z.enum(['dark', 'light']).parse(input[0]);
+    if (process.platform !== 'darwin') {
+      window.setTitleBarOverlay({
+        color: theme === 'dark' ? '#1e1e1e' : '#eef1f5',
+        symbolColor: theme === 'dark' ? '#cccccc' : '#202936',
+      });
+    }
+  });
   ipcMain.handle('webrad:lifecycle:set-preview-mode', (event, ...input: unknown[]) => {
     const window = requireTrustedSender(event);
     if (input.length !== 1 || typeof input[0] !== 'boolean')

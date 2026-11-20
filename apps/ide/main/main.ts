@@ -627,7 +627,22 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
         const body = content.getBoundingClientRect();
         const first = buttons[0].getBoundingClientRect();
         const last = buttons[1].getBoundingClientRect();
-        return Math.abs(bar.top - outer.top) < 1 && Math.abs(bar.bottom - body.top) < 1 &&
+        const selected = tabs.querySelector('[aria-selected="true"]');
+        const selectedStyle = getComputedStyle(selected);
+        const inactiveStyle = getComputedStyle(buttons[1]);
+        const contentStyle = getComputedStyle(content);
+        const roundedTop = parseFloat(selectedStyle.borderTopLeftRadius) > 0 &&
+          parseFloat(selectedStyle.borderTopRightRadius) > 0;
+        const squareBottom = parseFloat(selectedStyle.borderBottomLeftRadius) === 0 &&
+          parseFloat(selectedStyle.borderBottomRightRadius) === 0;
+        const joinedSurface = selectedStyle.backgroundColor === contentStyle.backgroundColor &&
+          selectedStyle.borderBottomColor === contentStyle.backgroundColor &&
+          inactiveStyle.backgroundColor !== selectedStyle.backgroundColor;
+        return roundedTop && squareBottom && joinedSurface &&
+          Math.abs(first.bottom - body.top) < 1 && Math.abs(last.bottom - body.top) < 1 &&
+          Math.abs(last.left - first.right) <= 1 &&
+          parseFloat(selectedStyle.borderTopWidth) === 1 &&
+          selectedStyle.boxShadow !== 'none' && Math.abs(bar.top - outer.top) < 1 && Math.abs(bar.bottom - body.top) < 1 &&
           Math.abs((first.left + last.right) / 2 - (bar.left + bar.right) / 2) < 1 &&
           tabs.querySelector('[aria-label="Design"][aria-selected="true"]') !== null &&
           document.querySelector('.wr-activity-bar [role="tab"]') === null;
@@ -979,6 +994,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     restgoAdmin: true,
     restgoDevelopment: true,
     styles: true,
+    chrome: true,
   } satisfies Record<keyof WebRadBridge, true>).sort();
   if (
     shell !== true ||
@@ -1017,6 +1033,66 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   }
   smokeLog('renderer application menu cleanup passed: Component absent');
   smokeLog('renderer shell passed');
+  await waitForRendererResult(window, `(() => {
+    const bar = document.querySelector('.wr-window-titlebar');
+    const content = document.querySelector('.wr-window-content');
+    const toolbar = document.querySelector('.wr-toolbar');
+    if (!(bar instanceof HTMLElement) || !(content instanceof HTMLElement) || !(toolbar instanceof HTMLElement)) return false;
+    const bounds = bar.getBoundingClientRect();
+    const menu = bar.querySelector('.wr-window-menu');
+    const buttons = [...bar.querySelectorAll('[role="menuitem"]')];
+    const rightEdge = bounds.right - parseFloat(getComputedStyle(bar).paddingRight);
+    return bounds.top === 0 && bounds.height === 32 &&
+      bar.querySelector('.wr-window-caption') === null &&
+      getComputedStyle(bar).getPropertyValue('-webkit-app-region') === 'drag' &&
+      Math.abs(toolbar.getBoundingClientRect().top - bounds.bottom) < 1 &&
+      Math.abs(content.getBoundingClientRect().bottom - innerHeight) < 1 &&
+      (globalThis.webrad.platform === 'darwin' ? menu === null :
+        menu instanceof HTMLElement && getComputedStyle(menu).getPropertyValue('-webkit-app-region') === 'no-drag' &&
+        buttons.map(button => button.textContent).join(',') === 'File,Edit,Search,View,Project,Run,Tools,Help' &&
+        buttons.every(button => button.getBoundingClientRect().right <= rightEdge));
+  })()`, 'the compact title bar and native controls clearance', (value) => value === true);
+  if (process.platform !== 'darwin') {
+    if (window.isMenuBarVisible()) throw new Error('The native menu must not occupy a second row.');
+    sendRendererKey(window, 'Alt');
+    await waitForRendererResult(window,
+      `document.activeElement?.closest('.wr-window-menu') !== null`,
+      'keyboard access to the title bar menu', (value) => value === true);
+    sendRendererKey(window, 'End');
+    await waitForRendererResult(window,
+      `document.activeElement?.textContent === 'Help'`,
+      'title bar menu keyboard navigation', (value) => value === true);
+    const submenu = applicationMenu.items.find((item) => item.label === 'Help')?.submenu;
+    if (submenu === undefined) throw new Error('Missing native Help menu.');
+    let opened = false;
+    const onShow = (): void => {
+      opened = true;
+      setImmediate(() => submenu.closePopup(window));
+    };
+    submenu.once('menu-will-show', onShow);
+    try {
+      const point = await window.webContents.executeJavaScript(`(() => {
+        const button = document.querySelector('.wr-window-menu button:last-child');
+        if (!(button instanceof HTMLButtonElement) || button.disabled) throw new Error('Help menu unavailable.');
+        const rect = button.getBoundingClientRect();
+        const x = Math.round(rect.left + rect.width / 2);
+        const y = Math.round(rect.top + rect.height / 2);
+        if (!button.contains(document.elementFromPoint(x, y))) throw new Error('Help menu is obscured.');
+        return { x, y };
+      })()`, true) as { x: number; y: number };
+      window.webContents.sendInputEvent({ type: 'mouseMove', ...point });
+      window.webContents.sendInputEvent({ type: 'mouseDown', ...point, button: 'left', clickCount: 1 });
+      window.webContents.sendInputEvent({ type: 'mouseUp', ...point, button: 'left', clickCount: 1 });
+      await waitForRendererResult(window,
+        `document.querySelector('.wr-window-menu button:last-child')?.getAttribute('aria-expanded') === 'false'`,
+        'native title bar menu dismissal', (value) => opened && value === true);
+    } finally {
+      submenu.removeListener('menu-will-show', onShow);
+      submenu.closePopup(window);
+    }
+    sendRendererKey(window, 'Escape');
+  }
+  smokeLog('renderer compact title bar passed: 32px, native controls clearance, menu and keyboard access');
   await runCodexPanelSmoke(window, smokeScreenshotPath);
   smokeLog('renderer Codex panel passed: native context, model and reasoning controls, suggestions, project context, draft recovery, connection settings and close');
   await runBugReportSmoke(window);
@@ -1796,6 +1872,10 @@ async function createWindow(): Promise<BrowserWindow> {
     minWidth: 1000,
     minHeight: 680,
     backgroundColor: '#1e1e1e',
+    titleBarStyle: 'hidden',
+    ...(process.platform === 'darwin'
+      ? { trafficLightPosition: { x: 12, y: 9 } }
+      : { titleBarOverlay: { color: '#1e1e1e', symbolColor: '#cccccc', height: 32 } }),
     icon: applicationWindowIconPath(),
     show: false,
     webPreferences: {
@@ -1820,6 +1900,22 @@ async function createWindow(): Promise<BrowserWindow> {
     : undefined;
 
   installApplicationMenu(window);
+  if (process.platform !== 'darwin') {
+    let altOnly = false;
+    window.webContents.on('before-input-event', (event, input) => {
+      if (input.key !== 'Alt') {
+        if (input.type === 'keyDown') altOnly = false;
+        return;
+      }
+      // Keep Alt from exposing a second native menu row. F10 remains Step Over.
+      event.preventDefault();
+      if (input.type === 'keyDown') altOnly = !input.control && !input.meta && !input.shift;
+      else if (input.type === 'keyUp') {
+        if (altOnly) window.webContents.send('webrad:chrome:focus-menu');
+        altOnly = false;
+      }
+    });
+  }
   window.webContents.on('render-process-gone', () => setPreviewMenuMode(window, false));
   installDirtyGuard(window, rendererUrl);
   installReportPreviewWindows(window.webContents);

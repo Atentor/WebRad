@@ -1,5 +1,18 @@
 # WebRAD architecture
 
+## IDE window chrome
+
+The renderer projects a 32px title bar above the workbench and Preview. Electron
+uses a hidden native title bar with native Window Controls Overlay on Windows and
+Linux; CSS reserves the overlay geometry. macOS reserves the traffic lights and
+retains the system menu. Only the title bar background is draggable; application
+menu buttons opt out. The existing main-process application menu remains the source
+for native submenus and accelerators, with its separate Windows/Linux row hidden.
+The typed chrome bridge validates the trusted main frame, menu label, finite popup
+coordinates within the content bounds and the theme enum. It exposes no arbitrary
+window operation. Preview removes menu headings; the native window controls remain
+available. Window chrome and theme are IDE state, outside the Project Model.
+
 ## Codex authoring
 
 Account quota reads use a narrow usage IPC operation and validated app-server
@@ -437,6 +450,8 @@ Builder projects the active document's element hierarchy above the Registry-back
 Responsive provides Default, Tablet (768 px), and Mobile (390 px) preview widths. Default observes the Designer scroll host and fills its available content width, excluding padding and the vertical scrollbar, including when the window, sidebars, or zoom change. Content-sized pages retain their model-owned fit-content behavior. The viewport preset, zoom, sidebar navigation, searches, and collapsed UI sections are ephemeral authoring state; they are not written to the Project Model or browser storage. Responsive layout properties edited in the Inspector remain persisted model properties. The Visual and Interaction Inspector tabs expose registered property and event metadata, with independently collapsible categories. All property edits, including names, continue through model commands and preserve component IDs. This workspace refactor does not change the version 2 persisted format or introduce a separate runtime layout model.
 
 Workbench divider drags coalesce pointer movement into one React layout update per animation frame and apply the actual release coordinates synchronously to pending UI state. Default canvas surfaces use a CSS width relative to the scroll host, corrected for zoom, so browser layout follows the dock without rebuilding the Designer component tree on every move. During a dock drag, the workbench's transient resize marker suspends responsive-width state updates, fit-content scans (including reusable placements) and selection geometry measurements. The selection overlay is hidden while an input shield retains the resize cursor over embedded content. The local `webrad:workbench-resize-end` event schedules final measurements after the dock state commits, including when `ResizeObserver` is unavailable. Native cancellation, lost capture, window blur, hidden documents and shell/panel teardown release capture and pending frames. Keyboard sizing, sidebar/canvas limits, explicit viewport widths and content-sized root behavior remain available; none of these transient dock dimensions are persisted in the Project Model.
+
+Pointer resizing preserves the existing editor focus instead of focusing the divider. Gesture completion removes any focus still on that divider, while keyboard-only navigation retains native focus and arrow-key sizing. Window capture listeners handle release/cancellation outside the divider; a movement with no held buttons also clears a gesture whose release was missed outside the window.
 
 The page surface renders real component DOM from the same browser-safe property projection and CSS used by the generated runtime. Both project the version 2 `ComponentNode.layout` contract while retaining `bounds` for fixed-layout fallback. A separate design overlay owns hit testing, selection handles, marquee selection, drag, and resize. Pure geometry services calculate deltas, snapping, bounds, and multi-selection transforms. Pointer movement may use transient UI state; a command commits the model once at operation completion.
 
