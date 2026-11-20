@@ -1,3 +1,4 @@
+import { codexContextUpdate, type CodexContextSession } from './codex-context-session';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { mkdir } from 'node:fs/promises';
@@ -46,6 +47,8 @@ interface Generation {
 
 /** Owned stdio JSON-RPC client. Only explicit protocol fields cross the bridge. */
 export class CodexConnection {
+  readonly #sessions = new Map<string, { threadId: string; turns: number; data: Readonly<Record<string, unknown>> }>();
+
   readonly #pending = new Map<number, PendingRpc>();
   readonly #accountListeners = new Set<() => void>();
   readonly #usageListeners = new Set<() => void>();
@@ -77,22 +80,41 @@ export class CodexConnection {
 
   public async usage(): Promise<CodexUsage> {
     await this.start();
-    const window = z.object({ usedPercent: z.number().finite().min(0).max(100), windowDurationMins: z.number().nullable(), resetsAt: z.number().finite().nullable() });
-    const bucket = z.object({
-      limitId: z.string().nullable().optional(), limitName: z.string().nullable().optional(), normalModelSlug: z.string().nullable().optional(),
-      primary: window.nullable(), secondary: window.nullable(),
+    const window = z.object({
+      usedPercent: z.number().finite().min(0).max(100),
+      windowDurationMins: z.number().nullable(),
+      resetsAt: z.number().finite().nullable(),
     });
-    const result = z.object({ rateLimits: bucket, rateLimitsByLimitId: z.record(z.string(), bucket).nullable().optional() }).parse(
-      await this.#request('account/rateLimits/read', {}),
-    );
-    const entries = result.rateLimitsByLimitId && Object.keys(result.rateLimitsByLimitId).length > 0
-      ? Object.entries(result.rateLimitsByLimitId) : [[result.rateLimits.limitId ?? 'codex', result.rateLimits] as const];
-    return { updatedAt: Date.now(), buckets: entries.map(([id, value]) => {
-      const windows = [value.primary, value.secondary];
-      return { id, name: value.limitName ?? id, model: value.normalModelSlug ?? null,
-        fiveHour: windows.find((item) => item?.windowDurationMins === 300) ?? null,
-        weekly: windows.find((item) => item?.windowDurationMins === 10080) ?? null };
-    }) };
+    const bucket = z.object({
+      limitId: z.string().nullable().optional(),
+      limitName: z.string().nullable().optional(),
+      normalModelSlug: z.string().nullable().optional(),
+      primary: window.nullable(),
+      secondary: window.nullable(),
+    });
+    const result = z
+      .object({
+        rateLimits: bucket,
+        rateLimitsByLimitId: z.record(z.string(), bucket).nullable().optional(),
+      })
+      .parse(await this.#request('account/rateLimits/read', {}));
+    const entries =
+      result.rateLimitsByLimitId && Object.keys(result.rateLimitsByLimitId).length > 0
+        ? Object.entries(result.rateLimitsByLimitId)
+        : [[result.rateLimits.limitId ?? 'codex', result.rateLimits] as const];
+    return {
+      updatedAt: Date.now(),
+      buckets: entries.map(([id, value]) => {
+        const windows = [value.primary, value.secondary];
+        return {
+          id,
+          name: value.limitName ?? id,
+          model: value.normalModelSlug ?? null,
+          fiveHour: windows.find((item) => item?.windowDurationMins === 300) ?? null,
+          weekly: windows.find((item) => item?.windowDurationMins === 10080) ?? null,
+        };
+      }),
+    };
   }
 
   public start(): Promise<void> {
@@ -116,20 +138,31 @@ export class CodexConnection {
     for (const key of ['OPENAI_API_KEY', 'CODEX_API_KEY', 'OPENAI_BASE_URL']) {
       delete environment[key];
     }
-    const child = spawn(this.executable, [
-      'app-server', '--listen', 'stdio://',
-      '-c', 'web_search="disabled"',
-      '-c', 'features.shell_tool=false',
-      '-c', 'features.unified_exec=false',
-      '-c', 'features.apps=false',
-      '-c', 'features.multi_agent=false',
-    ], {
-      cwd: workspace,
-      env: environment,
-      windowsHide: true,
-      shell: false,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const child = spawn(
+      this.executable,
+      [
+        'app-server',
+        '--listen',
+        'stdio://',
+        '-c',
+        'web_search="disabled"',
+        '-c',
+        'features.shell_tool=false',
+        '-c',
+        'features.unified_exec=false',
+        '-c',
+        'features.apps=false',
+        '-c',
+        'features.multi_agent=false',
+      ],
+      {
+        cwd: workspace,
+        env: environment,
+        windowsHide: true,
+        shell: false,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    );
     this.#child = child;
     // CLI diagnostics can contain user context. They are not forwarded or logged.
     child.stderr.on('data', () => undefined);
@@ -155,13 +188,17 @@ export class CodexConnection {
       if (this.#child !== child) return;
       if (line.trim().length === 0) return;
       if (line.length > MAX_PROTOCOL_LINE) {
-        this.#close(new Error('The Codex response exceeded the supported size. Request a smaller change.'));
+        this.#close(
+          new Error('The Codex response exceeded the supported size. Request a smaller change.'),
+        );
         return;
       }
       try {
         this.#receive(recordSchema.parse(JSON.parse(line) as unknown));
       } catch {
-        this.#close(new Error('Codex returned an invalid protocol message. Update Codex and reconnect.'));
+        this.#close(
+          new Error('Codex returned an invalid protocol message. Update Codex and reconnect.'),
+        );
       }
     });
     await this.#request('initialize', {
@@ -173,11 +210,22 @@ export class CodexConnection {
 
   public async account(): Promise<CodexStatus['account']> {
     await this.start();
-    const result = z.object({ account: z.object({
-      type: z.string(), email: z.string().nullable().optional(), planType: z.string().nullable().optional(),
-    }).nullable() }).parse(await this.#request('account/read', { refreshToken: false }));
+    const result = z
+      .object({
+        account: z
+          .object({
+            type: z.string(),
+            email: z.string().nullable().optional(),
+            planType: z.string().nullable().optional(),
+          })
+          .nullable(),
+      })
+      .parse(await this.#request('account/read', { refreshToken: false }));
     if (!result.account || result.account.type !== 'chatgpt') return null;
-    return { label: result.account.email ?? 'ChatGPT account', plan: result.account.planType ?? null };
+    return {
+      label: result.account.email ?? 'ChatGPT account',
+      plan: result.account.planType ?? null,
+    };
   }
 
   public async models(): Promise<readonly CodexModel[]> {
@@ -186,24 +234,26 @@ export class CodexConnection {
     const cursors = new Set<string>();
     let cursor: string | null = null;
     for (let page = 0; page < 20; page += 1) {
-      const result = z.object({
-        data: z.array(z.unknown()),
-        nextCursor: z.string().nullable().optional(),
-      }).parse(
-        await this.#request('model/list', { limit: 100, includeHidden: false, cursor }),
-      );
+      const result = z
+        .object({
+          data: z.array(z.unknown()),
+          nextCursor: z.string().nullable().optional(),
+        })
+        .parse(await this.#request('model/list', { limit: 100, includeHidden: false, cursor }));
       for (const entry of result.data) {
         const parsed = modelSchema.safeParse(entry);
         if (!parsed.success) continue;
         const model = parsed.data;
         if (!/^gpt-6\.1-(?:terra|sol)(?:$|-)/i.test(model.model)) continue;
         if (models.has(model.model)) continue;
-        const efforts = [...new Map(
-          model.supportedReasoningEfforts.map((effort) => [
-            effort.reasoningEffort,
-            { id: effort.reasoningEffort, description: effort.description },
-          ]),
-        ).values()];
+        const efforts = [
+          ...new Map(
+            model.supportedReasoningEfforts.map((effort) => [
+              effort.reasoningEffort,
+              { id: effort.reasoningEffort, description: effort.description },
+            ]),
+          ).values(),
+        ];
         const firstEffort = efforts[0];
         if (!firstEffort) continue;
         models.set(model.model, {
@@ -218,7 +268,8 @@ export class CodexConnection {
       }
       cursor = result.nextCursor ?? null;
       if (cursor === null) return [...models.values()];
-      if (cursors.has(cursor)) throw new Error('Codex returned a repeated model catalog cursor. Refresh to try again.');
+      if (cursors.has(cursor))
+        throw new Error('Codex returned a repeated model catalog cursor. Refresh to try again.');
       cursors.add(cursor);
     }
     throw new Error('Codex returned too many model catalog pages.');
@@ -233,19 +284,26 @@ export class CodexConnection {
     try {
       await this.start();
       if (epoch !== this.#loginEpoch) throw new Error('Codex sign-in was canceled.');
-      const result = z.object({
-        type: z.literal('chatgpt'), loginId: z.string(), authUrl: z.url(),
-      }).parse(await this.#request('account/login/start', { type: 'chatgpt' }));
+      const result = z
+        .object({
+          type: z.literal('chatgpt'),
+          loginId: z.string(),
+          authUrl: z.url(),
+        })
+        .parse(await this.#request('account/login/start', { type: 'chatgpt' }));
       if (epoch !== this.#loginEpoch) {
         if (this.#child) {
-          await this.#request('account/login/cancel', { loginId: result.loginId }).catch(() => undefined);
+          await this.#request('account/login/cancel', { loginId: result.loginId }).catch(
+            () => undefined,
+          );
         }
         throw new Error('Codex sign-in was canceled.');
       }
       const completed = this.#completedLogins.get(result.loginId);
       this.#completedLogins.delete(result.loginId);
       this.#loginId = completed === undefined ? result.loginId : null;
-      if (completed === false) this.#loginError = 'Sign-in did not complete. Sign in again to connect your account.';
+      if (completed === false)
+        this.#loginError = 'Sign-in did not complete. Sign in again to connect your account.';
       if (completed !== undefined) {
         this.#pendingLoginEpoch = null;
         for (const listener of this.#accountListeners) listener();
@@ -284,10 +342,18 @@ export class CodexConnection {
     effort: string,
     signal: AbortSignal,
     onActivity: (message: string) => void = () => undefined,
+    session?: CodexContextSession,
+  
   ): Promise<CodexPlan> {
+    const cacheKey = session ? JSON.stringify([session.key, model]) : undefined;
+    const old = cacheKey ? this.#sessions.get(cacheKey) : undefined;
+    const cached = old && old.turns < 8 ? old : undefined;
+    let retainThread = false;
+
     signal.throwIfAborted();
     if (this.#generation) throw new Error('A Codex request is already in progress.');
-    if (this.loginPending) throw new Error('Complete or cancel sign-in before asking Codex to edit.');
+    if (this.loginPending)
+      throw new Error('Complete or cancel sign-in before asking Codex to edit.');
     let resolveGeneration!: (value: CodexPlan) => void;
     let rejectGeneration!: (error: Error) => void;
     const result = new Promise<CodexPlan>((resolve, reject) => {
@@ -304,8 +370,11 @@ export class CodexConnection {
         lastActivity = now;
         onActivity(message);
       },
-      threadId: null, messages: new Map(), textLength: 0,
-      resolve: resolveGeneration, reject: rejectGeneration,
+      threadId: null,
+      messages: new Map(),
+      textLength: 0,
+      resolve: resolveGeneration,
+      reject: rejectGeneration,
     };
     this.#generation = generation;
     let failure: Error | null = null;
@@ -318,55 +387,99 @@ export class CodexConnection {
     };
     const cancel = (): void => stop(new Error('Codex request canceled. No changes were applied.'));
     signal.addEventListener('abort', cancel, { once: true });
-    const deadline = setTimeout(() => stop(new Error('Codex reached the request time limit. Request a smaller change.')), 30 * 60_000);
+    const deadline = setTimeout(
+      () => stop(new Error('Codex reached the request time limit. Request a smaller change.')),
+      30 * 60_000,
+    );
     try {
       signal.throwIfAborted();
       await this.start();
       child = this.#child;
       signal.throwIfAborted();
-      const thread = z.object({
-        model: z.string().optional(),
-        thread: z.object({ id: z.string(), environments: z.array(z.unknown()).nullable().optional() }),
-      }).parse(await this.#request('thread/start', {
-        model, allowProviderModelFallback: false,
-        cwd: path.join(this.directory, 'workspace'),
-        runtimeWorkspaceRoots: [], environments: [], selectedCapabilityRoots: [],
-        sandbox: 'read-only', approvalPolicy: 'never', ephemeral: true,
-        baseInstructions: CODEX_AUTHORING_INSTRUCTIONS,
-        developerInstructions: 'Return the native WebRAD proposal. No filesystem, shell, external tools, agents, or arbitrary code execution.',
-        config: { model_reasoning_effort: effort, web_search: 'disabled' },
-      }));
+      const thread = cached ? { model, thread: { id: cached.threadId, environments: [] } } : z
+        .object({
+          model: z.string().optional(),
+          thread: z.object({
+            id: z.string(),
+            environments: z.array(z.unknown()).nullable().optional(),
+          }),
+        })
+        .parse(
+          await this.#request('thread/start', {
+            model,
+            allowProviderModelFallback: false,
+            cwd: path.join(this.directory, 'workspace'),
+            runtimeWorkspaceRoots: [],
+            environments: [],
+            selectedCapabilityRoots: [],
+            sandbox: 'read-only',
+            approvalPolicy: 'never',
+            ephemeral: true,
+            baseInstructions: CODEX_AUTHORING_INSTRUCTIONS,
+            developerInstructions:
+              'Return the native WebRAD proposal. No filesystem, shell, external tools, agents, or arbitrary code execution.',
+            config: { model_reasoning_effort: effort, web_search: 'disabled' },
+          }),
+        );
       signal.throwIfAborted();
       if (thread.model !== undefined && thread.model !== model) {
-        throw new Error('Codex changed the requested model. Refresh the catalog and select an available model.');
+        throw new Error(
+          'Codex changed the requested model. Refresh the catalog and select an available model.',
+        );
       }
       if (thread.thread.environments?.length) {
-        throw new Error('Codex enabled an execution environment. Update Codex before using structured WebRAD proposals.');
+        throw new Error(
+          'Codex enabled an execution environment. Update Codex before using structured WebRAD proposals.',
+        );
       }
       generation.threadId = thread.thread.id;
-      onActivity('Context sent. Waiting for Codex to begin the proposal…');
-      const turn = z.object({ turn: recordSchema.and(z.object({ id: z.string() })) }).parse(await this.#request('turn/start', {
-        threadId: generation.threadId,
-        input: [{ type: 'text', text: prompt, text_elements: [] }],
-        model, effort, summary: 'none', environments: [],
-        outputSchema: codexPlanOutputSchema(),
-      }, 90_000));
+      const inputPrompt = session ? codexContextUpdate(cached?.data, session) : prompt;
+      onActivity((cached ? 'Context update' : 'Full context') + ' sent: ' + inputPrompt.length.toLocaleString() + ' characters. Waiting for Codex…');
+      const turn = z.object({ turn: recordSchema.and(z.object({ id: z.string() })) }).parse(
+        await this.#request(
+          'turn/start',
+          {
+            threadId: generation.threadId,
+            input: [{ type: 'text', text: inputPrompt, text_elements: [] }],
+            model,
+            effort,
+            summary: 'none',
+            environments: [],
+            outputSchema: codexPlanOutputSchema(),
+          },
+          90_000,
+        ),
+      );
       generation.turnId = turn.turn.id;
       if (['completed', 'failed', 'interrupted'].includes(String(turn.turn.status))) {
         this.#completeGeneration(generation, turn.turn);
       }
-      return await result;
+      const plan = await result;
+      if (session && cacheKey) {
+        if (!cached && old) void this.#request('thread/archive', { threadId: old.threadId }).catch(() => undefined);
+        if (!this.#sessions.has(cacheKey) && this.#sessions.size >= 8) {
+          const first = this.#sessions.entries().next().value;
+          if (first) { this.#sessions.delete(first[0]); void this.#request('thread/archive', { threadId: first[1].threadId }).catch(() => undefined); }
+        }
+        this.#sessions.set(cacheKey, { threadId: generation.threadId, turns: (cached?.turns ?? 0) + 1, data: session.data });
+        retainThread = true;
+      }
+      return plan;
     } catch (error) {
       if (child !== null && this.#child === child) {
-        this.#close(error instanceof Error ? error : new Error('Codex could not complete the proposal.'));
+        this.#close(
+          error instanceof Error ? error : new Error('Codex could not complete the proposal.'),
+        );
       }
       throw failure ?? error;
     } finally {
       clearTimeout(deadline);
       signal.removeEventListener('abort', cancel);
       if (this.#generation === generation) this.#generation = null;
-      if (generation.threadId !== null && child !== null && this.#child === child) {
-        void this.#request('thread/archive', { threadId: generation.threadId }).catch(() => undefined);
+      if (!retainThread && generation.threadId !== null && child !== null && this.#child === child) {
+        void this.#request('thread/archive', { threadId: generation.threadId }).catch(
+          () => undefined,
+        );
       }
     }
   }
@@ -384,8 +497,9 @@ export class CodexConnection {
         reject(new Error(`Codex did not respond to ${method}. Reconnect and try again.`));
       }, timeout);
       this.#pending.set(id, { resolve, reject, timer });
-      try { this.#write({ id, method, params }); }
-      catch (error) {
+      try {
+        this.#write({ id, method, params });
+      } catch (error) {
         clearTimeout(timer);
         this.#pending.delete(id);
         reject(error);
@@ -401,13 +515,25 @@ export class CodexConnection {
       clearTimeout(pending.timer);
       if (message.error) {
         const error = recordSchema.safeParse(message.error);
-        pending.reject(new Error(error.success && typeof error.data.message === 'string' ? error.data.message : 'Codex rejected the request.'));
+        pending.reject(
+          new Error(
+            error.success && typeof error.data.message === 'string'
+              ? error.data.message
+              : 'Codex rejected the request.',
+          ),
+        );
       } else pending.resolve(message.result);
       return;
     }
     if (message.id !== undefined && typeof message.method === 'string') {
       // No built-in tool or approval request is authorized by this integration.
-      this.#write({ id: message.id, error: { code: -32601, message: 'WebRAD supports structured proposals only. Tool execution is disabled.' } });
+      this.#write({
+        id: message.id,
+        error: {
+          code: -32601,
+          message: 'WebRAD supports structured proposals only. Tool execution is disabled.',
+        },
+      });
       return;
     }
     if (message.method === 'account/login/completed') {
@@ -435,10 +561,14 @@ export class CodexConnection {
     const params = recordSchema.safeParse(message.params);
     if (!params.success || params.data.threadId !== generation.threadId) return;
     if (message.method === 'turn/started') generation.activity('Codex is working on your request…');
-    if (message.method === 'item/reasoning/summaryTextDelta' || message.method === 'item/reasoning/textDelta') {
+    if (
+      message.method === 'item/reasoning/summaryTextDelta' ||
+      message.method === 'item/reasoning/textDelta'
+    ) {
       generation.activity('Codex is analyzing the request and project context…');
     }
-    if (message.method === 'error' && params.data.willRetry === true) generation.activity('Codex reported a temporary interruption and is retrying…');
+    if (message.method === 'error' && params.data.willRetry === true)
+      generation.activity('Codex reported a temporary interruption and is retrying…');
     if (typeof params.data.turnId === 'string') {
       if (generation.turnId && generation.turnId !== params.data.turnId) return;
       generation.turnId ??= params.data.turnId;
@@ -446,10 +576,24 @@ export class CodexConnection {
     if (message.method === 'item/started' || message.method === 'item/completed') {
       const item = recordSchema.safeParse(params.data.item);
       if (item.success) {
-        if (item.data.type === 'reasoning') generation.activity('Codex is analyzing the request and project context…');
-        if (item.data.type === 'agentMessage') generation.activity('Codex is composing the native component and TypeScript proposal…');
-        if (['commandExecution', 'fileChange', 'mcpToolCall', 'dynamicToolCall', 'collabAgentToolCall', 'webSearch', 'imageGeneration'].includes(String(item.data.type))) {
-          this.#close(new Error('Codex attempted an unsupported tool operation. No proposal was applied.'));
+        if (item.data.type === 'reasoning')
+          generation.activity('Codex is analyzing the request and project context…');
+        if (item.data.type === 'agentMessage')
+          generation.activity('Codex is composing the native component and TypeScript proposal…');
+        if (
+          [
+            'commandExecution',
+            'fileChange',
+            'mcpToolCall',
+            'dynamicToolCall',
+            'collabAgentToolCall',
+            'webSearch',
+            'imageGeneration',
+          ].includes(String(item.data.type))
+        ) {
+          this.#close(
+            new Error('Codex attempted an unsupported tool operation. No proposal was applied.'),
+          );
           return;
         }
         if (item.data.type === 'agentMessage' && typeof item.data.id === 'string') {
@@ -457,14 +601,20 @@ export class CodexConnection {
         }
       }
     }
-    if (message.method === 'item/agentMessage/delta' && typeof params.data.itemId === 'string' && typeof params.data.delta === 'string') {
+    if (
+      message.method === 'item/agentMessage/delta' &&
+      typeof params.data.itemId === 'string' &&
+      typeof params.data.delta === 'string'
+    ) {
       const previous = generation.messages.get(params.data.itemId);
       if (previous?.phase !== 'commentary') {
         this.#rememberMessage(generation, params.data.itemId, {
           text: (previous?.text ?? '') + params.data.delta,
           phase: previous?.phase ?? null,
         });
-        generation.activity(`Receiving proposal · ${generation.textLength.toLocaleString('en-US')} characters received…`);
+        generation.activity(
+          `Receiving proposal · ${generation.textLength.toLocaleString('en-US')} characters received…`,
+        );
       }
     }
     if (message.method === 'turn/completed') {
@@ -476,12 +626,13 @@ export class CodexConnection {
 
   #rememberMessage(generation: Generation, id: string, item: Record<string, unknown>): void {
     const previous = generation.messages.get(id);
-    const phase = typeof item.phase === 'string' ? item.phase : previous?.phase ?? null;
-    const text = phase === 'commentary'
-      ? ''
-      : typeof item.text === 'string' && (item.text.length > 0 || !previous)
-        ? item.text
-        : previous?.text ?? '';
+    const phase = typeof item.phase === 'string' ? item.phase : (previous?.phase ?? null);
+    const text =
+      phase === 'commentary'
+        ? ''
+        : typeof item.text === 'string' && (item.text.length > 0 || !previous)
+          ? item.text
+          : (previous?.text ?? '');
     const textLength = generation.textLength - (previous?.text.length ?? 0) + text.length;
     if (textLength > MAX_FINAL_TEXT || (generation.messages.size >= 128 && !previous)) {
       throw new Error('The Codex proposal exceeded the supported size. Request a smaller change.');
@@ -493,7 +644,13 @@ export class CodexConnection {
   #completeGeneration(generation: Generation, turn: Record<string, unknown>): void {
     if (turn.status !== 'completed') {
       const error = recordSchema.safeParse(turn.error);
-      generation.reject(new Error(error.success && typeof error.data.message === 'string' ? error.data.message : 'Codex could not complete the proposal.'));
+      generation.reject(
+        new Error(
+          error.success && typeof error.data.message === 'string'
+            ? error.data.message
+            : 'Codex could not complete the proposal.',
+        ),
+      );
       return;
     }
     if (Array.isArray(turn.items)) {
@@ -504,11 +661,15 @@ export class CodexConnection {
         }
       }
     }
-    const final = [...generation.messages.values()].filter((item) => item.phase !== 'commentary').at(-1);
+    const final = [...generation.messages.values()]
+      .filter((item) => item.phase !== 'commentary')
+      .at(-1);
     try {
       generation.resolve(CodexPlanSchema.parse(JSON.parse(final?.text ?? '') as unknown));
     } catch {
-      generation.reject(new Error('Codex did not return a valid WebRAD proposal. Try a more specific request.'));
+      generation.reject(
+        new Error('Codex did not return a valid WebRAD proposal. Try a more specific request.'),
+      );
     }
   }
 
@@ -527,6 +688,7 @@ export class CodexConnection {
   }
 
   #close(error: Error): void {
+    this.#sessions.clear();
     const signingIn = this.loginPending;
     this.#epoch += 1;
     this.#loginEpoch += 1;

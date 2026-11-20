@@ -202,7 +202,7 @@ it.runIf(browserPath !== undefined)(
                 onZoomChange: noop,
               }),
             );
-            fixtures.push(`<section data-case="${layoutMode}/${theme}/${viewportName}/${String(zoom)}" data-layout="${layoutMode}" data-theme="${theme}" data-zoom="${String(zoom)}">
+            fixtures.push(`<section style="width:${String((width * zoom) / 100 + 64)}px" data-case="${layoutMode}/${theme}/${viewportName}/${String(zoom)}" data-layout="${layoutMode}" data-theme="${theme}" data-zoom="${String(zoom)}">
             ${designer}<iframe title="Compiled Preview" width="${String(width)}" height="400" style="border:0"
               srcdoc="${attribute(compiled.previewHtml)}"></iframe></section>`);
           }

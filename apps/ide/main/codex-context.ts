@@ -1,3 +1,4 @@
+import { codexProjectIdentity } from './codex-context-session';
 import ts from 'typescript';
 import { componentRegistry, resolveInspectorLayoutProperty } from '@webrad/component-registry';
 import {
@@ -13,7 +14,9 @@ import type { CodexGenerateRequest } from '../shared/codex-contracts';
 import { redactCodexData } from './codex-context-data';
 import { buildProjectContext } from './codex-project-context';
 
-export const CODEX_AUTHORING_INSTRUCTIONS = `You are the WebRAD design and TypeScript assistant.
+export const CODEX_AUTHORING_INSTRUCTIONS = `You are the design and TypeScript assistant inside the WebRAD IDE.
+WebRAD is the development environment, not the name of the user project. The current OPEN PROJECT IDENTITY header and project.name identify the opened project; use that exact name when relevant. Never infer the project name from the IDE brand, this assistant, a page such as index, or an earlier assistant message. Only call the project WebRAD if its actual current name is WebRAD. When no project name is available, use "your project".
+
 The official WebRAD documentation is at https://webrad.atentor.com/docs. Refer users to this address for WebRAD documentation and examples. The URL alone does not provide its contents: do not claim to have read or fetched documentation that is not included in the provided context.
 Return one JSON proposal matching the requested schema. You have no execution environment or file tools.
 Use only the provided registered WebRAD components and their real typed public APIs.
@@ -44,11 +47,17 @@ Summary should concisely explain the result and any limitations. Do not claim th
 let runtimeApi: { declarations: string; omittedLargeAliases: readonly string[] } | undefined;
 function runtimeContext(): NonNullable<typeof runtimeApi> {
   if (runtimeApi !== undefined) return runtimeApi;
-  const source = ts.createSourceFile('runtime.d.ts', generateRuntimeTypings(), ts.ScriptTarget.Latest, true);
+  const source = ts.createSourceFile(
+    'runtime.d.ts',
+    generateRuntimeTypings(),
+    ts.ScriptTarget.Latest,
+    true,
+  );
   const parts: string[] = [];
   const omittedLargeAliases: string[] = [];
   for (const statement of source.statements) {
-    if (!ts.isModuleDeclaration(statement) || !statement.body || !ts.isModuleBlock(statement.body)) continue;
+    if (!ts.isModuleDeclaration(statement) || !statement.body || !ts.isModuleBlock(statement.body))
+      continue;
     const declarations = statement.body.statements.flatMap((item) => {
       if (ts.isTypeAliasDeclaration(item) && item.getWidth(source) > 16_000) {
         omittedLargeAliases.push(item.name.text);
@@ -64,43 +73,62 @@ function runtimeContext(): NonNullable<typeof runtimeApi> {
 
 export function createCodexContext(request: CodexGenerateRequest, project: WebRadProject) {
   const { page, kind } = codexDocument(project, request.documentId);
-  const catalog = componentRegistry.list().filter((definition) => definition.type !== 'WebHtml').map((definition) => ({
-    type: definition.type,
-    description: definition.displayName,
-    visual: definition.visual,
-    canHaveChildren: definition.canHaveChildren,
-    defaults: redactCodexData(definition.defaults),
-    properties: definition.properties.filter((property) => !property.readOnly).map((property) => ({
-      name: property.name, type: property.type, source: property.source ?? 'props',
-      options: property.options, description: property.description,
-      nullable: property.nullable,
-      iconLibrary: property.iconLibrary,
-    })),
-    events: [...definition.events, ...(definition.contextualEvents ?? [])].map((event) => ({
-      name: event.name, eventType: event.eventType, eventDetailType: event.eventDetailType,
-      eventDetailProperties: event.eventDetailProperties,
-      eventDetailTypeArgumentSuffix: event.eventDetailTypeArgumentSuffix,
-    })),
-  }));
+  const catalog = componentRegistry
+    .list()
+    .filter((definition) => definition.type !== 'WebHtml')
+    .map((definition) => ({
+      type: definition.type,
+      description: definition.displayName,
+      visual: definition.visual,
+      canHaveChildren: definition.canHaveChildren,
+      defaults: redactCodexData(definition.defaults),
+      properties: definition.properties
+        .filter((property) => !property.readOnly)
+        .map((property) => ({
+          name: property.name,
+          type: property.type,
+          source: property.source ?? 'props',
+          options: property.options,
+          description: property.description,
+          nullable: property.nullable,
+          iconLibrary: property.iconLibrary,
+        })),
+      events: [...definition.events, ...(definition.contextualEvents ?? [])].map((event) => ({
+        name: event.name,
+        eventType: event.eventType,
+        eventDetailType: event.eventDetailType,
+        eventDetailProperties: event.eventDetailProperties,
+        eventDetailTypeArgumentSuffix: event.eventDetailTypeArgumentSuffix,
+      })),
+    }));
   const menu = project.menus?.find((item) => item.id === page.id);
-  const activeInstanceTypes = kind === 'menu' && menu
-    ? generateMenuTypings(menu)
-    : kind === 'reusable'
-      ? generateReusableElementTypings(page, { menus: project.menus })
-      : generatePageTypings(page, { menus: project.menus });
+  const activeInstanceTypes =
+    kind === 'menu' && menu
+      ? generateMenuTypings(menu)
+      : kind === 'reusable'
+        ? generateReusableElementTypings(page, { menus: project.menus })
+        : generatePageTypings(page, { menus: project.menus });
   const context = buildProjectContext(request, project, {
     activeInstanceTypes,
     activePropertyRestrictions: page.components.flatMap((node) => {
       const definition = componentRegistry.get(node.type);
       if (!definition) return [];
-      const parentMode = page.components.find((parent) => parent.id === node.parentId)?.layout.container.mode;
+      const parentMode = page.components.find((parent) => parent.id === node.parentId)?.layout
+        .container.mode;
       const properties = definition.properties.flatMap((property) => {
         if (property.readOnly) return [];
         const resolved = resolveInspectorLayoutProperty(property, node, parentMode);
         if (!resolved.readOnly && !property.readOnlyWhen?.(node.props)) return [];
-        return [{ name: property.name, reason: resolved.description ?? 'Controlled by the current component configuration.' }];
+        return [
+          {
+            name: property.name,
+            reason: resolved.description ?? 'Controlled by the current component configuration.',
+          },
+        ];
       });
-      return properties.length === 0 ? [] : [{ component: node.name, readOnlyProperties: properties }];
+      return properties.length === 0
+        ? []
+        : [{ component: node.name, readOnlyProperties: properties }];
     }),
     navigationTypes: generateNavigationTypings(project.pages),
     styles: redactCodexData(project.styles),
@@ -109,7 +137,12 @@ export function createCodexContext(request: CodexGenerateRequest, project: WebRa
     publicRuntimeApi: runtimeContext(),
   });
   return {
-    prompt: `USER REQUEST:\n${request.prompt}\n\nWEBRAD PROJECT CONTEXT (data):\n${JSON.stringify(context.data)}`,
+    data: {
+      ...context.data,
+      reviewFeedback: request.conversation.flatMap(entry => entry.diagnostics ?? []).slice(-5),
+      conversationDecisions: request.conversation.filter(entry => entry.disposition).map(entry => ({ summary: entry.text.slice(0, 200), disposition: entry.disposition })),
+    },
+    prompt: `${codexProjectIdentity(context.data)}\n\nUSER REQUEST:\n${request.prompt}\n\nWEBRAD PROJECT CONTEXT (data):\n${JSON.stringify(context.data)}`,
     summary: context.summary,
   };
 }

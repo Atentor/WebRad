@@ -2605,12 +2605,14 @@ export function App(): ReactElement {
     const pageDocuments: readonly DocumentTab[] = openPageIds.flatMap<DocumentTab>((id) => {
       const page = project?.pages.find((candidate) => candidate.id === id);
       if (page !== undefined) {
-        return [{
-          id,
-          label: page.name,
-          dirty: projectState.dirtyDocumentIds.has(id),
-          kind: 'page' as const,
-        }];
+        return [
+          {
+            id,
+            label: page.name,
+            dirty: projectState.dirtyDocumentIds.has(id),
+            kind: 'page' as const,
+          },
+        ];
       }
       const sourceFile = project?.sourceFiles?.find((candidate) => candidate.id === id);
       const asset = project?.assets?.find((candidate) => candidate.id === id);
@@ -2625,12 +2627,15 @@ export function App(): ReactElement {
         ];
       const reusableElement = project?.reusableElements.find((candidate) => candidate.id === id);
       const menu = project?.menus?.find((candidate) => candidate.id === id);
-      if (menu) return [{
-        id,
-        label: menu.name,
-        dirty: projectState.dirtyDocumentIds.has(id),
-        kind: 'menu' as const,
-      }];
+      if (menu)
+        return [
+          {
+            id,
+            label: menu.name,
+            dirty: projectState.dirtyDocumentIds.has(id),
+            kind: 'menu' as const,
+          },
+        ];
       return reusableElement === undefined
         ? []
         : [
@@ -3073,547 +3078,555 @@ export function App(): ReactElement {
           layered: true,
         })}
       </style>
-      <WindowTitleBar
-        preview={previewActive}
-        disabled={modalOpen}
-        theme={theme}
-      />
+      <WindowTitleBar preview={previewActive} disabled={modalOpen} theme={theme} />
       <div className="wr-window-content">
-      <div
-        className={
-          previewActive ? 'wr-ide-modal-host wr-ide-preview-suspended' : 'wr-ide-modal-host'
-        }
-        data-project-save-state={
-          projectState.saving
-            ? 'Saving...'
-            : restGoPendingChanges || settingsPendingChanges || fieldDraftsPending
-              ? 'Pending edits'
-              : projectState.dirty
-                ? 'Unsaved'
-                : project
-                  ? 'Saved'
-                  : 'No project'
-        }
-        data-project-issue-count={problemCounts.total}
-        inert={modalOpen || previewActive ? true : undefined}
-        aria-hidden={modalOpen || previewActive ? true : undefined}
-      >
-        <IdeShell
-          explorer={
-            stylesActive ? (
-              <StyleComponentList
-                styles={project?.styles ?? []}
-                selectedType={styleComponentType}
-                onSelect={setStyleComponentType}
-              />
-            ) : restGoActive && project !== null ? (
-              <RestGoSidebar
-                section={restGoSection}
-                onSelect={setRestGoSection}
-                enabled={project.settings.restGo.enabled}
-                baseUrl={project.settings.restGo.baseUrl}
-              />
-            ) : (
-              <DesignerSidebar
-                previewTheme={projectPreviewTheme}
-                onPreviewThemeChange={setProjectPreviewTheme}
-                mode={sidebarMode}
-                onModeChange={setSidebarMode}
-                page={activePage}
-                viewport={viewportName}
-                onViewportChange={(viewport) => {
-                  setViewportName(viewport);
-                  if (!stylesActive) setActiveView('design');
-                }}
-                onInspectPage={() => {
-                  if (activePage)
-                    selectionManager.set([activePage.rootComponentId], activePage.rootComponentId);
-                }}
-                tree={
-                  visiblePanels.explorer ? (
-                    <ElementTree
-                      page={activePage}
-                      selectedIds={selection.ids}
-                      revealSelection={treeRevealSelection}
-                      onSelect={(ids, primaryId) => {
-                        setSelectedPaletteType(null);
-                        selectionManager.set(ids, primaryId);
-                      }}
-                      onEditCommand={(command) => executeCommand(command, 'designer')}
-                    />
-                  ) : null
-                }
-                explorer={
-                  visiblePanels.explorer ? (
-                    <ErrorBoundary area="Project Explorer">
-                      <ProjectExplorer
-                        project={project}
-                        dirtyDocumentIds={projectState.dirtyDocumentIds}
-                        packages={packages.status?.dependencies}
-                        packageOperationsDisabled={packageOperationsBlocked || packages.busy}
-                        onManagePackages={packages.show}
-                        onPackageOperation={(action, name) => void packages.run(action, name)}
-                        activeResourceId={stylesActive || restGoActive ? null : activePageId}
-                        onOpenResource={openPage}
-                        onDeleteResource={deleteProjectResource}
-                        onDuplicateItem={(id) => {
-                          try {
-                            const copyId = projectController.duplicateProjectItem(id);
-                            const currentProject = projectController.getSnapshot().project;
-                            setOpenPageIds((current) => [...current, copyId]);
-                            setActivePageId(copyId);
-                            setActiveWorkspace('page');
-                            setActiveView(
-                              currentProject?.sourceFiles?.some((file) => file.id === copyId)
-                                ? 'code'
-                                : 'design',
-                            );
-                            selectionManager.clear();
-                          } catch (error) {
-                            reportError(error, 'PROJECT');
-                          }
+        <div
+          className={
+            previewActive ? 'wr-ide-modal-host wr-ide-preview-suspended' : 'wr-ide-modal-host'
+          }
+          data-project-save-state={
+            projectState.saving
+              ? 'Saving...'
+              : restGoPendingChanges || settingsPendingChanges || fieldDraftsPending
+                ? 'Pending edits'
+                : projectState.dirty
+                  ? 'Unsaved'
+                  : project
+                    ? 'Saved'
+                    : 'No project'
+          }
+          data-project-issue-count={problemCounts.total}
+          inert={modalOpen || previewActive ? true : undefined}
+          aria-hidden={modalOpen || previewActive ? true : undefined}
+        >
+          <IdeShell
+            explorer={
+              stylesActive ? (
+                <StyleComponentList
+                  styles={project?.styles ?? []}
+                  selectedType={styleComponentType}
+                  onSelect={setStyleComponentType}
+                />
+              ) : restGoActive && project !== null ? (
+                <RestGoSidebar
+                  section={restGoSection}
+                  onSelect={setRestGoSection}
+                  enabled={project.settings.restGo.enabled}
+                  baseUrl={project.settings.restGo.baseUrl}
+                />
+              ) : (
+                <DesignerSidebar
+                  previewTheme={projectPreviewTheme}
+                  onPreviewThemeChange={setProjectPreviewTheme}
+                  mode={sidebarMode}
+                  onModeChange={setSidebarMode}
+                  page={activePage}
+                  viewport={viewportName}
+                  onViewportChange={(viewport) => {
+                    setViewportName(viewport);
+                    if (!stylesActive) setActiveView('design');
+                  }}
+                  onInspectPage={() => {
+                    if (activePage)
+                      selectionManager.set(
+                        [activePage.rootComponentId],
+                        activePage.rootComponentId,
+                      );
+                  }}
+                  tree={
+                    visiblePanels.explorer ? (
+                      <ElementTree
+                        page={activePage}
+                        selectedIds={selection.ids}
+                        revealSelection={treeRevealSelection}
+                        onSelect={(ids, primaryId) => {
+                          setSelectedPaletteType(null);
+                          selectionManager.set(ids, primaryId);
                         }}
-                        activePageId={
-                          stylesActive || restGoActive || activeDocumentKind === 'reusable'
-                            ? null
-                            : activePageId
-                        }
-                        onOpenPage={openPage}
-                        onAddPage={addPageToProject}
-                        onDeletePage={deletePage}
-                        onRenamePage={renamePage}
-                        activeReusableElementId={
-                          stylesActive || restGoActive || activeDocumentKind !== 'reusable'
-                            ? null
-                            : activePageId
-                        }
-                        onOpenReusableElement={openPage}
-                        onAddReusableElement={addReusableElementToProject}
-                        onDeleteReusableElement={deleteReusableElement}
-                        onRenameReusableElement={renameReusableElement}
-                        activeMenuId={activeDocumentKind === 'menu' ? activePageId : null}
-                        onOpenMenu={openPage}
-                        onAddMenu={() => {
-                          setMenuPlacementTarget(null);
-                          openAddDocumentDialog('menu');
-                        }}
-                        onDeleteMenu={deleteProjectResource}
-                        onRenameMenu={(id, name) => {
-                          try {
-                            projectController.renameMenu(id, name);
-                          } catch (error) {
-                            return asError(error).message;
-                          }
-                        }}
+                        onEditCommand={(command) => executeCommand(command, 'designer')}
                       />
-                    </ErrorBoundary>
-                  ) : null
-                }
-              />
-            )
-          }
-          palette={
-            visiblePanels.palette &&
-            !restGoActive &&
-            !stylesActive &&
-            activeDocumentKind !== 'menu' ? (
-              <ErrorBoundary area="Tool Palette">
-                <ToolPalette
-                  compact
-                  selectedType={selectedPaletteType}
-                  onSelect={setSelectedPaletteType}
-                  onInsert={(type) => {
-                    if (!activePage) return;
-                    const definition = requireComponentDefinition(type);
-                    const selectedContainer =
-                      primaryComponent !== null &&
-                      componentRegistry.get(primaryComponent.type)?.canHaveChildren === true
-                        ? primaryComponent
-                        : activePage.components.find(
-                            (component) => component.id === activePage.rootComponentId,
-                          );
-                    if (selectedContainer === undefined) return;
-                    const containerBounds = designerInsertionBounds(
-                      selectedContainer,
-                      activePage,
-                      document.querySelector<HTMLElement>('.wr-page-surface'),
-                      zoom / 100,
-                    );
-                    addComponentAt(
-                      type,
-                      {
-                        x: Math.round((containerBounds.width - definition.defaultBounds.width) / 2),
-                        y: Math.round(
-                          (containerBounds.height - definition.defaultBounds.height) / 2,
-                        ),
-                      },
-                      selectedContainer.id,
-                    );
-                  }}
-                  allowNonvisual
-                />
-              </ErrorBoundary>
-            ) : null
-          }
-          activity={
-            <ActivityBar
-              updateIndicator={
-                <UpdateIndicator state={updates.state} onUpdate={() => void updates.update()} />
-              }
-              canPreview={
-                project !== null &&
-                projectState.rootPath !== null &&
-                !building &&
-                !deploy.busy &&
-                !nativeBuild.busy
-              }
-              building={building}
-              onPreview={() => executeCommand('run.run')}
-              codexActive={codexOpen}
-              codexBusy={codex.busy}
-              onToggleCodex={() => setCodexOpen((current) => !current)}
-              stylesActive={stylesActive}
-              restGoActive={restGoActive}
-              projectActive={!restGoActive && sidebarMode === 'project'}
-              hasProject={project !== null}
-              outputVisible={visiblePanels.output}
-              onShowProject={() => {
-                setActiveWorkspace('page');
-                setVisiblePanels((current) => ({ ...current, explorer: true }));
-                setSidebarMode('project');
-              }}
-              onOpenStyles={openStyles}
-              onOpenSettings={() => {
-                setProjectSettingsInitialSection('general');
-                setProjectSettingsDialogOpen(true);
-              }}
-              onOpenRestGo={openRestGo}
-              onToggleOutput={() =>
-                setVisiblePanels((current) => ({ ...current, output: !current.output }))
-              }
-            />
-          }
-          editor={
-            <EditorWorkspace
-              documents={documents}
-              activeDocumentId={
-                restGoActive ? RESTGO_DOCUMENT_ID : stylesActive ? STYLES_DOCUMENT_ID : activePageId
-              }
-              activeView={activeView}
-              onNewProject={() => void openNewProjectDialog()}
-              onOpenProject={() => void openProject()}
-              onSelectView={(view) => {
-                if (view === 'design' && (activeSourceFile || activeAsset)) return;
-                setActiveWorkspace('page');
-                setActiveView(view);
-                if (view === 'design') setSidebarMode('builder');
-              }}
-            >
-              {editorContent}
-            </EditorWorkspace>
-          }
-          inspector={
-            codexOpen ? (
-              <ErrorBoundary area="Codex">
-                <CodexPanel
-                  assistant={codex}
-                  page={activePage}
-                  revision={projectState.revision}
-                  selectionCount={selection.ids.length}
-                  editingEnabled={codexEditingEnabled}
-                  onClose={() => setCodexOpen(false)}
-                />
-              </ErrorBoundary>
-            ) : visiblePanels.inspector &&
-              !stylesActive &&
-              !restGoActive &&
-              !activeSourceFile &&
-              !activeAsset ? (
-              <ErrorBoundary area="Object Inspector">
-                <ObjectInspector
-                  selection={selectedComponents.map(
-                    (node) =>
-                      designerPage?.components.find((entry) => entry.id === node.id) ?? node,
-                  )}
-                  page={activePage}
-                  definition={
-                    selectedComponents.length === 0 && activePage
-                      ? componentRegistry.get(
-                          activePage.components.find(
-                            (component) => component.id === activePage.rootComponentId,
-                          )?.type ?? 'WebPage',
-                        )
-                      : undefined
+                    ) : null
                   }
-                  availableComponents={activePage?.components}
-                  availableReusableElements={project?.reusableElements}
-                  availableMenus={project?.menus}
-                  restGoEnabled={project?.settings.restGo.enabled}
-                  styles={project?.styles}
-                  onStyleChange={changeStyle}
-                  onPropertyChange={changeProperty}
-                  onDesignerAction={(action, component) => runDesignerAction(action, component)}
-                  onIconPickerOpenChange={setIconPickerOpen}
-                  onEventChange={(eventName, handlerName) => bindEvent(eventName, handlerName)}
-                  onEventDoubleClick={(eventName) => {
-                    const targetId = selection.primaryId ?? activePage?.rootComponentId;
-                    if (targetId) createOrOpenEvent(targetId, eventName);
-                  }}
-                  eventsEnabled
+                  explorer={
+                    visiblePanels.explorer ? (
+                      <ErrorBoundary area="Project Explorer">
+                        <ProjectExplorer
+                          project={project}
+                          dirtyDocumentIds={projectState.dirtyDocumentIds}
+                          packages={packages.status?.dependencies}
+                          packageOperationsDisabled={packageOperationsBlocked || packages.busy}
+                          onManagePackages={packages.show}
+                          onPackageOperation={(action, name) => void packages.run(action, name)}
+                          activeResourceId={stylesActive || restGoActive ? null : activePageId}
+                          onOpenResource={openPage}
+                          onDeleteResource={deleteProjectResource}
+                          onDuplicateItem={(id) => {
+                            try {
+                              const copyId = projectController.duplicateProjectItem(id);
+                              const currentProject = projectController.getSnapshot().project;
+                              setOpenPageIds((current) => [...current, copyId]);
+                              setActivePageId(copyId);
+                              setActiveWorkspace('page');
+                              setActiveView(
+                                currentProject?.sourceFiles?.some((file) => file.id === copyId)
+                                  ? 'code'
+                                  : 'design',
+                              );
+                              selectionManager.clear();
+                            } catch (error) {
+                              reportError(error, 'PROJECT');
+                            }
+                          }}
+                          activePageId={
+                            stylesActive || restGoActive || activeDocumentKind === 'reusable'
+                              ? null
+                              : activePageId
+                          }
+                          onOpenPage={openPage}
+                          onAddPage={addPageToProject}
+                          onDeletePage={deletePage}
+                          onRenamePage={renamePage}
+                          activeReusableElementId={
+                            stylesActive || restGoActive || activeDocumentKind !== 'reusable'
+                              ? null
+                              : activePageId
+                          }
+                          onOpenReusableElement={openPage}
+                          onAddReusableElement={addReusableElementToProject}
+                          onDeleteReusableElement={deleteReusableElement}
+                          onRenameReusableElement={renameReusableElement}
+                          activeMenuId={activeDocumentKind === 'menu' ? activePageId : null}
+                          onOpenMenu={openPage}
+                          onAddMenu={() => {
+                            setMenuPlacementTarget(null);
+                            openAddDocumentDialog('menu');
+                          }}
+                          onDeleteMenu={deleteProjectResource}
+                          onRenameMenu={(id, name) => {
+                            try {
+                              projectController.renameMenu(id, name);
+                            } catch (error) {
+                              return asError(error).message;
+                            }
+                          }}
+                        />
+                      </ErrorBoundary>
+                    ) : null
+                  }
                 />
-              </ErrorBoundary>
-            ) : null
-          }
-          bottom={
-            visiblePanels.output ? (
-              <BottomPanel
-                activeTab={bottomPanelTab}
-                problems={problems}
-                output={output}
+              )
+            }
+            palette={
+              visiblePanels.palette &&
+              !restGoActive &&
+              !stylesActive &&
+              activeDocumentKind !== 'menu' ? (
+                <ErrorBoundary area="Tool Palette">
+                  <ToolPalette
+                    compact
+                    selectedType={selectedPaletteType}
+                    onSelect={setSelectedPaletteType}
+                    onInsert={(type) => {
+                      if (!activePage) return;
+                      const definition = requireComponentDefinition(type);
+                      const selectedContainer =
+                        primaryComponent !== null &&
+                        componentRegistry.get(primaryComponent.type)?.canHaveChildren === true
+                          ? primaryComponent
+                          : activePage.components.find(
+                              (component) => component.id === activePage.rootComponentId,
+                            );
+                      if (selectedContainer === undefined) return;
+                      const containerBounds = designerInsertionBounds(
+                        selectedContainer,
+                        activePage,
+                        document.querySelector<HTMLElement>('.wr-page-surface'),
+                        zoom / 100,
+                      );
+                      addComponentAt(
+                        type,
+                        {
+                          x: Math.round(
+                            (containerBounds.width - definition.defaultBounds.width) / 2,
+                          ),
+                          y: Math.round(
+                            (containerBounds.height - definition.defaultBounds.height) / 2,
+                          ),
+                        },
+                        selectedContainer.id,
+                      );
+                    }}
+                    allowNonvisual
+                  />
+                </ErrorBoundary>
+              ) : null
+            }
+            activity={
+              <ActivityBar
+                updateIndicator={
+                  <UpdateIndicator state={updates.state} onUpdate={() => void updates.update()} />
+                }
+                canPreview={
+                  project !== null &&
+                  projectState.rootPath !== null &&
+                  !building &&
+                  !deploy.busy &&
+                  !nativeBuild.busy
+                }
                 building={building}
-                onActiveTabChange={setBottomPanelTab}
-                onProblemActivate={activateProblem}
-                debugContent={
-                  project ? (
-                    <DebuggerPanel
-                      key={project.id}
-                      state={debuggerSession.state}
-                      bridge={debuggerSession.bridge}
-                      breakpoints={debuggerSession.settings.breakpoints}
-                      watches={debuggerSession.settings.watches}
-                      pauseOnExceptions={debuggerSession.settings.pauseOnExceptions}
-                      selectedFrameId={debuggerSession.selectedFrameId}
-                      busy={debugBusy}
-                      canStart={!building}
-                      onAction={(action) => void debuggerSession.command(action)}
-                      onStart={() => executeCommand('debug.start')}
-                      onToggleBreakpoint={debuggerSession.toggleBreakpoint}
-                      onUpdateBreakpoint={debuggerSession.updateBreakpoint}
-                      onRemoveBreakpoint={debuggerSession.removeBreakpoint}
-                      onClearBreakpoints={debuggerSession.clearBreakpoints}
-                      onWatchesChange={debuggerSession.setWatches}
-                      onExceptionModeChange={debuggerSession.setExceptionMode}
-                      onSelectFrame={debuggerSession.selectFrame}
-                      onNavigateLocation={navigateDebugLocation}
-                    />
-                  ) : (
-                    <div className="wr-empty-state compact">Open a project to debug its code.</div>
-                  )
+                onPreview={() => executeCommand('run.run')}
+                codexActive={codexOpen}
+                codexBusy={codex.busy}
+                onToggleCodex={() => setCodexOpen((current) => !current)}
+                stylesActive={stylesActive}
+                restGoActive={restGoActive}
+                projectActive={!restGoActive && sidebarMode === 'project'}
+                hasProject={project !== null}
+                outputVisible={visiblePanels.output}
+                onShowProject={() => {
+                  setActiveWorkspace('page');
+                  setVisiblePanels((current) => ({ ...current, explorer: true }));
+                  setSidebarMode('project');
+                }}
+                onOpenStyles={openStyles}
+                onOpenSettings={() => {
+                  setProjectSettingsInitialSection('general');
+                  setProjectSettingsDialogOpen(true);
+                }}
+                onOpenRestGo={openRestGo}
+                onToggleOutput={() =>
+                  setVisiblePanels((current) => ({ ...current, output: !current.output }))
                 }
               />
-            ) : null
-          }
-          bottomMinimumHeight={bottomPanelTab === 'debug' ? 300 : 96}
-        />
-      </div>
-      {previewActive && (
-        <PreviewWorkspace
-          projectName={project?.name ?? 'Application'}
-          url={previewUrl}
-          building={building}
-          diagnostics={buildDiagnostics}
-          onStop={() => {
-            stopPreview();
-            const errors = buildProblems.filter((problem) => problem.category === 'error');
-            if (errors.length > 0) {
-              setVisiblePanels((current) => ({ ...current, output: true }));
-              setBottomPanelTab('problems');
-              const target = errors.find(
-                (problem) => problem.range !== undefined || problem.path !== undefined,
-              );
-              if (target) window.requestAnimationFrame(() => activateProblem(target));
             }
-          }}
-        />
-      )}
-      {updates.state.status === 'installing' && <UpdateInstallingDialog />}
-      {aboutDialogOpen && <AboutDialog onClose={() => setAboutDialogOpen(false)} />}
+            editor={
+              <EditorWorkspace
+                documents={documents}
+                activeDocumentId={
+                  restGoActive
+                    ? RESTGO_DOCUMENT_ID
+                    : stylesActive
+                      ? STYLES_DOCUMENT_ID
+                      : activePageId
+                }
+                activeView={activeView}
+                onNewProject={() => void openNewProjectDialog()}
+                onOpenProject={() => void openProject()}
+                onSelectView={(view) => {
+                  if (view === 'design' && (activeSourceFile || activeAsset)) return;
+                  setActiveWorkspace('page');
+                  setActiveView(view);
+                  if (view === 'design') setSidebarMode('builder');
+                }}
+              >
+                {editorContent}
+              </EditorWorkspace>
+            }
+            inspector={
+              codexOpen ? (
+                <ErrorBoundary area="Codex">
+                  <CodexPanel
+                    assistant={codex}
+                    page={activePage}
+                    revision={projectState.revision}
+                    selectionCount={selection.ids.length}
+                    editingEnabled={codexEditingEnabled}
+                    onClose={() => setCodexOpen(false)}
+                  />
+                </ErrorBoundary>
+              ) : visiblePanels.inspector &&
+                !stylesActive &&
+                !restGoActive &&
+                !activeSourceFile &&
+                !activeAsset ? (
+                <ErrorBoundary area="Object Inspector">
+                  <ObjectInspector
+                    selection={selectedComponents.map(
+                      (node) =>
+                        designerPage?.components.find((entry) => entry.id === node.id) ?? node,
+                    )}
+                    page={activePage}
+                    definition={
+                      selectedComponents.length === 0 && activePage
+                        ? componentRegistry.get(
+                            activePage.components.find(
+                              (component) => component.id === activePage.rootComponentId,
+                            )?.type ?? 'WebPage',
+                          )
+                        : undefined
+                    }
+                    availableComponents={activePage?.components}
+                    availableReusableElements={project?.reusableElements}
+                    availableMenus={project?.menus}
+                    restGoEnabled={project?.settings.restGo.enabled}
+                    styles={project?.styles}
+                    onStyleChange={changeStyle}
+                    onPropertyChange={changeProperty}
+                    onDesignerAction={(action, component) => runDesignerAction(action, component)}
+                    onIconPickerOpenChange={setIconPickerOpen}
+                    onEventChange={(eventName, handlerName) => bindEvent(eventName, handlerName)}
+                    onEventDoubleClick={(eventName) => {
+                      const targetId = selection.primaryId ?? activePage?.rootComponentId;
+                      if (targetId) createOrOpenEvent(targetId, eventName);
+                    }}
+                    eventsEnabled
+                  />
+                </ErrorBoundary>
+              ) : null
+            }
+            bottom={
+              visiblePanels.output ? (
+                <BottomPanel
+                  activeTab={bottomPanelTab}
+                  problems={problems}
+                  output={output}
+                  building={building}
+                  onActiveTabChange={setBottomPanelTab}
+                  onProblemActivate={activateProblem}
+                  debugContent={
+                    project ? (
+                      <DebuggerPanel
+                        key={project.id}
+                        state={debuggerSession.state}
+                        bridge={debuggerSession.bridge}
+                        breakpoints={debuggerSession.settings.breakpoints}
+                        watches={debuggerSession.settings.watches}
+                        pauseOnExceptions={debuggerSession.settings.pauseOnExceptions}
+                        selectedFrameId={debuggerSession.selectedFrameId}
+                        busy={debugBusy}
+                        canStart={!building}
+                        onAction={(action) => void debuggerSession.command(action)}
+                        onStart={() => executeCommand('debug.start')}
+                        onToggleBreakpoint={debuggerSession.toggleBreakpoint}
+                        onUpdateBreakpoint={debuggerSession.updateBreakpoint}
+                        onRemoveBreakpoint={debuggerSession.removeBreakpoint}
+                        onClearBreakpoints={debuggerSession.clearBreakpoints}
+                        onWatchesChange={debuggerSession.setWatches}
+                        onExceptionModeChange={debuggerSession.setExceptionMode}
+                        onSelectFrame={debuggerSession.selectFrame}
+                        onNavigateLocation={navigateDebugLocation}
+                      />
+                    ) : (
+                      <div className="wr-empty-state compact">
+                        Open a project to debug its code.
+                      </div>
+                    )
+                  }
+                />
+              ) : null
+            }
+            bottomMinimumHeight={bottomPanelTab === 'debug' ? 300 : 96}
+          />
+        </div>
+        {previewActive && (
+          <PreviewWorkspace
+            projectName={project?.name ?? 'Application'}
+            url={previewUrl}
+            building={building}
+            diagnostics={buildDiagnostics}
+            onStop={() => {
+              stopPreview();
+              const errors = buildProblems.filter((problem) => problem.category === 'error');
+              if (errors.length > 0) {
+                setVisiblePanels((current) => ({ ...current, output: true }));
+                setBottomPanelTab('problems');
+                const target = errors.find(
+                  (problem) => problem.range !== undefined || problem.path !== undefined,
+                );
+                if (target) window.requestAnimationFrame(() => activateProblem(target));
+              }
+            }}
+          />
+        )}
+        {updates.state.status === 'installing' && <UpdateInstallingDialog />}
+        {aboutDialogOpen && <AboutDialog onClose={() => setAboutDialogOpen(false)} />}
 
-      {newProjectDialogOpen && (
-        <NewProjectDialog
-          busy={creatingProject}
-          error={newProjectError}
-          onClearError={() => setNewProjectError(null)}
-          onCancel={() => {
-            setNewProjectDialogOpen(false);
-            setNewProjectError(null);
-          }}
-          onCreate={(name, templateId, themePresetId) =>
-            void submitNewProject(name, templateId, themePresetId)
-          }
-        />
-      )}
-      {addDocumentDialogKind !== null && project !== null && (
-        <AddPageDialog
-          key={addDocumentDialogKind}
-          kind={addDocumentDialogKind}
-          suggestedName={(() => {
-            const occupiedNames = new Set([
+        {newProjectDialogOpen && (
+          <NewProjectDialog
+            busy={creatingProject}
+            error={newProjectError}
+            onClearError={() => setNewProjectError(null)}
+            onCancel={() => {
+              setNewProjectDialogOpen(false);
+              setNewProjectError(null);
+            }}
+            onCreate={(name, templateId, themePresetId) =>
+              void submitNewProject(name, templateId, themePresetId)
+            }
+          />
+        )}
+        {addDocumentDialogKind !== null && project !== null && (
+          <AddPageDialog
+            key={addDocumentDialogKind}
+            kind={addDocumentDialogKind}
+            suggestedName={(() => {
+              const occupiedNames = new Set([
+                ...(project.sourceFiles ?? [])
+                  .filter((file) => file.kind === addDocumentDialogKind)
+                  .map((file) => file.name),
+                ...project.pages.map((page) => page.name),
+                ...project.reusableElements.map((reusableElement) => reusableElement.name),
+                ...(project.menus ?? []).map((menu) => menu.name),
+              ]);
+              const prefix = {
+                page: 'Page',
+                reusable: 'Reusable',
+                menu: 'Menu',
+                model: 'Model',
+                unit: 'Unit',
+              }[addDocumentDialogKind];
+              let sequence = addDocumentDialogKind === 'page' ? 2 : 1;
+              while (
+                [...occupiedNames].some(
+                  (name) =>
+                    portableFileNameKey(name) ===
+                    portableFileNameKey(`${prefix}${String(sequence)}`),
+                )
+              )
+                sequence += 1;
+              return `${prefix}${String(sequence)}`;
+            })()}
+            occupiedNames={[
               ...(project.sourceFiles ?? [])
                 .filter((file) => file.kind === addDocumentDialogKind)
                 .map((file) => file.name),
               ...project.pages.map((page) => page.name),
               ...project.reusableElements.map((reusableElement) => reusableElement.name),
               ...(project.menus ?? []).map((menu) => menu.name),
-            ]);
-            const prefix = {
-              page: 'Page',
-              reusable: 'Reusable',
-              menu: 'Menu',
-              model: 'Model',
-              unit: 'Unit',
-            }[addDocumentDialogKind];
-            let sequence = addDocumentDialogKind === 'page' ? 2 : 1;
-            while (
-              [...occupiedNames].some(
-                (name) =>
-                  portableFileNameKey(name) === portableFileNameKey(`${prefix}${String(sequence)}`),
-              )
-            )
-              sequence += 1;
-            return `${prefix}${String(sequence)}`;
-          })()}
-          occupiedNames={[
-            ...(project.sourceFiles ?? [])
-              .filter((file) => file.kind === addDocumentDialogKind)
-              .map((file) => file.name),
-            ...project.pages.map((page) => page.name),
-            ...project.reusableElements.map((reusableElement) => reusableElement.name),
-            ...(project.menus ?? []).map((menu) => menu.name),
-          ]}
-          onCancel={() => {
-            setAddDocumentDialogKind(null);
-            setMenuPlacementTarget(null);
-          }}
-          onCreate={submitAddDocument}
-        />
-      )}
-      {projectSettingsDialogOpen && project !== null && (
-        <ProjectSettingsDialog
-          projectName={project.name}
-          settings={project.settings}
-          initialSectionId={projectSettingsInitialSection}
-          onChooseDeployDirectory={async () => {
-            const rootPath = projectController.getSnapshot().rootPath;
-            return rootPath ? window.webrad.deploy.chooseDirectory(rootPath) : null;
-          }}
-          onChooseNativeDirectory={async () => {
-            const rootPath = projectController.getSnapshot().rootPath;
-            return rootPath ? window.webrad.nativeBuild.chooseDirectory(rootPath) : null;
-          }}
-          onClose={() => setProjectSettingsDialogOpen(false)}
-          onPendingChangesChange={setSettingsPendingChanges}
-          onSave={saveProjectSettings}
-        />
-      )}
-      {packages.open && project !== null && (
-        <PackagesDialog
-          projectName={project.name}
-          controller={packages}
-          blocked={packageOperationsBlocked}
-        />
-      )}
-      {deploy.state !== null && <DeployDialog state={deploy.state} onClose={deploy.close} />}
-      {nativeBuild.state !== null && project !== null && (
-        <BuildApplicationDialog
-          settings={project.settings.nativeApplication}
-          build={nativeBuild}
-          hostPlatform={window.webrad.platform}
-        />
-      )}
-      {apiClientTesterComponent !== null && (
-        <ApiClientTesterDialog
-          component={apiClientTesterComponent}
-          restGoSettings={project?.settings.restGo}
-          onClose={() => setApiClientTesterComponentId(null)}
-          onSave={saveApiClientConfiguration}
-        />
-      )}
-      {dataGridConfiguratorComponent !== null && (
-        <DataGridConfigurationDialog
-          availableComponents={activePage?.components ?? []}
-          component={dataGridConfiguratorComponent}
-          onClose={() => setDataGridConfiguratorComponentId(null)}
-          onSave={saveDataGridConfiguration}
-        />
-      )}
-      {menuConfiguratorComponent !== null && (
-        <MenuConfigurationDialog
-          key={menuConfiguratorComponent.id}
-          component={menuConfiguratorComponent}
-          pages={project?.pages ?? []}
-          assets={project?.assets ?? []}
-          onSave={saveMenuConfiguration}
-          sharedUsage={sharedMenuUsage}
-          onClose={() => setMenuConfiguratorComponentId(null)}
-        />
-      )}
-      {loginConfiguratorComponent !== null && (
-        <LoginConfigurationDialog
-          key={loginConfiguratorComponent.id}
-          component={loginConfiguratorComponent}
-          restGoEnabled={project?.settings.restGo.enabled === true}
-          onSave={saveLoginConfiguration}
-          onClose={() => setLoginConfiguratorComponentId(null)}
-        />
-      )}
-      {repeatingGroupConfiguratorComponent !== null && (
-        <RepeatingGroupConfigurationDialog
-          component={repeatingGroupConfiguratorComponent}
-          availableComponents={activePage?.components ?? []}
-          onClose={() => setRepeatingGroupConfiguratorComponentId(null)}
-          onSave={saveRepeatingGroupConfiguration}
-        />
-      )}
-      {reportBuilderComponent !== null && (
-        <ReportBuilderDialog
-          component={reportBuilderComponent}
-          availableComponents={activePage?.components ?? []}
-          onClose={() => setReportBuilderComponentId(null)}
-          onSave={saveReportTemplate}
-        />
-      )}
-      {currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined && (
-        <CurrentRowBindingsDialog
-          component={currentRowBindingsComponent}
-          group={currentRowBindingsGroup}
-          availableComponents={activePage?.components ?? []}
-          onClose={() => setCurrentRowBindingsComponentId(null)}
-          onSave={saveCurrentRowBindings}
-        />
-      )}
-      {chartsConfiguratorComponent !== null && (
-        <ChartsConfigurationDialog
-          component={chartsConfiguratorComponent}
-          availableComponents={activePage?.components ?? []}
-          onClose={() => setChartsConfiguratorComponentId(null)}
-          onSave={saveChartsConfiguration}
-        />
-      )}
-      {parametersPage !== null && (
-        <PageParametersDialog
-          key={parametersPage.id}
-          page={parametersPage}
-          onClose={() => setParametersPageId(null)}
-          onSave={savePageParameters}
-        />
-      )}
-      {comboBoxConfiguratorComponent !== null && comboBoxEditorMode === 'api' && (
-        <ComboBoxConfigurationDialog
-          component={comboBoxConfiguratorComponent}
-          availableComponents={activePage?.components ?? []}
-          onClose={() => setComboBoxConfiguratorComponentId(null)}
-          onSave={saveComboBoxConfiguration}
-        />
-      )}
-      {comboBoxConfiguratorComponent !== null && comboBoxEditorMode !== 'api' && (
-        <ComboBoxItemsDialog
-          component={comboBoxConfiguratorComponent}
-          focusField={comboBoxEditorMode}
-          onClose={() => setComboBoxConfiguratorComponentId(null)}
-          onSave={saveComboBoxItems}
-        />
-      )}
+            ]}
+            onCancel={() => {
+              setAddDocumentDialogKind(null);
+              setMenuPlacementTarget(null);
+            }}
+            onCreate={submitAddDocument}
+          />
+        )}
+        {projectSettingsDialogOpen && project !== null && (
+          <ProjectSettingsDialog
+            projectName={project.name}
+            settings={project.settings}
+            initialSectionId={projectSettingsInitialSection}
+            onChooseDeployDirectory={async () => {
+              const rootPath = projectController.getSnapshot().rootPath;
+              return rootPath ? window.webrad.deploy.chooseDirectory(rootPath) : null;
+            }}
+            onChooseNativeDirectory={async () => {
+              const rootPath = projectController.getSnapshot().rootPath;
+              return rootPath ? window.webrad.nativeBuild.chooseDirectory(rootPath) : null;
+            }}
+            onClose={() => setProjectSettingsDialogOpen(false)}
+            onPendingChangesChange={setSettingsPendingChanges}
+            onSave={saveProjectSettings}
+          />
+        )}
+        {packages.open && project !== null && (
+          <PackagesDialog
+            projectName={project.name}
+            controller={packages}
+            blocked={packageOperationsBlocked}
+          />
+        )}
+        {deploy.state !== null && <DeployDialog state={deploy.state} onClose={deploy.close} />}
+        {nativeBuild.state !== null && project !== null && (
+          <BuildApplicationDialog
+            settings={project.settings.nativeApplication}
+            build={nativeBuild}
+            hostPlatform={window.webrad.platform}
+          />
+        )}
+        {apiClientTesterComponent !== null && (
+          <ApiClientTesterDialog
+            component={apiClientTesterComponent}
+            restGoSettings={project?.settings.restGo}
+            onClose={() => setApiClientTesterComponentId(null)}
+            onSave={saveApiClientConfiguration}
+          />
+        )}
+        {dataGridConfiguratorComponent !== null && (
+          <DataGridConfigurationDialog
+            availableComponents={activePage?.components ?? []}
+            component={dataGridConfiguratorComponent}
+            onClose={() => setDataGridConfiguratorComponentId(null)}
+            onSave={saveDataGridConfiguration}
+          />
+        )}
+        {menuConfiguratorComponent !== null && (
+          <MenuConfigurationDialog
+            key={menuConfiguratorComponent.id}
+            component={menuConfiguratorComponent}
+            pages={project?.pages ?? []}
+            assets={project?.assets ?? []}
+            onSave={saveMenuConfiguration}
+            sharedUsage={sharedMenuUsage}
+            onClose={() => setMenuConfiguratorComponentId(null)}
+          />
+        )}
+        {loginConfiguratorComponent !== null && (
+          <LoginConfigurationDialog
+            key={loginConfiguratorComponent.id}
+            component={loginConfiguratorComponent}
+            restGoEnabled={project?.settings.restGo.enabled === true}
+            onSave={saveLoginConfiguration}
+            onClose={() => setLoginConfiguratorComponentId(null)}
+          />
+        )}
+        {repeatingGroupConfiguratorComponent !== null && (
+          <RepeatingGroupConfigurationDialog
+            component={repeatingGroupConfiguratorComponent}
+            availableComponents={activePage?.components ?? []}
+            onClose={() => setRepeatingGroupConfiguratorComponentId(null)}
+            onSave={saveRepeatingGroupConfiguration}
+          />
+        )}
+        {reportBuilderComponent !== null && (
+          <ReportBuilderDialog
+            component={reportBuilderComponent}
+            availableComponents={activePage?.components ?? []}
+            onClose={() => setReportBuilderComponentId(null)}
+            onSave={saveReportTemplate}
+          />
+        )}
+        {currentRowBindingsComponent !== null && currentRowBindingsGroup !== undefined && (
+          <CurrentRowBindingsDialog
+            component={currentRowBindingsComponent}
+            group={currentRowBindingsGroup}
+            availableComponents={activePage?.components ?? []}
+            onClose={() => setCurrentRowBindingsComponentId(null)}
+            onSave={saveCurrentRowBindings}
+          />
+        )}
+        {chartsConfiguratorComponent !== null && (
+          <ChartsConfigurationDialog
+            component={chartsConfiguratorComponent}
+            availableComponents={activePage?.components ?? []}
+            onClose={() => setChartsConfiguratorComponentId(null)}
+            onSave={saveChartsConfiguration}
+          />
+        )}
+        {parametersPage !== null && (
+          <PageParametersDialog
+            key={parametersPage.id}
+            page={parametersPage}
+            onClose={() => setParametersPageId(null)}
+            onSave={savePageParameters}
+          />
+        )}
+        {comboBoxConfiguratorComponent !== null && comboBoxEditorMode === 'api' && (
+          <ComboBoxConfigurationDialog
+            component={comboBoxConfiguratorComponent}
+            availableComponents={activePage?.components ?? []}
+            onClose={() => setComboBoxConfiguratorComponentId(null)}
+            onSave={saveComboBoxConfiguration}
+          />
+        )}
+        {comboBoxConfiguratorComponent !== null && comboBoxEditorMode !== 'api' && (
+          <ComboBoxItemsDialog
+            component={comboBoxConfiguratorComponent}
+            focusField={comboBoxEditorMode}
+            onClose={() => setComboBoxConfiguratorComponentId(null)}
+            onSave={saveComboBoxItems}
+          />
+        )}
       </div>
     </ProjectVisualResources>
   );

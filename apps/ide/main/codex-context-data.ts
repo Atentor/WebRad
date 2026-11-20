@@ -31,10 +31,12 @@ export function redactCodexData(value: unknown, depth = 0): unknown {
   if (typeof value === 'string') return safeUrl(value);
   if (Array.isArray(value)) return value.map((item) => redactCodexData(item, depth + 1));
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
-      key,
-      privateName.test(key) ? PRIVATE_CONTEXT_VALUE : redactCodexData(entry, depth + 1),
-    ]));
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        privateName.test(key) ? PRIVATE_CONTEXT_VALUE : redactCodexData(entry, depth + 1),
+      ]),
+    );
   }
   return value;
 }
@@ -45,33 +47,54 @@ export function codexSourceSnapshot(path: string, text: string): string {
   const replacements = new Map<number, { end: number; text: string }>();
   const mask = (node: ts.Node): void => {
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-      replacements.set(node.getStart(file), { end: node.end, text: JSON.stringify(PRIVATE_CONTEXT_VALUE) });
+      replacements.set(node.getStart(file), {
+        end: node.end,
+        text: JSON.stringify(PRIVATE_CONTEXT_VALUE),
+      });
     } else {
       ts.forEachChild(node, mask);
     }
   };
   const privateTarget = (node: ts.Node): boolean => {
-    if (ts.isIdentifier(node) || ts.isPrivateIdentifier(node) || ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    if (
+      ts.isIdentifier(node) ||
+      ts.isPrivateIdentifier(node) ||
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node)
+    ) {
       return privateName.test(node.text);
     }
-    if (ts.isPropertyAccessExpression(node)) return privateTarget(node.name) || privateTarget(node.expression);
-    if (ts.isElementAccessExpression(node)) return privateTarget(node.expression) || privateTarget(node.argumentExpression);
+    if (ts.isPropertyAccessExpression(node))
+      return privateTarget(node.name) || privateTarget(node.expression);
+    if (ts.isElementAccessExpression(node))
+      return privateTarget(node.expression) || privateTarget(node.argumentExpression);
     return false;
   };
   const visit = (node: ts.Node): void => {
-    if ((ts.isVariableDeclaration(node) || ts.isPropertyAssignment(node) || ts.isPropertyDeclaration(node)) && node.initializer) {
+    if (
+      (ts.isVariableDeclaration(node) ||
+        ts.isPropertyAssignment(node) ||
+        ts.isPropertyDeclaration(node)) &&
+      node.initializer
+    ) {
       if (privateTarget(node.name)) {
         mask(node.initializer);
         return;
       }
     }
-    if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && privateTarget(node.left)) {
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+      node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+      privateTarget(node.left)
+    ) {
       mask(node.right);
       return;
     }
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       const safe = safeUrl(node.text);
-      if (safe !== node.text) replacements.set(node.getStart(file), { end: node.end, text: JSON.stringify(safe) });
+      if (safe !== node.text)
+        replacements.set(node.getStart(file), { end: node.end, text: JSON.stringify(safe) });
     }
     ts.forEachChild(node, visit);
   };
@@ -86,20 +109,36 @@ export function codexSourceSnapshot(path: string, text: string): string {
 export function codexSourceOutline(path: string, text: string): string {
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true);
   const printer = ts.createPrinter({ removeComments: true });
-  const outline = ts.transform(source, [(context) => {
-    const visit: ts.Visitor = (node) => {
-      if (ts.isBlock(node)) return ts.factory.createBlock([], false);
-      if (ts.isVariableDeclaration(node)) {
-        return ts.factory.updateVariableDeclaration(node, node.name, node.exclamationToken, node.type, undefined);
-      }
-      if (ts.isPropertyDeclaration(node)) {
-        return ts.factory.updatePropertyDeclaration(node, node.modifiers, node.name, node.questionToken ?? node.exclamationToken, node.type, undefined);
-      }
-      if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) return ts.factory.createIdentifier('__implementation_omitted');
-      return ts.visitEachChild(node, visit, context);
-    };
-    return (file) => ts.visitNode(file, visit, ts.isSourceFile) ?? file;
-  }]);
+  const outline = ts.transform(source, [
+    (context) => {
+      const visit: ts.Visitor = (node) => {
+        if (ts.isBlock(node)) return ts.factory.createBlock([], false);
+        if (ts.isVariableDeclaration(node)) {
+          return ts.factory.updateVariableDeclaration(
+            node,
+            node.name,
+            node.exclamationToken,
+            node.type,
+            undefined,
+          );
+        }
+        if (ts.isPropertyDeclaration(node)) {
+          return ts.factory.updatePropertyDeclaration(
+            node,
+            node.modifiers,
+            node.name,
+            node.questionToken ?? node.exclamationToken,
+            node.type,
+            undefined,
+          );
+        }
+        if (ts.isArrowFunction(node) || ts.isFunctionExpression(node))
+          return ts.factory.createIdentifier('__implementation_omitted');
+        return ts.visitEachChild(node, visit, context);
+      };
+      return (file) => ts.visitNode(file, visit, ts.isSourceFile) ?? file;
+    },
+  ]);
   try {
     return printer.printFile(outline.transformed[0] ?? source);
   } finally {

@@ -461,7 +461,9 @@ async function runMenuSmokeWorkflow(
     await confirmInspectorDrafts(window);
   }
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   const saved = await loadProjectFiles(options.projectPath);
   const node = saved.project.pages
     .find((candidate) => candidate.id === page.id)
@@ -897,7 +899,9 @@ async function runMenuSmokeWorkflow(
   )
     throw new Error('Menu still exposes manual responsive placement controls.');
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state')==='Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state')==='Saved'`,
+  );
   const previousHorizontal = await evaluate(
     `document.querySelector('iframe[title="WebRAD application preview"]')?.src??''`,
   );
@@ -1011,7 +1015,9 @@ async function runMenuSmokeWorkflow(
   await ready(`document.querySelector(${JSON.stringify(tree)}) === null`);
   await click(root);
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   // Exercise the same Menu interactions through a dragged reusable placement.
   // Temporary documents keep authored smoke handlers out of the original page.
   const resourceRow = (name: string): string =>
@@ -1231,7 +1237,9 @@ async function runMenuSmokeWorkflow(
     }
   }
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   const interactionSession = await loadProjectFiles(options.projectPath);
   const interactionPage = interactionSession.project.pages.find(
     (candidate) => candidate.name === smokePageName,
@@ -1383,7 +1391,9 @@ async function runMenuSmokeWorkflow(
   await selectResource(page.name);
   await click('button[aria-label="Design"]');
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   options.log(
     'renderer Menu icon geometry passed: configured SVG size, 16px disclosures, repeated desktop and reusable collapse/expand, mobile trigger/drawer, horizontal flyouts and theme changes',
   );

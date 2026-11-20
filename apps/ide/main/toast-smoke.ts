@@ -60,7 +60,9 @@ export async function runToastSmoke(
     `['OnShow', 'OnClose'].every(name => [...document.querySelectorAll('.wr-inspector-event-row label')].some(e => e.textContent?.trim() === name))`,
   );
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   const saved = await loadProjectFiles(options.projectPath);
   const toast = saved.project.pages
     .find((item) => item.id === page.id)
@@ -90,7 +92,9 @@ export async function runToastSmoke(
   await click(root);
   await click('button[role="tab"][aria-label="Properties"]');
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   options.log(
     'renderer Toast Inspector passed: palette, duration, position, icon, events, style binding, persistence and undo',
   );

@@ -46,6 +46,11 @@ function projectSession(name: string): ProjectSession {
 }
 function fakeBridge(session: ProjectSession): WebRadBridge {
   return {
+    chrome: {
+      popupMenu: vi.fn(async () => undefined),
+      setTheme: vi.fn(async () => undefined),
+      onFocusMenu: vi.fn(() => () => undefined),
+    },
     codex: createCodexTestBridge(),
     updates: createUpdateTestBridge(),
     packages: createPackageTestBridge(),

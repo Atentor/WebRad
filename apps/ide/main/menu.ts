@@ -28,9 +28,9 @@ export function popupApplicationMenu(
   request: ApplicationMenuRequest,
 ): Promise<void> {
   if (window.isDestroyed() || previewMenuModes.get(window) === true) return Promise.resolve();
-  const submenu = applicationMenus.get(window)?.items.find(
-    (item) => item.label === request.label,
-  )?.submenu;
+  const submenu = applicationMenus
+    .get(window)
+    ?.items.find((item) => item.label === request.label)?.submenu;
   if (submenu === undefined) throw new Error('Unknown application menu.');
   const bounds = window.getContentBounds();
   if (request.x < 0 || request.y < 0 || request.x > bounds.width || request.y > bounds.height)

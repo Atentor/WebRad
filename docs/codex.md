@@ -107,6 +107,13 @@ than presented as working functionality.
 
 ## Local state and context
 
+WebRAD identifies the IDE. The opened project's name comes from the Project
+Model's `project.name`, independently of the IDE brand or active page name.
+Every request, including incremental context updates, carries the current
+project ID/name. This identity supersedes earlier assistant guesses without
+discarding conversation history. If the project name is unavailable, the
+assistant is instructed to use neutral wording instead of inventing a name.
+
 Preferences are stored in `<WebRAD user data>/codex/preferences.json`. Codex owns
 authentication in `<WebRAD user data>/codex/profile`; its working directory is an
 empty sibling folder. No credentials are serialized into `.wrproj`, generated
@@ -139,12 +146,40 @@ literals and credentials in HTTP URL parameters; this does not detect every
 possible secret in arbitrary code or chat. Do not include credentials in chat
 or source. Omission markers cannot be written back through a proposal.
 
-Conversation and unfinished drafts stay in bounded IDE memory scoped by project
-folder and project ID. Failed or cancelled sends restore the prompt when its
-draft is still empty. Late responses cannot populate another project's
-conversation. Project edits use normal filesystem persistence. Preferences are
-written atomically, and unavailable saved model choices remain explicit until
-you select an available model and reasoning level.
+Conversations and unfinished drafts are saved in the version-1
+`<WebRAD user data>/codex/conversations.json` file, scoped by project folder and
+project ID. Writes are serialized and atomically replaced, with a 400ms typing
+debounce and a flush on project switches/unmount. Page unload also requests a
+best-effort flush; a crash or forced termination can lose the latest unsaved
+draft characters. The file is local plaintext
+IDE data, outside the project and generated applications. Each project retains
+up to 100 conversations, each with at most 30 messages (the initial message and
+the latest 29). Storage is limited to 32 MiB; load/save errors are reported
+instead of silently overwriting unreadable history. Deleting a conversation
+removes its local messages and draft. Restored history contains text and
+apply/discard decisions, not executable proposals tied to obsolete revisions.
+Request a fresh proposal before applying changes after restarting the IDE.
+
+Within one connection, consecutive requests in the same conversation/model reuse
+the Codex thread. Context updates replace only changed top-level sections and
+explicitly remove absent sections, using the current Project Model and authored
+sources. A complete snapshot is sent on reconnect, a model change, eviction, or
+after eight turns. At most eight threads are retained; evicted threads are
+archived. Provider threads remain ephemeral: saved local history is restored
+as a bounded textual handoff, including the initial request and recent messages,
+when a new thread is needed. Full proposal JSON and compiler diagnostic lists
+are no longer echoed as chat history. At most five current review errors, each
+capped at 500 characters, are included for a focused repair. The progress
+message reports actual input
+characters sent, not an estimated token count or a claimed billing reduction.
+Thread reuse still carries provider-side context cost; renewal bounds growth
+but no fixed percentage of token savings is guaranteed.
+
+Failed or cancelled sends restore the prompt when its draft is still empty.
+Late responses cannot populate another project's conversation. Project edits
+use normal filesystem persistence. Preferences are written atomically, and
+unavailable saved model choices remain explicit until you select an available
+model and reasoning level.
 
 This implementation uses the documented
 [Codex app-server protocol](https://developers.openai.com/codex/app-server).

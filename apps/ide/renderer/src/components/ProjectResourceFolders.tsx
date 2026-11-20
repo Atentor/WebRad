@@ -77,7 +77,11 @@ export function ProjectResourceFolders({
                   </span>
                   <span className="wr-explorer-name">{entry.label}</span>
                   {dirtyDocumentIds?.has(entry.id) && (
-                    <span className="wr-explorer-unsaved" aria-label="Unsaved changes" title="Unsaved changes">
+                    <span
+                      className="wr-explorer-unsaved"
+                      aria-label="Unsaved changes"
+                      title="Unsaved changes"
+                    >
                       <Icon name="circle" className="wr-unsaved-dot" />
                     </span>
                   )}

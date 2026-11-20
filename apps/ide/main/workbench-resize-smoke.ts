@@ -12,7 +12,13 @@ export async function runWorkbenchResizeSmoke(
 ): Promise<void> {
   const targets = [
     { name: 'left', selector: '.wr-splitter-left', panel: '.wr-left-rail', axis: 'x', sign: 1 },
-    { name: 'right', selector: '.wr-splitter-right', panel: '.wr-inspector-slot', axis: 'x', sign: -1 },
+    {
+      name: 'right',
+      selector: '.wr-splitter-right',
+      panel: '.wr-inspector-slot',
+      axis: 'x',
+      sign: -1,
+    },
     {
       name: 'bottom',
       selector: '.wr-splitter-horizontal',

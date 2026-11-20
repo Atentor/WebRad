@@ -8,11 +8,7 @@ interface WindowTitleBarProps {
   theme: 'dark' | 'light';
 }
 
-export function WindowTitleBar({
-  preview,
-  disabled,
-  theme,
-}: WindowTitleBarProps): ReactElement {
+export function WindowTitleBar({ preview, disabled, theme }: WindowTitleBarProps): ReactElement {
   const menuRef = useRef<HTMLElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const [activeMenu, setActiveMenu] = useState<ApplicationMenuLabel | null>(null);
@@ -25,16 +21,23 @@ export function WindowTitleBar({
   }, [theme]);
 
   useEffect(
-    () => window.webrad.chrome.onFocusMenu(() => {
-      if (disabled || preview) return;
-      if (document.activeElement instanceof HTMLElement && !menuRef.current?.contains(document.activeElement))
-        previousFocus.current = document.activeElement;
-      menuRef.current?.querySelector('button')?.focus();
-    }),
+    () =>
+      window.webrad.chrome.onFocusMenu(() => {
+        if (disabled || preview) return;
+        if (
+          document.activeElement instanceof HTMLElement &&
+          !menuRef.current?.contains(document.activeElement)
+        )
+          previousFocus.current = document.activeElement;
+        menuRef.current?.querySelector('button')?.focus();
+      }),
     [disabled, preview],
   );
 
-  const openMenu = async (button: HTMLButtonElement, label: ApplicationMenuLabel): Promise<void> => {
+  const openMenu = async (
+    button: HTMLButtonElement,
+    label: ApplicationMenuLabel,
+  ): Promise<void> => {
     if (activeMenu !== null) return;
     const rect = button.getBoundingClientRect();
     setActiveMenu(label);
@@ -62,7 +65,9 @@ export function WindowTitleBar({
             const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
             if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
               event.preventDefault();
-              buttons[(index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length]?.focus();
+              buttons[
+                (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length
+              ]?.focus();
             } else if (event.key === 'Escape') {
               if (previousFocus.current?.isConnected) previousFocus.current.focus();
               else (document.activeElement as HTMLElement | null)?.blur();
@@ -80,7 +85,9 @@ export function WindowTitleBar({
               aria-haspopup="menu"
               aria-expanded={activeMenu === label}
               disabled={disabled}
-              onClick={(event) => { void openMenu(event.currentTarget, label); }}
+              onClick={(event) => {
+                void openMenu(event.currentTarget, label);
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'ArrowDown') {
                   event.preventDefault();

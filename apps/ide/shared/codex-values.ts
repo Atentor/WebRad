@@ -16,8 +16,14 @@ export function assertNoCodexPrivatePlaceholder(text: string, target: string): v
   const encoded = encodeURIComponent('[private value omitted]').toLowerCase();
   for (let depth = 0; depth < 3; depth += 1) {
     const lower = candidate.toLowerCase();
-    if (candidate.includes('[private value omitted]') || lower.includes(encoded) || lower.includes(encoded.replaceAll('%20', '+'))) {
-      throw new Error(`Codex cannot replace private values in ${target}. Preserve the existing value instead.`);
+    if (
+      candidate.includes('[private value omitted]') ||
+      lower.includes(encoded) ||
+      lower.includes(encoded.replaceAll('%20', '+'))
+    ) {
+      throw new Error(
+        `Codex cannot replace private values in ${target}. Preserve the existing value instead.`,
+      );
     }
     try {
       const decoded = decodeURIComponent(candidate.replaceAll('+', ' '));
@@ -34,7 +40,8 @@ function checkPrivateValues(value: unknown, target: string): void {
   while (pending.length > 0) {
     const entry = pending.pop();
     if (!entry) continue;
-    if (entry.depth > 64) throw new Error(`Codex returned an excessively nested value for ${target}.`);
+    if (entry.depth > 64)
+      throw new Error(`Codex returned an excessively nested value for ${target}.`);
     if (typeof entry.value === 'string') assertNoCodexPrivatePlaceholder(entry.value, target);
     else if (Array.isArray(entry.value)) {
       for (const item of entry.value) pending.push({ value: item, depth: entry.depth + 1 });
@@ -96,7 +103,11 @@ export function readCodexPropertyValue(
       break;
     case 'enum':
     case 'icon':
-      valid = typeof value === 'string' && (property.validateValue !== undefined || property.options === undefined || property.options.includes(value));
+      valid =
+        typeof value === 'string' &&
+        (property.validateValue !== undefined ||
+          property.options === undefined ||
+          property.options.includes(value));
       break;
     case 'string':
     case 'color':
@@ -108,6 +119,7 @@ export function readCodexPropertyValue(
       valid = nullable || typeof value === 'string';
       break;
   }
-  if (!valid) throw new Error(`Codex supplied an invalid value for ${target}; expected ${property.type}.`);
+  if (!valid)
+    throw new Error(`Codex supplied an invalid value for ${target}; expected ${property.type}.`);
   return value;
 }

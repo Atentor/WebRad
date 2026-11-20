@@ -11,7 +11,7 @@ afterEach(() => {
 function shell(): void {
   document.body.innerHTML = `
     <button aria-label="Build and run (F9)"></button>
-    <span class="wr-toolbar-save-state">Saved</span>
+    <div data-project-save-state="Saved"></div>
     <div class="wr-bottom-panel">COMPILER: Build started.</div>`;
 }
 

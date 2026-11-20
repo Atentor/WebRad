@@ -205,7 +205,7 @@ export async function runPackagesSmoke(
     const menu = Menu.getApplicationMenu()?.items.find((item) => item.label === 'Project')?.submenu;
     if (!menu?.items.some((item) => item.label.replace(/\u2026$/, '') === 'Packages'))
       throw new Error('Missing Project > Packages native menu.');
-    await click("button[aria-label=\"Open Project\"]");
+    await click('button[aria-label="Open Project"]');
     await ready(`document.querySelector('.wr-page-surface') !== null`, 'the opened project');
     await openPackages();
     await ready(

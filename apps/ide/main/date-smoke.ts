@@ -84,7 +84,9 @@ export async function runDateSmoke(
   const paint = await evaluate(paintExpression(designer));
   if (typeof paint !== 'string') throw new Error('Date Designer geometry is clipped or empty.');
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   const saved = await loadProjectFiles(projectPath);
   const node = saved.project.pages
     .flatMap((item) => item.components)
@@ -254,7 +256,9 @@ export async function runDateSmoke(
   await ready(`document.querySelector(${JSON.stringify(tree)}) === null`);
   await click(root);
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   const restored = await loadProjectFiles(projectPath);
   const restoredPage = restored.project.pages.find((item) => item.id === page.id);
   if (JSON.stringify(restoredPage) !== JSON.stringify(page))

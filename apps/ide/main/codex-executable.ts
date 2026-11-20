@@ -15,16 +15,16 @@ export async function codexExecutable(preferred: string | null): Promise<string 
   } else {
     for (const entry of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
       const trimmed = entry.trim();
-      const directory = trimmed.startsWith('"') && trimmed.endsWith('"')
-        ? trimmed.slice(1, -1)
-        : trimmed;
+      const directory =
+        trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed;
       if (path.isAbsolute(directory)) candidates.push(path.join(directory, executable));
     }
     candidates.push(path.join(os.homedir(), '.local', 'bin', executable));
     candidates.push(path.join(os.homedir(), '.codex', 'bin', executable));
-    const platformDirectory = process.platform === 'win32'
-      ? `windows-${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}`
-      : `${process.platform === 'darwin' ? 'darwin' : 'linux'}-${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}`;
+    const platformDirectory =
+      process.platform === 'win32'
+        ? `windows-${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}`
+        : `${process.platform === 'darwin' ? 'darwin' : 'linux'}-${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}`;
     for (const edition of ['.vscode', '.vscode-insiders']) {
       const extensions = path.join(os.homedir(), edition, 'extensions');
       try {

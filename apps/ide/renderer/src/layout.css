@@ -6,7 +6,9 @@
   gap: 8px;
   height: 32px;
   padding-left: 10px;
-  padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 146px)));
+  padding-right: calc(
+    100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 146px))
+  );
   background: var(--wr-bg);
   color: var(--wr-muted-text);
   -webkit-app-region: drag;

@@ -1,3 +1,4 @@
+import type { CodexHistory } from '../shared/codex-history';
 import type { UpdateState } from '../shared/update-contracts';
 import type {
   PackageOperationResult,
@@ -42,10 +43,17 @@ import type {
   WriteFileRequest,
 } from '../shared/contracts';
 
-import type { CodexProgress, CodexProposal, CodexStatus, CodexUsage } from '../shared/codex-contracts';
+import type {
+  CodexProgress,
+  CodexProposal,
+  CodexStatus,
+  CodexUsage,
+} from '../shared/codex-contracts';
 
 const bridge: WebRadBridge = {
   codex: {
+    readHistory: () => ipcRenderer.invoke('webrad:codex:history-read') as Promise<CodexHistory>,
+    saveHistory: (scope, group) => ipcRenderer.invoke('webrad:codex:history-save', scope, group) as Promise<void>,
     usage: () => ipcRenderer.invoke('webrad:codex:usage') as Promise<CodexUsage>,
     onUsageChanged: (listener) => {
       const handler = (): void => listener();
@@ -53,15 +61,20 @@ const bridge: WebRadBridge = {
       return () => ipcRenderer.removeListener('webrad:codex:usage-changed', handler);
     },
     status: () => ipcRenderer.invoke('webrad:codex:status') as Promise<CodexStatus>,
-    chooseExecutable: () => ipcRenderer.invoke('webrad:codex:choose-executable') as Promise<CodexStatus>,
-    preferences: (preferences) => ipcRenderer.invoke('webrad:codex:preferences', preferences) as Promise<CodexStatus>,
+    chooseExecutable: () =>
+      ipcRenderer.invoke('webrad:codex:choose-executable') as Promise<CodexStatus>,
+    preferences: (preferences) =>
+      ipcRenderer.invoke('webrad:codex:preferences', preferences) as Promise<CodexStatus>,
     login: () => ipcRenderer.invoke('webrad:codex:login') as Promise<void>,
     cancelLogin: () => ipcRenderer.invoke('webrad:codex:cancel-login') as Promise<void>,
-    generate: (request) => ipcRenderer.invoke('webrad:codex:generate', request) as Promise<CodexProposal>,
-    review: (request) => ipcRenderer.invoke('webrad:codex:review', request) as Promise<CodexProposal>,
+    generate: (request) =>
+      ipcRenderer.invoke('webrad:codex:generate', request) as Promise<CodexProposal>,
+    review: (request) =>
+      ipcRenderer.invoke('webrad:codex:review', request) as Promise<CodexProposal>,
     cancel: (requestId) => ipcRenderer.invoke('webrad:codex:cancel', requestId) as Promise<void>,
     subscribe: (listener) => {
-      const handler = (_event: Electron.IpcRendererEvent, progress: CodexProgress): void => listener(progress);
+      const handler = (_event: Electron.IpcRendererEvent, progress: CodexProgress): void =>
+        listener(progress);
       ipcRenderer.on('webrad:codex:progress', handler);
       return () => ipcRenderer.removeListener('webrad:codex:progress', handler);
     },
@@ -252,7 +265,8 @@ const bridge: WebRadBridge = {
       ipcRenderer.invoke('webrad:lifecycle:set-preview-mode', active) as Promise<void>,
   },
   chrome: {
-    popupMenu: (request) => ipcRenderer.invoke('webrad:chrome:popup-menu', request) as Promise<void>,
+    popupMenu: (request) =>
+      ipcRenderer.invoke('webrad:chrome:popup-menu', request) as Promise<void>,
     setTheme: (theme) => ipcRenderer.invoke('webrad:chrome:set-theme', theme) as Promise<void>,
     onFocusMenu: (listener) => {
       const handler = (): void => listener();

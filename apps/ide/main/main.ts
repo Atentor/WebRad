@@ -974,11 +974,7 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     return;
   }
   if (process.argv.includes('--webrad-smoke-native-build') && smokeProjectPath !== undefined) {
-    await clickRendererControl(
-      window,
-      "button[aria-label=\"Open Project\"]",
-      'Open project',
-    );
+    await clickRendererControl(window, 'button[aria-label="Open Project"]', 'Open project');
     await waitForRendererResult(
       window,
       "document.querySelector('.wr-page-surface') !== null",
@@ -1080,7 +1076,9 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   }
   smokeLog('renderer application menu cleanup passed: Component absent');
   smokeLog('renderer shell passed');
-  await waitForRendererResult(window, `(() => {
+  await waitForRendererResult(
+    window,
+    `(() => {
     const bar = document.querySelector('.wr-window-titlebar');
     const content = document.querySelector('.wr-window-content');
     const toolbar = document.querySelector('.wr-workbench');
@@ -1100,17 +1098,27 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
         buttons.every(button => button.getBoundingClientRect().right <= rightEdge &&
           ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius']
             .every(corner => parseFloat(getComputedStyle(button)[corner]) === 0)));
-  })()`, 'the compact title bar and native controls clearance', (value) => value === true);
+  })()`,
+    'the compact title bar and native controls clearance',
+    (value) => value === true,
+  );
   if (process.platform !== 'darwin') {
     if (window.isMenuBarVisible()) throw new Error('The native menu must not occupy a second row.');
+    window.webContents.focus();
     sendRendererKey(window, 'Alt');
-    await waitForRendererResult(window,
+    await waitForRendererResult(
+      window,
       `document.activeElement?.closest('.wr-window-menu') !== null`,
-      'keyboard access to the title bar menu', (value) => value === true);
+      'keyboard access to the title bar menu',
+      (value) => value === true,
+    );
     sendRendererKey(window, 'End');
-    await waitForRendererResult(window,
+    await waitForRendererResult(
+      window,
       `document.activeElement?.textContent === 'Help'`,
-      'title bar menu keyboard navigation', (value) => value === true);
+      'title bar menu keyboard navigation',
+      (value) => value === true,
+    );
     const submenu = applicationMenu.items.find((item) => item.label === 'Help')?.submenu;
     if (submenu === undefined) throw new Error('Missing native Help menu.');
     let opened = false;
@@ -1120,7 +1128,8 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     };
     submenu.once('menu-will-show', onShow);
     try {
-      const point = await window.webContents.executeJavaScript(`(() => {
+      const point = (await window.webContents.executeJavaScript(
+        `(() => {
         const button = document.querySelector('.wr-window-menu button:last-child');
         if (!(button instanceof HTMLButtonElement) || button.disabled) throw new Error('Help menu unavailable.');
         const rect = button.getBoundingClientRect();
@@ -1128,22 +1137,38 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
         const y = Math.round(rect.top + rect.height / 2);
         if (!button.contains(document.elementFromPoint(x, y))) throw new Error('Help menu is obscured.');
         return { x, y };
-      })()`, true) as { x: number; y: number };
+      })()`,
+        true,
+      )) as { x: number; y: number };
       window.webContents.sendInputEvent({ type: 'mouseMove', ...point });
-      window.webContents.sendInputEvent({ type: 'mouseDown', ...point, button: 'left', clickCount: 1 });
-      window.webContents.sendInputEvent({ type: 'mouseUp', ...point, button: 'left', clickCount: 1 });
-      await waitForRendererResult(window,
+      window.webContents.sendInputEvent({
+        type: 'mouseDown',
+        ...point,
+        button: 'left',
+        clickCount: 1,
+      });
+      window.webContents.sendInputEvent({
+        type: 'mouseUp',
+        ...point,
+        button: 'left',
+        clickCount: 1,
+      });
+      await waitForRendererResult(
+        window,
         `document.querySelector('.wr-window-menu button:last-child')?.getAttribute('aria-expanded') === 'false'`,
-        'native title bar menu dismissal', (value) => opened && value === true);
+        'native title bar menu dismissal',
+        (value) => opened && value === true,
+      );
     } finally {
       submenu.removeListener('menu-will-show', onShow);
       submenu.closePopup(window);
     }
     sendRendererKey(window, 'Escape');
   }
-  smokeLog('renderer compact title bar passed: 32px, native controls clearance, menu and keyboard access');
-  await runCodexPanelSmoke(window, smokeScreenshotPath);
-  smokeLog('renderer Codex panel passed: native context, model and reasoning controls, suggestions, project context, draft recovery, connection settings and close');
+  smokeLog(
+    'renderer compact title bar passed: 32px, native controls clearance, menu and keyboard access',
+  );
+
   await runBugReportSmoke(window);
   smokeLog('renderer bug report and documentation browser links passed');
   const loadedIcon = await waitForRendererString(
@@ -1493,6 +1518,10 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     (value) => value === true,
   );
   smokeLog('renderer last project restore passed');
+  await runCodexPanelSmoke(window, smokeScreenshotPath);
+  smokeLog(
+    'renderer Codex panel passed: native context, model and reasoning controls, suggestions, project context, draft recovery, connection settings and close',
+  );
   await clickRendererControl(
     window,
     'button[aria-label="Project Explorer"]',
@@ -1956,10 +1985,12 @@ async function createWindow(): Promise<BrowserWindow> {
         if (input.type === 'keyDown') altOnly = false;
         return;
       }
-      // Keep Alt from exposing a second native menu row. F10 remains Step Over.
-      event.preventDefault();
+      // Cancel only the release: cancelling Alt's press makes Chromium consume
+      // its release too, so the custom menu never receives its focus request.
+      // Prevent the native menu's second row while keeping F10 for Step Over.
       if (input.type === 'keyDown') altOnly = !input.control && !input.meta && !input.shift;
       else if (input.type === 'keyUp') {
+        event.preventDefault();
         if (altOnly) window.webContents.send('webrad:chrome:focus-menu');
         altOnly = false;
       }
@@ -2054,6 +2085,7 @@ app
     registerIpcHandlers(
       smokeMode && smokeProjectPath !== undefined
         ? {
+            disableCodexConnection: true,
             automatedOpenProjectPath: smokeProjectPath,
             nativeInspectionLog: smokeLog,
             compilationLog: smokeLog,

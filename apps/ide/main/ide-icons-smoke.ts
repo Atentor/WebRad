@@ -11,8 +11,14 @@ export async function runIdeIconsSmoke(
     `(() => {
     const icons = [...document.querySelectorAll('svg.wr-icon')].filter(icon =>
       !icon.closest('.wr-inspector-icon-picker-preview, .wr-icon-picker-option'));
-    const invalid = icons.filter(icon => !icon.dataset.lucideIcon || !icon.children.length ||
-      icon.getAttribute('stroke-width') !== '2' || icon.getAttribute('aria-hidden') !== 'true');
+    const invalid = icons.filter(icon => {
+      if (!icon.children.length || icon.getAttribute('aria-hidden') !== 'true') return true;
+      if (icon.dataset.brandIcon !== undefined) {
+        return icon.dataset.brandIcon !== 'openai' || icon.dataset.lucideIcon !== undefined ||
+          icon.getAttribute('viewBox') !== '1.5 1.5 13 13' || icon.getAttribute('fill') !== 'currentColor';
+      }
+      return !icon.dataset.lucideIcon || icon.getAttribute('stroke-width') !== '2';
+    });
     const native = [...document.querySelectorAll('.codicon')].filter(icon => {
       const bounds = icon.getBoundingClientRect();
       const style = getComputedStyle(icon);

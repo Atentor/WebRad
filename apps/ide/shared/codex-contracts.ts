@@ -1,3 +1,4 @@
+import type { CodexHistory, CodexHistoryGroup } from './codex-history';
 import type { PageModel, ComponentStyleModel, WebRadProject } from '@webrad/project-model';
 import type { CodexConversationEntry, CodexPlan } from './codex-schema';
 
@@ -28,6 +29,8 @@ export interface CodexStatus {
 }
 
 export interface CodexGenerateRequest {
+  readonly conversationId?: string;
+
   readonly requestId: string;
   readonly rootPath: string;
   readonly project: WebRadProject;
@@ -55,7 +58,11 @@ export interface CodexProposal {
   readonly sourcePath: string;
   readonly sourceBefore: string;
   readonly sourceAfter: string;
-  readonly diagnostics: readonly { readonly message: string; readonly line?: number; readonly file?: string }[];
+  readonly diagnostics: readonly {
+    readonly message: string;
+    readonly line?: number;
+    readonly file?: string;
+  }[];
   readonly contextSummary?: CodexContextSummary;
 }
 
@@ -101,6 +108,9 @@ export interface CodexUsage {
 }
 
 export interface CodexBridge {
+  readHistory(): Promise<CodexHistory>;
+  saveHistory(scope: string, group: CodexHistoryGroup): Promise<void>;
+
   usage(): Promise<CodexUsage>;
   onUsageChanged(listener: () => void): () => void;
   status(): Promise<CodexStatus>;

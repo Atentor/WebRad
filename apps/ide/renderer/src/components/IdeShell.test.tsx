@@ -80,7 +80,6 @@ afterEach(() => {
 function shell(inspector = true): ReturnType<typeof render> {
   return render(
     <IdeShell
-
       activity={<nav>Activity</nav>}
       explorer={<div>Elements</div>}
       palette={<div>Palette</div>}

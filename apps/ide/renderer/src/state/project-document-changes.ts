@@ -1,8 +1,4 @@
-import {
-  menuSourcePath,
-  projectSourceFilePath,
-  type WebRadProject,
-} from '@webrad/project-model';
+import { menuSourcePath, projectSourceFilePath, type WebRadProject } from '@webrad/project-model';
 
 export interface ProjectDocumentBaseline {
   readonly project: WebRadProject;
@@ -27,14 +23,20 @@ function sameContent(left: unknown, right: unknown): boolean {
     return false;
   if (Array.isArray(left) || Array.isArray(right)) {
     return (
-      Array.isArray(left) && Array.isArray(right) && left.length === right.length &&
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
       left.every((value: unknown, index: number) => sameContent(value, right[index]))
     );
   }
   const leftKeys = Object.keys(left).filter((key) => Reflect.get(left, key) !== undefined);
   const rightKeys = Object.keys(right).filter((key) => Reflect.get(right, key) !== undefined);
-  return leftKeys.length === rightKeys.length && leftKeys.every((key) =>
-    Object.hasOwn(right, key) && sameContent(Reflect.get(left, key), Reflect.get(right, key)),
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) =>
+        Object.hasOwn(right, key) && sameContent(Reflect.get(left, key), Reflect.get(right, key)),
+    )
   );
 }
 
@@ -67,16 +69,18 @@ export function projectDocumentChanges(
 ): ProjectDocumentChanges {
   const dirtyDocumentIds = new Set<string>();
   if (project === null) return { dirtyDocumentIds, stylesDirty: false };
-  const previous = saved === null
-    ? new Map<string, DocumentContent>()
-    : documentContents(saved.project, saved.userSources);
+  const previous =
+    saved === null
+      ? new Map<string, DocumentContent>()
+      : documentContents(saved.project, saved.userSources);
   for (const [id, content] of documentContents(project, sources)) {
     if (!sameContent(content, previous.get(id))) dirtyDocumentIds.add(id);
   }
   return {
     dirtyDocumentIds,
     stylesDirty:
-      saved === null || !sameContent(project.styles, saved.project.styles) ||
+      saved === null ||
+      !sameContent(project.styles, saved.project.styles) ||
       !sameContent(project.settings.themes, saved.project.settings.themes),
   };
 }

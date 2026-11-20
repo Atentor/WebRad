@@ -519,7 +519,11 @@ export function ProjectExplorer({
                   <Icon name="page" className="wr-page-icon" />
                   {renderName(page.id, page.name, 'Page name')}
                   {dirtyDocumentIds?.has(page.id) && (
-                    <span className="wr-explorer-unsaved" aria-label="Unsaved changes" title="Unsaved changes">
+                    <span
+                      className="wr-explorer-unsaved"
+                      aria-label="Unsaved changes"
+                      title="Unsaved changes"
+                    >
                       <Icon name="circle" className="wr-unsaved-dot" />
                     </span>
                   )}
@@ -576,7 +580,11 @@ export function ProjectExplorer({
                   <Icon name="component" className="wr-page-icon" />
                   {renderName(reusableElement.id, reusableElement.name, 'Reusable component name')}
                   {dirtyDocumentIds?.has(reusableElement.id) && (
-                    <span className="wr-explorer-unsaved" aria-label="Unsaved changes" title="Unsaved changes">
+                    <span
+                      className="wr-explorer-unsaved"
+                      aria-label="Unsaved changes"
+                      title="Unsaved changes"
+                    >
                       <Icon name="circle" className="wr-unsaved-dot" />
                     </span>
                   )}
@@ -617,7 +625,11 @@ export function ProjectExplorer({
                   <Icon name="menu" className="wr-page-icon" />
                   {renderName(menu.id, menu.name, 'Menu name')}
                   {dirtyDocumentIds?.has(menu.id) && (
-                    <span className="wr-explorer-unsaved" aria-label="Unsaved changes" title="Unsaved changes">
+                    <span
+                      className="wr-explorer-unsaved"
+                      aria-label="Unsaved changes"
+                      title="Unsaved changes"
+                    >
                       <Icon name="circle" className="wr-unsaved-dot" />
                     </span>
                   )}

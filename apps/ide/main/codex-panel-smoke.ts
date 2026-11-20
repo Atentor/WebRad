@@ -16,7 +16,10 @@ export async function runCodexPanelSmoke(
     }
     throw new Error('Codex panel did not reach its expected UI state.');
   };
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Codex assistant"]').click()`, true);
+  await window.webContents.executeJavaScript(
+    `document.querySelector('button[aria-label="Codex assistant"]').click()`,
+    true,
+  );
   try {
     await waitFor(`(() => {
       const panel = document.querySelector('.wr-codex-panel');
@@ -62,47 +65,93 @@ export async function runCodexPanelSmoke(
         promptBounds.left >= bounds.left && promptBounds.right <= bounds.right &&
         promptBounds.top >= bounds.top && promptBounds.bottom <= bounds.bottom;
     })()`);
-    await window.webContents.executeJavaScript(`document.querySelector('.wr-codex-suggestions button').click()`, true);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-codex-suggestions button').click()`,
+      true,
+    );
     await waitFor(`(() => {
       const prompt = document.querySelector('.wr-codex-panel textarea');
       return prompt instanceof HTMLTextAreaElement && prompt.value.includes('registration form');
     })()`);
     await waitFor(`document.querySelector('.wr-codex-project-context') === null`);
-    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Close Codex"]').click()`, true);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('button[aria-label="Close Codex"]').click()`,
+      true,
+    );
     await waitFor(`document.querySelector('.wr-codex-panel') === null`);
-    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Codex assistant"]').click()`, true);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('button[aria-label="Codex assistant"]').click()`,
+      true,
+    );
     await waitFor(`(() => {
       const prompt = document.querySelector('.wr-codex-panel textarea');
       return prompt instanceof HTMLTextAreaElement && prompt.value.includes('registration form');
     })()`);
-    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="New Codex conversation"]').click()`, true);
+    // Observe the real disk-backed draft before reloading the renderer.
+    await waitFor(`(async () => {
+      const groups = Object.values(await window.webrad.codex.readHistory());
+      return groups.some(group => group.chats.some(chat => chat.draft.includes('registration form')));
+    })()`);
+    await new Promise<void>((resolve) => {
+      window.webContents.once('did-finish-load', () => resolve());
+      window.webContents.reload();
+    });
+    await waitFor(`document.querySelector('button[aria-label="Codex assistant"]') !== null`);
+    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Codex assistant"]').click()`, true);
+    await waitFor(`document.querySelector('.wr-codex-panel textarea')?.value.includes('registration form') === true`);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('button[aria-label="New Codex conversation"]').click()`,
+      true,
+    );
     await waitFor(`(() => {
       const prompt = document.querySelector('.wr-codex-panel textarea');
       const send = document.querySelector('.wr-codex-panel button[aria-label="Send to Codex"]');
       return prompt instanceof HTMLTextAreaElement && prompt.value === '' &&
         send instanceof HTMLButtonElement && send.disabled;
     })()`);
-    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Codex conversation history"]').click()`, true);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('button[aria-label="Codex conversation history"]').click()`,
+      true,
+    );
     await waitFor(`(() => {
       const chats = document.querySelectorAll('.wr-codex-chat-row > button:first-child');
       return chats.length === 2 && [...chats].some((chat) => chat.textContent.includes('registration form')) &&
         document.querySelector('button[aria-label="Codex conversation history"] svg')?.getAttribute('data-lucide-icon') === 'messages-square' &&
         document.querySelector('.wr-codex-chat-row button[title="Delete conversation"] svg')?.getAttribute('data-lucide-icon') === 'trash';
     })()`);
-    await window.webContents.executeJavaScript(`(() => {
+    await window.webContents.executeJavaScript(
+      `(() => {
       const chat = [...document.querySelectorAll('.wr-codex-chat-row > button:first-child')].find((item) => item.textContent.includes('registration form'));
       chat.click();
-    })()`, true);
-    await waitFor(`document.querySelector('.wr-codex-panel textarea')?.value.includes('registration form') === true`);
-    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="New Codex conversation"]').click()`, true);
-    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Codex connection settings"]').click()`, true);
+    })()`,
+      true,
+    );
+    await waitFor(
+      `document.querySelector('.wr-codex-panel textarea')?.value.includes('registration form') === true`,
+    );
+    await window.webContents.executeJavaScript(
+      `document.querySelector('button[aria-label="New Codex conversation"]').click()`,
+      true,
+    );
+    await window.webContents.executeJavaScript(
+      `document.querySelector('button[aria-label="Codex connection settings"]').click()`,
+      true,
+    );
     await waitFor(`document.querySelector('.wr-codex-settings') !== null`);
     if (screenshotPath) {
       const image = await capturePresentedSmokePage(window, deadline, 'Codex panel');
-      await writeFile(path.join(path.dirname(screenshotPath), 'webrad-codex-panel.png'), image.toPNG());
+      await writeFile(
+        path.join(path.dirname(screenshotPath), 'webrad-codex-panel.png'),
+        image.toPNG(),
+      );
     }
   } finally {
-    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Close Codex"]')?.click()`, true);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('button[aria-label="Close Codex"]')?.click()`,
+      true,
+    );
   }
-  await waitFor(`document.querySelector('.wr-codex-panel') === null && document.querySelector('button[aria-label="Codex assistant"]').getAttribute('aria-pressed') === 'false'`);
+  await waitFor(
+    `document.querySelector('.wr-codex-panel') === null && document.querySelector('button[aria-label="Codex assistant"]').getAttribute('aria-pressed') === 'false'`,
+  );
 }

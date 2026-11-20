@@ -319,7 +319,14 @@ export function typecheckSources(
   for (const [fileName, names] of assistantMethods) {
     const sourceFile = program.getSourceFile(fileName);
     if (sourceFile) {
-      diagnostics.push(...assistantMethodDiagnostics(program, sourceFile, new Set(names), componentScopes.get(fileName)?.className));
+      diagnostics.push(
+        ...assistantMethodDiagnostics(
+          program,
+          sourceFile,
+          new Set(names),
+          componentScopes.get(fileName)?.className,
+        ),
+      );
     }
   }
   previousTypecheck = { environment, builder };

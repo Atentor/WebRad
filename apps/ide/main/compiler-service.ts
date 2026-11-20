@@ -163,13 +163,19 @@ export async function checkProjectTypes(
   };
   signal.addEventListener('abort', cancel, { once: true });
   const timeout = setTimeout(() => {
-    fail(current, new Error('The TypeScript proposal review exceeded two minutes. Reduce the proposal or recheck it before applying.'));
+    fail(
+      current,
+      new Error(
+        'The TypeScript proposal review exceeded two minutes. Reduce the proposal or recheck it before applying.',
+      ),
+    );
     current.child.kill();
   }, 120_000);
   try {
     const value = await send({ kind: 'check', project, options }, undefined, current);
     signal.throwIfAborted();
-    if (typeof value === 'string') throw new Error('Unexpected styles result during proposal review.');
+    if (typeof value === 'string')
+      throw new Error('Unexpected styles result during proposal review.');
     return value;
   } finally {
     clearTimeout(timeout);

@@ -379,7 +379,7 @@ export async function runRestGoSettingsSmoke(
     `renderer RestGO connection layout passed: project and IDE cards, unboxed heading icons; visible API defaults and session settings; full-width single-column desktop and narrow geometry; screenshots ${screenshotPath}, ${narrowScreenshots}`,
   );
   await saveProject(window, projectPath);
-  await click(window, 'button[aria-label="Close RestGo"]');
+  await click(window, 'button[aria-label="Project Explorer"]');
   await openSettings(window);
   await rendererReady(
     window,

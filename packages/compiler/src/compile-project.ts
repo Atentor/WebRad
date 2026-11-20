@@ -783,7 +783,12 @@ export function checkProjectTypes(
   const project = validation.data;
   const diagnostics = [...validateRegistry(project, defaultComponentRegistry)];
   if (hasErrors(diagnostics)) return failedResult('', diagnostics);
-  const graph = createVirtualSourceGraph(project, options.userSources, defaultComponentRegistry, '');
+  const graph = createVirtualSourceGraph(
+    project,
+    options.userSources,
+    defaultComponentRegistry,
+    '',
+  );
   const sources = assistantEventCheckSources(graph.sources, project, options.assistantEvents);
   const checked = typecheckSources(
     sources,

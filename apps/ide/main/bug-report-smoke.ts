@@ -17,16 +17,21 @@ export async function runBugReportSmoke(window: BrowserWindow): Promise<void> {
   try {
     await Promise.all([
       launched,
-      window.webContents.executeJavaScript(`(() => {
+      window.webContents
+        .executeJavaScript(
+          `(() => {
         if (document.querySelector('.wr-toolbar, .wr-toolbar-beta, .wr-document-tabs'))
           throw new Error('The removed main toolbar must be absent.');
-      })()`).then(() => {
-        const report = Menu.getApplicationMenu()?.items.find((item) => item.label === 'Help')
-          ?.submenu?.items.find((item) => item.label === 'Report a bug');
-        if (!report || !report.enabled || !report.visible)
-          throw new Error('Help > Report a bug is missing or unavailable.');
-        report.click(report, window, {});
-      }),
+      })()`,
+        )
+        .then(() => {
+          const report = Menu.getApplicationMenu()
+            ?.items.find((item) => item.label === 'Help')
+            ?.submenu?.items.find((item) => item.label === 'Report a bug');
+          if (!report || !report.enabled || !report.visible)
+            throw new Error('Help > Report a bug is missing or unavailable.');
+          report.click(report, window, {});
+        }),
     ]);
     if (opened.length !== 1 || opened[0] !== 'https://github.com/Atentor/WebRad/issues') {
       throw new Error(`Bug report opened an unexpected destination: ${JSON.stringify(opened)}`);

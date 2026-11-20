@@ -26,7 +26,9 @@ export async function assertPreviewBuildErrorSmoke(
   const entry = original.project.pages.find((page) => page.name === 'index');
   if (!entry) throw new Error('Missing index document for Preview recovery.');
   const assertDocumentIndicators = async (dirtyId: string | null): Promise<void> => {
-    await waitForPreviewState(window, `(() => {
+    await waitForPreviewState(
+      window,
+      `(() => {
       const expectedId = ${JSON.stringify(dirtyId)};
       const rows = [...document.querySelectorAll('.wr-project-tree [data-project-resource-id]')];
       const tabs = [...document.querySelectorAll('.wr-editor-workspace[data-document-id]')];
@@ -36,13 +38,14 @@ export async function assertPreviewBuildErrorSmoke(
         tabs.every(tab => (tab.getAttribute('data-document-dirty') === 'true') ===
           (tab.getAttribute('data-document-id') === expectedId)) &&
         document.querySelectorAll('.wr-view-tabs .wr-unsaved-dot').length === (expectedId === null ? 0 : 2);
-    })()`);
+    })()`,
+    );
   };
   await clickPreviewControlSmoke(window, 'button[aria-label="Project Explorer"]');
-  const pagesCollapsed = await window.webContents.executeJavaScript(
+  const pagesCollapsed = (await window.webContents.executeJavaScript(
     `document.querySelector('.wr-project-tree button[aria-label="Expand Pages"]') !== null`,
     true,
-  ) as boolean;
+  )) as boolean;
   if (pagesCollapsed)
     await clickPreviewControlSmoke(window, '.wr-project-tree button[aria-label="Expand Pages"]');
   await assertDocumentIndicators(null);
@@ -84,7 +87,7 @@ export async function assertPreviewBuildErrorSmoke(
     window,
     "![...document.querySelectorAll('.monaco-editor .view-line')].some(line => line.textContent?.includes('uxPreviewFailure'))",
   );
-  await assertDocumentIndicators(null);
+  await assertDocumentIndicators(entry.id);
   window.webContents.send('webrad:menu-command', 'file.save');
   await waitForPreviewState(
     window,

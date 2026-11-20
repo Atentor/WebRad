@@ -98,7 +98,9 @@ export async function runEditMaskSmoke(
     `document.querySelector(${JSON.stringify(designer)})?.querySelector('.wr-edit-icon-action') instanceof HTMLButtonElement`,
   );
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   const saved = await loadProjectFiles(projectPath);
   const node = saved.project.pages
     .flatMap((item) => item.components)
@@ -367,7 +369,9 @@ export async function runEditMaskSmoke(
   await ready(`document.querySelector(${JSON.stringify(tree)}) === null`);
   await click(root);
   await window.webContents.send('webrad:menu-command', 'file.save');
-  await ready(`document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`);
+  await ready(
+    `document.querySelector('[data-project-save-state]')?.getAttribute('data-project-save-state') === 'Saved'`,
+  );
   log(
     'renderer Edit mask Inspector and F9 passed: activation, mask and saved model, accessible label, typed icon Interaction, hover, pointer and keyboard activation, icon geometry, Designer/compiled text, native input, separator deletion, caret, events and undo',
   );

@@ -649,6 +649,7 @@ export interface RegisterIpcHandlersOptions {
   readonly compilationLog?: (message: string) => void;
   readonly automatedOpenProjectPath?: string;
   readonly userDataPath?: string;
+  readonly disableCodexConnection?: boolean;
 }
 
 export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): void {
@@ -656,6 +657,7 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
   registered = true;
   registerRestGoAdminIpc(requireTrustedSender, options.userDataPath);
   registerCodexIpc({
+    resolveExecutable: options.disableCodexConnection ? async () => null : undefined,
     requireTrustedSender,
     userDataPath: options.userDataPath,
     requireProject: (event, rootPath, projectId) => {
@@ -663,7 +665,8 @@ export function registerIpcHandlers(options: RegisterIpcHandlersOptions = {}): v
       if (
         activeProjectRoots.get(event.sender.id) !== normalizedRoot(rootPath) ||
         openedProjectIds.get(event.sender.id)?.get(normalizedRoot(rootPath)) !== projectId
-      ) throw new Error('Codex requires the active opened WebRAD project.');
+      )
+        throw new Error('Codex requires the active opened WebRAD project.');
     },
   });
   registerPackagesIpc({

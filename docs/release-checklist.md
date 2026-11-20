@@ -1,5 +1,75 @@
 # Release checklist for agents and maintainers
 
+## Codex history persistence and context reuse (2026-11-20)
+
+The existing panel smoke continues to exercise history, suggestions, draft
+recovery and geometry through the real bridge. History now uses isolated
+smoke user-data files and the panel waits for history loading before composing.
+Retain all existing evidence and the disabled provider-discovery fixture.
+The history disclosure describes local persistence instead of session-only
+memory. Saved messages must not restore executable proposals from old revisions.
+No validation was requested for this change; the earlier passing Windows battery
+below does not cover persistence, context deltas or reused provider threads.
+
+## Local Windows validation completed (2026-11-20)
+
+`npm run validate` passed with Chrome enabled: 242 files / 1,815 tests,
+strict typechecking, lint, formatting, icon and generated-source checks, and
+Windows x64 packaging. All 15 Electron flows passed: standard, resources,
+packages, deploy, updates and Native Build UI/export in development and packaged
+modes, plus development debugger, Report Builder and native viewport. The
+production dependency audit reported zero vulnerabilities. Evidence is retained
+in `artifacts/validation-2026-11-19/` and `artifacts/smoke/`.
+
+This local result covers the current update icon geometry, title menu, document
+dirty indicators and Codex panel interactions described below. It does not
+certify Linux/macOS, hosted exact-commit gates, real update installation or live
+Codex account/model behavior. Node was 26.13.0; npm 12.2.0 was below the declared
+12.2.1 minimum. Retain the prescribed CI toolchain and all native release gates.
+
+## Preview recovery saved baseline (2026-11-20)
+
+F9 saves the current project before compilation, including when typechecking
+fails. Restoring the earlier valid source therefore dirties only that document
+until the next Save. The recovery smoke requires that isolated dirty state,
+then no document indicators after Save and exact restoration of every authored
+source. This supersedes the earlier expectation of no dots before the final
+Save. Preserve the recovery marker, diagnostics, native Monaco edit and Stop.
+
+The IDE icon audit validates the bundled OpenAI brand marker, optical viewport
+and current-color fill separately from Lucide's registered name and 2px stroke.
+Unknown brand markers, malformed SVGs and unmapped Monaco icons still fail.
+
+## Full Windows battery repairs (2026-11-19)
+
+The style-parity browser fixture must give the Default Designer canvas the same
+logical width as its compiled Preview. Default follows the available scroll
+host width, so account for zoom and the host's 32px horizontal padding on each
+side when sizing the fixture. Preserve every style, alignment and geometry
+comparison across both layouts, themes, widths and zoom levels.
+
+The page-title polling regression fixture must expose the real shell's
+`data-project-save-state="Saved"` contract. The removed toolbar label does not
+satisfy readiness and leaves the fixture's mocked clock waiting indefinitely.
+Keep both the post-compilation resampling and failed-build deadline assertions.
+Both focused regression files and the full local battery passed.
+
+IDE integration fixtures dispatch native menu commands through the typed bridge;
+jsdom does not run Electron accelerators. Use Project Explorer to leave Styles
+or RestGo and identify the editor document through its view navigation. Keep
+dirty resource names, stable IDs, modal command guards and source checks.
+
+Cancel Alt on release, preserving its press so Chromium delivers the release
+that focuses the custom title menu. Keep the smoke's native input, menu opening,
+dismissal, keyboard navigation and hidden second native row assertions.
+
+Run Codex panel geometry after opening the project so Design/Code exists for
+header alignment. Automated IPC setup disables Codex executable resolution;
+this UI smoke must not launch an installed account's app-server or use network
+services. It still exercises real renderer/preload/IPC status, unavailable quota
+tracks, suggestions, history, draft recovery and connection settings. Live
+authentication, model acceptance, reported quotas and inference remain separate.
+
 ## Activity bar update indicator (2026-11-19)
 
 The update action is now an icon directly above Project Settings, after the

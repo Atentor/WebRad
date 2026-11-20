@@ -16,7 +16,10 @@ export async function reviewCodexProposal(
   };
   try {
     const { candidate, ...proposal } = prepareCodexEdits(
-      request.project, request.documentId, request.userSources, request.plan,
+      request.project,
+      request.documentId,
+      request.userSources,
+      request.plan,
     );
     const bindings = new Map<string, { componentId: string; eventName: string; method: string }>();
     for (const operation of request.plan.operations) {
@@ -30,7 +33,9 @@ export async function reviewCodexProposal(
       // operation can replace a binding or remove its component entirely.
       if (!node || node.events[operation.event] !== operation.method) continue;
       bindings.set(JSON.stringify([node.id, operation.event]), {
-        componentId: node.id, eventName: operation.event, method: operation.method,
+        componentId: node.id,
+        eventName: operation.event,
+        method: operation.method,
       });
     }
     const editedMethods = new Set(request.plan.methods.map((method) => method.name));
@@ -38,26 +43,41 @@ export async function reviewCodexProposal(
       for (const [eventName, method] of Object.entries(node.events)) {
         if (!method || !editedMethods.has(method)) continue;
         bindings.set(JSON.stringify([node.id, eventName]), {
-          componentId: node.id, eventName, method,
+          componentId: node.id,
+          eventName,
+          method,
         });
       }
     }
-    const result = proposal.changes.length === 0 ? null : await checkProjectTypes(candidate, {
-      userSources: { ...request.userSources, [proposal.sourcePath]: proposal.sourceAfter },
-      packageRoot: request.rootPath,
-      assistantMethods: { [proposal.sourcePath]: request.plan.methods.map((method) => method.name) },
-      assistantEvents: {
-        [proposal.sourcePath]: [...bindings.values()],
-      },
-    }, signal);
+    const result =
+      proposal.changes.length === 0
+        ? null
+        : await checkProjectTypes(
+            candidate,
+            {
+              userSources: { ...request.userSources, [proposal.sourcePath]: proposal.sourceAfter },
+              packageRoot: request.rootPath,
+              assistantMethods: {
+                [proposal.sourcePath]: request.plan.methods.map((method) => method.name),
+              },
+              assistantEvents: {
+                [proposal.sourcePath]: [...bindings.values()],
+              },
+            },
+            signal,
+          );
     signal.throwIfAborted();
     return {
-      ...proposal, ...base,
-      diagnostics: result?.diagnostics.filter((item) => item.category === 'error').map((item) => ({
-        message: item.message,
-        ...(item.line === undefined ? {} : { line: item.line }),
-        ...(item.file === undefined ? {} : { file: item.file }),
-      })) ?? [],
+      ...proposal,
+      ...base,
+      diagnostics:
+        result?.diagnostics
+          .filter((item) => item.category === 'error')
+          .map((item) => ({
+            message: item.message,
+            ...(item.line === undefined ? {} : { line: item.line }),
+            ...(item.file === undefined ? {} : { file: item.file }),
+          })) ?? [],
     };
   } catch (error) {
     signal.throwIfAborted();
@@ -76,13 +96,22 @@ export async function reviewCodexProposal(
       sourceBefore: source,
       sourceAfter: source,
       changes: [
-        ...request.plan.operations.map((operation) => operation.kind === 'add'
-          ? `Add ${operation.componentType} “${operation.name}”`
-          : `${operation.kind}: ${operation.component}`),
+        ...request.plan.operations.map((operation) =>
+          operation.kind === 'add'
+            ? `Add ${operation.componentType} “${operation.name}”`
+            : `${operation.kind}: ${operation.component}`,
+        ),
         ...request.plan.styles.map((style) => `Create style “${style.name}”`),
         ...request.plan.methods.map((method) => `Write typed method ${method.name}`),
       ],
-      diagnostics: [{ message: error instanceof Error ? error.message : 'The proposal could not be prepared. Ask Codex to revise it.' }],
+      diagnostics: [
+        {
+          message:
+            error instanceof Error
+              ? error.message
+              : 'The proposal could not be prepared. Ask Codex to revise it.',
+        },
+      ],
     };
   }
 }

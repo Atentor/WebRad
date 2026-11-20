@@ -15,7 +15,8 @@ export function responsiveLayoutPropertyReference(
     return { target: 'bounds', field: property.layoutCoordinate };
   }
   const source = property.source;
-  const prefix = source === 'layout-container' ? 'container' : source === 'layout-item' ? 'item' : '';
+  const prefix =
+    source === 'layout-container' ? 'container' : source === 'layout-item' ? 'item' : '';
   if (prefix.length === 0 || !property.name.startsWith(prefix)) return undefined;
   const suffix = property.name.slice(prefix.length);
   if (suffix.length === 0) return undefined;

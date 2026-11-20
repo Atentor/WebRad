@@ -1,5 +1,67 @@
 # WebRAD delivery plan
 
+## Codex IDE and project identity (2026-11-20)
+
+Separated the WebRAD IDE identity from the current application's Project Model
+name. Authoring instructions explicitly forbid inferring a project name from
+the IDE brand, assistant label, page name or earlier assistant guesses. Every
+full or incremental request includes a small current project ID/name header,
+even when the larger project context is unchanged. Missing names use neutral
+wording. Existing history remains intact; current identity supersedes incorrect
+earlier replies. No tests, smokes, typecheck, lint or builds were requested or run.
+
+## Persistent Codex conversations and incremental context (2026-11-20)
+
+Implemented versioned local conversation/draft persistence through trusted,
+validated main/preload IPC and serialized atomic writes outside project files.
+Restored messages retain text and decisions; stale executable proposals are not
+restored. Same-conversation/model requests reuse bounded ephemeral threads and
+send changed context sections rather than repeating the full catalog, runtime
+declarations and project snapshot. Cold/reconnected threads receive a full
+current snapshot and a bounded textual handoff; proposal JSON and full compiler
+diagnostics are no longer repeated. Threads rotate after eight turns and the
+cache retains at most eight threads. Actual input character counts appear in
+progress. See `docs/codex.md` for the version-1 format, limits and billing caveats.
+No tests, smokes, typecheck, lint, formatting checks or builds were requested or
+run for this change; earlier validation results below cover the prior checkout.
+
+## Full local validation (2026-11-20)
+
+The requested full Windows battery passed, including Chrome browser coverage,
+242 portable test files / 1,815 tests, strict typecheck, lint, formatting,
+icon/generated-source checks and Windows x64 packaging. All 15 Electron flows
+passed: development and packaged standard, updates, resources, packages, deploy
+and Native Build UI/export, plus debugger, Report Builder and native viewport.
+The production dependency audit found zero vulnerabilities. Logs, failed-attempt
+diagnostics and the final report are under `artifacts/validation-2026-11-19/`
+and `artifacts/smoke/`. No release or installer was generated. Linux/macOS,
+hosted CI, real update installation and live Codex authentication/inference were
+not validated. The host used Node 26.13.0 and npm 12.2.0; npm is below the declared
+12.2.1 minimum, so this does not certify the prescribed release toolchain. Initial
+strict typechecking found an unregistered Codex context icon and an outdated
+ProjectController test bridge. Use the registered `file-code` icon and include
+the typed application chrome bridge in the fixture. Corrected the activity
+indicator's progress timestamp without effect-driven synchronous state updates,
+and formatted the files rejected by the repository formatting gate. Browser
+style parity now gives the fluid Default canvas the same logical viewport width
+as compiled Preview at each zoom. The page-title smoke fixture uses the current
+shell save-state attribute instead of the removed toolbar, resolving its stalled
+mock-clock polling. Both focused regression files pass.
+
+The first complete portable run passed 241 files and exposed 44 stale IDE
+integration interactions. All 51 IDE integration tests now pass using native
+bridge commands, current workspace navigation and document-specific selectors;
+Designer Undo is exercised with Design visible. The Electron smoke exposed a
+real Alt menu defect: cancelling the press consumed the release, so only the
+release is now cancelled. Codex panel geometry runs after opening a document,
+and automated workflows explicitly disable local Codex executable discovery.
+This keeps UI evidence independent of installed accounts, background provider
+processes and network access. RestGo navigation uses Project Explorer instead
+of the removed document close button. The icon audit recognizes the bundled
+OpenAI brand separately from Lucide. Preview recovery expects only the restored
+document to remain dirty until Save because F9 saved the invalid source before
+compilation; exact source restoration and clean indicators after Save passed.
+
 ## Update feedback in the activity bar (2026-11-19)
 
 Connected the existing Update indicator and action to the activity bar, directly
