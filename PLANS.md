@@ -1,5 +1,24 @@
 # WebRAD delivery plan
 
+## v0.0.39 Windows development Login focus (2026-11-20)
+
+Inspected tag-SHA `e61092a`: release run `44767311104` passed all six native
+builds/portable suites, assembly and publication; v0.0.39 is published. Security
+and Linux quality passed, but Windows quality in validate `44767310890` failed
+the development Login smoke with `Popup is not modal or lacks focus`. The process
+exit code was zero; required workflow evidence correctly rejected the run.
+
+The smoke established Preview iframe focus only after its earlier modal/focus
+assertion. Move that existing real frame-focus preparation before both Popup
+and Edit checks, including cross-process focus emulation. Keep owned-session
+cleanup in finally around both checks and retain all geometry, transitions,
+modal, recovery, focus, mobile and evidence requirements. Failure details now
+distinguish modality, document focus and the active element without field values.
+The original message did not distinguish modality from focus, so hosted proof of
+this correction remains pending. No local validation was requested or run.
+Original job log, artifact, metadata and report: `artifacts/ci-v0.0.39/`.
+No release, tag, version, publication or CI gate was changed.
+
 ## Remaining Intel repair after 25eda27 (2026-11-20)
 
 Inspected release `44755230374`, validate `44755230393`, the sole failed Intel

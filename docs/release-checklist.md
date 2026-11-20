@@ -1,5 +1,24 @@
 # Release checklist for agents and maintainers
 
+## v0.0.39 Windows development focus (2026-11-20)
+
+Release `44767311104` passed and published v0.0.39 on `e61092a`; the tag's
+validate `44767310890` failed only Windows development smoke. The actual Login
+exception was `Popup is not modal or lacks focus`, before Menu and API workflows.
+This is separate from release generation, which completed on all six platforms.
+
+Prepare the real Preview frame's focus lifecycle before the first Popup assertion,
+including focus emulation for a separate Chromium target in the hidden window.
+Previously this preparation occurred only after that assertion. Keep the same
+session-owned finally cleanup around Popup and Edit checks. Retain modal state,
+contained focus, recovery transitions, exact styles/geometry, native Edit focus,
+mobile dimensions and the existing Login evidence marker in both runners.
+Failure evidence records modality, document focus and active tag/name without
+field values. Do not increase deadlines or manually focus an input to satisfy
+the Popup assertion. No local validation was requested or run; require fresh
+hosted Windows development confirmation of the corrected SHA. Original evidence:
+`artifacts/ci-v0.0.39/`. The published tag remains unchanged.
+
 ## Remaining Intel Icons timeout: 25eda27 (2026-11-20)
 
 Validate `44755230393` passed both Windows and Linux; security also passed.

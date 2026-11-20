@@ -327,10 +327,53 @@ export async function runLoginSmoke(
   )
     throw new Error('Login compiled Popup did not open.');
   try {
-    const result = await frame.executeJavaScript(
-      `(async () => {
+    // The Preview may live in a separate Chromium target. Enable its real focus
+    // lifecycle before checking either Popup focus or nested :focus-visible.
+    const debuggerWasAttached = window.webContents.debugger.isAttached();
+    if (!debuggerWasAttached) window.webContents.debugger.attach('1.3');
+    let frameSession: string | undefined;
+    try {
+      await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+        enabled: true,
+      });
+      window.webContents.focus();
+      await evaluate(
+        `document.querySelector('button[aria-label="Stop preview"]').focus({preventScroll: true})`,
+      );
+      const focusDeadline = Date.now() + 10_000;
+      while (
+        window.webContents.focusedFrame !== window.webContents.mainFrame &&
+        Date.now() < focusDeadline
+      )
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      if (window.webContents.focusedFrame !== window.webContents.mainFrame)
+        throw new Error('Login Preview did not release focus to the IDE.');
+      if (frame.processId !== window.webContents.mainFrame.processId) {
+        const targets = (await window.webContents.debugger.sendCommand('Target.getTargets', {
+          filter: [{ type: 'iframe' }, { exclude: true }],
+        })) as { targetInfos: { targetId: string; url: string }[] };
+        const target = targets.targetInfos.find((candidate) => candidate.url === frame?.url);
+        if (!target) throw new Error('Login Preview has no matching debugger target.');
+        const attached = (await window.webContents.debugger.sendCommand('Target.attachToTarget', {
+          targetId: target.targetId,
+          flatten: true,
+        })) as { sessionId: string };
+        frameSession = attached.sessionId;
+        await window.webContents.debugger.sendCommand(
+          'Emulation.setFocusEmulationEnabled',
+          { enabled: true },
+          frameSession,
+        );
+      }
+      await evaluate(`document.querySelector('${previewSelector}').focus({preventScroll: true})`);
+      while (window.webContents.focusedFrame !== frame && Date.now() < focusDeadline)
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      if (window.webContents.focusedFrame !== frame)
+        throw new Error('Login Preview frame did not receive focus.');
+      const result = await frame.executeJavaScript(
+        `(async () => {
       const popup = document.querySelector('.wr-login-dialog');
-      if (!popup.matches(':modal') || !popup.contains(document.activeElement)) throw new Error('Popup is not modal or lacks focus');
+      if (!popup.matches(':modal') || !popup.contains(document.activeElement)) throw new Error('Popup is not modal or lacks focus: ' + JSON.stringify({ open: popup.open, modal: popup.matches(':modal'), documentFocused: document.hasFocus(), containsFocus: popup.contains(document.activeElement), activeTag: document.activeElement?.tagName, activeName: document.activeElement?.getAttribute('name') }));
       popup.querySelector('[data-login-action="recovery"]').click();
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const recovery = document.querySelector('.wr-login-dialog');
@@ -408,55 +451,13 @@ export async function runLoginSmoke(
           })),
         } };
     })()`,
-      true,
-    );
-    if (typeof result !== 'object' || result === null || Reflect.get(result, 'passed') !== true)
-      throw new Error(
-        `Compiled Login Panel differs from its saved configuration: ${JSON.stringify(result)}`,
+        true,
       );
-    // The Preview may live in a separate Chromium target. Enable its real focus
-    // lifecycle before checking the nested input's :focus-visible styling.
-    const debuggerWasAttached = window.webContents.debugger.isAttached();
-    if (!debuggerWasAttached) window.webContents.debugger.attach('1.3');
-    let frameSession: string | undefined;
-    try {
-      await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
-        enabled: true,
-      });
-      window.webContents.focus();
-      await evaluate(
-        `document.querySelector('button[aria-label="Stop preview"]').focus({preventScroll: true})`,
-      );
-      const focusDeadline = Date.now() + 10_000;
-      while (
-        window.webContents.focusedFrame !== window.webContents.mainFrame &&
-        Date.now() < focusDeadline
-      )
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      if (window.webContents.focusedFrame !== window.webContents.mainFrame)
-        throw new Error('Login Preview did not release focus to the IDE.');
-      if (frame.processId !== window.webContents.mainFrame.processId) {
-        const targets = (await window.webContents.debugger.sendCommand('Target.getTargets', {
-          filter: [{ type: 'iframe' }, { exclude: true }],
-        })) as { targetInfos: { targetId: string; url: string }[] };
-        const target = targets.targetInfos.find((candidate) => candidate.url === frame?.url);
-        if (!target) throw new Error('Login Preview has no matching debugger target.');
-        const attached = (await window.webContents.debugger.sendCommand('Target.attachToTarget', {
-          targetId: target.targetId,
-          flatten: true,
-        })) as { sessionId: string };
-        frameSession = attached.sessionId;
-        await window.webContents.debugger.sendCommand(
-          'Emulation.setFocusEmulationEnabled',
-          { enabled: true },
-          frameSession,
+      if (typeof result !== 'object' || result === null || Reflect.get(result, 'passed') !== true)
+        throw new Error(
+          `Compiled Login Panel differs from its saved configuration: ${JSON.stringify(result)}`,
         );
-      }
-      await evaluate(`document.querySelector('${previewSelector}').focus({preventScroll: true})`);
-      while (window.webContents.focusedFrame !== frame && Date.now() < focusDeadline)
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      if (window.webContents.focusedFrame !== frame)
-        throw new Error('Login Preview frame did not receive focus.');
+
       const focus = await frame.executeJavaScript(
         `(async () => {
           const panel = document.querySelector('[data-webrad-id=${JSON.stringify(panelId)}]');
