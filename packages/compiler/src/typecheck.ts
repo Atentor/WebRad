@@ -231,10 +231,10 @@ export function typecheckSources(
     });
   };
 
-  // A changed generated public contract can make incremental declaration-shape
-  // propagation more expensive than a full semantic pass. Keep exact-content
-  // syntax reuse in the host, but start fresh diagnostics for structural changes.
-  // This checks every source instead of weakening dependency invalidation.
+  // Reset for root/global declaration changes, retaining syntax reuse. Ordinary
+  // generated wrappers are modules: let the builder invalidate their dependents
+  // instead of checking every unchanged runtime module after component edits.
+  // Both paths collect the complete current program's strict diagnostics.
   const previousRoots = oldBuilder?.getProgram().getRootFileNames();
   const reuseDiagnostics =
     previousRoots !== undefined &&
@@ -244,8 +244,7 @@ export function typecheckSources(
     ) &&
     [...virtualSources].every(
       ([fileName, contents]) =>
-        (!fileName.endsWith('.generated.ts') && !fileName.endsWith('.d.ts')) ||
-        oldBuilder?.getSourceFile(fileName)?.text === contents,
+        !fileName.endsWith('.d.ts') || oldBuilder?.getSourceFile(fileName)?.text === contents,
     );
 
   let builder: ts.SemanticDiagnosticsBuilderProgram;

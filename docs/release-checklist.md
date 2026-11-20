@@ -1,5 +1,23 @@
 # Release checklist for agents and maintainers
 
+## Remaining Intel Icons timeout: 25eda27 (2026-11-20)
+
+Validate `44755230393` passed both Windows and Linux; security also passed.
+Release `44755230374` passed all six portable suites and five build jobs. The only
+failure is Intel packaged Icons F9. Its semantic phase spans about 9.3 seconds,
+including repeated runtime-category checks, reaching bundling at 9,537 ms before
+the existing ten-second Preview wait expires. Both diagnostic artifacts are
+retained under `artifacts/ci-25eda27/`, with the original log and analysis.
+
+The earlier reset rule included every `.generated.ts` module edit and forced
+full runtime checking when inserting a component. Keep root-list and virtual
+`.d.ts` declaration changes on the full-check path, but let TypeScript invalidate
+ordinary generated modules and their dependents incrementally. This supersedes
+the broader wrapper-reset rule below. Preserve full diagnostic collection,
+strictness, current dependency resolution, ten-second Icons readiness, all icon
+and F9 assertions, renderer health and native release gates. No local validation
+was requested or run; fresh hosted Intel confirmation remains pending.
+
 ## Hosted follow-up: ef60767 (2026-11-20)
 
 Release `44751739125` and validate `44751738790` still have two failing jobs,

@@ -372,12 +372,13 @@ directory, TypeScript library location and compiler options, plus
 identical file content and parse settings. Every build rereads current inputs,
 invalidates module resolutions and computes strict diagnostics and component
 reference lowering again. Adding, removing or renaming project documents does
-not invalidate unchanged parsed files. When the root list or a generated wrapper
-or declaration changes, the compiler starts a fresh semantic builder while still
-reusing exact-content syntax trees. This avoids incremental declaration-shape
-propagation across changed generated public contracts and checks the full current
-graph. With stable contracts, TypeScript's affected-file builder can reuse valid
-semantic results, rechecking changed content, dependencies and module resolutions.
+not invalidate unchanged parsed files. When the root list or a virtual `.d.ts`
+declaration changes, the compiler starts a fresh semantic builder while still
+reusing exact-content syntax trees. Ordinary `.generated.ts` wrappers remain on
+the affected-file path: TypeScript invalidates their dependents without forcing
+a full runtime check after each component edit. Root/declaration changes still
+check the full current graph. Otherwise TypeScript's affected-file builder reuses
+valid semantic results, rechecking changed content, dependencies and resolutions.
 Every build collects diagnostics for the complete current program; build outputs
 are never accepted from an earlier build.
 The host's temporary reference to the previous Program is cleared in `finally`

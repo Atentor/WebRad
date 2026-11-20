@@ -1,5 +1,24 @@
 # WebRAD delivery plan
 
+## Remaining Intel repair after 25eda27 (2026-11-20)
+
+Inspected release `44755230374`, validate `44755230393`, the sole failed Intel
+job and both diagnostic artifacts. Windows/Linux quality, security, all six
+portable suites and the other five build jobs passed. Intel now reaches Icons
+F9; semantic checking spans about 9.3 seconds and bundling starts at 9,537 ms,
+exhausting the unchanged ten-second readiness wait. Runtime-category timings
+confirm a complete runtime pass after the generated page wrapper changed.
+
+The preceding reset predicate was too broad. Preserve full semantic resets for
+root-list/virtual declaration changes (including typed page parameters), while
+ordinary `.generated.ts` module changes use TypeScript's affected-file dependency
+invalidation. Every build still collects current complete-program diagnostics;
+strictness, module resolution, syntax reuse, single-graph retention, deadlines
+and smoke assertions are unchanged. This supersedes wrapper reset guidance in
+the earlier entry. Original logs, both ZIPs, extracted samples, metadata and report
+are in `artifacts/ci-25eda27/`. No local validation was requested or run; measured
+Intel improvement and a final native hosted pass remain pending.
+
 ## Follow-up repairs for ef60767 (2026-11-20)
 
 Inspected every job in release `44751739125` and validate `44751738790` and
