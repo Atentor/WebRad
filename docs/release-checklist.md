@@ -1,5 +1,29 @@
 # Release checklist for agents and maintainers
 
+## Development smoke isolation after 49fe571 (2026-11-20)
+
+Windows quality passed `npm run validate` and reached the 120-second functional
+deadline in the development smoke. Login and Menu completed before the final
+RestGO administrative layout marker. Both real Native Build `rustc.exe --version`
+commands reached the existing process cap. The remaining API Client and Popup
+markers were still pending. [Windows quality job](https://github.com/Atentor/WebRad/actions/runs/44785823962/job/136460296290)
+
+All six builds, portable suites and assembly passed. Original logs and diagnostic
+artifacts are in `artifacts/ci-49fe571/`.
+[Release run](https://github.com/Atentor/WebRad/actions/runs/44785823910)
+
+The default `npm run smoke:development` runs two sequential Electron sessions
+with fresh copies of the same project and separate browser profiles. The first
+checks the IDE, Designer and Preview workflows. The second checks Native Build,
+API Client and Popup, including real native inspections, explicit Check again,
+and browser HTTP fixtures. Each session must supply its evidence and end with
+`renderer workflow completed` after the renderer health check. Keep the
+120-second functional deadline per session and inspect the failing session under
+`artifacts/smoke/development/standard/` or
+`artifacts/smoke/development/integrations/`. The default command now incurs
+an extra Forge and Electron startup. Require fresh hosted Windows and Ubuntu
+verification on the corrected SHA before using it for a release.
+
 ## Windows path casing and Login input routing (2026-11-20)
 
 On `a04b774`, three Windows portable runs failed 31 cases each with TS1261.

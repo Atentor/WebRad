@@ -952,6 +952,19 @@ async function captureDesignerSmokeScreenshot(window: BrowserWindow): Promise<vo
   );
 }
 
+async function runApiClientAndPopupSmoke(
+  window: BrowserWindow,
+  projectPath: string,
+): Promise<void> {
+  await runApiClientDesignerSmoke(window, {
+    projectPath,
+    log: smokeLog,
+    screenshotPath: smokeScreenshotPath,
+  });
+  await runApiClientBrowserSmoke(smokeLog);
+  await runPopupLayoutSmoke(smokeLog, smokeScreenshotPath);
+}
+
 async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
   if (process.argv.includes('--webrad-smoke-packages') && smokeProjectPath !== undefined) {
     await runPackagesSmoke(window, smokeProjectPath, smokeLog);
@@ -973,7 +986,14 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     await runProjectResourcesSmoke(window, smokeProjectPath, smokeLog, smokeScreenshotPath);
     return;
   }
-  if (process.argv.includes('--webrad-smoke-native-build') && smokeProjectPath !== undefined) {
+  const nativeBuildOnly = process.argv.includes('--webrad-smoke-native-build');
+  const developmentPart = app.isPackaged
+    ? undefined
+    : process.argv.find((value) => value.startsWith('--webrad-smoke-development='));
+  if (
+    (nativeBuildOnly || developmentPart === '--webrad-smoke-development=integrations') &&
+    smokeProjectPath !== undefined
+  ) {
     await clickRendererControl(window, 'button[aria-label="Open Project"]', 'Open project');
     await waitForRendererResult(
       window,
@@ -984,8 +1004,11 @@ async function runRendererWorkflowSmoke(window: BrowserWindow): Promise<void> {
     await runNativeBuildSmoke(window, {
       projectPath: smokeProjectPath,
       log: smokeLog,
-      ...(smokeScreenshotPath === undefined ? {} : { screenshotPath: smokeScreenshotPath }),
+      ...(nativeBuildOnly && smokeScreenshotPath !== undefined
+        ? { screenshotPath: smokeScreenshotPath }
+        : {}),
     });
+    if (!nativeBuildOnly) await runApiClientAndPopupSmoke(window, smokeProjectPath);
     return;
   }
   const shellResult = (await window.webContents.executeJavaScript(
@@ -1707,7 +1730,9 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   smokeLog('renderer project open passed');
   await runDesignerWorkspaceSmoke(window);
 
-  await runNativeBuildSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  if (developmentPart !== '--webrad-smoke-development=ide') {
+    await runNativeBuildSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
+  }
 
   await runPageTitleSmoke(window, { projectPath: smokeProjectPath, log: smokeLog });
   await runPanelFloatingSmoke(window, smokeProjectPath, smokeLog);
@@ -1894,13 +1919,9 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
     () => runMenuSmoke(window, { projectPath: smokeProjectPath, log: smokeLog }),
     smokeLog,
   );
-  await runApiClientDesignerSmoke(window, {
-    projectPath: smokeProjectPath,
-    log: smokeLog,
-    screenshotPath: smokeScreenshotPath,
-  });
-  await runApiClientBrowserSmoke(smokeLog);
-  await runPopupLayoutSmoke(smokeLog, smokeScreenshotPath);
+  if (developmentPart !== '--webrad-smoke-development=ide') {
+    await runApiClientAndPopupSmoke(window, smokeProjectPath);
+  }
 }
 try {
   synchronizeInstallationIcon({

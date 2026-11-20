@@ -1,5 +1,22 @@
 # WebRAD delivery plan
 
+## Development smoke isolation after 49fe571 (2026-11-20)
+
+On `49fe571`, Windows passed `npm run validate` and exhausted the 120-second
+development smoke deadline during the RestGO administrative workflow. Native
+Tab focus, Login and Menu completed earlier. Two real `rustc.exe` timeouts
+added about ten seconds to the same renderer session. The independent Windows
+packaged smoke completed, and release assembly, Ubuntu quality and security
+passed. Original evidence is under `artifacts/ci-49fe571/`.
+
+The default development command now starts two sequential Electron sessions
+with fresh project copies, browser profiles and logs. The first runs the IDE and
+Preview workflows. The second runs Native Build, the API Client and Popup. Each
+requires its own assertions, renderer health, clean exit and completion marker
+within the existing 120-second functional deadline. Local validation was not
+requested.
+The development sessions still need hosted verification on the corrected SHA.
+
 ## Windows path casing and Login input routing (2026-11-20)
 
 On `a04b774`, five Windows jobs in release `44778061416` and validate

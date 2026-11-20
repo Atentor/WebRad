@@ -14,36 +14,224 @@ const forgeCli = path.resolve(
   'electron-forge.js',
 );
 const fixtureDirectory = path.resolve('examples', 'hello-webrad');
-const temporaryRoot = await fs.realpath(
-  await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-development-smoke-')),
+const focusedVariants = ['packages', 'updates', 'native-build', 'deploy', 'debugger', 'resources'];
+const focusedVariant = focusedVariants.find((variant) =>
+  process.argv.includes(`--webrad-smoke-${variant}`),
 );
-const logPath = path.join(temporaryRoot, 'webrad-smoke.log');
-const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
-const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');
-const resourceSmoke = process.argv.includes('--webrad-smoke-resources');
-const packagesSmoke = process.argv.includes('--webrad-smoke-packages');
-const debuggerSmoke = process.argv.includes('--webrad-smoke-debugger');
-const deploySmoke = process.argv.includes('--webrad-smoke-deploy');
-const updateSmoke = process.argv.includes('--webrad-smoke-updates');
-const nativeBuildSmoke = process.argv.includes('--webrad-smoke-native-build');
 const screenshotArgument = process.argv.find((value) =>
   value.startsWith('--webrad-smoke-screenshot='),
 );
-const smokeVariant = packagesSmoke
-  ? 'packages'
-  : updateSmoke
-    ? 'updates'
-    : nativeBuildSmoke
-      ? 'native-build'
-      : deploySmoke
-        ? 'deploy'
-        : debuggerSmoke
-          ? 'debugger'
-          : resourceSmoke
-            ? 'resources'
-            : 'standard';
 
-async function preserveFailureDiagnostics(error) {
+const nativeBuildEvidence = [
+  'renderer Native Application settings passed',
+  'renderer Project Settings draft protection and validation navigation passed',
+  'renderer Native Build result target attribution passed',
+  'renderer Native Build platform options passed:',
+  'renderer Native Build requirements checklist passed:',
+  'renderer Native Build CI export passed:',
+];
+
+const requiredEvidence = {
+  standard: [
+    'compiler passed:',
+    'preview HTTP server passed',
+    'preview renderer passed',
+    'application icon resource passed:',
+    'renderer loaded:',
+    'renderer shell passed',
+    'renderer compact title bar passed: 32px, native controls clearance, menu and keyboard access',
+    'renderer Codex panel passed: native context, model and reasoning controls, suggestions, project context, draft recovery, connection settings and close',
+    'renderer welcome project actions passed: New Project click',
+    'renderer welcome Open Project action passed',
+    'renderer workbench keyboard resizing passed',
+    'renderer workbench pointer resizing passed:',
+    'renderer workbench pointer release passed:',
+    'renderer document view navigation passed',
+    'renderer application menu cleanup passed: Component absent',
+    'renderer footer removal passed: full-height workbench',
+    'renderer About WebRAD modal passed',
+    'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu / Aurora, Prism, Flat and WebRAD Light/Dark themes / WebRAD square controls / theme-aware previews / fixed creation actions / HTML example / Flat white and graphite surfaces, softer blue and 8px cards/buttons / Flat brighter blue hover / centered template buttons / all-theme Roboto 15px normal button text and 22px icons / Prism brighter hover / WebRAD pressed state',
+    'renderer application icon passed',
+    'renderer project open passed',
+    'renderer Page browser title Inspector and F9 passed:',
+    'renderer Page parameters Inspector and F9 passed:',
+    'renderer Panel floating Inspector and F9 passed:',
+    'renderer History routing F9 passed:',
+    'renderer mandatory index page passed:',
+    'renderer Page automatic routes passed:',
+    'renderer mandatory 404 page passed:',
+    'renderer RestGO workspace passed:',
+    'renderer RestGO connection layout passed:',
+    'renderer RestGO pending draft close protection passed',
+    'renderer RestGO browser passed:',
+    'renderer CORS origin passed:',
+    'renderer RestGO iframe CORS passed:',
+    'renderer RestGO page Interaction passed:',
+    'renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles; mobile fields at least 16px type and 44px height;',
+    'renderer Login Popup keyboard focus passed: native Tab enters the active modal;',
+    'renderer Login authentication passed:',
+    'renderer Login recovery passed:',
+    'renderer Data Grid configuration passed: table palette icon;',
+    'renderer Data Grid calculation Interaction passed:',
+    'renderer Repeating Group calculation Interaction passed:',
+    'renderer Charts configuration passed: chart-no-axes-combined palette icon;',
+    'renderer Charts typography and title icon passed: native color input/change;',
+    'renderer Charts fixed preview scrolling passed:',
+    'renderer Charts presented screenshots passed:',
+    'renderer Charts fixture restored:',
+    'renderer Timer Inspector and Interact passed:',
+    'renderer Payments Inspector and Interact passed:',
+    'renderer Payments compiled runtime passed:',
+    'renderer Toast Inspector passed:',
+    'renderer Line Inspector and F9 passed:',
+    'renderer Lucide Icons Inspector and F9 passed:',
+    'renderer HTML Inspector and F9 passed:',
+    'renderer Date Inspector and F9 passed: complete original page restored;',
+    'renderer Edit mask Inspector and F9 passed:',
+    'renderer Date popup field alignment passed:',
+    'renderer HTML HTTPS embed projection passed:',
+    'renderer component aspect ratios Inspector and F9 passed:',
+    'renderer Menu Inspector and F9 passed: project scrollbar, Light/Dark switch configuration and local preview, persisted themeToggle, desktop/mobile application theme and focus, header icon opposite logo,',
+    'renderer reusable Menu Interaction passed:',
+    'renderer reusable creation dialog passed:',
+    'renderer native Menu persistence passed:',
+    'renderer native shared Menu Interaction passed:',
+    'renderer Designer insertion feedback passed:',
+    'renderer Menu icon geometry passed:',
+    'renderer Menu search Enter passed:',
+    'renderer Menu search focus passed: focused Preview iframe,',
+    'renderer Menu configurator layout passed:',
+    'renderer Menu subtree removal undo passed:',
+    'renderer Menu mobile icon position passed:',
+    'renderer Menu RestGO user binding controls passed:',
+    'renderer Menu user settings option passed:',
+    'renderer Menu user settings language passed:',
+    'renderer Menu account link URLs passed:',
+    'renderer Menu profile icon-only interaction passed:',
+    'renderer Menu canvas geometry passed:',
+    'renderer Menu compiled viewports passed:',
+    'renderer Menu horizontal flyouts passed:',
+    'renderer icon gallery canonical names passed:',
+    'renderer IDE Lucide icons passed:',
+    'renderer unified themes Styles passed:',
+    'renderer Styles presented screenshots passed:',
+    'renderer Line style preview passed:',
+    'renderer Toast style preview passed:',
+    'renderer Edit label style preview passed:',
+    'renderer UX Styles editing passed:',
+    'renderer UX Designer editing passed:',
+    'renderer Inspector color opacity passed: original color row, native picker, 50% canvas alpha, style reset and undo',
+    'renderer UX resize targets passed:',
+    'renderer last project restore passed',
+    'renderer bottom dock passed',
+    'renderer element tree selection passed:',
+    'renderer Designer selection tree reveal passed:',
+    'renderer Label text wrap Inspector passed:',
+    'renderer responsive viewport passed:',
+    'renderer Designer toolbar removal passed:',
+    'renderer bug report and documentation browser links passed',
+    'renderer Monaco passed',
+    'renderer Monaco nonintrusive Problems passed',
+    'renderer Monaco TypeScript highlight passed:',
+    'renderer Monaco autocomplete passed:',
+    'renderer Monaco component members passed:',
+    'renderer Monaco caret alignment passed:',
+    'renderer Monaco context Enter passed:',
+    'renderer empty event save cleanup passed:',
+    'renderer typed Interaction authoring passed:',
+    'renderer Inspector visual polish passed:',
+    'renderer typed Interaction Preview passed:',
+    'renderer Monaco workspace state passed:',
+    'renderer Monaco workspace restored view:',
+    'renderer Monaco event navigation passed:',
+    'renderer F9 preview passed: Olá Ada',
+    'renderer Designer/Preview button style parity passed / page available width / centered button content / 8px button corners / normal button text',
+    'renderer Preview isolation passed:',
+    'renderer Preview viewports passed:',
+    'renderer Preview route address synchronization passed',
+    'renderer Preview build error recovery passed: diagnostics, Stop, source navigation, restored authored source and isolated document dirty indicators',
+    'renderer exclusive Preview and Stop passed:',
+  ],
+  integrations: [
+    ...nativeBuildEvidence,
+    'renderer Native Build settings separation passed',
+    'renderer API Client designer passed:',
+    'renderer RestGO administrative layout passed:',
+    'renderer RestGO published APIs layout passed:',
+    'renderer RestGO API Client grouped import passed:',
+    'renderer RestGO endpoint editor passed:',
+    'renderer API Client authorization passed:',
+    'renderer API Client network diagnostics passed:',
+    'renderer API Client response refresh passed:',
+    'renderer API Client compiled authorization passed:',
+    'renderer API Client body parameter hint passed',
+    'renderer RestGO development login passed:',
+    'renderer RestGO development connection passed:',
+    'renderer RestGO API Client synchronization passed:',
+    'renderer API Client browser passed:',
+    'renderer Popup responsive layout passed:',
+    'renderer application themes runtime passed:',
+    'renderer bare page members passed:',
+  ],
+  packages: [
+    'renderer Packages install and Explorer passed',
+    'renderer Packages dialog passed',
+    'renderer Packages empty layout passed',
+    'renderer Packages notebook layout passed',
+    'renderer Packages native menu passed',
+    'renderer Packages presented screenshots passed:',
+    'renderer Packages Monaco passed',
+    'renderer Packages Preview passed',
+    'renderer Packages Debug passed',
+    'renderer Packages Web PWA passed',
+    'renderer Packages lifecycle passed',
+  ],
+  updates: [
+    'renderer update availability without download passed',
+    'renderer update download and unsaved changes guard passed',
+    'renderer update install action and restart feedback passed',
+  ],
+  'native-build': [
+    'renderer Project build menu contract passed',
+    ...nativeBuildEvidence,
+    ...(screenshotArgument === undefined
+      ? []
+      : [
+          'renderer Native Build responsive screenshots passed:',
+          'renderer Native Application visual layout passed:',
+          'renderer Native Build incompatible host screenshot passed:',
+        ]),
+  ],
+  deploy: [
+    'renderer Deploy directory settings passed',
+    'renderer PWA project settings passed',
+    'renderer Deploy file progress passed:',
+    'renderer Deploy hosting output passed:',
+  ],
+  debugger: [
+    'renderer debugger breakpoints and stepping passed',
+    'renderer debugger inspection and evaluation passed',
+    'renderer debugger Monaco controls and persistence passed',
+    'renderer debugger Monaco variable hover passed',
+    'renderer debugger Monaco breakpoint focus passed',
+    'renderer debugger menu and controls passed',
+    'renderer debugger restart and teardown passed',
+  ],
+  resources: [
+    'renderer project Models and Units passed: focused native input, Select All, exact saved text',
+    'renderer project asset import passed',
+    'renderer project resources restore and F9 passed',
+    'renderer project Explorer collapse and search passed',
+    'renderer project Explorer duplication and persistence passed',
+    'renderer project Explorer keyboard, filtered results and inline rename passed: native selection and draft, duplicate-name rejection, stable renamed ID',
+    'renderer project Explorer confirmed deletion and persistence passed',
+  ],
+};
+
+async function preserveFailureDiagnostics(
+  error,
+  { logPath, projectDirectory, smokeVariant, temporaryRoot },
+) {
   const screenshotDirectory = path.resolve('node_modules', '.cache');
   const artifactRoot = path.resolve('artifacts', 'smoke', 'development', smokeVariant);
   await fs.mkdir(artifactRoot, { recursive: true });
@@ -83,292 +271,94 @@ async function preserveFailureDiagnostics(error) {
   process.stderr.write(`[IDE] Development smoke diagnostics preserved: ${destination}\n`);
 }
 
-try {
-  await fs.cp(fixtureDirectory, projectDirectory, { recursive: true });
-  const child = spawn(
-    process.execPath,
-    [
-      '--max-old-space-size=4096',
-      forgeCli,
-      'start',
-      '--enable-logging',
-      '--',
-      '--webrad-smoke',
-      '--webrad-smoke-auto-exit',
-      `--webrad-smoke-log=${logPath}`,
-      `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
-      ...(updateSmoke ? ['--webrad-smoke-updates'] : []),
-      ...(packagesSmoke ? ['--webrad-smoke-packages'] : []),
-      ...(nativeBuildSmoke ? ['--webrad-smoke-native-build'] : []),
-      ...(resourceSmoke || debuggerSmoke || deploySmoke
-        ? [
-            debuggerSmoke
-              ? '--webrad-smoke-debugger'
-              : deploySmoke
-                ? '--webrad-smoke-deploy'
-                : '--webrad-smoke-resources',
-          ]
-        : []),
-      `--webrad-smoke-project=${projectPath}`,
-      ...(screenshotArgument === undefined ? [] : [screenshotArgument]),
-    ],
-    { stdio: 'inherit', windowsHide: true, detached: process.platform !== 'win32' },
+async function runDevelopmentSmoke(smokeVariant, smokeArgument) {
+  const temporaryRoot = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-development-smoke-')),
   );
+  const logPath = path.join(temporaryRoot, 'webrad-smoke.log');
+  const projectDirectory = path.join(temporaryRoot, 'hello-webrad');
+  const projectPath = path.join(projectDirectory, 'HelloWebRad.wrproj');
 
-  const { exitCode, timedOut, terminationError } = await waitForDevelopmentSmoke(child, {
-    logPath,
-    functionalTimeoutMilliseconds: debuggerSmoke ? 180_000 : 120_000,
-    processGroup: process.platform !== 'win32',
-  });
-  const timeoutDetails =
-    (timedOut === undefined
-      ? ''
-      : `; ${timedOut.phase} timeout after ${String(timedOut.milliseconds / 1000)}s; last progress: ${timedOut.lastProgress}`) +
-    (terminationError === undefined ? '' : `; process cleanup failed: ${terminationError}`);
-
-  const log = await fs.readFile(logPath, 'utf8').catch((error) => {
-    if (error.code !== 'ENOENT') throw error;
-    throw new Error(
-      `Development smoke failed before creating its log (exit ${String(exitCode)}${timeoutDetails}; expected ${logPath}). Check the Electron startup output above. On Linux, chrome-sandbox must be owned by root and have mode 4755.`,
-      { cause: error },
+  process.stdout.write(`[IDE] Starting development smoke (${smokeVariant}).\n`);
+  try {
+    await fs.cp(fixtureDirectory, projectDirectory, { recursive: true });
+    const child = spawn(
+      process.execPath,
+      [
+        '--max-old-space-size=4096',
+        forgeCli,
+        'start',
+        '--enable-logging',
+        '--',
+        '--webrad-smoke',
+        '--webrad-smoke-auto-exit',
+        `--webrad-smoke-log=${logPath}`,
+        `--user-data-dir=${path.join(temporaryRoot, 'chromium')}`,
+        smokeArgument,
+        `--webrad-smoke-project=${projectPath}`,
+        ...(screenshotArgument === undefined ? [] : [screenshotArgument]),
+      ],
+      { stdio: 'inherit', windowsHide: true, detached: process.platform !== 'win32' },
     );
-  });
-  const standardEvidence = debuggerSmoke
-    ? [
-        'renderer debugger breakpoints and stepping passed',
-        'renderer debugger inspection and evaluation passed',
-        'renderer debugger Monaco controls and persistence passed',
-        'renderer debugger Monaco variable hover passed',
-        'renderer debugger Monaco breakpoint focus passed',
-        'renderer debugger menu and controls passed',
-        'renderer debugger restart and teardown passed',
-      ]
-    : resourceSmoke
-      ? [
-          'renderer project Models and Units passed: focused native input, Select All, exact saved text',
-          'renderer project asset import passed',
-          'renderer project resources restore and F9 passed',
-          'renderer project Explorer collapse and search passed',
-          'renderer project Explorer duplication and persistence passed',
-          'renderer project Explorer keyboard, filtered results and inline rename passed: native selection and draft, duplicate-name rejection, stable renamed ID',
-          'renderer project Explorer confirmed deletion and persistence passed',
-        ]
-      : [
-          'compiler passed:',
-          'preview HTTP server passed',
-          'preview renderer passed',
-          'application icon resource passed:',
-          'renderer loaded:',
-          'renderer shell passed',
-          'renderer compact title bar passed: 32px, native controls clearance, menu and keyboard access',
-          'renderer Codex panel passed: native context, model and reasoning controls, suggestions, project context, draft recovery, connection settings and close',
-          'renderer welcome project actions passed: New Project click',
-          'renderer welcome Open Project action passed',
-          'renderer workbench keyboard resizing passed',
-          'renderer workbench pointer resizing passed:',
-          'renderer workbench pointer release passed:',
-          'renderer document view navigation passed',
-          'renderer application menu cleanup passed: Component absent',
-          'renderer footer removal passed: full-height workbench',
-          'renderer About WebRAD modal passed',
-          'renderer New Project template chooser passed: blank and Aurora Workspace / all visual components / Default styles / vertical left sidebar / progress bars, rings and circles / visible user profile / Nonvisual and PokeAPI / RestGO account lifecycle / shared AuroraMenu / Aurora, Prism, Flat and WebRAD Light/Dark themes / WebRAD square controls / theme-aware previews / fixed creation actions / HTML example / Flat white and graphite surfaces, softer blue and 8px cards/buttons / Flat brighter blue hover / centered template buttons / all-theme Roboto 15px normal button text and 22px icons / Prism brighter hover / WebRAD pressed state',
-          'renderer application icon passed',
-          'renderer project open passed',
-          'renderer Native Application settings passed',
-          'renderer Project Settings draft protection and validation navigation passed',
-          'renderer Native Build result target attribution passed',
-          'renderer Native Build settings separation passed',
-          'renderer Native Build platform options passed:',
-          'renderer Native Build requirements checklist passed:',
-          'renderer Native Build CI export passed:',
-          'renderer Page browser title Inspector and F9 passed:',
-          'renderer Page parameters Inspector and F9 passed:',
-          'renderer Panel floating Inspector and F9 passed:',
-          'renderer History routing F9 passed:',
-          'renderer mandatory index page passed:',
-          'renderer Page automatic routes passed:',
-          'renderer mandatory 404 page passed:',
-          'renderer RestGO workspace passed:',
-          'renderer RestGO connection layout passed:',
-          'renderer RestGO pending draft close protection passed',
-          'renderer RestGO browser passed:',
-          'renderer CORS origin passed:',
-          'renderer RestGO iframe CORS passed:',
-          'renderer RestGO page Interaction passed:',
-          'renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles; mobile fields at least 16px type and 44px height;',
-          'renderer Login Popup keyboard focus passed: native Tab enters the active modal;',
-          'renderer Login authentication passed:',
-          'renderer Login recovery passed:',
-          'renderer Data Grid configuration passed: table palette icon;',
-          'renderer Data Grid calculation Interaction passed:',
-          'renderer Repeating Group calculation Interaction passed:',
-          'renderer Charts configuration passed: chart-no-axes-combined palette icon;',
-          'renderer Charts typography and title icon passed: native color input/change;',
-          'renderer Charts fixed preview scrolling passed:',
-          'renderer Charts presented screenshots passed:',
-          'renderer Charts fixture restored:',
-          'renderer Timer Inspector and Interact passed:',
-          'renderer Payments Inspector and Interact passed:',
-          'renderer Payments compiled runtime passed:',
-          'renderer Toast Inspector passed:',
-          'renderer Line Inspector and F9 passed:',
-          'renderer Lucide Icons Inspector and F9 passed:',
-          'renderer HTML Inspector and F9 passed:',
-          'renderer Date Inspector and F9 passed: complete original page restored;',
-          'renderer Edit mask Inspector and F9 passed:',
-          'renderer Date popup field alignment passed:',
-          'renderer HTML HTTPS embed projection passed:',
-          'renderer component aspect ratios Inspector and F9 passed:',
-          'renderer Menu Inspector and F9 passed: project scrollbar, Light/Dark switch configuration and local preview, persisted themeToggle, desktop/mobile application theme and focus, header icon opposite logo,',
-          'renderer reusable Menu Interaction passed:',
-          'renderer reusable creation dialog passed:',
-          'renderer native Menu persistence passed:',
-          'renderer native shared Menu Interaction passed:',
-          'renderer Designer insertion feedback passed:',
-          'renderer Menu icon geometry passed:',
-          'renderer Menu search Enter passed:',
-          'renderer Menu search focus passed: focused Preview iframe,',
-          'renderer Menu configurator layout passed:',
-          'renderer Menu subtree removal undo passed:',
-          'renderer Menu mobile icon position passed:',
-          'renderer Menu RestGO user binding controls passed:',
-          'renderer Menu user settings option passed:',
-          'renderer Menu user settings language passed:',
-          'renderer Menu account link URLs passed:',
-          'renderer Menu profile icon-only interaction passed:',
-          'renderer Menu canvas geometry passed:',
-          'renderer Menu compiled viewports passed:',
-          'renderer Menu horizontal flyouts passed:',
-          'renderer icon gallery canonical names passed:',
-          'renderer IDE Lucide icons passed:',
-          'renderer API Client designer passed:',
-          'renderer RestGO administrative layout passed:',
-          'renderer RestGO published APIs layout passed:',
-          'renderer RestGO API Client grouped import passed:',
-          'renderer RestGO endpoint editor passed:',
-          'renderer API Client authorization passed:',
-          'renderer API Client network diagnostics passed:',
-          'renderer API Client response refresh passed:',
-          'renderer API Client compiled authorization passed:',
-          'renderer API Client body parameter hint passed',
-          'renderer RestGO development login passed:',
-          'renderer RestGO development connection passed:',
-          'renderer RestGO API Client synchronization passed:',
-          'renderer API Client browser passed:',
-          'renderer Popup responsive layout passed:',
-          'renderer unified themes Styles passed:',
-          'renderer Styles presented screenshots passed:',
-          'renderer Line style preview passed:',
-          'renderer Toast style preview passed:',
-          'renderer Edit label style preview passed:',
-          'renderer UX Styles editing passed:',
-          'renderer UX Designer editing passed:',
-          'renderer Inspector color opacity passed: original color row, native picker, 50% canvas alpha, style reset and undo',
-          'renderer UX resize targets passed:',
-          'renderer application themes runtime passed:',
-          'renderer bare page members passed:',
-          'renderer last project restore passed',
-          'renderer bottom dock passed',
-          'renderer element tree selection passed:',
-          'renderer Designer selection tree reveal passed:',
-          'renderer Label text wrap Inspector passed:',
-          'renderer responsive viewport passed:',
-          'renderer Designer toolbar removal passed:',
-          'renderer bug report and documentation browser links passed',
-          'renderer Monaco passed',
-          'renderer Monaco nonintrusive Problems passed',
-          'renderer Monaco TypeScript highlight passed:',
-          'renderer Monaco autocomplete passed:',
-          'renderer Monaco component members passed:',
-          'renderer Monaco caret alignment passed:',
-          'renderer Monaco context Enter passed:',
-          'renderer empty event save cleanup passed:',
-          'renderer typed Interaction authoring passed:',
-          'renderer Inspector visual polish passed:',
-          'renderer typed Interaction Preview passed:',
-          'renderer Monaco workspace state passed:',
-          'renderer Monaco workspace restored view:',
-          'renderer Monaco event navigation passed:',
-          'renderer F9 preview passed: Olá Ada',
-          'renderer Designer/Preview button style parity passed / page available width / centered button content / 8px button corners / normal button text',
-          'renderer Preview isolation passed:',
-          'renderer Preview viewports passed:',
-          'renderer Preview route address synchronization passed',
-          'renderer Preview build error recovery passed: diagnostics, Stop, source navigation, restored authored source and isolated document dirty indicators',
-          'renderer exclusive Preview and Stop passed:',
-        ];
-  const requiredEvidence = packagesSmoke
-    ? [
-        'renderer Packages install and Explorer passed',
-        'renderer Packages dialog passed',
-        'renderer Packages empty layout passed',
-        'renderer Packages notebook layout passed',
-        'renderer Packages native menu passed',
-        'renderer Packages presented screenshots passed:',
-        'renderer Packages Monaco passed',
-        'renderer Packages Preview passed',
-        'renderer Packages Debug passed',
-        'renderer Packages Web PWA passed',
-        'renderer Packages lifecycle passed',
-      ]
-    : updateSmoke
-      ? [
-          'renderer update availability without download passed',
-          'renderer update download and unsaved changes guard passed',
-          'renderer update install action and restart feedback passed',
-        ]
-      : nativeBuildSmoke
-        ? [
-            'renderer Project build menu contract passed',
-            'renderer Native Application settings passed',
-            'renderer Project Settings draft protection and validation navigation passed',
-            'renderer Native Build result target attribution passed',
-            'renderer Native Build platform options passed:',
-            'renderer Native Build requirements checklist passed:',
-            'renderer Native Build CI export passed:',
-            ...(screenshotArgument === undefined
-              ? []
-              : [
-                  'renderer Native Build responsive screenshots passed:',
-                  'renderer Native Application visual layout passed:',
-                  'renderer Native Build incompatible host screenshot passed:',
-                ]),
-          ]
-        : deploySmoke
-          ? [
-              'renderer Deploy directory settings passed',
-              'renderer PWA project settings passed',
-              'renderer Deploy file progress passed:',
-              'renderer Deploy hosting output passed:',
-            ]
-          : standardEvidence;
-  const missingEvidence = [...requiredEvidence, 'renderer workflow completed'].filter(
-    (entry) => !log.includes(entry),
-  );
 
-  if (
-    exitCode !== 0 ||
-    timedOut !== undefined ||
-    terminationError !== undefined ||
-    missingEvidence.length > 0
-  ) {
-    throw new Error(
-      `Development smoke failed (exit ${String(exitCode)}${timeoutDetails}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
+    const { exitCode, timedOut, terminationError } = await waitForDevelopmentSmoke(child, {
+      logPath,
+      functionalTimeoutMilliseconds: smokeVariant === 'debugger' ? 180_000 : 120_000,
+      processGroup: process.platform !== 'win32',
+    });
+    const timeoutDetails =
+      (timedOut === undefined
+        ? ''
+        : `; ${timedOut.phase} timeout after ${String(timedOut.milliseconds / 1000)}s; last progress: ${timedOut.lastProgress}`) +
+      (terminationError === undefined ? '' : `; process cleanup failed: ${terminationError}`);
+
+    const log = await fs.readFile(logPath, 'utf8').catch((error) => {
+      if (error.code !== 'ENOENT') throw error;
+      throw new Error(
+        `Development smoke failed before creating its log (exit ${String(exitCode)}${timeoutDetails}; expected ${logPath}). Check the Electron startup output above. On Linux, chrome-sandbox must be owned by root and have mode 4755.`,
+        { cause: error },
+      );
+    });
+
+    const expectedEvidence = [...requiredEvidence[smokeVariant], 'renderer workflow completed'];
+    const missingEvidence = expectedEvidence.filter((entry) => !log.includes(entry));
+
+    if (
+      exitCode !== 0 ||
+      timedOut !== undefined ||
+      terminationError !== undefined ||
+      missingEvidence.length > 0
+    ) {
+      throw new Error(
+        `Development smoke failed (exit ${String(exitCode)}${timeoutDetails}; missing ${missingEvidence.join(', ') || 'nothing'}).\n${log}`,
+      );
+    }
+
+    await preserveMacOSSmokeDiagnostics(
+      logPath,
+      path.resolve('artifacts', 'smoke', 'development', smokeVariant),
     );
+    process.stdout.write(log);
+  } catch (error) {
+    await preserveFailureDiagnostics(error, {
+      logPath,
+      projectDirectory,
+      smokeVariant,
+      temporaryRoot,
+    }).catch((diagnosticError) => {
+      process.stderr.write(
+        `[IDE] Could not preserve development smoke diagnostics: ${diagnosticError}\n`,
+      );
+    });
+    throw error;
+  } finally {
+    await fs.rm(temporaryRoot, { recursive: true, force: true });
   }
+}
 
-  await preserveMacOSSmokeDiagnostics(
-    logPath,
-    path.resolve('artifacts', 'smoke', 'development', smokeVariant),
-  );
-  process.stdout.write(log);
-} catch (error) {
-  await preserveFailureDiagnostics(error).catch((diagnosticError) => {
-    process.stderr.write(
-      `[IDE] Could not preserve development smoke diagnostics: ${diagnosticError}\n`,
-    );
-  });
-  throw error;
-} finally {
-  await fs.rm(temporaryRoot, { recursive: true, force: true });
+if (focusedVariant === undefined) {
+  await runDevelopmentSmoke('standard', '--webrad-smoke-development=ide');
+  await runDevelopmentSmoke('integrations', '--webrad-smoke-development=integrations');
+} else {
+  await runDevelopmentSmoke(focusedVariant, `--webrad-smoke-${focusedVariant}`);
 }
