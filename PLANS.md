@@ -1,5 +1,35 @@
 # WebRAD delivery plan
 
+## Common smoke regression and compiler invalidation: 6f68c1f (2026-11-20)
+
+Reviewed all jobs and all nine diagnostic artifacts from release `44772098435`
+and validate `44772097935`. Seven failures share the identical Login state:
+Popup open/modal, document focused, active element BODY. The preceding smoke
+change deliberately hands focus to the IDE and back to Preview, which can clear
+the dialog's remembered active element. The smoke now sends one native Tab after
+that handoff and requires Chromium's modal navigation to enter the dialog under
+the existing focus deadline. No input is selected by script to satisfy the
+assertion. Both real runners require the new keyboard-focus marker alongside all
+existing Login geometry, transition, modal, focus and mobile evidence.
+
+Intel separately stops in Page-title F9: semantic phases span about 27 seconds.
+Source review found unconditional `hasInvalidatedResolutions` and manual semantic
+builder resets. Replace both with TypeScript's dependency invalidation and fresh
+per-request module-resolution caches. Compare each preceding import's current
+resolution identity, including unresolved imports; preserve conservative
+triple-slash invalidation, current source hashing, separate package options and
+complete diagnostic collection. Keep snapshots for current-program files only,
+including empty import maps; release the previous builder capture after construction.
+This supersedes the earlier wrapper/declaration reset strategies.
+
+All six portable suites and security passed for the original SHA. These source
+corrections were reviewed but no local tests, typecheck, lint, formatting checks,
+builds or smokes were requested or run. Native hosted confirmation and measured
+Intel improvement remain pending; do not label the release verified until those
+checks pass. Original logs, ZIPs, extracted snapshots, metadata and analysis:
+`artifacts/ci-6f68c1f/`. Deadlines, renderer health, strictness, worker count and
+publication permissions remain unchanged.
+
 ## v0.0.39 Windows development Login focus (2026-11-20)
 
 Inspected tag-SHA `e61092a`: release run `44767311104` passed all six native

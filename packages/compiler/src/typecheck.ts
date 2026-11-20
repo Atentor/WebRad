@@ -49,7 +49,11 @@ function semanticCompletionPhase(affected: ts.SourceFile | ts.Program): CompileP
 // Retain only the latest builder. TypeScript invalidates changed files and their
 // dependents; component-reference analysis is still recomputed for every scope.
 let previousTypecheck:
-  | { readonly environment: string; readonly builder: ts.SemanticDiagnosticsBuilderProgram }
+  | {
+      readonly environment: string;
+      readonly builder: ts.SemanticDiagnosticsBuilderProgram;
+      readonly resolutions: ReadonlyMap<string, ReadonlyMap<string, string>>;
+    }
   | undefined;
 
 export function typecheckSources(
@@ -121,7 +125,11 @@ export function typecheckSources(
   ]);
   // Adding/removing a page, Menu or reusable changes roots, not the parser
   // environment. Keep the previous graph available for exact-content SourceFile
-  // reuse even when structural changes require fresh semantic diagnostics.
+  // reuse while the builder reconciles changed roots, declarations and dependencies.
+  const previousResolutions =
+    previousTypecheck?.environment === environment
+      ? previousTypecheck.resolutions
+      : new Map<string, ReadonlyMap<string, string>>();
   let oldBuilder =
     previousTypecheck?.environment === environment ? previousTypecheck.builder : undefined;
   previousTypecheck = undefined;
@@ -183,27 +191,82 @@ export function typecheckSources(
     virtualSources.has(canonicalPath(fileName)) || virtualDirectories.has(canonicalPath(fileName))
       ? path.resolve(fileName)
       : (defaultRealpath?.(fileName) ?? fileName);
-  host.resolveModuleNameLiterals = (moduleLiterals, containingFile) =>
-    moduleLiterals.map((literal) => {
-      if (isNodeBuiltin(literal.text)) return { resolvedModule: undefined };
-      const isVirtual = virtualSources.has(canonicalPath(containingFile));
-      const packageImport = !literal.text.startsWith('.') && !path.isAbsolute(literal.text);
-      // Virtual authored files live beside the compiler, not beside their saved
-      // project. Only package resolution uses the authorized project directory.
-      const resolutionFile =
-        isVirtual && packageImport && packageBoundary.root !== undefined
-          ? path.join(packageBoundary.root, '__webrad_project__.ts')
-          : containingFile;
-      return ts.resolveModuleName(
-        literal.text,
-        resolutionFile,
-        packageBoundary.contains(containingFile) ? installedPackageOptions : compilerOptions,
-        host,
-      );
+  // Resolution caches are per build: installations, removals, exports changes
+  // and previously missing modules must be observed on the next request.
+  const resolutionCache = ts.createModuleResolutionCache(
+    process.cwd(),
+    canonicalPath,
+    compilerOptions,
+  );
+  const installedResolutionCache = ts.createModuleResolutionCache(
+    process.cwd(),
+    canonicalPath,
+    installedPackageOptions,
+  );
+  const resolutions = new Map(
+    [...previousResolutions].map(([file, entries]) => [file, new Map(entries)]),
+  );
+  const invalidated = new Map<string, boolean>();
+  const referenceFiles = new Set(
+    oldBuilder
+      ?.getProgram()
+      .getSourceFiles()
+      .filter(
+        (file) =>
+          file.typeReferenceDirectives.length > 0 ||
+          file.libReferenceDirectives.length > 0 ||
+          file.referencedFiles.length > 0,
+      )
+      .map((file) => canonicalPath(file.fileName)),
+  );
+  const resolve = (
+    specifier: string,
+    containingFile: string,
+  ): ts.ResolvedModuleWithFailedLookupLocations => {
+    if (isNodeBuiltin(specifier)) return { resolvedModule: undefined };
+    const isVirtual = virtualSources.has(canonicalPath(containingFile));
+    const packageImport = !specifier.startsWith('.') && !path.isAbsolute(specifier);
+    const resolutionFile =
+      isVirtual && packageImport && packageBoundary.root !== undefined
+        ? path.join(packageBoundary.root, '__webrad_project__.ts')
+        : containingFile;
+    const installed = packageBoundary.contains(containingFile);
+    return ts.resolveModuleName(
+      specifier,
+      resolutionFile,
+      installed ? installedPackageOptions : compilerOptions,
+      host,
+      installed ? installedResolutionCache : resolutionCache,
+    );
+  };
+  const fingerprint = (result: ts.ResolvedModuleWithFailedLookupLocations): string =>
+    JSON.stringify([result.resolvedModule ?? null]);
+  host.resolveModuleNameLiterals = (literals, containingFile) => {
+    const file = canonicalPath(containingFile);
+    const entries = resolutions.get(file) ?? new Map<string, string>();
+    resolutions.set(file, entries);
+    return literals.map((literal) => {
+      const result = resolve(literal.text, containingFile);
+      entries.set(literal.text, fingerprint(result));
+      return result;
     });
-  // Resolve imports against the current filesystem/virtual graph on every build,
-  // including a previously missing module that has since been created.
-  host.hasInvalidatedResolutions = () => true;
+  };
+  host.hasInvalidatedResolutions = (fileName) => {
+    const file = canonicalPath(fileName);
+    if (referenceFiles.has(file)) return true; // Keep triple-slash directives fresh too.
+    const cached = invalidated.get(file);
+    if (cached !== undefined) return cached;
+    const previous = previousResolutions.get(file);
+    // Re-resolve even failures against this build's host, instead of marking
+    // every unchanged runtime module structurally invalid on every F9.
+    const changed =
+      previous === undefined ||
+      [...previous].some(
+        ([specifier, signature]) => fingerprint(resolve(specifier, fileName)) !== signature,
+      );
+    invalidated.set(file, changed);
+    return changed;
+  };
   host.getSourceFile = (
     fileName,
     languageVersionOrOptions,
@@ -231,22 +294,6 @@ export function typecheckSources(
     });
   };
 
-  // Reset for root/global declaration changes, retaining syntax reuse. Ordinary
-  // generated wrappers are modules: let the builder invalidate their dependents
-  // instead of checking every unchanged runtime module after component edits.
-  // Both paths collect the complete current program's strict diagnostics.
-  const previousRoots = oldBuilder?.getProgram().getRootFileNames();
-  const reuseDiagnostics =
-    previousRoots !== undefined &&
-    previousRoots.length === rootNames.length &&
-    previousRoots.every(
-      (name, index) => canonicalPath(name) === canonicalPath(rootNames[index]!),
-    ) &&
-    [...virtualSources].every(
-      ([fileName, contents]) =>
-        !fileName.endsWith('.d.ts') || oldBuilder?.getSourceFile(fileName)?.text === contents,
-    );
-
   let builder: ts.SemanticDiagnosticsBuilderProgram;
   onProgress?.('typecheck-program');
   try {
@@ -254,7 +301,7 @@ export function typecheckSources(
       rootNames,
       compilerOptions,
       host,
-      reuseDiagnostics ? oldBuilder : undefined,
+      oldBuilder,
     );
   } finally {
     // Program retains its host, whose getSourceFile closure captures oldBuilder.
@@ -344,7 +391,16 @@ export function typecheckSources(
       );
     }
   }
-  previousTypecheck = { environment, builder };
+  previousTypecheck = {
+    environment,
+    builder,
+    resolutions: new Map(
+      program.getSourceFiles().map((file) => {
+        const key = canonicalPath(file.fileName);
+        return [key, resolutions.get(key) ?? new Map<string, string>()] as const;
+      }),
+    ),
+  };
   return {
     diagnostics: diagnostics.map((diagnostic) => {
       const converted = fromTypeScriptDiagnostic(diagnostic);

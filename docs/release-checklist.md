@@ -1,5 +1,29 @@
 # Release checklist for agents and maintainers
 
+## Common Login regression and incremental checking: 6f68c1f (2026-11-20)
+
+Release `44772098435` and validate `44772097935` fail seven jobs at the same Login
+assertion: open/modal/focused document, but active element BODY after the smoke's
+deliberate IDE/iframe focus handoff. After that handoff, send one native Tab and
+confirm the modal contains actual keyboard focus within the existing deadline.
+Require `renderer Login Popup keyboard focus passed: native Tab enters the active modal;`
+in both runners, retaining the complete earlier Login marker and every assertion.
+Do not focus a chosen input directly, send repeated keys, weaken modality or raise
+deadlines. Existing debugger-session ownership and finally cleanup remain intact.
+
+Intel additionally fails Page-title F9 during roughly 27 seconds of semantic work.
+The compiler now compares fresh request-local import resolutions instead of
+unconditionally invalidating every file, and delegates structural/ambient changes
+to TypeScript's retained builder. Missing/new/removed/updated packages and current
+source bytes must still be observed; triple-slash references remain conservative.
+This replaces earlier blanket semantic-reset rules. Current strict diagnostics,
+real event-loop turns, two workers, smoke budgets and native gates remain required.
+
+All six portable suites and security passed for the original commit. Original
+evidence from all eight failed jobs and all nine artifacts: `artifacts/ci-6f68c1f/`.
+No local validation was requested or run. Fresh native hosted confirmation of the
+corrected SHA and measured performance evidence remain pending.
+
 ## v0.0.39 Windows development focus (2026-11-20)
 
 Release `44767311104` passed and published v0.0.39 on `e61092a`; the tag's

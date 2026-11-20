@@ -284,6 +284,7 @@ try {
                 'renderer RestGO iframe CORS passed:',
                 'renderer RestGO page Interaction passed:',
                 'renderer Login configuration and F9 passed: compact editor; Aurora appearance; compact template; project styles; mobile fields at least 16px type and 44px height;',
+                'renderer Login Popup keyboard focus passed: native Tab enters the active modal;',
                 'renderer Login authentication passed:',
                 'renderer Login recovery passed:',
                 'renderer Data Grid configuration passed: table palette icon;',

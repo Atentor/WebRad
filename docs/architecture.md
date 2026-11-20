@@ -370,15 +370,19 @@ The compiler retains at most its latest TypeScript Program to reuse parsed
 SourceFiles in compatible repeated builds. Reuse requires the same current
 directory, TypeScript library location and compiler options, plus
 identical file content and parse settings. Every build rereads current inputs,
-invalidates module resolutions and computes strict diagnostics and component
-reference lowering again. Adding, removing or renaming project documents does
-not invalidate unchanged parsed files. When the root list or a virtual `.d.ts`
-declaration changes, the compiler starts a fresh semantic builder while still
-reusing exact-content syntax trees. Ordinary `.generated.ts` wrappers remain on
-the affected-file path: TypeScript invalidates their dependents without forcing
-a full runtime check after each component edit. Root/declaration changes still
-check the full current graph. Otherwise TypeScript's affected-file builder reuses
-valid semantic results, rechecking changed content, dependencies and resolutions.
+resolves previously recorded imports against its current host, and collects strict
+diagnostics and component-reference lowering again. Module-resolution caches exist
+only for that request, with separate embedded/project-package options. The host
+compares current resolution identities with the preceding snapshot, including
+failed resolutions; a newly installed module, removed package or changed export
+invalidates its importer. Triple-slash reference files are invalidated conservatively.
+Files with no imports retain an empty snapshot. Only current-program file entries
+are retained, and snapshots contain strings, not prior syntax trees or Programs.
+
+Root, generated wrapper and `.d.ts` changes are reconciled by TypeScript's builder,
+which invalidates affected source/dependency diagnostics. The IDE neither marks
+every module resolution invalid unconditionally nor discards the semantic builder
+because a generated contract changed. This supersedes earlier blanket-reset rules.
 Every build collects diagnostics for the complete current program; build outputs
 are never accepted from an earlier build.
 The host's temporary reference to the previous Program is cleared in `finally`

@@ -47,11 +47,16 @@ unrelated declaration graph. Explicit imports and project declarations still
 participate in strict checking. Runtime export metadata is reused only for the
 same catalog and exact source text; adapter selection retains only its last exact
 source/component-type combination. Diagnostics are collected for each build.
-Root-list changes or changed virtual `.d.ts` declarations start a full semantic
-pass with exact-content syntax reuse. Changes to ordinary `.generated.ts` module
-wrappers retain the affected-file builder, which invalidates their dependents
-instead of restarting checks of the entire runtime. Both paths preserve strict checking, current module
-resolution and complete-program diagnostics; neither reuses earlier build output.
+TypeScript's builder owns root, declaration, generated module and dependency
+invalidation. The host no longer resets it on structural edits or unconditionally
+invalidates every module resolution. Each build re-resolves recorded imports with
+fresh request-local caches, compares resolution identities (including failures),
+and invalidates changed resolutions; triple-slash reference files remain
+conservatively invalidated. Updated source bytes are still read and hashed, so
+declaration changes at the same resolved path remain visible to the builder.
+Separate caches retain the embedded versus installed-package resolution rules.
+Only the latest graph and current-program resolution snapshot are retained.
+Strict options, complete-program diagnostics and fresh bundling are preserved.
 The existing progress callback separates bundle loading, runtime selection,
 esbuild execution, and output processing for compilation timing diagnostics.
 

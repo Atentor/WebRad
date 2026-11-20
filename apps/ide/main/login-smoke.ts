@@ -370,6 +370,37 @@ export async function runLoginSmoke(
         await new Promise((resolve) => setTimeout(resolve, 50));
       if (window.webContents.focusedFrame !== frame)
         throw new Error('Login Preview frame did not receive focus.');
+      // Moving from IDE to iframe can leave activeElement at BODY. Use one real
+      // Tab so Chromium's modal navigation, rather than a forced input focus,
+      // establishes keyboard focus before the unchanged Popup assertions.
+      window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' });
+      window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' });
+      let popupFocus: unknown;
+      for (;;) {
+        popupFocus = await frame.executeJavaScript(
+          `(() => { const popup = document.querySelector('.wr-login-dialog');
+            return { focused: document.hasFocus() && popup?.matches(':modal') === true && popup.contains(document.activeElement),
+              modal: popup?.matches(':modal'), open: popup?.open, activeTag: document.activeElement?.tagName,
+              activeName: document.activeElement?.getAttribute('name') }; })()`,
+          true,
+        );
+        if (
+          typeof popupFocus === 'object' &&
+          popupFocus !== null &&
+          Reflect.get(popupFocus, 'focused') === true
+        )
+          break;
+        if (Date.now() >= focusDeadline)
+          throw new Error(
+            'Login native Tab did not enter the modal: ' + JSON.stringify(popupFocus),
+          );
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      log(
+        'renderer Login Popup keyboard focus passed: native Tab enters the active modal; ' +
+          JSON.stringify(popupFocus),
+      );
+
       const result = await frame.executeJavaScript(
         `(async () => {
       const popup = document.querySelector('.wr-login-dialog');
