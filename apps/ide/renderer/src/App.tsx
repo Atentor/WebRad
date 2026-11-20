@@ -1,6 +1,6 @@
 import { menuInspectorTarget, type ProjectTemplateId } from '@webrad/component-registry';
 import { useUpdates } from './use-updates';
-import { UpdateInstallingDialog } from './components/UpdateIndicator';
+import { UpdateIndicator, UpdateInstallingDialog } from './components/UpdateIndicator';
 import { ProjectAssetPreview } from './components/ProjectAssetPreview';
 import { AboutDialog } from './components/AboutDialog';
 import { DeployDialog } from './components/DeployDialog';
@@ -3257,6 +3257,9 @@ export function App(): ReactElement {
           }
           activity={
             <ActivityBar
+              updateIndicator={
+                <UpdateIndicator state={updates.state} onUpdate={() => void updates.update()} />
+              }
               canPreview={
                 project !== null &&
                 projectState.rootPath !== null &&

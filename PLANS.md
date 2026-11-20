@@ -1,5 +1,16 @@
 # WebRAD delivery plan
 
+## Update feedback in the activity bar (2026-11-19)
+
+Connected the existing Update indicator and action to the activity bar, directly
+above Project Settings after the flexible spacer. The download icon appears only
+for confirmed updates and their download/install states, with an accent dot for
+available/ready updates and native version/progress tooltips. The existing save
+guard and installation dialog remain in use. The Electron update interaction now
+requires the rendered icon geometry, placement, tooltip and notification dot while
+retaining its existing evidence markers. Validation was not requested or run;
+rendered appearance and update installation remain unverified.
+
 ## Plain chat author labels (2026-11-19)
 
 Removed the icon beside message author names, keeping the plain Codex label.

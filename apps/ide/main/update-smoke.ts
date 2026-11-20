@@ -57,12 +57,33 @@ export async function runUpdateSmoke(
   log: (message: string) => void,
 ): Promise<void> {
   await waitFor(window, "!!document.querySelector('.wr-workbench') && !!window.webrad?.updates");
-  if (await window.webContents.executeJavaScript("!!document.querySelector('.wr-toolbar-update')"))
+  if (await window.webContents.executeJavaScript("!!document.querySelector('.wr-activity-update')"))
     throw new Error('Update button appeared before a newer release was confirmed.');
   await window.webContents.executeJavaScript('window.webrad.updates.check()', true);
   await waitFor(
     window,
     "document.querySelector('[data-update-status=available]')?.textContent.trim() === 'Update'",
+  );
+  await waitFor(
+    window,
+    `(() => {
+      const button = document.querySelector('.wr-activity-bar .wr-activity-update');
+      const settings = document.querySelector('.wr-activity-bar [aria-label="Project Settings"]');
+      const spacer = document.querySelector('.wr-activity-spacer');
+      if (!button || !settings || !spacer) return false;
+      const bounds = button.getBoundingClientRect();
+      const settingsBounds = settings.getBoundingClientRect();
+      const label = button.querySelector('.wr-update-label');
+      const dot = getComputedStyle(button, '::after');
+      return spacer.nextElementSibling === button && button.nextElementSibling === settings &&
+        bounds.width === 32 && bounds.height === 34 &&
+        bounds.bottom <= settingsBounds.top && bounds.left === settingsBounds.left &&
+        button.getAttribute('aria-label') === 'Update' &&
+        !!button.querySelector('[data-lucide-icon="download"]') &&
+        !!label && getComputedStyle(label).clipPath === 'inset(50%)' &&
+        dot.content !== 'none' && dot.width === '6px' &&
+        button.title.includes('999.0.0') && !button.disabled;
+    })()`,
   );
   if (downloads || installations) throw new Error('Checking updates started an installation.');
   log('renderer update availability without download passed');

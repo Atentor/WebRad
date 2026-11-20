@@ -26,7 +26,7 @@ export function UpdateIndicator({ state, onUpdate }: UpdateIndicatorProps): Reac
   return (
     <button
       type="button"
-      className="wr-toolbar-update"
+      className="wr-activity-update"
       data-update-status={state.status}
       disabled={busy || state.status === 'manual'}
       title={title}
@@ -35,7 +35,9 @@ export function UpdateIndicator({ state, onUpdate }: UpdateIndicatorProps): Reac
       onClick={onUpdate}
     >
       <Icon name="download" />
-      <span aria-live="polite">Update</span>
+      <span className="wr-update-label" aria-live="polite">
+        Update
+      </span>
     </button>
   );
 }

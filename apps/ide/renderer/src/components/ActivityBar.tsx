@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Icon } from './Icon';
 
 interface ActivityBarProps {
@@ -18,6 +18,7 @@ interface ActivityBarProps {
   onOpenRestGo?: () => void;
   onToggleCodex: () => void;
   onToggleOutput: () => void;
+  updateIndicator?: ReactNode;
 }
 
 export function ActivityBar(props: ActivityBarProps): ReactElement {
@@ -76,6 +77,7 @@ export function ActivityBar(props: ActivityBarProps): ReactElement {
         {props.codexBusy && <span className="wr-codex-activity-dot" aria-hidden="true" />}
       </button>
       <span className="wr-activity-spacer" />
+      {props.updateIndicator}
       <button
         type="button"
         aria-label="Project Settings"

@@ -1,5 +1,15 @@
 # Release checklist for agents and maintainers
 
+## Activity bar update indicator (2026-11-19)
+
+The update action is now an icon directly above Project Settings, after the
+activity bar spacer. The existing update smoke requires the 32 x 34px rendered
+control, registered download SVG, visually hidden label, version tooltip and
+accent notification dot for a confirmed newer version. Preserve the availability,
+unsaved changes guard and install/restart feedback evidence markers in both
+runners. No validation was requested or run; native appearance and real update
+installation have not been verified.
+
 ## OpenAI assistant icon (2026-11-19)
 
 The icon viewport is now `1.5 1.5 13 13` to enlarge the visible symbol by about 23%
