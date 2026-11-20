@@ -1,5 +1,20 @@
 # Release checklist for agents and maintainers
 
+## Hosted CI repairs: d1cd89f (2026-11-20)
+
+Release run `44743343376` and validate run `44743343463` stopped at the same
+proposal diagnostic typing error in all six builds and both quality jobs.
+Proposal diagnostics already contain blocking errors; retain the bounded message
+handoff without reading a nonexistent category. All six portable-test artifacts
+report the same 15 failed IPC cases due to the missing Electron `app` mock.
+The fixture must supply `app.getPath` with isolated temporary user data while
+preserving real handler registration, authorization assertions and cleanup.
+The Codex source additions also received repository formatting. These repairs
+have not been locally validated; no validation was requested. Retained original
+evidence and analysis: `artifacts/ci-d1cd89f/`. Packaging and Electron smokes were
+skipped, so require a fresh hosted pass of the corrected final SHA through every
+existing native gate before claiming release readiness.
+
 ## Codex history persistence and context reuse (2026-11-20)
 
 The existing panel smoke continues to exercise history, suggestions, draft

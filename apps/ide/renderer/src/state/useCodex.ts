@@ -114,14 +114,27 @@ export function useCodex(
   const [historyFailed, setHistoryFailed] = useState(false);
   useEffect(() => {
     let active = true;
-    void bridge.readHistory().then(saved => {
-      if (!active) return;
-      setConversations(current => new Map<string, ConversationGroup>([...Object.entries(saved), ...current]));
-      setHistoryReady(true);
-    }).catch((cause: unknown) => {
-      if (active) { setHistoryFailed(true); setFeedback({ scope: null, text: 'Could not load local chat history: ' + messageOf(cause) }); }
-    });
-    return () => { active = false; };
+    void bridge
+      .readHistory()
+      .then((saved) => {
+        if (!active) return;
+        setConversations(
+          (current) => new Map<string, ConversationGroup>([...Object.entries(saved), ...current]),
+        );
+        setHistoryReady(true);
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setHistoryFailed(true);
+          setFeedback({
+            scope: null,
+            text: 'Could not load local chat history: ' + messageOf(cause),
+          });
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [bridge]);
   const request = useRef<ActiveRequest | null>(null);
   const alive = useRef(true);
@@ -142,12 +155,28 @@ export function useCodex(
     const save = (): void => {
       const value = pendingHistory.current.get(key);
       if (!value) return;
-      const stored = { ...value, chats: value.chats.map(chat => ({ ...chat, messages: chat.messages.map(({ id, role, text, error, disposition }) => ({ id, role, text, error, disposition })) })) };
-      void bridge.saveHistory(key, stored).then(() => {
-        if (pendingHistory.current.get(key) === value) pendingHistory.current.delete(key);
-      }).catch((cause: unknown) => {
-        if (alive.current) setFeedback({ scope, text: 'Could not save local chat history: ' + messageOf(cause) });
-      });
+      const stored = {
+        ...value,
+        chats: value.chats.map((chat) => ({
+          ...chat,
+          messages: chat.messages.map(({ id, role, text, error, disposition }) => ({
+            id,
+            role,
+            text,
+            error,
+            disposition,
+          })),
+        })),
+      };
+      void bridge
+        .saveHistory(key, stored)
+        .then(() => {
+          if (pendingHistory.current.get(key) === value) pendingHistory.current.delete(key);
+        })
+        .catch((cause: unknown) => {
+          if (alive.current)
+            setFeedback({ scope, text: 'Could not save local chat history: ' + messageOf(cause) });
+        });
     };
     const timer = setTimeout(save, 400);
     return () => clearTimeout(timer);
@@ -156,7 +185,19 @@ export function useCodex(
     const pending = pendingHistory.current;
     const flush = (): void => {
       for (const [key, value] of pending) {
-        const stored = { ...value, chats: value.chats.map(chat => ({ ...chat, messages: chat.messages.map(({ id, role, text, error, disposition }) => ({ id, role, text, error, disposition })) })) };
+        const stored = {
+          ...value,
+          chats: value.chats.map((chat) => ({
+            ...chat,
+            messages: chat.messages.map(({ id, role, text, error, disposition }) => ({
+              id,
+              role,
+              text,
+              error,
+              disposition,
+            })),
+          })),
+        };
         void bridge.saveHistory(key, stored).catch((cause: unknown) => {
           console.error('[IDE] Could not flush Codex conversation history:', messageOf(cause));
         });
@@ -177,7 +218,8 @@ export function useCodex(
   const selectedModel = status?.models.find((item) => item.id === model);
   const selectedEffort = selectedModel?.efforts.find((item) => item.id === effort);
   const canSend =
-    historyReady && (editingEnabled &&
+    historyReady &&
+    editingEnabled &&
     page !== null &&
     scope !== null &&
     status?.available === true &&
@@ -185,7 +227,7 @@ export function useCodex(
     selectedEffort !== undefined &&
     !busy &&
     !loading &&
-    !connecting);
+    !connecting;
 
   const updateConversation = useCallback(
     (
@@ -359,7 +401,17 @@ export function useCodex(
           prompt: prompt.trim(),
           model,
           effort,
-          conversation: (messages.length > 6 ? [messages[0]!, ...messages.slice(-5)] : messages).map(message => ({ diagnostics: message.disposition ? [] : message.proposal?.diagnostics.filter(item => item.category === 'error').slice(0, 5).map(item => item.message.slice(0, 500)), role: message.role, text: message.text.slice(0, 8000), ...(message.disposition ? { disposition: message.disposition } : {}) })),
+          conversation: (messages.length > 6
+            ? [messages[0]!, ...messages.slice(-5)]
+            : messages
+          ).map((message) => ({
+            diagnostics: message.disposition
+              ? []
+              : message.proposal?.diagnostics.slice(0, 5).map((item) => item.message.slice(0, 500)),
+            role: message.role,
+            text: message.text.slice(0, 8000),
+            ...(message.disposition ? { disposition: message.disposition } : {}),
+          })),
         });
         if (!alive.current || request.current !== active) return;
         if (active.canceled || projectScope(controller.getSnapshot()) !== active.scope) {
@@ -398,7 +450,8 @@ export function useCodex(
         finish(active);
       }
     },
-    [conversation.id, 
+    [
+      conversation.id,
       bridge,
       canSend,
       controller,
@@ -741,7 +794,13 @@ export function useCodex(
         return new Map(current).set(
           scope ?? welcomeScope,
           chats.length === 0
-            ? (() => { const id = crypto.randomUUID(); return { activeId: id, chats: [{ id, updatedAt: Date.now(), draft: '', messages: [] }] }; })()
+            ? (() => {
+                const id = crypto.randomUUID();
+                return {
+                  activeId: id,
+                  chats: [{ id, updatedAt: Date.now(), draft: '', messages: [] }],
+                };
+              })()
             : {
                 activeId: previous.activeId === id ? chats[0]!.id : previous.activeId,
                 chats,

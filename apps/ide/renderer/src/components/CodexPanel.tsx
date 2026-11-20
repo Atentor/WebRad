@@ -314,7 +314,11 @@ export function CodexPanel(props: CodexPanelProps): ReactElement {
             <strong>Conversations</strong>
             <span>{assistant.chats.length}</span>
           </div>
-          <p>{assistant.historyReady ? 'Conversations are saved locally for this project. Restored messages are reference only; request a new proposal to make changes.' : 'Local history is unavailable. New requests are disabled to protect saved conversations.'}</p>
+          <p>
+            {assistant.historyReady
+              ? 'Conversations are saved locally for this project. Restored messages are reference only; request a new proposal to make changes.'
+              : 'Local history is unavailable. New requests are disabled to protect saved conversations.'}
+          </p>
           <div className="wr-codex-chats-list">
             {assistant.chats.map((chat) => (
               <div className="wr-codex-chat-row" key={chat.id}>

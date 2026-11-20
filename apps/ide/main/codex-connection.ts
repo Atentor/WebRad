@@ -47,7 +47,10 @@ interface Generation {
 
 /** Owned stdio JSON-RPC client. Only explicit protocol fields cross the bridge. */
 export class CodexConnection {
-  readonly #sessions = new Map<string, { threadId: string; turns: number; data: Readonly<Record<string, unknown>> }>();
+  readonly #sessions = new Map<
+    string,
+    { threadId: string; turns: number; data: Readonly<Record<string, unknown>> }
+  >();
 
   readonly #pending = new Map<number, PendingRpc>();
   readonly #accountListeners = new Set<() => void>();
@@ -343,7 +346,6 @@ export class CodexConnection {
     signal: AbortSignal,
     onActivity: (message: string) => void = () => undefined,
     session?: CodexContextSession,
-  
   ): Promise<CodexPlan> {
     const cacheKey = session ? JSON.stringify([session.key, model]) : undefined;
     const old = cacheKey ? this.#sessions.get(cacheKey) : undefined;
@@ -396,31 +398,33 @@ export class CodexConnection {
       await this.start();
       child = this.#child;
       signal.throwIfAborted();
-      const thread = cached ? { model, thread: { id: cached.threadId, environments: [] } } : z
-        .object({
-          model: z.string().optional(),
-          thread: z.object({
-            id: z.string(),
-            environments: z.array(z.unknown()).nullable().optional(),
-          }),
-        })
-        .parse(
-          await this.#request('thread/start', {
-            model,
-            allowProviderModelFallback: false,
-            cwd: path.join(this.directory, 'workspace'),
-            runtimeWorkspaceRoots: [],
-            environments: [],
-            selectedCapabilityRoots: [],
-            sandbox: 'read-only',
-            approvalPolicy: 'never',
-            ephemeral: true,
-            baseInstructions: CODEX_AUTHORING_INSTRUCTIONS,
-            developerInstructions:
-              'Return the native WebRAD proposal. No filesystem, shell, external tools, agents, or arbitrary code execution.',
-            config: { model_reasoning_effort: effort, web_search: 'disabled' },
-          }),
-        );
+      const thread = cached
+        ? { model, thread: { id: cached.threadId, environments: [] } }
+        : z
+            .object({
+              model: z.string().optional(),
+              thread: z.object({
+                id: z.string(),
+                environments: z.array(z.unknown()).nullable().optional(),
+              }),
+            })
+            .parse(
+              await this.#request('thread/start', {
+                model,
+                allowProviderModelFallback: false,
+                cwd: path.join(this.directory, 'workspace'),
+                runtimeWorkspaceRoots: [],
+                environments: [],
+                selectedCapabilityRoots: [],
+                sandbox: 'read-only',
+                approvalPolicy: 'never',
+                ephemeral: true,
+                baseInstructions: CODEX_AUTHORING_INSTRUCTIONS,
+                developerInstructions:
+                  'Return the native WebRAD proposal. No filesystem, shell, external tools, agents, or arbitrary code execution.',
+                config: { model_reasoning_effort: effort, web_search: 'disabled' },
+              }),
+            );
       signal.throwIfAborted();
       if (thread.model !== undefined && thread.model !== model) {
         throw new Error(
@@ -434,7 +438,12 @@ export class CodexConnection {
       }
       generation.threadId = thread.thread.id;
       const inputPrompt = session ? codexContextUpdate(cached?.data, session) : prompt;
-      onActivity((cached ? 'Context update' : 'Full context') + ' sent: ' + inputPrompt.length.toLocaleString() + ' characters. Waiting for Codex…');
+      onActivity(
+        (cached ? 'Context update' : 'Full context') +
+          ' sent: ' +
+          inputPrompt.length.toLocaleString() +
+          ' characters. Waiting for Codex…',
+      );
       const turn = z.object({ turn: recordSchema.and(z.object({ id: z.string() })) }).parse(
         await this.#request(
           'turn/start',
@@ -456,12 +465,22 @@ export class CodexConnection {
       }
       const plan = await result;
       if (session && cacheKey) {
-        if (!cached && old) void this.#request('thread/archive', { threadId: old.threadId }).catch(() => undefined);
+        if (!cached && old)
+          void this.#request('thread/archive', { threadId: old.threadId }).catch(() => undefined);
         if (!this.#sessions.has(cacheKey) && this.#sessions.size >= 8) {
           const first = this.#sessions.entries().next().value;
-          if (first) { this.#sessions.delete(first[0]); void this.#request('thread/archive', { threadId: first[1].threadId }).catch(() => undefined); }
+          if (first) {
+            this.#sessions.delete(first[0]);
+            void this.#request('thread/archive', { threadId: first[1].threadId }).catch(
+              () => undefined,
+            );
+          }
         }
-        this.#sessions.set(cacheKey, { threadId: generation.threadId, turns: (cached?.turns ?? 0) + 1, data: session.data });
+        this.#sessions.set(cacheKey, {
+          threadId: generation.threadId,
+          turns: (cached?.turns ?? 0) + 1,
+          data: session.data,
+        });
         retainThread = true;
       }
       return plan;
@@ -476,7 +495,12 @@ export class CodexConnection {
       clearTimeout(deadline);
       signal.removeEventListener('abort', cancel);
       if (this.#generation === generation) this.#generation = null;
-      if (!retainThread && generation.threadId !== null && child !== null && this.#child === child) {
+      if (
+        !retainThread &&
+        generation.threadId !== null &&
+        child !== null &&
+        this.#child === child
+      ) {
         void this.#request('thread/archive', { threadId: generation.threadId }).catch(
           () => undefined,
         );

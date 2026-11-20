@@ -8,6 +8,7 @@ import type { ProjectSession, SaveProjectRequest } from '../shared/contracts';
 import type * as ProjectFiles from './project-files';
 
 const mocks = vi.hoisted(() => ({
+  getPath: vi.fn(),
   readAsset: vi.fn(),
   compileProject: vi.fn(),
   handlers: new Map<string, (event: unknown, ...input: unknown[]) => unknown>(),
@@ -30,6 +31,7 @@ vi.mock('./compiler-service', () => ({
 vi.mock('./project-asset', () => ({ readSelectedProjectAsset: mocks.readAsset }));
 
 vi.mock('electron', () => ({
+  app: { getPath: mocks.getPath },
   shell: { openExternal: mocks.openExternal },
   BrowserWindow: { fromWebContents: mocks.fromWebContents },
   dialog: { showOpenDialog: mocks.chooseDirectory, showMessageBoxSync: vi.fn() },
@@ -101,6 +103,11 @@ async function register(userDataPath?: string): Promise<void> {
 beforeEach(async () => {
   vi.resetModules();
   vi.clearAllMocks();
+  const userData = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'webrad-ipc-user-data-')),
+  );
+  temporaryRoots.push(userData);
+  mocks.getPath.mockReturnValue(userData);
   mocks.handlers.clear();
   mocks.statePaths.splice(0);
   mocks.fromWebContents.mockReturnValue(window);

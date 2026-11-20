@@ -97,8 +97,13 @@ export async function runCodexPanelSmoke(
       window.webContents.reload();
     });
     await waitFor(`document.querySelector('button[aria-label="Codex assistant"]') !== null`);
-    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Codex assistant"]').click()`, true);
-    await waitFor(`document.querySelector('.wr-codex-panel textarea')?.value.includes('registration form') === true`);
+    await window.webContents.executeJavaScript(
+      `document.querySelector('button[aria-label="Codex assistant"]').click()`,
+      true,
+    );
+    await waitFor(
+      `document.querySelector('.wr-codex-panel textarea')?.value.includes('registration form') === true`,
+    );
     await window.webContents.executeJavaScript(
       `document.querySelector('button[aria-label="New Codex conversation"]').click()`,
       true,

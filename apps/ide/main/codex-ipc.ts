@@ -94,8 +94,12 @@ export function registerCodexIpc(options: CodexIpcOptions): void {
   });
   ipcMain.handle('webrad:codex:history-save', (event, ...input: unknown[]) => {
     options.requireTrustedSender(event);
-    if (input.length !== 2 || JSON.stringify(input).length > 32 * 1024 * 1024) throw new Error('Invalid history snapshot.');
-    return history.save(z.string().min(1).max(8192).parse(input[0]), CodexHistoryGroupSchema.parse(input[1]));
+    if (input.length !== 2 || JSON.stringify(input).length > 32 * 1024 * 1024)
+      throw new Error('Invalid history snapshot.');
+    return history.save(
+      z.string().min(1).max(8192).parse(input[0]),
+      CodexHistoryGroupSchema.parse(input[1]),
+    );
   });
   let preferenceWrites = Promise.resolve();
   const readPreferences = async (): Promise<CodexPreferences> => {
@@ -431,7 +435,11 @@ export function registerCodexIpc(options: CodexIpcOptions): void {
             if (!signal.aborted) progress('designing', message);
           },
           {
-            key: JSON.stringify([request.rootPath, project.id, request.conversationId ?? request.requestId]),
+            key: JSON.stringify([
+              request.rootPath,
+              project.id,
+              request.conversationId ?? request.requestId,
+            ]),
             data: context.data,
             request: request.prompt,
           },

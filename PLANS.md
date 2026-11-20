@@ -1,5 +1,21 @@
 # WebRAD delivery plan
 
+## Hosted CI repairs for d1cd89f (2026-11-20)
+
+Inspected every failed job in release run `44743343376` and validate run
+`44743343463`, plus all six portable-test artifacts. All eight typecheck stops
+share the invalid proposal diagnostic `category` access; proposal diagnostics
+already contain only blocking errors from main-process review. Preserve bounded
+feedback by removing that redundant filter. All six native portable suites fail
+the same 15 IPC cases because their Electron mock lacks `app.getPath`, now needed
+when Codex history initializes. The existing fixture now supplies an isolated
+temporary user-data directory per case, with cleanup and all assertions retained.
+Applied repository formatting to the commit's source additions. Original logs,
+ZIPs, extracted artifacts, job metadata and analysis are in `artifacts/ci-d1cd89f/`.
+Security passed for the original SHA; packaging and smokes never ran. No local
+tests or validation commands were requested or run. A fresh hosted pass of the
+corrected final SHA remains pending; these edits do not establish release readiness.
+
 ## Codex IDE and project identity (2026-11-20)
 
 Separated the WebRAD IDE identity from the current application's Project Model

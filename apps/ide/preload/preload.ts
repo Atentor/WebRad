@@ -53,7 +53,8 @@ import type {
 const bridge: WebRadBridge = {
   codex: {
     readHistory: () => ipcRenderer.invoke('webrad:codex:history-read') as Promise<CodexHistory>,
-    saveHistory: (scope, group) => ipcRenderer.invoke('webrad:codex:history-save', scope, group) as Promise<void>,
+    saveHistory: (scope, group) =>
+      ipcRenderer.invoke('webrad:codex:history-save', scope, group) as Promise<void>,
     usage: () => ipcRenderer.invoke('webrad:codex:usage') as Promise<CodexUsage>,
     onUsageChanged: (listener) => {
       const handler = (): void => listener();

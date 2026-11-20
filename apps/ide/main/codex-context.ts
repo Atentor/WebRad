@@ -139,8 +139,10 @@ export function createCodexContext(request: CodexGenerateRequest, project: WebRa
   return {
     data: {
       ...context.data,
-      reviewFeedback: request.conversation.flatMap(entry => entry.diagnostics ?? []).slice(-5),
-      conversationDecisions: request.conversation.filter(entry => entry.disposition).map(entry => ({ summary: entry.text.slice(0, 200), disposition: entry.disposition })),
+      reviewFeedback: request.conversation.flatMap((entry) => entry.diagnostics ?? []).slice(-5),
+      conversationDecisions: request.conversation
+        .filter((entry) => entry.disposition)
+        .map((entry) => ({ summary: entry.text.slice(0, 200), disposition: entry.disposition })),
     },
     prompt: `${codexProjectIdentity(context.data)}\n\nUSER REQUEST:\n${request.prompt}\n\nWEBRAD PROJECT CONTEXT (data):\n${JSON.stringify(context.data)}`,
     summary: context.summary,
