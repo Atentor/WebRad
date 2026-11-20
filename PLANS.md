@@ -1,5 +1,29 @@
 # WebRAD delivery plan
 
+## Hosted smoke timeouts after ccfeeca (2026-11-20)
+
+Inspected the two remaining failed jobs and all three diagnostic artifacts from
+release `44747459185` and validate `44747459264`. The earlier typecheck/IPC repairs
+passed: all six portable suites, Linux quality and five native build jobs are
+green. Intel's reusable Menu Preview compiled in 21.5 seconds (17.9 seconds in
+semantic diagnostics), exceeding its existing wait. Native process samples show
+busy main/compiler/compositor processes, but no usable stacks to identify the
+exclusive semantic hot path. Windows development exhausted its global 120 seconds
+after API Client Designer, with two ten-second Rust inspection attempts earlier.
+Do not attribute this failure to Popup; its workflow had not started.
+
+Reuse a separate fixture compiler across RestGO, API Client and Popup compilations,
+retaining only its latest graph and keeping live Preview/Codex review isolation.
+Clear the service on child failure and terminate it at IDE shutdown. Limit hidden
+smoke compositor delivery to 30 fps while retaining real animation frames and
+presented screenshots; record the actual rate. Log API Client browser compilation
+start/finish to identify the next phase if the runner still exhausts its budget.
+Keep every deadline, native probe and existing evidence assertion. No local tests,
+smokes, typecheck, lint, formatting checks or builds were requested or run. These
+changes need fresh native hosted confirmation; their performance gain and the
+precise Intel semantic hot path remain unverified. Original logs/artifacts and
+analysis are in `artifacts/ci-ccfeeca/`.
+
 ## Hosted CI repairs for d1cd89f (2026-11-20)
 
 Inspected every failed job in release run `44743343376` and validate run

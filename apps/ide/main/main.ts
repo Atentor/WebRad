@@ -1972,6 +1972,14 @@ async function createWindow(): Promise<BrowserWindow> {
       sandbox: true,
     },
   });
+  if (smokeMode) {
+    // Offscreen bitmap delivery competes with compilation even without a paint
+    // subscriber. Keep real animation frames and presented-frame screenshots,
+    // but avoid producing 60 full-window bitmaps per second on software CI GPUs.
+    window.webContents.setFrameRate(30);
+    smokeLog('[IDE] Smoke compositor frame rate: ' + window.webContents.getFrameRate() + 'fps');
+  }
+
   let rendererSmokeStarted = false;
   const assertRendererHealthy = smokeAutoExit
     ? trackSmokeRendererHealth(window.webContents)

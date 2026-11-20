@@ -1731,6 +1731,8 @@ export async function runApiClientBrowserSmoke(log: (message: string) => void): 
         },
       ],
     };
+    const compilationStarted = Date.now();
+    log('renderer API Client browser compilation started');
     const result = await compileProjectToMemory(project, {
       userSources: {
         'pages/index.ts': `import type { WebApiClient } from '@webrad/runtime';
@@ -1744,6 +1746,11 @@ export class index extends indexGenerated {
 }`,
       },
     });
+    log(
+      'renderer API Client browser compilation finished: ' +
+        (Date.now() - compilationStarted) +
+        'ms',
+    );
     if (!result.success || result.previewHtml === undefined)
       throw new Error(
         `API Client browser compilation failed: ${JSON.stringify(result.diagnostics)}`,

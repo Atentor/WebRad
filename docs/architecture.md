@@ -357,9 +357,14 @@ Forge builds the service entry for development and packaging. This is an IDE
 execution boundary: the compiler package remains a Node API and generated
 applications remain ordinary browser output with no Electron dependency.
 The smoke harness compiles its independent RestGO, API Client and Popup fixture
-projects in short-lived compiler utility processes. They run the same compiler
-and complete diagnostics without replacing the open project's incremental graph;
-their processes are terminated after compilation or during IDE shutdown.
+projects sequentially in one separate, lazily created compiler utility process.
+This process reuses the latest compatible graph and compiler initialization across
+fixtures without replacing the open project's incremental graph. It reads current
+source inputs and runs complete diagnostics for every request. Child exit clears
+the fixture service reference and rejects pending requests; the next request can
+create a replacement. Shutdown terminates it alongside the live compiler and any
+short-lived Codex review processes. Hidden smoke windows retain their offscreen
+compositor at 30 fps, including animation frames and presented-frame captures.
 
 The compiler retains at most its latest TypeScript Program to reuse parsed
 SourceFiles in compatible repeated builds. Reuse requires the same current

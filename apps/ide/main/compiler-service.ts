@@ -26,6 +26,7 @@ interface Service {
   readonly pending: Map<number, Pending>;
 }
 let service: Service | undefined;
+let memoryService: Service | undefined;
 const fixtureServices = new Set<Service>();
 let sequence = 0;
 let stopped = false;
@@ -66,11 +67,13 @@ function createCompilerService(): Service {
   });
   child.once('exit', (code) => {
     if (service === current) service = undefined;
+    if (memoryService === current) memoryService = undefined;
     fixtureServices.delete(current);
     fail(current, new Error(`The compiler process exited (${String(code)}).`));
   });
   child.once('error', (type, location) => {
     if (service === current) service = undefined;
+    if (memoryService === current) memoryService = undefined;
     fixtureServices.delete(current);
     fail(current, new Error(`Compiler ${type}: ${location}`));
     child.kill();
@@ -114,30 +117,29 @@ export async function compileProjectToMemory(
   project: WebRadProject,
   options: Omit<CompileProjectMemoryOptions, 'registry' | 'onProgress'>,
 ): Promise<CompileProjectResult> {
-  // Smoke fixtures are independent projects. Keep their compiler graphs out of
-  // the live IDE service so they cannot evict the open project's latest graph.
-  const current = createCompilerService();
-  fixtureServices.add(current);
-  try {
-    const value = await send(
-      {
-        kind: 'project',
-        project,
-        options: {
-          ...options,
-          outputDirectory: options.outputDirectory ?? path.resolve('.webrad-preview'),
-          write: false,
-        },
-      },
-      undefined,
-      current,
-    );
-    if (typeof value === 'string') throw new Error('Unexpected styles result from the compiler.');
-    return value;
-  } finally {
-    fixtureServices.delete(current);
-    current.child.kill();
+  // Reuse one isolated fixture worker, never the live Preview worker. The child
+  // serializes requests and retains only its latest graph, reading current source
+  // bytes and resolving dependencies again for each independent project.
+  if (stopped) throw new Error('The compiler service is shutting down.');
+  if (memoryService === undefined) {
+    memoryService = createCompilerService();
+    fixtureServices.add(memoryService);
   }
+  const value = await send(
+    {
+      kind: 'project',
+      project,
+      options: {
+        ...options,
+        outputDirectory: options.outputDirectory ?? path.resolve('.webrad-preview'),
+        write: false,
+      },
+    },
+    undefined,
+    memoryService,
+  );
+  if (typeof value === 'string') throw new Error('Unexpected styles result from the compiler.');
+  return value;
 }
 
 export async function compileTailwindStyles(
@@ -187,6 +189,7 @@ export async function checkProjectTypes(
 
 export function stopCompilerService(): void {
   stopped = true;
+  memoryService = undefined;
   for (const fixture of fixtureServices) {
     fail(fixture, new Error('The compiler service is shutting down.'));
     fixture.child.kill();

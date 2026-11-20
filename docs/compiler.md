@@ -28,8 +28,11 @@ ComboBox API bindings are validated against the local document's saved response 
 
 The compiler is an independent Node API and has no React or Electron dependency.
 The IDE hosts that API in one owned Electron utility process, built as a separate
-Forge/Vite entry. Preview, Debug, Deploy, Native frontend generation, live styles,
-and smoke fixture compilation share that service. Requests use typed message-port
+Forge/Vite entry. Preview, Debug, Deploy, Native frontend generation and live styles
+share that service. Independent smoke fixtures use one separate compiler process,
+reused across their sequential compilations to avoid repeated cold initialization
+without evicting the live Preview graph. Codex reviews keep short-lived isolated
+processes so cancellation cannot interrupt either service. Requests use typed message-port
 contracts and execute sequentially, preserving the latest compatible TypeScript
 graph and Tailwind caches without sharing the UI's V8 heap or event loop.
 The main process retains all trusted-frame/root checks, Save, destination grants,

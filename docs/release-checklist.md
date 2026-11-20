@@ -1,5 +1,26 @@
 # Release checklist for agents and maintainers
 
+## Remaining hosted smoke timeouts: ccfeeca (2026-11-20)
+
+Release `44747459185` passed all six portable suites and five native builds;
+macOS Intel packaged smoke stopped in the reusable Menu F9 wait. Its compiler
+reported 17,914 ms in semantic diagnostics and 21,472 ms through publication;
+native samples contain process utilization but no usable call graphs. Validate
+`44747459264` passed Linux; Windows passed validate then reached the unchanged
+120-second development deadline just after API Client Designer. Its two real
+Native Build inspections consumed about 20 seconds, reporting unresponsive Rust
+tools. The log does not establish a Popup failure: that flow had not started.
+
+Reuse one isolated fixture compiler for RestGO/API Client/Popup without touching
+the live Preview graph, and cap only smoke-window offscreen delivery at 30 fps.
+Keep real animation frames, screenshot paint fences, native probes, all assertions,
+10-second Menu waits and the 120-second runner budget. API Client browser compile
+start/finish logs distinguish cold compilation from later browser work. These
+are performance corrections, not measured proof of the exclusive Intel cause or
+a hosted pass. No local validation was requested or run. Evidence is retained in
+`artifacts/ci-ccfeeca/`; fresh Windows and native macOS Intel verification of the
+corrected final SHA remains required, along with the other existing release gates.
+
 ## Hosted CI repairs: d1cd89f (2026-11-20)
 
 Release run `44743343376` and validate run `44743343463` stopped at the same
