@@ -1,5 +1,20 @@
 # WebRAD delivery plan
 
+## Embedded library declarations after 03c26f1 (2026-11-20)
+
+Both macOS packaged jobs reached the same shared Menu F9 deadline. The fresh
+semantic builder checked the runtime again after creation of the interaction
+page. Semantic diagnostics took about 10.6 seconds on ARM64 and 13.6 seconds
+on Intel. The portable matrix, Windows/Linux builds, quality and security
+passed. Original logs and artifacts are under `artifacts/ci-03c26f1/`.
+
+Generate the embedded runtime and SDK declarations with strict TypeScript at
+source synchronization. Use those declarations when checking each project and
+the matching implementation sources when bundling. Recheck project-specific
+navigation and authored code, including generated component types and installed
+packages. Keep the real Menu F9 and existing readiness deadline. Source
+generation completed locally. Hosted results are required for the pushed SHA.
+
 ## macOS Intel shared Menu Preview after 1bfa518 (2026-11-20)
 
 Validate passed on Windows and Ubuntu. The macOS Intel packaged smoke reached

@@ -14,7 +14,8 @@ import {
 } from '@webrad/language';
 
 import { fromTypeScriptDiagnostic } from './diagnostics.js';
-import { NAVIGATION_TYPINGS_PATH, RESTGO_ENTRY_PATH, RUNTIME_ENTRY_PATH } from './source-graph.js';
+import embeddedDeclarations from './embedded-declarations.generated.json';
+import { NAVIGATION_TYPINGS_PATH, virtualAbsolutePath } from './source-graph.js';
 import {
   browserPackageError,
   createPackageBoundary,
@@ -22,6 +23,13 @@ import {
   isWithinDirectory,
 } from './package-resolution.js';
 import type { CompileDiagnostic, CompileProjectPhase } from './types.js';
+
+const embeddedDeclarationFiles = new Map(
+  Object.entries(embeddedDeclarations).map(([fileName, contents]) => [
+    virtualAbsolutePath(fileName.slice(0, -'.d.ts'.length) + '.ts'),
+    { fileName: virtualAbsolutePath(fileName), contents },
+  ]),
+);
 
 function canonicalPath(fileName: string): string {
   const resolved = path.resolve(fileName);
@@ -86,16 +94,14 @@ export function typecheckSources(
     noUncheckedIndexedAccess: true,
     ignoreDeprecations: '6.0',
     paths: {
-      '@webrad/runtime': [RUNTIME_ENTRY_PATH],
-      '@webrad/runtime/theme': [path.join(path.dirname(RUNTIME_ENTRY_PATH), 'theme.ts')],
-      '@webrad/restgo-sdk': [RESTGO_ENTRY_PATH],
+      '@webrad/runtime': [virtualAbsolutePath('__runtime/index.d.ts')],
+      '@webrad/runtime/theme': [virtualAbsolutePath('__runtime/theme.d.ts')],
+      '@webrad/restgo-sdk': [virtualAbsolutePath('__restgo/index.d.ts')],
       'shaka-player/dist/shaka-player.ui.js': [
-        path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/shaka/shaka-player.ui.d.ts'),
+        virtualAbsolutePath('__vendor/shaka/shaka-player.ui.d.ts'),
       ],
-      'pdf-lib': [path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/pdf-lib/index.d.ts')],
-      '@pdf-lib/standard-fonts': [
-        path.resolve(path.dirname(RUNTIME_ENTRY_PATH), '../__vendor/pdf-standard-fonts/index.d.ts'),
-      ],
+      'pdf-lib': [virtualAbsolutePath('__vendor/pdf-lib/index.d.ts')],
+      '@pdf-lib/standard-fonts': [virtualAbsolutePath('__vendor/pdf-standard-fonts/index.d.ts')],
     },
     skipLibCheck: true,
     strict: true,
@@ -107,7 +113,14 @@ export function typecheckSources(
     useUnknownInCatchVariables: true,
     verbatimModuleSyntax: true,
   };
-  const rootNames = [...scriptRootNames(sources)];
+  // Project code consumes the same declarations on every build. The source
+  // snapshot stays available for bundling and is checked during generation.
+  const semanticSources = new Map<string, string>();
+  for (const [fileName, contents] of sources) {
+    const declaration = embeddedDeclarationFiles.get(fileName);
+    semanticSources.set(declaration?.fileName ?? fileName, declaration?.contents ?? contents);
+  }
+  const rootNames = [...scriptRootNames(semanticSources)];
   const packageBoundary = createPackageBoundary(packageRoot);
   // Embedded aliases are an implementation detail of shipped WebRAD sources.
   // An installed package must resolve its own transitive vendor declarations.
@@ -146,7 +159,7 @@ export function typecheckSources(
       path.join(typeScriptLibLocation, ts.getDefaultLibFileName(options));
   }
   const virtualSources = new Map(
-    [...sources].map(([fileName, contents]) => {
+    [...semanticSources].map(([fileName, contents]) => {
       const scope = componentScopes.get(fileName);
       return [
         canonicalPath(fileName),
@@ -157,7 +170,7 @@ export function typecheckSources(
     }),
   );
   const virtualDirectories = new Set<string>();
-  for (const fileName of sources.keys()) {
+  for (const fileName of semanticSources.keys()) {
     let directory = path.dirname(path.resolve(fileName));
     while (!virtualDirectories.has(canonicalPath(directory))) {
       virtualDirectories.add(canonicalPath(directory));

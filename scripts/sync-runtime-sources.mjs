@@ -342,43 +342,80 @@ function collectDeclarationStatements(fileName, contents, declaredNames) {
   }
 }
 
-const emittedDeclarations = new Map();
-const declarationProgram = ts.createProgram(
-  sdkFileNames.map((fileName) => path.join(sdkRoot, fileName)),
-  {
-    declaration: true,
-    emitDeclarationOnly: true,
-    lib: ['lib.es2022.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'],
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    outDir: path.join(repositoryRoot, '.restgo-declaration-virtual'),
-    rootDir: sdkRoot,
-    skipLibCheck: true,
-    strict: true,
-    target: ts.ScriptTarget.ES2022,
-    types: [],
-  },
+const declarationRoot = path.join(repositoryRoot, 'packages');
+const declarationOutput = path.join(repositoryRoot, '.embedded-declaration-virtual');
+const declarationOptions = {
+  declaration: true,
+  emitDeclarationOnly: true,
+  lib: ['lib.es2022.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'],
+  module: ts.ModuleKind.ESNext,
+  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  newLine: ts.NewLineKind.LineFeed,
+  noEmitOnError: true,
+  noImplicitOverride: true,
+  noUncheckedIndexedAccess: true,
+  outDir: declarationOutput,
+  rootDir: declarationRoot,
+  skipLibCheck: true,
+  strict: true,
+  target: ts.ScriptTarget.ES2022,
+  types: [],
+  verbatimModuleSyntax: true,
+};
+const embeddedLibraries = [
+  { root: runtimeRoot, sources, directory: '__runtime' },
+  { root: sdkRoot, sources: sdkSources, directory: '__restgo' },
+];
+const declarationHost = ts.createCompilerHost(declarationOptions);
+const canonicalFileName = (fileName) =>
+  declarationHost.getCanonicalFileName(path.normalize(fileName));
+const declarationInputs = embeddedLibraries.flatMap(({ root, sources }) =>
+  Object.entries(sources).map(([fileName, text]) => [path.join(root, fileName), text]),
 );
-const declarationDiagnostics = ts.getPreEmitDiagnostics(declarationProgram);
-if (
-  declarationDiagnostics.some((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error)
-) {
+const declarationSourceText = new Map(
+  declarationInputs.map(([fileName, text]) => [canonicalFileName(fileName), text]),
+);
+const diskReadFile = declarationHost.readFile;
+const diskFileExists = declarationHost.fileExists;
+declarationHost.readFile = (fileName) =>
+  declarationSourceText.get(canonicalFileName(fileName)) ?? diskReadFile(fileName);
+declarationHost.fileExists = (fileName) =>
+  declarationSourceText.has(canonicalFileName(fileName)) || diskFileExists(fileName);
+const declarationProgram = ts.createProgram(
+  declarationInputs.map(([fileName]) => fileName),
+  declarationOptions,
+  declarationHost,
+);
+const emittedDeclarations = new Map();
+const declarationEmit = declarationProgram.emit(undefined, (fileName, text) => {
+  const relative = path.relative(declarationOutput, fileName).replaceAll('\\', '/');
+  emittedDeclarations.set(relative, text);
+});
+if (declarationEmit.emitSkipped) {
   throw new Error(
-    ts.formatDiagnosticsWithColorAndContext(declarationDiagnostics, {
+    ts.formatDiagnosticsWithColorAndContext(declarationEmit.diagnostics, {
       getCanonicalFileName: (fileName) => fileName,
       getCurrentDirectory: () => repositoryRoot,
       getNewLine: () => '\n',
     }),
   );
 }
-declarationProgram.emit(undefined, (fileName, contents) => {
-  const portableFileName = path
-    .relative(path.join(repositoryRoot, '.restgo-declaration-virtual'), fileName)
-    .replaceAll('\\', '/');
-  emittedDeclarations.set(portableFileName, contents);
-});
+const embeddedDeclarations = Object.fromEntries(
+  embeddedLibraries.flatMap(({ root, sources, directory }) => {
+    const relativeRoot = path.relative(declarationRoot, root).replaceAll('\\', '/');
+    return Object.keys(sources).map((sourceName) => {
+      const fileName = sourceName.slice(0, -'.ts'.length) + '.d.ts';
+      const text = emittedDeclarations.get(`${relativeRoot}/${fileName}`);
+      if (text === undefined) {
+        throw new Error(`Missing embedded declaration ${directory}/${fileName}`);
+      }
+      return [`${directory}/${fileName}`, text];
+    });
+  }),
+);
 const declaredNames = new Map();
-const rolledUpDeclarations = [...emittedDeclarations]
+const rolledUpDeclarations = Object.entries(embeddedDeclarations)
+  .filter(([fileName]) => fileName.startsWith('__restgo/'))
   .sort(([left], [right]) => left.localeCompare(right))
   .map(([fileName, contents]) => collectDeclarationStatements(fileName, contents, declaredNames))
   .join('\n');
@@ -524,6 +561,10 @@ const outputs = [
   [htmlTypingsPath, htmlTypings],
   [videoTypingsPath, videoTypings],
   [outputPath, expected],
+  [
+    path.join(repositoryRoot, 'packages', 'compiler', 'src', 'embedded-declarations.generated.json'),
+    `${JSON.stringify(embeddedDeclarations, null, 2)}\n`,
+  ],
   [apiClientTypingsPath, apiClientTypings],
   [sdkOutputPath, `${JSON.stringify(sdkSources, null, 2)}\n`],
   [sdkTypingsPath, `${JSON.stringify(sdkTypings, null, 2)}\n`],

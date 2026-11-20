@@ -1,5 +1,22 @@
 # Release checklist for agents and maintainers
 
+## macOS shared Menu Preview after 03c26f1 (2026-11-20)
+
+The packaged ARM64 and Intel smokes both reached the ten-second wait for the
+shared Menu Preview. The navigation change rebuilt the semantic program and
+the logs show repeated checks of embedded runtime implementation files. The
+semantic phase took about 10.6 seconds on ARM64 and 13.6 seconds on Intel.
+The original diagnostics are under `artifacts/ci-03c26f1/`.
+[ARM64 job](https://github.com/Atentor/WebRad/actions/runs/44797125273/job/136499590267),
+[Intel job](https://github.com/Atentor/WebRad/actions/runs/44797125273/job/136499590280)
+
+Strictly check the embedded implementation files as part of source
+synchronization and generate their declaration snapshot in that operation.
+Preview, Debug and Build type-check the current project against that snapshot
+and bundle the matching implementation. Keep generated-source drift detection,
+the Menu's real F9 and its timing, interaction and persistence assertions.
+Check the new timings and all six native builds on the corrected SHA.
+
 ## macOS Intel shared Menu Preview after 1bfa518 (2026-11-20)
 
 The macOS Intel package launched and reached the shared Menu F9 smoke. Its
