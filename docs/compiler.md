@@ -55,7 +55,10 @@ and invalidates changed resolutions; triple-slash reference files remain
 conservatively invalidated. Updated source bytes are still read and hashed, so
 declaration changes at the same resolved path remain visible to the builder.
 Separate caches retain the embedded versus installed-package resolution rules.
-Only the latest graph and current-program resolution snapshot are retained.
+Only the latest graph and current-program resolution snapshot are retained. Each
+snapshot uses the canonical path for lookup and the original source filename for
+resolution probes. On Windows, resolving from the case-folded lookup path would
+cache mixed spellings of the same module and trigger a casing diagnostic.
 Strict options, complete-program diagnostics and fresh bundling are preserved.
 The existing progress callback separates bundle loading, runtime selection,
 esbuild execution, and output processing for compilation timing diagnostics.

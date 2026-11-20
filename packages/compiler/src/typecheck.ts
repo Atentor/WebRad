@@ -46,13 +46,18 @@ function semanticCompletionPhase(affected: ts.SourceFile | ts.Program): CompileP
   return 'typecheck-semantic-authored-completed';
 }
 
+interface ResolutionSnapshot {
+  readonly fileName: string;
+  readonly imports: ReadonlyMap<string, string>;
+}
+
 // Retain only the latest builder. TypeScript invalidates changed files and their
 // dependents; component-reference analysis is still recomputed for every scope.
 let previousTypecheck:
   | {
       readonly environment: string;
       readonly builder: ts.SemanticDiagnosticsBuilderProgram;
-      readonly resolutions: ReadonlyMap<string, ReadonlyMap<string, string>>;
+      readonly resolutions: ReadonlyMap<string, ResolutionSnapshot>;
     }
   | undefined;
 
@@ -129,7 +134,7 @@ export function typecheckSources(
   const previousResolutions =
     previousTypecheck?.environment === environment
       ? previousTypecheck.resolutions
-      : new Map<string, ReadonlyMap<string, string>>();
+      : new Map<string, ResolutionSnapshot>();
   let oldBuilder =
     previousTypecheck?.environment === environment ? previousTypecheck.builder : undefined;
   previousTypecheck = undefined;
@@ -204,7 +209,7 @@ export function typecheckSources(
     installedPackageOptions,
   );
   const resolutions = new Map(
-    [...previousResolutions].map(([file, entries]) => [file, new Map(entries)]),
+    [...previousResolutions].map(([file, snapshot]) => [file, new Map(snapshot.imports)]),
   );
   const invalidated = new Map<string, boolean>();
   const referenceFiles = new Set(
@@ -259,10 +264,13 @@ export function typecheckSources(
     const previous = previousResolutions.get(file);
     // Re-resolve even failures against this build's host, instead of marking
     // every unchanged runtime module structurally invalid on every F9.
+    // TypeScript passes a canonical Path here. Using it as the importer would
+    // cache lowercased resolution results for later mixed-case Windows paths.
     const changed =
       previous === undefined ||
-      [...previous].some(
-        ([specifier, signature]) => fingerprint(resolve(specifier, fileName)) !== signature,
+      [...previous.imports].some(
+        ([specifier, signature]) =>
+          fingerprint(resolve(specifier, previous.fileName)) !== signature,
       );
     invalidated.set(file, changed);
     return changed;
@@ -397,7 +405,10 @@ export function typecheckSources(
     resolutions: new Map(
       program.getSourceFiles().map((file) => {
         const key = canonicalPath(file.fileName);
-        return [key, resolutions.get(key) ?? new Map<string, string>()] as const;
+        return [
+          key,
+          { fileName: file.fileName, imports: resolutions.get(key) ?? new Map<string, string>() },
+        ] as const;
       }),
     ),
   };

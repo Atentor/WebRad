@@ -1,5 +1,21 @@
 # Release checklist for agents and maintainers
 
+## Windows path casing and Login input routing (2026-11-20)
+
+On `a04b774`, three Windows portable runs failed 31 cases each with TS1261.
+Two Windows packaged smokes received the same error during Native Build CI
+export. TypeScript passes a case-folded path to the invalidation hook. Use it
+for lookup and resolve imports with the original source filename so fresh
+resolution caches preserve Windows casing. Keep strict casing diagnostics.
+
+Ubuntu development reached the Login modal, but the offscreen Preview kept
+BODY focus after Tab was sent with `sendInputEvent`. Use the root Chromium
+debugger session's `Input.dispatchKeyEvent`, as the earlier Icons smoke does
+for that iframe. Keep one press/release, the existing deadline and the required
+modal-focus marker in both runners. The two macOS and two Linux release builds
+passed on this commit. Logs and artifacts are in `artifacts/ci-a04b774/`.
+The corrections await hosted verification on the next commit.
+
 ## Common Login regression and incremental checking: 6f68c1f (2026-11-20)
 
 Release `44772098435` and validate `44772097935` fail seven jobs at the same Login

@@ -1,5 +1,24 @@
 # WebRAD delivery plan
 
+## Windows path casing and Login input routing (2026-11-20)
+
+On `a04b774`, five Windows jobs in release `44778061416` and validate
+`44778061458` failed on the same compiler path-casing regression. The three
+portable runs each reported 31 failures across 13 files. Both packaged Windows
+smokes received the same compiler error during Native Build CI export and did
+not reach Login. Keep the canonical path as the resolution snapshot key and
+store the original source filename for import probes. Fresh resolution and
+strict casing checks still apply to each build.
+
+Ubuntu development was the sixth failure. Its open Login modal retained BODY
+focus after Electron's `sendInputEvent` sent Tab. Dispatch the key through the
+existing root Chromium debugger session, following the Icons smoke that passed
+earlier in that Ubuntu run. Keep the native Tab and modal-focus evidence in both
+runners and the existing deadline. The four Linux/macOS release builds and
+security passed on `a04b774`. Original logs and diagnostic artifacts are in
+`artifacts/ci-a04b774/`. Local validation was not requested. Confirmation on the
+corrected commit remains pending before the next release.
+
 ## Common smoke regression and compiler invalidation: 6f68c1f (2026-11-20)
 
 Reviewed all jobs and all nine diagnostic artifacts from release `44772098435`
