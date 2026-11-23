@@ -28,6 +28,7 @@ import {
 } from './project-themes.js';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
+import { ProjectGraphQLOperationsSchema } from './graphql.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
 import { CurrentRowBindingsSchema, RepeatingGroupConfigurationSchema } from './repeating-group.js';
 import { ComboBoxConfigurationSchema } from './combo-box.js';
@@ -1582,6 +1583,7 @@ export const ProjectSettingsSchema: z.ZodType<ProjectSettings> = z
     environment: z.enum(PROJECT_ENVIRONMENTS),
     environmentVariables: z.array(ProjectEnvironmentVariableSchema).max(100),
     restGo: RestGoProjectSettingsSchema,
+    graphQLOperations: ProjectGraphQLOperationsSchema.optional(),
     nativeApplication: NativeApplicationSettingsSchema,
     scrollbar: ProjectScrollbarStyleSchema,
     gridSize: z.number().int().positive(),

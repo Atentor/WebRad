@@ -4,7 +4,7 @@ import { RestGoStorageClient } from './storage';
 import { RestGoVideosClient } from './videos';
 import { RestGoPaymentsClient } from './payments';
 import { RestGoTransport } from './transport';
-import type { RestGoResult } from './errors';
+import { failure, type RestGoResult } from './errors';
 import type {
   RestGoAuthEvent,
   RestGoClientOptions,
@@ -16,6 +16,7 @@ import type {
 } from './types';
 
 export class RestGoClient {
+  readonly #transport: RestGoTransport;
   readonly auth: RestGoAuthClient;
   readonly storage: RestGoStorageClient;
   readonly videos: RestGoVideosClient;
@@ -25,6 +26,7 @@ export class RestGoClient {
 
   constructor(baseUrl: string, options: RestGoClientOptions = {}) {
     const transport = new RestGoTransport(baseUrl, options);
+    this.#transport = transport;
     this.baseUrl = transport.baseUrl;
     this.auth = new RestGoAuthClient(transport, options);
     this.storage = new RestGoStorageClient(transport);
@@ -35,6 +37,29 @@ export class RestGoClient {
 
   from<T = unknown>(endpoint: string, options: RestGoEndpointOptions = {}): RestGoEndpoint<T> {
     return this.api.endpoint<T>(endpoint, options);
+  }
+
+  /** Execute one operation against the authenticated user's database publication. */
+  executeGraphQL(
+    database: string,
+    operation: {
+      readonly query: string;
+      readonly operationName: string;
+      readonly variables: Readonly<Record<string, unknown>>;
+    },
+    signal?: AbortSignal,
+  ): Promise<RestGoResult<unknown>> {
+    if (!/^[a-z][a-z0-9_]{0,29}$/.test(database)) {
+      return Promise.resolve(failure('Choose a valid RestGo GraphQL database.', 'INVALID_ARGUMENT'));
+    }
+    return this.#transport.request(`/gql/${encodeURIComponent(database)}`, {
+      method: 'POST',
+      auth: 'session',
+      body: operation,
+      signal,
+      retryUnauthorized: false,
+      requireStableSession: true,
+    });
   }
 
   /** Sign in with positional parameters and report whether this login succeeded. */

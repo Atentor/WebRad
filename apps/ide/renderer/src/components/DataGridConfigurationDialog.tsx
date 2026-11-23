@@ -1,5 +1,6 @@
 import { ProjectIconGraphic } from './ProjectIconGraphic';
 import {
+  comboBoxSchemaChoices,
   createDefaultDataGridConfiguration,
   normalizeApiClientConfiguration,
   normalizeDataGridConfiguration,
@@ -10,8 +11,10 @@ import {
   type DataGridColumn,
   type DataGridColumnWidthMode,
   type DataGridConfiguration,
+  type DataGridGraphQLBinding,
   type DataGridHorizontalAlignment,
   type DataGridRowHeightMode,
+  type ProjectGraphQLOperation,
 } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES, webRadIconLabel } from '@webrad/runtime/icons';
 import {
@@ -26,10 +29,12 @@ import {
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { IconPickerDialog } from './IconPickerDialog';
+import { DataGridGraphQLSettings } from './DataGridGraphQLSettings';
 
 export interface DataGridConfigurationDialogProps {
   readonly component: ComponentNode;
   readonly availableComponents: readonly ComponentNode[];
+  readonly graphQLOperations?: readonly ProjectGraphQLOperation[];
   readonly onClose: () => void;
   readonly onSave: (configuration: DataGridConfiguration) => void;
 }
@@ -71,6 +76,22 @@ function createColumn(sequence: number): DataGridColumn {
 
 function createDraft(value: unknown): DataGridConfiguration {
   return normalizeDataGridConfiguration(value);
+}
+
+function newGraphQLBinding(
+  sourceId: string,
+  query: ProjectGraphQLOperation | undefined,
+): DataGridGraphQLBinding {
+  return {
+    sourceId,
+    operationId: query?.id ?? null,
+    pageSize: query?.runtime.pagination?.defaultSize ?? 10,
+    showPager: true,
+    crudEnabled: false,
+    insertOperationId: null,
+    updateOperationId: null,
+    deleteOperationId: null,
+  };
 }
 
 function collectListChoices(node: ApiClientSchemaNode, target: SchemaChoice[]): void {
@@ -126,12 +147,9 @@ function operationSchemaChoices(
  */
 function reconcileColumnFieldPaths(
   columns: readonly DataGridColumn[],
-  schema: ApiClientResponseSchema | null | undefined,
-  listPath: string,
+  fields: readonly SchemaChoice[],
 ): readonly DataGridColumn[] {
-  const supportedPaths = new Set(
-    operationSchemaChoices(schema, listPath).map((choice) => choice.path),
-  );
+  const supportedPaths = new Set(fields.map((choice) => choice.path));
   let changed = false;
   const reconciled = columns.map((column) => {
     if (column.fieldPath.length === 0 || supportedPaths.has(column.fieldPath)) return column;
@@ -227,6 +245,7 @@ function moveItem<T>(items: readonly T[], from: number, to: number): readonly T[
 export function DataGridConfigurationDialog({
   component,
   availableComponents,
+  graphQLOperations = [],
   onClose,
   onSave,
 }: DataGridConfigurationDialogProps): ReactElement {
@@ -243,6 +262,10 @@ export function DataGridConfigurationDialog({
   const [iconPickerColumnId, setIconPickerColumnId] = useState<string | null>(null);
 
   const apiClients = availableComponents.filter((candidate) => candidate.type === 'WebApiClient');
+  const graphQLClients = availableComponents.filter((candidate) => candidate.type === 'WebGraphQL');
+  const queries = graphQLOperations.filter((candidate) => candidate.runtime.kind === 'query');
+  const graphQL = draft.graphql;
+  const query = queries.find((candidate) => candidate.id === graphQL?.operationId);
   const apiClient = apiClients.find((candidate) => candidate.id === draft.apiClientId);
   const apiConfiguration =
     apiClient === undefined
@@ -255,7 +278,9 @@ export function DataGridConfigurationDialog({
   if (operation?.responseSchema !== null && operation?.responseSchema !== undefined) {
     collectListChoices(operation.responseSchema.root, listChoices);
   }
-  const fieldChoices = operationSchemaChoices(operation?.responseSchema, draft.listPath);
+  const fieldChoices = graphQL === undefined
+    ? operationSchemaChoices(operation?.responseSchema, draft.listPath)
+    : comboBoxSchemaChoices(query?.responseSchema, '').fields;
   const iconPickerColumn =
     iconPickerColumnId === null
       ? undefined
@@ -295,7 +320,7 @@ export function DataGridConfigurationDialog({
     event.preventDefault();
     onSave({
       ...draft,
-      columns: reconcileColumnFieldPaths(draft.columns, operation?.responseSchema, draft.listPath),
+      columns: reconcileColumnFieldPaths(draft.columns, fieldChoices),
     });
   };
 
@@ -365,36 +390,53 @@ export function DataGridConfigurationDialog({
               aria-labelledby={`${titleId}-source`}
             >
               <h3 id={`${titleId}-source`}>Data source</h3>
-              <p>Select the API endpoint and the response list to display.</p>
+              <p>Select the operation that provides the rows.</p>
               <div className="wr-data-grid-configuration-fields three-columns">
                 <label>
-                  <span>API Client</span>
+                  <span>Data source</span>
                   <select
                     ref={apiClientRef}
                     aria-label="Data Grid API Client"
-                    value={draft.apiClientId ?? ''}
+                    value={graphQL?.sourceId ?? draft.apiClientId ?? ''}
                     onChange={(event) => {
-                      const apiClientId = event.currentTarget.value || null;
+                      const sourceId = event.currentTarget.value;
+                      const nextQuery = queries[0];
+                      const nextGraphQL = graphQLClients.some((candidate) => candidate.id === sourceId)
+                        ? newGraphQLBinding(sourceId, nextQuery)
+                        : undefined;
                       updateDraft((current) => {
                         const listPath = '';
                         return {
                           ...current,
-                          apiClientId,
+                          apiClientId: nextGraphQL === undefined ? sourceId || null : null,
+                          graphql: nextGraphQL,
                           operationId: null,
                           listPath,
-                          columns: reconcileColumnFieldPaths(current.columns, undefined, listPath),
+                          columns: reconcileColumnFieldPaths(
+                            current.columns,
+                            comboBoxSchemaChoices(nextGraphQL === undefined ? undefined : nextQuery?.responseSchema, '').fields,
+                          ),
                         };
                       });
                     }}
                   >
-                    <option value="">(select an API Client)</option>
+                    <option value="">(select a data source)</option>
                     {apiClients.map((candidate) => (
                       <option key={candidate.id} value={candidate.id}>
                         {candidate.name}
                       </option>
                     ))}
+                    {graphQLClients.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.name} (GraphQL)
+                      </option>
+                    ))}
+                    {graphQL !== undefined && !graphQLClients.some((candidate) => candidate.id === graphQL.sourceId) && (
+                      <option value={graphQL.sourceId} disabled>(unavailable GraphQL component)</option>
+                    )}
                   </select>
                 </label>
+                {graphQL === undefined ? <>
                 <label>
                   <span>Endpoint</span>
                   <select
@@ -414,8 +456,7 @@ export function DataGridConfigurationDialog({
                           listPath,
                           columns: reconcileColumnFieldPaths(
                             current.columns,
-                            nextOperation?.responseSchema,
-                            listPath,
+                            operationSchemaChoices(nextOperation?.responseSchema, listPath),
                           ),
                         };
                       });
@@ -442,8 +483,7 @@ export function DataGridConfigurationDialog({
                         listPath,
                         columns: reconcileColumnFieldPaths(
                           current.columns,
-                          operation?.responseSchema,
-                          listPath,
+                          operationSchemaChoices(operation?.responseSchema, listPath),
                         ),
                       }));
                     }}
@@ -458,7 +498,39 @@ export function DataGridConfigurationDialog({
                     ))}
                   </select>
                 </label>
+                </> : (
+                  <label>
+                    <span>GraphQL query</span>
+                    <select
+                      aria-label="Data Grid GraphQL query"
+                      value={graphQL.operationId ?? ''}
+                      onChange={(event) => {
+                        const id = event.currentTarget.value;
+                        const nextQuery = queries.find((candidate) => candidate.id === id);
+                        updateDraft((current) => ({
+                          ...current,
+                          graphql: newGraphQLBinding(graphQL.sourceId, nextQuery),
+                          columns: reconcileColumnFieldPaths(
+                            current.columns,
+                            comboBoxSchemaChoices(nextQuery?.responseSchema, '').fields,
+                          ),
+                        }));
+                      }}
+                    >
+                      <option value="">(select a query)</option>
+                      {queries.map((candidate) => <option value={candidate.id} key={candidate.id}>{candidate.name}</option>)}
+                    </select>
+                  </label>
+                )}
               </div>
+              {graphQL !== undefined && (
+                <DataGridGraphQLSettings
+                  binding={graphQL}
+                  query={query}
+                  operations={graphQLOperations}
+                  onChange={(patch) => updateDraft((current) => ({ ...current, graphql: { ...graphQL, ...patch } }))}
+                />
+              )}
             </section>
 
             <section

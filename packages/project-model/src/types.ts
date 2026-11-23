@@ -1,6 +1,7 @@
 import type { ProjectSourceFile, ProjectAsset } from './project-resources.js';
 import type { PageParameterDefinition } from './page-parameters.js';
 import type { ProjectPackages } from './packages.js';
+import type { ProjectGraphQLOperation } from './graphql.js';
 import {
   DEFAULT_PROJECT_THEMES,
   type ProjectThemeSettings,
@@ -628,6 +629,8 @@ export interface ProjectSettings {
   readonly environmentVariables: readonly ProjectEnvironmentVariable[];
   /** Native integration used by Preview and generated browser applications. */
   readonly restGo: RestGoProjectSettings;
+  /** Operations authored from published RestGo GraphQL schemas. */
+  readonly graphQLOperations?: readonly ProjectGraphQLOperation[];
   /** The global scrollbar appearance used by Preview and generated browser output. */
   readonly scrollbar: ProjectScrollbarStyle;
   readonly gridSize: number;

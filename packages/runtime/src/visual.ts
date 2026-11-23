@@ -1598,6 +1598,28 @@ ${WEB_LOGIN_CSS}
 .wr-video-designer-preview > span:first-child { font-size: 36px; }
 .wr-webdatagrid { --webrad-border-gradient-surface: var(--wr-control-surface, #262b35); display: block; overflow: hidden; border: 1px solid var(--wr-control-border, #677184); background: var(--wr-control-surface, #262b35); color: inherit; }
 .wr-data-grid-scroll { width: 100%; height: 100%; overflow: auto; }
+.wr-webdatagrid[data-webrad-grid-graphql] { display: flex; flex-direction: column; }
+.wr-webdatagrid[data-webrad-grid-graphql] > .wr-data-grid-scroll { flex: 1 1 auto; height: auto; min-height: 0; }
+.wr-data-grid-graphql-tools, .wr-data-grid-graphql-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.wr-data-grid-graphql-tools { flex: 0 1 auto; min-height: 0; overflow: auto; padding: 6px 8px; border-top: 1px solid var(--wr-theme-border, #677184); }
+.wr-data-grid-graphql-tools[hidden] { display: none; }
+.wr-data-grid-graphql-pager { margin-inline-start: auto; }
+.wr-data-grid-graphql-page, .wr-data-grid-graphql-status, .wr-data-grid-graphql-draft { font-size: .9em; }
+.wr-data-grid-graphql-status[data-error='true'], .wr-data-grid-graphql-editor [role='alert'] { color: var(--wr-error-text, #cf4545); }
+.wr-data-grid-graphql-status:empty, .wr-data-grid-graphql-editor [role='alert']:empty { display: none; }
+.wr-data-grid-graphql-action, .wr-data-grid-graphql-pager select, .wr-data-grid-graphql-editor input, .wr-data-grid-graphql-editor select, .wr-data-grid-graphql-editor textarea { border: 1px solid var(--wr-theme-border, #677184); border-radius: 4px; background: var(--wr-theme-surface, Canvas); color: var(--wr-theme-text, CanvasText); font: inherit; padding: 3px 7px; }
+.wr-data-grid-graphql-action { cursor: pointer; }
+.wr-data-grid-graphql-action:disabled { opacity: .55; cursor: default; }
+.wr-data-grid-graphql-action:focus-visible, .wr-data-grid-graphql-pager select:focus-visible { outline: 2px solid var(--wr-accent, #4da3ff); outline-offset: 1px; }
+.wr-data-grid-graphql-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; overflow: visible; font-size: .9em; }
+.wr-data-grid-row[data-webrad-grid-draft='delete'] > .wr-data-grid-cell:not(.wr-data-grid-graphql-row-actions) { opacity: .65; text-decoration: line-through; }
+.wr-data-grid-graphql-editor { width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px); box-sizing: border-box; overflow: auto; border: 1px solid var(--wr-theme-border, #677184); border-radius: 8px; background: var(--wr-theme-surface, Canvas); color: var(--wr-theme-text, CanvasText); padding: 18px; }
+.wr-data-grid-graphql-editor::backdrop { background: rgb(0 0 0 / 45%); }
+.wr-data-grid-graphql-editor h2 { margin: 0; font-size: 1.15em; }
+.wr-data-grid-graphql-editor form, .wr-data-grid-graphql-editor label { display: grid; gap: 6px; min-width: 0; }
+.wr-data-grid-graphql-editor form { gap: 12px; }
+.wr-data-grid-graphql-editor textarea { resize: vertical; min-height: 72px; }
+.wr-data-grid-graphql-editor-actions { display: flex; justify-content: flex-end; gap: 6px; }
 .wr-data-grid-content { width: 100%; min-width: var(--wr-data-grid-min-width, 0); }
 .wr-data-grid-row { display: grid; grid-template-columns: var(--wr-data-grid-columns); min-width: var(--wr-data-grid-min-width, 0); }
 .wr-data-grid-cell { box-sizing: border-box; min-width: 0; min-height: 0; padding: var(--wr-data-grid-cell-padding-y, 8px) var(--wr-data-grid-cell-padding-x, 10px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

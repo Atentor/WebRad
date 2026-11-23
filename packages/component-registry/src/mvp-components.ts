@@ -2040,12 +2040,12 @@ const webComboBox: ComponentDefinition = {
     },
     {
       name: 'comboBoxConfig',
-      label: 'API Client binding',
+      label: 'Data source',
       type: 'combo-box-config',
       category: 'Data',
       source: 'props',
       defaultValue: null,
-      description: 'Select the API Client response list, display field, and key field.',
+      description: 'Select an API Client list or a GraphQL query, then choose display and key fields.',
       designerAction: 'combo-box-configurator',
     },
     {
@@ -2056,7 +2056,7 @@ const webComboBox: ComponentDefinition = {
       source: 'props',
       defaultValue: -1,
       readOnlyWhen: (props) => props.comboBoxConfig != null,
-      description: 'For API-bound options, use Value to select the key after the list loads.',
+      description: 'For data-bound options, use Value to select the key after the list loads.',
     },
     {
       name: 'value',
@@ -2462,7 +2462,7 @@ const webDataGrid: ComponentDefinition = {
       source: 'props',
       defaultValue: createDefaultDataGridConfiguration(),
       description:
-        'Configure the source, columns, responsive widths, row sizing, and cell layout in the Data Grid editor.',
+        'Configure data bindings, columns, cursor pagination, and optional GraphQL editing.',
       designerAction: 'data-grid-configurator',
     },
   ],
@@ -2479,7 +2479,43 @@ const webDataGrid: ComponentDefinition = {
       eventDetailTypeArgumentSuffix: 'RowValue',
       eventDetailProperties: ['column', 'rowIndex', 'columnIndex', 'value', 'getValue'],
     }),
+    event('OnChangesChanged', 'GraphQL', {
+      description: 'A local edit is ready. Call SaveChanges here to save automatically, or from a separate action.',
+      eventDetailType: 'WebDataGridChangesEventDetail',
+    }),
+    event('OnSaveChanges', 'GraphQL', {
+      description: 'The queued changes were saved.',
+      eventDetailType: 'WebDataGridSaveChangesEventDetail',
+    }),
+    event('OnSaveError', 'GraphQL', {
+      description: 'A queued write could not be confirmed.',
+      eventDetailType: 'WebDataGridSaveErrorEventDetail',
+    }),
   ],
+};
+
+const webGraphQL: ComponentDefinition = {
+  type: 'WebGraphQL',
+  displayName: 'GraphQL',
+  namePrefix: 'GraphQL',
+  palette: { category: nonvisualCategory, caption: 'GraphQL' },
+  icon: 'network',
+  visual: false,
+  instanceScopedRuntimeId: true,
+  canHaveChildren: false,
+  defaultEvent: 'OnSuccess',
+  defaultBounds: { width: 32, height: 32 },
+  defaults: {},
+  properties: [{ name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' }],
+  inspectorIntegrationRequirements: [
+    {
+      integration: 'restgo',
+      message: 'GraphQL requires an enabled RestGo connection. Define operations in RestGO > GraphQL.',
+    },
+  ],
+  events: ['OnRequest', 'OnSuccess', 'OnError', 'OnComplete'].map((name) =>
+    event(name, 'GraphQL', { eventDetailType: 'WebGraphQLEventDetail' }),
+  ),
 };
 
 const webRepeatingGroup: ComponentDefinition = {
@@ -2545,6 +2581,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebRepeatingGroup',
   'WebPopup',
   'WebApiClient',
+  'WebGraphQL',
   'WebTimer',
   'WebPayments',
   'WebFileUpload',
@@ -2582,6 +2619,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webRepeatingGroup,
   webPopup,
   webApiClient,
+  webGraphQL,
   webTimer,
   webPayments,
   webFileUpload,

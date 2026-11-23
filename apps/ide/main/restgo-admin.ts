@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { readGraphQLSchema, type GraphQLSchema } from '@webrad/project-model';
 import type {
   RestGoAdminCatalog,
   RestGoAdminConnectRequest,
   RestGoAdminEndpoint,
+  RestGoAdminGraphQLDatabase,
   RestGoAdminPublication,
   RestGoAdminRecordRequest,
   RestGoAdminSaveEndpointRequest,
@@ -151,8 +153,25 @@ const operationSchema = z.object({
     .transform((parameters) => parameters ?? []),
 });
 
+const graphQLDatabaseSchema = z.object({
+  id: recordId,
+  name: z.string(),
+  slug: z.string(),
+  endpoint: z.string(),
+  active: z.boolean(),
+  state: z.string(),
+  desiredActive: z.boolean(),
+  desiredRevision: z.string().optional(),
+  appliedRevision: z.string().optional(),
+  settings: z.object({
+    defaultPageSize: z.number().int().min(1).max(100),
+    maxPageSize: z.number().int().min(1).max(100),
+  }),
+});
+
 type CatalogResource = 'endpoints' | 'bancos' | 'endpoints-bancos' | 'api-operations';
 type MutationResource = 'endpoints' | 'endpoints-bancos';
+type AdminResource = CatalogResource | 'graphql-admin/databases';
 
 /** Only fixed administration routes are reachable through the preload capability. */
 export class RestGoAdminService {
@@ -161,11 +180,12 @@ export class RestGoAdminService {
   private async request(
     baseUrl: string,
     token: string,
-    resource: CatalogResource,
+    resource: AdminResource,
     method: 'GET' | 'POST' | 'PUT',
     options: {
       readonly id?: number;
       readonly active?: boolean;
+      readonly detail?: 'schema';
       readonly page?: number;
       readonly body?: unknown;
     } = {},
@@ -173,6 +193,7 @@ export class RestGoAdminService {
     let route = resource;
     if (options.id !== undefined) route += `/${options.id}`;
     if (options.active !== undefined) route += options.active ? '/activate' : '/deactivate';
+    if (options.detail !== undefined) route += `/${options.detail}`;
     const url = new URL(`${baseUrl}/${route}`);
     if (options.page !== undefined) {
       url.searchParams.set('page', String(options.page));
@@ -327,6 +348,39 @@ export class RestGoAdminService {
       this.list(request.baseUrl, token, 'api-operations', operationSchema),
     ]);
     return { endpoints, bancos, publications, operations };
+  }
+
+  public async graphqlDatabases(
+    ownerId: number,
+    input: RestGoAdminTarget,
+  ): Promise<RestGoAdminGraphQLDatabase[]> {
+    const { baseUrl } = targetSchema.parse(input);
+    const token = await this.token(ownerId, baseUrl);
+    const result = await this.request(baseUrl, token, 'graphql-admin/databases', 'GET');
+    return z.array(graphQLDatabaseSchema)
+      .parse(result)
+      .filter(
+        (database) =>
+          database.active &&
+          database.state === 'active' &&
+          database.desiredActive &&
+          Boolean(database.desiredRevision) &&
+          database.desiredRevision === database.appliedRevision,
+      )
+      .map(({ id, name, slug, endpoint, settings }) => ({ id, name, slug, endpoint, ...settings }));
+  }
+
+  public async graphqlSchema(ownerId: number, input: RestGoAdminRecordRequest): Promise<GraphQLSchema> {
+    const { baseUrl, id } = recordSchema.parse(input);
+    const token = await this.token(ownerId, baseUrl);
+    const result = await this.request(baseUrl, token, 'graphql-admin/databases', 'GET', {
+      id,
+      detail: 'schema',
+    });
+    const failure = z.object({ errors: z.array(z.object({ message: z.string() })) }).safeParse(result);
+    const message = failure.success ? failure.data.errors[0]?.message : undefined;
+    if (message) throw new Error(message.split(token).join('[credential]').slice(0, 1_000));
+    return readGraphQLSchema(result);
   }
 
   public async getEndpoint(

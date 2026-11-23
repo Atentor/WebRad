@@ -22,12 +22,15 @@ import {
   VideoPlayerSourceSchema,
   MenuConfigurationSchema,
   comboBoxSchemaChoices,
+  isDataGridGraphQLMutation,
   chartSchemaChoices,
   safeParseProject,
   type ProjectApplicationIcon,
   type ProjectSocialImage,
   type WebRadProject,
   type ApiClientSchemaNode,
+  type ComponentNode,
+  type ProjectGraphQLOperation,
 } from '@webrad/project-model';
 import type { BuildFailure } from 'esbuild';
 import { repeatingGroupForComponent } from '@webrad/language';
@@ -51,11 +54,36 @@ import type {
   CompileProjectResult,
 } from './types.js';
 
+function validateGraphQLListSource(
+  binding: { readonly sourceId: string; readonly operationId: string | null },
+  components: readonly ComponentNode[],
+  operations: readonly ProjectGraphQLOperation[],
+  report: (field: string, message: string) => void,
+): ProjectGraphQLOperation | undefined {
+  if (
+    !components.some(
+      (component) => component.id === binding.sourceId && component.type === 'WebGraphQL',
+    )
+  ) {
+    report('sourceId', 'Select a WebGraphQL component in the same document.');
+    return undefined;
+  }
+  const query = operations.find(
+    (item) => item.id === binding.operationId && item.runtime.kind === 'query',
+  );
+  if (query === undefined || query.responseSchema.root.kind !== 'list') {
+    report('operationId', 'Select a GraphQL query that returns a list of records.');
+    return undefined;
+  }
+  return query;
+}
+
 function validateRegistry(
   project: WebRadProject,
   registry: ComponentRegistry,
 ): readonly CompileDiagnostic[] {
   const diagnostics: CompileDiagnostic[] = [];
+  const graphQLOperations = project.settings.graphQLOperations ?? [];
   const documents = [
     ...project.pages.map((document, index) => ({
       document,
@@ -143,6 +171,14 @@ function validateRegistry(
         }
       }
       const rowGroup = repeatingGroupForComponent(document, component.id);
+      if (component.type === 'WebGraphQL' && !project.settings.restGo.enabled) {
+        diagnostics.push({
+          category: 'error',
+          source: 'registry',
+          message: 'Enable and configure the RestGo connection before using WebGraphQL.',
+          path: [...path, 'components', componentIndex, 'type'],
+        });
+      }
       const events =
         definition.eventsForNode?.(component, {
           document,
@@ -328,42 +364,62 @@ function validateRegistry(
             category: 'error',
             source: 'registry',
             message,
-            path: [...bindingPath, field],
+            path: [...bindingPath, ...field.split('.')],
           });
         };
-        const apiClient = document.components.find(
-          (candidate) => candidate.id === binding.apiClientId,
-        );
-        if (apiClient?.type !== 'WebApiClient') {
-          report('apiClientId', 'WebComboBox must reference a WebApiClient in the same document.');
-          continue;
-        }
-        const apiConfiguration = ApiClientConfigurationSchema.safeParse(
-          apiClient.props.apiClientConfig,
-        );
-        const operation = apiConfiguration.success
-          ? apiConfiguration.data.operations.find(
-              (candidate) => candidate.id === binding.operationId,
-            )
-          : undefined;
-        if (operation === undefined) {
-          report(
-            'operationId',
-            'WebComboBox must reference an operation of the selected WebApiClient.',
+        if (binding.graphql !== undefined) {
+          const query = validateGraphQLListSource(
+            binding.graphql,
+            document.components,
+            graphQLOperations,
+            (field, message) => report(`graphql.${field}`, message),
           );
-          continue;
-        }
-        const choices = comboBoxSchemaChoices(operation.responseSchema, binding.listPath);
-        if (!choices.lists.some((choice) => choice.path === binding.listPath)) {
-          report('listPath', 'WebComboBox must reference a saved response list.');
-          continue;
-        }
-        for (const field of ['displayField', 'keyField'] as const) {
-          if (!choices.fields.some((choice) => choice.path === binding[field])) {
+          if (query !== undefined) {
+            const { fields } = comboBoxSchemaChoices(query.responseSchema, '');
+            for (const field of ['displayField', 'keyField'] as const) {
+              if (!fields.some((choice) => choice.path === binding[field])) {
+                report(
+                  field,
+                  `WebComboBox ${field} must reference a scalar field selected in the GraphQL query.`,
+                );
+              }
+            }
+          }
+        } else {
+          const apiClient = document.components.find(
+            (candidate) => candidate.id === binding.apiClientId,
+          );
+          if (apiClient?.type !== 'WebApiClient') {
+            report('apiClientId', 'WebComboBox must reference a WebApiClient in the same document.');
+            continue;
+          }
+          const apiConfiguration = ApiClientConfigurationSchema.safeParse(
+            apiClient.props.apiClientConfig,
+          );
+          const operation = apiConfiguration.success
+            ? apiConfiguration.data.operations.find(
+                (candidate) => candidate.id === binding.operationId,
+              )
+            : undefined;
+          if (operation === undefined) {
             report(
-              field,
-              `WebComboBox ${field} must reference a scalar field of the selected list item.`,
+              'operationId',
+              'WebComboBox must reference an operation of the selected WebApiClient.',
             );
+            continue;
+          }
+          const choices = comboBoxSchemaChoices(operation.responseSchema, binding.listPath);
+          if (!choices.lists.some((choice) => choice.path === binding.listPath)) {
+            report('listPath', 'WebComboBox must reference a saved response list.');
+            continue;
+          }
+          for (const field of ['displayField', 'keyField'] as const) {
+            if (!choices.fields.some((choice) => choice.path === binding[field])) {
+              report(
+                field,
+                `WebComboBox ${field} must reference a scalar field of the selected list item.`,
+              );
+            }
           }
         }
       }
@@ -371,69 +427,117 @@ function validateRegistry(
         const configuration = DataGridConfigurationSchema.safeParse(component.props.dataGridConfig);
         if (!configuration.success) continue;
         const dataGridPath = [...path, 'components', componentIndex, 'props', 'dataGridConfig'];
-        if (configuration.data.apiClientId === null) {
-          diagnostics.push({
-            category: 'error',
-            source: 'registry',
-            message: 'WebDataGrid must reference a WebApiClient.',
-            path: [...dataGridPath, 'apiClientId'],
-          });
-          continue;
-        }
-        const apiClient = document.components.find(
-          (candidate) => candidate.id === configuration.data.apiClientId,
-        );
-        if (apiClient?.type !== 'WebApiClient') {
-          diagnostics.push({
-            category: 'error',
-            source: 'registry',
-            message: 'WebDataGrid apiClientId must reference a WebApiClient on the same page.',
-            path: [...dataGridPath, 'apiClientId'],
-          });
-          continue;
-        }
-        const apiConfiguration = ApiClientConfigurationSchema.safeParse(
-          apiClient.props.apiClientConfig,
-        );
-        const operation = apiConfiguration.success
-          ? apiConfiguration.data.operations.find(
-              (candidate) => candidate.id === configuration.data.operationId,
-            )
-          : undefined;
-        if (operation === undefined) {
-          diagnostics.push({
-            category: 'error',
-            source: 'registry',
-            message:
-              'WebDataGrid operationId must reference an operation of the selected WebApiClient.',
-            path: [...dataGridPath, 'operationId'],
-          });
-          continue;
-        }
-        const findSchemaNode = (node: {
-          readonly path: string;
-          readonly kind: string;
-          readonly children: readonly unknown[];
-        }): { readonly path: string; readonly kind: string } | undefined => {
-          if (node.path === configuration.data.listPath) return node;
-          for (const child of node.children) {
-            if (typeof child !== 'object' || child === null) continue;
-            const candidate = findSchemaNode(child as typeof node);
-            if (candidate !== undefined) return candidate;
+        const graphql = configuration.data.graphql;
+        if (graphql !== undefined) {
+          const report = (field: string, message: string): void => {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message,
+              path: [...dataGridPath, 'graphql', field],
+            });
+          };
+          const query = validateGraphQLListSource(
+            graphql,
+            document.components,
+            graphQLOperations,
+            report,
+          );
+          if (query !== undefined) {
+            const fields = new Set(comboBoxSchemaChoices(query.responseSchema, '').fields.map(({ path }) => path));
+            for (const [index, column] of configuration.data.columns.entries()) {
+              if (column.fieldPath.length === 0 || fields.has(column.fieldPath)) continue;
+              diagnostics.push({
+                category: 'error',
+                source: 'registry',
+                message: 'Choose a column field selected in the GraphQL query.',
+                path: [...dataGridPath, 'columns', index, 'fieldPath'],
+              });
+            }
           }
-          return undefined;
-        };
-        const listNode =
-          operation.responseSchema === null
-            ? undefined
-            : findSchemaNode(operation.responseSchema.root);
-        if (listNode?.kind !== 'list') {
-          diagnostics.push({
-            category: 'error',
-            source: 'registry',
-            message: 'WebDataGrid listPath must reference a saved list response field.',
-            path: [...dataGridPath, 'listPath'],
-          });
+          if (query !== undefined && graphql.crudEnabled) {
+            const kinds = ['insert', 'update', 'delete'] as const;
+            if (kinds.every((kind) => graphql[`${kind}OperationId`] === null)) {
+              report('crudEnabled', 'Choose at least one GraphQL mutation to edit records.');
+            }
+            for (const kind of kinds) {
+              const field = `${kind}OperationId` as const;
+              const id = graphql[field];
+              if (id === null) continue;
+              const mutation = graphQLOperations.find((item) => item.id === id);
+              if (mutation === undefined || !isDataGridGraphQLMutation(query, mutation, kind)) {
+                report(
+                  field,
+                  `Choose a compatible ${kind} mutation for the query's table and selected row fields.`,
+                );
+              }
+            }
+          }
+        } else {
+          if (configuration.data.apiClientId === null) {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message: 'WebDataGrid must reference a WebApiClient.',
+              path: [...dataGridPath, 'apiClientId'],
+            });
+            continue;
+          }
+          const apiClient = document.components.find(
+            (candidate) => candidate.id === configuration.data.apiClientId,
+          );
+          if (apiClient?.type !== 'WebApiClient') {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message: 'WebDataGrid apiClientId must reference a WebApiClient on the same page.',
+              path: [...dataGridPath, 'apiClientId'],
+            });
+            continue;
+          }
+          const apiConfiguration = ApiClientConfigurationSchema.safeParse(
+            apiClient.props.apiClientConfig,
+          );
+          const operation = apiConfiguration.success
+            ? apiConfiguration.data.operations.find(
+                (candidate) => candidate.id === configuration.data.operationId,
+              )
+            : undefined;
+          if (operation === undefined) {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message:
+                'WebDataGrid operationId must reference an operation of the selected WebApiClient.',
+              path: [...dataGridPath, 'operationId'],
+            });
+            continue;
+          }
+          const findSchemaNode = (node: {
+            readonly path: string;
+            readonly kind: string;
+            readonly children: readonly unknown[];
+          }): { readonly path: string; readonly kind: string } | undefined => {
+            if (node.path === configuration.data.listPath) return node;
+            for (const child of node.children) {
+              if (typeof child !== 'object' || child === null) continue;
+              const candidate = findSchemaNode(child as typeof node);
+              if (candidate !== undefined) return candidate;
+            }
+            return undefined;
+          };
+          const listNode =
+            operation.responseSchema === null
+              ? undefined
+              : findSchemaNode(operation.responseSchema.root);
+          if (listNode?.kind !== 'list') {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message: 'WebDataGrid listPath must reference a saved list response field.',
+              path: [...dataGridPath, 'listPath'],
+            });
+          }
         }
       }
       if (rowGroup !== undefined) {

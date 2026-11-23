@@ -5,8 +5,11 @@ import path from 'node:path';
 import { compileProjectToMemory } from './compiler-service';
 import {
   bindComponentEvent,
+  createDefaultDataGridConfiguration,
   createProject,
   DEFAULT_REST_GO_PROJECT_SETTINGS,
+  type ApiClientResponseSchema,
+  type ProjectGraphQLOperation,
 } from '@webrad/project-model';
 import { BrowserWindow, type WebFrameMain } from 'electron';
 
@@ -20,6 +23,58 @@ import { resizeSmokeViewport } from './smoke-viewport';
 interface RestGoSettingsSmokeOptions {
   readonly projectPath: string;
   readonly log: (message: string) => void;
+}
+
+const gridQueryId = 'restgo-smoke-grid-query';
+const gridUpdateId = 'restgo-smoke-grid-update';
+
+function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
+  const responseSchema: ApiClientResponseSchema = {
+    version: 1,
+    root: {
+      id: 'rows', name: 'Response', path: '', kind: 'list', fieldType: 'list', nullable: false,
+      children: [
+        { id: 'row-id', name: 'id', path: '/*/id', kind: 'field', fieldType: 'integer', nullable: false, children: [] },
+        { id: 'row-name', name: 'name', path: '/*/name', kind: 'field', fieldType: 'string', nullable: false, children: [] },
+      ],
+    },
+  };
+  const selectionPaths = ['id', 'name'];
+  const database = 'demo';
+  const table = 'customers';
+  const query = { id: gridQueryId, name: 'GridCustomers', database };
+  const mutation = { id: gridUpdateId, name: 'UpdateGridCustomer', database };
+  const queryRoot = 'customersCollection';
+  const mutationRoot = 'updatecustomersCollection';
+  return [
+    {
+      ...query,
+      spec: { kind: 'query', rootField: queryRoot, selectionPaths, conditions: { logic: 'and', items: [] }, orderBy: [], inputs: [], pageSize: 1 },
+      runtime: {
+        ...query, kind: 'query', table, rootField: queryRoot, selections: [], parameters: [],
+        pagination: { defaultSize: 1, maxSize: 20 },
+        document: 'query GridCustomers($_wrFirst: Int, $_wrAfter: Cursor) { customersCollection(first: $_wrFirst, after: $_wrAfter) { edges { node { id name } } pageInfo { endCursor hasNextPage } totalCount } }',
+      },
+      responseSchema,
+    },
+    {
+      ...mutation,
+      spec: {
+        kind: 'update', rootField: mutationRoot, selectionPaths, orderBy: [], pageSize: 1,
+        conditions: { logic: 'and', items: [{ field: 'id', operator: 'eq', parameter: 'customerId', required: true }] },
+        inputs: [{ field: 'name', parameter: 'customerName', required: true }],
+      },
+      runtime: {
+        ...mutation, kind: 'update', table, rootField: mutationRoot, selections: [],
+        parameters: [
+          { name: 'customerId', type: 'Int!', kind: 'integer', required: true, enumValues: [], source: { role: 'filter', fieldPath: '/id', operator: 'eq', identityEligible: true } },
+          { name: 'customerName', type: 'String!', kind: 'string', required: true, enumValues: [], source: { role: 'input', fieldPath: '/name' } },
+        ],
+        document: 'mutation UpdateGridCustomer($customerId: Int!, $customerName: String!) { updatecustomersCollection(filter: { id: { eq: $customerId } }, set: { name: $customerName }, atMost: 1) { affectedCount records { id name } } }',
+      },
+      responseSchema,
+    },
+  ];
 }
 
 function isHttpOrigin(value: string): boolean {
@@ -564,6 +619,8 @@ export async function runRestGoBrowserSmoke(
   >();
   const paymentNavigations: string[] = [];
   const paymentHistoryCursors: string[] = [];
+  const graphQLRows = [{ id: 1, name: 'Grid Alpha' }, { id: 2, name: 'Grid Beta' }];
+  const graphQLMutations: { readonly rowId: unknown; readonly name: unknown }[] = [];
   const historicalPaymentId = '00000000-0000-4000-8000-000000000009';
   const paymentResponse = (slug: string) => {
     const attempt = paymentAttempts.get(slug);
@@ -790,6 +847,38 @@ export async function runRestGoBrowserSmoke(
       response.writeHead(401).end(JSON.stringify({ error: 'Invalid session' }));
       return;
     }
+    if (route === '/gql/demo' && request.method === 'POST') {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array));
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        readonly operationName?: string;
+        readonly variables?: Readonly<Record<string, unknown>>;
+      };
+      capturedRequest.body = body;
+      const variables = body.variables ?? {};
+      if (body.operationName === 'GridCustomers') {
+        const start = variables._wrAfter === 'grid-cursor-1' ? 1 : 0;
+        const end = Math.min(graphQLRows.length, start + Number(variables._wrFirst));
+        response.end(JSON.stringify({ data: { customersCollection: {
+          edges: graphQLRows.slice(start, end).map((node) => ({ node })),
+          pageInfo: { endCursor: end === 1 ? 'grid-cursor-1' : null, hasNextPage: end < graphQLRows.length },
+          totalCount: graphQLRows.length,
+        } } }));
+        return;
+      }
+      if (body.operationName === 'UpdateGridCustomer') {
+        const row = graphQLRows.find(({ id }) => id === variables.customerId);
+        const name = variables.customerName;
+        graphQLMutations.push({ rowId: variables.customerId, name });
+        if (row !== undefined && typeof name === 'string') {
+          row.name = name;
+          response.end(JSON.stringify({ data: { updatecustomersCollection: { affectedCount: 1, records: [row] } } }));
+          return;
+        }
+      }
+      response.writeHead(400).end(JSON.stringify({ errors: [{ message: 'Unknown GraphQL fixture operation' }] }));
+      return;
+    }
     if (route.startsWith('/payment/')) {
       const parts = route.split('/');
       const slug = parts[2] ?? '';
@@ -993,6 +1082,7 @@ export async function runRestGoBrowserSmoke(
     }
     const original = createProject('RestGoSmoke', {
       settings: {
+        graphQLOperations: smokeGraphQLOperations(),
         restGo: {
           ...DEFAULT_REST_GO_PROJECT_SETTINGS,
           enabled: true,
@@ -1045,6 +1135,42 @@ export async function runRestGoBrowserSmoke(
         },
       }),
     );
+    const graphQL = defaultComponentRegistry.createComponent('WebGraphQL', {
+      name: 'CustomerQueries',
+      parentId: boundPage.rootComponentId,
+      existingNames: [...boundPage.components, login, ...paymentComponents],
+    });
+    const gridConfiguration = createDefaultDataGridConfiguration();
+    const graphQLGrid = defaultComponentRegistry.createComponent('WebDataGrid', {
+      name: 'CustomerGrid',
+      parentId: boundPage.rootComponentId,
+      existingNames: [...boundPage.components, login, ...paymentComponents, graphQL],
+      props: {
+        dataGridConfig: {
+          ...gridConfiguration,
+          graphql: {
+            sourceId: graphQL.id, operationId: gridQueryId, pageSize: 1, showPager: true,
+            crudEnabled: true, insertOperationId: null, updateOperationId: gridUpdateId, deleteOperationId: null,
+          },
+          columns: gridConfiguration.columns.map((column, index) => ({
+            ...column, fieldPath: index === 0 ? '/name' : '',
+          })),
+        },
+      },
+      events: { OnChangesChanged: 'GridDraftChanged', OnSaveChanges: 'GridSaved' },
+    });
+    const graphQLCombo = defaultComponentRegistry.createComponent('WebComboBox', {
+      name: 'CustomerChoices',
+      parentId: boundPage.rootComponentId,
+      existingNames: [...boundPage.components, login, ...paymentComponents, graphQL, graphQLGrid],
+      props: {
+        comboBoxConfig: {
+          schemaVersion: 1, apiClientId: null, operationId: null, listPath: '',
+          displayField: '/name', keyField: '/id', graphql: { sourceId: graphQL.id, operationId: gridQueryId },
+        },
+      },
+    });
+    const fixtureComponents = [login, ...paymentComponents, graphQL, graphQLGrid, graphQLCombo];
     const loginPage = {
       ...boundPage,
       components: [
@@ -1052,26 +1178,29 @@ export async function runRestGoBrowserSmoke(
           node.id === boundPage.rootComponentId
             ? {
                 ...node,
-                children: [
-                  ...node.children,
-                  login.id,
-                  ...paymentComponents.map((component) => component.id),
-                ],
+                children: [...node.children, ...fixtureComponents.map((component) => component.id)],
               }
             : node,
         ),
-        login,
-        ...paymentComponents,
+        ...fixtureComponents,
       ],
     };
     const project = { ...original, pages: [loginPage] };
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent, type WebPayments, type WebPaymentsOperationEventDetail, type WebPaymentsCheckoutEventDetail, type WebPaymentsHistoryEventDetail, type WebPaymentsResumeEventDetail } from '@webrad/runtime';
+        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent, type WebPayments, type WebPaymentsOperationEventDetail, type WebPaymentsCheckoutEventDetail, type WebPaymentsHistoryEventDetail, type WebPaymentsResumeEventDetail, type WebDataGrid, type WebDataGridChangesEventDetail, type WebDataGridSaveChangesEventDetail } from '@webrad/runtime';
 import { createClient } from '@webrad/restgo-sdk';
 import { indexGenerated } from './index.generated';
 export class index extends indexGenerated {
   private usuarioId = '';
+  public GridDraftChanged(sender: WebDataGrid, event: CustomEvent<WebDataGridChangesEventDetail>): void {
+    if (sender !== this.CustomerGrid) throw new Error('Grid draft event lost its concrete instance');
+    this.element.dataset.graphQlDraftCount = String(event.detail.pendingChanges.length);
+  }
+  public GridSaved(sender: WebDataGrid, event: CustomEvent<WebDataGridSaveChangesEventDetail>): void {
+    if (sender !== this.CustomerGrid) throw new Error('Grid save event lost its concrete instance');
+    this.element.dataset.graphQlSaved = String(event.detail.applied);
+  }
   public PaymentChanged(sender: WebPayments, event: CustomEvent<WebPaymentsOperationEventDetail>): void {
     if (sender !== this.Payments1 && sender !== this.Payments2) throw new Error('Payments lost its concrete scoped instance');
     if (event.detail.operation) this.element.dataset.paymentStatus = event.detail.operation.status;
@@ -1187,6 +1316,15 @@ export class index extends indexGenerated {
       });
     });
     this.element.append(paymentsAction);
+    const saveGrid = document.createElement('button');
+    saveGrid.dataset.graphqlSave = 'true';
+    saveGrid.textContent = 'Save customers';
+    saveGrid.addEventListener('click', () => {
+      void this.CustomerGrid.SaveChanges().catch((error: unknown) => {
+        this.element.dataset.graphQlSaveError = error instanceof Error ? error.message : String(error);
+      });
+    });
+    this.element.append(saveGrid);
   }
 }`,
       },
@@ -1234,6 +1372,50 @@ export class index extends indexGenerated {
         if (!session.refreshToken || !session.refreshExpiresAt) throw new Error('Missing refresh pair');
         const page = document.querySelector('[data-restgo-identity="true"]');
         if (page.dataset.loginUser !== session.user.id) throw new Error('OnLogin did not save the current user');
+        const grid = document.querySelector('[data-webrad-name="CustomerGrid"]');
+        const combo = document.querySelector('select[data-webrad-name="CustomerChoices"]');
+        const gridCell = () => grid.querySelector('.wr-data-grid-body-row .wr-data-grid-cell')?.textContent;
+        const gridAction = (name) => grid.querySelector('[data-webrad-grid-action="' + name + '"]');
+        const waitForGrid = async (condition, message) => {
+          const deadline = Date.now() + 5000;
+          while (Date.now() < deadline && !condition()) await new Promise(resolve => setTimeout(resolve, 10));
+          if (!condition()) throw new Error(message);
+        };
+        await waitForGrid(() => gridCell() === 'Grid Alpha', 'GraphQL Data Grid did not load the first page');
+        await waitForGrid(() => combo?.options[0]?.value === '1' && combo.options[0].textContent === 'Grid Alpha', 'GraphQL ComboBox did not map the option key and label');
+        if (gridAction('previous').disabled !== true || gridAction('page-size').value !== '1') throw new Error('GraphQL Data Grid initial pager mismatch');
+        const setGridPageSize = (size) => {
+          const select = gridAction('page-size');
+          select.value = size;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        setGridPageSize('5');
+        await waitForGrid(() => gridAction('page-size').value === '5' && grid.querySelectorAll('.wr-data-grid-body-row').length === 2, 'GraphQL Data Grid did not apply its page size');
+        setGridPageSize('1');
+        await waitForGrid(() => gridAction('page-size').value === '1' && gridCell() === 'Grid Alpha' && !gridAction('next').disabled, 'GraphQL Data Grid did not restore its configured page size');
+        gridAction('next').click();
+        await waitForGrid(() => gridCell() === 'Grid Beta' && gridAction('next').disabled, 'GraphQL Data Grid did not reach the last page');
+        if (combo.options[0].value !== '1') throw new Error('GraphQL Data Grid navigation changed the independent ComboBox query');
+        gridAction('previous').click();
+        await waitForGrid(() => gridCell() === 'Grid Alpha', 'GraphQL Data Grid did not restore the first cursor page');
+        const stageGridEdit = (value) => {
+          gridAction('edit-1').click();
+          const editor = document.querySelector('.wr-data-grid-graphql-editor[open]');
+          const input = editor?.querySelector('input');
+          if (!(input instanceof HTMLInputElement) || input.value !== 'Grid Alpha') throw new Error('Grid editor did not map the GraphQL input');
+          input.value = value;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          editor.querySelector('form').requestSubmit();
+          if (gridCell() !== value || page.dataset.graphQlDraftCount !== '1' || page.dataset.graphQlSaved) throw new Error('Editing did not remain a local grid draft');
+        };
+        stageGridEdit('Discarded Grid Draft');
+        gridAction('undo-1').click();
+        if (gridCell() !== 'Grid Alpha' || page.dataset.graphQlDraftCount !== '0') throw new Error('Grid draft undo did not restore the saved value');
+        await waitForGrid(() => document.querySelector('.wr-data-grid-graphql-editor') === null, 'Grid edit dialog did not close');
+        stageGridEdit('Grid Alpha Saved');
+        document.querySelector('[data-graphql-save="true"]').click();
+        await waitForGrid(() => !!page.dataset.graphQlSaveError || (page.dataset.graphQlSaved === '1' && gridCell() === 'Grid Alpha Saved'), 'GraphQL Data Grid did not reload after SaveChanges');
+        if (page.dataset.graphQlSaveError || grid.querySelector('[data-webrad-grid-draft]')) throw new Error(page.dataset.graphQlSaveError || 'A saved grid edit retained its draft');
         document.querySelector('[data-payments-exercise="true"]').click();
         const paymentsDeadline = Date.now() + 5000;
         while (Date.now() < paymentsDeadline && page.dataset.paymentsComplete !== 'true' && !page.dataset.paymentsError)
@@ -1277,6 +1459,14 @@ export class index extends indexGenerated {
     ) {
       throw new Error(`RestGO browser smoke failed: ${JSON.stringify(evidence)}`);
     }
+    if (
+      graphQLMutations.length !== 1 ||
+      graphQLMutations[0]?.rowId !== 1 ||
+      graphQLMutations[0]?.name !== 'Grid Alpha Saved' ||
+      !requests.some((request) => request.route === '/gql/demo' &&
+        (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?._wrAfter === 'grid-cursor-1')
+    ) throw new Error('GraphQL Data Grid cursor or explicit mutation request mismatch.');
+    log('renderer GraphQL Data Grid compiled runtime passed: page size, cursor navigation, independent ComboBox labels and keys, mapped drafts, undo, and one explicitly saved row; HTTP fixture');
     const paymentRequests = requests.filter((request) => request.route.startsWith('/payment/'));
     if (
       paymentRequests.length === 0 ||

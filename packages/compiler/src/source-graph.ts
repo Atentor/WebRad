@@ -415,7 +415,11 @@ export function createVirtualSourceGraph(
     }
     sources.set(
       virtualAbsolutePath(generatedSourcePath(page)),
-      generatePageSource(page, { registry, menus: project.menus }),
+      generatePageSource(page, {
+        registry,
+        menus: project.menus,
+        graphQLOperations: project.settings.graphQLOperations,
+      }),
     );
   }
 
@@ -426,7 +430,11 @@ export function createVirtualSourceGraph(
     }
     sources.set(
       virtualAbsolutePath(reusableGeneratedSourcePath(reusableElement)),
-      generateReusableElementSource(reusableElement, { registry, menus: project.menus }),
+      generateReusableElementSource(reusableElement, {
+        registry,
+        menus: project.menus,
+        graphQLOperations: project.settings.graphQLOperations,
+      }),
     );
   }
 

@@ -6,6 +6,7 @@ import {
   normalizeApiClientConfiguration,
   type ComboBoxConfiguration,
   type ComponentNode,
+  type ProjectGraphQLOperation,
 } from '@webrad/project-model';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
@@ -13,6 +14,7 @@ import { createPortal } from 'react-dom';
 interface ComboBoxConfigurationDialogProps {
   readonly component: ComponentNode;
   readonly availableComponents: readonly ComponentNode[];
+  readonly graphQLOperations?: readonly ProjectGraphQLOperation[];
   readonly onClose: () => void;
   readonly onSave: (configuration: ComboBoxConfiguration | null) => void;
 }
@@ -22,6 +24,7 @@ const UNSELECTED = '__unselected__';
 export function ComboBoxConfigurationDialog({
   component,
   availableComponents,
+  graphQLOperations = [],
   onClose,
   onSave,
 }: ComboBoxConfigurationDialogProps): ReactElement {
@@ -36,18 +39,21 @@ export function ComboBoxConfigurationDialog({
     return parsed.success ? parsed.data : null;
   });
   const apiClients = availableComponents.filter((candidate) => candidate.type === 'WebApiClient');
+  const graphQLClients = availableComponents.filter((candidate) => candidate.type === 'WebGraphQL');
+  const graphQLQueries = graphQLOperations.filter((operation) => operation.runtime.kind === 'query');
+  const graphQL = draft?.graphql;
   const apiClient = apiClients.find((candidate) => candidate.id === draft?.apiClientId);
+  const graphQLClient = graphQLClients.find((candidate) => candidate.id === graphQL?.sourceId);
   const apiConfiguration =
     apiClient === undefined
       ? undefined
       : normalizeApiClientConfiguration(apiClient.props.apiClientConfig);
-  const operation = apiConfiguration?.operations.find(
-    (candidate) => candidate.id === draft?.operationId,
-  );
+  const operations = graphQL === undefined ? apiConfiguration?.operations ?? [] : graphQLQueries;
+  const operation = operations.find((candidate) => candidate.id === (graphQL?.operationId ?? draft?.operationId));
   const choices = comboBoxSchemaChoices(operation?.responseSchema, draft?.listPath ?? '');
   const valid =
     draft === null ||
-    (apiClient !== undefined &&
+    ((apiClient !== undefined || graphQLClient !== undefined) &&
       operation !== undefined &&
       choices.lists.some((choice) => choice.path === draft.listPath) &&
       choices.fields.some((choice) => choice.path === draft.displayField) &&
@@ -118,13 +124,20 @@ export function ComboBoxConfigurationDialog({
           <div className="wr-data-grid-configuration-content">
             <div className="wr-data-grid-configuration-fields">
               <label>
-                <span>API Client</span>
+                <span>Data source</span>
                 <select
                   ref={sourceRef}
                   aria-label="ComboBox API Client"
-                  value={draft === null ? '' : (draft.apiClientId ?? UNSELECTED)}
+                  value={draft === null ? '' : (graphQL?.sourceId ?? draft.apiClientId ?? UNSELECTED)}
                   onChange={(event) => {
                     const id = event.currentTarget.value;
+                    if (graphQLClients.some((candidate) => candidate.id === id)) {
+                      setDraft({
+                        ...createDefaultComboBoxConfiguration(),
+                        graphql: { sourceId: id, operationId: graphQLQueries[0]?.id ?? null },
+                      });
+                      return;
+                    }
                     const selected = apiClients.find((candidate) => candidate.id === id);
                     if (selected === undefined) {
                       setDraft(null);
@@ -143,14 +156,19 @@ export function ComboBoxConfigurationDialog({
                   }}
                 >
                   <option value="">Static items</option>
-                  {draft !== null && apiClient === undefined && (
-                    <option value={draft.apiClientId ?? UNSELECTED} disabled>
-                      (unavailable API Client)
+                  {draft !== null && apiClient === undefined && graphQLClient === undefined && (
+                    <option value={graphQL?.sourceId ?? draft.apiClientId ?? UNSELECTED} disabled>
+                      (unavailable data source)
                     </option>
                   )}
                   {apiClients.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.name}
+                    </option>
+                  ))}
+                  {graphQLClients.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.name} (GraphQL)
                     </option>
                   ))}
                 </select>
@@ -162,8 +180,8 @@ export function ComboBoxConfigurationDialog({
                   disabled={draft === null}
                   value={operation?.id ?? ''}
                   onChange={(event) => {
-                    const operationId = event.currentTarget.value;
-                    const nextOperation = apiConfiguration?.operations.find(
+                    const operationId = event.currentTarget.value || null;
+                    const nextOperation = operations.find(
                       (candidate) => candidate.id === operationId,
                     );
                     const nextChoices = comboBoxSchemaChoices(nextOperation?.responseSchema, '');
@@ -172,7 +190,9 @@ export function ComboBoxConfigurationDialog({
                         ? null
                         : {
                             ...current,
-                            operationId,
+                            ...(current.graphql === undefined
+                              ? { operationId }
+                              : { graphql: { ...current.graphql, operationId } }),
                             listPath: nextChoices.lists[0]?.path ?? '',
                             displayField: '',
                             keyField: '',
@@ -181,9 +201,9 @@ export function ComboBoxConfigurationDialog({
                   }}
                 >
                   <option value="">(select an operation)</option>
-                  {apiConfiguration?.operations.map((candidate) => (
+                  {operations.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
-                      {candidate.name} — {candidate.method} {candidate.path}
+                      {'method' in candidate ? `${candidate.name} — ${candidate.method} ${candidate.path}` : candidate.name}
                     </option>
                   ))}
                 </select>
@@ -252,8 +272,9 @@ export function ComboBoxConfigurationDialog({
             </div>
             {draft !== null && choices.lists.length === 0 && (
               <p className="wr-modal-description">
-                Save a response schema containing a list in the API Client editor to select its
-                fields.
+                {graphQL === undefined
+                  ? 'Save a response schema containing a list in the API Client editor to select its fields.'
+                  : 'Save a query with selected output fields in RestGO > GraphQL.'}
               </p>
             )}
           </div>

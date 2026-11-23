@@ -21,6 +21,7 @@ export * from './api-client-authorization.js';
 export * from './api-client-inputs.js';
 export * from './api-client-accessors.js';
 export * from './api-client-template.js';
+export * from './graphql.js';
 export * from './component.js';
 export type { WebComboBoxConfiguration } from './combo-box-data.js';
 export * from './data-grid.js';

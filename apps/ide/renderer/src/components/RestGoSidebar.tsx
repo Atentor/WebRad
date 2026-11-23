@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { Icon, type IconName } from './Icon';
 import './restgo-workspace.css';
 
-export type RestGoSection = 'connection' | 'published' | 'endpoints';
+export type RestGoSection = 'connection' | 'published' | 'endpoints' | 'graphql';
 
 interface RestGoSidebarProps {
   readonly section: RestGoSection;
@@ -34,6 +34,12 @@ const SECTIONS: readonly {
     label: 'Endpoints',
     description: 'SQL, API Operations, and publishing',
     icon: 'code',
+  },
+  {
+    id: 'graphql',
+    label: 'GraphQL',
+    description: 'Build queries and mutations from published tables',
+    icon: 'waypoints',
   },
 ];
 

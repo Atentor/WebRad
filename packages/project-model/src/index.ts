@@ -1,4 +1,6 @@
 export * from './api-client.js';
+export * from './graphql.js';
+export * from './graphql-builder.js';
 export * from './combo-box.js';
 export * from './charts.js';
 export * from './color-palette.js';

@@ -47,6 +47,8 @@ export function registerRestGoAdminIpc(
   handle('webrad:restgo-admin:connect', service.connect.bind(service));
   handle('webrad:restgo-admin:disconnect', service.disconnect.bind(service));
   handle('webrad:restgo-admin:catalog', service.catalog.bind(service));
+  handle('webrad:restgo-admin:graphql-databases', service.graphqlDatabases.bind(service));
+  handle('webrad:restgo-admin:graphql-schema', service.graphqlSchema.bind(service));
   handle('webrad:restgo-admin:get-endpoint', service.getEndpoint.bind(service));
   handle('webrad:restgo-admin:save-endpoint', service.saveEndpoint.bind(service));
   handle('webrad:restgo-admin:set-endpoint-active', service.setEndpointActive.bind(service));

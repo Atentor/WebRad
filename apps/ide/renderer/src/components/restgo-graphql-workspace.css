@@ -1,0 +1,157 @@
+.wr-restgo-graphql-editor,
+.wr-restgo-graphql-body {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.wr-restgo-graphql-editor {
+  padding: 22px;
+}
+
+.wr-restgo-graphql-body {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wr-restgo-graphql-operation-fields,
+.wr-restgo-graphql-row-fields,
+.wr-restgo-graphql-parameters,
+.wr-restgo-graphql-selection {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.wr-restgo-graphql-operation-fields,
+.wr-restgo-graphql-selection {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr));
+}
+
+.wr-restgo-graphql-editor label {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  color: var(--wr-muted-text);
+  font-size: 12px;
+}
+
+.wr-restgo-graphql-editor .wr-restgo-graphql-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  min-height: 26px;
+  color: var(--wr-text);
+  overflow-wrap: anywhere;
+}
+
+.wr-restgo-graphql-check input {
+  flex-shrink: 0;
+}
+
+.wr-restgo-graphql-row-fields,
+.wr-restgo-graphql-parameters {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.wr-restgo-graphql-row-fields > button,
+.wr-restgo-graphql-parameters > .wr-restgo-graphql-check {
+  margin-top: 19px;
+}
+
+.wr-restgo-graphql-default {
+  grid-column: 1 / -1;
+}
+
+.wr-restgo-graphql-selection small {
+  display: block;
+  margin-top: 3px;
+}
+
+.wr-restgo-graphql-condition-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wr-restgo-graphql-row,
+.wr-restgo-graphql-condition-group.is-nested {
+  padding: 10px 12px;
+  border: 1px solid var(--wr-border);
+  border-radius: 5px;
+}
+
+.wr-restgo-graphql-condition-group.is-nested {
+  border-inline-start: 2px solid var(--wr-accent);
+}
+
+.wr-restgo-graphql-row > .wr-restgo-graphql-row-fields {
+  margin-top: 0;
+}
+
+.wr-restgo-graphql-group-actions,
+.wr-restgo-graphql-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.wr-restgo-graphql-page-size {
+  max-width: 160px;
+}
+
+.wr-restgo-graphql-endpoint,
+.wr-restgo-graphql-editor small {
+  color: var(--wr-muted-text);
+}
+
+.wr-restgo-graphql-endpoint {
+  margin: 9px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.wr-restgo-graphql-message {
+  margin: 12px 22px 0;
+  overflow-wrap: anywhere;
+}
+
+.wr-restgo-graphql-error {
+  color: var(--wr-danger);
+}
+
+.wr-restgo-graphql-editor > .wr-restgo-graphql-message {
+  margin: 0;
+}
+
+.wr-restgo-graphql-editor-actions {
+  justify-content: flex-end;
+}
+
+.wr-restgo-graphql-editor-actions > .is-danger {
+  margin-right: auto;
+}
+
+.wr-restgo-graphql-editor .is-danger {
+  color: var(--wr-danger);
+}
+
+@container restgo-endpoint (max-width: 460px) {
+  .wr-restgo-graphql-editor {
+    padding: 12px;
+  }
+
+  .wr-restgo-graphql-parameters,
+  .wr-restgo-graphql-row-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wr-restgo-graphql-row-fields > button,
+  .wr-restgo-graphql-parameters > .wr-restgo-graphql-check {
+    justify-self: start;
+    margin-top: 0;
+  }
+}

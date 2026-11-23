@@ -150,6 +150,22 @@ const paymentsTypings =
     2,
   ) + '\n';
 
+const graphqlTypingsPath = path.join(
+  repositoryRoot,
+  'packages',
+  'language',
+  'src',
+  'graphql-typings.generated.json',
+);
+const graphqlTypings =
+  JSON.stringify(
+    createApiClientDeclarations(repositoryRoot, ['graphql.ts', 'data-grid-graphql.ts'], (name) =>
+      name !== 'DataGridGraphQL' && name !== 'DataGridGraphQLRow' && name !== 'GridGraphQLEvents',
+    ),
+    null,
+    2,
+  ) + '\n';
+
 const htmlTypingsPath = path.join(
   repositoryRoot,
   'packages',
@@ -194,6 +210,9 @@ const sourceFiles = [
   'charts.ts',
   'fonts.ts',
   'data-grid.ts',
+  'data-grid-graphql.ts',
+  'data-grid-graphql-controls.ts',
+  'graphql.ts',
   'repeating-group.ts',
   ...reportSourceNames,
   'timer.ts',
@@ -558,6 +577,7 @@ const outputs = [
   ],
   [timerTypingsPath, timerTypings],
   [paymentsTypingsPath, paymentsTypings],
+  [graphqlTypingsPath, graphqlTypings],
   [htmlTypingsPath, htmlTypings],
   [videoTypingsPath, videoTypings],
   [outputPath, expected],

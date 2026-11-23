@@ -139,6 +139,76 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
   return content.length === 0 ? null : (JSON.parse(content) as unknown);
 }
 
+function graphQLSmokeSchema(): object {
+  const ref = (kind: string, name: string | null, ofType?: object) => ({
+    kind, name, ...(ofType ? { ofType } : {}),
+  });
+  const scalar = (name: string) => ref('SCALAR', name);
+  const object = (name: string) => ref('OBJECT', name);
+  const input = (name: string) => ref('INPUT_OBJECT', name);
+  const list = (type: object) => ref('LIST', null, type);
+  const field = (name: string, type: object, args: readonly object[] = []) => ({ name, type, args });
+  const argument = (name: string, type: object) => ({ name, type, defaultValue: null });
+  const objectType = (name: string, fields: readonly object[]) => ({
+    kind: 'OBJECT', name, description: null, fields,
+  });
+  const inputType = (name: string, inputFields: readonly object[]) => ({
+    kind: 'INPUT_OBJECT', name, description: null, inputFields,
+  });
+  return {
+    data: {
+      __schema: {
+        queryType: { name: 'Query' },
+        mutationType: null,
+        types: [
+          scalar('Int'), scalar('String'), scalar('Boolean'), scalar('Cursor'),
+          objectType('Query', [field('customersCollection', object('customersConnection'), [
+            argument('first', scalar('Int')),
+            argument('after', scalar('Cursor')),
+            argument('filter', input('customersFilter')),
+          ])]),
+          objectType('customersConnection', [
+            field('edges', list(object('customersEdge'))),
+            field('pageInfo', object('PageInfo')),
+          ]),
+          objectType('customersEdge', [field('node', object('customers'))]),
+          objectType('customers', [field('id', scalar('Int')), field('name', scalar('String'))]),
+          objectType('PageInfo', [field('hasNextPage', scalar('Boolean')), field('endCursor', scalar('Cursor'))]),
+          inputType('customersFilter', [argument('id', input('IntFilter'))]),
+          inputType('IntFilter', [argument('eq', scalar('Int'))]),
+        ],
+      },
+    },
+  };
+}
+
+async function exerciseRestGoGraphQL(
+  window: BrowserWindow,
+  projectPath: string,
+  evidencePath: string,
+): Promise<void> {
+  const workspace = '.wr-restgo-graphql-workspace';
+  await click(window, '.wr-restgo-sidebar nav button:nth-child(4)');
+  await click(window, `${workspace} [aria-label="New GraphQL operation"]`);
+  await setControl(window, '[aria-label="GraphQL operation name"]', 'SmokeListCustomers');
+  await setControl(window, '[aria-label="GraphQL table"]', 'customersCollection');
+  await clickText(window, 'Add condition', workspace);
+  await setControl(window, `${workspace} .wr-restgo-graphql-parameters input:not([type])`, 'customerId');
+  await click(window, `${workspace} .wr-restgo-graphql-selection label[title="id"] input`);
+  await click(window, `${workspace} .wr-restgo-graphql-selection label[title="name"] input`);
+  await clickText(window, 'Save operation', workspace);
+  await ready(window, `document.querySelector('${workspace} [role="status"]')?.textContent.includes('Operation applied') === true`);
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(window, `document.querySelector('[data-project-save-state="Saved"]') !== null`);
+  const source = await fs.readFile(projectPath, 'utf8');
+  if (!source.includes('SmokeListCustomers') || !source.includes('customerId') || !source.includes('customersCollection')) {
+    throw new Error('GraphQL operation metadata was not persisted to the smoke project.');
+  }
+  const screenshot = await capturePresentedSmokePage(window, Date.now() + 5_000, 'RestGO GraphQL editor');
+  await fs.mkdir(path.dirname(evidencePath), { recursive: true });
+  await fs.writeFile(evidencePath, screenshot.toPNG());
+}
+
 async function verifyDialogViewport(window: BrowserWindow, stacked = false): Promise<void> {
   await ready(
     window,
@@ -702,6 +772,18 @@ export async function runApiClientDesignerSmoke(
     });
     response.setHeader('Content-Type', 'application/json');
     const route = new URL(request.url ?? '/', 'http://localhost').pathname;
+    if (route === '/backend/graphql-admin/databases' || route === '/backend/graphql-admin/databases/1/schema') {
+      if (request.method !== 'GET' || request.headers.authorization !== 'rgo.synchronization-smoke') {
+        response.writeHead(403).end(JSON.stringify({ error: 'Administrative fixture token required' }));
+        return;
+      }
+      response.end(JSON.stringify(route.endsWith('/schema') ? graphQLSmokeSchema() : [{
+        id: 1, name: 'Demo', slug: 'demo', endpoint: '/backend/gql/demo', active: true,
+        state: 'active', desiredActive: true, desiredRevision: '1', appliedRevision: '1',
+        settings: { defaultPageSize: 10, maxPageSize: 30, maxMutationRows: 1 },
+      }]));
+      return;
+    }
     if (
       [
         '/backend/endpoints',
@@ -1491,6 +1573,12 @@ export async function runApiClientDesignerSmoke(
     log(
       'renderer RestGO API Client synchronization passed: edit and save GET/PUT SQL, reconcile existing query/JSON inputs, preserve request name and values, save project and reopen client',
     );
+    await click(window, 'button[aria-label="RestGo integration"]');
+    await exerciseRestGoGraphQL(window, projectPath, `${screenshotRoot}-restgo-graphql.png`);
+    if (calls.some((call) => call.path.includes('/graphql-admin/') && call.method !== 'GET')) {
+      throw new Error('GraphQL operation authoring wrote to the RestGO instance.');
+    }
+    log('renderer RestGO GraphQL operation editor passed: published schema, typed filter, field selection and project persistence');
     log(
       `renderer API Client designer passed: request, settings and response layout, readable controls, tabs, all methods, light/dark theme, 1080/740 viewport, custom HTTP test, delete final endpoint, save/reopen empty list, recreate endpoint, fixed RestGO URL, Bearer test, safe persistence; screenshots ${screenshotRoot}-custom.png, ${screenshotRoot}-custom-light.png, ${screenshotRoot}-custom-compact.png, ${screenshotRoot}-custom-narrow.png, ${screenshotRoot}-response.png, ${screenshotRoot}-empty.png and ${screenshotRoot}-restgo.png`,
     );

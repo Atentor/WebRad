@@ -946,6 +946,18 @@
   color: var(--wr-danger);
 }
 
+.wr-inspector-grid-config {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.wr-inspector-grid-config label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .wr-object-inspector .wr-inspector-action {
   height: auto;
   min-height: 28px;

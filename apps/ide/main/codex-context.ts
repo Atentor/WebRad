@@ -102,12 +102,16 @@ export function createCodexContext(request: CodexGenerateRequest, project: WebRa
       })),
     }));
   const menu = project.menus?.find((item) => item.id === page.id);
+  const generationOptions = {
+    menus: project.menus,
+    graphQLOperations: project.settings.graphQLOperations,
+  };
   const activeInstanceTypes =
     kind === 'menu' && menu
       ? generateMenuTypings(menu)
       : kind === 'reusable'
-        ? generateReusableElementTypings(page, { menus: project.menus })
-        : generatePageTypings(page, { menus: project.menus });
+        ? generateReusableElementTypings(page, generationOptions)
+        : generatePageTypings(page, generationOptions);
   const context = buildProjectContext(request, project, {
     activeInstanceTypes,
     activePropertyRestrictions: page.components.flatMap((node) => {

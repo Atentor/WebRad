@@ -6,6 +6,7 @@ export interface ComboBoxConfiguration {
   readonly apiClientId: string | null;
   readonly operationId: string | null;
   readonly listPath: string;
+  readonly graphql?: { readonly sourceId: string; readonly operationId: string | null };
   readonly displayField: string;
   readonly keyField: string;
 }
@@ -25,10 +26,15 @@ export const ComboBoxConfigurationSchema: z.ZodType<ComboBoxConfiguration> = z
     apiClientId: reference,
     operationId: reference,
     listPath: pointer,
+    graphql: z.object({ sourceId: z.string().min(1).max(200), operationId: reference }).strict().optional(),
     displayField: pointer,
     keyField: pointer,
   })
-  .strict();
+  .strict()
+  .refine((configuration) => configuration.graphql === undefined || configuration.apiClientId === null, {
+    message: 'Choose one ComboBox data source.',
+    path: ['graphql'],
+  });
 
 export function createDefaultComboBoxConfiguration(): ComboBoxConfiguration {
   return {

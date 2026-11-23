@@ -1,8 +1,32 @@
 import type { WebApiClient } from './api-client.js';
 import { WebComponent, type WebComponentEventHandler } from './component.js';
 import { WebToggle } from './controls.js';
+import {
+  DataGridGraphQL,
+  type DataGridGraphQLRow,
+  type WebDataGridChangesEventDetail,
+  type WebDataGridGraphQLConfiguration,
+  type WebDataGridGraphQLEventHandler,
+  type WebDataGridMutationValues,
+  type WebDataGridPendingChange,
+  type WebDataGridSaveChangesEventDetail,
+  type WebDataGridSaveErrorEventDetail,
+} from './data-grid-graphql.js';
+import { graphQLGridTools, gridAction, openGraphQLGridEditor } from './data-grid-graphql-controls.js';
+import type { WebGraphQLRow, WebGraphQLSource } from './graphql.js';
 import { createWebRadIconElement, isWebRadIconName, type WebRadIconName } from './icons.js';
 import { resolveDataGridColumnTrackWidths } from './visual.js';
+
+export type {
+  WebDataGridChangesEventDetail,
+  WebDataGridGraphQLConfiguration,
+  WebDataGridGraphQLEventHandler,
+  WebDataGridMutationKind,
+  WebDataGridMutationValues,
+  WebDataGridPendingChange,
+  WebDataGridSaveChangesEventDetail,
+  WebDataGridSaveErrorEventDetail,
+} from './data-grid-graphql.js';
 
 export const WEB_DATA_GRID_CELL_KINDS = ['text', 'image', 'button', 'checkbox', 'toggle'] as const;
 export type WebDataGridCellKind = (typeof WEB_DATA_GRID_CELL_KINDS)[number];
@@ -38,6 +62,7 @@ export interface WebDataGridConfiguration {
   readonly apiClientId: string | null;
   readonly operationId: string | null;
   readonly listPath: string;
+  readonly graphql?: WebDataGridGraphQLConfiguration;
   readonly columnCount: number;
   readonly showHeader: boolean;
   readonly stickyHeader: boolean;
@@ -219,8 +244,29 @@ function normalizeColumn(value: unknown, index: number): WebDataGridColumn {
   };
 }
 
+function normalizeGraphQLConfiguration(value: unknown): WebDataGridGraphQLConfiguration | undefined {
+  if (
+    !isRecord(value) ||
+    typeof value.sourceId !== 'string' ||
+    value.sourceId.length === 0
+  ) {
+    return undefined;
+  }
+  return {
+    sourceId: value.sourceId,
+    operationId: typeof value.operationId === 'string' ? value.operationId : null,
+    pageSize: Math.trunc(finiteNumberInRange(value.pageSize, 20, 1, 1_000)),
+    showPager: value.showPager !== false,
+    crudEnabled: value.crudEnabled === true,
+    insertOperationId: typeof value.insertOperationId === 'string' ? value.insertOperationId : null,
+    updateOperationId: typeof value.updateOperationId === 'string' ? value.updateOperationId : null,
+    deleteOperationId: typeof value.deleteOperationId === 'string' ? value.deleteOperationId : null,
+  };
+}
+
 export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridConfiguration {
   const source = isRecord(value) ? value : {};
+  const graphql = normalizeGraphQLConfiguration(source.graphql);
   const columns = Array.isArray(source.columns)
     ? source.columns.slice(0, 50).map(normalizeColumn)
     : [];
@@ -255,6 +301,7 @@ export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridCo
     apiClientId: typeof source.apiClientId === 'string' ? source.apiClientId : null,
     operationId: typeof source.operationId === 'string' ? source.operationId : null,
     listPath: typeof source.listPath === 'string' ? source.listPath : '',
+    ...(graphql === undefined ? {} : { graphql }),
     columnCount: normalizedColumns.length,
     showHeader: source.showHeader !== false,
     stickyHeader: source.stickyHeader !== false,
@@ -482,14 +529,16 @@ function applyGridLayout(
   content: HTMLDivElement,
   configuration: WebDataGridConfiguration,
   availableWidth: number,
+  actionWidth: number,
 ): void {
+  const tracks = gridTemplateColumns(configuration.columns, availableWidth - actionWidth);
   content.style.setProperty(
     '--wr-data-grid-columns',
-    gridTemplateColumns(configuration.columns, availableWidth),
+    actionWidth > 0 ? `${tracks} ${String(actionWidth)}px` : tracks,
   );
   content.style.setProperty(
     '--wr-data-grid-min-width',
-    `${String(minimumGridWidth(configuration.columns))}px`,
+    `${String(minimumGridWidth(configuration.columns) + actionWidth)}px`,
   );
   content.style.setProperty(
     '--wr-data-grid-fixed-row-height',
@@ -524,9 +573,8 @@ function applyGridLayout(
 }
 
 /**
- * A visual grid which projects the latest result of a configured named
- * WebApiClient operation. It never triggers a request; authored page code owns
- * execution through `api.execute(...)`.
+ * Projects a WebApiClient result or manages a GraphQL query and its cursor pages.
+ * GraphQL mutations are staged locally until the application calls SaveChanges.
  */
 export class WebDataGrid extends WebComponent<HTMLDivElement> {
   #toggles: WebToggle[] = [];
@@ -536,6 +584,11 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   #resizeObserver: ResizeObserver | null = null;
   #renderGeneration = 0;
   #disposed = false;
+  #graphql = new DataGridGraphQL(
+    () => this.#render(),
+    (name, detail) => { this.emit(name, detail); },
+  );
+  #graphqlEditor: { readonly dialog: HTMLDialogElement; readonly generation: number } | null = null;
 
   public constructor(element: HTMLElement) {
     if (!(element instanceof HTMLDivElement)) {
@@ -550,6 +603,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
 
   public set configuration(value: WebDataGridConfiguration) {
     this.#configuration = normalizeWebDataGridConfiguration(value);
+    this.#graphql.configure(this.#configuration.graphql);
     this.#render();
   }
 
@@ -577,6 +631,66 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
     this.#apiClient = apiClient;
     if (apiClient !== null) this.#unsubscribe = apiClient.subscribe(() => this.#render());
     this.#render();
+  }
+
+  public bindGraphQL(source: WebGraphQLSource | null): void {
+    this.#graphql.bind(source);
+    this.#render();
+  }
+
+  public get pendingChanges(): readonly WebDataGridPendingChange[] {
+    return this.#graphql.pendingChanges;
+  }
+
+  public Refresh(variables?: WebDataGridMutationValues): Promise<void> {
+    return this.#graphql.refresh(variables);
+  }
+
+  public NextPage(): Promise<void> {
+    return this.#graphql.nextPage();
+  }
+
+  public PreviousPage(): Promise<void> {
+    return this.#graphql.previousPage();
+  }
+
+  public Insert(values: WebDataGridMutationValues): void {
+    this.#graphql.stage('insert', null, values);
+  }
+
+  public Update(row: object, values: WebDataGridMutationValues): void {
+    if (!isRecord(row)) throw new TypeError('Select a GraphQL record to update.');
+    this.#graphql.stage('update', row as WebGraphQLRow, values);
+  }
+
+  public Delete(row: object): void {
+    if (!isRecord(row)) throw new TypeError('Select a GraphQL record to delete.');
+    this.#graphql.stage('delete', row as WebGraphQLRow, {});
+  }
+
+  public CancelChanges(): void {
+    this.#graphql.cancelChanges();
+  }
+
+  public SaveChanges(): Promise<void> {
+    return this.#graphql.saveChanges();
+  }
+
+  public set onChangesChanged(handler: WebDataGridGraphQLEventHandler<this, WebDataGridChangesEventDetail> | null) {
+    this.#bindGraphQLEvent('OnChangesChanged', handler);
+  }
+
+  public set onSaveChanges(handler: WebDataGridGraphQLEventHandler<this, WebDataGridSaveChangesEventDetail> | null) {
+    this.#bindGraphQLEvent('OnSaveChanges', handler);
+  }
+
+  public set onSaveError(handler: WebDataGridGraphQLEventHandler<this, WebDataGridSaveErrorEventDetail> | null) {
+    this.#bindGraphQLEvent('OnSaveError', handler);
+  }
+
+  #bindGraphQLEvent<TDetail>(eventName: string, handler: WebDataGridGraphQLEventHandler<this, TDetail> | null): void {
+    this.bindEvent(eventName, handler === null ? null :
+      (sender, event) => handler(sender, event as CustomEvent<TDetail>));
   }
 
   public override bindEvent(
@@ -610,14 +724,82 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
     return this.#apiClient.getList<unknown>(operation.name, listPath);
   }
 
+  #restoreGridAction(action: string): void {
+    const candidates = [...this.element.querySelectorAll<HTMLElement>('[data-webrad-grid-action]')];
+    const control = candidates.find((candidate) => candidate.dataset.webradGridAction === action);
+    if (control instanceof HTMLButtonElement && control.disabled) {
+      candidates.find((candidate) => candidate.dataset.webradGridAction === 'page-summary')?.focus({ preventScroll: true });
+      return;
+    }
+    control?.focus({ preventScroll: true });
+  }
+
+  #openGraphQLGridEditor(kind: 'insert' | 'update', record?: DataGridGraphQLRow): void {
+    if (this.#graphqlEditor !== null) return;
+    const document = this.element.ownerDocument;
+    const target = document.activeElement;
+    const action = target instanceof HTMLElement ? target.dataset.webradGridAction : undefined;
+    const dialog = openGraphQLGridEditor(document, this.#graphql, kind, record?.original ?? null,
+      record?.draft ?? null, () => {
+        this.#graphqlEditor = null;
+        if (action !== undefined && !this.#disposed) this.#restoreGridAction(action);
+      });
+    if (dialog !== null) this.#graphqlEditor = { dialog, generation: this.#graphql.generation };
+  }
+
+  #graphQLRowActions(document: Document, record: DataGridGraphQLRow, rowIndex: number): HTMLDivElement {
+    const cell = document.createElement('div');
+    cell.className = 'wr-data-grid-cell wr-data-grid-graphql-row-actions';
+    cell.setAttribute('role', 'gridcell');
+    cell.setAttribute('aria-colindex', String(this.#configuration.columnCount + 1));
+    const draft = record.draft;
+    const suffix = String(rowIndex + 1);
+    if (draft !== null) {
+      const state = document.createElement('span');
+      state.className = 'wr-data-grid-graphql-draft';
+      state.textContent = draft.outcome === 'uncertain' ? 'Review' : draft.kind === 'delete' ? 'Delete pending' : 'Draft';
+      cell.append(state);
+      cell.append(gridAction(document, `undo-${suffix}`, 'Undo', () => this.#graphql.cancelChanges(draft.id), this.#graphql.saving));
+    }
+    const kind = record.original === null ? 'insert' : 'update';
+    if (draft?.kind !== 'delete' && draft?.outcome !== 'uncertain' && this.#graphql.mutation(kind, record.original) !== undefined) {
+      cell.append(gridAction(document, `edit-${suffix}`, 'Edit', () => this.#openGraphQLGridEditor(kind, record), this.#graphql.saving));
+    }
+    if (draft?.kind !== 'delete' && draft?.outcome !== 'uncertain' && record.original !== null &&
+        this.#graphql.mutation('delete', record.original) !== undefined) {
+      const original = record.original;
+      cell.append(gridAction(document, `delete-${suffix}`, 'Delete', () => {
+        try {
+          this.Delete(original);
+        } catch (reason: unknown) {
+          this.#graphql.showDraftError(reason);
+        }
+      }, this.#graphql.saving));
+    }
+    return cell;
+  }
+
   #render(): void {
+    if (this.#disposed) return;
     this.#renderGeneration += 1;
     for (const toggle of this.#toggles) toggle.dispose();
     this.#toggles = [];
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = null;
     const document = this.element.ownerDocument;
+    const target = document.activeElement;
+    const action = target instanceof HTMLElement && this.element.contains(target)
+      ? target.dataset.webradGridAction : undefined;
     const configuration = this.#configuration;
+    const graphql = this.#graphql.enabled;
+    const rowActions = graphql && this.#graphql.hasRowActions;
+    const actionWidth = rowActions ? 184 : 0;
+    const columnCount = configuration.columnCount + Number(rowActions);
+    if (this.#graphqlEditor !== null && this.#graphqlEditor.generation !== this.#graphql.generation) {
+      this.#graphqlEditor.dialog.close();
+      this.#graphqlEditor = null;
+    }
+    this.element.toggleAttribute('data-webrad-grid-graphql', graphql);
     const scroll = document.createElement('div');
     scroll.className = 'wr-data-grid-scroll';
     scroll.setAttribute('role', 'grid');
@@ -625,7 +807,8 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       'aria-label',
       this.element.getAttribute('aria-label') ?? (this.name || 'Data Grid'),
     );
-    scroll.setAttribute('aria-colcount', String(configuration.columnCount));
+    scroll.setAttribute('aria-colcount', String(columnCount));
+    if (graphql) scroll.setAttribute('aria-busy', String(this.#graphql.loading));
     const content = document.createElement('div');
     content.className = [
       'wr-data-grid-content',
@@ -638,7 +821,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
     ]
       .filter((className) => className.length > 0)
       .join(' ');
-    applyGridLayout(content, configuration, minimumGridWidth(configuration.columns));
+    applyGridLayout(content, configuration, minimumGridWidth(configuration.columns) + actionWidth, actionWidth);
 
     if (configuration.showHeader) {
       const header = document.createElement('div');
@@ -663,13 +846,22 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
         cell.style.textAlign = column.headerAlign;
         cell.textContent = column.header;
       }
+      if (rowActions) {
+        const cell = document.createElement('div');
+        cell.className = 'wr-data-grid-cell wr-data-grid-header-cell';
+        cell.setAttribute('role', 'columnheader');
+        cell.setAttribute('aria-colindex', String(columnCount));
+        cell.textContent = 'Actions';
+        header.append(cell);
+      }
       content.append(header);
     }
 
     const body = document.createElement('div');
     body.className = 'wr-data-grid-body';
     body.setAttribute('role', 'rowgroup');
-    const rows = this.#rows();
+    const graphQLRows = graphql ? this.#graphql.rows : [];
+    const rows = graphql ? graphQLRows.map((record) => record.value) : this.#rows();
     const headerRowCount = configuration.showHeader ? 1 : 0;
     const bodyRowCount = Math.max(1, rows.length);
     scroll.setAttribute(
@@ -681,6 +873,10 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       row.className = 'wr-data-grid-row wr-data-grid-body-row';
       row.setAttribute('role', 'row');
       row.setAttribute('aria-rowindex', String(rowIndex + headerRowCount + 1));
+      const graphQLRow = graphQLRows[rowIndex];
+      if (graphQLRow?.draft !== null && graphQLRow?.draft !== undefined) {
+        row.dataset.webradGridDraft = graphQLRow.draft.kind;
+      }
       const getValue = dataGridRowValues(rowValue);
       for (const [columnIndex, column] of configuration.columns.entries()) {
         const value = dataGridRowValue(rowValue, column.fieldPath);
@@ -725,6 +921,9 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
           ),
         );
       }
+      if (rowActions && graphQLRow !== undefined) {
+        row.append(this.#graphQLRowActions(document, graphQLRow, rowIndex));
+      }
       body.append(row);
     }
     if (rows.length === 0) {
@@ -736,9 +935,10 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       cell.className = 'wr-data-grid-cell wr-data-grid-empty';
       cell.setAttribute('role', 'gridcell');
       cell.setAttribute('aria-colindex', '1');
-      cell.setAttribute('aria-colspan', String(configuration.columnCount));
-      cell.style.gridColumn = `1 / span ${String(configuration.columnCount)}`;
-      cell.textContent = configuration.emptyMessage;
+      cell.setAttribute('aria-colspan', String(columnCount));
+      cell.style.gridColumn = `1 / span ${String(columnCount)}`;
+      cell.textContent = graphql && !this.#graphql.authenticated ? 'Sign in to load records.' :
+        graphql && this.#graphql.loading ? 'Loading records…' : configuration.emptyMessage;
       row.append(cell);
       body.append(row);
     }
@@ -766,16 +966,29 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
         );
         cell.textContent = column.footer;
       }
+      if (rowActions) {
+        const cell = document.createElement('div');
+        cell.className = 'wr-data-grid-cell wr-data-grid-footer-cell';
+        cell.setAttribute('role', 'gridcell');
+        cell.setAttribute('aria-colindex', String(columnCount));
+        footer.append(cell);
+      }
       content.append(footer);
     }
 
     scroll.append(content);
-    this.element.replaceChildren(scroll);
+    if (graphql) {
+      this.element.replaceChildren(scroll, graphQLGridTools(document, this.#graphql, () => this.#openGraphQLGridEditor('insert')));
+    } else {
+      this.element.replaceChildren(scroll);
+    }
+    if (action !== undefined) this.#restoreGridAction(action);
     const updateColumnTracks = (): void => {
       applyGridLayout(
         content,
         configuration,
-        Math.max(scroll.clientWidth, minimumGridWidth(configuration.columns)),
+        Math.max(scroll.clientWidth, minimumGridWidth(configuration.columns) + actionWidth),
+        actionWidth,
       );
     };
     updateColumnTracks();
@@ -787,6 +1000,9 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
 
   public override dispose(): void {
     this.#disposed = true;
+    this.#graphqlEditor?.dialog.close();
+    this.#graphqlEditor = null;
+    this.#graphql.dispose();
     for (const toggle of this.#toggles) toggle.dispose();
     this.#toggles = [];
     this.#unsubscribe?.();

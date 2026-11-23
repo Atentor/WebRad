@@ -789,6 +789,18 @@ Escape, then applies GET/PUT drafts. Applying and cancelling must not write to
 RestGO before Save endpoint. The original server-save and imported-client
 synchronization assertions remain required. This updated flow has not been run.
 
+Both runners require `renderer RestGO GraphQL operation editor passed:`. The IDE
+opens GraphQL from RestGO, reads an authenticated fixture schema and creates a
+query by choosing a published table, a typed filter parameter and return fields.
+The flow saves the project, verifies the persisted operation, captures a
+presented editor frame and checks that authoring uses read-only RestGo requests.
+This flow has not been run.
+
+Both runners require `renderer GraphQL Data Grid compiled runtime passed:`. The
+compiled browser fixture exercises Data Grid cursor navigation, a ComboBox with
+independent labels and keys, record drafts, undo and an explicit change save.
+This flow has not been run.
+
 Both runners require `renderer Payments Inspector and Interact passed:` and
 `renderer Payments compiled runtime passed:`. The existing nonvisual Inspector
 flow inserts Payments, edits gateway/mode, checks the three default-on automation

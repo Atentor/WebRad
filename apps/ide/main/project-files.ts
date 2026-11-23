@@ -549,7 +549,10 @@ async function saveProjectFilesUnlocked(
       kind: 'generated',
       relativePath: descriptor.generatedFile,
       targetPath: await resolveInsideProjectSecure(rootPath, descriptor.generatedFile),
-      content: generatePageSource(page, { menus: project.menus }),
+      content: generatePageSource(page, {
+        menus: project.menus,
+        graphQLOperations: project.settings.graphQLOperations,
+      }),
     });
     const sourceKey = descriptor.codeFile.replaceAll('\\', '/');
     const userFilePath = await resolveInsideProjectSecure(rootPath, descriptor.codeFile);
@@ -619,7 +622,10 @@ async function saveProjectFilesUnlocked(
       kind: 'reusable-generated',
       relativePath: generatedPath,
       targetPath: await resolveInsideProjectSecure(rootPath, generatedPath),
-      content: generateReusableElementSource(reusableElement, { menus: project.menus }),
+      content: generateReusableElementSource(reusableElement, {
+        menus: project.menus,
+        graphQLOperations: project.settings.graphQLOperations,
+      }),
     });
     const sourceKey = reusableSourcePathFor(reusableElement);
     let userSource = request.userSources[sourceKey];

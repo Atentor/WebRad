@@ -26,6 +26,8 @@ export interface TransportRequest extends RestGoRequestOptions {
   binary?: boolean;
   /** Resumable writes must reconcile their offset after session renewal. */
   retryUnauthorized?: boolean;
+  /** A prepared GraphQL request must stay bound to the initiating user session. */
+  requireStableSession?: boolean;
 }
 
 export class RestGoTransport {
@@ -91,8 +93,12 @@ export class RestGoTransport {
         return failure('Use the auth option to choose credentials.', 'INVALID_ARGUMENT');
       }
       if (!options.token && (mode === 'session' || (mode === 'auto' && this.session()))) {
+        const sessionVersion = this.sessionVersion();
         const prepared = await this.prepareSession();
         if (prepared.error) return prepared;
+        if (options.requireStableSession && sessionVersion !== this.sessionVersion()) {
+          return failure('The RestGo session changed before the request.', 'AUTH_OPERATION_CANCELLED');
+        }
         if (options.signal?.aborted) return failure('RestGo request was aborted.', 'ABORTED');
       }
       const session = this.session();

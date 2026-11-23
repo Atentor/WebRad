@@ -71,6 +71,8 @@ function fakeBridge(session: ProjectSession): WebRadBridge {
       connect: vi.fn(),
       disconnect: vi.fn(),
       catalog: vi.fn(async () => ({ endpoints: [], bancos: [], publications: [], operations: [] })),
+      graphqlDatabases: vi.fn(),
+      graphqlSchema: vi.fn(),
       getEndpoint: vi.fn(),
       saveEndpoint: vi.fn(),
       setEndpointActive: vi.fn(),

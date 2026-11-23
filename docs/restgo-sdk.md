@@ -24,6 +24,10 @@ metadata, jobs, and HLS descriptors. The nonvisual `WebVideoUpload` integrates i
 with Designer, Monaco, and Preview. These routes use the Authentication session,
 never the application API token. See [Video Upload](video-upload.md).
 
+The nonvisual `WebGraphQL` runs named project queries and mutations against a
+published RestGo database with the application's Authentication session.
+[RestGo GraphQL in WebRAD](restgo-graphql.md)
+
 ## Self-service account editing
 
 `RestGO.auth.updateUser({ fullName?, email?, password?, currentPassword?, emailConfirmationUrl? }, { signal? })`

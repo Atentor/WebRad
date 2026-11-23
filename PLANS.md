@@ -1,5 +1,18 @@
 # WebRAD delivery plan
 
+## RestGo GraphQL operations and Data Grid editing
+
+The RestGO GraphQL workspace reads published schemas from RestGo and stores
+named queries and mutations in the WebRAD project. The generated browser runtime
+runs them with the current RestGo user session. WebGraphQL exposes typed
+operation names, variables, results, and events in page and reusable code.
+
+Data Grid and ComboBox can bind the saved queries. The Data Grid uses cursor
+navigation and allows opt-in insert, update, and delete actions with local
+drafts. Page code chooses when to call `SaveChanges()` using
+`OnChangesChanged` or a separate Save action. RestGo owns schema publication
+and permissions. See [RestGo GraphQL in WebRAD](docs/restgo-graphql.md).
+
 ## Ubuntu packaged workbench resize on v0.0.40 (2026-11-20)
 
 The tag's Ubuntu quality job passed validation and the development smoke. Its

@@ -17,6 +17,7 @@ import type {
   PageModel,
   ReusableElementModel,
 } from '@webrad/project-model';
+import { normalizeDataGridConfiguration } from '@webrad/project-model';
 import { WEBRAD_ICON_NAMES, isWebRadIconName, webRadIconLabel } from '@webrad/runtime/icons';
 import {
   useContext,
@@ -867,7 +868,14 @@ function PropertyEditor({
         'repeating-group-config': 'Configure Repeating Group',
         'current-row-bindings': 'Bind Current Row',
       }[property.type];
-      return (
+      const configuration = property.type === 'data-grid-config' && !multiple
+        ? normalizeDataGridConfiguration(value)
+        : undefined;
+      const graphql = configuration?.graphql;
+      const open = (): void => {
+        if (action !== undefined) onDesignerAction?.(action);
+      };
+      const button = (
         <button
           id={id}
           type="button"
@@ -876,12 +884,32 @@ function PropertyEditor({
           aria-haspopup="dialog"
           disabled={disabled || multiple || action === undefined}
           title={property.description}
-          onClick={() => {
-            if (action !== undefined) onDesignerAction?.(action);
-          }}
+          onClick={open}
         >
           {label}…
         </button>
+      );
+      if (configuration === undefined || graphql === undefined) return button;
+      return (
+        <div className="wr-inspector-grid-config">
+          {button}
+          <label>
+            <input
+              type="checkbox"
+              checked={graphql.crudEnabled}
+              disabled={disabled}
+              onChange={(event) => {
+                const crudEnabled = event.currentTarget.checked;
+                if (crudEnabled && [graphql.insertOperationId, graphql.updateOperationId, graphql.deleteOperationId].every((id) => id === null)) {
+                  open();
+                  return;
+                }
+                onChange({ ...configuration, graphql: { ...graphql, crudEnabled } });
+              }}
+            />
+            <span>Enable CRUD</span>
+          </label>
+        </div>
       );
     }
   }

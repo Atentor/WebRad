@@ -10,7 +10,7 @@ import type {
 import type { NativeBuildProgress, NativeBuildResponse } from '../shared/native-build-contracts';
 import type { NativePrerequisiteReport } from '@webrad/native-build/contracts';
 import type { RestGoDevelopmentStatus } from '../shared/restgo-development';
-import type { ProjectAsset } from '@webrad/project-model';
+import type { GraphQLSchema, ProjectAsset } from '@webrad/project-model';
 import type { ExternalLinkTarget } from '../shared/external-links';
 import type {
   DebugEvent,
@@ -23,6 +23,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   RestGoAdminCatalog,
   RestGoAdminEndpoint,
+  RestGoAdminGraphQLDatabase,
   RestGoAdminPublication,
   RestGoAdminStatus,
 } from '../shared/restgo-admin';
@@ -186,6 +187,12 @@ const bridge: WebRadBridge = {
       ipcRenderer.invoke('webrad:restgo-admin:disconnect', request) as Promise<void>,
     catalog: (request) =>
       ipcRenderer.invoke('webrad:restgo-admin:catalog', request) as Promise<RestGoAdminCatalog>,
+    graphqlDatabases: (request) =>
+      ipcRenderer.invoke('webrad:restgo-admin:graphql-databases', request) as Promise<
+        readonly RestGoAdminGraphQLDatabase[]
+      >,
+    graphqlSchema: (request) =>
+      ipcRenderer.invoke('webrad:restgo-admin:graphql-schema', request) as Promise<GraphQLSchema>,
     getEndpoint: (request) =>
       ipcRenderer.invoke(
         'webrad:restgo-admin:get-endpoint',

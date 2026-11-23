@@ -4,6 +4,7 @@ export interface WebComboBoxConfiguration {
   readonly apiClientId: string | null;
   readonly operationId: string | null;
   readonly listPath: string;
+  readonly graphql?: { readonly sourceId: string; readonly operationId: string | null };
   readonly displayField: string;
   readonly keyField: string;
 }
@@ -12,11 +13,16 @@ export function normalizeWebComboBoxConfiguration(value: unknown): WebComboBoxCo
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   const source = value as Readonly<Record<string, unknown>>;
   if (source.schemaVersion !== 1) return null;
+  const binding = source.graphql as Readonly<Record<string, unknown>> | null | undefined;
+  const graphql = typeof binding?.sourceId === 'string'
+    ? { sourceId: binding.sourceId, operationId: typeof binding.operationId === 'string' ? binding.operationId : null }
+    : undefined;
   return {
     schemaVersion: 1,
-    apiClientId: typeof source.apiClientId === 'string' ? source.apiClientId : null,
+    apiClientId: graphql === undefined && typeof source.apiClientId === 'string' ? source.apiClientId : null,
     operationId: typeof source.operationId === 'string' ? source.operationId : null,
     listPath: typeof source.listPath === 'string' ? source.listPath : '',
+    ...(graphql === undefined ? {} : { graphql }),
     displayField: typeof source.displayField === 'string' ? source.displayField : '',
     keyField: typeof source.keyField === 'string' ? source.keyField : '',
   };

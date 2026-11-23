@@ -1,4 +1,8 @@
-import { RestGoProjectSettingsSchema, type RestGoProjectSettings } from '@webrad/project-model';
+import {
+  RestGoProjectSettingsSchema,
+  type ProjectGraphQLOperation,
+  type RestGoProjectSettings,
+} from '@webrad/project-model';
 import {
   useCallback,
   useEffect,
@@ -28,6 +32,7 @@ import {
 } from './restgo-workspace-model';
 import './restgo-workspace.css';
 import { RestGoConnectionPanel } from './RestGoConnectionPanel';
+import { RestGoGraphQLWorkspace } from './RestGoGraphQLWorkspace';
 import { RestGoPublishedApis } from './RestGoPublishedApis';
 
 interface RestGoWorkspaceProps {
@@ -36,6 +41,10 @@ interface RestGoWorkspaceProps {
   readonly section: RestGoSection;
   readonly onSectionChange?: (section: RestGoSection) => void;
   readonly onSaveSettings: (settings: RestGoProjectSettings) => void | Promise<void>;
+  readonly graphQLOperations?: readonly ProjectGraphQLOperation[];
+  readonly onSaveGraphQLOperations?: (
+    operations: readonly ProjectGraphQLOperation[],
+  ) => void | Promise<void>;
   readonly onPendingChangesChange?: (pending: boolean) => void;
   readonly onCatalogChange?: (
     catalog: RestGoAdminCatalog,
@@ -65,6 +74,10 @@ const SECTION_TITLES: Readonly<
   endpoints: {
     title: 'Endpoints',
     description: 'Create SQL endpoints, connect API Operations, and publish versions.',
+  },
+  graphql: {
+    title: 'GraphQL',
+    description: 'Build project operations from tables already published in RestGO.',
   },
 };
 
@@ -105,6 +118,8 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   const [selectedGroup, setSelectedGroup] = useState<RestGoEndpointGroup | null>(null);
   const [creatingEndpoint, setCreatingEndpoint] = useState(false);
   const [endpointDirty, setEndpointDirty] = useState(false);
+  const [graphQLDirty, setGraphQLDirty] = useState(false);
+  const [graphQLRefreshVersion, setGraphQLRefreshVersion] = useState(0);
   const [editorRevision, setEditorRevision] = useState(0);
   const baseUrl = normalizedBaseUrl(settings.baseUrl);
   const scope = `${projectId}:${baseUrl}`;
@@ -130,8 +145,8 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   const busy = pending !== null || checking;
   const settingsDirty = JSON.stringify(draftSettings) !== JSON.stringify(settings);
   useEffect(() => {
-    onPendingChangesChange?.(settingsDirty || endpointDirty);
-  }, [settingsDirty, endpointDirty, onPendingChangesChange]);
+    onPendingChangesChange?.(settingsDirty || endpointDirty || graphQLDirty);
+  }, [settingsDirty, endpointDirty, graphQLDirty, onPendingChangesChange]);
   useEffect(
     () => () => {
       onPendingChangesChange?.(false);
@@ -259,10 +274,24 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   }, [baseUrl, scope, projectId, onCatalogChange]);
 
   const refresh = (): void => {
+    if (section === 'graphql') {
+      setGraphQLRefreshVersion((version) => version + 1);
+      return;
+    }
     void perform('Refreshing RestGO', reloadCatalog, 'RestGO catalog updated.').catch(
       () => undefined,
     );
   };
+
+  const refreshAdminStatus = useCallback((): void => {
+    void window.webrad.restgoAdmin
+      .status({ baseUrl })
+      .then((next) => {
+        if (currentScope.current === scope) setStatus(next);
+      })
+      .catch(() => undefined);
+  }, [baseUrl, scope]);
+
   const saveSettings = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
     setSettingsError(null);
@@ -271,8 +300,12 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       setSettingsError(validation.error.issues[0]?.message ?? 'Check the RestGO configuration.');
       return;
     }
-    if (endpointDirty && normalizedBaseUrl(validation.data.baseUrl) !== baseUrl) {
-      setSettingsError('Save or discard the endpoint changes before switching RestGO instances.');
+    if ((endpointDirty || graphQLDirty) && normalizedBaseUrl(validation.data.baseUrl) !== baseUrl) {
+      setSettingsError(
+        graphQLDirty
+          ? 'Save or discard the pending RestGO edits before switching instances.'
+          : 'Save or discard the endpoint changes before switching RestGO instances.',
+      );
       return;
     }
     try {
@@ -561,7 +594,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       )}
       <div
         className={
-          section === 'endpoints' && !requiresConnection
+          (section === 'endpoints' || section === 'graphql') && !requiresConnection
             ? 'wr-restgo-workspace-body is-endpoints'
             : 'wr-restgo-workspace-body'
         }
@@ -627,6 +660,16 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
 
           openEndpoint={openEndpoint}
           setPublicationActive={setPublicationActive}
+        />
+        <RestGoGraphQLWorkspace
+          active={section === 'graphql' && !requiresConnection}
+          baseUrl={baseUrl}
+          defaultDatabase={settings.defaultDatabase}
+          refreshVersion={graphQLRefreshVersion}
+          operations={props.graphQLOperations ?? []}
+          onSave={props.onSaveGraphQLOperations}
+          onDirtyChange={setGraphQLDirty}
+          onMetadataFailure={refreshAdminStatus}
         />
         <div
           hidden={section !== 'endpoints' || requiresConnection}

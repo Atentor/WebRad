@@ -1,5 +1,6 @@
 import timerTypings from './timer-typings.generated.json';
 import paymentsTypings from './payments-typings.generated.json';
+import graphqlTypings from './graphql-typings.generated.json';
 import htmlTypings from './html-typings.generated.json';
 import dateTypings from './date-typings.generated.json';
 import editTypings from './edit-typings.generated.json';
@@ -69,6 +70,7 @@ const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
   }
 ${timerTypings.source}
 ${paymentsTypings.source}
+${graphqlTypings.source}
 ${htmlTypings.source}
 ${dateTypings.source}
 ${editTypings.source}
@@ -153,6 +155,7 @@ ${chartsTypings.source}
     readonly apiClientId: string | null;
     readonly operationId: string | null;
     readonly listPath: string;
+    readonly graphql?: WebDataGridGraphQLConfiguration;
     readonly columnCount: number;
     readonly showHeader: boolean;
     readonly stickyHeader: boolean;
@@ -208,6 +211,19 @@ ${chartsTypings.source}
     dataGridConfig: WebDataGridConfiguration;
     set onCalcCell(handler: WebDataGridCalcCellEventHandler<this> | null);
     bindApiClient(apiClient: WebApiClient | null): void;
+    bindGraphQL(source: WebGraphQLSource | null): void;
+    readonly pendingChanges: readonly WebDataGridPendingChange[];
+    Refresh(variables?: WebDataGridMutationValues): Promise<void>;
+    NextPage(): Promise<void>;
+    PreviousPage(): Promise<void>;
+    Insert(values: WebDataGridMutationValues): void;
+    Update(row: object, values: WebDataGridMutationValues): void;
+    Delete(row: object): void;
+    CancelChanges(): void;
+    SaveChanges(): Promise<void>;
+    set onChangesChanged(handler: WebDataGridGraphQLEventHandler<this, WebDataGridChangesEventDetail> | null);
+    set onSaveChanges(handler: WebDataGridGraphQLEventHandler<this, WebDataGridSaveChangesEventDetail> | null);
+    set onSaveError(handler: WebDataGridGraphQLEventHandler<this, WebDataGridSaveErrorEventDetail> | null);
   }
 
   /** Base browser-side wrapper shared by every visual WebRAD component. */
@@ -621,6 +637,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly apiClientId: string | null;
     readonly operationId: string | null;
     readonly listPath: string;
+    readonly graphql?: { readonly sourceId: string; readonly operationId: string | null };
     readonly displayField: string;
     readonly keyField: string;
   }
@@ -635,6 +652,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     set items(items: readonly (string | WebSelectItem)[]);
     comboBoxConfig: WebComboBoxConfiguration | null;
     bindApiClient(apiClient: WebApiClient | null): void;
+    bindGraphQL(source: WebGraphQLSource | null): void;
     override dispose(): void;
     set onChange(handler: WebComponentEventHandler<this> | null);
   }

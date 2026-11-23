@@ -1,3 +1,5 @@
+import type { GraphQLSchema } from '@webrad/project-model';
+
 /** Design-time RestGo administration. These credentials never belong to a project or runtime. */
 export type RestGoAdminHttpMethod =
   'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
@@ -91,6 +93,15 @@ export interface RestGoAdminCatalog {
   readonly operations: readonly RestGoAdminOperation[];
 }
 
+export interface RestGoAdminGraphQLDatabase {
+  readonly id: number;
+  readonly name: string;
+  readonly slug: string;
+  readonly endpoint: string;
+  readonly defaultPageSize: number;
+  readonly maxPageSize: number;
+}
+
 export interface RestGoAdminRecordRequest extends RestGoAdminTarget {
   readonly id: number;
 }
@@ -116,6 +127,8 @@ export interface RestGoAdminBridge {
   /** Removes both the current session token and any remembered credential for this instance. */
   disconnect(request: RestGoAdminTarget): Promise<void>;
   catalog(request: RestGoAdminTarget): Promise<RestGoAdminCatalog>;
+  graphqlDatabases(request: RestGoAdminTarget): Promise<readonly RestGoAdminGraphQLDatabase[]>;
+  graphqlSchema(request: RestGoAdminRecordRequest): Promise<GraphQLSchema>;
   getEndpoint(request: RestGoAdminRecordRequest): Promise<RestGoAdminEndpoint>;
   saveEndpoint(request: RestGoAdminSaveEndpointRequest): Promise<RestGoAdminEndpoint>;
   setEndpointActive(request: RestGoAdminStateRequest): Promise<void>;

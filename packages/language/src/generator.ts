@@ -1,5 +1,9 @@
 import { createDefaultReportTemplate, parseReportTemplate } from '@webrad/runtime/report-template';
-import { getApiClientBodyInputs, type WebApiBodyInput } from '@webrad/runtime';
+import {
+  getApiClientBodyInputs,
+  type WebApiBodyInput,
+  type WebGraphQLParameter,
+} from '@webrad/runtime';
 import { defaultComponentRegistry, type ComponentRegistry } from '@webrad/component-registry';
 import {
   pageClassName,
@@ -16,6 +20,7 @@ import {
   type PageModel,
   type ReusableElementModel,
   type MenuDefinitionModel,
+  type ProjectGraphQLOperation,
 } from '@webrad/project-model';
 import { COMPONENT_SCOPE_PREFIX, componentReferenceScope } from './component-references.js';
 import { repeatingGroupForComponent } from './repeating-context.js';
@@ -24,6 +29,7 @@ import { pageParameterProperties, pageParameterTypeName } from './navigation-typ
 
 export interface GeneratePageOptions {
   readonly menus?: readonly MenuDefinitionModel[];
+  readonly graphQLOperations?: readonly ProjectGraphQLOperation[];
   readonly registry?: ComponentRegistry;
   readonly runtimeModule?: string;
   readonly generatedSuffix?: string;
@@ -64,6 +70,9 @@ function runtimeTypes(page: PageModel, kind: GeneratedDocumentKind): readonly st
         : []),
       ...(page.components.some((component) => component.type === 'WebRepeatingGroup')
         ? ['WebRepeatingGroupCurrentRow']
+        : []),
+      ...(page.components.some((component) => component.type === 'WebGraphQL')
+        ? ['WebGraphQLPage', 'WebGraphQLMutationResult', 'WebGraphQLValue']
         : []),
     ]),
   ].sort();
@@ -260,6 +269,7 @@ function apiInputRecord(name: string, fields: readonly (readonly [string, string
 function boundRowTypeDeclarations(
   page: PageModel,
   componentType: 'WebRepeatingGroup' | 'WebDataGrid',
+  graphQLOperations: readonly ProjectGraphQLOperation[] = [],
 ): ApiClientTypeDeclarations {
   const declarations: string[] = [];
   const typeByComponentId = new Map<string, string>();
@@ -285,8 +295,14 @@ function boundRowTypeDeclarations(
       }
       return undefined;
     };
-    const list =
-      operation?.responseSchema == null ? undefined : findList(operation.responseSchema.root);
+    const graphQL = config.success && 'graphql' in config.data ? config.data.graphql : undefined;
+    const graphQLList = graphQLOperations.find(
+      (candidate) => candidate.id === graphQL?.operationId,
+    )?.responseSchema.root;
+    const apiList = operation?.responseSchema == null
+      ? undefined
+      : findList(operation.responseSchema.root);
+    const list = graphQLList?.kind === 'list' ? graphQLList : apiList;
     const builder: SchemaTypeBuilder = { declarations: [], next: 0 };
     const itemType =
       list === undefined || list.children.length === 0
@@ -309,6 +325,63 @@ function boundRowTypeDeclarations(
       typeByComponentId.set(group.id, `WebRepeatingGroup<${group.name}RowValue>`);
   }
   return { declarations, typeByComponentId };
+}
+
+function graphQLParameterType(parameter: WebGraphQLParameter, type = parameter.type): string {
+  const required = type.endsWith('!');
+  const inner = required ? type.slice(0, -1) : type;
+  const scalar = { integer: 'number', json: 'WebGraphQLValue' } as const;
+  const kind = parameter.kind;
+  const primitive = parameter.enumValues.length > 0
+    ? parameter.enumValues.map(quoted).join(' | ')
+    : kind === 'integer' || kind === 'json' ? scalar[kind] : kind;
+  const annotation = inner.startsWith('[')
+    ? `ReadonlyArray<${graphQLParameterType(parameter, inner.slice(1, -1))}>`
+    : primitive;
+  return required ? annotation : `${annotation} | null`;
+}
+
+function graphQLTypeDeclarations(
+  page: PageModel,
+  operations: readonly ProjectGraphQLOperation[],
+): ApiClientTypeDeclarations {
+  const components = page.components.filter((component) => component.type === 'WebGraphQL');
+  if (components.length === 0) return { declarations: [], typeByComponentId: new Map() };
+  const parameterType = `${pageClassName(page.name)}GraphQLParameters`;
+  const resultType = `${pageClassName(page.name)}GraphQLResults`;
+  const builder: SchemaTypeBuilder = { declarations: [], next: 0 };
+  const results = operations.map(({ name, runtime, responseSchema }) => {
+    const children = responseSchema.root.children;
+    const item = children[0];
+    const row = item?.path === '/*' && children.length === 1
+      ? schemaTypeName(item, `${resultType}Row`, builder)
+      : children.length > 0 ? schemaObjectTypeName(children, `${resultType}Row`, builder) : 'unknown';
+    const container = runtime.kind === 'query' ? 'WebGraphQLPage' : 'WebGraphQLMutationResult';
+    return `  readonly ${quoted(name)}: ${container}<${row}>;`;
+  });
+  return {
+    declarations: [
+      `export type ${parameterType} = {`,
+      ...operations.flatMap(({ name, runtime }) => [
+        `  readonly ${quoted(name)}: {`,
+        ...runtime.parameters.map((parameter) => {
+          const optional = parameter.required && parameter.defaultValue === undefined ? '' : '?';
+          return `    readonly ${quoted(parameter.name)}${optional}: ${graphQLParameterType(parameter)};`;
+        }),
+        '  };',
+      ]),
+      '};',
+      '',
+      ...builder.declarations,
+      `export type ${resultType} = {`,
+      ...results,
+      '};',
+      '',
+    ],
+    typeByComponentId: new Map(components.map((component) => [
+      component.id, `WebGraphQL<${parameterType}, ${resultType}>`,
+    ])),
+  };
 }
 
 function reportTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
@@ -342,21 +415,25 @@ function reportTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
 function documentTypeDeclarations(
   page: PageModel,
   menus: readonly MenuDefinitionModel[] = [],
+  graphQLOperations: readonly ProjectGraphQLOperation[] = [],
 ): ApiClientTypeDeclarations {
   const api = apiClientTypeDeclarations(page);
   const rows = boundRowTypeDeclarations(page, 'WebRepeatingGroup');
-  const gridRows = boundRowTypeDeclarations(page, 'WebDataGrid');
+  const gridRows = boundRowTypeDeclarations(page, 'WebDataGrid', graphQLOperations);
+  const graphQL = graphQLTypeDeclarations(page, graphQLOperations);
   const reports = reportTypeDeclarations(page);
   return {
     declarations: [
       ...api.declarations,
       ...rows.declarations,
       ...gridRows.declarations,
+      ...graphQL.declarations,
       ...reports.declarations,
     ],
     typeByComponentId: new Map([
       ...api.typeByComponentId,
       ...rows.typeByComponentId,
+      ...graphQL.typeByComponentId,
       ...reports.typeByComponentId,
       ...page.components.flatMap((component) => {
         const index = menus.findIndex((menu) => menu.id === component.props.menuDefinitionId);
@@ -382,7 +459,11 @@ function assignedEvents(page: PageModel): readonly {
 
 function apiListBindings(
   page: PageModel,
-): readonly { readonly grid: ComponentNode; readonly apiClient: ComponentNode }[] {
+): readonly {
+  readonly grid: ComponentNode;
+  readonly source: ComponentNode;
+  readonly method: 'bindApiClient' | 'bindGraphQL';
+}[] {
   return page.components.flatMap((grid) => {
     const configuration =
       grid.type === 'WebDataGrid'
@@ -393,12 +474,15 @@ function apiListBindings(
             ? ComboBoxConfigurationSchema.safeParse(grid.props.comboBoxConfig)
             : undefined;
     if (configuration === undefined) return [];
-    if (!configuration.success || configuration.data.apiClientId === null) return [];
-    const apiClient = page.components.find(
-      (component) =>
-        component.id === configuration.data.apiClientId && component.type === 'WebApiClient',
+    if (!configuration.success) return [];
+    const graphQL = 'graphql' in configuration.data ? configuration.data.graphql : undefined;
+    const sourceId = graphQL?.sourceId ?? configuration.data.apiClientId;
+    const type = graphQL === undefined ? 'WebApiClient' : 'WebGraphQL';
+    const source = page.components.find(
+      (component) => component.id === sourceId && component.type === type,
     );
-    return apiClient === undefined ? [] : [{ grid, apiClient }];
+    const method = graphQL === undefined ? 'bindApiClient' : 'bindGraphQL';
+    return source === undefined ? [] : [{ grid, source, method }];
   });
 }
 
@@ -443,6 +527,7 @@ function componentConstruction(
   registry: ComponentRegistry,
   apiClientTypes: ReadonlyMap<string, string>,
   elementId: string,
+  graphQLOperations: readonly ProjectGraphQLOperation[],
 ): string {
   const definition = registry.require(component.type);
   if (definition.visual) {
@@ -462,6 +547,9 @@ function componentConstruction(
       return [name, projection ? projection(value) : value];
     }),
   );
+  if (component.type === 'WebGraphQL') {
+    props.operations = graphQLOperations.map(({ runtime }) => runtime);
+  }
   const configuration =
     elementId === quoted(component.id) || !definition.instanceScopedRuntimeId
       ? JSON.stringify({ ...props, id: component.id, name: component.name })
@@ -586,7 +674,7 @@ function generateDocumentSource(
   const events = assignedEvents(page);
   const gridBindings = apiListBindings(page);
   const chartBindings = apiChartBindings(page);
-  const apiClientTypes = documentTypeDeclarations(page, options.menus);
+  const apiClientTypes = documentTypeDeclarations(page, options.menus, options.graphQLOperations);
   const isReusable = kind === 'reusable';
   const baseClass = isReusable
     ? 'WebReusableElementInstance'
@@ -653,6 +741,7 @@ function generateDocumentSource(
         registry,
         apiClientTypes.typeByComponentId,
         isReusable ? `this.componentId(${quoted(component.id)})` : quoted(component.id),
+        options.graphQLOperations ?? [],
       )};`,
     );
     lines.push(...componentInitialization(component));
@@ -683,7 +772,7 @@ function generateDocumentSource(
   }
   for (const binding of gridBindings) {
     if (repeatingGroupForComponent(page, binding.grid.id) !== undefined) continue;
-    lines.push(`    this.${binding.grid.name}.bindApiClient(this.${binding.apiClient.name});`);
+    lines.push(`    this.${binding.grid.name}.${binding.method}(this.${binding.source.name});`);
   }
   for (const binding of chartBindings) {
     if (repeatingGroupForComponent(page, binding.chart.id) !== undefined) continue;
@@ -731,7 +820,7 @@ function generateDocumentSource(
     );
     for (const binding of rowListBindings)
       lines.push(
-        `${indent}  ${rowComponent(binding.grid)}.bindApiClient(this.${binding.apiClient.name});`,
+        `${indent}  ${rowComponent(binding.grid)}.${binding.method}(this.${binding.source.name});`,
       );
     for (const binding of rowChartBindings)
       lines.push(
@@ -886,7 +975,7 @@ function generateDocumentTypings(
   const runtimeModule = options.runtimeModule ?? '@webrad/runtime';
   const className = generatedClassName(page, options.generatedSuffix ?? 'Generated');
   const components = page.components.filter((component) => component.id !== page.rootComponentId);
-  const apiClientTypes = documentTypeDeclarations(page, options.menus);
+  const apiClientTypes = documentTypeDeclarations(page, options.menus, options.graphQLOperations);
   const isReusable = kind === 'reusable';
   const baseClass = isReusable
     ? 'WebReusableElementInstance'

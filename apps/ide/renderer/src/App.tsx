@@ -67,9 +67,12 @@ import {
   type RepeatingGroupConfiguration,
   type CurrentRowBinding,
   normalizeCurrentRowBindings,
+  normalizeDataGridConfiguration,
+  ComboBoxConfigurationSchema,
   type PageModel,
   type PageParameterDefinition,
   type ProjectSettings,
+  type ProjectGraphQLOperation,
   type RestGoProjectSettings,
 } from '@webrad/project-model';
 import {
@@ -1673,6 +1676,41 @@ export function App(): ReactElement {
     [projectController, addOutput],
   );
 
+  const saveGraphQLOperations = useCallback(
+    (operations: readonly ProjectGraphQLOperation[]): void => {
+      const ids = new Set(operations.map((operation) => operation.id));
+      const removed = new Set(
+        (project?.settings.graphQLOperations ?? [])
+          .map((operation) => operation.id)
+          .filter((id) => !ids.has(id)),
+      );
+      const documents = removed.size === 0 || project === null
+        ? []
+        : [...project.pages, ...project.reusableElements];
+      for (const document of documents) {
+        for (const component of document.components) {
+          const grid = component.type === 'WebDataGrid'
+            ? normalizeDataGridConfiguration(component.props.dataGridConfig).graphql
+            : undefined;
+          const combo = component.type === 'WebComboBox'
+            ? ComboBoxConfigurationSchema.safeParse(component.props.comboBoxConfig)
+            : undefined;
+          const linked = grid === undefined
+            ? [combo?.success ? combo.data.graphql?.operationId : undefined]
+            : [grid.operationId, grid.insertOperationId, grid.updateOperationId, grid.deleteOperationId];
+          if (linked.some((id) => id != null && removed.has(id))) {
+            throw new Error(
+              `Remove the GraphQL binding from ${document.name}.${component.name} before deleting the operation.`,
+            );
+          }
+        }
+      }
+      projectController.updateProjectSettings({ graphQLOperations: operations });
+      addOutput('PROJECT', 'Updated GraphQL operations. Save the project to persist them.');
+    },
+    [addOutput, project, projectController],
+  );
+
   const synchronizeRestGoClients = useCallback(
     (catalog: RestGoAdminCatalog, projectId: string, baseUrl: string): string | undefined => {
       const result = synchronizeProjectRestGoClients(
@@ -1697,12 +1735,7 @@ export function App(): ReactElement {
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
     if (!window.dispatchEvent(new Event('webrad:commit-editor-drafts', { cancelable: true })))
       return false;
-    if (
-      restGoPendingChanges &&
-      !window.confirm(
-        'Discard the unapplied RestGo connection or endpoint changes? Save or apply them in RestGo first if you want to keep them.',
-      )
-    ) {
+    if (restGoPendingChanges && !window.confirm('Discard the unapplied RestGo connection, endpoint, or GraphQL changes?')) {
       openRestGo();
       return false;
     }
@@ -2726,7 +2759,10 @@ export function App(): ReactElement {
         (page) =>
           [
             sourceUri(projectState.rootPath, project.id, `pages/${page.name}.generated.d.ts`),
-            generatePageTypings(page, { menus: project.menus }),
+            generatePageTypings(page, {
+              menus: project.menus,
+              graphQLOperations: project.settings.graphQLOperations,
+            }),
           ] as const,
       ),
       ...project.reusableElements.map(
@@ -2737,7 +2773,10 @@ export function App(): ReactElement {
               project.id,
               `reusables/${reusableElement.name}.generated.d.ts`,
             ),
-            generateReusableElementTypings(reusableElement, { menus: project.menus }),
+            generateReusableElementTypings(reusableElement, {
+              menus: project.menus,
+              graphQLOperations: project.settings.graphQLOperations,
+            }),
           ] as const,
       ),
       ...(project.menus ?? []).map(
@@ -3056,6 +3095,8 @@ export function App(): ReactElement {
               section={restGoSection}
               onSectionChange={setRestGoSection}
               onSaveSettings={saveRestGoSettings}
+              graphQLOperations={project.settings.graphQLOperations ?? []}
+              onSaveGraphQLOperations={saveGraphQLOperations}
               onCatalogChange={synchronizeRestGoClients}
               onPendingChangesChange={setRestGoPendingChanges}
             />
@@ -3545,6 +3586,7 @@ export function App(): ReactElement {
         {dataGridConfiguratorComponent !== null && (
           <DataGridConfigurationDialog
             availableComponents={activePage?.components ?? []}
+            graphQLOperations={project?.settings.graphQLOperations ?? []}
             component={dataGridConfiguratorComponent}
             onClose={() => setDataGridConfiguratorComponentId(null)}
             onSave={saveDataGridConfiguration}
@@ -3613,6 +3655,7 @@ export function App(): ReactElement {
         )}
         {comboBoxConfiguratorComponent !== null && comboBoxEditorMode === 'api' && (
           <ComboBoxConfigurationDialog
+            graphQLOperations={project?.settings.graphQLOperations ?? []}
             component={comboBoxConfiguratorComponent}
             availableComponents={activePage?.components ?? []}
             onClose={() => setComboBoxConfiguratorComponentId(null)}

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import { WEBRAD_ICON_NAMES, type WebRadIconName } from '@webrad/runtime/icons';
+import { comboBoxSchemaChoices } from './combo-box.js';
+import type { ProjectGraphQLOperation } from './graphql.js';
 
 /** Version of the persisted Data Grid contract stored in a component property. */
 export const DATA_GRID_CONFIGURATION_VERSION = 2 as const;
@@ -49,16 +51,45 @@ export interface DataGridColumn {
 }
 
 /**
- * Saved binding between a visual WebDataGrid and one named API operation.
- * Results remain transient in WebApiClient; only this declarative binding is
- * persisted in the Project Model.
+ * Saved binding between a visual WebDataGrid and one named data operation.
  */
+export interface DataGridGraphQLBinding {
+  readonly sourceId: string;
+  readonly operationId: string | null;
+  readonly pageSize: number;
+  readonly showPager: boolean;
+  readonly crudEnabled: boolean;
+  readonly insertOperationId: string | null;
+  readonly updateOperationId: string | null;
+  readonly deleteOperationId: string | null;
+}
+
+export function isDataGridGraphQLMutation(
+  query: ProjectGraphQLOperation,
+  mutation: ProjectGraphQLOperation,
+  kind: 'insert' | 'update' | 'delete',
+): boolean {
+  if (
+    mutation.database !== query.database ||
+    mutation.runtime.table !== query.runtime.table ||
+    mutation.runtime.kind !== kind
+  ) return false;
+  if (kind !== 'delete' && !mutation.runtime.parameters.some(({ source }) => source.role === 'input'))
+    return false;
+  if (kind === 'insert') return true;
+  const rowFields = new Set(comboBoxSchemaChoices(query.responseSchema, '').fields.map(({ path }) => path));
+  return mutation.runtime.parameters.some(({ source }) =>
+    source.role === 'filter' && source.identityEligible === true && rowFields.has(source.fieldPath),
+  );
+}
+
 export interface DataGridConfiguration {
   readonly schemaVersion: typeof DATA_GRID_CONFIGURATION_VERSION;
   readonly apiClientId: string | null;
   readonly operationId: string | null;
   /** JSON Pointer to a list in the selected operation response contract. */
   readonly listPath: string;
+  readonly graphql?: DataGridGraphQLBinding;
   readonly columnCount: number;
   readonly showHeader: boolean;
   readonly stickyHeader: boolean;
@@ -128,6 +159,19 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
     apiClientId: stableIdSchema.nullable(),
     operationId: stableIdSchema.nullable(),
     listPath: pointerSchema,
+    graphql: z
+      .object({
+        sourceId: stableIdSchema,
+        operationId: stableIdSchema.nullable(),
+        pageSize: z.number().int().min(1).max(1_000),
+        showPager: z.boolean(),
+        crudEnabled: z.boolean(),
+        insertOperationId: stableIdSchema.nullable(),
+        updateOperationId: stableIdSchema.nullable(),
+        deleteOperationId: stableIdSchema.nullable(),
+      })
+      .strict()
+      .optional(),
     columnCount: z.number().int().min(1).max(50),
     showHeader: z.boolean(),
     stickyHeader: z.boolean(),
@@ -148,6 +192,13 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
   })
   .strict()
   .superRefine((configuration, context) => {
+    if (configuration.graphql !== undefined && configuration.apiClientId !== null) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Choose one Data Grid data source.',
+        path: ['graphql'],
+      });
+    }
     if (configuration.columns.length !== configuration.columnCount) {
       context.addIssue({
         code: 'custom',
