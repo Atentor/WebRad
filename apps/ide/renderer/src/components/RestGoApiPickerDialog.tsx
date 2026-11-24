@@ -106,7 +106,9 @@ export function RestGoApiPickerDialog({
         setRemember(status.storage === 'encrypted');
         if (!status.connected) {
           setConnectionRequired(true);
-          throw new Error('Connect an administrative API token to load published APIs.');
+          throw new Error(
+            status.credentialError ?? 'Connect an administrative API token to load published APIs.',
+          );
         }
         const catalog = await window.webrad.restgoAdmin.catalog({ baseUrl });
         if (!cancelled) {

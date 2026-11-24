@@ -757,7 +757,8 @@ session and IDE cards and the expanded development login. The API Client
 workflow opens the development-login disclosure and uses the shorter Sign in/Sign
 out actions while retaining session, JWT and password-clearing evidence. Both
 runners also require `renderer RestGO administrative layout passed:`. After a
-real fixture admin connection, that workflow checks the connected URL, catalog
+real fixture admin connection, that workflow verifies the secure-remember
+message and resulting encrypted/session storage state, connected URL, catalog
 counts, available actions, horizontal and narrow layouts, and overflow before
 capturing presented frames of the connected administrative card at both sizes.
 Both runners also require `renderer RestGO published APIs layout passed:`. The

@@ -212,7 +212,9 @@ export function RestGoConnectionPanel({
                 </label>
                 <small>
                   {status?.encryptionAvailable
-                    ? 'Saved with operating system encryption.'
+                    ? remember
+                      ? 'Will be saved with operating system encryption after connecting.'
+                      : 'Session only. Select this option to save securely.'
                     : 'Session only; secure storage is unavailable.'}
                 </small>
               </fieldset>

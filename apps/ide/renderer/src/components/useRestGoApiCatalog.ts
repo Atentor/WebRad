@@ -23,7 +23,10 @@ export function useRestGoApiCatalog(enabled: boolean, baseUrl: string) {
         const status = await window.webrad.restgoAdmin.status({ baseUrl });
         if (cancelled || requestVersion.current !== version) return;
         if (!status.connected)
-          throw new Error('Connect administrative access in Import from RestGo to load methods.');
+          throw new Error(
+            status.credentialError ??
+              'Connect administrative access in Import from RestGo to load methods.',
+          );
         const catalog = await window.webrad.restgoAdmin.catalog({ baseUrl });
         if (cancelled || requestVersion.current !== version) return;
         setLoadedBaseUrl(baseUrl);

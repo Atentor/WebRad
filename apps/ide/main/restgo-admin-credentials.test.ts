@@ -56,6 +56,38 @@ describe('RestGo administrative credential vault', () => {
     expect(encryption.decrypt).toHaveBeenCalledWith(bytes);
   });
 
+  it('reports secure-save failures and keeps the previous remembered credential', async () => {
+    const vault = new RestGoAdminCredentials(userDataPath);
+    await vault.set(1, baseUrl, token, true);
+    encryption.encrypt.mockImplementationOnce(() => {
+      throw new Error('Encryption failed.');
+    });
+
+    await expect(vault.set(1, baseUrl, 'rgo.replacement-token', true)).rejects.toThrow(
+      'Could not securely save the RestGo administrative token.',
+    );
+    expect(await new RestGoAdminCredentials(userDataPath).get(2, baseUrl)).toMatchObject({
+      token,
+      storage: 'encrypted',
+    });
+  });
+
+  it('reports when a remembered credential cannot be decrypted', async () => {
+    const vault = new RestGoAdminCredentials(userDataPath);
+    await vault.set(1, baseUrl, token, true);
+    encryption.decrypt.mockImplementationOnce(() => {
+      throw new Error('Decryption failed.');
+    });
+
+    expect(await new RestGoAdminCredentials(userDataPath).status(2, baseUrl)).toMatchObject({
+      connected: false,
+      storage: 'none',
+      encryptionAvailable: true,
+      credentialError:
+        'Could not decrypt the remembered RestGo administrative token. Decryption failed.',
+    });
+  });
+
   it('uses session-only access when encryption is unavailable and removes previous remembered data', async () => {
     const vault = new RestGoAdminCredentials(userDataPath);
     await vault.set(1, baseUrl, token, true);

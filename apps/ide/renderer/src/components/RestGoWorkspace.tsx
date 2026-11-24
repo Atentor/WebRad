@@ -202,6 +202,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       .then(async (result) => {
         if (canceled) return;
         setStatus(result);
+        if (result.credentialError !== undefined) setError(result.credentialError);
         if (result.connected) {
           const next = await window.webrad.restgoAdmin.catalog({ baseUrl });
           if (!canceled) {

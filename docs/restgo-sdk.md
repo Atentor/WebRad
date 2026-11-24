@@ -141,7 +141,10 @@ on the server; an application token is part of exported project code.
 Set a separate administrative API token in **Connection**. **Connect admin** checks
 permission against the saved integration URL. Apply URL changes before connecting.
 The token stays in Electron's main process. Optional remembering uses encrypted
-OS storage in the local IDE profile; without secure storage it remains temporary.
+OS storage in the local IDE profile after the connection is verified; if secure
+storage fails or a saved credential cannot be restored, the IDE reports the
+error instead of silently switching to session-only storage. Without secure
+storage it remains temporary.
 **Disconnect** removes the remembered credential. It never enters `.wrproj`,
 API Client operations, Preview, or Build.
 

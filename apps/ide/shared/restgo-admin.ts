@@ -13,6 +13,7 @@ export interface RestGoAdminStatus {
   readonly connected: boolean;
   readonly storage: 'encrypted' | 'session' | 'none';
   readonly encryptionAvailable: boolean;
+  readonly credentialError?: string;
 }
 
 export interface RestGoAdminConnectRequest extends RestGoAdminTarget {

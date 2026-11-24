@@ -1333,6 +1333,21 @@ export async function runApiClientDesignerSmoke(
     await click(window, '.wr-restgo-sidebar button:first-child');
     await ready(
       window,
+      `(() => { const checkbox = document.querySelector('.wr-restgo-admin-settings input[type="checkbox"]'); const note = checkbox?.parentElement?.nextElementSibling?.textContent?.trim(); const expected = checkbox?.disabled ? 'Session only; secure storage is unavailable.' : checkbox?.checked ? 'Will be saved with operating system encryption after connecting.' : 'Session only. Select this option to save securely.'; return document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false' && checkbox instanceof HTMLInputElement && note === expected; })()`,
+    );
+    const rememberAdminToken = await window.webContents.executeJavaScript<boolean>(
+      `(() => { const checkbox = document.querySelector('.wr-restgo-admin-settings input[type="checkbox"]'); return checkbox instanceof HTMLInputElement && !checkbox.disabled; })()`,
+      true,
+    );
+    if (rememberAdminToken) {
+      await click(window, '.wr-restgo-admin-settings input[type="checkbox"]');
+      await ready(
+        window,
+        `document.querySelector('.wr-restgo-admin-settings input[type="checkbox"]')?.checked === true && document.querySelector('.wr-restgo-admin-fields > small')?.textContent === 'Will be saved with operating system encryption after connecting.'`,
+      );
+    }
+    await ready(
+      window,
       `document.querySelector('.wr-restgo-development-login [role="status"]')?.textContent.includes(${JSON.stringify(developmentUser.email)}) === true`,
     );
     await clickText(window, 'Sign out', '.wr-restgo-development-login');
@@ -1353,7 +1368,7 @@ export async function runApiClientDesignerSmoke(
     await click(window, '.wr-restgo-admin-settings button[type="submit"]');
     await ready(
       window,
-      `document.querySelector('.wr-restgo-status')?.textContent.includes('Admin connected') === true`,
+      `document.querySelector('.wr-restgo-status')?.textContent.includes('Admin connected') === true && document.querySelector('.wr-restgo-admin-settings .wr-restgo-identity small')?.textContent === ${JSON.stringify(rememberAdminToken ? 'Administrative token encrypted on this device.' : 'Administrative token kept for this IDE session.')}`,
     );
     await window.webContents.executeJavaScript(
       `document.querySelector('.wr-restgo-connection').scrollIntoView({ block: 'start' })`,
@@ -1361,7 +1376,7 @@ export async function runApiClientDesignerSmoke(
     );
     await captureAdministrativeLayout(window, screenshotRoot, baseUrl);
     log(
-      'renderer RestGO administrative layout passed: connected state, catalog counts, actions and desktop/narrow geometry',
+      'renderer RestGO administrative layout passed: remembered token storage result, catalog counts, actions and desktop/narrow geometry',
     );
     publishedLayoutFixture = true;
     await click(window, '.wr-restgo-sidebar nav button:nth-child(2)');

@@ -56,38 +56,61 @@ export class RestGoAdminCredentials {
       return session;
     const credentialPath = this.credentialPath(baseUrl);
     if (credentialPath === undefined || !this.encryptionAvailable()) return undefined;
+    let file: Buffer;
     try {
-      const file = await fs.readFile(credentialPath);
-      if (file.byteLength > 32_768) return undefined;
-      const token = safeStorage.decryptString(file);
-      if (
-        token.length === 0 ||
-        token.length > 8_192 ||
-        [...token].some(
-          (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
-        )
-      ) {
-        return undefined;
-      }
-      if (this.rejectedTokens.get(baseUrl)?.has(this.tokenKey(token))) return undefined;
-      const credential: Credential = { token, storage: 'encrypted' };
-      const sessions = this.sessions.get(ownerId) ?? new Map<string, Credential>();
-      sessions.set(baseUrl, credential);
-      this.sessions.set(ownerId, sessions);
-      return credential;
-    } catch {
-      // Missing, unreadable or undecryptable credentials require a fresh connection.
-      return undefined;
+      file = await fs.readFile(credentialPath);
+    } catch (error: unknown) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return undefined;
+      const detail = error instanceof Error ? ` ${error.message}` : '';
+      throw new Error(`Could not read the remembered RestGo administrative token.${detail}`, {
+        cause: error,
+      });
     }
+    if (file.byteLength > 32_768)
+      throw new Error('The remembered RestGo administrative credential is invalid.');
+    let token: string;
+    try {
+      token = safeStorage.decryptString(file);
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? ` ${error.message}` : '';
+      throw new Error(`Could not decrypt the remembered RestGo administrative token.${detail}`, {
+        cause: error,
+      });
+    }
+    if (
+      token.length === 0 ||
+      token.length > 8_192 ||
+      [...token].some(
+        (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+      )
+    ) {
+      throw new Error('The remembered RestGo administrative credential is invalid.');
+    }
+    if (this.rejectedTokens.get(baseUrl)?.has(this.tokenKey(token))) return undefined;
+    const credential: Credential = { token, storage: 'encrypted' };
+    const sessions = this.sessions.get(ownerId) ?? new Map<string, Credential>();
+    sessions.set(baseUrl, credential);
+    this.sessions.set(ownerId, sessions);
+    return credential;
   }
 
   public async status(ownerId: number, baseUrl: string): Promise<RestGoAdminStatus> {
-    const credential = await this.get(ownerId, baseUrl);
+    let credential: Credential | undefined;
+    let credentialError: string | undefined;
+    try {
+      credential = await this.get(ownerId, baseUrl);
+    } catch (error: unknown) {
+      credentialError =
+        error instanceof Error
+          ? error.message
+          : 'Could not restore the remembered RestGo administrative token.';
+    }
     return {
       baseUrl,
       connected: credential !== undefined,
       storage: credential?.storage ?? 'none',
       encryptionAvailable: this.userDataPath !== undefined && this.encryptionAvailable(),
+      ...(credentialError === undefined ? {} : { credentialError }),
     };
   }
 
@@ -105,11 +128,17 @@ export class RestGoAdminCredentials {
         const encrypted = safeStorage.encryptString(token);
         await fs.mkdir(path.dirname(credentialPath), { recursive: true, mode: 0o700 });
         await fs.writeFile(temporaryPath, encrypted, { mode: 0o600, flag: 'wx' });
+        const persisted = await fs.readFile(temporaryPath);
+        if (safeStorage.decryptString(persisted) !== token)
+          throw new Error('The encrypted credential did not pass verification.');
         await fs.rename(temporaryPath, credentialPath);
         storage = 'encrypted';
-      } catch {
-        // Encryption or profile failures have an explicit session-only result in the UI.
+      } catch (error: unknown) {
         await fs.unlink(temporaryPath).catch(() => undefined);
+        const detail = error instanceof Error ? ` ${error.message}` : '';
+        throw new Error(`Could not securely save the RestGo administrative token.${detail}`, {
+          cause: error,
+        });
       }
     }
     if (storage === 'session' && credentialPath !== undefined) {

@@ -1,5 +1,12 @@
 # WebRAD delivery plan
 
+## RestGo secure-token save errors (2026-11-24)
+
+When secure storage is selected and available, failures while encrypting,
+writing or restoring the verified administrative token must be shown instead of
+silently falling back to session-only storage. Preserve the previous remembered
+token when a replacement cannot be saved.
+
 ## Import all methods for a RestGo endpoint (2026-11-24)
 
 Selecting a grouped RestGo endpoint imports every available published method as
