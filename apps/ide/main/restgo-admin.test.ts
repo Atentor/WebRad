@@ -177,7 +177,7 @@ describe('RestGo design-time administration', () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
     fetcher.mockResolvedValueOnce(jsonResponse({ data: [], has_more: false }));
     await service.connect(11, { baseUrl, token: 'rgo.new-administrative-token', remember: false });
-    credentials.reject(baseUrl, token);
+    await credentials.reject(baseUrl, token);
     expect(await service.status(11, { baseUrl })).toMatchObject({ connected: true });
   });
 

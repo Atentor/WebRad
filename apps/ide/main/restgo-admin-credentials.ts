@@ -20,13 +20,28 @@ export class RestGoAdminCredentials {
   }
 
   /** A server rejection invalidates only that credential, including remembered copies. */
-  public reject(baseUrl: string, token: string): void {
+  public async reject(baseUrl: string, token: string): Promise<void> {
     const rejected = this.rejectedTokens.get(baseUrl) ?? new Set<string>();
     rejected.add(this.tokenKey(token));
     this.rejectedTokens.set(baseUrl, rejected);
     for (const sessions of this.sessions.values()) {
       if (sessions.get(baseUrl)?.token === token) sessions.delete(baseUrl);
     }
+    const credentialPath = this.credentialPath(baseUrl);
+    if (credentialPath === undefined || !this.encryptionAvailable()) return;
+    let file: Buffer;
+    try {
+      file = await fs.readFile(credentialPath);
+    } catch (error: unknown) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return;
+      throw new Error('Could not read the remembered RestGo credential after rejection.');
+    }
+    if (file.byteLength > 32_768 || safeStorage.decryptString(file) !== token) return;
+    await fs.unlink(credentialPath).catch((error: unknown) => {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+        throw new Error('Could not remove the rejected remembered RestGo credential.');
+      }
+    });
   }
 
   public constructor(

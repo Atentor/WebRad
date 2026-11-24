@@ -234,7 +234,7 @@ export class RestGoAdminService {
         }
       }
       if (response.status === 401) {
-        this.credentials.reject(baseUrl, token);
+        await this.credentials.reject(baseUrl, token);
         throw new Error(
           'RestGo HTTP 401: Administrative access expired or was rejected. Reconnect with an administrative API token.',
         );
@@ -253,7 +253,7 @@ export class RestGoAdminService {
           failure.success &&
           failure.data.error === 'administrator permission required'
         ) {
-          this.credentials.reject(baseUrl, token);
+          await this.credentials.reject(baseUrl, token);
           throw new Error(
             'RestGo HTTP 403: This token has no administrative permission. Connect an administrative API token.',
           );
