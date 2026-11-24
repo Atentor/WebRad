@@ -1,13 +1,5 @@
 # WebRAD delivery plan
 
-## RestGo remembered administrative token recovery (2026-11-24)
-
-When an encrypted administrative token is restored, retain the remember choice
-in the connection form so a replacement token can be saved after a server
-rejection. Remove a rejected token from encrypted storage only when it still
-matches the stored value, preserving any newer credential and preventing stale
-tokens from being retried on later IDE launches.
-
 ## RestGo GraphQL operations and Data Grid editing
 
 The RestGO GraphQL workspace reads published schemas from RestGo and stores

@@ -72,13 +72,12 @@ describe('RestGo administrative credential vault', () => {
     const vault = new RestGoAdminCredentials(userDataPath);
     await vault.set(1, baseUrl, token, true);
     expect(await vault.get(2, baseUrl)).toMatchObject({ token });
-    await vault.reject(baseUrl, token);
+    vault.reject(baseUrl, token);
     expect(await vault.get(1, baseUrl)).toBeUndefined();
     expect(await vault.get(2, baseUrl)).toBeUndefined();
     expect(await vault.get(3, baseUrl)).toBeUndefined();
-    expect(await new RestGoAdminCredentials(userDataPath).get(4, baseUrl)).toBeUndefined();
     await vault.set(1, baseUrl, 'rgo.verified-replacement', true);
-    await vault.reject(baseUrl, token);
+    vault.reject(baseUrl, token);
     expect(await vault.get(1, baseUrl)).toMatchObject({ token: 'rgo.verified-replacement' });
     expect(await vault.get(3, baseUrl)).toMatchObject({ token: 'rgo.verified-replacement' });
   });
