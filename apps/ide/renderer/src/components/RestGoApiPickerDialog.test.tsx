@@ -223,7 +223,7 @@ describe('RestGoApiPickerDialog', () => {
     const { onImport } = renderPicker(configuration, 'https://custom.example.test');
     await user.click(await screen.findByRole('checkbox', { name: 'Import customers/orders v2' }));
     const importButton = screen.getByRole('button', {
-      name: 'Import 1 endpoint',
+      name: 'Import 2 methods',
     }) as HTMLButtonElement;
     const consent = screen.getByRole('checkbox', {
       name: /Use the fixed RestGo URL and authentication/,
@@ -241,7 +241,10 @@ describe('RestGoApiPickerDialog', () => {
 
     expect(onImport).toHaveBeenCalledTimes(1);
     expect(onImport).toHaveBeenCalledWith(
-      [expect.objectContaining({ id: '20:11', method: 'GET', apiVersion: 2 })],
+      [
+        expect.objectContaining({ id: '20:11', method: 'GET', apiVersion: 2 }),
+        expect.objectContaining({ id: '20:12', method: 'PUT', apiVersion: 2 }),
+      ],
       true,
       expect.arrayContaining([expect.objectContaining({ id: '20:12', method: 'PUT' })]),
     );
@@ -253,12 +256,15 @@ describe('RestGoApiPickerDialog', () => {
     const user = userEvent.setup();
     const { onImport } = renderPicker();
     await user.click(await screen.findByRole('checkbox', { name: 'Import customers/orders v2' }));
-    await user.click(screen.getByRole('button', { name: 'Import 1 endpoint' }));
+    await user.click(screen.getByRole('button', { name: 'Import 2 methods' }));
 
     expect(onImport).toHaveBeenCalledTimes(1);
     const imported = onImport.mock.calls[0];
     expect(imported?.[1]).toBe(false);
-    expect(imported?.[0]).toEqual([expect.objectContaining({ id: '20:11', method: 'GET' })]);
+    expect(imported?.[0]).toEqual([
+      expect.objectContaining({ id: '20:11', method: 'GET' }),
+      expect.objectContaining({ id: '20:12', method: 'PUT' }),
+    ]);
     expect(imported?.[2]).toEqual(
       expect.arrayContaining([
         {

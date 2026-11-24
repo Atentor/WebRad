@@ -1,7 +1,6 @@
 import { Icon } from './Icon';
 import {
   groupRestGoPublishedApis,
-  getRestGoGroupImportApi,
   getRestGoPublishedApiConnection,
   isEmptyApiClientConfiguration,
   type RestGoPublishedApi,
@@ -74,11 +73,8 @@ export function RestGoApiPickerDialog({
     () =>
       groups
         .filter((group) => selectedIds.has(group.id))
-        .flatMap((group) => {
-          const api = getRestGoGroupImportApi(group, configuration);
-          return api ? [api] : [];
-        }),
-    [groups, selectedIds, configuration],
+        .flatMap((group) => group.apis),
+    [groups, selectedIds],
   );
   const selectedConnection =
     selectedApis[0] === undefined ? undefined : getRestGoPublishedApiConnection(selectedApis[0]);
@@ -382,7 +378,7 @@ export function RestGoApiPickerDialog({
           <span className="wr-restgo-api-picker-count" role="status">
             {selectedApis.length === 0
               ? 'No endpoints selected'
-              : `${String(selectedApis.length)} selected`}
+              : `${String(selectedApis.length)} method${selectedApis.length === 1 ? '' : 's'} selected`}
           </span>
           <button type="button" onClick={onClose}>
             Cancel
@@ -401,7 +397,7 @@ export function RestGoApiPickerDialog({
           >
             Import{' '}
             {selectedApis.length > 0
-              ? `${String(selectedApis.length)} endpoint${selectedApis.length === 1 ? '' : 's'}`
+              ? `${String(selectedApis.length)} method${selectedApis.length === 1 ? '' : 's'}`
               : 'APIs'}
           </button>
         </footer>

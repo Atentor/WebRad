@@ -79,10 +79,10 @@ types; Cancel discards it. Any bindings to removed fields must be updated.
 **Import from RestGo** shows one item per endpoint slug and database, with its
 available methods displayed together. Versions and authentication policies stay
 separate. Search matches the endpoint, database, version or any of its methods.
-Selecting an item imports one request, initially using GET when available, or
-the first available method. Reimporting keeps an existing request's method.
+Selecting an item imports each available method as its own request.
+Reimporting keeps existing requests and adds methods that are not yet imported.
 
-Choose **Method** inside the API Client request editor to select another
+Choose **Method** inside a request editor to change that request to another
 published method. The request keeps its ID and name, updates its RestGo source
 link and query/JSON inputs, and preserves shared primitive input values. The
 previous method's response contract is cleared; use **Send** to infer the new

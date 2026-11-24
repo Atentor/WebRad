@@ -1414,27 +1414,33 @@ export async function runApiClientDesignerSmoke(
     await capture(window, `${screenshotRoot}-restgo-grouped-import.png`);
     await click(window, '[aria-label="Import demo/anotacoes v1"]');
 
-    await clickText(window, 'Import 1 endpoint', '.wr-restgo-api-picker');
+    await clickText(window, 'Import 2 methods', '.wr-restgo-api-picker');
     await ready(
       window,
-      `document.querySelectorAll('.wr-api-operation-list > button').length === 1 && document.querySelector('[aria-label="Method"]')?.value === 'GET' && [...document.querySelectorAll('[aria-label="Method"] option')].map(option => option.value).join(',') === 'GET,PUT'`,
+      `document.querySelectorAll('.wr-api-operation-list > button').length === 2 && document.querySelector('.wr-api-operation-list button[aria-label$=" GET"]') !== null && document.querySelector('.wr-api-operation-list button[aria-label$=" PUT"]') !== null && document.querySelector('[aria-label="Method"]')?.value === 'GET' && [...document.querySelectorAll('[aria-label="Method"] option')].map(option => option.value).join(',') === 'GET,PUT'`,
     );
     await setControl(window, '[aria-label="Operation name"]', 'LoadNotes');
     await setControl(window, '[aria-label="Query parameters value rgouserid"]', 'user-42');
-    await setControl(window, '[aria-label="Method"]', 'PUT');
+    await click(window, '.wr-api-operation-list button[aria-label$=" PUT"]');
     await clickText(window, 'Body');
     await ready(
       window,
-      `document.querySelector('[aria-label="Request body"]')?.value.includes('user-42') === true`,
+      `document.querySelector('[aria-label="Method"]')?.value === 'PUT' && document.querySelector('[aria-label="Request body"]')?.value.includes('"caption"') === true && document.querySelector('[aria-label="Request body"]')?.value.includes('"rgouserid"') === true`,
     );
-    await setControl(window, '[aria-label="Method"]', 'GET');
+    await setControl(window, '[aria-label="Operation name"]', 'UpdateNotes');
+    await setControl(
+      window,
+      '[aria-label="Request body"]',
+      '{\n  "rgouserid": "user-42",\n  "caption": "first note"\n}',
+    );
+    await click(window, '.wr-api-operation-list button[aria-label="LoadNotes GET"]');
     await clickText(window, 'Query parameters');
     await ready(
       window,
-      `document.querySelector('[aria-label="Query parameters value rgouserid"]')?.value === 'user-42' && document.querySelectorAll('.wr-api-operation-list > button').length === 1`,
+      `document.querySelector('[aria-label="Method"]')?.value === 'GET' && document.querySelector('[aria-label="Query parameters value rgouserid"]')?.value === 'user-42' && document.querySelectorAll('.wr-api-operation-list > button').length === 2`,
     );
     log(
-      'renderer RestGO API Client grouped import passed: one endpoint row, method search, single request, published method selection and shared inputs',
+      'renderer RestGO API Client grouped import passed: one endpoint row, method search, separate GET/PUT requests and method inputs',
     );
     await clickText(window, 'Save API Client');
     await click(window, 'button[aria-label="RestGo integration"]');
@@ -1494,7 +1500,7 @@ export async function runApiClientDesignerSmoke(
     );
     await ready(
       window,
-      `document.querySelector('[aria-label="Operation name"]')?.value === 'LoadNotes' && document.querySelector('[aria-label="Query parameters value rgouserid"]')?.value === 'user-42' && document.querySelector('[aria-label="Query parameters name pesquisa"]') !== null && document.querySelector('[aria-label="Query parameters name active"]') === null`,
+      `document.querySelector('[aria-label="Operation name"]')?.value === 'LoadNotes' && document.querySelector('[aria-label="Query parameters value rgouserid"]')?.value === 'user-42' && document.querySelector('[aria-label="Query parameters name pesquisa"]') !== null && document.querySelector('[aria-label="Query parameters name active"]') === null && document.querySelectorAll('.wr-api-operation-list > button').length === 2`,
     );
     await clickText(window, 'Save API Client');
     await window.webContents.send('webrad:menu-command', 'file.save');
@@ -1515,7 +1521,7 @@ export async function runApiClientDesignerSmoke(
       window,
       `document.querySelector('[aria-label="Method"]')?.matches(':disabled') === false && document.querySelector('[aria-label="Method"]')?.value === 'GET'`,
     );
-    await setControl(window, '[aria-label="Method"]', 'PUT');
+    await click(window, '.wr-api-operation-list button[aria-label="UpdateNotes PUT"]');
     await clickText(window, 'Body');
     await ready(
       window,
@@ -1528,7 +1534,7 @@ export async function runApiClientDesignerSmoke(
     log('renderer API Client body parameter hint passed');
     await ready(
       window,
-      `(() => { const body = document.querySelector('[aria-label="Request body"]')?.value ?? ''; return body.includes('"caption"') && body.includes('"rgouserid"') && !body.includes('"active"'); })()`,
+      `(() => { const body = document.querySelector('[aria-label="Request body"]')?.value ?? ''; return document.querySelector('[aria-label="Method"]')?.value === 'PUT' && document.querySelector('[aria-label="Operation name"]')?.value === 'UpdateNotes' && body.includes('"caption"') && body.includes('"rgouserid"') && body.includes('user-42') && document.querySelectorAll('.wr-api-operation-list > button').length === 2; })()`,
     );
     await capture(window, `${screenshotRoot}-synchronized.png`);
     await clickText(window, 'Save API Client');
@@ -1539,11 +1545,13 @@ export async function runApiClientDesignerSmoke(
       const savedPage: unknown = JSON.parse(await fs.readFile(pagePath, 'utf8'));
       const text = JSON.stringify(savedPage);
       if (
+        text.includes('"apiId":"20:11"') &&
+        text.includes('"method":"GET"') &&
         text.includes('caption') &&
         text.includes('user-42') &&
         text.includes('"apiId":"20:12"') &&
         text.includes('"method":"PUT"') &&
-        !text.includes('"name":"pesquisa"')
+        text.includes('"name":"pesquisa"')
       ) {
         synchronizedOnDisk = true;
         break;
@@ -1562,16 +1570,17 @@ export async function runApiClientDesignerSmoke(
     await openClient();
     await ready(
       window,
-      `document.querySelector('[aria-label="Method"]')?.value === 'PUT' && document.querySelector('[aria-label="Operation name"]')?.value === 'LoadNotes' && document.querySelectorAll('.wr-api-operation-list > button').length === 1`,
+      `document.querySelector('[aria-label="Method"]')?.value === 'GET' && document.querySelector('[aria-label="Operation name"]')?.value === 'LoadNotes' && document.querySelectorAll('.wr-api-operation-list > button').length === 2 && document.querySelector('.wr-api-operation-list button[aria-label="UpdateNotes PUT"]') !== null`,
     );
+    await click(window, '.wr-api-operation-list button[aria-label="UpdateNotes PUT"]');
     await clickText(window, 'Body');
     await ready(
       window,
-      `document.querySelector('[aria-label="Request body"]')?.value.includes('caption') === true && document.querySelector('[aria-label="Request body"]')?.value.includes('user-42') === true`,
+      `document.querySelector('[aria-label="Method"]')?.value === 'PUT' && document.querySelector('[aria-label="Operation name"]')?.value === 'UpdateNotes' && document.querySelector('[aria-label="Request body"]')?.value.includes('caption') === true && document.querySelector('[aria-label="Request body"]')?.value.includes('user-42') === true`,
     );
     await clickText(window, 'Save API Client');
     log(
-      'renderer RestGO API Client synchronization passed: edit and save GET/PUT SQL, reconcile existing query/JSON inputs, preserve request name and values, save project and reopen client',
+      'renderer RestGO API Client synchronization passed: update separate GET/PUT requests, reconcile query/JSON inputs, preserve request names and values, save project and reopen client',
     );
     await click(window, 'button[aria-label="RestGo integration"]');
     await exerciseRestGoGraphQL(window, projectPath, `${screenshotRoot}-restgo-graphql.png`);

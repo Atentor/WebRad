@@ -772,12 +772,12 @@ filters and clears a query, and captures focus at both workspace sizes.
 These updated interactions have not been executed for this UX change.
 
 Both runners require `renderer RestGO API Client grouped import passed:`. The
-existing API Client flow imports a single grouped endpoint with GET/PUT badges,
-searches by method without splitting its row, then switches methods inside the
-request editor. It checks the single-request count, published method choices,
-shared inputs and a grouped-picker screenshot. The synchronization flow saves
-GET inputs, switches to PUT, saves and refreshes the catalog, and reopens the
-same request with PUT still selected. These interactions have not been run.
+existing API Client flow imports a grouped endpoint with GET/PUT badges,
+searches by method without splitting its row, and imports each method as a
+separate request. It checks both request methods, their inputs and a
+grouped-picker screenshot. The synchronization flow updates both imported
+requests after saving and refreshing the catalog. These interactions have not
+been run.
 
 Both runners require `renderer RestGO endpoint editor passed:`. The existing
 API Client flow checks the endpoint database default, manual All databases

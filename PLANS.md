@@ -1,5 +1,13 @@
 # WebRAD delivery plan
 
+## Import all methods for a RestGo endpoint (2026-11-24)
+
+Selecting a grouped RestGo endpoint imports every available published method as
+a separate API Client request. Reimporting preserves existing requests and adds
+only methods that are not already present. The picker count and import action
+identify the number of methods; the Electron API Client smoke covers both
+requests and endpoint synchronization.
+
 ## RestGo GraphQL operations and Data Grid editing
 
 The RestGO GraphQL workspace reads published schemas from RestGo and stores
@@ -1076,7 +1084,8 @@ outstanding.
 ## RestGO API Client grouped import: 2026-11-08
 
 The import picker groups methods by endpoint slug, database, version and access
-policy. One selected group imports one request, preferring GET for a new group.
+policy. At the time, one selected group imported one request, preferring GET for
+a new group; the 2026-11-24 follow-up above supersedes this behavior.
 Existing requests retain their selected method when reimported. Available
 methods are selected inside the request editor and loaded again when reopening
 the client. Switching updates the source identity and query/JSON inputs while

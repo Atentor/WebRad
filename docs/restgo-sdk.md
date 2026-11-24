@@ -180,11 +180,11 @@ API Operation can be imported.
 Add/open an **API Client** and choose **Import from RestGo**. Import preserves
 IDs/existing operations, fills routes, versions, methods, and inputs, and prevents
 duplicates. The picker groups methods by endpoint slug and database, keeping
-versions and access policies distinct. Select an endpoint once, then choose its
-published **Method** in the request editor. Each client has one authentication
-mode; use separate clients for
-different modes. Converting a custom client needs explicit confirmation in the
-editor. Routes escaping the integration URL are rejected.
+versions and access policies distinct. Selecting an endpoint imports each
+available method as its own request; choose a different published **Method** in
+a request editor when needed. Each client has one authentication mode; use
+separate clients for different modes. Converting a custom client needs explicit
+confirmation in the editor. Routes escaping the integration URL are rejected.
 
 The importer can reconnect using **Administrative API token** without closing or
 losing request drafts. A rejected credential stops indicating an active connection;
