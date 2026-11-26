@@ -1,26 +1,37 @@
 # RestGo GraphQL in WebRAD
 
-## Configure a table
+## Configure an endpoint
 
 1. Enable the project's RestGO integration in **RestGO > Connection**. Connect the IDE to the same RestGo instance for administrative schema discovery.
 2. Open **RestGO > GraphQL** and choose an already published database. Manage GraphQL activation, table and column permissions, and user access in RestGo. [RestGo GraphQL documentation](https://restgo.atentor.com/docs/graphql)
-3. Click **New**, select a table, and check the actions to use in the project. For example, enable **Query** and **Insert** to read and add records. Actions unavailable in the published schema are disabled.
-4. Use the action buttons next to the settings heading to switch between enabled actions. WebRAD suggests an operation name and an initial return field for a new query. You can select related fields and configure parameters, ordering, and pagination where applicable. For **Insert** and **Update**, configure the fields to write. For **Update** and **Delete**, add a condition that identifies the record.
-5. Click **Save actions** to apply the table's selections together, then save the WebRAD project. Reopen the table to change its actions. Clear a saved action's bindings and client selections before deleting it.
+3. Click **New**, select a table, and give the endpoint a name such as **Customers**. The table name is suggested automatically. Enable **Query** and **Insert**, for example, to read and add records through the same endpoint. Actions unavailable in the published schema are disabled.
+4. Switch between the enabled actions to configure their fields and parameters. WebRAD generates the names used by code, such as `Customers_query` and `Customers_insert`. For **Insert** and **Update**, choose the fields to write. For **Update** and **Delete**, add a condition that identifies the record.
+5. Click **Save endpoint**, then save the WebRAD project. Reopen the endpoint to rename it or change its actions. Clear bindings to an action before removing it. Clear the endpoint selection from its clients before removing the endpoint.
 
 Under **Conditions**, use **Add condition** for each filter. When the published schema supports both AND and OR, use **Add condition group** to combine filters under a different match rule. A vertical guide marks the conditions that belong to each subgroup.
 
-The editor groups saved operations by database and table. Each operation retains its ID, name, generated GraphQL document, and response schema in the manifest. Preview and Build can use the saved contract without fetching administrative metadata. The browser sends requests to `POST /gql/{slug}` with the signed-in application's user session. The IDE's administrative connection stays in the Electron main process.
+Under **Field display names**, enter a label such as **Full name** for the
+field `nome`. The endpoint shares these labels across its actions. The Data
+Grid uses them for writable fields in its add and edit dialogs. A blank label
+uses the original field name. A field label set in the grid's **Labels** tab
+takes precedence for that grid.
+
+The project assigns one endpoint to each database and table pair. Its actions share an optional display name in the manifest. Older definitions use the table name until saved with an endpoint name. Each action retains its ID, generated operation name, document, and response schema. Renaming the endpoint preserves existing code and bindings. Preview and Build use the saved action contracts. The browser sends requests to `POST /gql/{slug}` with the signed-in application's user session. The IDE's administrative connection stays in the Electron main process.
 
 ## Set up a GraphQL Client
 
 1. Add a **GraphQL Client** to the page or reusable element.
-2. Double-click the client in the nonvisual tray and select the saved queries
-   and mutations it should use.
-3. Click **Save GraphQL Client**. Each client stores its own operation IDs.
+2. Double-click the client in the nonvisual tray and select one endpoint.
+   Search by name, database, table, or action. **Active** shows the selected
+   endpoint and **Inactive** shows other endpoints. The list shows up to 50
+   endpoints per page.
+3. Click **Save GraphQL Client**. The client stores the endpoint key and
+   exposes all its enabled actions, including actions added later. Existing
+   clients with individually selected actions keep those actions until saved
+   with an endpoint selection.
 
-An operation used by a Data Grid or ComboBox stays selected. The dialog lists
-the components that use it. Change their bindings before deselecting it.
+The dialog shows which Data Grid or ComboBox components use the endpoint.
+Change their bindings before switching or clearing it.
 
 Edit an operation in **RestGO > GraphQL** to update its contract for every
 client that selected it. The client uses the project's RestGO connection and
@@ -28,11 +39,15 @@ the application user's session.
 
 ## Bind a Data Grid
 
-Open **Configure Data Grid**. Select **GraphQL Client** under **Data source**,
-then choose the client and one of its queries. For record editing, select
-compatible mutations in the same client.
-The grid stores its client and operation IDs together with pagination and
-mutation settings.
+Open **Configure Data Grid**. Select **GraphQL Client** under **Data source**
+and choose the client. WebRAD selects the endpoint automatically when it
+provides one Query. Under **Endpoint actions**, **Insert**, **Update**, and
+**Delete** show whether each action is available to the grid. **Enable record
+editing** selects compatible actions with a single choice when setting up
+editing. Clear any action you do not want to offer in that grid. Insert and
+Update require fields to write. Update and Delete also need an equality
+condition on a key field returned by Query. The grid stores stable action IDs
+for the bindings it uses.
 
 For REST endpoints, choose **API Client** in **Data source**, then select
 the client, operation, and response list.
@@ -109,16 +124,22 @@ Configure the grid against a query and enable **CRUD** in the Inspector. Choose 
 
 The grid opens an editor for the mutation parameters or stages a delete. The
 staged changes appear in `pendingChanges` and can be discarded with
-`CancelChanges()`. In **Labels > Record actions**, enable **Show a Save changes
+`CancelChanges()`. In **Labels > Record actions**, enable **Show a Save
 button when there are drafts** to let users send the pending changes from the
-grid. **Apply to draft** stages the editor values locally. To save from a
+grid. **Apply** stages the editor values locally. To save from a
 separate button, call `await DataGrid1.SaveChanges()` in its click handler.
 To save immediately after an edit, call the same method from **OnChangesChanged**.
 
-Enter custom labels for the grid controls and the mutation editor fields. Clear
-an override to restore the default. For example, enter `Page {page}` for the
-current page and `{size} rows` for a page-size option. Use `{total}` for the
-record count and `{field}` in editor validation messages.
+In **Labels > Language**, choose **Português**, **English**, or **Español** for
+the grid's GraphQL controls, or choose **Custom** to edit their captions.
+Switching languages preserves custom captions. An empty custom caption uses the
+English default. Use `{page}` for the current page, `{size}` for the page size,
+`{total}` for the record count, and `{field}` in editor validation messages.
+Set mutation field names separately in **Mutation fields**.
+
+The grid stores this selection in the optional `labelLanguage` field of its
+version 2 configuration (`pt`, `en`, `es`, or `custom`). Earlier configurations
+use Custom when they contain caption overrides and English otherwise.
 
 ```ts
 public async SaveGridEdit(sender: WebDataGrid): Promise<void> {

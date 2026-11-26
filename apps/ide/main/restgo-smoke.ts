@@ -63,6 +63,7 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
   const selectionPaths = ['id', 'name'];
   const database = 'demo';
   const table = 'customers';
+  const fieldLabels = { '/name': 'Endpoint customer name' };
   const query = { id: gridQueryId, name: 'GridCustomers', database };
   const mutation = { id: gridUpdateId, name: 'UpdateGridCustomer', database };
   const queryRoot = 'customersCollection';
@@ -84,6 +85,7 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
       },
       runtime: {
         ...query,
+        fieldLabels,
         kind: 'query',
         table,
         rootField: queryRoot,
@@ -120,6 +122,7 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
       },
       runtime: {
         ...mutation,
+        fieldLabels,
         kind: 'update',
         table,
         rootField: mutationRoot,
@@ -1235,7 +1238,7 @@ export async function runRestGoBrowserSmoke(
       name: 'CustomerQueries',
       parentId: boundPage.rootComponentId,
       existingNames: [...boundPage.components, login, ...paymentComponents],
-      props: { graphQLOperationIds: [gridQueryId, gridUpdateId] },
+      props: { graphQLOperationIds: { endpoint: 'demo:customers' } },
       events: { OnSuccess: 'GraphQLSucceeded' },
     });
     const gridConfiguration = createDefaultDataGridConfiguration();
@@ -1503,6 +1506,15 @@ export class index extends indexGenerated {
       });
     });
     this.element.append(saveGrid);
+    const inheritGridLabels = document.createElement('button');
+    inheritGridLabels.dataset.graphqlInheritLabels = 'true';
+    inheritGridLabels.addEventListener('click', () => {
+      this.CustomerGrid.dataGridConfig = {
+        ...this.CustomerGrid.dataGridConfig,
+        editorFieldLabels: {},
+      };
+    });
+    this.element.append(inheritGridLabels);
   }
 }`,
       },
@@ -1606,7 +1618,7 @@ export class index extends indexGenerated {
         gridAction('previous').click();
         await waitForGrid(() => gridCell() === 'Grid Alpha' && pageSummary().startsWith('Results page 1') &&
           gridAction('previous').disabled === true, 'The unknown cursor did not return to the first page');
-        const stageGridEdit = (value, current = 'Grid Alpha') => {
+        const stageGridEdit = (value, current = 'Grid Alpha', fieldLabel = 'Customer name') => {
           const lastSave = page.dataset.graphQlSaved;
           if (gridAction('edit-1').textContent !== 'Change customer') throw new Error('Grid edit caption was not applied');
           gridAction('edit-1').click();
@@ -1614,7 +1626,7 @@ export class index extends indexGenerated {
           const input = editor?.querySelector('input');
           if (!(input instanceof HTMLInputElement) || input.value !== current) throw new Error('Grid editor did not map the GraphQL input');
           if (editor.getAttribute('aria-label') !== 'Change customer details' ||
-              input.closest('label')?.querySelector('span').textContent !== 'Customer name' ||
+              input.closest('label')?.querySelector('span').textContent !== fieldLabel ||
               editor.querySelector('button[type="submit"]')?.textContent !== 'Keep draft') {
             throw new Error('Grid editor did not use its custom labels');
           }
@@ -1630,12 +1642,14 @@ export class index extends indexGenerated {
         gridAction('undo-1').click();
         if (gridCell() !== 'Grid Alpha' || page.dataset.graphQlDraftCount !== '0') throw new Error('Grid draft undo did not restore the saved value');
         await waitForGrid(() => document.querySelector('.wr-data-grid-graphql-editor') === null, 'Grid edit dialog did not close');
-        stageGridEdit('Grid Alpha Saved');
+        document.querySelector('[data-graphql-inherit-labels="true"]').click();
+        await waitForGrid(() => gridCell() === 'Grid Alpha' && gridAction('edit-1') !== null, 'Grid did not restore row actions after inheriting endpoint labels');
+        stageGridEdit('Grid Alpha Saved', 'Grid Alpha', 'Endpoint customer name');
         document.querySelector('[data-graphql-save="true"]').click();
         await waitForGrid(() => !!page.dataset.graphQlSaveError || (page.dataset.graphQlSaved === '1' && gridCell() === 'Grid Alpha Saved'), 'GraphQL Data Grid did not reload after SaveChanges');
         if (page.dataset.graphQlSaveError || grid.querySelector('[data-webrad-grid-draft]')) throw new Error(page.dataset.graphQlSaveError || 'A saved grid edit retained its draft');
         await waitForGrid(() => document.querySelector('.wr-data-grid-graphql-editor') === null, 'Grid edit dialog did not close after staging the saved draft');
-        stageGridEdit('Grid Alpha Saved Again', 'Grid Alpha Saved');
+        stageGridEdit('Grid Alpha Saved Again', 'Grid Alpha Saved', 'Endpoint customer name');
         const saveAction = gridAction('save');
         if (saveAction?.textContent !== 'Save customer edits') throw new Error('Grid save caption was not applied');
         saveAction.click();
@@ -1704,7 +1718,7 @@ export class index extends indexGenerated {
     )
       throw new Error('GraphQL Data Grid cursor or explicit mutation request mismatch.');
     log(
-      'renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution, Data Grid and ComboBox bindings, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, configured captions, and explicit saves from page code and the grid button; HTTP fixture',
+      'renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution from a grouped endpoint, Data Grid and ComboBox bindings, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, endpoint field labels with grid overrides, configured captions, and explicit saves from page code and the grid button; HTTP fixture',
     );
     const paymentRequests = requests.filter((request) => request.route.startsWith('/payment/'));
     if (

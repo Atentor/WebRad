@@ -6,6 +6,7 @@ import type {
   WebGraphQLValue,
 } from '@webrad/runtime';
 import { z } from 'zod';
+import { WEB_DATA_GRID_LABEL_MAX_LENGTH } from '@webrad/runtime/data-grid-labels';
 import { ApiClientResponseSchemaSchema, type ApiClientResponseSchema } from './api-client.js';
 import type { ComponentNode } from './types.js';
 
@@ -16,13 +17,69 @@ export const GraphQLClientOperationIdsSchema = z
     'GraphQL operation IDs must be unique within a client.',
   );
 
+export const GraphQLClientConfigurationSchema = z.union([
+  GraphQLClientOperationIdsSchema,
+  z
+    .object({
+      endpoint: z
+        .string()
+        .regex(/^[a-z][a-z0-9_]{0,29}:[_A-Za-z][_0-9A-Za-z]{0,255}$/)
+        .nullable(),
+    })
+    .strict(),
+]);
+
+export type GraphQLClientConfiguration = z.infer<typeof GraphQLClientConfigurationSchema>;
+
+export function graphQLClientConfiguration(component: ComponentNode): GraphQLClientConfiguration {
+  return component.type === 'WebGraphQLClient'
+    ? (GraphQLClientConfigurationSchema.safeParse(component.props.graphQLOperationIds).data ?? [])
+    : [];
+}
+
+/** Explicit IDs stored by clients configured before endpoint selection. */
 export function graphQLClientOperationIds(component: ComponentNode): readonly string[] {
-  if (component.type === 'WebGraphQLClient') {
-    return (
-      GraphQLClientOperationIdsSchema.safeParse(component.props.graphQLOperationIds).data ?? []
-    );
+  const configuration = graphQLClientConfiguration(component);
+  return Array.isArray(configuration) ? configuration : [];
+}
+
+export function graphQLEndpointKey(database: string, table: string): string {
+  return `${database}:${table}`;
+}
+
+export function graphQLEndpointName(operation: ProjectGraphQLOperation): string {
+  return operation.endpointName ?? operation.runtime.table;
+}
+
+export interface ProjectGraphQLEndpoint {
+  readonly key: string;
+  readonly name: string;
+  readonly database: string;
+  readonly table: string;
+  readonly operations: readonly ProjectGraphQLOperation[];
+}
+
+export function groupGraphQLEndpoints(
+  operations: readonly ProjectGraphQLOperation[],
+): readonly ProjectGraphQLEndpoint[] {
+  const groups = new Map<string, ProjectGraphQLEndpoint & { operations: ProjectGraphQLOperation[] }>();
+  for (const operation of operations) {
+    const { database, runtime } = operation;
+    const { table } = runtime;
+    const key = graphQLEndpointKey(database, table);
+    const group = groups.get(key);
+    if (group) group.operations.push(operation);
+    else {
+      groups.set(key, {
+        key,
+        name: graphQLEndpointName(operation),
+        database,
+        table,
+        operations: [operation],
+      });
+    }
   }
-  return [];
+  return [...groups.values()];
 }
 
 export function selectComponentGraphQLOperations(
@@ -30,8 +87,15 @@ export function selectComponentGraphQLOperations(
   operations: readonly ProjectGraphQLOperation[],
 ): readonly ProjectGraphQLOperation[] {
   if (operations.length === 0) return [];
-  const ids = new Set(graphQLClientOperationIds(component));
-  return operations.filter((operation) => ids.has(operation.id));
+  const configuration = graphQLClientConfiguration(component);
+  if (!Array.isArray(configuration)) {
+    return operations.filter(
+      ({ database, runtime }) =>
+        graphQLEndpointKey(database, runtime.table) === configuration.endpoint,
+    );
+  }
+  const ids = new Set(configuration);
+  return operations.filter(({ id }) => ids.has(id));
 }
 
 export interface GraphQLCondition {
@@ -79,6 +143,8 @@ export interface ProjectGraphQLOperationDraft {
 
 /** A project-local operation with the generated document and result contract for offline builds. */
 export interface ProjectGraphQLOperation extends ProjectGraphQLOperationDraft {
+  /** Display name shared by the actions configured for this database and table. */
+  readonly endpointName?: string;
   readonly runtime: WebGraphQLRuntimeOperation;
   /** Result records have the same normalized shape as runtime rows. */
   readonly responseSchema: ApiClientResponseSchema;
@@ -187,6 +253,12 @@ const runtimeSchema: z.ZodType<WebGraphQLRuntimeOperation> = z
       .max(32 * 1024),
     parameters: z.array(parameterSchema).max(200),
     selections: z.array(selectionSchema).max(1000),
+    fieldLabels: z
+      .record(
+        z.string().regex(/^\/[_A-Za-z][_0-9A-Za-z]{0,255}$/),
+        z.string().trim().min(1).max(WEB_DATA_GRID_LABEL_MAX_LENGTH),
+      )
+      .optional(),
     pagination: z
       .object({ defaultSize: z.number().int().min(1), maxSize: z.number().int().min(1).max(100) })
       .strict()
@@ -200,6 +272,7 @@ export const ProjectGraphQLOperationSchema: z.ZodType<ProjectGraphQLOperation> =
     id,
     name: GraphQLNameSchema,
     database: databaseSlug,
+    endpointName: z.string().trim().min(1).max(256).optional(),
     spec: specSchema,
     runtime: runtimeSchema,
     responseSchema: ApiClientResponseSchemaSchema,
@@ -236,7 +309,19 @@ export const ProjectGraphQLOperationsSchema = z
   .superRefine((operations, context) => {
     const ids = new Set<string>();
     const names = new Set<string>();
+    const endpointNames = new Map<string, string>();
     operations.forEach((operation, index) => {
+      const key = graphQLEndpointKey(operation.database, operation.runtime.table);
+      const endpointName = graphQLEndpointName(operation);
+      const previousName = endpointNames.get(key);
+      if (previousName !== undefined && previousName !== endpointName) {
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'endpointName'],
+          message: 'Actions for the same GraphQL endpoint must share its name.',
+        });
+      }
+      endpointNames.set(key, endpointName);
       for (const [used, property] of [
         [ids, 'id'],
         [names, 'name'],

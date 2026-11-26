@@ -6,14 +6,15 @@ import {
 import type { ReactElement } from 'react';
 
 const mutationFields = [
-  ['insert', 'insertOperationId', 'Insert operation'],
-  ['update', 'updateOperationId', 'Update operation'],
-  ['delete', 'deleteOperationId', 'Delete operation'],
+  ['insert', 'insertOperationId', 'Insert'],
+  ['update', 'updateOperationId', 'Update'],
+  ['delete', 'deleteOperationId', 'Delete'],
 ] as const;
+type MutationKey = (typeof mutationFields)[number][1];
 
 interface DataGridGraphQLSettingsProps {
   readonly binding: DataGridGraphQLBinding;
-  readonly query: ProjectGraphQLOperation | undefined;
+  readonly query: ProjectGraphQLOperation;
   readonly operations: readonly ProjectGraphQLOperation[];
   readonly onChange: (patch: Partial<DataGridGraphQLBinding>) => void;
 }
@@ -24,7 +25,26 @@ export function DataGridGraphQLSettings({
   operations,
   onChange,
 }: DataGridGraphQLSettingsProps): ReactElement {
-  const maxPageSize = query?.runtime.pagination?.maxSize ?? 30;
+  const maxPageSize = query.runtime.pagination?.maxSize ?? 30;
+  const actions = mutationFields.map(([kind, key, label]) => {
+    const candidates = operations.filter(
+      ({ database, runtime }) =>
+        database === query.database && runtime.table === query.runtime.table && runtime.kind === kind,
+    );
+    const compatible = candidates.filter((operation) =>
+      isDataGridGraphQLMutation(query, operation, kind),
+    );
+    const reason =
+      candidates.length === 0
+        ? 'Not available through this GraphQL Client'
+        : kind !== 'delete' &&
+            candidates.every(
+              ({ runtime }) => !runtime.parameters.some(({ source }) => source.role === 'input'),
+            )
+          ? 'Add a field to write in RestGO → GraphQL'
+          : 'Use an equality condition on a field returned by Query';
+    return { key, label, compatible, reason };
+  });
   return (
     <>
       <div className="wr-data-grid-configuration-toggles">
@@ -44,10 +64,21 @@ export function DataGridGraphQLSettings({
           <label>
             <input
               type="checkbox"
+              aria-label="Enable record editing"
               checked={binding.crudEnabled}
-              onChange={(event) => onChange({ crudEnabled: event.currentTarget.checked })}
+              onChange={(event) => {
+                const crudEnabled = event.currentTarget.checked;
+                const defaults: Partial<Record<MutationKey, string>> = {};
+                if (crudEnabled && actions.every(({ key }) => binding[key] === null)) {
+                  for (const { key, compatible } of actions) {
+                    const [action] = compatible;
+                    if (compatible.length === 1 && action) defaults[key] = action.id;
+                  }
+                }
+                onChange({ ...defaults, crudEnabled });
+              }}
             />
-            <span>Enable CRUD</span>
+            <span>Enable record editing</span>
           </label>
         </fieldset>
       </div>
@@ -66,28 +97,28 @@ export function DataGridGraphQLSettings({
             }}
           />
         </label>
-        {binding.crudEnabled &&
-          mutationFields.map(([kind, key, label]) => {
-            const available =
-              query === undefined
-                ? []
-                : operations.filter((operation) =>
-                    isDataGridGraphQLMutation(query, operation, kind),
-                  );
+      </div>
+      <fieldset className="wr-data-grid-toggle-group wr-data-grid-graphql-actions">
+        <legend>Endpoint actions</legend>
+        {actions.map(({ key, label, compatible, reason }) => {
+          const selected = binding[key];
+          const action = compatible[0];
+          if (compatible.length > 1) {
             return (
               <label key={key}>
                 <span>{label}</span>
                 <select
-                  value={binding[key] ?? ''}
+                  disabled={!binding.crudEnabled}
+                  value={selected ?? ''}
                   onChange={(event) => onChange({ [key]: event.currentTarget.value || null })}
                 >
-                  <option value="">(disabled)</option>
-                  {binding[key] !== null && !available.some(({ id }) => id === binding[key]) && (
-                    <option value={binding[key]} disabled>
+                  <option value="">Off</option>
+                  {selected !== null && !compatible.some(({ id }) => id === selected) && (
+                    <option value={selected} disabled>
                       (unavailable operation)
                     </option>
                   )}
-                  {available.map(({ id, name }) => (
+                  {compatible.map(({ id, name }) => (
                     <option value={id} key={id}>
                       {name}
                     </option>
@@ -95,8 +126,27 @@ export function DataGridGraphQLSettings({
                 </select>
               </label>
             );
-          })}
-      </div>
+          }
+          return (
+            <label key={key}>
+              <input
+                type="checkbox"
+                aria-label={label}
+                checked={selected !== null}
+                disabled={!binding.crudEnabled || (action === undefined && selected === null)}
+                onChange={(event) =>
+                  onChange({ [key]: event.currentTarget.checked ? (action?.id ?? null) : null })
+                }
+              />
+              <span>{label}</span>
+              {action === undefined && <small>{reason}</small>}
+              {action !== undefined && selected !== null && selected !== action.id && (
+                <small>Clear this action and select it again to use the available operation.</small>
+              )}
+            </label>
+          );
+        })}
+      </fieldset>
       {binding.crudEnabled && (
         <p>
           Use a key field from the query in an equality condition for update and delete. Handle

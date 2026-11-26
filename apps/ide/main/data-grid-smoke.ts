@@ -123,6 +123,10 @@ async function assertSavedEditor(window: BrowserWindow): Promise<void> {
   await openConfigurationTab(window, 'labels');
   await ready(
     window,
+    `document.querySelector(${JSON.stringify(labelledControl('language'))})?.value === 'custom'`,
+  );
+  await ready(
+    window,
     `${labelValues
       .map(
         ([key, value]) =>
@@ -263,7 +267,7 @@ export async function runDataGridConfigurationSmoke(
   };
   window.webContents.on('console-message', captureError);
   let gridId: string | undefined;
-  let saved = false;
+  let configurationSaves = 0;
   let eventBound = false;
   let sourceRestored = true;
   try {
@@ -450,6 +454,27 @@ export async function runDataGridConfigurationSmoke(
     );
     await click(window, `${columnList} li:first-child [role="option"]`);
     await openConfigurationTab(window, 'labels');
+    await ready(
+      window,
+      `document.querySelector(${JSON.stringify(labelledControl('language'))})?.value === 'en'`,
+    );
+    for (const [language, next, add] of [
+      ['es', 'Siguiente', 'Añadir'],
+      ['pt', 'Próxima', 'Adicionar'],
+    ] as const) {
+      await setField(window, 'language', language);
+      await ready(
+        window,
+        `(() => {
+          const label = document.querySelector(${JSON.stringify(labelledControl('next'))});
+          const addButton = document.querySelector(${JSON.stringify(labelledControl('addRow'))});
+          const addTitle = document.querySelector(${JSON.stringify(labelledControl('addRecord'))});
+          return addButton?.value === ${JSON.stringify(add)} && addTitle?.value === addButton.value &&
+            label?.value === ${JSON.stringify(next)} && label.readOnly;
+        })()`,
+      );
+    }
+    await setField(window, 'language', 'custom');
     for (const [key, value] of labelValues) await setField(window, key, value);
     await setChecked(window, 'showSaveButton', true);
     await assertSavedEditor(window);
@@ -463,7 +488,7 @@ export async function runDataGridConfigurationSmoke(
     screenshots.push(await captureConfiguration(window, 'dark', 640, true));
     await click(window, '.wr-data-grid-configuration-actions button.primary');
     await ready(window, `document.querySelector(${JSON.stringify(dialogSelector)}) === null`);
-    saved = true;
+    configurationSaves++;
     await openConfiguration(window);
     await assertSavedEditor(window);
     await setField(window, 'Header for Data Grid column 1', 'Discard this edit');
@@ -472,14 +497,28 @@ export async function runDataGridConfigurationSmoke(
     await setField(window, 'Data Grid row height mode', 'fixed');
     await openConfigurationTab(window, 'labels');
     await setField(window, 'edit', 'Discard this label');
+    await setField(window, 'language', 'es');
     await setChecked(window, 'showSaveButton', false);
     await click(window, '.wr-data-grid-configuration-actions button:not(.primary)');
     await openConfiguration(window);
     await assertSavedEditor(window);
+    await setField(window, 'language', 'pt');
+    await click(window, '.wr-data-grid-configuration-actions button.primary');
+    await ready(window, `document.querySelector(${JSON.stringify(dialogSelector)}) === null`);
+    configurationSaves++;
+    await openConfiguration(window);
+    await openConfigurationTab(window, 'labels');
+    await ready(
+      window,
+      `document.querySelector(${JSON.stringify(labelledControl('language'))})?.value === 'pt' &&
+        document.querySelector(${JSON.stringify(labelledControl('next'))})?.value === 'Próxima'`,
+    );
+    await setField(window, 'language', 'custom');
+    await assertSavedEditor(window);
     await click(window, 'button[aria-label="Close Data Grid configuration"]');
     if (errors.length > 0) throw new Error(`Data Grid renderer errors: ${errors.join('\n')}`);
     log(
-      `renderer Data Grid configuration passed: table palette icon; source, column, appearance and labels tabs; column selection and single detail pane; 2 rounds of all 8 toggles; row/column modes; cell kinds and icon picker; labels and save button setting; save, reopen, cancel; screenshots ${screenshots.join(', ')}`,
+      `renderer Data Grid configuration passed: table palette icon; source, column, appearance and labels tabs; column selection and single detail pane; 2 rounds of all 8 toggles; row/column modes; cell kinds and icon picker; label language presets, custom captions and save button setting; save, reopen, cancel; screenshots ${screenshots.join(', ')}`,
     );
   } finally {
     if (gridId !== undefined && !window.isDestroyed()) {
@@ -494,7 +533,7 @@ export async function runDataGridConfigurationSmoke(
       await click(window, 'button[aria-label="Design"]');
       const treeSelector = `[role="treeitem"][data-component-id=${JSON.stringify(gridId)}]`;
       await click(window, treeSelector);
-      for (let undo = 0; undo < (saved ? 2 : 1) + (eventBound ? 1 : 0); undo++) {
+      for (let undo = 0; undo < configurationSaves + 1 + (eventBound ? 1 : 0); undo++) {
         await window.webContents.executeJavaScript(
           `document.querySelector(${JSON.stringify(treeSelector)}).dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))`,
           true,

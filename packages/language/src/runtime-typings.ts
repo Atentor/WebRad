@@ -1,4 +1,7 @@
-import { WEB_DATA_GRID_LABEL_KEYS } from '@webrad/runtime/data-grid-labels';
+import {
+  WEB_DATA_GRID_LABEL_KEYS,
+  WEB_DATA_GRID_LABEL_LANGUAGES,
+} from '@webrad/runtime/data-grid-labels';
 import timerTypings from './timer-typings.generated.json';
 import paymentsTypings from './payments-typings.generated.json';
 import graphqlTypings from './graphql-typings.generated.json';
@@ -154,6 +157,7 @@ ${chartsTypings.source}
   }
 
   export type WebDataGridLabel = ${WEB_DATA_GRID_LABEL_KEYS.map((key) => JSON.stringify(key)).join(' | ')};
+  export type WebDataGridLabelLanguage = ${WEB_DATA_GRID_LABEL_LANGUAGES.map((language) => JSON.stringify(language)).join(' | ')};
   export type WebDataGridLabels = Readonly<Partial<Record<WebDataGridLabel, string>>>;
 
   export interface WebDataGridConfiguration {
@@ -162,6 +166,7 @@ ${chartsTypings.source}
     readonly operationId: string | null;
     readonly listPath: string;
     readonly graphql?: WebDataGridGraphQLConfiguration;
+    readonly labelLanguage?: WebDataGridLabelLanguage;
     readonly labels?: WebDataGridLabels;
     readonly editorFieldLabels?: Readonly<Record<string, string>>;
     readonly showSaveButton?: boolean;

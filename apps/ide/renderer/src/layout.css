@@ -2355,8 +2355,7 @@ kbd {
   position: absolute;
   top: 0;
   left: 0;
-  overflow-x: visible;
-  overflow-y: clip;
+  overflow: visible;
   transform-origin: top left;
   box-shadow: 0 7px 30px rgba(0, 0, 0, 0.48);
   outline: 1px solid #9ba4b0;
@@ -5950,6 +5949,10 @@ kbd {
   gap: 10px;
 }
 
+.wr-data-grid-label-language {
+  width: min(100%, 224px);
+}
+
 .wr-data-grid-label-fields {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr));
 }
@@ -6086,7 +6089,8 @@ kbd {
   font-weight: 600;
 }
 
-.wr-data-grid-configuration-toggles label {
+.wr-data-grid-configuration-toggles label,
+.wr-data-grid-graphql-actions label {
   display: flex;
   min-width: 0;
   align-items: flex-start;
@@ -6098,7 +6102,8 @@ kbd {
   line-height: 1.4;
 }
 
-.wr-data-grid-configuration-toggles input {
+.wr-data-grid-configuration-toggles input,
+.wr-data-grid-graphql-actions input {
   width: 14px;
   height: 14px;
   flex: none;
@@ -6107,14 +6112,32 @@ kbd {
   cursor: inherit;
 }
 
-.wr-data-grid-configuration-toggles label:has(input:disabled) {
+.wr-data-grid-configuration-toggles label:has(input:disabled),
+.wr-data-grid-graphql-actions label:has(input:disabled) {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-.wr-data-grid-configuration-toggles input:focus-visible {
+.wr-data-grid-configuration-toggles input:focus-visible,
+.wr-data-grid-graphql-actions input:focus-visible {
   outline: 2px solid var(--wr-accent);
   outline-offset: 2px;
+}
+
+.wr-data-grid-graphql-actions label {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.wr-data-grid-graphql-actions small {
+  color: var(--wr-muted-text);
+  font-size: inherit;
+}
+
+.wr-data-grid-graphql-actions select {
+  max-width: 100%;
+  color: var(--wr-text);
+  background: var(--wr-input-bg);
 }
 
 .wr-data-grid-configuration-empty-message {

@@ -28,7 +28,7 @@ import {
 } from './project-themes.js';
 
 import { ApiClientConfigurationSchema } from './api-client.js';
-import { GraphQLClientOperationIdsSchema, ProjectGraphQLOperationsSchema } from './graphql.js';
+import { GraphQLClientConfigurationSchema, ProjectGraphQLOperationsSchema } from './graphql.js';
 import { DataGridConfigurationSchema } from './data-grid.js';
 import { CurrentRowBindingsSchema, RepeatingGroupConfigurationSchema } from './repeating-group.js';
 import { ComboBoxConfigurationSchema } from './combo-box.js';
@@ -789,7 +789,7 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
           }
       }
       if (component.type === 'WebGraphQLClient') {
-        const result = GraphQLClientOperationIdsSchema.safeParse(
+        const result = GraphQLClientConfigurationSchema.safeParse(
           component.props.graphQLOperationIds,
         );
         if (!result.success) {

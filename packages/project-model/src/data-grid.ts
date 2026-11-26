@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 import {
   WEB_DATA_GRID_LABEL_KEYS,
+  WEB_DATA_GRID_LABEL_LANGUAGES,
   WEB_DATA_GRID_LABEL_MAX_LENGTH,
+  type WebDataGridLabelLanguage,
   type WebDataGridLabels,
 } from '@webrad/runtime/data-grid-labels';
 import { WEBRAD_ICON_NAMES, type WebRadIconName } from '@webrad/runtime/icons';
@@ -101,6 +103,7 @@ export interface DataGridConfiguration {
   /** JSON Pointer to a list in the selected operation response contract. */
   readonly listPath: string;
   readonly graphql?: DataGridGraphQLBinding;
+  readonly labelLanguage?: WebDataGridLabelLanguage;
   readonly labels?: WebDataGridLabels;
   readonly editorFieldLabels?: Readonly<Record<string, string>>;
   readonly showSaveButton?: boolean;
@@ -186,6 +189,7 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
       })
       .strict()
       .optional(),
+    labelLanguage: z.enum(WEB_DATA_GRID_LABEL_LANGUAGES).optional(),
     labels: z.partialRecord(z.enum(WEB_DATA_GRID_LABEL_KEYS), labelSchema).optional(),
     editorFieldLabels: z.record(z.string().startsWith('/').max(4_096), labelSchema).optional(),
     showSaveButton: z.boolean().optional(),

@@ -127,6 +127,7 @@ const requiredEvidence = {
     'renderer bottom dock passed',
     'renderer element tree selection passed:',
     'renderer Designer selection tree reveal passed:',
+    'renderer Designer overflow recovery passed:',
     'renderer Label text wrap Inspector passed:',
     'renderer responsive viewport passed:',
     'renderer Designer toolbar removal passed:',

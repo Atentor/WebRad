@@ -226,10 +226,15 @@ async function exerciseRestGoGraphQL(
 ): Promise<void> {
   const workspace = '.wr-restgo-graphql-workspace';
   await click(window, '.wr-restgo-sidebar nav button:nth-child(4)');
-  await click(window, `${workspace} [aria-label="New GraphQL table"]`);
+  await click(window, `${workspace} [aria-label="New GraphQL endpoint"]`);
   await setControl(window, '[aria-label="GraphQL table"]', 'customers');
+  const endpointName = '[aria-label="GraphQL endpoint name"]';
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(endpointName)})?.value === 'customers'`,
+  );
+  await setControl(window, endpointName, 'Smoke Customers');
   await click(window, `${workspace} [aria-label="Enable Query"]`);
-  await setControl(window, '[aria-label="GraphQL operation name"]', 'SmokeListCustomers');
   await clickText(window, 'Add condition', workspace);
   const operator = `${workspace} .wr-restgo-graphql-filter-row select:has(option[value="neq"])`;
   await ready(
@@ -243,17 +248,17 @@ async function exerciseRestGoGraphQL(
     'customerId',
   );
   await click(window, `${workspace} .wr-restgo-graphql-selection label[title="name"] input`);
+  await setControl(window, '[aria-label="Display name for name"]', 'Customer name');
   await click(window, `${workspace} [aria-label="Enable Insert"]`);
   await ready(
     window,
     `document.querySelector('${workspace} [aria-label="Enable Delete"]')?.disabled === true`,
   );
-  await setControl(window, '[aria-label="GraphQL operation name"]', 'SmokeInsertCustomer');
   await clickText(window, 'Query', `${workspace} .wr-restgo-graphql-action-settings`);
-  await clickText(window, 'Save actions', workspace);
+  await clickText(window, 'Save endpoint', workspace);
   await ready(
     window,
-    `document.querySelector('${workspace} [role="status"]')?.textContent.includes('Table actions applied') === true`,
+    `document.querySelector('${workspace} [role="status"]')?.textContent.includes('GraphQL endpoint applied') === true`,
   );
   await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(window, `document.querySelector('[data-project-save-state="Saved"]') !== null`);
@@ -261,10 +266,12 @@ async function exerciseRestGoGraphQL(
   const actions = project.settings.graphQLOperations?.filter(
     ({ database, runtime }) => database === 'demo' && runtime.table === 'customers',
   );
-  const query = actions?.find(({ name }) => name === 'SmokeListCustomers');
-  const insert = actions?.find(({ name }) => name === 'SmokeInsertCustomer');
+  const query = actions?.find(({ name }) => name === 'Smoke_Customers_query');
+  const insert = actions?.find(({ name }) => name === 'Smoke_Customers_insert');
   if (
     actions?.length !== 2 ||
+    !actions.every(({ endpointName }) => endpointName === 'Smoke Customers') ||
+    !actions.every(({ runtime }) => runtime.fieldLabels?.['/name'] === 'Customer name') ||
     query?.spec.rootField !== 'customersCollection' ||
     !query.spec.conditions.items.some(
       (item) => 'parameter' in item && item.parameter === 'customerId' && item.operator === 'neq',
@@ -275,7 +282,7 @@ async function exerciseRestGoGraphQL(
     !insert.spec.inputs.some((item) => item.parameter === 'name' && item.required)
   ) {
     throw new Error(
-      'The table save did not persist the selected GraphQL actions and their settings.',
+      'The endpoint save did not persist its name and both GraphQL action contracts.',
     );
   }
   await clickText(window, 'Close', workspace);
@@ -283,6 +290,9 @@ async function exerciseRestGoGraphQL(
   await ready(
     window,
     `document.querySelectorAll('${workspace} .wr-restgo-endpoint-list-item').length === 1
+    && document.querySelector(${JSON.stringify(endpointName)})?.value === 'Smoke Customers'
+    && document.querySelector('[aria-label="Display name for name"]')?.value === 'Customer name'
+    && document.querySelector('[aria-label="Display name for id"]')?.placeholder === 'id'
     && document.querySelector('${workspace} [aria-label="Enable Query"]')?.checked === true
     && document.querySelector('${workspace} [aria-label="Enable Insert"]')?.checked === true
     && document.querySelector(${JSON.stringify(operator)})?.selectedOptions[0]?.text === '<>'`,
@@ -379,11 +389,15 @@ async function exerciseRestGoGraphQL(
   );
 }
 
-async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: string): Promise<void> {
+async function exerciseGraphQLBindings(
+  window: BrowserWindow,
+  projectPath: string,
+  evidencePath: string,
+): Promise<void> {
   const { project } = await loadProjectFiles(projectPath);
   const page = project.pages.find(({ name }) => name === 'index');
   const query = project.settings.graphQLOperations?.find(
-    ({ name }) => name === 'SmokeListCustomers',
+    ({ name }) => name === 'Smoke_Customers_query',
   );
   const client = page?.components.find(
     (component) =>
@@ -392,7 +406,7 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
         'restgo-session',
   );
   if (page === undefined || query === undefined || client === undefined) {
-    throw new Error('The GraphQL binding smoke requires a saved query and a RestGo API Client.');
+    throw new Error('The GraphQL binding smoke requires a saved query and RestGo API Client.');
   }
 
   await click(window, 'button[aria-label="Project Explorer"]');
@@ -445,7 +459,10 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
   const graphQLClientId = await insert('GraphQL Client');
   const graphQLClientTree = `[role="treeitem"][data-component-id=${JSON.stringify(graphQLClientId)}]`;
   const graphQLDialog = '.wr-graphql-client-dialog[open]';
-  const graphQLImport = `${graphQLDialog} input[value=${JSON.stringify(query.id)}]`;
+  const graphQLImport = `${graphQLDialog} input[type="radio"][value="demo:customers"]`;
+  const graphQLSearch = `${graphQLDialog} [aria-label="Search GraphQL endpoints"]`;
+  const graphQLStatus = `${graphQLDialog} [aria-label="GraphQL endpoint status"]`;
+  const graphQLClear = `${graphQLDialog} .wr-graphql-client-clear`;
   const graphQLSource = '[aria-label="Data Grid GraphQL Client"]';
   for (const control of [
     {
@@ -468,7 +485,7 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
     const isDataGrid = control.label === 'Data Grid';
     const source = isDataGrid ? graphQLSource : '[aria-label="ComboBox data source"]';
     const operation = isDataGrid
-      ? '[aria-label="Data Grid query"]'
+      ? '[aria-label="Data Grid GraphQL endpoint"]'
       : '[aria-label="ComboBox operation"]';
     const value = `graphql:${query.id}`;
     await click(window, configure);
@@ -498,7 +515,34 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
       await click(window, close);
       await click(window, graphQLClientTree);
       await click(window, 'button[aria-label="Configure GraphQL Client"]');
+      await setControl(window, graphQLSearch, 'DEMO SMOKE CUSTOMERS INSERT');
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(graphQLImport)})?.checked === false &&
+          document.querySelectorAll('${graphQLDialog} input[type="radio"]').length === 1 &&
+          document.querySelector(${JSON.stringify(graphQLImport)})?.closest('label')
+            ?.textContent.includes('Query, Insert')`,
+      );
+      await setControl(window, graphQLStatus, 'active');
+      await ready(
+        window,
+        `document.querySelector('${graphQLDialog} [role="status"]')?.textContent === 'No matching endpoints.'`,
+      );
+      await setControl(window, graphQLStatus, 'inactive');
       await click(window, graphQLImport);
+      await ready(window, `document.querySelector(${JSON.stringify(graphQLImport)}) === null`);
+      await setControl(window, graphQLStatus, 'active');
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(graphQLImport)})?.checked === true`,
+      );
+      await setControl(window, graphQLSearch, '');
+      await setControl(window, graphQLStatus, 'inactive');
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(graphQLImport)}) === null &&
+          document.querySelector(${JSON.stringify(graphQLClear)})?.disabled === false`,
+      );
       const backdropFilter: unknown = await window.webContents.executeJavaScript(
         `getComputedStyle(document.querySelector(${JSON.stringify(graphQLDialog)}), '::backdrop').backdropFilter`,
         true,
@@ -534,8 +578,23 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
       window,
       `[...document.querySelector(${JSON.stringify(operation)}).options].map((option) => option.value).join(',') === ${JSON.stringify(`,${value}`)}`,
     );
-    await setControl(window, operation, value);
-    if (isDataGrid) await click(window, columnsTab);
+    if (isDataGrid) {
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(operation)})?.value === ${JSON.stringify(value)} &&
+          document.querySelector(${JSON.stringify(operation)})?.selectedOptions[0]?.text === 'Smoke Customers'`,
+      );
+      await click(window, 'input[aria-label="Enable record editing"]');
+      await ready(
+        window,
+        `document.querySelector('.wr-data-grid-graphql-actions [aria-label="Insert"]')?.checked === true &&
+          document.querySelector('.wr-data-grid-graphql-actions [aria-label="Update"]')?.disabled === true &&
+          document.querySelector('.wr-data-grid-graphql-actions [aria-label="Delete"]')?.disabled === true`,
+      );
+      await click(window, columnsTab);
+    } else {
+      await setControl(window, operation, value);
+    }
     for (const [label, field] of control.fields) {
       await setControl(window, `[aria-label=${JSON.stringify(label)}]`, field);
     }
@@ -552,7 +611,8 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
         '[role="tabpanel"]:not([hidden]) [aria-label="Dynamic field for Data Grid column 1"]';
       await ready(
         window,
-        `document.querySelector(${JSON.stringify(sourceType)})?.value === 'graphql-client'`,
+        `document.querySelector(${JSON.stringify(sourceType)})?.value === 'graphql-client' &&
+          document.querySelector('.wr-data-grid-graphql-actions [aria-label="Insert"]')?.checked === true`,
       );
       await click(window, columnsTab);
       await ready(
@@ -572,14 +632,47 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
     await click(window, close);
     await click(window, graphQLClientTree);
     await click(window, 'button[aria-label="Configure GraphQL Client"]');
+    await setControl(window, graphQLStatus, 'active');
+    await setControl(window, graphQLSearch, 'customers');
     await ready(
       window,
       `(() => {
         const checkbox = document.querySelector(${JSON.stringify(graphQLImport)});
+        const detail = checkbox?.closest('label')?.querySelector('.wr-graphql-client-operation-detail');
         return checkbox?.checked === true && checkbox.disabled === true &&
-          checkbox.closest('label')?.textContent.includes('Used by');
+          document.querySelector(${JSON.stringify(graphQLClear)})?.disabled === true &&
+          detail?.textContent.includes('Query, Insert · demo/customers · Used by');
       })()`,
     );
+    if (isDataGrid) {
+      await ready(
+        window,
+        `(() => {
+          const dialog = document.querySelector(${JSON.stringify(graphQLDialog)});
+          const header = dialog.querySelector('.wr-modal-header').getBoundingClientRect();
+          const search = dialog.querySelector('input[type="search"]').getBoundingClientRect();
+          const status = dialog.querySelector('select').getBoundingClientRect();
+          const list = dialog.querySelector('.wr-graphql-client-operations').getBoundingClientRect();
+          const row = dialog.querySelector('.wr-graphql-client-operations label').getBoundingClientRect();
+          const name = dialog.querySelector('.wr-graphql-client-operation-name').getBoundingClientRect();
+          const detail = dialog.querySelector('.wr-graphql-client-operation-detail').getBoundingClientRect();
+          const footer = dialog.querySelector('.wr-modal-actions').getBoundingClientRect();
+          const save = dialog.querySelector('button[type="submit"]').getBoundingClientRect();
+          const bounds = dialog.getBoundingClientRect();
+          return Math.abs(header.left - bounds.left) <= 1 &&
+            Math.abs(header.right - bounds.right) <= 1 &&
+            Math.abs(footer.left - header.left) <= 1 &&
+            Math.abs(footer.right - header.right) <= 1 &&
+            Math.abs(search.top - status.top) <= 1 && Math.abs(search.height - status.height) <= 1 &&
+            Math.abs(search.left - list.left) <= 1 && Math.abs(status.right - list.right) <= 1 &&
+            row.height <= 36 && name.right <= detail.left &&
+            Math.abs(name.top + name.height / 2 - detail.top - detail.height / 2) <= 1 &&
+            list.bottom <= footer.top && save.bottom <= bounds.bottom && bounds.bottom <= innerHeight &&
+            dialog.scrollWidth <= dialog.clientWidth + 1;
+        })()`,
+      );
+      await capture(window, evidencePath);
+    }
     await click(window, 'button[aria-label="Close GraphQL Client"]');
     await click(window, treeItem);
     await window.webContents.send('webrad:menu-command', 'edit.delete');
@@ -591,10 +684,17 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
     window,
     `(() => {
       const checkbox = document.querySelector(${JSON.stringify(graphQLImport)});
-      return checkbox?.checked === true && checkbox.disabled === false;
+      return checkbox?.checked === true && checkbox.disabled === false &&
+        document.querySelector(${JSON.stringify(graphQLClear)})?.disabled === false;
     })()`,
   );
-  await click(window, 'button[aria-label="Close GraphQL Client"]');
+  await click(window, graphQLClear);
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(graphQLImport)})?.checked === false`,
+  );
+  await click(window, `${graphQLDialog} button[type="submit"]`);
+  await ready(window, `document.querySelector(${JSON.stringify(graphQLDialog)}) === null`);
   await window.webContents.send('webrad:menu-command', 'edit.delete');
   await ready(window, `document.querySelector(${JSON.stringify(graphQLClientTree)}) === null`);
   await window.webContents.send('webrad:menu-command', 'file.save');
@@ -2049,12 +2149,13 @@ export async function runApiClientDesignerSmoke(
     );
     await click(window, 'button[aria-label="RestGo integration"]');
     await exerciseRestGoGraphQL(window, projectPath, `${screenshotRoot}-restgo-graphql.png`);
-    await exerciseGraphQLBindings(window, projectPath);
+    const graphQLClientEvidence = `${screenshotRoot}-graphql-client.png`;
+    await exerciseGraphQLBindings(window, projectPath, graphQLClientEvidence);
     if (calls.some((call) => call.path.includes('/graphql-admin/') && call.method !== 'GET')) {
       throw new Error('GraphQL operation authoring wrote to the RestGO instance.');
     }
     log(
-      'renderer RestGO GraphQL operation editor passed: published schema, Query and Insert saved and reopened under one table, continuous editor surface, responsive typed filter rows, indented groups, field selection, separate REST API Client editor, GraphQL Client configuration, Data Grid source filtering, and protected Data Grid and ComboBox bindings',
+      `renderer RestGO GraphQL operation editor passed: published schema, one named endpoint with Query and Insert, continuous editor surface, responsive typed filter rows, indented groups, field selection, separate REST API Client editor, searchable grouped GraphQL Client selection and aligned dialog, Data Grid automatic endpoint and Insert binding, protected Data Grid and ComboBox bindings; screenshot ${graphQLClientEvidence}`,
     );
     log(
       `renderer API Client designer passed: request, settings and response layout, readable controls, tabs, all methods, light/dark theme, 1080/740 viewport, custom HTTP test, delete final endpoint, save/reopen empty list, recreate endpoint, fixed RestGO URL, Bearer test, safe persistence; screenshots ${screenshotRoot}-custom.png, ${screenshotRoot}-custom-light.png, ${screenshotRoot}-custom-compact.png, ${screenshotRoot}-custom-narrow.png, ${screenshotRoot}-response.png, ${screenshotRoot}-empty.png and ${screenshotRoot}-restgo.png`,

@@ -67,7 +67,10 @@ import {
   type RepeatingGroupConfiguration,
   type CurrentRowBinding,
   normalizeCurrentRowBindings,
+  graphQLClientConfiguration,
   graphQLClientOperationIds,
+  graphQLEndpointKey,
+  selectComponentGraphQLOperations,
   normalizeDataGridConfiguration,
   ComboBoxConfigurationSchema,
   type PageModel,
@@ -1734,6 +1737,14 @@ export function App(): ReactElement {
   const saveGraphQLOperations = useCallback(
     (operations: readonly ProjectGraphQLOperation[]): void => {
       const ids = new Set(operations.map((operation) => operation.id));
+      const endpoints = new Set(
+        operations.map(({ database, runtime }) => graphQLEndpointKey(database, runtime.table)),
+      );
+      const removedEndpoints = new Set(
+        (project?.settings.graphQLOperations ?? [])
+          .map(({ database, runtime }) => graphQLEndpointKey(database, runtime.table))
+          .filter((key) => !endpoints.has(key)),
+      );
       const removed = new Set(
         (project?.settings.graphQLOperations ?? [])
           .map((operation) => operation.id)
@@ -1742,7 +1753,7 @@ export function App(): ReactElement {
       const documents =
         removed.size === 0 || project === null
           ? []
-          : [...project.pages, ...project.reusableElements];
+          : [...project.pages, ...project.reusableElements, ...(project.menus ?? [])];
       for (const document of documents) {
         for (const component of document.components) {
           if (
@@ -1755,6 +1766,16 @@ export function App(): ReactElement {
           if (graphQLClientOperationIds(component).some((id) => removed.has(id))) {
             throw new Error(
               `Remove the GraphQL operation from ${document.name}.${component.name} before deleting it.`,
+            );
+          }
+          const configuration = graphQLClientConfiguration(component);
+          if (
+            !Array.isArray(configuration) &&
+            configuration.endpoint !== null &&
+            removedEndpoints.has(configuration.endpoint)
+          ) {
+            throw new Error(
+              `Clear the GraphQL endpoint in ${document.name}.${component.name} before deleting it.`,
             );
           }
         }
@@ -3658,17 +3679,28 @@ export function App(): ReactElement {
             operations={project?.settings.graphQLOperations ?? []}
             operationUsers={graphQLClientOperationUsers}
             onClose={() => setGraphQLClientComponentId(null)}
-            onSave={(ids) => {
+            onSave={(configuration) => {
               try {
-                const selected = new Set(ids);
-                for (const id of graphQLClientOperationIds(graphQLClientComponent)) {
-                  const users = graphQLClientOperationUsers.get(id);
-                  if (users !== undefined && !selected.has(id)) {
+                const selected = new Set(
+                  selectComponentGraphQLOperations(
+                    {
+                      ...graphQLClientComponent,
+                      props: { ...graphQLClientComponent.props, graphQLOperationIds: configuration },
+                    },
+                    project?.settings.graphQLOperations ?? [],
+                  ).map(({ id }) => id),
+                );
+                for (const [id, users] of graphQLClientOperationUsers) {
+                  if (!selected.has(id)) {
                     throw new Error(`Remove the GraphQL binding from ${users.join(', ')} first.`);
                   }
                 }
                 commitDesignerCommand(
-                  new ChangePropertyCommand(graphQLClientComponent.id, 'graphQLOperationIds', ids),
+                  new ChangePropertyCommand(
+                    graphQLClientComponent.id,
+                    'graphQLOperationIds',
+                    configuration,
+                  ),
                 );
                 setGraphQLClientComponentId(null);
               } catch (error) {

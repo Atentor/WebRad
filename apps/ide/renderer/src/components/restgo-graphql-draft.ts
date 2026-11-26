@@ -8,6 +8,7 @@ import {
   type GraphQLOperationSpec,
   type GraphQLSchema,
   type GraphQLValueChoice,
+  type ProjectGraphQLEndpoint,
   type ProjectGraphQLOperation,
 } from '@webrad/project-model';
 
@@ -16,15 +17,11 @@ export type GraphQLAction = GraphQLOperationSpec['kind'];
 type TableActions<T> = Partial<Record<GraphQLAction, readonly T[]>>;
 
 export interface GraphQLTableDraft {
+  readonly name: string;
   readonly database: string;
   readonly table: string;
+  readonly fieldLabels: Readonly<Record<string, string>>;
   readonly actions: TableActions<OperationDraft>;
-}
-
-export interface SavedGraphQLTable {
-  readonly database: string;
-  readonly table: string;
-  readonly operations: readonly ProjectGraphQLOperation[];
 }
 
 export function describeGraphQLTables(
@@ -41,49 +38,41 @@ export function describeGraphQLTables(
   return tables;
 }
 
-export function groupGraphQLOperations(
-  operations: readonly ProjectGraphQLOperation[],
-): readonly SavedGraphQLTable[] {
-  const tables = new Map<string, SavedGraphQLTable>();
-  for (const operation of operations) {
-    const {
-      database,
-      runtime: { table },
-    } = operation;
-    const key = `${database}:${table}`;
-    const existing = tables.get(key);
-    tables.set(key, { database, table, operations: [...(existing?.operations ?? []), operation] });
-  }
-  return [...tables.values()];
-}
-
 export function editGraphQLTable({
+  name,
   database,
   table,
   operations,
-}: SavedGraphQLTable): GraphQLTableDraft {
+}: Omit<ProjectGraphQLEndpoint, 'key'>): GraphQLTableDraft {
   const actions: TableActions<OperationDraft> = {};
   for (const operation of operations) {
     const { kind } = operation.spec;
     actions[kind] = [...(actions[kind] ?? []), editGraphQLOperation(operation)];
   }
-  return { database, table, actions };
+  return { name, database, table, actions, fieldLabels: operations[0]?.runtime.fieldLabels ?? {} };
+}
+
+export function graphQLActionName(
+  endpointName: string,
+  kind: GraphQLAction,
+  usedNames: ReadonlySet<string>,
+): string {
+  const identifier = endpointName.replace(/[^_a-zA-Z0-9]+/g, '_').replace(/^([0-9])/, '_$1');
+  const base = `${identifier.slice(0, 240)}_${kind}`;
+  let name = base;
+  for (let number = 2; usedNames.has(name.toLowerCase()); number++) {
+    const suffix = `_${number}`;
+    name = base + suffix;
+  }
+  return name;
 }
 
 export function newGraphQLAction(
   kind: GraphQLAction,
   choice: GraphQLOperationChoice,
   pageSize: number,
-  usedNames: readonly string[],
 ): OperationDraft {
-  const taken = new Set(usedNames.map((name) => name.trim().toLowerCase()));
-  const base = `${choice.table}_${kind}`;
-  let name = base.slice(0, 256);
-  for (let number = 2; taken.has(name.toLowerCase()); number++) {
-    const suffix = `_${number}`;
-    name = base.slice(0, 256 - suffix.length) + suffix;
-  }
-  return { id: defaultIdFactory(), name, spec: newGraphQLSpec(kind, pageSize, choice) };
+  return { id: defaultIdFactory(), name: '', spec: newGraphQLSpec(kind, pageSize, choice) };
 }
 
 export interface ParameterDraft {

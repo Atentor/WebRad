@@ -63,6 +63,7 @@ import { runMenuSmoke } from './menu-smoke';
 import { profileMenuSmoke } from './smoke-cpu-profile';
 import { runIdeIconsSmoke } from './ide-icons-smoke';
 import { runWorkbenchResizeSmoke } from './workbench-resize-smoke';
+import { confirmInspectorDrafts } from './smoke-inspector-drafts';
 import { runStylesWorkspaceSmoke } from './styles-smoke';
 import { runPopupLayoutSmoke } from './popup-smoke';
 import { runBugReportSmoke } from './bug-report-smoke';
@@ -612,6 +613,129 @@ async function runDesignerThemeSmoke(window: BrowserWindow): Promise<void> {
   }
 }
 
+async function runDesignerOverflowSmoke(window: BrowserWindow): Promise<void> {
+  const labelId = 'hello-webrad-component-label-name-v1';
+  const hit = `document.querySelector('.wr-design-hit[data-component-id="${labelId}"]')`;
+  const field = (label: string): string =>
+    `[...document.querySelectorAll('.wr-object-inspector label')].find(item => item.textContent.trim() === '${label}')?.control`;
+  const position = `({ left: ${field('Left')}?.value, top: ${field('Top')}?.value })`;
+  const setPosition = async (left: string, top: string): Promise<void> => {
+    for (const [label, value] of [['Left', left], ['Top', top]] as const) {
+      await window.webContents.executeJavaScript(`(() => {
+        const input = ${field(label)};
+        if (!(input instanceof HTMLInputElement)) throw new Error('Missing position field ${label}');
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)});
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await confirmInspectorDrafts(window);
+    }
+  };
+  const original = (await waitForRendererResult(
+    window,
+    `(() => {
+      const surface = document.querySelector('.wr-page-surface');
+      const bounds = surface?.getBoundingClientRect();
+      const scroll = surface?.closest('.wr-designer-scroll');
+      return { ...${position}, width: bounds?.width, height: bounds?.height,
+        scrollLeft: scroll?.scrollLeft, scrollTop: scroll?.scrollTop };
+    })()`,
+    'the Label position fields and original canvas dimensions',
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      typeof Reflect.get(value, 'left') === 'string' &&
+      typeof Reflect.get(value, 'top') === 'string' &&
+      Number(Reflect.get(value, 'width')) > 0 &&
+      Number(Reflect.get(value, 'height')) > 0,
+  )) as {
+    left: string;
+    top: string;
+    width: number;
+    height: number;
+    scrollLeft: number;
+    scrollTop: number;
+  };
+  const outsideLeft = String(Math.ceil(original.width) + 32);
+  const outsideTop = String(Math.ceil(original.height) + 32);
+  await setPosition(outsideLeft, outsideTop);
+  await clickRendererControl(
+    window,
+    '[role="treeitem"][data-component-id="hello-webrad-component-form-main-v1"]',
+    'the page root before selecting the overflowing Label',
+  );
+  const geometry = (await waitForRendererResult(
+    window,
+    `(() => {
+      const hit = ${hit};
+      const surface = hit?.closest('.wr-page-surface');
+      const scroll = hit?.closest('.wr-designer-scroll');
+      if (!(hit instanceof HTMLElement) || !surface || !scroll || hit.classList.contains('selected')) return null;
+      hit.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const item = hit.getBoundingClientRect();
+      const page = surface.getBoundingClientRect();
+      const from = { x: Math.round(item.left + item.width / 2), y: Math.round(item.top + item.height / 2) };
+      const to = { x: Math.round(page.right - 96), y: Math.round(page.bottom - 64) };
+      return { from, to, scrollLeft: scroll.scrollLeft,
+        outside: item.left > page.right && item.top > page.bottom,
+        hittable: document.elementFromPoint(from.x, from.y)?.closest('.wr-design-hit') === hit,
+        destinationVisible: document.elementFromPoint(to.x, to.y)?.closest('.wr-page-surface') === surface,
+      };
+    })()`,
+    'the reachable Label beyond the right and bottom edges',
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      Number(Reflect.get(value, 'scrollLeft')) > 0 &&
+      Reflect.get(value, 'outside') === true &&
+      Reflect.get(value, 'hittable') === true &&
+      Reflect.get(value, 'destinationVisible') === true,
+  )) as { from: { x: number; y: number }; to: { x: number; y: number } };
+  const pointer = window.webContents;
+  pointer.focus();
+  pointer.sendInputEvent({ type: 'mouseMove', ...geometry.from });
+  pointer.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...geometry.from });
+  pointer.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...geometry.from });
+  await waitForRendererResult(
+    window,
+    `(${hit})?.classList.contains('selected') && (${position}).left === ${JSON.stringify(outsideLeft)} && (${position}).top === ${JSON.stringify(outsideTop)}`,
+    'native canvas selection and Inspector position for the overflowing Label',
+    (value) => value === true,
+  );
+  pointer.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...geometry.from });
+  pointer.sendInputEvent({ type: 'mouseMove', modifiers: ['leftButtonDown'], ...geometry.to });
+  pointer.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...geometry.to });
+  const recovered = await waitForRendererResult(
+    window,
+    `(() => {
+      const hit = ${hit};
+      const item = hit?.getBoundingClientRect();
+      const page = hit?.closest('.wr-page-surface')?.getBoundingClientRect();
+      const position = ${position};
+      return { ...position, inside: Boolean(item && page && item.left >= page.left && item.top >= page.top && item.right <= page.right && item.bottom <= page.bottom) };
+    })()`,
+    'native drag returning the Label to the page and updating the Inspector',
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      Reflect.get(value, 'inside') === true &&
+      Number(Reflect.get(value, 'left')) < Number(outsideLeft) &&
+      Number(Reflect.get(value, 'top')) < Number(outsideTop),
+  );
+  await setPosition(original.left, original.top);
+  await waitForRendererResult(
+    window,
+    `JSON.stringify(${position})`,
+    'the restored Label placement',
+    (value) => value === JSON.stringify({ left: original.left, top: original.top }),
+  );
+  await window.webContents.executeJavaScript(
+    `document.querySelector('.wr-designer-scroll')?.scrollTo(${original.scrollLeft}, ${original.scrollTop})`,
+  );
+  smokeLog(
+    `renderer Designer overflow recovery passed: ${JSON.stringify({ ...geometry, recovered })}`,
+  );
+}
+
 async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
   await clickRendererControl(window, 'button[aria-label="Design"]', 'the Design activity');
   await waitForRendererResult(
@@ -777,6 +901,7 @@ async function runDesignerWorkspaceSmoke(window: BrowserWindow): Promise<void> {
       Reflect.get(value, 'canvasFocus') === true,
   );
   smokeLog(`renderer Designer selection tree reveal passed: ${JSON.stringify(revealEvidence)}`);
+  await runDesignerOverflowSmoke(window);
   for (const [mode, whiteSpace, wordBreak, overflowWrap] of [
     ['word', 'pre-wrap', 'normal', 'normal'],
     ['break-word', 'pre-wrap', 'normal', 'anywhere'],

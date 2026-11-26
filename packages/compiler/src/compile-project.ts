@@ -14,7 +14,7 @@ import {
 } from '@webrad/component-registry';
 import {
   ApiClientConfigurationSchema,
-  GraphQLClientOperationIdsSchema,
+  GraphQLClientConfigurationSchema,
   DataGridConfigurationSchema,
   ComboBoxConfigurationSchema,
   ChartsConfigurationSchema,
@@ -23,6 +23,7 @@ import {
   VideoPlayerSourceSchema,
   MenuConfigurationSchema,
   comboBoxSchemaChoices,
+  graphQLEndpointKey,
   isDataGridGraphQLMutation,
   chartSchemaChoices,
   safeParseProject,
@@ -98,6 +99,11 @@ function validateRegistry(
 ): readonly CompileDiagnostic[] {
   const diagnostics: CompileDiagnostic[] = [];
   const graphQLOperationIds = new Set(project.settings.graphQLOperations?.map(({ id }) => id));
+  const graphQLEndpoints = new Set(
+    project.settings.graphQLOperations?.map(({ database, runtime }) =>
+      graphQLEndpointKey(database, runtime.table),
+    ),
+  );
   const documents = [
     ...project.pages.map((document, index) => ({
       document,
@@ -184,8 +190,10 @@ function validateRegistry(
           }
         }
         if (property.type === 'graphql-client-config') {
-          const ids = GraphQLClientOperationIdsSchema.safeParse(value).data;
-          if (ids?.length && !project.settings.restGo.enabled) {
+          const configuration = GraphQLClientConfigurationSchema.safeParse(value).data;
+          const ids = Array.isArray(configuration) ? configuration : [];
+          const endpoint = Array.isArray(configuration) ? null : (configuration?.endpoint ?? null);
+          if ((ids.length > 0 || endpoint !== null) && !project.settings.restGo.enabled) {
             diagnostics.push({
               category: 'error',
               source: 'registry',
@@ -193,7 +201,15 @@ function validateRegistry(
               path: [...path, 'components', componentIndex, 'props', propertyName],
             });
           }
-          ids?.forEach((id, index) => {
+          if (endpoint !== null && !graphQLEndpoints.has(endpoint)) {
+            diagnostics.push({
+              category: 'error',
+              source: 'registry',
+              message: `The selected GraphQL endpoint "${endpoint}" is unavailable in the project.`,
+              path: [...path, 'components', componentIndex, 'props', propertyName, 'endpoint'],
+            });
+          }
+          ids.forEach((id, index) => {
             if (graphQLOperationIds.has(id)) return;
             diagnostics.push({
               category: 'error',
@@ -821,7 +837,7 @@ function isValidPropertyValue(
     case 'api-client-config':
       return ApiClientConfigurationSchema.safeParse(value).success;
     case 'graphql-client-config':
-      return GraphQLClientOperationIdsSchema.safeParse(value).success;
+      return GraphQLClientConfigurationSchema.safeParse(value).success;
     case 'data-grid-config':
       return DataGridConfigurationSchema.safeParse(value).success;
     case 'combo-box-config':

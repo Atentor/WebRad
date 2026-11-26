@@ -1,5 +1,51 @@
 # WebRAD delivery plan
 
+## Data Grid label language
+
+The Labels tab offers Portuguese, English, Spanish, and Custom. The project
+stores the selection per grid and retains custom captions when a preset is
+active. Earlier grids with overrides open in Custom. The existing configuration
+smoke covers preset captions, save, reopen, and cancel. Validation was not
+requested or run.
+
+The built-in captions use shorter dialog titles, actions, and feedback in all
+three languages. Apply stages a draft and Save sends pending changes.
+
+## GraphQL field display names
+
+Named endpoints share optional field labels across their saved actions. Data
+Grid add and edit dialogs use the field name when no label is configured.
+Grid-specific labels override endpoint labels. The Electron flows check
+endpoint label persistence and the compiled editor's label precedence.
+Validation was not requested or run.
+
+## Named GraphQL endpoints
+
+RestGO saves a display name for each database and table pair and groups its
+enabled actions. The GraphQL Client selects one searchable, paginated endpoint
+and resolves its current actions through the project model. Saved action IDs and
+typed names are preserved. Earlier operation-ID configurations remain readable.
+The Data Grid automatically picks the sole query and shows each editing action
+with its eligibility. The Electron flows cover the named endpoint, auto-selection,
+Insert, binding protection, and compiled Query and Update via the grouped client.
+Validation was not requested or run.
+
+## v0.0.43 release recovery
+
+GitHub Actions cancelled the v0.0.42 macOS ARM64 build after 15 minutes without
+assigning a hosted runner. The job produced no logs or artifact. All six builds,
+assembly, validation, and security passed on `main` at the same commit
+(`e032173`), so v0.0.43 was tagged at that verified commit without source changes.
+The macOS ARM64 build and both packaged smokes passed on v0.0.43. The downloaded
+artifact and its distributable match their recorded SHA-256 digests.
+All six tagged builds and portable test jobs passed, along with validation,
+security, assembly, and publication. The stable release contains 15 assets.
+The 14 entries in `SHA256SUMS` match the digests reported by GitHub.
+[Cancelled job](https://github.com/Atentor/WebRad/actions/runs/45797585984/job/139832306037)
+[Main verification](https://github.com/Atentor/WebRad/actions/runs/45795007678)
+[Tagged release workflow](https://github.com/Atentor/WebRad/actions/runs/45800934050)
+[Published release](https://github.com/Atentor/WebRad/releases/tag/v0.0.43)
+
 ## Windows validation on 2026-11-26
 
 The GraphQL Client retains query and mutation types when callers pass operation
@@ -124,6 +170,12 @@ horizontal scrollbar at the bottom of the workspace above the component tray.
 The responsive preset controls layout and breakpoints, and selection hitboxes
 scroll with their components. The Electron Menu smoke exercises horizontal
 overflow in the Tablet preset.
+
+The Designer workspace extends to component bounds beyond all four page edges
+and holds its scroll extent during pointer gestures. The responsive page keeps
+its own dimensions and coordinate origin. The Electron Designer smoke now
+selects an overflowing Label with native input, checks its Inspector position,
+and drags it back onto the page. Validation was not requested or run.
 
 ## RestGo secure-token save errors (2026-11-24)
 

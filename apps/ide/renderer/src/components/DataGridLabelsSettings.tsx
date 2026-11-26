@@ -1,10 +1,22 @@
 import type { DataGridConfiguration, ProjectGraphQLOperation } from '@webrad/project-model';
 import {
   WEB_DATA_GRID_DEFAULT_LABELS,
+  WEB_DATA_GRID_LABEL_LANGUAGES,
   WEB_DATA_GRID_LABEL_MAX_LENGTH,
+  getDataGridLabelLanguage,
+  isWebDataGridLabelLanguage,
+  resolveDataGridLabels,
   type WebDataGridLabel,
+  type WebDataGridLabelLanguage,
 } from '@webrad/runtime/data-grid-labels';
 import type { ReactElement } from 'react';
+
+const languageNames: Readonly<Record<WebDataGridLabelLanguage, string>> = {
+  pt: 'Português',
+  en: 'English',
+  es: 'Español',
+  custom: 'Custom',
+};
 
 const labelGroups = [
   {
@@ -25,21 +37,21 @@ const labelGroups = [
     title: 'Record actions',
     fields: {
       actions: 'Actions column header',
-      addRow: 'Add row button',
+      addRow: 'Add button',
       edit: 'Edit button',
       delete: 'Delete button',
       undo: 'Undo button',
-      save: 'Save changes button',
-      discard: 'Discard drafts button',
+      save: 'Save button',
+      discard: 'Discard button',
     },
   },
   {
     title: 'Record editor',
     fields: {
-      addRecord: 'Add record dialog title',
-      editRecord: 'Edit record dialog title',
+      addRecord: 'Add dialog title',
+      editRecord: 'Edit dialog title',
       cancel: 'Cancel button',
-      apply: 'Apply to draft button',
+      apply: 'Apply button',
       selectValue: 'Required selection placeholder',
       noValue: 'Optional selection placeholder',
       trueValue: 'True option',
@@ -89,6 +101,9 @@ export function DataGridLabelsSettings({
   operations,
   onChange,
 }: DataGridLabelsSettingsProps): ReactElement {
+  const language = getDataGridLabelLanguage(draft);
+  const custom = language === 'custom';
+  const labels = resolveDataGridLabels(draft);
   const mutationIds = [draft.graphql?.insertOperationId, draft.graphql?.updateOperationId];
   const fields = new Map<string, string>();
   for (const operation of operations) {
@@ -97,15 +112,37 @@ export function DataGridLabelsSettings({
       const { fieldPath, role } = parameter.source;
       if (role !== 'input' || !fieldPath.startsWith('/')) continue;
       const field = fieldPath.split('/').at(-1)?.replaceAll('~1', '/').replaceAll('~0', '~');
-      fields.set(fieldPath, field || parameter.name);
+      fields.set(fieldPath, operation.runtime.fieldLabels?.[fieldPath] ?? (field || parameter.name));
     }
   }
 
   return (
     <>
+      <div className="wr-data-grid-configuration-fields wr-data-grid-label-language">
+        <label>
+          <span>Language</span>
+          <select
+            data-grid-label="language"
+            value={language}
+            onChange={(event) => {
+              const labelLanguage = event.currentTarget.value;
+              if (isWebDataGridLabelLanguage(labelLanguage)) {
+                onChange((current) => ({ ...current, labelLanguage }));
+              }
+            }}
+          >
+            {WEB_DATA_GRID_LABEL_LANGUAGES.map((option) => (
+              <option key={option} value={option}>
+                {languageNames[option]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <p>
-        These labels apply to the GraphQL Client’s pagination and record editing controls. Leave a
-        label empty to use the text shown in its placeholder.
+        {custom
+          ? 'Edit the GraphQL pagination and record editing labels. Empty labels use the English defaults.'
+          : 'This language applies to GraphQL pagination and record editing. Choose Custom to edit these labels.'}
       </p>
       {labelGroups.map((group) => (
         <fieldset className="wr-data-grid-label-group" key={group.title}>
@@ -122,7 +159,7 @@ export function DataGridLabelsSettings({
                   onChange((current) => ({ ...current, showSaveButton }));
                 }}
               />
-              Show a Save changes button when there are drafts
+              Show a Save button when there are drafts
             </label>
           )}
           <div className="wr-data-grid-configuration-fields wr-data-grid-label-fields">
@@ -131,7 +168,9 @@ export function DataGridLabelsSettings({
                 <span>{title}</span>
                 <input
                   data-grid-label={key}
-                  value={draft.labels?.[key] ?? ''}
+                  value={custom ? (draft.labels?.[key] ?? '') : labels[key]}
+                  readOnly={!custom}
+                  tabIndex={custom ? undefined : -1}
                   placeholder={WEB_DATA_GRID_DEFAULT_LABELS[key]}
                   maxLength={WEB_DATA_GRID_LABEL_MAX_LENGTH}
                   onChange={(event) => {

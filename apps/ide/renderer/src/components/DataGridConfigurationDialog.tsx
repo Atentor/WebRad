@@ -497,7 +497,7 @@ export function DataGridConfigurationDialog({
               aria-labelledby={`${titleId}-tab-source`}
               hidden={activeTab !== 'source'}
             >
-              <p>Choose an API endpoint or a saved RestGo GraphQL query to load rows.</p>
+              <p>Choose an endpoint to load rows.</p>
               <div
                 className={`wr-data-grid-configuration-fields ${graphQL === undefined ? 'four-columns' : 'three-columns'}`}
               >
@@ -530,13 +530,25 @@ export function DataGridConfigurationDialog({
                     value={sourceId ?? ''}
                     onChange={(event) => {
                       const selectedId = event.currentTarget.value || null;
+                      const nextClient = clients.find(({ id }) => id === selectedId);
+                      const nextQueries =
+                        graphQL === undefined || nextClient === undefined
+                          ? []
+                          : selectComponentGraphQLOperations(nextClient, graphQLOperations).filter(
+                              ({ runtime }) => runtime.kind === 'query',
+                            );
+                      const nextQuery = nextQueries.length === 1 ? nextQueries[0] : undefined;
                       updateDraft((current) => ({
                         ...current,
                         apiClientId: graphQL === undefined ? selectedId : null,
-                        graphql: graphQL === undefined ? undefined : newGraphQLBinding(selectedId),
-                        operationId: null,
+                        graphql:
+                          graphQL === undefined ? undefined : newGraphQLBinding(selectedId, nextQuery),
+                        operationId: nextQuery?.id ?? null,
                         listPath: '',
-                        columns: reconcileColumnFieldPaths(current.columns, []),
+                        columns: reconcileColumnFieldPaths(
+                          current.columns,
+                          comboBoxSchemaChoices(nextQuery?.responseSchema, '').fields,
+                        ),
                       }));
                     }}
                   >
@@ -554,9 +566,11 @@ export function DataGridConfigurationDialog({
                   </select>
                 </label>
                 <label>
-                  <span>{graphQL === undefined ? 'Operation' : 'Query'}</span>
+                  <span>{graphQL === undefined ? 'Operation' : 'Endpoint'}</span>
                   <select
-                    aria-label={graphQL === undefined ? 'Data Grid operation' : 'Data Grid query'}
+                    aria-label={
+                      graphQL === undefined ? 'Data Grid operation' : 'Data Grid GraphQL endpoint'
+                    }
                     disabled={client === undefined}
                     value={
                       graphQL === undefined
@@ -623,9 +637,9 @@ export function DataGridConfigurationDialog({
                 )}
               </div>
               {graphQL !== undefined && client !== undefined && queries.length === 0 && (
-                <p>Configure a saved query in the selected {clientLabel}.</p>
+                <p>Select an endpoint with Query enabled in this GraphQL Client.</p>
               )}
-              {graphQL !== undefined && draft.operationId !== null && (
+              {graphQL !== undefined && query !== undefined && (
                 <DataGridGraphQLSettings
                   binding={graphQL}
                   query={query}

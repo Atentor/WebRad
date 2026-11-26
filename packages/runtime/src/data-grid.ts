@@ -19,9 +19,12 @@ import {
 } from './data-grid-graphql-controls.js';
 import {
   WEB_DATA_GRID_DEFAULT_LABELS,
+  isWebDataGridLabelLanguage,
   normalizeWebDataGridEditorFieldLabels,
   normalizeWebDataGridLabels,
+  resolveDataGridLabels,
   type ResolvedDataGridLabels,
+  type WebDataGridLabelLanguage,
   type WebDataGridLabels,
 } from './data-grid-labels.js';
 import type { WebGraphQLRow, WebGraphQLSource } from './graphql.js';
@@ -38,7 +41,11 @@ export type {
   WebDataGridSaveChangesEventDetail,
   WebDataGridSaveErrorEventDetail,
 } from './data-grid-graphql.js';
-export type { WebDataGridLabel, WebDataGridLabels } from './data-grid-labels.js';
+export type {
+  WebDataGridLabel,
+  WebDataGridLabelLanguage,
+  WebDataGridLabels,
+} from './data-grid-labels.js';
 
 export const WEB_DATA_GRID_CELL_KINDS = ['text', 'image', 'button', 'checkbox', 'toggle'] as const;
 export type WebDataGridCellKind = (typeof WEB_DATA_GRID_CELL_KINDS)[number];
@@ -75,6 +82,7 @@ export interface WebDataGridConfiguration {
   readonly operationId: string | null;
   readonly listPath: string;
   readonly graphql?: WebDataGridGraphQLConfiguration;
+  readonly labelLanguage?: WebDataGridLabelLanguage;
   readonly labels?: WebDataGridLabels;
   readonly editorFieldLabels?: Readonly<Record<string, string>>;
   readonly showSaveButton?: boolean;
@@ -314,6 +322,9 @@ export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridCo
     operationId: typeof source.operationId === 'string' ? source.operationId : null,
     listPath: typeof source.listPath === 'string' ? source.listPath : '',
     ...(graphql === undefined ? {} : { graphql }),
+    ...(isWebDataGridLabelLanguage(source.labelLanguage)
+      ? { labelLanguage: source.labelLanguage }
+      : {}),
     ...(Object.keys(labels).length === 0 ? {} : { labels }),
     ...(Object.keys(editorFieldLabels).length === 0 ? {} : { editorFieldLabels }),
     ...(typeof source.showSaveButton === 'boolean'
@@ -624,7 +635,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
 
   public set configuration(value: WebDataGridConfiguration) {
     this.#configuration = normalizeWebDataGridConfiguration(value);
-    this.#labels = { ...WEB_DATA_GRID_DEFAULT_LABELS, ...this.#configuration.labels };
+    this.#labels = resolveDataGridLabels(this.#configuration);
     this.#bindDataSource();
   }
 

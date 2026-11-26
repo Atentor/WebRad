@@ -1,4 +1,8 @@
-import type { ApiClientOperation, ProjectGraphQLOperation } from '@webrad/project-model';
+import {
+  graphQLEndpointName,
+  type ApiClientOperation,
+  type ProjectGraphQLOperation,
+} from '@webrad/project-model';
 import type { ReactElement } from 'react';
 
 import { apiEndpointOption, graphqlQueryOption } from './api-client-operation-options';
@@ -12,6 +16,11 @@ export function ApiClientOperationOptions({
   endpoints,
   queries,
 }: ApiClientOperationOptionsProps): ReactElement {
+  const queryNameCounts = new Map<string, number>();
+  for (const query of queries) {
+    const name = graphQLEndpointName(query);
+    queryNameCounts.set(name, (queryNameCounts.get(name) ?? 0) + 1);
+  }
   return (
     <>
       <option value="">(select an operation)</option>
@@ -21,12 +30,16 @@ export function ApiClientOperationOptions({
         </option>
       ))}
       {queries.length > 0 && (
-        <optgroup label="RestGo GraphQL queries">
-          {queries.map(({ id, name }) => (
-            <option key={id} value={graphqlQueryOption(id)}>
-              {name}
-            </option>
-          ))}
+        <optgroup label="RestGo GraphQL endpoints">
+          {queries.map((query) => {
+            const endpointName = graphQLEndpointName(query);
+            return (
+              <option key={query.id} value={graphqlQueryOption(query.id)}>
+                {endpointName}
+                {(queryNameCounts.get(endpointName) ?? 0) > 1 && ` · ${query.name}`}
+              </option>
+            );
+          })}
         </optgroup>
       )}
     </>

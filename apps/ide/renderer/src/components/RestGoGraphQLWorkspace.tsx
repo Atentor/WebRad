@@ -1,9 +1,14 @@
 import {
   buildProjectGraphQLOperation,
+  groupGraphQLEndpoints,
   type GraphQLOperationChoice,
   type GraphQLSchema,
   type ProjectGraphQLOperation,
 } from '@webrad/project-model';
+import {
+  normalizeWebDataGridEditorFieldLabels,
+  WEB_DATA_GRID_LABEL_MAX_LENGTH,
+} from '@webrad/runtime/data-grid-labels';
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react';
 import type { RestGoAdminGraphQLDatabase } from '../../../shared/restgo-admin';
 import { Icon } from './Icon';
@@ -17,7 +22,7 @@ import {
   describeGraphQLTables,
   editGraphQLTable,
   GRAPHQL_ACTIONS,
-  groupGraphQLOperations,
+  graphQLActionName,
   newGraphQLAction,
   newGraphQLSpec,
   type GraphQLAction,
@@ -84,9 +89,19 @@ export function RestGoGraphQLWorkspace({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const enabled = GRAPHQL_ACTIONS.flatMap((kind) => draft?.actions[kind] ?? []);
+  const labelFields = [
+    ...new Set(
+      enabled.flatMap(({ spec }) => [
+        ...spec.selectionPaths.filter((path) => !path.includes('.')),
+        ...spec.inputs.map(({ field }) => field),
+      ]),
+    ),
+  ];
   const dirty =
     draft !== null &&
     (baseline === null ||
+      draft.name.trim() !== baseline.name ||
+      JSON.stringify(draft.fieldLabels) !== JSON.stringify(baseline.fieldLabels) ||
       JSON.stringify(enabled) !==
         JSON.stringify(GRAPHQL_ACTIONS.flatMap((kind) => baseline.actions[kind] ?? [])));
   const database = databases.find((item) => item.slug === draft?.database);
@@ -106,21 +121,24 @@ export function RestGoGraphQLWorkspace({
       return { tables: undefined, schemaError: restGoErrorMessage(reason) };
     }
   }, [schema]);
-  const savedTables = useMemo(() => groupGraphQLOperations(operations), [operations]);
+  const savedEndpoints = useMemo(() => groupGraphQLEndpoints(operations), [operations]);
   const searchText = search.trim().toLowerCase();
-  const visibleTables = savedTables.filter((entry) =>
+  const visibleEndpoints = savedEndpoints.filter((entry) =>
     [
+      entry.name,
       entry.table,
       entry.database,
       ...entry.operations.flatMap((operation) => [operation.name, KINDS[operation.spec.kind]]),
     ].some((value) => value.toLowerCase().includes(searchText)),
   );
   const tableChoices = draft ? tables?.get(draft.table) : undefined;
+  const configuredTables = new Set(
+    savedEndpoints
+      .filter(({ database }) => database === draft?.database)
+      .map(({ table }) => table),
+  );
   const availableTables = [...(tables?.keys() ?? [])]
-    .filter(
-      (table) =>
-        !savedTables.some((entry) => entry.database === draft?.database && entry.table === table),
-    )
+    .filter((table) => !configuredTables.has(table))
     .sort((left, right) => left.localeCompare(right));
   const selectedOperation = enabled.find(({ id }) => id === selectedOperationId) ?? enabled[0];
   const selectedChoices = selectedOperation
@@ -197,7 +215,10 @@ export function RestGoGraphQLWorkspace({
   const create = (): void => {
     const defaultChoice = databases.find((entry) => entry.slug === defaultDatabase) ?? databases[0];
     if (!defaultChoice) return;
-    selectDraft({ database: defaultChoice.slug, table: '', actions: {} }, false);
+    selectDraft(
+      { name: '', database: defaultChoice.slug, table: '', actions: {}, fieldLabels: {} },
+      false,
+    );
   };
 
   const changeAction = (kind: GraphQLAction, checked: boolean): void => {
@@ -207,9 +228,7 @@ export function RestGoGraphQLWorkspace({
       let next = disabledActions[kind];
       const available = tableChoices?.[kind]?.[0];
       if (!next && database && available) {
-        const disabled = GRAPHQL_ACTIONS.flatMap((action) => disabledActions[action] ?? []);
-        const usedNames = [...operations, ...enabled, ...disabled].map(({ name }) => name);
-        next = [newGraphQLAction(kind, available, database.defaultPageSize, usedNames)];
+        next = [newGraphQLAction(kind, available, database.defaultPageSize)];
       }
       if (!next) return;
       actions[kind] = next;
@@ -238,6 +257,7 @@ export function RestGoGraphQLWorkspace({
 
   const canSave =
     !!draft?.table &&
+    !!draft.name.trim() &&
     !!onSave &&
     dirty &&
     !saving &&
@@ -255,44 +275,36 @@ export function RestGoGraphQLWorkspace({
         (entry) => entry.database === draft.database && entry.runtime.table === draft.table,
       );
       const previousById = new Map(previous.map((entry) => [entry.id, entry]));
-      const allNames = new Set(
-        operations.filter(({ id }) => !previousById.has(id)).map(({ name }) => name.toLowerCase()),
-      );
+      const endpointName = draft.name.trim();
+      const fieldLabels = normalizeWebDataGridEditorFieldLabels(draft.fieldLabels);
+      const allNames = new Set(operations.map(({ name }) => name.toLowerCase()));
       const next = new Map<string, ProjectGraphQLOperation>();
       for (const operation of enabled) {
         const { id, spec } = operation;
-        const name = operation.name.trim();
         const saved = previousById.get(id);
+        const name = saved?.name ?? graphQLActionName(endpointName, spec.kind, allNames);
         const original = baseline?.actions[spec.kind]?.find((entry) => entry.id === id);
         try {
-          if (allNames.has(name.toLowerCase())) throw new Error('Choose a unique operation name.');
           if (saved && original === operation) {
-            next.set(id, saved);
+            next.set(id, { ...saved, endpointName, runtime: { ...saved.runtime, fieldLabels } });
           } else {
             const available = tableChoices?.[spec.kind]?.find(
               ({ rootField }) => rootField === spec.rootField,
             );
             if (!database || !schema || !available)
               throw new Error('The published operation is unavailable.');
-            next.set(
-              id,
-              buildProjectGraphQLOperation(
-                schema,
-                {
-                  id,
-                  name,
-                  database: draft.database,
-                  spec: buildGraphQLSpec(spec, available),
-                },
-                database.maxPageSize,
-              ),
+            const built = buildProjectGraphQLOperation(
+              schema,
+              { id, name, database: draft.database, spec: buildGraphQLSpec(spec, available) },
+              database.maxPageSize,
             );
+            next.set(id, { ...built, endpointName, runtime: { ...built.runtime, fieldLabels } });
           }
           allNames.add(name.toLowerCase());
         } catch (reason) {
           setSelectedOperationId(id);
           throw new Error(
-            `${KINDS[spec.kind]} · ${name || 'Unnamed operation'}: ${restGoErrorMessage(reason)}`,
+            `${KINDS[spec.kind]} · ${endpointName}: ${restGoErrorMessage(reason)}`,
             { cause: reason },
           );
         }
@@ -311,11 +323,11 @@ export function RestGoGraphQLWorkspace({
         ...saved.filter(({ id }) => !previousById.has(id)),
       ]);
       selectDraft(
-        saved.length ? editGraphQLTable({ ...draft, operations: saved }) : null,
+        saved.length ? editGraphQLTable({ ...draft, name: endpointName, operations: saved }) : null,
         true,
         selectedOperation?.id,
       );
-      setNotice('Table actions applied. Save the project to keep the changes.');
+      setNotice('GraphQL endpoint applied. Save the project to keep the changes.');
     } catch (reason) {
       setError(restGoErrorMessage(reason));
     } finally {
@@ -327,14 +339,14 @@ export function RestGoGraphQLWorkspace({
     <section
       hidden={!active}
       className="wr-restgo-endpoints-layout wr-restgo-graphql-workspace"
-      aria-label="GraphQL operations"
+      aria-label="GraphQL endpoints"
     >
       <aside className="wr-restgo-endpoint-list">
         <div className="wr-restgo-endpoint-list-toolbar">
-          <strong>Tables</strong>
+          <strong>Endpoints</strong>
           <button
             type="button"
-            aria-label="New GraphQL table"
+            aria-label="New GraphQL endpoint"
             className="wr-restgo-button wr-restgo-new-endpoint"
             disabled={!onSave || !databases.length || catalogLoading || dirty || saving}
             onClick={create}
@@ -347,24 +359,24 @@ export function RestGoGraphQLWorkspace({
           <Icon name="search" />
           <input
             type="search"
-            aria-label="Search GraphQL tables"
-            placeholder="Search tables or actions"
+            aria-label="Search GraphQL endpoints"
+            placeholder="Search endpoints or actions"
             value={search}
             onChange={(event) => setSearch(event.currentTarget.value)}
           />
         </label>
-        {visibleTables.map((entry) => (
+        {visibleEndpoints.map((entry) => (
           <button
             type="button"
             className="wr-restgo-endpoint-list-item"
-            key={`${entry.database}:${entry.table}`}
+            key={entry.key}
             aria-pressed={draft?.database === entry.database && draft.table === entry.table}
             disabled={dirty || saving}
             onClick={() => selectDraft(editGraphQLTable(entry), true)}
           >
             <span>
-              <strong>{entry.table}</strong>
-              <small>{entry.database}</small>
+              <strong>{entry.name}</strong>
+              <small>{entry.database}/{entry.table}</small>
             </span>
             <span className="wr-restgo-list-methods">
               {GRAPHQL_ACTIONS.filter((kind) =>
@@ -375,8 +387,8 @@ export function RestGoGraphQLWorkspace({
             </span>
           </button>
         ))}
-        {search && !visibleTables.length && (
-          <p className="wr-restgo-list-note">No matching tables.</p>
+        {search && !visibleEndpoints.length && (
+          <p className="wr-restgo-list-note">No matching endpoints.</p>
         )}
       </aside>
       <div className="wr-restgo-endpoint-content">
@@ -398,7 +410,7 @@ export function RestGoGraphQLWorkspace({
         {!draft ? (
           <div className="wr-restgo-empty-state">
             <Icon name="waypoints" />
-            <h2>{operations.length ? 'Choose a table' : 'Configure a GraphQL table'}</h2>
+            <h2>{operations.length ? 'Choose an endpoint' : 'Configure a GraphQL endpoint'}</h2>
             {!catalogLoading && !catalogError && !databases.length && (
               <p>No GraphQL databases are published in this RestGO instance.</p>
             )}
@@ -422,7 +434,7 @@ export function RestGoGraphQLWorkspace({
             <fieldset disabled={saving} className="wr-restgo-graphql-body">
               <section className="wr-restgo-graphql-table">
                 <div className="wr-restgo-graphql-section-heading">
-                  <h2>{baseline ? 'Table actions' : 'New table'}</h2>
+                  <h2>{baseline ? 'GraphQL endpoint' : 'New GraphQL endpoint'}</h2>
                   {database && (
                     <code className="wr-restgo-graphql-endpoint">{database.endpoint}</code>
                   )}
@@ -439,7 +451,10 @@ export function RestGoGraphQLWorkspace({
                           (entry) => entry.slug === event.currentTarget.value,
                         );
                         if (next)
-                          selectDraft({ database: next.slug, table: '', actions: {} }, false);
+                          selectDraft(
+                            { ...draft, database: next.slug, table: '', actions: {}, fieldLabels: {} },
+                            false,
+                          );
                       }}
                     >
                       {!database && (
@@ -459,12 +474,19 @@ export function RestGoGraphQLWorkspace({
                       required
                       disabled={baseline !== null || !tables}
                       value={draft.table}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const table = event.currentTarget.value;
                         selectDraft(
-                          { ...draft, table: event.currentTarget.value, actions: {} },
+                          {
+                            ...draft,
+                            name: !draft.name || draft.name === draft.table ? table : draft.name,
+                            table,
+                            actions: {},
+                            fieldLabels: {},
+                          },
                           false,
-                        )
-                      }
+                        );
+                      }}
                     >
                       <option value="">Choose a published table</option>
                       {draft.table && !availableTables.includes(draft.table) && (
@@ -476,6 +498,16 @@ export function RestGoGraphQLWorkspace({
                         </option>
                       ))}
                     </select>
+                  </label>
+                  <label>
+                    Endpoint name
+                    <input
+                      aria-label="GraphQL endpoint name"
+                      required
+                      maxLength={256}
+                      value={draft.name}
+                      onChange={(event) => setDraft({ ...draft, name: event.currentTarget.value })}
+                    />
                   </label>
                 </div>
                 {!database && !catalogLoading && <p role="status">This database is unavailable.</p>}
@@ -518,6 +550,34 @@ export function RestGoGraphQLWorkspace({
                     })}
                   </fieldset>
                 )}
+                {labelFields.length > 0 && (
+                  <section className="wr-restgo-graphql-setting">
+                    <h3>Field display names</h3>
+                    <p>Used in the Data Grid add and edit dialogs.</p>
+                    <div className="wr-restgo-graphql-operation-fields">
+                      {labelFields.map((field) => (
+                        <label key={field}>
+                          {field}
+                          <input
+                            aria-label={`Display name for ${field}`}
+                            value={draft.fieldLabels[`/${field}`] ?? ''}
+                            placeholder={field}
+                            maxLength={WEB_DATA_GRID_LABEL_MAX_LENGTH}
+                            onChange={(event) =>
+                              setDraft({
+                                ...draft,
+                                fieldLabels: {
+                                  ...draft.fieldLabels,
+                                  [`/${field}`]: event.currentTarget.value,
+                                },
+                              })
+                            }
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </section>
               {selectedOperation && (
                 <section className="wr-restgo-graphql-settings">
@@ -544,20 +604,8 @@ export function RestGoGraphQLWorkspace({
                       </div>
                     )}
                   </div>
-                  <div className="wr-restgo-graphql-operation-fields">
-                    <label>
-                      Operation name
-                      <input
-                        aria-label="GraphQL operation name"
-                        required
-                        disabled={!choice}
-                        value={selectedOperation.name}
-                        onChange={(event) =>
-                          updateOperation({ ...selectedOperation, name: event.currentTarget.value })
-                        }
-                      />
-                    </label>
-                    {!!selectedChoices?.length && (!choice || selectedChoices.length > 1) && (
+                  {!!selectedChoices?.length && (!choice || selectedChoices.length > 1) && (
+                    <div className="wr-restgo-graphql-operation-fields">
                       <label>
                         Published operation
                         <select
@@ -587,8 +635,8 @@ export function RestGoGraphQLWorkspace({
                           ))}
                         </select>
                       </label>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   {!choice && tables && (
                     <p role="status">The saved operation is unavailable in the published schema.</p>
                   )}
@@ -634,7 +682,7 @@ export function RestGoGraphQLWorkspace({
                 {dirty ? 'Discard changes' : 'Close'}
               </button>
               <button type="submit" className="wr-restgo-button is-primary" disabled={!canSave}>
-                <Icon name="save" /> Save actions
+                <Icon name="save" /> Save endpoint
               </button>
             </div>
           </form>

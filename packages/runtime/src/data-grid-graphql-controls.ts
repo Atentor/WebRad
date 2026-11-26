@@ -264,7 +264,8 @@ export function openGraphQLGridEditor(
   if (operation === undefined || grid.saving) return null;
   const dialog = document.createElement('dialog');
   dialog.className = 'wr-data-grid-graphql-editor';
-  const { labels, fieldLabels } = options;
+  const { labels } = options;
+  const fieldLabels = { ...operation.fieldLabels, ...options.fieldLabels };
   const title = kind === 'insert' ? labels.addRecord : labels.editRecord;
   dialog.setAttribute('aria-label', title);
   const form = document.createElement('form');

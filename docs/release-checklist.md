@@ -1,5 +1,14 @@
 # Release checklist for agents and maintainers
 
+## Designer component recovery outside the page
+
+The Designer smoke places the example Label beyond the right and bottom page
+edges through the Inspector. It scrolls to the hit target, selects it with
+native mouse input, verifies its position in the Inspector, and drags it back
+onto the page. It restores the original placement and reports
+`renderer Designer overflow recovery passed:` for both runners. Keep the
+separate Tablet horizontal scrolling and Designer tree selection evidence.
+
 ## Data Grid configuration tabs
 
 The Data Grid configuration smoke opens on Data source, edits Appearance
@@ -10,14 +19,15 @@ appearance, icon, save, reopen, and cancel behavior. The GraphQL binding smoke
 uses Data source to change the client and Columns to check field bindings.
 Keep the existing configuration and binding pass markers in both runners.
 
-The configuration smoke edits Labels and reopens the dialog after Save and
-Cancel. The compiled GraphQL fixture checks custom pagination, editor, and
-draft action labels. It exercises both explicit save paths and verifies that
-each writes only the intended record.
+The configuration smoke switches label languages and checks the navigation and
+Add captions. It reopens the dialog after Save and Cancel to verify the
+selection and custom captions. The compiled GraphQL fixture checks custom
+pagination, editor, and draft action labels. It exercises both explicit save
+paths and verifies that each writes only the intended record.
 
 The GraphQL binding smoke reopens the client after binding a Data Grid and a
-ComboBox. The selected operation is disabled while either control uses it and
-can be deselected after the bindings are removed. The compiled fixture checks
+ComboBox. The selected endpoint is protected while either control uses it and
+can be cleared after the bindings are removed. The compiled fixture checks
 published cursors with and without matching grid history, including the page
 summary and the Previous action.
 
@@ -819,9 +829,12 @@ synchronization assertions remain required. This updated flow has not been run.
 
 Both runners require `renderer RestGO GraphQL operation editor passed:`. The IDE
 opens GraphQL from RestGO, reads an authenticated fixture schema and enables
-Query and Insert for one published table. The flow configures a typed query
-filter and return fields, checks that unpublished Delete is disabled, saves both
-actions together and verifies their persisted settings. The operator selector
+Query and Insert for one published table. The flow assigns one endpoint name,
+configures a typed query filter and return fields, checks that unpublished
+Delete is disabled, and verifies the shared name and both saved action contracts.
+It saves and reopens a field display name shared by Query and Insert and
+checks that an unlabeled field suggests its original name.
+The operator selector
 shows `=` and `<>`, and the saved filter retains `neq`. It reopens the single
 table entry and adds a draft OR group with a condition. At desktop and narrow
 widths it checks the continuous editor surface, responsive filter rows, matching
@@ -829,15 +842,25 @@ widths it checks the continuous editor surface, responsive filter rows, matching
 group, inline pagination and absence of horizontal overflow.
 It captures both presented frames, removes the draft group and confirms the
 editor is clean. Authoring must use read-only RestGo requests.
-In the Designer, the Data Grid initially has no queries for an empty GraphQL
-Client. The flow selects a saved query in that client, binds it in the Data
-Grid and ComboBox, and reopens both bindings. It checks that the API Client
-editor exposes HTTP requests and the grid offers the two client types.
+In the Designer, the Data Grid initially has no endpoint for an empty GraphQL
+Client. The flow searches by database, endpoint, and action, then switches
+between Active and Inactive to check the draft selection. It sees Query and
+Insert on the same row and saves while that row is hidden by the filter. The
+Data Grid selects the named endpoint automatically and enables Insert when
+record editing is turned on. The flow reopens its binding and a ComboBox
+binding, checks that both protect the endpoint, and clears it after removal.
+The API Client editor still exposes HTTP requests and the grid offers both client types.
+The GraphQL Client layout check aligns the full-width header and footer,
+the search and status controls, and the operation list. It checks that the
+protected endpoint fits on one compact row with its usage details and captures it
+in `*-graphql-client.png`. The Save action stays visible.
 This updated flow has not been run.
 
 Both runners require `renderer GraphQL Data Grid compiled runtime passed:`. The
-compiled browser fixture uses GraphQL Client for Data Grid cursor navigation
-and the ComboBox's independent labels and keys. It prepares a selected query's
+compiled browser fixture resolves Query and Update from the client endpoint key
+and checks field labels in the record editor with and without a grid override.
+It uses GraphQL Client for Data Grid cursor navigation and checks the ComboBox's
+independent labels and keys. It prepares a selected query's
 typed parameter in one action and calls that operation's `execute()` in another.
 It checks that the Data Grid shows the filtered result and updates again
 when the filter is cleared, then exercises record drafts, undo and an

@@ -165,6 +165,7 @@ interface DragInteraction {
   mode: 'move' | 'reorder';
   pointerId: number;
   start: Point;
+  workspaceBounds: Bounds;
   ids: readonly string[];
   originalBounds: ReadonlyMap<string, Bounds>;
   originalAbsoluteBounds: ReadonlyMap<string, Bounds>;
@@ -180,6 +181,7 @@ interface ResizeInteraction {
   kind: 'resize';
   pointerId: number;
   start: Point;
+  workspaceBounds: Bounds;
   id: string;
   handle: ResizeHandle;
   originalBounds: Bounds;
@@ -193,6 +195,7 @@ interface MarqueeInteraction {
   kind: 'marquee';
   pointerId: number;
   start: Point;
+  workspaceBounds: Bounds;
   current: Point;
   additive: boolean;
 }
@@ -1506,6 +1509,17 @@ export function DesignerSurface({
     () => buildLayout(page, byId, measuredBounds, floatingContainerEditor),
     [byId, floatingContainerEditor, measuredBounds, page],
   );
+  const contentBounds = useMemo(
+    () =>
+      unionBounds([
+        { x: 0, y: 0, width: viewportWidth, height: viewportHeight },
+        ...layout.map(({ absoluteBounds }) => absoluteBounds),
+      ]),
+    [layout, viewportHeight, viewportWidth],
+  );
+  // Keep the scroll range and page origin stable while a component is moving.
+  // Otherwise the scroll host can clamp its offset before the drag is committed.
+  const workspaceBounds = interaction?.workspaceBounds ?? contentBounds;
   const layoutById = useMemo(() => new Map(layout.map((item) => [item.node.id, item])), [layout]);
   const rootStyleClassName =
     root?.styleId === undefined ? undefined : (styleClassNames.get(root.styleId) ?? '');
@@ -2142,6 +2156,7 @@ export function DesignerSurface({
         mode: canReorder ? 'reorder' : 'move',
         pointerId: event.pointerId,
         start: point,
+        workspaceBounds,
         ids,
         originalBounds,
         originalAbsoluteBounds,
@@ -2243,6 +2258,7 @@ export function DesignerSurface({
         kind: 'resize',
         pointerId: event.pointerId,
         start: eventPoint(event),
+        workspaceBounds,
         id: node.id,
         handle,
         originalBounds: editorBounds,
@@ -2274,6 +2290,7 @@ export function DesignerSurface({
         kind: 'marquee',
         pointerId: event.pointerId,
         start: point,
+        workspaceBounds,
         current: point,
         additive: event.shiftKey,
       },
@@ -2596,7 +2613,12 @@ export function DesignerSurface({
               ? ''
               : undefined
           }
-          style={{ width: viewportWidth * scale, height: viewportHeight * scale }}
+          style={{
+            width: viewportWidth * scale,
+            height: viewportHeight * scale,
+            left: -workspaceBounds.x * scale,
+            top: -workspaceBounds.y * scale,
+          }}
         >
           <div
             ref={surfaceRef}
@@ -2691,6 +2713,10 @@ export function DesignerSurface({
               )}
             <div
               className="wr-design-overlay"
+              style={{
+                minWidth: workspaceBounds.x + workspaceBounds.width,
+                minHeight: workspaceBounds.y + workspaceBounds.height,
+              }}
               onPointerDown={startMarquee}
               onPointerMove={(event) => {
                 updateInteraction(event);

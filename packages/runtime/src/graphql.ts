@@ -49,6 +49,8 @@ export interface WebGraphQLRuntimeOperation {
   readonly document: string;
   readonly parameters: readonly WebGraphQLParameter[];
   readonly selections: readonly WebGraphQLSelection[];
+  /** Display labels keyed by the record field path used by mutation inputs. */
+  readonly fieldLabels?: Readonly<Record<string, string>>;
   readonly pagination?: { readonly defaultSize: number; readonly maxSize: number };
 }
 
