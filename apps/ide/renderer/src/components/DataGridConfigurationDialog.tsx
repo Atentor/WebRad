@@ -4,7 +4,7 @@ import {
   createDefaultDataGridConfiguration,
   normalizeApiClientConfiguration,
   normalizeDataGridConfiguration,
-  selectApiClientGraphQLOperations,
+  selectComponentGraphQLOperations,
   type ApiClientResponseSchema,
   type ApiClientSchemaNode,
   type ComponentNode,
@@ -17,6 +17,10 @@ import {
   type DataGridRowHeightMode,
   type ProjectGraphQLOperation,
 } from '@webrad/project-model';
+import {
+  normalizeWebDataGridEditorFieldLabels,
+  normalizeWebDataGridLabels,
+} from '@webrad/runtime/data-grid-labels';
 import { WEBRAD_ICON_NAMES, webRadIconLabel } from '@webrad/runtime/icons';
 import {
   useEffect,
@@ -31,6 +35,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { IconPickerDialog } from './IconPickerDialog';
 import { DataGridGraphQLSettings } from './DataGridGraphQLSettings';
+import { DataGridLabelsSettings } from './DataGridLabelsSettings';
 import {
   ApiClientOperationOptions,
   apiEndpointOption,
@@ -64,6 +69,15 @@ const HORIZONTAL_ALIGNMENT_LABELS: Readonly<Record<DataGridHorizontalAlignment, 
   end: 'End',
 };
 
+const CONFIGURATION_TABS = [
+  { id: 'source', label: 'Data source' },
+  { id: 'columns', label: 'Columns' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'labels', label: 'Labels' },
+] as const;
+
+type ConfigurationTab = (typeof CONFIGURATION_TABS)[number]['id'];
+
 function createStableId(prefix: string): string {
   const suffix =
     globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -84,8 +98,12 @@ function createDraft(value: unknown): DataGridConfiguration {
   return normalizeDataGridConfiguration(value);
 }
 
-function newGraphQLBinding(query?: ProjectGraphQLOperation): DataGridGraphQLBinding {
+function newGraphQLBinding(
+  clientId: string | null,
+  query?: ProjectGraphQLOperation,
+): DataGridGraphQLBinding {
   return {
+    clientId,
     pageSize: query?.runtime.pagination?.defaultSize ?? 10,
     showPager: true,
     crudEnabled: false,
@@ -251,8 +269,9 @@ export function DataGridConfigurationDialog({
   onSave,
 }: DataGridConfigurationDialogProps): ReactElement {
   const titleId = useId();
-  const descriptionId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const columnListRef = useRef<HTMLUListElement | null>(null);
   const sourceRef = useRef<HTMLSelectElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
@@ -260,21 +279,31 @@ export function DataGridConfigurationDialog({
   const [draft, setDraft] = useState<DataGridConfiguration>(() =>
     createDraft(component.props.dataGridConfig),
   );
+  const [activeTab, setActiveTab] = useState<ConfigurationTab>('source');
+  const [selectedColumnId, setSelectedColumnId] = useState(() => draft.columns[0]?.id);
+  const focusColumnRef = useRef(false);
   const [iconPickerColumnId, setIconPickerColumnId] = useState<string | null>(null);
 
-  const apiClients = availableComponents.filter((candidate) => candidate.type === 'WebApiClient');
+  const index = draft.columns.findIndex((column) => column.id === selectedColumnId);
+  const column = draft.columns[index];
+
   const graphQL = draft.graphql;
-  const sourceId = draft.apiClientId;
-  const apiClient = apiClients.find((candidate) => candidate.id === sourceId);
+  const sourceMode = graphQL === undefined ? 'api-client' : 'graphql-client';
+  const clientLabel = graphQL === undefined ? 'API Client' : 'GraphQL Client';
+  const sourceId = graphQL === undefined ? draft.apiClientId : graphQL.clientId;
+  const clients = availableComponents.filter(
+    (candidate) => candidate.type === (graphQL === undefined ? 'WebApiClient' : 'WebGraphQLClient'),
+  );
+  const client = clients.find((candidate) => candidate.id === sourceId);
   const apiConfiguration =
-    apiClient === undefined
-      ? undefined
-      : normalizeApiClientConfiguration(apiClient.props.apiClientConfig);
-  const endpoints = graphQL === undefined ? (apiConfiguration?.operations ?? []) : [];
+    graphQL === undefined && client !== undefined
+      ? normalizeApiClientConfiguration(client.props.apiClientConfig)
+      : undefined;
+  const endpoints = apiConfiguration?.operations ?? [];
   const clientGraphQLOperations =
-    apiConfiguration === undefined || graphQL === undefined
+    client === undefined || graphQL === undefined
       ? []
-      : selectApiClientGraphQLOperations(apiConfiguration, graphQLOperations);
+      : selectComponentGraphQLOperations(client, graphQLOperations);
   const queries = clientGraphQLOperations.filter((candidate) => candidate.runtime.kind === 'query');
   const query = queries.find((candidate) => candidate.id === draft.operationId);
   const operation = endpoints.find((candidate) => candidate.id === draft.operationId);
@@ -301,6 +330,58 @@ export function DataGridConfigurationDialog({
     };
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'columns') return;
+    const selected = columnListRef.current?.querySelector<HTMLButtonElement>(
+      '[aria-selected="true"]',
+    );
+    if (focusColumnRef.current) selected?.focus();
+    selected?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    focusColumnRef.current = false;
+  }, [activeTab, index, selectedColumnId]);
+
+  const activateTab = (tab: ConfigurationTab): void => {
+    setActiveTab(tab);
+    if (contentRef.current !== null) contentRef.current.scrollTop = 0;
+  };
+
+  const handleTabKeys = (event: KeyboardEvent<HTMLDivElement>): void => {
+    const currentIndex = CONFIGURATION_TABS.findIndex((tab) => tab.id === activeTab);
+    const count = CONFIGURATION_TABS.length;
+    const destinations: Partial<Record<string, number>> = {
+      ArrowLeft: (currentIndex + count - 1) % count,
+      ArrowRight: (currentIndex + 1) % count,
+      Home: 0,
+      End: count - 1,
+    };
+    const nextIndex = destinations[event.key];
+    if (nextIndex === undefined) return;
+    const nextTab = CONFIGURATION_TABS[nextIndex];
+    if (nextTab === undefined) return;
+    event.preventDefault();
+    activateTab(nextTab.id);
+    event.currentTarget.querySelectorAll<HTMLButtonElement>('button')[nextIndex]?.focus();
+  };
+
+  const selectColumn = (id: string | undefined, focus = false): void => {
+    focusColumnRef.current = focus;
+    setSelectedColumnId(id);
+    if (contentRef.current !== null) contentRef.current.scrollTop = 0;
+  };
+
+  const handleColumnKeys = (event: KeyboardEvent<HTMLUListElement>): void => {
+    const destinations: Partial<Record<string, number>> = {
+      ArrowUp: Math.max(0, index - 1),
+      ArrowDown: Math.min(draft.columns.length - 1, index + 1),
+      Home: 0,
+      End: draft.columns.length - 1,
+    };
+    const nextIndex = destinations[event.key];
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    if (nextIndex !== index) selectColumn(draft.columns[nextIndex]?.id, true);
+  };
+
   const updateDraft = (update: (current: DataGridConfiguration) => DataGridConfiguration): void => {
     setDraft(update);
   };
@@ -323,8 +404,15 @@ export function DataGridConfigurationDialog({
 
   const save = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    const { labels, editorFieldLabels, ...configuration } = draft;
+    const customLabels = normalizeWebDataGridLabels(labels);
+    const customFieldLabels = normalizeWebDataGridEditorFieldLabels(editorFieldLabels);
     onSave({
-      ...draft,
+      ...configuration,
+      ...(Object.keys(customLabels).length === 0 ? {} : { labels: customLabels }),
+      ...(Object.keys(customFieldLabels).length === 0
+        ? {}
+        : { editorFieldLabels: customFieldLabels }),
       columns: reconcileColumnFieldPaths(draft.columns, fieldChoices),
     });
   };
@@ -341,7 +429,7 @@ export function DataGridConfigurationDialog({
       ...(dialogRef.current?.querySelectorAll<HTMLElement>(
         'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)',
       ) ?? []),
-    ];
+    ].filter((control) => control.tabIndex >= 0 && control.closest('[hidden]') === null);
     const first = focusable[0];
     const last = focusable.at(-1);
     if (first === undefined || last === undefined) return;
@@ -358,11 +446,10 @@ export function DataGridConfigurationDialog({
     <div className="wr-modal-backdrop" role="presentation" onKeyDown={handleKeyDown}>
       <section
         ref={dialogRef}
-        className="wr-modal wr-data-grid-configuration-dialog"
+        className="wr-modal wr-data-grid-configuration-dialog wr-data-grid-tabbed-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={descriptionId}
       >
         <header className="wr-modal-header">
           <div className="wr-data-grid-configuration-title">
@@ -384,17 +471,36 @@ export function DataGridConfigurationDialog({
           </button>
         </header>
         <form className="wr-data-grid-configuration-form" onSubmit={save}>
-          <div className="wr-data-grid-configuration-content">
-            <p className="wr-modal-description" id={descriptionId}>
-              Bind a response list and tailor the grid's columns, row sizing, and presentation.
-              Changes stay in this dialog until you save them.
-            </p>
-
+          <div
+            className="wr-data-grid-configuration-tabs"
+            role="tablist"
+            aria-label="Data Grid settings"
+            onKeyDown={handleTabKeys}
+          >
+            {CONFIGURATION_TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                id={`${titleId}-tab-${id}`}
+                type="button"
+                role="tab"
+                data-grid-tab={id}
+                aria-selected={activeTab === id}
+                aria-controls={`${titleId}-panel-${id}`}
+                tabIndex={activeTab === id ? 0 : -1}
+                onClick={() => activateTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div ref={contentRef} className="wr-data-grid-configuration-content">
             <section
-              className="wr-data-grid-configuration-section"
-              aria-labelledby={`${titleId}-source`}
+              className="wr-data-grid-tab-panel"
+              id={`${titleId}-panel-source`}
+              role="tabpanel"
+              aria-labelledby={`${titleId}-tab-source`}
+              hidden={activeTab !== 'source'}
             >
-              <h3 id={`${titleId}-source`}>Data source</h3>
               <p>Choose an API endpoint or a saved RestGo GraphQL query to load rows.</p>
               <div
                 className={`wr-data-grid-configuration-fields ${graphQL === undefined ? 'four-columns' : 'three-columns'}`}
@@ -404,12 +510,15 @@ export function DataGridConfigurationDialog({
                   <select
                     ref={sourceRef}
                     aria-label="Data Grid data source"
-                    value={graphQL === undefined ? 'api-client' : 'graphql'}
+                    value={sourceMode}
                     onChange={(event) => {
-                      const useGraphQL = event.currentTarget.value === 'graphql';
+                      const mode = event.currentTarget.value;
                       updateDraft((current) => ({
                         ...current,
-                        graphql: useGraphQL ? newGraphQLBinding() : undefined,
+                        apiClientId: mode === 'graphql-client' ? null : current.apiClientId,
+                        graphql: mode === 'api-client'
+                          ? undefined
+                          : newGraphQLBinding(null),
                         operationId: null,
                         listPath: '',
                         columns: reconcileColumnFieldPaths(current.columns, []),
@@ -417,33 +526,35 @@ export function DataGridConfigurationDialog({
                     }}
                   >
                     <option value="api-client">API Client</option>
-                    <option value="graphql">GraphQL</option>
+                    <option value="graphql-client">GraphQL Client</option>
                   </select>
                 </label>
                 <label>
-                  <span>API Client</span>
+                  <span>{clientLabel}</span>
                   <select
-                    aria-label="Data Grid API Client"
+                    aria-label={`Data Grid ${clientLabel}`}
                     value={sourceId ?? ''}
                     onChange={(event) => {
-                      const apiClientId = event.currentTarget.value || null;
+                      const selectedId = event.currentTarget.value || null;
                       updateDraft((current) => ({
                         ...current,
-                        apiClientId,
-                        graphql: current.graphql === undefined ? undefined : newGraphQLBinding(),
+                        apiClientId: graphQL === undefined ? selectedId : null,
+                        graphql: graphQL === undefined
+                          ? undefined
+                          : newGraphQLBinding(selectedId),
                         operationId: null,
                         listPath: '',
                         columns: reconcileColumnFieldPaths(current.columns, []),
                       }));
                     }}
                   >
-                    <option value="">(select an API Client)</option>
-                    {sourceId !== null && apiClient === undefined && (
+                    <option value="">(select a client)</option>
+                    {sourceId !== null && client === undefined && (
                       <option value={sourceId} disabled>
-                        (unavailable API Client)
+                        (unavailable {clientLabel})
                       </option>
                     )}
-                    {apiClients.map((candidate) => (
+                    {clients.map((candidate) => (
                       <option key={candidate.id} value={candidate.id}>
                         {candidate.name}
                       </option>
@@ -454,7 +565,7 @@ export function DataGridConfigurationDialog({
                   <span>{graphQL === undefined ? 'Operation' : 'Query'}</span>
                   <select
                     aria-label={graphQL === undefined ? 'Data Grid operation' : 'Data Grid query'}
-                    disabled={apiClient === undefined}
+                    disabled={client === undefined}
                     value={
                       graphQL === undefined
                         ? apiEndpointOption(draft.operationId)
@@ -475,7 +586,9 @@ export function DataGridConfigurationDialog({
                           : comboBoxSchemaChoices(nextQuery?.responseSchema, '').fields;
                       updateDraft((current) => ({
                         ...current,
-                        graphql: graphQL === undefined ? undefined : newGraphQLBinding(nextQuery),
+                        graphql: graphQL === undefined
+                          ? undefined
+                          : newGraphQLBinding(graphQL.clientId, nextQuery),
                         operationId: nextQuery?.id ?? nextEndpoint?.id ?? null,
                         listPath: '',
                         columns: reconcileColumnFieldPaths(current.columns, fields),
@@ -516,8 +629,8 @@ export function DataGridConfigurationDialog({
                   </label>
                 )}
               </div>
-              {graphQL !== undefined && apiConfiguration !== undefined && queries.length === 0 && (
-                <p>Import a saved query in the selected API Client’s GraphQL settings.</p>
+              {graphQL !== undefined && client !== undefined && queries.length === 0 && (
+                <p>Configure a saved query in the selected {clientLabel}.</p>
               )}
               {graphQL !== undefined && draft.operationId !== null && (
                 <DataGridGraphQLSettings
@@ -532,10 +645,12 @@ export function DataGridConfigurationDialog({
             </section>
 
             <section
-              className="wr-data-grid-configuration-section"
-              aria-labelledby={`${titleId}-rows`}
+              className="wr-data-grid-tab-panel"
+              id={`${titleId}-panel-appearance`}
+              role="tabpanel"
+              aria-labelledby={`${titleId}-tab-appearance`}
+              hidden={activeTab !== 'appearance'}
             >
-              <h3 id={`${titleId}-rows`}>Rows and appearance</h3>
               <div className="wr-data-grid-configuration-fields five-columns">
                 <label>
                   <span>Row height</span>
@@ -758,61 +873,72 @@ export function DataGridConfigurationDialog({
             </section>
 
             <section
-              className="wr-data-grid-configuration-section"
-              aria-labelledby={`${titleId}-columns`}
+              className="wr-data-grid-tab-panel"
+              id={`${titleId}-panel-columns`}
+              role="tabpanel"
+              aria-labelledby={`${titleId}-tab-columns`}
+              hidden={activeTab !== 'columns'}
             >
-              <div className="wr-data-grid-configuration-section-heading">
-                <div>
-                  <h3 id={`${titleId}-columns`}>Columns</h3>
-                  <p>Choose the binding and layout rule for each rendered column.</p>
-                </div>
-                <button
-                  type="button"
-                  disabled={draft.columns.length >= 50}
-                  onClick={() => {
-                    updateDraft((current) => {
-                      const columns = [
-                        ...current.columns,
-                        createColumn(current.columns.length + 1),
-                      ];
-                      return { ...current, columns, columnCount: columns.length };
-                    });
-                  }}
-                >
-                  <Icon name="add" />
-                  Add column
-                </button>
-              </div>
-              <div className="wr-data-grid-column-list" aria-label="Data Grid columns">
-                {draft.columns.map((column, index) => (
+              <div className="wr-data-grid-columns-layout">
+                <aside className="wr-data-grid-column-sidebar" aria-label="Columns">
+                  <button
+                    className="wr-data-grid-add-column"
+                    type="button"
+                    disabled={draft.columns.length >= 50}
+                    onClick={() => {
+                      const newColumn = createColumn(draft.columns.length + 1);
+                      updateDraft((current) => {
+                        const columns = [...current.columns, newColumn];
+                        return { ...current, columns, columnCount: columns.length };
+                      });
+                      selectColumn(newColumn.id, true);
+                    }}
+                  >
+                    <Icon name="add" />
+                    Add column
+                  </button>
+                  <ul
+                    ref={columnListRef}
+                    className="wr-data-grid-column-list"
+                    role="listbox"
+                    aria-label="Data Grid columns"
+                    onKeyDown={handleColumnKeys}
+                  >
+                    {draft.columns.map((item, position) => (
+                      <li key={item.id} role="presentation">
+                        <button
+                          className="wr-data-grid-column-option"
+                          type="button"
+                          role="option"
+                          aria-selected={item.id === selectedColumnId}
+                          tabIndex={item.id === selectedColumnId ? 0 : -1}
+                          title={item.header || undefined}
+                          onClick={() => selectColumn(item.id)}
+                        >
+                          <span>{item.header || `Column ${String(position + 1)}`}</span>
+                          <small>{CELL_KIND_LABELS[item.cellKind]}</small>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </aside>
+                {column !== undefined && (
                   <section
                     className="wr-data-grid-column-card"
                     key={column.id}
-                    aria-labelledby={`${titleId}-column-${column.id}`}
+                    aria-labelledby={`${titleId}-selected-column`}
                   >
                     <header>
-                      <div className="wr-data-grid-column-heading">
-                        <span className="wr-data-grid-column-number" aria-hidden="true">
-                          {String(index + 1).padStart(2, '0')}
-                        </span>
-                        <div>
-                          <h4 id={`${titleId}-column-${column.id}`}>
-                            {column.header || `Column ${String(index + 1)}`}
-                          </h4>
-                          <p>
-                            {CELL_KIND_LABELS[column.cellKind]} ·{' '}
-                            {column.widthMode === 'fixed'
-                              ? `${String(column.width)} px wide`
-                              : 'Dynamic width'}
-                          </p>
-                        </div>
-                      </div>
+                      <h3 id={`${titleId}-selected-column`}>
+                        {column.header || `Column ${String(index + 1)}`}
+                      </h3>
                       <div className="wr-data-grid-column-actions">
                         <button
                           type="button"
                           aria-label={`Move Data Grid column ${String(index + 1)} up`}
                           disabled={index === 0}
                           onClick={() => {
+                            focusColumnRef.current = index === 1;
                             updateDraft((current) => ({
                               ...current,
                               columns: moveItem(current.columns, index, index - 1),
@@ -827,6 +953,7 @@ export function DataGridConfigurationDialog({
                           aria-label={`Move Data Grid column ${String(index + 1)} down`}
                           disabled={index === draft.columns.length - 1}
                           onClick={() => {
+                            focusColumnRef.current = index === draft.columns.length - 2;
                             updateDraft((current) => ({
                               ...current,
                               columns: moveItem(current.columns, index, index + 1),
@@ -847,6 +974,10 @@ export function DataGridConfigurationDialog({
                               );
                               return { ...current, columns, columnCount: columns.length };
                             });
+                            selectColumn(
+                              (draft.columns[index + 1] ?? draft.columns[index - 1])?.id,
+                              true,
+                            );
                           }}
                         >
                           <Icon name="delete" />
@@ -854,15 +985,8 @@ export function DataGridConfigurationDialog({
                         </button>
                       </div>
                     </header>
-                    <div
-                      className={`wr-data-grid-configuration-fields ${
-                        column.cellKind === 'button'
-                          ? 'six-columns'
-                          : column.cellKind === 'checkbox'
-                            ? 'five-columns'
-                            : 'four-columns'
-                      }`}
-                    >
+                    <h4>Content</h4>
+                    <div className="wr-data-grid-configuration-fields">
                       <label>
                         <span>Header</span>
                         <input
@@ -973,7 +1097,8 @@ export function DataGridConfigurationDialog({
                         />
                       </label>
                     </div>
-                    <div className="wr-data-grid-configuration-fields four-columns">
+                    <h4>Size and alignment</h4>
+                    <div className="wr-data-grid-configuration-fields">
                       <label>
                         <span>Column width</span>
                         <select
@@ -1091,8 +1216,23 @@ export function DataGridConfigurationDialog({
                       </label>
                     </div>
                   </section>
-                ))}
+                )}
               </div>
+            </section>
+            <section
+              className="wr-data-grid-tab-panel"
+              id={`${titleId}-panel-labels`}
+              role="tabpanel"
+              aria-labelledby={`${titleId}-tab-labels`}
+              hidden={activeTab !== 'labels'}
+            >
+              {activeTab === 'labels' && (
+                <DataGridLabelsSettings
+                  draft={draft}
+                  operations={clientGraphQLOperations}
+                  onChange={updateDraft}
+                />
+              )}
             </section>
           </div>
           <footer className="wr-modal-actions wr-data-grid-configuration-actions">

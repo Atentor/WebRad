@@ -1608,7 +1608,7 @@ ${WEB_LOGIN_CSS}
 .wr-data-grid-graphql-status[data-error='true'], .wr-data-grid-graphql-editor [role='alert'] { color: var(--wr-error-text, #cf4545); }
 .wr-data-grid-graphql-status:empty, .wr-data-grid-graphql-editor [role='alert']:empty { display: none; }
 .wr-data-grid-graphql-action, .wr-data-grid-graphql-pager select, .wr-data-grid-graphql-editor input, .wr-data-grid-graphql-editor select, .wr-data-grid-graphql-editor textarea { border: 1px solid var(--wr-theme-border, #677184); border-radius: 4px; background: var(--wr-theme-surface, Canvas); color: var(--wr-theme-text, CanvasText); font: inherit; padding: 3px 7px; }
-.wr-data-grid-graphql-action { cursor: pointer; }
+.wr-data-grid-graphql-action { max-width: 100%; overflow-wrap: anywhere; white-space: normal; cursor: pointer; }
 .wr-data-grid-graphql-action:disabled { opacity: .55; cursor: default; }
 .wr-data-grid-graphql-action:focus-visible, .wr-data-grid-graphql-pager select:focus-visible { outline: 2px solid var(--wr-accent, #4da3ff); outline-offset: 1px; }
 .wr-data-grid-graphql-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; overflow: visible; font-size: .9em; }

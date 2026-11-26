@@ -84,12 +84,19 @@ export interface WebGraphQLMutationOptions {
   readonly mergeVariables?: boolean;
 }
 
-export interface WebGraphQLChange {
-  readonly kind: 'parameters' | 'page' | 'session';
-  readonly operationId: string;
-}
+export type WebGraphQLChange =
+  | { readonly kind: 'parameters' | 'session'; readonly operationId: string }
+  | {
+      readonly kind: 'page';
+      readonly operationId: string;
+      readonly result: WebGraphQLPage;
+      readonly variables: WebGraphQLParameters;
+      readonly first: number | undefined;
+      readonly after: string | null;
+    };
 
 export interface WebGraphQLSource {
+  readonly id: string;
   readonly operations: readonly WebGraphQLRuntimeOperation[];
   readonly authenticated: boolean;
   getOperation(idOrName: string): WebGraphQLRuntimeOperation | undefined;
@@ -108,7 +115,6 @@ type GraphQLRequestPhase = 'Request' | 'Success' | 'Error' | 'Complete';
 
 export interface WebGraphQLConfig extends WebNonvisualComponentOptions {
   readonly operations?: readonly WebGraphQLRuntimeOperation[];
-  readonly onLifecycle?: (phase: GraphQLRequestPhase, detail: WebGraphQLEventDetail) => boolean;
 }
 
 export class WebGraphQLRequestError extends Error {
@@ -221,19 +227,21 @@ function isParameterValue(value: WebGraphQLValue, parameter: WebGraphQLParameter
 }
 
 type OperationName<TParameters, TResults> = Extract<keyof TParameters & keyof TResults, string>;
-type OperationOf<TParameters, TResults, TResult> = {
-  [TName in OperationName<TParameters, TResults>]: Extract<TResults[TName], TResult> extends never
-    ? never
-    : TName;
-}[OperationName<TParameters, TResults>];
-
 const graphQLOperationReference: unique symbol = Symbol('GraphQL operation reference');
 
-export interface WebGraphQLOperationReference<TName extends string = string, TParameters = object> {
+export interface WebGraphQLOperationReference<
+  TName extends string = string,
+  TParameters = object,
+  TResult = unknown,
+> {
   readonly [graphQLOperationReference]: true;
   readonly name: TName;
   readonly id: string;
   readonly parameter: { -readonly [TKey in keyof TParameters]-?: TParameters[TKey] | undefined };
+  execute(
+    parameters?: TParameters,
+    options?: WebGraphQLExecutionOptions<TResult>,
+  ): Promise<TResult>;
 }
 
 export type WebGraphQLExecutionOptions<TResult> =
@@ -241,26 +249,8 @@ export type WebGraphQLExecutionOptions<TResult> =
     ? Omit<WebGraphQLPageOptions, 'variables'>
     : WebGraphQLMutationOptions;
 
-export interface WebGraphQLExecution<TParameters extends object, TResults extends object> {
-  readonly operation: {
-    readonly [TName in OperationName<TParameters, TResults>]: WebGraphQLOperationReference<
-      TName,
-      TParameters[TName]
-    >;
-  };
-  execute<TName extends OperationName<TParameters, TResults>>(
-    operation: WebGraphQLOperationReference<TName>,
-    parameters?: TParameters[NoInfer<TName>],
-    options?: WebGraphQLExecutionOptions<TResults[NoInfer<TName>]>,
-  ): Promise<TResults[TName]>;
-  setVariables<TName extends OperationName<TParameters, TResults>>(
-    name: TName,
-    variables: TParameters[TName],
-  ): void;
-}
-
 /** Runs project-authored GraphQL operations through the signed-in RestGo user. */
-export class WebApiGraphQL<
+export class WebGraphQLClient<
     TParameters extends object = Record<string, WebGraphQLParameters>,
     TResults extends object = Record<string, WebGraphQLResult>,
   >
@@ -268,8 +258,13 @@ export class WebApiGraphQL<
   implements WebGraphQLSource
 {
   public readonly operations: readonly WebGraphQLRuntimeOperation[];
-  public readonly execution: WebGraphQLExecution<TParameters, TResults>;
-  readonly #onLifecycle: WebGraphQLConfig['onLifecycle'];
+  public readonly operation: {
+    readonly [TName in OperationName<TParameters, TResults>]: WebGraphQLOperationReference<
+      TName,
+      TParameters[TName],
+      TResults[TName]
+    >;
+  };
   readonly #variables = new Map<string, WebGraphQLParameters>();
   readonly #preparedParameters = new Map<string, WebGraphQLParameters>();
   readonly #pages = new Map<string, WebGraphQLPage>();
@@ -284,9 +279,11 @@ export class WebApiGraphQL<
 
   public constructor(configuration: WebGraphQLConfig = {}) {
     super(configuration);
-    this.#onLifecycle = configuration.onLifecycle;
     this.operations = Object.freeze([...(configuration.operations ?? [])]);
-    const references: Record<string, WebGraphQLOperationReference> = Object.create(null);
+    const references: Record<
+      string,
+      WebGraphQLOperationReference<string, WebGraphQLParameters, WebGraphQLResult>
+    > = Object.create(null);
     for (const operation of this.operations) {
       const { name, id } = operation;
       references[name] = Object.freeze({
@@ -294,13 +291,13 @@ export class WebApiGraphQL<
         name,
         id,
         parameter: this.#createParameterView(operation),
+        execute: (
+          parameters?: WebGraphQLParameters,
+          options?: WebGraphQLExecutionOptions<WebGraphQLResult>,
+        ) => this.#executeOperation(operation, parameters, options),
       });
     }
-    this.execution = Object.freeze({
-      operation: Object.freeze(references) as WebGraphQLExecution<TParameters, TResults>['operation'],
-      execute: this.#executeReference.bind(this),
-      setVariables: this.setVariables.bind(this),
-    });
+    this.operation = Object.freeze(references) as typeof this.operation;
     this.#disposeClientListener = subscribeRestGoClient((client) => this.#bindClient(client));
     try {
       this.#bindClient(getRestGoClient());
@@ -333,17 +330,19 @@ export class WebApiGraphQL<
   }
 
   public setVariables<TName extends OperationName<TParameters, TResults>>(
-    name: TName,
-    variables: TParameters[TName],
+    reference: WebGraphQLOperationReference<TName>,
+    variables: TParameters[NoInfer<TName>],
   ): void {
-    const operation = this.#requireOperation(name);
+    const operation = this.#resolveReference(reference);
     const values = this.#checkedVariables(operation, variables as WebGraphQLParameters, false);
     this.#variables.set(operation.id, values);
     this.#invalidate(operation.id, 'parameters');
   }
 
-  #createParameterView(operation: WebGraphQLRuntimeOperation): object {
-    const view = Object.create(null) as object;
+  #createParameterView(
+    operation: WebGraphQLRuntimeOperation,
+  ): Record<string, WebGraphQLValue | undefined> {
+    const view: Record<string, WebGraphQLValue | undefined> = Object.create(null);
     for (const { name } of operation.parameters) {
       Object.defineProperty(view, name, {
         enumerable: true,
@@ -375,60 +374,30 @@ export class WebApiGraphQL<
   }
 
   public async execute<TName extends OperationName<TParameters, TResults>>(
-    name: TName,
-    variables?: TParameters[TName],
-  ): Promise<TResults[TName]> {
-    const operation = this.#requireOperation(name);
-    const values = variables as WebGraphQLParameters | undefined;
-    const result =
-      operation.kind === 'query'
-        ? await this.executePageById(operation.id, { variables: values })
-        : await this.executeMutationById(operation.id, values);
-    return result as TResults[TName];
-  }
-
-  async #executeReference<TName extends OperationName<TParameters, TResults>>(
     operation: WebGraphQLOperationReference<TName>,
     parameters?: TParameters[NoInfer<TName>],
     options?: WebGraphQLExecutionOptions<TResults[NoInfer<TName>]>,
   ): Promise<TResults[TName]> {
-    if (this.execution.operation[operation.name] !== operation) {
-      throw new TypeError('Select an operation imported into this API Client.');
-    }
-    const selected = this.#requireOperation(operation.id);
+    const selected = this.#resolveReference(operation);
+    return (await this.#executeOperation(
+      selected,
+      parameters as WebGraphQLParameters | undefined,
+      options,
+    )) as TResults[TName];
+  }
+
+  #executeOperation(
+    operation: WebGraphQLRuntimeOperation,
+    parameters?: WebGraphQLParameters,
+    options?: WebGraphQLExecutionOptions<WebGraphQLResult>,
+  ): Promise<WebGraphQLResult> {
     const variables = {
-      ...this.#preparedParameters.get(selected.id),
-      ...(parameters as WebGraphQLParameters | undefined),
+      ...this.#preparedParameters.get(operation.id),
+      ...parameters,
     };
-    const result =
-      selected.kind === 'query'
-        ? await this.executePageById(selected.id, { ...options, variables })
-        : await this.executeMutationById(selected.id, variables, options as WebGraphQLMutationOptions);
-    return result as TResults[TName];
-  }
-
-  public async executePage<
-    TName extends OperationOf<TParameters, TResults, WebGraphQLPage<unknown>>,
-  >(
-    name: TName,
-    options: WebGraphQLPageOptions<TParameters[TName]> = {},
-  ): Promise<Extract<TResults[TName], WebGraphQLPage<unknown>>> {
-    return (await this.executePageById(name, options as WebGraphQLPageOptions)) as Extract<
-      TResults[TName],
-      WebGraphQLPage<unknown>
-    >;
-  }
-
-  public async executeMutation<
-    TName extends OperationOf<TParameters, TResults, WebGraphQLMutationResult<unknown>>,
-  >(
-    name: TName,
-    variables?: TParameters[TName],
-  ): Promise<Extract<TResults[TName], WebGraphQLMutationResult<unknown>>> {
-    return (await this.executeMutationById(name, variables as WebGraphQLParameters | undefined)) as Extract<
-      TResults[TName],
-      WebGraphQLMutationResult<unknown>
-    >;
+    return operation.kind === 'query'
+      ? this.executePageById(operation.id, { ...options, variables })
+      : this.executeMutationById(operation.id, variables, options as WebGraphQLMutationOptions);
   }
 
   public async executePageById(
@@ -440,15 +409,13 @@ export class WebApiGraphQL<
     const publish = options.publish !== false;
     const revision = publish ? this.#nextRevision(operation.id) : undefined;
     return this.#run(operation, async () => {
-      const variables = {
-        ...this.#checkedVariables(
-          operation,
-          { ...this.getVariables(operation.id), ...options.variables },
-          true,
-        ),
-        ...this.#pageVariables(operation, options),
-      };
-      const response = await this.#request(operation, variables, options.signal);
+      const variables = this.#checkedVariables(
+        operation,
+        { ...this.getVariables(operation.id), ...options.variables },
+        true,
+      );
+      const pagination = this.#pageVariables(operation, options);
+      const response = await this.#request(operation, { ...variables, ...pagination }, options.signal);
       const rawPage = record(response.pageInfo);
       const result: WebGraphQLPage = {
         rows: connectionRows(response, operation.selections),
@@ -462,7 +429,14 @@ export class WebApiGraphQL<
       };
       if (!this.#disposed && publish && this.#revisions.get(operation.id) === revision) {
         this.#pages.set(operation.id, result);
-        this.#notify({ kind: 'page', operationId: operation.id });
+        this.#notify({
+          kind: 'page',
+          operationId: operation.id,
+          result,
+          variables,
+          first: pagination._wrFirst,
+          after: pagination._wrAfter ?? null,
+        });
       }
       return result;
     });
@@ -573,10 +547,19 @@ export class WebApiGraphQL<
   }
 
   #requireOperation(idOrName: string): WebGraphQLRuntimeOperation {
-    if (this.#disposed) throw new Error('This API Client GraphQL source was disposed.');
+    if (this.#disposed) throw new Error('This GraphQL Client was disposed.');
     const operation = this.getOperation(idOrName);
     if (!operation) throw new RangeError(`GraphQL operation "${idOrName}" is unavailable.`);
     return operation;
+  }
+
+  #resolveReference(
+    reference: WebGraphQLOperationReference<OperationName<TParameters, TResults>>,
+  ): WebGraphQLRuntimeOperation {
+    if (this.operation[reference.name] !== reference) {
+      throw new TypeError('Select an operation from this GraphQL Client.');
+    }
+    return this.#requireOperation(reference.id);
   }
 
   #checkedVariables(
@@ -603,7 +586,10 @@ export class WebApiGraphQL<
     return structuredClone(Object.fromEntries(values));
   }
 
-  #pageVariables(operation: WebGraphQLRuntimeOperation, options: WebGraphQLPageOptions): WebGraphQLParameters {
+  #pageVariables(
+    operation: WebGraphQLRuntimeOperation,
+    options: WebGraphQLPageOptions,
+  ): { readonly _wrFirst?: number; readonly _wrAfter?: string | null } {
     if (!operation.pagination) return {};
     const size = options.first ?? operation.pagination.defaultSize;
     if (!Number.isInteger(size) || size < 1 || size > operation.pagination.maxSize)
@@ -612,8 +598,7 @@ export class WebApiGraphQL<
   }
 
   #emitLifecycle(phase: GraphQLRequestPhase, detail: WebGraphQLEventDetail): boolean {
-    const accepted = this.emit(`On${phase}`, detail);
-    return this.#onLifecycle?.(phase, detail) !== false && accepted;
+    return this.emit(`On${phase}`, detail);
   }
 
   async #run<TResult extends WebGraphQLResult>(

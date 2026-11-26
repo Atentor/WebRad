@@ -848,6 +848,7 @@ function PropertyEditor({
       );
     }
     case 'page-parameters':
+    case 'graphql-client-config':
     case 'combo-box-config':
     case 'charts-config':
     case 'menu-config':
@@ -859,6 +860,7 @@ function PropertyEditor({
       const action = property.designerAction;
       const label = {
         'page-parameters': 'Configure Parameters',
+        'graphql-client-config': 'Configure GraphQL Client',
         'combo-box-config': 'Configure ComboBox',
         'charts-config': 'Configure Charts',
         'menu-config': 'Configure Menu',

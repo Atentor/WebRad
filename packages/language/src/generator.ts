@@ -12,7 +12,7 @@ import {
   ComboBoxConfigurationSchema,
   ChartsConfigurationSchema,
   RepeatingGroupConfigurationSchema,
-  selectApiClientGraphQLOperations,
+  selectComponentGraphQLOperations,
   parsePage,
   parseReusableElement,
   MenuDefinitionModelSchema,
@@ -61,7 +61,6 @@ function generatedClassName(page: PageModel, suffix: string): string {
 const generatedTypeImports = [
   'WebApiTemplateValue',
   'WebApiQueryValue',
-  'WebApiGraphQL',
   'WebGraphQLPage',
   'WebGraphQLMutationResult',
   'WebGraphQLValue',
@@ -87,22 +86,12 @@ function runtimeTypes(
         : []),
       ...(page.components.some(
         (component) =>
-          component.type === 'WebApiClient' &&
-          clientGraphQLOperations(component, graphQLOperations).length > 0,
+          selectComponentGraphQLOperations(component, graphQLOperations).length > 0,
       )
-        ? ['WebApiGraphQL', 'WebGraphQLPage', 'WebGraphQLMutationResult', 'WebGraphQLValue']
+        ? ['WebGraphQLPage', 'WebGraphQLMutationResult', 'WebGraphQLValue']
         : []),
     ]),
   ].sort();
-}
-
-function clientGraphQLOperations(
-  component: ComponentNode,
-  operations: readonly ProjectGraphQLOperation[],
-): readonly ProjectGraphQLOperation[] {
-  if (operations.length === 0) return [];
-  const parsed = ApiClientConfigurationSchema.safeParse(component.props.apiClientConfig);
-  return parsed.success ? selectApiClientGraphQLOperations(parsed.data, operations) : [];
 }
 
 interface ApiClientTypeDeclarations {
@@ -211,15 +200,22 @@ function apiClientTypeDeclarations(
   const declarations: string[] = [];
   const typeByComponentId = new Map<string, string>();
   for (const component of page.components) {
+    if (component.type === 'WebGraphQLClient') {
+      const graphQL = graphQLTypeDeclarations(
+        component.name,
+        selectComponentGraphQLOperations(component, graphQLOperations),
+      );
+      declarations.push(...graphQL.declarations);
+      typeByComponentId.set(
+        component.id,
+        graphQL.apiType ?? 'WebGraphQLClient<Record<never, never>, Record<never, never>>',
+      );
+      continue;
+    }
     if (component.type !== 'WebApiClient') continue;
     const parsed = ApiClientConfigurationSchema.safeParse(component.props.apiClientConfig);
     if (!parsed.success) continue;
     const configuration = parsed.data;
-    const graphQL = graphQLTypeDeclarations(
-      component.name,
-      selectApiClientGraphQLOperations(configuration, graphQLOperations),
-    );
-    declarations.push(...graphQL.declarations);
     const builder: SchemaTypeBuilder = { declarations: [], next: 0 };
     const operationTypes = configuration.operations.map((operation) => ({
       name: operation.name,
@@ -286,7 +282,7 @@ function apiClientTypeDeclarations(
     );
     typeByComponentId.set(
       component.id,
-      `WebApiClient<${[outputsTypeName, inputsTypeName, headersTypeName, graphQL.apiType].filter(Boolean).join(', ')}>`,
+      `WebApiClient<${outputsTypeName}, ${inputsTypeName}, ${headersTypeName}>`,
     );
   }
   return { declarations, typeByComponentId };
@@ -315,9 +311,13 @@ function boundRowTypeDeclarations(
       componentType === 'WebDataGrid'
         ? DataGridConfigurationSchema.safeParse(group.props.dataGridConfig)
         : RepeatingGroupConfigurationSchema.safeParse(group.props.repeatingGroupConfig);
+    const graphQL = config.success && 'graphql' in config.data ? config.data.graphql : undefined;
     const api = config.success
       ? page.components.find((component) => component.id === config.data.apiClientId)
       : undefined;
+    const graphQLClient = page.components.find(
+      (component) => component.id === graphQL?.clientId && component.type === 'WebGraphQLClient',
+    );
     const apiConfig = ApiClientConfigurationSchema.safeParse(api?.props.apiClientConfig);
     const operation =
       apiConfig.success && config.success
@@ -331,10 +331,9 @@ function boundRowTypeDeclarations(
       }
       return undefined;
     };
-    const graphQL = config.success && 'graphql' in config.data ? config.data.graphql : undefined;
     const graphQLList =
-      graphQL !== undefined && config.success && apiConfig.success
-        ? selectApiClientGraphQLOperations(apiConfig.data, graphQLOperations).find(
+      graphQL !== undefined && config.success && graphQLClient !== undefined
+        ? selectComponentGraphQLOperations(graphQLClient, graphQLOperations).find(
             (candidate) => candidate.id === config.data.operationId,
           )?.responseSchema.root
         : undefined;
@@ -418,7 +417,7 @@ function graphQLTypeDeclarations(
       '};',
       '',
     ],
-    apiType: `WebApiGraphQL<${parameterType}, ${resultType}>`,
+    apiType: `WebGraphQLClient<${parameterType}, ${resultType}>`,
   };
 }
 
@@ -508,12 +507,22 @@ function apiListBindings(
             ? ComboBoxConfigurationSchema.safeParse(grid.props.comboBoxConfig)
             : undefined;
     if (configuration === undefined || !configuration.success) return [];
+    const graphql = 'graphql' in configuration.data ? configuration.data.graphql : undefined;
+    const graphqlClientId = 'graphqlClientId' in configuration.data
+      ? configuration.data.graphqlClientId
+      : graphql?.clientId;
+    const sourceId = graphqlClientId === undefined ? configuration.data.apiClientId : graphqlClientId;
+    const sourceType = graphqlClientId === undefined ? 'WebApiClient' : 'WebGraphQLClient';
     const source = page.components.find(
       (component) =>
-        component.id === configuration.data.apiClientId && component.type === 'WebApiClient',
+        component.id === sourceId && component.type === sourceType,
     );
     return source === undefined ? [] : [{ grid, source }];
   });
+}
+
+function listBindingMethod(source: ComponentNode): 'bindApiClient' | 'bindGraphQLClient' {
+  return source.type === 'WebGraphQLClient' ? 'bindGraphQLClient' : 'bindApiClient';
 }
 
 function apiChartBindings(page: PageModel): readonly {
@@ -577,9 +586,10 @@ function componentConstruction(
       return [name, projection ? projection(value) : value];
     }),
   );
-  if (component.type === 'WebApiClient') {
-    const operations = clientGraphQLOperations(component, graphQLOperations);
-    if (operations.length > 0) props.graphQLOperations = operations.map(({ runtime }) => runtime);
+  if (component.type === 'WebGraphQLClient') {
+    delete props.graphQLOperationIds;
+    props.operations = selectComponentGraphQLOperations(component, graphQLOperations)
+      .map(({ runtime }) => runtime);
   }
   const configuration =
     elementId === quoted(component.id) || !definition.instanceScopedRuntimeId
@@ -798,7 +808,7 @@ function generateDocumentSource(
   }
   for (const binding of gridBindings) {
     if (repeatingGroupForComponent(page, binding.grid.id) !== undefined) continue;
-    lines.push(`    this.${binding.grid.name}.bindApiClient(this.${binding.source.name});`);
+    lines.push(`    this.${binding.grid.name}.${listBindingMethod(binding.source)}(this.${binding.source.name});`);
   }
   for (const binding of chartBindings) {
     if (repeatingGroupForComponent(page, binding.chart.id) !== undefined) continue;
@@ -846,7 +856,7 @@ function generateDocumentSource(
     );
     for (const binding of rowListBindings)
       lines.push(
-        `${indent}  ${rowComponent(binding.grid)}.bindApiClient(this.${binding.source.name});`,
+        `${indent}  ${rowComponent(binding.grid)}.${listBindingMethod(binding.source)}(this.${binding.source.name});`,
       );
     for (const binding of rowChartBindings)
       lines.push(

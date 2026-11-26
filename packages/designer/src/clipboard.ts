@@ -2,6 +2,8 @@ import type { WebReportElement } from '@webrad/runtime/report-template';
 import {
   RepeatingGroupConfigurationSchema,
   ChartsConfigurationSchema,
+  ComboBoxConfigurationSchema,
+  DataGridConfigurationSchema,
   type ComponentNode,
   type PageModel,
   ReportTemplateSchema,
@@ -184,10 +186,11 @@ export function materializePaste(
     if (mappedParent === null) {
       throw new DesignerModelError(`Missing pasted parent for "${source.id}".`);
     }
+    const props = remapGraphQLClientReference(source.props, idMap);
     return {
       ...cloneComponentNode(source),
       props: remapReportTemplateApiReferences(
-        remapChartsApiReferences(remapRepeatingGroupApiReference(source.props, idMap), idMap),
+        remapChartsApiReferences(remapRepeatingGroupApiReference(props, idMap), idMap),
         idMap,
       ),
       id,
@@ -301,6 +304,28 @@ function remapRepeatingGroupApiReference(
   return apiClientId === undefined
     ? props
     : { ...props, repeatingGroupConfig: { ...parsed.data, apiClientId } };
+}
+
+function remapGraphQLClientReference(
+  props: ComponentNode['props'],
+  idMap: ReadonlyMap<string, string>,
+): ComponentNode['props'] {
+  if (props.comboBoxConfig !== undefined) {
+    const configuration = ComboBoxConfigurationSchema.safeParse(props.comboBoxConfig).data;
+    if (configuration?.graphqlClientId === undefined) return props;
+    const graphqlClientId = idMap.get(configuration.graphqlClientId);
+    return graphqlClientId === undefined
+      ? props
+      : { ...props, comboBoxConfig: { ...configuration, graphqlClientId } };
+  }
+  if (props.dataGridConfig === undefined) return props;
+  const configuration = DataGridConfigurationSchema.safeParse(props.dataGridConfig).data;
+  const graphql = configuration?.graphql;
+  if (graphql?.clientId == null) return props;
+  const clientId = idMap.get(graphql.clientId);
+  return clientId === undefined
+    ? props
+    : { ...props, dataGridConfig: { ...configuration, graphql: { ...graphql, clientId } } };
 }
 
 export class PasteComponentsCommand implements Command<PageModel> {

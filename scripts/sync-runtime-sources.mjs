@@ -210,6 +210,7 @@ const sourceFiles = [
   'charts.ts',
   'fonts.ts',
   'data-grid.ts',
+  'data-grid-labels.ts',
   'data-grid-graphql.ts',
   'data-grid-graphql-controls.ts',
   'graphql.ts',

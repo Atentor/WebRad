@@ -38,7 +38,7 @@ function setup(bound = false) {
 
 it('selects the API Client, response list, displayed field, and key and saves one draft', async () => {
   const { user, onSave, editor } = setup();
-  await user.selectOptions(editor.getByLabelText('ComboBox API Client'), 'customers-api');
+  await user.selectOptions(editor.getByLabelText('ComboBox data source'), 'customers-api');
   expect(editor.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
   await user.selectOptions(editor.getByLabelText('ComboBox display field'), '/name');
   await user.selectOptions(editor.getByLabelText('ComboBox key field'), '/id');
@@ -64,11 +64,11 @@ it('reopens the saved binding, clears obsolete field choices on list changes, an
 
 it('returns to static items explicitly and cancels without saving', async () => {
   const { user, onSave, onClose, editor } = setup(true);
-  await user.selectOptions(editor.getByLabelText('ComboBox API Client'), '');
+  await user.selectOptions(editor.getByLabelText('ComboBox data source'), '');
   await user.click(editor.getByRole('button', { name: 'Save' }));
   expect(onSave).toHaveBeenCalledWith(null);
   onSave.mockClear();
-  await user.selectOptions(editor.getByLabelText('ComboBox API Client'), 'customers-api');
+  await user.selectOptions(editor.getByLabelText('ComboBox data source'), 'customers-api');
   await user.keyboard('{Escape}');
   expect(onClose).toHaveBeenCalledOnce();
   expect(onSave).not.toHaveBeenCalled();
@@ -89,9 +89,9 @@ it('allows removing a binding when its API Client was deleted', async () => {
     />,
   );
   const user = userEvent.setup();
-  expect(screen.getByLabelText('ComboBox API Client')).toHaveProperty('value', 'customers-api');
+  expect(screen.getByLabelText('ComboBox data source')).toHaveProperty('value', 'customers-api');
   expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
-  await user.selectOptions(screen.getByLabelText('ComboBox API Client'), '');
+  await user.selectOptions(screen.getByLabelText('ComboBox data source'), '');
   await user.click(screen.getByRole('button', { name: 'Save' }));
   expect(onSave).toHaveBeenCalledWith(null);
 });

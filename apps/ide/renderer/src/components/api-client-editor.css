@@ -68,31 +68,21 @@
   cursor: pointer;
 }
 
-.wr-api-import-actions {
-  display: grid;
-  gap: 5px;
+.wr-api-client-dialog .wr-api-import-button {
+  width: 100%;
   margin: 4px 0 8px;
 }
 
-.wr-api-import-button[aria-pressed='true'] {
-  outline: 1px solid var(--wr-accent);
-}
-
-.wr-api-graphql-operations {
+.wr-graphql-client-operations {
   display: grid;
   gap: 8px;
   font-size: 12px;
+  max-height: min(45vh, 400px);
+  overflow: auto;
+  padding: 2px;
 }
 
-.wr-api-graphql-operations :is(h3, p) {
-  margin: 0;
-}
-
-.wr-api-graphql-operations p {
-  color: var(--wr-muted-text);
-}
-
-.wr-api-graphql-operations label {
+.wr-graphql-client-operations label {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -103,9 +93,17 @@
   overflow-wrap: anywhere;
 }
 
-.wr-api-graphql-operations small {
+.wr-graphql-client-operations small {
   color: var(--wr-muted-text);
   text-transform: capitalize;
+}
+
+.wr-modal.wr-graphql-client-dialog {
+  width: min(520px, calc(100% - 32px));
+}
+
+.wr-graphql-client-dialog::backdrop {
+  background: color-mix(in srgb, #000000 68%, transparent);
 }
 
 .wr-api-client-dialog .wr-api-operation-list {

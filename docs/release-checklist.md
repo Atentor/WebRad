@@ -1,5 +1,26 @@
 # Release checklist for agents and maintainers
 
+## Data Grid configuration tabs
+
+The Data Grid configuration smoke opens on Data source, edits Appearance
+and Columns through their tabs, and switches columns to confirm that only the
+selected column's editor is shown. It verifies both panes at desktop and
+compact widths, scrolling with visible save actions, and the existing
+appearance, icon, save, reopen, and cancel behavior. The GraphQL binding smoke
+uses Data source to change the client and Columns to check field bindings.
+Keep the existing configuration and binding pass markers in both runners.
+
+The configuration smoke edits Labels and reopens the dialog after Save and
+Cancel. The compiled GraphQL fixture checks custom pagination, editor, and
+draft action labels. It exercises both explicit save paths and verifies that
+each writes only the intended record.
+
+The GraphQL binding smoke reopens the client after binding a Data Grid and a
+ComboBox. The selected operation is disabled while either control uses it and
+can be deselected after the bindings are removed. The compiled fixture checks
+published cursors with and without matching grid history, including the page
+summary and the Previous action.
+
 ## Ubuntu packaged workbench resize on v0.0.40 (2026-11-20)
 
 The Ubuntu quality job passed `npm run validate` and the development smoke.
@@ -808,17 +829,18 @@ widths it checks the continuous editor surface, responsive filter rows, matching
 group, inline pagination and absence of horizontal overflow.
 It captures both presented frames, removes the draft group and confirms the
 editor is clean. Authoring must use read-only RestGo requests.
-In the Designer, the Data Grid initially has no GraphQL queries for its client.
-The flow imports the saved query through the API Client dialog, verifies it is
-available in the Data Grid, binds it in the Data Grid and ComboBox, and reopens
-both bindings. The palette exposes API Client as the component for this workflow.
+In the Designer, the Data Grid initially has no queries for an empty GraphQL
+Client. The flow selects a saved query in that client, binds it in the Data
+Grid and ComboBox, and reopens both bindings. It checks that the API Client
+editor exposes HTTP requests and the grid offers the two client types.
 This updated flow has not been run.
 
 Both runners require `renderer GraphQL Data Grid compiled runtime passed:`. The
-compiled browser fixture uses the same API Client for Data Grid cursor
-navigation and a ComboBox with independent labels and keys. It prepares an
-imported query's typed parameter in one action and executes it in another.
-It checks the filtered result, then exercises record drafts, undo and an
+compiled browser fixture uses GraphQL Client for Data Grid cursor navigation
+and the ComboBox's independent labels and keys. It prepares a selected query's
+typed parameter in one action and calls that operation's `execute()` in another.
+It checks that the Data Grid shows the filtered result and updates again
+when the filter is cleared, then exercises record drafts, undo and an
 explicit change save.
 This updated flow has not been run.
 

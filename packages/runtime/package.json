@@ -12,6 +12,10 @@
       "types": "./src/login-model.ts",
       "default": "./src/login-model.ts"
     },
+    "./data-grid-labels": {
+      "types": "./src/data-grid-labels.ts",
+      "default": "./src/data-grid-labels.ts"
+    },
     "./theme": {
       "types": "./src/theme.ts",
       "default": "./src/theme.ts"

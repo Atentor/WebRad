@@ -4,7 +4,7 @@ export interface WebComboBoxConfiguration {
   readonly apiClientId: string | null;
   readonly operationId: string | null;
   readonly listPath: string;
-  readonly graphql?: true;
+  readonly graphqlClientId?: string;
   readonly displayField: string;
   readonly keyField: string;
 }
@@ -18,7 +18,7 @@ export function normalizeWebComboBoxConfiguration(value: unknown): WebComboBoxCo
     apiClientId: typeof source.apiClientId === 'string' ? source.apiClientId : null,
     operationId: typeof source.operationId === 'string' ? source.operationId : null,
     listPath: typeof source.listPath === 'string' ? source.listPath : '',
-    ...(source.graphql === true ? { graphql: true } : {}),
+    ...(typeof source.graphqlClientId === 'string' ? { graphqlClientId: source.graphqlClientId } : {}),
     displayField: typeof source.displayField === 'string' ? source.displayField : '',
     keyField: typeof source.keyField === 'string' ? source.keyField : '',
   };

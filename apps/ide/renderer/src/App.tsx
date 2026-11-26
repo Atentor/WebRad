@@ -67,7 +67,7 @@ import {
   type RepeatingGroupConfiguration,
   type CurrentRowBinding,
   normalizeCurrentRowBindings,
-  normalizeApiClientConfiguration,
+  graphQLClientOperationIds,
   normalizeDataGridConfiguration,
   ComboBoxConfigurationSchema,
   type PageModel,
@@ -107,6 +107,7 @@ import type {
 } from '../../shared/contracts';
 import { BottomPanel, type BottomPanelTab, type OutputEntry } from './components/BottomPanel';
 import { ApiClientTesterDialog } from './components/ApiClientTesterDialog';
+import { GraphQLClientConfigurationDialog } from './components/GraphQLClientConfigurationDialog';
 import {
   CodeEditor,
   releaseMonacoWorkspace,
@@ -233,6 +234,34 @@ function selectionNodes(page: PageModel | null, ids: readonly string[]): readonl
   return page.components.filter((component) => idSet.has(component.id));
 }
 
+function graphQLBinding(component: ComponentNode): {
+  readonly clientId: string | null;
+  readonly operationIds: readonly (string | null)[];
+} | undefined {
+  if (component.type === 'WebDataGrid') {
+    const grid = normalizeDataGridConfiguration(component.props.dataGridConfig);
+    const binding = grid.graphql;
+    if (binding !== undefined) {
+      return {
+        clientId: binding.clientId,
+        operationIds: [
+          grid.operationId,
+          binding.insertOperationId,
+          binding.updateOperationId,
+          binding.deleteOperationId,
+        ],
+      };
+    }
+  }
+  if (component.type === 'WebComboBox') {
+    const combo = ComboBoxConfigurationSchema.safeParse(component.props.comboBoxConfig).data;
+    if (combo?.graphqlClientId !== undefined) {
+      return { clientId: combo.graphqlClientId, operationIds: [combo.operationId] };
+    }
+  }
+  return undefined;
+}
+
 export function App(): ReactElement {
   const projectController = useMemo(() => new ProjectController(window.webrad), []);
   const updates = useUpdates(projectController);
@@ -299,6 +328,7 @@ export function App(): ReactElement {
     'general' | 'build'
   >('general');
   const [apiClientTesterComponentId, setApiClientTesterComponentId] = useState<string | null>(null);
+  const [graphQLClientComponentId, setGraphQLClientComponentId] = useState<string | null>(null);
   const [menuConfiguratorComponentId, setMenuConfiguratorComponentId] = useState<string | null>(
     null,
   );
@@ -405,6 +435,25 @@ export function App(): ReactElement {
       activePage.components.find((component) => component.id === apiClientTesterComponentId) ?? null
     );
   }, [activePage, apiClientTesterComponentId]);
+  const graphQLClientComponent =
+    activePage?.components.find(
+      ({ id, type }) => id === graphQLClientComponentId && type === 'WebGraphQLClient',
+    ) ?? null;
+  const graphQLClientOperationUsers = useMemo(() => {
+    const users = new Map<string, string[]>();
+    if (graphQLClientComponent === null) return users;
+    for (const component of activePage?.components ?? []) {
+      const binding = graphQLBinding(component);
+      if (binding?.clientId !== graphQLClientComponent.id) continue;
+      for (const id of new Set(binding.operationIds)) {
+        if (id === null) continue;
+        const names = users.get(id) ?? [];
+        names.push(component.name);
+        users.set(id, names);
+      }
+    }
+    return users;
+  }, [activePage?.components, graphQLClientComponent]);
   const dataGridConfiguratorComponent = useMemo(() => {
     if (activePage === null || dataGridConfiguratorComponentId === null) return null;
     return (
@@ -540,6 +589,7 @@ export function App(): ReactElement {
       setMonacoMarkers([]);
       setBottomPanelTab('output');
       setApiClientTesterComponentId(null);
+      setGraphQLClientComponentId(null);
       setMenuConfiguratorComponentId(null);
       setLoginConfiguratorComponentId(null);
       setDataGridConfiguratorComponentId(null);
@@ -1305,6 +1355,8 @@ export function App(): ReactElement {
           setParametersPageId(activePage.id);
       } else if (action === 'api-client-tester') {
         setApiClientTesterComponentId(component.id);
+      } else if (action === 'graphql-client-configurator') {
+        setGraphQLClientComponentId(component.id);
       } else if (action === 'menu-definition-edit') {
         const menu = project?.menus?.find((entry) => entry.id === component.props.menuDefinitionId);
         if (menu) {
@@ -1690,32 +1742,15 @@ export function App(): ReactElement {
         : [...project.pages, ...project.reusableElements];
       for (const document of documents) {
         for (const component of document.components) {
-          const grid = component.type === 'WebDataGrid'
-            ? normalizeDataGridConfiguration(component.props.dataGridConfig)
-            : undefined;
-          const combo = component.type === 'WebComboBox'
-            ? ComboBoxConfigurationSchema.safeParse(component.props.comboBoxConfig)
-            : undefined;
-          const linked = grid?.graphql === undefined
-            ? [combo?.success && combo.data.graphql ? combo.data.operationId : undefined]
-            : [
-                grid.operationId,
-                grid.graphql.insertOperationId,
-                grid.graphql.updateOperationId,
-                grid.graphql.deleteOperationId,
-              ];
-          if (linked.some((id) => id != null && removed.has(id))) {
+          if (graphQLBinding(component)?.operationIds.some((id) => id !== null && removed.has(id))) {
             throw new Error(
               `Remove the GraphQL binding from ${document.name}.${component.name} before deleting the operation.`,
             );
           }
-          if (component.type === 'WebApiClient') {
-            const configuration = normalizeApiClientConfiguration(component.props.apiClientConfig);
-            if (configuration.graphQLOperationIds?.some((id) => removed.has(id))) {
-              throw new Error(
-                `Remove the GraphQL import from ${document.name}.${component.name} before deleting the operation.`,
-              );
-            }
+          if (graphQLClientOperationIds(component).some((id) => removed.has(id))) {
+            throw new Error(
+              `Remove the GraphQL operation from ${document.name}.${component.name} before deleting it.`,
+            );
           }
         }
       }
@@ -1840,6 +1875,7 @@ export function App(): ReactElement {
       setBuildDiagnostics([]);
       setMonacoMarkers([]);
       setApiClientTesterComponentId(null);
+      setGraphQLClientComponentId(null);
       setDataGridConfiguratorComponentId(null);
       setComboBoxConfiguratorComponentId(null);
       setChartsConfiguratorComponentId(null);
@@ -2219,6 +2255,7 @@ export function App(): ReactElement {
     nativeBuild.state !== null ||
     deploy.state !== null ||
     apiClientTesterComponent !== null ||
+    graphQLClientComponent !== null ||
     menuConfiguratorComponent !== null ||
     loginConfiguratorComponent !== null ||
     dataGridConfiguratorComponent !== null ||
@@ -3593,7 +3630,6 @@ export function App(): ReactElement {
           <ApiClientTesterDialog
             component={apiClientTesterComponent}
             restGoSettings={project?.settings.restGo}
-            graphQLOperations={project?.settings.graphQLOperations ?? []}
             onClose={() => setApiClientTesterComponentId(null)}
             onSave={saveApiClientConfiguration}
           />
@@ -3605,6 +3641,32 @@ export function App(): ReactElement {
             component={dataGridConfiguratorComponent}
             onClose={() => setDataGridConfiguratorComponentId(null)}
             onSave={saveDataGridConfiguration}
+          />
+        )}
+        {graphQLClientComponent !== null && (
+          <GraphQLClientConfigurationDialog
+            key={graphQLClientComponent.id}
+            component={graphQLClientComponent}
+            operations={project?.settings.graphQLOperations ?? []}
+            operationUsers={graphQLClientOperationUsers}
+            onClose={() => setGraphQLClientComponentId(null)}
+            onSave={(ids) => {
+              try {
+                const selected = new Set(ids);
+                for (const id of graphQLClientOperationIds(graphQLClientComponent)) {
+                  const users = graphQLClientOperationUsers.get(id);
+                  if (users !== undefined && !selected.has(id)) {
+                    throw new Error(`Remove the GraphQL binding from ${users.join(', ')} first.`);
+                  }
+                }
+                commitDesignerCommand(
+                  new ChangePropertyCommand(graphQLClientComponent.id, 'graphQLOperationIds', ids),
+                );
+                setGraphQLClientComponentId(null);
+              } catch (error) {
+                reportError(error, 'DESIGNER');
+              }
+            }}
           />
         )}
         {menuConfiguratorComponent !== null && (

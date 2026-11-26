@@ -6,7 +6,7 @@ export interface ComboBoxConfiguration {
   readonly apiClientId: string | null;
   readonly operationId: string | null;
   readonly listPath: string;
-  readonly graphql?: true;
+  readonly graphqlClientId?: string;
   readonly displayField: string;
   readonly keyField: string;
 }
@@ -26,11 +26,15 @@ export const ComboBoxConfigurationSchema: z.ZodType<ComboBoxConfiguration> = z
     apiClientId: reference,
     operationId: reference,
     listPath: pointer,
-    graphql: z.literal(true).optional(),
+    graphqlClientId: z.string().min(1).max(200).optional(),
     displayField: pointer,
     keyField: pointer,
   })
-  .strict();
+  .strict()
+  .refine(
+    ({ graphqlClientId, apiClientId }) => graphqlClientId === undefined || apiClientId === null,
+    { message: 'A ComboBox can bind to only one client.', path: ['apiClientId'] },
+  );
 
 export function createDefaultComboBoxConfiguration(): ComboBoxConfiguration {
   return {

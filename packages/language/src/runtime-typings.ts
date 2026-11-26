@@ -1,3 +1,4 @@
+import { WEB_DATA_GRID_LABEL_KEYS } from '@webrad/runtime/data-grid-labels';
 import timerTypings from './timer-typings.generated.json';
 import paymentsTypings from './payments-typings.generated.json';
 import graphqlTypings from './graphql-typings.generated.json';
@@ -150,12 +151,18 @@ ${chartsTypings.source}
     readonly cellAlign: WebDataGridHorizontalAlignment;
   }
 
+  export type WebDataGridLabel = ${WEB_DATA_GRID_LABEL_KEYS.map((key) => JSON.stringify(key)).join(' | ')};
+  export type WebDataGridLabels = Readonly<Partial<Record<WebDataGridLabel, string>>>;
+
   export interface WebDataGridConfiguration {
     readonly schemaVersion: number;
     readonly apiClientId: string | null;
     readonly operationId: string | null;
     readonly listPath: string;
     readonly graphql?: WebDataGridGraphQLConfiguration;
+    readonly labels?: WebDataGridLabels;
+    readonly editorFieldLabels?: Readonly<Record<string, string>>;
+    readonly showSaveButton?: boolean;
     readonly columnCount: number;
     readonly showHeader: boolean;
     readonly stickyHeader: boolean;
@@ -211,6 +218,7 @@ ${chartsTypings.source}
     dataGridConfig: WebDataGridConfiguration;
     set onCalcCell(handler: WebDataGridCalcCellEventHandler<this> | null);
     bindApiClient(apiClient: WebApiClient | null): void;
+    bindGraphQLClient(client: WebGraphQLSource | null): void;
     readonly pendingChanges: readonly WebDataGridPendingChange[];
     Refresh(variables?: WebDataGridMutationValues): Promise<void>;
     NextPage(): Promise<void>;
@@ -636,7 +644,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly apiClientId: string | null;
     readonly operationId: string | null;
     readonly listPath: string;
-    readonly graphql?: true;
+    readonly graphqlClientId?: string;
     readonly displayField: string;
     readonly keyField: string;
   }
@@ -651,6 +659,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     set items(items: readonly (string | WebSelectItem)[]);
     comboBoxConfig: WebComboBoxConfiguration | null;
     bindApiClient(apiClient: WebApiClient | null): void;
+    bindGraphQLClient(client: WebGraphQLSource | null): void;
     override dispose(): void;
     set onChange(handler: WebComponentEventHandler<this> | null);
   }

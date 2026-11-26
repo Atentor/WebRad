@@ -1934,7 +1934,7 @@ describe('App MVP integration', () => {
     const combo = await screen.findByTitle('ComboBox1: WebComboBox');
     fireEvent.doubleClick(combo);
     const editor = within(await screen.findByRole('dialog', { name: 'Configure ComboBox' }));
-    await user.selectOptions(editor.getByLabelText('ComboBox API Client'), 'customers-api');
+    await user.selectOptions(editor.getByLabelText('ComboBox data source'), 'customers-api');
     await user.selectOptions(editor.getByLabelText('ComboBox display field'), '/name');
     await user.selectOptions(editor.getByLabelText('ComboBox key field'), '/id');
     await user.click(editor.getByRole('button', { name: 'Save' }));
@@ -1960,7 +1960,7 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Configure ComboBox' }));
     expect(
       within(screen.getByRole('dialog', { name: 'Configure ComboBox' })).getByLabelText(
-        'ComboBox API Client',
+        'ComboBox data source',
       ),
     ).toHaveProperty('value', '');
   });
@@ -1981,10 +1981,12 @@ describe('App MVP integration', () => {
     await user.click(configure);
     const dialog = await screen.findByRole('dialog', { name: 'Configure Data Grid' });
     const editor = within(dialog);
+    await user.click(editor.getByRole('tab', { name: 'Columns' }));
     await user.selectOptions(editor.getByLabelText('Width mode for Data Grid column 1'), 'fixed');
     const fixedWidth = editor.getByLabelText('Fixed width for Data Grid column 1');
     await user.clear(fixedWidth);
     await user.type(fixedWidth, '240');
+    await user.click(editor.getByRole('tab', { name: 'Appearance' }));
     await user.selectOptions(editor.getByLabelText('Data Grid row height mode'), 'fixed');
     const fixedHeight = editor.getByLabelText('Fixed Data Grid row height');
     await user.clear(fixedHeight);

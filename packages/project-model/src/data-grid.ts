@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+import {
+  WEB_DATA_GRID_LABEL_KEYS,
+  WEB_DATA_GRID_LABEL_MAX_LENGTH,
+  type WebDataGridLabels,
+} from '@webrad/runtime/data-grid-labels';
 import { WEBRAD_ICON_NAMES, type WebRadIconName } from '@webrad/runtime/icons';
 import { comboBoxSchemaChoices } from './combo-box.js';
 import type { ProjectGraphQLOperation } from './graphql.js';
@@ -52,6 +57,7 @@ export interface DataGridColumn {
 
 /** Pagination and record editing for the grid's saved GraphQL query. */
 export interface DataGridGraphQLBinding {
+  readonly clientId: string | null;
   readonly pageSize: number;
   readonly showPager: boolean;
   readonly crudEnabled: boolean;
@@ -86,6 +92,9 @@ export interface DataGridConfiguration {
   /** JSON Pointer to a list in the selected operation response contract. */
   readonly listPath: string;
   readonly graphql?: DataGridGraphQLBinding;
+  readonly labels?: WebDataGridLabels;
+  readonly editorFieldLabels?: Readonly<Record<string, string>>;
+  readonly showSaveButton?: boolean;
   readonly columnCount: number;
   readonly showHeader: boolean;
   readonly stickyHeader: boolean;
@@ -115,6 +124,7 @@ const pointerSchema = z
   });
 const pixelSchema = z.number().finite().min(0).max(10_000);
 const positivePixelSchema = z.number().finite().min(1).max(10_000);
+const labelSchema = z.string().trim().min(1).max(WEB_DATA_GRID_LABEL_MAX_LENGTH);
 
 export const DataGridColumnSchema: z.ZodType<DataGridColumn> = z
   .object({
@@ -157,6 +167,7 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
     listPath: pointerSchema,
     graphql: z
       .object({
+        clientId: stableIdSchema.nullable(),
         pageSize: z.number().int().min(1).max(1_000),
         showPager: z.boolean(),
         crudEnabled: z.boolean(),
@@ -166,6 +177,11 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
       })
       .strict()
       .optional(),
+    labels: z.partialRecord(z.enum(WEB_DATA_GRID_LABEL_KEYS), labelSchema).optional(),
+    editorFieldLabels: z
+      .record(z.string().startsWith('/').max(4_096), labelSchema)
+      .optional(),
+    showSaveButton: z.boolean().optional(),
     columnCount: z.number().int().min(1).max(50),
     showHeader: z.boolean(),
     stickyHeader: z.boolean(),
@@ -186,6 +202,13 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
   })
   .strict()
   .superRefine((configuration, context) => {
+    if (configuration.graphql !== undefined && configuration.apiClientId !== null) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A Data Grid can bind to only one client.',
+        path: ['apiClientId'],
+      });
+    }
     if (configuration.columns.length !== configuration.columnCount) {
       context.addIssue({
         code: 'custom',

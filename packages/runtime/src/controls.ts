@@ -373,6 +373,7 @@ function replaceOptions(
 export class WebComboBox extends WebComponent<HTMLSelectElement> {
   #configuration: WebComboBoxConfiguration | null = null;
   #apiClient: WebApiClient | null = null;
+  #graphQLClient: WebGraphQLSource | null = null;
   #graphQL: WebGraphQLSource | null = null;
   #graphQLRows: readonly unknown[] = [];
   #graphQLRequest: AbortController | null = null;
@@ -452,12 +453,18 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
     this.#bindDataSource();
   }
 
+  public bindGraphQLClient(client: WebGraphQLSource | null): void {
+    this.#graphQLClient = client;
+    this.#bindDataSource();
+  }
+
   #bindDataSource(): void {
     this.#unsubscribe?.();
     this.#cancelGraphQLLoad();
     const client = this.#apiClient?.id === this.#configuration?.apiClientId ? this.#apiClient : null;
-    const source =
-      this.#configuration?.graphql === true && client !== null ? client.Connection.GraphQL : null;
+    const source = this.#graphQLClient?.id === this.#configuration?.graphqlClientId
+      ? this.#graphQLClient
+      : null;
     this.#graphQL = source;
     this.#graphQLRows = [];
     this.#renderApiItems();
@@ -504,7 +511,7 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
       this.#graphQLRows = page.rows;
       this.#renderApiItems();
     }).catch(() => {
-      // API Client publishes request failures through OnGraphQLError.
+      // GraphQL Client publishes request failures through OnError.
     }).finally(() => {
       if (this.#graphQLRequest === request) {
         this.#graphQLRequest = null;
@@ -526,7 +533,7 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
       apiClient !== null && apiClient.id === configuration.apiClientId
         ? apiClient.operations.find((candidate) => candidate.id === configuration.operationId)
         : undefined;
-    const rows = configuration.graphql !== undefined
+    const rows = configuration.graphqlClientId !== undefined
       ? this.#graphQLRows
       : operation === undefined || apiClient === null
         ? []

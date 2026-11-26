@@ -63,6 +63,7 @@ const MVP_COMPONENT_FIXTURES = [
   { id: 'repeating-group', type: 'WebRepeatingGroup', name: 'RepeatingGroup1' },
   { id: 'popup-dialog', type: 'WebPopup', name: 'Popup1' },
   { id: 'api-client', type: 'WebApiClient', name: 'ApiClient1' },
+  { id: 'graphql-client', type: 'WebGraphQLClient', name: 'GraphQLClient1' },
   { id: 'stable-timer', type: 'WebTimer', name: 'Timer1' },
   { id: 'stable-payments', type: 'WebPayments', name: 'Payments1' },
   { id: 'stable-file-upload', type: 'WebFileUpload', name: 'FileUpload1' },
@@ -131,7 +132,9 @@ function fixtureComponent(fixture: MvpComponentFixture): ComponentNode {
                   }
                 : fixture.type === 'WebCharts'
                   ? { chartsConfig: createDefaultChartsConfiguration() }
-                  : {},
+                  : fixture.type === 'WebGraphQLClient'
+                    ? { graphQLOperationIds: [] }
+                    : {},
     events:
       fixture.type === 'WebButton'
         ? { OnClick: 'BTNMostrarClick' }
@@ -249,7 +252,9 @@ describe('page language generation', () => {
       const typeName =
         component.type === 'WebRepeatingGroup'
           ? 'WebRepeatingGroup<RepeatingGroup1RowValue>'
-          : component.type;
+          : component.type === 'WebGraphQLClient'
+            ? 'WebGraphQLClient<Record<never, never>, Record<never, never>>'
+            : component.type;
       const declaration = `public readonly ${component.name}: ${typeName};`;
       expect(source).toContain(declaration);
       expect(typings).toContain(declaration);

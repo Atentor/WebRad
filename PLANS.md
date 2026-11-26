@@ -1,21 +1,54 @@
 # WebRAD delivery plan
 
-## Typed GraphQL execution on API Client
+## IDE modal backdrop rendering
 
-Page and reusable code can execute an imported query or mutation through
-`ApiClient.graphql.execute` with a typed member from `graphql.operation`.
-An operation's typed `parameter` fields prepare values before execution.
-Execution also accepts parameters directly as the second argument and
-optional execution settings as the third. The compiled RestGO smoke prepares
-a filter before execution and checks the result. Validation has not been run.
+The shared modal and native GraphQL Client backdrops use translucent dimming
+without blur. Existing Electron flows check both backdrop styles.
+Validation was not requested or run.
 
-## GraphQL operations imported per API Client
+## GraphQL binding and cursor follow-up
 
-An API Client saves references to selected RestGO GraphQL operations. The
-designer, compiler and generated client use that selection for Data Grid,
-ComboBox and typed application code. Existing saved bindings supply the
-initial imports for older clients. The Electron smoke checks that the grid
-only offers the query after import. Validation has not been run.
+GraphQL Client selections retain operations used by Data Grid and ComboBox.
+The grid preserves matching cursor history and returns to the start from an
+external cursor with an unknown position. Row rendering indexes staged changes
+by key and reuses the configured mutation definitions. Existing Electron flows
+exercise binding protection and navigation from external cursors.
+Validation was not requested or run.
+
+## Data Grid runtime labels
+
+The Labels tab edits the GraphQL pager, record actions, mutation editor, and
+status text in the grid's configuration draft. Runtime overrides are optional
+within configuration version 2. An opt-in save button applies the same pending
+changes that page code can save through `SaveChanges()`. Existing Electron
+flows exercise saved labels and both explicit save paths. Runtime sources
+were synchronized. Validation was not requested or run.
+
+## Data Grid configuration tabs
+
+Data source, Columns, and Appearance share one local draft. Columns uses a
+keyboard-navigable list and one details pane. Selection follows the column ID
+when reordered. The existing Electron flows exercise tab navigation, changing
+the selected column, persistence, and compact dialog geometry.
+Validation was not requested or run.
+
+## Dedicated GraphQL Client
+
+The nonvisual GraphQL Client selects saved RestGO operations and exposes them
+as typed members in page and reusable code. Data Grid and ComboBox use
+GraphQL Client for GraphQL and API Client for REST. The project stores the
+GraphQL client's operation IDs and each binding's client ID. The Designer
+and compiled RestGO smokes exercise the separate clients and data bindings.
+Validation has not been run.
+
+## Typed GraphQL execution
+
+Page and reusable code can execute a selected query or mutation through its
+own `execute()` method. Assign typed `parameter` fields before execution or
+pass parameters and execution options to the method. The compiled RestGO
+smoke prepares a filter before execution and checks that the bound Data Grid
+shows the published result. Grid navigation uses the published query filters.
+Validation has not been run.
 
 ## Data Grid source selection
 
@@ -97,21 +130,18 @@ requests and endpoint synchronization.
 
 The RestGO GraphQL workspace reads published schemas from RestGo and stores
 named queries and mutations in the WebRAD project. The generated browser runtime
-runs them with the current RestGo user session. API Client exposes typed
-operation names, variables, results, and events through `Connection.GraphQL`
-in page and reusable code. The component registry exposes API Client for both
-HTTP requests and saved GraphQL operations.
+runs them with the current RestGo user session. GraphQL Client exposes typed
+operations, parameters, results, and events in page and reusable code.
 
-Data Grid and ComboBox persist the API Client and operation IDs for both
-types of operation. The Data Grid uses cursor
+Data Grid and ComboBox persist client and operation IDs. The Data Grid uses cursor
 navigation and allows opt-in insert, update, and delete actions with local
 drafts. Page code chooses when to call `SaveChanges()` using
 `OnChangesChanged` or a separate Save action. RestGo owns schema publication
 and permissions. See [RestGo GraphQL in WebRAD](docs/restgo-graphql.md).
-The Electron smoke scenarios use the API Client in the Designer and compiled
+The Electron smoke scenarios use GraphQL Client in the Designer and compiled
 browser fixture. Validation was not requested or run.
 
-Project creation generates page sources through the same API Client binding
+Project creation generates page sources through the same client binding
 lookup. The lookup skips components without a data binding and resolves each
 configured source by component ID within the document.
 

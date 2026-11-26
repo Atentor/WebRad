@@ -3,6 +3,7 @@ import type {
   WebDataGridMutationKind,
   WebDataGridPendingChange,
 } from './data-grid-graphql.js';
+import { formatDataGridLabel, type ResolvedDataGridLabels } from './data-grid-labels.js';
 import type { WebGraphQLParameter, WebGraphQLRow, WebGraphQLValue } from './graphql.js';
 
 export function gridAction(
@@ -22,38 +23,47 @@ export function gridAction(
   return button;
 }
 
-function errorText(grid: DataGridGraphQL): string {
+function errorText(grid: DataGridGraphQL, labels: ResolvedDataGridLabels): string {
   const error = grid.saveError ?? grid.queryError;
   if (error === undefined) return '';
-  const uncertain = grid.pendingChanges.some((change) => change.outcome === 'uncertain');
+  const uncertain = grid.hasUncertainChanges;
   return uncertain
-    ? `${error.message} Refresh and verify the affected record before discarding the draft.`
+    ? `${error.message} ${labels.uncertainSave}`
     : error.message;
 }
 
 export function graphQLGridTools(
   document: Document,
   grid: DataGridGraphQL,
+  labels: ResolvedDataGridLabels,
+  showSaveButton: boolean,
   openInsert: () => void,
 ): HTMLDivElement {
   const tools = document.createElement('div');
   tools.className = 'wr-data-grid-graphql-tools';
   if (grid.mutation('insert') !== undefined) {
-    tools.append(gridAction(document, 'insert', 'Add row', openInsert, grid.saving));
+    tools.append(gridAction(document, 'insert', labels.addRow, openInsert, grid.saving));
   }
   if (grid.hasChanges) {
-    tools.append(gridAction(document, 'discard', 'Discard drafts', () => grid.cancelChanges(), grid.saving));
+    if (showSaveButton) {
+      tools.append(gridAction(document, 'save', labels.save, () => {
+        void grid.saveChanges().catch(() => {
+          // The controller records the error in the toolbar and emits OnSaveError.
+        });
+      }, grid.saving));
+    }
+    tools.append(gridAction(document, 'discard', labels.discard, () => grid.cancelChanges(), grid.saving));
   }
   const status = document.createElement('span');
   status.className = 'wr-data-grid-graphql-status';
   status.setAttribute('role', 'status');
-  const error = errorText(grid);
-  status.textContent = error || (grid.saving ? 'Saving changes…' : grid.loading ? 'Loading…' :
-    grid.hasChanges ? 'Unsaved changes' : '');
+  const error = errorText(grid, labels);
+  status.textContent = error || (grid.saving ? labels.saving : grid.loading ? labels.loading :
+    grid.hasChanges ? labels.unsaved : '');
   status.dataset.error = String(error.length > 0);
   tools.append(status);
   if (grid.queryError !== undefined) {
-    tools.append(gridAction(document, 'retry', 'Retry', () => { void grid.retryPage(); }));
+    tools.append(gridAction(document, 'retry', labels.retry, () => { void grid.retryPage(); }));
   }
   if (!grid.showPager) {
     tools.hidden = tools.children.length === 1 && status.textContent === '';
@@ -62,18 +72,22 @@ export function graphQLGridTools(
 
   const pagination = document.createElement('nav');
   pagination.className = 'wr-data-grid-graphql-pager';
-  pagination.setAttribute('aria-label', 'Data Grid pagination');
-  const previous = gridAction(document, 'previous', 'Previous', () => { void grid.previousPage(); }, !grid.canGoBack);
-  const next = gridAction(document, 'next', 'Next', () => { void grid.nextPage(); }, !grid.canGoForward);
+  pagination.setAttribute('aria-label', labels.pagination);
+  const previous = gridAction(document, 'previous', labels.previous, () => { void grid.previousPage(); }, !grid.canGoBack);
+  const next = gridAction(document, 'next', labels.next, () => { void grid.nextPage(); }, !grid.canGoForward);
   const summary = document.createElement('span');
   summary.className = 'wr-data-grid-graphql-page';
   summary.dataset.webradGridAction = 'page-summary';
   summary.tabIndex = -1;
   summary.setAttribute('aria-live', 'polite');
   const total = grid.totalCount;
-  summary.textContent = `Page ${String(grid.pageNumber)}` + (total === null ? '' : ` · ${String(total)} total`);
+  const pageNumber = grid.pageNumber;
+  summary.textContent = (pageNumber === null
+    ? labels.cursorSummary
+    : formatDataGridLabel(labels.pageSummary, 'page', pageNumber)) +
+    (total === null ? '' : ` · ${formatDataGridLabel(labels.totalSummary, 'total', total)}`);
   const pageSize = document.createElement('select');
-  pageSize.setAttribute('aria-label', 'Rows per page');
+  pageSize.setAttribute('aria-label', labels.rowsPerPage);
   pageSize.dataset.webradGridAction = 'page-size';
   const sizes = new Set([
     grid.pageSize,
@@ -84,7 +98,7 @@ export function graphQLGridTools(
   for (const size of [...sizes].sort((a, b) => a - b)) {
     const option = document.createElement('option');
     option.value = String(size);
-    option.textContent = `${String(size)} / page`;
+    option.textContent = formatDataGridLabel(labels.pageSizeOption, 'size', size);
     pageSize.append(option);
   }
   pageSize.value = String(grid.pageSize);
@@ -94,8 +108,10 @@ export function graphQLGridTools(
   return tools;
 }
 
-function valueLabel(parameter: WebGraphQLParameter): string {
-  const field = parameter.source.fieldPath.split('/').at(-1);
+function valueLabel(parameter: WebGraphQLParameter, fieldLabels: Readonly<Record<string, string>>): string {
+  const path = parameter.source.fieldPath;
+  if (Object.hasOwn(fieldLabels, path)) return fieldLabels[path] ?? parameter.name;
+  const field = path.split('/').at(-1);
   return field === undefined || field === '' ? parameter.name : field.replaceAll('~1', '/').replaceAll('~0', '~');
 }
 
@@ -103,7 +119,12 @@ function usesJsonEditor(parameter: WebGraphQLParameter): boolean {
   return parameter.type.startsWith('[') || parameter.kind === 'json';
 }
 
-function readInput(parameter: WebGraphQLParameter, value: string): WebGraphQLValue {
+function readInput(
+  parameter: WebGraphQLParameter,
+  value: string,
+  label: string,
+  labels: ResolvedDataGridLabels,
+): WebGraphQLValue {
   if (usesJsonEditor(parameter)) {
     if (value === '') return null;
     try {
@@ -113,7 +134,8 @@ function readInput(parameter: WebGraphQLParameter, value: string): WebGraphQLVal
       }
       return parsed;
     } catch {
-      throw new Error(`Enter valid ${parameter.type.startsWith('[') ? 'JSON array data' : 'JSON'} for ${valueLabel(parameter)}.`);
+      const template = parameter.type.startsWith('[') ? labels.invalidList : labels.invalidJson;
+      throw new Error(formatDataGridLabel(template, 'field', label));
     }
   }
   if (parameter.enumValues.length > 0) return value === '' ? null : value;
@@ -124,14 +146,15 @@ function readInput(parameter: WebGraphQLParameter, value: string): WebGraphQLVal
     case 'integer': {
       const number = Number(value);
       if (!Number.isFinite(number) || (parameter.kind === 'integer' && !Number.isSafeInteger(number))) {
-        throw new Error(`Enter a valid ${parameter.kind} for ${valueLabel(parameter)}.`);
+        const template = parameter.kind === 'integer' ? labels.invalidInteger : labels.invalidNumber;
+        throw new Error(formatDataGridLabel(template, 'field', label));
       }
       return number;
     }
     case 'boolean':
       return value === 'true';
     default:
-      throw new TypeError(`Unsupported input for ${valueLabel(parameter)}.`);
+      throw new TypeError(formatDataGridLabel(labels.unsupportedInput, 'field', label));
   }
 }
 
@@ -139,6 +162,7 @@ function editorField(
   document: Document,
   parameter: WebGraphQLParameter,
   current: WebGraphQLValue | undefined,
+  labels: ResolvedDataGridLabels,
 ): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
   if (usesJsonEditor(parameter)) {
     const area = document.createElement('textarea');
@@ -153,7 +177,9 @@ function editorField(
     for (const value of ['', ...options]) {
       const option = document.createElement('option');
       option.value = value;
-      option.textContent = value || (parameter.required ? 'Select a value' : 'No value');
+      option.textContent = value === ''
+        ? (parameter.required ? labels.selectValue : labels.noValue)
+        : parameter.enumValues.length > 0 ? value : value === 'true' ? labels.trueValue : labels.falseValue;
       select.append(option);
     }
     select.value = current === null || current === undefined ? '' : String(current);
@@ -174,13 +200,18 @@ export function openGraphQLGridEditor(
   kind: Extract<WebDataGridMutationKind, 'insert' | 'update'>,
   row: WebGraphQLRow | null,
   draft: WebDataGridPendingChange | null,
+  options: {
+    readonly labels: ResolvedDataGridLabels;
+    readonly fieldLabels: Readonly<Record<string, string>>;
+  },
   closed: () => void,
 ): HTMLDialogElement | null {
   const operation = grid.mutation(kind, row);
   if (operation === undefined || grid.saving) return null;
   const dialog = document.createElement('dialog');
   dialog.className = 'wr-data-grid-graphql-editor';
-  const title = kind === 'insert' ? 'Add record' : 'Edit record';
+  const { labels, fieldLabels } = options;
+  const title = kind === 'insert' ? labels.addRecord : labels.editRecord;
   dialog.setAttribute('aria-label', title);
   const form = document.createElement('form');
   const heading = document.createElement('h2');
@@ -191,9 +222,10 @@ export function openGraphQLGridEditor(
     const current = grid.inputValue(operation, parameter, row, draft);
     const label = document.createElement('label');
     const caption = document.createElement('span');
-    caption.textContent = valueLabel(parameter);
-    const control = editorField(document, parameter, current);
-    const field = { parameter, control, changed: false };
+    const text = valueLabel(parameter, fieldLabels);
+    caption.textContent = text;
+    const control = editorField(document, parameter, current, labels);
+    const field = { parameter, control, text, changed: false };
     const changed = (): void => { field.changed = true; };
     control.addEventListener('input', changed);
     control.addEventListener('change', changed);
@@ -205,18 +237,18 @@ export function openGraphQLGridEditor(
   feedback.setAttribute('role', 'alert');
   const actions = document.createElement('div');
   actions.className = 'wr-data-grid-graphql-editor-actions';
-  const cancel = gridAction(document, 'cancel-editor', 'Cancel', () => dialog.close());
+  const cancel = gridAction(document, 'cancel-editor', labels.cancel, () => dialog.close());
   const apply = document.createElement('button');
   apply.type = 'submit';
   apply.className = 'wr-data-grid-graphql-action';
-  apply.textContent = 'Apply to draft';
+  apply.textContent = labels.apply;
   actions.append(cancel, apply);
   form.append(feedback, actions);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     try {
-      const values = Object.fromEntries(fields.flatMap(({ parameter, control, changed }) =>
-        changed ? [[parameter.name, readInput(parameter, control.value)]] : [],
+      const values = Object.fromEntries(fields.flatMap(({ parameter, control, text, changed }) =>
+        changed ? [[parameter.name, readInput(parameter, control.value, text, labels)]] : [],
       ));
       grid.stage(kind, row, values, draft?.id);
       dialog.close();

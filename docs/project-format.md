@@ -1,5 +1,13 @@
 # Project format
 
+## Data Grid labels
+
+Data Grid configuration version 2 accepts optional `labels`, `editorFieldLabels`,
+and `showSaveButton` properties. `labels` maps built-in GraphQL UI label keys to
+overrides. `editorFieldLabels` maps mutation input JSON Pointers to captions.
+Missing overrides use the built-in or field-derived labels. `showSaveButton`
+opts into a toolbar action for pending changes and defaults to false.
+
 ## Component Style reassignment
 
 Choosing a component Style replaces `styleId` and removes instance visual

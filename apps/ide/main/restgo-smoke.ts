@@ -1145,23 +1145,39 @@ export async function runRestGoBrowserSmoke(
         },
       }),
     );
-    const graphQL = defaultComponentRegistry.createComponent('WebApiClient', {
+    const graphQLClient = defaultComponentRegistry.createComponent('WebGraphQLClient', {
       name: 'CustomerQueries',
       parentId: boundPage.rootComponentId,
       existingNames: [...boundPage.components, login, ...paymentComponents],
-      events: { OnGraphQLSuccess: 'GraphQLSucceeded' },
+      props: { graphQLOperationIds: [gridQueryId, gridUpdateId] },
+      events: { OnSuccess: 'GraphQLSucceeded' },
     });
     const gridConfiguration = createDefaultDataGridConfiguration();
     const graphQLGrid = defaultComponentRegistry.createComponent('WebDataGrid', {
       name: 'CustomerGrid',
       parentId: boundPage.rootComponentId,
-      existingNames: [...boundPage.components, login, ...paymentComponents, graphQL],
+      existingNames: [...boundPage.components, login, ...paymentComponents, graphQLClient],
       props: {
         dataGridConfig: {
           ...gridConfiguration,
-          apiClientId: graphQL.id,
           operationId: gridQueryId,
+          showSaveButton: true,
+          labels: {
+            previous: 'Back a page',
+            next: 'More customers',
+            pageSummary: 'Results page {page}',
+            cursorSummary: 'Results from a supplied cursor',
+            pageSizeOption: '{size} customers',
+            edit: 'Change customer',
+            undo: 'Undo customer edit',
+            save: 'Save customer edits',
+            discard: 'Discard customer edits',
+            editRecord: 'Change customer details',
+            apply: 'Keep draft',
+          },
+          editorFieldLabels: { '/name': 'Customer name' },
           graphql: {
+            clientId: graphQLClient.id,
             pageSize: 1, showPager: true,
             crudEnabled: true, insertOperationId: null, updateOperationId: gridUpdateId, deleteOperationId: null,
           },
@@ -1175,15 +1191,15 @@ export async function runRestGoBrowserSmoke(
     const graphQLCombo = defaultComponentRegistry.createComponent('WebComboBox', {
       name: 'CustomerChoices',
       parentId: boundPage.rootComponentId,
-      existingNames: [...boundPage.components, login, ...paymentComponents, graphQL, graphQLGrid],
+      existingNames: [...boundPage.components, login, ...paymentComponents, graphQLClient, graphQLGrid],
       props: {
         comboBoxConfig: {
-          schemaVersion: 1, apiClientId: graphQL.id, operationId: gridQueryId, listPath: '',
-          displayField: '/name', keyField: '/id', graphql: true,
+          schemaVersion: 1, apiClientId: null, graphqlClientId: graphQLClient.id,
+          operationId: gridQueryId, listPath: '', displayField: '/name', keyField: '/id',
         },
       },
     });
-    const fixtureComponents = [login, ...paymentComponents, graphQL, graphQLGrid, graphQLCombo];
+    const fixtureComponents = [login, ...paymentComponents, graphQLClient, graphQLGrid, graphQLCombo];
     const loginPage = {
       ...boundPage,
       components: [
@@ -1201,13 +1217,13 @@ export async function runRestGoBrowserSmoke(
     const project = { ...original, pages: [loginPage] };
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent, type WebPayments, type WebPaymentsOperationEventDetail, type WebPaymentsCheckoutEventDetail, type WebPaymentsHistoryEventDetail, type WebPaymentsResumeEventDetail, type WebApiClient, type WebGraphQLEventDetail, type WebDataGrid, type WebDataGridChangesEventDetail, type WebDataGridSaveChangesEventDetail } from '@webrad/runtime';
+        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent, type WebPayments, type WebPaymentsOperationEventDetail, type WebPaymentsCheckoutEventDetail, type WebPaymentsHistoryEventDetail, type WebPaymentsResumeEventDetail, type WebGraphQLEventDetail, type WebDataGrid, type WebDataGridChangesEventDetail, type WebDataGridSaveChangesEventDetail } from '@webrad/runtime';
 import { createClient } from '@webrad/restgo-sdk';
 import { indexGenerated } from './index.generated';
 export class index extends indexGenerated {
   private usuarioId = '';
-  public GraphQLSucceeded(sender: WebApiClient, event: CustomEvent<WebGraphQLEventDetail>): void {
-    if (sender !== this.CustomerQueries) throw new Error('GraphQL event lost its API Client sender');
+  public GraphQLSucceeded(sender: typeof this.CustomerQueries, event: CustomEvent<WebGraphQLEventDetail>): void {
+    if (sender !== this.CustomerQueries) throw new Error('GraphQL event lost its GraphQL Client sender');
     if (event.detail.operationName === 'GridCustomers') this.element.dataset.graphQlClientEvent = 'true';
   }
   public GridDraftChanged(sender: WebDataGrid, event: CustomEvent<WebDataGridChangesEventDetail>): void {
@@ -1324,15 +1340,15 @@ export class index extends indexGenerated {
     this.element.dataset.restgoIdentity = String(
       RestGO.auth === getRestGoClient().auth && typeof standalone.login === 'function'
     );
-    this.CustomerQueries.graphql.setVariables('GridCustomers', {});
-    if (CustomerQueries.Connection.GraphQL.getOperation('GridCustomers')?.kind !== 'query')
-      throw new Error('API Client did not expose the saved GraphQL query');
+    this.CustomerQueries.setVariables(this.CustomerQueries.operation.GridCustomers, {});
+    if (CustomerQueries.operation.GridCustomers.name !== 'GridCustomers')
+      throw new Error('The saved GraphQL query was not exposed by the client');
     const prepareQuery = document.createElement('button');
     prepareQuery.dataset.graphqlPrepare = 'true';
-    prepareQuery.textContent = 'Set customer filter';
+    prepareQuery.textContent = 'Toggle customer filter';
     prepareQuery.addEventListener('click', () => {
-      const { GridCustomers } = this.CustomerQueries.graphql.operation;
-      GridCustomers.parameter.customerId = 2;
+      const { GridCustomers } = this.CustomerQueries.operation;
+      GridCustomers.parameter.customerId = GridCustomers.parameter.customerId === 2 ? undefined : 2;
       this.element.dataset.graphQlPrepared = String(GridCustomers.parameter.customerId);
     });
     this.element.append(prepareQuery);
@@ -1340,8 +1356,8 @@ export class index extends indexGenerated {
     query.dataset.graphqlQuery = 'true';
     query.textContent = 'Execute customer query';
     query.addEventListener('click', () => {
-      const { graphql } = this.CustomerQueries;
-      void graphql.execute(graphql.operation.GridCustomers, undefined, { first: 1, publish: false }).then(
+      const customers = CustomerQueries.operation.GridCustomers;
+      void customers.execute().then(
         ({ rows }) => { this.element.dataset.graphQlQueryResult = rows[0]?.name ?? ''; },
         (error: unknown) => {
           this.element.dataset.graphQlQueryError = error instanceof Error ? error.message : String(error);
@@ -1349,6 +1365,18 @@ export class index extends indexGenerated {
       );
     });
     this.element.append(query);
+    const cursorQuery = document.createElement('button');
+    cursorQuery.dataset.graphqlCursor = 'true';
+    cursorQuery.textContent = 'Execute customer query from cursor';
+    cursorQuery.addEventListener('click', () => {
+      void CustomerQueries.operation.GridCustomers.execute({}, {
+        first: Number(cursorQuery.dataset.pageSize ?? '1'),
+        after: 'grid-cursor-1',
+      }).catch((error: unknown) => {
+        this.element.dataset.graphQlQueryError = error instanceof Error ? error.message : String(error);
+      });
+    });
+    this.element.append(cursorQuery);
     const paymentsAction = document.createElement('button');
     paymentsAction.dataset.paymentsExercise = 'true';
     paymentsAction.textContent = 'Exercise payment HTTP fixture';
@@ -1424,14 +1452,24 @@ export class index extends indexGenerated {
           if (!condition()) throw new Error(message);
         };
         await waitForGrid(() => gridCell() === 'Grid Alpha', 'GraphQL Data Grid did not load the first page');
-        if (page.dataset.graphQlClientEvent !== 'true') throw new Error('API Client GraphQL success event did not fire');
+        if (page.dataset.graphQlClientEvent !== 'true') throw new Error('GraphQL Client success event did not fire');
         await waitForGrid(() => combo?.options[0]?.value === '1' && combo.options[0].textContent === 'Grid Alpha', 'GraphQL ComboBox did not map the option key and label');
         if (gridAction('previous').disabled !== true || gridAction('page-size').value !== '1') throw new Error('GraphQL Data Grid initial pager mismatch');
+        if (gridAction('previous').textContent !== 'Back a page' ||
+            gridAction('next').textContent !== 'More customers' ||
+            !gridAction('page-summary').textContent.startsWith('Results page 1') ||
+            gridAction('page-size').selectedOptions[0]?.textContent !== '1 customers') {
+          throw new Error('GraphQL Data Grid did not render its custom pagination labels');
+        }
         document.querySelector('[data-graphql-prepare="true"]').click();
         if (page.dataset.graphQlPrepared !== '2') throw new Error('GraphQL parameter was not staged');
         document.querySelector('[data-graphql-query="true"]').click();
-        await waitForGrid(() => page.dataset.graphQlQueryResult !== undefined || !!page.dataset.graphQlQueryError, 'Typed API Client GraphQL execution did not complete');
-        if (page.dataset.graphQlQueryResult !== 'Grid Beta') throw new Error(page.dataset.graphQlQueryError || 'Typed API Client GraphQL parameter or result mismatch');
+        await waitForGrid(() => page.dataset.graphQlQueryResult !== undefined || !!page.dataset.graphQlQueryError, 'Typed GraphQL Client execution did not complete');
+        if (page.dataset.graphQlQueryResult !== 'Grid Beta') throw new Error(page.dataset.graphQlQueryError || 'Typed GraphQL Client parameter or result mismatch');
+        await waitForGrid(() => gridCell() === 'Grid Beta' && gridAction('next').disabled, 'The Data Grid did not show the published filtered query result');
+        document.querySelector('[data-graphql-prepare="true"]').click();
+        document.querySelector('[data-graphql-query="true"]').click();
+        await waitForGrid(() => gridCell() === 'Grid Alpha' && !gridAction('next').disabled, 'The Data Grid did not show the new unfiltered query result');
         const setGridPageSize = (size) => {
           const select = gridAction('page-size');
           select.value = size;
@@ -1446,17 +1484,41 @@ export class index extends indexGenerated {
         if (combo.options[0].value !== '1') throw new Error('GraphQL Data Grid navigation changed the independent ComboBox query');
         gridAction('previous').click();
         await waitForGrid(() => gridCell() === 'Grid Alpha', 'GraphQL Data Grid did not restore the first cursor page');
-        const stageGridEdit = (value) => {
+        const cursorQuery = document.querySelector('[data-graphql-cursor="true"]');
+        const pageSummary = () => gridAction('page-summary').textContent;
+        cursorQuery.click();
+        await waitForGrid(() => gridCell() === 'Grid Beta' && pageSummary().startsWith('Results page 2') &&
+          gridAction('previous').disabled === false, 'Publishing a known cursor lost its page number or previous page');
+        gridAction('previous').click();
+        await waitForGrid(() => gridCell() === 'Grid Alpha', 'The known cursor did not navigate back');
+        cursorQuery.dataset.pageSize = '2';
+        cursorQuery.click();
+        await waitForGrid(() => gridCell() === 'Grid Beta' && pageSummary().startsWith('Results from a supplied cursor') &&
+          gridAction('previous').disabled === false, 'Publishing an unknown cursor produced an incorrect page number');
+        gridAction('previous').click();
+        await waitForGrid(() => gridCell() === 'Grid Alpha' && pageSummary().startsWith('Results page 1') &&
+          gridAction('previous').disabled === true, 'The unknown cursor did not return to the first page');
+        const stageGridEdit = (value, current = 'Grid Alpha') => {
+          const lastSave = page.dataset.graphQlSaved;
+          if (gridAction('edit-1').textContent !== 'Change customer') throw new Error('Grid edit caption was not applied');
           gridAction('edit-1').click();
           const editor = document.querySelector('.wr-data-grid-graphql-editor[open]');
           const input = editor?.querySelector('input');
-          if (!(input instanceof HTMLInputElement) || input.value !== 'Grid Alpha') throw new Error('Grid editor did not map the GraphQL input');
+          if (!(input instanceof HTMLInputElement) || input.value !== current) throw new Error('Grid editor did not map the GraphQL input');
+          if (editor.getAttribute('aria-label') !== 'Change customer details' ||
+              input.closest('label')?.querySelector('span').textContent !== 'Customer name' ||
+              editor.querySelector('button[type="submit"]')?.textContent !== 'Keep draft') {
+            throw new Error('Grid editor did not use its custom labels');
+          }
           input.value = value;
           input.dispatchEvent(new Event('input', { bubbles: true }));
           editor.querySelector('form').requestSubmit();
-          if (gridCell() !== value || page.dataset.graphQlDraftCount !== '1' || page.dataset.graphQlSaved) throw new Error('Editing did not remain a local grid draft');
+          if (gridCell() !== value || page.dataset.graphQlDraftCount !== '1' || page.dataset.graphQlSaved !== lastSave) throw new Error('Editing did not remain a local grid draft');
         };
         stageGridEdit('Discarded Grid Draft');
+        if (gridAction('undo-1').textContent !== 'Undo customer edit' || gridAction('discard').textContent !== 'Discard customer edits') {
+          throw new Error('Grid draft actions did not use their custom captions');
+        }
         gridAction('undo-1').click();
         if (gridCell() !== 'Grid Alpha' || page.dataset.graphQlDraftCount !== '0') throw new Error('Grid draft undo did not restore the saved value');
         await waitForGrid(() => document.querySelector('.wr-data-grid-graphql-editor') === null, 'Grid edit dialog did not close');
@@ -1464,6 +1526,12 @@ export class index extends indexGenerated {
         document.querySelector('[data-graphql-save="true"]').click();
         await waitForGrid(() => !!page.dataset.graphQlSaveError || (page.dataset.graphQlSaved === '1' && gridCell() === 'Grid Alpha Saved'), 'GraphQL Data Grid did not reload after SaveChanges');
         if (page.dataset.graphQlSaveError || grid.querySelector('[data-webrad-grid-draft]')) throw new Error(page.dataset.graphQlSaveError || 'A saved grid edit retained its draft');
+        await waitForGrid(() => document.querySelector('.wr-data-grid-graphql-editor') === null, 'Grid edit dialog did not close after staging the saved draft');
+        stageGridEdit('Grid Alpha Saved Again', 'Grid Alpha Saved');
+        const saveAction = gridAction('save');
+        if (saveAction?.textContent !== 'Save customer edits') throw new Error('Grid save caption was not applied');
+        saveAction.click();
+        await waitForGrid(() => gridAction('save') === null && gridCell() === 'Grid Alpha Saved Again', 'The grid button did not save its draft');
         document.querySelector('[data-payments-exercise="true"]').click();
         const paymentsDeadline = Date.now() + 5000;
         while (Date.now() < paymentsDeadline && page.dataset.paymentsComplete !== 'true' && !page.dataset.paymentsError)
@@ -1510,13 +1578,15 @@ export class index extends indexGenerated {
     if (
       requests.filter((request) => request.route === '/gql/demo' &&
         (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?.customerId === 2).length !== 1 ||
-      graphQLMutations.length !== 1 ||
+      graphQLMutations.length !== 2 ||
       graphQLMutations[0]?.rowId !== 1 ||
       graphQLMutations[0]?.name !== 'Grid Alpha Saved' ||
+      graphQLMutations[1]?.rowId !== 1 ||
+      graphQLMutations[1]?.name !== 'Grid Alpha Saved Again' ||
       !requests.some((request) => request.route === '/gql/demo' &&
         (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?._wrAfter === 'grid-cursor-1')
     ) throw new Error('GraphQL Data Grid cursor or explicit mutation request mismatch.');
-    log('renderer GraphQL Data Grid compiled runtime passed: typed API Client execution and binding, page size, cursor navigation, independent ComboBox labels and keys, mapped drafts, undo, and one explicitly saved row; HTTP fixture');
+    log('renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution, Data Grid and ComboBox bindings, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, configured captions, and explicit saves from page code and the grid button; HTTP fixture');
     const paymentRequests = requests.filter((request) => request.route.startsWith('/payment/'));
     if (
       paymentRequests.length === 0 ||

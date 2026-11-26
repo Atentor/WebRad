@@ -24,8 +24,8 @@ metadata, jobs, and HLS descriptors. The nonvisual `WebVideoUpload` integrates i
 with Designer, Monaco, and Preview. These routes use the Authentication session,
 never the application API token. See [Video Upload](video-upload.md).
 
-API Client exposes typed queries and mutations through `graphql.execute` and
-the imported operation references under `graphql.operation`.
+The GraphQL Client exposes typed queries and mutations under `operation`.
+Each selected operation has typed `parameter` fields and an `execute()` method.
 Saved operations run against a published RestGo database with the application's
 Authentication session. See [RestGo GraphQL in WebRAD](restgo-graphql.md).
 

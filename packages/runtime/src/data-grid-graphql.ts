@@ -1,6 +1,7 @@
 import type {
   WebGraphQLPage,
   WebGraphQLParameter,
+  WebGraphQLParameters,
   WebGraphQLRow,
   WebGraphQLRuntimeOperation,
   WebGraphQLSource,
@@ -8,6 +9,7 @@ import type {
 } from './graphql.js';
 
 export interface WebDataGridGraphQLConfiguration {
+  readonly clientId: string | null;
   readonly pageSize: number;
   readonly showPager: boolean;
   readonly crudEnabled: boolean;
@@ -17,7 +19,7 @@ export interface WebDataGridGraphQLConfiguration {
 }
 
 interface DataGridGraphQLSourceConfiguration extends WebDataGridGraphQLConfiguration {
-  readonly apiClientId: string | null;
+  readonly sourceId: string | null;
   readonly operationId: string | null;
 }
 
@@ -60,6 +62,16 @@ type GridGraphQLEvents = {
 interface PendingChange extends WebDataGridPendingChange {
   readonly overlay: WebGraphQLRow;
   readonly keys: Readonly<Record<string, WebGraphQLValue>>;
+}
+
+interface DraftKeyGroup {
+  readonly paths: readonly string[];
+  readonly changes: Map<string, PendingChange>;
+}
+
+interface GridMutation {
+  readonly operation: WebGraphQLRuntimeOperation;
+  readonly keyPaths: readonly string[];
 }
 
 interface QueryPage {
@@ -112,6 +124,19 @@ function matchesRow(change: PendingChange, row: WebGraphQLRow): boolean {
   return keys.length > 0 && keys.every(([path, value]) => value === fieldValue(row, path));
 }
 
+function keySignature(
+  paths: readonly string[],
+  read: (path: string) => WebGraphQLValue | undefined,
+): string | undefined {
+  const values: (string | boolean | [string])[] = [];
+  for (const path of paths) {
+    const value = read(path);
+    if (!isRowKey(value) || (typeof value === 'number' && Number.isNaN(value))) return undefined;
+    values.push(typeof value === 'number' ? [String(value)] : value);
+  }
+  return JSON.stringify(values);
+}
+
 function errorFrom(reason: unknown): Error {
   return reason instanceof Error ? reason : new Error(String(reason));
 }
@@ -127,28 +152,29 @@ function publicChange(change: PendingChange): WebDataGridPendingChange {
   });
 }
 
-function rowKeys(operation: WebGraphQLRuntimeOperation, row: WebGraphQLRow): WebDataGridMutationValues {
-  return Object.fromEntries(operation.parameters.flatMap((parameter) => {
-    if (parameter.source.role !== 'filter' || parameter.source.identityEligible !== true) return [];
-    const value = fieldValue(row, parameter.source.fieldPath);
-    return isRowKey(value) ? [[parameter.source.fieldPath, value]] : [];
+function rowKeys(paths: readonly string[], row: WebGraphQLRow): WebDataGridMutationValues {
+  return Object.fromEntries(paths.flatMap((path) => {
+    const value = fieldValue(row, path);
+    return isRowKey(value) ? [[path, value]] : [];
   }));
 }
 
 export class DataGridGraphQL {
   #configuration: DataGridGraphQLSourceConfiguration | undefined;
   #source: WebGraphQLSource | null = null;
-  #variables: WebDataGridMutationValues | undefined;
+  #variables: WebGraphQLParameters | undefined;
   #unsubscribe: (() => void) | undefined;
   #query: AbortController | undefined;
   #page: QueryPage | undefined;
   #after: (string | null)[] = [null];
+  #hasPageNumbers = true;
   #pageSize = 20;
   #requestedPage = 0;
   #status: GridPageStatus = 'idle';
   #queryError: Error | undefined;
   #saveError: Error | undefined;
   #changes: PendingChange[] = [];
+  readonly #mutations = new Map<WebDataGridMutationKind, GridMutation>();
   #lastChangeId = 0;
   #save: Promise<void> | null = null;
   #generation = 0;
@@ -169,7 +195,10 @@ export class DataGridGraphQL {
 
   public get generation(): number { return this.#generation; }
   public get authenticated(): boolean { return this.#source?.authenticated === true; }
-  public get pageNumber(): number { return (this.#page?.index ?? 0) + 1; }
+  public get pageNumber(): number | null {
+    const index = this.#page?.index ?? 0;
+    return index === 0 || this.#hasPageNumbers ? index + 1 : null;
+  }
   public get pageSize(): number { return this.#pageSize; }
   public get defaultPageSize(): number { return this.#initialPageSize(); }
   public get totalCount(): number | null { return this.#page?.result.totalCount ?? null; }
@@ -177,6 +206,9 @@ export class DataGridGraphQL {
   public get loading(): boolean { return this.#status === 'loading'; }
   public get saving(): boolean { return this.#save !== null; }
   public get hasChanges(): boolean { return this.#changes.length > 0; }
+  public get hasUncertainChanges(): boolean {
+    return this.#changes.some((change) => change.outcome === 'uncertain');
+  }
   public get queryError(): Error | undefined { return this.#queryError; }
   public get saveError(): Error | undefined { return this.#saveError; }
 
@@ -194,24 +226,38 @@ export class DataGridGraphQL {
   }
 
   public get rows(): readonly DataGridGraphQLRow[] {
-    return [
-      ...this.#changes.filter((draft) => draft.kind === 'insert').map((draft) => ({
-        value: draft.overlay,
-        original: null,
-        draft,
-      })),
-      ...(this.#page?.result.rows ?? []).map((original) => {
-        const draft = this.#changes.find((change) => matchesRow(change, original)) ?? null;
-        return { value: draft?.overlay ?? original, original, draft };
-      }),
-    ];
+    const rows: DataGridGraphQLRow[] = [];
+    const groups = new Map<string, DraftKeyGroup>();
+    for (const draft of this.#changes) {
+      if (draft.kind === 'insert') rows.push({ value: draft.overlay, original: null, draft });
+      const paths = Object.keys(draft.keys).sort();
+      if (paths.length === 0) continue;
+      const signature = keySignature(paths, (path) => draft.keys[path]);
+      if (signature === undefined) continue;
+      const groupKey = JSON.stringify(paths);
+      const group = groups.get(groupKey) ?? { paths, changes: new Map<string, PendingChange>() };
+      if (!group.changes.has(signature)) group.changes.set(signature, draft);
+      groups.set(groupKey, group);
+    }
+    for (const original of this.#page?.result.rows ?? []) {
+      let draft: PendingChange | null = null;
+      const read = (path: string): WebGraphQLValue | undefined => fieldValue(original, path);
+      for (const group of groups.values()) {
+        const signature = keySignature(group.paths, read);
+        const candidate = signature === undefined ? undefined : group.changes.get(signature);
+        // Draft IDs retain insertion order when a staged change is edited.
+        if (candidate !== undefined && (draft === null || candidate.id < draft.id)) draft = candidate;
+      }
+      rows.push({ value: draft?.overlay ?? original, original, draft });
+    }
+    return rows;
   }
 
   public configure(configuration: DataGridGraphQLSourceConfiguration | undefined): void {
     if (JSON.stringify(configuration) === JSON.stringify(this.#configuration)) return;
     const previous = this.#configuration;
     this.#configuration = configuration;
-    if (previous?.apiClientId !== configuration?.apiClientId ||
+    if (previous?.sourceId !== configuration?.sourceId ||
         previous?.operationId !== configuration?.operationId ||
         previous?.insertOperationId !== configuration?.insertOperationId ||
         previous?.updateOperationId !== configuration?.updateOperationId ||
@@ -245,8 +291,42 @@ export class DataGridGraphQL {
     this.#variables = undefined;
     const source = this.#source;
     const operation = this.#queryOperation();
+    this.#resolveMutations(operation);
     this.#unsubscribe = operation === undefined ? undefined : source?.subscribe((change) => {
       if (change.operationId !== operation.id) return;
+      if (change.kind === 'page') {
+        const { result, variables, first, after } = change;
+        const normalized = (values: WebGraphQLParameters): WebGraphQLParameters =>
+          Object.fromEntries(operation.parameters.map(({ name }) => [
+            name,
+            Object.hasOwn(values, name) ? values[name] : undefined,
+          ]));
+        const published = normalized(variables);
+        const knownIndex = after === null ? -1 : this.#after.indexOf(after);
+        const reuseHistory =
+          knownIndex > 0 &&
+          first === this.#pageSize &&
+          JSON.stringify(published) === JSON.stringify(normalized({
+            ...source?.getVariables(operation.id),
+            ...this.#variables,
+          }));
+        const history = reuseHistory ? this.#after.slice(0, knownIndex + 1) : [null];
+        const hasPageNumbers = after === null || (reuseHistory && this.#hasPageNumbers);
+        // Cursor values do not encode a page number. The first page is the fallback
+        // predecessor of an external cursor when no matching history exists.
+        if (after !== null && !reuseHistory) history.push(after);
+        this.#resetPage();
+        this.#variables = structuredClone(published);
+        if (first !== undefined) this.#pageSize = first;
+        const index = history.length - 1;
+        this.#after = history;
+        this.#hasPageNumbers = hasPageNumbers;
+        this.#page = { index, result };
+        this.#requestedPage = index;
+        this.#status = 'ready';
+        this.render();
+        return;
+      }
       if (change.kind === 'session') this.#resetChanges();
       if (change.kind === 'parameters' || change.kind === 'session') {
         this.#variables = undefined;
@@ -278,6 +358,7 @@ export class DataGridGraphQL {
     this.#query = undefined;
     this.#page = undefined;
     this.#after = [null];
+    this.#hasPageNumbers = true;
     this.#status = 'idle';
     this.#queryError = undefined;
   }
@@ -300,6 +381,7 @@ export class DataGridGraphQL {
   public nextPage(): Promise<void> {
     if (!this.canGoForward || this.#page === undefined) return Promise.resolve();
     const next = this.#page.index + 1;
+    if (this.#page.index === 0) this.#hasPageNumbers = true;
     this.#after[next] = this.#page.result.pageInfo.endCursor;
     this.#after.length = next + 1;
     return this.#load(next);
@@ -354,22 +436,30 @@ export class DataGridGraphQL {
     return read;
   }
 
-  public mutation(kind: WebDataGridMutationKind, row: WebGraphQLRow | null = null): WebGraphQLRuntimeOperation | undefined {
+  #resolveMutations(query: WebGraphQLRuntimeOperation | undefined): void {
+    this.#mutations.clear();
     const configuration = this.#configuration;
-    if (configuration?.crudEnabled !== true || this.#source?.authenticated !== true) return undefined;
-    const query = this.#queryOperation();
-    const id = configuration[`${kind}OperationId`];
-    const operation = id === null ? undefined : this.#source.getOperation(id);
-    if (query === undefined || operation?.kind !== kind || operation.database !== query.database || operation.table !== query.table) {
+    if (configuration?.crudEnabled !== true || query === undefined) return;
+    for (const kind of ['insert', 'update', 'delete'] as const) {
+      const id = configuration[`${kind}OperationId`];
+      const operation = id === null ? undefined : this.#source?.getOperation(id);
+      if (operation?.kind !== kind || operation.database !== query.database || operation.table !== query.table) continue;
+      if (kind !== 'delete' && !operation.parameters.some(({ source }) => source.role === 'input')) continue;
+      const keyPaths = operation.parameters.flatMap(({ source }) =>
+        source.role === 'filter' && source.identityEligible === true ? [source.fieldPath] : [],
+      );
+      this.#mutations.set(kind, { operation, keyPaths });
+    }
+  }
+
+  public mutation(kind: WebDataGridMutationKind, row: WebGraphQLRow | null = null): WebGraphQLRuntimeOperation | undefined {
+    if (this.#source?.authenticated !== true) return undefined;
+    const definition = this.#mutations.get(kind);
+    if (definition === undefined) return undefined;
+    if (kind !== 'insert' && (row === null || !definition.keyPaths.some((path) => isRowKey(fieldValue(row, path))))) {
       return undefined;
     }
-    if (kind !== 'delete' && !operation.parameters.some((parameter) => parameter.source.role === 'input')) {
-      return undefined;
-    }
-    if (kind !== 'insert' && (row === null || Object.keys(rowKeys(operation, row)).length === 0)) {
-      return undefined;
-    }
-    return operation;
+    return definition.operation;
   }
 
   public inputValue(
@@ -434,7 +524,7 @@ export class DataGridGraphQL {
     }
     if (kind === 'update' && !operation.parameters.some((parameter) =>
       parameter.source.role === 'input' && Object.hasOwn(values, parameter.name))) return;
-    const keys = row === null ? {} : rowKeys(operation, row);
+    const keys = row === null ? {} : rowKeys(this.#mutations.get(kind)?.keyPaths ?? [], row);
     const change: PendingChange = structuredClone({
       id: previous?.id ?? ++this.#lastChangeId,
       kind,

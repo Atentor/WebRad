@@ -13,6 +13,7 @@ export type ComponentPropertyType =
   | 'designer-action'
   | 'page-parameters'
   | 'api-client-config'
+  | 'graphql-client-config'
   | 'combo-box-config'
   | 'charts-config'
   | 'menu-config'
@@ -27,6 +28,7 @@ export type ComponentPropertyType =
 export type ComponentDesignerAction =
   | 'page-parameters'
   | 'api-client-tester'
+  | 'graphql-client-configurator'
   | 'data-grid-configurator'
   | 'repeating-group-configurator'
   | 'current-row-bindings'

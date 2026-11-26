@@ -337,9 +337,43 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
     window,
     `(() => {
       const captions = [...document.querySelectorAll('.wr-palette-item-caption')].map((node) => node.textContent?.trim());
-      return captions.includes('API Client') && !captions.includes('GraphQL');
+      return captions.includes('API Client') && captions.includes('GraphQL Client');
     })()`,
   );
+  const insert = async (caption: string): Promise<string> => {
+    await click(window, `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`);
+    await ready(
+      window,
+      `(() => {
+        const caption = [...document.querySelectorAll('.wr-palette-item-caption')]
+          .find((node) => node.textContent?.trim() === ${JSON.stringify(caption)});
+        const item = caption?.closest('.wr-palette-item');
+        if (!(item instanceof HTMLElement)) return false;
+        item.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        return true;
+      })()`,
+    );
+    await ready(
+      window,
+      `(() => {
+        const id = document.querySelector('.wr-inspector-selection')?.getAttribute('title');
+        return !!id && !${JSON.stringify(page.components.map(({ id }) => id))}.includes(id);
+      })()`,
+    );
+    const componentId: unknown = await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-inspector-selection')?.getAttribute('title')`,
+      true,
+    );
+    if (typeof componentId !== 'string' || page.components.some(({ id }) => id === componentId)) {
+      throw new Error(`${caption} was not inserted from the palette.`);
+    }
+    return componentId;
+  };
+  const graphQLClientId = await insert('GraphQL Client');
+  const graphQLClientTree = `[role="treeitem"][data-component-id=${JSON.stringify(graphQLClientId)}]`;
+  const graphQLDialog = '.wr-graphql-client-dialog[open]';
+  const graphQLImport = `${graphQLDialog} input[value=${JSON.stringify(query.id)}]`;
+  const graphQLSource = '[aria-label="Data Grid GraphQL Client"]';
   for (const control of [
     {
       caption: 'Data Grid',
@@ -352,53 +386,53 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
       fields: [['ComboBox display field', '/name'], ['ComboBox key field', '/id']],
     },
   ] as const) {
-    await click(window, `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`);
-    await ready(
-      window,
-      `(() => {
-        const caption = [...document.querySelectorAll('.wr-palette-item-caption')]
-          .find((node) => node.textContent?.trim() === ${JSON.stringify(control.caption)});
-        const item = caption?.closest('.wr-palette-item');
-        if (!(item instanceof HTMLElement)) return false;
-        item.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-        return true;
-      })()`,
-    );
+    const componentId = await insert(control.caption);
     const configure = `button[aria-label="Configure ${control.label}"]`;
     const close = `button[aria-label="Close ${control.label} configuration"]`;
-    const source = `[aria-label="${control.label} API Client"]`;
     const isDataGrid = control.label === 'Data Grid';
+    const source = isDataGrid ? graphQLSource : '[aria-label="ComboBox data source"]';
     const operation = isDataGrid
       ? '[aria-label="Data Grid query"]'
       : '[aria-label="ComboBox operation"]';
     const value = `graphql:${query.id}`;
     await click(window, configure);
-    const componentId: unknown = await window.webContents.executeJavaScript(
-      `document.querySelector('.wr-inspector-selection')?.getAttribute('title')`,
-      true,
-    );
-    if (typeof componentId !== 'string' || page.components.some(({ id }) => id === componentId)) {
-      throw new Error(`${control.caption} was not inserted from the palette.`);
-    }
     const treeItem = `[role="treeitem"][data-component-id=${JSON.stringify(componentId)}]`;
     const sourceType = '[aria-label="Data Grid data source"]';
+    const dataSourceTab = '[data-grid-tab="source"]';
+    const columnsTab = '[data-grid-tab="columns"]';
     const endpoint = '[aria-label="Data Grid operation"]';
     const responseList = '[aria-label="Data Grid response list"]';
-    await setControl(window, source, client.id);
     if (isDataGrid) {
+      const restSource = '[aria-label="Data Grid API Client"]';
+      await setControl(window, restSource, client.id);
       await ready(
         window,
         `document.querySelector(${JSON.stringify(sourceType)})?.value === 'api-client' &&
+          [...document.querySelector(${JSON.stringify(sourceType)}).options].map((option) => option.value).join(',') === 'api-client,graphql-client' &&
           document.querySelector(${JSON.stringify(responseList)}) instanceof HTMLSelectElement &&
           ![...document.querySelector(${JSON.stringify(endpoint)}).options].some((option) => option.value.startsWith('graphql:'))`,
       );
-      await setControl(window, sourceType, 'graphql');
+      await setControl(window, sourceType, 'graphql-client');
+      await setControl(window, graphQLSource, graphQLClientId);
       await ready(
         window,
         `document.querySelector(${JSON.stringify(responseList)}) === null &&
           document.querySelector(${JSON.stringify(operation)})?.options.length === 1`,
       );
       await click(window, close);
+      await click(window, graphQLClientTree);
+      await click(window, 'button[aria-label="Configure GraphQL Client"]');
+      await click(window, graphQLImport);
+      const backdropFilter: unknown = await window.webContents.executeJavaScript(
+        `getComputedStyle(document.querySelector(${JSON.stringify(graphQLDialog)}), '::backdrop').backdropFilter`,
+        true,
+      );
+      if (backdropFilter !== 'none') {
+        throw new Error('GraphQL Client dialog backdrop must render without blur.');
+      }
+      await click(window, `${graphQLDialog} button[type="submit"]`);
+      await ready(window, `document.querySelector(${JSON.stringify(graphQLDialog)}) === null`);
+
       const clientButton = `.wr-nonvisual-item[data-nonvisual-component-id=${JSON.stringify(client.id)}]`;
       await ready(
         window,
@@ -409,22 +443,23 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
           return true;
         })()`,
       );
-      await click(window, 'button[aria-label="Manage GraphQL operations"]');
-      const queryImport = `.wr-api-graphql-operations input[value=${JSON.stringify(query.id)}]`;
-      await click(window, queryImport);
-      await ready(window, `document.querySelector(${JSON.stringify(queryImport)})?.checked === true`);
-      await clickText(window, 'Save API Client');
+      await ready(
+        window,
+        `document.querySelector('.wr-api-client-dialog')?.textContent.includes('GraphQL') === false`,
+      );
+      await click(window, 'button[aria-label="Close API Client tester"]');
       await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
       await click(window, treeItem);
       await click(window, configure);
-      await setControl(window, source, client.id);
-      await setControl(window, sourceType, 'graphql');
-      await ready(
-        window,
-        `[...document.querySelector(${JSON.stringify(operation)}).options].map((option) => option.value).join(',') === ${JSON.stringify(`,${value}`)}`,
-      );
+      await setControl(window, sourceType, 'graphql-client');
     }
+    await setControl(window, source, graphQLClientId);
+    await ready(
+      window,
+      `[...document.querySelector(${JSON.stringify(operation)}).options].map((option) => option.value).join(',') === ${JSON.stringify(`,${value}`)}`,
+    );
     await setControl(window, operation, value);
+    if (isDataGrid) await click(window, columnsTab);
     for (const [label, field] of control.fields) {
       await setControl(window, `[aria-label=${JSON.stringify(label)}]`, field);
     }
@@ -433,40 +468,64 @@ async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: strin
     await click(window, configure);
     await ready(
       window,
-      `document.querySelector(${JSON.stringify(source)})?.value === ${JSON.stringify(client.id)} &&
+      `document.querySelector(${JSON.stringify(source)})?.value === ${JSON.stringify(graphQLClientId)} &&
         document.querySelector(${JSON.stringify(operation)})?.value === ${JSON.stringify(value)}`,
     );
     if (isDataGrid) {
-      const columnField = '[aria-label="Dynamic field for Data Grid column 1"]';
+      const columnField =
+        '[role="tabpanel"]:not([hidden]) [aria-label="Dynamic field for Data Grid column 1"]';
       await ready(
         window,
-        `document.querySelector(${JSON.stringify(sourceType)})?.value === 'graphql' &&
-          document.querySelector(${JSON.stringify(columnField)})?.value === '/name'`,
+        `document.querySelector(${JSON.stringify(sourceType)})?.value === 'graphql-client'`,
       );
+      await click(window, columnsTab);
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(columnField)})?.value === '/name'`,
+      );
+      await click(window, dataSourceTab);
       await setControl(window, sourceType, 'api-client');
       await ready(
         window,
-        `document.querySelector(${JSON.stringify(source)})?.value === ${JSON.stringify(client.id)} &&
-          document.querySelector(${JSON.stringify(endpoint)})?.value === '' &&
-          document.querySelector(${JSON.stringify(responseList)})?.disabled === true &&
-          document.querySelector(${JSON.stringify(columnField)})?.value === ''`,
+        `document.querySelector(${JSON.stringify(endpoint)})?.value === '' &&
+          document.querySelector(${JSON.stringify(responseList)})?.disabled === true`,
+      );
+      await click(window, columnsTab);
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(columnField)})?.value === ''`,
       );
     }
     await click(window, close);
+    await click(window, graphQLClientTree);
+    await click(window, 'button[aria-label="Configure GraphQL Client"]');
+    await ready(
+      window,
+      `(() => {
+        const checkbox = document.querySelector(${JSON.stringify(graphQLImport)});
+        return checkbox?.checked === true && checkbox.disabled === true &&
+          checkbox.closest('label')?.textContent.includes('Used by');
+      })()`,
+    );
+    await click(window, 'button[aria-label="Close GraphQL Client"]');
+    await click(window, treeItem);
     await window.webContents.send('webrad:menu-command', 'edit.delete');
     await ready(window, `document.querySelector(${JSON.stringify(treeItem)}) === null`);
   }
+  await click(window, graphQLClientTree);
+  await click(window, 'button[aria-label="Configure GraphQL Client"]');
+  await ready(
+    window,
+    `(() => {
+      const checkbox = document.querySelector(${JSON.stringify(graphQLImport)});
+      return checkbox?.checked === true && checkbox.disabled === false;
+    })()`,
+  );
+  await click(window, 'button[aria-label="Close GraphQL Client"]');
+  await window.webContents.send('webrad:menu-command', 'edit.delete');
+  await ready(window, `document.querySelector(${JSON.stringify(graphQLClientTree)}) === null`);
   await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(window, `document.querySelector('[data-project-save-state="Saved"]') !== null`);
-  const saved = await loadProjectFiles(projectPath);
-  const savedClient = saved.project.pages.find(({ id }) => id === page.id)?.components.find(
-    ({ id }) => id === client.id,
-  );
-  const imported = normalizeApiClientConfiguration(savedClient?.props.apiClientConfig)
-    .graphQLOperationIds;
-  if (imported?.length !== 1 || imported[0] !== query.id) {
-    throw new Error('The API Client did not persist only the imported GraphQL query.');
-  }
 }
 
 async function verifyDialogViewport(window: BrowserWindow, stacked = false): Promise<void> {
@@ -1893,7 +1952,7 @@ export async function runApiClientDesignerSmoke(
     if (calls.some((call) => call.path.includes('/graphql-admin/') && call.method !== 'GET')) {
       throw new Error('GraphQL operation authoring wrote to the RestGO instance.');
     }
-    log('renderer RestGO GraphQL operation editor passed: published schema, Query and Insert saved and reopened under one table, continuous editor surface, responsive typed filter rows, indented groups, field selection, API Client import, Data Grid source filtering and saved binding, and ComboBox binding');
+    log('renderer RestGO GraphQL operation editor passed: published schema, Query and Insert saved and reopened under one table, continuous editor surface, responsive typed filter rows, indented groups, field selection, separate REST API Client editor, GraphQL Client configuration, Data Grid source filtering, and protected Data Grid and ComboBox bindings');
     log(
       `renderer API Client designer passed: request, settings and response layout, readable controls, tabs, all methods, light/dark theme, 1080/740 viewport, custom HTTP test, delete final endpoint, save/reopen empty list, recreate endpoint, fixed RestGO URL, Bearer test, safe persistence; screenshots ${screenshotRoot}-custom.png, ${screenshotRoot}-custom-light.png, ${screenshotRoot}-custom-compact.png, ${screenshotRoot}-custom-narrow.png, ${screenshotRoot}-response.png, ${screenshotRoot}-empty.png and ${screenshotRoot}-restgo.png`,
     );

@@ -13,6 +13,11 @@ interface DataGridSmokeOptions {
 }
 
 const dialogSelector = '.wr-data-grid-configuration-dialog';
+const labelValues = [
+  ['previous', 'Previous results'],
+  ['edit', 'Change record'],
+  ['save', 'Save records'],
+] as const;
 const toggleValues = [
   ['Show Data Grid header', 'showHeader', true],
   ['Keep Data Grid header fixed', 'stickyHeader', false],
@@ -25,7 +30,9 @@ const toggleValues = [
 ] as const;
 
 function labelledControl(label: string): string {
-  return `${dialogSelector} [aria-label=${JSON.stringify(label)}]`;
+  const panel = `${dialogSelector} [role="tabpanel"]:not([hidden])`;
+  const value = JSON.stringify(label);
+  return `${panel} [aria-label=${value}], ${panel} [data-grid-label=${value}]`;
 }
 
 async function ready(window: BrowserWindow, expression: string): Promise<void> {
@@ -94,17 +101,41 @@ async function setChecked(window: BrowserWindow, label: string, checked: boolean
 
 async function openConfiguration(window: BrowserWindow): Promise<void> {
   await click(window, 'button[aria-label="Configure Data Grid"]');
-  await ready(window, `document.querySelector(${JSON.stringify(dialogSelector)}) !== null`);
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(dialogSelector)} + ' [data-grid-tab="source"][aria-selected="true"]') !== null`,
+  );
+}
+
+async function openConfigurationTab(
+  window: BrowserWindow,
+  tab: 'source' | 'columns' | 'appearance' | 'labels',
+): Promise<void> {
+  const selector = `${dialogSelector} [data-grid-tab="${tab}"]`;
+  await click(window, selector);
+  await ready(
+    window,
+    `document.querySelector(${JSON.stringify(selector)})?.getAttribute('aria-selected') === 'true'`,
+  );
 }
 
 async function assertSavedEditor(window: BrowserWindow): Promise<void> {
-  const fields = [
+  await openConfigurationTab(window, 'labels');
+  await ready(
+    window,
+    `${labelValues
+      .map(([key, value]) => `document.querySelector(${JSON.stringify(labelledControl(key))})?.value === ${JSON.stringify(value)}`)
+      .join(' && ')} && document.querySelector(${JSON.stringify(labelledControl('showSaveButton'))})?.checked === true`,
+  );
+  const appearance = [
     ['Data Grid row height mode', 'dynamic'],
     ['Minimum Data Grid row height', '44'],
     ['Maximum Data Grid row height', '88'],
     ['Data Grid horizontal cell padding', '12'],
     ['Data Grid vertical cell padding', '6'],
     ['Data Grid empty-state message', 'No records match'],
+  ];
+  const columns = [
     ['Header for Data Grid column 1', 'Actions'],
     ['Cell type for Data Grid column 1', 'button'],
     ['Fixed caption for Data Grid column 1', 'Open record'],
@@ -112,17 +143,23 @@ async function assertSavedEditor(window: BrowserWindow): Promise<void> {
     ['Width mode for Data Grid column 1', 'fixed'],
     ['Fixed width for Data Grid column 1', '240'],
   ];
-  await ready(
-    window,
-    `(() => {
-      const fields = ${JSON.stringify(fields)};
-      const toggles = ${JSON.stringify(toggleValues)};
-      const control = (label) => document.querySelector(${JSON.stringify(dialogSelector)} + ' [aria-label="' + label + '"]');
-      return fields.every(([label, value]) => control(label)?.value === value) &&
-        toggles.every(([label, , checked]) => control(label)?.checked === checked) &&
-        control('Button icon for Data Grid column 1')?.textContent?.includes('Check') === true;
-    })()`,
-  );
+  for (const [tab, fields] of [
+    ['appearance', appearance],
+    ['columns', columns],
+  ] as const) {
+    await openConfigurationTab(window, tab);
+    await ready(
+      window,
+      `(() => {
+        const panel = document.querySelector(${JSON.stringify(dialogSelector)} + ' [role="tabpanel"]:not([hidden])');
+        const control = (label) => panel?.querySelector('[aria-label="' + label + '"]');
+        if (!${JSON.stringify(fields)}.every(([label, value]) => control(label)?.value === value)) return false;
+        return ${JSON.stringify(tab)} === 'appearance'
+          ? ${JSON.stringify(toggleValues)}.every(([label, , checked]) => control(label)?.checked === checked)
+          : control('Button icon for Data Grid column 1')?.textContent?.includes('Check') === true;
+      })()`,
+    );
+  }
 }
 
 async function captureConfiguration(
@@ -136,41 +173,45 @@ async function captureConfiguration(
     true,
   );
   if (current !== theme) window.webContents.send('webrad:menu-command', 'view.toggleTheme');
-  window.setContentSize(width, 820);
+  const height = width === 640 ? 410 : 820;
+  window.setContentSize(width, height);
   await ready(
     window,
-    `document.documentElement.dataset.theme === ${JSON.stringify(theme)} && innerWidth === ${String(width)}`,
+    `document.documentElement.dataset.theme === ${JSON.stringify(theme)} && innerWidth === ${String(width)} && innerHeight === ${String(height)}`,
   );
-  await paint(window);
+  await openConfigurationTab(window, showColumns ? 'columns' : 'appearance');
   await window.webContents.executeJavaScript(
-    `(() => {
- const content = document.querySelector(".wr-data-grid-configuration-content");
- if (${String(showColumns)}) {
-  const column = content.querySelector(".wr-data-grid-column-card");
-  column.querySelector("input")?.focus({ preventScroll: true });
-  content.scrollTop = 0;
-  content.scrollTop = column.getBoundingClientRect().top - content.getBoundingClientRect().top;
- } else { content.scrollTop = 0; }
-})()`,
+    `document.querySelector(${JSON.stringify(dialogSelector)} + ' [role="tab"][aria-selected="true"]')?.focus({ preventScroll: true })`,
     true,
   );
-  if (showColumns)
-    await ready(
-      window,
-      `document.querySelector(".wr-data-grid-configuration-content")?.scrollTop > 0`,
-    );
   await paint(window);
   const geometry: unknown = await window.webContents.executeJavaScript(
     `(() => {
       const dialog = document.querySelector(${JSON.stringify(dialogSelector)});
+      const backdrop = dialog?.closest('.wr-modal-backdrop');
+      if (!backdrop || getComputedStyle(backdrop).backdropFilter !== 'none') {
+        throw new Error('Data Grid dialog backdrop must render without blur.');
+      }
       const content = dialog?.querySelector('.wr-data-grid-configuration-content');
       const footer = dialog?.querySelector('.wr-data-grid-configuration-actions');
       if (!(dialog instanceof HTMLElement && content instanceof HTMLElement && footer instanceof HTMLElement)) return false;
       const bounds = dialog.getBoundingClientRect();
       const contentBounds = content.getBoundingClientRect();
       const footerBounds = footer.getBoundingClientRect();
+      if (${String(showColumns)}) {
+        const list = content.querySelector('[role="listbox"]');
+        const details = content.querySelectorAll('.wr-data-grid-column-card');
+        if (!list || list.querySelector('[aria-selected="true"]') === null || details.length !== 1 ||
+            list.getBoundingClientRect().right > details[0].getBoundingClientRect().left) return false;
+      }
+      if (${String(width === 640)}) {
+        content.scrollTop = 40;
+        const scrolled = content.scrollTop > 0;
+        content.scrollTop = 0;
+        if (!scrolled) return false;
+      }
       return bounds.left >= 0 && bounds.right <= innerWidth && bounds.top >= 0 && bounds.bottom <= innerHeight &&
-        content.scrollWidth <= content.clientWidth + 1 && content.scrollHeight > content.clientHeight &&
+        content.scrollWidth <= content.clientWidth + 1 &&
         footerBounds.top >= contentBounds.bottom - 1 && footerBounds.bottom <= bounds.bottom + 1 &&
         getComputedStyle(content).overflowY === 'auto' && dialog.contains(document.activeElement);
     })()`,
@@ -337,6 +378,7 @@ export async function runDataGridConfigurationSmoke(
     );
     await openConfiguration(window);
     log('renderer Data Grid smoke configuration opened');
+    await openConfigurationTab(window, 'appearance');
     for (let round = 0; round < 2; round++) {
       await setChecked(window, 'Show Data Grid header', true);
       await setChecked(window, 'Show Data Grid footer', true);
@@ -358,9 +400,11 @@ export async function runDataGridConfigurationSmoke(
     for (const [label, , checked] of toggleValues) await setChecked(window, label, checked);
     log('renderer Data Grid smoke toggles complete');
     for (let round = 0; round < 2; round++) {
+      await openConfigurationTab(window, 'appearance');
       await setField(window, 'Data Grid row height mode', 'fixed');
       await setField(window, 'Fixed Data Grid row height', '52');
       await setField(window, 'Data Grid row height mode', 'dynamic');
+      await openConfigurationTab(window, 'columns');
       await setField(window, 'Width mode for Data Grid column 1', 'dynamic');
       await setField(window, 'Minimum width for Data Grid column 1', '128');
       await setField(window, 'Maximum width for Data Grid column 1', '360');
@@ -368,15 +412,20 @@ export async function runDataGridConfigurationSmoke(
       await setField(window, 'Width mode for Data Grid column 1', 'fixed');
       await setField(window, 'Fixed width for Data Grid column 1', '240');
     }
-    for (const kind of ['image', 'checkbox', 'button', 'text', 'button']) {
-      await setField(window, 'Cell type for Data Grid column 1', kind);
-    }
+    await openConfigurationTab(window, 'appearance');
     for (const [label, value] of [
       ['Minimum Data Grid row height', '44'],
       ['Maximum Data Grid row height', '88'],
       ['Data Grid horizontal cell padding', '12'],
       ['Data Grid vertical cell padding', '6'],
       ['Data Grid empty-state message', 'No records match'],
+    ] as const)
+      await setField(window, label, value);
+    await openConfigurationTab(window, 'columns');
+    for (const kind of ['image', 'checkbox', 'button', 'text', 'button']) {
+      await setField(window, 'Cell type for Data Grid column 1', kind);
+    }
+    for (const [label, value] of [
       ['Header for Data Grid column 1', 'Actions'],
       ['Fixed caption for Data Grid column 1', 'Open record'],
       ['Footer for Data Grid column 1', '3 records'],
@@ -385,6 +434,17 @@ export async function runDataGridConfigurationSmoke(
     await click(window, labelledControl('Button icon for Data Grid column 1'));
     await click(window, '.wr-icon-picker-dialog [data-icon-picker-option="check"]');
     await ready(window, `document.querySelector('.wr-icon-picker-dialog') === null`);
+    const columnList = `${dialogSelector} [role="listbox"]`;
+    await click(window, `${columnList} li:nth-child(2) [role="option"]`);
+    await ready(
+      window,
+      `document.querySelector(${JSON.stringify(labelledControl('Header for Data Grid column 1'))}) === null &&
+        document.querySelector(${JSON.stringify(labelledControl('Header for Data Grid column 2'))})?.value === 'Column 2'`,
+    );
+    await click(window, `${columnList} li:first-child [role="option"]`);
+    await openConfigurationTab(window, 'labels');
+    for (const [key, value] of labelValues) await setField(window, key, value);
+    await setChecked(window, 'showSaveButton', true);
     await assertSavedEditor(window);
     log('renderer Data Grid smoke edits complete');
     const screenshots: string[] = [];
@@ -393,21 +453,26 @@ export async function runDataGridConfigurationSmoke(
         screenshots.push(await captureConfiguration(window, theme, width));
     }
     screenshots.push(await captureConfiguration(window, 'dark', 970, true));
+    screenshots.push(await captureConfiguration(window, 'dark', 640, true));
     await click(window, '.wr-data-grid-configuration-actions button.primary');
     await ready(window, `document.querySelector(${JSON.stringify(dialogSelector)}) === null`);
     saved = true;
     await openConfiguration(window);
     await assertSavedEditor(window);
     await setField(window, 'Header for Data Grid column 1', 'Discard this edit');
+    await openConfigurationTab(window, 'appearance');
     await setChecked(window, 'Wrap Data Grid text', false);
     await setField(window, 'Data Grid row height mode', 'fixed');
+    await openConfigurationTab(window, 'labels');
+    await setField(window, 'edit', 'Discard this label');
+    await setChecked(window, 'showSaveButton', false);
     await click(window, '.wr-data-grid-configuration-actions button:not(.primary)');
     await openConfiguration(window);
     await assertSavedEditor(window);
     await click(window, 'button[aria-label="Close Data Grid configuration"]');
     if (errors.length > 0) throw new Error(`Data Grid renderer errors: ${errors.join('\n')}`);
     log(
-      `renderer Data Grid configuration passed: table palette icon; 2 rounds of all 8 toggles; row/column modes; cell kinds and icon picker; save, reopen, cancel; screenshots ${screenshots.join(', ')}`,
+      `renderer Data Grid configuration passed: table palette icon; source, column, appearance and labels tabs; column selection and single detail pane; 2 rounds of all 8 toggles; row/column modes; cell kinds and icon picker; labels and save button setting; save, reopen, cancel; screenshots ${screenshots.join(', ')}`,
     );
   } finally {
     if (gridId !== undefined && !window.isDestroyed()) {

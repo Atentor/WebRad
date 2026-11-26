@@ -2045,7 +2045,7 @@ const webComboBox: ComponentDefinition = {
       category: 'Data',
       source: 'props',
       defaultValue: null,
-      description: 'Select an API Client operation, then choose display and key fields.',
+      description: 'Select an API Client or GraphQL Client, then choose the display and key fields.',
       designerAction: 'combo-box-configurator',
     },
     {
@@ -2406,8 +2406,7 @@ const webApiClient: ComponentDefinition = {
       label: 'Requests',
       type: 'api-client-config',
       runtimeValue: (value) => {
-        const configuration = { ...parseApiClientConfiguration(value) };
-        delete configuration.graphQLOperationIds;
+        const configuration = parseApiClientConfiguration(value);
         return {
           ...configuration,
           operations: configuration.operations.map((operation) => {
@@ -2420,8 +2419,7 @@ const webApiClient: ComponentDefinition = {
       category: 'API Client',
       source: 'props',
       defaultValue: createDefaultApiClientConfiguration(),
-      description:
-        'Configure named requests in the Designer. Saved RestGo GraphQL operations are available through Connection.GraphQL.',
+      description: 'Configure named HTTP requests in the Designer.',
       designerAction: 'api-client-tester',
     },
   ],
@@ -2430,10 +2428,42 @@ const webApiClient: ComponentDefinition = {
     event('OnSuccess', 'Request', { eventDetailType: 'WebApiOperationEventDetail' }),
     event('OnError', 'Request', { eventDetailType: 'WebApiOperationEventDetail' }),
     event('OnComplete', 'Request', { eventDetailType: 'WebApiOperationEventDetail' }),
-    ...['OnGraphQLRequest', 'OnGraphQLSuccess', 'OnGraphQLError', 'OnGraphQLComplete'].map(
-      (name) => event(name, 'GraphQL', { eventDetailType: 'WebGraphQLEventDetail' }),
-    ),
   ],
+};
+
+const webGraphQLClient: ComponentDefinition = {
+  type: 'WebGraphQLClient',
+  displayName: 'GraphQL Client',
+  namePrefix: 'GraphQLClient',
+  palette: { category: nonvisualCategory, caption: 'GraphQL Client' },
+  icon: 'network',
+  visual: false,
+  inspectorIntegrationRequirements: [
+    {
+      integration: 'restgo',
+      message: 'Enable the RestGo integration to run GraphQL operations.',
+    },
+  ],
+  canHaveChildren: false,
+  defaultEvent: null,
+  designerAction: 'graphql-client-configurator',
+  defaultBounds: apiClientBounds,
+  defaults: { graphQLOperationIds: [] },
+  properties: [
+    { name: 'name', label: 'Name', type: 'string', category: 'Identity', source: 'node' },
+    {
+      name: 'graphQLOperationIds',
+      label: 'Operations',
+      type: 'graphql-client-config',
+      category: 'GraphQL Client',
+      source: 'props',
+      defaultValue: [],
+      designerAction: 'graphql-client-configurator',
+    },
+  ],
+  events: ['OnRequest', 'OnSuccess', 'OnError', 'OnComplete'].map((name) =>
+    event(name, 'GraphQL', { eventDetailType: 'WebGraphQLEventDetail' }),
+  ),
 };
 
 const webDataGrid: ComponentDefinition = {
@@ -2561,6 +2591,7 @@ export const MVP_COMPONENT_TYPES = [
   'WebRepeatingGroup',
   'WebPopup',
   'WebApiClient',
+  'WebGraphQLClient',
   'WebTimer',
   'WebPayments',
   'WebFileUpload',
@@ -2598,6 +2629,7 @@ const mvpComponentDefinitions: readonly ComponentDefinition[] = [
   webRepeatingGroup,
   webPopup,
   webApiClient,
+  webGraphQLClient,
   webTimer,
   webPayments,
   webFileUpload,

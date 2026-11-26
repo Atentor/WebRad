@@ -5,23 +5,8 @@ reusable component code. Monaco completes requests, parameters, and response
 fields from the saved model. `ApiClient1` and `this.ApiClient1` address the same
 instance; local variables with the same name retain normal TypeScript scope.
 
-## Running saved RestGo GraphQL operations
-
-Create a query or mutation in **RestGO > GraphQL**. Open the API Client, select
-the operation under **GraphQL**, and save the client. In page or reusable code,
-invoke it through `ApiClient1.graphql.execute`. Monaco completes the imported
-operation members, parameters, and result fields for that client. Set a
-parameter before execution by assigning it on the operation.
-
-```ts
-const { graphql } = ApiClient1;
-const customers = graphql.operation.ListCustomers;
-customers.parameter.name = SearchEdit.value;
-const { rows } = await graphql.execute(customers);
-```
-
-Data Grid and ComboBox can select a saved query from the same API Client.
-See [RestGo GraphQL in WebRAD](restgo-graphql.md) for binding, pagination, and editing.
+For GraphQL queries and mutations, use the separate
+[GraphQL Client](restgo-graphql.md).
 
 ## Diagnosing request failures
 
@@ -155,11 +140,11 @@ per line, in matching order. Empty Values use item text as the key. **Save** app
 both lists as one change; **Cancel** and Escape discard the draft. **Value** remains
 the selected key.
 
-Double-click a ComboBox or use **API Client binding → Configure ComboBox**. Select
+Double-click a ComboBox or use **Data source → Configure ComboBox**. For REST, select
 the client, operation, response list, **Display field**, and **Key field** from the
 saved response schema. **Static items** removes the binding and restores `Items`.
-The binding follows operation results but does not execute requests or save returned
-data in the project. Execute the operation explicitly, for example in `OnCreate`:
+The REST binding follows operation results. Execute the request explicitly,
+for example in `OnCreate`:
 
 ```ts
 await ApiClient1.ListCustomers.execute();

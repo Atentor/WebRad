@@ -163,6 +163,7 @@ describe('DataGridConfigurationDialog', () => {
       </StrictMode>,
     );
     const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
     const toggle = screen.getByRole('checkbox', { name: label });
 
     for (let index = 0; index < 3; index += 1) {
@@ -197,6 +198,7 @@ describe('DataGridConfigurationDialog', () => {
       </StrictMode>,
     );
     const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
     const header = screen.getByRole('checkbox', { name: 'Show Data Grid header' });
     const stickyHeader = screen.getByRole('checkbox', { name: 'Keep Data Grid header fixed' });
     const footer = screen.getByRole('checkbox', { name: 'Show Data Grid footer' });
@@ -249,15 +251,17 @@ describe('DataGridConfigurationDialog', () => {
       </StrictMode>,
     );
     const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
     const rowMode = screen.getByLabelText('Data Grid row height mode');
-    const columnMode = screen.getByLabelText('Width mode for Data Grid column 1');
-    const cellKind = screen.getByLabelText('Cell type for Data Grid column 1');
 
     await user.selectOptions(rowMode, 'fixed');
     await replaceNumber(user, 'Fixed Data Grid row height', '52');
     await user.selectOptions(rowMode, 'dynamic');
     await replaceNumber(user, 'Minimum Data Grid row height', '44');
     await replaceNumber(user, 'Maximum Data Grid row height', '88');
+    await user.click(screen.getByRole('tab', { name: 'Columns' }));
+    const columnMode = screen.getByLabelText('Width mode for Data Grid column 1');
+    const cellKind = screen.getByLabelText('Cell type for Data Grid column 1');
     await user.selectOptions(columnMode, 'fixed');
     await replaceNumber(user, 'Fixed width for Data Grid column 1', '240');
     await user.selectOptions(columnMode, 'dynamic');
@@ -268,11 +272,13 @@ describe('DataGridConfigurationDialog', () => {
     await user.type(screen.getByLabelText('Footer for Data Grid column 1'), 'Total');
 
     for (let index = 0; index < 2; index += 1) {
+      await user.click(screen.getByRole('tab', { name: 'Appearance' }));
       await user.selectOptions(rowMode, 'fixed');
       expect(screen.getByLabelText('Fixed Data Grid row height')).toHaveProperty('value', '52');
       await user.selectOptions(rowMode, 'dynamic');
       expect(screen.getByLabelText('Minimum Data Grid row height')).toHaveProperty('value', '44');
       expect(screen.getByLabelText('Maximum Data Grid row height')).toHaveProperty('value', '88');
+      await user.click(screen.getByRole('tab', { name: 'Columns' }));
       await user.selectOptions(columnMode, 'fixed');
       expect(screen.getByLabelText('Fixed width for Data Grid column 1')).toHaveProperty(
         'value',
@@ -289,7 +295,9 @@ describe('DataGridConfigurationDialog', () => {
       );
       await user.selectOptions(cellKind, 'text');
       expect(screen.queryByLabelText('Fixed caption for Data Grid column 1')).toBeNull();
+      await user.click(screen.getByRole('tab', { name: 'Appearance' }));
       await user.click(screen.getByRole('checkbox', { name: 'Wrap Data Grid text' }));
+      await user.click(screen.getByRole('tab', { name: 'Columns' }));
       await user.selectOptions(cellKind, 'checkbox');
       expect(screen.getByLabelText('Fixed caption for Data Grid column 1')).toHaveProperty(
         'value',
@@ -299,6 +307,7 @@ describe('DataGridConfigurationDialog', () => {
     }
 
     await user.click(screen.getByRole('button', { name: 'Move Data Grid column 1 down' }));
+    await user.click(screen.getByRole('option', { name: /^Column 2\b/ }));
     await user.click(screen.getByRole('button', { name: 'Remove Data Grid column 1' }));
     await user.click(screen.getByRole('button', { name: 'Save Data Grid' }));
 
@@ -335,18 +344,22 @@ describe('DataGridConfigurationDialog', () => {
     );
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Columns' }));
     await user.selectOptions(screen.getByLabelText('Width mode for Data Grid column 1'), 'fixed');
     await replaceNumber(user, 'Fixed width for Data Grid column 1', '240');
-    await user.selectOptions(screen.getByLabelText('Width mode for Data Grid column 2'), 'dynamic');
-    await replaceNumber(user, 'Minimum width for Data Grid column 2', '120');
-    await replaceNumber(user, 'Maximum width for Data Grid column 2', '320');
-    await replaceNumber(user, 'Flex grow for Data Grid column 2', '2.5');
     await user.selectOptions(
       screen.getByLabelText('Header alignment for Data Grid column 1'),
       'center',
     );
+    await user.click(screen.getByRole('option', { name: /^Column 1\b/ }));
+    await user.keyboard('{ArrowDown}');
+    await user.selectOptions(screen.getByLabelText('Width mode for Data Grid column 2'), 'dynamic');
+    await replaceNumber(user, 'Minimum width for Data Grid column 2', '120');
+    await replaceNumber(user, 'Maximum width for Data Grid column 2', '320');
+    await replaceNumber(user, 'Flex grow for Data Grid column 2', '2.5');
     await user.selectOptions(screen.getByLabelText('Cell alignment for Data Grid column 2'), 'end');
 
+    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
     await user.selectOptions(screen.getByLabelText('Data Grid row height mode'), 'fixed');
     await replaceNumber(user, 'Fixed Data Grid row height', '52');
     await user.selectOptions(screen.getByLabelText('Data Grid row height mode'), 'dynamic');
@@ -389,10 +402,12 @@ describe('DataGridConfigurationDialog', () => {
     );
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Columns' }));
     await user.click(screen.getByRole('button', { name: 'Add column' }));
     await user.clear(screen.getByLabelText('Header for Data Grid column 4'));
     await user.type(screen.getByLabelText('Header for Data Grid column 4'), 'Priority');
     await user.click(screen.getByRole('button', { name: 'Move Data Grid column 4 up' }));
+    await user.click(screen.getByRole('option', { name: /^Column 3\b/ }));
     await user.click(screen.getByRole('button', { name: 'Remove Data Grid column 4' }));
     await user.click(screen.getByRole('button', { name: 'Save Data Grid' }));
 
@@ -425,6 +440,7 @@ describe('DataGridConfigurationDialog', () => {
       />,
     );
     const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Columns' }));
     expect(screen.getByLabelText('Fixed caption for Data Grid column 1')).toBeDefined();
     await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 1'), 'toggle');
     expect(screen.queryByLabelText('Fixed caption for Data Grid column 1')).toBeNull();
@@ -445,6 +461,7 @@ describe('DataGridConfigurationDialog', () => {
         onSave={vi.fn()}
       />,
     );
+    await user.click(screen.getByRole('tab', { name: 'Columns' }));
     expect(
       (screen.getByLabelText('Cell type for Data Grid column 1') as HTMLSelectElement).value,
     ).toBe('toggle');
@@ -463,11 +480,14 @@ describe('DataGridConfigurationDialog', () => {
     );
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Columns' }));
     expect(screen.queryByLabelText('Fixed caption for Data Grid column 1')).toBeNull();
     await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 1'), 'button');
     await user.type(screen.getByLabelText('Fixed caption for Data Grid column 1'), 'View');
+    await user.click(screen.getByRole('option', { name: /^Column 2\b/ }));
     await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 2'), 'checkbox');
     await user.type(screen.getByLabelText('Fixed caption for Data Grid column 2'), 'Enabled');
+    await user.click(screen.getByRole('option', { name: /^Column 3\b/ }));
     expect(screen.queryByLabelText('Fixed caption for Data Grid column 3')).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Save Data Grid' }));
@@ -498,12 +518,13 @@ describe('DataGridConfigurationDialog', () => {
       />,
     );
     const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Columns' }));
     const field = screen.getByLabelText(
       'Dynamic field for Data Grid column 1',
     ) as HTMLSelectElement;
 
     expect([...field.options].filter((option) => option.value.length === 0)).toHaveLength(1);
-    expect(screen.getAllByRole('option', { name: '(no field)' })).toHaveLength(3);
+    expect(screen.getByRole('option', { name: '(no field)' })).toBeDefined();
     await user.selectOptions(field, '');
     expect(field.value).toBe('');
 
@@ -524,11 +545,14 @@ describe('DataGridConfigurationDialog', () => {
     );
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Columns' }));
     expect(screen.queryByLabelText('Button icon for Data Grid column 1')).toBeNull();
     await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 1'), 'button');
+    await user.click(screen.getByRole('option', { name: /^Column 2\b/ }));
     await user.selectOptions(screen.getByLabelText('Cell type for Data Grid column 2'), 'checkbox');
     expect(screen.queryByLabelText('Button icon for Data Grid column 2')).toBeNull();
 
+    await user.click(screen.getByRole('option', { name: /^Column 1\b/ }));
     const iconPicker = screen.getByLabelText('Button icon for Data Grid column 1');
     expect(iconPicker.textContent).toContain('Choose icon');
     await user.click(iconPicker);
@@ -594,6 +618,7 @@ describe('DataGridConfigurationDialog', () => {
     );
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
     await user.type(screen.getByLabelText('Data Grid empty-state message'), ' — draft only');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -632,6 +657,7 @@ describe('DataGridConfigurationDialog', () => {
     );
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
     for (const [label, expectedValue] of [
       ['Minimum Data Grid row height', '44'],
       ['Data Grid horizontal cell padding', String(configuration.cellPaddingHorizontal)],

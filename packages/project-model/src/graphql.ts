@@ -7,6 +7,28 @@ import type {
 } from '@webrad/runtime';
 import { z } from 'zod';
 import { ApiClientResponseSchemaSchema, type ApiClientResponseSchema } from './api-client.js';
+import type { ComponentNode } from './types.js';
+
+export const GraphQLClientOperationIdsSchema = z.array(z.string().trim().min(1).max(200)).refine(
+  (ids) => new Set(ids).size === ids.length,
+  'GraphQL operation IDs must be unique within a client.',
+);
+
+export function graphQLClientOperationIds(component: ComponentNode): readonly string[] {
+  if (component.type === 'WebGraphQLClient') {
+    return GraphQLClientOperationIdsSchema.safeParse(component.props.graphQLOperationIds).data ?? [];
+  }
+  return [];
+}
+
+export function selectComponentGraphQLOperations(
+  component: ComponentNode,
+  operations: readonly ProjectGraphQLOperation[],
+): readonly ProjectGraphQLOperation[] {
+  if (operations.length === 0) return [];
+  const ids = new Set(graphQLClientOperationIds(component));
+  return operations.filter((operation) => ids.has(operation.id));
+}
 
 export interface GraphQLCondition {
   readonly field: string;
